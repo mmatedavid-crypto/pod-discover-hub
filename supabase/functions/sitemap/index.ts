@@ -19,19 +19,30 @@ Deno.serve(async () => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const [{ data: cats }, { data: pods }, { data: eps }] = await Promise.all([
       supabase.from("categories").select("slug,created_at"),
-      supabase.from("podcasts").select("slug,updated_at"),
-      supabase.from("episodes").select("slug,updated_at,podcasts!inner(slug)").order("published_at", { ascending: false }).limit(5000),
+      supabase.from("podcasts").select("slug,updated_at,rss_status,podiverzum_rank,id"),
+      supabase.from("episodes").select("slug,updated_at,podcast_id,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
     ]);
+
+    // Episode counts to detect empty podcasts
+    const epCount: Record<string, number> = {};
+    (eps || []).forEach((e: any) => { if (e.podcast_id) epCount[e.podcast_id] = (epCount[e.podcast_id] || 0) + 1; });
 
     const urls: string[] = [
       url(`${SITE}/`, null, "daily", "1.0"),
-      url(`${SITE}/categories`, null, "daily", "0.8"),
+      url(`${SITE}/categories`, null, "daily", "0.7"),
     ];
-    (cats || []).forEach((c) => urls.push(url(`${SITE}/category/${esc(c.slug)}`, c.created_at, "daily", "0.7")));
-    (pods || []).forEach((p) => urls.push(url(`${SITE}/podcast/${esc(p.slug)}`, p.updated_at, "daily", "0.7")));
+    (cats || []).forEach((c) => urls.push(url(`${SITE}/category/${esc(c.slug)}`, c.created_at, "daily", "0.8")));
+    (pods || []).forEach((p: any) => {
+      // Only index podcasts that are healthy and have episodes
+      const broken = p.rss_status === "failed" || p.rss_status === "inactive";
+      const empty = !epCount[p.id];
+      if (broken || empty) return;
+      urls.push(url(`${SITE}/podcast/${esc(p.slug)}`, p.updated_at, "daily", "0.6"));
+    });
     (eps || []).forEach((e: any) => {
       const ps = e.podcasts?.slug;
-      if (ps) urls.push(url(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, e.updated_at, "weekly", "0.5"));
+      const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
+      if (ps && !broken) urls.push(url(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, e.updated_at, "weekly", "0.7"));
     });
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
