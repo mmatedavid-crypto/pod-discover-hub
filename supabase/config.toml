@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.ai-enrich]
 verify_jwt = false
+
+[functions.admin-bootstrap]
+verify_jwt = false
