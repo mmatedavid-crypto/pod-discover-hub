@@ -558,13 +558,19 @@ Header: apikey: <publishable key>`}</pre>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <div className="font-medium text-sm truncate max-w-full">{p.title}</div>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusBadge}`}>{p.rss_status || "not_checked"}</span>
+                        {(() => { const h = healthOf(p, epCount); return (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${healthBadge[h]}`}>{h}</span>
+                        ); })()}
+                        {p.rss_status === "failed" && is404(p.last_fetch_error) && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">404</span>
+                        )}
                         {p.featured && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">★</span>}
                         <span className="text-[10px] text-muted-foreground">{epCount} ep</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                         {p.category || "—"}
                       </div>
-                      <div className="text-[11px] text-muted-foreground break-all mt-0.5">
+                      <div className={`text-[11px] mt-0.5 break-all ${p.rss_status === "failed" ? "text-destructive font-mono" : "text-muted-foreground"}`}>
                         {p.rss_url || <span className="italic">no rss</span>}
                       </div>
                       {p.last_fetch_error && (
