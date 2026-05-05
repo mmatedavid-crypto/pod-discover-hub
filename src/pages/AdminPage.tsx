@@ -41,6 +41,8 @@ export default function AdminPage() {
   const [aiCtrl, setAiCtrl] = useState({ enabled: true, max_per_day: 100, max_per_podcast_per_click: 15 });
   const [aiLastRun, setAiLastRun] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("created");
+  const [recalcing, setRecalcing] = useState(false);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
