@@ -9,7 +9,7 @@ import { setSeo } from "@/lib/seo";
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
-type Podcast = PodcastLite & { featured?: boolean; featured_rank?: number | null };
+type Podcast = PodcastLite & { featured?: boolean; featured_rank?: number | null; podiverzum_rank?: number };
 
 const Index = () => {
   const [q, setQ] = useState("");
