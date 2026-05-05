@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [cats, setCats] = useState<any[]>([]);
   const [podcasts, setPodcasts] = useState<any[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [stats, setStats] = useState<any>(null);
   const nav = useNavigate();
 
   // form
