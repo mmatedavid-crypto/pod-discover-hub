@@ -8,7 +8,24 @@ import { slugify } from "@/lib/slug";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
-type FilterKey = "all" | "active" | "failed" | "not_checked" | "no_image" | "no_episodes";
+type FilterKey = "all" | "active" | "failed" | "failed_404" | "not_checked" | "no_image" | "no_episodes" | "inactive";
+
+const is404 = (err?: string | null) => !!err && /\b404\b|not\s*found/i.test(err);
+
+type Health = "healthy" | "weak" | "broken" | "unknown" | "hidden";
+const healthOf = (p: any, epCount: number): Health => {
+  if (p.rss_status === "inactive") return "hidden";
+  if (p.rss_status === "failed") return "broken";
+  if (p.rss_status === "active") return epCount > 0 ? "healthy" : "weak";
+  return "unknown";
+};
+const healthBadge: Record<Health, string> = {
+  healthy: "bg-green-500/15 text-green-700 dark:text-green-400",
+  weak: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  broken: "bg-destructive/15 text-destructive",
+  unknown: "bg-muted text-muted-foreground",
+  hidden: "bg-muted text-muted-foreground",
+};
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
@@ -165,6 +182,47 @@ export default function AdminPage() {
     await refresh();
   };
 
+  const bulkMark404Inactive = async () => {
+    const targets = podcasts.filter((p) => p.rss_status === "failed" && is404(p.last_fetch_error));
+    if (!targets.length) return toast.info("No 404 feeds found");
+    if (!confirm(`Mark ${targets.length} feed(s) returning 404 as inactive?`)) return;
+    const { error } = await supabase
+      .from("podcasts")
+      .update({ rss_status: "inactive" })
+      .in("id", targets.map((p) => p.id));
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${targets.length} inactive`);
+    await refresh();
+  };
+
+  const bulkHideFailed = async () => {
+    const targets = podcasts.filter((p) => p.rss_status === "failed" && !p.featured);
+    if (!targets.length) return toast.info("No failed non-featured feeds");
+    if (!confirm(`Hide ${targets.length} failed feed(s) from the public site (set inactive)?`)) return;
+    const { error } = await supabase
+      .from("podcasts")
+      .update({ rss_status: "inactive" })
+      .in("id", targets.map((p) => p.id));
+    if (error) return toast.error(error.message);
+    toast.success(`Hid ${targets.length} feeds`);
+    await refresh();
+  };
+
+  const bulkDeleteFailedEmpty = async () => {
+    const targets = podcasts.filter((p) => p.rss_status === "failed" && !(episodeCounts[p.id] > 0));
+    if (!targets.length) return toast.info("No failed feeds with zero episodes");
+    if (!confirm(`Permanently DELETE ${targets.length} failed feed(s) with no episodes? This cannot be undone.`)) return;
+    if (!confirm(`Confirm again: delete ${targets.length} podcasts?`)) return;
+    const { error } = await supabase.from("podcasts").delete().in("id", targets.map((p) => p.id));
+    if (error) return toast.error(error.message);
+    toast.success(`Deleted ${targets.length} feeds`);
+    await refresh();
+  };
+
+  const findReplacement = (p: any) => {
+    nav(`/admin/discovery?title=${encodeURIComponent(p.title)}&podcast_id=${p.id}`);
+  };
+
   const startEdit = (p: any) => {
     setEditingId(p.id);
     setEditForm({
@@ -258,7 +316,9 @@ export default function AdminPage() {
     return podcasts.filter((p) => {
       if (filter === "active" && p.rss_status !== "active") return false;
       if (filter === "failed" && p.rss_status !== "failed") return false;
+      if (filter === "failed_404" && !(p.rss_status === "failed" && is404(p.last_fetch_error))) return false;
       if (filter === "not_checked" && p.rss_status !== "not_checked") return false;
+      if (filter === "inactive" && p.rss_status !== "inactive") return false;
       if (filter === "no_image" && p.image_url) return false;
       if (filter === "no_episodes" && (episodeCounts[p.id] || 0) > 0) return false;
       if (q && !(`${p.title} ${p.category || ""} ${p.rss_url || ""}`.toLowerCase().includes(q))) return false;
@@ -270,7 +330,9 @@ export default function AdminPage() {
     all: podcasts.length,
     active: podcasts.filter((p) => p.rss_status === "active").length,
     failed: podcasts.filter((p) => p.rss_status === "failed").length,
+    failed_404: podcasts.filter((p) => p.rss_status === "failed" && is404(p.last_fetch_error)).length,
     not_checked: podcasts.filter((p) => p.rss_status === "not_checked").length,
+    inactive: podcasts.filter((p) => p.rss_status === "inactive").length,
     no_image: podcasts.filter((p) => !p.image_url).length,
     no_episodes: podcasts.filter((p) => !(episodeCounts[p.id] > 0)).length,
   }), [podcasts, episodeCounts]);
@@ -450,7 +512,9 @@ Header: apikey: <publishable key>`}</pre>
                 ["all", `All (${counts.all})`],
                 ["active", `Active (${counts.active})`],
                 ["failed", `Failed (${counts.failed})`],
+                ["failed_404", `Failed 404 only (${counts.failed_404})`],
                 ["not_checked", `Not checked (${counts.not_checked})`],
+                ["inactive", `Inactive (${counts.inactive})`],
                 ["no_image", `No image (${counts.no_image})`],
                 ["no_episodes", `No episodes (${counts.no_episodes})`],
               ] as [FilterKey, string][]).map(([k, label]) => (
@@ -466,6 +530,11 @@ Header: apikey: <publishable key>`}</pre>
                 placeholder="Search…"
                 className="ml-auto px-2 py-1 rounded-md border border-border bg-background text-xs w-32 sm:w-48"
               />
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <button onClick={bulkMark404Inactive} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Mark all failed 404 inactive</button>
+              <button onClick={bulkHideFailed} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Hide failed feeds from public site</button>
+              <button onClick={bulkDeleteFailedEmpty} className="px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground text-xs">Delete failed feeds with no episodes</button>
             </div>
           </div>
 
@@ -489,13 +558,19 @@ Header: apikey: <publishable key>`}</pre>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <div className="font-medium text-sm truncate max-w-full">{p.title}</div>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusBadge}`}>{p.rss_status || "not_checked"}</span>
+                        {(() => { const h = healthOf(p, epCount); return (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${healthBadge[h]}`}>{h}</span>
+                        ); })()}
+                        {p.rss_status === "failed" && is404(p.last_fetch_error) && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">404</span>
+                        )}
                         {p.featured && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">★</span>}
                         <span className="text-[10px] text-muted-foreground">{epCount} ep</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                         {p.category || "—"}
                       </div>
-                      <div className="text-[11px] text-muted-foreground break-all mt-0.5">
+                      <div className={`text-[11px] mt-0.5 break-all ${p.rss_status === "failed" ? "text-destructive font-mono" : "text-muted-foreground"}`}>
                         {p.rss_url || <span className="italic">no rss</span>}
                       </div>
                       {p.last_fetch_error && (
@@ -527,6 +602,9 @@ Header: apikey: <publishable key>`}</pre>
                     <button onClick={() => isEditing ? setEditingId(null) : startEdit(p)} className="px-2 py-1 rounded bg-secondary">{isEditing ? "Close" : "Edit"}</button>
                     {p.rss_status === "failed" && (
                       <button onClick={() => markInactive(p.id)} className="px-2 py-1 rounded bg-secondary">Mark inactive</button>
+                    )}
+                    {p.rss_status === "failed" && (
+                      <button onClick={() => findReplacement(p)} className="px-2 py-1 rounded bg-secondary">Find replacement RSS</button>
                     )}
                     <button disabled={busyId === p.id} onClick={() => aiPodcast(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI sum</button>
                     <button disabled={busyId === p.id} onClick={() => aiAllEpisodes(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI eps</button>

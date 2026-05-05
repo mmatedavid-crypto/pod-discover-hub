@@ -39,11 +39,13 @@ const Index = () => {
       setCats(c || []);
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank")
+        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status")
         .order("featured", { ascending: false })
         .order("featured_rank", { ascending: true, nullsFirst: false })
         .limit(500);
-      setAllPodcasts((ps || []) as Podcast[]);
+      setAllPodcasts(((ps || []) as Podcast[]).filter((p: any) =>
+        p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive")
+      ));
 
       const { data: eps } = await supabase
         .from("episodes")
@@ -62,9 +64,14 @@ const Index = () => {
     })();
   }, []);
 
+  const visiblePodcasts = useMemo(
+    () => allPodcasts.filter((p: any) => p.featured || (recentEpCounts[p.id]?.count || 0) > 0),
+    [allPodcasts, recentEpCounts],
+  );
+
   const trending = useMemo(() => {
     const now = Date.now();
-    const scored = allPodcasts.map((p) => {
+    const scored = visiblePodcasts.map((p) => {
       const stats = recentEpCounts[p.id] || { count: 0, latest: 0 };
       const featured = p.featured ? 50 : 0;
       const rankBoost = p.featured && p.featured_rank ? Math.max(0, 10 - p.featured_rank) : 0;
@@ -75,16 +82,16 @@ const Index = () => {
     });
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, 10).map((s) => s.p);
-  }, [allPodcasts, recentEpCounts]);
+  }, [visiblePodcasts, recentEpCounts]);
 
   const byCat = useMemo(() => {
     const grouped: Record<string, Podcast[]> = {};
-    allPodcasts.forEach((p) => {
+    visiblePodcasts.forEach((p) => {
       if (!p.category) return;
       (grouped[p.category] ||= []).push(p);
     });
     return grouped;
-  }, [allPodcasts]);
+  }, [visiblePodcasts]);
 
   return (
     <Layout>
