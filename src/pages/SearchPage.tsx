@@ -105,7 +105,7 @@ export default function SearchPage() {
       // Podcasts: AND across term groups; within group, OR over fields & synonyms
       let pq = supabase
         .from("podcasts")
-        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url")
+        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status")
         .limit(60);
       termGroups.forEach((variants) => {
         const ors = uniq(variants).flatMap((t) => {
@@ -115,7 +115,10 @@ export default function SearchPage() {
         pq = pq.or(ors);
       });
       const { data: ps } = await pq;
-      const rankedPs = (ps || [])
+      const visiblePs = (ps || []).filter((p: any) =>
+        p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive")
+      );
+      const rankedPs = visiblePs
         .map((p) => ({ p, s: scorePodcast(p, termGroups) }))
         .filter((x) => x.s > 0)
         .sort((a, b) => b.s - a.s)
