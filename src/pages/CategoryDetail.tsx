@@ -77,10 +77,18 @@ export default function CategoryDetail() {
     <Layout>
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold">{cat.name}</h1>
-        {cat.description && <p className="text-muted-foreground mt-1">{cat.description}</p>}
+        <p className="text-muted-foreground mt-1">
+          Latest podcast episodes in {cat.name}, ranked by freshness, relevance and Podiverzum Rank.
+        </p>
 
         <h2 className="text-xl font-semibold mt-10 mb-4">Latest episodes in {cat.name}</h2>
-        <EpisodeList items={episodes} showTopics empty="No episodes in this category yet." />
+        {episodes.length > 0 ? (
+          <EpisodeList items={episodes} showTopics />
+        ) : (
+          <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
+            No episodes indexed in this category yet. Podiverzum is still growing automatically.
+          </div>
+        )}
 
         {topics.length > 0 && (
           <>
