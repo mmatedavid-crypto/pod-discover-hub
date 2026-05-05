@@ -36,6 +36,8 @@ const App = () => (
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin-bootstrap" element={<AdminBootstrapPage />} />
           <Route path="/admin/discovery" element={<AdminDiscoveryPage />} />
+          <Route path="/admin/growth" element={<AdminGrowthPage />} />
+          <Route path="/admin/queue" element={<AdminQueuePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
