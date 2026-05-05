@@ -608,6 +608,14 @@ Header: apikey: <publishable key>`}</pre>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">404</span>
                         )}
                         {p.featured && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">★</span>}
+                        {(() => {
+                          const r = p.podiverzum_rank ?? 1;
+                          const cls = r >= 8 ? "bg-green-500/15 text-green-700 dark:text-green-400"
+                            : r >= 6 ? "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+                            : r >= 4 ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                            : "bg-red-500/15 text-red-700 dark:text-red-400";
+                          return <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cls}`} title={p.rank_label || ""}>Rank {r}{p.rank_label ? ` · ${p.rank_label}` : ""}</span>;
+                        })()}
                         <span className="text-[10px] text-muted-foreground">{epCount} ep</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground truncate mt-0.5">
