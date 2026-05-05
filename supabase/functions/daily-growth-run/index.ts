@@ -114,10 +114,18 @@ Deno.serve(async (req) => {
     const minRank = settings.min_rank_for_auto_add || 8;
 
     if (apiKey && apiSecret && cats.length) {
-      const perCat = Math.max(5, Math.floor(maxDiscovery / cats.length));
+      // Rotate: only process N categories per run
+      const perRun = Math.max(1, Math.min(cats.length, settings.categories_per_run || 3));
+      const startIdx = Math.max(0, Number(settings.category_rotation_index || 0)) % cats.length;
+      const rotated: string[] = [];
+      for (let i = 0; i < perRun; i++) rotated.push(cats[(startIdx + i) % cats.length]);
+      const nextIdx = (startIdx + perRun) % cats.length;
+      stats.categories_processed = rotated;
+
+      const perCat = Math.max(5, Math.floor(maxDiscovery / rotated.length));
       const seen = new Set<string>();
       const candidates: any[] = [];
-      for (const cat of cats) {
+      for (const cat of rotated) {
         const feeds = await piSearch(cat, apiKey, apiSecret, perCat);
         for (const f of feeds) {
           if (!f.url || seen.has(f.url)) continue;
@@ -206,6 +214,13 @@ Deno.serve(async (req) => {
           stats.skipped_low_rank++;
         }
       }
+      // Persist rotation index for next run
+      try {
+        await supabase.from("app_settings").update({
+          value: { ...settings, category_rotation_index: nextIdx },
+          updated_at: new Date().toISOString(),
+        }).eq("key", "growth");
+      } catch { /* */ }
     } else {
       stats.discovery_skipped = !apiKey || !apiSecret ? "missing_credentials" : "no_categories";
     }

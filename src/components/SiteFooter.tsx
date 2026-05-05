@@ -8,6 +8,7 @@ export function SiteFooter() {
         <div className="flex gap-4">
           <Link to="/categories" className="hover:text-foreground">Categories</Link>
           <Link to="/search" className="hover:text-foreground">Search</Link>
+          <Link to="/growth-status" className="hover:text-foreground">Growth status</Link>
           <Link to="/admin" className="hover:text-foreground">Admin</Link>
         </div>
       </div>
