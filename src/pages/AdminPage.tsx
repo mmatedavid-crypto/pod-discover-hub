@@ -68,8 +68,12 @@ export default function AdminPage() {
       const uid = data.session?.user.id;
       if (!uid) { nav("/auth"); return; }
       setUserId(uid);
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-      const admin = !!roles?.find((r: any) => r.role === "admin");
+      const { data: hasAdminRole, error: roleCheckError } = await (supabase as any).rpc("has_role", {
+        _user_id: uid,
+        _role: "admin",
+      });
+      if (roleCheckError) console.error("Admin role check failed", roleCheckError);
+      const admin = hasAdminRole === true;
       setIsAdmin(admin);
       const { data: c } = await supabase.from("categories").select("*").order("sort_order");
       setCats(c || []);
