@@ -80,6 +80,8 @@ Deno.serve(async (req) => {
 
     const items = xml.match(/<item[\s\S]*?<\/item>/gi) || [];
     let inserted = 0;
+    let newCount = 0;
+    let duplicates = 0;
     for (const item of items.slice(0, limit)) {
       const title = tag(item, "title");
       if (!title) continue;
@@ -91,6 +93,19 @@ Deno.serve(async (req) => {
       const image = attr(item, "itunes:image", "href") || channelImage;
       const slug = slugify(title) + "-" + (guid ? guid.slice(-8) : Math.random().toString(36).slice(2, 8));
       const published = pubDate ? new Date(pubDate).toISOString() : null;
+
+      // Detect duplicates by guid or slug before upsert
+      let isDup = false;
+      if (guid) {
+        const { data: existing } = await supabase
+          .from("episodes").select("id").eq("podcast_id", podcast_id).eq("guid", guid).maybeSingle();
+        if (existing) isDup = true;
+      }
+      if (!isDup) {
+        const { data: existing2 } = await supabase
+          .from("episodes").select("id").eq("podcast_id", podcast_id).eq("slug", slug).maybeSingle();
+        if (existing2) isDup = true;
+      }
 
       const { error: upErr } = await supabase.from("episodes").upsert(
         {
@@ -106,16 +121,21 @@ Deno.serve(async (req) => {
         },
         { onConflict: "podcast_id,slug" },
       );
-      if (!upErr) inserted++;
+      if (!upErr) {
+        inserted++;
+        if (isDup) duplicates++; else newCount++;
+      }
     }
 
     await supabase.from("podcasts").update({
       rss_status: "active",
       last_fetched_at: new Date().toISOString(),
       last_fetch_error: null,
+      last_fetch_new_count: newCount,
+      last_fetch_duplicate_count: duplicates,
     }).eq("id", podcast_id);
 
-    return new Response(JSON.stringify({ ok: true, count: inserted, items: items.length }), {
+    return new Response(JSON.stringify({ ok: true, count: inserted, new: newCount, duplicates, items: items.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
