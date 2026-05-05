@@ -59,6 +59,69 @@ export type Database = {
         }
         Relationships: []
       }
+      discovery_queue: {
+        Row: {
+          author: string | null
+          candidate_rank: number
+          category: string | null
+          created_at: string
+          description: string | null
+          episode_count: number | null
+          id: string
+          image_url: string | null
+          language: string | null
+          last_episode_at: string | null
+          pi_id: number | null
+          rank_reason: Json
+          rss_url: string
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          author?: string | null
+          candidate_rank?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          episode_count?: number | null
+          id?: string
+          image_url?: string | null
+          language?: string | null
+          last_episode_at?: string | null
+          pi_id?: number | null
+          rank_reason?: Json
+          rss_url: string
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          author?: string | null
+          candidate_rank?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          episode_count?: number | null
+          id?: string
+          image_url?: string | null
+          language?: string | null
+          last_episode_at?: string | null
+          pi_id?: number | null
+          rank_reason?: Json
+          rss_url?: string
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       episodes: {
         Row: {
           apple_url: string | null
@@ -150,6 +213,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      growth_runs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: string
+          ok: boolean
+          started_at: string
+          stats: Json
+          trigger: string
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          ok?: boolean
+          started_at?: string
+          stats?: Json
+          trigger?: string
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          ok?: boolean
+          started_at?: string
+          stats?: Json
+          trigger?: string
+        }
+        Relationships: []
       }
       podcasts: {
         Row: {
