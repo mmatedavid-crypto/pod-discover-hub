@@ -334,7 +334,8 @@ export default function AdminPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return podcasts.filter((p) => {
+    const list = podcasts.filter((p) => {
+      const r = p.podiverzum_rank ?? 1;
       if (filter === "active" && p.rss_status !== "active") return false;
       if (filter === "failed" && p.rss_status !== "failed") return false;
       if (filter === "failed_404" && !(p.rss_status === "failed" && is404(p.last_fetch_error))) return false;
@@ -342,10 +343,17 @@ export default function AdminPage() {
       if (filter === "inactive" && p.rss_status !== "inactive") return false;
       if (filter === "no_image" && p.image_url) return false;
       if (filter === "no_episodes" && (episodeCounts[p.id] || 0) > 0) return false;
+      if (filter === "rank_high" && r < 8) return false;
+      if (filter === "rank_mid" && (r < 4 || r > 7)) return false;
+      if (filter === "rank_low" && r > 3) return false;
       if (q && !(`${p.title} ${p.category || ""} ${p.rss_url || ""}`.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [podcasts, filter, search, episodeCounts]);
+    if (sortKey === "rank") {
+      list.sort((a, b) => (b.podiverzum_rank ?? 1) - (a.podiverzum_rank ?? 1));
+    }
+    return list;
+  }, [podcasts, filter, search, episodeCounts, sortKey]);
 
   const counts = useMemo(() => ({
     all: podcasts.length,
@@ -356,6 +364,9 @@ export default function AdminPage() {
     inactive: podcasts.filter((p) => p.rss_status === "inactive").length,
     no_image: podcasts.filter((p) => !p.image_url).length,
     no_episodes: podcasts.filter((p) => !(episodeCounts[p.id] > 0)).length,
+    rank_high: podcasts.filter((p) => (p.podiverzum_rank ?? 1) >= 8).length,
+    rank_mid: podcasts.filter((p) => { const r = p.podiverzum_rank ?? 1; return r >= 4 && r <= 7; }).length,
+    rank_low: podcasts.filter((p) => (p.podiverzum_rank ?? 1) <= 3).length,
   }), [podcasts, episodeCounts]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
