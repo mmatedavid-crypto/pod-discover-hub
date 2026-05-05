@@ -14,16 +14,236 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      episodes: {
+        Row: {
+          apple_url: string | null
+          audio_url: string | null
+          companies: string[] | null
+          created_at: string
+          description: string | null
+          episode_url: string | null
+          guid: string | null
+          id: string
+          image_url: string | null
+          ingredients: string[] | null
+          people: string[] | null
+          podcast_id: string
+          published_at: string | null
+          slug: string
+          spotify_url: string | null
+          summary: string | null
+          tickers: string[] | null
+          title: string
+          topics: string[] | null
+          updated_at: string
+          youtube_url: string | null
+        }
+        Insert: {
+          apple_url?: string | null
+          audio_url?: string | null
+          companies?: string[] | null
+          created_at?: string
+          description?: string | null
+          episode_url?: string | null
+          guid?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string[] | null
+          people?: string[] | null
+          podcast_id: string
+          published_at?: string | null
+          slug: string
+          spotify_url?: string | null
+          summary?: string | null
+          tickers?: string[] | null
+          title: string
+          topics?: string[] | null
+          updated_at?: string
+          youtube_url?: string | null
+        }
+        Update: {
+          apple_url?: string | null
+          audio_url?: string | null
+          companies?: string[] | null
+          created_at?: string
+          description?: string | null
+          episode_url?: string | null
+          guid?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string[] | null
+          people?: string[] | null
+          podcast_id?: string
+          published_at?: string | null
+          slug?: string
+          spotify_url?: string | null
+          summary?: string | null
+          tickers?: string[] | null
+          title?: string
+          topics?: string[] | null
+          updated_at?: string
+          youtube_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      podcasts: {
+        Row: {
+          apple_url: string | null
+          category: string | null
+          country: string | null
+          created_at: string
+          description: string | null
+          featured: boolean
+          featured_rank: number | null
+          id: string
+          image_url: string | null
+          language: string | null
+          rss_url: string | null
+          slug: string
+          source: string | null
+          spotify_url: string | null
+          summary: string | null
+          title: string
+          updated_at: string
+          website_url: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          apple_url?: string | null
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          featured?: boolean
+          featured_rank?: number | null
+          id?: string
+          image_url?: string | null
+          language?: string | null
+          rss_url?: string | null
+          slug: string
+          source?: string | null
+          spotify_url?: string | null
+          summary?: string | null
+          title: string
+          updated_at?: string
+          website_url?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          apple_url?: string | null
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          featured?: boolean
+          featured_rank?: number | null
+          id?: string
+          image_url?: string | null
+          language?: string | null
+          rss_url?: string | null
+          slug?: string
+          source?: string | null
+          spotify_url?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          website_url?: string | null
+          youtube_url?: string | null
+        }
+        Relationships: []
+      }
+      search_synonyms: {
+        Row: {
+          created_at: string
+          id: string
+          synonyms: string[]
+          term: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          synonyms?: string[]
+          term: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          synonyms?: string[]
+          term?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +370,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
