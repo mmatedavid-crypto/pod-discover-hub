@@ -39,7 +39,16 @@ export default function AdminPage() {
   const refresh = async () => {
     const { data } = await supabase.from("podcasts").select("*").order("created_at", { ascending: false });
     setPodcasts(data || []);
+    await loadEpisodeCounts(data || []);
     await loadStats(data || []);
+  };
+
+  const loadEpisodeCounts = async (pods: any[]) => {
+    if (!pods.length) { setEpisodeCounts({}); return; }
+    const { data } = await supabase.from("episodes").select("podcast_id");
+    const counts: Record<string, number> = {};
+    (data || []).forEach((e: any) => { counts[e.podcast_id] = (counts[e.podcast_id] || 0) + 1; });
+    setEpisodeCounts(counts);
   };
 
   const loadStats = async (pods: any[]) => {
