@@ -512,7 +512,9 @@ Header: apikey: <publishable key>`}</pre>
                 ["all", `All (${counts.all})`],
                 ["active", `Active (${counts.active})`],
                 ["failed", `Failed (${counts.failed})`],
+                ["failed_404", `Failed 404 only (${counts.failed_404})`],
                 ["not_checked", `Not checked (${counts.not_checked})`],
+                ["inactive", `Inactive (${counts.inactive})`],
                 ["no_image", `No image (${counts.no_image})`],
                 ["no_episodes", `No episodes (${counts.no_episodes})`],
               ] as [FilterKey, string][]).map(([k, label]) => (
@@ -528,6 +530,11 @@ Header: apikey: <publishable key>`}</pre>
                 placeholder="Search…"
                 className="ml-auto px-2 py-1 rounded-md border border-border bg-background text-xs w-32 sm:w-48"
               />
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <button onClick={bulkMark404Inactive} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Mark all failed 404 inactive</button>
+              <button onClick={bulkHideFailed} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Hide failed feeds from public site</button>
+              <button onClick={bulkDeleteFailedEmpty} className="px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground text-xs">Delete failed feeds with no episodes</button>
             </div>
           </div>
 
