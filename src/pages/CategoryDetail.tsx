@@ -30,20 +30,23 @@ export default function CategoryDetail() {
       });
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status")
+        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .eq("category", c.name)
         .order("featured", { ascending: false })
+        .order("podiverzum_rank", { ascending: false })
         .order("featured_rank", { ascending: true, nullsFirst: false })
-        .limit(40);
+        .limit(60);
       const visible = (ps || []).filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"));
-      // also require >=1 episode unless featured
       const ids0 = visible.map((p: any) => p.id);
       const epCountMap: Record<string, number> = {};
       if (ids0.length) {
         const { data: ec } = await supabase.from("episodes").select("podcast_id").in("podcast_id", ids0);
         (ec || []).forEach((e: any) => { epCountMap[e.podcast_id] = (epCountMap[e.podcast_id] || 0) + 1; });
       }
-      const filtered = visible.filter((p: any) => p.featured || (epCountMap[p.id] || 0) > 0).slice(0, 20);
+      // Show rank>=6 first, fall back to rank 4-5 if too few, hide 1-3 unless featured
+      const high = visible.filter((p: any) => p.featured || ((p.podiverzum_rank ?? 1) >= 6 && (epCountMap[p.id] || 0) > 0));
+      const mid = visible.filter((p: any) => !p.featured && (p.podiverzum_rank ?? 1) >= 4 && (p.podiverzum_rank ?? 1) < 6 && (epCountMap[p.id] || 0) > 0);
+      const filtered = (high.length >= 6 ? high : [...high, ...mid]).slice(0, 20);
       setPodcasts(filtered);
       const ids = (ps || []).map((p) => p.id);
       if (ids.length) {

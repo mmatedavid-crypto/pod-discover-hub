@@ -9,7 +9,7 @@ import { setSeo } from "@/lib/seo";
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
-type Podcast = PodcastLite & { featured?: boolean; featured_rank?: number | null };
+type Podcast = PodcastLite & { featured?: boolean; featured_rank?: number | null; podiverzum_rank?: number };
 
 const Index = () => {
   const [q, setQ] = useState("");
@@ -39,12 +39,13 @@ const Index = () => {
       setCats(c || []);
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status")
+        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank")
         .order("featured", { ascending: false })
+        .order("podiverzum_rank", { ascending: false })
         .order("featured_rank", { ascending: true, nullsFirst: false })
         .limit(500);
       setAllPodcasts(((ps || []) as Podcast[]).filter((p: any) =>
-        p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive")
+        p.featured || ((p.podiverzum_rank ?? 1) >= 6 && p.rss_status !== "failed" && p.rss_status !== "inactive")
       ));
 
       const { data: eps } = await supabase
@@ -65,7 +66,7 @@ const Index = () => {
   }, []);
 
   const visiblePodcasts = useMemo(
-    () => allPodcasts.filter((p: any) => p.featured || (recentEpCounts[p.id]?.count || 0) > 0),
+    () => allPodcasts.filter((p: any) => p.featured || ((p.podiverzum_rank ?? 1) >= 6 && (recentEpCounts[p.id]?.count || 0) > 0)),
     [allPodcasts, recentEpCounts],
   );
 

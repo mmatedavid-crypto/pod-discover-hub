@@ -8,7 +8,8 @@ import { slugify } from "@/lib/slug";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
-type FilterKey = "all" | "active" | "failed" | "failed_404" | "not_checked" | "no_image" | "no_episodes" | "inactive";
+type FilterKey = "all" | "active" | "failed" | "failed_404" | "not_checked" | "no_image" | "no_episodes" | "inactive" | "rank_high" | "rank_mid" | "rank_low";
+type SortKey = "created" | "rank";
 
 const is404 = (err?: string | null) => !!err && /\b404\b|not\s*found/i.test(err);
 
@@ -40,6 +41,8 @@ export default function AdminPage() {
   const [aiCtrl, setAiCtrl] = useState({ enabled: true, max_per_day: 100, max_per_podcast_per_click: 15 });
   const [aiLastRun, setAiLastRun] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("created");
+  const [recalcing, setRecalcing] = useState(false);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -311,9 +314,28 @@ export default function AdminPage() {
     refresh();
   };
 
+  const recalcRanks = async (podcast_id?: string) => {
+    setRecalcing(true);
+    const { data, error } = await supabase.functions.invoke("recompute-ranks", {
+      body: podcast_id ? { podcast_id, episodes: true } : { episodes: false },
+    });
+    setRecalcing(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Recomputed ${data?.podcasts || 0} podcasts${data?.episodes ? `, ${data.episodes} episodes` : ""}`);
+    await refresh();
+  };
+
+  const setManualBoost = async (id: string, boost: number) => {
+    const clamped = Math.max(-3, Math.min(3, boost));
+    const { error } = await supabase.from("podcasts").update({ manual_rank_boost: clamped }).eq("id", id);
+    if (error) return toast.error(error.message);
+    await recalcRanks(id);
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return podcasts.filter((p) => {
+    const list = podcasts.filter((p) => {
+      const r = p.podiverzum_rank ?? 1;
       if (filter === "active" && p.rss_status !== "active") return false;
       if (filter === "failed" && p.rss_status !== "failed") return false;
       if (filter === "failed_404" && !(p.rss_status === "failed" && is404(p.last_fetch_error))) return false;
@@ -321,10 +343,17 @@ export default function AdminPage() {
       if (filter === "inactive" && p.rss_status !== "inactive") return false;
       if (filter === "no_image" && p.image_url) return false;
       if (filter === "no_episodes" && (episodeCounts[p.id] || 0) > 0) return false;
+      if (filter === "rank_high" && r < 8) return false;
+      if (filter === "rank_mid" && (r < 4 || r > 7)) return false;
+      if (filter === "rank_low" && r > 3) return false;
       if (q && !(`${p.title} ${p.category || ""} ${p.rss_url || ""}`.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [podcasts, filter, search, episodeCounts]);
+    if (sortKey === "rank") {
+      list.sort((a, b) => (b.podiverzum_rank ?? 1) - (a.podiverzum_rank ?? 1));
+    }
+    return list;
+  }, [podcasts, filter, search, episodeCounts, sortKey]);
 
   const counts = useMemo(() => ({
     all: podcasts.length,
@@ -335,6 +364,9 @@ export default function AdminPage() {
     inactive: podcasts.filter((p) => p.rss_status === "inactive").length,
     no_image: podcasts.filter((p) => !p.image_url).length,
     no_episodes: podcasts.filter((p) => !(episodeCounts[p.id] > 0)).length,
+    rank_high: podcasts.filter((p) => (p.podiverzum_rank ?? 1) >= 8).length,
+    rank_mid: podcasts.filter((p) => { const r = p.podiverzum_rank ?? 1; return r >= 4 && r <= 7; }).length,
+    rank_low: podcasts.filter((p) => (p.podiverzum_rank ?? 1) <= 3).length,
   }), [podcasts, episodeCounts]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -517,6 +549,9 @@ Header: apikey: <publishable key>`}</pre>
                 ["inactive", `Inactive (${counts.inactive})`],
                 ["no_image", `No image (${counts.no_image})`],
                 ["no_episodes", `No episodes (${counts.no_episodes})`],
+                ["rank_high", `Rank 8–10 (${counts.rank_high})`],
+                ["rank_mid", `Rank 4–7 (${counts.rank_mid})`],
+                ["rank_low", `Rank 1–3 (${counts.rank_low})`],
               ] as [FilterKey, string][]).map(([k, label]) => (
                 <button
                   key={k}
@@ -531,10 +566,18 @@ Header: apikey: <publishable key>`}</pre>
                 className="ml-auto px-2 py-1 rounded-md border border-border bg-background text-xs w-32 sm:w-48"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap gap-1.5 mt-2 items-center">
               <button onClick={bulkMark404Inactive} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Mark all failed 404 inactive</button>
               <button onClick={bulkHideFailed} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Hide failed feeds from public site</button>
               <button onClick={bulkDeleteFailedEmpty} className="px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground text-xs">Delete failed feeds with no episodes</button>
+              <button onClick={() => recalcRanks()} disabled={recalcing} className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs disabled:opacity-50">
+                {recalcing ? "Recomputing…" : "Recompute Podiverzum Rank"}
+              </button>
+              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
+                className="px-2 py-1 rounded-md border border-border bg-background text-xs">
+                <option value="created">Sort: newest</option>
+                <option value="rank">Sort: rank ↓</option>
+              </select>
             </div>
           </div>
 
@@ -565,6 +608,14 @@ Header: apikey: <publishable key>`}</pre>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">404</span>
                         )}
                         {p.featured && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">★</span>}
+                        {(() => {
+                          const r = p.podiverzum_rank ?? 1;
+                          const cls = r >= 8 ? "bg-green-500/15 text-green-700 dark:text-green-400"
+                            : r >= 6 ? "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+                            : r >= 4 ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                            : "bg-red-500/15 text-red-700 dark:text-red-400";
+                          return <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cls}`} title={p.rank_label || ""}>Rank {r}{p.rank_label ? ` · ${p.rank_label}` : ""}</span>;
+                        })()}
                         <span className="text-[10px] text-muted-foreground">{epCount} ep</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground truncate mt-0.5">
@@ -597,7 +648,7 @@ Header: apikey: <publishable key>`}</pre>
                     </div>
                   )}
 
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] items-center">
                     <button disabled={busyId === p.id} onClick={() => fetchRss(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">Fetch</button>
                     <button onClick={() => isEditing ? setEditingId(null) : startEdit(p)} className="px-2 py-1 rounded bg-secondary">{isEditing ? "Close" : "Edit"}</button>
                     {p.rss_status === "failed" && (
@@ -609,8 +660,31 @@ Header: apikey: <publishable key>`}</pre>
                     <button disabled={busyId === p.id} onClick={() => aiPodcast(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI sum</button>
                     <button disabled={busyId === p.id} onClick={() => aiAllEpisodes(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI eps</button>
                     <button onClick={() => toggleFeatured(p)} className={`px-2 py-1 rounded ${p.featured ? "bg-accent text-accent-foreground" : "bg-secondary"}`}>{p.featured ? "★" : "Feature"}</button>
+                    <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-secondary">
+                      <span className="text-muted-foreground">Boost</span>
+                      <input
+                        type="number" min={-3} max={3} step={1}
+                        defaultValue={p.manual_rank_boost ?? 0}
+                        onBlur={(e) => {
+                          const v = parseInt(e.target.value || "0", 10);
+                          if (v !== (p.manual_rank_boost ?? 0)) setManualBoost(p.id, v);
+                        }}
+                        className="w-12 px-1 py-0.5 rounded bg-background border border-border text-center"
+                      />
+                    </label>
+                    <button onClick={() => recalcRanks(p.id)} disabled={recalcing} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">Recalc</button>
                     <button onClick={() => remove(p.id)} className="px-2 py-1 rounded bg-destructive text-destructive-foreground ml-auto">Delete</button>
                   </div>
+                  {p.rank_reason?.factors && (
+                    <details className="mt-1 text-[11px] text-muted-foreground">
+                      <summary className="cursor-pointer">Why rank {p.podiverzum_rank}?</summary>
+                      <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                        {(p.rank_reason.factors as any[]).map((f, i) => (
+                          <li key={i}>{f.delta > 0 ? `+${f.delta}` : f.delta} — {f.note}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </div>
               );
             })}

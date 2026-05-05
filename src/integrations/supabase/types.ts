@@ -66,6 +66,10 @@ export type Database = {
           companies: string[] | null
           created_at: string
           description: string | null
+          episode_rank: number
+          episode_rank_label: string | null
+          episode_rank_reason: Json
+          episode_rank_updated_at: string | null
           episode_url: string | null
           guid: string | null
           id: string
@@ -89,6 +93,10 @@ export type Database = {
           companies?: string[] | null
           created_at?: string
           description?: string | null
+          episode_rank?: number
+          episode_rank_label?: string | null
+          episode_rank_reason?: Json
+          episode_rank_updated_at?: string | null
           episode_url?: string | null
           guid?: string | null
           id?: string
@@ -112,6 +120,10 @@ export type Database = {
           companies?: string[] | null
           created_at?: string
           description?: string | null
+          episode_rank?: number
+          episode_rank_label?: string | null
+          episode_rank_reason?: Json
+          episode_rank_updated_at?: string | null
           episode_url?: string | null
           guid?: string | null
           id?: string
@@ -156,6 +168,11 @@ export type Database = {
           last_fetch_error: string | null
           last_fetch_new_count: number
           last_fetched_at: string | null
+          manual_rank_boost: number
+          podiverzum_rank: number
+          rank_label: string | null
+          rank_reason: Json
+          rank_updated_at: string | null
           rss_status: string
           rss_url: string | null
           slug: string
@@ -183,6 +200,11 @@ export type Database = {
           last_fetch_error?: string | null
           last_fetch_new_count?: number
           last_fetched_at?: string | null
+          manual_rank_boost?: number
+          podiverzum_rank?: number
+          rank_label?: string | null
+          rank_reason?: Json
+          rank_updated_at?: string | null
           rss_status?: string
           rss_url?: string | null
           slug: string
@@ -210,6 +232,11 @@ export type Database = {
           last_fetch_error?: string | null
           last_fetch_new_count?: number
           last_fetched_at?: string | null
+          manual_rank_boost?: number
+          podiverzum_rank?: number
+          rank_label?: string | null
+          rank_reason?: Json
+          rank_updated_at?: string | null
           rss_status?: string
           rss_url?: string | null
           slug?: string
