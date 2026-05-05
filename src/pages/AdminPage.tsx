@@ -293,13 +293,18 @@ VALUES ('{userId}', 'admin');
                 Fetches every podcast with RSS that's <code>active</code> or <code>not_checked</code>. Skips podcasts without an <code>rss_url</code>. Failures are isolated.
               </p>
             </div>
-            <button
-              onClick={refreshAll}
-              disabled={bulk?.running}
-              className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-50"
-            >
-              {bulk?.running ? "Refreshing…" : "Fetch all RSS feeds"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => refreshAll("all")} disabled={bulk?.running} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-50">
+                {bulk?.running ? "Refreshing…" : "Fetch all"}
+              </button>
+              <button onClick={() => refreshAll("failed")} disabled={bulk?.running} className="px-3 py-2 rounded-md bg-secondary text-sm disabled:opacity-50">Retry failed</button>
+              <button onClick={() => refreshAll("not_checked")} disabled={bulk?.running} className="px-3 py-2 rounded-md bg-secondary text-sm disabled:opacity-50">Fetch not checked</button>
+              {!!(bulk as any)?.remaining && (
+                <button onClick={() => refreshAll(((bulk as any).mode || "all"))} disabled={bulk?.running} className="px-3 py-2 rounded-md bg-accent text-accent-foreground text-sm disabled:opacity-50">
+                  Run another batch ({(bulk as any).remaining} left)
+                </button>
+              )}
+            </div>
           </div>
           {bulk && (
             <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mt-4 text-xs">
