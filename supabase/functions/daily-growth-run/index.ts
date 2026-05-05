@@ -214,6 +214,13 @@ Deno.serve(async (req) => {
           stats.skipped_low_rank++;
         }
       }
+      // Persist rotation index for next run
+      try {
+        await supabase.from("app_settings").update({
+          value: { ...settings, category_rotation_index: nextIdx },
+          updated_at: new Date().toISOString(),
+        }).eq("key", "growth");
+      } catch { /* */ }
     } else {
       stats.discovery_skipped = !apiKey || !apiSecret ? "missing_credentials" : "no_categories";
     }
