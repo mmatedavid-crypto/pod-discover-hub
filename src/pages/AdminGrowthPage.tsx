@@ -50,7 +50,7 @@ export default function AdminGrowthPage() {
 
   const loadAll = async () => {
     const { data: row } = await supabase.from("app_settings").select("value").eq("key", "growth").maybeSingle();
-    const s = { ...DEFAULT_SETTINGS, ...(row?.value || {}) };
+    const s = { ...DEFAULT_SETTINGS, ...((row?.value as any) || {}) };
     setSettings(s);
     setCatsInput((s.discovery_categories || []).join(", "));
 
