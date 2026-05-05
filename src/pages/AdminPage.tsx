@@ -226,6 +226,77 @@ VALUES ('{userId}', 'admin');
           <button onClick={signOut} className="text-sm text-muted-foreground hover:text-accent">Sign out</button>
         </div>
 
+        <section className="p-4 rounded-lg border border-border bg-card">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="font-semibold">Bulk RSS refresh</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Fetches every podcast with RSS that's <code>active</code> or <code>not_checked</code>. Skips podcasts without an <code>rss_url</code>. Failures are isolated.
+              </p>
+            </div>
+            <button
+              onClick={refreshAll}
+              disabled={bulk?.running}
+              className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-50"
+            >
+              {bulk?.running ? "Refreshing…" : "Fetch all RSS feeds"}
+            </button>
+          </div>
+          {bulk && (
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mt-4 text-xs">
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Total</div><div className="text-base font-semibold">{bulk.total}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Processed</div><div className="text-base font-semibold">{bulk.processed}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Successful</div><div className="text-base font-semibold">{bulk.success}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Failed</div><div className={`text-base font-semibold ${bulk.failed ? "text-destructive" : ""}`}>{bulk.failed}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">New episodes</div><div className="text-base font-semibold">{bulk.new}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Duplicates</div><div className="text-base font-semibold">{bulk.duplicates}</div></div>
+            </div>
+          )}
+          <details className="mt-3 text-xs text-muted-foreground">
+            <summary className="cursor-pointer">How to schedule this once a day</summary>
+            <div className="mt-2 space-y-2">
+              <p>Two options — pick one:</p>
+              <p><strong>A. External cron (easiest):</strong> Use cron-job.org / GitHub Actions / Vercel Cron to <code>POST</code> daily to:</p>
+              <pre className="p-2 rounded bg-secondary overflow-x-auto">{`POST https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/refresh-all-rss
+Header: apikey: <publishable key>`}</pre>
+              <p><strong>B. Postgres pg_cron + pg_net</strong> inside Lovable Cloud:</p>
+              <pre className="p-2 rounded bg-secondary overflow-x-auto">{`select cron.schedule(
+  'podiverzum-refresh-rss-daily',
+  '0 4 * * *',
+  $$ select net.http_post(
+    url:='https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/refresh-all-rss',
+    headers:='{"Content-Type":"application/json"}'::jsonb,
+    body:='{}'::jsonb
+  ); $$
+);`}</pre>
+            </div>
+          </details>
+        </section>
+
+        <section className="p-4 rounded-lg border border-border bg-card">
+          <h2 className="font-semibold">AI cost controls</h2>
+          <div className="grid sm:grid-cols-3 gap-3 mt-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={aiCtrl.enabled} onChange={(e) => setAiCtrl({ ...aiCtrl, enabled: e.target.checked })} />
+              AI enrichment enabled
+            </label>
+            <label className="text-sm">
+              <span className="block text-xs text-muted-foreground">Max enrichments / day</span>
+              <input type="number" value={aiCtrl.max_per_day} onChange={(e) => setAiCtrl({ ...aiCtrl, max_per_day: Number(e.target.value) })} className="mt-1 px-2 py-1 w-full rounded-md border border-border bg-background" />
+            </label>
+            <label className="text-sm">
+              <span className="block text-xs text-muted-foreground">Max episodes per podcast per click</span>
+              <input type="number" value={aiCtrl.max_per_podcast_per_click} onChange={(e) => setAiCtrl({ ...aiCtrl, max_per_podcast_per_click: Number(e.target.value) })} className="mt-1 px-2 py-1 w-full rounded-md border border-border bg-background" />
+            </label>
+          </div>
+          <div className="flex items-center justify-between gap-3 mt-3">
+            <div className="text-xs text-muted-foreground">
+              Last AI run: {aiLastRun ? new Date(aiLastRun).toLocaleString() : "never"}
+            </div>
+            <button onClick={saveAiSettings} className="px-3 py-1.5 rounded-md bg-secondary text-sm">Save settings</button>
+          </div>
+        </section>
+
         {stats && (
           <section>
             <h2 className="font-semibold mb-3">Production overview</h2>
