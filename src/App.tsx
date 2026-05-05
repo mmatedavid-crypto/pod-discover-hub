@@ -13,6 +13,7 @@ import SearchPage from "./pages/SearchPage.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
 import AdminPage from "./pages/AdminPage.tsx";
 import AdminBootstrapPage from "./pages/AdminBootstrapPage.tsx";
+import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
 
 const queryClient = new QueryClient();
 
