@@ -1,11 +1,14 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
+import { PodcastCover } from "@/components/PodcastCover";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
+
+type FilterKey = "all" | "active" | "failed" | "not_checked" | "no_image" | "no_episodes";
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
@@ -19,6 +22,11 @@ export default function AdminPage() {
   const [bulk, setBulk] = useState<{ running: boolean; total: number; processed: number; success: number; failed: number; new: number; duplicates: number } | null>(null);
   const [aiCtrl, setAiCtrl] = useState({ enabled: true, max_per_day: 100, max_per_podcast_per_click: 15 });
   const [aiLastRun, setAiLastRun] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  const [episodeCounts, setEpisodeCounts] = useState<Record<string, number>>({});
   const nav = useNavigate();
 
   // form
@@ -31,7 +39,16 @@ export default function AdminPage() {
   const refresh = async () => {
     const { data } = await supabase.from("podcasts").select("*").order("created_at", { ascending: false });
     setPodcasts(data || []);
+    await loadEpisodeCounts(data || []);
     await loadStats(data || []);
+  };
+
+  const loadEpisodeCounts = async (pods: any[]) => {
+    if (!pods.length) { setEpisodeCounts({}); return; }
+    const { data } = await supabase.from("episodes").select("podcast_id");
+    const counts: Record<string, number> = {};
+    (data || []).forEach((e: any) => { counts[e.podcast_id] = (counts[e.podcast_id] || 0) + 1; });
+    setEpisodeCounts(counts);
   };
 
   const loadStats = async (pods: any[]) => {
@@ -118,9 +135,9 @@ export default function AdminPage() {
     if (error) toast.error(error.message); else toast.success("AI settings saved");
   };
 
-  const refreshAll = async () => {
+  const refreshAll = async (mode: "all" | "failed" | "not_checked" = "all") => {
     setBulk({ running: true, total: 0, processed: 0, success: 0, failed: 0, new: 0, duplicates: 0 });
-    const { data, error } = await supabase.functions.invoke("refresh-all-rss", { body: {} });
+    const { data, error } = await supabase.functions.invoke("refresh-all-rss", { body: { mode, limit: 40 } });
     if (error) {
       toast.error(`Bulk refresh failed: ${error.message}`);
       setBulk(null);
@@ -134,8 +151,35 @@ export default function AdminPage() {
       failed: data?.failed || 0,
       new: data?.new_episodes || 0,
       duplicates: data?.duplicates_skipped || 0,
+      remaining: data?.remaining || 0,
+      mode,
+    } as any);
+    const rem = data?.remaining ? ` · ${data.remaining} remaining` : "";
+    toast.success(`Refreshed ${data?.success}/${data?.total} (${mode})${rem}`);
+    await refresh();
+  };
+
+  const markInactive = async (id: string) => {
+    await supabase.from("podcasts").update({ rss_status: "inactive", last_fetch_error: null }).eq("id", id);
+    toast.success("Marked inactive");
+    await refresh();
+  };
+
+  const startEdit = (p: any) => {
+    setEditingId(p.id);
+    setEditForm({
+      title: p.title || "", rss_url: p.rss_url || "", image_url: p.image_url || "",
+      category: p.category || "", website_url: p.website_url || "",
+      apple_url: p.apple_url || "", spotify_url: p.spotify_url || "", youtube_url: p.youtube_url || "",
     });
-    toast.success(`Refreshed ${data?.success}/${data?.total} feeds, ${data?.new_episodes} new episodes`);
+  };
+  const saveEdit = async (id: string) => {
+    const payload: any = { ...editForm };
+    Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
+    const { error } = await supabase.from("podcasts").update(payload).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Saved");
+    setEditingId(null);
     await refresh();
   };
 
@@ -209,6 +253,28 @@ export default function AdminPage() {
     refresh();
   };
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return podcasts.filter((p) => {
+      if (filter === "active" && p.rss_status !== "active") return false;
+      if (filter === "failed" && p.rss_status !== "failed") return false;
+      if (filter === "not_checked" && p.rss_status !== "not_checked") return false;
+      if (filter === "no_image" && p.image_url) return false;
+      if (filter === "no_episodes" && (episodeCounts[p.id] || 0) > 0) return false;
+      if (q && !(`${p.title} ${p.category || ""} ${p.rss_url || ""}`.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [podcasts, filter, search, episodeCounts]);
+
+  const counts = useMemo(() => ({
+    all: podcasts.length,
+    active: podcasts.filter((p) => p.rss_status === "active").length,
+    failed: podcasts.filter((p) => p.rss_status === "failed").length,
+    not_checked: podcasts.filter((p) => p.rss_status === "not_checked").length,
+    no_image: podcasts.filter((p) => !p.image_url).length,
+    no_episodes: podcasts.filter((p) => !(episodeCounts[p.id] > 0)).length,
+  }), [podcasts, episodeCounts]);
+
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
   if (!isAdmin) return (
     <Layout>
@@ -249,13 +315,18 @@ VALUES ('{userId}', 'admin');
                 Fetches every podcast with RSS that's <code>active</code> or <code>not_checked</code>. Skips podcasts without an <code>rss_url</code>. Failures are isolated.
               </p>
             </div>
-            <button
-              onClick={refreshAll}
-              disabled={bulk?.running}
-              className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-50"
-            >
-              {bulk?.running ? "Refreshing…" : "Fetch all RSS feeds"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => refreshAll("all")} disabled={bulk?.running} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-50">
+                {bulk?.running ? "Refreshing…" : "Fetch all"}
+              </button>
+              <button onClick={() => refreshAll("failed")} disabled={bulk?.running} className="px-3 py-2 rounded-md bg-secondary text-sm disabled:opacity-50">Retry failed</button>
+              <button onClick={() => refreshAll("not_checked")} disabled={bulk?.running} className="px-3 py-2 rounded-md bg-secondary text-sm disabled:opacity-50">Fetch not checked</button>
+              {!!(bulk as any)?.remaining && (
+                <button onClick={() => refreshAll(((bulk as any).mode || "all"))} disabled={bulk?.running} className="px-3 py-2 rounded-md bg-accent text-accent-foreground text-sm disabled:opacity-50">
+                  Run another batch ({(bulk as any).remaining} left)
+                </button>
+              )}
+            </div>
           </div>
           {bulk && (
             <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mt-4 text-xs">
@@ -373,36 +444,99 @@ Header: apikey: <publishable key>`}</pre>
         </section>
 
         <section>
-          <h2 className="font-semibold mb-3">Podcasts ({podcasts.length})</h2>
+          <div className="sticky top-0 z-10 -mx-4 px-4 sm:mx-0 sm:px-0 py-2 bg-background/95 backdrop-blur border-b border-border">
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {([
+                ["all", `All (${counts.all})`],
+                ["active", `Active (${counts.active})`],
+                ["failed", `Failed (${counts.failed})`],
+                ["not_checked", `Not checked (${counts.not_checked})`],
+                ["no_image", `No image (${counts.no_image})`],
+                ["no_episodes", `No episodes (${counts.no_episodes})`],
+              ] as [FilterKey, string][]).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setFilter(k)}
+                  className={`px-2.5 py-1 rounded-full text-xs border ${filter === k ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"}`}
+                >{label}</button>
+              ))}
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search…"
+                className="ml-auto px-2 py-1 rounded-md border border-border bg-background text-xs w-32 sm:w-48"
+              />
+            </div>
+          </div>
+
+          <h2 className="font-semibold mt-4 mb-2 text-sm text-muted-foreground">Showing {filtered.length} of {podcasts.length}</h2>
           <div className="border border-border rounded-lg bg-card divide-y divide-border">
-            {podcasts.map((p) => (
-              <div key={p.id} className="p-3 flex flex-wrap items-center gap-3">
-                <div className="w-10 h-10 rounded bg-muted overflow-hidden shrink-0">
-                  {p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium truncate">{p.title}</div>
-                  <div className="text-xs text-muted-foreground truncate">{p.category} · {p.rss_url || "no rss"}</div>
-                  <div className="text-xs mt-0.5">
-                    <span className={
-                      p.rss_status === "active" ? "text-green-700" :
-                      p.rss_status === "failed" ? "text-destructive" :
-                      "text-muted-foreground"
-                    }>RSS: {p.rss_status || "not_checked"}</span>
-                    {p.last_fetched_at && <span className="text-muted-foreground"> · last {new Date(p.last_fetched_at).toLocaleString()}</span>}
-                    {p.last_fetch_error && <div className="text-destructive truncate">⚠ {p.last_fetch_error}</div>}
+            {filtered.map((p) => {
+              const epCount = episodeCounts[p.id] || 0;
+              const statusBadge =
+                p.rss_status === "active" ? "bg-green-500/15 text-green-700 dark:text-green-400" :
+                p.rss_status === "failed" ? "bg-destructive/15 text-destructive" :
+                p.rss_status === "inactive" ? "bg-muted text-muted-foreground" :
+                "bg-amber-500/15 text-amber-700 dark:text-amber-400";
+              const isEditing = editingId === p.id;
+              return (
+                <div key={p.id} className="p-2.5 sm:p-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-12 h-12 shrink-0">
+                      <PodcastCover title={p.title} src={p.image_url} size="sm" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="font-medium text-sm truncate max-w-full">{p.title}</div>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusBadge}`}>{p.rss_status || "not_checked"}</span>
+                        {p.featured && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">★</span>}
+                        <span className="text-[10px] text-muted-foreground">{epCount} ep</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                        {p.category || "—"}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground break-all mt-0.5">
+                        {p.rss_url || <span className="italic">no rss</span>}
+                      </div>
+                      {p.last_fetch_error && (
+                        <div className="text-[11px] text-destructive mt-0.5 break-words">⚠ {p.last_fetch_error}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {isEditing && (
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {(["title","rss_url","image_url","category","website_url","apple_url","spotify_url","youtube_url"] as const).map((k) => (
+                        <input
+                          key={k}
+                          placeholder={k}
+                          value={editForm[k] ?? ""}
+                          onChange={(e) => setEditForm({ ...editForm, [k]: e.target.value })}
+                          className="px-2 py-1 rounded-md border border-border bg-background text-xs"
+                        />
+                      ))}
+                      <div className="col-span-full flex gap-2">
+                        <button onClick={() => saveEdit(p.id)} className="px-2.5 py-1 rounded bg-primary text-primary-foreground text-xs">Save</button>
+                        <button onClick={() => setEditingId(null)} className="px-2.5 py-1 rounded bg-secondary text-xs">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                    <button disabled={busyId === p.id} onClick={() => fetchRss(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">Fetch</button>
+                    <button onClick={() => isEditing ? setEditingId(null) : startEdit(p)} className="px-2 py-1 rounded bg-secondary">{isEditing ? "Close" : "Edit"}</button>
+                    {p.rss_status === "failed" && (
+                      <button onClick={() => markInactive(p.id)} className="px-2 py-1 rounded bg-secondary">Mark inactive</button>
+                    )}
+                    <button disabled={busyId === p.id} onClick={() => aiPodcast(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI sum</button>
+                    <button disabled={busyId === p.id} onClick={() => aiAllEpisodes(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI eps</button>
+                    <button onClick={() => toggleFeatured(p)} className={`px-2 py-1 rounded ${p.featured ? "bg-accent text-accent-foreground" : "bg-secondary"}`}>{p.featured ? "★" : "Feature"}</button>
+                    <button onClick={() => remove(p.id)} className="px-2 py-1 rounded bg-destructive text-destructive-foreground ml-auto">Delete</button>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <button disabled={busyId === p.id} onClick={() => fetchRss(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">Fetch RSS</button>
-                  <button disabled={busyId === p.id} onClick={() => aiPodcast(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI summary</button>
-                  <button disabled={busyId === p.id} onClick={() => aiAllEpisodes(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI enrich eps</button>
-                  <button onClick={() => toggleFeatured(p)} className={`px-2 py-1 rounded ${p.featured ? "bg-accent text-accent-foreground" : "bg-secondary"}`}>{p.featured ? "Featured" : "Feature"}</button>
-                  <button onClick={() => remove(p.id)} className="px-2 py-1 rounded bg-destructive text-destructive-foreground">Delete</button>
-                </div>
-              </div>
-            ))}
-            {!podcasts.length && <div className="p-4 text-sm text-muted-foreground">No podcasts yet.</div>}
+              );
+            })}
+            {!filtered.length && <div className="p-4 text-sm text-muted-foreground">No podcasts match this filter.</div>}
           </div>
         </section>
       </div>

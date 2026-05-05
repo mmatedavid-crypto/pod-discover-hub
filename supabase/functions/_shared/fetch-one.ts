@@ -33,9 +33,18 @@ export async function fetchOne(supabase: any, podcast: any) {
     return { ok: false, error: msg, new: 0, duplicates: 0, items: 0 };
   }
 
+  // Extract channel image from feed if podcast has none
+  let channelImage = "";
+  try {
+    const head = xml.split(/<item\b|<entry\b/i)[0] || "";
+    const itunesM = head.match(/<itunes:image\b[^>]*href\s*=\s*["']([^"']+)["']/i);
+    const urlM = head.match(/<image\b[\s\S]*?<url>([\s\S]*?)<\/url>/i);
+    channelImage = (itunesM?.[1] || urlM?.[1] || "").trim();
+  } catch { /* noop */ }
+
   let items: ReturnType<typeof parseFeed> = [];
   try {
-    items = parseFeed(xml, podcast.image_url || undefined);
+    items = parseFeed(xml, podcast.image_url || channelImage || undefined);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "parse error";
     await supabase.from("podcasts").update({
@@ -86,13 +95,15 @@ export async function fetchOne(supabase: any, podcast: any) {
     }
   }
 
-  await supabase.from("podcasts").update({
+  const update: any = {
     rss_status: "active",
     last_fetched_at: new Date().toISOString(),
     last_fetch_error: null,
     last_fetch_new_count: newCount,
     last_fetch_duplicate_count: duplicates,
-  }).eq("id", podcast.id);
+  };
+  if (!podcast.image_url && channelImage) update.image_url = channelImage;
+  await supabase.from("podcasts").update(update).eq("id", podcast.id);
 
   return { ok: true, new: newCount, duplicates, items: items.length };
 }
