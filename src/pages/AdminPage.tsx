@@ -603,6 +603,9 @@ Header: apikey: <publishable key>`}</pre>
                     {p.rss_status === "failed" && (
                       <button onClick={() => markInactive(p.id)} className="px-2 py-1 rounded bg-secondary">Mark inactive</button>
                     )}
+                    {p.rss_status === "failed" && (
+                      <button onClick={() => findReplacement(p)} className="px-2 py-1 rounded bg-secondary">Find replacement RSS</button>
+                    )}
                     <button disabled={busyId === p.id} onClick={() => aiPodcast(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI sum</button>
                     <button disabled={busyId === p.id} onClick={() => aiAllEpisodes(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI eps</button>
                     <button onClick={() => toggleFeatured(p)} className={`px-2 py-1 rounded ${p.featured ? "bg-accent text-accent-foreground" : "bg-secondary"}`}>{p.featured ? "★" : "Feature"}</button>
