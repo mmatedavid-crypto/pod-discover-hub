@@ -549,6 +549,9 @@ Header: apikey: <publishable key>`}</pre>
                 ["inactive", `Inactive (${counts.inactive})`],
                 ["no_image", `No image (${counts.no_image})`],
                 ["no_episodes", `No episodes (${counts.no_episodes})`],
+                ["rank_high", `Rank 8–10 (${counts.rank_high})`],
+                ["rank_mid", `Rank 4–7 (${counts.rank_mid})`],
+                ["rank_low", `Rank 1–3 (${counts.rank_low})`],
               ] as [FilterKey, string][]).map(([k, label]) => (
                 <button
                   key={k}
