@@ -171,6 +171,15 @@ VALUES ('{userId}', 'admin');
                 <div className="min-w-0 flex-1">
                   <div className="font-medium truncate">{p.title}</div>
                   <div className="text-xs text-muted-foreground truncate">{p.category} · {p.rss_url || "no rss"}</div>
+                  <div className="text-xs mt-0.5">
+                    <span className={
+                      p.rss_status === "active" ? "text-green-700" :
+                      p.rss_status === "failed" ? "text-destructive" :
+                      "text-muted-foreground"
+                    }>RSS: {p.rss_status || "not_checked"}</span>
+                    {p.last_fetched_at && <span className="text-muted-foreground"> · last {new Date(p.last_fetched_at).toLocaleString()}</span>}
+                    {p.last_fetch_error && <div className="text-destructive truncate">⚠ {p.last_fetch_error}</div>}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
                   <button disabled={busyId === p.id} onClick={() => fetchRss(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">Fetch RSS</button>
