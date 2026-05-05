@@ -68,8 +68,14 @@ export default function AdminPage() {
     setBusyId(id);
     const { data, error } = await supabase.functions.invoke("fetch-rss", { body: { podcast_id: id, limit: 25 } });
     setBusyId(null);
-    if (error) return toast.error(error.message);
-    toast.success(`Fetched ${data?.count ?? 0} episodes`);
+    if (error) {
+      toast.error(`RSS failed: ${error.message}`);
+    } else if (data?.error) {
+      toast.error(`RSS failed: ${data.error}`);
+    } else {
+      toast.success(`Imported ${data?.count ?? 0} of ${data?.items ?? 0} episodes`);
+    }
+    await refresh();
   };
 
   const aiPodcast = async (id: string) => {
