@@ -316,7 +316,9 @@ export default function AdminPage() {
     return podcasts.filter((p) => {
       if (filter === "active" && p.rss_status !== "active") return false;
       if (filter === "failed" && p.rss_status !== "failed") return false;
+      if (filter === "failed_404" && !(p.rss_status === "failed" && is404(p.last_fetch_error))) return false;
       if (filter === "not_checked" && p.rss_status !== "not_checked") return false;
+      if (filter === "inactive" && p.rss_status !== "inactive") return false;
       if (filter === "no_image" && p.image_url) return false;
       if (filter === "no_episodes" && (episodeCounts[p.id] || 0) > 0) return false;
       if (q && !(`${p.title} ${p.category || ""} ${p.rss_url || ""}`.toLowerCase().includes(q))) return false;
@@ -328,7 +330,9 @@ export default function AdminPage() {
     all: podcasts.length,
     active: podcasts.filter((p) => p.rss_status === "active").length,
     failed: podcasts.filter((p) => p.rss_status === "failed").length,
+    failed_404: podcasts.filter((p) => p.rss_status === "failed" && is404(p.last_fetch_error)).length,
     not_checked: podcasts.filter((p) => p.rss_status === "not_checked").length,
+    inactive: podcasts.filter((p) => p.rss_status === "inactive").length,
     no_image: podcasts.filter((p) => !p.image_url).length,
     no_episodes: podcasts.filter((p) => !(episodeCounts[p.id] > 0)).length,
   }), [podcasts, episodeCounts]);
