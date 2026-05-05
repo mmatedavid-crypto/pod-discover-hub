@@ -253,6 +253,28 @@ export default function AdminPage() {
     refresh();
   };
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return podcasts.filter((p) => {
+      if (filter === "active" && p.rss_status !== "active") return false;
+      if (filter === "failed" && p.rss_status !== "failed") return false;
+      if (filter === "not_checked" && p.rss_status !== "not_checked") return false;
+      if (filter === "no_image" && p.image_url) return false;
+      if (filter === "no_episodes" && (episodeCounts[p.id] || 0) > 0) return false;
+      if (q && !(`${p.title} ${p.category || ""} ${p.rss_url || ""}`.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [podcasts, filter, search, episodeCounts]);
+
+  const counts = useMemo(() => ({
+    all: podcasts.length,
+    active: podcasts.filter((p) => p.rss_status === "active").length,
+    failed: podcasts.filter((p) => p.rss_status === "failed").length,
+    not_checked: podcasts.filter((p) => p.rss_status === "not_checked").length,
+    no_image: podcasts.filter((p) => !p.image_url).length,
+    no_episodes: podcasts.filter((p) => !(episodeCounts[p.id] > 0)).length,
+  }), [podcasts, episodeCounts]);
+
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
   if (!isAdmin) return (
     <Layout>
