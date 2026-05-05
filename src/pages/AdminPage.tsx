@@ -314,6 +314,24 @@ export default function AdminPage() {
     refresh();
   };
 
+  const recalcRanks = async (podcast_id?: string) => {
+    setRecalcing(true);
+    const { data, error } = await supabase.functions.invoke("recompute-ranks", {
+      body: podcast_id ? { podcast_id, episodes: true } : { episodes: false },
+    });
+    setRecalcing(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Recomputed ${data?.podcasts || 0} podcasts${data?.episodes ? `, ${data.episodes} episodes` : ""}`);
+    await refresh();
+  };
+
+  const setManualBoost = async (id: string, boost: number) => {
+    const clamped = Math.max(-3, Math.min(3, boost));
+    const { error } = await supabase.from("podcasts").update({ manual_rank_boost: clamped }).eq("id", id);
+    if (error) return toast.error(error.message);
+    await recalcRanks(id);
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return podcasts.filter((p) => {
