@@ -5,6 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import CategoriesPage from "./pages/CategoriesPage.tsx";
+import CategoryDetail from "./pages/CategoryDetail.tsx";
+import PodcastDetail from "./pages/PodcastDetail.tsx";
+import EpisodeDetail from "./pages/EpisodeDetail.tsx";
+import SearchPage from "./pages/SearchPage.tsx";
+import AuthPage from "./pages/AuthPage.tsx";
+import AdminPage from "./pages/AdminPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -16,7 +23,13 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/category/:slug" element={<CategoryDetail />} />
+          <Route path="/podcast/:podcastSlug" element={<PodcastDetail />} />
+          <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
