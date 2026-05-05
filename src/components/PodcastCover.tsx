@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 
 function initials(title: string) {
   return title
@@ -10,7 +10,6 @@ function initials(title: string) {
     .join("") || "P";
 }
 
-// Deterministic muted background per title
 function bgFor(title: string) {
   let h = 0;
   for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
@@ -25,13 +24,16 @@ type Props = {
   size?: "sm" | "md" | "lg";
 };
 
-export function PodcastCover({ title, src, className = "", size = "md" }: Props) {
+export const PodcastCover = forwardRef<HTMLDivElement, Props>(function PodcastCover(
+  { title, src, className = "", size = "md" },
+  ref,
+) {
   const [broken, setBroken] = useState(false);
   const showImg = src && !broken;
-  const sizeCls =
-    size === "sm" ? "text-xs" : size === "lg" ? "text-3xl" : "text-base";
+  const sizeCls = size === "sm" ? "text-xs" : size === "lg" ? "text-3xl" : "text-base";
   return (
     <div
+      ref={ref}
       className={`aspect-square w-full overflow-hidden rounded-md border border-border ${className}`}
       style={!showImg ? { background: bgFor(title) } : undefined}
     >
@@ -50,4 +52,4 @@ export function PodcastCover({ title, src, className = "", size = "md" }: Props)
       )}
     </div>
   );
-}
+});
