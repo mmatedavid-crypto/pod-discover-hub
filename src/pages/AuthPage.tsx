@@ -12,7 +12,7 @@ export default function AuthPage() {
   const nav = useNavigate();
 
   useEffect(() => {
-    document.title = "Sign in — Podiox";
+    document.title = "Sign in — Podiverzum";
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) nav("/admin");
     });

@@ -20,7 +20,7 @@ export default function SearchPage() {
   useEffect(() => { setQ(initial); }, [initial]);
 
   useEffect(() => {
-    document.title = initial ? `${initial} — Podiox search` : "Search — Podiox";
+    document.title = initial ? `${initial} — Podiverzum search` : "Search — Podiverzum";
     if (!initial) { setPodcasts([]); setEpisodes([]); return; }
     const terms = parseTerms(initial);
     if (!terms.length) return;
@@ -72,7 +72,13 @@ export default function SearchPage() {
           </button>
         </form>
 
-        {initial && (
+        {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
+          <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
+            No matching podcast episodes found yet. Try another keyword or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
+          </div>
+        )}
+
+        {initial && (podcasts.length > 0 || episodes.length > 0) && (
           <div className="mt-10 grid lg:grid-cols-3 gap-8">
             <section className="lg:col-span-1">
               <h2 className="font-semibold mb-3">Podcasts ({podcasts.length})</h2>
