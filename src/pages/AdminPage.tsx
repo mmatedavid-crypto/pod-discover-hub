@@ -182,6 +182,47 @@ export default function AdminPage() {
     await refresh();
   };
 
+  const bulkMark404Inactive = async () => {
+    const targets = podcasts.filter((p) => p.rss_status === "failed" && is404(p.last_fetch_error));
+    if (!targets.length) return toast.info("No 404 feeds found");
+    if (!confirm(`Mark ${targets.length} feed(s) returning 404 as inactive?`)) return;
+    const { error } = await supabase
+      .from("podcasts")
+      .update({ rss_status: "inactive" })
+      .in("id", targets.map((p) => p.id));
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${targets.length} inactive`);
+    await refresh();
+  };
+
+  const bulkHideFailed = async () => {
+    const targets = podcasts.filter((p) => p.rss_status === "failed" && !p.featured);
+    if (!targets.length) return toast.info("No failed non-featured feeds");
+    if (!confirm(`Hide ${targets.length} failed feed(s) from the public site (set inactive)?`)) return;
+    const { error } = await supabase
+      .from("podcasts")
+      .update({ rss_status: "inactive" })
+      .in("id", targets.map((p) => p.id));
+    if (error) return toast.error(error.message);
+    toast.success(`Hid ${targets.length} feeds`);
+    await refresh();
+  };
+
+  const bulkDeleteFailedEmpty = async () => {
+    const targets = podcasts.filter((p) => p.rss_status === "failed" && !(episodeCounts[p.id] > 0));
+    if (!targets.length) return toast.info("No failed feeds with zero episodes");
+    if (!confirm(`Permanently DELETE ${targets.length} failed feed(s) with no episodes? This cannot be undone.`)) return;
+    if (!confirm(`Confirm again: delete ${targets.length} podcasts?`)) return;
+    const { error } = await supabase.from("podcasts").delete().in("id", targets.map((p) => p.id));
+    if (error) return toast.error(error.message);
+    toast.success(`Deleted ${targets.length} feeds`);
+    await refresh();
+  };
+
+  const findReplacement = (p: any) => {
+    nav(`/admin/discovery?title=${encodeURIComponent(p.title)}&podcast_id=${p.id}`);
+  };
+
   const startEdit = (p: any) => {
     setEditingId(p.id);
     setEditForm({
