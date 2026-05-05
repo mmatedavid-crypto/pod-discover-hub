@@ -66,7 +66,7 @@ const Index = () => {
   }, []);
 
   const visiblePodcasts = useMemo(
-    () => allPodcasts.filter((p: any) => p.featured || (recentEpCounts[p.id]?.count || 0) > 0),
+    () => allPodcasts.filter((p: any) => p.featured || ((p.podiverzum_rank ?? 1) >= 6 && (recentEpCounts[p.id]?.count || 0) > 0)),
     [allPodcasts, recentEpCounts],
   );
 
