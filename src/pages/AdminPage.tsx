@@ -566,10 +566,18 @@ Header: apikey: <publishable key>`}</pre>
                 className="ml-auto px-2 py-1 rounded-md border border-border bg-background text-xs w-32 sm:w-48"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap gap-1.5 mt-2 items-center">
               <button onClick={bulkMark404Inactive} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Mark all failed 404 inactive</button>
               <button onClick={bulkHideFailed} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Hide failed feeds from public site</button>
               <button onClick={bulkDeleteFailedEmpty} className="px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground text-xs">Delete failed feeds with no episodes</button>
+              <button onClick={() => recalcRanks()} disabled={recalcing} className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs disabled:opacity-50">
+                {recalcing ? "Recomputing…" : "Recompute Podiverzum Rank"}
+              </button>
+              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
+                className="px-2 py-1 rounded-md border border-border bg-background text-xs">
+                <option value="created">Sort: newest</option>
+                <option value="rank">Sort: rank ↓</option>
+              </select>
             </div>
           </div>
 
