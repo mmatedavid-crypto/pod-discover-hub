@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, Globe } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
+import { setSeo } from "@/lib/seo";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
@@ -16,7 +17,19 @@ export default function PodcastDetail() {
       const { data } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).single();
       setP(data);
       if (data) {
-        document.title = `${data.title} — Podiverzum`;
+        setSeo({
+          title: `${data.title} — podcast on Podiverzum`,
+          description: (data.summary || data.description || `Listen to ${data.title} on Podiverzum.`).slice(0, 160),
+          jsonLd: {
+            "@context": "https://schema.org",
+            "@type": "PodcastSeries",
+            name: data.title,
+            description: data.summary || data.description || undefined,
+            image: data.image_url || undefined,
+            url: typeof window !== "undefined" ? window.location.href : undefined,
+            webFeed: data.rss_url || undefined,
+          },
+        });
         const { data: e } = await supabase
           .from("episodes")
           .select("id,title,slug,published_at,summary,description")

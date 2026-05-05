@@ -5,6 +5,7 @@ import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { PodcastCover } from "@/components/PodcastCover";
 import { Search, ArrowRight, Apple, Music, Youtube, Globe } from "lucide-react";
+import { setSeo } from "@/lib/seo";
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
@@ -18,7 +19,21 @@ const Index = () => {
   const nav = useNavigate();
 
   useEffect(() => {
-    document.title = "Podiverzum — Podcast discovery & search";
+    setSeo({
+      title: "Podiverzum — Podcast discovery & search",
+      description: "Search the world of podcasts. Find episodes by topic, person, company, ticker, ingredient or idea.",
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: "Podiverzum",
+        url: "https://podiverzum.com",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: "https://podiverzum.com/search?q={search_term_string}",
+          "query-input": "required name=search_term_string",
+        },
+      },
+    });
     (async () => {
       const { data: c } = await supabase.from("categories").select("*").order("sort_order");
       setCats(c || []);

@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [cats, setCats] = useState<any[]>([]);
   const [podcasts, setPodcasts] = useState<any[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [stats, setStats] = useState<any>(null);
   const nav = useNavigate();
 
   // form
@@ -24,6 +25,35 @@ export default function AdminPage() {
   const refresh = async () => {
     const { data } = await supabase.from("podcasts").select("*").order("created_at", { ascending: false });
     setPodcasts(data || []);
+    await loadStats(data || []);
+  };
+
+  const loadStats = async (pods: any[]) => {
+    const totalPodcasts = pods.length;
+    const active = pods.filter((p) => p.rss_status === "active").length;
+    const failed = pods.filter((p) => p.rss_status === "failed").length;
+    const notChecked = pods.filter((p) => !p.rss_status || p.rss_status === "not_checked").length;
+    const lastFetched = pods
+      .map((p) => p.last_fetched_at).filter(Boolean)
+      .sort().slice(-1)[0] || null;
+    const duplicatesSkipped = pods.reduce((sum, p) => sum + (p.last_fetch_duplicate_count || 0), 0);
+    const errors = pods.filter((p) => p.last_fetch_error).map((p) => ({
+      id: p.id, title: p.title, error: p.last_fetch_error,
+    }));
+    const { count: epCount } = await supabase
+      .from("episodes").select("*", { count: "exact", head: true });
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const { count: summariesToday } = await supabase
+      .from("episodes").select("*", { count: "exact", head: true })
+      .not("summary", "is", null)
+      .gte("updated_at", todayStart.toISOString());
+    // Rough estimate: ~$0.0003 per Gemini Flash episode summary call
+    const aiCostToday = ((summariesToday || 0) * 0.0003);
+    setStats({
+      totalPodcasts, totalEpisodes: epCount || 0, active, failed, notChecked,
+      lastFetched, summariesToday: summariesToday || 0, aiCostToday,
+      duplicatesSkipped, errors,
+    });
   };
 
   useEffect(() => {
@@ -135,6 +165,42 @@ VALUES ('{userId}', 'admin');
           <h1 className="text-3xl font-semibold">Admin</h1>
           <button onClick={signOut} className="text-sm text-muted-foreground hover:text-accent">Sign out</button>
         </div>
+
+        {stats && (
+          <section>
+            <h2 className="font-semibold mb-3">Production overview</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Total podcasts", value: stats.totalPodcasts },
+                { label: "Total episodes", value: stats.totalEpisodes },
+                { label: "Active RSS feeds", value: stats.active },
+                { label: "Failed RSS feeds", value: stats.failed, danger: stats.failed > 0 },
+                { label: "Not checked", value: stats.notChecked },
+                { label: "Summaries today", value: stats.summariesToday },
+                { label: "Est. AI cost today", value: `$${stats.aiCostToday.toFixed(4)}` },
+                { label: "Duplicates skipped", value: stats.duplicatesSkipped },
+              ].map((s: any) => (
+                <div key={s.label} className="p-3 rounded-lg border border-border bg-card">
+                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                  <div className={`text-2xl font-semibold mt-1 ${s.danger ? "text-destructive" : ""}`}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">
+              Last RSS refresh: {stats.lastFetched ? new Date(stats.lastFetched).toLocaleString() : "never"}
+            </div>
+            {stats.errors.length > 0 && (
+              <div className="mt-4 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
+                <div className="text-sm font-medium mb-2">Feeds with errors ({stats.errors.length})</div>
+                <ul className="text-xs space-y-1 max-h-40 overflow-y-auto">
+                  {stats.errors.map((e: any) => (
+                    <li key={e.id} className="truncate"><span className="font-medium">{e.title}:</span> <span className="text-destructive">{e.error}</span></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
 
         <section>
           <h2 className="font-semibold mb-3">Add podcast</h2>

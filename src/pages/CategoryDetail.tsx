@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
+import { setSeo } from "@/lib/seo";
 
 export default function CategoryDetail() {
   const { slug } = useParams();
@@ -17,7 +18,12 @@ export default function CategoryDetail() {
       const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).single();
       setCat(c);
       if (!c) return;
-      document.title = `${c.name} podcasts — Podiverzum`;
+      setSeo({
+        title: `Best ${c.name} podcasts — Podiverzum`,
+        description: c.description
+          ? `${c.description} Discover top ${c.name.toLowerCase()} podcasts and the latest episodes.`
+          : `Top ${c.name} podcasts and latest episodes on Podiverzum.`,
+      });
       const { data: ps } = await supabase
         .from("podcasts")
         .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url")

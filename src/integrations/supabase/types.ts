@@ -134,7 +134,9 @@ export type Database = {
           image_url: string | null
           is_sample: boolean
           language: string | null
+          last_fetch_duplicate_count: number
           last_fetch_error: string | null
+          last_fetch_new_count: number
           last_fetched_at: string | null
           rss_status: string
           rss_url: string | null
@@ -159,7 +161,9 @@ export type Database = {
           image_url?: string | null
           is_sample?: boolean
           language?: string | null
+          last_fetch_duplicate_count?: number
           last_fetch_error?: string | null
+          last_fetch_new_count?: number
           last_fetched_at?: string | null
           rss_status?: string
           rss_url?: string | null
@@ -184,7 +188,9 @@ export type Database = {
           image_url?: string | null
           is_sample?: boolean
           language?: string | null
+          last_fetch_duplicate_count?: number
           last_fetch_error?: string | null
+          last_fetch_new_count?: number
           last_fetched_at?: string | null
           rss_status?: string
           rss_url?: string | null

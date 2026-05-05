@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, ExternalLink } from "lucide-react";
+import { setSeo } from "@/lib/seo";
 
 export default function EpisodeDetail() {
   const { podcastSlug, episodeSlug } = useParams();
@@ -15,7 +16,19 @@ export default function EpisodeDetail() {
       if (!p) return;
       const { data: e } = await supabase.from("episodes").select("*").eq("podcast_id", p.id).eq("slug", episodeSlug).single();
       setData({ p, e });
-      if (e) document.title = `${e.title} — ${p.title}`;
+      if (e) setSeo({
+        title: `${e.title} — ${p.title}`,
+        description: (e.summary || e.description || `Episode of ${p.title} on Podiverzum.`).slice(0, 160),
+        jsonLd: {
+          "@context": "https://schema.org",
+          "@type": "PodcastEpisode",
+          name: e.title,
+          description: e.summary || undefined,
+          datePublished: e.published_at || undefined,
+          partOfSeries: { "@type": "PodcastSeries", name: p.title },
+          associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
+        },
+      });
     })();
   }, [podcastSlug, episodeSlug]);
 
