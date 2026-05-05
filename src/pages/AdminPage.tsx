@@ -648,7 +648,7 @@ Header: apikey: <publishable key>`}</pre>
                     </div>
                   )}
 
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] items-center">
                     <button disabled={busyId === p.id} onClick={() => fetchRss(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">Fetch</button>
                     <button onClick={() => isEditing ? setEditingId(null) : startEdit(p)} className="px-2 py-1 rounded bg-secondary">{isEditing ? "Close" : "Edit"}</button>
                     {p.rss_status === "failed" && (
@@ -660,8 +660,31 @@ Header: apikey: <publishable key>`}</pre>
                     <button disabled={busyId === p.id} onClick={() => aiPodcast(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI sum</button>
                     <button disabled={busyId === p.id} onClick={() => aiAllEpisodes(p.id)} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">AI eps</button>
                     <button onClick={() => toggleFeatured(p)} className={`px-2 py-1 rounded ${p.featured ? "bg-accent text-accent-foreground" : "bg-secondary"}`}>{p.featured ? "★" : "Feature"}</button>
+                    <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-secondary">
+                      <span className="text-muted-foreground">Boost</span>
+                      <input
+                        type="number" min={-3} max={3} step={1}
+                        defaultValue={p.manual_rank_boost ?? 0}
+                        onBlur={(e) => {
+                          const v = parseInt(e.target.value || "0", 10);
+                          if (v !== (p.manual_rank_boost ?? 0)) setManualBoost(p.id, v);
+                        }}
+                        className="w-12 px-1 py-0.5 rounded bg-background border border-border text-center"
+                      />
+                    </label>
+                    <button onClick={() => recalcRanks(p.id)} disabled={recalcing} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">Recalc</button>
                     <button onClick={() => remove(p.id)} className="px-2 py-1 rounded bg-destructive text-destructive-foreground ml-auto">Delete</button>
                   </div>
+                  {p.rank_reason?.factors && (
+                    <details className="mt-1 text-[11px] text-muted-foreground">
+                      <summary className="cursor-pointer">Why rank {p.podiverzum_rank}?</summary>
+                      <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                        {(p.rank_reason.factors as any[]).map((f, i) => (
+                          <li key={i}>{f.delta > 0 ? `+${f.delta}` : f.delta} — {f.note}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </div>
               );
             })}
