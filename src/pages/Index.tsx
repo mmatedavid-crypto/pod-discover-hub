@@ -14,6 +14,7 @@ const Index = () => {
   const [cats, setCats] = useState<Category[]>([]);
   const [podcasts, setPodcasts] = useState<(PodcastLite & { podiverzum_rank?: number; featured?: boolean })[]>([]);
   const [trendingEps, setTrendingEps] = useState<EpisodeLite[]>([]);
+  const [allEps, setAllEps] = useState<EpisodeLite[]>([]);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -36,7 +37,6 @@ const Index = () => {
       const { data: c } = await supabase.from("categories").select("*").order("sort_order");
       setCats(c || []);
 
-      // Eligible podcasts: rank>=6 or featured, not broken
       const { data: ps } = await supabase
         .from("podcasts")
         .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank")
@@ -56,31 +56,42 @@ const Index = () => {
           .in("podcast_id", eligibleIds)
           .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(40);
-        // Final sort: ep_rank desc, published desc, podcast rank desc
-        const sorted = (eps || []).slice().sort((a: any, b: any) => {
+          .limit(400);
+        const sortFn = (a: any, b: any) => {
           const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
           if (br !== ar) return br - ar;
           const at = a.published_at ? new Date(a.published_at).getTime() : 0;
           const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
           if (bt !== at) return bt - at;
           return (b.podcasts?.podiverzum_rank ?? 0) - (a.podcasts?.podiverzum_rank ?? 0);
-        }).slice(0, 12);
-        setTrendingEps(sorted as any);
+        };
+        setTrendingEps(((eps || []).slice().sort(sortFn).slice(0, 12)) as any);
+        setAllEps((eps || []) as any);
       }
     })();
   }, []);
 
   const topPodcasts = useMemo(() => podcasts.slice(0, 12), [podcasts]);
 
-  const byCat = useMemo(() => {
-    const grouped: Record<string, typeof podcasts> = {};
-    podcasts.forEach((p) => {
-      if (!p.category) return;
-      (grouped[p.category] ||= []).push(p);
+  const epsByCat = useMemo(() => {
+    const grouped: Record<string, EpisodeLite[]> = {};
+    allEps.forEach((e) => {
+      const cat = e.podcasts?.category;
+      if (!cat) return;
+      (grouped[cat] ||= []).push(e);
+    });
+    Object.keys(grouped).forEach((k) => {
+      grouped[k] = grouped[k].sort((a: any, b: any) => {
+        const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
+        if (br !== ar) return br - ar;
+        const at = a.published_at ? new Date(a.published_at).getTime() : 0;
+        const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
+        if (bt !== at) return bt - at;
+        return (b.podcasts?.podiverzum_rank ?? 0) - (a.podcasts?.podiverzum_rank ?? 0);
+      }).slice(0, 6);
     });
     return grouped;
-  }, [podcasts]);
+  }, [allEps]);
 
   return (
     <Layout>
@@ -122,6 +133,23 @@ const Index = () => {
           </section>
         )}
 
+        {cats.filter((c) => c.slug !== "trending").map((c) => {
+          const items = epsByCat[c.name] || [];
+          if (!items.length) return null;
+          return (
+            <section key={c.id}>
+              <div className="flex items-end justify-between mb-1">
+                <h2 className="text-xl font-semibold">{c.name}</h2>
+                <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                  See more episodes <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">Latest episodes in {c.name}</p>
+              <EpisodeList items={items} />
+            </section>
+          );
+        })}
+
         {topPodcasts.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">
@@ -136,23 +164,6 @@ const Index = () => {
           </section>
         )}
 
-        {cats.filter((c) => c.slug !== "trending").map((c) => {
-          const items = byCat[c.name]?.slice(0, 6) || [];
-          if (!items.length) return null;
-          return (
-            <section key={c.id}>
-              <div className="flex items-end justify-between mb-4">
-                <h2 className="text-xl font-semibold">{c.name}</h2>
-                <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                  See episodes <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {items.map((p) => <PodcastCard key={p.id} p={p} />)}
-              </div>
-            </section>
-          );
-        })}
         {!trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">
             No episodes yet. <Link to="/admin" className="underline">Add some in admin</Link>.
