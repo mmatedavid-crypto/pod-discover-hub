@@ -1,11 +1,14 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
+import { PodcastCover } from "@/components/PodcastCover";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
+
+type FilterKey = "all" | "active" | "failed" | "not_checked" | "no_image" | "no_episodes";
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
