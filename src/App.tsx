@@ -14,6 +14,8 @@ import AuthPage from "./pages/AuthPage.tsx";
 import AdminPage from "./pages/AdminPage.tsx";
 import AdminBootstrapPage from "./pages/AdminBootstrapPage.tsx";
 import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
+import AdminGrowthPage from "./pages/AdminGrowthPage.tsx";
+import AdminQueuePage from "./pages/AdminQueuePage.tsx";
 
 const queryClient = new QueryClient();
 
