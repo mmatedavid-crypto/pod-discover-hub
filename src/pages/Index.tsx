@@ -39,11 +39,13 @@ const Index = () => {
       setCats(c || []);
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank")
+        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status")
         .order("featured", { ascending: false })
         .order("featured_rank", { ascending: true, nullsFirst: false })
         .limit(500);
-      setAllPodcasts((ps || []) as Podcast[]);
+      setAllPodcasts(((ps || []) as Podcast[]).filter((p: any) =>
+        p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive")
+      ));
 
       const { data: eps } = await supabase
         .from("episodes")
