@@ -33,6 +33,7 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin-bootstrap" element={<AdminBootstrapPage />} />
+          <Route path="/admin/discovery" element={<AdminDiscoveryPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
