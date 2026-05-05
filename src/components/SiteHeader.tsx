@@ -6,10 +6,10 @@ export function SiteHeader() {
   const [q, setQ] = useState("");
   const nav = useNavigate();
   return (
-    <header className="border-b border-border bg-background/80 backdrop-blur sticky top-0 z-30">
+    <header className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-30">
       <div className="container mx-auto flex items-center gap-4 py-3">
         <Link to="/" className="font-semibold text-lg tracking-tight">
-          Podiox<span className="text-accent">.</span>
+          Podiverzum
         </Link>
         <nav className="hidden sm:flex items-center gap-5 text-sm text-muted-foreground">
           <Link to="/categories" className="hover:text-foreground">Categories</Link>

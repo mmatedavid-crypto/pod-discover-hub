@@ -2,28 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Podiox — minimal, fast, editorial directory */
+/* Podiverzum — minimal white directory */
 @layer base {
   :root {
-    --background: 40 30% 98%;
-    --foreground: 220 15% 12%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 12%;
+    --card-foreground: 0 0% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 12%;
+    --popover-foreground: 0 0% 8%;
 
-    --primary: 220 15% 12%;
-    --primary-foreground: 40 30% 98%;
+    --primary: 0 0% 8%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 40 20% 94%;
-    --secondary-foreground: 220 15% 12%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 8%;
 
-    --muted: 40 15% 94%;
-    --muted-foreground: 220 10% 42%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 38%;
 
-    --accent: 18 90% 55%;
+    --accent: 0 0% 8%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 70% 50%;
