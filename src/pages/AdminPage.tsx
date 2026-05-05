@@ -86,8 +86,8 @@ export default function AdminPage() {
 
   const loadAiSettings = async () => {
     const { data } = await supabase.from("app_settings").select("key,value,updated_at").in("key", ["ai_controls", "ai_last_run"]);
-    const ctrl = data?.find((r: any) => r.key === "ai_controls")?.value;
-    const last = data?.find((r: any) => r.key === "ai_last_run");
+    const ctrl = data?.find((r: any) => r.key === "ai_controls")?.value as any;
+    const last = data?.find((r: any) => r.key === "ai_last_run") as any;
     if (ctrl) setAiCtrl({
       enabled: ctrl.enabled !== false,
       max_per_day: ctrl.max_per_day ?? 100,
