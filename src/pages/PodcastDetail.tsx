@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, Globe } from "lucide-react";
+import { PodcastCover } from "@/components/PodcastCover";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
@@ -32,8 +33,8 @@ export default function PodcastDetail() {
     <Layout>
       <div className="container mx-auto py-10">
         <div className="flex flex-col sm:flex-row gap-6">
-          <div className="w-40 h-40 rounded-lg bg-muted overflow-hidden shrink-0">
-            {p.image_url && <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />}
+          <div className="w-40 shrink-0">
+            <PodcastCover title={p.title} src={p.image_url} size="lg" />
           </div>
           <div className="min-w-0">
             {p.category && (
