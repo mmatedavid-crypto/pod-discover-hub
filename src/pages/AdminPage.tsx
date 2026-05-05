@@ -5,9 +5,12 @@ import Layout from "@/components/Layout";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
 
+const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
+
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminFallbackActive, setAdminFallbackActive] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [cats, setCats] = useState<any[]>([]);
   const [podcasts, setPodcasts] = useState<any[]>([]);
@@ -73,7 +76,9 @@ export default function AdminPage() {
         _role: "admin",
       });
       if (roleCheckError) console.error("Admin role check failed", roleCheckError);
-      const admin = hasAdminRole === true;
+      const fallbackAdmin = uid === TEMP_ADMIN_USER_ID;
+      const admin = hasAdminRole === true || fallbackAdmin;
+      setAdminFallbackActive(hasAdminRole !== true && fallbackAdmin);
       setIsAdmin(admin);
       const { data: c } = await supabase.from("categories").select("*").order("sort_order");
       setCats(c || []);
@@ -229,6 +234,12 @@ VALUES ('{userId}', 'admin');
           <h1 className="text-3xl font-semibold">Admin</h1>
           <button onClick={signOut} className="text-sm text-muted-foreground hover:text-accent">Sign out</button>
         </div>
+
+        {adminFallbackActive && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            Temporary admin fallback active.
+          </div>
+        )}
 
         <section className="p-4 rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between gap-3 flex-wrap">
