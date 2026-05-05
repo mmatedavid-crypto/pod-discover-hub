@@ -17,7 +17,7 @@ export default function CategoryDetail() {
       const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).single();
       setCat(c);
       if (!c) return;
-      document.title = `${c.name} podcasts — Podiox`;
+      document.title = `${c.name} podcasts — Podiverzum`;
       const { data: ps } = await supabase
         .from("podcasts")
         .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url")

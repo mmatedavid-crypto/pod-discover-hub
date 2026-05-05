@@ -15,7 +15,7 @@ export default function PodcastDetail() {
       const { data } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).single();
       setP(data);
       if (data) {
-        document.title = `${data.title} — Podiox`;
+        document.title = `${data.title} — Podiverzum`;
         const { data: e } = await supabase
           .from("episodes")
           .select("id,title,slug,published_at,summary,description")

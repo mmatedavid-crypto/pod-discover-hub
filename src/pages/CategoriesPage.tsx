@@ -6,7 +6,7 @@ import Layout from "@/components/Layout";
 export default function CategoriesPage() {
   const [cats, setCats] = useState<any[]>([]);
   useEffect(() => {
-    document.title = "Categories — Podiox";
+    document.title = "Categories — Podiverzum";
     supabase.from("categories").select("*").order("sort_order").then(({ data }) => setCats(data || []));
   }, []);
   return (
