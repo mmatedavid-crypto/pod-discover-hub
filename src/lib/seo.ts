@@ -4,6 +4,7 @@ export function setSeo(opts: {
   description?: string;
   canonical?: string;
   jsonLd?: Record<string, any> | Record<string, any>[];
+  noindex?: boolean;
 }) {
   if (typeof document === "undefined") return;
   document.title = opts.title.slice(0, 70);
@@ -38,6 +39,9 @@ export function setSeo(opts: {
     }
     link.setAttribute("href", href);
   }
+
+  // robots: index by default, noindex on demand
+  upsertMeta('meta[name="robots"]', { name: "robots", content: (opts as any).noindex ? "noindex, nofollow" : "index, follow" });
 
   // Remove previous JSON-LD inserted by us, then add new one.
   document.head.querySelectorAll('script[data-seo="ld"]').forEach((n) => n.remove());

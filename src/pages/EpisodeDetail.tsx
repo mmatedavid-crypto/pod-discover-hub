@@ -4,18 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, ExternalLink } from "lucide-react";
 import { setSeo } from "@/lib/seo";
+import NotFoundState from "@/components/NotFoundState";
 
 export default function EpisodeDetail() {
   const { podcastSlug, episodeSlug } = useParams();
   const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!podcastSlug || !episodeSlug) return;
     (async () => {
-      const { data: p } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).single();
-      if (!p) return;
-      const { data: e } = await supabase.from("episodes").select("*").eq("podcast_id", p.id).eq("slug", episodeSlug).single();
-      setData({ p, e });
+      setLoading(true);
+      const { data: p } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).maybeSingle();
+      if (!p) { setData(null); setLoading(false); return; }
+      const { data: e } = await supabase.from("episodes").select("*").eq("podcast_id", p.id).eq("slug", episodeSlug).maybeSingle();
+      setData(e ? { p, e } : { p, e: null });
+      setLoading(false);
       if (e) setSeo({
         title: `${e.title} — ${p.title}`,
         description: (e.summary || e.description || `Episode of ${p.title} on Podiverzum.`).slice(0, 160),
@@ -32,7 +36,8 @@ export default function EpisodeDetail() {
     })();
   }, [podcastSlug, episodeSlug]);
 
-  if (!data?.e) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (!data?.e) return <NotFoundState title="Episode not found" message="That episode doesn't exist or has been removed." />;
   const { p, e } = data;
   const Tag = ({ items, label }: { items: string[]; label: string }) =>
     items?.length ? (

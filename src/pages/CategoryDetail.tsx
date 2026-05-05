@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { setSeo } from "@/lib/seo";
+import NotFoundState from "@/components/NotFoundState";
 
 export default function CategoryDetail() {
   const { slug } = useParams();
@@ -11,12 +12,15 @@ export default function CategoryDetail() {
   const [podcasts, setPodcasts] = useState<PodcastLite[]>([]);
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!slug) return;
     (async () => {
-      const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).single();
+      setLoading(true);
+      const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).maybeSingle();
       setCat(c);
+      setLoading(false);
       if (!c) return;
       setSeo({
         title: `Best ${c.name} podcasts — Podiverzum`,
@@ -48,7 +52,8 @@ export default function CategoryDetail() {
     })();
   }, [slug]);
 
-  if (!cat) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (!cat) return <NotFoundState title="Category not found" message="That category doesn't exist or has been removed." />;
   return (
     <Layout>
       <div className="container mx-auto py-10">

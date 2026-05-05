@@ -5,17 +5,21 @@ import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, Globe } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
 import { setSeo } from "@/lib/seo";
+import NotFoundState from "@/components/NotFoundState";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
   const [p, setP] = useState<any>(null);
   const [eps, setEps] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!podcastSlug) return;
     (async () => {
-      const { data } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).single();
+      setLoading(true);
+      const { data } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).maybeSingle();
       setP(data);
+      setLoading(false);
       if (data) {
         setSeo({
           title: `${data.title} — podcast on Podiverzum`,
@@ -41,7 +45,8 @@ export default function PodcastDetail() {
     })();
   }, [podcastSlug]);
 
-  if (!p) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (!p) return <NotFoundState title="Podcast not found" message="That podcast doesn't exist or has been removed." />;
   return (
     <Layout>
       <div className="container mx-auto py-10">

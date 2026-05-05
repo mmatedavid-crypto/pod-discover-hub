@@ -1,1 +1,13 @@
 project_id = "iqzkayoqqagowvxeaphe"
+
+[functions.sitemap]
+verify_jwt = false
+
+[functions.refresh-all-rss]
+verify_jwt = false
+
+[functions.fetch-rss]
+verify_jwt = false
+
+[functions.ai-enrich]
+verify_jwt = false
