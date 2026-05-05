@@ -47,11 +47,29 @@ Deno.serve(async (req) => {
     );
     const { data: podcast, error } = await supabase.from("podcasts").select("*").eq("id", podcast_id).single();
     if (error || !podcast) throw new Error("podcast not found");
-    if (!podcast.rss_url) throw new Error("podcast has no rss_url");
+    if (!podcast.rss_url) {
+      await supabase.from("podcasts").update({
+        rss_status: "failed",
+        last_fetched_at: new Date().toISOString(),
+        last_fetch_error: "no rss_url configured",
+      }).eq("id", podcast_id);
+      throw new Error("podcast has no rss_url");
+    }
 
-    const res = await fetch(podcast.rss_url, { headers: { "User-Agent": "PodioxBot/1.0" } });
-    if (!res.ok) throw new Error(`RSS fetch failed: ${res.status}`);
-    const xml = await res.text();
+    let xml = "";
+    try {
+      const res = await fetch(podcast.rss_url, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
+      if (!res.ok) throw new Error(`RSS fetch failed: HTTP ${res.status}`);
+      xml = await res.text();
+    } catch (fetchErr) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : "fetch error";
+      await supabase.from("podcasts").update({
+        rss_status: "failed",
+        last_fetched_at: new Date().toISOString(),
+        last_fetch_error: msg,
+      }).eq("id", podcast_id);
+      throw fetchErr;
+    }
 
     // Extract channel image as fallback
     const channelImage =
@@ -91,7 +109,13 @@ Deno.serve(async (req) => {
       if (!upErr) inserted++;
     }
 
-    return new Response(JSON.stringify({ ok: true, count: inserted }), {
+    await supabase.from("podcasts").update({
+      rss_status: "active",
+      last_fetched_at: new Date().toISOString(),
+      last_fetch_error: null,
+    }).eq("id", podcast_id);
+
+    return new Response(JSON.stringify({ ok: true, count: inserted, items: items.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
