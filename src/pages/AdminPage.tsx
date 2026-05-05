@@ -25,6 +25,35 @@ export default function AdminPage() {
   const refresh = async () => {
     const { data } = await supabase.from("podcasts").select("*").order("created_at", { ascending: false });
     setPodcasts(data || []);
+    await loadStats(data || []);
+  };
+
+  const loadStats = async (pods: any[]) => {
+    const totalPodcasts = pods.length;
+    const active = pods.filter((p) => p.rss_status === "active").length;
+    const failed = pods.filter((p) => p.rss_status === "failed").length;
+    const notChecked = pods.filter((p) => !p.rss_status || p.rss_status === "not_checked").length;
+    const lastFetched = pods
+      .map((p) => p.last_fetched_at).filter(Boolean)
+      .sort().slice(-1)[0] || null;
+    const duplicatesSkipped = pods.reduce((sum, p) => sum + (p.last_fetch_duplicate_count || 0), 0);
+    const errors = pods.filter((p) => p.last_fetch_error).map((p) => ({
+      id: p.id, title: p.title, error: p.last_fetch_error,
+    }));
+    const { count: epCount } = await supabase
+      .from("episodes").select("*", { count: "exact", head: true });
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const { count: summariesToday } = await supabase
+      .from("episodes").select("*", { count: "exact", head: true })
+      .not("summary", "is", null)
+      .gte("updated_at", todayStart.toISOString());
+    // Rough estimate: ~$0.0003 per Gemini Flash episode summary call
+    const aiCostToday = ((summariesToday || 0) * 0.0003);
+    setStats({
+      totalPodcasts, totalEpisodes: epCount || 0, active, failed, notChecked,
+      lastFetched, summariesToday: summariesToday || 0, aiCostToday,
+      duplicatesSkipped, errors,
+    });
   };
 
   useEffect(() => {
