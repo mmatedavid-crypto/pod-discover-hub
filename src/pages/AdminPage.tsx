@@ -8,7 +8,8 @@ import { slugify } from "@/lib/slug";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
-type FilterKey = "all" | "active" | "failed" | "failed_404" | "not_checked" | "no_image" | "no_episodes" | "inactive";
+type FilterKey = "all" | "active" | "failed" | "failed_404" | "not_checked" | "no_image" | "no_episodes" | "inactive" | "rank_high" | "rank_mid" | "rank_low";
+type SortKey = "created" | "rank";
 
 const is404 = (err?: string | null) => !!err && /\b404\b|not\s*found/i.test(err);
 
