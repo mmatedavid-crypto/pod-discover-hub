@@ -41,7 +41,8 @@ export default function PodcastDetail() {
     })();
   }, [podcastSlug]);
 
-  if (!p) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (!p) return <NotFoundState title="Podcast not found" message="That podcast doesn't exist or has been removed." />;
   return (
     <Layout>
       <div className="container mx-auto py-10">
