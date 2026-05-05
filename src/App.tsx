@@ -16,6 +16,7 @@ import AdminBootstrapPage from "./pages/AdminBootstrapPage.tsx";
 import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
 import AdminGrowthPage from "./pages/AdminGrowthPage.tsx";
 import AdminQueuePage from "./pages/AdminQueuePage.tsx";
+import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
 
 const queryClient = new QueryClient();
 
