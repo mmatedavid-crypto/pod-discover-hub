@@ -73,13 +73,62 @@ export default function AdminPage() {
       setIsAdmin(admin);
       const { data: c } = await supabase.from("categories").select("*").order("sort_order");
       setCats(c || []);
-      if (admin) await refresh();
+      if (admin) {
+        await refresh();
+        await loadAiSettings();
+      }
       setReady(true);
     })();
     return () => sub.subscription.unsubscribe();
   }, [nav]);
 
   const signOut = async () => { await supabase.auth.signOut(); nav("/"); };
+
+  const loadAiSettings = async () => {
+    const { data } = await supabase.from("app_settings").select("key,value,updated_at").in("key", ["ai_controls", "ai_last_run"]);
+    const ctrl = data?.find((r: any) => r.key === "ai_controls")?.value;
+    const last = data?.find((r: any) => r.key === "ai_last_run");
+    if (ctrl) setAiCtrl({
+      enabled: ctrl.enabled !== false,
+      max_per_day: ctrl.max_per_day ?? 100,
+      max_per_podcast_per_click: ctrl.max_per_podcast_per_click ?? 15,
+    });
+    if (last) setAiLastRun((last.value?.at as string) || last.updated_at);
+  };
+
+  const saveAiSettings = async () => {
+    const { error } = await supabase.from("app_settings").upsert({
+      key: "ai_controls",
+      value: {
+        enabled: aiCtrl.enabled,
+        max_per_day: Number(aiCtrl.max_per_day) || 0,
+        max_per_podcast_per_click: Number(aiCtrl.max_per_podcast_per_click) || 0,
+      },
+      updated_at: new Date().toISOString(),
+    });
+    if (error) toast.error(error.message); else toast.success("AI settings saved");
+  };
+
+  const refreshAll = async () => {
+    setBulk({ running: true, total: 0, processed: 0, success: 0, failed: 0, new: 0, duplicates: 0 });
+    const { data, error } = await supabase.functions.invoke("refresh-all-rss", { body: {} });
+    if (error) {
+      toast.error(`Bulk refresh failed: ${error.message}`);
+      setBulk(null);
+      return;
+    }
+    setBulk({
+      running: false,
+      total: data?.total || 0,
+      processed: data?.processed || 0,
+      success: data?.success || 0,
+      failed: data?.failed || 0,
+      new: data?.new_episodes || 0,
+      duplicates: data?.duplicates_skipped || 0,
+    });
+    toast.success(`Refreshed ${data?.success}/${data?.total} feeds, ${data?.new_episodes} new episodes`);
+    await refresh();
+  };
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
