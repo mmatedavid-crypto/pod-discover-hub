@@ -4,9 +4,78 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { Search } from "lucide-react";
+import { setSeo } from "@/lib/seo";
 
 function parseTerms(q: string) {
   return q.split(/[+,&]| and /i).map((s) => s.trim()).filter(Boolean);
+}
+
+function uniq<T>(a: T[]) { return Array.from(new Set(a)); }
+
+async function expandTerm(term: string): Promise<string[]> {
+  const t = term.toLowerCase();
+  const { data } = await supabase
+    .from("search_synonyms")
+    .select("term,synonyms")
+    .or(`term.eq.${t},synonyms.cs.{${t}}`);
+  const out = new Set<string>([term]);
+  (data || []).forEach((row: any) => {
+    out.add(row.term);
+    (row.synonyms || []).forEach((s: string) => out.add(s));
+  });
+  return Array.from(out);
+}
+
+function escapeIlike(s: string) {
+  return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " ");
+}
+
+function scorePodcast(p: any, termGroups: string[][]): number {
+  let s = 0;
+  const title = (p.title || "").toLowerCase();
+  const summary = (p.summary || "").toLowerCase();
+  const desc = (p.description || "").toLowerCase();
+  const cat = (p.category || "").toLowerCase();
+  termGroups.forEach((variants, i) => {
+    const orig = variants[0].toLowerCase();
+    if (title === orig) s += 50;
+    if (title.includes(orig)) s += 25;
+    if (variants.some((v) => title.includes(v.toLowerCase()))) s += 12;
+    if (variants.some((v) => cat.includes(v.toLowerCase()))) s += 8;
+    if (variants.some((v) => summary.includes(v.toLowerCase()))) s += 6;
+    if (variants.some((v) => desc.includes(v.toLowerCase()))) s += 3;
+  });
+  return s;
+}
+
+function scoreEpisode(e: any, termGroups: string[][]): number {
+  let s = 0;
+  const title = (e.title || "").toLowerCase();
+  const summary = (e.summary || "").toLowerCase();
+  const desc = (e.description || "").toLowerCase();
+  const arrays = [
+    ...(e.topics || []), ...(e.people || []), ...(e.companies || []),
+    ...(e.tickers || []), ...(e.ingredients || []),
+  ].map((x: string) => x.toLowerCase());
+  termGroups.forEach((variants) => {
+    const lc = variants.map((v) => v.toLowerCase());
+    const orig = lc[0];
+    if (title === orig) s += 60;
+    if (title.includes(orig)) s += 30;
+    if (lc.some((v) => title.includes(v))) s += 15;
+    if (lc.some((v) => arrays.includes(v))) s += 18;
+    if (lc.some((v) => arrays.some((a) => a.includes(v)))) s += 8;
+    if (lc.some((v) => summary.includes(v))) s += 7;
+    if (lc.some((v) => desc.includes(v))) s += 3;
+  });
+  // Recency boost
+  if (e.published_at) {
+    const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
+    s += Math.max(0, 30 - ageDays) * 0.5; // up to ~15
+    if (ageDays < 7) s += 10;
+    else if (ageDays < 30) s += 5;
+  }
+  return s;
 }
 
 export default function SearchPage() {
@@ -20,31 +89,62 @@ export default function SearchPage() {
   useEffect(() => { setQ(initial); }, [initial]);
 
   useEffect(() => {
-    document.title = initial ? `${initial} — Podiverzum search` : "Search — Podiverzum";
+    setSeo({
+      title: initial ? `${initial} — Podiverzum search` : "Search podcasts — Podiverzum",
+      description: initial
+        ? `Podcast episodes matching "${initial}". Search by topic, person, company or ticker.`
+        : "Search podcast episodes by topic, person, company, ticker or ingredient.",
+    });
     if (!initial) { setPodcasts([]); setEpisodes([]); return; }
     const terms = parseTerms(initial);
     if (!terms.length) return;
     setLoading(true);
     (async () => {
-      // Podcasts: AND across terms over title/description/summary/category
-      let pq = supabase.from("podcasts").select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url").limit(20);
-      terms.forEach((t) => {
-        const v = `%${t}%`;
-        pq = pq.or(`title.ilike.${v},description.ilike.${v},summary.ilike.${v},category.ilike.${v}`);
+      const termGroups = await Promise.all(terms.map(expandTerm));
+
+      // Podcasts: AND across term groups; within group, OR over fields & synonyms
+      let pq = supabase
+        .from("podcasts")
+        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url")
+        .limit(60);
+      termGroups.forEach((variants) => {
+        const ors = uniq(variants).flatMap((t) => {
+          const v = `%${escapeIlike(t)}%`;
+          return [`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`];
+        }).join(",");
+        pq = pq.or(ors);
       });
       const { data: ps } = await pq;
-      setPodcasts(ps || []);
+      const rankedPs = (ps || [])
+        .map((p) => ({ p, s: scorePodcast(p, termGroups) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 24)
+        .map((x) => x.p);
+      setPodcasts(rankedPs);
 
-      // Episodes: AND across terms over title/description/summary/topics/people/companies/tickers
-      let eq = supabase.from("episodes").select("id,title,slug,published_at,summary,description,topics,people,companies,tickers,podcast_id,podcasts!inner(slug,title,image_url)").limit(40);
-      terms.forEach((t) => {
-        const v = `%${t}%`;
-        eq = eq.or(
-          `title.ilike.${v},description.ilike.${v},summary.ilike.${v},topics.cs.{${t}},people.cs.{${t}},companies.cs.{${t}},tickers.cs.{${t}},ingredients.cs.{${t}}`,
-        );
+      // Episodes: AND across term groups
+      let eq = supabase
+        .from("episodes")
+        .select("id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,image_url)")
+        .limit(200);
+      termGroups.forEach((variants) => {
+        const ors: string[] = [];
+        uniq(variants).forEach((t) => {
+          const v = `%${escapeIlike(t)}%`;
+          ors.push(`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`);
+          ors.push(`topics.cs.{${t}}`, `people.cs.{${t}}`, `companies.cs.{${t}}`, `tickers.cs.{${t}}`, `ingredients.cs.{${t}}`);
+        });
+        eq = eq.or(ors.join(","));
       });
-      const { data: es } = await eq.order("published_at", { ascending: false, nullsFirst: false });
-      setEpisodes(es || []);
+      const { data: es } = await eq;
+      const rankedEs = (es || [])
+        .map((e: any) => ({ e, s: scoreEpisode(e, termGroups) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 60)
+        .map((x) => x.e);
+      setEpisodes(rankedEs);
       setLoading(false);
     })();
   }, [initial]);
