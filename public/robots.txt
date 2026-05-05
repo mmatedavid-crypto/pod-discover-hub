@@ -3,4 +3,5 @@ Allow: /
 Disallow: /admin
 Disallow: /auth
 
+Sitemap: https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap
 Sitemap: https://podiverzum.com/sitemap.xml
