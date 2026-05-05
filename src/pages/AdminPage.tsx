@@ -135,9 +135,9 @@ export default function AdminPage() {
     if (error) toast.error(error.message); else toast.success("AI settings saved");
   };
 
-  const refreshAll = async () => {
+  const refreshAll = async (mode: "all" | "failed" | "not_checked" = "all") => {
     setBulk({ running: true, total: 0, processed: 0, success: 0, failed: 0, new: 0, duplicates: 0 });
-    const { data, error } = await supabase.functions.invoke("refresh-all-rss", { body: {} });
+    const { data, error } = await supabase.functions.invoke("refresh-all-rss", { body: { mode, limit: 40 } });
     if (error) {
       toast.error(`Bulk refresh failed: ${error.message}`);
       setBulk(null);
@@ -151,8 +151,35 @@ export default function AdminPage() {
       failed: data?.failed || 0,
       new: data?.new_episodes || 0,
       duplicates: data?.duplicates_skipped || 0,
+      remaining: data?.remaining || 0,
+      mode,
+    } as any);
+    const rem = data?.remaining ? ` · ${data.remaining} remaining` : "";
+    toast.success(`Refreshed ${data?.success}/${data?.total} (${mode})${rem}`);
+    await refresh();
+  };
+
+  const markInactive = async (id: string) => {
+    await supabase.from("podcasts").update({ rss_status: "inactive", last_fetch_error: null }).eq("id", id);
+    toast.success("Marked inactive");
+    await refresh();
+  };
+
+  const startEdit = (p: any) => {
+    setEditingId(p.id);
+    setEditForm({
+      title: p.title || "", rss_url: p.rss_url || "", image_url: p.image_url || "",
+      category: p.category || "", website_url: p.website_url || "",
+      apple_url: p.apple_url || "", spotify_url: p.spotify_url || "", youtube_url: p.youtube_url || "",
     });
-    toast.success(`Refreshed ${data?.success}/${data?.total} feeds, ${data?.new_episodes} new episodes`);
+  };
+  const saveEdit = async (id: string) => {
+    const payload: any = { ...editForm };
+    Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
+    const { error } = await supabase.from("podcasts").update(payload).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Saved");
+    setEditingId(null);
     await refresh();
   };
 
