@@ -8,7 +8,24 @@ import { slugify } from "@/lib/slug";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
-type FilterKey = "all" | "active" | "failed" | "not_checked" | "no_image" | "no_episodes";
+type FilterKey = "all" | "active" | "failed" | "failed_404" | "not_checked" | "no_image" | "no_episodes" | "inactive";
+
+const is404 = (err?: string | null) => !!err && /\b404\b|not\s*found/i.test(err);
+
+type Health = "healthy" | "weak" | "broken" | "unknown" | "hidden";
+const healthOf = (p: any, epCount: number): Health => {
+  if (p.rss_status === "inactive") return "hidden";
+  if (p.rss_status === "failed") return "broken";
+  if (p.rss_status === "active") return epCount > 0 ? "healthy" : "weak";
+  return "unknown";
+};
+const healthBadge: Record<Health, string> = {
+  healthy: "bg-green-500/15 text-green-700 dark:text-green-400",
+  weak: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  broken: "bg-destructive/15 text-destructive",
+  unknown: "bg-muted text-muted-foreground",
+  hidden: "bg-muted text-muted-foreground",
+};
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
