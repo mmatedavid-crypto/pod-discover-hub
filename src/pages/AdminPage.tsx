@@ -140,7 +140,10 @@ export default function AdminPage() {
     };
     Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
     const { error } = await supabase.from("podcasts").insert(payload);
-    if (error) return toast.error(error.message);
+    if (error) {
+      const dup = error.code === "23505" || /duplicate|unique/i.test(error.message);
+      return toast.error(dup ? "This RSS feed already exists." : error.message);
+    }
     toast.success("Podcast added");
     setForm({ title: "", description: "", rss_url: "", apple_url: "", spotify_url: "", youtube_url: "", website_url: "", image_url: "", category: "", featured: false, featured_rank: "" });
     await refresh();
@@ -171,14 +174,19 @@ export default function AdminPage() {
 
   const aiAllEpisodes = async (id: string) => {
     setBusyId(id);
-    const { data: eps } = await supabase.from("episodes").select("id").eq("podcast_id", id).is("summary", null).limit(15);
-    let ok = 0;
+    const limit = Math.max(1, Number(aiCtrl.max_per_podcast_per_click) || 15);
+    const { data: eps } = await supabase.from("episodes").select("id").eq("podcast_id", id).is("summary", null).limit(limit);
+    let ok = 0, blocked = false;
     for (const e of eps || []) {
-      const { error } = await supabase.functions.invoke("ai-enrich", { body: { type: "episode", id: e.id } });
-      if (!error) ok++;
+      const { data, error } = await supabase.functions.invoke("ai-enrich", { body: { type: "episode", id: e.id } });
+      if (error || (data as any)?.error) {
+        const msg = (data as any)?.error || error?.message || "";
+        if (/disabled|cap reached/i.test(msg)) { toast.error(msg); blocked = true; break; }
+      } else ok++;
     }
     setBusyId(null);
-    toast.success(`Enriched ${ok} episodes`);
+    if (!blocked) toast.success(`Enriched ${ok} episodes`);
+    await refresh(); await loadAiSettings();
   };
 
   const toggleFeatured = async (p: any) => {
