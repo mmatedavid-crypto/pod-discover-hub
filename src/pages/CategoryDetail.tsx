@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
+import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 
@@ -10,7 +11,7 @@ export default function CategoryDetail() {
   const { slug } = useParams();
   const [cat, setCat] = useState<any>(null);
   const [podcasts, setPodcasts] = useState<PodcastLite[]>([]);
-  const [episodes, setEpisodes] = useState<any[]>([]);
+  const [episodes, setEpisodes] = useState<EpisodeLite[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,10 +24,8 @@ export default function CategoryDetail() {
       setLoading(false);
       if (!c) return;
       setSeo({
-        title: `Best ${c.name} podcasts — Podiverzum`,
-        description: c.description
-          ? `${c.description} Discover top ${c.name.toLowerCase()} podcasts and the latest episodes.`
-          : `Top ${c.name} podcasts and latest episodes on Podiverzum.`,
+        title: `${c.name} podcast episodes — Podiverzum`,
+        description: `Discover the latest podcast episodes in ${c.name}, ranked by relevance, freshness and Podiverzum Rank.`,
       });
       const { data: ps } = await supabase
         .from("podcasts")
@@ -34,7 +33,6 @@ export default function CategoryDetail() {
         .eq("category", c.name)
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
-        .order("featured_rank", { ascending: true, nullsFirst: false })
         .limit(60);
       const visible = (ps || []).filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"));
       const ids0 = visible.map((p: any) => p.id);
@@ -43,22 +41,31 @@ export default function CategoryDetail() {
         const { data: ec } = await supabase.from("episodes").select("podcast_id").in("podcast_id", ids0);
         (ec || []).forEach((e: any) => { epCountMap[e.podcast_id] = (epCountMap[e.podcast_id] || 0) + 1; });
       }
-      // Show rank>=6 first, fall back to rank 4-5 if too few, hide 1-3 unless featured
       const high = visible.filter((p: any) => p.featured || ((p.podiverzum_rank ?? 1) >= 6 && (epCountMap[p.id] || 0) > 0));
       const mid = visible.filter((p: any) => !p.featured && (p.podiverzum_rank ?? 1) >= 4 && (p.podiverzum_rank ?? 1) < 6 && (epCountMap[p.id] || 0) > 0);
-      const filtered = (high.length >= 6 ? high : [...high, ...mid]).slice(0, 20);
-      setPodcasts(filtered);
-      const ids = (ps || []).map((p) => p.id);
-      if (ids.length) {
+      const promotedPodcasts = (high.length >= 6 ? high : [...high, ...mid]).slice(0, 12);
+      setPodcasts(promotedPodcasts);
+
+      const promotedIds = promotedPodcasts.map((p: any) => p.id);
+      if (promotedIds.length) {
         const { data: eps } = await supabase
           .from("episodes")
-          .select("id,title,slug,published_at,topics,podcast_id,podcasts!inner(slug,title,image_url)")
-          .in("podcast_id", ids)
+          .select("id,title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,image_url,category,podiverzum_rank)")
+          .in("podcast_id", promotedIds)
+          .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(15);
-        setEpisodes(eps || []);
+          .limit(40);
+        const sorted = (eps || []).slice().sort((a: any, b: any) => {
+          const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
+          if (br !== ar) return br - ar;
+          const at = a.published_at ? new Date(a.published_at).getTime() : 0;
+          const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
+          if (bt !== at) return bt - at;
+          return (b.podcasts?.podiverzum_rank ?? 0) - (a.podcasts?.podiverzum_rank ?? 0);
+        }).slice(0, 25);
+        setEpisodes(sorted as any);
         const t = new Map<string, number>();
-        (eps || []).forEach((e: any) => (e.topics || []).forEach((x: string) => t.set(x, (t.get(x) || 0) + 1)));
+        (sorted || []).forEach((e: any) => (e.topics || []).forEach((x: string) => t.set(x, (t.get(x) || 0) + 1)));
         setTopics([...t.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k]) => k));
       }
     })();
@@ -72,11 +79,8 @@ export default function CategoryDetail() {
         <h1 className="text-3xl font-semibold">{cat.name}</h1>
         {cat.description && <p className="text-muted-foreground mt-1">{cat.description}</p>}
 
-        <h2 className="text-xl font-semibold mt-10 mb-4">Top podcasts</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
-          {!podcasts.length && <div className="text-muted-foreground">No podcasts in this category yet.</div>}
-        </div>
+        <h2 className="text-xl font-semibold mt-10 mb-4">Latest episodes in {cat.name}</h2>
+        <EpisodeList items={episodes} showTopics empty="No episodes in this category yet." />
 
         {topics.length > 0 && (
           <>
@@ -91,21 +95,12 @@ export default function CategoryDetail() {
           </>
         )}
 
-        {episodes.length > 0 && (
+        {podcasts.length > 0 && (
           <>
-            <h2 className="text-xl font-semibold mt-10 mb-4">Latest episodes</h2>
-            <ul className="divide-y divide-border border border-border rounded-lg bg-card">
-              {episodes.map((e: any) => (
-                <li key={e.id} className="p-4 hover:bg-secondary/50">
-                  <Link to={`/podcast/${e.podcasts.slug}/${e.slug}`} className="block">
-                    <div className="font-medium line-clamp-1">{e.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {e.podcasts.title}{e.published_at && ` · ${new Date(e.published_at).toLocaleDateString()}`}
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <h2 className="text-xl font-semibold mt-10 mb-4">Top podcasts in {cat.name}</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+            </div>
           </>
         )}
       </div>

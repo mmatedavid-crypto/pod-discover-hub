@@ -3,13 +3,13 @@ import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
+import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 
 function parseTerms(q: string) {
   return q.split(/[+,&]| and /i).map((s) => s.trim()).filter(Boolean);
 }
-
 function uniq<T>(a: T[]) { return Array.from(new Set(a)); }
 
 async function expandTerm(term: string): Promise<string[]> {
@@ -36,7 +36,7 @@ function scorePodcast(p: any, termGroups: string[][]): number {
   const summary = (p.summary || "").toLowerCase();
   const desc = (p.description || "").toLowerCase();
   const cat = (p.category || "").toLowerCase();
-  termGroups.forEach((variants, i) => {
+  termGroups.forEach((variants) => {
     const orig = variants[0].toLowerCase();
     if (title === orig) s += 50;
     if (title.includes(orig)) s += 25;
@@ -57,24 +57,28 @@ function scoreEpisode(e: any, termGroups: string[][]): number {
     ...(e.topics || []), ...(e.people || []), ...(e.companies || []),
     ...(e.tickers || []), ...(e.ingredients || []),
   ].map((x: string) => x.toLowerCase());
+  let allTermsHit = true;
   termGroups.forEach((variants) => {
     const lc = variants.map((v) => v.toLowerCase());
     const orig = lc[0];
-    if (title === orig) s += 60;
-    if (title.includes(orig)) s += 30;
-    if (lc.some((v) => title.includes(v))) s += 15;
-    if (lc.some((v) => arrays.includes(v))) s += 18;
-    if (lc.some((v) => arrays.some((a) => a.includes(v)))) s += 8;
-    if (lc.some((v) => summary.includes(v))) s += 7;
-    if (lc.some((v) => desc.includes(v))) s += 3;
+    let hit = false;
+    if (title === orig) { s += 200; hit = true; }
+    if (title.includes(orig)) { s += 120; hit = true; }
+    if (lc.some((v) => title.includes(v))) { s += 80; hit = true; }
+    if (lc.some((v) => summary.includes(v) || desc.includes(v))) { s += 60; hit = true; }
+    if (lc.some((v) => arrays.includes(v))) { s += 50; hit = true; }
+    if (lc.some((v) => arrays.some((a) => a.includes(v)))) { s += 25; hit = true; }
+    if (!hit) allTermsHit = false;
   });
-  // Recency boost
+  if (allTermsHit) s += 40;
   if (e.published_at) {
     const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
-    s += Math.max(0, 30 - ageDays) * 0.5; // up to ~15
-    if (ageDays < 7) s += 10;
-    else if (ageDays < 30) s += 5;
+    s += Math.max(0, 30 - ageDays) * 0.5;
+    if (ageDays < 7) s += 8;
+    else if (ageDays < 30) s += 4;
   }
+  // Mild parent podcast rank tie-breaker (does not override relevance)
+  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.5;
   return s;
 }
 
@@ -83,16 +87,16 @@ export default function SearchPage() {
   const initial = params.get("q") || "";
   const [q, setQ] = useState(initial);
   const [podcasts, setPodcasts] = useState<PodcastLite[]>([]);
-  const [episodes, setEpisodes] = useState<any[]>([]);
+  const [episodes, setEpisodes] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
   useEffect(() => {
     setSeo({
-      title: initial ? `${initial} — Podiverzum search` : "Search podcasts — Podiverzum",
+      title: initial ? `${initial} — Podiverzum episode search` : "Search podcast episodes — Podiverzum",
       description: initial
-        ? `Podcast episodes matching "${initial}". Search by topic, person, company or ticker.`
+        ? `Podcast episodes matching "${initial}". Search by topic, person, company, ticker or ingredient.`
         : "Search podcast episodes by topic, person, company, ticker or ingredient.",
     });
     if (!initial) { setPodcasts([]); setEpisodes([]); return; }
@@ -102,35 +106,11 @@ export default function SearchPage() {
     (async () => {
       const termGroups = await Promise.all(terms.map(expandTerm));
 
-      // Podcasts: AND across term groups; within group, OR over fields & synonyms
-      let pq = supabase
-        .from("podcasts")
-        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status")
-        .limit(60);
-      termGroups.forEach((variants) => {
-        const ors = uniq(variants).flatMap((t) => {
-          const v = `%${escapeIlike(t)}%`;
-          return [`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`];
-        }).join(",");
-        pq = pq.or(ors);
-      });
-      const { data: ps } = await pq;
-      const visiblePs = (ps || []).filter((p: any) =>
-        p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive")
-      );
-      const rankedPs = visiblePs
-        .map((p) => ({ p, s: scorePodcast(p, termGroups) }))
-        .filter((x) => x.s > 0)
-        .sort((a, b) => b.s - a.s)
-        .slice(0, 24)
-        .map((x) => x.p);
-      setPodcasts(rankedPs);
-
-      // Episodes: AND across term groups
+      // Episodes: search ALL indexed episodes (low-rank still allowed)
       let eq = supabase
         .from("episodes")
-        .select("id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,image_url)")
-        .limit(200);
+        .select("id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,episode_rank,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status)")
+        .limit(300);
       termGroups.forEach((variants) => {
         const ors: string[] = [];
         uniq(variants).forEach((t) => {
@@ -145,9 +125,34 @@ export default function SearchPage() {
         .map((e: any) => ({ e, s: scoreEpisode(e, termGroups) }))
         .filter((x) => x.s > 0)
         .sort((a, b) => b.s - a.s)
-        .slice(0, 60)
+        .slice(0, 80)
         .map((x) => x.e);
-      setEpisodes(rankedEs);
+      setEpisodes(rankedEs as any);
+
+      // Podcasts: secondary
+      let pq = supabase
+        .from("podcasts")
+        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
+        .limit(60);
+      termGroups.forEach((variants) => {
+        const ors = uniq(variants).flatMap((t) => {
+          const v = `%${escapeIlike(t)}%`;
+          return [`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`];
+        }).join(",");
+        pq = pq.or(ors);
+      });
+      const { data: ps } = await pq;
+      const visiblePs = (ps || []).filter((p: any) =>
+        p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive")
+      );
+      const rankedPs = visiblePs
+        .map((p) => ({ p, s: scorePodcast(p, termGroups) + ((p.podiverzum_rank ?? 0) * 0.5) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 18)
+        .map((x) => x.p);
+      setPodcasts(rankedPs);
+
       setLoading(false);
     })();
   }, [initial]);
@@ -155,7 +160,7 @@ export default function SearchPage() {
   return (
     <Layout>
       <div className="container mx-auto py-10">
-        <h1 className="text-3xl font-semibold mb-2">Search</h1>
+        <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>
         <p className="text-muted-foreground mb-6 text-sm">
           Combine terms with <code className="px-1 bg-secondary rounded">+</code> — e.g. <em>cooking + asparagus</em>, <em>AI + healthcare</em>, <em>stocks + Occidental</em>.
         </p>
@@ -182,33 +187,19 @@ export default function SearchPage() {
         )}
 
         {initial && (podcasts.length > 0 || episodes.length > 0) && (
-          <div className="mt-10 grid lg:grid-cols-3 gap-8">
-            <section className="lg:col-span-1">
-              <h2 className="font-semibold mb-3">Podcasts ({podcasts.length})</h2>
-              <div className="grid gap-3">
-                {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
-                {!loading && !podcasts.length && <div className="text-sm text-muted-foreground">No podcasts.</div>}
-              </div>
+          <div className="mt-10 space-y-10">
+            <section>
+              <h2 className="font-semibold mb-3">Matching episodes ({episodes.length})</h2>
+              <EpisodeList items={episodes} empty="No episodes." />
             </section>
-            <section className="lg:col-span-2">
-              <h2 className="font-semibold mb-3">Episodes ({episodes.length})</h2>
-              <ul className="divide-y divide-border border border-border rounded-lg bg-card">
-                {episodes.map((e: any) => (
-                  <li key={e.id} className="p-4 hover:bg-secondary/50">
-                    <Link to={`/podcast/${e.podcasts.slug}/${e.slug}`} className="block">
-                      <div className="font-medium">{e.title}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {e.podcasts.title}{e.published_at && ` · ${new Date(e.published_at).toLocaleDateString()}`}
-                      </div>
-                      {(e.summary || e.description) && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{e.summary || e.description}</p>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-                {!loading && !episodes.length && <li className="p-4 text-sm text-muted-foreground">No episodes.</li>}
-              </ul>
-            </section>
+            {podcasts.length > 0 && (
+              <section>
+                <h2 className="font-semibold mb-3">Matching podcasts ({podcasts.length})</h2>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>

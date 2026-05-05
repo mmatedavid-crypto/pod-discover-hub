@@ -36,10 +36,10 @@ export default function PodcastDetail() {
         });
         const { data: e } = await supabase
           .from("episodes")
-          .select("id,title,slug,published_at,summary,description")
+          .select("id,title,slug,published_at,summary,description,audio_url,episode_rank")
           .eq("podcast_id", data.id)
           .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(40);
+          .limit(60);
         setEps(e || []);
       }
     })();
@@ -74,7 +74,7 @@ export default function PodcastDetail() {
           </div>
         </div>
 
-        <h2 className="text-xl font-semibold mt-10 mb-4">Latest episodes</h2>
+        <h2 className="text-xl font-semibold mt-10 mb-4">Episodes</h2>
         {eps.length === 0 ? (
           <div className="text-muted-foreground">No episodes yet.</div>
         ) : (
@@ -83,13 +83,19 @@ export default function PodcastDetail() {
               <li key={e.id} className="p-4 hover:bg-secondary/50">
                 <Link to={`/podcast/${p.slug}/${e.slug}`} className="block">
                   <div className="font-medium">{e.title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {e.published_at && new Date(e.published_at).toLocaleDateString()}
+                  <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-2 items-center">
+                    {e.published_at && <span>{new Date(e.published_at).toLocaleDateString()}</span>}
+                    {typeof e.episode_rank === "number" && e.episode_rank > 0 && (
+                      <span className="px-1.5 py-0.5 rounded bg-secondary text-[10px]">Ep rank {e.episode_rank}</span>
+                    )}
                   </div>
                   {(e.summary || e.description) && (
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{e.summary || e.description}</p>
                   )}
                 </Link>
+                {e.audio_url && (
+                  <a href={e.audio_url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground inline-block mt-2">↗ Listen</a>
+                )}
               </li>
             ))}
           </ul>

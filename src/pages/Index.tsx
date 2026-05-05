@@ -3,25 +3,23 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
-import { PodcastCover } from "@/components/PodcastCover";
-import { Search, ArrowRight, Apple, Music, Youtube, Globe } from "lucide-react";
+import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
+import { Search, ArrowRight } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
-type Podcast = PodcastLite & { featured?: boolean; featured_rank?: number | null; podiverzum_rank?: number };
-
 const Index = () => {
   const [q, setQ] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
-  const [allPodcasts, setAllPodcasts] = useState<Podcast[]>([]);
-  const [recentEpCounts, setRecentEpCounts] = useState<Record<string, { count: number; latest: number }>>({});
+  const [podcasts, setPodcasts] = useState<(PodcastLite & { podiverzum_rank?: number; featured?: boolean })[]>([]);
+  const [trendingEps, setTrendingEps] = useState<EpisodeLite[]>([]);
   const nav = useNavigate();
 
   useEffect(() => {
     setSeo({
-      title: "Podiverzum — Podcast discovery & search",
-      description: "Search the world of podcasts. Find episodes by topic, person, company, ticker, ingredient or idea.",
+      title: "Podiverzum — Podcast episode discovery & search",
+      description: "Search podcast episodes by topic, person, company, ticker, ingredient or idea.",
       jsonLd: {
         "@context": "https://schema.org",
         "@type": "WebSite",
@@ -37,62 +35,52 @@ const Index = () => {
     (async () => {
       const { data: c } = await supabase.from("categories").select("*").order("sort_order");
       setCats(c || []);
+
+      // Eligible podcasts: rank>=6 or featured, not broken
       const { data: ps } = await supabase
         .from("podcasts")
         .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
-        .order("featured_rank", { ascending: true, nullsFirst: false })
         .limit(500);
-      setAllPodcasts(((ps || []) as Podcast[]).filter((p: any) =>
+      const eligible = (ps || []).filter((p: any) =>
         p.featured || ((p.podiverzum_rank ?? 1) >= 6 && p.rss_status !== "failed" && p.rss_status !== "inactive")
-      ));
+      );
+      setPodcasts(eligible);
 
-      const { data: eps } = await supabase
-        .from("episodes")
-        .select("podcast_id,published_at")
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .limit(1000);
-      const map: Record<string, { count: number; latest: number }> = {};
-      (eps || []).forEach((e: any) => {
-        const t = e.published_at ? new Date(e.published_at).getTime() : 0;
-        const cur = map[e.podcast_id] || { count: 0, latest: 0 };
-        cur.count++;
-        if (t > cur.latest) cur.latest = t;
-        map[e.podcast_id] = cur;
-      });
-      setRecentEpCounts(map);
+      const eligibleIds = eligible.map((p: any) => p.id);
+      if (eligibleIds.length) {
+        const { data: eps } = await supabase
+          .from("episodes")
+          .select("id,title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status,featured)")
+          .in("podcast_id", eligibleIds)
+          .order("episode_rank", { ascending: false })
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(40);
+        // Final sort: ep_rank desc, published desc, podcast rank desc
+        const sorted = (eps || []).slice().sort((a: any, b: any) => {
+          const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
+          if (br !== ar) return br - ar;
+          const at = a.published_at ? new Date(a.published_at).getTime() : 0;
+          const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
+          if (bt !== at) return bt - at;
+          return (b.podcasts?.podiverzum_rank ?? 0) - (a.podcasts?.podiverzum_rank ?? 0);
+        }).slice(0, 12);
+        setTrendingEps(sorted as any);
+      }
     })();
   }, []);
 
-  const visiblePodcasts = useMemo(
-    () => allPodcasts.filter((p: any) => p.featured || ((p.podiverzum_rank ?? 1) >= 6 && (recentEpCounts[p.id]?.count || 0) > 0)),
-    [allPodcasts, recentEpCounts],
-  );
-
-  const trending = useMemo(() => {
-    const now = Date.now();
-    const scored = visiblePodcasts.map((p) => {
-      const stats = recentEpCounts[p.id] || { count: 0, latest: 0 };
-      const featured = p.featured ? 50 : 0;
-      const rankBoost = p.featured && p.featured_rank ? Math.max(0, 10 - p.featured_rank) : 0;
-      const epCount = Math.min(stats.count, 30);
-      const ageDays = stats.latest ? (now - stats.latest) / 86400000 : 999;
-      const recency = stats.latest ? Math.max(0, 30 - ageDays) : 0;
-      return { p, score: featured + rankBoost + epCount + recency };
-    });
-    scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, 10).map((s) => s.p);
-  }, [visiblePodcasts, recentEpCounts]);
+  const topPodcasts = useMemo(() => podcasts.slice(0, 12), [podcasts]);
 
   const byCat = useMemo(() => {
-    const grouped: Record<string, Podcast[]> = {};
-    visiblePodcasts.forEach((p) => {
+    const grouped: Record<string, typeof podcasts> = {};
+    podcasts.forEach((p) => {
       if (!p.category) return;
       (grouped[p.category] ||= []).push(p);
     });
     return grouped;
-  }, [visiblePodcasts]);
+  }, [podcasts]);
 
   return (
     <Layout>
@@ -124,47 +112,39 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto py-10 space-y-12">
-        {trending.length > 0 && (
+        {trendingEps.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">
-              <h2 className="text-xl font-semibold">Trending now</h2>
-              <span className="text-xs text-muted-foreground">Across all categories</span>
+              <h2 className="text-xl font-semibold">Trending episodes</h2>
+              <span className="text-xs text-muted-foreground">Ranked by relevance &amp; freshness</span>
             </div>
-            <ol className="divide-y divide-border border border-border rounded-lg bg-card">
-              {trending.map((p, i) => (
-                <li key={p.id} className="p-3 flex gap-3 items-start">
-                  <div className="w-8 shrink-0 text-2xl font-semibold text-muted-foreground tabular-nums text-right">
-                    {i + 1}
-                  </div>
-                  <Link to={`/podcast/${p.slug}`} className="shrink-0 w-16">
-                    <PodcastCover title={p.title} src={p.image_url} size="sm" />
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <Link to={`/podcast/${p.slug}`} className="font-medium hover:underline line-clamp-1">{p.title}</Link>
-                    {p.category && <div className="text-xs text-muted-foreground">{p.category}</div>}
-                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{p.summary || p.description}</p>
-                    <div className="flex gap-2 mt-1.5 text-muted-foreground">
-                      {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" aria-label="Apple"><Apple className="h-4 w-4 hover:text-foreground" /></a>}
-                      {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" aria-label="Spotify"><Music className="h-4 w-4 hover:text-foreground" /></a>}
-                      {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" aria-label="YouTube"><Youtube className="h-4 w-4 hover:text-foreground" /></a>}
-                      {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" aria-label="Website"><Globe className="h-4 w-4 hover:text-foreground" /></a>}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <EpisodeList items={trendingEps} />
+          </section>
+        )}
+
+        {topPodcasts.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between mb-4">
+              <h2 className="text-xl font-semibold">High-rank podcasts</h2>
+              <Link to="/categories" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                Browse all <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {topPodcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+            </div>
           </section>
         )}
 
         {cats.filter((c) => c.slug !== "trending").map((c) => {
-          const items = byCat[c.name]?.slice(0, 10) || [];
+          const items = byCat[c.name]?.slice(0, 6) || [];
           if (!items.length) return null;
           return (
             <section key={c.id}>
               <div className="flex items-end justify-between mb-4">
                 <h2 className="text-xl font-semibold">{c.name}</h2>
                 <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                  See all <ArrowRight className="h-3.5 w-3.5" />
+                  See episodes <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -173,9 +153,9 @@ const Index = () => {
             </section>
           );
         })}
-        {!Object.keys(byCat).length && (
+        {!trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">
-            No podcasts yet. <Link to="/admin" className="underline">Add some in admin</Link>.
+            No episodes yet. <Link to="/admin" className="underline">Add some in admin</Link>.
           </div>
         )}
       </div>
