@@ -6,6 +6,7 @@ import { Apple, Music, Youtube, Globe } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
+import { stripHtml, snippet } from "@/lib/text";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
