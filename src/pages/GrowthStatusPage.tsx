@@ -98,13 +98,19 @@ export default function GrowthStatusPage() {
         queue: queueRes.count || 0,
       });
 
-      const { data: srcRows } = await supabase.from("podcasts").select("source");
+      const { data: srcRows } = await supabase.from("podcasts").select("source, podiverzum_rank");
       const tally: Record<string, number> = {};
+      const t = { promoted: 0, indexed: 0, lowSkipped: 0 };
       (srcRows || []).forEach((r: any) => {
         const k = r.source || "manual";
         tally[k] = (tally[k] || 0) + 1;
+        const rk = r.podiverzum_rank || 0;
+        if (rk >= 6) t.promoted++;
+        else if (rk >= 4) t.indexed++;
+        else t.lowSkipped++;
       });
       setSources(tally);
+      setTiers(t);
 
       const [fRow, unprocRes, eligibleRes] = await Promise.all([
         supabase.from("app_settings").select("value").eq("key", "foundation_import").maybeSingle(),
