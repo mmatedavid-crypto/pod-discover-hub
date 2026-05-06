@@ -121,15 +121,30 @@ export default function AdminGrowthPage() {
     setHydrating(true);
     setHydrationLimit(limit);
     try {
-      const { data, error } = await supabase.functions.invoke("deep-hydrate-runner", { body: { limit } });
+      const { data, error } = await supabase.functions.invoke("deep-hydrate-admin", { body: { action: "run_now", limit } });
       if (error) throw error;
-      setLastHydrateResult(data);
-      toast.success(`Hydrated ${data?.processed || 0} podcasts (+${data?.new_episodes || 0} eps, ${data?.failed || 0} failed)`);
+      setLastHydrateResult(data?.ran || data);
+      const ran = data?.ran || {};
+      toast.success(`Hydrated ${ran?.processed || 0} podcasts (+${ran?.new_episodes || 0} eps, ${ran?.failed || 0} failed)`);
       await loadAll();
     } catch (e: any) {
       toast.error(e.message || "deep hydrate failed");
     } finally {
       setHydrating(false);
+    }
+  };
+
+  const toggleAutoHydration = async (enable: boolean) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("deep-hydrate-admin", {
+        body: { action: enable ? "enable" : "disable" },
+      });
+      if (error) throw error;
+      toast.success(`Automatic deep hydration ${enable ? "enabled" : "disabled"}`);
+      setHydration({ ...(hydration || {}), ...(data?.setting || {}) });
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "toggle failed");
     }
   };
 
@@ -353,8 +368,20 @@ export default function AdminGrowthPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className={`text-xs px-2 py-1 rounded border ${hydration?.enabled ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                Auto: {hydration?.enabled ? "ENABLED" : "DISABLED"}
+              </span>
+              <Button size="sm" variant={hydration?.enabled ? "outline" : "default"} onClick={() => toggleAutoHydration(true)} disabled={!!hydration?.enabled}>
+                Enable automatic deep hydration
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => toggleAutoHydration(false)} disabled={!hydration?.enabled}>
+                Disable automatic deep hydration
+              </Button>
+              <span className="text-xs text-muted-foreground">Batch: {hydration?.batch_size ?? 5} · Schedule: {hydration?.schedule_mode ?? "nightly"} (00–05 UTC hourly)</span>
+            </div>
             <p className="text-muted-foreground">
-              Re-fetches RSS for accepted podcasts (Rank ≥ 4) with higher episode caps. Targets: Rank 9–10 → 150, Rank 8 → 100, Rank 6–7 → 75, Rank 4–5 → 40. Manual only. Service-role backend; progress saved per podcast. Dedupes by GUID, episode URL, and title+published date.
+              Re-fetches RSS for accepted podcasts (Rank ≥ 4) with higher caps. Targets: Rank 9–10 → 150, Rank 8 → 100, Rank 6–7 → 75, Rank 4–5 → 40. Once completed, daily refresh switches to a small fresh-only cap (15 items). If targets are raised later, completed podcasts can be reset/re-queued.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <Stat label="Eligible" value={hydrationCounts.eligible} />
@@ -370,8 +397,18 @@ export default function AdminGrowthPage() {
               <Stat label="Total +episodes" value={hydration?.totals?.new_episodes ?? 0} />
             </div>
             {hydration?.last_run?.finished_at && (
-              <div className="text-xs text-muted-foreground">Last hydration: {new Date(hydration.last_run.finished_at).toLocaleString()} · remaining eligible: {hydration.last_run.remaining_eligible ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Last hydration: {new Date(hydration.last_run.finished_at).toLocaleString()} · trigger: {hydration.last_run.trigger || "—"} · remaining eligible: {hydration.last_run.remaining_eligible ?? 0}</div>
             )}
+            <pre className="text-xs bg-muted p-3 rounded overflow-auto">{`-- Hourly nightly auto deep hydration (00–05 UTC)
+select cron.schedule(
+  'podiverzum-deep-hydration-nightly',
+  '0 0-5 * * *',
+  $$ select net.http_post(
+    url:='${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deep-hydrate-admin',
+    headers:='{"Content-Type":"application/json","apikey":"${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}"}'::jsonb,
+    body:='{"action":"scheduled_run"}'::jsonb
+  ); $$
+);`}</pre>
             {lastHydrateResult?.per_podcast_results?.length > 0 && (
               <div className="overflow-auto">
                 <table className="w-full text-xs">

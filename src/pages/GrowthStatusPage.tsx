@@ -275,8 +275,14 @@ export default function GrowthStatusPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">Deep Hydration</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={hydration?.enabled ? "default" : "outline"}>
+                Auto: {hydration?.enabled ? "ON" : "OFF"}
+              </Badge>
+              <span className="text-muted-foreground text-xs">nightly hourly 00–05 UTC, batch {hydration?.batch_size ?? 5}</span>
+            </div>
             <p className="text-muted-foreground">
-              Expanding episode coverage of accepted podcasts. Targets: Rank 9–10 → 150, Rank 8 → 100, Rank 6–7 → 75, Rank 4–5 → 40 episodes. Manual only.
+              Backfills accepted podcasts. Targets: Rank 9–10 → 150, Rank 8 → 100, Rank 6–7 → 75, Rank 4–5 → 40. After completion, daily refresh keeps only fresh items.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Stat title="Eligible (remaining)" value={hydrationCounts.eligible} />
@@ -285,7 +291,7 @@ export default function GrowthStatusPage() {
               <Stat title="Episodes added (total)" value={hydration?.totals?.new_episodes ?? 0} />
             </div>
             <div className="text-xs text-muted-foreground">
-              Last hydration run: {fmtDate(hydration?.last_run?.finished_at)} · processed: {hydration?.last_run?.processed ?? 0} · +{hydration?.last_run?.new_episodes ?? 0} episodes
+              Last hydration run: {fmtDate(hydration?.last_run?.finished_at)} · processed: {hydration?.last_run?.processed ?? 0} · +{hydration?.last_run?.new_episodes ?? 0} episodes · trigger: {hydration?.last_run?.trigger || "—"}
             </div>
           </CardContent>
         </Card>

@@ -39,7 +39,9 @@ Deno.serve(async (req) => {
     for (const p of batch) {
       if (Date.now() - start > TIME_BUDGET_MS) break;
       try {
-        const r = await fetchOne(supabase, p);
+        // Fresh-refresh cap: completed deep hydration → small cap (15) for freshness only
+        const cap = p.deep_hydration_status === "completed" ? 15 : 30;
+        const r = await fetchOne(supabase, p, { episodeCap: cap });
         processed++;
         if (r.ok) { success++; totalNew += r.new || 0; totalDup += r.duplicates || 0; }
         else { failed++; failures.push({ id: p.id, title: p.title, error: r.error || "unknown" }); }
