@@ -17,20 +17,26 @@ const EXAMPLES = [
   "Nvidia data centers",
 ];
 
+// High-confidence synonyms only — keep ≤2 per term to avoid query blowup.
 const BUILTIN_SYNONYMS: Record<string, string[]> = {
-  food: ["cooking", "cuisine", "restaurant", "restaurants", "dining"],
-  italy: ["italian", "rome", "tuscany", "naples", "sicily"],
+  food: ["cooking", "cuisine"],
+  italy: ["italian", "rome"],
   ai: ["artificial intelligence", "machine learning"],
-  healthcare: ["health care", "medicine", "medical"],
+  healthcare: ["health", "medical"],
   "real estate": ["property", "housing"],
   investing: ["investment", "stocks"],
   "weight loss": ["obesity", "glp-1"],
   sleep: ["insomnia", "recovery"],
+  testosterone: ["hormones"],
+  nvidia: ["nvda"],
+  dubai: ["uae"],
 };
+
+const EPISODE_SELECT =
+  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,episode_rank,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status)";
 
 function uniq<T>(a: T[]) { return Array.from(new Set(a)); }
 
-// strict=true when user typed an explicit "+" (strong AND intent).
 function parseQuery(q: string): { terms: string[]; strict: boolean } {
   const strict = /\+/.test(q);
   const terms = q
@@ -40,22 +46,18 @@ function parseQuery(q: string): { terms: string[]; strict: boolean } {
   return { terms: uniq(terms), strict };
 }
 
-async function expandTerm(term: string): Promise<string[]> {
+// Limited expansion: original + up to 2 high-confidence synonyms.
+function expandTermLimited(term: string): string[] {
   const t = term.toLowerCase();
-  const out = new Set<string>([term]);
-  if (BUILTIN_SYNONYMS[t]) BUILTIN_SYNONYMS[t].forEach((s) => out.add(s));
-  for (const [k, vs] of Object.entries(BUILTIN_SYNONYMS)) {
-    if (vs.includes(t)) { out.add(k); vs.forEach((v) => out.add(v)); }
+  const out: string[] = [term];
+  if (BUILTIN_SYNONYMS[t]) {
+    BUILTIN_SYNONYMS[t].slice(0, 2).forEach((s) => out.push(s));
+  } else {
+    for (const [k, vs] of Object.entries(BUILTIN_SYNONYMS)) {
+      if (vs.includes(t)) { out.push(k); break; }
+    }
   }
-  const { data } = await supabase
-    .from("search_synonyms")
-    .select("term,synonyms")
-    .or(`term.eq.${t},synonyms.cs.{${t}}`);
-  (data || []).forEach((row: any) => {
-    out.add(row.term);
-    (row.synonyms || []).forEach((s: string) => out.add(s));
-  });
-  return Array.from(out);
+  return uniq(out).slice(0, 3);
 }
 
 function escapeIlike(s: string) {
@@ -80,56 +82,87 @@ function scorePodcast(p: any, termGroups: string[][]): number {
   return s;
 }
 
-function scoreEpisode(e: any, termGroups: string[][]): number {
-  let s = 0;
+function episodeFields(e: any) {
   const title = (e.title || "").toLowerCase();
   const summary = (e.summary || "").toLowerCase();
   const desc = (e.description || "").toLowerCase();
   const arrays = [
     ...(e.topics || []), ...(e.people || []), ...(e.companies || []),
     ...(e.tickers || []), ...(e.ingredients || []),
-  ].map((x: string) => x.toLowerCase());
-  let allTermsHit = true;
+  ].map((x: string) => String(x).toLowerCase());
+  return { title, summary, desc, arrays };
+}
+
+function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: boolean; entityHit: boolean; bodyHit: boolean } {
+  const { title, summary, desc, arrays } = episodeFields(e);
+  const lc = variants.map((v) => v.toLowerCase());
+  const titleHit = lc.some((v) => title.includes(v));
+  const entityHit = lc.some((v) => arrays.includes(v) || arrays.some((a) => a.includes(v)));
+  const bodyHit = lc.some((v) => summary.includes(v) || desc.includes(v));
+  return { hit: titleHit || entityHit || bodyHit, titleHit, entityHit, bodyHit };
+}
+
+function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: boolean; hitCount: number } {
+  let s = 0;
+  let hitCount = 0;
+  let allHit = true;
   termGroups.forEach((variants) => {
-    const lc = variants.map((v) => v.toLowerCase());
-    const orig = lc[0];
-    let hit = false;
-    if (title === orig) { s += 250; hit = true; }
-    if (title.includes(orig)) { s += 150; hit = true; }
-    if (lc.some((v) => title.includes(v))) { s += 90; hit = true; }
-    if (lc.some((v) => summary.includes(v) || desc.includes(v))) { s += 70; hit = true; }
-    if (lc.some((v) => arrays.includes(v))) { s += 60; hit = true; }
-    if (lc.some((v) => arrays.some((a) => a.includes(v)))) { s += 30; hit = true; }
-    if (!hit) allTermsHit = false;
+    const h = termGroupHits(e, variants);
+    if (h.hit) hitCount++;
+    else allHit = false;
+    if (h.titleHit) s += 150;
+    if (h.entityHit) s += 70;
+    if (h.bodyHit) s += 60;
+    const orig = variants[0].toLowerCase();
+    const titleLc = (e.title || "").toLowerCase();
+    if (titleLc === orig) s += 250;
+    else if (titleLc.includes(orig)) s += 90;
   });
-  if (allTermsHit) s += 80;
+  if (allHit && termGroups.length > 1) s += 120;
+  s += hitCount * 25;
   if (e.published_at) {
     const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
     s += Math.max(0, 30 - ageDays) * 0.6;
     if (ageDays < 7) s += 10;
-    else if (ageDays < 30) s += 5;
   }
   s += ((e.episode_rank ?? 0)) * 1.2;
-  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.6;
-  return s;
+  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.4; // tie-breaker only
+  return { score: s, allHit, hitCount };
 }
 
-// Returns true when every term group has at least one hit somewhere in the episode.
-function scoreEpisodeAllHit(e: any, termGroups: string[][]): boolean {
-  const title = (e.title || "").toLowerCase();
-  const summary = (e.summary || "").toLowerCase();
-  const desc = (e.description || "").toLowerCase();
-  const arrays = [
-    ...(e.topics || []), ...(e.people || []), ...(e.companies || []),
-    ...(e.tickers || []), ...(e.ingredients || []),
-  ].map((x: string) => x.toLowerCase());
-  return termGroups.every((variants) => {
-    const lc = variants.map((v) => v.toLowerCase());
-    return lc.some((v) =>
-      title.includes(v) || summary.includes(v) || desc.includes(v) ||
-      arrays.some((a) => a.includes(v))
-    );
+// Build a compact OR filter for one term group (expanded variants).
+function orFilterForVariants(variants: string[]): string {
+  const ors: string[] = [];
+  variants.forEach((t) => {
+    const v = `%${escapeIlike(t)}%`;
+    ors.push(`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`);
+    ors.push(`topics.cs.{${t}}`, `people.cs.{${t}}`, `companies.cs.{${t}}`, `tickers.cs.{${t}}`, `ingredients.cs.{${t}}`);
   });
+  return ors.join(",");
+}
+
+async function queryEpisodesByGroups(termGroups: string[][]): Promise<any[]> {
+  let eq = supabase.from("episodes").select(EPISODE_SELECT).limit(300);
+  termGroups.forEach((variants) => { eq = eq.or(orFilterForVariants(variants)); });
+  const { data } = await eq;
+  return data || [];
+}
+
+// Per-term fallback: query each original term separately, merge & dedupe.
+async function queryEpisodesPerTerm(terms: string[]): Promise<any[]> {
+  const results = await Promise.all(
+    terms.map(async (t) => {
+      const { data } = await supabase
+        .from("episodes")
+        .select(EPISODE_SELECT)
+        .or(orFilterForVariants([t]))
+        .limit(150);
+      return data || [];
+    })
+  );
+  const map = new Map<string, any>();
+  results.flat().forEach((e: any) => { if (!map.has(e.id)) map.set(e.id, e); });
+  return Array.from(map.values());
 }
 
 export default function SearchPage() {
@@ -160,59 +193,62 @@ export default function SearchPage() {
     if (!terms.length) return;
     setLoading(true);
     (async () => {
-      const termGroups = await Promise.all(terms.map(expandTerm));
+      const termGroups = terms.map(expandTermLimited);
 
-      let eq = supabase
-        .from("episodes")
-        .select("id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,episode_rank,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status)")
-        .limit(300);
-      termGroups.forEach((variants) => {
-        const ors: string[] = [];
-        uniq<string>(variants).forEach((t) => {
-          const v = `%${escapeIlike(t)}%`;
-          ors.push(`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`);
-          ors.push(`topics.cs.{${t}}`, `people.cs.{${t}}`, `companies.cs.{${t}}`, `tickers.cs.{${t}}`, `ingredients.cs.{${t}}`);
-        });
-        eq = eq.or(ors.join(","));
-      });
-      const { data: es } = await eq;
-      const allScored = (es || [])
-        .map((e: any) => ({ e, s: scoreEpisode(e, termGroups), all: scoreEpisodeAllHit(e, termGroups) }))
-        .filter((x) => x.s > 0);
-
-      // Strict (explicit "+") OR multi-term: prefer episodes hitting all terms.
-      let scored = allScored;
+      // 1) Primary compact query (limited synonyms).
+      let raw = await queryEpisodesByGroups(termGroups);
       let usedFallback = false;
+
+      // 2) Zero-result fallback: per-term original-only queries, merged in JS.
+      if (raw.length === 0) {
+        raw = await queryEpisodesPerTerm(terms);
+        if (raw.length > 0) usedFallback = true;
+      }
+
+      const scored = raw
+        .map((e: any) => ({ e, ...scoreEpisode(e, termGroups) }))
+        .filter((x) => x.hitCount > 0);
+
+      let chosen = scored;
       if (termGroups.length > 1) {
-        const allHit = allScored.filter((x) => x.all);
+        const allHit = scored.filter((x) => x.allHit);
         if (strict) {
-          scored = allHit;
+          if (allHit.length > 0) {
+            chosen = allHit;
+          } else {
+            // strict but expanded query returned no all-term hits — broaden.
+            chosen = scored;
+            if (scored.length > 0) usedFallback = true;
+          }
         } else if (allHit.length > 0) {
-          scored = allHit;
+          chosen = allHit;
         } else {
-          scored = allScored;
-          usedFallback = true;
+          chosen = scored;
+          if (scored.length > 0) usedFallback = true;
         }
       }
+
       setBroadened(usedFallback);
 
-      if (catParam) scored = scored.filter((x) => (x.e.podcasts?.category || "") === catParam);
+      let filtered = chosen;
+      if (catParam) filtered = filtered.filter((x) => (x.e.podcasts?.category || "") === catParam);
       const sortFn =
         sortParam === "newest"
           ? (a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()
           : sortParam === "rank"
           ? (a: any, b: any) => (b.e.episode_rank || 0) - (a.e.episode_rank || 0)
-          : (a: any, b: any) => b.s - a.s;
-      const rankedEs = scored.sort(sortFn).slice(0, 80).map((x) => x.e);
+          : (a: any, b: any) => b.score - a.score;
+      const rankedEs = filtered.sort(sortFn).slice(0, 80).map((x) => x.e);
       setEpisodes(rankedEs as any);
       setCategories(uniq<string>(rankedEs.map((e: any) => e.podcasts?.category).filter(Boolean) as string[]));
 
+      // Podcasts query — keep compact too.
       let pq = supabase
         .from("podcasts")
         .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .limit(60);
       termGroups.forEach((variants) => {
-        const ors = uniq<string>(variants).flatMap((t) => {
+        const ors = variants.flatMap((t) => {
           const v = `%${escapeIlike(t)}%`;
           return [`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`];
         }).join(",");
@@ -312,7 +348,7 @@ export default function SearchPage() {
 
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            No matching podcast episodes found yet. Try another keyword or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
+            No exact episode matches yet. Try a broader search or remove one term. You can also <Link to="/categories" className="underline text-foreground">browse categories</Link>.
           </div>
         )}
 
