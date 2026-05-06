@@ -216,7 +216,7 @@ export default function AdminQueuePage() {
             <div>
               <div className="text-sm font-medium">Auto-drain Rank ≥ 4 queue</div>
               <div className="text-xs text-muted-foreground">
-                Status: {drainer?.enabled ? "ENABLED" : "DISABLED"} · pending Rank ≥ 4: {pendingR4} · runs every 5 min via scheduled job
+                Status: {drainer?.enabled ? "ENABLED" : "DISABLED"} · pending Rank ≥ 4: {pendingR4} · runs every 10 min via scheduled job
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">

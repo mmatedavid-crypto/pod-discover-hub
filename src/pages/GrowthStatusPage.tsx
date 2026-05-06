@@ -247,7 +247,7 @@ export default function GrowthStatusPage() {
               <Badge variant={drainer?.enabled ? "default" : "outline"}>
                 {drainer?.enabled ? "ENABLED" : "DISABLED"}
               </Badge>
-              <span className="text-muted-foreground text-xs">runs every 5 min when enabled</span>
+              <span className="text-muted-foreground text-xs">runs every 10 min when enabled</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Stat title="Pending Rank ≥ 4" value={pendingR4} />
