@@ -33,3 +33,7 @@ verify_jwt = false
 [functions.pi-recent-ingest]
 verify_jwt = false
 
+[functions.foundation-runner]
+verify_jwt = false
+
+
