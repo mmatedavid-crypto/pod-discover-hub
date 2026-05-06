@@ -139,9 +139,9 @@ Deno.serve(async (req) => {
               episode_count: r.episode_count,
               last_episode_at: r.newest_item_at,
               candidate_rank: score,
-              rank_reason: { factors: reasons, source: "pi_dump" },
+              rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
               status: "pending",
-              source: "pi_dump",
+              source: importSourceMap[r.import_id] || "pi_dump",
               updated_at: new Date().toISOString(),
             }, { onConflict: "rss_url" });
             updates.decision = "queued";
