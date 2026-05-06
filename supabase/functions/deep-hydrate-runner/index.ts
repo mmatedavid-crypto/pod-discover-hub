@@ -55,8 +55,24 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.max(1, Math.min(20, Number(body.limit) || 5));
+    const trigger = (body.trigger as string) || "manual";
     const TIME_BUDGET_MS = 110_000;
+    const LOCK_MS = 10 * 60 * 1000;
     const startedAt = Date.now();
+
+    // Lock check (skip if forced)
+    const { data: priorRow } = await admin.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle();
+    const priorVal: any = (priorRow?.value as any) || {};
+    const lockUntil = priorVal.lock_until ? new Date(priorVal.lock_until).getTime() : 0;
+    if (!body.force && lockUntil > Date.now()) {
+      return json({ ok: true, skipped: true, reason: "already_running", lock_until: priorVal.lock_until });
+    }
+    // Acquire lock
+    await admin.from("app_settings").upsert({
+      key: "deep_hydration",
+      value: { ...priorVal, lock_started_at: new Date().toISOString(), lock_until: new Date(Date.now() + LOCK_MS).toISOString() },
+      updated_at: new Date().toISOString(),
+    });
 
     // Select eligible podcasts: rank >= 4, rss_status active or not_checked,
     // status in (not_started, failed), or null. Prioritize by rank desc, then never-hydrated first.
