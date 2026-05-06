@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo.png";
 const pMark = "/icon-512.png";
 
 export function BrandMark({
