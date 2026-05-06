@@ -46,6 +46,11 @@ export default function AdminGrowthPage() {
   const [foundationContinue, setFoundationContinue] = useState(false);
   const [foundation, setFoundation] = useState<any>(null);
   const [unprocessed, setUnprocessed] = useState(0);
+  const [hydrating, setHydrating] = useState(false);
+  const [hydrationLimit, setHydrationLimit] = useState(5);
+  const [hydration, setHydration] = useState<any>(null);
+  const [hydrationCounts, setHydrationCounts] = useState({ not_started: 0, in_progress: 0, completed: 0, failed: 0, eligible: 0 });
+  const [lastHydrateResult, setLastHydrateResult] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -93,6 +98,39 @@ export default function AdminGrowthPage() {
     setFoundation((fRow?.value as any) || null);
     const { count: rem } = await supabase.from("pi_feed_staging").select("id", { count: "exact", head: true }).eq("processed", false);
     setUnprocessed(rem || 0);
+
+    const { data: hRow } = await supabase.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle();
+    setHydration((hRow?.value as any) || null);
+    const [ns, ip, cp, fl, el] = await Promise.all([
+      supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").gte("podiverzum_rank", 4),
+      supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "in_progress"),
+      supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "completed"),
+      supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "failed"),
+      supabase.from("podcasts").select("id", { count: "exact", head: true }).gte("podiverzum_rank", 4).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
+    ]);
+    setHydrationCounts({
+      not_started: ns.count || 0,
+      in_progress: ip.count || 0,
+      completed: cp.count || 0,
+      failed: fl.count || 0,
+      eligible: el.count || 0,
+    });
+  };
+
+  const runDeepHydrate = async (limit: number) => {
+    setHydrating(true);
+    setHydrationLimit(limit);
+    try {
+      const { data, error } = await supabase.functions.invoke("deep-hydrate-runner", { body: { limit } });
+      if (error) throw error;
+      setLastHydrateResult(data);
+      toast.success(`Hydrated ${data?.processed || 0} podcasts (+${data?.new_episodes || 0} eps, ${data?.failed || 0} failed)`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "deep hydrate failed");
+    } finally {
+      setHydrating(false);
+    }
   };
 
   const runFoundationBatch = async (continueLoop = false) => {
