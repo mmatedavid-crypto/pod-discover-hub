@@ -100,6 +100,32 @@ export default function AdminGrowthPage() {
     }
   };
 
+  const runRecentIngest = async () => {
+    setRecentIngesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pi-recent-ingest", { body: { max: 500, since_days: 2, lang: "en" } });
+      if (error) throw error;
+      toast.success(`Fetched ${data?.fetched || 0}, staged ${data?.inserted || 0}`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "ingest failed");
+    } finally { setRecentIngesting(false); }
+  };
+
+  const submitPaste = async () => {
+    const urls = pasteUrls.split(/\s+/).map((s) => s.trim()).filter(Boolean);
+    if (!urls.length && !pasteOpml.trim()) { toast.error("Paste URLs or OPML"); return; }
+    setPasteSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pi-opml-ingest", { body: { urls, opml: pasteOpml } });
+      if (error) throw error;
+      toast.success(`Staged ${data?.inserted || 0} of ${data?.received || 0}`);
+      setPasteUrls(""); setPasteOpml("");
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "submit failed");
+    } finally { setPasteSubmitting(false); }
+  };
   const save = async () => {
     const cats = catsInput.split(",").map((s) => s.trim()).filter(Boolean);
     const next = { ...settings, discovery_categories: cats };
