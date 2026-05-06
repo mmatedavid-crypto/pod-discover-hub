@@ -194,7 +194,7 @@ function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: bo
   return { hit: titleHit || entityHit || bodyHit || podHit, titleHit, entityHit, bodyHit, podHit };
 }
 
-function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: boolean; hitCount: number; strongHits: number; bodyOnlyGenericOnly: boolean } {
+function scoreEpisode(e: any, termGroups: string[][], negatives: string[] = []): { score: number; allHit: boolean; hitCount: number; strongHits: number; bodyOnlyGenericOnly: boolean; negativeHit: boolean } {
   let s = 0;
   let hitCount = 0;
   let strongHits = 0;
@@ -223,16 +223,30 @@ function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: 
   });
   if (allHit && termGroups.length > 1) s += 120;
   s += hitCount * 25;
-  // bodyOnlyGenericOnly: every hit was body-only, AND no non-generic term contributed strongly or via body — pure noise.
   const bodyOnlyGenericOnly = strongHits === 0 && !anyNonGenericBody && !anyNonGenericStrong;
+
+  // Negative-term penalty: downrank episodes whose title/podcast/entities mention off-topic terms.
+  let negativeHit = false;
+  if (negatives.length) {
+    const { title, summary, desc, arrays } = episodeFields(e);
+    const podTitle = (e.podcasts?.title || "").toLowerCase();
+    for (const n of negatives) {
+      const nl = n.toLowerCase();
+      if (hasWord(title, nl) || hasWord(podTitle, nl) || arrays.some((a) => hasWord(a, nl))) {
+        negativeHit = true; s -= 400; break;
+      }
+      if (hasWord(summary, nl) || hasWord(desc, nl)) { s -= 80; }
+    }
+  }
+
   if (e.published_at) {
     const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
     s += Math.max(0, 30 - ageDays) * 0.6;
     if (ageDays < 7) s += 10;
   }
   s += ((e.episode_rank ?? 0)) * 1.2;
-  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.4; // tie-breaker only
-  return { score: s, allHit, hitCount, strongHits, bodyOnlyGenericOnly };
+  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.4;
+  return { score: s, allHit, hitCount, strongHits, bodyOnlyGenericOnly, negativeHit };
 }
 
 // Build a compact OR filter for one term group (expanded variants).
