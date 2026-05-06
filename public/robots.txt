@@ -1,7 +1,12 @@
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /admin/
+Disallow: /admin-bootstrap
 Disallow: /auth
+Disallow: /growth-status
+Disallow: /search?
+Disallow: /search/
 
-Sitemap: https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap
 Sitemap: https://podiverzum.com/sitemap.xml
+Sitemap: https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap
