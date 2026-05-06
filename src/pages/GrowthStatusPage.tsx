@@ -205,6 +205,25 @@ export default function GrowthStatusPage() {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle className="text-base">Foundation Import</CardTitle></CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Stat title="Foundation podcasts added" value={foundation?.totals?.auto_added ?? 0} />
+              <Stat title="Queued (Rank 6–7)" value={foundation?.totals?.queued ?? 0} />
+              <Stat title="Hidden (Rank ≤ 5)" value={foundation?.totals?.hidden_low_rank ?? 0} />
+              <Stat title="Failed RSS" value={foundation?.totals?.failed_rss_tests ?? 0} />
+              <Stat title="Unprocessed staged" value={unprocessed} />
+              <Stat title="Eligible Rank ≥ 8 remaining" value={eligibleHigh} />
+              <Stat title="Batches run" value={foundation?.totals?.batches ?? 0} />
+              <Stat title="Status" value={foundation?.last_stopped_reason || (foundation ? "idle" : "not started")} />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Last run: {fmtDate(foundation?.last_finished_at)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle className="text-base">Source breakdown</CardTitle></CardHeader>
           <CardContent className="text-sm">
             {Object.keys(sources).length === 0 ? (
