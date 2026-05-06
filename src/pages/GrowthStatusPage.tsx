@@ -59,6 +59,8 @@ export default function GrowthStatusPage() {
   const [foundation, setFoundation] = useState<any>(null);
   const [unprocessed, setUnprocessed] = useState(0);
   const [eligibleHigh, setEligibleHigh] = useState(0);
+  const [drainer, setDrainer] = useState<any>(null);
+  const [pendingR4, setPendingR4] = useState(0);
 
   useEffect(() => {
     (async () => {
