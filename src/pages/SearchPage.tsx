@@ -124,6 +124,7 @@ export default function SearchPage() {
   const [episodes, setEpisodes] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [broadened, setBroadened] = useState(false);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
@@ -135,8 +136,9 @@ export default function SearchPage() {
         : "Search podcast episodes by topic, person, company, ticker or ingredient.",
       noindex: !initial,
     });
+    setBroadened(false);
     if (!initial) { setPodcasts([]); setEpisodes([]); return; }
-    const terms = parseTerms(initial);
+    const { terms, strict } = parseQuery(initial);
     if (!terms.length) return;
     setLoading(true);
     (async () => {
@@ -148,7 +150,7 @@ export default function SearchPage() {
         .limit(300);
       termGroups.forEach((variants) => {
         const ors: string[] = [];
-        uniq(variants).forEach((t) => {
+        uniq<string>(variants).forEach((t) => {
           const v = `%${escapeIlike(t)}%`;
           ors.push(`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`);
           ors.push(`topics.cs.{${t}}`, `people.cs.{${t}}`, `companies.cs.{${t}}`, `tickers.cs.{${t}}`, `ingredients.cs.{${t}}`);
@@ -156,9 +158,26 @@ export default function SearchPage() {
         eq = eq.or(ors.join(","));
       });
       const { data: es } = await eq;
-      let scored = (es || [])
-        .map((e: any) => ({ e, s: scoreEpisode(e, termGroups) }))
+      const allScored = (es || [])
+        .map((e: any) => ({ e, s: scoreEpisode(e, termGroups), all: scoreEpisodeAllHit(e, termGroups) }))
         .filter((x) => x.s > 0);
+
+      // Strict (explicit "+") OR multi-term: prefer episodes hitting all terms.
+      let scored = allScored;
+      let usedFallback = false;
+      if (termGroups.length > 1) {
+        const allHit = allScored.filter((x) => x.all);
+        if (strict) {
+          scored = allHit;
+        } else if (allHit.length > 0) {
+          scored = allHit;
+        } else {
+          scored = allScored;
+          usedFallback = true;
+        }
+      }
+      setBroadened(usedFallback);
+
       if (catParam) scored = scored.filter((x) => (x.e.podcasts?.category || "") === catParam);
       const sortFn =
         sortParam === "newest"
@@ -168,14 +187,14 @@ export default function SearchPage() {
           : (a: any, b: any) => b.s - a.s;
       const rankedEs = scored.sort(sortFn).slice(0, 80).map((x) => x.e);
       setEpisodes(rankedEs as any);
-      setCategories(uniq(rankedEs.map((e: any) => e.podcasts?.category).filter(Boolean) as string[]));
+      setCategories(uniq<string>(rankedEs.map((e: any) => e.podcasts?.category).filter(Boolean) as string[]));
 
       let pq = supabase
         .from("podcasts")
         .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .limit(60);
       termGroups.forEach((variants) => {
-        const ors = uniq(variants).flatMap((t) => {
+        const ors = uniq<string>(variants).flatMap((t) => {
           const v = `%${escapeIlike(t)}%`;
           return [`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`];
         }).join(",");
@@ -197,7 +216,7 @@ export default function SearchPage() {
     })();
   }, [initial, sortParam, catParam]);
 
-  const flatTerms = useMemo(() => parseTerms(initial), [initial]);
+  const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
 
   const setSort = (s: SortKey) => {
     const next = new URLSearchParams(params);
