@@ -34,7 +34,6 @@ export default function LiveIndexBar() {
 
         if (cancelled || !data) return;
         const rows = (data as unknown as Item[]).filter((r) => r.title && r.podcasts);
-        // Prefer last 72h if we have enough; otherwise show whatever is freshest
         const cutoff = Date.now() - 72 * 3600 * 1000;
         const recent = rows.filter((r) => new Date(r.created_at).getTime() >= cutoff);
         setItems(recent.length >= 6 ? recent : rows);
@@ -47,33 +46,43 @@ export default function LiveIndexBar() {
 
   if (hidden || items.length === 0) return null;
 
+  // Duplicate the list for a seamless marquee loop
+  const loop = [...items, ...items];
+
   return (
     <div className="border-b border-border bg-card/60 backdrop-blur-sm">
-      <div className="container mx-auto flex items-center gap-3 px-3 sm:px-6 py-2 overflow-hidden">
-        <div className="hidden sm:flex items-center gap-2 shrink-0 text-[11px] uppercase tracking-wider text-muted-foreground">
-          <span className="relative inline-flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-foreground/40 opacity-60 animate-ping" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-foreground/80" />
+      <div className="container mx-auto flex items-stretch gap-0 px-0 sm:px-6">
+        {/* ON AIR label */}
+        <div className="shrink-0 flex items-center gap-2 pl-3 sm:pl-0 pr-3 sm:pr-4 py-2 border-r border-border/60 bg-background/40">
+          <span className="relative inline-flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_6px_hsl(142_71%_45%/0.7)]" />
           </span>
-          <span className="font-medium text-foreground/80">Live Index</span>
-          <span className="text-muted-foreground">· newly indexed episodes</span>
-        </div>
-        <div className="flex sm:hidden items-center gap-1.5 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
-          <span className="relative inline-flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-foreground/40 opacity-60 animate-ping" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-foreground/80" />
+          <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/90">
+            On Air
           </span>
-          <span className="font-medium text-foreground/80">Live Index</span>
+          <span className="hidden sm:inline text-[11px] uppercase tracking-wider text-muted-foreground">
+            · newly indexed episodes
+          </span>
         </div>
-        <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
-          <ul className="flex items-center gap-4 whitespace-nowrap text-xs">
-            {items.map((it) => (
-              <li key={it.id} className="shrink-0">
+
+        {/* Ticker */}
+        <div
+          className="relative flex-1 min-w-0 overflow-hidden group"
+          aria-label="Newly indexed episodes ticker"
+        >
+          <ul
+            className="flex items-center gap-8 whitespace-nowrap text-xs py-2 animate-[ticker_60s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
+            style={{ width: "max-content" }}
+          >
+            {loop.map((it, i) => (
+              <li key={`${it.id}-${i}`} className="shrink-0 flex items-center gap-2">
+                <span className="h-1 w-1 rounded-full bg-emerald-500/70 shrink-0" aria-hidden />
                 <Link
                   to={`/podcast/${it.podcasts!.slug}/${it.slug}`}
-                  className="group inline-flex items-center gap-2 hover:text-foreground text-muted-foreground"
+                  className="group/item inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
                 >
-                  <span className="text-foreground/90 group-hover:underline truncate max-w-[60vw] sm:max-w-[28ch]">{it.title}</span>
+                  <span className="text-foreground/90 group-hover/item:underline">{it.title}</span>
                   <span className="opacity-60">— {it.podcasts!.title}</span>
                   {it.podcasts!.category && (
                     <span className="hidden md:inline opacity-50">· {it.podcasts!.category}</span>
@@ -82,6 +91,9 @@ export default function LiveIndexBar() {
               </li>
             ))}
           </ul>
+          {/* Edge fade masks */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent" />
         </div>
       </div>
     </div>
