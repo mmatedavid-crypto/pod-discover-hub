@@ -82,6 +82,10 @@ function scorePodcast(p: any, termGroups: string[][]): number {
   return s;
 }
 
+function escapeRegex(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function wordRe(v: string) { return new RegExp(`\\b${escapeRegex(v.toLowerCase())}\\b`, "i"); }
+function hasWord(haystack: string, needle: string) { return wordRe(needle).test(haystack); }
+
 function episodeFields(e: any) {
   const title = (e.title || "").toLowerCase();
   const summary = (e.summary || "").toLowerCase();
@@ -93,26 +97,47 @@ function episodeFields(e: any) {
   return { title, summary, desc, arrays };
 }
 
-function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: boolean; entityHit: boolean; bodyHit: boolean } {
+// Generic terms: alone they bring noise; require pairing with a stronger hit.
+const GENERIC_TERMS = new Set([
+  "cooking", "food", "cuisine", "real", "estate", "property", "housing",
+  "health", "healthcare", "medical", "business", "investing", "investment",
+  "sleep", "recovery", "data", "centers", "center",
+]);
+
+function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: boolean; entityHit: boolean; bodyHit: boolean; podHit: boolean } {
   const { title, summary, desc, arrays } = episodeFields(e);
+  const podTitle = (e.podcasts?.title || "").toLowerCase();
+  const podCat = (e.podcasts?.category || "").toLowerCase();
   const lc = variants.map((v) => v.toLowerCase());
-  const titleHit = lc.some((v) => title.includes(v));
-  const entityHit = lc.some((v) => arrays.includes(v) || arrays.some((a) => a.includes(v)));
-  const bodyHit = lc.some((v) => summary.includes(v) || desc.includes(v));
-  return { hit: titleHit || entityHit || bodyHit, titleHit, entityHit, bodyHit };
+  const titleHit = lc.some((v) => hasWord(title, v));
+  const entityHit = lc.some((v) => arrays.some((a) => a === v || hasWord(a, v)));
+  const bodyHit = lc.some((v) => hasWord(summary, v) || hasWord(desc, v));
+  const podHit = lc.some((v) => hasWord(podTitle, v) || hasWord(podCat, v));
+  return { hit: titleHit || entityHit || bodyHit || podHit, titleHit, entityHit, bodyHit, podHit };
 }
 
-function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: boolean; hitCount: number } {
+function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: boolean; hitCount: number; strongHits: number; bodyOnlyGenericOnly: boolean } {
   let s = 0;
   let hitCount = 0;
+  let strongHits = 0;
   let allHit = true;
+  let anyNonGenericStrong = false;
+  let anyNonGenericBody = false;
   termGroups.forEach((variants) => {
     const h = termGroupHits(e, variants);
+    const isGeneric = GENERIC_TERMS.has(variants[0].toLowerCase());
     if (h.hit) hitCount++;
     else allHit = false;
+    const strong = h.titleHit || h.entityHit || h.podHit;
+    if (strong) {
+      strongHits++;
+      if (!isGeneric) anyNonGenericStrong = true;
+    }
+    if (h.bodyHit && !isGeneric) anyNonGenericBody = true;
     if (h.titleHit) s += 150;
     if (h.entityHit) s += 70;
-    if (h.bodyHit) s += 60;
+    if (h.podHit) s += 40;
+    if (h.bodyHit) s += isGeneric ? 10 : 60;
     const orig = variants[0].toLowerCase();
     const titleLc = (e.title || "").toLowerCase();
     if (titleLc === orig) s += 250;
@@ -120,6 +145,8 @@ function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: 
   });
   if (allHit && termGroups.length > 1) s += 120;
   s += hitCount * 25;
+  // bodyOnlyGenericOnly: every hit was body-only, AND no non-generic term contributed strongly or via body — pure noise.
+  const bodyOnlyGenericOnly = strongHits === 0 && !anyNonGenericBody && !anyNonGenericStrong;
   if (e.published_at) {
     const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
     s += Math.max(0, 30 - ageDays) * 0.6;
@@ -127,7 +154,7 @@ function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: 
   }
   s += ((e.episode_rank ?? 0)) * 1.2;
   s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.4; // tie-breaker only
-  return { score: s, allHit, hitCount };
+  return { score: s, allHit, hitCount, strongHits, bodyOnlyGenericOnly };
 }
 
 // Build a compact OR filter for one term group (expanded variants).
@@ -209,22 +236,21 @@ export default function SearchPage() {
         .map((e: any) => ({ e, ...scoreEpisode(e, termGroups) }))
         .filter((x) => x.hitCount > 0);
 
-      let chosen = scored;
+      // Relevance gate: require at least one strong hit (title / entity / podcast title or category).
+      // Pure body-only matches are too noisy (e.g. "rome" + "food" appearing in unrelated bodies).
+      const relevant = scored.filter((x) => x.strongHits >= 1);
+
+      let chosen: typeof scored = relevant;
       if (termGroups.length > 1) {
-        const allHit = scored.filter((x) => x.allHit);
+        const allHit = relevant.filter((x) => x.allHit);
         if (strict) {
-          if (allHit.length > 0) {
-            chosen = allHit;
-          } else {
-            // strict but expanded query returned no all-term hits — broaden.
-            chosen = scored;
-            if (scored.length > 0) usedFallback = true;
-          }
+          if (allHit.length > 0) chosen = allHit;
+          else { chosen = relevant; if (relevant.length > 0) usedFallback = true; }
         } else if (allHit.length > 0) {
           chosen = allHit;
         } else {
-          chosen = scored;
-          if (scored.length > 0) usedFallback = true;
+          chosen = relevant;
+          if (relevant.length > 0) usedFallback = true;
         }
       }
 
