@@ -57,7 +57,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   }
 
   let newCount = 0, duplicates = 0;
-  for (const it of items.slice(0, 30)) {
+  for (const it of items.slice(0, episodeCap)) {
     if (!it.title) continue;
     const slugBase = slugify(it.title);
     const slugSuffix = it.guid
