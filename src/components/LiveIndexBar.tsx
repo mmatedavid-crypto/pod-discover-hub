@@ -72,7 +72,7 @@ export default function LiveIndexBar() {
           aria-label="Newly indexed episodes ticker"
         >
           <ul
-            className="flex items-center gap-8 whitespace-nowrap text-xs py-2 animate-[ticker_60s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
+            className="flex items-center gap-8 whitespace-nowrap text-xs py-2 animate-[ticker_90s_linear_infinite] sm:animate-[ticker_80s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
             style={{ width: "max-content" }}
           >
             {loop.map((it, i) => (
