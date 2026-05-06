@@ -139,24 +139,28 @@ const Index = () => {
         </div>
       </section>
 
-      <div className="container mx-auto py-10 space-y-12">
+      <div className="container mx-auto py-12 space-y-14">
         {trendingEps.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">
-              <h2 className="text-xl font-semibold">Trending episodes</h2>
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Editor's pulse</div>
+                <h2 className="text-2xl font-semibold">Trending episodes</h2>
+              </div>
               <span className="text-xs text-muted-foreground">Ranked by relevance &amp; freshness</span>
             </div>
             <EpisodeList items={trendingEps} />
           </section>
         )}
 
-        {cats.filter((c) => c.slug !== "trending").map((c) => {
+        {cats.filter((c) => c.slug !== "trending").map((c, idx) => {
           const items = epsByCat[c.name] || [];
           if (!items.length) return null;
+          const tinted = idx % 2 === 1;
           return (
-            <section key={c.id}>
+            <section key={c.id} className={tinted ? "rounded-2xl bg-secondary/40 border border-border/60 p-5 sm:p-6" : ""}>
               <div className="flex items-end justify-between mb-1">
-                <h2 className="text-xl font-semibold">{c.name}</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold">{c.name}</h2>
                 <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                   See more episodes <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
@@ -170,7 +174,10 @@ const Index = () => {
         {topPodcasts.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">
-              <h2 className="text-xl font-semibold">High-rank podcasts</h2>
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Quality first</div>
+                <h2 className="text-xl sm:text-2xl font-semibold">High-rank podcasts</h2>
+              </div>
               <Link to="/categories" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                 Browse all <ArrowRight className="h-3.5 w-3.5" />
               </Link>
