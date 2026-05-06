@@ -77,13 +77,12 @@ export default function SearchPage() {
       let chosen = result.all;
       if (catParam) chosen = chosen.filter((x) => (x.e.podcasts?.category || "") === catParam);
 
-      const sortFn =
+      const ranked =
         sortParam === "newest"
-          ? (a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()
+          ? chosen.slice().sort((a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()).slice(0, 80)
           : sortParam === "rank"
-          ? (a: any, b: any) => (b.e.episode_rank || 0) - (a.e.episode_rank || 0)
-          : (a: any, b: any) => b.score - a.score;
-      const ranked = chosen.slice().sort(sortFn).slice(0, 80);
+          ? chosen.slice().sort((a: any, b: any) => (b.e.episode_rank || 0) - (a.e.episode_rank || 0)).slice(0, 80)
+          : chosen.slice(0, 80); // "best" — preserve diversity-aware order from searchEpisodes()
       const mapped: EpisodeLite[] = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" }));
       setEpisodes(mapped);
       setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
