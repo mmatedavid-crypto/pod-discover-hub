@@ -147,8 +147,11 @@ export default function AdminQueuePage() {
             <Button onClick={testFirst5} disabled={testBusy} variant="secondary">
               {testBusy ? "Testing…" : "Test import first 5"}
             </Button>
-            <Button onClick={importNext50} disabled={bulkBusy}>
-              {bulkBusy ? "Importing next 50…" : "Import next 50 Rank ≥ 4"}
+            <Button onClick={() => runBatch(10)} disabled={bulkBusy}>
+              {bulkBusy ? "Importing…" : "Import next 10 Rank ≥ 4"}
+            </Button>
+            <Button onClick={() => runBatch(25)} disabled={bulkBusy} variant="outline">
+              Import next 25 Rank ≥ 4
             </Button>
             <Button asChild variant="outline"><Link to="/admin/growth">Growth Dashboard</Link></Button>
           </div>
