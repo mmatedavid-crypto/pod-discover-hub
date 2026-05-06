@@ -12,6 +12,11 @@ type Row = {
   viewport_width: number | null;
   user_id: string | null;
   created_at: string;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_term: string | null;
+  utm_content: string | null;
 };
 
 function classifyRoute(path: string): string {
@@ -48,7 +53,7 @@ export default function AdminAnalyticsPage() {
         const since = new Date(Date.now() - windowDays * 86400_000).toISOString();
         const { data: r } = await supabase
           .from("page_events")
-          .select("id,path,full_url,referrer,viewport_width,user_id,created_at")
+          .select("id,path,full_url,referrer,viewport_width,user_id,created_at,utm_source,utm_medium,utm_campaign,utm_term,utm_content")
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(10000);
@@ -99,7 +104,29 @@ export default function AdminAnalyticsPage() {
     });
     const days = Array.from(byDay.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
-    return { total, unique, mobile, routes, topPaths, refs, days };
+    // UTM tallies
+    const tally = (key: keyof Row) => {
+      const m = new Map<string, number>();
+      rows.forEach((r) => {
+        const v = (r[key] as string | null) || null;
+        if (!v) return;
+        m.set(v, (m.get(v) || 0) + 1);
+      });
+      return Array.from(m.entries()).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n).slice(0, 20);
+    };
+    const utmSources = tally("utm_source");
+    const utmCampaigns = tally("utm_campaign");
+
+    const comboMap = new Map<string, number>();
+    rows.forEach((r) => {
+      if (!r.utm_source && !r.utm_medium) return;
+      const k = `${r.utm_source || "(none)"} / ${r.utm_medium || "(none)"}`;
+      comboMap.set(k, (comboMap.get(k) || 0) + 1);
+    });
+    const utmCombos = Array.from(comboMap.entries()).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n).slice(0, 20);
+    const utmTagged = rows.filter((r) => r.utm_source || r.utm_medium || r.utm_campaign).length;
+
+    return { total, unique, mobile, routes, topPaths, refs, days, utmSources, utmCampaigns, utmCombos, utmTagged };
   }, [rows]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -215,8 +242,52 @@ export default function AdminAnalyticsPage() {
             </table>
           </div>
         </section>
+
+        <section>
+          <h2 className="font-semibold mb-2">Campaign attribution (UTM)</h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            {stats.utmTagged.toLocaleString()} of {stats.total.toLocaleString()} views ({pct(stats.utmTagged, stats.total)}%) carried UTM parameters.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <UtmTable title="Top sources (utm_source)" rows={stats.utmSources} />
+            <UtmTable title="Top campaigns (utm_campaign)" rows={stats.utmCampaigns} />
+            <div className="md:col-span-2">
+              <UtmTable title="Source / Medium" rows={stats.utmCombos} />
+            </div>
+          </div>
+        </section>
       </div>
     </Layout>
+  );
+}
+
+function UtmTable({ title, rows }: { title: string; rows: { k: string; n: number }[] }) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-1">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No data.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary text-xs">
+              <tr>
+                <th className="text-left px-3 py-2">Value</th>
+                <th className="text-right px-3 py-2">Views</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.k} className="border-t border-border">
+                  <td className="px-3 py-2 break-all">{r.k}</td>
+                  <td className="px-3 py-2 text-right">{r.n}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
