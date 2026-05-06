@@ -93,6 +93,14 @@ export default function GrowthStatusPage() {
         failedFeeds: failedRes.count || 0,
         queue: queueRes.count || 0,
       });
+
+      const { data: srcRows } = await supabase.from("podcasts").select("source");
+      const tally: Record<string, number> = {};
+      (srcRows || []).forEach((r: any) => {
+        const k = r.source || "manual";
+        tally[k] = (tally[k] || 0) + 1;
+      });
+      setSources(tally);
       setLoading(false);
     })();
   }, []);
