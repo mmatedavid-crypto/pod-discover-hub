@@ -255,14 +255,14 @@ export default function SearchPage() {
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>
         <p className="text-muted-foreground mb-4 text-sm">
-          Use <code className="px-1 bg-secondary rounded">+</code> to combine ideas, e.g. <em>AI + healthcare</em>.
+          Type words separated by spaces, e.g. <em>Italy food</em>. Use <code className="px-1 bg-secondary rounded">+</code> to require all terms strictly.
         </p>
         <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="AI + healthcare"
+            placeholder="Italy food"
             className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
           />
           <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
