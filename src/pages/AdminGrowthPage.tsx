@@ -42,6 +42,10 @@ export default function AdminGrowthPage() {
   const [pasteUrls, setPasteUrls] = useState("");
   const [pasteOpml, setPasteOpml] = useState("");
   const [pasteSubmitting, setPasteSubmitting] = useState(false);
+  const [foundationRunning, setFoundationRunning] = useState(false);
+  const [foundationContinue, setFoundationContinue] = useState(false);
+  const [foundation, setFoundation] = useState<any>(null);
+  const [unprocessed, setUnprocessed] = useState(0);
 
   useEffect(() => {
     (async () => {
