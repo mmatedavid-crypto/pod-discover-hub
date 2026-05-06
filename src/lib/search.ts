@@ -201,12 +201,15 @@ function scoreEpisode(
     s += 400;
   }
 
+  // Track per-term podcast-only hits to demote pure podcast-title matches.
+  let podOnlyTermHits = 0;
   exactGroups.forEach((variants) => {
     const h = termGroupHits(e, variants);
     const isGeneric = GENERIC_TERMS.has(variants[0].toLowerCase());
     if (h.hit) hitCount++;
     else allHit = false;
-    const strong = h.titleHit || h.entityHit || h.podHit;
+    // "strong" = direct episode evidence. Podcast title alone is supporting only.
+    const strong = h.titleHit || h.entityHit;
     if (strong) {
       strongHits++;
       if (!isGeneric) anyNonGenericStrong = true;
@@ -214,11 +217,24 @@ function scoreEpisode(
     if (h.bodyHit && !isGeneric) anyNonGenericBody = true;
     if (h.titleHit) { s += 180; titleHitAny = true; }
     if (h.entityHit) { s += 90; entityHitAny = true; }
-    if (h.podHit) { s += 45; podHitAny = true; }
+    if (h.podHit) {
+      // Podcast/category title is supporting. Boost only if episode also matches.
+      const supports = h.titleHit || h.entityHit || h.bodyHit;
+      s += supports ? 25 : 8;
+      podHitAny = true;
+      if (!h.titleHit && !h.entityHit && !h.bodyHit) podOnlyTermHits++;
+    }
     if (h.bodyHit) { s += isGeneric ? 8 : 55; bodyHitAny = true; }
     const orig = variants[0].toLowerCase();
     if (titleLc === orig) s += 250;
   });
+  // Heavy penalty when the only signal is a podcast-title match (and no episode evidence).
+  const podcastOnlyMatch = !titleHitAny && !entityHitAny && !bodyHitAny && podHitAny;
+  if (podcastOnlyMatch) s -= 120;
+  // For multi-term queries, penalize when most terms only matched via podcast title.
+  if (exactGroups.length >= 2 && podOnlyTermHits >= Math.ceil(exactGroups.length / 2) && !titleHitAny && !entityHitAny) {
+    s -= 80;
+  }
   if (allHit && exactGroups.length > 1) s += 130;
   s += hitCount * 25;
 
