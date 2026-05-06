@@ -10,25 +10,47 @@ import { setSeo } from "@/lib/seo";
 type SortKey = "best" | "newest" | "rank";
 
 const EXAMPLES = [
-  "AI + healthcare",
-  "Warren Buffett + Occidental",
-  "testosterone + sleep",
-  "asparagus + cooking",
-  "Nvidia + data centers",
+  "AI healthcare",
+  "Italy food",
+  "testosterone sleep",
+  "asparagus cooking",
+  "Nvidia data centers",
 ];
 
-function parseTerms(q: string) {
-  return q.split(/[+,&]| and /i).map((s) => s.trim()).filter(Boolean);
-}
+const BUILTIN_SYNONYMS: Record<string, string[]> = {
+  food: ["cooking", "cuisine", "restaurant", "restaurants", "dining"],
+  italy: ["italian", "rome", "tuscany", "naples", "sicily"],
+  ai: ["artificial intelligence", "machine learning"],
+  healthcare: ["health care", "medicine", "medical"],
+  "real estate": ["property", "housing"],
+  investing: ["investment", "stocks"],
+  "weight loss": ["obesity", "glp-1"],
+  sleep: ["insomnia", "recovery"],
+};
+
 function uniq<T>(a: T[]) { return Array.from(new Set(a)); }
+
+// strict=true when user typed an explicit "+" (strong AND intent).
+function parseQuery(q: string): { terms: string[]; strict: boolean } {
+  const strict = /\+/.test(q);
+  const terms = q
+    .split(/[+,&]|\s+and\s+|\s+/i)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 2);
+  return { terms: uniq(terms), strict };
+}
 
 async function expandTerm(term: string): Promise<string[]> {
   const t = term.toLowerCase();
+  const out = new Set<string>([term]);
+  if (BUILTIN_SYNONYMS[t]) BUILTIN_SYNONYMS[t].forEach((s) => out.add(s));
+  for (const [k, vs] of Object.entries(BUILTIN_SYNONYMS)) {
+    if (vs.includes(t)) { out.add(k); vs.forEach((v) => out.add(v)); }
+  }
   const { data } = await supabase
     .from("search_synonyms")
     .select("term,synonyms")
     .or(`term.eq.${t},synonyms.cs.{${t}}`);
-  const out = new Set<string>([term]);
   (data || []).forEach((row: any) => {
     out.add(row.term);
     (row.synonyms || []).forEach((s: string) => out.add(s));
