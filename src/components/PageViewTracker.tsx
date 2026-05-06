@@ -21,12 +21,19 @@ export default function PageViewTracker() {
       try {
         const { data } = await supabase.auth.getSession();
         const uid = data.session?.user.id ?? null;
+        const params = new URLSearchParams(location.search);
+        const utm = (k: string) => params.get(k) || null;
         await supabase.from("page_events").insert({
           path,
           full_url: window.location.href,
           referrer: document.referrer || null,
           viewport_width: window.innerWidth,
           user_id: uid,
+          utm_source: utm("utm_source"),
+          utm_medium: utm("utm_medium"),
+          utm_campaign: utm("utm_campaign"),
+          utm_term: utm("utm_term"),
+          utm_content: utm("utm_content"),
         });
       } catch {
         /* swallow — analytics must never break the app */
