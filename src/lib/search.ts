@@ -511,6 +511,7 @@ export async function searchEpisodes(opts: {
     } else if (allHit.length) {
       chosen = allHit;
     }
+  }
 
   const decorated: ScoredEpisode[] = chosen.map((x) => ({
     e: x.e, score: x.score, hitCount: x.hitCount, strongHits: x.strongHits, allHit: x.allHit,
