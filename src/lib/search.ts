@@ -239,14 +239,16 @@ function scoreEpisode(
   s += hitCount * 25;
 
   // Semantic-only terms: lower weight, never alone outranks an exact title hit.
+  // In category mode, semantic-only weights are reduced further so direct in-cat matches win.
+  const semScale = categoryName ? 0.6 : 1;
   let semanticHit = false;
   if (semanticTerms.length) {
     for (const t of semanticTerms) {
       const h = termGroupHits(e, [t]);
-      if (h.titleHit) { s += 35; semanticHit = true; }
-      else if (h.entityHit) { s += 25; semanticHit = true; }
-      else if (h.podHit) { s += 15; semanticHit = true; }
-      else if (h.bodyHit) { s += 8; semanticHit = true; }
+      if (h.titleHit) { s += 35 * semScale; semanticHit = true; }
+      else if (h.entityHit) { s += 25 * semScale; semanticHit = true; }
+      else if (h.podHit) { s += 10 * semScale; semanticHit = true; }
+      else if (h.bodyHit) { s += 6 * semScale; semanticHit = true; }
     }
   }
 
