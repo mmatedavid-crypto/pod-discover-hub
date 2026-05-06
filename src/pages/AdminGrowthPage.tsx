@@ -208,6 +208,57 @@ export default function AdminGrowthPage() {
         </Card>
 
         <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle>Podcast Index full database import</CardTitle>
+              <Button size="sm" onClick={processDumpBatch} disabled={processingDump}>
+                {processingDump ? "Processing…" : "Process next batch (100)"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Bulk discovery from the weekly Podcast Index SQLite dump. Operator runs a local script that POSTs NDJSON batches to <code>pi-dump-ingest</code> with the service-role bearer token. This processor scores staged feeds, auto-adds rank ≥ {settings.min_rank_for_auto_add}, queues 6–7, hides ≤ 5, then hydrates RSS (max 30 episodes/podcast). No API crawling.
+            </p>
+            {dumpRuns.length === 0 ? (
+              <p className="text-muted-foreground">No dump imports yet.</p>
+            ) : (
+              <div className="overflow-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="py-1 pr-2">Snapshot</th><th className="py-1 pr-2">Status</th>
+                      <th className="py-1 pr-2">Received</th><th className="py-1 pr-2">Scanned</th>
+                      <th className="py-1 pr-2">Accepted</th><th className="py-1 pr-2">Rejected</th>
+                      <th className="py-1 pr-2">Auto-added</th><th className="py-1 pr-2">Queued</th>
+                      <th className="py-1 pr-2">Hidden</th><th className="py-1 pr-2">Dup</th>
+                      <th className="py-1 pr-2">RSS fail</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dumpRuns.map((d) => (
+                      <tr key={d.id} className="border-t">
+                        <td className="py-1 pr-2">{d.snapshot_date || new Date(d.created_at).toLocaleDateString()}</td>
+                        <td className="py-1 pr-2">{d.status}</td>
+                        <td className="py-1 pr-2">{d.feeds_received}</td>
+                        <td className="py-1 pr-2">{d.feeds_scanned}</td>
+                        <td className="py-1 pr-2">{d.candidates_accepted}</td>
+                        <td className="py-1 pr-2">{d.candidates_rejected}</td>
+                        <td className="py-1 pr-2">{d.auto_added}</td>
+                        <td className="py-1 pr-2">{d.queued}</td>
+                        <td className="py-1 pr-2">{d.hidden_low_rank}</td>
+                        <td className="py-1 pr-2">{d.skipped_duplicates}</td>
+                        <td className="py-1 pr-2">{d.failed_rss_tests}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle>Cron setup (twice daily)</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
             <p>Run the growth cycle at <strong>04:00 UTC</strong> and <strong>16:00 UTC</strong>. Add this SQL once via the database tool:</p>
