@@ -39,4 +39,7 @@ verify_jwt = false
 [functions.queue-import]
 verify_jwt = false
 
+[functions.queue-import-runner]
+verify_jwt = false
+
 
