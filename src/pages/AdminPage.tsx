@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useNoindex } from "@/lib/useNoindex";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCover } from "@/components/PodcastCover";
@@ -29,6 +30,7 @@ const healthBadge: Record<Health, string> = {
 };
 
 export default function AdminPage() {
+  useNoindex("Admin — Podiverzum");
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminFallbackActive, setAdminFallbackActive] = useState(false);
