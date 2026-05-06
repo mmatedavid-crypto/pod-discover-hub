@@ -261,8 +261,10 @@ export default function GrowthStatusPage() {
           </CardContent>
         </Card>
 
-
+        <Card>
+          <CardHeader><CardTitle className="text-base">Visibility tiers</CardTitle></CardHeader>
           <CardContent className="text-sm">
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Stat title="Promoted-eligible (Rank ≥ 6)" value={tiers.promoted} />
               <Stat title="Search-only / indexed (Rank 4–5)" value={tiers.indexed} />
