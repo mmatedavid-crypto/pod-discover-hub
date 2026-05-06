@@ -17,6 +17,8 @@ export type EpisodeLite = {
   companies?: string[] | null;
   tickers?: string[] | null;
   ingredients?: string[] | null;
+  /** Optional UI hint from search relevance scoring. */
+  matchBadge?: string | null;
   podcasts: {
     slug: string;
     title: string;
@@ -73,6 +75,9 @@ export function EpisodeCard({
           )}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
             <span className="px-1.5 py-0.5 rounded-md border border-border/70 bg-mint/10 text-[10px] font-medium text-foreground/70">Pod {p.podiverzum_rank}</span>
+          )}
+          {e.matchBadge && (
+            <span className="px-1.5 py-0.5 rounded-md border border-border/70 bg-ice/15 text-[10px] font-medium text-foreground/70">{e.matchBadge}</span>
           )}
         </div>
         {desc && (
