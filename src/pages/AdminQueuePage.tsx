@@ -139,7 +139,7 @@ export default function AdminQueuePage() {
               {testBusy ? "Testing…" : "Test import first 5"}
             </Button>
             <Button onClick={bulkImportRank4Plus} disabled={bulkBusy}>
-              {bulkBusy ? `Importing… (+${bulkProgress?.ok ?? 0})` : "Import all valid Rank ≥ 4"}
+              {bulkBusy ? "Running batch…" : (lastRun?.remaining_pending_rank4_plus > 0 ? "Continue importing remaining Rank ≥ 4" : "Import all valid Rank ≥ 4")}
             </Button>
             <Button asChild variant="outline"><Link to="/admin/growth">Growth Dashboard</Link></Button>
           </div>
@@ -156,10 +156,19 @@ export default function AdminQueuePage() {
           </CardContent></Card>
         )}
 
-        {bulkProgress && (
-          <p className="text-xs text-muted-foreground">
-            Progress: +{bulkProgress.ok} imported · {bulkProgress.rss_err} rss-error · {bulkProgress.skipped} duplicate · {bulkProgress.failed} failed
-          </p>
+        {lastRun && (
+          <Card><CardContent className="p-4 space-y-2">
+            <div className="text-sm font-medium">Last bulk run</div>
+            <div className="text-xs text-muted-foreground">
+              processed: {lastRun.processed} · imported: {lastRun.imported} · rss-error: {lastRun.imported_with_rss_error} · duplicate: {lastRun.skipped_duplicate} · failed: {lastRun.failed}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              batches: {lastRun.batches_run} · elapsed: {Math.round((lastRun.elapsed_ms || 0) / 1000)}s · stopped: {lastRun.stopped_reason} · remaining Rank ≥ 4: {lastRun.remaining_pending_rank4_plus}
+            </div>
+            {lastRun.stopped_reason === "time_budget" && (
+              <div className="text-xs text-primary">Batch completed. Click again to continue.</div>
+            )}
+          </CardContent></Card>
         )}
 
         {diagResults.length > 0 && (
