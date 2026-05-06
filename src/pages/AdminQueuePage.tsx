@@ -33,7 +33,7 @@ export default function AdminQueuePage() {
   const [items, setItems] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState<{ ok: number; failed: number; skipped: number; rss_err: number } | null>(null);
+  const [lastRun, setLastRun] = useState<any>(null);
   const [failureSummary, setFailureSummary] = useState<Record<string, number>>({});
   const [diagResults, setDiagResults] = useState<ItemResult[]>([]);
   const [testBusy, setTestBusy] = useState(false);
@@ -103,21 +103,16 @@ export default function AdminQueuePage() {
   };
 
   const bulkImportRank4Plus = async () => {
-    if (!confirm("Import all technically valid Rank ≥ 4 queued podcasts? Runs in batches of 25.")) return;
+    if (!confirm("Run backend bulk import for Rank ≥ 4? Processes one server-side batch (~100s).")) return;
     setBulkBusy(true);
-    let ok = 0, failed = 0, skipped = 0, rss_err = 0;
-    setBulkProgress({ ok, failed, skipped, rss_err });
     try {
-      for (let i = 0; i < 80; i++) {
-        const data = await callQueueImport({ limit: 25, min_rank: 4 });
-        ok += data.imported || 0;
-        failed += data.failed || 0;
-        skipped += data.skipped_duplicate || 0;
-        rss_err += data.imported_with_rss_error || 0;
-        setBulkProgress({ ok, failed, skipped, rss_err });
-        if ((data.processed || 0) === 0) break;
-      }
-      toast.success(`Bulk: +${ok} imported, ${rss_err} rss-error, ${skipped} dup, ${failed} failed`);
+      const { data, error } = await supabase.functions.invoke("queue-import-runner", {
+        body: { min_rank: 4, batch_size: 25, max_batches: 10 },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.ok) throw new Error(data?.error || "runner failed");
+      setLastRun(data);
+      toast.success(`+${data.imported} imported, ${data.imported_with_rss_error} rss-err, ${data.skipped_duplicate} dup, ${data.failed} failed${data.remaining_pending_rank4_plus ? ` · ${data.remaining_pending_rank4_plus} remaining` : ""}`);
       await load();
     } catch (e: any) {
       toast.error(e.message || "bulk import failed");
