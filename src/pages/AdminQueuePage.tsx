@@ -102,13 +102,23 @@ export default function AdminQueuePage() {
     } finally { setTestBusy(false); }
   };
 
-  const importNext50 = async () => {
+  const runBatch = async (size: number) => {
     setBulkBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("queue-import-runner", {
-        body: { min_rank: 4, batch_size: 50, max_batches: 1 },
+        body: { min_rank: 4, batch_size: size, max_batches: 1, time_budget_ms: 105000 },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        const ctx: any = (error as any).context;
+        let detail = error.message || "runner failed";
+        try {
+          if (ctx?.body) {
+            const txt = typeof ctx.body === "string" ? ctx.body : await new Response(ctx.body).text();
+            if (txt) detail = `${detail}: ${txt.slice(0, 300)}`;
+          }
+        } catch { /* noop */ }
+        throw new Error(detail);
+      }
       if (!data?.ok) throw new Error(data?.error || "runner failed");
       setLastRun(data);
       toast.success(`+${data.imported} imported, ${data.imported_with_rss_error} rss-err, ${data.skipped_duplicate} dup, ${data.failed} failed${data.remaining_pending_rank4_plus ? ` · ${data.remaining_pending_rank4_plus} remaining` : ""}`);
