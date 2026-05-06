@@ -134,10 +134,19 @@ export default function AdminQueuePage() {
   return (
     <Layout>
       <div className="container py-6 space-y-4 max-w-5xl">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-2xl font-semibold">Approval Queue ({items.length})</h1>
-          <Button asChild variant="outline"><Link to="/admin/growth">Growth Dashboard</Link></Button>
+          <div className="flex gap-2">
+            <Button onClick={bulkImportRank4Plus} disabled={bulkBusy}>
+              {bulkBusy ? `Importing… (+${bulkProgress?.ok ?? 0})` : "Import all valid Rank ≥ 4"}
+            </Button>
+            <Button asChild variant="outline"><Link to="/admin/growth">Growth Dashboard</Link></Button>
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Bulk import adds Rank ≥ 4 podcasts to the index. Rank 4–5 will be searchable but not promoted on the homepage (Rank ≥ 6 required for promotion). Episodes per podcast: Rank 8+ → 75, Rank 6–7 → 50, Rank 4–5 → 30.
+        </p>
+        {bulkProgress && <p className="text-xs text-muted-foreground">Progress: +{bulkProgress.ok} imported · {bulkProgress.skipped} skipped · {bulkProgress.failed} failed</p>}
         {items.length === 0 && <p className="text-sm text-muted-foreground">No pending candidates.</p>}
         <div className="grid gap-3">
           {items.map((it) => (
