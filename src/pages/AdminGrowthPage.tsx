@@ -35,6 +35,8 @@ export default function AdminGrowthPage() {
   const [stats, setStats] = useState<any>({
     refreshedToday: 0, autoAddedToday: 0, queueCount: 0, failedFeeds: 0, avgRank: 0,
   });
+  const [dumpRuns, setDumpRuns] = useState<any[]>([]);
+  const [processingDump, setProcessingDump] = useState(false);
 
   useEffect(() => {
     (async () => {
