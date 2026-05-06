@@ -361,6 +361,15 @@ export async function searchEpisodes(opts: {
   if (raw.length === 0) {
     raw = await queryPerTerm([...terms, ...intentAliases]);
     if (raw.length > 0) fallbackUsed = true;
+  } else if (terms.length >= 3 && raw.length < 8) {
+    // Broaden candidate pool so the 2-of-N partial fallback has rows to score against.
+    const extra = await queryPerTerm([...terms, ...intentAliases]);
+    if (extra.length) {
+      const map = new Map<string, any>();
+      raw.forEach((e: any) => map.set(e.id, e));
+      extra.forEach((e: any) => { if (!map.has(e.id)) map.set(e.id, e); });
+      raw = Array.from(map.values());
+    }
   }
 
   // Step 2 — semantic expansion if low results or single broad concept.
