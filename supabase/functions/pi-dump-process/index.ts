@@ -55,6 +55,14 @@ Deno.serve(async (req) => {
     const { data: rows, error } = await q;
     if (error) throw error;
 
+    // Resolve import sources for tagging podcasts.source correctly
+    const importIdsForRows = Array.from(new Set((rows || []).map((r: any) => r.import_id).filter(Boolean)));
+    const importSourceMap: Record<string, string> = {};
+    if (importIdsForRows.length) {
+      const { data: imps } = await supabase.from("pi_dump_imports").select("id, source").in("id", importIdsForRows);
+      (imps || []).forEach((i: any) => { importSourceMap[i.id] = i.source || "pi_dump"; });
+    }
+
     const counters = {
       scanned: 0, accepted: 0, rejected: 0, auto_added: 0, queued: 0,
       hidden_low_rank: 0, failed_rss_tests: 0, skipped_duplicates: 0,
