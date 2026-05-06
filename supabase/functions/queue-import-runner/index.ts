@@ -110,7 +110,9 @@ Deno.serve(async (req) => {
     const minRank = Math.max(0, Math.min(10, Number(body.min_rank) ?? 4));
     const batchSize = Math.max(1, Math.min(50, Number(body.batch_size) || 25));
     const maxBatches = Math.max(1, Math.min(40, Number(body.max_batches) || 10));
-    const TIME_BUDGET_MS = 105_000;
+    // Supabase Edge Functions wall-clock limit is 150s (free) / 400s (pro).
+    // We aim for 350s to safely complete a 50-item batch with RSS hydration.
+    const TIME_BUDGET_MS = Math.max(30_000, Math.min(380_000, Number(body.time_budget_ms) || 350_000));
 
     const startedAt = Date.now();
     let processed = 0, imported = 0, rss_err = 0, skipped = 0, failed = 0;
