@@ -440,3 +440,12 @@ select cron.schedule(
     </Layout>
   );
 }
+
+function Stat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="border rounded p-2">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="text-base font-semibold">{value}</div>
+    </div>
+  );
+}
