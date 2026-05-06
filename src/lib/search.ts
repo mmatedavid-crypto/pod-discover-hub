@@ -173,7 +173,9 @@ function expandSimple(term: string): string[] {
   const out: string[] = [term];
   if (BUILTIN_SYNONYMS[t]) BUILTIN_SYNONYMS[t].slice(0, 2).forEach((s) => out.push(s));
   else for (const [k, vs] of Object.entries(BUILTIN_SYNONYMS)) if (vs.includes(t)) { out.push(k); break; }
-  return uniq(out).slice(0, 3);
+  // Add singular/plural variants (conservative).
+  pluralVariants(term).forEach((v) => { if (!out.includes(v)) out.push(v); });
+  return uniq(out).slice(0, 4);
 }
 
 function semanticExpansion(terms: string[], cap = 8): string[] {
