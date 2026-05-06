@@ -132,6 +132,15 @@ export default function GrowthStatusPage() {
       setDrainer((drRow.data?.value as any) || null);
       setPendingR4(r4Res.count || 0);
 
+      const [hRow, ns, cp, el] = await Promise.all([
+        supabase.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle(),
+        supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").gte("podiverzum_rank", 4),
+        supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "completed"),
+        supabase.from("podcasts").select("id", { count: "exact", head: true }).gte("podiverzum_rank", 4).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
+      ]);
+      setHydration((hRow.data?.value as any) || null);
+      setHydrationCounts({ not_started: ns.count || 0, completed: cp.count || 0, eligible: el.count || 0 });
+
       setLoading(false);
     })();
   }, []);
