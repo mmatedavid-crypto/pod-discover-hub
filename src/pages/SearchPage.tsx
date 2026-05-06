@@ -30,12 +30,90 @@ const BUILTIN_SYNONYMS: Record<string, string[]> = {
   testosterone: ["hormones"],
   nvidia: ["nvda"],
   dubai: ["uae"],
+  tourism: ["travel", "destination"],
+  travel: ["tourism", "destination"],
+  europe: ["european", "italy"],
+  european: ["europe"],
+  colonisation: ["colonization", "colony"],
+  colonization: ["colonisation", "colony"],
+  narcissistic: ["narcissist", "narcissism"],
+  narcissist: ["narcissistic", "narcissism"],
+  narcissism: ["narcissistic", "narcissist"],
+  ballet: ["dance"],
+  f1: ["formula 1", "grand prix"],
+  spacex: ["space", "rocket"],
 };
+
+// Single-token typo / spelling normalization. Whole-token, case-insensitive.
+const TYPO_FIX: Record<string, string> = {
+  balet: "ballet",
+  narcissitic: "narcissistic",
+  narcisistic: "narcissistic",
+  narcicistic: "narcissistic",
+  colonisation: "colonization",
+  tourisim: "tourism",
+  toursim: "tourism",
+  europ: "europe",
+  itlay: "italy",
+  spcaex: "spacex",
+};
+
+// Multi-word phrase aliases applied to the raw query string before tokenizing.
+// Maps a normalized phrase -> canonical form (which may itself be a multi-token alias).
+const PHRASE_ALIASES: Array<[RegExp, string]> = [
+  [/\bformula\s*one\b/gi, "formula 1"],
+  [/\bformula\s*1\b/gi, "formula 1 f1"],
+  [/\bgrand\s*prix\b/gi, "formula 1 grand prix"],
+  [/\bspace\s*x\b/gi, "spacex"],
+];
+
+// Intent rules: when query matches a pattern, add extra alias terms and (optionally)
+// negative terms that downrank off-topic matches. Keep this list small and high-confidence.
+const INTENT_RULES: Array<{
+  match: (lc: string) => boolean;
+  aliases: string[];
+  negatives: string[];
+  label: string;
+}> = [
+  {
+    label: "space-mars",
+    match: (lc) => /\bmars\b/.test(lc) && /\b(coloni[sz]ation|colony|space|spacex|settle|planet)/.test(lc),
+    aliases: ["space", "spacex", "planetary", "colony", "settlement"],
+    negatives: ["chocolate", "candy", "mars inc", "m&m", "snickers", "confection"],
+  },
+  {
+    label: "travel",
+    match: (lc) => /\b(tourism|travel|trip|vacation|destination)\b/.test(lc),
+    aliases: ["travel", "destination"],
+    negatives: [],
+  },
+  {
+    label: "psychology-narcissism",
+    match: (lc) => /\bnarciss/.test(lc),
+    aliases: ["narcissist", "narcissism", "toxic relationship"],
+    negatives: [],
+  },
+  {
+    label: "arts-ballet",
+    match: (lc) => /\bballet\b/.test(lc),
+    aliases: ["dance", "performance"],
+    negatives: [],
+  },
+];
 
 const EPISODE_SELECT =
   "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,episode_rank,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status)";
 
 function uniq<T>(a: T[]) { return Array.from(new Set(a)); }
+
+function normalizeQuery(raw: string): { normalized: string; changed: boolean } {
+  let s = " " + raw.toLowerCase() + " ";
+  PHRASE_ALIASES.forEach(([re, rep]) => { s = s.replace(re, rep); });
+  // Whole-token typo fixes
+  s = s.replace(/[a-z][a-z'-]*/g, (tok) => TYPO_FIX[tok] ?? tok);
+  s = s.trim().replace(/\s+/g, " ");
+  return { normalized: s, changed: s !== raw.trim().toLowerCase().replace(/\s+/g, " ") };
+}
 
 function parseQuery(q: string): { terms: string[]; strict: boolean } {
   const strict = /\+/.test(q);
@@ -116,7 +194,7 @@ function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: bo
   return { hit: titleHit || entityHit || bodyHit || podHit, titleHit, entityHit, bodyHit, podHit };
 }
 
-function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: boolean; hitCount: number; strongHits: number; bodyOnlyGenericOnly: boolean } {
+function scoreEpisode(e: any, termGroups: string[][], negatives: string[] = []): { score: number; allHit: boolean; hitCount: number; strongHits: number; bodyOnlyGenericOnly: boolean; negativeHit: boolean } {
   let s = 0;
   let hitCount = 0;
   let strongHits = 0;
@@ -145,16 +223,30 @@ function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: 
   });
   if (allHit && termGroups.length > 1) s += 120;
   s += hitCount * 25;
-  // bodyOnlyGenericOnly: every hit was body-only, AND no non-generic term contributed strongly or via body — pure noise.
   const bodyOnlyGenericOnly = strongHits === 0 && !anyNonGenericBody && !anyNonGenericStrong;
+
+  // Negative-term penalty: downrank episodes whose title/podcast/entities mention off-topic terms.
+  let negativeHit = false;
+  if (negatives.length) {
+    const { title, summary, desc, arrays } = episodeFields(e);
+    const podTitle = (e.podcasts?.title || "").toLowerCase();
+    for (const n of negatives) {
+      const nl = n.toLowerCase();
+      if (hasWord(title, nl) || hasWord(podTitle, nl) || arrays.some((a) => hasWord(a, nl))) {
+        negativeHit = true; s -= 400; break;
+      }
+      if (hasWord(summary, nl) || hasWord(desc, nl)) { s -= 80; }
+    }
+  }
+
   if (e.published_at) {
     const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
     s += Math.max(0, 30 - ageDays) * 0.6;
     if (ageDays < 7) s += 10;
   }
   s += ((e.episode_rank ?? 0)) * 1.2;
-  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.4; // tie-breaker only
-  return { score: s, allHit, hitCount, strongHits, bodyOnlyGenericOnly };
+  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.4;
+  return { score: s, allHit, hitCount, strongHits, bodyOnlyGenericOnly, negativeHit };
 }
 
 // Build a compact OR filter for one term group (expanded variants).
@@ -203,6 +295,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [broadened, setBroadened] = useState(false);
+  const [suggestion, setSuggestion] = useState<string>("");
   const lastLoggedRef = useRef<string>("");
 
   useEffect(() => { setQ(initial); }, [initial]);
@@ -216,12 +309,29 @@ export default function SearchPage() {
       noindex: !initial,
     });
     setBroadened(false);
+    setSuggestion("");
     if (!initial) { setPodcasts([]); setEpisodes([]); return; }
-    const { terms, strict } = parseQuery(initial);
+
+    // Normalize: phrase aliases + token typo fixes.
+    const norm = normalizeQuery(initial);
+    const effectiveQ = norm.normalized || initial;
+    if (norm.changed) setSuggestion(norm.normalized);
+
+    const { terms, strict } = parseQuery(effectiveQ);
     if (!terms.length) return;
     setLoading(true);
     (async () => {
+      // Apply intent rules: add alias terms, collect negatives.
+      const lcQ = effectiveQ.toLowerCase();
+      const matchedIntents = INTENT_RULES.filter((r) => r.match(lcQ));
+      const intentAliases = uniq(matchedIntents.flatMap((r) => r.aliases));
+      const negatives = uniq(matchedIntents.flatMap((r) => r.negatives));
+
       const termGroups = terms.map(expandTermLimited);
+      if (intentAliases.length) {
+        // Append intent aliases as a low-weight extra group (helps ranking, not gating).
+        intentAliases.forEach((a) => { if (!terms.some((t) => t.toLowerCase() === a.toLowerCase())) termGroups.push([a]); });
+      }
 
       // 1) Primary compact query (limited synonyms).
       let raw = await queryEpisodesByGroups(termGroups);
@@ -229,13 +339,13 @@ export default function SearchPage() {
 
       // 2) Zero-result fallback: per-term original-only queries, merged in JS.
       if (raw.length === 0) {
-        raw = await queryEpisodesPerTerm(terms);
+        raw = await queryEpisodesPerTerm([...terms, ...intentAliases]);
         if (raw.length > 0) usedFallback = true;
       }
 
       const scored = raw
-        .map((e: any) => ({ e, ...scoreEpisode(e, termGroups) }))
-        .filter((x) => x.hitCount > 0);
+        .map((e: any) => ({ e, ...scoreEpisode(e, termGroups, negatives) }))
+        .filter((x) => x.hitCount > 0 && !x.negativeHit);
 
       // Relevance gate: require at least one strong hit (title / entity / podcast title or category).
       // Pure body-only matches are too noisy (e.g. "rome" + "food" appearing in unrelated bodies).
@@ -389,7 +499,7 @@ export default function SearchPage() {
 
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            No exact episode matches yet. Try a broader search or remove one term. You can also <Link to="/categories" className="underline text-foreground">browse categories</Link>.
+            No exact episode matches yet.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Try a broader search or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
           </div>
         )}
 
@@ -398,6 +508,11 @@ export default function SearchPage() {
             <section>
               <h2 className="font-semibold mb-3 flex items-center gap-2">
                 Matching episodes ({episodes.length})
+                {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                    Showing results for {suggestion}
+                  </span>
+                )}
                 {broadened && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
                     Showing broader matches
