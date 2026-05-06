@@ -85,6 +85,69 @@ const GENERIC_TERMS = new Set([
   "sleep", "recovery", "data", "centers", "center",
 ]);
 
+// Curated singular<->plural aliases (high confidence).
+const PLURAL_ALIASES: Record<string, string> = {
+  "data centers": "data center",
+  centers: "center",
+  strategies: "strategy",
+  companies: "company",
+  markets: "market",
+  stocks: "stock",
+  habits: "habit",
+  relationships: "relationship",
+  episodes: "episode",
+  podcasts: "podcast",
+  founders: "founder",
+  agents: "agent",
+  models: "model",
+};
+// Words that look plural but should NOT be auto-singularized.
+const PLURAL_EXCEPTIONS = new Set([
+  "news", "series", "species", "analysis", "thesis", "crisis", "physics",
+  "mathematics", "economics", "politics", "ethics", "headphones", "sales",
+  "fitness", "wellness", "business", "happiness", "loss", "less", "miss",
+  "boss", "class", "glass", "gas", "bus", "plus", "jesus", "atlas",
+  "across", "address", "process", "access", "success", "press", "stress",
+  "us", "his", "yes", "as", "is", "was", "has",
+]);
+
+function singularize(word: string): string | null {
+  const w = word.toLowerCase();
+  if (PLURAL_ALIASES[w]) return PLURAL_ALIASES[w];
+  if (w.length <= 4) return null;
+  if (PLURAL_EXCEPTIONS.has(w)) return null;
+  if (w.endsWith("ies") && w.length > 4) return w.slice(0, -3) + "y";
+  if (w.endsWith("ses") || w.endsWith("xes") || w.endsWith("zes") || w.endsWith("ches") || w.endsWith("shes")) {
+    return w.slice(0, -2);
+  }
+  if (w.endsWith("s") && !w.endsWith("ss") && !w.endsWith("us") && !w.endsWith("is")) {
+    return w.slice(0, -1);
+  }
+  return null;
+}
+
+function pluralize(word: string): string | null {
+  const w = word.toLowerCase();
+  // reverse alias
+  for (const [pl, sg] of Object.entries(PLURAL_ALIASES)) if (sg === w) return pl;
+  if (w.length <= 3) return null;
+  if (PLURAL_EXCEPTIONS.has(w)) return null;
+  if (/[sxz]$/.test(w) || w.endsWith("ch") || w.endsWith("sh")) return w + "es";
+  if (w.endsWith("y") && w.length > 2 && !/[aeiou]y$/.test(w)) return w.slice(0, -1) + "ies";
+  return w + "s";
+}
+
+export function pluralVariants(term: string): string[] {
+  const t = term.toLowerCase().trim();
+  if (!t) return [term];
+  const out = new Set<string>([term]);
+  const sg = singularize(t);
+  if (sg && sg !== t) out.add(sg);
+  const pl = pluralize(t);
+  if (pl && pl !== t) out.add(pl);
+  return Array.from(out);
+}
+
 function uniq<T>(a: T[]) { return Array.from(new Set(a)); }
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 function escapeRegex(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
