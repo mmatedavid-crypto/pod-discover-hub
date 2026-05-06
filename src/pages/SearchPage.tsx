@@ -232,15 +232,9 @@ export default function SearchPage() {
         .map((e: any) => ({ e, ...scoreEpisode(e, termGroups) }))
         .filter((x) => x.hitCount > 0);
 
-      // Relevance gate: require at least one strong hit (title/entity/podcast),
-      // OR — for multi-term queries — that all terms are present somewhere.
-      // This kills body-only weak matches like "cooking" appearing in unrelated bodies.
-      const relevant = scored.filter((x) => {
-        if (x.bodyOnlyGenericOnly) return false;
-        if (x.strongHits >= 1) return true;
-        if (termGroups.length > 1 && x.allHit) return true;
-        return false;
-      });
+      // Relevance gate: require at least one strong hit (title / entity / podcast title or category).
+      // Pure body-only matches are too noisy (e.g. "rome" + "food" appearing in unrelated bodies).
+      const relevant = scored.filter((x) => x.strongHits >= 1);
 
       let chosen: typeof scored = relevant;
       if (termGroups.length > 1) {
