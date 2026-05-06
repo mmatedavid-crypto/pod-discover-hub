@@ -13,6 +13,9 @@ export default function AuthPage() {
 
   useEffect(() => {
     document.title = "Sign in — Podiverzum";
+    let robots = document.head.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    if (!robots) { robots = document.createElement("meta"); robots.name = "robots"; document.head.appendChild(robots); }
+    robots.content = "noindex, nofollow";
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) nav("/admin");
     });
