@@ -150,7 +150,7 @@ function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: 
   }
   s += ((e.episode_rank ?? 0)) * 1.2;
   s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.4; // tie-breaker only
-  return { score: s, allHit, hitCount };
+  return { score: s, allHit, hitCount, strongHits, bodyOnlyGenericOnly };
 }
 
 // Build a compact OR filter for one term group (expanded variants).
