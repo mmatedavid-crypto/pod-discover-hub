@@ -10,12 +10,12 @@ const corsHeaders = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { podcast_id } = await req.json();
+    const { podcast_id, episode_cap } = await req.json();
     if (!podcast_id) throw new Error("podcast_id required");
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: podcast, error } = await supabase.from("podcasts").select("*").eq("id", podcast_id).single();
     if (error || !podcast) throw new Error("podcast not found");
-    const r = await fetchOne(supabase, podcast);
+    const r = await fetchOne(supabase, podcast, episode_cap ? { episodeCap: Number(episode_cap) } : {});
     return new Response(JSON.stringify({ ok: r.ok, count: r.new + r.duplicates, ...r }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

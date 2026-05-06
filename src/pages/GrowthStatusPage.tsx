@@ -54,6 +54,7 @@ export default function GrowthStatusPage() {
     podcasts: 0, activePodcasts: 0, episodes: 0, newEpisodes24h: 0,
     newPodcasts24h: 0, avgRank: 0, failedFeeds: 0, queue: 0,
   });
+  const [tiers, setTiers] = useState({ promoted: 0, indexed: 0, lowSkipped: 0 });
   const [sources, setSources] = useState<Record<string, number>>({});
   const [foundation, setFoundation] = useState<any>(null);
   const [unprocessed, setUnprocessed] = useState(0);
@@ -97,13 +98,19 @@ export default function GrowthStatusPage() {
         queue: queueRes.count || 0,
       });
 
-      const { data: srcRows } = await supabase.from("podcasts").select("source");
+      const { data: srcRows } = await supabase.from("podcasts").select("source, podiverzum_rank");
       const tally: Record<string, number> = {};
+      const t = { promoted: 0, indexed: 0, lowSkipped: 0 };
       (srcRows || []).forEach((r: any) => {
         const k = r.source || "manual";
         tally[k] = (tally[k] || 0) + 1;
+        const rk = r.podiverzum_rank || 0;
+        if (rk >= 6) t.promoted++;
+        else if (rk >= 4) t.indexed++;
+        else t.lowSkipped++;
       });
       setSources(tally);
+      setTiers(t);
 
       const [fRow, unprocRes, eligibleRes] = await Promise.all([
         supabase.from("app_settings").select("value").eq("key", "foundation_import").maybeSingle(),
@@ -209,8 +216,8 @@ export default function GrowthStatusPage() {
           <CardContent className="text-sm space-y-2">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Stat title="Foundation podcasts added" value={foundation?.totals?.auto_added ?? 0} />
-              <Stat title="Queued (Rank 6–7)" value={foundation?.totals?.queued ?? 0} />
-              <Stat title="Hidden (Rank ≤ 5)" value={foundation?.totals?.hidden_low_rank ?? 0} />
+              <Stat title="Indexed (Rank 4–5)" value={foundation?.totals?.queued ?? 0} />
+              <Stat title="Hidden (Rank ≤ 3)" value={foundation?.totals?.hidden_low_rank ?? 0} />
               <Stat title="Failed RSS" value={foundation?.totals?.failed_rss_tests ?? 0} />
               <Stat title="Unprocessed staged" value={unprocessed} />
               <Stat title="Eligible Rank ≥ 8 remaining" value={eligibleHigh} />
@@ -220,6 +227,20 @@ export default function GrowthStatusPage() {
             <div className="text-xs text-muted-foreground">
               Last run: {fmtDate(foundation?.last_finished_at)}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Visibility tiers</CardTitle></CardHeader>
+          <CardContent className="text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Stat title="Promoted-eligible (Rank ≥ 6)" value={tiers.promoted} />
+              <Stat title="Search-only / indexed (Rank 4–5)" value={tiers.indexed} />
+              <Stat title="Skipped (Rank ≤ 3)" value={tiers.lowSkipped} />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Rank ≥ 6 appears in homepage and category promoted sections. Rank 4–5 is searchable/indexed only. Rank ≤ 3 is hidden by default.
+            </p>
           </CardContent>
         </Card>
 
