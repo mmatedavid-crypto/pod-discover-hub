@@ -63,11 +63,11 @@ export function EpisodeCard({
           <Link to={`/podcast/${p.slug}`} className="hover:text-foreground font-medium">{p.title}</Link>
           {p.category && <span>· {p.category}</span>}
           {e.published_at && <span>· {new Date(e.published_at).toLocaleDateString()}</span>}
-          {typeof e.episode_rank === "number" && e.episode_rank > 0 && (
-            <span className="px-1.5 py-0.5 rounded bg-secondary text-[10px]">Ep rank {e.episode_rank}</span>
+          {typeof e.episode_rank === "number" && e.episode_rank >= 6 && (
+            <span className="px-1.5 py-0.5 rounded bg-secondary text-[10px]">Episode rank {e.episode_rank}</span>
           )}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
-            <span className="text-[10px] text-muted-foreground">/ Pod {p.podiverzum_rank}</span>
+            <span className="text-[10px] text-muted-foreground">Pod rank {p.podiverzum_rank}</span>
           )}
         </div>
         {desc && (
