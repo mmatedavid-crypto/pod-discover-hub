@@ -20,6 +20,8 @@ import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
 import EntityPage from "./pages/EntityPage.tsx";
 import AdminFeedbackPage from "./pages/AdminFeedbackPage.tsx";
 import AdminSearchInsightsPage from "./pages/AdminSearchInsightsPage.tsx";
+import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
+import PageViewTracker from "./components/PageViewTracker.tsx";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +31,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <PageViewTracker />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/categories" element={<CategoriesPage />} />
@@ -44,6 +47,7 @@ const App = () => (
           <Route path="/admin/queue" element={<AdminQueuePage />} />
           <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
           <Route path="/admin/search-insights" element={<AdminSearchInsightsPage />} />
+          <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />
           <Route path="/person/:slug" element={<EntityPage kind="person" />} />
