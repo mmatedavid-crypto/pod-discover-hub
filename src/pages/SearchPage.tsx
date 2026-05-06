@@ -6,6 +6,7 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search } from "lucide-react";
 import { setSeo } from "@/lib/seo";
+import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 
 type SortKey = "best" | "newest" | "rank";
 
@@ -17,271 +18,23 @@ const EXAMPLES = [
   "Nvidia data centers",
 ];
 
-// High-confidence synonyms only — keep ≤2 per term to avoid query blowup.
-const BUILTIN_SYNONYMS: Record<string, string[]> = {
-  food: ["cooking", "cuisine"],
-  italy: ["italian", "rome"],
-  ai: ["artificial intelligence", "machine learning"],
-  healthcare: ["health", "medical"],
-  "real estate": ["property", "housing"],
-  investing: ["investment", "stocks"],
-  "weight loss": ["obesity", "glp-1"],
-  sleep: ["insomnia", "recovery"],
-  testosterone: ["hormones"],
-  nvidia: ["nvda"],
-  dubai: ["uae"],
-  tourism: ["travel", "destination"],
-  travel: ["tourism", "destination"],
-  europe: ["european", "italy"],
-  european: ["europe"],
-  colonisation: ["colonization", "colony"],
-  colonization: ["colonisation", "colony"],
-  narcissistic: ["narcissist", "narcissism"],
-  narcissist: ["narcissistic", "narcissism"],
-  narcissism: ["narcissistic", "narcissist"],
-  ballet: ["dance"],
-  f1: ["formula 1", "grand prix"],
-  spacex: ["space", "rocket"],
-};
+function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
-// Single-token typo / spelling normalization. Whole-token, case-insensitive.
-const TYPO_FIX: Record<string, string> = {
-  balet: "ballet",
-  narcissitic: "narcissistic",
-  narcisistic: "narcissistic",
-  narcicistic: "narcissistic",
-  colonisation: "colonization",
-  tourisim: "tourism",
-  toursim: "tourism",
-  europ: "europe",
-  itlay: "italy",
-  spcaex: "spacex",
-};
-
-// Multi-word phrase aliases applied to the raw query string before tokenizing.
-// Maps a normalized phrase -> canonical form (which may itself be a multi-token alias).
-const PHRASE_ALIASES: Array<[RegExp, string]> = [
-  [/\bformula\s*one\b/gi, "formula 1"],
-  [/\bformula\s*1\b/gi, "formula 1 f1"],
-  [/\bgrand\s*prix\b/gi, "formula 1 grand prix"],
-  [/\bspace\s*x\b/gi, "spacex"],
-];
-
-// Intent rules: when query matches a pattern, add extra alias terms and (optionally)
-// negative terms that downrank off-topic matches. Keep this list small and high-confidence.
-const INTENT_RULES: Array<{
-  match: (lc: string) => boolean;
-  aliases: string[];
-  negatives: string[];
-  label: string;
-}> = [
-  {
-    label: "space-mars",
-    match: (lc) => /\bmars\b/.test(lc) && /\b(coloni[sz]ation|colony|space|spacex|settle|planet)/.test(lc),
-    aliases: ["space", "spacex", "planetary", "colony", "settlement"],
-    negatives: ["chocolate", "candy", "mars inc", "m&m", "snickers", "confection"],
-  },
-  {
-    label: "travel",
-    match: (lc) => /\b(tourism|travel|trip|vacation|destination)\b/.test(lc),
-    aliases: ["travel", "destination"],
-    negatives: [],
-  },
-  {
-    label: "psychology-narcissism",
-    match: (lc) => /\bnarciss/.test(lc),
-    aliases: ["narcissist", "narcissism", "toxic relationship"],
-    negatives: [],
-  },
-  {
-    label: "arts-ballet",
-    match: (lc) => /\bballet\b/.test(lc),
-    aliases: ["dance", "performance"],
-    negatives: [],
-  },
-];
-
-const EPISODE_SELECT =
-  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,episode_rank,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status)";
-
-function uniq<T>(a: T[]) { return Array.from(new Set(a)); }
-
-function normalizeQuery(raw: string): { normalized: string; changed: boolean } {
-  let s = " " + raw.toLowerCase() + " ";
-  PHRASE_ALIASES.forEach(([re, rep]) => { s = s.replace(re, rep); });
-  // Whole-token typo fixes
-  s = s.replace(/[a-z][a-z'-]*/g, (tok) => TYPO_FIX[tok] ?? tok);
-  s = s.trim().replace(/\s+/g, " ");
-  return { normalized: s, changed: s !== raw.trim().toLowerCase().replace(/\s+/g, " ") };
-}
-
-function parseQuery(q: string): { terms: string[]; strict: boolean } {
-  const strict = /\+/.test(q);
-  const terms = q
-    .split(/[+,&]|\s+and\s+|\s+/i)
-    .map((s) => s.trim())
-    .filter((s) => s.length >= 2);
-  return { terms: uniq(terms), strict };
-}
-
-// Limited expansion: original + up to 2 high-confidence synonyms.
-function expandTermLimited(term: string): string[] {
-  const t = term.toLowerCase();
-  const out: string[] = [term];
-  if (BUILTIN_SYNONYMS[t]) {
-    BUILTIN_SYNONYMS[t].slice(0, 2).forEach((s) => out.push(s));
-  } else {
-    for (const [k, vs] of Object.entries(BUILTIN_SYNONYMS)) {
-      if (vs.includes(t)) { out.push(k); break; }
-    }
-  }
-  return uniq(out).slice(0, 3);
-}
-
-function escapeIlike(s: string) {
-  return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " ");
-}
-
-function scorePodcast(p: any, termGroups: string[][]): number {
+function scorePodcast(p: any, terms: string[]): number {
   let s = 0;
   const title = (p.title || "").toLowerCase();
   const summary = (p.summary || "").toLowerCase();
   const desc = (p.description || "").toLowerCase();
   const cat = (p.category || "").toLowerCase();
-  termGroups.forEach((variants) => {
-    const orig = variants[0].toLowerCase();
-    if (title === orig) s += 50;
-    if (title.includes(orig)) s += 25;
-    if (variants.some((v) => title.includes(v.toLowerCase()))) s += 12;
-    if (variants.some((v) => cat.includes(v.toLowerCase()))) s += 8;
-    if (variants.some((v) => summary.includes(v.toLowerCase()))) s += 6;
-    if (variants.some((v) => desc.includes(v.toLowerCase()))) s += 3;
+  terms.forEach((term) => {
+    const t = term.toLowerCase();
+    if (title === t) s += 50;
+    if (title.includes(t)) s += 25;
+    if (cat.includes(t)) s += 8;
+    if (summary.includes(t)) s += 6;
+    if (desc.includes(t)) s += 3;
   });
   return s;
-}
-
-function escapeRegex(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
-function wordRe(v: string) { return new RegExp(`\\b${escapeRegex(v.toLowerCase())}\\b`, "i"); }
-function hasWord(haystack: string, needle: string) { return wordRe(needle).test(haystack); }
-
-function episodeFields(e: any) {
-  const title = (e.title || "").toLowerCase();
-  const summary = (e.summary || "").toLowerCase();
-  const desc = (e.description || "").toLowerCase();
-  const arrays = [
-    ...(e.topics || []), ...(e.people || []), ...(e.companies || []),
-    ...(e.tickers || []), ...(e.ingredients || []),
-  ].map((x: string) => String(x).toLowerCase());
-  return { title, summary, desc, arrays };
-}
-
-// Generic terms: alone they bring noise; require pairing with a stronger hit.
-const GENERIC_TERMS = new Set([
-  "cooking", "food", "cuisine", "real", "estate", "property", "housing",
-  "health", "healthcare", "medical", "business", "investing", "investment",
-  "sleep", "recovery", "data", "centers", "center",
-]);
-
-function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: boolean; entityHit: boolean; bodyHit: boolean; podHit: boolean } {
-  const { title, summary, desc, arrays } = episodeFields(e);
-  const podTitle = (e.podcasts?.title || "").toLowerCase();
-  const podCat = (e.podcasts?.category || "").toLowerCase();
-  const lc = variants.map((v) => v.toLowerCase());
-  const titleHit = lc.some((v) => hasWord(title, v));
-  const entityHit = lc.some((v) => arrays.some((a) => a === v || hasWord(a, v)));
-  const bodyHit = lc.some((v) => hasWord(summary, v) || hasWord(desc, v));
-  const podHit = lc.some((v) => hasWord(podTitle, v) || hasWord(podCat, v));
-  return { hit: titleHit || entityHit || bodyHit || podHit, titleHit, entityHit, bodyHit, podHit };
-}
-
-function scoreEpisode(e: any, termGroups: string[][], negatives: string[] = []): { score: number; allHit: boolean; hitCount: number; strongHits: number; bodyOnlyGenericOnly: boolean; negativeHit: boolean } {
-  let s = 0;
-  let hitCount = 0;
-  let strongHits = 0;
-  let allHit = true;
-  let anyNonGenericStrong = false;
-  let anyNonGenericBody = false;
-  termGroups.forEach((variants) => {
-    const h = termGroupHits(e, variants);
-    const isGeneric = GENERIC_TERMS.has(variants[0].toLowerCase());
-    if (h.hit) hitCount++;
-    else allHit = false;
-    const strong = h.titleHit || h.entityHit || h.podHit;
-    if (strong) {
-      strongHits++;
-      if (!isGeneric) anyNonGenericStrong = true;
-    }
-    if (h.bodyHit && !isGeneric) anyNonGenericBody = true;
-    if (h.titleHit) s += 150;
-    if (h.entityHit) s += 70;
-    if (h.podHit) s += 40;
-    if (h.bodyHit) s += isGeneric ? 10 : 60;
-    const orig = variants[0].toLowerCase();
-    const titleLc = (e.title || "").toLowerCase();
-    if (titleLc === orig) s += 250;
-    else if (titleLc.includes(orig)) s += 90;
-  });
-  if (allHit && termGroups.length > 1) s += 120;
-  s += hitCount * 25;
-  const bodyOnlyGenericOnly = strongHits === 0 && !anyNonGenericBody && !anyNonGenericStrong;
-
-  // Negative-term penalty: downrank episodes whose title/podcast/entities mention off-topic terms.
-  let negativeHit = false;
-  if (negatives.length) {
-    const { title, summary, desc, arrays } = episodeFields(e);
-    const podTitle = (e.podcasts?.title || "").toLowerCase();
-    for (const n of negatives) {
-      const nl = n.toLowerCase();
-      if (hasWord(title, nl) || hasWord(podTitle, nl) || arrays.some((a) => hasWord(a, nl))) {
-        negativeHit = true; s -= 400; break;
-      }
-      if (hasWord(summary, nl) || hasWord(desc, nl)) { s -= 80; }
-    }
-  }
-
-  if (e.published_at) {
-    const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
-    s += Math.max(0, 30 - ageDays) * 0.6;
-    if (ageDays < 7) s += 10;
-  }
-  s += ((e.episode_rank ?? 0)) * 1.2;
-  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.4;
-  return { score: s, allHit, hitCount, strongHits, bodyOnlyGenericOnly, negativeHit };
-}
-
-// Build a compact OR filter for one term group (expanded variants).
-function orFilterForVariants(variants: string[]): string {
-  const ors: string[] = [];
-  variants.forEach((t) => {
-    const v = `%${escapeIlike(t)}%`;
-    ors.push(`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`);
-    ors.push(`topics.cs.{${t}}`, `people.cs.{${t}}`, `companies.cs.{${t}}`, `tickers.cs.{${t}}`, `ingredients.cs.{${t}}`);
-  });
-  return ors.join(",");
-}
-
-async function queryEpisodesByGroups(termGroups: string[][]): Promise<any[]> {
-  let eq = supabase.from("episodes").select(EPISODE_SELECT).limit(300);
-  termGroups.forEach((variants) => { eq = eq.or(orFilterForVariants(variants)); });
-  const { data } = await eq;
-  return data || [];
-}
-
-// Per-term fallback: query each original term separately, merge & dedupe.
-async function queryEpisodesPerTerm(terms: string[]): Promise<any[]> {
-  const results = await Promise.all(
-    terms.map(async (t) => {
-      const { data } = await supabase
-        .from("episodes")
-        .select(EPISODE_SELECT)
-        .or(orFilterForVariants([t]))
-        .limit(150);
-      return data || [];
-    })
-  );
-  const map = new Map<string, any>();
-  results.flat().forEach((e: any) => { if (!map.has(e.id)) map.set(e.id, e); });
-  return Array.from(map.values());
 }
 
 export default function SearchPage() {
@@ -295,6 +48,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [broadened, setBroadened] = useState(false);
+  const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
   const lastLoggedRef = useRef<string>("");
 
@@ -309,114 +63,64 @@ export default function SearchPage() {
       noindex: !initial,
     });
     setBroadened(false);
+    setSemanticUsed(false);
     setSuggestion("");
     if (!initial) { setPodcasts([]); setEpisodes([]); return; }
 
-    // Normalize: phrase aliases + token typo fixes.
-    const norm = normalizeQuery(initial);
-    const effectiveQ = norm.normalized || initial;
-    if (norm.changed) setSuggestion(norm.normalized);
-
-    const { terms, strict } = parseQuery(effectiveQ);
-    if (!terms.length) return;
     setLoading(true);
     (async () => {
-      // Apply intent rules: add alias terms, collect negatives.
-      const lcQ = effectiveQ.toLowerCase();
-      const matchedIntents = INTENT_RULES.filter((r) => r.match(lcQ));
-      const intentAliases = uniq(matchedIntents.flatMap((r) => r.aliases));
-      const negatives = uniq(matchedIntents.flatMap((r) => r.negatives));
+      const result = await searchEpisodes({ rawQuery: initial, scope: "all", limit: 80 });
+      if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
+      setBroadened(result.fallbackUsed);
+      setSemanticUsed(result.semanticUsed);
 
-      const termGroups = terms.map(expandTermLimited);
-      if (intentAliases.length) {
-        // Append intent aliases as a low-weight extra group (helps ranking, not gating).
-        intentAliases.forEach((a) => { if (!terms.some((t) => t.toLowerCase() === a.toLowerCase())) termGroups.push([a]); });
-      }
+      let chosen = result.all;
+      if (catParam) chosen = chosen.filter((x) => (x.e.podcasts?.category || "") === catParam);
 
-      // 1) Primary compact query (limited synonyms).
-      let raw = await queryEpisodesByGroups(termGroups);
-      let usedFallback = false;
-
-      // 2) Zero-result fallback: per-term original-only queries, merged in JS.
-      if (raw.length === 0) {
-        raw = await queryEpisodesPerTerm([...terms, ...intentAliases]);
-        if (raw.length > 0) usedFallback = true;
-      }
-
-      const scored = raw
-        .map((e: any) => ({ e, ...scoreEpisode(e, termGroups, negatives) }))
-        .filter((x) => x.hitCount > 0 && !x.negativeHit);
-
-      // Relevance gate: require at least one strong hit (title / entity / podcast title or category).
-      // Pure body-only matches are too noisy (e.g. "rome" + "food" appearing in unrelated bodies).
-      const relevant = scored.filter((x) => x.strongHits >= 1);
-
-      let chosen: typeof scored = relevant;
-      if (termGroups.length > 1) {
-        const allHit = relevant.filter((x) => x.allHit);
-        if (strict) {
-          if (allHit.length > 0) chosen = allHit;
-          else { chosen = relevant; if (relevant.length > 0) usedFallback = true; }
-        } else if (allHit.length > 0) {
-          chosen = allHit;
-        } else {
-          chosen = relevant;
-          if (relevant.length > 0) usedFallback = true;
-        }
-      }
-
-      setBroadened(usedFallback);
-
-      let filtered = chosen;
-      if (catParam) filtered = filtered.filter((x) => (x.e.podcasts?.category || "") === catParam);
       const sortFn =
         sortParam === "newest"
           ? (a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()
           : sortParam === "rank"
           ? (a: any, b: any) => (b.e.episode_rank || 0) - (a.e.episode_rank || 0)
           : (a: any, b: any) => b.score - a.score;
-      const rankedEs = filtered.sort(sortFn).slice(0, 80).map((x) => x.e);
-      setEpisodes(rankedEs as any);
-      setCategories(uniq<string>(rankedEs.map((e: any) => e.podcasts?.category).filter(Boolean) as string[]));
+      const ranked = chosen.slice().sort(sortFn).slice(0, 80);
+      const mapped: EpisodeLite[] = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] }));
+      setEpisodes(mapped);
+      setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
 
-      // Log only once per distinct query — not on sort/cat changes.
       if (lastLoggedRef.current !== initial) {
         lastLoggedRef.current = initial;
         const { data: sess } = await supabase.auth.getSession();
+        const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
         supabase.from("search_events").insert({
           query: initial.slice(0, 200),
           terms_count: terms.length,
-          result_count: rankedEs.length,
-          fallback_used: usedFallback,
+          result_count: mapped.length,
+          fallback_used: result.fallbackUsed || result.semanticUsed,
           viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
           user_id: sess.session?.user.id || null,
         }).then(() => {}, () => {});
       }
 
-      // Podcasts query — keep compact too.
+      // Podcasts query (separate, simpler).
+      const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
       let pq = supabase
         .from("podcasts")
         .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .limit(60);
-      termGroups.forEach((variants) => {
-        const ors = variants.flatMap((t) => {
-          const v = `%${escapeIlike(t)}%`;
-          return [`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`];
-        }).join(",");
-        pq = pq.or(ors);
+      terms.forEach((t) => {
+        const v = `%${escapeIlike(t)}%`;
+        pq = pq.or([`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`].join(","));
       });
       const { data: ps } = await pq;
-      const visiblePs = (ps || []).filter((p: any) =>
-        p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive")
-      );
+      const visiblePs = (ps || []).filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"));
       const rankedPs = visiblePs
-        .map((p) => ({ p, s: scorePodcast(p, termGroups) + ((p.podiverzum_rank ?? 0) * 0.5) }))
+        .map((p) => ({ p, s: scorePodcast(p, terms) + ((p.podiverzum_rank ?? 0) * 0.5) }))
         .filter((x) => x.s > 0)
         .sort((a, b) => b.s - a.s)
         .slice(0, 18)
         .map((x) => x.p);
       setPodcasts(rankedPs);
-
       setLoading(false);
     })();
   }, [initial, sortParam, catParam]);
@@ -506,14 +210,19 @@ export default function SearchPage() {
         {initial && (podcasts.length > 0 || episodes.length > 0) && (
           <div className="mt-8 space-y-10">
             <section>
-              <h2 className="font-semibold mb-3 flex items-center gap-2">
+              <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
                 Matching episodes ({episodes.length})
                 {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
                     Showing results for {suggestion}
                   </span>
                 )}
-                {broadened && (
+                {semanticUsed && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-mint/15 border border-mint/30 text-foreground/70">
+                    including related ideas
+                  </span>
+                )}
+                {broadened && !semanticUsed && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
                     Showing broader matches
                   </span>
@@ -533,7 +242,7 @@ export default function SearchPage() {
         )}
 
         <p className="text-xs text-muted-foreground mt-10">
-          Indexed from public RSS feeds. Ranked by freshness, feed health and episode relevance.
+          Indexed from public RSS feeds. Ranked by query relevance, freshness, feed health and Podiverzum Rank.
         </p>
       </div>
     </Layout>
