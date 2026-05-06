@@ -295,6 +295,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [broadened, setBroadened] = useState(false);
+  const [suggestion, setSuggestion] = useState<string>("");
   const lastLoggedRef = useRef<string>("");
 
   useEffect(() => { setQ(initial); }, [initial]);
@@ -308,12 +309,29 @@ export default function SearchPage() {
       noindex: !initial,
     });
     setBroadened(false);
+    setSuggestion("");
     if (!initial) { setPodcasts([]); setEpisodes([]); return; }
-    const { terms, strict } = parseQuery(initial);
+
+    // Normalize: phrase aliases + token typo fixes.
+    const norm = normalizeQuery(initial);
+    const effectiveQ = norm.normalized || initial;
+    if (norm.changed) setSuggestion(norm.normalized);
+
+    const { terms, strict } = parseQuery(effectiveQ);
     if (!terms.length) return;
     setLoading(true);
     (async () => {
+      // Apply intent rules: add alias terms, collect negatives.
+      const lcQ = effectiveQ.toLowerCase();
+      const matchedIntents = INTENT_RULES.filter((r) => r.match(lcQ));
+      const intentAliases = uniq(matchedIntents.flatMap((r) => r.aliases));
+      const negatives = uniq(matchedIntents.flatMap((r) => r.negatives));
+
       const termGroups = terms.map(expandTermLimited);
+      if (intentAliases.length) {
+        // Append intent aliases as a low-weight extra group (helps ranking, not gating).
+        intentAliases.forEach((a) => { if (!terms.some((t) => t.toLowerCase() === a.toLowerCase())) termGroups.push([a]); });
+      }
 
       // 1) Primary compact query (limited synonyms).
       let raw = await queryEpisodesByGroups(termGroups);
@@ -321,13 +339,13 @@ export default function SearchPage() {
 
       // 2) Zero-result fallback: per-term original-only queries, merged in JS.
       if (raw.length === 0) {
-        raw = await queryEpisodesPerTerm(terms);
+        raw = await queryEpisodesPerTerm([...terms, ...intentAliases]);
         if (raw.length > 0) usedFallback = true;
       }
 
       const scored = raw
-        .map((e: any) => ({ e, ...scoreEpisode(e, termGroups) }))
-        .filter((x) => x.hitCount > 0);
+        .map((e: any) => ({ e, ...scoreEpisode(e, termGroups, negatives) }))
+        .filter((x) => x.hitCount > 0 && !x.negativeHit);
 
       // Relevance gate: require at least one strong hit (title / entity / podcast title or category).
       // Pure body-only matches are too noisy (e.g. "rome" + "food" appearing in unrelated bodies).
