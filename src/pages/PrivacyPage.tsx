@@ -43,7 +43,7 @@ export default function PrivacyPage() {
         </ul>
 
         <h2 className="mt-8 text-xl font-semibold">Page analytics</h2>
-        <p>We log page views (route path, referrer, viewport width, timestamp) so we can see which parts of the site are useful.</p>
+        <p>We log basic page views such as route path, referrer, viewport size, timestamp and UTM campaign parameters when present.</p>
 
         <h2 className="mt-8 text-xl font-semibold">What we don't do</h2>
         <ul className="list-disc pl-5">
