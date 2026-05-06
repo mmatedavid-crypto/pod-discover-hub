@@ -55,6 +55,9 @@ export default function GrowthStatusPage() {
     newPodcasts24h: 0, avgRank: 0, failedFeeds: 0, queue: 0,
   });
   const [sources, setSources] = useState<Record<string, number>>({});
+  const [foundation, setFoundation] = useState<any>(null);
+  const [unprocessed, setUnprocessed] = useState(0);
+  const [eligibleHigh, setEligibleHigh] = useState(0);
 
   useEffect(() => {
     (async () => {
