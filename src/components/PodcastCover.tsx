@@ -42,6 +42,9 @@ export const PodcastCover = forwardRef<HTMLDivElement, Props>(function PodcastCo
           src={src as string}
           alt={title}
           loading="lazy"
+          decoding="async"
+          width={400}
+          height={400}
           onError={() => setBroken(true)}
           className="w-full h-full object-cover"
         />
