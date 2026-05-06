@@ -241,6 +241,61 @@ export default function AdminGrowthPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle>Recent feeds ingest (Lovable Cloud-only)</CardTitle>
+              <Button size="sm" onClick={runRecentIngest} disabled={recentIngesting}>
+                {recentIngesting ? "Fetching…" : "Run recent-feeds ingest now"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <p className="text-muted-foreground">
+              Pulls Podcast Index <code>/recent/newfeeds</code> + <code>/recent/feeds</code> (capped, no pagination, no search) and stages English feeds. Schedule daily, then click <em>Process next batch</em> below.
+            </p>
+            <pre className="text-xs bg-muted p-3 rounded overflow-auto">{`-- Daily auto ingest at 03:30 UTC
+select cron.schedule(
+  'podiverzum-pi-recent-ingest',
+  '30 3 * * *',
+  $$ select net.http_post(
+    url:='${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pi-recent-ingest',
+    headers:='{"Content-Type":"application/json","apikey":"${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}"}'::jsonb,
+    body:='{"max":500,"since_days":2,"lang":"en"}'::jsonb
+  ); $$
+);
+
+-- Process staged feeds every 30 min (5 auto-adds/run)
+select cron.schedule(
+  'podiverzum-pi-dump-process',
+  '*/30 * * * *',
+  $$ select net.http_post(
+    url:='${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pi-dump-process',
+    headers:='{"Content-Type":"application/json","apikey":"${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}"}'::jsonb,
+    body:='{"batch":100}'::jsonb
+  ); $$
+);`}</pre>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Add feeds from iPhone (paste URLs or OPML)</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div>
+              <Label>RSS URLs (one per line)</Label>
+              <Textarea rows={4} value={pasteUrls} onChange={(e) => setPasteUrls(e.target.value)} placeholder="https://example.com/feed.xml" />
+            </div>
+            <div>
+              <Label>OPML (paste XML)</Label>
+              <Textarea rows={4} value={pasteOpml} onChange={(e) => setPasteOpml(e.target.value)} placeholder="<opml>…</opml>" />
+            </div>
+            <Button size="sm" onClick={submitPaste} disabled={pasteSubmitting}>
+              {pasteSubmitting ? "Submitting…" : "Stage these feeds"}
+            </Button>
+            <p className="text-xs text-muted-foreground">Staged feeds are processed by the same pipeline (rank ≥ {settings.min_rank_for_auto_add} auto-add, 6–7 queue, ≤ 5 hide).</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <CardTitle>Podcast Index full database import</CardTitle>
               <Button size="sm" onClick={processDumpBatch} disabled={processingDump}>
                 {processingDump ? "Processing…" : "Process next batch (100)"}
