@@ -241,7 +241,27 @@ export default function GrowthStatusPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Visibility tiers</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Queue auto-drainer</CardTitle></CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={drainer?.enabled ? "default" : "outline"}>
+                {drainer?.enabled ? "ENABLED" : "DISABLED"}
+              </Badge>
+              <span className="text-muted-foreground text-xs">runs every 5 min when enabled</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Stat title="Pending Rank ≥ 4" value={pendingR4} />
+              <Stat title="Imported via drainer (total)" value={drainer?.total_imported ?? 0} />
+              <Stat title="Last run processed" value={drainer?.last_run?.processed ?? 0} />
+              <Stat title="Last run imported" value={drainer?.last_run?.imported ?? 0} />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Last drainer run: {fmtDate(drainer?.last_run?.finished_at)} · stopped: {drainer?.last_run?.stopped_reason || "—"}
+            </div>
+          </CardContent>
+        </Card>
+
+
           <CardContent className="text-sm">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Stat title="Promoted-eligible (Rank ≥ 6)" value={tiers.promoted} />
