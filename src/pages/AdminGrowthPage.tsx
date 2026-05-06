@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
@@ -37,6 +38,10 @@ export default function AdminGrowthPage() {
   });
   const [dumpRuns, setDumpRuns] = useState<any[]>([]);
   const [processingDump, setProcessingDump] = useState(false);
+  const [recentIngesting, setRecentIngesting] = useState(false);
+  const [pasteUrls, setPasteUrls] = useState("");
+  const [pasteOpml, setPasteOpml] = useState("");
+  const [pasteSubmitting, setPasteSubmitting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -95,6 +100,32 @@ export default function AdminGrowthPage() {
     }
   };
 
+  const runRecentIngest = async () => {
+    setRecentIngesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pi-recent-ingest", { body: { max: 500, since_days: 2, lang: "en" } });
+      if (error) throw error;
+      toast.success(`Fetched ${data?.fetched || 0}, staged ${data?.inserted || 0}`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "ingest failed");
+    } finally { setRecentIngesting(false); }
+  };
+
+  const submitPaste = async () => {
+    const urls = pasteUrls.split(/\s+/).map((s) => s.trim()).filter(Boolean);
+    if (!urls.length && !pasteOpml.trim()) { toast.error("Paste URLs or OPML"); return; }
+    setPasteSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pi-opml-ingest", { body: { urls, opml: pasteOpml } });
+      if (error) throw error;
+      toast.success(`Staged ${data?.inserted || 0} of ${data?.received || 0}`);
+      setPasteUrls(""); setPasteOpml("");
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "submit failed");
+    } finally { setPasteSubmitting(false); }
+  };
   const save = async () => {
     const cats = catsInput.split(",").map((s) => s.trim()).filter(Boolean);
     const next = { ...settings, discovery_categories: cats };
@@ -204,6 +235,61 @@ export default function AdminGrowthPage() {
                 <pre className="text-xs bg-muted p-3 rounded mt-2 overflow-auto">{JSON.stringify(lastRun.stats, null, 2)}</pre>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle>Recent feeds ingest (Lovable Cloud-only)</CardTitle>
+              <Button size="sm" onClick={runRecentIngest} disabled={recentIngesting}>
+                {recentIngesting ? "Fetching…" : "Run recent-feeds ingest now"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <p className="text-muted-foreground">
+              Pulls Podcast Index <code>/recent/newfeeds</code> + <code>/recent/feeds</code> (capped, no pagination, no search) and stages English feeds. Schedule daily, then click <em>Process next batch</em> below.
+            </p>
+            <pre className="text-xs bg-muted p-3 rounded overflow-auto">{`-- Daily auto ingest at 03:30 UTC
+select cron.schedule(
+  'podiverzum-pi-recent-ingest',
+  '30 3 * * *',
+  $$ select net.http_post(
+    url:='${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pi-recent-ingest',
+    headers:='{"Content-Type":"application/json","apikey":"${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}"}'::jsonb,
+    body:='{"max":500,"since_days":2,"lang":"en"}'::jsonb
+  ); $$
+);
+
+-- Process staged feeds every 30 min (5 auto-adds/run)
+select cron.schedule(
+  'podiverzum-pi-dump-process',
+  '*/30 * * * *',
+  $$ select net.http_post(
+    url:='${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pi-dump-process',
+    headers:='{"Content-Type":"application/json","apikey":"${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}"}'::jsonb,
+    body:='{"batch":100}'::jsonb
+  ); $$
+);`}</pre>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Add feeds from iPhone (paste URLs or OPML)</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div>
+              <Label>RSS URLs (one per line)</Label>
+              <Textarea rows={4} value={pasteUrls} onChange={(e) => setPasteUrls(e.target.value)} placeholder="https://example.com/feed.xml" />
+            </div>
+            <div>
+              <Label>OPML (paste XML)</Label>
+              <Textarea rows={4} value={pasteOpml} onChange={(e) => setPasteOpml(e.target.value)} placeholder="<opml>…</opml>" />
+            </div>
+            <Button size="sm" onClick={submitPaste} disabled={pasteSubmitting}>
+              {pasteSubmitting ? "Submitting…" : "Stage these feeds"}
+            </Button>
+            <p className="text-xs text-muted-foreground">Staged feeds are processed by the same pipeline (rank ≥ {settings.min_rank_for_auto_add} auto-add, 6–7 queue, ≤ 5 hide).</p>
           </CardContent>
         </Card>
 
