@@ -15,6 +15,8 @@ export default function AdminQueuePage() {
   const [allowed, setAllowed] = useState(false);
   const [items, setItems] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ ok: number; failed: number; skipped: number } | null>(null);
 
   useEffect(() => {
     (async () => {
