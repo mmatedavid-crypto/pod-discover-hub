@@ -400,6 +400,7 @@ VALUES ('{userId}', 'admin');
             <a href="/admin/discovery" className="text-muted-foreground hover:text-foreground">Discovery</a>
             <a href="/admin/feedback" className="text-muted-foreground hover:text-foreground">Feedback</a>
             <a href="/admin/search-insights" className="text-muted-foreground hover:text-foreground">Search insights</a>
+            <a href="/admin/analytics" className="text-muted-foreground hover:text-foreground">Analytics</a>
             <button onClick={signOut} className="text-muted-foreground hover:text-accent">Sign out</button>
           </div>
         </div>
