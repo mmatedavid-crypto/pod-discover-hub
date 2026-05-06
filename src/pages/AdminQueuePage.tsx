@@ -37,6 +37,9 @@ export default function AdminQueuePage() {
   const [failureSummary, setFailureSummary] = useState<Record<string, number>>({});
   const [diagResults, setDiagResults] = useState<ItemResult[]>([]);
   const [testBusy, setTestBusy] = useState(false);
+  const [drainer, setDrainer] = useState<any>(null);
+  const [drainerBusy, setDrainerBusy] = useState(false);
+  const [pendingR4, setPendingR4] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -67,7 +70,41 @@ export default function AdminQueuePage() {
       sum[key] = (sum[key] || 0) + 1;
     });
     setFailureSummary(sum);
+    const { data: dr } = await supabase.from("app_settings").select("value").eq("key", "queue_drainer").maybeSingle();
+    setDrainer((dr?.value as any) || { enabled: false });
+    const { count: r4 } = await supabase
+      .from("discovery_queue").select("*", { count: "exact", head: true })
+      .eq("status", "pending").gte("candidate_rank", 4);
+    setPendingR4(r4 || 0);
   };
+
+  const toggleDrainer = async (enabled: boolean) => {
+    setDrainerBusy(true);
+    try {
+      const current = drainer || {};
+      const { error } = await supabase.from("app_settings").upsert({
+        key: "queue_drainer", value: { ...current, enabled }, updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success(enabled ? "Auto-drain enabled" : "Auto-drain disabled");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "failed");
+    } finally { setDrainerBusy(false); }
+  };
+
+  const runDrainerNow = async () => {
+    setDrainerBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("queue-drainer", { body: { trigger: "manual" } });
+      if (error) throw new Error(error.message);
+      toast.success(`Drainer: ${data?.status || "ok"}`);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "drainer failed");
+    } finally { setDrainerBusy(false); }
+  };
+
 
   const callQueueImport = async (payload: any) => {
     const { data, error } = await supabase.functions.invoke("queue-import", { body: payload });
@@ -157,6 +194,34 @@ export default function AdminQueuePage() {
           </div>
         </div>
 
+        <Card><CardContent className="p-4 space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div className="text-sm font-medium">Auto-drain Rank ≥ 4 queue</div>
+              <div className="text-xs text-muted-foreground">
+                Status: {drainer?.enabled ? "ENABLED" : "DISABLED"} · pending Rank ≥ 4: {pendingR4} · runs every 5 min via scheduled job
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {drainer?.enabled ? (
+                <Button size="sm" variant="outline" onClick={() => toggleDrainer(false)} disabled={drainerBusy}>Disable auto-drain</Button>
+              ) : (
+                <Button size="sm" onClick={() => toggleDrainer(true)} disabled={drainerBusy}>Enable auto-drain</Button>
+              )}
+              <Button size="sm" variant="secondary" onClick={runDrainerNow} disabled={drainerBusy}>Run drainer now</Button>
+            </div>
+          </div>
+          {drainer?.last_run && (
+            <div className="text-xs text-muted-foreground border-t pt-2">
+              Last drainer run: {new Date(drainer.last_run.finished_at).toLocaleString()} · processed: {drainer.last_run.processed} · imported: {drainer.last_run.imported} · rss-err: {drainer.last_run.imported_with_rss_error} · dup: {drainer.last_run.skipped_duplicate} · failed: {drainer.last_run.failed} · remaining: {drainer.last_run.remaining} · stopped: {drainer.last_run.stopped_reason}
+            </div>
+          )}
+          {drainer?.lock_until && new Date(drainer.lock_until).getTime() > Date.now() && (
+            <div className="text-xs text-primary">A drainer run is currently in progress.</div>
+          )}
+        </CardContent></Card>
+
+
         {Object.keys(failureSummary).length > 0 && (
           <Card><CardContent className="p-4">
             <div className="text-sm font-medium mb-2">Past import outcomes</div>
@@ -167,6 +232,7 @@ export default function AdminQueuePage() {
             </div>
           </CardContent></Card>
         )}
+
 
         {lastRun && (
           <Card><CardContent className="p-4 space-y-2">
