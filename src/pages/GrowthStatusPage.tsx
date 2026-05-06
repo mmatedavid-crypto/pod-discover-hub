@@ -122,6 +122,14 @@ export default function GrowthStatusPage() {
       setFoundation((fRow.data?.value as any) || null);
       setUnprocessed(unprocRes.count || 0);
       setEligibleHigh(eligibleRes.count || 0);
+
+      const [drRow, r4Res] = await Promise.all([
+        supabase.from("app_settings").select("value").eq("key", "queue_drainer").maybeSingle(),
+        supabase.from("discovery_queue").select("id", { count: "exact", head: true }).eq("status", "pending").gte("candidate_rank", 4),
+      ]);
+      setDrainer((drRow.data?.value as any) || null);
+      setPendingR4(r4Res.count || 0);
+
       setLoading(false);
     })();
   }, []);
