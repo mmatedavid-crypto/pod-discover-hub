@@ -89,6 +89,37 @@ Deno.serve(async (req) => {
   const trigger = body.trigger || "manual";
   const force = body.force === true; // ignore autonomous flag
 
+  // Mark stuck runs (no finished_at after 10 minutes) as timed_out before checking concurrency
+  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  try {
+    const { data: stuck } = await supabase.from("growth_runs")
+      .select("id, stats")
+      .is("finished_at", null)
+      .lt("started_at", tenMinAgo);
+    for (const s of stuck || []) {
+      await supabase.from("growth_runs").update({
+        ok: false,
+        finished_at: new Date().toISOString(),
+        error: "Growth run timed out",
+        trigger: "timed_out",
+        stats: { ...(s.stats || {}), timed_out: true },
+      }).eq("id", s.id);
+    }
+  } catch { /* */ }
+
+  // Concurrency guard: refuse if another run is in-flight (started <10min ago, no finished_at)
+  const { data: inflight } = await supabase.from("growth_runs")
+    .select("id, started_at")
+    .is("finished_at", null)
+    .gte("started_at", tenMinAgo)
+    .limit(1);
+  if (inflight && inflight.length > 0) {
+    return new Response(JSON.stringify({
+      ok: false, skipped: true, reason: "already_running",
+      in_flight_run_id: inflight[0].id, started_at: inflight[0].started_at,
+    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
   // Insert run row
   const { data: runRow } = await supabase.from("growth_runs").insert({ started_at: startedAt, trigger, stats: {} }).select("id").single();
   const runId = runRow?.id;
