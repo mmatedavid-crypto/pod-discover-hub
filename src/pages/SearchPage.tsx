@@ -82,6 +82,10 @@ function scorePodcast(p: any, termGroups: string[][]): number {
   return s;
 }
 
+function escapeRegex(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function wordRe(v: string) { return new RegExp(`\\b${escapeRegex(v.toLowerCase())}\\b`, "i"); }
+function hasWord(haystack: string, needle: string) { return wordRe(needle).test(haystack); }
+
 function episodeFields(e: any) {
   const title = (e.title || "").toLowerCase();
   const summary = (e.summary || "").toLowerCase();
