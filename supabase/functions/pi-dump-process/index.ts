@@ -124,7 +124,9 @@ Deno.serve(async (req) => {
               counters.auto_added++; counters.accepted++;
               updates.decision = "imported";
               try {
-                const fr = await fetchOne(supabase, { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url });
+                // Foundation depth: rank 9-10 → 100, rank 8 → 75. Daily mode: 30.
+                const epCap = foundation ? (score >= 9 ? 100 : 75) : 30;
+                const fr = await fetchOne(supabase, { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url }, { episodeCap: epCap });
                 if (!fr.ok) counters.failed_rss_tests++;
               } catch { counters.failed_rss_tests++; }
             }
