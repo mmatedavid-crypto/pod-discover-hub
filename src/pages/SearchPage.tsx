@@ -319,7 +319,14 @@ export default function SearchPage() {
         {initial && (podcasts.length > 0 || episodes.length > 0) && (
           <div className="mt-8 space-y-10">
             <section>
-              <h2 className="font-semibold mb-3">Matching episodes ({episodes.length})</h2>
+              <h2 className="font-semibold mb-3 flex items-center gap-2">
+                Matching episodes ({episodes.length})
+                {broadened && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                    Showing broader matches
+                  </span>
+                )}
+              </h2>
               <EpisodeList items={episodes} terms={flatTerms} showEntities />
             </section>
             {podcasts.length > 0 && (
