@@ -106,7 +106,7 @@ export default function CategoryDetail() {
       const r = await searchEpisodes({ rawQuery: queryParam, scope: scopeParam, categoryName: cat.name, limit: 60 });
       setSemanticUsed(r.semanticUsed);
       setSuggestion(r.suggestion);
-      const decorate = (arr: any[]) => arr.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] })) as EpisodeLite[];
+      const decorate = (arr: any[]) => arr.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" })) as EpisodeLite[];
       setInCat(decorate(r.inCategory));
       setOutside(decorate(r.outsideCategory));
       setAllResults(decorate(r.all));

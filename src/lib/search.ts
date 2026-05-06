@@ -201,12 +201,15 @@ function scoreEpisode(
     s += 400;
   }
 
+  // Track per-term podcast-only hits to demote pure podcast-title matches.
+  let podOnlyTermHits = 0;
   exactGroups.forEach((variants) => {
     const h = termGroupHits(e, variants);
     const isGeneric = GENERIC_TERMS.has(variants[0].toLowerCase());
     if (h.hit) hitCount++;
     else allHit = false;
-    const strong = h.titleHit || h.entityHit || h.podHit;
+    // "strong" = direct episode evidence. Podcast title alone is supporting only.
+    const strong = h.titleHit || h.entityHit;
     if (strong) {
       strongHits++;
       if (!isGeneric) anyNonGenericStrong = true;
@@ -214,23 +217,38 @@ function scoreEpisode(
     if (h.bodyHit && !isGeneric) anyNonGenericBody = true;
     if (h.titleHit) { s += 180; titleHitAny = true; }
     if (h.entityHit) { s += 90; entityHitAny = true; }
-    if (h.podHit) { s += 45; podHitAny = true; }
+    if (h.podHit) {
+      // Podcast/category title is supporting. Boost only if episode also matches.
+      const supports = h.titleHit || h.entityHit || h.bodyHit;
+      s += supports ? 25 : 8;
+      podHitAny = true;
+      if (!h.titleHit && !h.entityHit && !h.bodyHit) podOnlyTermHits++;
+    }
     if (h.bodyHit) { s += isGeneric ? 8 : 55; bodyHitAny = true; }
     const orig = variants[0].toLowerCase();
     if (titleLc === orig) s += 250;
   });
+  // Heavy penalty when the only signal is a podcast-title match (and no episode evidence).
+  const podcastOnlyMatch = !titleHitAny && !entityHitAny && !bodyHitAny && podHitAny;
+  if (podcastOnlyMatch) s -= 120;
+  // For multi-term queries, penalize when most terms only matched via podcast title.
+  if (exactGroups.length >= 2 && podOnlyTermHits >= Math.ceil(exactGroups.length / 2) && !titleHitAny && !entityHitAny) {
+    s -= 80;
+  }
   if (allHit && exactGroups.length > 1) s += 130;
   s += hitCount * 25;
 
   // Semantic-only terms: lower weight, never alone outranks an exact title hit.
+  // In category mode, semantic-only weights are reduced further so direct in-cat matches win.
+  const semScale = categoryName ? 0.6 : 1;
   let semanticHit = false;
   if (semanticTerms.length) {
     for (const t of semanticTerms) {
       const h = termGroupHits(e, [t]);
-      if (h.titleHit) { s += 35; semanticHit = true; }
-      else if (h.entityHit) { s += 25; semanticHit = true; }
-      else if (h.podHit) { s += 15; semanticHit = true; }
-      else if (h.bodyHit) { s += 8; semanticHit = true; }
+      if (h.titleHit) { s += 35 * semScale; semanticHit = true; }
+      else if (h.entityHit) { s += 25 * semScale; semanticHit = true; }
+      else if (h.podHit) { s += 10 * semScale; semanticHit = true; }
+      else if (h.bodyHit) { s += 6 * semScale; semanticHit = true; }
     }
   }
 
@@ -259,16 +277,21 @@ function scoreEpisode(
   s += ((e.episode_rank ?? 0)) * 1.0;
   s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.35;
 
-  // Category boost (soft).
-  if (categoryName && (e.podcasts?.category || "") === categoryName) s += 25;
+  // Category boost — strong only for direct in-category matches (title/entity/body),
+  // weak for podcast-only or pure semantic matches.
+  if (categoryName && (e.podcasts?.category || "") === categoryName) {
+    if (titleHitAny || entityHitAny) s += 90;
+    else if (bodyHitAny) s += 45;
+    else s += 10;
+  }
 
   let matchType: MatchType = "broader";
   if (exactPhraseHit) matchType = "exact_title";
   else if (titleHitAny) matchType = "title";
   else if (entityHitAny) matchType = "entity";
-  else if (podHitAny) matchType = "podcast";
   else if (bodyHitAny) matchType = "description";
   else if (semanticHit) matchType = "semantic";
+  else if (podHitAny) matchType = "podcast";
 
   return {
     e, score: s, hitCount, strongHits, allHit,
@@ -338,6 +361,15 @@ export async function searchEpisodes(opts: {
   if (raw.length === 0) {
     raw = await queryPerTerm([...terms, ...intentAliases]);
     if (raw.length > 0) fallbackUsed = true;
+  } else if (terms.length >= 3 && raw.length < 8) {
+    // Broaden candidate pool so the 2-of-N partial fallback has rows to score against.
+    const extra = await queryPerTerm([...terms, ...intentAliases]);
+    if (extra.length) {
+      const map = new Map<string, any>();
+      raw.forEach((e: any) => map.set(e.id, e));
+      extra.forEach((e: any) => { if (!map.has(e.id)) map.set(e.id, e); });
+      raw = Array.from(map.values());
+    }
   }
 
   // Step 2 — semantic expansion if low results or single broad concept.
@@ -372,13 +404,28 @@ export async function searchEpisodes(opts: {
   // Relevance gate: at least one strong hit OR semantic hit (when semantic is allowed).
   let chosen = scored.filter((x) => x.strongHits >= 1 || (semanticUsed && x.matchType === "semantic"));
 
+  // Multi-term handling with 2-of-3 partial fallback.
+  let partialUsed = false;
   if (exactGroups.length > 1) {
     const allHit = chosen.filter((x) => x.allHit);
-    if (strict) chosen = allHit.length ? allHit : chosen;
-    else if (allHit.length) chosen = allHit;
+    if (strict) {
+      chosen = allHit.length ? allHit : chosen;
+    } else if (allHit.length >= 5) {
+      chosen = allHit;
+    } else if (exactGroups.length >= 3) {
+      const minHits = Math.max(2, exactGroups.length - 1);
+      const partial = chosen.filter((x) => x.hitCount >= minHits);
+      if (partial.length > allHit.length) {
+        chosen = partial;
+        partialUsed = true;
+      } else if (allHit.length) {
+        chosen = allHit;
+      }
+    } else if (allHit.length) {
+      chosen = allHit;
+    }
   }
 
-  // Decorate with inCategory.
   const decorated: ScoredEpisode[] = chosen.map((x) => ({
     e: x.e, score: x.score, hitCount: x.hitCount, strongHits: x.strongHits, allHit: x.allHit,
     semanticOnly: x.semanticOnly, matchType: x.matchType,
@@ -386,16 +433,63 @@ export async function searchEpisodes(opts: {
   }));
   decorated.sort((a, b) => b.score - a.score);
 
+  // Dedupe: by id; then by normalized title + podcast slug + day. Keep higher score.
+  const dedupeKey = (x: ScoredEpisode) => {
+    const t = (x.e.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 80);
+    const ps = x.e.podcasts?.slug || x.e.podcast_id || "";
+    const day = x.e.published_at ? new Date(x.e.published_at).toISOString().slice(0, 10) : "";
+    return `${t}|${ps}|${day}`;
+  };
+  const dedupe = (arr: ScoredEpisode[]) => {
+    const byId = new Map<string, ScoredEpisode>();
+    for (const x of arr) {
+      const cur = byId.get(x.e.id);
+      if (!cur || x.score > cur.score) byId.set(x.e.id, x);
+    }
+    const byKey = new Map<string, ScoredEpisode>();
+    for (const x of byId.values()) {
+      const k = dedupeKey(x);
+      const cur = byKey.get(k);
+      if (!cur || x.score > cur.score) byKey.set(k, x);
+    }
+    return Array.from(byKey.values()).sort((a, b) => b.score - a.score);
+  };
+
+  // Per-podcast diversity cap: max 2 in top 10, max 3 in top 20, then unrestricted.
+  const diversify = (arr: ScoredEpisode[]) => {
+    const counts = new Map<string, number>();
+    const deferred: ScoredEpisode[] = [];
+    const out: ScoredEpisode[] = [];
+    const podKey = (x: ScoredEpisode) => x.e.podcasts?.slug || x.e.podcast_id || "_";
+    for (const x of arr) {
+      const k = podKey(x);
+      const c = counts.get(k) || 0;
+      const pos = out.length;
+      const cap = pos < 10 ? 2 : pos < 20 ? 3 : Infinity;
+      if (c < cap) {
+        out.push(x);
+        counts.set(k, c + 1);
+      } else {
+        deferred.push(x);
+      }
+    }
+    return [...out, ...deferred];
+  };
+
+  const finalAll = diversify(dedupe(decorated));
+  fallbackUsed = fallbackUsed || partialUsed;
+
   if (categoryName && scope === "category") {
-    const inCat = decorated.filter((x) => x.inCategory).slice(0, limit);
-    // Outside-category: only "strong" scores (above a threshold) and not semantic-only.
-    const outside = decorated
-      .filter((x) => !x.inCategory && x.score >= 220 && x.matchType !== "semantic" && x.matchType !== "broader")
-      .slice(0, 8);
-    return { inCategory: inCat, outsideCategory: outside, all: decorated.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
+    const inCat = diversify(dedupe(decorated.filter((x) => x.inCategory))).slice(0, limit);
+    const outsideRaw = decorated.filter(
+      (x) => !x.inCategory && x.score >= 200 &&
+        (x.matchType === "exact_title" || x.matchType === "title" || x.matchType === "entity"),
+    );
+    const outside = diversify(dedupe(outsideRaw)).slice(0, 8);
+    return { inCategory: inCat, outsideCategory: outside, all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
   }
 
-  return { inCategory: [], outsideCategory: [], all: decorated.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
+  return { inCategory: [], outsideCategory: [], all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
 }
 
 export const MATCH_LABEL: Record<MatchType, string> = {
