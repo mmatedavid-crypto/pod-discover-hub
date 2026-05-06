@@ -30,7 +30,76 @@ const BUILTIN_SYNONYMS: Record<string, string[]> = {
   testosterone: ["hormones"],
   nvidia: ["nvda"],
   dubai: ["uae"],
+  tourism: ["travel", "destination"],
+  travel: ["tourism", "destination"],
+  europe: ["european", "italy"],
+  european: ["europe"],
+  colonisation: ["colonization", "colony"],
+  colonization: ["colonisation", "colony"],
+  narcissistic: ["narcissist", "narcissism"],
+  narcissist: ["narcissistic", "narcissism"],
+  narcissism: ["narcissistic", "narcissist"],
+  ballet: ["dance"],
+  f1: ["formula 1", "grand prix"],
+  spacex: ["space", "rocket"],
 };
+
+// Single-token typo / spelling normalization. Whole-token, case-insensitive.
+const TYPO_FIX: Record<string, string> = {
+  balet: "ballet",
+  narcissitic: "narcissistic",
+  narcisistic: "narcissistic",
+  narcicistic: "narcissistic",
+  colonisation: "colonization",
+  tourisim: "tourism",
+  toursim: "tourism",
+  europ: "europe",
+  itlay: "italy",
+  spcaex: "spacex",
+};
+
+// Multi-word phrase aliases applied to the raw query string before tokenizing.
+// Maps a normalized phrase -> canonical form (which may itself be a multi-token alias).
+const PHRASE_ALIASES: Array<[RegExp, string]> = [
+  [/\bformula\s*one\b/gi, "formula 1"],
+  [/\bformula\s*1\b/gi, "formula 1 f1"],
+  [/\bgrand\s*prix\b/gi, "formula 1 grand prix"],
+  [/\bspace\s*x\b/gi, "spacex"],
+];
+
+// Intent rules: when query matches a pattern, add extra alias terms and (optionally)
+// negative terms that downrank off-topic matches. Keep this list small and high-confidence.
+const INTENT_RULES: Array<{
+  match: (lc: string) => boolean;
+  aliases: string[];
+  negatives: string[];
+  label: string;
+}> = [
+  {
+    label: "space-mars",
+    match: (lc) => /\bmars\b/.test(lc) && /\b(coloni[sz]ation|colony|space|spacex|settle|planet)/.test(lc),
+    aliases: ["space", "spacex", "planetary", "colony", "settlement"],
+    negatives: ["chocolate", "candy", "mars inc", "m&m", "snickers", "confection"],
+  },
+  {
+    label: "travel",
+    match: (lc) => /\b(tourism|travel|trip|vacation|destination)\b/.test(lc),
+    aliases: ["travel", "destination"],
+    negatives: [],
+  },
+  {
+    label: "psychology-narcissism",
+    match: (lc) => /\bnarciss/.test(lc),
+    aliases: ["narcissist", "narcissism", "toxic relationship"],
+    negatives: [],
+  },
+  {
+    label: "arts-ballet",
+    match: (lc) => /\bballet\b/.test(lc),
+    aliases: ["dance", "performance"],
+    negatives: [],
+  },
+];
 
 const EPISODE_SELECT =
   "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,episode_rank,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status)";
