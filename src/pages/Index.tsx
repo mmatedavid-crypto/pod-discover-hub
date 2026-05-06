@@ -95,12 +95,16 @@ const Index = () => {
 
   return (
     <Layout>
-      <section className="border-b border-border">
-        <div className="container mx-auto py-12 sm:py-20">
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight max-w-3xl">
+      <section className="border-b border-border bg-gradient-to-b from-secondary/40 to-background">
+        <div className="container mx-auto py-14 sm:py-24">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-background/60 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
+            Episode-first podcast discovery
+          </div>
+          <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight max-w-3xl mt-5 leading-[1.05]">
             Search the world of podcasts.
           </h1>
-          <p className="text-muted-foreground mt-3 max-w-2xl">
+          <p className="text-muted-foreground mt-4 max-w-2xl text-base sm:text-lg">
             Find podcast episodes by topic, person, company, ticker, ingredient or idea.
           </p>
           <form

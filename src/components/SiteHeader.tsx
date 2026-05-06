@@ -1,19 +1,21 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Search } from "lucide-react";
+import { BrandMark } from "./Brand";
+import { NavLink } from "react-router-dom";
 
 export function SiteHeader() {
   const [q, setQ] = useState("");
   const nav = useNavigate();
+  const linkCls = ({ isActive }: { isActive: boolean }) =>
+    `transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`;
   return (
-    <header className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-30">
-      <div className="container mx-auto flex items-center gap-4 py-3">
-        <Link to="/" className="font-semibold text-lg tracking-tight">
-          Podiverzum
-        </Link>
-        <nav className="hidden sm:flex items-center gap-5 text-sm text-muted-foreground">
-          <Link to="/categories" className="hover:text-foreground">Categories</Link>
-          <Link to="/search" className="hover:text-foreground">Search</Link>
+    <header className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30">
+      <div className="container mx-auto flex items-center gap-3 sm:gap-5 py-3">
+        <BrandMark />
+        <nav className="hidden sm:flex items-center gap-5 text-sm">
+          <NavLink to="/categories" className={linkCls}>Categories</NavLink>
+          <NavLink to="/search" className={linkCls}>Search</NavLink>
         </nav>
         <form
           onSubmit={(e) => {
@@ -27,7 +29,7 @@ export function SiteHeader() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="cooking + asparagus"
-            className="w-full pl-9 pr-3 py-2 rounded-md bg-secondary border border-transparent focus:border-ring focus:bg-background outline-none text-sm"
+            className="w-full pl-9 pr-3 py-2 rounded-md bg-secondary border border-transparent focus:border-ring focus:bg-background outline-none text-sm transition-colors"
           />
         </form>
       </div>
