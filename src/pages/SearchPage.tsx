@@ -106,6 +106,15 @@ const EPISODE_SELECT =
 
 function uniq<T>(a: T[]) { return Array.from(new Set(a)); }
 
+function normalizeQuery(raw: string): { normalized: string; changed: boolean } {
+  let s = " " + raw.toLowerCase() + " ";
+  PHRASE_ALIASES.forEach(([re, rep]) => { s = s.replace(re, rep); });
+  // Whole-token typo fixes
+  s = s.replace(/[a-z][a-z'-]*/g, (tok) => TYPO_FIX[tok] ?? tok);
+  s = s.trim().replace(/\s+/g, " ");
+  return { normalized: s, changed: s !== raw.trim().toLowerCase().replace(/\s+/g, " ") };
+}
+
 function parseQuery(q: string): { terms: string[]; strict: boolean } {
   const strict = /\+/.test(q);
   const terms = q
