@@ -61,6 +61,8 @@ export default function GrowthStatusPage() {
   const [eligibleHigh, setEligibleHigh] = useState(0);
   const [drainer, setDrainer] = useState<any>(null);
   const [pendingR4, setPendingR4] = useState(0);
+  const [hydration, setHydration] = useState<any>(null);
+  const [hydrationCounts, setHydrationCounts] = useState({ not_started: 0, completed: 0, eligible: 0 });
 
   useEffect(() => {
     (async () => {
@@ -129,6 +131,15 @@ export default function GrowthStatusPage() {
       ]);
       setDrainer((drRow.data?.value as any) || null);
       setPendingR4(r4Res.count || 0);
+
+      const [hRow, ns, cp, el] = await Promise.all([
+        supabase.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle(),
+        supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").gte("podiverzum_rank", 4),
+        supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "completed"),
+        supabase.from("podcasts").select("id", { count: "exact", head: true }).gte("podiverzum_rank", 4).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
+      ]);
+      setHydration((hRow.data?.value as any) || null);
+      setHydrationCounts({ not_started: ns.count || 0, completed: cp.count || 0, eligible: el.count || 0 });
 
       setLoading(false);
     })();
@@ -262,16 +273,19 @@ export default function GrowthStatusPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Deep Hydration (preview)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Deep Hydration</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
             <p className="text-muted-foreground">
-              Deep hydration will expand already imported podcasts beyond their initial caps:
-              Rank ≥ 8 up to 75 episodes, Rank 6–7 up to 50, Rank 4–5 up to 30. Not yet scheduled — manual only.
+              Expanding episode coverage of accepted podcasts. Targets: Rank 9–10 → 150, Rank 8 → 100, Rank 6–7 → 75, Rank 4–5 → 40 episodes. Manual only.
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <Stat title="Eligible podcasts (Rank ≥ 4)" value={tiers.promoted + tiers.indexed} />
-              <Stat title="Promoted (Rank ≥ 6)" value={tiers.promoted} />
-              <Stat title="Indexed (Rank 4–5)" value={tiers.indexed} />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Stat title="Eligible (remaining)" value={hydrationCounts.eligible} />
+              <Stat title="Not started" value={hydrationCounts.not_started} />
+              <Stat title="Completed" value={hydrationCounts.completed} />
+              <Stat title="Episodes added (total)" value={hydration?.totals?.new_episodes ?? 0} />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Last hydration run: {fmtDate(hydration?.last_run?.finished_at)} · processed: {hydration?.last_run?.processed ?? 0} · +{hydration?.last_run?.new_episodes ?? 0} episodes
             </div>
           </CardContent>
         </Card>

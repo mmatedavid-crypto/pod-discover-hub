@@ -399,13 +399,18 @@ export type Database = {
           category: string | null
           country: string | null
           created_at: string
+          deep_hydration_error: string | null
+          deep_hydration_status: string
+          deep_hydration_target: number | null
           description: string | null
           featured: boolean
           featured_rank: number | null
+          hydrated_episode_count: number
           id: string
           image_url: string | null
           is_sample: boolean
           language: string | null
+          last_deep_hydrated_at: string | null
           last_fetch_duplicate_count: number
           last_fetch_error: string | null
           last_fetch_new_count: number
@@ -431,13 +436,18 @@ export type Database = {
           category?: string | null
           country?: string | null
           created_at?: string
+          deep_hydration_error?: string | null
+          deep_hydration_status?: string
+          deep_hydration_target?: number | null
           description?: string | null
           featured?: boolean
           featured_rank?: number | null
+          hydrated_episode_count?: number
           id?: string
           image_url?: string | null
           is_sample?: boolean
           language?: string | null
+          last_deep_hydrated_at?: string | null
           last_fetch_duplicate_count?: number
           last_fetch_error?: string | null
           last_fetch_new_count?: number
@@ -463,13 +473,18 @@ export type Database = {
           category?: string | null
           country?: string | null
           created_at?: string
+          deep_hydration_error?: string | null
+          deep_hydration_status?: string
+          deep_hydration_target?: number | null
           description?: string | null
           featured?: boolean
           featured_rank?: number | null
+          hydrated_episode_count?: number
           id?: string
           image_url?: string | null
           is_sample?: boolean
           language?: string | null
+          last_deep_hydrated_at?: string | null
           last_fetch_duplicate_count?: number
           last_fetch_error?: string | null
           last_fetch_new_count?: number

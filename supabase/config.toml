@@ -45,4 +45,7 @@ verify_jwt = false
 [functions.queue-drainer]
 verify_jwt = false
 
+[functions.deep-hydrate-runner]
+verify_jwt = false
+
 
