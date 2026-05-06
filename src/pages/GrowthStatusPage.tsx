@@ -243,6 +243,9 @@ export default function GrowthStatusPage() {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Source breakdown</CardTitle></CardHeader>
           <CardContent className="text-sm">
             {Object.keys(sources).length === 0 ? (
               <div className="text-muted-foreground">No podcasts yet.</div>
