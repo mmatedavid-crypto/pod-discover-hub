@@ -486,10 +486,31 @@ export async function searchEpisodes(opts: {
       } else if (allHit.length) {
         chosen = allHit;
       }
+    } else if (exactGroups.length === 2) {
+      // 2-term fallback: prefer both-term hits; if scarce, allow 1-of-2 with strong signal.
+      if (allHit.length >= 3) {
+        chosen = allHit;
+      } else {
+        const strongSingle = chosen.filter(
+          (x) => x.hitCount >= 1 &&
+            (x.matchType === "exact_title" || x.matchType === "title" || x.matchType === "entity"),
+        );
+        const merged = new Map<string, typeof chosen[number]>();
+        [...allHit, ...strongSingle].forEach((x) => {
+          const cur = merged.get(x.e.id);
+          if (!cur || x.score > cur.score) merged.set(x.e.id, x);
+        });
+        const combined = Array.from(merged.values());
+        if (combined.length > allHit.length) {
+          chosen = combined;
+          partialUsed = true;
+        } else if (allHit.length) {
+          chosen = allHit;
+        }
+      }
     } else if (allHit.length) {
       chosen = allHit;
     }
-  }
 
   const decorated: ScoredEpisode[] = chosen.map((x) => ({
     e: x.e, score: x.score, hitCount: x.hitCount, strongHits: x.strongHits, allHit: x.allHit,
