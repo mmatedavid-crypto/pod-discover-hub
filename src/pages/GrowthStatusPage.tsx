@@ -61,6 +61,8 @@ export default function GrowthStatusPage() {
   const [eligibleHigh, setEligibleHigh] = useState(0);
   const [drainer, setDrainer] = useState<any>(null);
   const [pendingR4, setPendingR4] = useState(0);
+  const [hydration, setHydration] = useState<any>(null);
+  const [hydrationCounts, setHydrationCounts] = useState({ not_started: 0, completed: 0, eligible: 0 });
 
   useEffect(() => {
     (async () => {
