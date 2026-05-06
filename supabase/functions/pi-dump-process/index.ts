@@ -105,11 +105,11 @@ Deno.serve(async (req) => {
               website_url: r.website_url,
               image_url: r.image_url,
               language: r.language || "en",
-              source: "pi_dump",
+              source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
               podiverzum_rank: score,
               rank_label: score >= 8 ? "Excellent" : "Strong",
-              rank_reason: { factors: reasons, source: "pi_dump" },
+              rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
               rank_updated_at: new Date().toISOString(),
             }).select("id").maybeSingle();
 
