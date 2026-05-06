@@ -244,6 +244,140 @@ export type Database = {
         }
         Relationships: []
       }
+      pi_dump_imports: {
+        Row: {
+          auto_added: number
+          candidates_accepted: number
+          candidates_rejected: number
+          created_at: string
+          failed_rss_tests: number
+          feeds_received: number
+          feeds_scanned: number
+          hidden_low_rank: number
+          id: string
+          notes: Json
+          queued: number
+          skipped_duplicates: number
+          snapshot_date: string | null
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          auto_added?: number
+          candidates_accepted?: number
+          candidates_rejected?: number
+          created_at?: string
+          failed_rss_tests?: number
+          feeds_received?: number
+          feeds_scanned?: number
+          hidden_low_rank?: number
+          id?: string
+          notes?: Json
+          queued?: number
+          skipped_duplicates?: number
+          snapshot_date?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_added?: number
+          candidates_accepted?: number
+          candidates_rejected?: number
+          created_at?: string
+          failed_rss_tests?: number
+          feeds_received?: number
+          feeds_scanned?: number
+          hidden_low_rank?: number
+          id?: string
+          notes?: Json
+          queued?: number
+          skipped_duplicates?: number
+          snapshot_date?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pi_feed_staging: {
+        Row: {
+          author: string | null
+          created_at: string
+          dead: boolean
+          decision: string | null
+          description: string | null
+          episode_count: number | null
+          id: string
+          image_url: string | null
+          import_id: string | null
+          language: string | null
+          last_http_status: number | null
+          newest_item_at: string | null
+          pi_id: number | null
+          processed: boolean
+          processed_at: string | null
+          reject_reason: string | null
+          rss_url: string
+          score: number | null
+          title: string | null
+          website_url: string | null
+        }
+        Insert: {
+          author?: string | null
+          created_at?: string
+          dead?: boolean
+          decision?: string | null
+          description?: string | null
+          episode_count?: number | null
+          id?: string
+          image_url?: string | null
+          import_id?: string | null
+          language?: string | null
+          last_http_status?: number | null
+          newest_item_at?: string | null
+          pi_id?: number | null
+          processed?: boolean
+          processed_at?: string | null
+          reject_reason?: string | null
+          rss_url: string
+          score?: number | null
+          title?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          author?: string | null
+          created_at?: string
+          dead?: boolean
+          decision?: string | null
+          description?: string | null
+          episode_count?: number | null
+          id?: string
+          image_url?: string | null
+          import_id?: string | null
+          language?: string | null
+          last_http_status?: number | null
+          newest_item_at?: string | null
+          pi_id?: number | null
+          processed?: boolean
+          processed_at?: string | null
+          reject_reason?: string | null
+          rss_url?: string
+          score?: number | null
+          title?: string | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pi_feed_staging_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "pi_dump_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       podcasts: {
         Row: {
           apple_url: string | null

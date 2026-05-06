@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.daily-growth-run]
 verify_jwt = false
+
+[functions.pi-dump-ingest]
+verify_jwt = false
+
+[functions.pi-dump-process]
+verify_jwt = false

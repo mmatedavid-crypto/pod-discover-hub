@@ -35,6 +35,8 @@ export default function AdminGrowthPage() {
   const [stats, setStats] = useState<any>({
     refreshedToday: 0, autoAddedToday: 0, queueCount: 0, failedFeeds: 0, avgRank: 0,
   });
+  const [dumpRuns, setDumpRuns] = useState<any[]>([]);
+  const [processingDump, setProcessingDump] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -74,6 +76,23 @@ export default function AdminGrowthPage() {
       failedFeeds: failed.count || 0,
       avgRank: Math.round(avg * 10) / 10,
     });
+
+    const { data: dumps } = await supabase.from("pi_dump_imports").select("*").order("created_at", { ascending: false }).limit(5);
+    setDumpRuns(dumps || []);
+  };
+
+  const processDumpBatch = async () => {
+    setProcessingDump(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pi-dump-process", { body: { batch: 100 } });
+      if (error) throw error;
+      toast.success(`Processed ${data?.processed || 0} feeds (+${data?.counters?.auto_added || 0} added, ${data?.counters?.queued || 0} queued)`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "process failed");
+    } finally {
+      setProcessingDump(false);
+    }
   };
 
   const save = async () => {
@@ -183,6 +202,57 @@ export default function AdminGrowthPage() {
                 <div>Finished: {lastRun.finished_at ? new Date(lastRun.finished_at).toLocaleString() : "—"}</div>
                 <div>Status: {lastRun.ok ? "OK" : (lastRun.error || "running")}</div>
                 <pre className="text-xs bg-muted p-3 rounded mt-2 overflow-auto">{JSON.stringify(lastRun.stats, null, 2)}</pre>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle>Podcast Index full database import</CardTitle>
+              <Button size="sm" onClick={processDumpBatch} disabled={processingDump}>
+                {processingDump ? "Processing…" : "Process next batch (100)"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Bulk discovery from the weekly Podcast Index SQLite dump. Operator runs a local script that POSTs NDJSON batches to <code>pi-dump-ingest</code> with the service-role bearer token. This processor scores staged feeds, auto-adds rank ≥ {settings.min_rank_for_auto_add}, queues 6–7, hides ≤ 5, then hydrates RSS (max 30 episodes/podcast). No API crawling.
+            </p>
+            {dumpRuns.length === 0 ? (
+              <p className="text-muted-foreground">No dump imports yet.</p>
+            ) : (
+              <div className="overflow-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="py-1 pr-2">Snapshot</th><th className="py-1 pr-2">Status</th>
+                      <th className="py-1 pr-2">Received</th><th className="py-1 pr-2">Scanned</th>
+                      <th className="py-1 pr-2">Accepted</th><th className="py-1 pr-2">Rejected</th>
+                      <th className="py-1 pr-2">Auto-added</th><th className="py-1 pr-2">Queued</th>
+                      <th className="py-1 pr-2">Hidden</th><th className="py-1 pr-2">Dup</th>
+                      <th className="py-1 pr-2">RSS fail</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dumpRuns.map((d) => (
+                      <tr key={d.id} className="border-t">
+                        <td className="py-1 pr-2">{d.snapshot_date || new Date(d.created_at).toLocaleDateString()}</td>
+                        <td className="py-1 pr-2">{d.status}</td>
+                        <td className="py-1 pr-2">{d.feeds_received}</td>
+                        <td className="py-1 pr-2">{d.feeds_scanned}</td>
+                        <td className="py-1 pr-2">{d.candidates_accepted}</td>
+                        <td className="py-1 pr-2">{d.candidates_rejected}</td>
+                        <td className="py-1 pr-2">{d.auto_added}</td>
+                        <td className="py-1 pr-2">{d.queued}</td>
+                        <td className="py-1 pr-2">{d.hidden_low_rank}</td>
+                        <td className="py-1 pr-2">{d.skipped_duplicates}</td>
+                        <td className="py-1 pr-2">{d.failed_rss_tests}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
