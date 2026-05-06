@@ -37,6 +37,9 @@ export default function AdminQueuePage() {
   const [failureSummary, setFailureSummary] = useState<Record<string, number>>({});
   const [diagResults, setDiagResults] = useState<ItemResult[]>([]);
   const [testBusy, setTestBusy] = useState(false);
+  const [drainer, setDrainer] = useState<any>(null);
+  const [drainerBusy, setDrainerBusy] = useState(false);
+  const [pendingR4, setPendingR4] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -67,7 +70,41 @@ export default function AdminQueuePage() {
       sum[key] = (sum[key] || 0) + 1;
     });
     setFailureSummary(sum);
+    const { data: dr } = await supabase.from("app_settings").select("value").eq("key", "queue_drainer").maybeSingle();
+    setDrainer((dr?.value as any) || { enabled: false });
+    const { count: r4 } = await supabase
+      .from("discovery_queue").select("*", { count: "exact", head: true })
+      .eq("status", "pending").gte("candidate_rank", 4);
+    setPendingR4(r4 || 0);
   };
+
+  const toggleDrainer = async (enabled: boolean) => {
+    setDrainerBusy(true);
+    try {
+      const current = drainer || {};
+      const { error } = await supabase.from("app_settings").upsert({
+        key: "queue_drainer", value: { ...current, enabled }, updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success(enabled ? "Auto-drain enabled" : "Auto-drain disabled");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "failed");
+    } finally { setDrainerBusy(false); }
+  };
+
+  const runDrainerNow = async () => {
+    setDrainerBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("queue-drainer", { body: { trigger: "manual" } });
+      if (error) throw new Error(error.message);
+      toast.success(`Drainer: ${data?.status || "ok"}`);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "drainer failed");
+    } finally { setDrainerBusy(false); }
+  };
+
 
   const callQueueImport = async (payload: any) => {
     const { data, error } = await supabase.functions.invoke("queue-import", { body: payload });
