@@ -316,6 +316,10 @@ export default function GrowthStatusPage() {
         </Card>
 
         {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
+
+        <p className="text-xs text-muted-foreground">
+          Indexed from public RSS feeds. Ranked by freshness, feed health and episode relevance.
+        </p>
       </div>
     </Layout>
   );
