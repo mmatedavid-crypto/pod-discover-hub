@@ -1,24 +1,33 @@
-import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import Layout from "@/components/Layout";
+import { setSeo } from "@/lib/seo";
 
-const NotFound = () => {
+export default function NotFound() {
   const location = useLocation();
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    setSeo({
+      title: "Page not found — Podiverzum",
+      description: "The page you're looking for doesn't exist on Podiverzum.",
+      noindex: true,
+    });
+    console.warn("404:", location.pathname);
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/" className="text-primary underline hover:text-primary/90">
-          Return to Home
-        </a>
+    <Layout>
+      <div className="container mx-auto py-20 max-w-md text-center">
+        <h1 className="text-5xl font-semibold mb-3">404</h1>
+        <p className="text-muted-foreground mb-6">
+          We can't find that page. It may have moved or never existed.
+        </p>
+        <div className="flex flex-wrap gap-3 justify-center text-sm">
+          <Link to="/" className="px-4 py-2 rounded-md bg-primary text-primary-foreground">Go home</Link>
+          <Link to="/categories" className="px-4 py-2 rounded-md border border-border hover:border-foreground/40">Browse categories</Link>
+          <Link to="/search" className="px-4 py-2 rounded-md border border-border hover:border-foreground/40">Search episodes</Link>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
-};
-
-export default NotFound;
+}

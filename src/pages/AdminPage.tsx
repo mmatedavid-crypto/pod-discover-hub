@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useNoindex } from "@/lib/useNoindex";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCover } from "@/components/PodcastCover";
@@ -29,6 +30,7 @@ const healthBadge: Record<Health, string> = {
 };
 
 export default function AdminPage() {
+  useNoindex("Admin — Podiverzum");
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminFallbackActive, setAdminFallbackActive] = useState(false);
@@ -390,9 +392,16 @@ VALUES ('{userId}', 'admin');
   return (
     <Layout>
       <div className="container mx-auto py-10 space-y-10">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="text-3xl font-semibold">Admin</h1>
-          <button onClick={signOut} className="text-sm text-muted-foreground hover:text-accent">Sign out</button>
+          <div className="flex gap-3 text-sm flex-wrap items-center">
+            <a href="/admin/growth" className="text-muted-foreground hover:text-foreground">Growth</a>
+            <a href="/admin/queue" className="text-muted-foreground hover:text-foreground">Queue</a>
+            <a href="/admin/discovery" className="text-muted-foreground hover:text-foreground">Discovery</a>
+            <a href="/admin/feedback" className="text-muted-foreground hover:text-foreground">Feedback</a>
+            <a href="/admin/search-insights" className="text-muted-foreground hover:text-foreground">Search insights</a>
+            <button onClick={signOut} className="text-muted-foreground hover:text-accent">Sign out</button>
+          </div>
         </div>
 
         {adminFallbackActive && (

@@ -32,6 +32,45 @@ export type Database = {
         }
         Relationships: []
       }
+      beta_feedback: {
+        Row: {
+          created_at: string
+          email: string | null
+          handled: boolean
+          id: string
+          message: string
+          page_url: string | null
+          search_query: string | null
+          user_agent: string | null
+          user_id: string | null
+          viewport: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          handled?: boolean
+          id?: string
+          message: string
+          page_url?: string | null
+          search_query?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          viewport?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          handled?: boolean
+          id?: string
+          message?: string
+          page_url?: string | null
+          search_query?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          viewport?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -504,6 +543,39 @@ export type Database = {
           updated_at?: string
           website_url?: string | null
           youtube_url?: string | null
+        }
+        Relationships: []
+      }
+      search_events: {
+        Row: {
+          created_at: string
+          fallback_used: boolean
+          id: string
+          query: string
+          result_count: number
+          terms_count: number
+          user_id: string | null
+          viewport_width: number | null
+        }
+        Insert: {
+          created_at?: string
+          fallback_used?: boolean
+          id?: string
+          query: string
+          result_count?: number
+          terms_count?: number
+          user_id?: string | null
+          viewport_width?: number | null
+        }
+        Update: {
+          created_at?: string
+          fallback_used?: boolean
+          id?: string
+          query?: string
+          result_count?: number
+          terms_count?: number
+          user_id?: string | null
+          viewport_width?: number | null
         }
         Relationships: []
       }

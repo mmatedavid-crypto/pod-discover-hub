@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useNoindex } from "@/lib/useNoindex";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ function classifyReason(r?: string): string {
 }
 
 export default function AdminQueuePage() {
+  useNoindex("Admin · Queue — Podiverzum");
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [allowed, setAllowed] = useState(false);

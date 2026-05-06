@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
@@ -203,6 +203,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [broadened, setBroadened] = useState(false);
+  const lastLoggedRef = useRef<string>("");
 
   useEffect(() => { setQ(initial); }, [initial]);
 
@@ -267,6 +268,20 @@ export default function SearchPage() {
       const rankedEs = filtered.sort(sortFn).slice(0, 80).map((x) => x.e);
       setEpisodes(rankedEs as any);
       setCategories(uniq<string>(rankedEs.map((e: any) => e.podcasts?.category).filter(Boolean) as string[]));
+
+      // Log only once per distinct query — not on sort/cat changes.
+      if (lastLoggedRef.current !== initial) {
+        lastLoggedRef.current = initial;
+        const { data: sess } = await supabase.auth.getSession();
+        supabase.from("search_events").insert({
+          query: initial.slice(0, 200),
+          terms_count: terms.length,
+          result_count: rankedEs.length,
+          fallback_used: usedFallback,
+          viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
+          user_id: sess.session?.user.id || null,
+        }).then(() => {}, () => {});
+      }
 
       // Podcasts query — keep compact too.
       let pq = supabase

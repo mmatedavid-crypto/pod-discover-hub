@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useNoindex } from "@/lib/useNoindex";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
@@ -26,6 +27,7 @@ type PiResult = {
 };
 
 export default function AdminDiscoveryPage() {
+  useNoindex("Admin · Discovery — Podiverzum");
   const [params] = useSearchParams();
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
