@@ -28,7 +28,7 @@ export function SiteHeader() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="cooking + asparagus"
+            placeholder="Try: AI + healthcare"
             className="w-full pl-9 pr-3 py-2 rounded-md bg-secondary border border-transparent focus:border-ring focus:bg-background outline-none text-sm transition-colors"
           />
         </form>
