@@ -109,10 +109,10 @@ function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: bo
   const podTitle = (e.podcasts?.title || "").toLowerCase();
   const podCat = (e.podcasts?.category || "").toLowerCase();
   const lc = variants.map((v) => v.toLowerCase());
-  const titleHit = lc.some((v) => title.includes(v));
-  const entityHit = lc.some((v) => arrays.includes(v) || arrays.some((a) => a.includes(v)));
-  const bodyHit = lc.some((v) => summary.includes(v) || desc.includes(v));
-  const podHit = lc.some((v) => podTitle.includes(v) || podCat.includes(v));
+  const titleHit = lc.some((v) => hasWord(title, v));
+  const entityHit = lc.some((v) => arrays.some((a) => a === v || hasWord(a, v)));
+  const bodyHit = lc.some((v) => hasWord(summary, v) || hasWord(desc, v));
+  const podHit = lc.some((v) => hasWord(podTitle, v) || hasWord(podCat, v));
   return { hit: titleHit || entityHit || bodyHit || podHit, titleHit, entityHit, bodyHit, podHit };
 }
 
