@@ -121,15 +121,30 @@ export default function AdminGrowthPage() {
     setHydrating(true);
     setHydrationLimit(limit);
     try {
-      const { data, error } = await supabase.functions.invoke("deep-hydrate-runner", { body: { limit } });
+      const { data, error } = await supabase.functions.invoke("deep-hydrate-admin", { body: { action: "run_now", limit } });
       if (error) throw error;
-      setLastHydrateResult(data);
-      toast.success(`Hydrated ${data?.processed || 0} podcasts (+${data?.new_episodes || 0} eps, ${data?.failed || 0} failed)`);
+      setLastHydrateResult(data?.ran || data);
+      const ran = data?.ran || {};
+      toast.success(`Hydrated ${ran?.processed || 0} podcasts (+${ran?.new_episodes || 0} eps, ${ran?.failed || 0} failed)`);
       await loadAll();
     } catch (e: any) {
       toast.error(e.message || "deep hydrate failed");
     } finally {
       setHydrating(false);
+    }
+  };
+
+  const toggleAutoHydration = async (enable: boolean) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("deep-hydrate-admin", {
+        body: { action: enable ? "enable" : "disable" },
+      });
+      if (error) throw error;
+      toast.success(`Automatic deep hydration ${enable ? "enabled" : "disabled"}`);
+      setHydration({ ...(hydration || {}), ...(data?.setting || {}) });
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "toggle failed");
     }
   };
 
