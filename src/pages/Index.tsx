@@ -95,21 +95,27 @@ const Index = () => {
 
   return (
     <Layout>
-      <section className="border-b border-border bg-gradient-to-b from-secondary/40 to-background">
-        <div className="container mx-auto py-14 sm:py-24">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-background/60 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
+      <section className="relative border-b border-border overflow-hidden">
+        {/* Ambient glow */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hero-glow opacity-90" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />
+        <div className="relative container mx-auto py-16 sm:py-28">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/80 backdrop-blur text-[11px] uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
+            <span className="relative inline-flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping motion-reduce:hidden" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
             Episode-first podcast discovery
           </div>
-          <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight max-w-3xl mt-5 leading-[1.05]">
-            Search the world of podcasts.
+          <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight max-w-3xl mt-6 leading-[1.04]">
+            Search the world<br className="hidden sm:block" /> of podcasts.
           </h1>
-          <p className="text-muted-foreground mt-4 max-w-2xl text-base sm:text-lg">
+          <p className="text-muted-foreground mt-5 max-w-2xl text-base sm:text-lg leading-relaxed">
             Find podcast episodes by topic, person, company, ticker, ingredient or idea.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
-            className="mt-8 max-w-2xl relative"
+            className="mt-8 max-w-2xl relative focus-mint rounded-xl transition-shadow"
           >
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
@@ -117,15 +123,15 @@ const Index = () => {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Try: AI + healthcare"
-              className="w-full pl-12 pr-28 py-4 rounded-lg bg-card border border-border focus:border-foreground outline-none text-base"
+              className="w-full pl-12 pr-28 py-4 rounded-xl bg-card border border-border focus:border-foreground outline-none text-base shadow-[0_1px_2px_hsl(0_0%_0%/0.04),0_8px_24px_-12px_hsl(0_0%_0%/0.08)]"
             />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90">
+            <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all">
               Search
             </button>
           </form>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-2">
             {["AI + healthcare","Warren Buffett + Occidental","testosterone + sleep","asparagus + cooking","Nvidia + data centers"].map((ex) => (
-              <button key={ex} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(ex)}`)} className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground">
+              <button key={ex} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(ex)}`)} className="chip">
                 {ex}
               </button>
             ))}
@@ -133,24 +139,28 @@ const Index = () => {
         </div>
       </section>
 
-      <div className="container mx-auto py-10 space-y-12">
+      <div className="container mx-auto py-12 space-y-14">
         {trendingEps.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">
-              <h2 className="text-xl font-semibold">Trending episodes</h2>
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Editor's pulse</div>
+                <h2 className="text-2xl font-semibold">Trending episodes</h2>
+              </div>
               <span className="text-xs text-muted-foreground">Ranked by relevance &amp; freshness</span>
             </div>
             <EpisodeList items={trendingEps} />
           </section>
         )}
 
-        {cats.filter((c) => c.slug !== "trending").map((c) => {
+        {cats.filter((c) => c.slug !== "trending").map((c, idx) => {
           const items = epsByCat[c.name] || [];
           if (!items.length) return null;
+          const tinted = idx % 2 === 1;
           return (
-            <section key={c.id}>
+            <section key={c.id} className={tinted ? "rounded-2xl bg-secondary/40 border border-border/60 p-5 sm:p-6" : ""}>
               <div className="flex items-end justify-between mb-1">
-                <h2 className="text-xl font-semibold">{c.name}</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold">{c.name}</h2>
                 <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                   See more episodes <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
@@ -164,7 +174,10 @@ const Index = () => {
         {topPodcasts.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">
-              <h2 className="text-xl font-semibold">High-rank podcasts</h2>
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Quality first</div>
+                <h2 className="text-xl sm:text-2xl font-semibold">High-rank podcasts</h2>
+              </div>
               <Link to="/categories" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                 Browse all <ArrowRight className="h-3.5 w-3.5" />
               </Link>

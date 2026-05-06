@@ -2,10 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Podiverzum — minimal white directory */
+/* Podiverzum — premium minimal editorial-tech */
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    /* Warm off-white base, not sterile pure white */
+    --background: 40 22% 98%;
     --foreground: 0 0% 8%;
 
     --card: 0 0% 100%;
@@ -17,11 +18,11 @@
     --primary: 0 0% 8%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 96%;
+    --secondary: 40 14% 95%;
     --secondary-foreground: 0 0% 8%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 38%;
+    --muted: 40 14% 95%;
+    --muted-foreground: 0 0% 40%;
 
     --accent: 0 0% 8%;
     --accent-foreground: 0 0% 100%;
@@ -29,11 +30,16 @@
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
+    --border: 30 10% 90%;
+    --input: 30 10% 90%;
     --ring: 0 0% 8%;
 
-    --radius: 0.5rem;
+    --radius: 0.65rem;
+
+    /* Subtle accent palette */
+    --mint: 156 72% 67%;        /* #6EE7B7-ish */
+    --ice: 218 100% 83%;        /* #A7C7FF-ish */
+    --lilac: 256 100% 87%;      /* #CDBDFF-ish */
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -84,9 +90,41 @@
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
   }
   h1, h2, h3 { letter-spacing: -0.02em; }
+  /* Refined editorial highlight */
+  mark { background: hsl(var(--mint) / 0.35); color: hsl(var(--foreground)); border-radius: 3px; padding: 0 2px; }
 }
 
 @layer utilities {
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* Hero ambient glow */
+  .hero-glow {
+    background:
+      radial-gradient(60% 50% at 15% 20%, hsl(var(--mint) / 0.28), transparent 70%),
+      radial-gradient(45% 45% at 85% 10%, hsl(var(--ice) / 0.32), transparent 70%),
+      radial-gradient(55% 55% at 70% 90%, hsl(var(--lilac) / 0.22), transparent 70%);
+    filter: blur(20px);
+  }
+
+  /* Card lift */
+  .card-lift {
+    @apply transition-all duration-200;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -12px hsl(0 0% 0% / 0.12), 0 2px 6px -2px hsl(0 0% 0% / 0.06);
+  }
+
+  /* Premium focus ring with mint accent */
+  .focus-mint:focus-within {
+    border-color: hsl(var(--foreground));
+    box-shadow: 0 0 0 4px hsl(var(--mint) / 0.25);
+  }
+
+  /* Soft chip */
+  .chip {
+    @apply px-3 py-1 rounded-full text-xs border border-border bg-card text-muted-foreground transition-colors hover:text-foreground hover:border-foreground/40;
+  }
+  .chip:hover { background: hsl(var(--mint) / 0.12); }
 }

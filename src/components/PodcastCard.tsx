@@ -20,7 +20,7 @@ export type PodcastLite = {
 export function PodcastCard({ p }: { p: PodcastLite }) {
   const desc = snippet(p.summary || p.description, 160);
   return (
-    <article className="group flex gap-3 p-3 rounded-lg border border-border bg-card hover:border-foreground/30 transition-colors">
+    <article className="group flex gap-3 p-3 sm:p-4 rounded-xl border border-border/70 bg-card card-lift hover:border-foreground/30">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-20">
         <PodcastCover title={p.title} src={p.image_url} />
       </Link>
