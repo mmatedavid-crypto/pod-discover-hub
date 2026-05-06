@@ -16,6 +16,8 @@ export function SiteFooter() {
           <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
             <Link to="/categories" className="hover:text-foreground">Categories</Link>
             <Link to="/search" className="hover:text-foreground">Search</Link>
+            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link to="/terms" className="hover:text-foreground">Terms</Link>
           </nav>
         </div>
         <div className="mt-8 pt-6 border-t border-border flex flex-wrap gap-2 items-center justify-between text-xs">

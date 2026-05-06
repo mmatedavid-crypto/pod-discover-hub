@@ -22,6 +22,8 @@ import AdminFeedbackPage from "./pages/AdminFeedbackPage.tsx";
 import AdminSearchInsightsPage from "./pages/AdminSearchInsightsPage.tsx";
 import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
 import PageViewTracker from "./components/PageViewTracker.tsx";
+import PrivacyPage from "./pages/PrivacyPage.tsx";
+import TermsPage from "./pages/TermsPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +56,8 @@ const App = () => (
           <Route path="/company/:slug" element={<EntityPage kind="company" />} />
           <Route path="/ticker/:slug" element={<EntityPage kind="ticker" />} />
           <Route path="/ingredient/:slug" element={<EntityPage kind="ingredient" />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

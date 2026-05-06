@@ -8,6 +8,7 @@ import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { ENTITY_COLUMN, EntityKind, ENTITY_LABEL, entityHref } from "@/lib/entity";
+import { EpisodeDetailSkeleton } from "@/components/Skeletons";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
@@ -49,7 +50,14 @@ export default function EpisodeDetail() {
           description: summary || desc || undefined,
           datePublished: e.published_at || undefined,
           url: typeof window !== "undefined" ? window.location.href : undefined,
-          partOfSeries: { "@type": "PodcastSeries", name: p.title, url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined },
+          image: e.image_url || p.image_url || undefined,
+          partOfSeries: {
+            "@type": "PodcastSeries",
+            name: p.title,
+            image: p.image_url || undefined,
+            url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
+            webFeed: p.rss_url || undefined,
+          },
           associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
         },
       });
@@ -109,7 +117,7 @@ export default function EpisodeDetail() {
     })();
   }, [podcastSlug, episodeSlug]);
 
-  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
   if (!data?.e) return <NotFoundState title="Episode not found" message="That episode doesn't exist or has been removed." />;
   const { p, e } = data;
   const summary = stripHtml(e.summary);

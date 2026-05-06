@@ -7,6 +7,7 @@ import { PodcastCover } from "@/components/PodcastCover";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml, snippet } from "@/lib/text";
+import { PodcastDetailSkeleton } from "@/components/Skeletons";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
@@ -49,7 +50,7 @@ export default function PodcastDetail() {
     })();
   }, [podcastSlug]);
 
-  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (loading) return <Layout><PodcastDetailSkeleton /></Layout>;
   if (!p) return <NotFoundState title="Podcast not found" message="That podcast doesn't exist or has been removed." />;
   return (
     <Layout>

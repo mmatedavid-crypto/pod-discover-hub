@@ -26,6 +26,13 @@ export default function CategoryDetail() {
       setSeo({
         title: `${c.name} podcast episodes — Podiverzum`,
         description: `Discover the latest podcast episodes in ${c.name}, ranked by relevance, freshness and Podiverzum Rank.`,
+        jsonLd: {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: `${c.name} podcast episodes`,
+          about: { "@type": "Thing", name: c.name },
+          url: typeof window !== "undefined" ? window.location.href : undefined,
+        },
       });
       const { data: ps } = await supabase
         .from("podcasts")
