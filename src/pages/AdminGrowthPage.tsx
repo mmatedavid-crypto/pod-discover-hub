@@ -88,6 +88,30 @@ export default function AdminGrowthPage() {
 
     const { data: dumps } = await supabase.from("pi_dump_imports").select("*").order("created_at", { ascending: false }).limit(5);
     setDumpRuns(dumps || []);
+
+    const { data: fRow } = await supabase.from("app_settings").select("value").eq("key", "foundation_import").maybeSingle();
+    setFoundation((fRow?.value as any) || null);
+    const { count: rem } = await supabase.from("pi_feed_staging").select("id", { count: "exact", head: true }).eq("processed", false);
+    setUnprocessed(rem || 0);
+  };
+
+  const runFoundationBatch = async (continueLoop = false) => {
+    if (continueLoop) setFoundationContinue(true); else setFoundationRunning(true);
+    try {
+      do {
+        const { data, error } = await supabase.functions.invoke("foundation-runner", { body: { batch: 250, max_batches: continueLoop ? 8 : 1 } });
+        if (error) throw error;
+        toast.success(`Foundation: +${data?.run?.auto_added || 0} added, ${data?.run?.queued || 0} queued, ${data?.unprocessed_remaining || 0} left`);
+        await loadAll();
+        if (!continueLoop) break;
+        if ((data?.unprocessed_remaining || 0) === 0) break;
+        if (data?.stopped_reason && data.stopped_reason !== "time_budget") break;
+      } while (continueLoop);
+    } catch (e: any) {
+      toast.error(e.message || "foundation failed");
+    } finally {
+      setFoundationRunning(false); setFoundationContinue(false);
+    }
   };
 
   const processDumpBatch = async () => {
