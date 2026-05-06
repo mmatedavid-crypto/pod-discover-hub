@@ -93,26 +93,47 @@ function episodeFields(e: any) {
   return { title, summary, desc, arrays };
 }
 
-function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: boolean; entityHit: boolean; bodyHit: boolean } {
+// Generic terms: alone they bring noise; require pairing with a stronger hit.
+const GENERIC_TERMS = new Set([
+  "cooking", "food", "cuisine", "real", "estate", "property", "housing",
+  "health", "healthcare", "medical", "business", "investing", "investment",
+  "sleep", "recovery", "data", "centers", "center",
+]);
+
+function termGroupHits(e: any, variants: string[]): { hit: boolean; titleHit: boolean; entityHit: boolean; bodyHit: boolean; podHit: boolean } {
   const { title, summary, desc, arrays } = episodeFields(e);
+  const podTitle = (e.podcasts?.title || "").toLowerCase();
+  const podCat = (e.podcasts?.category || "").toLowerCase();
   const lc = variants.map((v) => v.toLowerCase());
   const titleHit = lc.some((v) => title.includes(v));
   const entityHit = lc.some((v) => arrays.includes(v) || arrays.some((a) => a.includes(v)));
   const bodyHit = lc.some((v) => summary.includes(v) || desc.includes(v));
-  return { hit: titleHit || entityHit || bodyHit, titleHit, entityHit, bodyHit };
+  const podHit = lc.some((v) => podTitle.includes(v) || podCat.includes(v));
+  return { hit: titleHit || entityHit || bodyHit || podHit, titleHit, entityHit, bodyHit, podHit };
 }
 
-function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: boolean; hitCount: number } {
+function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: boolean; hitCount: number; strongHits: number; bodyOnlyGenericOnly: boolean } {
   let s = 0;
   let hitCount = 0;
+  let strongHits = 0;
   let allHit = true;
+  let anyNonGenericStrong = false;
+  let anyNonGenericBody = false;
   termGroups.forEach((variants) => {
     const h = termGroupHits(e, variants);
+    const isGeneric = GENERIC_TERMS.has(variants[0].toLowerCase());
     if (h.hit) hitCount++;
     else allHit = false;
+    const strong = h.titleHit || h.entityHit || h.podHit;
+    if (strong) {
+      strongHits++;
+      if (!isGeneric) anyNonGenericStrong = true;
+    }
+    if (h.bodyHit && !isGeneric) anyNonGenericBody = true;
     if (h.titleHit) s += 150;
     if (h.entityHit) s += 70;
-    if (h.bodyHit) s += 60;
+    if (h.podHit) s += 40;
+    if (h.bodyHit) s += isGeneric ? 10 : 60;
     const orig = variants[0].toLowerCase();
     const titleLc = (e.title || "").toLowerCase();
     if (titleLc === orig) s += 250;
@@ -120,6 +141,8 @@ function scoreEpisode(e: any, termGroups: string[][]): { score: number; allHit: 
   });
   if (allHit && termGroups.length > 1) s += 120;
   s += hitCount * 25;
+  // bodyOnlyGenericOnly: every hit was body-only, AND no non-generic term contributed strongly or via body — pure noise.
+  const bodyOnlyGenericOnly = strongHits === 0 && !anyNonGenericBody && !anyNonGenericStrong;
   if (e.published_at) {
     const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
     s += Math.max(0, 30 - ageDays) * 0.6;
