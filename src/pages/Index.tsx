@@ -119,6 +119,13 @@ const Index = () => {
               Search
             </button>
           </form>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {["AI + healthcare","Warren Buffett + Occidental","testosterone + sleep","asparagus + cooking","Nvidia + data centers"].map((ex) => (
+              <button key={ex} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(ex)}`)} className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground">
+                {ex}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 

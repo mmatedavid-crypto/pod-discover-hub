@@ -17,6 +17,7 @@ import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
 import AdminGrowthPage from "./pages/AdminGrowthPage.tsx";
 import AdminQueuePage from "./pages/AdminQueuePage.tsx";
 import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
+import EntityPage from "./pages/EntityPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,11 @@ const App = () => (
           <Route path="/admin/growth" element={<AdminGrowthPage />} />
           <Route path="/admin/queue" element={<AdminQueuePage />} />
           <Route path="/growth-status" element={<GrowthStatusPage />} />
+          <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />
+          <Route path="/person/:slug" element={<EntityPage kind="person" />} />
+          <Route path="/company/:slug" element={<EntityPage kind="company" />} />
+          <Route path="/ticker/:slug" element={<EntityPage kind="ticker" />} />
+          <Route path="/ingredient/:slug" element={<EntityPage kind="ingredient" />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

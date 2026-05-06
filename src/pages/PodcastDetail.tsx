@@ -6,6 +6,7 @@ import { Apple, Music, Youtube, Globe } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
+import { stripHtml, snippet } from "@/lib/text";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
@@ -21,14 +22,17 @@ export default function PodcastDetail() {
       setP(data);
       setLoading(false);
       if (data) {
+        const cleanSummary = stripHtml(data.summary);
+        const cleanDesc = stripHtml(data.description);
         setSeo({
           title: `${data.title} — podcast on Podiverzum`,
-          description: (data.summary || data.description || `Listen to ${data.title} on Podiverzum.`).slice(0, 160),
+          description: snippet(cleanSummary || cleanDesc || `Listen to ${data.title} on Podiverzum.`, 160),
+          noindex: data.rss_status === "failed" || data.rss_status === "inactive",
           jsonLd: {
             "@context": "https://schema.org",
             "@type": "PodcastSeries",
             name: data.title,
-            description: data.summary || data.description || undefined,
+            description: cleanSummary || cleanDesc || undefined,
             image: data.image_url || undefined,
             url: typeof window !== "undefined" ? window.location.href : undefined,
             webFeed: data.rss_url || undefined,
@@ -61,9 +65,9 @@ export default function PodcastDetail() {
               </Link>
             )}
             <h1 className="text-3xl font-semibold mt-1">{p.title}</h1>
-            {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{p.summary}</p>}
-            {p.description && p.description !== p.summary && (
-              <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{p.description}</p>
+            {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{stripHtml(p.summary)}</p>}
+            {p.description && stripHtml(p.description) !== stripHtml(p.summary) && (
+              <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{stripHtml(p.description)}</p>
             )}
             <div className="flex gap-3 mt-4 text-muted-foreground">
               {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Apple className="h-4 w-4" /> Apple</a>}
@@ -90,7 +94,7 @@ export default function PodcastDetail() {
                     )}
                   </div>
                   {(e.summary || e.description) && (
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{e.summary || e.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{snippet(e.summary || e.description, 200)}</p>
                   )}
                 </Link>
                 {e.audio_url && (

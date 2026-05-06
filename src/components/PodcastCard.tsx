@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Apple, Music, Youtube, Globe } from "lucide-react";
 import { PodcastCover } from "./PodcastCover";
+import { snippet } from "@/lib/text";
 
 export type PodcastLite = {
   id: string;
@@ -17,6 +18,7 @@ export type PodcastLite = {
 };
 
 export function PodcastCard({ p }: { p: PodcastLite }) {
+  const desc = snippet(p.summary || p.description, 160);
   return (
     <article className="group flex gap-3 p-3 rounded-lg border border-border bg-card hover:border-foreground/30 transition-colors">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-20">
@@ -27,7 +29,7 @@ export function PodcastCard({ p }: { p: PodcastLite }) {
           {p.title}
         </Link>
         {p.category && <div className="text-xs text-muted-foreground mt-0.5">{p.category}</div>}
-        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{p.summary || p.description}</p>
+        {desc && <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{desc}</p>}
         <div className="flex gap-2 mt-2 text-muted-foreground">
           {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" aria-label="Apple Podcasts" className="hover:text-foreground"><Apple className="h-4 w-4" /></a>}
           {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" aria-label="Spotify" className="hover:text-foreground"><Music className="h-4 w-4" /></a>}

@@ -13,6 +13,10 @@ function url(loc: string, lastmod?: string | null, changefreq = "daily", priorit
   return `<url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 }
 function esc(s: string) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function entSlug(kind: string, v: string) {
+  if (kind === "ticker") return v.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();
+  return v.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80);
+}
 
 Deno.serve(async () => {
   try {
@@ -20,20 +24,47 @@ Deno.serve(async () => {
     const [{ data: cats }, { data: pods }, { data: eps }] = await Promise.all([
       supabase.from("categories").select("slug,created_at"),
       supabase.from("podcasts").select("slug,updated_at,rss_status,podiverzum_rank,id"),
-      supabase.from("episodes").select("slug,updated_at,podcast_id,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
+      supabase.from("episodes").select("slug,updated_at,podcast_id,topics,people,companies,tickers,ingredients,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
     ]);
 
-    // Episode counts to detect empty podcasts
     const epCount: Record<string, number> = {};
     (eps || []).forEach((e: any) => { if (e.podcast_id) epCount[e.podcast_id] = (epCount[e.podcast_id] || 0) + 1; });
+
+    // Aggregate entity slug counts (only count episodes whose parent is healthy)
+    const entCount: Record<string, { slug: string; n: number; lastmod?: string }> = {};
+    const kinds: { col: "topics"|"people"|"companies"|"tickers"|"ingredients"; route: string }[] = [
+      { col: "topics", route: "topic" }, { col: "people", route: "person" },
+      { col: "companies", route: "company" }, { col: "tickers", route: "ticker" }, { col: "ingredients", route: "ingredient" },
+    ];
+    (eps || []).forEach((e: any) => {
+      const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
+      if (broken) return;
+      kinds.forEach(({ col, route }) => {
+        (e[col] || []).forEach((v: string) => {
+          const s = entSlug(route, v);
+          if (!s) return;
+          const k = `${route}:${s}`;
+          const cur = entCount[k];
+          if (cur) cur.n++; else entCount[k] = { slug: s, n: 1, lastmod: e.updated_at };
+        });
+      });
+    });
 
     const urls: string[] = [
       url(`${SITE}/`, null, "daily", "1.0"),
       url(`${SITE}/categories`, null, "daily", "0.7"),
     ];
     (cats || []).forEach((c) => urls.push(url(`${SITE}/category/${esc(c.slug)}`, c.created_at, "daily", "0.8")));
+
+    // Entity pages with 5+ episodes
+    Object.entries(entCount).forEach(([key, info]) => {
+      if (info.n < 5) return;
+      const route = key.split(":")[0];
+      const priority = info.n >= 20 ? "0.8" : "0.6";
+      urls.push(url(`${SITE}/${route}/${esc(info.slug)}`, info.lastmod || null, "weekly", priority));
+    });
+
     (pods || []).forEach((p: any) => {
-      // Only index podcasts that are healthy and have episodes
       const broken = p.rss_status === "failed" || p.rss_status === "inactive";
       const empty = !epCount[p.id];
       if (broken || empty) return;

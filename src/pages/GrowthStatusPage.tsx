@@ -262,6 +262,21 @@ export default function GrowthStatusPage() {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle className="text-base">Deep Hydration (preview)</CardTitle></CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <p className="text-muted-foreground">
+              Deep hydration will expand already imported podcasts beyond their initial caps:
+              Rank ≥ 8 up to 75 episodes, Rank 6–7 up to 50, Rank 4–5 up to 30. Not yet scheduled — manual only.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <Stat title="Eligible podcasts (Rank ≥ 4)" value={tiers.promoted + tiers.indexed} />
+              <Stat title="Promoted (Rank ≥ 6)" value={tiers.promoted} />
+              <Stat title="Indexed (Rank 4–5)" value={tiers.indexed} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle className="text-base">Visibility tiers</CardTitle></CardHeader>
           <CardContent className="text-sm">
 
@@ -301,6 +316,10 @@ export default function GrowthStatusPage() {
         </Card>
 
         {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
+
+        <p className="text-xs text-muted-foreground">
+          Indexed from public RSS feeds. Ranked by freshness, feed health and episode relevance.
+        </p>
       </div>
     </Layout>
   );
