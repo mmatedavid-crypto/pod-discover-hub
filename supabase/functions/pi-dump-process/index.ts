@@ -46,7 +46,10 @@ Deno.serve(async (req) => {
 
     const { data: settingsRow } = await supabase.from("app_settings").select("value").eq("key", "growth").maybeSingle();
     const settings: any = settingsRow?.value || {};
-    const minRank = settings.min_rank_for_auto_add || 8;
+    // Daily mode keeps the strict promotion threshold; foundation lowers the import threshold to Rank >= 4
+    // (index-only — public promotion gates remain Rank >= 6 in the UI).
+    const dailyMinRank = settings.min_rank_for_auto_add || 8;
+    const minRankImport = foundation ? 4 : dailyMinRank;
     const maxAge = settings.max_episode_age_days || 90;
     const HARD_MAX_AUTO_ADD = 5;
     // Foundation mode lifts the per-call auto-add cap (technical batching only).
