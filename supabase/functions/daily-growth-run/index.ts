@@ -41,21 +41,36 @@ function scoreCandidate(p: any, settings: any) {
   return { score: final, reasons };
 }
 
-async function piSearch(term: string, apiKey: string, apiSecret: string, max: number) {
+async function piSearch(term: string, apiKey: string, apiSecret: string, max: number, errorsOut: any[]) {
   const date = Math.floor(Date.now() / 1000).toString();
   const auth = await sha1Hex(apiKey + apiSecret + date);
-  const params = new URLSearchParams({ q: term, max: String(max), val: "en" });
-  const res = await fetch(`https://api.podcastindex.org/api/1.0/search/byterm?${params}`, {
-    headers: {
-      "User-Agent": "Podiverzum/1.0",
-      "X-Auth-Date": date,
-      "X-Auth-Key": apiKey,
-      "Authorization": auth,
-    },
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return Array.isArray(data.feeds) ? data.feeds : [];
+  // Hard cap per call: never request more than 25 from PI per keyword
+  const safeMax = Math.max(1, Math.min(25, max));
+  const params = new URLSearchParams({ q: term, max: String(safeMax), val: "en" });
+  try {
+    const res = await fetch(`https://api.podcastindex.org/api/1.0/search/byterm?${params}`, {
+      headers: {
+        "User-Agent": "Podiverzum/1.0",
+        "X-Auth-Date": date,
+        "X-Auth-Key": apiKey,
+        "Authorization": auth,
+      },
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      const entry = { term, status: res.status, body: txt.slice(0, 200), rate_limited: res.status === 429 };
+      console.error("[daily-growth-run] PodcastIndex error", entry);
+      errorsOut.push(entry);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data.feeds) ? data.feeds : [];
+  } catch (e) {
+    const entry = { term, error: e instanceof Error ? e.message : "fetch_error" };
+    console.error("[daily-growth-run] PodcastIndex fetch failed", entry);
+    errorsOut.push(entry);
+    return [];
+  }
 }
 
 Deno.serve(async (req) => {
@@ -105,36 +120,48 @@ Deno.serve(async (req) => {
       } catch { stats.refresh_failed++; }
     }
 
-    // 2) Discovery (Podcast Index) - limited campaigns
+    // 2) Discovery (Podcast Index) — STRICT LIMITS, no full-index crawling.
+    // Hard caps regardless of settings: 3 categories, 50 candidates, 5 auto-adds per run.
     const apiKey = Deno.env.get("PODCAST_INDEX_API_KEY");
     const apiSecret = Deno.env.get("PODCAST_INDEX_API_SECRET");
     const cats: string[] = settings.discovery_categories || [];
-    const maxDiscovery = Math.min(50, settings.max_discovery_per_run || 50);
-    const maxAutoAdd = Math.min(20, settings.max_auto_add_per_run || 20);
+    const HARD_MAX_CATS_PER_RUN = 3;
+    const HARD_MAX_DISCOVERY = 50;
+    const HARD_MAX_AUTO_ADD = 5;
+    const maxDiscovery = Math.min(HARD_MAX_DISCOVERY, settings.max_discovery_per_run || HARD_MAX_DISCOVERY);
+    const maxAutoAdd = Math.min(HARD_MAX_AUTO_ADD, settings.max_auto_add_per_run || HARD_MAX_AUTO_ADD);
     const minRank = settings.min_rank_for_auto_add || 8;
+    const piErrors: any[] = [];
 
     if (apiKey && apiSecret && cats.length) {
-      // Rotate: only process N categories per run
-      const perRun = Math.max(1, Math.min(cats.length, settings.categories_per_run || 3));
+      // Rotate: at most HARD_MAX_CATS_PER_RUN categories per run
+      const perRun = Math.max(1, Math.min(cats.length, HARD_MAX_CATS_PER_RUN, settings.categories_per_run || HARD_MAX_CATS_PER_RUN));
       const startIdx = Math.max(0, Number(settings.category_rotation_index || 0)) % cats.length;
       const rotated: string[] = [];
       for (let i = 0; i < perRun; i++) rotated.push(cats[(startIdx + i) % cats.length]);
       const nextIdx = (startIdx + perRun) % cats.length;
       stats.categories_processed = rotated;
+      stats.api_call_caps = { max_categories: HARD_MAX_CATS_PER_RUN, max_candidates: HARD_MAX_DISCOVERY, max_auto_add: HARD_MAX_AUTO_ADD };
 
-      const perCat = Math.max(5, Math.floor(maxDiscovery / rotated.length));
+      // Targeted keyword search only — single page per category, no pagination.
+      const perCat = Math.max(5, Math.min(25, Math.floor(maxDiscovery / rotated.length)));
       const seen = new Set<string>();
       const candidates: any[] = [];
       for (const cat of rotated) {
-        const feeds = await piSearch(cat, apiKey, apiSecret, perCat);
+        if (candidates.length >= maxDiscovery) break;
+        const feeds = await piSearch(cat, apiKey, apiSecret, perCat, piErrors);
         for (const f of feeds) {
           if (!f.url || seen.has(f.url)) continue;
           seen.add(f.url);
           candidates.push({ ...f, _cat: cat });
+          if (candidates.length >= maxDiscovery) break;
         }
-        if (candidates.length >= maxDiscovery) break;
       }
       stats.candidates_seen = candidates.length;
+      if (piErrors.length) {
+        stats.podcast_index_errors = piErrors;
+        stats.podcast_index_rate_limited = piErrors.some((e) => e.rate_limited);
+      }
 
       // Filter out already-imported feeds
       const urls = candidates.map((c) => c.url);
