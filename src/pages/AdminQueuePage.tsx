@@ -102,12 +102,11 @@ export default function AdminQueuePage() {
     } finally { setTestBusy(false); }
   };
 
-  const bulkImportRank4Plus = async () => {
-    if (!confirm("Run backend bulk import for Rank ≥ 4? Processes one server-side batch (~100s).")) return;
+  const importNext50 = async () => {
     setBulkBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("queue-import-runner", {
-        body: { min_rank: 4, batch_size: 25, max_batches: 10 },
+        body: { min_rank: 4, batch_size: 50, max_batches: 1 },
       });
       if (error) throw new Error(error.message);
       if (!data?.ok) throw new Error(data?.error || "runner failed");
@@ -115,7 +114,7 @@ export default function AdminQueuePage() {
       toast.success(`+${data.imported} imported, ${data.imported_with_rss_error} rss-err, ${data.skipped_duplicate} dup, ${data.failed} failed${data.remaining_pending_rank4_plus ? ` · ${data.remaining_pending_rank4_plus} remaining` : ""}`);
       await load();
     } catch (e: any) {
-      toast.error(e.message || "bulk import failed");
+      toast.error(e.message || "batch import failed");
     } finally { setBulkBusy(false); }
   };
 
