@@ -232,22 +232,27 @@ export default function SearchPage() {
         .map((e: any) => ({ e, ...scoreEpisode(e, termGroups) }))
         .filter((x) => x.hitCount > 0);
 
-      let chosen = scored;
+      // Relevance gate: require at least one strong hit (title/entity/podcast),
+      // OR — for multi-term queries — that all terms are present somewhere.
+      // This kills body-only weak matches like "cooking" appearing in unrelated bodies.
+      const relevant = scored.filter((x) => {
+        if (x.bodyOnlyGenericOnly) return false;
+        if (x.strongHits >= 1) return true;
+        if (termGroups.length > 1 && x.allHit) return true;
+        return false;
+      });
+
+      let chosen: typeof scored = relevant;
       if (termGroups.length > 1) {
-        const allHit = scored.filter((x) => x.allHit);
+        const allHit = relevant.filter((x) => x.allHit);
         if (strict) {
-          if (allHit.length > 0) {
-            chosen = allHit;
-          } else {
-            // strict but expanded query returned no all-term hits — broaden.
-            chosen = scored;
-            if (scored.length > 0) usedFallback = true;
-          }
+          if (allHit.length > 0) chosen = allHit;
+          else { chosen = relevant; if (relevant.length > 0) usedFallback = true; }
         } else if (allHit.length > 0) {
           chosen = allHit;
         } else {
-          chosen = scored;
-          if (scored.length > 0) usedFallback = true;
+          chosen = relevant;
+          if (relevant.length > 0) usedFallback = true;
         }
       }
 
