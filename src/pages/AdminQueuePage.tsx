@@ -70,22 +70,39 @@ export default function AdminQueuePage() {
       sum[key] = (sum[key] || 0) + 1;
     });
     setFailureSummary(sum);
-    const { data: dr } = await supabase.from("app_settings").select("value").eq("key", "queue_drainer").maybeSingle();
-    setDrainer((dr?.value as any) || { enabled: false });
-    const { count: r4 } = await supabase
-      .from("discovery_queue").select("*", { count: "exact", head: true })
-      .eq("status", "pending").gte("candidate_rank", 4);
-    setPendingR4(r4 || 0);
+    const { data: status, error: statusErr } = await supabase.functions.invoke("queue-drainer-admin", { body: { action: "status" } });
+    if (!statusErr && status?.ok) {
+      setDrainer(status.setting || { enabled: false });
+      setPendingR4(status.pending_rank4_plus || 0);
+    } else {
+      const { count: r4 } = await supabase
+        .from("discovery_queue").select("*", { count: "exact", head: true })
+        .eq("status", "pending").gte("candidate_rank", 4);
+      setPendingR4(r4 || 0);
+    }
+  };
+
+  const callAdmin = async (action: string) => {
+    const { data, error } = await supabase.functions.invoke("queue-drainer-admin", { body: { action } });
+    if (error) {
+      const ctx: any = (error as any).context;
+      let detail = error.message || "admin call failed";
+      try {
+        if (ctx?.body) {
+          const txt = typeof ctx.body === "string" ? ctx.body : await new Response(ctx.body).text();
+          if (txt) detail = `${detail}: ${txt.slice(0, 300)}`;
+        }
+      } catch { /* noop */ }
+      throw new Error(detail);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
   };
 
   const toggleDrainer = async (enabled: boolean) => {
     setDrainerBusy(true);
     try {
-      const current = drainer || {};
-      const { error } = await supabase.from("app_settings").upsert({
-        key: "queue_drainer", value: { ...current, enabled }, updated_at: new Date().toISOString(),
-      });
-      if (error) throw error;
+      await callAdmin(enabled ? "enable" : "disable");
       toast.success(enabled ? "Auto-drain enabled" : "Auto-drain disabled");
       await load();
     } catch (e: any) {
@@ -96,9 +113,9 @@ export default function AdminQueuePage() {
   const runDrainerNow = async () => {
     setDrainerBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("queue-drainer", { body: { trigger: "manual" } });
-      if (error) throw new Error(error.message);
-      toast.success(`Drainer: ${data?.status || "ok"}`);
+      const data = await callAdmin("run_now");
+      const r = data?.run || {};
+      toast.success(`Drainer: ${r.status || "ok"} · imported ${r.imported ?? 0} · remaining ${r.remaining ?? "?"}`);
       await load();
     } catch (e: any) {
       toast.error(e.message || "drainer failed");
