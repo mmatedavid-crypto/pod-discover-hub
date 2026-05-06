@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
@@ -6,6 +6,16 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search } from "lucide-react";
 import { setSeo } from "@/lib/seo";
+
+type SortKey = "best" | "newest" | "rank";
+
+const EXAMPLES = [
+  "AI + healthcare",
+  "Warren Buffett + Occidental",
+  "testosterone + sleep",
+  "asparagus + cooking",
+  "Nvidia + data centers",
+];
 
 function parseTerms(q: string) {
   return q.split(/[+,&]| and /i).map((s) => s.trim()).filter(Boolean);
@@ -62,33 +72,36 @@ function scoreEpisode(e: any, termGroups: string[][]): number {
     const lc = variants.map((v) => v.toLowerCase());
     const orig = lc[0];
     let hit = false;
-    if (title === orig) { s += 200; hit = true; }
-    if (title.includes(orig)) { s += 120; hit = true; }
-    if (lc.some((v) => title.includes(v))) { s += 80; hit = true; }
-    if (lc.some((v) => summary.includes(v) || desc.includes(v))) { s += 60; hit = true; }
-    if (lc.some((v) => arrays.includes(v))) { s += 50; hit = true; }
-    if (lc.some((v) => arrays.some((a) => a.includes(v)))) { s += 25; hit = true; }
+    if (title === orig) { s += 250; hit = true; }
+    if (title.includes(orig)) { s += 150; hit = true; }
+    if (lc.some((v) => title.includes(v))) { s += 90; hit = true; }
+    if (lc.some((v) => summary.includes(v) || desc.includes(v))) { s += 70; hit = true; }
+    if (lc.some((v) => arrays.includes(v))) { s += 60; hit = true; }
+    if (lc.some((v) => arrays.some((a) => a.includes(v)))) { s += 30; hit = true; }
     if (!hit) allTermsHit = false;
   });
-  if (allTermsHit) s += 40;
+  if (allTermsHit) s += 80;
   if (e.published_at) {
     const ageDays = (Date.now() - new Date(e.published_at).getTime()) / 86400000;
-    s += Math.max(0, 30 - ageDays) * 0.5;
-    if (ageDays < 7) s += 8;
-    else if (ageDays < 30) s += 4;
+    s += Math.max(0, 30 - ageDays) * 0.6;
+    if (ageDays < 7) s += 10;
+    else if (ageDays < 30) s += 5;
   }
-  // Mild parent podcast rank tie-breaker (does not override relevance)
-  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.5;
+  s += ((e.episode_rank ?? 0)) * 1.2;
+  s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.6;
   return s;
 }
 
 export default function SearchPage() {
   const [params, setParams] = useSearchParams();
   const initial = params.get("q") || "";
+  const sortParam = (params.get("sort") as SortKey) || "best";
+  const catParam = params.get("cat") || "";
   const [q, setQ] = useState(initial);
   const [podcasts, setPodcasts] = useState<PodcastLite[]>([]);
   const [episodes, setEpisodes] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
@@ -98,6 +111,7 @@ export default function SearchPage() {
       description: initial
         ? `Podcast episodes matching "${initial}". Search by topic, person, company, ticker or ingredient.`
         : "Search podcast episodes by topic, person, company, ticker or ingredient.",
+      noindex: !initial,
     });
     if (!initial) { setPodcasts([]); setEpisodes([]); return; }
     const terms = parseTerms(initial);
@@ -106,7 +120,6 @@ export default function SearchPage() {
     (async () => {
       const termGroups = await Promise.all(terms.map(expandTerm));
 
-      // Episodes: search ALL indexed episodes (low-rank still allowed)
       let eq = supabase
         .from("episodes")
         .select("id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,episode_rank,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status)")
@@ -121,15 +134,20 @@ export default function SearchPage() {
         eq = eq.or(ors.join(","));
       });
       const { data: es } = await eq;
-      const rankedEs = (es || [])
+      let scored = (es || [])
         .map((e: any) => ({ e, s: scoreEpisode(e, termGroups) }))
-        .filter((x) => x.s > 0)
-        .sort((a, b) => b.s - a.s)
-        .slice(0, 80)
-        .map((x) => x.e);
+        .filter((x) => x.s > 0);
+      if (catParam) scored = scored.filter((x) => (x.e.podcasts?.category || "") === catParam);
+      const sortFn =
+        sortParam === "newest"
+          ? (a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()
+          : sortParam === "rank"
+          ? (a: any, b: any) => (b.e.episode_rank || 0) - (a.e.episode_rank || 0)
+          : (a: any, b: any) => b.s - a.s;
+      const rankedEs = scored.sort(sortFn).slice(0, 80).map((x) => x.e);
       setEpisodes(rankedEs as any);
+      setCategories(uniq(rankedEs.map((e: any) => e.podcasts?.category).filter(Boolean) as string[]));
 
-      // Podcasts: secondary
       let pq = supabase
         .from("podcasts")
         .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
@@ -155,30 +173,83 @@ export default function SearchPage() {
 
       setLoading(false);
     })();
-  }, [initial]);
+  }, [initial, sortParam, catParam]);
+
+  const flatTerms = useMemo(() => parseTerms(initial), [initial]);
+
+  const setSort = (s: SortKey) => {
+    const next = new URLSearchParams(params);
+    next.set("q", initial); next.set("sort", s);
+    if (catParam) next.set("cat", catParam);
+    setParams(next);
+  };
+  const setCat = (c: string) => {
+    const next = new URLSearchParams(params);
+    next.set("q", initial);
+    if (sortParam) next.set("sort", sortParam);
+    if (c) next.set("cat", c); else next.delete("cat");
+    setParams(next);
+  };
 
   return (
     <Layout>
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>
-        <p className="text-muted-foreground mb-6 text-sm">
-          Combine terms with <code className="px-1 bg-secondary rounded">+</code> — e.g. <em>cooking + asparagus</em>, <em>AI + healthcare</em>, <em>stocks + Occidental</em>.
+        <p className="text-muted-foreground mb-4 text-sm">
+          Use <code className="px-1 bg-secondary rounded">+</code> to combine ideas, e.g. <em>AI + healthcare</em>.
         </p>
-        <form
-          onSubmit={(e) => { e.preventDefault(); setParams({ q }); }}
-          className="relative max-w-2xl"
-        >
+        <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="cooking + asparagus"
+            placeholder="AI + healthcare"
             className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
           />
           <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
             Search
           </button>
         </form>
+
+        <div className="flex flex-wrap gap-2 mt-3">
+          {EXAMPLES.map((ex) => (
+            <button
+              key={ex}
+              onClick={() => { setQ(ex); setParams({ q: ex }); }}
+              className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground"
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+
+        {initial && (
+          <div className="flex flex-wrap gap-2 items-center mt-6 text-xs">
+            <span className="text-muted-foreground">Sort:</span>
+            {([
+              ["best", "Best match"],
+              ["newest", "Newest"],
+              ["rank", "Highest episode rank"],
+            ] as const).map(([k, l]) => (
+              <button
+                key={k}
+                onClick={() => setSort(k)}
+                className={`px-2.5 py-1 rounded-full border ${sortParam === k ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}
+              >
+                {l}
+              </button>
+            ))}
+            {categories.length > 1 && (
+              <>
+                <span className="text-muted-foreground ml-2">Category:</span>
+                <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>All</button>
+                {categories.slice(0, 8).map((c) => (
+                  <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{c}</button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
 
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
@@ -187,10 +258,10 @@ export default function SearchPage() {
         )}
 
         {initial && (podcasts.length > 0 || episodes.length > 0) && (
-          <div className="mt-10 space-y-10">
+          <div className="mt-8 space-y-10">
             <section>
               <h2 className="font-semibold mb-3">Matching episodes ({episodes.length})</h2>
-              <EpisodeList items={episodes} empty="No episodes." />
+              <EpisodeList items={episodes} terms={flatTerms} showEntities />
             </section>
             {podcasts.length > 0 && (
               <section>
@@ -202,6 +273,10 @@ export default function SearchPage() {
             )}
           </div>
         )}
+
+        <p className="text-xs text-muted-foreground mt-10">
+          Indexed from public RSS feeds. Ranked by freshness, feed health and episode relevance.
+        </p>
       </div>
     </Layout>
   );
