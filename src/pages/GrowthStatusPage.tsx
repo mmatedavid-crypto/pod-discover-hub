@@ -54,6 +54,7 @@ export default function GrowthStatusPage() {
     podcasts: 0, activePodcasts: 0, episodes: 0, newEpisodes24h: 0,
     newPodcasts24h: 0, avgRank: 0, failedFeeds: 0, queue: 0,
   });
+  const [sources, setSources] = useState<Record<string, number>>({});
 
   useEffect(() => {
     (async () => {
