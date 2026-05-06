@@ -40,7 +40,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     let body: any = {};
     try { body = req.method === "POST" ? await req.json() : {}; } catch { /* */ }
-    const batchSize = Math.max(1, Math.min(200, Number(body.batch) || 100));
+    const foundation: boolean = !!body.foundation;
+    const batchSize = Math.max(1, Math.min(foundation ? 250 : 200, Number(body.batch) || (foundation ? 250 : 100)));
     const importId: string | undefined = body.import_id;
 
     const { data: settingsRow } = await supabase.from("app_settings").select("value").eq("key", "growth").maybeSingle();
@@ -48,7 +49,8 @@ Deno.serve(async (req) => {
     const minRank = settings.min_rank_for_auto_add || 8;
     const maxAge = settings.max_episode_age_days || 90;
     const HARD_MAX_AUTO_ADD = 5;
-    const maxAutoAdd = Math.min(HARD_MAX_AUTO_ADD, settings.max_auto_add_per_run || HARD_MAX_AUTO_ADD);
+    // Foundation mode lifts the per-call auto-add cap (technical batching only).
+    const maxAutoAdd = foundation ? batchSize : Math.min(HARD_MAX_AUTO_ADD, settings.max_auto_add_per_run || HARD_MAX_AUTO_ADD);
 
     let q = supabase.from("pi_feed_staging").select("*").eq("processed", false).limit(batchSize);
     if (importId) q = q.eq("import_id", importId);
@@ -122,7 +124,9 @@ Deno.serve(async (req) => {
               counters.auto_added++; counters.accepted++;
               updates.decision = "imported";
               try {
-                const fr = await fetchOne(supabase, { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url });
+                // Foundation depth: rank 9-10 → 100, rank 8 → 75. Daily mode: 30.
+                const epCap = foundation ? (score >= 9 ? 100 : 75) : 30;
+                const fr = await fetchOne(supabase, { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url }, { episodeCap: epCap });
                 if (!fr.ok) counters.failed_rss_tests++;
               } catch { counters.failed_rss_tests++; }
             }

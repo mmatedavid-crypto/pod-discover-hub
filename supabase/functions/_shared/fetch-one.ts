@@ -5,7 +5,8 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "episode";
 }
 
-export async function fetchOne(supabase: any, podcast: any) {
+export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?: number } = {}) {
+  const episodeCap = Math.max(1, Math.min(500, opts.episodeCap ?? 30));
   if (!podcast.rss_url) {
     await supabase.from("podcasts").update({
       rss_status: "failed",
@@ -56,7 +57,7 @@ export async function fetchOne(supabase: any, podcast: any) {
   }
 
   let newCount = 0, duplicates = 0;
-  for (const it of items.slice(0, 30)) {
+  for (const it of items.slice(0, episodeCap)) {
     if (!it.title) continue;
     const slugBase = slugify(it.title);
     const slugSuffix = it.guid
