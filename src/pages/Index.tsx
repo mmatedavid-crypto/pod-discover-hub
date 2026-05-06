@@ -95,48 +95,53 @@ const Index = () => {
 
   return (
     <Layout>
-      <section className="relative border-b border-border overflow-hidden">
-        {/* Ambient glow */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 hero-glow opacity-90" />
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />
-        <div className="relative container mx-auto py-16 sm:py-28">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/80 backdrop-blur text-[11px] uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
+      <section className="relative border-b border-border overflow-hidden bg-black">
+        {/* Brand spotlight */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
+        <div className="relative container mx-auto py-20 sm:py-32">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-primary shadow-sm animate-fade-up">
             <span className="relative inline-flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping motion-reduce:hidden" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="pulse-red" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
             </span>
-            Episode-first podcast discovery
+            Live · Episode-first discovery
           </div>
-          <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight max-w-3xl mt-6 leading-[1.04]">
-            Search the world<br className="hidden sm:block" /> of podcasts.
+          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-6 leading-[1.02] animate-fade-up">
+            <span className="text-foreground">Find it.</span>{" "}
+            <span className="text-brand-gradient">Hear it.</span>
           </h1>
-          <p className="text-muted-foreground mt-5 max-w-2xl text-base sm:text-lg leading-relaxed">
-            Find podcast episodes by topic, person, company, ticker, ingredient or idea.
+          <p className="text-muted-foreground mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up">
+            Podiverzum searches the world of podcasts — by topic, person, company, ticker,
+            ingredient or idea. Premium discovery for serious listeners.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
-            className="mt-8 max-w-2xl relative focus-mint rounded-xl transition-shadow"
+            className="mt-10 max-w-2xl relative focus-brand rounded-2xl transition-shadow animate-fade-up"
           >
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Try: AI + healthcare"
-              className="w-full pl-12 pr-28 py-4 rounded-xl bg-card border border-border focus:border-foreground outline-none text-base shadow-[0_1px_2px_hsl(0_0%_0%/0.04),0_8px_24px_-12px_hsl(0_0%_0%/0.08)]"
+              placeholder="Try: AI healthcare, Nvidia data centers, Italy food…"
+              className="w-full pl-12 pr-32 py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
             />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all">
+            <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 rounded-xl text-sm font-semibold">
               Search
             </button>
           </form>
           <div className="mt-5 flex flex-wrap gap-2">
-            {["AI + healthcare","Warren Buffett + Occidental","testosterone + sleep","asparagus + cooking","Nvidia + data centers"].map((ex) => (
+            {["AI healthcare","Warren Buffett","testosterone sleep","asparagus cooking","Nvidia data centers"].map((ex) => (
               <button key={ex} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(ex)}`)} className="chip">
                 {ex}
               </button>
             ))}
           </div>
         </div>
+        {/* bottom rule */}
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       </section>
 
       <div className="container mx-auto py-12 space-y-14">
