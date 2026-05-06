@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
           // dedup check (re-check podcasts in case it was added meanwhile)
           const { data: existing } = await supabase.from("podcasts").select("id").eq("rss_url", r.rss_url).maybeSingle();
           if (existing) { updates.decision = "rejected"; updates.reject_reason = "already imported"; counters.skipped_duplicates++; }
-          else if (score >= minRank && autoAddedThisRun < maxAutoAdd) {
+          else if (score >= minRankImport && autoAddedThisRun < maxAutoAdd) {
             // Insert podcast + hydrate RSS
             const slugBase = slugify(r.title || "podcast");
             let slug = slugBase;
@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
               if (!dup) break;
               slug = `${slugBase}-${a + 1}`;
             }
+            const rankLabel = score >= 8 ? "Excellent" : score >= 6 ? "Strong" : "Indexed";
             const { data: inserted, error: insErr } = await supabase.from("podcasts").insert({
               title: r.title || "Untitled",
               slug,
@@ -113,7 +114,7 @@ Deno.serve(async (req) => {
               source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
               podiverzum_rank: score,
-              rank_label: score >= 8 ? "Excellent" : "Strong",
+              rank_label: rankLabel,
               rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
               rank_updated_at: new Date().toISOString(),
             }).select("id").maybeSingle();
@@ -127,13 +128,16 @@ Deno.serve(async (req) => {
               counters.auto_added++; counters.accepted++;
               updates.decision = "imported";
               try {
-                // Foundation depth: rank 9-10 → 100, rank 8 → 75. Daily mode: 30.
-                const epCap = foundation ? (score >= 9 ? 100 : 75) : 30;
+                // Foundation depth by rank: 8–10 → 75, 6–7 → 50, 4–5 → 30. Daily mode: 30.
+                const epCap = foundation
+                  ? (score >= 8 ? 75 : score >= 6 ? 50 : 30)
+                  : 30;
                 const fr = await fetchOne(supabase, { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url }, { episodeCap: epCap });
                 if (!fr.ok) counters.failed_rss_tests++;
               } catch { counters.failed_rss_tests++; }
             }
-          } else if (score >= 6) {
+          } else if (!foundation && score >= 6) {
+            // Daily mode: rank 6–7 goes to approval queue.
             await supabase.from("discovery_queue").upsert({
               pi_id: r.pi_id,
               title: r.title,
@@ -155,7 +159,7 @@ Deno.serve(async (req) => {
             counters.queued++; counters.accepted++;
           } else {
             updates.decision = "hidden";
-            updates.reject_reason = "rank ≤ 5";
+            updates.reject_reason = foundation ? "rank ≤ 3" : "rank ≤ 5";
             counters.hidden_low_rank++;
           }
         }
