@@ -216,8 +216,8 @@ export default function GrowthStatusPage() {
           <CardContent className="text-sm space-y-2">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Stat title="Foundation podcasts added" value={foundation?.totals?.auto_added ?? 0} />
-              <Stat title="Queued (Rank 6–7)" value={foundation?.totals?.queued ?? 0} />
-              <Stat title="Hidden (Rank ≤ 5)" value={foundation?.totals?.hidden_low_rank ?? 0} />
+              <Stat title="Indexed (Rank 4–5)" value={foundation?.totals?.queued ?? 0} />
+              <Stat title="Hidden (Rank ≤ 3)" value={foundation?.totals?.hidden_low_rank ?? 0} />
               <Stat title="Failed RSS" value={foundation?.totals?.failed_rss_tests ?? 0} />
               <Stat title="Unprocessed staged" value={unprocessed} />
               <Stat title="Eligible Rank ≥ 8 remaining" value={eligibleHigh} />
