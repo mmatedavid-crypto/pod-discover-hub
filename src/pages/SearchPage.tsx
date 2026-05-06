@@ -508,6 +508,11 @@ export default function SearchPage() {
             <section>
               <h2 className="font-semibold mb-3 flex items-center gap-2">
                 Matching episodes ({episodes.length})
+                {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                    Showing results for {suggestion}
+                  </span>
+                )}
                 {broadened && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
                     Showing broader matches
