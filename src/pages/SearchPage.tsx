@@ -114,6 +114,24 @@ function scoreEpisode(e: any, termGroups: string[][]): number {
   return s;
 }
 
+// Returns true when every term group has at least one hit somewhere in the episode.
+function scoreEpisodeAllHit(e: any, termGroups: string[][]): boolean {
+  const title = (e.title || "").toLowerCase();
+  const summary = (e.summary || "").toLowerCase();
+  const desc = (e.description || "").toLowerCase();
+  const arrays = [
+    ...(e.topics || []), ...(e.people || []), ...(e.companies || []),
+    ...(e.tickers || []), ...(e.ingredients || []),
+  ].map((x: string) => x.toLowerCase());
+  return termGroups.every((variants) => {
+    const lc = variants.map((v) => v.toLowerCase());
+    return lc.some((v) =>
+      title.includes(v) || summary.includes(v) || desc.includes(v) ||
+      arrays.some((a) => a.includes(v))
+    );
+  });
+}
+
 export default function SearchPage() {
   const [params, setParams] = useSearchParams();
   const initial = params.get("q") || "";
