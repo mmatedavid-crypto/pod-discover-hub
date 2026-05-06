@@ -33,7 +33,7 @@ export default function AdminQueuePage() {
   const [items, setItems] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState<{ ok: number; failed: number; skipped: number; rss_err: number } | null>(null);
+  const [lastRun, setLastRun] = useState<any>(null);
   const [failureSummary, setFailureSummary] = useState<Record<string, number>>({});
   const [diagResults, setDiagResults] = useState<ItemResult[]>([]);
   const [testBusy, setTestBusy] = useState(false);
@@ -103,21 +103,16 @@ export default function AdminQueuePage() {
   };
 
   const bulkImportRank4Plus = async () => {
-    if (!confirm("Import all technically valid Rank ≥ 4 queued podcasts? Runs in batches of 25.")) return;
+    if (!confirm("Run backend bulk import for Rank ≥ 4? Processes one server-side batch (~100s).")) return;
     setBulkBusy(true);
-    let ok = 0, failed = 0, skipped = 0, rss_err = 0;
-    setBulkProgress({ ok, failed, skipped, rss_err });
     try {
-      for (let i = 0; i < 80; i++) {
-        const data = await callQueueImport({ limit: 25, min_rank: 4 });
-        ok += data.imported || 0;
-        failed += data.failed || 0;
-        skipped += data.skipped_duplicate || 0;
-        rss_err += data.imported_with_rss_error || 0;
-        setBulkProgress({ ok, failed, skipped, rss_err });
-        if ((data.processed || 0) === 0) break;
-      }
-      toast.success(`Bulk: +${ok} imported, ${rss_err} rss-error, ${skipped} dup, ${failed} failed`);
+      const { data, error } = await supabase.functions.invoke("queue-import-runner", {
+        body: { min_rank: 4, batch_size: 25, max_batches: 10 },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.ok) throw new Error(data?.error || "runner failed");
+      setLastRun(data);
+      toast.success(`+${data.imported} imported, ${data.imported_with_rss_error} rss-err, ${data.skipped_duplicate} dup, ${data.failed} failed${data.remaining_pending_rank4_plus ? ` · ${data.remaining_pending_rank4_plus} remaining` : ""}`);
       await load();
     } catch (e: any) {
       toast.error(e.message || "bulk import failed");
@@ -144,7 +139,7 @@ export default function AdminQueuePage() {
               {testBusy ? "Testing…" : "Test import first 5"}
             </Button>
             <Button onClick={bulkImportRank4Plus} disabled={bulkBusy}>
-              {bulkBusy ? `Importing… (+${bulkProgress?.ok ?? 0})` : "Import all valid Rank ≥ 4"}
+              {bulkBusy ? "Running batch…" : (lastRun?.remaining_pending_rank4_plus > 0 ? "Continue importing remaining Rank ≥ 4" : "Import all valid Rank ≥ 4")}
             </Button>
             <Button asChild variant="outline"><Link to="/admin/growth">Growth Dashboard</Link></Button>
           </div>
@@ -161,10 +156,19 @@ export default function AdminQueuePage() {
           </CardContent></Card>
         )}
 
-        {bulkProgress && (
-          <p className="text-xs text-muted-foreground">
-            Progress: +{bulkProgress.ok} imported · {bulkProgress.rss_err} rss-error · {bulkProgress.skipped} duplicate · {bulkProgress.failed} failed
-          </p>
+        {lastRun && (
+          <Card><CardContent className="p-4 space-y-2">
+            <div className="text-sm font-medium">Last bulk run</div>
+            <div className="text-xs text-muted-foreground">
+              processed: {lastRun.processed} · imported: {lastRun.imported} · rss-error: {lastRun.imported_with_rss_error} · duplicate: {lastRun.skipped_duplicate} · failed: {lastRun.failed}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              batches: {lastRun.batches_run} · elapsed: {Math.round((lastRun.elapsed_ms || 0) / 1000)}s · stopped: {lastRun.stopped_reason} · remaining Rank ≥ 4: {lastRun.remaining_pending_rank4_plus}
+            </div>
+            {lastRun.stopped_reason === "time_budget" && (
+              <div className="text-xs text-primary">Batch completed. Click again to continue.</div>
+            )}
+          </CardContent></Card>
         )}
 
         {diagResults.length > 0 && (
