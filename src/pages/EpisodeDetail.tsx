@@ -110,7 +110,7 @@ export default function EpisodeDetail() {
     })();
   }, [podcastSlug, episodeSlug]);
 
-  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
   if (!data?.e) return <NotFoundState title="Episode not found" message="That episode doesn't exist or has been removed." />;
   const { p, e } = data;
   const summary = stripHtml(e.summary);
