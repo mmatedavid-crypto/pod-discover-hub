@@ -116,7 +116,7 @@ const Index = () => {
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Try: stocks + Occidental, AI + healthcare, fitness + testosterone"
+              placeholder="Try: AI + healthcare"
               className="w-full pl-12 pr-28 py-4 rounded-lg bg-card border border-border focus:border-foreground outline-none text-base"
             />
             <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90">
