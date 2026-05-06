@@ -8,6 +8,7 @@ import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { ENTITY_COLUMN, EntityKind, ENTITY_LABEL, entityHref } from "@/lib/entity";
+import { EpisodeDetailSkeleton } from "@/components/Skeletons";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
