@@ -55,6 +55,14 @@ Deno.serve(async (req) => {
     const { data: rows, error } = await q;
     if (error) throw error;
 
+    // Resolve import sources for tagging podcasts.source correctly
+    const importIdsForRows = Array.from(new Set((rows || []).map((r: any) => r.import_id).filter(Boolean)));
+    const importSourceMap: Record<string, string> = {};
+    if (importIdsForRows.length) {
+      const { data: imps } = await supabase.from("pi_dump_imports").select("id, source").in("id", importIdsForRows);
+      (imps || []).forEach((i: any) => { importSourceMap[i.id] = i.source || "pi_dump"; });
+    }
+
     const counters = {
       scanned: 0, accepted: 0, rejected: 0, auto_added: 0, queued: 0,
       hidden_low_rank: 0, failed_rss_tests: 0, skipped_duplicates: 0,
@@ -97,11 +105,11 @@ Deno.serve(async (req) => {
               website_url: r.website_url,
               image_url: r.image_url,
               language: r.language || "en",
-              source: "pi_dump",
+              source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
               podiverzum_rank: score,
               rank_label: score >= 8 ? "Excellent" : "Strong",
-              rank_reason: { factors: reasons, source: "pi_dump" },
+              rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
               rank_updated_at: new Date().toISOString(),
             }).select("id").maybeSingle();
 
@@ -131,9 +139,9 @@ Deno.serve(async (req) => {
               episode_count: r.episode_count,
               last_episode_at: r.newest_item_at,
               candidate_rank: score,
-              rank_reason: { factors: reasons, source: "pi_dump" },
+              rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
               status: "pending",
-              source: "pi_dump",
+              source: importSourceMap[r.import_id] || "pi_dump",
               updated_at: new Date().toISOString(),
             }, { onConflict: "rss_url" });
             updates.decision = "queued";

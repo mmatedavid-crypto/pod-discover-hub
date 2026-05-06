@@ -54,6 +54,7 @@ export default function GrowthStatusPage() {
     podcasts: 0, activePodcasts: 0, episodes: 0, newEpisodes24h: 0,
     newPodcasts24h: 0, avgRank: 0, failedFeeds: 0, queue: 0,
   });
+  const [sources, setSources] = useState<Record<string, number>>({});
 
   useEffect(() => {
     (async () => {
@@ -92,6 +93,14 @@ export default function GrowthStatusPage() {
         failedFeeds: failedRes.count || 0,
         queue: queueRes.count || 0,
       });
+
+      const { data: srcRows } = await supabase.from("podcasts").select("source");
+      const tally: Record<string, number> = {};
+      (srcRows || []).forEach((r: any) => {
+        const k = r.source || "manual";
+        tally[k] = (tally[k] || 0) + 1;
+      });
+      setSources(tally);
       setLoading(false);
     })();
   }, []);
@@ -180,6 +189,30 @@ export default function GrowthStatusPage() {
             <div>Max discovery per run: {settings?.max_discovery_per_run ?? "—"}</div>
             <div>Max episode age (days): {settings?.max_episode_age_days ?? "—"}</div>
             <div>Language filter: {settings?.language ?? "—"}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Source breakdown</CardTitle></CardHeader>
+          <CardContent className="text-sm">
+            {Object.keys(sources).length === 0 ? (
+              <div className="text-muted-foreground">No podcasts yet.</div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {(["pi_recent", "admin_paste", "pi_dump", "discovery_auto", "manual"] as const).map((k) => (
+                  <div key={k} className="flex justify-between border rounded px-3 py-2">
+                    <span className="text-muted-foreground">{k === "discovery_auto" ? "Podcast Index API" : k}</span>
+                    <span className="font-medium">{sources[k] || 0}</span>
+                  </div>
+                ))}
+                {Object.keys(sources).filter((k) => !["pi_recent","admin_paste","pi_dump","discovery_auto","manual"].includes(k)).map((k) => (
+                  <div key={k} className="flex justify-between border rounded px-3 py-2">
+                    <span className="text-muted-foreground">{k}</span>
+                    <span className="font-medium">{sources[k]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
