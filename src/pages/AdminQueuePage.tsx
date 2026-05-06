@@ -222,6 +222,7 @@ export default function AdminQueuePage() {
         </CardContent></Card>
 
 
+        {Object.keys(failureSummary).length > 0 && (
           <Card><CardContent className="p-4">
             <div className="text-sm font-medium mb-2">Past import outcomes</div>
             <div className="flex flex-wrap gap-2 text-xs">
@@ -231,6 +232,7 @@ export default function AdminQueuePage() {
             </div>
           </CardContent></Card>
         )}
+
 
         {lastRun && (
           <Card><CardContent className="p-4 space-y-2">
