@@ -194,7 +194,34 @@ export default function AdminQueuePage() {
           </div>
         </div>
 
-        {Object.keys(failureSummary).length > 0 && (
+        <Card><CardContent className="p-4 space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div className="text-sm font-medium">Auto-drain Rank ≥ 4 queue</div>
+              <div className="text-xs text-muted-foreground">
+                Status: {drainer?.enabled ? "ENABLED" : "DISABLED"} · pending Rank ≥ 4: {pendingR4} · runs every 5 min via scheduled job
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {drainer?.enabled ? (
+                <Button size="sm" variant="outline" onClick={() => toggleDrainer(false)} disabled={drainerBusy}>Disable auto-drain</Button>
+              ) : (
+                <Button size="sm" onClick={() => toggleDrainer(true)} disabled={drainerBusy}>Enable auto-drain</Button>
+              )}
+              <Button size="sm" variant="secondary" onClick={runDrainerNow} disabled={drainerBusy}>Run drainer now</Button>
+            </div>
+          </div>
+          {drainer?.last_run && (
+            <div className="text-xs text-muted-foreground border-t pt-2">
+              Last drainer run: {new Date(drainer.last_run.finished_at).toLocaleString()} · processed: {drainer.last_run.processed} · imported: {drainer.last_run.imported} · rss-err: {drainer.last_run.imported_with_rss_error} · dup: {drainer.last_run.skipped_duplicate} · failed: {drainer.last_run.failed} · remaining: {drainer.last_run.remaining} · stopped: {drainer.last_run.stopped_reason}
+            </div>
+          )}
+          {drainer?.lock_until && new Date(drainer.lock_until).getTime() > Date.now() && (
+            <div className="text-xs text-primary">A drainer run is currently in progress.</div>
+          )}
+        </CardContent></Card>
+
+
           <Card><CardContent className="p-4">
             <div className="text-sm font-medium mb-2">Past import outcomes</div>
             <div className="flex flex-wrap gap-2 text-xs">
