@@ -282,13 +282,13 @@ export default function AdminGrowthPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p className="text-muted-foreground">
-              Builds initial content base. No total-podcast cap — every Rank ≥ {settings.min_rank_for_auto_add} candidate is imported across safe batches. Episodes per podcast: Rank 9–10 → 100, Rank 8 → 75. "Continue until done" loops batches inside the runner until the time budget is hit; click again to resume.
+              Builds initial content base. Foundation mode imports every Rank ≥ 4 candidate (index-only for 4–5; promotion-eligible at ≥ 6). Episodes per podcast: Rank 8–10 → 75, Rank 6–7 → 50, Rank 4–5 → 30. Rank ≤ 3 hidden. "Continue until done" loops batches inside the runner until the time budget is hit; click again to resume.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Stat label="Unprocessed staged" value={unprocessed} />
               <Stat label="Foundation podcasts added" value={foundation?.totals?.auto_added ?? 0} />
-              <Stat label="Queued (Rank 6–7)" value={foundation?.totals?.queued ?? 0} />
-              <Stat label="Hidden (Rank ≤ 5)" value={foundation?.totals?.hidden_low_rank ?? 0} />
+              <Stat label="Indexed (Rank 4–5)" value={foundation?.totals?.queued ?? 0} />
+              <Stat label="Hidden (Rank ≤ 3)" value={foundation?.totals?.hidden_low_rank ?? 0} />
               <Stat label="Duplicates skipped" value={foundation?.totals?.skipped_duplicates ?? 0} />
               <Stat label="Failed RSS" value={foundation?.totals?.failed_rss_tests ?? 0} />
               <Stat label="Batches run" value={foundation?.totals?.batches ?? 0} />
