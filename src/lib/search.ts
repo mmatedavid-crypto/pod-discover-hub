@@ -277,16 +277,21 @@ function scoreEpisode(
   s += ((e.episode_rank ?? 0)) * 1.0;
   s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.35;
 
-  // Category boost (soft).
-  if (categoryName && (e.podcasts?.category || "") === categoryName) s += 25;
+  // Category boost — strong only for direct in-category matches (title/entity/body),
+  // weak for podcast-only or pure semantic matches.
+  if (categoryName && (e.podcasts?.category || "") === categoryName) {
+    if (titleHitAny || entityHitAny) s += 90;
+    else if (bodyHitAny) s += 45;
+    else s += 10;
+  }
 
   let matchType: MatchType = "broader";
   if (exactPhraseHit) matchType = "exact_title";
   else if (titleHitAny) matchType = "title";
   else if (entityHitAny) matchType = "entity";
-  else if (podHitAny) matchType = "podcast";
   else if (bodyHitAny) matchType = "description";
   else if (semanticHit) matchType = "semantic";
+  else if (podHitAny) matchType = "podcast";
 
   return {
     e, score: s, hitCount, strongHits, allHit,
