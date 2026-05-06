@@ -122,7 +122,6 @@ const Index = () => {
           >
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
-              autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Try: AI healthcare, Nvidia data centers, Italy food…"

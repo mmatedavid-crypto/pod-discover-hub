@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import logo from "@/assets/logo.png";
+const pMark = "/icon-512.png";
 
 export function BrandMark({
   size = 28,
@@ -23,11 +24,11 @@ export function BrandMark({
         style={{ width: size, height: size }}
       >
         <img
-          src={logo}
+          src={pMark}
           alt=""
           width={size}
           height={size}
-          className="object-cover scale-[1.4] -translate-y-[6%]"
+          className="object-contain"
           loading="eager"
           decoding="async"
         />
