@@ -395,13 +395,28 @@ export async function searchEpisodes(opts: {
   // Relevance gate: at least one strong hit OR semantic hit (when semantic is allowed).
   let chosen = scored.filter((x) => x.strongHits >= 1 || (semanticUsed && x.matchType === "semantic"));
 
+  // Multi-term handling with 2-of-3 partial fallback.
+  let partialUsed = false;
   if (exactGroups.length > 1) {
     const allHit = chosen.filter((x) => x.allHit);
-    if (strict) chosen = allHit.length ? allHit : chosen;
-    else if (allHit.length) chosen = allHit;
+    if (strict) {
+      chosen = allHit.length ? allHit : chosen;
+    } else if (allHit.length >= 5) {
+      chosen = allHit;
+    } else if (exactGroups.length >= 3) {
+      const minHits = Math.max(2, exactGroups.length - 1);
+      const partial = chosen.filter((x) => x.hitCount >= minHits);
+      if (partial.length > allHit.length) {
+        chosen = partial;
+        partialUsed = true;
+      } else if (allHit.length) {
+        chosen = allHit;
+      }
+    } else if (allHit.length) {
+      chosen = allHit;
+    }
   }
 
-  // Decorate with inCategory.
   const decorated: ScoredEpisode[] = chosen.map((x) => ({
     e: x.e, score: x.score, hitCount: x.hitCount, strongHits: x.strongHits, allHit: x.allHit,
     semanticOnly: x.semanticOnly, matchType: x.matchType,
@@ -409,16 +424,63 @@ export async function searchEpisodes(opts: {
   }));
   decorated.sort((a, b) => b.score - a.score);
 
+  // Dedupe: by id; then by normalized title + podcast slug + day. Keep higher score.
+  const dedupeKey = (x: ScoredEpisode) => {
+    const t = (x.e.title || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 80);
+    const ps = x.e.podcasts?.slug || x.e.podcast_id || "";
+    const day = x.e.published_at ? new Date(x.e.published_at).toISOString().slice(0, 10) : "";
+    return `${t}|${ps}|${day}`;
+  };
+  const dedupe = (arr: ScoredEpisode[]) => {
+    const byId = new Map<string, ScoredEpisode>();
+    for (const x of arr) {
+      const cur = byId.get(x.e.id);
+      if (!cur || x.score > cur.score) byId.set(x.e.id, x);
+    }
+    const byKey = new Map<string, ScoredEpisode>();
+    for (const x of byId.values()) {
+      const k = dedupeKey(x);
+      const cur = byKey.get(k);
+      if (!cur || x.score > cur.score) byKey.set(k, x);
+    }
+    return Array.from(byKey.values()).sort((a, b) => b.score - a.score);
+  };
+
+  // Per-podcast diversity cap: max 2 in top 10, max 3 in top 20, then unrestricted.
+  const diversify = (arr: ScoredEpisode[]) => {
+    const counts = new Map<string, number>();
+    const deferred: ScoredEpisode[] = [];
+    const out: ScoredEpisode[] = [];
+    const podKey = (x: ScoredEpisode) => x.e.podcasts?.slug || x.e.podcast_id || "_";
+    for (const x of arr) {
+      const k = podKey(x);
+      const c = counts.get(k) || 0;
+      const pos = out.length;
+      const cap = pos < 10 ? 2 : pos < 20 ? 3 : Infinity;
+      if (c < cap) {
+        out.push(x);
+        counts.set(k, c + 1);
+      } else {
+        deferred.push(x);
+      }
+    }
+    return [...out, ...deferred];
+  };
+
+  const finalAll = diversify(dedupe(decorated));
+  fallbackUsed = fallbackUsed || partialUsed;
+
   if (categoryName && scope === "category") {
-    const inCat = decorated.filter((x) => x.inCategory).slice(0, limit);
-    // Outside-category: only "strong" scores (above a threshold) and not semantic-only.
-    const outside = decorated
-      .filter((x) => !x.inCategory && x.score >= 220 && x.matchType !== "semantic" && x.matchType !== "broader")
-      .slice(0, 8);
-    return { inCategory: inCat, outsideCategory: outside, all: decorated.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
+    const inCat = diversify(dedupe(decorated.filter((x) => x.inCategory))).slice(0, limit);
+    const outsideRaw = decorated.filter(
+      (x) => !x.inCategory && x.score >= 200 &&
+        (x.matchType === "exact_title" || x.matchType === "title" || x.matchType === "entity"),
+    );
+    const outside = diversify(dedupe(outsideRaw)).slice(0, 8);
+    return { inCategory: inCat, outsideCategory: outside, all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
   }
 
-  return { inCategory: [], outsideCategory: [], all: decorated.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
+  return { inCategory: [], outsideCategory: [], all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
 }
 
 export const MATCH_LABEL: Record<MatchType, string> = {
