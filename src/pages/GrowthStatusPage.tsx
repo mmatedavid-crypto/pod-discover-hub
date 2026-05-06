@@ -192,6 +192,30 @@ export default function GrowthStatusPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader><CardTitle className="text-base">Source breakdown</CardTitle></CardHeader>
+          <CardContent className="text-sm">
+            {Object.keys(sources).length === 0 ? (
+              <div className="text-muted-foreground">No podcasts yet.</div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {(["pi_recent", "admin_paste", "pi_dump", "discovery_auto", "manual"] as const).map((k) => (
+                  <div key={k} className="flex justify-between border rounded px-3 py-2">
+                    <span className="text-muted-foreground">{k === "discovery_auto" ? "Podcast Index API" : k}</span>
+                    <span className="font-medium">{sources[k] || 0}</span>
+                  </div>
+                ))}
+                {Object.keys(sources).filter((k) => !["pi_recent","admin_paste","pi_dump","discovery_auto","manual"].includes(k)).map((k) => (
+                  <div key={k} className="flex justify-between border rounded px-3 py-2">
+                    <span className="text-muted-foreground">{k}</span>
+                    <span className="font-medium">{sources[k]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
       </div>
     </Layout>
