@@ -84,7 +84,7 @@ export default function SearchPage() {
           ? (a: any, b: any) => (b.e.episode_rank || 0) - (a.e.episode_rank || 0)
           : (a: any, b: any) => b.score - a.score;
       const ranked = chosen.slice().sort(sortFn).slice(0, 80);
-      const mapped: EpisodeLite[] = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] }));
+      const mapped: EpisodeLite[] = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" }));
       setEpisodes(mapped);
       setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
 
