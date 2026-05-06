@@ -269,6 +269,40 @@ export default function AdminGrowthPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle>One-time Foundation Import</CardTitle>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => runFoundationBatch(false)} disabled={foundationRunning || foundationContinue}>
+                  {foundationRunning ? "Running…" : "Process next foundation batch (250)"}
+                </Button>
+                <Button size="sm" variant="default" onClick={() => runFoundationBatch(true)} disabled={foundationRunning || foundationContinue}>
+                  {foundationContinue ? "Continuing…" : "Continue until done"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Builds initial content base. No total-podcast cap — every Rank ≥ {settings.min_rank_for_auto_add} candidate is imported across safe batches. Episodes per podcast: Rank 9–10 → 100, Rank 8 → 75. "Continue until done" loops batches inside the runner until the time budget is hit; click again to resume.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Stat label="Unprocessed staged" value={unprocessed} />
+              <Stat label="Foundation podcasts added" value={foundation?.totals?.auto_added ?? 0} />
+              <Stat label="Queued (Rank 6–7)" value={foundation?.totals?.queued ?? 0} />
+              <Stat label="Hidden (Rank ≤ 5)" value={foundation?.totals?.hidden_low_rank ?? 0} />
+              <Stat label="Duplicates skipped" value={foundation?.totals?.skipped_duplicates ?? 0} />
+              <Stat label="Failed RSS" value={foundation?.totals?.failed_rss_tests ?? 0} />
+              <Stat label="Batches run" value={foundation?.totals?.batches ?? 0} />
+              <Stat label="Last stop reason" value={foundation?.last_stopped_reason || "—"} />
+            </div>
+            {foundation?.last_finished_at && (
+              <div className="text-xs text-muted-foreground">Last run finished: {new Date(foundation.last_finished_at).toLocaleString()}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <CardTitle>Recent feeds ingest (Lovable Cloud-only)</CardTitle>
               <Button size="sm" onClick={runRecentIngest} disabled={recentIngesting}>
                 {recentIngesting ? "Fetching…" : "Run recent-feeds ingest now"}
