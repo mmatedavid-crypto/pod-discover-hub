@@ -155,9 +155,11 @@ Deno.serve(async (req) => {
       .in("rss_status", ["active", "not_checked"])
       .in("deep_hydration_status", ["not_started", "failed"]);
 
-    // Persist last-run summary
+    // Persist last-run summary (preserve config, clear lock)
     const summary = {
+      started_at: new Date(startedAt).toISOString(),
       finished_at: new Date().toISOString(),
+      trigger,
       processed, completed: active, failed,
       new_episodes: newEpisodes, duplicates,
       remaining_eligible: remainingEligible ?? 0,
@@ -173,7 +175,13 @@ Deno.serve(async (req) => {
     totals.runs += 1;
     await admin.from("app_settings").upsert({
       key: "deep_hydration",
-      value: { last_run: summary, totals },
+      value: {
+        ...prev,
+        lock_started_at: null,
+        lock_until: null,
+        last_run: summary,
+        totals,
+      },
       updated_at: new Date().toISOString(),
     });
 
