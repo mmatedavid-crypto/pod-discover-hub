@@ -69,8 +69,13 @@ export type Database = {
           episode_count: number | null
           id: string
           image_url: string | null
+          import_error: string | null
+          import_status: string | null
+          imported_at: string | null
+          imported_podcast_id: string | null
           language: string | null
           last_episode_at: string | null
+          last_import_attempt_at: string | null
           pi_id: number | null
           rank_reason: Json
           rss_url: string
@@ -89,8 +94,13 @@ export type Database = {
           episode_count?: number | null
           id?: string
           image_url?: string | null
+          import_error?: string | null
+          import_status?: string | null
+          imported_at?: string | null
+          imported_podcast_id?: string | null
           language?: string | null
           last_episode_at?: string | null
+          last_import_attempt_at?: string | null
           pi_id?: number | null
           rank_reason?: Json
           rss_url: string
@@ -109,8 +119,13 @@ export type Database = {
           episode_count?: number | null
           id?: string
           image_url?: string | null
+          import_error?: string | null
+          import_status?: string | null
+          imported_at?: string | null
+          imported_podcast_id?: string | null
           language?: string | null
           last_episode_at?: string | null
+          last_import_attempt_at?: string | null
           pi_id?: number | null
           rank_reason?: Json
           rss_url?: string
