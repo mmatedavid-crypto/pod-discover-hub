@@ -37,6 +37,10 @@ export default function AdminGrowthPage() {
   });
   const [dumpRuns, setDumpRuns] = useState<any[]>([]);
   const [processingDump, setProcessingDump] = useState(false);
+  const [recentIngesting, setRecentIngesting] = useState(false);
+  const [pasteUrls, setPasteUrls] = useState("");
+  const [pasteOpml, setPasteOpml] = useState("");
+  const [pasteSubmitting, setPasteSubmitting] = useState(false);
 
   useEffect(() => {
     (async () => {
