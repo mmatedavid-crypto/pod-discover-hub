@@ -298,6 +298,36 @@ export type Database = {
         }
         Relationships: []
       }
+      page_events: {
+        Row: {
+          created_at: string
+          full_url: string | null
+          id: string
+          path: string
+          referrer: string | null
+          user_id: string | null
+          viewport_width: number | null
+        }
+        Insert: {
+          created_at?: string
+          full_url?: string | null
+          id?: string
+          path: string
+          referrer?: string | null
+          user_id?: string | null
+          viewport_width?: number | null
+        }
+        Update: {
+          created_at?: string
+          full_url?: string | null
+          id?: string
+          path?: string
+          referrer?: string | null
+          user_id?: string | null
+          viewport_width?: number | null
+        }
+        Relationships: []
+      }
       pi_dump_imports: {
         Row: {
           auto_added: number
