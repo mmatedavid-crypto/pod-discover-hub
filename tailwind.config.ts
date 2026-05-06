@@ -50,6 +50,12 @@ export default {
         mint: "hsl(var(--mint))",
         ice: "hsl(var(--ice))",
         lilac: "hsl(var(--lilac))",
+        brand: {
+          DEFAULT: "hsl(var(--brand-red))",
+          glow: "hsl(var(--brand-red-glow))",
+          ink: "hsl(var(--brand-ink))",
+          line: "hsl(var(--brand-line))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -66,24 +72,38 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      backgroundImage: {
+        'gradient-brand': 'var(--gradient-brand)',
+        'gradient-surface': 'var(--gradient-surface)',
+        'gradient-spot': 'var(--gradient-spot)',
+      },
+      boxShadow: {
+        brand: 'var(--shadow-brand)',
+        elevated: 'var(--shadow-elevated)',
+      },
       keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
+        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
+        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        ticker: { "0%": { transform: "translateX(0)" }, "100%": { transform: "translateX(-50%)" } },
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
-        },
-        ticker: {
-          "0%": { transform: "translateX(0)" },
-          "100%": { transform: "translateX(-50%)" },
+        "glow-pulse": {
+          "0%,100%": { boxShadow: "0 0 0 0 hsl(var(--brand-red) / 0.45)" },
+          "50%": { boxShadow: "0 0 0 14px hsl(var(--brand-red) / 0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         ticker: "ticker 60s linear infinite",
+        "fade-up": "fade-up .5s ease-out both",
+        "glow-pulse": "glow-pulse 2.4s ease-out infinite",
       },
     },
   },

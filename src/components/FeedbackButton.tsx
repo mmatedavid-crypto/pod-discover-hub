@@ -57,7 +57,7 @@ export function FeedbackButton() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm shadow-lg hover:opacity-90"
+        className="btn-brand fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold"
       >
         <MessageSquare className="h-4 w-4" />
         <span className="hidden sm:inline">Feedback</span>
@@ -97,7 +97,7 @@ export function FeedbackButton() {
                 <button type="button" onClick={() => setOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">
                   Cancel
                 </button>
-                <button disabled={busy} className="bg-primary text-primary-foreground text-sm px-3 py-1.5 rounded-md disabled:opacity-50">
+                <button disabled={busy} className="btn-brand text-sm px-4 py-1.5 rounded-md disabled:opacity-50 font-semibold">
                   {busy ? "Sending…" : "Send"}
                 </button>
               </div>

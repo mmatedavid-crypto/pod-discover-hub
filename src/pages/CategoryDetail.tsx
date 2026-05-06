@@ -182,7 +182,7 @@ export default function CategoryDetail() {
                       </span>
                     )}
                     {semanticUsed && (
-                      <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-mint/15 border border-mint/30 text-foreground/70">
+                      <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
                         including related ideas
                       </span>
                     )}
@@ -219,7 +219,7 @@ export default function CategoryDetail() {
                     </span>
                   )}
                   {semanticUsed && (
-                    <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-mint/15 border border-mint/30 text-foreground/70">
+                    <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
                       including related ideas
                     </span>
                   )}

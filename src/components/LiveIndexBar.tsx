@@ -50,19 +50,19 @@ export default function LiveIndexBar() {
   const loop = [...items, ...items];
 
   return (
-    <div className="border-b border-border/70 bg-gradient-to-r from-card via-background to-card overflow-hidden">
+    <div className="border-b border-border/70 bg-black overflow-hidden">
       <div className="container mx-auto flex items-stretch gap-0 px-0 sm:px-6 max-w-full">
         {/* ON AIR label */}
-        <div className="shrink-0 flex items-center gap-2 pl-3 sm:pl-0 pr-3 sm:pr-4 py-2 border-r border-border/60">
+        <div className="shrink-0 flex items-center gap-2 pl-3 sm:pl-0 pr-3 sm:pr-4 py-2 border-r border-border/60 bg-gradient-to-r from-primary/15 to-transparent">
           <span className="relative inline-flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping motion-reduce:hidden" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_hsl(156_72%_55%/0.85)]" />
+            <span className="pulse-red" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary shadow-[0_0_10px_hsl(var(--brand-red)/0.95)]" />
           </span>
-          <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/90">
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.22em] text-foreground">
             On Air
           </span>
-          <span className="hidden sm:inline text-[11px] uppercase tracking-wider text-muted-foreground">
-            · newly indexed episodes
+          <span className="hidden sm:inline text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            · newly indexed
           </span>
         </div>
 
@@ -77,12 +77,12 @@ export default function LiveIndexBar() {
           >
             {loop.map((it, i) => (
               <li key={`${it.id}-${i}`} className="shrink-0 flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-emerald-500/70 shrink-0" aria-hidden />
+                <span className="h-1 w-1 rounded-full bg-primary/70 shrink-0" aria-hidden />
                 <Link
                   to={`/podcast/${it.podcasts!.slug}/${it.slug}`}
                   className="group/item inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
                 >
-                  <span className="text-foreground/90 group-hover/item:underline">{it.title}</span>
+                  <span className="text-foreground/95 group-hover/item:underline decoration-primary/60 underline-offset-4">{it.title}</span>
                   <span className="opacity-60">— {it.podcasts!.title}</span>
                   {it.podcasts!.category && (
                     <span className="hidden md:inline opacity-50">· {it.podcasts!.category}</span>
@@ -92,8 +92,8 @@ export default function LiveIndexBar() {
             ))}
           </ul>
           {/* Edge fade masks */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-black to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-black to-transparent" />
         </div>
       </div>
     </div>

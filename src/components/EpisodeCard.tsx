@@ -34,7 +34,7 @@ function HL({ text, terms }: { text: string; terms?: string[] }) {
   return (
     <>
       {parts.map((p, i) => p.hit
-        ? <mark key={i} className="bg-mint/30 text-foreground rounded px-0.5">{p.s}</mark>
+        ? <mark key={i} className="bg-primary/25 text-foreground rounded px-0.5">{p.s}</mark>
         : <span key={i}>{p.s}</span>)}
     </>
   );
@@ -74,10 +74,10 @@ export function EpisodeCard({
             <span className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-foreground/80">Ep {e.episode_rank}</span>
           )}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
-            <span className="px-1.5 py-0.5 rounded-md border border-border/70 bg-mint/10 text-[10px] font-medium text-foreground/70">Pod {p.podiverzum_rank}</span>
+            <span className="px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-primary">Pod {p.podiverzum_rank}</span>
           )}
           {e.matchBadge && (
-            <span className="px-1.5 py-0.5 rounded-md border border-border/70 bg-ice/15 text-[10px] font-medium text-foreground/70">{e.matchBadge}</span>
+            <span className="px-1.5 py-0.5 rounded-md border border-border bg-secondary text-[10px] font-medium text-foreground/80">{e.matchBadge}</span>
           )}
         </div>
         {desc && (
@@ -88,7 +88,7 @@ export function EpisodeCard({
         {(showTopics && e.topics && e.topics.length > 0) && (
           <div className="flex flex-wrap gap-1 mt-2.5">
             {e.topics.slice(0, 5).map((t) => (
-              <Link key={t} to={`/topic/${encodeURIComponent(t.toLowerCase().replace(/[^a-z0-9]+/g,"-"))}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-foreground/40 hover:bg-mint/10 transition-colors">
+              <Link key={t} to={`/topic/${encodeURIComponent(t.toLowerCase().replace(/[^a-z0-9]+/g,"-"))}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                 {t}
               </Link>
             ))}
@@ -99,7 +99,7 @@ export function EpisodeCard({
             {allEnts.map(({ kind, v }) => {
               const slug = kind === "ticker" ? v.replace(/[^a-zA-Z0-9.]+/g,"").toUpperCase() : v.toLowerCase().replace(/[^a-z0-9]+/g,"-");
               return (
-                <Link key={`${kind}-${v}`} to={`/${kind}/${encodeURIComponent(slug)}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-foreground/40 hover:bg-ice/15 transition-colors">
+                <Link key={`${kind}-${v}`} to={`/${kind}/${encodeURIComponent(slug)}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                   {v}
                 </Link>
               );
@@ -124,7 +124,7 @@ export function EpisodeList({
 }: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
   return (
-    <ul className="divide-y divide-border/70 border border-border/70 rounded-xl bg-card shadow-[0_1px_2px_hsl(0_0%_0%/0.03),0_8px_24px_-16px_hsl(0_0%_0%/0.08)] overflow-hidden">
+    <ul className="divide-y divide-border/70 border border-border/70 rounded-xl bg-card/60 surface overflow-hidden">
       {items.map((e) => (
         <li key={e.id} className="transition-colors">
           <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
