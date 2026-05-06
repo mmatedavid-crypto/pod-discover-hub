@@ -104,6 +104,15 @@ export default function GrowthStatusPage() {
         tally[k] = (tally[k] || 0) + 1;
       });
       setSources(tally);
+
+      const [fRow, unprocRes, eligibleRes] = await Promise.all([
+        supabase.from("app_settings").select("value").eq("key", "foundation_import").maybeSingle(),
+        supabase.from("pi_feed_staging").select("id", { count: "exact", head: true }).eq("processed", false),
+        supabase.from("pi_feed_staging").select("id", { count: "exact", head: true }).gte("score", 8),
+      ]);
+      setFoundation((fRow.data?.value as any) || null);
+      setUnprocessed(unprocRes.count || 0);
+      setEligibleHigh(eligibleRes.count || 0);
       setLoading(false);
     })();
   }, []);
