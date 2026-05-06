@@ -76,6 +76,23 @@ export default function AdminGrowthPage() {
       failedFeeds: failed.count || 0,
       avgRank: Math.round(avg * 10) / 10,
     });
+
+    const { data: dumps } = await supabase.from("pi_dump_imports").select("*").order("created_at", { ascending: false }).limit(5);
+    setDumpRuns(dumps || []);
+  };
+
+  const processDumpBatch = async () => {
+    setProcessingDump(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pi-dump-process", { body: { batch: 100 } });
+      if (error) throw error;
+      toast.success(`Processed ${data?.processed || 0} feeds (+${data?.counters?.auto_added || 0} added, ${data?.counters?.queued || 0} queued)`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "process failed");
+    } finally {
+      setProcessingDump(false);
+    }
   };
 
   const save = async () => {
