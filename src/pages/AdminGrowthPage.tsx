@@ -341,6 +341,71 @@ export default function AdminGrowthPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle>Deep Hydration</CardTitle>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => runDeepHydrate(5)} disabled={hydrating}>
+                  {hydrating && hydrationLimit === 5 ? "Hydrating…" : "Deep hydrate next 5 podcasts"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => runDeepHydrate(10)} disabled={hydrating}>
+                  {hydrating && hydrationLimit === 10 ? "Hydrating…" : "Deep hydrate next 10"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Re-fetches RSS for accepted podcasts (Rank ≥ 4) with higher episode caps. Targets: Rank 9–10 → 150, Rank 8 → 100, Rank 6–7 → 75, Rank 4–5 → 40. Manual only. Service-role backend; progress saved per podcast. Dedupes by GUID, episode URL, and title+published date.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <Stat label="Eligible" value={hydrationCounts.eligible} />
+              <Stat label="Not started" value={hydrationCounts.not_started} />
+              <Stat label="In progress" value={hydrationCounts.in_progress} />
+              <Stat label="Completed" value={hydrationCounts.completed} />
+              <Stat label="Failed" value={hydrationCounts.failed} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Stat label="Last run processed" value={hydration?.last_run?.processed ?? 0} />
+              <Stat label="Last run +episodes" value={hydration?.last_run?.new_episodes ?? 0} />
+              <Stat label="Total processed" value={hydration?.totals?.processed ?? 0} />
+              <Stat label="Total +episodes" value={hydration?.totals?.new_episodes ?? 0} />
+            </div>
+            {hydration?.last_run?.finished_at && (
+              <div className="text-xs text-muted-foreground">Last hydration: {new Date(hydration.last_run.finished_at).toLocaleString()} · remaining eligible: {hydration.last_run.remaining_eligible ?? 0}</div>
+            )}
+            {lastHydrateResult?.per_podcast_results?.length > 0 && (
+              <div className="overflow-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="py-1 pr-2">Podcast</th>
+                      <th className="py-1 pr-2">Rank</th>
+                      <th className="py-1 pr-2">Target</th>
+                      <th className="py-1 pr-2">Total eps</th>
+                      <th className="py-1 pr-2">+New</th>
+                      <th className="py-1 pr-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lastHydrateResult.per_podcast_results.map((r: any) => (
+                      <tr key={r.id} className="border-t">
+                        <td className="py-1 pr-2 truncate max-w-[180px]">{r.title}</td>
+                        <td className="py-1 pr-2">{r.rank}</td>
+                        <td className="py-1 pr-2">{r.target}</td>
+                        <td className="py-1 pr-2">{r.total_episodes ?? "—"}</td>
+                        <td className="py-1 pr-2">{r.new_episodes ?? "—"}</td>
+                        <td className="py-1 pr-2">{r.status}{r.reason ? ` (${r.reason})` : ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <CardTitle>Recent feeds ingest (Lovable Cloud-only)</CardTitle>
               <Button size="sm" onClick={runRecentIngest} disabled={recentIngesting}>
                 {recentIngesting ? "Fetching…" : "Run recent-feeds ingest now"}
