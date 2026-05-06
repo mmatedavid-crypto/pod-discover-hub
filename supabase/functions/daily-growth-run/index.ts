@@ -41,21 +41,36 @@ function scoreCandidate(p: any, settings: any) {
   return { score: final, reasons };
 }
 
-async function piSearch(term: string, apiKey: string, apiSecret: string, max: number) {
+async function piSearch(term: string, apiKey: string, apiSecret: string, max: number, errorsOut: any[]) {
   const date = Math.floor(Date.now() / 1000).toString();
   const auth = await sha1Hex(apiKey + apiSecret + date);
-  const params = new URLSearchParams({ q: term, max: String(max), val: "en" });
-  const res = await fetch(`https://api.podcastindex.org/api/1.0/search/byterm?${params}`, {
-    headers: {
-      "User-Agent": "Podiverzum/1.0",
-      "X-Auth-Date": date,
-      "X-Auth-Key": apiKey,
-      "Authorization": auth,
-    },
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return Array.isArray(data.feeds) ? data.feeds : [];
+  // Hard cap per call: never request more than 25 from PI per keyword
+  const safeMax = Math.max(1, Math.min(25, max));
+  const params = new URLSearchParams({ q: term, max: String(safeMax), val: "en" });
+  try {
+    const res = await fetch(`https://api.podcastindex.org/api/1.0/search/byterm?${params}`, {
+      headers: {
+        "User-Agent": "Podiverzum/1.0",
+        "X-Auth-Date": date,
+        "X-Auth-Key": apiKey,
+        "Authorization": auth,
+      },
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      const entry = { term, status: res.status, body: txt.slice(0, 200), rate_limited: res.status === 429 };
+      console.error("[daily-growth-run] PodcastIndex error", entry);
+      errorsOut.push(entry);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data.feeds) ? data.feeds : [];
+  } catch (e) {
+    const entry = { term, error: e instanceof Error ? e.message : "fetch_error" };
+    console.error("[daily-growth-run] PodcastIndex fetch failed", entry);
+    errorsOut.push(entry);
+    return [];
+  }
 }
 
 Deno.serve(async (req) => {
