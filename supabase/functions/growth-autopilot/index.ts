@@ -175,6 +175,9 @@ Deno.serve(async (req) => {
       state.last_action = action;
     }
     state.last_result = result;
+    (state as any).last_duration_ms = Date.now() - tickStart;
+    (state as any).last_throttled = !!(error && (state.last_action || "").startsWith("auto-throttled"));
+    (state as any).last_unprocessed = unprocessed ?? 0;
 
     await supabase.from("app_settings").upsert({
       key: "growth_autopilot",
