@@ -98,30 +98,79 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (embedSpend >= dailyBudget) return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
 
-    // Candidates: S/A/B, not in bad health, not yet embedded with current model OR stale content_hash
-    // Fetch a generous superset; we'll filter by hash in-process.
-    const { data: candidatesRaw, error: candErr } = await admin
-      .from("podcasts")
-      .select("id,title,display_title,description,seo_description,category,rank_label,shadow_rank_components")
-      .in("rank_label", tiers)
-      .order("rank_label", { ascending: true }) // S < A < B alphabetically -> S first
-      .order("podiverzum_rank", { ascending: false })
-      .limit(batch * 6);
-    if (candErr) throw candErr;
+    // Candidate selection: exclude podcasts already embedded with current model at SQL level.
+    // Stale-hash rows are fetched separately so we always have work to do even when no new
+    // unembedded podcasts remain.
+    // Step 1: collect IDs already embedded with current model (paginate to bypass 1k row cap).
+    const embeddedIds = new Set<string>();
+    {
+      const PAGE = 1000;
+      let from = 0;
+      // Cap pages to avoid runaway; 50 * 1000 = 50k podcasts is far above current scale.
+      for (let i = 0; i < 50; i++) {
+        const { data: page, error: pErr } = await admin
+          .from("podcast_embeddings")
+          .select("podcast_id, content_hash")
+          .eq("model", model)
+          .range(from, from + PAGE - 1);
+        if (pErr) throw pErr;
+        if (!page || page.length === 0) break;
+        page.forEach((r: any) => embeddedIds.add(r.podcast_id));
+        if (page.length < PAGE) break;
+        from += PAGE;
+      }
+    }
 
-    const candidates = (candidatesRaw || []).filter((p: any) => {
+    // Step 2: pick unembedded S/A/B/C podcasts first (highest tier first).
+    const wantBatch = batch * 4; // generous superset to survive health filtering
+    let candidatesRaw: any[] = [];
+    {
+      const { data, error: candErr } = await admin
+        .from("podcasts")
+        .select("id,title,display_title,description,seo_description,category,rank_label,shadow_rank_components")
+        .in("rank_label", tiers)
+        .order("rank_label", { ascending: true }) // S < A < B < C
+        .order("podiverzum_rank", { ascending: false })
+        .limit(Math.max(wantBatch * 4, 200)); // pull enough to skip already-embedded
+      if (candErr) throw candErr;
+      candidatesRaw = (data || []).filter((p: any) => !embeddedIds.has(p.id));
+    }
+
+    let candidates = candidatesRaw.filter((p: any) => {
       const hs = (p.shadow_rank_components as any)?.health_state;
       return !hs || !BAD_HEALTH.has(hs);
-    });
+    }).slice(0, wantBatch);
 
-    // Pull existing hashes for this slice
-    const ids = candidates.map((p: any) => p.id);
-    const { data: existing } = await admin
-      .from("podcast_embeddings")
-      .select("podcast_id, content_hash, model")
-      .in("podcast_id", ids);
+    // Step 3: top up with podcasts that already have an embedding row but might be stale.
+    // We only do this if the unembedded queue is small.
     const haveHash = new Map<string, { content_hash: string; model: string }>();
-    (existing || []).forEach((e: any) => haveHash.set(e.podcast_id, { content_hash: e.content_hash, model: e.model }));
+    if (candidates.length < batch && embeddedIds.size > 0) {
+      const remaining = batch - candidates.length;
+      const { data: staleCandidates } = await admin
+        .from("podcasts")
+        .select("id,title,display_title,description,seo_description,category,rank_label,shadow_rank_components")
+        .in("rank_label", tiers)
+        .in("id", Array.from(embeddedIds).slice(0, 500))
+        .order("rank_label", { ascending: true })
+        .order("podiverzum_rank", { ascending: false })
+        .limit(remaining * 4);
+      const staleFiltered = (staleCandidates || []).filter((p: any) => {
+        const hs = (p.shadow_rank_components as any)?.health_state;
+        return !hs || !BAD_HEALTH.has(hs);
+      });
+      // Pull their existing hashes so the in-process check below can decide stale vs cached.
+      const staleIds = staleFiltered.map((p: any) => p.id);
+      if (staleIds.length > 0) {
+        const { data: existing } = await admin
+          .from("podcast_embeddings")
+          .select("podcast_id, content_hash, model")
+          .in("podcast_id", staleIds);
+        (existing || []).forEach((e: any) =>
+          haveHash.set(e.podcast_id, { content_hash: e.content_hash, model: e.model })
+        );
+      }
+      candidates = candidates.concat(staleFiltered).slice(0, wantBatch);
+    }
 
     let embedded = 0, cacheHits = 0, errors = 0, processed = 0;
     const errorSamples: any[] = [];
