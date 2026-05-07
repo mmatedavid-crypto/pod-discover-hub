@@ -619,17 +619,27 @@ Header: apikey: <publishable key>`}</pre>
                         )}
                         {p.featured && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">★</span>}
                         {(() => {
-                          const r = p.podiverzum_rank ?? 1;
+                          const r = Number(p.podiverzum_rank ?? 1);
                           const cls = r >= 8 ? "bg-green-500/15 text-green-700 dark:text-green-400"
                             : r >= 6 ? "bg-blue-500/15 text-blue-700 dark:text-blue-400"
                             : r >= 4 ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
                             : "bg-red-500/15 text-red-700 dark:text-red-400";
-                          return <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cls}`} title={p.rank_label || ""}>Rank {r}{p.rank_label ? ` · ${p.rank_label}` : ""}</span>;
+                          return <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cls}`} title={`Live Podiverzum rank · tier ${p.rank_label || "—"}`}>Rank {r.toFixed(2)}{p.rank_label ? ` · ${p.rank_label}` : ""}</span>;
                         })()}
+                        {(() => {
+                          const hs = (p.shadow_rank_components as any)?.health_state;
+                          if (!hs) return null;
+                          const ok = hs === "healthy" || hs === "recovered_rss_url";
+                          return <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${ok ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-orange-500/15 text-orange-700 dark:text-orange-400"}`} title="health_state">{hs}</span>;
+                        })()}
+                        {p.crawl_priority && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground" title="crawl_priority">{p.crawl_priority}</span>
+                        )}
                         <span className="text-[10px] text-muted-foreground">{epCount} ep</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                         {p.category || "—"}
+                        {p.refresh_interval_minutes ? <span className="ml-2 opacity-70">· refresh {p.refresh_interval_minutes}m</span> : null}
                       </div>
                       <div className={`text-[11px] mt-0.5 break-all ${p.rss_status === "failed" ? "text-destructive font-mono" : "text-muted-foreground"}`}>
                         {p.rss_url || <span className="italic">no rss</span>}
