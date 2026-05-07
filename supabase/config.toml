@@ -72,4 +72,7 @@ verify_jwt = false
 [functions.rss-hunter]
 verify_jwt = false
 
+[functions.embed-podcast-runner]
+verify_jwt = false
+
 
