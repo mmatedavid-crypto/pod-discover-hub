@@ -122,19 +122,18 @@ Deno.serve(async (req) => {
     for (const p of candidates) {
       if (processed >= batch) break;
       if (Date.now() - startedAt > TIME_BUDGET_MS) break;
-      if (spend >= dailyBudget) break;
+      if (embedSpend >= dailyBudget) break;
       const content = buildContent(p, model);
       const hash = await sha256(content);
       const prev = haveHash.get(p.id);
       if (prev && prev.content_hash === hash && prev.model === model) {
         cacheHits++;
-        continue; // already up to date
+        continue;
       }
       processed++;
       try {
         const { vec, tokens } = await embed(model, content);
         const cost = (tokens / 1000) * PRICE_IN_PER_1K;
-        // pgvector accepts string form "[0.1,0.2,...]"
         const vecStr = `[${vec.join(",")}]`;
         const { error: upErr } = await admin.from("podcast_embeddings").upsert({
           podcast_id: p.id,
@@ -145,7 +144,8 @@ Deno.serve(async (req) => {
         }, { onConflict: "podcast_id" });
         if (upErr) throw upErr;
         embedded++;
-        spend += cost;
+        embedSpend += cost;
+        totalSpend += cost;
         calls++;
       } catch (e: any) {
         errors++;
@@ -153,14 +153,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Spend log
     await admin.from("ai_spend_daily").upsert({
-      day: dayKey, spend_usd: spend, calls,
-      by_kind: { ...(spendRow?.by_kind || {}), embed_podcast: Number((spendRow?.by_kind as any)?.embed_podcast || 0) + embedded },
+      day: dayKey, spend_usd: totalSpend, calls,
+      by_kind: {
+        ...byKind,
+        embed_podcast_usd: embedSpend,
+        embed_podcast_count: Number(byKind.embed_podcast_count || 0) + embedded,
+      },
       updated_at: new Date().toISOString(),
     });
 
-    // Progress: count totals across S/A/B
     const { count: totalCandidates } = await admin
       .from("podcasts").select("id", { count: "exact", head: true })
       .in("rank_label", tiers);
@@ -181,7 +183,7 @@ Deno.serve(async (req) => {
       cache_hits_last_run: cacheHits,
       errors_last_run: errors,
       error_samples: errorSamples,
-      spend_usd_today: spend,
+      embed_spend_usd_today: embedSpend,
       eta_minutes: etaMinutes,
       model,
     };
@@ -189,12 +191,12 @@ Deno.serve(async (req) => {
       key: "embed_progress", value: progress as any, updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
-    if (spend >= dailyBudget) {
+    if (embedSpend >= dailyBudget) {
       const newCtrl = { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() };
       await admin.from("app_settings").upsert({ key: "embed_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, embedded, cache_hits: cacheHits, errors, pending, spend_usd: spend, progress });
+    return json({ ok: true, embedded, cache_hits: cacheHits, errors, pending, embed_spend_usd: embedSpend, progress });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
