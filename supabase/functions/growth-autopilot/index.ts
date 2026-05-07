@@ -128,8 +128,41 @@ Deno.serve(async (req) => {
       state.last_error = null;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
-      state.consecutive_errors = (state.consecutive_errors || 0) + 1;
       state.last_error = error;
+
+      // Detect worker resource limit / timeout — auto-throttle batch instead of fatal stop.
+      const lower = error.toLowerCase();
+      const isResourceLimit =
+        lower.includes("worker_resource_limit") ||
+        lower.includes("resource limit") ||
+        / 546(\b|:)/.test(error) ||
+        lower.includes("status 546") ||
+        lower.includes("timeout") ||
+        lower.includes("timed out");
+
+      let throttled = false;
+      if (isResourceLimit) {
+        const cur = Number(state.batch) || 10;
+        let next = cur;
+        if (cur > 20) next = 20;
+        else if (cur > 10) next = 10;
+        else next = 10;
+        if (next !== cur) {
+          state.batch = next;
+          throttled = true;
+        }
+        state.last_action = `auto-throttled: resource limit (batch=${state.batch})`;
+        if (throttled) {
+          // Don't count as a fatal error if we successfully reduced the batch.
+          state.consecutive_errors = 0;
+        } else {
+          // Already at floor — count it; stop only after repeated errors.
+          state.consecutive_errors = (state.consecutive_errors || 0) + 1;
+        }
+      } else {
+        state.consecutive_errors = (state.consecutive_errors || 0) + 1;
+      }
+
       if (state.consecutive_errors >= (state.auto_stop_at_errors || 5)) {
         state.state = "stopped";
         state.stopped_reason = `auto-stop: ${state.consecutive_errors} consecutive errors`;
