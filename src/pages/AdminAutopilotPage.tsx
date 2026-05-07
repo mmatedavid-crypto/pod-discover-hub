@@ -183,7 +183,7 @@ export default function AdminAutopilotPage() {
               <Stat label="Podcasts" value={counts.podcasts} />
               <Stat label="Episodes" value={counts.episodes} />
               <Stat label="Unprocessed" value={counts.unprocessed} tone={counts.unprocessed ? "warn" : "default"} />
-              <Stat label="Queue" value={counts.queuePending} />
+              <Stat label="Deep pending" value={counts.deepPending} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <Button onClick={start} disabled={busy || state.state === "running"} className="bg-brand text-brand-foreground hover:bg-brand/90">
@@ -202,7 +202,16 @@ export default function AdminAutopilotPage() {
             {state.last_tick_at && (
               <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-border">
                 <div>Last tick: <span className="font-mono">{new Date(state.last_tick_at).toLocaleString()}</span></div>
-                <div>Action: <span className="font-mono">{state.last_action || "—"}</span></div>
+                <div>Action: <span className="font-mono">{state.last_action || "—"}</span> · Batch: <span className="font-mono">{state.batch}</span> · Duration: <span className="font-mono">{state.last_duration_ms ? `${(state.last_duration_ms/1000).toFixed(1)}s` : "—"}</span></div>
+                <div>Throttled: <span className="font-mono">{state.last_throttled ? "yes" : "no"}</span> · Unprocessed at tick: <span className="font-mono">{state.last_unprocessed ?? "—"}</span> · Queue pending: <span className="font-mono">{counts.queuePending}</span></div>
+                {state.last_result?.counters && (
+                  <div>
+                    Processed: <span className="font-mono">{state.last_result.counters.scanned ?? 0}</span> ·
+                    Auto-added: <span className="font-mono">{state.last_result.counters.auto_added ?? 0}</span> ·
+                    Light eps: <span className="font-mono">{state.last_result.counters.episodes_imported_light ?? 0}</span> ·
+                    Deep queued: <span className="font-mono">{state.last_result.counters.deep_hydration_pending ?? 0}</span>
+                  </div>
+                )}
                 {state.last_error && <div className="text-destructive">Error: {state.last_error}</div>}
                 {state.stopped_reason && <div className="text-yellow-500">Stopped: {state.stopped_reason}</div>}
                 <div>Consecutive errors: {state.consecutive_errors} (auto-stop at {state.auto_stop_at_errors})</div>
