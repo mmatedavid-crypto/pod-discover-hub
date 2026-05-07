@@ -36,7 +36,7 @@ function buildContent(p: any, model: string): string {
     `TITLE: ${p.display_title || p.title || ""}`,
     `CATEGORY: ${p.category || ""}`,
     `RANK: ${p.rank_label || ""}`,
-    `SUMMARY: ${(p.ai_summary || "").slice(0, 600)}`,
+    `SUMMARY: ${("").slice(0, 600)}`,
     `SEO: ${(p.seo_description || "").slice(0, 400)}`,
     `DESCRIPTION: ${(p.description || "").slice(0, 1600)}`,
   ];
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     // Fetch a generous superset; we'll filter by hash in-process.
     const { data: candidatesRaw, error: candErr } = await admin
       .from("podcasts")
-      .select("id,title,display_title,description,ai_summary,seo_description,category,rank_label,shadow_rank_components")
+      .select("id,title,display_title,description,seo_description,category,rank_label,shadow_rank_components")
       .in("rank_label", tiers)
       .order("rank_label", { ascending: true }) // S < A < B alphabetically -> S first
       .order("podiverzum_rank", { ascending: false })
