@@ -58,7 +58,10 @@ Deno.serve(async (req) => {
     // Foundation mode lifts the per-call auto-add cap (technical batching only).
     const maxAutoAdd = foundation ? batchSize : Math.min(HARD_MAX_AUTO_ADD, settings.max_auto_add_per_run || HARD_MAX_AUTO_ADD);
 
-    let q = supabase.from("pi_feed_staging").select("*").eq("processed", false).limit(batchSize);
+    const nowIso = new Date().toISOString();
+    let q = supabase.from("pi_feed_staging").select("*").eq("processed", false)
+      .or(`next_process_attempt_at.is.null,next_process_attempt_at.lte.${nowIso}`)
+      .limit(batchSize);
     if (importId) q = q.eq("import_id", importId);
     const { data: rows, error } = await q;
     if (error) throw error;
