@@ -262,6 +262,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Estimate due count for adaptive scheduling
+    let due_count = 0;
+    try {
+      const { count } = await supabase.from("podcasts")
+        .select("id", { count: "exact", head: true })
+        .or("rss_status.eq.failed,consecutive_failure_count.gte.5")
+        .or(`next_rss_hunt_at.is.null,next_rss_hunt_at.lte.${nowIso}`);
+      due_count = count || 0;
+    } catch { /* noop */ }
+
+    let recommended = "*/30 * * * *";
+    if (due_count > 50) recommended = "*/30 * * * *";
+    else if (due_count > 0) recommended = "0 */2 * * *";
+    else recommended = "0 */6 * * *";
+
+    let applied: string | null = null;
+    try {
+      await supabase.rpc("set_rss_hunter_schedule", { _schedule: recommended });
+      applied = recommended;
+    } catch { /* noop */ }
+
     const summary = {
       started_at: new Date(startedAt).toISOString(),
       finished_at: new Date().toISOString(),
@@ -269,6 +290,7 @@ Deno.serve(async (req) => {
       checked: results.length, recovered, manual_review: manualReview,
       not_found: notFound, reverified, errors,
       pool: { p0: p0?.length || 0, p1: p1.length, p2: p2?.length || 0 },
+      due_count, recommended_schedule: recommended, applied_schedule: applied,
     };
     await supabase.from("app_settings").upsert({
       key: "rss_hunter", value: { last_run: summary, recent: results.slice(0, 20) } as any,
