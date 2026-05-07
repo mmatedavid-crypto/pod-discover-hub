@@ -11,6 +11,10 @@ const cors = {
 
 const RECHECK_DAYS_NOT_FOUND = 7;
 const REVERIFY_DAYS_RECOVERED = 7;
+// Attempt-weighted backoff days: base * 2^min(attempts,4)
+function huntBackoffDays(baseDays: number, attempts: number): number {
+  return baseDays * Math.pow(2, Math.min(attempts, 4));
+}
 
 function norm(s: string) {
   return (s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
@@ -175,6 +179,8 @@ Deno.serve(async (req) => {
         const oldUrl = p.rss_url;
         const comp = (p.shadow_rank_components as any) || {};
         const attempts = (p.rss_hunt_attempts || 0) + 1;
+        const reverifyDays = huntBackoffDays(REVERIFY_DAYS_RECOVERED, attempts - 1);
+        const recheckDays = huntBackoffDays(RECHECK_DAYS_NOT_FOUND, attempts - 1);
         const updateBase: any = {
           rss_hunt_attempts: attempts,
           last_rss_hunt_at: new Date().toISOString(),
@@ -185,7 +191,7 @@ Deno.serve(async (req) => {
           if (results.length && results[results.length - 1]?.id === p.id) {
             await supabase.from("podcasts").update({
               ...updateBase,
-              next_rss_hunt_at: new Date(Date.now() + REVERIFY_DAYS_RECOVERED * 86400_000).toISOString(),
+              next_rss_hunt_at: new Date(Date.now() + reverifyDays * 86400_000).toISOString(),
             }).eq("id", p.id);
             continue;
           }
@@ -194,7 +200,7 @@ Deno.serve(async (req) => {
           await supabase.from("podcasts").update({
             ...updateBase,
             shadow_rank_components: comp,
-            next_rss_hunt_at: new Date(Date.now() + RECHECK_DAYS_NOT_FOUND * 86400_000).toISOString(),
+            next_rss_hunt_at: new Date(Date.now() + recheckDays * 86400_000).toISOString(),
           }).eq("id", p.id);
           notFound++;
           results.push({ id: p.id, title: p.title, prio: p._prio, action: "not_found" });
@@ -217,7 +223,7 @@ Deno.serve(async (req) => {
             consecutive_failure_count: 0,
             last_fetch_error: null,
             shadow_rank_components: comp,
-            next_rss_hunt_at: new Date(Date.now() + REVERIFY_DAYS_RECOVERED * 86400_000).toISOString(),
+            next_rss_hunt_at: new Date(Date.now() + reverifyDays * 86400_000).toISOString(),
           }).eq("id", p.id);
           await supabase.from("rss_url_history").insert({
             podcast_id: p.id, old_url: oldUrl, new_url: best.url,
@@ -234,24 +240,29 @@ Deno.serve(async (req) => {
           recovered++;
           results.push({ id: p.id, title: p.title, prio: p._prio, action: "recovered", confidence: best.conf, guid_overlap: best.guidOverlap, new_url: best.url });
         } else if (best.conf >= 0.65) {
+          // Skip re-proposing the same candidate URL within recheck window
+          const prevCand = (comp.rss_hunt_candidate || {}) as any;
+          const sameAsBefore = prevCand.url && prevCand.url === best.url;
           comp.health_state = "needs_manual_rss_review";
           comp.rss_hunt_candidate = {
             url: best.url, confidence: best.conf, guid_overlap: best.guidOverlap,
             verify_sim: best.verifySim, pi_sim: best.piSim, at: updateBase.last_rss_hunt_at, prio: p._prio,
           };
+          // Cooldown longer when proposing same URL repeatedly
+          const cooldownDays = sameAsBefore ? recheckDays * 2 : recheckDays;
           await supabase.from("podcasts").update({
             ...updateBase,
             shadow_rank_components: comp,
-            next_rss_hunt_at: new Date(Date.now() + RECHECK_DAYS_NOT_FOUND * 86400_000).toISOString(),
+            next_rss_hunt_at: new Date(Date.now() + cooldownDays * 86400_000).toISOString(),
           }).eq("id", p.id);
           manualReview++;
-          results.push({ id: p.id, title: p.title, prio: p._prio, action: "manual_review", confidence: best.conf, guid_overlap: best.guidOverlap, candidate: best.url });
+          results.push({ id: p.id, title: p.title, prio: p._prio, action: "manual_review", confidence: best.conf, guid_overlap: best.guidOverlap, candidate: best.url, repeat: !!sameAsBefore });
         } else {
           comp.rss_hunt = { at: updateBase.last_rss_hunt_at, result: "low_confidence", confidence: best.conf };
           await supabase.from("podcasts").update({
             ...updateBase,
             shadow_rank_components: comp,
-            next_rss_hunt_at: new Date(Date.now() + RECHECK_DAYS_NOT_FOUND * 86400_000).toISOString(),
+            next_rss_hunt_at: new Date(Date.now() + recheckDays * 86400_000).toISOString(),
           }).eq("id", p.id);
           notFound++;
           results.push({ id: p.id, title: p.title, prio: p._prio, action: "no_change", confidence: best.conf });

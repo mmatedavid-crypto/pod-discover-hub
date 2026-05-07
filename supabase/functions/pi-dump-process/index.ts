@@ -58,7 +58,10 @@ Deno.serve(async (req) => {
     // Foundation mode lifts the per-call auto-add cap (technical batching only).
     const maxAutoAdd = foundation ? batchSize : Math.min(HARD_MAX_AUTO_ADD, settings.max_auto_add_per_run || HARD_MAX_AUTO_ADD);
 
-    let q = supabase.from("pi_feed_staging").select("*").eq("processed", false).limit(batchSize);
+    const nowIso = new Date().toISOString();
+    let q = supabase.from("pi_feed_staging").select("*").eq("processed", false)
+      .or(`next_process_attempt_at.is.null,next_process_attempt_at.lte.${nowIso}`)
+      .limit(batchSize);
     if (importId) q = q.eq("import_id", importId);
     const { data: rows, error } = await q;
     if (error) throw error;
@@ -81,8 +84,11 @@ Deno.serve(async (req) => {
     // Lightweight: keep a tighter budget to avoid 546.
     const TIME_BUDGET = 60_000;
 
+    const stagingBackoffMin = (n: number) => Math.min(2880, Math.round(15 * Math.pow(2, Math.min(n, 6))));
+
     for (const r of rows || []) {
       if (Date.now() - start > TIME_BUDGET) break;
+      try {
       counters.scanned++;
       const updates: any = { processed: true, processed_at: new Date().toISOString() };
 
@@ -177,6 +183,16 @@ Deno.serve(async (req) => {
         }
       }
       await supabase.from("pi_feed_staging").update(updates).eq("id", r.id);
+      } catch (rowErr) {
+        // Per-row failure: stamp backoff so we don't loop on the same row
+        const attempts = (r.process_attempts || 0) + 1;
+        await supabase.from("pi_feed_staging").update({
+          process_attempts: attempts,
+          next_process_attempt_at: new Date(Date.now() + stagingBackoffMin(attempts) * 60_000).toISOString(),
+          reject_reason: `process_error: ${rowErr instanceof Error ? rowErr.message : String(rowErr)}`.slice(0, 500),
+        }).eq("id", r.id);
+        counters.failed_rss_tests++;
+      }
     }
 
     // Roll up into the import row (if any rows belong to a single import)

@@ -13,22 +13,39 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "podcast";
 }
 
+function backoffMin(attempts: number): number {
+  // 30m * 2^min(n,6) capped at ~32h
+  return Math.min(1920, Math.round(30 * Math.pow(2, Math.min(attempts, 6))));
+}
+
 async function importOne(admin: any, item: any) {
   const stamp = new Date().toISOString();
-  const setQueue = (patch: any) => admin.from("discovery_queue").update({ ...patch, last_import_attempt_at: stamp }).eq("id", item.id);
+  const attempts = (item.import_attempts || 0) + 1;
+  const setQueueFail = (patch: any) => admin.from("discovery_queue").update({
+    ...patch,
+    last_import_attempt_at: stamp,
+    import_attempts: attempts,
+    next_import_attempt_at: new Date(Date.now() + backoffMin(attempts) * 60_000).toISOString(),
+  }).eq("id", item.id);
+  const setQueueOk = (patch: any) => admin.from("discovery_queue").update({
+    ...patch,
+    last_import_attempt_at: stamp,
+    import_attempts: attempts,
+    next_import_attempt_at: null,
+  }).eq("id", item.id);
   const base = { title: item.title, rss_url: item.rss_url, rank: item.candidate_rank };
 
-  await setQueue({ import_status: "importing", import_error: null });
+  await admin.from("discovery_queue").update({ import_status: "importing", import_error: null }).eq("id", item.id);
 
   if (!item.rss_url || !item.title) {
     const reason = !item.rss_url ? "missing rss_url" : "missing title";
-    await setQueue({ import_status: "failed", import_error: reason, status: "rejected" });
+    await setQueueFail({ import_status: "failed", import_error: reason, status: "rejected" });
     return { ...base, status: "failed", reason };
   }
 
   const { data: dup } = await admin.from("podcasts").select("id").eq("rss_url", item.rss_url).maybeSingle();
   if (dup) {
-    await setQueue({ import_status: "skipped_duplicate", import_error: "duplicate rss_url", status: "approved", imported_podcast_id: dup.id });
+    await setQueueOk({ import_status: "skipped_duplicate", import_error: "duplicate rss_url", status: "approved", imported_podcast_id: dup.id });
     return { ...base, status: "skipped_duplicate", reason: "duplicate rss_url", podcast_id: dup.id };
   }
 
@@ -55,7 +72,7 @@ async function importOne(admin: any, item: any) {
 
   if (insErr || !inserted) {
     const reason = `insert failed: ${insErr?.message || "unknown"}`;
-    await setQueue({ import_status: "failed", import_error: reason });
+    await setQueueFail({ import_status: "failed", import_error: reason });
     return { ...base, status: "failed", reason };
   }
 
@@ -69,14 +86,14 @@ async function importOne(admin: any, item: any) {
 
   if (fetchErr || !fetchRes?.ok) {
     const reason = `RSS fetch failed: ${fetchErr || fetchRes?.error || "unknown"}`;
-    await setQueue({
+    await setQueueOk({
       import_status: "imported_with_rss_error", import_error: reason,
       status: "approved", imported_podcast_id: inserted.id, imported_at: stamp,
     });
     return { ...base, status: "imported_with_rss_error", reason, podcast_id: inserted.id };
   }
 
-  await setQueue({
+  await setQueueOk({
     import_status: "imported", import_error: null,
     status: "approved", imported_podcast_id: inserted.id, imported_at: stamp,
   });
@@ -122,9 +139,11 @@ Deno.serve(async (req) => {
     for (let b = 0; b < maxBatches; b++) {
       if (Date.now() - startedAt > TIME_BUDGET_MS) { stoppedReason = "time_budget"; break; }
 
+      const nowIso = new Date().toISOString();
       const { data: queue, error: qErr } = await admin
         .from("discovery_queue").select("*")
         .eq("status", "pending").gte("candidate_rank", minRank)
+        .or(`next_import_attempt_at.is.null,next_import_attempt_at.lte.${nowIso}`)
         .order("candidate_rank", { ascending: false }).limit(batchSize);
       if (qErr) throw qErr;
       if (!queue || queue.length === 0) { stoppedReason = "no_more_items"; break; }

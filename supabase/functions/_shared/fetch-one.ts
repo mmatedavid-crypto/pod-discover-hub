@@ -22,11 +22,14 @@ async function recordRssUrlChange(supabase: any, podcastId: string, oldUrl: stri
 
 async function markFailure(supabase: any, podcast: any, msg: string, isDeadCode = false) {
   const next = (podcast.consecutive_failure_count || 0) + 1;
+  // Exponential backoff: 30m * 2^min(n,8), capped at 7 days
+  const backoffMin = Math.min(10080, Math.round(30 * Math.pow(2, Math.min(next, 8))));
   const upd: any = {
     rss_status: "failed",
     last_fetched_at: new Date().toISOString(),
     last_fetch_error: msg,
     consecutive_failure_count: next,
+    next_fetch_at: new Date(Date.now() + backoffMin * 60_000).toISOString(),
   };
   if (isDeadCode && next >= DEAD_THRESHOLD) {
     upd.crawl_state = "dead";
@@ -79,6 +82,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
         last_fetch_new_count: 0,
         last_fetch_duplicate_count: 0,
         consecutive_failure_count: 0,
+        next_fetch_at: null,
       }).eq("id", podcast.id);
       return { ok: true, new: 0, duplicates: 0, items: 0, not_modified: true };
     }
@@ -192,6 +196,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     last_fetch_duplicate_count: duplicates,
     consecutive_failure_count: 0,
     quarantined_until: null,
+    next_fetch_at: null,
   };
   if (respEtag) update.last_etag = respEtag;
   if (respLastModified) update.last_modified = respLastModified;

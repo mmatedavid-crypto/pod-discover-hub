@@ -195,6 +195,7 @@ export type Database = {
           episode_count: number | null
           id: string
           image_url: string | null
+          import_attempts: number
           import_error: string | null
           import_status: string | null
           imported_at: string | null
@@ -202,6 +203,7 @@ export type Database = {
           language: string | null
           last_episode_at: string | null
           last_import_attempt_at: string | null
+          next_import_attempt_at: string | null
           pi_id: number | null
           rank_reason: Json
           rss_url: string
@@ -220,6 +222,7 @@ export type Database = {
           episode_count?: number | null
           id?: string
           image_url?: string | null
+          import_attempts?: number
           import_error?: string | null
           import_status?: string | null
           imported_at?: string | null
@@ -227,6 +230,7 @@ export type Database = {
           language?: string | null
           last_episode_at?: string | null
           last_import_attempt_at?: string | null
+          next_import_attempt_at?: string | null
           pi_id?: number | null
           rank_reason?: Json
           rss_url: string
@@ -245,6 +249,7 @@ export type Database = {
           episode_count?: number | null
           id?: string
           image_url?: string | null
+          import_attempts?: number
           import_error?: string | null
           import_status?: string | null
           imported_at?: string | null
@@ -252,6 +257,7 @@ export type Database = {
           language?: string | null
           last_episode_at?: string | null
           last_import_attempt_at?: string | null
+          next_import_attempt_at?: string | null
           pi_id?: number | null
           rank_reason?: Json
           rss_url?: string
@@ -557,7 +563,9 @@ export type Database = {
           language: string | null
           last_http_status: number | null
           newest_item_at: string | null
+          next_process_attempt_at: string | null
           pi_id: number | null
+          process_attempts: number
           processed: boolean
           processed_at: string | null
           reject_reason: string | null
@@ -590,7 +598,9 @@ export type Database = {
           language?: string | null
           last_http_status?: number | null
           newest_item_at?: string | null
+          next_process_attempt_at?: string | null
           pi_id?: number | null
+          process_attempts?: number
           processed?: boolean
           processed_at?: string | null
           reject_reason?: string | null
@@ -623,7 +633,9 @@ export type Database = {
           language?: string | null
           last_http_status?: number | null
           newest_item_at?: string | null
+          next_process_attempt_at?: string | null
           pi_id?: number | null
+          process_attempts?: number
           processed?: boolean
           processed_at?: string | null
           reject_reason?: string | null
@@ -705,6 +717,7 @@ export type Database = {
           last_modified: string | null
           last_rss_hunt_at: string | null
           manual_rank_boost: number
+          next_fetch_at: string | null
           next_rss_hunt_at: string | null
           podiverzum_rank: number
           quarantined_until: string | null
@@ -768,6 +781,7 @@ export type Database = {
           last_modified?: string | null
           last_rss_hunt_at?: string | null
           manual_rank_boost?: number
+          next_fetch_at?: string | null
           next_rss_hunt_at?: string | null
           podiverzum_rank?: number
           quarantined_until?: string | null
@@ -831,6 +845,7 @@ export type Database = {
           last_modified?: string | null
           last_rss_hunt_at?: string | null
           manual_rank_boost?: number
+          next_fetch_at?: string | null
           next_rss_hunt_at?: string | null
           podiverzum_rank?: number
           quarantined_until?: string | null
