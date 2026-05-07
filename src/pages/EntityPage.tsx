@@ -64,7 +64,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       if (podIds.length) {
         const { data: ps } = await supabase
           .from("podcasts")
-          .select(id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
+          .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
           .in("id", podIds);
         const sortedPods = (ps || [])
           .filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"))
