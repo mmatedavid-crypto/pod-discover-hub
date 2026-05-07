@@ -82,12 +82,14 @@ Deno.serve(async (req) => {
     const tiers: string[] = Array.isArray(ctrl.tiers) ? ctrl.tiers : ["S", "A", "B"];
     const batch = Math.max(1, Math.min(100, Number(body.batch) || Number(ctrl.batch_size) || 25));
 
-    // Today's spend
+    // Today's spend — embed runner tracks its OWN budget via by_kind.embed_podcast_usd
     const dayKey = new Date().toISOString().slice(0, 10);
     const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
-    let spend = Number(spendRow?.spend_usd || 0);
+    const byKind = (spendRow?.by_kind as any) || {};
+    let embedSpend = Number(byKind.embed_podcast_usd || 0);
+    let totalSpend = Number(spendRow?.spend_usd || 0);
     let calls = Number(spendRow?.calls || 0);
-    if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
+    if (embedSpend >= dailyBudget) return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
 
     // Candidates: S/A/B, not in bad health, not yet embedded with current model OR stale content_hash
     // Fetch a generous superset; we'll filter by hash in-process.
