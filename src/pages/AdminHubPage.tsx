@@ -102,6 +102,7 @@ export default function AdminHubPage() {
     {
       title: "Growth & Indexing",
       tools: [
+        { to: "/admin/autopilot", title: "Growth Autopilot", desc: "Cloud-driven podcast growth. Start/pause from your phone.", icon: Activity, badge: "new", badgeTone: "warn" },
         { to: "/admin/growth", title: "Autonomous Growth", desc: "Daily growth runs, AI controls, schedules.", icon: Sparkles },
         { to: "/admin/queue", title: "Approval Queue", desc: "Review and approve discovered podcasts.", icon: ListChecks, badge: counts.queuePending, badgeTone: counts.queuePending ? "warn" : "default" },
         { to: "/admin/discovery", title: "Discovery", desc: "Find new podcasts and replacement feeds.", icon: SearchIcon },
