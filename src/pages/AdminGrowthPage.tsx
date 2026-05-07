@@ -104,11 +104,11 @@ export default function AdminGrowthPage() {
     const { data: hRow } = await supabase.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle();
     setHydration((hRow?.value as any) || null);
     const [ns, ip, cp, fl, el] = await Promise.all([
-      supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").gte("podiverzum_rank", 4),
+      supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").in("rank_label", ["S", "A", "B", "C"]),
       supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "in_progress"),
       supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "completed"),
       supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "failed"),
-      supabase.from("podcasts").select("id", { count: "exact", head: true }).gte("podiverzum_rank", 4).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
+      supabase.from("podcasts").select("id", { count: "exact", head: true }).in("rank_label", ["S", "A", "B", "C"]).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
     ]);
     setHydrationCounts({
       not_started: ns.count || 0,
