@@ -169,6 +169,9 @@ Deno.serve(async (req) => {
       };
       if (isComplete && !p.full_backfill_completed_at) {
         update.full_backfill_completed_at = stamp;
+        update.crawl_state = "incremental_refresh";
+      } else if (!isComplete) {
+        update.crawl_state = "full_backfill_pending";
       }
       await admin.from("podcasts").update(update).eq("id", p.id);
 
