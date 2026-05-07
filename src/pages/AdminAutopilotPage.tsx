@@ -77,13 +77,14 @@ export default function AdminAutopilotPage() {
   };
 
   const loadAll = async () => {
-    const [{ data: row }, pods, eps, unp, queue, imp] = await Promise.all([
+    const [{ data: row }, pods, eps, unp, queue, imp, deepPend] = await Promise.all([
       supabase.from("app_settings").select("value").eq("key", "growth_autopilot").maybeSingle(),
       supabase.from("podcasts").select("*", { count: "exact", head: true }),
       supabase.from("episodes").select("*", { count: "exact", head: true }),
       supabase.from("pi_feed_staging").select("*", { count: "exact", head: true }).eq("processed", false),
       supabase.from("discovery_queue").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("pi_dump_imports").select("*").order("created_at", { ascending: false }).limit(1),
+      supabase.from("podcasts").select("*", { count: "exact", head: true }).in("deep_hydration_status", ["not_started", "in_progress", "failed"]),
     ]);
     const next: State = { ...DEFAULT_STATE, ...((row?.value as any) || {}) };
     setState(next);
@@ -93,6 +94,7 @@ export default function AdminAutopilotPage() {
       episodes: eps.count ?? 0,
       unprocessed: unp.count ?? 0,
       queuePending: queue.count ?? 0,
+      deepPending: deepPend.count ?? 0,
     });
     setLatestImport(imp.data?.[0] || null);
   };
