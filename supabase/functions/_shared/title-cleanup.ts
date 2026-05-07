@@ -16,11 +16,14 @@ export function cleanTitle(rawTitle: string, podcastTitle?: string | null): { di
   let t = rawTitle.replace(/\s+/g, " ").trim();
   const original = t;
 
-  // 1) Strip leading episode markers:  "Ep. 142 -", "Episode 45:", "#42 |", "S03E12 —", bare "142 -"
+  // 1a) Strip explicit leading episode markers: "Ep. 142 -", "Episode 45:", "#42 |", "S03E12 —"
   t = t.replace(
-    /^\s*(?:ep(?:isode)?\.?\s*\d+[a-z]?|#\d+|s\d{1,2}\s*[ex]\s*\d{1,3}|\d{1,4})\s*[:\-—|–]\s*/i,
+    /^\s*(?:ep(?:isode)?\.?\s*\d+[a-z]?|#\d+|s\d{1,2}\s*[ex]\s*\d{1,3})\s*[:\-—|–]\s*/i,
     "",
   );
+  // 1b) Strip bare leading episode number ONLY when followed by " - " / " — " / " | " / " – ".
+  //     Never match colon — that would eat clock times like "7:15 ...".
+  t = t.replace(/^\s*\d{1,4}\s*[\-—|–]\s+/, "");
 
   // 2) Strip trailing podcast name suffix: " - <Podcast>", " | <Podcast>", " — <Podcast>"
   if (podcastTitle && podcastTitle.length >= 3) {
