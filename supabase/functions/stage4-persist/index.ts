@@ -69,6 +69,41 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (Array.isArray(body.rediscover)) {
+      for (const r of body.rediscover) {
+        const { data: cur } = await supabase.from("podcasts").select("rss_url, shadow_rank_components").eq("id", r.id).maybeSingle();
+        const oldUrl = cur?.rss_url || null;
+        const comp = (cur?.shadow_rank_components as any) || {};
+        if (r.action === "auto_recover" && r.new_rss_url) {
+          comp.health_state = "recovered_rss_url";
+          comp.rss_rediscovery = { old_url: oldUrl, confidence: r.confidence, at: new Date().toISOString() };
+          const { error } = await supabase.from("podcasts").update({
+            rss_url: r.new_rss_url,
+            rss_status: "not_checked",
+            consecutive_failure_count: 0,
+            last_fetch_error: null,
+            shadow_rank_components: comp,
+          }).eq("id", r.id);
+          if (error) { (counters as any).errors.push(`rediscover ${r.id}: ${error.message}`); continue; }
+          await supabase.from("rss_url_history").insert({
+            podcast_id: r.id, old_url: oldUrl, new_url: r.new_rss_url,
+            reason: `ai_rediscovery confidence=${r.confidence}`,
+          });
+          (counters as any).gate++;
+        } else if (r.action === "manual_review") {
+          comp.health_state = "needs_manual_rss_review";
+          comp.rss_rediscovery_candidate = { url: r.new_rss_url, confidence: r.confidence, at: new Date().toISOString() };
+          await supabase.from("podcasts").update({ shadow_rank_components: comp }).eq("id", r.id);
+          (counters as any).gate++;
+        } else if (r.action === "not_found") {
+          comp.health_state = "rss_url_not_found";
+          comp.rss_rediscovery_attempted_at = new Date().toISOString();
+          await supabase.from("podcasts").update({ shadow_rank_components: comp }).eq("id", r.id);
+          (counters as any).gate++;
+        }
+      }
+    }
+
     if (Array.isArray(body.shadow)) {
       for (const s of body.shadow) {
         const { error } = await supabase.from("podcasts").update({
