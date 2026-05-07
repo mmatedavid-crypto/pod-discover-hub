@@ -5,7 +5,7 @@
 // - Writes seo_title/seo_description (and ai_summary for episodes).
 // - Never overwrites title or description.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL } from "../_shared/seo-prompt.ts";
+import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -70,9 +70,20 @@ Deno.serve(async (req) => {
       }
       processed++;
       try {
-        const prompt = job.result?.prompt as string;
-        if (!prompt) throw new Error("missing_prompt");
         const isPodcast = job.kind === "seo_podcast";
+        let prompt = job.result?.prompt as string | undefined;
+        if (!prompt) {
+          if (isPodcast) {
+            const { data: p } = await admin.from("podcasts").select("title,display_title,description,category").eq("id", job.target_id).maybeSingle();
+            if (!p) throw new Error("target_missing");
+            prompt = podcastUserPrompt(p as any);
+          } else {
+            const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title)").eq("id", job.target_id).maybeSingle();
+            if (!e) throw new Error("target_missing");
+            const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
+            prompt = episodeUserPrompt(e as any, podName);
+          }
+        }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
         const toolName = isPodcast ? "podcast_seo" : "episode_seo";
         const ai = await callAI(model, [
