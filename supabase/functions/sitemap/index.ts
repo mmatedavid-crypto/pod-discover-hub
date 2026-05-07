@@ -23,7 +23,7 @@ Deno.serve(async () => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const [{ data: cats }, { data: pods }, { data: eps }] = await Promise.all([
       supabase.from("categories").select("slug,created_at"),
-      supabase.from("podcasts").select("slug,updated_at,rss_status,podiverzum_rank,id"),
+      supabase.from("podcasts").select("slug,updated_at,rss_status,podiverzum_rank,rank_label,shadow_rank_components,id"),
       supabase.from("episodes").select("slug,updated_at,podcast_id,topics,people,companies,tickers,ingredients,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
     ]);
 
