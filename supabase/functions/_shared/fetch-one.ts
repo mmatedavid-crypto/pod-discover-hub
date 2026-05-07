@@ -82,6 +82,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
         last_fetch_new_count: 0,
         last_fetch_duplicate_count: 0,
         consecutive_failure_count: 0,
+        next_fetch_at: null,
       }).eq("id", podcast.id);
       return { ok: true, new: 0, duplicates: 0, items: 0, not_modified: true };
     }
