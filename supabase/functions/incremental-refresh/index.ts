@@ -140,7 +140,8 @@ Deno.serve(async (req) => {
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - startedAt,
       trigger, concurrency, limit, stale_hours, episode_cap: episodeCap,
-      scanned, refreshed, failed, throttled, new_episodes: newEpisodes,
+      scanned, refreshed, failed, throttled, new_episodes: newEpisodes, not_modified: notModified,
+      tier_based: useTier, candidates_considered: (candidates || []).length,
     };
     await admin.from("app_settings").upsert({
       key: "incremental_refresh",
