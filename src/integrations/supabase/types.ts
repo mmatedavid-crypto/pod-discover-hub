@@ -681,6 +681,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_deep_hydration_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"
