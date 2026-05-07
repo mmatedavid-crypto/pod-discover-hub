@@ -194,11 +194,11 @@ Deno.serve(async (req) => {
       });
     };
 
-    await processPool(candidates || [], concurrency, work);
+    await processPool(eligible, concurrency, work);
 
     const { count: remainingPending } = await admin
       .from("podcasts").select("id", { count: "exact", head: true })
-      .gte("podiverzum_rank", 4)
+      .in("rank_label", ["S", "A", "B", "C"])
       .in("rss_status", ["active", "not_checked"])
       .is("full_backfill_completed_at", null);
 
