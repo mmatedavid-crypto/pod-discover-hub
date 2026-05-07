@@ -54,4 +54,7 @@ verify_jwt = false
 [functions.incremental-refresh]
 verify_jwt = false
 
+[functions.title-cleanup-runner]
+verify_jwt = false
+
 
