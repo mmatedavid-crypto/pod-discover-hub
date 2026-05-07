@@ -84,8 +84,11 @@ Deno.serve(async (req) => {
     // Lightweight: keep a tighter budget to avoid 546.
     const TIME_BUDGET = 60_000;
 
+    const stagingBackoffMin = (n: number) => Math.min(2880, Math.round(15 * Math.pow(2, Math.min(n, 6))));
+
     for (const r of rows || []) {
       if (Date.now() - start > TIME_BUDGET) break;
+      try {
       counters.scanned++;
       const updates: any = { processed: true, processed_at: new Date().toISOString() };
 
