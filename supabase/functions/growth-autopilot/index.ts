@@ -171,7 +171,8 @@ Deno.serve(async (req) => {
     }
 
     state.last_tick_at = new Date().toISOString();
-    if (!state.last_action || !state.last_action.startsWith("auto-throttled")) {
+    // Only keep auto-throttled label if THIS tick actually threw an error.
+    if (!error || !(state.last_action || "").startsWith("auto-throttled")) {
       state.last_action = action;
     }
     state.last_result = result;
