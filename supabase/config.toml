@@ -54,8 +54,4 @@ verify_jwt = false
 [functions.incremental-refresh]
 verify_jwt = false
 
-[functions.recompute-ranks]
-verify_jwt = false
-
-
 
