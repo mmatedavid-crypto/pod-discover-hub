@@ -69,4 +69,7 @@ verify_jwt = false
 [functions.rss-self-healing]
 verify_jwt = false
 
+[functions.rss-hunter]
+verify_jwt = false
+
 
