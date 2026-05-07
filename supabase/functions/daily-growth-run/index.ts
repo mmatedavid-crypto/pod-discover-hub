@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
             source: "discovery_auto",
             rss_status: "not_checked",
             podiverzum_rank: score,
-            rank_label: score >= 8 ? "Excellent" : "Strong",
+            rank_label: score >= 8 ? "A" : score >= 6 ? "B" : "C",
             rank_reason: { factors: reasons, source: "discovery" },
             rank_updated_at: new Date().toISOString(),
           }).select("id").maybeSingle();
