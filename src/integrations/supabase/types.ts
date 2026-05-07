@@ -703,13 +703,16 @@ export type Database = {
           last_fetch_new_count: number
           last_fetched_at: string | null
           last_modified: string | null
+          last_rss_hunt_at: string | null
           manual_rank_boost: number
+          next_rss_hunt_at: string | null
           podiverzum_rank: number
           quarantined_until: string | null
           rank_label: string | null
           rank_reason: Json
           rank_updated_at: string | null
           refresh_interval_minutes: number
+          rss_hunt_attempts: number
           rss_status: string
           rss_url: string | null
           seo_description: string | null
@@ -763,13 +766,16 @@ export type Database = {
           last_fetch_new_count?: number
           last_fetched_at?: string | null
           last_modified?: string | null
+          last_rss_hunt_at?: string | null
           manual_rank_boost?: number
+          next_rss_hunt_at?: string | null
           podiverzum_rank?: number
           quarantined_until?: string | null
           rank_label?: string | null
           rank_reason?: Json
           rank_updated_at?: string | null
           refresh_interval_minutes?: number
+          rss_hunt_attempts?: number
           rss_status?: string
           rss_url?: string | null
           seo_description?: string | null
@@ -823,13 +829,16 @@ export type Database = {
           last_fetch_new_count?: number
           last_fetched_at?: string | null
           last_modified?: string | null
+          last_rss_hunt_at?: string | null
           manual_rank_boost?: number
+          next_rss_hunt_at?: string | null
           podiverzum_rank?: number
           quarantined_until?: string | null
           rank_label?: string | null
           rank_reason?: Json
           rank_updated_at?: string | null
           refresh_interval_minutes?: number
+          rss_hunt_attempts?: number
           rss_status?: string
           rss_url?: string | null
           seo_description?: string | null
