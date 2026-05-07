@@ -52,7 +52,8 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
 
     const token = authHeader.slice(7);
-    let isAdmin = token === SERVICE;
+    const serviceKeys = [SERVICE, ...(Deno.env.get("SUPABASE_SECRET_KEYS") || "").split(",").map((s) => s.trim()).filter(Boolean)];
+    let isAdmin = serviceKeys.includes(token);
     if (!isAdmin) {
       const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
       const { data: userData, error: userErr } = await userClient.auth.getUser();
