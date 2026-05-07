@@ -146,12 +146,13 @@ Deno.serve(async (req) => {
     try {
       const { data: sample } = await admin
         .from("podcasts")
-        .select("last_fetched_at, refresh_interval_minutes, quarantined_until")
+        .select("last_fetched_at, refresh_interval_minutes, quarantined_until, next_fetch_at")
         .in("crawl_state", ["full_backfilled", "incremental_refresh"])
         .limit(4000);
       const now = Date.now();
       due_count = (sample || []).filter((p: any) => {
         if (p.quarantined_until && new Date(p.quarantined_until).getTime() > now) return false;
+        if (p.next_fetch_at && new Date(p.next_fetch_at).getTime() > now) return false;
         if (!p.last_fetched_at) return true;
         const interval = (p.refresh_interval_minutes || 360) * 60_000;
         return new Date(p.last_fetched_at).getTime() + interval < now;
