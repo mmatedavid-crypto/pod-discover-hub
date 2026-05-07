@@ -122,6 +122,9 @@ Deno.serve(async (req) => {
               rank_label: rankLabel,
               rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
               rank_updated_at: new Date().toISOString(),
+              // Mark for deferred deep hydration — handled by deep-hydrate-runner.
+              deep_hydration_status: "not_started",
+              deep_hydration_target: score >= 8 ? 100 : score >= 6 ? 75 : 40,
             }).select("id").maybeSingle();
 
             if (insErr || !inserted) {
@@ -131,14 +134,18 @@ Deno.serve(async (req) => {
             } else {
               autoAddedThisRun++;
               counters.auto_added++; counters.accepted++;
+              counters.deep_hydration_pending++;
               updates.decision = "imported";
               try {
-                // Foundation depth by rank: 8–10 → 75, 6–7 → 50, 4–5 → 30. Daily mode: 30.
-                const epCap = foundation
-                  ? (score >= 8 ? 75 : score >= 6 ? 50 : 30)
-                  : 30;
-                const fr = await fetchOne(supabase, { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url }, { episodeCap: epCap });
+                // LIGHT IMPORT ONLY: at most 5 newest episodes for instant visibility.
+                // Full hydration is deferred to deep-hydrate-runner.
+                const fr = await fetchOne(
+                  supabase,
+                  { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url },
+                  { episodeCap: LIGHT_EPISODE_CAP },
+                );
                 if (!fr.ok) counters.failed_rss_tests++;
+                else counters.episodes_imported_light += (fr.new || 0);
               } catch { counters.failed_rss_tests++; }
             }
           } else if (!foundation && score >= 6) {
