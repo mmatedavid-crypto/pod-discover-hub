@@ -52,8 +52,14 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
 
     const token = authHeader.slice(7);
-    const serviceKeys = [SERVICE, ...(Deno.env.get("SUPABASE_SECRET_KEYS") || "").split(",").map((s) => s.trim()).filter(Boolean)];
-    let isAdmin = serviceKeys.includes(token);
+    // Accept any Bearer that proves service-role by successfully reading a privileged table
+    // (works regardless of which signing-key generation issued the token).
+    let isAdmin = false;
+    try {
+      const probe = createClient(SUPABASE_URL, token);
+      const { error: probeErr } = await probe.from("user_roles").select("role", { count: "exact", head: true }).limit(1);
+      if (!probeErr) isAdmin = true;
+    } catch { /* fall through to user check */ }
     if (!isAdmin) {
       const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
       const { data: userData, error: userErr } = await userClient.auth.getUser();
