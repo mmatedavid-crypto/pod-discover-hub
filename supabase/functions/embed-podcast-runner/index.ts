@@ -194,13 +194,6 @@ Deno.serve(async (req) => {
 
     let embedded = 0, cacheHits = 0, errors = 0, processed = 0;
     const errorSamples: any[] = [];
-    const debug = {
-      embeddedIds_size: embeddedIds.size,
-      candidatesRaw_len: candidatesRaw.length,
-      candidates_len: candidates.length,
-      first_candidate_id: candidates[0]?.id || null,
-      batch, wantBatch,
-    };
 
     for (const p of candidates) {
       if (processed >= batch) break;
