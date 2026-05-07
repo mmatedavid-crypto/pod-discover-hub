@@ -78,7 +78,7 @@ export default function AdminAutopilotPage() {
   };
 
   const loadAll = async () => {
-    const [{ data: row }, pods, eps, unp, queue, imp, deepPend] = await Promise.all([
+    const [{ data: row }, pods, eps, unp, queue, imp, deepPend, fullBack, dhRow] = await Promise.all([
       supabase.from("app_settings").select("value").eq("key", "growth_autopilot").maybeSingle(),
       supabase.from("podcasts").select("*", { count: "exact", head: true }),
       supabase.from("episodes").select("*", { count: "exact", head: true }),
@@ -86,6 +86,8 @@ export default function AdminAutopilotPage() {
       supabase.from("discovery_queue").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("pi_dump_imports").select("*").order("created_at", { ascending: false }).limit(1),
       supabase.from("podcasts").select("*", { count: "exact", head: true }).in("deep_hydration_status", ["not_started", "in_progress", "failed"]),
+      supabase.from("podcasts").select("*", { count: "exact", head: true }).not("full_backfill_completed_at", "is", null),
+      supabase.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle(),
     ]);
     const next: State = { ...DEFAULT_STATE, ...((row?.value as any) || {}) };
     setState(next);
@@ -96,7 +98,9 @@ export default function AdminAutopilotPage() {
       unprocessed: unp.count ?? 0,
       queuePending: queue.count ?? 0,
       deepPending: deepPend.count ?? 0,
+      fullyBackfilled: fullBack.count ?? 0,
     });
+    setDeepHydration((dhRow?.data?.value as any) || null);
     setLatestImport(imp.data?.[0] || null);
   };
 
