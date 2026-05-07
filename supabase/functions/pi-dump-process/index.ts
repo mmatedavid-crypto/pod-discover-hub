@@ -183,6 +183,16 @@ Deno.serve(async (req) => {
         }
       }
       await supabase.from("pi_feed_staging").update(updates).eq("id", r.id);
+      } catch (rowErr) {
+        // Per-row failure: stamp backoff so we don't loop on the same row
+        const attempts = (r.process_attempts || 0) + 1;
+        await supabase.from("pi_feed_staging").update({
+          process_attempts: attempts,
+          next_process_attempt_at: new Date(Date.now() + stagingBackoffMin(attempts) * 60_000).toISOString(),
+          reject_reason: `process_error: ${rowErr instanceof Error ? rowErr.message : String(rowErr)}`.slice(0, 500),
+        }).eq("id", r.id);
+        counters.failed_rss_tests++;
+      }
     }
 
     // Roll up into the import row (if any rows belong to a single import)
