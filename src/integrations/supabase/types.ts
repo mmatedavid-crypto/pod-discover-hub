@@ -1049,6 +1049,10 @@ export type Database = {
         }
       }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
+      embed_candidate_stats: {
+        Args: { _model: string; _tiers: string[] }
+        Returns: Json
+      }
       get_ops_dashboard_status: { Args: never; Returns: Json }
       has_role: {
         Args: {
@@ -1064,6 +1068,19 @@ export type Database = {
       reap_deep_hydration_stale: {
         Args: { _older_than_minutes?: number }
         Returns: number
+      }
+      select_embed_candidates: {
+        Args: { _limit: number; _model: string; _tiers: string[] }
+        Returns: {
+          category: string
+          description: string
+          display_title: string
+          id: string
+          rank_label: string
+          seo_description: string
+          shadow_rank_components: Json
+          title: string
+        }[]
       }
       set_deep_hydration_schedule: {
         Args: { _schedule: string }
