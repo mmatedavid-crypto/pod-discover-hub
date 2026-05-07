@@ -196,6 +196,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     last_fetch_duplicate_count: duplicates,
     consecutive_failure_count: 0,
     quarantined_until: null,
+    next_fetch_at: null,
   };
   if (respEtag) update.last_etag = respEtag;
   if (respLastModified) update.last_modified = respLastModified;
