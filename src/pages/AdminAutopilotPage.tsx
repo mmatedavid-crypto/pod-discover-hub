@@ -130,6 +130,19 @@ export default function AdminAutopilotPage() {
     } finally { setBusy(false); }
   };
 
+  const runDeepHydration = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("deep-hydrate-runner", { body: { trigger: "manual", limit: 10, force: true } });
+      if (error) throw error;
+      const r: any = data || {};
+      toast.success(`Deep hydrate: processed ${r.processed ?? 0}, completed ${r.active ?? 0}, failed ${r.failed ?? 0}`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e?.message || "deep hydration failed");
+    } finally { setBusy(false); }
+  };
+
   const saveTopics = () => {
     const arr = topicsInput.split(/[,\n]/).map((t) => t.trim()).filter(Boolean).slice(0, 16);
     saveState({ topics: arr });
