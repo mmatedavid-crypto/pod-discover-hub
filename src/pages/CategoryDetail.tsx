@@ -53,21 +53,28 @@ export default function CategoryDetail() {
       });
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
+        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
         .eq("category", c.name)
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
-        .limit(60);
-      const visible = (ps || []).filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"));
+        .limit(80);
+      const goodHealth = (p: any) => {
+        const hs = (p.shadow_rank_components as any)?.health_state;
+        return !hs || hs === "healthy" || hs === "recovered_rss_url";
+      };
+      const visible = (ps || []).filter((p: any) =>
+        p.featured || (goodHealth(p) && p.rss_status !== "failed" && p.rss_status !== "inactive" && !["D", "E"].includes(p.rank_label))
+      );
       const ids0 = visible.map((p: any) => p.id);
       const epCountMap: Record<string, number> = {};
       if (ids0.length) {
         const { data: ec } = await supabase.from("episodes").select("podcast_id").in("podcast_id", ids0);
         (ec || []).forEach((e: any) => { epCountMap[e.podcast_id] = (epCountMap[e.podcast_id] || 0) + 1; });
       }
-      const high = visible.filter((p: any) => p.featured || ((p.podiverzum_rank ?? 1) >= 6 && (epCountMap[p.id] || 0) > 0));
-      const mid = visible.filter((p: any) => !p.featured && (p.podiverzum_rank ?? 1) >= 4 && (p.podiverzum_rank ?? 1) < 6 && (epCountMap[p.id] || 0) > 0);
-      const promotedPodcasts = (high.length >= 6 ? high : [...high, ...mid]).slice(0, 12);
+      const high = visible.filter((p: any) => p.featured || (["S", "A"].includes(p.rank_label) && (epCountMap[p.id] || 0) > 0));
+      const mid = visible.filter((p: any) => !p.featured && p.rank_label === "B" && (epCountMap[p.id] || 0) > 0);
+      const low = visible.filter((p: any) => !p.featured && p.rank_label === "C" && (epCountMap[p.id] || 0) > 0);
+      const promotedPodcasts = (high.length >= 6 ? high : [...high, ...mid, ...low]).slice(0, 12);
       setPodcasts(promotedPodcasts);
 
       const promotedIds = promotedPodcasts.map((p: any) => p.id);
