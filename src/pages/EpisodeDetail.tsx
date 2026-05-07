@@ -38,10 +38,10 @@ export default function EpisodeDetail() {
 
       const summary = stripHtml(e.summary);
       const desc = stripHtml(e.description);
-      const metaDesc = (summary || desc || `Episode of ${p.title} on Podiverzum.`).slice(0, 160);
+      const metaDesc = (summary || desc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
 
       setSeo({
-        title: `${e.title} — ${p.title} | Podiverzum`,
+        title: `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
         jsonLd: {
           "@context": "https://schema.org",
@@ -143,10 +143,10 @@ export default function EpisodeDetail() {
   return (
     <Layout>
       <div className="container mx-auto py-10 max-w-3xl">
-        <Link to={`/podcast/${p.slug}`} className="text-sm text-muted-foreground hover:text-accent">← {p.title}</Link>
-        <h1 className="text-3xl font-semibold mt-2">{e.title}</h1>
+        <Link to={`/podcast/${p.slug}`} className="text-sm text-muted-foreground hover:text-accent">← {p.display_title || p.title}</Link>
+        <h1 className="text-3xl font-semibold mt-2">{e.display_title || e.title}</h1>
         <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
-          <Link to={`/podcast/${p.slug}`} className="hover:text-foreground">{p.title}</Link>
+          <Link to={`/podcast/${p.slug}`} className="hover:text-foreground">{p.display_title || p.title}</Link>
           {p.category && <Link to={`/category/${p.category.toLowerCase().replace(/[^a-z0-9]+/g,"-")}`} className="hover:text-foreground">· {p.category}</Link>}
           {e.published_at && <span>· {new Date(e.published_at).toLocaleDateString()}</span>}
           {typeof e.episode_rank === "number" && e.episode_rank > 0 && <span className="px-1.5 py-0.5 rounded bg-secondary text-[10px]">Ep rank {e.episode_rank}</span>}
@@ -185,7 +185,7 @@ export default function EpisodeDetail() {
 
         {moreFromPod.length > 0 && (
           <section className="mt-10">
-            <h2 className="font-semibold mb-3">More from {p.title}</h2>
+            <h2 className="font-semibold mb-3">More from {p.display_title || p.title}</h2>
             <EpisodeList items={moreFromPod} />
           </section>
         )}
