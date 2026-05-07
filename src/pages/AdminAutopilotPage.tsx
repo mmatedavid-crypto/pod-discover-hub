@@ -133,13 +133,30 @@ export default function AdminAutopilotPage() {
   const runDeepHydration = async () => {
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("deep-hydrate-runner", { body: { trigger: "manual", limit: 10, force: true } });
+      const { data, error } = await supabase.functions.invoke("deep-hydrate-runner", {
+        body: { trigger: "manual", limit: 10, concurrency: 1, max_per_pass: 200, force: true },
+      });
       if (error) throw error;
       const r: any = data || {};
-      toast.success(`Deep hydrate: processed ${r.processed ?? 0}, completed ${r.active ?? 0}, failed ${r.failed ?? 0}`);
+      toast.success(`Deep backfill: processed ${r.processed ?? 0}, completed ${r.completed ?? 0}, +${r.new_episodes ?? 0} eps in ${(r.duration_ms/1000).toFixed(1)}s`);
       await loadAll();
     } catch (e: any) {
       toast.error(e?.message || "deep hydration failed");
+    } finally { setBusy(false); }
+  };
+
+  const runIncrementalRefresh = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("incremental-refresh", {
+        body: { trigger: "manual", limit: 10, concurrency: 1, episode_cap: 15, stale_hours: 6 },
+      });
+      if (error) throw error;
+      const r: any = data || {};
+      toast.success(`Incremental: scanned ${r.scanned ?? 0}, refreshed ${r.refreshed ?? 0}, +${r.new_episodes ?? 0} eps in ${(r.duration_ms/1000).toFixed(1)}s`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e?.message || "incremental refresh failed");
     } finally { setBusy(false); }
   };
 
@@ -212,9 +229,14 @@ export default function AdminAutopilotPage() {
             <Button onClick={tickNow} disabled={busy} variant="secondary" className="w-full">
               Run one tick now
             </Button>
-            <Button onClick={runDeepHydration} disabled={busy} variant="outline" className="w-full">
-              Run deep hydration now ({counts.deepPending} pending)
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Button onClick={runDeepHydration} disabled={busy} variant="outline">
+                Deep backfill ({counts.deepPending} pending)
+              </Button>
+              <Button onClick={runIncrementalRefresh} disabled={busy} variant="outline">
+                Incremental refresh
+              </Button>
+            </div>
             {state.last_tick_at && (
               <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-border">
                 <div>Last tick: <span className="font-mono">{new Date(state.last_tick_at).toLocaleString()}</span></div>
