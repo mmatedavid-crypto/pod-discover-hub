@@ -1041,11 +1041,31 @@ export type Database = {
         }
         Returns: boolean
       }
+      reap_ai_stale_locks: {
+        Args: { _older_than_minutes?: number }
+        Returns: number
+      }
+      reap_deep_hydration_stale: {
+        Args: { _older_than_minutes?: number }
+        Returns: number
+      }
       set_deep_hydration_schedule: {
         Args: { _schedule: string }
         Returns: undefined
       }
       set_embed_schedule: { Args: { _schedule: string }; Returns: undefined }
+      set_incremental_refresh_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
+      set_rss_hunter_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
+      set_title_cleanup_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"

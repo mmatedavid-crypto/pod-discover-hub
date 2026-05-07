@@ -77,29 +77,39 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Auto-revert cron: if backlog is small, switch back to every 6 hours.
-    let cron_reverted = false;
+    // Adaptive cadence based on remaining dirty episodes
+    let pending = 0;
+    let recommended = "*/15 * * * *";
+    let applied: string | null = null;
     try {
-      const { count: pending } = await admin
+      const { count } = await admin
         .from("episodes")
         .select("id", { count: "exact", head: true })
         .is("display_title", null);
-      if ((pending ?? 0) < 5000) {
-        await admin.rpc as any; // no-op placeholder; we use raw SQL via PostgREST below
-        const url = `${Deno.env.get("SUPABASE_URL")}/rest/v1/rpc/cron_revert_title_cleanup`;
-        // Best-effort: call a SECURITY DEFINER function if present; ignore failures.
-        await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: "{}",
-        }).catch(() => {});
-        cron_reverted = true;
-      }
+      pending = count ?? 0;
+      if (pending > 5000) recommended = "*/15 * * * *";
+      else if (pending >= 100) recommended = "0 * * * *";
+      else if (pending > 0) recommended = "0 */6 * * *";
+      else recommended = "0 6 * * *";
+      try {
+        await admin.rpc("set_title_cleanup_schedule", { _schedule: recommended });
+        applied = recommended;
+      } catch { /* noop */ }
     } catch (_) { /* ignore */ }
+
+    await admin.from("app_settings").upsert({
+      key: "title_cleanup",
+      value: {
+        last_run: {
+          duration_ms: Date.now() - startedAt,
+          podcasts: { scanned: podScanned, cleaned: podUpdated },
+          episodes: { scanned: epScanned, cleaned: epUpdated },
+          pending, recommended_schedule: recommended, applied_schedule: applied,
+          finished_at: new Date().toISOString(),
+        },
+      } as any,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "key" });
 
     return json({
       ok: true,
@@ -107,7 +117,7 @@ Deno.serve(async (req) => {
       podcasts: { scanned: podScanned, cleaned: podUpdated },
       episodes: { scanned: epScanned, cleaned: epUpdated },
       hit_time_budget: Date.now() - startedAt > TIME_BUDGET_MS,
-      cron_reverted,
+      pending, recommended_schedule: recommended, applied_schedule: applied,
     });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);

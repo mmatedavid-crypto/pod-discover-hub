@@ -90,6 +90,13 @@ Deno.serve(async (req) => {
     const LOCK_MS = 3 * 60 * 1000;
     const startedAt = Date.now();
 
+    // Reap stale in_progress podcasts (orphans from previous runs that crashed mid-flight)
+    let reaped_stale_in_progress = 0;
+    try {
+      const { data: r } = await admin.rpc("reap_deep_hydration_stale", { _older_than_minutes: 30 });
+      reaped_stale_in_progress = Number(r) || 0;
+    } catch { /* noop */ }
+
     const { data: priorRow } = await admin.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle();
     const priorVal: any = (priorRow?.value as any) || {};
     const lockUntil = priorVal.lock_until ? new Date(priorVal.lock_until).getTime() : 0;
@@ -210,6 +217,7 @@ Deno.serve(async (req) => {
       processed, completed, failed, throttled,
       new_episodes: newEpisodes, duplicates,
       remaining_pending: remainingPending ?? 0,
+      reaped_stale_in_progress,
     };
     const { data: prior } = await admin.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle();
     const prev: any = (prior?.value as any) || {};

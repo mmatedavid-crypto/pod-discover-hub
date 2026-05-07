@@ -135,6 +135,38 @@ Deno.serve(async (req) => {
 
     await processPool(candidates || [], concurrency, work);
 
+    // Estimate due count for adaptive scheduling (cap to 4000 for speed)
+    let due_count = 0;
+    try {
+      const { data: sample } = await admin
+        .from("podcasts")
+        .select("last_fetched_at, refresh_interval_minutes, quarantined_until")
+        .in("crawl_state", ["full_backfilled", "incremental_refresh"])
+        .limit(4000);
+      const now = Date.now();
+      due_count = (sample || []).filter((p: any) => {
+        if (p.quarantined_until && new Date(p.quarantined_until).getTime() > now) return false;
+        if (!p.last_fetched_at) return true;
+        const interval = (p.refresh_interval_minutes || 360) * 60_000;
+        return new Date(p.last_fetched_at).getTime() + interval < now;
+      }).length;
+    } catch { /* noop */ }
+
+    // Adaptive cadence policy
+    const errorish = failed > 0 || throttled;
+    let recommended = "*/10 * * * *";
+    if (errorish) recommended = "*/10 * * * *";
+    else if (due_count > 500) recommended = "*/5 * * * *";
+    else if (due_count >= 100) recommended = "*/10 * * * *";
+    else if (due_count > 0) recommended = "*/30 * * * *";
+    else recommended = "0 * * * *";
+
+    let applied: string | null = null;
+    try {
+      await admin.rpc("set_incremental_refresh_schedule", { _schedule: recommended });
+      applied = recommended;
+    } catch { /* noop */ }
+
     const summary = {
       started_at: new Date(startedAt).toISOString(),
       finished_at: new Date().toISOString(),
@@ -142,6 +174,7 @@ Deno.serve(async (req) => {
       trigger, concurrency, limit, stale_hours, episode_cap: episodeCap,
       scanned, refreshed, failed, throttled, new_episodes: newEpisodes, not_modified: notModified,
       tier_based: useTier, candidates_considered: (candidates || []).length,
+      due_count, recommended_schedule: recommended, applied_schedule: applied,
     };
     await admin.from("app_settings").upsert({
       key: "incremental_refresh",
