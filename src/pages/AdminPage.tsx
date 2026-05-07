@@ -697,7 +697,7 @@ Header: apikey: <publishable key>`}</pre>
                   </div>
                   {p.rank_reason?.factors && (
                     <details className="mt-1 text-[11px] text-muted-foreground">
-                      <summary className="cursor-pointer">Why rank {p.podiverzum_rank}?</summary>
+                      <summary className="cursor-pointer">Why live rank {Number(p.podiverzum_rank ?? 0).toFixed(2)}?</summary>
                       <ul className="mt-1 ml-4 list-disc space-y-0.5">
                         {(p.rank_reason.factors as any[]).map((f, i) => (
                           <li key={i}>{f.delta > 0 ? `+${f.delta}` : f.delta} — {f.note}</li>
