@@ -125,7 +125,8 @@ Deno.serve(async (req) => {
         }
         refreshed++;
         newEpisodes += r.new || 0;
-        results.push({ id: p.id, slug: p.slug, new: r.new, duplicates: r.duplicates, items: r.items });
+        if ((r as any).not_modified) notModified++;
+        results.push({ id: p.id, slug: p.slug, new: r.new, duplicates: r.duplicates, items: r.items, not_modified: !!(r as any).not_modified });
       } catch (e: any) {
         failed++;
         results.push({ id: p.id, slug: p.slug, ok: false, error: e?.message });
