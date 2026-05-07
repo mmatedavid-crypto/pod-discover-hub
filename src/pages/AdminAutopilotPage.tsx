@@ -199,6 +199,9 @@ export default function AdminAutopilotPage() {
             <Button onClick={tickNow} disabled={busy} variant="secondary" className="w-full">
               Run one tick now
             </Button>
+            <Button onClick={runDeepHydration} disabled={busy} variant="outline" className="w-full">
+              Run deep hydration now ({counts.deepPending} pending)
+            </Button>
             {state.last_tick_at && (
               <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-border">
                 <div>Last tick: <span className="font-mono">{new Date(state.last_tick_at).toLocaleString()}</span></div>
