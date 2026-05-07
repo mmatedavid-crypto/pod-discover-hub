@@ -39,6 +39,13 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const batch = Math.max(1, Math.min(50, Number(body.batch) || 20));
 
+    // Reap stale processing locks before claiming. Best-effort.
+    let reaped_stale_locks = 0;
+    try {
+      const { data: r } = await admin.rpc("reap_ai_stale_locks", { _older_than_minutes: 5 });
+      reaped_stale_locks = Number(r) || 0;
+    } catch { /* noop */ }
+
     // Controls
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "ai_seo_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
