@@ -46,21 +46,28 @@ function buildContent(p: any, model: string): string {
 }
 
 async function embed(model: string, text: string): Promise<{ vec: number[]; tokens: number }> {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+  // Gemini direct API. We always request 768-dim to match our pgvector column.
+  const googleModel = model.replace(/^google\//, "");
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("missing_gemini_api_key");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:embedContent?key=${apiKey}`;
+  const res = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model, input: text }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: `models/${googleModel}`,
+      content: { parts: [{ text }] },
+      taskType: "SEMANTIC_SIMILARITY",
+      outputDimensionality: 768,
+    }),
   });
   if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) throw new Error(`ai_${res.status}: ${(await res.text()).slice(0, 180)}`);
+  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
   const j = await res.json();
-  const vec = j.data?.[0]?.embedding as number[] | undefined;
+  const vec = j.embedding?.values as number[] | undefined;
   if (!vec || !vec.length) throw new Error("no_embedding");
-  const tokens = Number(j.usage?.prompt_tokens || j.usage?.total_tokens || 0);
+  if (vec.length !== 768) throw new Error(`bad_dim_${vec.length}`);
+  const tokens = Math.ceil(text.length / 4);
   return { vec, tokens };
 }
 
