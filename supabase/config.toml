@@ -66,4 +66,7 @@ verify_jwt = false
 [functions.seo-enrich-admin]
 verify_jwt = false
 
+[functions.rss-self-healing]
+verify_jwt = false
+
 
