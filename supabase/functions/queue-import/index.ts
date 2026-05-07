@@ -41,32 +41,42 @@ Deno.serve(async (req) => {
     const minRank = Math.max(0, Math.min(10, Number(body.min_rank) ?? 4));
     const ids: string[] | undefined = Array.isArray(body.ids) ? body.ids : undefined;
 
+    const nowIso = new Date().toISOString();
     let q = admin.from("discovery_queue").select("*").eq("status", "pending");
     if (ids && ids.length) q = q.in("id", ids);
-    else q = q.gte("candidate_rank", minRank);
+    else q = q.gte("candidate_rank", minRank).or(`next_import_attempt_at.is.null,next_import_attempt_at.lte.${nowIso}`);
     const { data: queue, error: qErr } = await q.order("candidate_rank", { ascending: false }).limit(limit);
     if (qErr) throw qErr;
+
+    const backoffMin = (n: number) => Math.min(1920, Math.round(30 * Math.pow(2, Math.min(n, 6))));
 
     const results: any[] = [];
     let imported = 0, rss_err = 0, skipped = 0, failed = 0;
 
     for (const item of queue || []) {
       const stamp = new Date().toISOString();
-      const setQueue = (patch: any) => admin.from("discovery_queue").update({ ...patch, last_import_attempt_at: stamp }).eq("id", item.id);
+      const attempts = (item.import_attempts || 0) + 1;
+      const setQueueFail = (patch: any) => admin.from("discovery_queue").update({
+        ...patch, last_import_attempt_at: stamp, import_attempts: attempts,
+        next_import_attempt_at: new Date(Date.now() + backoffMin(attempts) * 60_000).toISOString(),
+      }).eq("id", item.id);
+      const setQueueOk = (patch: any) => admin.from("discovery_queue").update({
+        ...patch, last_import_attempt_at: stamp, import_attempts: attempts, next_import_attempt_at: null,
+      }).eq("id", item.id);
 
       const base = { title: item.title, rss_url: item.rss_url, rank: item.candidate_rank };
 
-      await setQueue({ import_status: "importing", import_error: null });
+      await admin.from("discovery_queue").update({ import_status: "importing", import_error: null }).eq("id", item.id);
 
       if (!item.rss_url || !item.title) {
         const reason = !item.rss_url ? "missing rss_url" : "missing title";
-        await setQueue({ import_status: "failed", import_error: reason, status: "rejected" });
+        await setQueueFail({ import_status: "failed", import_error: reason, status: "rejected" });
         failed++; results.push({ ...base, status: "failed", reason }); continue;
       }
 
       const { data: dup } = await admin.from("podcasts").select("id").eq("rss_url", item.rss_url).maybeSingle();
       if (dup) {
-        await setQueue({ import_status: "skipped_duplicate", import_error: "duplicate rss_url", status: "approved", imported_podcast_id: dup.id });
+        await setQueueOk({ import_status: "skipped_duplicate", import_error: "duplicate rss_url", status: "approved", imported_podcast_id: dup.id });
         skipped++; results.push({ ...base, status: "skipped_duplicate", reason: "duplicate rss_url", podcast_id: dup.id }); continue;
       }
 
@@ -93,7 +103,7 @@ Deno.serve(async (req) => {
 
       if (insErr || !inserted) {
         const reason = `insert failed: ${insErr?.message || "unknown"}`;
-        await setQueue({ import_status: "failed", import_error: reason });
+        await setQueueFail({ import_status: "failed", import_error: reason });
         failed++; results.push({ ...base, status: "failed", reason }); continue;
       }
 
@@ -107,14 +117,14 @@ Deno.serve(async (req) => {
 
       if (fetchErr || !fetchRes?.ok) {
         const reason = `RSS fetch failed: ${fetchErr || fetchRes?.error || "unknown"}`;
-        await setQueue({
+        await setQueueOk({
           import_status: "imported_with_rss_error", import_error: reason,
           status: "approved", imported_podcast_id: inserted.id, imported_at: stamp,
         });
         rss_err++; results.push({ ...base, status: "imported_with_rss_error", reason, podcast_id: inserted.id }); continue;
       }
 
-      await setQueue({
+      await setQueueOk({
         import_status: "imported", import_error: null,
         status: "approved", imported_podcast_id: inserted.id, imported_at: stamp,
       });
