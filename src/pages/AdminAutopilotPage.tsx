@@ -30,7 +30,7 @@ type State = {
 const DEFAULT_STATE: State = {
   state: "stopped",
   source: "auto",
-  batch: 50,
+  batch: 10,
   topics: ["productivity", "formula 1", "longevity", "ai healthcare", "startups", "personal finance", "history", "science"],
   consecutive_errors: 0,
   auto_stop_at_errors: 5,
