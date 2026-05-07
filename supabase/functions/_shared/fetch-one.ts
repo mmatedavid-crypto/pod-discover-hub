@@ -56,30 +56,49 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     return { ok: false, error: msg, new: 0, duplicates: 0, items: 0 };
   }
 
-  let newCount = 0, duplicates = 0;
-  for (const it of items.slice(0, episodeCap)) {
-    if (!it.title) continue;
+  const sliced = items.slice(0, episodeCap).filter((it) => it.title);
+
+  // Build candidate rows with deterministic slugs (same as before).
+  const candidates = sliced.map((it) => {
     const slugBase = slugify(it.title);
     const slugSuffix = it.guid
       ? it.guid.replace(/[^a-z0-9]/gi, "").slice(-8).toLowerCase() || "x"
       : (it.published ? new Date(it.published).getTime().toString(36) : Math.random().toString(36).slice(2, 8));
     const slug = `${slugBase}-${slugSuffix}`;
+    return { it, slug };
+  });
 
-    let isDup = false;
-    if (it.guid) {
-      const { data } = await supabase.from("episodes").select("id").eq("podcast_id", podcast.id).eq("guid", it.guid).maybeSingle();
-      if (data) isDup = true;
-    }
-    if (!isDup && it.link) {
-      const { data } = await supabase.from("episodes").select("id").eq("podcast_id", podcast.id).eq("episode_url", it.link).maybeSingle();
-      if (data) isDup = true;
-    }
-    if (!isDup && it.published) {
-      const { data } = await supabase.from("episodes").select("id").eq("podcast_id", podcast.id).eq("title", it.title).eq("published_at", it.published).maybeSingle();
-      if (data) isDup = true;
-    }
+  // Bulk dedupe: pull all existing rows that could match by guid OR episode_url OR (title+published_at) in ONE query each.
+  // Uses composite indexes on (podcast_id, guid), (podcast_id, slug), (podcast_id, published_at).
+  const guids = Array.from(new Set(candidates.map((c) => c.it.guid).filter(Boolean) as string[]));
+  const links = Array.from(new Set(candidates.map((c) => c.it.link).filter(Boolean) as string[]));
+  const pubDates = Array.from(new Set(candidates.map((c) => c.it.published).filter(Boolean) as string[]));
 
-    const row = {
+  const dedupQueries: Promise<any>[] = [];
+  if (guids.length) dedupQueries.push(supabase.from("episodes").select("guid").eq("podcast_id", podcast.id).in("guid", guids));
+  if (links.length) dedupQueries.push(supabase.from("episodes").select("episode_url").eq("podcast_id", podcast.id).in("episode_url", links));
+  if (pubDates.length) dedupQueries.push(supabase.from("episodes").select("title, published_at").eq("podcast_id", podcast.id).in("published_at", pubDates));
+
+  const dedupResults = await Promise.all(dedupQueries);
+  const existingGuids = new Set<string>();
+  const existingLinks = new Set<string>();
+  const existingTitlePub = new Set<string>();
+  let qi = 0;
+  if (guids.length) { (dedupResults[qi++]?.data || []).forEach((r: any) => r.guid && existingGuids.add(r.guid)); }
+  if (links.length) { (dedupResults[qi++]?.data || []).forEach((r: any) => r.episode_url && existingLinks.add(r.episode_url)); }
+  if (pubDates.length) { (dedupResults[qi++]?.data || []).forEach((r: any) => existingTitlePub.add(`${r.title}|${r.published_at}`)); }
+
+  let newCount = 0, duplicates = 0;
+  const rowsToUpsert: any[] = [];
+  for (const { it, slug } of candidates) {
+    const isDup =
+      (it.guid && existingGuids.has(it.guid)) ||
+      (it.link && existingLinks.has(it.link)) ||
+      (it.published && existingTitlePub.has(`${it.title}|${it.published}`));
+
+    if (isDup) duplicates++; else newCount++;
+
+    rowsToUpsert.push({
       podcast_id: podcast.id,
       title: it.title,
       slug,
@@ -89,10 +108,20 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
       episode_url: it.link || null,
       image_url: it.image || null,
       guid: it.guid || null,
-    };
-    const { error: upErr } = await supabase.from("episodes").upsert(row, { onConflict: "podcast_id,slug" });
-    if (!upErr) {
-      if (isDup) duplicates++; else newCount++;
+    });
+  }
+
+  if (rowsToUpsert.length) {
+    // One bulk upsert. onConflict (podcast_id, slug) preserves the existing dedupe semantics for replays.
+    const { error: upErr } = await supabase.from("episodes").upsert(rowsToUpsert, { onConflict: "podcast_id,slug" });
+    if (upErr) {
+      // If bulk upsert fails, surface as a fetch error so the caller can mark it.
+      await supabase.from("podcasts").update({
+        rss_status: "failed",
+        last_fetched_at: new Date().toISOString(),
+        last_fetch_error: `upsert: ${upErr.message}`,
+      }).eq("id", podcast.id);
+      return { ok: false, error: upErr.message, new: 0, duplicates: 0, items: items.length };
     }
   }
 
