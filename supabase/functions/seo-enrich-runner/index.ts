@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
       await admin.from("app_settings").upsert({ key: "ai_seo_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, claimed: jobs.length, processed, succeeded, failed, spend_usd: spend });
+    return json({ ok: true, claimed: jobs.length, processed, succeeded, failed, spend_usd: spend, reaped_stale_locks });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
