@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
       .select("id, title, display_title, description, category, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, crawl_state, seo_title, seo_description, rss_status")
       .in("rank_label", allowedTiers)
       .in("rss_status", ["active", "not_checked"])
+      .or("seo_title.is.null,seo_description.is.null")
       .order("podiverzum_rank", { ascending: false })
       .limit(maxPods);
     if (requireBackfill) pq = pq.not("full_backfill_completed_at", "is", null);
