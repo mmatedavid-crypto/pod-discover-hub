@@ -122,24 +122,44 @@ Deno.serve(async (req) => {
     }
 
     // Step 2: pick unembedded S/A/B/C podcasts first (highest tier first).
-    const wantBatch = batch * 4; // generous superset to survive health filtering
+    // Two-pass to avoid SQL LIMIT being eaten by already-embedded rows:
+    //   (a) pull lightweight id+tier+health list ordered by tier+rank,
+    //   (b) filter out embedded + bad_health in JS,
+    //   (c) fetch full rows for the chosen ids.
+    const wantBatch = batch * 4;
     let candidatesRaw: any[] = [];
     {
-      const { data, error: candErr } = await admin
+      // Pull ID listing — large enough to always exceed embeddedIds.size + bad_health.
+      const idScan = Math.max(embeddedIds.size + wantBatch + 100, 1500);
+      const { data: idRows, error: idErr } = await admin
         .from("podcasts")
-        .select("id,title,display_title,description,seo_description,category,rank_label,shadow_rank_components")
+        .select("id,rank_label,shadow_rank_components")
         .in("rank_label", tiers)
-        .order("rank_label", { ascending: true }) // S < A < B < C
+        .order("rank_label", { ascending: true })
         .order("podiverzum_rank", { ascending: false })
-        .limit(Math.max(wantBatch * 4, 200)); // pull enough to skip already-embedded
-      if (candErr) throw candErr;
-      candidatesRaw = (data || []).filter((p: any) => !embeddedIds.has(p.id));
+        .limit(idScan);
+      if (idErr) throw idErr;
+      const chosenIds: string[] = [];
+      for (const r of (idRows || [])) {
+        if (embeddedIds.has(r.id)) continue;
+        const hs = (r.shadow_rank_components as any)?.health_state;
+        if (hs && BAD_HEALTH.has(hs)) continue;
+        chosenIds.push(r.id);
+        if (chosenIds.length >= wantBatch) break;
+      }
+      if (chosenIds.length > 0) {
+        const { data: full, error: fErr } = await admin
+          .from("podcasts")
+          .select("id,title,display_title,description,seo_description,category,rank_label,shadow_rank_components")
+          .in("id", chosenIds);
+        if (fErr) throw fErr;
+        // preserve order
+        const byId = new Map((full || []).map((p: any) => [p.id, p]));
+        candidatesRaw = chosenIds.map(id => byId.get(id)).filter(Boolean);
+      }
     }
 
-    let candidates = candidatesRaw.filter((p: any) => {
-      const hs = (p.shadow_rank_components as any)?.health_state;
-      return !hs || !BAD_HEALTH.has(hs);
-    }).slice(0, wantBatch);
+    let candidates = candidatesRaw.slice(0, wantBatch);
 
     // Step 3: top up with podcasts that already have an embedding row but might be stale.
     // We only do this if the unembedded queue is small.
