@@ -217,6 +217,7 @@ Deno.serve(async (req) => {
       processed, completed, failed, throttled,
       new_episodes: newEpisodes, duplicates,
       remaining_pending: remainingPending ?? 0,
+      reaped_stale_in_progress,
     };
     const { data: prior } = await admin.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle();
     const prev: any = (prior?.value as any) || {};
