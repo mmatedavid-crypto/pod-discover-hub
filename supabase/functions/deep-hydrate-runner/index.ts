@@ -103,24 +103,32 @@ Deno.serve(async (req) => {
     });
 
     // Rank-priority candidates that are NOT yet fully backfilled.
+    // Only S/A/B/C tiers eligible; D/E and unhealthy states excluded.
     const { data: candidates, error: cErr } = await admin
       .from("podcasts")
-      .select("id, title, slug, rss_url, image_url, podiverzum_rank, rss_status, deep_hydration_status, deep_hydration_target, last_deep_hydrated_at, hydrated_episode_count, full_backfill_completed_at")
-      .gte("podiverzum_rank", 4)
+      .select("id, title, slug, rss_url, image_url, podiverzum_rank, rank_label, shadow_rank_components, rss_status, deep_hydration_status, deep_hydration_target, last_deep_hydrated_at, hydrated_episode_count, full_backfill_completed_at")
+      .in("rank_label", ["S", "A", "B", "C"])
       .in("rss_status", ["active", "not_checked"])
       .is("full_backfill_completed_at", null)
       .order("podiverzum_rank", { ascending: false })
       .order("last_deep_hydrated_at", { ascending: true, nullsFirst: true })
-      .limit(limit);
+      .limit(limit * 2);
 
     if (cErr) throw cErr;
+
+    // Filter out frozen health states
+    const FROZEN = new Set(["rss_url_not_found", "needs_manual_rss_review", "confirmed_dead", "quarantined_spam"]);
+    const eligible = (candidates || []).filter((p: any) => {
+      const hs = (p.shadow_rank_components as any)?.health_state;
+      return !hs || !FROZEN.has(hs);
+    }).slice(0, limit);
 
     const results: any[] = [];
     let processed = 0, completed = 0, failed = 0, newEpisodes = 0, duplicates = 0, throttled = false;
 
     const work = async (p: any) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS) return;
-      const target = p.deep_hydration_target || targetForRank(p.podiverzum_rank || 0);
+      const target = p.deep_hydration_target || targetForTier(p.rank_label, Number(p.podiverzum_rank) || 0);
 
       await admin.from("podcasts").update({
         deep_hydration_status: "in_progress",
