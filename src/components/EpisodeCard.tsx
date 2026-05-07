@@ -6,6 +6,7 @@ import { highlightParts, snippet } from "@/lib/text";
 export type EpisodeLite = {
   id: string;
   title: string;
+  display_title?: string | null;
   slug: string;
   summary?: string | null;
   description?: string | null;
@@ -22,6 +23,7 @@ export type EpisodeLite = {
   podcasts: {
     slug: string;
     title: string;
+    display_title?: string | null;
     image_url?: string | null;
     category?: string | null;
     podiverzum_rank?: number | null;
@@ -44,6 +46,8 @@ export function EpisodeCard({
   e, showTopics = false, terms, showEntities = false,
 }: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean }) {
   const p = e.podcasts;
+  const epTitle = e.display_title || e.title;
+  const podTitle = p.display_title || p.title;
   const desc = snippet(e.summary || e.description, 220, terms);
   const allEnts = showEntities
     ? [
@@ -58,15 +62,15 @@ export function EpisodeCard({
     <article className="group flex gap-3 sm:gap-4 p-4 sm:p-5 hover:bg-secondary/40 transition-colors">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-16 sm:w-20">
         <div className="overflow-hidden rounded-md ring-1 ring-border/70 shadow-sm">
-          <PodcastCover title={p.title} src={p.image_url} size="sm" />
+          <PodcastCover title={podTitle} src={p.image_url} size="sm" />
         </div>
       </Link>
       <div className="min-w-0 flex-1">
         <Link to={`/podcast/${p.slug}/${e.slug}`} className="font-semibold leading-snug line-clamp-2 group-hover:underline tracking-tight">
-          <HL text={e.title} terms={terms} />
+          <HL text={epTitle} terms={terms} />
         </Link>
         <div className="text-xs text-muted-foreground mt-1.5 flex flex-wrap gap-x-2 gap-y-1 items-center">
-          <Link to={`/podcast/${p.slug}`} className="hover:text-foreground font-medium">{p.title}</Link>
+          <Link to={`/podcast/${p.slug}`} className="hover:text-foreground font-medium">{podTitle}</Link>
           {p.category && <span className="opacity-60">·</span>}
           {p.category && <span>{p.category}</span>}
           {e.published_at && <><span className="opacity-60">·</span><span>{new Date(e.published_at).toLocaleDateString()}</span></>}
