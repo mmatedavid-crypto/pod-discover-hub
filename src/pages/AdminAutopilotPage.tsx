@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Play, Pause, Square, RefreshCw, Activity } from "lucide-react";
+import { Play, Pause, Square, RefreshCw, Activity, AlertTriangle } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
