@@ -53,7 +53,7 @@ export default function CategoryDetail() {
       });
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
+        .select(id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .eq("category", c.name)
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
@@ -74,7 +74,7 @@ export default function CategoryDetail() {
       if (promotedIds.length) {
         const { data: eps } = await supabase
           .from("episodes")
-          .select("id,title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,image_url,category,podiverzum_rank)")
+          .select(id,title,display_title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank)")
           .in("podcast_id", promotedIds)
           .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })

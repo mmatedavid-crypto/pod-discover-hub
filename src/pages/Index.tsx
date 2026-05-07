@@ -39,7 +39,7 @@ const Index = () => {
 
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank")
+        .select(id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
         .limit(500);
@@ -52,7 +52,7 @@ const Index = () => {
       if (eligibleIds.length) {
         const { data: eps } = await supabase
           .from("episodes")
-          .select("id,title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status,featured)")
+          .select(id,title,display_title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status,featured)")
           .in("podcast_id", eligibleIds)
           .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
