@@ -188,13 +188,22 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     });
 
+    // Diagnostics: pull eligibility counts via SQL helper (skipped_completed_before_limit
+    // = already_embedded_current_model since we exclude them at SQL level).
+    const { data: stats } = await admin.rpc("embed_candidate_stats", { _model: model, _tiers: tiers });
+    const s = (stats as any) || {};
+    const eligibleTotal = Number(s.eligible_total || 0);
+    const alreadyEmbedded = Number(s.already_embedded_current_model || 0);
+    const missingEmbedding = Number(s.missing_embedding || 0);
+    const skippedBadHealth = Number(s.skipped_bad_health || 0);
+
     const { count: totalCandidates } = await admin
       .from("podcasts").select("id", { count: "exact", head: true })
       .in("rank_label", tiers);
     const { count: embeddedTotal } = await admin
       .from("podcast_embeddings").select("podcast_id", { count: "exact", head: true })
       .eq("model", model);
-    const pending = Math.max(0, (totalCandidates || 0) - (embeddedTotal || 0));
+    const pending = missingEmbedding;
     const durationMs = Date.now() - startedAt;
     const ratePerMin = embedded > 0 ? embedded / Math.max(1, durationMs / 60_000) : 0;
     const etaMinutes = ratePerMin > 0 ? Math.round(pending / ratePerMin) : null;
