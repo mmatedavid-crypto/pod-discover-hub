@@ -108,6 +108,7 @@ export default function AdminHubPage() {
         { to: "/admin/discovery", title: "Discovery", desc: "Find new podcasts and replacement feeds.", icon: SearchIcon },
         { to: "/admin/podcasts", title: "Podcasts & RSS", desc: "Manage podcasts, bulk refresh, deep hydration.", icon: Database, badge: counts.podcasts },
         { to: "/growth-status", title: "Growth Status", desc: "Public status of recent growth runs.", icon: Activity },
+        { to: "/admin/ai-enrichment", title: "AI Enrichment", desc: "SEO meta + ai_summary. Budget, scope, pause/resume.", icon: Sparkles },
       ],
     },
     {
