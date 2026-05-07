@@ -40,7 +40,14 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE);
     const token = authHeader.slice(7);
-    let isAdmin = token === SERVICE;
+    let isAdmin = false;
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload.role === "service_role") isAdmin = true;
+      }
+    } catch { /* not a jwt */ }
     if (!isAdmin) {
       const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
       const { data: userData, error: userErr } = await userClient.auth.getUser();
