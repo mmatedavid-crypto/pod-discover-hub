@@ -41,6 +41,9 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = req.method === "POST" ? await req.json() : {}; } catch { /* */ }
     const foundation: boolean = !!body.foundation;
+    // Lightweight processor: cap episodes per podcast hard at 5 (was 30–75).
+    // Deep hydration is deferred to deep-hydrate-runner via deep_hydration_status='not_started'.
+    const LIGHT_EPISODE_CAP = Math.max(1, Math.min(10, Number(body.light_episode_cap) || 5));
     const batchSize = Math.max(1, Math.min(foundation ? 250 : 200, Number(body.batch) || (foundation ? 250 : 100)));
     const importId: string | undefined = body.import_id;
 
