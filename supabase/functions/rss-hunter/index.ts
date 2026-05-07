@@ -11,6 +11,10 @@ const cors = {
 
 const RECHECK_DAYS_NOT_FOUND = 7;
 const REVERIFY_DAYS_RECOVERED = 7;
+// Attempt-weighted backoff days: base * 2^min(attempts,4)
+function huntBackoffDays(baseDays: number, attempts: number): number {
+  return baseDays * Math.pow(2, Math.min(attempts, 4));
+}
 
 function norm(s: string) {
   return (s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
