@@ -124,35 +124,52 @@ Deno.serve(async (req) => {
   const { data: runRow } = await supabase.from("growth_runs").insert({ started_at: startedAt, trigger, stats: {} }).select("id").single();
   const runId = runRow?.id;
 
+  // Total wall-clock budget for this invocation. Edge runtime cap ~150s; we stop early.
+  const RUN_BUDGET_MS = 110_000;
+  const runStartedMs = Date.now();
+  const remaining = () => RUN_BUDGET_MS - (Date.now() - runStartedMs);
+
+  // Run status — written by the finally block so we never orphan a row.
+  let runStatus: "completed" | "partial" | "failed" | "timed_out_prevented" | "skipped" = "completed";
+  let runError: string | null = null;
+  let runOk = true;
+  let responsePayload: any = null;
+  let responseStatus = 200;
+
   try {
     // Load settings
     const { data: settingsRow } = await supabase.from("app_settings").select("value").eq("key", "growth").maybeSingle();
     const settings = settingsRow?.value || {};
     if (!force && !settings.autonomous_growth_enabled) {
-      const out = { ok: true, skipped: true, reason: "autonomous_growth disabled", stats };
-      if (runId) await supabase.from("growth_runs").update({ ok: true, finished_at: new Date().toISOString(), stats: out }).eq("id", runId);
-      return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      runStatus = "skipped";
+      stats.reason = "autonomous_growth disabled";
+      responsePayload = { ok: true, skipped: true, reason: "autonomous_growth disabled", stats };
+      return new Response(JSON.stringify(responsePayload), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // 1) Refresh active + failed feeds (time-budgeted)
-    const { data: pods } = await supabase.from("podcasts").select("*")
-      .not("rss_url", "is", null)
-      .in("rss_status", ["active", "not_checked", "failed"])
-      .order("last_fetched_at", { ascending: true, nullsFirst: true })
-      .limit(40);
-    const startTs = Date.now();
-    const TIME_BUDGET = 90_000;
-    for (const p of pods || []) {
-      if (Date.now() - startTs > TIME_BUDGET) break;
-      try {
-        const r = await fetchOne(supabase, p);
-        if (r.ok) { stats.refreshed++; stats.new_episodes += r.new || 0; }
-        else stats.refresh_failed++;
-      } catch { stats.refresh_failed++; }
+    const REFRESH_BUDGET_MS = 60_000;
+    if (remaining() > 20_000) {
+      const { data: pods } = await supabase.from("podcasts").select("*")
+        .not("rss_url", "is", null)
+        .in("rss_status", ["active", "not_checked", "failed"])
+        .order("last_fetched_at", { ascending: true, nullsFirst: true })
+        .limit(40);
+      const startTs = Date.now();
+      const stageBudget = Math.min(REFRESH_BUDGET_MS, remaining() - 15_000);
+      for (const p of pods || []) {
+        if (Date.now() - startTs > stageBudget) { stats.refresh_truncated = true; break; }
+        try {
+          const r = await fetchOne(supabase, p);
+          if (r.ok) { stats.refreshed++; stats.new_episodes += r.new || 0; }
+          else stats.refresh_failed++;
+        } catch { stats.refresh_failed++; }
+      }
+    } else {
+      stats.refresh_skipped = "low_time_budget";
     }
 
     // 2) Discovery (Podcast Index) — STRICT LIMITS, no full-index crawling.
-    // Hard caps regardless of settings: 3 categories, 50 candidates, 5 auto-adds per run.
     const apiKey = Deno.env.get("PODCAST_INDEX_API_KEY");
     const apiSecret = Deno.env.get("PODCAST_INDEX_API_SECRET");
     const cats: string[] = settings.discovery_categories || [];
@@ -164,8 +181,10 @@ Deno.serve(async (req) => {
     const minRank = settings.min_rank_for_auto_add || 8;
     const piErrors: any[] = [];
 
-    if (apiKey && apiSecret && cats.length) {
-      // Rotate: at most HARD_MAX_CATS_PER_RUN categories per run
+    if (remaining() < 15_000) {
+      stats.discovery_skipped = "low_time_budget";
+      runStatus = "partial";
+    } else if (apiKey && apiSecret && cats.length) {
       const perRun = Math.max(1, Math.min(cats.length, HARD_MAX_CATS_PER_RUN, settings.categories_per_run || HARD_MAX_CATS_PER_RUN));
       const startIdx = Math.max(0, Number(settings.category_rotation_index || 0)) % cats.length;
       const rotated: string[] = [];
@@ -174,12 +193,12 @@ Deno.serve(async (req) => {
       stats.categories_processed = rotated;
       stats.api_call_caps = { max_categories: HARD_MAX_CATS_PER_RUN, max_candidates: HARD_MAX_DISCOVERY, max_auto_add: HARD_MAX_AUTO_ADD };
 
-      // Targeted keyword search only — single page per category, no pagination.
       const perCat = Math.max(5, Math.min(25, Math.floor(maxDiscovery / rotated.length)));
       const seen = new Set<string>();
       const candidates: any[] = [];
       for (const cat of rotated) {
         if (candidates.length >= maxDiscovery) break;
+        if (remaining() < 10_000) { stats.discovery_truncated = true; break; }
         const feeds = await piSearch(cat, apiKey, apiSecret, perCat, piErrors);
         for (const f of feeds) {
           if (!f.url || seen.has(f.url)) continue;
@@ -194,17 +213,16 @@ Deno.serve(async (req) => {
         stats.podcast_index_rate_limited = piErrors.some((e) => e.rate_limited);
       }
 
-      // Filter out already-imported feeds
       const urls = candidates.map((c) => c.url);
       const { data: existing } = await supabase.from("podcasts").select("rss_url").in("rss_url", urls);
       const existingSet = new Set((existing || []).map((r: any) => r.rss_url));
 
       let autoAddedCount = 0;
       for (const c of candidates) {
+        if (remaining() < 8_000) { stats.auto_add_truncated = true; break; }
         if (existingSet.has(c.url)) continue;
         const { score, reasons } = scoreCandidate(c, settings);
 
-        // Auto-add gate: rank>=min, English, fresh, has RSS
         const last = c.newestItemPublishTime ? c.newestItemPublishTime * 1000 : 0;
         const ageDays = last ? (Date.now() - last) / 86400000 : 9999;
         const lang = (c.language || "").toLowerCase();
@@ -215,7 +233,6 @@ Deno.serve(async (req) => {
           && !!c.url;
 
         if (ok && autoAddedCount < maxAutoAdd) {
-          // Insert podcast
           const slugBase = slugify(c.title || "podcast");
           let slug = slugBase;
           let attempt = 0;
@@ -225,6 +242,9 @@ Deno.serve(async (req) => {
             attempt++;
             slug = `${slugBase}-${attempt}`;
           }
+          // NOTE: New rows get an initial seed rank only. Live Formula C v3 ranking
+          // is computed by the dedicated pipeline elsewhere; we do NOT call the
+          // legacy recompute-ranks function from here.
           const { data: inserted, error: insErr } = await supabase.from("podcasts").insert({
             title: c.title,
             slug,
@@ -238,17 +258,15 @@ Deno.serve(async (req) => {
             rss_status: "not_checked",
             podiverzum_rank: score,
             rank_label: score >= 8 ? "A" : score >= 6 ? "B" : "C",
-            rank_reason: { factors: reasons, source: "discovery" },
+            rank_reason: { factors: reasons, source: "discovery_seed" },
             rank_updated_at: new Date().toISOString(),
           }).select("id").maybeSingle();
           if (!insErr && inserted) {
             autoAddedCount++;
             stats.auto_added++;
-            // Initial fetch
             try { await fetchOne(supabase, { ...c, id: inserted.id, rss_url: c.url, image_url: c.image || c.artwork }); } catch { /* */ }
           }
         } else if (score >= 4 && score < minRank) {
-          // Queue for approval
           await supabase.from("discovery_queue").upsert({
             pi_id: c.id,
             title: c.title,
@@ -272,7 +290,6 @@ Deno.serve(async (req) => {
           stats.skipped_low_rank++;
         }
       }
-      // Persist rotation index for next run
       try {
         await supabase.from("app_settings").update({
           value: { ...settings, category_rotation_index: nextIdx },
@@ -283,29 +300,41 @@ Deno.serve(async (req) => {
       stats.discovery_skipped = !apiKey || !apiSecret ? "missing_credentials" : "no_categories";
     }
 
-    // 3) Recompute ranks via the existing function (call internally)
-    try {
-      const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/recompute-ranks`;
-      const r = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({ episodes: true }),
-      });
-      const j = await r.json().catch(() => ({}));
-      stats.ranks_recomputed = j.podcasts || 0;
-      stats.episode_ranks_recomputed = j.episodes || 0;
-    } catch (e) {
-      stats.rank_recompute_error = e instanceof Error ? e.message : "error";
+    // 3) Rank recompute is INTENTIONALLY DISABLED here.
+    // The legacy recompute-ranks function uses an integer 1-10 scorer with
+    // labels Elite/Excellent/Strong/... and would overwrite the live
+    // Formula C v3 (S/A/B/C) ranking. Live ranking is maintained by the
+    // dedicated pipeline. Do not re-add a recompute-ranks call here.
+    stats.rank_recompute = "skipped_legacy_scorer_incompatible_with_formula_c_v3";
+
+    if (stats.refresh_truncated || stats.discovery_truncated || stats.auto_add_truncated || stats.discovery_skipped === "low_time_budget" || stats.refresh_skipped === "low_time_budget") {
+      runStatus = "partial";
     }
 
-    if (runId) await supabase.from("growth_runs").update({ ok: true, finished_at: new Date().toISOString(), stats }).eq("id", runId);
-    return new Response(JSON.stringify({ ok: true, stats }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (remaining() < 5_000) {
+      runStatus = "timed_out_prevented";
+    }
+
+    responsePayload = { ok: true, status: runStatus, stats, elapsed_ms: Date.now() - runStartedMs };
+    return new Response(JSON.stringify(responsePayload), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "error";
-    if (runId) await supabase.from("growth_runs").update({ ok: false, finished_at: new Date().toISOString(), stats, error: msg }).eq("id", runId);
-    return new Response(JSON.stringify({ error: msg, stats }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    runOk = false;
+    runStatus = "failed";
+    runError = e instanceof Error ? e.message : "error";
+    responsePayload = { error: runError, stats, status: runStatus };
+    responseStatus = 500;
+    return new Response(JSON.stringify(responsePayload), { status: responseStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } finally {
+    // ALWAYS write finished_at — prevents orphan rows being reaped as timed_out.
+    if (runId) {
+      try {
+        await supabase.from("growth_runs").update({
+          ok: runOk && runStatus !== "failed",
+          finished_at: new Date().toISOString(),
+          stats: { ...stats, status: runStatus, elapsed_ms: Date.now() - runStartedMs },
+          error: runError,
+        }).eq("id", runId);
+      } catch { /* swallow — response already sent */ }
+    }
   }
 });
