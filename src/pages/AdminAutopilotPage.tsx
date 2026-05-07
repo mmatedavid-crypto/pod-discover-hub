@@ -52,7 +52,7 @@ export default function AdminAutopilotPage() {
   const [allowed, setAllowed] = useState(false);
   const [state, setState] = useState<State>(DEFAULT_STATE);
   const [topicsInput, setTopicsInput] = useState("");
-  const [counts, setCounts] = useState({ podcasts: 0, episodes: 0, unprocessed: 0, queuePending: 0 });
+  const [counts, setCounts] = useState({ podcasts: 0, episodes: 0, unprocessed: 0, queuePending: 0, deepPending: 0 });
   const [latestImport, setLatestImport] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<number | null>(null);
