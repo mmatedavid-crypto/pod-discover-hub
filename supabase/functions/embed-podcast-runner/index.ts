@@ -226,12 +226,51 @@ Deno.serve(async (req) => {
       .from("podcast_embeddings").select("podcast_id", { count: "exact", head: true })
       .eq("model", model);
     const pending = Math.max(0, (totalCandidates || 0) - (embeddedTotal || 0));
-    const ratePerMin = embedded > 0 ? embedded / Math.max(1, (Date.now() - startedAt) / 60_000) : 0;
+    const durationMs = Date.now() - startedAt;
+    const ratePerMin = embedded > 0 ? embedded / Math.max(1, durationMs / 60_000) : 0;
     const etaMinutes = ratePerMin > 0 ? Math.round(pending / ratePerMin) : null;
+
+    // Adaptive cadence policy
+    let recommendedSchedule: string;
+    if (pending > 500) recommendedSchedule = "* * * * *";
+    else if (pending >= 100) recommendedSchedule = "*/2 * * * *";
+    else if (pending > 0) recommendedSchedule = "*/5 * * * *";
+    else recommendedSchedule = "*/15 * * * *";
+
+    // Guardrails: back off if runs are slow or errored
+    if (durationMs > 40_000 || errors > 0) {
+      const stepDown: Record<string, string> = {
+        "* * * * *": "*/2 * * * *",
+        "*/2 * * * *": "*/5 * * * *",
+        "*/5 * * * *": "*/15 * * * *",
+      };
+      recommendedSchedule = stepDown[recommendedSchedule] || recommendedSchedule;
+    }
+
+    // Rolling avg duration + current schedule from previous progress
+    const { data: prevProg } = await admin.from("app_settings").select("value").eq("key", "embed_progress").maybeSingle();
+    const prev = (prevProg?.value as any) || {};
+    const prevAvg = Number(prev.avg_duration_ms || prev.duration_ms || durationMs);
+    const avgDurationMs = Math.round(prevAvg * 0.7 + durationMs * 0.3);
+    const currentSchedule = String(prev.cron_schedule || "* * * * *");
+    const cronIntervalMin = currentSchedule === "* * * * *" ? 1
+      : currentSchedule === "*/2 * * * *" ? 2
+      : currentSchedule === "*/5 * * * *" ? 5
+      : currentSchedule === "*/15 * * * *" ? 15
+      : currentSchedule === "*/30 * * * *" ? 30 : 1;
+    const effectivePerHour = embedded > 0 ? Math.round((embedded / cronIntervalMin) * 60) : 0;
+
+    // Apply schedule change if recommendation differs from current
+    let scheduleApplied = currentSchedule;
+    if (recommendedSchedule !== currentSchedule) {
+      const { error: schedErr } = await admin.rpc("set_embed_schedule", { _schedule: recommendedSchedule });
+      if (!schedErr) scheduleApplied = recommendedSchedule;
+    }
 
     const progress = {
       last_run_at: new Date().toISOString(),
-      duration_ms: Date.now() - startedAt,
+      duration_ms: durationMs,
+      avg_duration_ms: avgDurationMs,
       total_sab_candidates: totalCandidates || 0,
       embedded_total: embeddedTotal || 0,
       pending,
@@ -241,6 +280,9 @@ Deno.serve(async (req) => {
       error_samples: errorSamples,
       embed_spend_usd_today: embedSpend,
       eta_minutes: etaMinutes,
+      effective_per_hour: effectivePerHour,
+      cron_schedule: scheduleApplied,
+      recommended_schedule: recommendedSchedule,
       model,
     };
     await admin.from("app_settings").upsert({
