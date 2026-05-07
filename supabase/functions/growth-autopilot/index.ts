@@ -26,7 +26,7 @@ const corsHeaders = {
 const DEFAULT_STATE = {
   state: "stopped",
   source: "auto",
-  batch: 10,
+  batch: 50,
   topics: ["productivity", "formula 1", "longevity", "ai healthcare", "startups", "personal finance", "history", "science"],
   consecutive_errors: 0,
   auto_stop_at_errors: 5,
