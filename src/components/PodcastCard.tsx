@@ -6,6 +6,7 @@ import { snippet } from "@/lib/text";
 export type PodcastLite = {
   id: string;
   title: string;
+  display_title?: string | null;
   slug: string;
   summary?: string | null;
   description?: string | null;
@@ -19,14 +20,15 @@ export type PodcastLite = {
 
 export function PodcastCard({ p }: { p: PodcastLite }) {
   const desc = snippet(p.summary || p.description, 160);
+  const title = p.display_title || p.title;
   return (
     <article className="group flex gap-3 p-3 sm:p-4 rounded-xl border border-border/70 bg-card/70 card-lift hover:border-primary/40">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-20">
-        <PodcastCover title={p.title} src={p.image_url} />
+        <PodcastCover title={title} src={p.image_url} />
       </Link>
       <div className="min-w-0 flex-1">
         <Link to={`/podcast/${p.slug}`} className="font-medium leading-snug line-clamp-2 group-hover:underline">
-          {p.title}
+          {title}
         </Link>
         {p.category && <div className="text-xs text-muted-foreground mt-0.5">{p.category}</div>}
         {desc && <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{desc}</p>}

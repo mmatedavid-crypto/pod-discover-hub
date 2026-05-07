@@ -41,7 +41,7 @@ export default function PodcastDetail() {
         });
         const { data: e } = await supabase
           .from("episodes")
-          .select("id,title,slug,published_at,summary,description,audio_url,episode_rank")
+          .select(id,title,display_title,slug,published_at,summary,description,audio_url,episode_rank")
           .eq("podcast_id", data.id)
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(60);
@@ -57,7 +57,7 @@ export default function PodcastDetail() {
       <div className="container mx-auto py-10">
         <div className="flex flex-col sm:flex-row gap-6">
           <div className="w-40 shrink-0">
-            <PodcastCover title={p.title} src={p.image_url} size="lg" />
+            <PodcastCover title={p.display_title || p.title} src={p.image_url} size="lg" />
           </div>
           <div className="min-w-0">
             {p.category && (
@@ -65,7 +65,7 @@ export default function PodcastDetail() {
                 {p.category}
               </Link>
             )}
-            <h1 className="text-3xl font-semibold mt-1">{p.title}</h1>
+            <h1 className="text-3xl font-semibold mt-1">{p.display_title || p.title}</h1>
             {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{stripHtml(p.summary)}</p>}
             {p.description && stripHtml(p.description) !== stripHtml(p.summary) && (
               <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{stripHtml(p.description)}</p>
@@ -87,7 +87,7 @@ export default function PodcastDetail() {
             {eps.map((e) => (
               <li key={e.id} className="p-4 hover:bg-secondary/50">
                 <Link to={`/podcast/${p.slug}/${e.slug}`} className="block">
-                  <div className="font-medium">{e.title}</div>
+                  <div className="font-medium">{e.display_title || e.title}</div>
                   <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-2 items-center">
                     {e.published_at && <span>{new Date(e.published_at).toLocaleDateString()}</span>}
                     {typeof e.episode_rank === "number" && e.episode_rank > 0 && (

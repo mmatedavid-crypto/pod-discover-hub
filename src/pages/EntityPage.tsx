@@ -27,7 +27,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       const col = ENTITY_COLUMN[kind];
       const { data: cand } = await supabase
         .from("episodes")
-        .select(`id,title,slug,published_at,summary,description,audio_url,episode_rank,topics,people,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status,featured)`)
+        .select(`id,title,slug,published_at,summary,description,audio_url,episode_rank,topics,people,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status,featured)`)
         .not(col, "is", null)
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(800);
@@ -64,7 +64,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       if (podIds.length) {
         const { data: ps } = await supabase
           .from("podcasts")
-          .select("id,title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
+          .select(id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
           .in("id", podIds);
         const sortedPods = (ps || [])
           .filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"))
