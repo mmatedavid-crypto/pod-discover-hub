@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const limit = Math.max(1, Math.min(100, Number(body.limit) || 30));
     const concurrency = Math.max(1, Math.min(5, Number(body.concurrency) || 2));
-    const stale_hours = Math.max(1, Math.min(168, Number(body.stale_hours) || 6));
+    const stale_hours = Math.max(0, Math.min(168, Number(body.stale_hours ?? 6)));
     const episodeCap = Math.max(5, Math.min(50, Number(body.episode_cap) || 15));
     const TIME_BUDGET_MS = Math.max(20_000, Math.min(110_000, Number(body.time_budget_ms) || 50_000));
     const trigger = (body.trigger as string) || "manual";
