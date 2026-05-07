@@ -139,9 +139,11 @@ Deno.serve(async (req) => {
     for (let b = 0; b < maxBatches; b++) {
       if (Date.now() - startedAt > TIME_BUDGET_MS) { stoppedReason = "time_budget"; break; }
 
+      const nowIso = new Date().toISOString();
       const { data: queue, error: qErr } = await admin
         .from("discovery_queue").select("*")
         .eq("status", "pending").gte("candidate_rank", minRank)
+        .or(`next_import_attempt_at.is.null,next_import_attempt_at.lte.${nowIso}`)
         .order("candidate_rank", { ascending: false }).limit(batchSize);
       if (qErr) throw qErr;
       if (!queue || queue.length === 0) { stoppedReason = "no_more_items"; break; }
