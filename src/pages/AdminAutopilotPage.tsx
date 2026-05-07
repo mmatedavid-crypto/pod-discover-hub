@@ -155,6 +155,17 @@ export default function AdminAutopilotPage() {
           </Button>
         </header>
 
+        {state.last_action?.startsWith("auto-throttled") && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Worker resource limit hit. Batch was reduced automatically.</AlertTitle>
+            <AlertDescription className="text-xs">
+              Current batch: <span className="font-mono">{state.batch}</span>.
+              {state.last_error && <> Last error: <span className="font-mono">{state.last_error.slice(0, 160)}</span></>}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between">
