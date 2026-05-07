@@ -23,6 +23,7 @@ import EntityPage from "./pages/EntityPage.tsx";
 import AdminFeedbackPage from "./pages/AdminFeedbackPage.tsx";
 import AdminSearchInsightsPage from "./pages/AdminSearchInsightsPage.tsx";
 import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
+import AdminAiEnrichmentPage from "./pages/AdminAiEnrichmentPage.tsx";
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
@@ -54,6 +55,7 @@ const App = () => (
           <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
           <Route path="/admin/search-insights" element={<AdminSearchInsightsPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+          <Route path="/admin/ai-enrichment" element={<AdminAiEnrichmentPage />} />
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />
           <Route path="/person/:slug" element={<EntityPage kind="person" />} />
