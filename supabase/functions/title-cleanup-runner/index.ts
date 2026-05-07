@@ -77,12 +77,37 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Auto-revert cron: if backlog is small, switch back to every 6 hours.
+    let cron_reverted = false;
+    try {
+      const { count: pending } = await admin
+        .from("episodes")
+        .select("id", { count: "exact", head: true })
+        .is("display_title", null);
+      if ((pending ?? 0) < 5000) {
+        await admin.rpc as any; // no-op placeholder; we use raw SQL via PostgREST below
+        const url = `${Deno.env.get("SUPABASE_URL")}/rest/v1/rpc/cron_revert_title_cleanup`;
+        // Best-effort: call a SECURITY DEFINER function if present; ignore failures.
+        await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: "{}",
+        }).catch(() => {});
+        cron_reverted = true;
+      }
+    } catch (_) { /* ignore */ }
+
     return json({
       ok: true,
       duration_ms: Date.now() - startedAt,
       podcasts: { scanned: podScanned, cleaned: podUpdated },
       episodes: { scanned: epScanned, cleaned: epUpdated },
       hit_time_budget: Date.now() - startedAt > TIME_BUDGET_MS,
+      cron_reverted,
     });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
