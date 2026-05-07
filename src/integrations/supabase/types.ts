@@ -1045,6 +1045,7 @@ export type Database = {
         Args: { _schedule: string }
         Returns: undefined
       }
+      set_embed_schedule: { Args: { _schedule: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
