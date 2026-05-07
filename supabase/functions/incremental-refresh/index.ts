@@ -72,22 +72,26 @@ Deno.serve(async (req) => {
     const trigger = (body.trigger as string) || "manual";
     const startedAt = Date.now();
 
+    const nowIso = new Date().toISOString();
+    const dueOrNull = `next_fetch_at.is.null,next_fetch_at.lte.${nowIso}`;
     let cq = admin
       .from("podcasts")
-      .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count")
+      .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
       .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-      .or("quarantined_until.is.null,quarantined_until.lt." + new Date().toISOString())
+      .or("quarantined_until.is.null,quarantined_until.lt." + nowIso)
+      .or(dueOrNull)
       .order("last_fetched_at", { ascending: true, nullsFirst: true })
       .limit(limit);
 
     if (useTier) {
       // Tier-based: pick rows where last_fetched_at < now() - refresh_interval_minutes.
-      // Postgrest can't do row-level math directly; fetch a wider set and filter in-memory.
+      // Also gate by next_fetch_at backoff (failed feeds).
       cq = admin
         .from("podcasts")
-        .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count")
+        .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
         .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-        .or("quarantined_until.is.null,quarantined_until.lt." + new Date().toISOString())
+        .or("quarantined_until.is.null,quarantined_until.lt." + nowIso)
+        .or(dueOrNull)
         .order("last_fetched_at", { ascending: true, nullsFirst: true })
         .limit(limit * 4);
     } else {
@@ -102,6 +106,8 @@ Deno.serve(async (req) => {
     if (useTier) {
       const now = Date.now();
       candidates = candidates.filter((p: any) => {
+        // Respect failure backoff
+        if (p.next_fetch_at && new Date(p.next_fetch_at).getTime() > now) return false;
         if (!p.last_fetched_at) return true;
         const interval = (p.refresh_interval_minutes || 360) * 60_000;
         return new Date(p.last_fetched_at).getTime() + interval < now;
