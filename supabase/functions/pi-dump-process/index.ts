@@ -74,10 +74,12 @@ Deno.serve(async (req) => {
     const counters = {
       scanned: 0, accepted: 0, rejected: 0, auto_added: 0, queued: 0,
       hidden_low_rank: 0, failed_rss_tests: 0, skipped_duplicates: 0,
+      episodes_imported_light: 0, deep_hydration_pending: 0,
     };
     let autoAddedThisRun = 0;
     const start = Date.now();
-    const TIME_BUDGET = 100_000;
+    // Lightweight: keep a tighter budget to avoid 546.
+    const TIME_BUDGET = 60_000;
 
     for (const r of rows || []) {
       if (Date.now() - start > TIME_BUDGET) break;
