@@ -534,6 +534,17 @@ export type Database = {
       }
       pi_feed_staging: {
         Row: {
+          ai_active_signal: string | null
+          ai_confidence: number | null
+          ai_decision: string | null
+          ai_detected_language: string | null
+          ai_gated_at: string | null
+          ai_input_hash: string | null
+          ai_likely_category: string | null
+          ai_model: string | null
+          ai_quality_score: number | null
+          ai_reasons: Json
+          ai_spam_score: number | null
           author: string | null
           created_at: string
           dead: boolean
@@ -556,6 +567,17 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          ai_active_signal?: string | null
+          ai_confidence?: number | null
+          ai_decision?: string | null
+          ai_detected_language?: string | null
+          ai_gated_at?: string | null
+          ai_input_hash?: string | null
+          ai_likely_category?: string | null
+          ai_model?: string | null
+          ai_quality_score?: number | null
+          ai_reasons?: Json
+          ai_spam_score?: number | null
           author?: string | null
           created_at?: string
           dead?: boolean
@@ -578,6 +600,17 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          ai_active_signal?: string | null
+          ai_confidence?: number | null
+          ai_decision?: string | null
+          ai_detected_language?: string | null
+          ai_gated_at?: string | null
+          ai_input_hash?: string | null
+          ai_likely_category?: string | null
+          ai_model?: string | null
+          ai_quality_score?: number | null
+          ai_reasons?: Json
+          ai_spam_score?: number | null
           author?: string | null
           created_at?: string
           dead?: boolean
@@ -637,10 +670,17 @@ export type Database = {
         Row: {
           ai_enriched_at: string | null
           ai_entities_version: number
+          ai_quality_input_hash: string | null
+          ai_quality_model: string | null
+          ai_quality_reason: Json
+          ai_quality_score: number | null
+          ai_quality_updated_at: string | null
+          ai_spam_score: number | null
           apple_url: string | null
           category: string | null
           consecutive_failure_count: number
           country: string | null
+          crawl_priority: string | null
           crawl_state: string
           created_at: string
           deep_hydration_error: string | null
@@ -674,6 +714,10 @@ export type Database = {
           rss_url: string | null
           seo_description: string | null
           seo_title: string | null
+          shadow_computed_at: string | null
+          shadow_rank: number | null
+          shadow_rank_components: Json
+          shadow_rank_tier: string | null
           slug: string
           source: string | null
           spotify_url: string | null
@@ -686,10 +730,17 @@ export type Database = {
         Insert: {
           ai_enriched_at?: string | null
           ai_entities_version?: number
+          ai_quality_input_hash?: string | null
+          ai_quality_model?: string | null
+          ai_quality_reason?: Json
+          ai_quality_score?: number | null
+          ai_quality_updated_at?: string | null
+          ai_spam_score?: number | null
           apple_url?: string | null
           category?: string | null
           consecutive_failure_count?: number
           country?: string | null
+          crawl_priority?: string | null
           crawl_state?: string
           created_at?: string
           deep_hydration_error?: string | null
@@ -723,6 +774,10 @@ export type Database = {
           rss_url?: string | null
           seo_description?: string | null
           seo_title?: string | null
+          shadow_computed_at?: string | null
+          shadow_rank?: number | null
+          shadow_rank_components?: Json
+          shadow_rank_tier?: string | null
           slug: string
           source?: string | null
           spotify_url?: string | null
@@ -735,10 +790,17 @@ export type Database = {
         Update: {
           ai_enriched_at?: string | null
           ai_entities_version?: number
+          ai_quality_input_hash?: string | null
+          ai_quality_model?: string | null
+          ai_quality_reason?: Json
+          ai_quality_score?: number | null
+          ai_quality_updated_at?: string | null
+          ai_spam_score?: number | null
           apple_url?: string | null
           category?: string | null
           consecutive_failure_count?: number
           country?: string | null
+          crawl_priority?: string | null
           crawl_state?: string
           created_at?: string
           deep_hydration_error?: string | null
@@ -772,6 +834,10 @@ export type Database = {
           rss_url?: string | null
           seo_description?: string | null
           seo_title?: string | null
+          shadow_computed_at?: string | null
+          shadow_rank?: number | null
+          shadow_rank_components?: Json
+          shadow_rank_tier?: string | null
           slug?: string
           source?: string | null
           spotify_url?: string | null
