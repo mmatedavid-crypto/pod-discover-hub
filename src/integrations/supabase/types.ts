@@ -1049,6 +1049,7 @@ export type Database = {
         }
       }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
+      get_ops_dashboard_status: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
