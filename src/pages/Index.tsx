@@ -39,12 +39,16 @@ const Index = () => {
 
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank")
+        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
         .limit(500);
+      const goodHealth = (p: any) => {
+        const hs = (p.shadow_rank_components as any)?.health_state;
+        return !hs || hs === "healthy" || hs === "recovered_rss_url";
+      };
       const eligible = (ps || []).filter((p: any) =>
-        p.featured || ((p.podiverzum_rank ?? 1) >= 6 && p.rss_status !== "failed" && p.rss_status !== "inactive")
+        p.featured || (["S", "A"].includes(p.rank_label) && goodHealth(p) && p.rss_status !== "failed" && p.rss_status !== "inactive")
       );
       setPodcasts(eligible);
 
