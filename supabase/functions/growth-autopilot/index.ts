@@ -26,7 +26,7 @@ const corsHeaders = {
 const DEFAULT_STATE = {
   state: "stopped",
   source: "auto",
-  batch: 50,
+  batch: 10,
   topics: ["productivity", "formula 1", "longevity", "ai healthcare", "startups", "personal finance", "history", "science"],
   consecutive_errors: 0,
   auto_stop_at_errors: 5,
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     try {
       if ((unprocessed ?? 0) > 0) {
         action = "process";
-        const batch = Math.max(10, Math.min(100, Number(state.batch) || 50));
+        const batch = Math.max(10, Math.min(100, Number(state.batch) || 10));
         result = await callFunction("pi-dump-process", { foundation: true, batch });
       } else {
         // Decide source
@@ -128,8 +128,41 @@ Deno.serve(async (req) => {
       state.last_error = null;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
-      state.consecutive_errors = (state.consecutive_errors || 0) + 1;
       state.last_error = error;
+
+      // Detect worker resource limit / timeout — auto-throttle batch instead of fatal stop.
+      const lower = error.toLowerCase();
+      const isResourceLimit =
+        lower.includes("worker_resource_limit") ||
+        lower.includes("resource limit") ||
+        / 546(\b|:)/.test(error) ||
+        lower.includes("status 546") ||
+        lower.includes("timeout") ||
+        lower.includes("timed out");
+
+      let throttled = false;
+      if (isResourceLimit) {
+        const cur = Number(state.batch) || 10;
+        let next = cur;
+        if (cur > 20) next = 20;
+        else if (cur > 10) next = 10;
+        else next = 10;
+        if (next !== cur) {
+          state.batch = next;
+          throttled = true;
+        }
+        state.last_action = `auto-throttled: resource limit (batch=${state.batch})`;
+        if (throttled) {
+          // Don't count as a fatal error if we successfully reduced the batch.
+          state.consecutive_errors = 0;
+        } else {
+          // Already at floor — count it; stop only after repeated errors.
+          state.consecutive_errors = (state.consecutive_errors || 0) + 1;
+        }
+      } else {
+        state.consecutive_errors = (state.consecutive_errors || 0) + 1;
+      }
+
       if (state.consecutive_errors >= (state.auto_stop_at_errors || 5)) {
         state.state = "stopped";
         state.stopped_reason = `auto-stop: ${state.consecutive_errors} consecutive errors`;
@@ -137,7 +170,9 @@ Deno.serve(async (req) => {
     }
 
     state.last_tick_at = new Date().toISOString();
-    state.last_action = action;
+    if (!state.last_action || !state.last_action.startsWith("auto-throttled")) {
+      state.last_action = action;
+    }
     state.last_result = result;
 
     await supabase.from("app_settings").upsert({

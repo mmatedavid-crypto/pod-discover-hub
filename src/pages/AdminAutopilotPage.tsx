@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Play, Pause, Square, RefreshCw, Activity } from "lucide-react";
+import { Play, Pause, Square, RefreshCw, Activity, AlertTriangle } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
@@ -30,7 +31,7 @@ type State = {
 const DEFAULT_STATE: State = {
   state: "stopped",
   source: "auto",
-  batch: 50,
+  batch: 10,
   topics: ["productivity", "formula 1", "longevity", "ai healthcare", "startups", "personal finance", "history", "science"],
   consecutive_errors: 0,
   auto_stop_at_errors: 5,
@@ -153,6 +154,17 @@ export default function AdminAutopilotPage() {
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
         </header>
+
+        {state.last_action?.startsWith("auto-throttled") && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Worker resource limit hit. Batch was reduced automatically.</AlertTitle>
+            <AlertDescription className="text-xs">
+              Current batch: <span className="font-mono">{state.batch}</span>.
+              {state.last_error && <> Last error: <span className="font-mono">{state.last_error.slice(0, 160)}</span></>}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <CardHeader className="pb-3">
