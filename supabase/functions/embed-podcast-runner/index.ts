@@ -46,7 +46,7 @@ function buildContent(p: any, model: string): string {
 }
 
 async function embed(model: string, text: string): Promise<{ vec: number[]; tokens: number }> {
-  // Gemini direct API. Map our model id (google/text-embedding-004) -> Google model name.
+  // Gemini direct API. We always request 768-dim to match our pgvector column.
   const googleModel = model.replace(/^google\//, "");
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) throw new Error("missing_gemini_api_key");
@@ -58,6 +58,7 @@ async function embed(model: string, text: string): Promise<{ vec: number[]; toke
       model: `models/${googleModel}`,
       content: { parts: [{ text }] },
       taskType: "SEMANTIC_SIMILARITY",
+      outputDimensionality: 768,
     }),
   });
   if (res.status === 429) throw new Error("rate_limited");
@@ -65,7 +66,7 @@ async function embed(model: string, text: string): Promise<{ vec: number[]; toke
   const j = await res.json();
   const vec = j.embedding?.values as number[] | undefined;
   if (!vec || !vec.length) throw new Error("no_embedding");
-  // Gemini doesn't return token usage on embed; rough estimate (~4 chars/token).
+  if (vec.length !== 768) throw new Error(`bad_dim_${vec.length}`);
   const tokens = Math.ceil(text.length / 4);
   return { vec, tokens };
 }
