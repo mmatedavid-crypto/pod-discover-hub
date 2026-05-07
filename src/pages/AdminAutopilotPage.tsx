@@ -357,6 +357,25 @@ export default function AdminAutopilotPage() {
               <Stat label="Last duration (s)" value={Math.round((deepHydration?.last_run?.duration_ms ?? 0) / 1000)} />
               <Stat label="Throttled (last)" value={deepHydration?.last_run?.throttled ? 1 : 0} tone={deepHydration?.last_run?.throttled ? "warn" : "default"} />
             </div>
+            {(() => {
+              const pending = counts.deepPending;
+              const rec =
+                pending <= 0 ? { s: "*/30 * * * *", m: "maintenance" } :
+                pending < 100 ? { s: "*/10 * * * *", m: "low" } :
+                pending <= 500 ? { s: "*/5 * * * *", m: "catch-up" } :
+                { s: "*/2 * * * *", m: "backlog" };
+              const cur = deepHydration?.cron_schedule || "—";
+              const mode = deepHydration?.schedule_mode || "—";
+              const changed = deepHydration?.schedule_changed_at ? new Date(deepHydration.schedule_changed_at).toLocaleString() : "—";
+              return (
+                <div className="rounded-md border border-border p-2 space-y-1 font-mono">
+                  <div>Cron schedule: <span className="text-foreground">{cur}</span> · mode: <span className="text-foreground">{mode}</span></div>
+                  <div>Recommended: <span className={rec.s !== cur ? "text-brand" : "text-muted-foreground"}>{rec.s}</span> ({rec.m}) · backlog={pending}</div>
+                  <div className="text-muted-foreground">Last schedule change: {changed} {deepHydration?.schedule_change_reason ? `(${deepHydration.schedule_change_reason})` : ""}</div>
+                  <div className="text-muted-foreground">Lock: 3 min</div>
+                </div>
+              );
+            })()}
             <div className="text-muted-foreground font-mono pt-1">
               Settings: limit={deepHydration?.batch_size ?? "—"} · concurrency={deepHydration?.concurrency ?? 1} · max_per_pass={deepHydration?.max_per_pass ?? 200} · time_budget_ms={deepHydration?.time_budget_ms ?? 50000}
             </div>
