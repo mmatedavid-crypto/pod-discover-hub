@@ -22,11 +22,14 @@ async function recordRssUrlChange(supabase: any, podcastId: string, oldUrl: stri
 
 async function markFailure(supabase: any, podcast: any, msg: string, isDeadCode = false) {
   const next = (podcast.consecutive_failure_count || 0) + 1;
+  // Exponential backoff: 30m * 2^min(n,8), capped at 7 days
+  const backoffMin = Math.min(10080, Math.round(30 * Math.pow(2, Math.min(next, 8))));
   const upd: any = {
     rss_status: "failed",
     last_fetched_at: new Date().toISOString(),
     last_fetch_error: msg,
     consecutive_failure_count: next,
+    next_fetch_at: new Date(Date.now() + backoffMin * 60_000).toISOString(),
   };
   if (isDeadCode && next >= DEAD_THRESHOLD) {
     upd.crawl_state = "dead";
