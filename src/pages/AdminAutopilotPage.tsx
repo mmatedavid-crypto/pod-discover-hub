@@ -149,7 +149,7 @@ export default function AdminAutopilotPage() {
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("incremental-refresh", {
-        body: { trigger: "manual", limit: 30, concurrency: 2, episode_cap: 15, stale_hours: 6 },
+        body: { trigger: "manual", limit: 10, concurrency: 1, episode_cap: 15, stale_hours: 6 },
       });
       if (error) throw error;
       const r: any = data || {};
