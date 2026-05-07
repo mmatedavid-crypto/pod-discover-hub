@@ -12,6 +12,7 @@ import EpisodeDetail from "./pages/EpisodeDetail.tsx";
 import SearchPage from "./pages/SearchPage.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
 import AdminPage from "./pages/AdminPage.tsx";
+import AdminHubPage from "./pages/AdminHubPage.tsx";
 import AdminBootstrapPage from "./pages/AdminBootstrapPage.tsx";
 import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
 import AdminGrowthPage from "./pages/AdminGrowthPage.tsx";
@@ -42,7 +43,8 @@ const App = () => (
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin" element={<AdminHubPage />} />
+          <Route path="/admin/podcasts" element={<AdminPage />} />
           <Route path="/admin-bootstrap" element={<AdminBootstrapPage />} />
           <Route path="/admin/discovery" element={<AdminDiscoveryPage />} />
           <Route path="/admin/growth" element={<AdminGrowthPage />} />
