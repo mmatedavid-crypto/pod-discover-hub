@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       }).slice(0, limit);
     }
 
-    let scanned = 0, refreshed = 0, failed = 0, newEpisodes = 0, throttled = false;
+    let scanned = 0, refreshed = 0, failed = 0, newEpisodes = 0, throttled = false, notModified = 0;
     const results: any[] = [];
 
     const work = async (p: any) => {
