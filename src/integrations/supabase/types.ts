@@ -14,6 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_enrichment_jobs: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          id: string
+          input_hash: string
+          input_tokens: number | null
+          kind: string
+          last_error: string | null
+          locked_until: string | null
+          model: string | null
+          output_tokens: number | null
+          priority: number
+          result: Json | null
+          started_at: string | null
+          status: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          id?: string
+          input_hash: string
+          input_tokens?: number | null
+          kind: string
+          last_error?: string | null
+          locked_until?: string | null
+          model?: string | null
+          output_tokens?: number | null
+          priority?: number
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          id?: string
+          input_hash?: string
+          input_tokens?: number | null
+          kind?: string
+          last_error?: string | null
+          locked_until?: string | null
+          model?: string | null
+          output_tokens?: number | null
+          priority?: number
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
+      ai_spend_daily: {
+        Row: {
+          by_kind: Json
+          calls: number
+          day: string
+          spend_usd: number
+          updated_at: string
+        }
+        Insert: {
+          by_kind?: Json
+          calls?: number
+          day: string
+          spend_usd?: number
+          updated_at?: string
+        }
+        Update: {
+          by_kind?: Json
+          calls?: number
+          day?: string
+          spend_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -176,13 +263,44 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_embeddings: {
+        Row: {
+          content_hash: string
+          embedding: string
+          episode_id: string
+          model: string
+          podcast_id: string
+          updated_at: string
+        }
+        Insert: {
+          content_hash: string
+          embedding: string
+          episode_id: string
+          model: string
+          podcast_id: string
+          updated_at?: string
+        }
+        Update: {
+          content_hash?: string
+          embedding?: string
+          episode_id?: string
+          model?: string
+          podcast_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episodes: {
         Row: {
+          ai_enriched_at: string | null
+          ai_entities_version: number
+          ai_summary: string | null
           apple_url: string | null
           audio_url: string | null
           companies: string[] | null
           created_at: string
           description: string | null
+          display_title: string | null
           episode_rank: number
           episode_rank_label: string | null
           episode_rank_reason: Json
@@ -195,6 +313,8 @@ export type Database = {
           people: string[] | null
           podcast_id: string
           published_at: string | null
+          seo_description: string | null
+          seo_title: string | null
           slug: string
           spotify_url: string | null
           summary: string | null
@@ -205,11 +325,15 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          ai_enriched_at?: string | null
+          ai_entities_version?: number
+          ai_summary?: string | null
           apple_url?: string | null
           audio_url?: string | null
           companies?: string[] | null
           created_at?: string
           description?: string | null
+          display_title?: string | null
           episode_rank?: number
           episode_rank_label?: string | null
           episode_rank_reason?: Json
@@ -222,6 +346,8 @@ export type Database = {
           people?: string[] | null
           podcast_id: string
           published_at?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
           slug: string
           spotify_url?: string | null
           summary?: string | null
@@ -232,11 +358,15 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          ai_enriched_at?: string | null
+          ai_entities_version?: number
+          ai_summary?: string | null
           apple_url?: string | null
           audio_url?: string | null
           companies?: string[] | null
           created_at?: string
           description?: string | null
+          display_title?: string | null
           episode_rank?: number
           episode_rank_label?: string | null
           episode_rank_reason?: Json
@@ -249,6 +379,8 @@ export type Database = {
           people?: string[] | null
           podcast_id?: string
           published_at?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
           slug?: string
           spotify_url?: string | null
           summary?: string | null
@@ -477,8 +609,34 @@ export type Database = {
           },
         ]
       }
+      podcast_embeddings: {
+        Row: {
+          content_hash: string
+          embedding: string
+          model: string
+          podcast_id: string
+          updated_at: string
+        }
+        Insert: {
+          content_hash: string
+          embedding: string
+          model: string
+          podcast_id: string
+          updated_at?: string
+        }
+        Update: {
+          content_hash?: string
+          embedding?: string
+          model?: string
+          podcast_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       podcasts: {
         Row: {
+          ai_enriched_at: string | null
+          ai_entities_version: number
           apple_url: string | null
           category: string | null
           consecutive_failure_count: number
@@ -489,6 +647,7 @@ export type Database = {
           deep_hydration_status: string
           deep_hydration_target: number | null
           description: string | null
+          display_title: string | null
           featured: boolean
           featured_rank: number | null
           full_backfill_completed_at: string | null
@@ -513,6 +672,8 @@ export type Database = {
           refresh_interval_minutes: number
           rss_status: string
           rss_url: string | null
+          seo_description: string | null
+          seo_title: string | null
           slug: string
           source: string | null
           spotify_url: string | null
@@ -523,6 +684,8 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          ai_enriched_at?: string | null
+          ai_entities_version?: number
           apple_url?: string | null
           category?: string | null
           consecutive_failure_count?: number
@@ -533,6 +696,7 @@ export type Database = {
           deep_hydration_status?: string
           deep_hydration_target?: number | null
           description?: string | null
+          display_title?: string | null
           featured?: boolean
           featured_rank?: number | null
           full_backfill_completed_at?: string | null
@@ -557,6 +721,8 @@ export type Database = {
           refresh_interval_minutes?: number
           rss_status?: string
           rss_url?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
           slug: string
           source?: string | null
           spotify_url?: string | null
@@ -567,6 +733,8 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          ai_enriched_at?: string | null
+          ai_entities_version?: number
           apple_url?: string | null
           category?: string | null
           consecutive_failure_count?: number
@@ -577,6 +745,7 @@ export type Database = {
           deep_hydration_status?: string
           deep_hydration_target?: number | null
           description?: string | null
+          display_title?: string | null
           featured?: boolean
           featured_rank?: number | null
           full_backfill_completed_at?: string | null
@@ -601,6 +770,8 @@ export type Database = {
           refresh_interval_minutes?: number
           rss_status?: string
           rss_url?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
           slug?: string
           source?: string | null
           spotify_url?: string | null
