@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     const MAX_PER_PASS = Math.max(20, Math.min(500, Number(body.max_per_pass) || 200));
     const TIME_BUDGET_MS = Math.max(20_000, Math.min(110_000, Number(body.time_budget_ms) || 50_000));
     const trigger = (body.trigger as string) || "manual";
-    const LOCK_MS = 10 * 60 * 1000;
+    const LOCK_MS = 3 * 60 * 1000;
     const startedAt = Date.now();
 
     const { data: priorRow } = await admin.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle();

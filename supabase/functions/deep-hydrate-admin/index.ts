@@ -59,6 +59,26 @@ Deno.serve(async (req) => {
       return { ok: true, setting, counts: await counts() };
     };
 
+    // Compute current dynamic schedule recommendation from backlog size.
+    // 0 -> */30, <100 -> */10, 100..500 -> */5, >500 -> */2.
+    const recommendedFor = (pending: number) => {
+      if (pending <= 0) return { schedule: "*/30 * * * *", mode: "maintenance" };
+      if (pending < 100) return { schedule: "*/10 * * * *", mode: "low" };
+      if (pending <= 500) return { schedule: "*/5 * * * *", mode: "catch-up" };
+      return { schedule: "*/2 * * * *", mode: "backlog" };
+    };
+    const fallbackOf = (s: string) => {
+      if (s === "*/2 * * * *") return { schedule: "*/5 * * * *", mode: "catch-up" };
+      if (s === "*/5 * * * *") return { schedule: "*/10 * * * *", mode: "low" };
+      if (s === "*/10 * * * *") return { schedule: "*/30 * * * *", mode: "maintenance" };
+      return { schedule: "*/30 * * * *", mode: "maintenance" };
+    };
+    const applySchedule = async (schedule: string, mode: string, reason: string) => {
+      try { await admin.rpc("set_deep_hydration_schedule" as any, { _schedule: schedule }); } catch (e) { /* ignore */ }
+      const cur = await readSetting();
+      await writeSetting({ ...cur, cron_schedule: schedule, schedule_mode: mode, schedule_changed_at: new Date().toISOString(), schedule_change_reason: reason });
+    };
+
     // Scheduled-run endpoint: callable without admin (cron uses anon apikey)
     if (action === "scheduled_run") {
       const setting = await readSetting();
@@ -70,11 +90,23 @@ Deno.serve(async (req) => {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/deep-hydrate-runner`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE}` },
-        body: JSON.stringify({ limit, concurrency, max_per_pass, time_budget_ms, trigger: "scheduled_30min" }),
+        body: JSON.stringify({ limit, concurrency, max_per_pass, time_budget_ms, trigger: "scheduled" }),
       });
       const text = await resp.text();
       let parsed: any = null; try { parsed = JSON.parse(text); } catch { /* noop */ }
       if (!resp.ok) return json({ error: `runner ${resp.status}: ${text.slice(0, 300)}` }, 502);
+
+      // Dynamic schedule adjustment: throttle => fall back; otherwise reconcile to recommendation.
+      const c = await counts();
+      const cur = await readSetting();
+      const currentSchedule = cur.cron_schedule || "*/2 * * * *";
+      if (parsed?.throttled) {
+        const fb = fallbackOf(currentSchedule);
+        if (fb.schedule !== currentSchedule) await applySchedule(fb.schedule, fb.mode, "auto_fallback_throttle");
+      } else {
+        const rec = recommendedFor(c.eligible);
+        if (rec.schedule !== currentSchedule) await applySchedule(rec.schedule, rec.mode, "auto_backlog_adjust");
+      }
       return json({ ok: true, ran: parsed });
     }
 
