@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
     let action = "";
     let result: any = null;
     let error: string | null = null;
+    const tickStart = Date.now();
 
     try {
       if ((unprocessed ?? 0) > 0) {
