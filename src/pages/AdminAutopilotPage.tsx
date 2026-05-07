@@ -260,7 +260,7 @@ export default function AdminAutopilotPage() {
                 onBlur={() => saveState({ batch: Math.max(10, Math.min(100, Number(state.batch) || 50)) }, { silent: true })}
               />
               <p className="text-[11px] text-muted-foreground">
-                Max podcasts auto-imported per tick. Each import hydrates 30–75 episodes.
+                Max podcasts processed per tick. Each import does a light hydration of up to 5 newest episodes; deeper hydration runs separately via the deep-hydrate runner.
               </p>
             </div>
 
