@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     try {
       if ((unprocessed ?? 0) > 0) {
         action = "process";
-        const batch = Math.max(10, Math.min(100, Number(state.batch) || 50));
+        const batch = Math.max(10, Math.min(100, Number(state.batch) || 10));
         result = await callFunction("pi-dump-process", { foundation: true, batch });
       } else {
         // Decide source
