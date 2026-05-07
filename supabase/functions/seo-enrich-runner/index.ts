@@ -88,17 +88,24 @@ Deno.serve(async (req) => {
         const parsed = args ? JSON.parse(args) : null;
         if (!parsed) throw new Error("no_tool_call");
 
+        const trim = (s: string, max: number) => {
+          s = s.replace(/\s+/g, " ").trim();
+          if (s.length <= max) return s;
+          const cut = s.slice(0, max);
+          const sp = cut.lastIndexOf(" ");
+          return (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[,;:\-–—\s]+$/, "") + "…";
+        };
         if (isPodcast) {
-          const seo_title = String(parsed.seo_title || "").slice(0, 70);
-          const seo_description = String(parsed.seo_description || "").slice(0, 180);
+          const seo_title = trim(String(parsed.seo_title || ""), 65);
+          const seo_description = trim(String(parsed.seo_description || ""), 160);
           await admin.from("podcasts").update({
             seo_title, seo_description,
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
         } else {
-          const seo_title = String(parsed.seo_title || "").slice(0, 75);
-          const seo_description = String(parsed.seo_description || "").slice(0, 180);
-          const ai_summary = String(parsed.ai_summary || "").slice(0, 320);
+          const seo_title = trim(String(parsed.seo_title || ""), 70);
+          const seo_description = trim(String(parsed.seo_description || ""), 160);
+          const ai_summary = trim(String(parsed.ai_summary || ""), 280);
           await admin.from("episodes").update({
             seo_title, seo_description, ai_summary,
             ai_enriched_at: new Date().toISOString(),
