@@ -16,11 +16,16 @@ function json(b: any, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-function targetForRank(rank: number): number {
-  if (rank >= 9) return 200;
-  if (rank >= 8) return 150;
-  if (rank >= 6) return 100;
-  if (rank >= 4) return 50;
+function targetForTier(tier: string | null, rank: number): number {
+  if (tier === "S") return 500;
+  if (tier === "A") return 300;
+  if (tier === "B") return 150;
+  if (tier === "C") return 50;
+  // Fallback by numeric rank if tier is missing
+  if (rank >= 8.5) return 500;
+  if (rank >= 7.0) return 300;
+  if (rank >= 5.5) return 150;
+  if (rank >= 4.0) return 50;
   return 0;
 }
 
