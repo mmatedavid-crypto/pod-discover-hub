@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
       await admin.from("app_settings").upsert({ key: "embed_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, embedded, cache_hits: cacheHits, errors, pending, embed_spend_usd: embedSpend, progress });
+    return json({ ok: true, embedded, cache_hits: cacheHits, errors, pending, embed_spend_usd: embedSpend, progress, debug });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
