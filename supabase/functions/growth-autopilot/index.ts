@@ -26,7 +26,7 @@ const corsHeaders = {
 const DEFAULT_STATE = {
   state: "stopped",
   source: "auto",
-  batch: 10,
+  batch: 50,
   topics: ["productivity", "formula 1", "longevity", "ai healthcare", "startups", "personal finance", "history", "science"],
   consecutive_errors: 0,
   auto_stop_at_errors: 5,
@@ -76,11 +76,12 @@ Deno.serve(async (req) => {
     let action = "";
     let result: any = null;
     let error: string | null = null;
+    const tickStart = Date.now();
 
     try {
       if ((unprocessed ?? 0) > 0) {
         action = "process";
-        const batch = Math.max(10, Math.min(100, Number(state.batch) || 10));
+        const batch = Math.max(10, Math.min(100, Number(state.batch) || 50));
         result = await callFunction("pi-dump-process", { foundation: true, batch });
       } else {
         // Decide source
@@ -174,6 +175,9 @@ Deno.serve(async (req) => {
       state.last_action = action;
     }
     state.last_result = result;
+    (state as any).last_duration_ms = Date.now() - tickStart;
+    (state as any).last_throttled = !!(error && (state.last_action || "").startsWith("auto-throttled"));
+    (state as any).last_unprocessed = unprocessed ?? 0;
 
     await supabase.from("app_settings").upsert({
       key: "growth_autopilot",

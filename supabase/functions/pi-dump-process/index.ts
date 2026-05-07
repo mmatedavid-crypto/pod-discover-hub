@@ -41,6 +41,9 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = req.method === "POST" ? await req.json() : {}; } catch { /* */ }
     const foundation: boolean = !!body.foundation;
+    // Lightweight processor: cap episodes per podcast hard at 5 (was 30–75).
+    // Deep hydration is deferred to deep-hydrate-runner via deep_hydration_status='not_started'.
+    const LIGHT_EPISODE_CAP = Math.max(1, Math.min(10, Number(body.light_episode_cap) || 5));
     const batchSize = Math.max(1, Math.min(foundation ? 250 : 200, Number(body.batch) || (foundation ? 250 : 100)));
     const importId: string | undefined = body.import_id;
 
@@ -71,10 +74,12 @@ Deno.serve(async (req) => {
     const counters = {
       scanned: 0, accepted: 0, rejected: 0, auto_added: 0, queued: 0,
       hidden_low_rank: 0, failed_rss_tests: 0, skipped_duplicates: 0,
+      episodes_imported_light: 0, deep_hydration_pending: 0,
     };
     let autoAddedThisRun = 0;
     const start = Date.now();
-    const TIME_BUDGET = 100_000;
+    // Lightweight: keep a tighter budget to avoid 546.
+    const TIME_BUDGET = 60_000;
 
     for (const r of rows || []) {
       if (Date.now() - start > TIME_BUDGET) break;
@@ -117,6 +122,9 @@ Deno.serve(async (req) => {
               rank_label: rankLabel,
               rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
               rank_updated_at: new Date().toISOString(),
+              // Mark for deferred deep hydration — handled by deep-hydrate-runner.
+              deep_hydration_status: "not_started",
+              deep_hydration_target: score >= 8 ? 100 : score >= 6 ? 75 : 40,
             }).select("id").maybeSingle();
 
             if (insErr || !inserted) {
@@ -126,14 +134,18 @@ Deno.serve(async (req) => {
             } else {
               autoAddedThisRun++;
               counters.auto_added++; counters.accepted++;
+              counters.deep_hydration_pending++;
               updates.decision = "imported";
               try {
-                // Foundation depth by rank: 8–10 → 75, 6–7 → 50, 4–5 → 30. Daily mode: 30.
-                const epCap = foundation
-                  ? (score >= 8 ? 75 : score >= 6 ? 50 : 30)
-                  : 30;
-                const fr = await fetchOne(supabase, { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url }, { episodeCap: epCap });
+                // LIGHT IMPORT ONLY: at most 5 newest episodes for instant visibility.
+                // Full hydration is deferred to deep-hydrate-runner.
+                const fr = await fetchOne(
+                  supabase,
+                  { id: inserted.id, rss_url: r.rss_url, image_url: r.image_url },
+                  { episodeCap: LIGHT_EPISODE_CAP },
+                );
                 if (!fr.ok) counters.failed_rss_tests++;
+                else counters.episodes_imported_light += (fr.new || 0);
               } catch { counters.failed_rss_tests++; }
             }
           } else if (!foundation && score >= 6) {
