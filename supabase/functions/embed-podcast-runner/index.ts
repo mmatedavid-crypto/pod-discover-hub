@@ -245,6 +245,7 @@ Deno.serve(async (req) => {
       if (!schedErr) scheduleApplied = recommendedSchedule;
     }
 
+    const underperforming = pending > 500 && embedded < batch && errors === 0;
     const progress = {
       last_run_at: new Date().toISOString(),
       duration_ms: durationMs,
@@ -262,6 +263,21 @@ Deno.serve(async (req) => {
       cron_schedule: scheduleApplied,
       recommended_schedule: recommendedSchedule,
       model,
+      // Diagnostics
+      batch_size: batch,
+      eligible_total: eligibleTotal,
+      already_embedded_current_model: alreadyEmbedded,
+      missing_embedding: missingEmbedding,
+      stale_hash_count: staleHashSelected,
+      selected_candidate_count: candidates.length,
+      skipped_completed_before_limit: alreadyEmbedded,
+      skipped_bad_health: skippedBadHealth,
+      underperforming,
+      underperforming_reason: underperforming
+        ? (candidates.length < batch
+            ? `selected_only_${candidates.length}_of_${batch}_despite_${missingEmbedding}_missing`
+            : (Date.now() - startedAt > 40_000 ? "time_budget_hit" : "unknown_loop_exit"))
+        : null,
     };
     await admin.from("app_settings").upsert({
       key: "embed_progress", value: progress as any, updated_at: new Date().toISOString(),
