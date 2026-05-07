@@ -51,4 +51,7 @@ verify_jwt = false
 [functions.deep-hydrate-admin]
 verify_jwt = false
 
+[functions.incremental-refresh]
+verify_jwt = false
+
 

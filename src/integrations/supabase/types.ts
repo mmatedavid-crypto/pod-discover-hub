@@ -481,7 +481,9 @@ export type Database = {
         Row: {
           apple_url: string | null
           category: string | null
+          consecutive_failure_count: number
           country: string | null
+          crawl_state: string
           created_at: string
           deep_hydration_error: string | null
           deep_hydration_status: string
@@ -496,15 +498,19 @@ export type Database = {
           is_sample: boolean
           language: string | null
           last_deep_hydrated_at: string | null
+          last_etag: string | null
           last_fetch_duplicate_count: number
           last_fetch_error: string | null
           last_fetch_new_count: number
           last_fetched_at: string | null
+          last_modified: string | null
           manual_rank_boost: number
           podiverzum_rank: number
+          quarantined_until: string | null
           rank_label: string | null
           rank_reason: Json
           rank_updated_at: string | null
+          refresh_interval_minutes: number
           rss_status: string
           rss_url: string | null
           slug: string
@@ -519,7 +525,9 @@ export type Database = {
         Insert: {
           apple_url?: string | null
           category?: string | null
+          consecutive_failure_count?: number
           country?: string | null
+          crawl_state?: string
           created_at?: string
           deep_hydration_error?: string | null
           deep_hydration_status?: string
@@ -534,15 +542,19 @@ export type Database = {
           is_sample?: boolean
           language?: string | null
           last_deep_hydrated_at?: string | null
+          last_etag?: string | null
           last_fetch_duplicate_count?: number
           last_fetch_error?: string | null
           last_fetch_new_count?: number
           last_fetched_at?: string | null
+          last_modified?: string | null
           manual_rank_boost?: number
           podiverzum_rank?: number
+          quarantined_until?: string | null
           rank_label?: string | null
           rank_reason?: Json
           rank_updated_at?: string | null
+          refresh_interval_minutes?: number
           rss_status?: string
           rss_url?: string | null
           slug: string
@@ -557,7 +569,9 @@ export type Database = {
         Update: {
           apple_url?: string | null
           category?: string | null
+          consecutive_failure_count?: number
           country?: string | null
+          crawl_state?: string
           created_at?: string
           deep_hydration_error?: string | null
           deep_hydration_status?: string
@@ -572,15 +586,19 @@ export type Database = {
           is_sample?: boolean
           language?: string | null
           last_deep_hydrated_at?: string | null
+          last_etag?: string | null
           last_fetch_duplicate_count?: number
           last_fetch_error?: string | null
           last_fetch_new_count?: number
           last_fetched_at?: string | null
+          last_modified?: string | null
           manual_rank_boost?: number
           podiverzum_rank?: number
+          quarantined_until?: string | null
           rank_label?: string | null
           rank_reason?: Json
           rank_updated_at?: string | null
+          refresh_interval_minutes?: number
           rss_status?: string
           rss_url?: string | null
           slug?: string
@@ -591,6 +609,33 @@ export type Database = {
           updated_at?: string
           website_url?: string | null
           youtube_url?: string | null
+        }
+        Relationships: []
+      }
+      rss_url_history: {
+        Row: {
+          changed_at: string
+          id: string
+          new_url: string
+          old_url: string | null
+          podcast_id: string
+          reason: string
+        }
+        Insert: {
+          changed_at?: string
+          id?: string
+          new_url: string
+          old_url?: string | null
+          podcast_id: string
+          reason: string
+        }
+        Update: {
+          changed_at?: string
+          id?: string
+          new_url?: string
+          old_url?: string | null
+          podcast_id?: string
+          reason?: string
         }
         Relationships: []
       }

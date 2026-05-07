@@ -63,26 +63,52 @@ Deno.serve(async (req) => {
     if (!isAdmin) return json({ error: "Forbidden: admin only" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const limit = Math.max(1, Math.min(100, Number(body.limit) || 30));
-    const concurrency = Math.max(1, Math.min(5, Number(body.concurrency) || 2));
+    const limit = Math.max(1, Math.min(100, Number(body.limit) || 20));
+    const concurrency = Math.max(1, Math.min(5, Number(body.concurrency) || 1));
+    const useTier = body.use_rank_tier !== false; // default: tier-based
     const stale_hours = Math.max(0, Math.min(168, Number(body.stale_hours ?? 6)));
     const episodeCap = Math.max(5, Math.min(50, Number(body.episode_cap) || 15));
     const TIME_BUDGET_MS = Math.max(20_000, Math.min(110_000, Number(body.time_budget_ms) || 50_000));
     const trigger = (body.trigger as string) || "manual";
     const startedAt = Date.now();
-    const cutoff = new Date(Date.now() - stale_hours * 3600_000).toISOString();
 
-    const { data: candidates, error: cErr } = await admin
+    let cq = admin
       .from("podcasts")
-      .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at")
-      .not("full_backfill_completed_at", "is", null)
-      .in("rss_status", ["active", "not_checked"])
-      .or(`last_fetched_at.is.null,last_fetched_at.lt.${cutoff}`)
+      .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count")
+      .in("crawl_state", ["full_backfilled", "incremental_refresh"])
+      .or("quarantined_until.is.null,quarantined_until.lt." + new Date().toISOString())
       .order("last_fetched_at", { ascending: true, nullsFirst: true })
       .limit(limit);
+
+    if (useTier) {
+      // Tier-based: pick rows where last_fetched_at < now() - refresh_interval_minutes.
+      // Postgrest can't do row-level math directly; fetch a wider set and filter in-memory.
+      cq = admin
+        .from("podcasts")
+        .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count")
+        .in("crawl_state", ["full_backfilled", "incremental_refresh"])
+        .or("quarantined_until.is.null,quarantined_until.lt." + new Date().toISOString())
+        .order("last_fetched_at", { ascending: true, nullsFirst: true })
+        .limit(limit * 4);
+    } else {
+      const cutoff = new Date(Date.now() - stale_hours * 3600_000).toISOString();
+      cq = cq.or(`last_fetched_at.is.null,last_fetched_at.lt.${cutoff}`);
+    }
+
+    const { data: prelim, error: cErr } = await cq;
     if (cErr) throw cErr;
 
-    let scanned = 0, refreshed = 0, failed = 0, newEpisodes = 0, throttled = false;
+    let candidates = prelim || [];
+    if (useTier) {
+      const now = Date.now();
+      candidates = candidates.filter((p: any) => {
+        if (!p.last_fetched_at) return true;
+        const interval = (p.refresh_interval_minutes || 360) * 60_000;
+        return new Date(p.last_fetched_at).getTime() + interval < now;
+      }).slice(0, limit);
+    }
+
+    let scanned = 0, refreshed = 0, failed = 0, newEpisodes = 0, throttled = false, notModified = 0;
     const results: any[] = [];
 
     const work = async (p: any) => {
@@ -99,7 +125,8 @@ Deno.serve(async (req) => {
         }
         refreshed++;
         newEpisodes += r.new || 0;
-        results.push({ id: p.id, slug: p.slug, new: r.new, duplicates: r.duplicates, items: r.items });
+        if ((r as any).not_modified) notModified++;
+        results.push({ id: p.id, slug: p.slug, new: r.new, duplicates: r.duplicates, items: r.items, not_modified: !!(r as any).not_modified });
       } catch (e: any) {
         failed++;
         results.push({ id: p.id, slug: p.slug, ok: false, error: e?.message });
@@ -113,7 +140,8 @@ Deno.serve(async (req) => {
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - startedAt,
       trigger, concurrency, limit, stale_hours, episode_cap: episodeCap,
-      scanned, refreshed, failed, throttled, new_episodes: newEpisodes,
+      scanned, refreshed, failed, throttled, new_episodes: newEpisodes, not_modified: notModified,
+      tier_based: useTier, candidates_considered: (candidates || []).length,
     };
     await admin.from("app_settings").upsert({
       key: "incremental_refresh",
