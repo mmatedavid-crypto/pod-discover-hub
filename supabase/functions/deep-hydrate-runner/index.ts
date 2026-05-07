@@ -16,11 +16,16 @@ function json(b: any, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-function targetForRank(rank: number): number {
-  if (rank >= 9) return 200;
-  if (rank >= 8) return 150;
-  if (rank >= 6) return 100;
-  if (rank >= 4) return 50;
+function targetForTier(tier: string | null, rank: number): number {
+  if (tier === "S") return 500;
+  if (tier === "A") return 300;
+  if (tier === "B") return 150;
+  if (tier === "C") return 50;
+  // Fallback by numeric rank if tier is missing
+  if (rank >= 8.5) return 500;
+  if (rank >= 7.0) return 300;
+  if (rank >= 5.5) return 150;
+  if (rank >= 4.0) return 50;
   return 0;
 }
 
@@ -98,24 +103,32 @@ Deno.serve(async (req) => {
     });
 
     // Rank-priority candidates that are NOT yet fully backfilled.
+    // Only S/A/B/C tiers eligible; D/E and unhealthy states excluded.
     const { data: candidates, error: cErr } = await admin
       .from("podcasts")
-      .select("id, title, slug, rss_url, image_url, podiverzum_rank, rss_status, deep_hydration_status, deep_hydration_target, last_deep_hydrated_at, hydrated_episode_count, full_backfill_completed_at")
-      .gte("podiverzum_rank", 4)
+      .select("id, title, slug, rss_url, image_url, podiverzum_rank, rank_label, shadow_rank_components, rss_status, deep_hydration_status, deep_hydration_target, last_deep_hydrated_at, hydrated_episode_count, full_backfill_completed_at")
+      .in("rank_label", ["S", "A", "B", "C"])
       .in("rss_status", ["active", "not_checked"])
       .is("full_backfill_completed_at", null)
       .order("podiverzum_rank", { ascending: false })
       .order("last_deep_hydrated_at", { ascending: true, nullsFirst: true })
-      .limit(limit);
+      .limit(limit * 2);
 
     if (cErr) throw cErr;
+
+    // Filter out frozen health states
+    const FROZEN = new Set(["rss_url_not_found", "needs_manual_rss_review", "confirmed_dead", "quarantined_spam"]);
+    const eligible = (candidates || []).filter((p: any) => {
+      const hs = (p.shadow_rank_components as any)?.health_state;
+      return !hs || !FROZEN.has(hs);
+    }).slice(0, limit);
 
     const results: any[] = [];
     let processed = 0, completed = 0, failed = 0, newEpisodes = 0, duplicates = 0, throttled = false;
 
     const work = async (p: any) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS) return;
-      const target = p.deep_hydration_target || targetForRank(p.podiverzum_rank || 0);
+      const target = p.deep_hydration_target || targetForTier(p.rank_label, Number(p.podiverzum_rank) || 0);
 
       await admin.from("podcasts").update({
         deep_hydration_status: "in_progress",
@@ -181,11 +194,11 @@ Deno.serve(async (req) => {
       });
     };
 
-    await processPool(candidates || [], concurrency, work);
+    await processPool(eligible, concurrency, work);
 
     const { count: remainingPending } = await admin
       .from("podcasts").select("id", { count: "exact", head: true })
-      .gte("podiverzum_rank", 4)
+      .in("rank_label", ["S", "A", "B", "C"])
       .in("rss_status", ["active", "not_checked"])
       .is("full_backfill_completed_at", null);
 

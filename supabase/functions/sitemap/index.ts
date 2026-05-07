@@ -23,7 +23,7 @@ Deno.serve(async () => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const [{ data: cats }, { data: pods }, { data: eps }] = await Promise.all([
       supabase.from("categories").select("slug,created_at"),
-      supabase.from("podcasts").select("slug,updated_at,rss_status,podiverzum_rank,id"),
+      supabase.from("podcasts").select("slug,updated_at,rss_status,podiverzum_rank,rank_label,shadow_rank_components,id"),
       supabase.from("episodes").select("slug,updated_at,podcast_id,topics,people,companies,tickers,ingredients,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
     ]);
 
@@ -64,11 +64,15 @@ Deno.serve(async () => {
       urls.push(url(`${SITE}/${route}/${esc(info.slug)}`, info.lastmod || null, "weekly", priority));
     });
 
+    const SITEMAP_BAD = new Set(["needs_manual_rss_review", "quarantined_spam", "confirmed_dead"]);
     (pods || []).forEach((p: any) => {
       const broken = p.rss_status === "failed" || p.rss_status === "inactive";
       const empty = !epCount[p.id];
-      if (broken || empty) return;
-      urls.push(url(`${SITE}/podcast/${esc(p.slug)}`, p.updated_at, "daily", "0.6"));
+      const hs = (p.shadow_rank_components as any)?.health_state;
+      if (broken || empty || SITEMAP_BAD.has(hs) || p.rank_label === "E") return;
+      const tier = p.rank_label;
+      const priority = tier === "S" ? "0.9" : tier === "A" ? "0.8" : tier === "B" ? "0.7" : tier === "C" ? "0.6" : "0.4";
+      urls.push(url(`${SITE}/podcast/${esc(p.slug)}`, p.updated_at, "daily", priority));
     });
     (eps || []).forEach((e: any) => {
       const ps = e.podcasts?.slug;

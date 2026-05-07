@@ -849,6 +849,45 @@ export type Database = {
         }
         Relationships: []
       }
+      podcasts_backup_pre_c_v3: {
+        Row: {
+          backed_up_at: string | null
+          id: string | null
+          podiverzum_rank: number | null
+          rank_label: string | null
+          rank_reason: Json | null
+          rank_updated_at: string | null
+          refresh_interval_minutes: number | null
+          shadow_rank: number | null
+          shadow_rank_components: Json | null
+          shadow_rank_tier: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          id?: string | null
+          podiverzum_rank?: number | null
+          rank_label?: string | null
+          rank_reason?: Json | null
+          rank_updated_at?: string | null
+          refresh_interval_minutes?: number | null
+          shadow_rank?: number | null
+          shadow_rank_components?: Json | null
+          shadow_rank_tier?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          id?: string | null
+          podiverzum_rank?: number | null
+          rank_label?: string | null
+          rank_reason?: Json | null
+          rank_updated_at?: string | null
+          refresh_interval_minutes?: number | null
+          shadow_rank?: number | null
+          shadow_rank_components?: Json | null
+          shadow_rank_tier?: string | null
+        }
+        Relationships: []
+      }
       rss_url_history: {
         Row: {
           changed_at: string
