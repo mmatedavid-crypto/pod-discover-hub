@@ -890,6 +890,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_ai_jobs: {
+        Args: { _limit: number; _lock_seconds?: number }
+        Returns: {
+          attempts: number
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          id: string
+          input_hash: string
+          input_tokens: number | null
+          kind: string
+          last_error: string | null
+          locked_until: string | null
+          model: string | null
+          output_tokens: number | null
+          priority: number
+          result: Json | null
+          started_at: string | null
+          status: string
+          target_id: string
+          target_type: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ai_enrichment_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       has_role: {
         Args: {
