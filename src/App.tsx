@@ -16,6 +16,7 @@ import AdminHubPage from "./pages/AdminHubPage.tsx";
 import AdminBootstrapPage from "./pages/AdminBootstrapPage.tsx";
 import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
 import AdminGrowthPage from "./pages/AdminGrowthPage.tsx";
+import AdminAutopilotPage from "./pages/AdminAutopilotPage.tsx";
 import AdminQueuePage from "./pages/AdminQueuePage.tsx";
 import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
 import EntityPage from "./pages/EntityPage.tsx";
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/admin-bootstrap" element={<AdminBootstrapPage />} />
           <Route path="/admin/discovery" element={<AdminDiscoveryPage />} />
           <Route path="/admin/growth" element={<AdminGrowthPage />} />
+          <Route path="/admin/autopilot" element={<AdminAutopilotPage />} />
           <Route path="/admin/queue" element={<AdminQueuePage />} />
           <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
           <Route path="/admin/search-insights" element={<AdminSearchInsightsPage />} />
