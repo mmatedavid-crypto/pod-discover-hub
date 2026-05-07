@@ -25,7 +25,7 @@ export default function LiveIndexBar() {
       try {
         const { data } = await supabase
           .from("episodes")
-          .select(id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,podiverzum_rank)")
+          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,podiverzum_rank)")
           .gte("podcasts.podiverzum_rank", 4)
           .not("podcasts.rss_status", "in", "(failed,inactive)")
           .not("title", "is", null)

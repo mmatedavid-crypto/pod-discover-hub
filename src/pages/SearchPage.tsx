@@ -105,7 +105,7 @@ export default function SearchPage() {
       const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
       let pq = supabase
         .from("podcasts")
-        .select(id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
+        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .limit(60);
       terms.forEach((t) => {
         const v = `%${escapeIlike(t)}%`;
