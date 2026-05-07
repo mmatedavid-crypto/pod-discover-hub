@@ -63,11 +63,14 @@ Deno.serve(async (req) => {
     if (action === "scheduled_run") {
       const setting = await readSetting();
       if (!setting.enabled) return json({ ok: true, skipped: true, reason: "disabled" });
-      const limit = Math.max(1, Math.min(20, Number(setting.batch_size) || 5));
+      const limit = Math.max(1, Math.min(20, Number(setting.batch_size) || 10));
+      const concurrency = Math.max(1, Math.min(5, Number(setting.concurrency) || 1));
+      const max_per_pass = Math.max(20, Math.min(500, Number(setting.max_per_pass) || 200));
+      const time_budget_ms = Math.max(20_000, Math.min(110_000, Number(setting.time_budget_ms) || 50_000));
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/deep-hydrate-runner`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE}` },
-        body: JSON.stringify({ limit, trigger: "scheduled" }),
+        body: JSON.stringify({ limit, concurrency, max_per_pass, time_budget_ms, trigger: "scheduled_30min" }),
       });
       const text = await resp.text();
       let parsed: any = null; try { parsed = JSON.parse(text); } catch { /* noop */ }

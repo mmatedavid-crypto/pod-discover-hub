@@ -52,7 +52,8 @@ export default function AdminAutopilotPage() {
   const [allowed, setAllowed] = useState(false);
   const [state, setState] = useState<State>(DEFAULT_STATE);
   const [topicsInput, setTopicsInput] = useState("");
-  const [counts, setCounts] = useState({ podcasts: 0, episodes: 0, unprocessed: 0, queuePending: 0, deepPending: 0 });
+  const [counts, setCounts] = useState({ podcasts: 0, episodes: 0, unprocessed: 0, queuePending: 0, deepPending: 0, fullyBackfilled: 0 });
+  const [deepHydration, setDeepHydration] = useState<any>(null);
   const [latestImport, setLatestImport] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<number | null>(null);
@@ -77,7 +78,7 @@ export default function AdminAutopilotPage() {
   };
 
   const loadAll = async () => {
-    const [{ data: row }, pods, eps, unp, queue, imp, deepPend] = await Promise.all([
+    const [{ data: row }, pods, eps, unp, queue, imp, deepPend, fullBack, dhRow] = await Promise.all([
       supabase.from("app_settings").select("value").eq("key", "growth_autopilot").maybeSingle(),
       supabase.from("podcasts").select("*", { count: "exact", head: true }),
       supabase.from("episodes").select("*", { count: "exact", head: true }),
@@ -85,6 +86,8 @@ export default function AdminAutopilotPage() {
       supabase.from("discovery_queue").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("pi_dump_imports").select("*").order("created_at", { ascending: false }).limit(1),
       supabase.from("podcasts").select("*", { count: "exact", head: true }).in("deep_hydration_status", ["not_started", "in_progress", "failed"]),
+      supabase.from("podcasts").select("*", { count: "exact", head: true }).not("full_backfill_completed_at", "is", null),
+      supabase.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle(),
     ]);
     const next: State = { ...DEFAULT_STATE, ...((row?.value as any) || {}) };
     setState(next);
@@ -95,7 +98,9 @@ export default function AdminAutopilotPage() {
       unprocessed: unp.count ?? 0,
       queuePending: queue.count ?? 0,
       deepPending: deepPend.count ?? 0,
+      fullyBackfilled: fullBack.count ?? 0,
     });
+    setDeepHydration((dhRow?.data?.value as any) || null);
     setLatestImport(imp.data?.[0] || null);
   };
 
@@ -329,6 +334,45 @@ export default function AdminAutopilotPage() {
             </CardContent>
           </Card>
         )}
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>Deep hydration</span>
+              <span className="text-[11px] font-mono text-muted-foreground uppercase">
+                {deepHydration?.enabled ? "enabled" : "disabled"} · {deepHydration?.schedule_mode || "—"}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Stat label="Deep pending" value={counts.deepPending} />
+              <Stat label="Fully backfilled" value={counts.fullyBackfilled} />
+              <Stat label="Last processed" value={deepHydration?.last_run?.processed ?? 0} />
+              <Stat label="Last completed" value={deepHydration?.last_run?.completed ?? 0} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Stat label="Last new eps" value={deepHydration?.last_run?.new_episodes ?? 0} />
+              <Stat label="Last failed" value={deepHydration?.last_run?.failed ?? 0} tone={(deepHydration?.last_run?.failed ?? 0) > 0 ? "warn" : "default"} />
+              <Stat label="Last duration (s)" value={Math.round((deepHydration?.last_run?.duration_ms ?? 0) / 1000)} />
+              <Stat label="Throttled (last)" value={deepHydration?.last_run?.throttled ? 1 : 0} tone={deepHydration?.last_run?.throttled ? "warn" : "default"} />
+            </div>
+            <div className="text-muted-foreground font-mono pt-1">
+              Settings: limit={deepHydration?.batch_size ?? "—"} · concurrency={deepHydration?.concurrency ?? 1} · max_per_pass={deepHydration?.max_per_pass ?? 200} · time_budget_ms={deepHydration?.time_budget_ms ?? 50000}
+            </div>
+            {deepHydration?.last_run?.finished_at && (
+              <div className="text-muted-foreground">
+                Last run: {new Date(deepHydration.last_run.finished_at).toLocaleString()} · trigger:{" "}
+                <span className="font-mono">{deepHydration.last_run.trigger || "—"}</span>
+              </div>
+            )}
+            {deepHydration?.totals && (
+              <div className="text-muted-foreground">
+                Totals: runs={deepHydration.totals.runs ?? 0} · processed={deepHydration.totals.processed ?? 0} · completed={deepHydration.totals.completed ?? 0} · new_eps={deepHydration.totals.new_episodes ?? 0} · failed={deepHydration.totals.failed ?? 0}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="border-dashed">
           <CardContent className="py-4 text-xs text-muted-foreground space-y-1">
