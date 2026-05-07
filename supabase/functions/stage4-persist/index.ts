@@ -49,6 +49,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (Array.isArray(body.health)) {
+      for (const h of body.health) {
+        const patch: any = {};
+        if (h.rss_status) patch.rss_status = h.rss_status;
+        if (typeof h.consecutive_failure_count === "number") patch.consecutive_failure_count = h.consecutive_failure_count;
+        if (h.clear_error) patch.last_fetch_error = null;
+        if (h.touch_fetched) patch.last_fetched_at = new Date().toISOString();
+        // merge health_state into shadow_rank_components
+        const { data: cur } = await supabase.from("podcasts").select("shadow_rank_components").eq("id", h.id).maybeSingle();
+        const comp = (cur?.shadow_rank_components as any) || {};
+        comp.health_state = h.health_state;
+        comp.recheck_code = h.code ?? null;
+        comp.rechecked_at = new Date().toISOString();
+        patch.shadow_rank_components = comp;
+        const { error } = await supabase.from("podcasts").update(patch).eq("id", h.id);
+        if (error) (counters as any).errors.push(`health ${h.id}: ${error.message}`);
+        else (counters as any).gate++;
+      }
+    }
+
     if (Array.isArray(body.shadow)) {
       for (const s of body.shadow) {
         const { error } = await supabase.from("podcasts").update({
