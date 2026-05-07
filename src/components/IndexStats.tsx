@@ -82,7 +82,7 @@ export default function IndexStats() {
   const stats = [
     { label: "Episodes indexed", value: formatCount(epAnim), accent: true },
     {
-      label: "Podcast years indexed",
+      label: "Years indexed",
       value: yrAnim ? yrAnim.toFixed(1) : "0",
       suffix: "yrs",
       accent: true,
