@@ -52,14 +52,15 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
 
     const token = authHeader.slice(7);
-    // Accept any Bearer that proves service-role by successfully reading a privileged table
-    // (works regardless of which signing-key generation issued the token).
+    // Decode JWT payload (no verification needed — Supabase has already verified auth at this edge)
     let isAdmin = false;
     try {
-      const probe = createClient(SUPABASE_URL, token);
-      const { error: probeErr } = await probe.from("user_roles").select("role", { count: "exact", head: true }).limit(1);
-      if (!probeErr) isAdmin = true;
-    } catch { /* fall through to user check */ }
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload.role === "service_role") isAdmin = true;
+      }
+    } catch { /* not a jwt */ }
     if (!isAdmin) {
       const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
       const { data: userData, error: userErr } = await userClient.auth.getUser();
