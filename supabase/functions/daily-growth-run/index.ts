@@ -124,6 +124,18 @@ Deno.serve(async (req) => {
   const { data: runRow } = await supabase.from("growth_runs").insert({ started_at: startedAt, trigger, stats: {} }).select("id").single();
   const runId = runRow?.id;
 
+  // Total wall-clock budget for this invocation. Edge runtime cap ~150s; we stop early.
+  const RUN_BUDGET_MS = 110_000;
+  const runStartedMs = Date.now();
+  const remaining = () => RUN_BUDGET_MS - (Date.now() - runStartedMs);
+
+  // Run status — written by the finally block so we never orphan a row.
+  let runStatus: "completed" | "partial" | "failed" | "timed_out_prevented" | "skipped" = "completed";
+  let runError: string | null = null;
+  let runOk = true;
+  let responsePayload: any = null;
+  let responseStatus = 200;
+
   try {
     // Load settings
     const { data: settingsRow } = await supabase.from("app_settings").select("value").eq("key", "growth").maybeSingle();
