@@ -170,7 +170,9 @@ Deno.serve(async (req) => {
     }
 
     state.last_tick_at = new Date().toISOString();
-    state.last_action = action;
+    if (!state.last_action || !state.last_action.startsWith("auto-throttled")) {
+      state.last_action = action;
+    }
     state.last_result = result;
 
     await supabase.from("app_settings").upsert({
