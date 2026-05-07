@@ -8,7 +8,7 @@ type Item = {
   slug: string;
   created_at: string;
   published_at: string | null;
-  podcasts: { slug: string; title: string; category: string | null; rss_status: string; podiverzum_rank: number } | null;
+  podcasts: { slug: string; title: string; category: string | null; rss_status: string; podiverzum_rank: number; rank_label: string | null } | null;
 };
 
 const HIDE_PREFIXES = ["/admin", "/auth", "/privacy", "/terms", "/admin-bootstrap", "/growth-status"];
@@ -25,8 +25,8 @@ export default function LiveIndexBar() {
       try {
         const { data } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,podiverzum_rank)")
-          .gte("podcasts.podiverzum_rank", 5.5)
+          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,podiverzum_rank,rank_label)")
+          .in("podcasts.rank_label", ["S", "A", "B"])
           .not("podcasts.rss_status", "in", "(failed,inactive)")
           .not("title", "is", null)
           .order("created_at", { ascending: false })

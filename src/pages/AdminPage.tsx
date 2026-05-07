@@ -366,9 +366,9 @@ export default function AdminPage() {
     inactive: podcasts.filter((p) => p.rss_status === "inactive").length,
     no_image: podcasts.filter((p) => !p.image_url).length,
     no_episodes: podcasts.filter((p) => !(episodeCounts[p.id] > 0)).length,
-    rank_high: podcasts.filter((p) => (p.podiverzum_rank ?? 1) >= 8).length,
-    rank_mid: podcasts.filter((p) => { const r = p.podiverzum_rank ?? 1; return r >= 4 && r <= 7; }).length,
-    rank_low: podcasts.filter((p) => (p.podiverzum_rank ?? 1) <= 3).length,
+    rank_high: podcasts.filter((p) => ["S", "A"].includes(p.rank_label as string)).length,
+    rank_mid: podcasts.filter((p) => ["B", "C"].includes(p.rank_label as string)).length,
+    rank_low: podcasts.filter((p) => ["D", "E"].includes(p.rank_label as string)).length,
   }), [podcasts, episodeCounts]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;

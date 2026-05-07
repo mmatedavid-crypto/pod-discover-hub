@@ -87,8 +87,18 @@ function scoreEpisode(e: any, podcastRank: number) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // DEPRECATED: legacy integer scorer. Replaced by Formula C v3 (stage4-persist).
+  // Disabled to prevent overwriting live podiverzum_rank with old logic.
+  // To re-enable for emergency use, send {force_legacy:true}.
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    if (!body.force_legacy) {
+      return new Response(JSON.stringify({
+        ok: false,
+        deprecated: true,
+        message: "recompute-ranks is deprecated. Formula C v3 (stage4-persist) is the live ranking system. Pass force_legacy:true to override.",
+      }), { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const onlyPodcastId: string | undefined = body.podcast_id;
     const includeEpisodes: boolean = body.episodes !== false;
 
