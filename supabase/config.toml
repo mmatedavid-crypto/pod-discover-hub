@@ -57,4 +57,13 @@ verify_jwt = false
 [functions.title-cleanup-runner]
 verify_jwt = false
 
+[functions.seo-enrich-enqueue]
+verify_jwt = false
+
+[functions.seo-enrich-runner]
+verify_jwt = false
+
+[functions.seo-enrich-admin]
+verify_jwt = false
+
 
