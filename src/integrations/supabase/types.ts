@@ -489,6 +489,7 @@ export type Database = {
           description: string | null
           featured: boolean
           featured_rank: number | null
+          full_backfill_completed_at: string | null
           hydrated_episode_count: number
           id: string
           image_url: string | null
@@ -526,6 +527,7 @@ export type Database = {
           description?: string | null
           featured?: boolean
           featured_rank?: number | null
+          full_backfill_completed_at?: string | null
           hydrated_episode_count?: number
           id?: string
           image_url?: string | null
@@ -563,6 +565,7 @@ export type Database = {
           description?: string | null
           featured?: boolean
           featured_rank?: number | null
+          full_backfill_completed_at?: string | null
           hydrated_episode_count?: number
           id?: string
           image_url?: string | null
