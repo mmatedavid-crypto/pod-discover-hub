@@ -90,9 +90,6 @@ export default function PodcastDetail() {
                   <div className="font-medium">{e.display_title || e.title}</div>
                   <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-2 items-center">
                     {e.published_at && <span>{new Date(e.published_at).toLocaleDateString()}</span>}
-                    {typeof e.episode_rank === "number" && e.episode_rank > 0 && (
-                      <span className="px-1.5 py-0.5 rounded bg-secondary text-[10px]">Ep rank {e.episode_rank}</span>
-                    )}
                   </div>
                   {(e.summary || e.description) && (
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{snippet(e.summary || e.description, 200)}</p>
