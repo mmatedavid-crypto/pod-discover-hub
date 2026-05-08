@@ -92,14 +92,7 @@ const Index = () => {
       (grouped[cat] ||= []).push(e);
     });
     Object.keys(grouped).forEach((k) => {
-      grouped[k] = grouped[k].sort((a: any, b: any) => {
-        const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
-        if (br !== ar) return br - ar;
-        const at = a.published_at ? new Date(a.published_at).getTime() : 0;
-        const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
-        if (bt !== at) return bt - at;
-        return (b.podcasts?.podiverzum_rank ?? 0) - (a.podcasts?.podiverzum_rank ?? 0);
-      }).slice(0, 6);
+      grouped[k] = grouped[k].sort(compareByScore).slice(0, 6);
     });
     return grouped;
   }, [allEps]);
