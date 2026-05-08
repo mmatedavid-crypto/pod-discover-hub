@@ -121,7 +121,7 @@ export default function EpisodeDetail() {
   if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
   if (!data?.e) return <NotFoundState title="Episode not found" message="That episode doesn't exist or has been removed." />;
   const { p, e } = data;
-  const summary = stripHtml(e.summary);
+  const summary = stripHtml(e.ai_summary) || stripHtml(e.summary);
   const description = stripHtml(e.description);
 
   const EntList = ({ kind, label }: { kind: EntityKind; label: string }) => {
