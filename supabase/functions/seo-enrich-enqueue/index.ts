@@ -92,7 +92,9 @@ Deno.serve(async (req) => {
         .select("id, podcast_id, title, display_title, description, ai_summary, seo_title, podcasts!inner(title, display_title)")
         .in("podcast_id", podIds)
         .is("ai_summary", null)
-        .order("episode_rank", { ascending: false })
+        // Formula C v3-safe: drop frozen `episode_rank` ordering. Podcast tier
+        // already drives per-episode priority via podPriById; freshness is the
+        // best remaining signal for which episodes to enrich first.
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(maxEps);
       if (eErr) throw eErr;
