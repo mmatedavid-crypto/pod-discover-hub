@@ -749,7 +749,7 @@ Header: apikey: <publishable key>`}</pre>
                         className="w-12 px-1 py-0.5 rounded bg-background border border-border text-center"
                       />
                     </label>
-                    <button disabled title="Legacy ranking disabled — replaced by Formula C v3" className="px-2 py-1 rounded bg-muted text-muted-foreground opacity-60 cursor-not-allowed">Recalc (legacy)</button>
+                    
                     <button onClick={() => remove(p.id)} className="px-2 py-1 rounded bg-destructive text-destructive-foreground ml-auto">Delete</button>
                   </div>
                   {p.rank_reason?.factors && (
