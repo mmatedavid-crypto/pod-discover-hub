@@ -13,7 +13,7 @@ export type EpisodeLite = {
   description?: string | null;
   published_at?: string | null;
   audio_url?: string | null;
-  episode_rank?: number | null;
+  // episode_rank intentionally removed (Formula C v3 cleanup; legacy frozen field)
   topics?: string[] | null;
   people?: string[] | null;
   companies?: string[] | null;
@@ -75,9 +75,6 @@ export function EpisodeCard({
           {p.category && <span className="opacity-60">·</span>}
           {p.category && <span>{p.category}</span>}
           {e.published_at && <><span className="opacity-60">·</span><span>{new Date(e.published_at).toLocaleDateString()}</span></>}
-          {typeof e.episode_rank === "number" && e.episode_rank >= 6 && (
-            <span className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-foreground/80">Ep {e.episode_rank}</span>
-          )}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
             <span className="px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-primary">Pod {Number(p.podiverzum_rank).toFixed(1)}</span>
           )}

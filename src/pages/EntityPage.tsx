@@ -7,6 +7,7 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug } from "@/lib/entity";
+import { compareByScore, episodeScore } from "@/lib/episodeRank";
 
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
@@ -27,7 +28,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       const col = ENTITY_COLUMN[kind];
       const { data: cand } = await supabase
         .from("episodes")
-        .select(`id,title,slug,published_at,summary,description,audio_url,episode_rank,topics,people,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status,featured)`)
+        .select(`id,title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured)`)
         .not(col, "is", null)
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(800);
@@ -49,12 +50,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       });
       setDisplayName(exemplar);
 
-      // Rank/freshness sort + dedupe; latest first secondary sort
-      const sorted = visible.slice().sort((a, b) => {
-        const ar = a.episode_rank || 0, br = b.episode_rank || 0;
-        if (br !== ar) return br - ar;
-        return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime();
-      });
+      // Composite tier+freshness sort; latest first secondary
+      const sorted = visible.slice().sort(compareByScore);
       setEps(sorted.slice(0, 40) as any);
 
       // Related podcasts
@@ -122,7 +119,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const total = eps.length;
   const rich = total >= RICH_AT;
   const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
-  const best = eps.slice().sort((a, b) => (b.episode_rank || 0) - (a.episode_rank || 0)).slice(0, 12);
+  const best = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
 
   return (
     <Layout>

@@ -3,7 +3,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export const EPISODE_SELECT =
-  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,episode_rank,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rss_status)";
+  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status)";
 
 // High-confidence simple synonyms — small, safe expansion.
 const BUILTIN_SYNONYMS: Record<string, string[]> = {
@@ -338,8 +338,9 @@ function scoreEpisode(
     s += Math.max(0, 30 - ageDays) * 0.6;
     if (ageDays < 7) s += 8;
   }
-  // Quality tie-breakers — modest.
-  s += ((e.episode_rank ?? 0)) * 1.0;
+  // Quality tie-breakers — modest. Tier-aware (Formula C v3) replaces frozen episode_rank.
+  const tierMap: Record<string, number> = { S: 12, A: 8, B: 4, C: 2 };
+  s += tierMap[e.podcasts?.rank_label as string] ?? 0;
   s += ((e.podcasts?.podiverzum_rank ?? 0)) * 0.35;
 
   // Category boost — strong only for direct in-category matches (title/entity/body),

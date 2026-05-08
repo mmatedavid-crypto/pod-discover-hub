@@ -9,6 +9,7 @@ import { stripHtml } from "@/lib/text";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { ENTITY_COLUMN, EntityKind, ENTITY_LABEL, entityHref } from "@/lib/entity";
 import { EpisodeDetailSkeleton } from "@/components/Skeletons";
+import { compareByScore } from "@/lib/episodeRank";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
@@ -76,7 +77,7 @@ export default function EpisodeDetail() {
           const col = ENTITY_COLUMN[kind];
           const { data: rs } = await supabase
             .from("episodes")
-            .select("id,title,display_title,slug,published_at,summary,description,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status)")
+            .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
             .neq("id", e.id)
             .contains(col, [v])
             .order("published_at", { ascending: false, nullsFirst: false })
@@ -91,26 +92,21 @@ export default function EpisodeDetail() {
       if (candidates.size < 6 && p.category) {
         const { data: rs } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status)")
+          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
           .neq("id", e.id).neq("podcast_id", p.id)
           .eq("podcasts.category", p.category)
-          .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(8);
+          .limit(20);
         (rs || []).forEach((r: any) => candidates.set(r.id, r));
       }
       const rel = Array.from(candidates.values())
-        .sort((a, b) => {
-          const ar = a.episode_rank || 0, br = b.episode_rank || 0;
-          if (br !== ar) return br - ar;
-          return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime();
-        })
+        .sort(compareByScore)
         .slice(0, 8);
       setRelated(rel as any);
 
       const { data: mp } = await supabase
         .from("episodes")
-        .select("id,title,display_title,slug,published_at,summary,description,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank)")
+        .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
         .eq("podcast_id", p.id).neq("id", e.id)
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(6);
@@ -150,8 +146,7 @@ export default function EpisodeDetail() {
           <Link to={`/podcast/${p.slug}`} className="hover:text-foreground">{p.display_title || p.title}</Link>
           {p.category && <Link to={`/category/${p.category.toLowerCase().replace(/[^a-z0-9]+/g,"-")}`} className="hover:text-foreground">· {p.category}</Link>}
           {e.published_at && <span>· {new Date(e.published_at).toLocaleDateString()}</span>}
-          {typeof e.episode_rank === "number" && e.episode_rank > 0 && <span className="px-1.5 py-0.5 rounded bg-secondary text-[10px]">Ep rank {e.episode_rank}</span>}
-          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">/ Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
+          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">· Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5">

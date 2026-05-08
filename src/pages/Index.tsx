@@ -6,6 +6,7 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight } from "lucide-react";
 import { setSeo } from "@/lib/seo";
+import { compareByScore } from "@/lib/episodeRank";
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
@@ -64,21 +65,12 @@ const Index = () => {
       if (eligibleIds.length) {
         const { data: eps, error: epsErr } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status,featured)")
+          .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured)")
           .in("podcast_id", eligibleIds.slice(0, HOMEPAGE_PODCAST_LIMIT))
-          .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(HOMEPAGE_EPISODE_LIMIT);
         if (epsErr) throw epsErr;
-        const sortFn = (a: any, b: any) => {
-          const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
-          if (br !== ar) return br - ar;
-          const at = a.published_at ? new Date(a.published_at).getTime() : 0;
-          const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
-          if (bt !== at) return bt - at;
-          return (b.podcasts?.podiverzum_rank ?? 0) - (a.podcasts?.podiverzum_rank ?? 0);
-        };
-        setTrendingEps(((eps || []).slice().sort(sortFn).slice(0, 12)) as any);
+        setTrendingEps(((eps || []).slice().sort(compareByScore).slice(0, 12)) as any);
         setAllEps((eps || []) as any);
       }
       } catch (err) {
@@ -100,14 +92,7 @@ const Index = () => {
       (grouped[cat] ||= []).push(e);
     });
     Object.keys(grouped).forEach((k) => {
-      grouped[k] = grouped[k].sort((a: any, b: any) => {
-        const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
-        if (br !== ar) return br - ar;
-        const at = a.published_at ? new Date(a.published_at).getTime() : 0;
-        const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
-        if (bt !== at) return bt - at;
-        return (b.podcasts?.podiverzum_rank ?? 0) - (a.podcasts?.podiverzum_rank ?? 0);
-      }).slice(0, 6);
+      grouped[k] = grouped[k].sort(compareByScore).slice(0, 6);
     });
     return grouped;
   }, [allEps]);

@@ -8,6 +8,7 @@ import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
+import { compareByScore } from "@/lib/episodeRank";
 
 export default function CategoryDetail() {
   const { slug } = useParams();
@@ -81,19 +82,11 @@ export default function CategoryDetail() {
       if (promotedIds.length) {
         const { data: eps } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank)")
+          .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
           .in("podcast_id", promotedIds)
-          .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(40);
-        const sorted = (eps || []).slice().sort((a: any, b: any) => {
-          const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
-          if (br !== ar) return br - ar;
-          const at = a.published_at ? new Date(a.published_at).getTime() : 0;
-          const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
-          if (bt !== at) return bt - at;
-          return (b.podcasts?.podiverzum_rank ?? 0) - (a.podcasts?.podiverzum_rank ?? 0);
-        }).slice(0, 25);
+          .limit(80);
+        const sorted = (eps || []).slice().sort(compareByScore).slice(0, 25);
         setEpisodes(sorted as any);
         const t = new Map<string, number>();
         (sorted || []).forEach((e: any) => (e.topics || []).forEach((x: string) => t.set(x, (t.get(x) || 0) + 1)));
