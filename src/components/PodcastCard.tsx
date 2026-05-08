@@ -16,10 +16,11 @@ export type PodcastLite = {
   spotify_url?: string | null;
   youtube_url?: string | null;
   website_url?: string | null;
+  seo_description?: string | null;
 };
 
 export function PodcastCard({ p }: { p: PodcastLite }) {
-  const desc = snippet(p.summary || p.description, 160);
+  const desc = snippet(p.seo_description || p.summary || p.description, 160);
   const title = p.display_title || p.title;
   return (
     <article className="group flex gap-3 p-3 sm:p-4 rounded-xl border border-border/70 bg-card/70 card-lift hover:border-primary/40">
