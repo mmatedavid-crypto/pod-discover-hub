@@ -75,13 +75,13 @@ Deno.serve(async (req) => {
     const startedAt = Date.now();
 
     const nowIso = new Date().toISOString();
-    const dueOrNull = `next_fetch_at.is.null,next_fetch_at.lte.${nowIso}`;
     let cq = admin
       .from("podcasts")
       .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
       .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-      .or("quarantined_until.is.null,quarantined_until.lt." + nowIso)
-      .or(dueOrNull)
+      .not("rss_url", "is", null)
+      .is("next_fetch_at", null)
+      .is("quarantined_until", null)
       .order("last_fetched_at", { ascending: true, nullsFirst: true })
       .limit(limit);
 
@@ -92,8 +92,9 @@ Deno.serve(async (req) => {
         .from("podcasts")
         .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
         .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-        .or("quarantined_until.is.null,quarantined_until.lt." + nowIso)
-        .or(dueOrNull)
+        .not("rss_url", "is", null)
+        .is("next_fetch_at", null)
+        .is("quarantined_until", null)
         .order("last_fetched_at", { ascending: true, nullsFirst: true })
         .limit(limit);
     } else {
