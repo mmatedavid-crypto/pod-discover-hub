@@ -100,12 +100,6 @@ export default function AdminHubPage() {
 
   const sections: { title: string; tools: Tool[] }[] = [
     {
-      title: "Operations",
-      tools: [
-        { to: "/admin/ops", title: "Ops Dashboard", desc: "All pipelines, backlogs, alerts, safe maintenance controls.", icon: Activity, badge: "new", badgeTone: "warn" },
-      ],
-    },
-    {
       title: "Growth & Indexing",
       tools: [
         { to: "/admin/autopilot", title: "Growth Autopilot", desc: "Cloud-driven podcast growth. Start/pause from your phone.", icon: Activity, badge: "new", badgeTone: "warn" },
