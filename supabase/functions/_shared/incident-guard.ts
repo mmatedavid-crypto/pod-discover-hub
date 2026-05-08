@@ -15,8 +15,9 @@ export async function checkBackgroundJobsAllowed(admin: any, jobName: string): P
     if (incident) return { blocked: true, reason: `incident_mode=true (job=${jobName})` };
     if (!enabled) return { blocked: true, reason: `background_jobs_enabled=false (job=${jobName})` };
     return { blocked: false };
-  } catch {
-    // Fail-open: never block public reads, but background jobs run normally if flag missing
-    return { blocked: false };
+  } catch (e) {
+    // Fail-CLOSED: if the guard check itself fails (e.g. DB under pressure),
+    // block background work. Public frontend reads do NOT use this guard.
+    return { blocked: true, reason: `background_guard_check_failed (job=${jobName}): ${(e as any)?.message || e}` };
   }
 }
