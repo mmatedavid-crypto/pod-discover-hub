@@ -44,7 +44,7 @@ export default function AdminPage() {
   const [aiLastRun, setAiLastRun] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sortKey, setSortKey] = useState<SortKey>("created");
-  const [recalcing, setRecalcing] = useState(false);
+  
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -92,12 +92,27 @@ export default function AdminPage() {
       .from("episodes").select("*", { count: "exact", head: true })
       .not("summary", "is", null)
       .gte("updated_at", todayStart.toISOString());
-    // Rough estimate: ~$0.0003 per Gemini Flash episode summary call
     const aiCostToday = ((summariesToday || 0) * 0.0003);
+
+    // Formula C v3 status
+    const tierCounts: Record<string, number> = {};
+    let lastRankUpdated: string | null = null;
+    let legacyLabelLeaks = 0;
+    const VALID = new Set(["S", "A", "B", "C", "D", "E"]);
+    for (const p of pods) {
+      const lbl = p.rank_label || "(unranked)";
+      tierCounts[lbl] = (tierCounts[lbl] || 0) + 1;
+      if (p.rank_label && !VALID.has(p.rank_label)) legacyLabelLeaks++;
+      if (p.rank_updated_at && (!lastRankUpdated || p.rank_updated_at > lastRankUpdated)) {
+        lastRankUpdated = p.rank_updated_at;
+      }
+    }
+
     setStats({
       totalPodcasts, totalEpisodes: epCount || 0, active, failed, notChecked,
       lastFetched, summariesToday: summariesToday || 0, aiCostToday,
       duplicatesSkipped, errors,
+      formulaC: { tierCounts, lastRankUpdated, legacyLabelLeaks },
     });
   };
 
@@ -316,13 +331,6 @@ export default function AdminPage() {
     refresh();
   };
 
-  const recalcRanks = async (_podcast_id?: string) => {
-    // Legacy ranking disabled — replaced by Formula C v3 (shadow_rank / podiverzum_rank
-    // are computed by stage4-persist + shadow ranking pipeline). The legacy
-    // `recompute-ranks` edge function writes incompatible integer 1–10 ranks and
-    // frozen episode_rank labels, so it must NOT be invoked from the UI.
-    toast.warning("Legacy ranking disabled — replaced by Formula C v3.");
-  };
 
   const setManualBoost = async (id: string, boost: number) => {
     const clamped = Math.max(-3, Math.min(3, boost));
@@ -485,6 +493,60 @@ Header: apikey: <publishable key>`}</pre>
           </div>
         </section>
 
+        {stats?.formulaC && (
+          <section className="p-4 rounded-lg border border-border bg-card">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="font-semibold">Formula C v3 — ranking status</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Live ranking is powered by Formula C v3 (<code>stage4-persist</code> + shadow ranking pipeline).
+                  Legacy <code>recompute-ranks</code> is deprecated and unreachable from the UI.
+                </p>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Last <code>rank_updated_at</code>:{" "}
+                <span className="font-medium text-foreground">
+                  {stats.formulaC.lastRankUpdated ? new Date(stats.formulaC.lastRankUpdated).toLocaleString() : "never"}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 mt-3">
+              {(["S","A","B","C","D","E","(unranked)"] as const).map((t) => {
+                const n = stats.formulaC.tierCounts[t] || 0;
+                const cls = t === "S" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                  : t === "A" ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
+                  : t === "B" ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
+                  : t === "C" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                  : "bg-muted text-muted-foreground border-border";
+                return (
+                  <div key={t} className={`p-2 rounded border ${cls}`}>
+                    <div className="text-[10px] uppercase tracking-wide opacity-80">Tier {t}</div>
+                    <div className="text-lg font-semibold">{n}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {stats.formulaC.legacyLabelLeaks > 0 && (
+              <div className="mt-3 p-2 rounded border border-amber-500/40 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300">
+                ⚠ {stats.formulaC.legacyLabelLeaks} podcast(s) still carry legacy
+                rank_label values (Elite/Excellent/Strong/Medium/Weak/Poor/Broken)
+                from the deprecated <code>recompute-ranks</code> function. They are
+                ignored by Formula C v3 ordering but should be cleaned up in a
+                future migration.
+              </div>
+            )}
+            <details className="mt-3 text-xs text-muted-foreground">
+              <summary className="cursor-pointer">Enqueue ordering contract (read-only)</summary>
+              <ul className="mt-2 ml-4 list-disc space-y-1">
+                <li>Podcast selection: <code>rank_label</code> ∈ {"{S,A,B,C}"}, healthy, ordered by <code>podiverzum_rank DESC</code>.</li>
+                <li>Job priority by tier: S=100, A=80, B=60, C=40 (D/E excluded).</li>
+                <li>Episode ordering inside a podcast: <code>published_at DESC</code>.</li>
+                <li>Legacy <code>episode_rank</code> / <code>episode_rank_label</code> are intentionally ignored.</li>
+              </ul>
+            </details>
+          </section>
+        )}
+
         {stats && (
           <section>
             <h2 className="font-semibold mb-3">Production overview</h2>
@@ -578,13 +640,6 @@ Header: apikey: <publishable key>`}</pre>
               <button onClick={bulkMark404Inactive} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Mark all failed 404 inactive</button>
               <button onClick={bulkHideFailed} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Hide failed feeds from public site</button>
               <button onClick={bulkDeleteFailedEmpty} className="px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground text-xs">Delete failed feeds with no episodes</button>
-              <button
-                disabled
-                title="Legacy ranking disabled — replaced by Formula C v3"
-                className="px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs cursor-not-allowed opacity-60"
-              >
-                Recompute Rank (legacy disabled — Formula C v3)
-              </button>
               <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
                 className="px-2 py-1 rounded-md border border-border bg-background text-xs">
                 <option value="created">Sort: newest</option>
@@ -694,7 +749,7 @@ Header: apikey: <publishable key>`}</pre>
                         className="w-12 px-1 py-0.5 rounded bg-background border border-border text-center"
                       />
                     </label>
-                    <button disabled title="Legacy ranking disabled — replaced by Formula C v3" className="px-2 py-1 rounded bg-muted text-muted-foreground opacity-60 cursor-not-allowed">Recalc (legacy)</button>
+                    
                     <button onClick={() => remove(p.id)} className="px-2 py-1 rounded bg-destructive text-destructive-foreground ml-auto">Delete</button>
                   </div>
                   {p.rank_reason?.factors && (

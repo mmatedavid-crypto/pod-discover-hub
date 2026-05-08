@@ -18,8 +18,6 @@ verify_jwt = false
 [functions.podcast-index-search]
 verify_jwt = false
 
-[functions.recompute-ranks]
-verify_jwt = false
 
 [functions.daily-growth-run]
 verify_jwt = false
