@@ -13,7 +13,7 @@ export type EpisodeLite = {
   description?: string | null;
   published_at?: string | null;
   audio_url?: string | null;
-  episode_rank?: number | null;
+  // episode_rank intentionally removed (Formula C v3 cleanup; legacy frozen field)
   topics?: string[] | null;
   people?: string[] | null;
   companies?: string[] | null;
