@@ -1053,6 +1053,7 @@ export type Database = {
         Args: { _model: string; _tiers: string[] }
         Returns: Json
       }
+      get_cron_health: { Args: never; Returns: Json }
       get_ops_dashboard_status: { Args: never; Returns: Json }
       has_role: {
         Args: {
