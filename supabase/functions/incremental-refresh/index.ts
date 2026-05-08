@@ -66,7 +66,6 @@ Deno.serve(async (req) => {
     const requestedLimit = Number(body.limit ?? body.batch);
     const limit = Math.max(1, Math.min(3, Number.isFinite(requestedLimit) ? requestedLimit : 3));
     const concurrency = 1;
-    const useTier = true;
     const stale_hours = Math.max(0, Math.min(168, Number(body.stale_hours ?? 6)));
     const episodeCap = Math.max(3, Math.min(10, Number(body.episode_cap) || 5));
     const TIME_BUDGET_MS = Math.max(20_000, Math.min(30_000, Number(body.time_budget_ms) || 25_000));
@@ -74,30 +73,23 @@ Deno.serve(async (req) => {
     const trigger = (body.trigger as string) || "manual";
     const startedAt = Date.now();
 
+    const staleCutoff = new Date(Date.now() - stale_hours * 3600_000).toISOString();
+    const candidateWindow = Math.min(9, limit * 3);
+
     const cq = admin
       .from("podcasts")
       .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
       .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-      .not("rss_url", "is", null)
       .is("next_fetch_at", null)
-      .is("quarantined_until", null)
+      .not("last_fetched_at", "is", null)
+      .lte("last_fetched_at", staleCutoff)
       .order("last_fetched_at", { ascending: true, nullsFirst: true })
-      .limit(limit);
+      .limit(candidateWindow);
 
     const { data: prelim, error: cErr } = await cq;
     if (cErr) throw cErr;
 
-    let candidates = prelim || [];
-    if (useTier) {
-      const now = Date.now();
-      candidates = candidates.filter((p: any) => {
-        // Respect failure backoff
-        if (p.next_fetch_at && new Date(p.next_fetch_at).getTime() > now) return false;
-        if (!p.last_fetched_at) return true;
-        const interval = (p.refresh_interval_minutes || 360) * 60_000;
-        return new Date(p.last_fetched_at).getTime() + interval < now;
-      }).slice(0, limit);
-    }
+    const candidates = (prelim || []).filter((p: any) => !!p.rss_url).slice(0, limit);
 
     let scanned = 0, refreshed = 0, failed = 0, newEpisodes = 0, throttled = false, notModified = 0;
     const results: any[] = [];
@@ -139,7 +131,7 @@ Deno.serve(async (req) => {
       duration_ms: Date.now() - startedAt,
       trigger, concurrency, limit, stale_hours, episode_cap: episodeCap,
       scanned, refreshed, failed, throttled, new_episodes: newEpisodes, not_modified: notModified,
-      tier_based: useTier, candidates_considered: (candidates || []).length,
+      candidates_considered: (candidates || []).length,
       recommended_schedule: recommended,
     };
     await admin.from("app_settings").upsert({
