@@ -6,7 +6,7 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight } from "lucide-react";
 import { setSeo } from "@/lib/seo";
-import IndexStats from "@/components/IndexStats";
+
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
