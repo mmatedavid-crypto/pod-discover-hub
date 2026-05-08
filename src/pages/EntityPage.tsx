@@ -119,7 +119,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const total = eps.length;
   const rich = total >= RICH_AT;
   const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
-  const best = eps.slice().sort((a, b) => (b.episode_rank || 0) - (a.episode_rank || 0)).slice(0, 12);
+  const best = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
 
   return (
     <Layout>
