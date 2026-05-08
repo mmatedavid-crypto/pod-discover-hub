@@ -1087,6 +1087,10 @@ export type Database = {
         Returns: undefined
       }
       set_embed_schedule: { Args: { _schedule: string }; Returns: undefined }
+      set_incremental_refresh_command: {
+        Args: { _command: string }
+        Returns: undefined
+      }
       set_incremental_refresh_schedule: {
         Args: { _schedule: string }
         Returns: undefined
