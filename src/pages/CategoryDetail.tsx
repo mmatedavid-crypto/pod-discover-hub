@@ -8,6 +8,7 @@ import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
+import { compareByScore } from "@/lib/episodeRank";
 
 export default function CategoryDetail() {
   const { slug } = useParams();
