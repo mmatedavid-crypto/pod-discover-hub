@@ -40,8 +40,9 @@ async function markFailure(supabase: any, podcast: any, msg: string, isDeadCode 
   await supabase.from("podcasts").update(upd).eq("id", podcast.id);
 }
 
-export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?: number } = {}) {
+export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?: number; fetchTimeoutMs?: number } = {}) {
   const episodeCap = Math.max(1, Math.min(500, opts.episodeCap ?? 30));
+  const fetchTimeoutMs = Math.max(3_000, Math.min(20_000, opts.fetchTimeoutMs ?? 20_000));
   if (!podcast.rss_url) {
     await supabase.from("podcasts").update({
       rss_status: "failed",
@@ -64,7 +65,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     const res = await fetch(podcast.rss_url, {
       headers,
       redirect: "follow",
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(fetchTimeoutMs),
     });
 
     finalUrl = res.url || podcast.rss_url;
