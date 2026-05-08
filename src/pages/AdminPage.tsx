@@ -316,22 +316,20 @@ export default function AdminPage() {
     refresh();
   };
 
-  const recalcRanks = async (podcast_id?: string) => {
-    setRecalcing(true);
-    const { data, error } = await supabase.functions.invoke("recompute-ranks", {
-      body: podcast_id ? { podcast_id, episodes: true } : { episodes: false },
-    });
-    setRecalcing(false);
-    if (error) return toast.error(error.message);
-    toast.success(`Recomputed ${data?.podcasts || 0} podcasts${data?.episodes ? `, ${data.episodes} episodes` : ""}`);
-    await refresh();
+  const recalcRanks = async (_podcast_id?: string) => {
+    // Legacy ranking disabled — replaced by Formula C v3 (shadow_rank / podiverzum_rank
+    // are computed by stage4-persist + shadow ranking pipeline). The legacy
+    // `recompute-ranks` edge function writes incompatible integer 1–10 ranks and
+    // frozen episode_rank labels, so it must NOT be invoked from the UI.
+    toast.warning("Legacy ranking disabled — replaced by Formula C v3.");
   };
 
   const setManualBoost = async (id: string, boost: number) => {
     const clamped = Math.max(-3, Math.min(3, boost));
     const { error } = await supabase.from("podcasts").update({ manual_rank_boost: clamped }).eq("id", id);
     if (error) return toast.error(error.message);
-    await recalcRanks(id);
+    toast.success("Manual boost saved. Will apply on next Formula C v3 ranking pass.");
+    await refresh();
   };
 
   const filtered = useMemo(() => {
