@@ -7,6 +7,7 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
+import { episodeScore } from "@/lib/episodeRank";
 
 type SortKey = "best" | "newest" | "rank";
 
