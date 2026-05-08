@@ -63,23 +63,25 @@ Deno.serve(async (req) => {
     if (!isAdmin) return json({ error: "Forbidden: admin only" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const limit = Math.max(1, Math.min(100, Number(body.limit) || 20));
-    const concurrency = Math.max(1, Math.min(5, Number(body.concurrency) || 1));
+    const requestedLimit = Number(body.limit ?? body.batch);
+    const limit = Math.max(1, Math.min(3, Number.isFinite(requestedLimit) ? requestedLimit : 3));
+    const concurrency = 1;
     const useTier = body.use_rank_tier !== false; // default: tier-based
     const stale_hours = Math.max(0, Math.min(168, Number(body.stale_hours ?? 6)));
-    const episodeCap = Math.max(5, Math.min(50, Number(body.episode_cap) || 15));
-    const TIME_BUDGET_MS = Math.max(20_000, Math.min(110_000, Number(body.time_budget_ms) || 50_000));
+    const episodeCap = Math.max(3, Math.min(10, Number(body.episode_cap) || 5));
+    const TIME_BUDGET_MS = Math.max(20_000, Math.min(30_000, Number(body.time_budget_ms) || 25_000));
+    const PER_FEED_BUDGET_MS = Math.max(8_000, Math.min(12_000, Number(body.per_feed_timeout_ms) || 10_000));
     const trigger = (body.trigger as string) || "manual";
     const startedAt = Date.now();
 
     const nowIso = new Date().toISOString();
-    const dueOrNull = `next_fetch_at.is.null,next_fetch_at.lte.${nowIso}`;
     let cq = admin
       .from("podcasts")
       .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
       .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-      .or("quarantined_until.is.null,quarantined_until.lt." + nowIso)
-      .or(dueOrNull)
+      .not("rss_url", "is", null)
+      .is("next_fetch_at", null)
+      .is("quarantined_until", null)
       .order("last_fetched_at", { ascending: true, nullsFirst: true })
       .limit(limit);
 
@@ -90,10 +92,11 @@ Deno.serve(async (req) => {
         .from("podcasts")
         .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
         .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-        .or("quarantined_until.is.null,quarantined_until.lt." + nowIso)
-        .or(dueOrNull)
+        .not("rss_url", "is", null)
+        .is("next_fetch_at", null)
+        .is("quarantined_until", null)
         .order("last_fetched_at", { ascending: true, nullsFirst: true })
-        .limit(limit * 4);
+        .limit(limit);
     } else {
       const cutoff = new Date(Date.now() - stale_hours * 3600_000).toISOString();
       cq = cq.or(`last_fetched_at.is.null,last_fetched_at.lt.${cutoff}`);
@@ -121,7 +124,11 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS) return;
       scanned++;
       try {
-        const r = await fetchOne(admin, p, { episodeCap });
+        const r = await fetchOne(admin, p, {
+          episodeCap,
+          fetchTimeoutMs: Math.min(8_000, PER_FEED_BUDGET_MS),
+          upsertDuplicates: false,
+        });
         const lower = (r?.error || "").toLowerCase();
         if (lower.includes("worker_resource_limit") || lower.includes(" 546") || lower.includes("timeout")) throttled = true;
         if (!r.ok) {
@@ -141,38 +148,8 @@ Deno.serve(async (req) => {
 
     await processPool(candidates || [], concurrency, work);
 
-    // Estimate due count for adaptive scheduling (cap to 4000 for speed)
-    let due_count = 0;
-    try {
-      const { data: sample } = await admin
-        .from("podcasts")
-        .select("last_fetched_at, refresh_interval_minutes, quarantined_until, next_fetch_at")
-        .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-        .limit(4000);
-      const now = Date.now();
-      due_count = (sample || []).filter((p: any) => {
-        if (p.quarantined_until && new Date(p.quarantined_until).getTime() > now) return false;
-        if (p.next_fetch_at && new Date(p.next_fetch_at).getTime() > now) return false;
-        if (!p.last_fetched_at) return true;
-        const interval = (p.refresh_interval_minutes || 360) * 60_000;
-        return new Date(p.last_fetched_at).getTime() + interval < now;
-      }).length;
-    } catch { /* noop */ }
-
-    // Adaptive cadence policy
     const errorish = failed > 0 || throttled;
-    let recommended = "*/10 * * * *";
-    if (errorish) recommended = "*/10 * * * *";
-    else if (due_count > 500) recommended = "*/5 * * * *";
-    else if (due_count >= 100) recommended = "*/10 * * * *";
-    else if (due_count > 0) recommended = "*/30 * * * *";
-    else recommended = "0 * * * *";
-
-    let applied: string | null = null;
-    try {
-      await admin.rpc("set_incremental_refresh_schedule", { _schedule: recommended });
-      applied = recommended;
-    } catch { /* noop */ }
+    const recommended = errorish ? "0 * * * *" : "*/30 * * * *";
 
     const summary = {
       started_at: new Date(startedAt).toISOString(),
@@ -181,7 +158,7 @@ Deno.serve(async (req) => {
       trigger, concurrency, limit, stale_hours, episode_cap: episodeCap,
       scanned, refreshed, failed, throttled, new_episodes: newEpisodes, not_modified: notModified,
       tier_based: useTier, candidates_considered: (candidates || []).length,
-      due_count, recommended_schedule: recommended, applied_schedule: applied,
+      recommended_schedule: recommended,
     };
     await admin.from("app_settings").upsert({
       key: "incremental_refresh",
