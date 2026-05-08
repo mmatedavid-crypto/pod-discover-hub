@@ -26,8 +26,8 @@ export default function PodcastDetail() {
         const cleanSummary = stripHtml(data.summary);
         const cleanDesc = stripHtml(data.description);
         setSeo({
-          title: `${data.title} — podcast on Podiverzum`,
-          description: snippet(cleanSummary || cleanDesc || `Listen to ${data.title} on Podiverzum.`, 160),
+          title: data.seo_title || `${data.title} — podcast on Podiverzum`,
+          description: snippet(data.seo_description || cleanSummary || cleanDesc || `Listen to ${data.title} on Podiverzum.`, 160),
           noindex: data.rss_status === "failed" || data.rss_status === "inactive",
           jsonLd: {
             "@context": "https://schema.org",

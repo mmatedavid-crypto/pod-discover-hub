@@ -28,7 +28,7 @@ function podPriority(p: any): number {
   if (r >= 7.0) return 80;
   if (r >= 5.5) return 60;
   if (r >= 4.0) return 40;
-  return 10;
+  return 1;
 }
 
 function isHealthy(p: any): boolean {
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
           target_type: "episode",
           target_id: e.id,
           input_hash: hash,
-          priority: podPriById.get(e.podcast_id) ?? 5,
+          priority: podPriById.get(e.podcast_id) ?? 1,
           status: "pending",
           result: { prompt, pod_name: podName },
         });
