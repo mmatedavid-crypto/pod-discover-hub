@@ -123,7 +123,11 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS) return;
       scanned++;
       try {
-        const r = await fetchOne(admin, p, { episodeCap, fetchTimeoutMs: Math.min(8_000, PER_FEED_BUDGET_MS) });
+        const r = await fetchOne(admin, p, {
+          episodeCap,
+          fetchTimeoutMs: Math.min(8_000, PER_FEED_BUDGET_MS),
+          upsertDuplicates: false,
+        });
         const lower = (r?.error || "").toLowerCase();
         if (lower.includes("worker_resource_limit") || lower.includes(" 546") || lower.includes("timeout")) throttled = true;
         if (!r.ok) {
