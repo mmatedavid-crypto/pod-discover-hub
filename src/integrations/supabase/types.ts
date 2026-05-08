@@ -1053,6 +1053,13 @@ export type Database = {
         Args: { _model: string; _tiers: string[] }
         Returns: Json
       }
+      formula_c_candidates: {
+        Args: { _limit?: number }
+        Returns: {
+          id: string
+        }[]
+      }
+      formula_c_status: { Args: never; Returns: Json }
       get_cron_health: { Args: never; Returns: Json }
       get_ops_dashboard_status: { Args: never; Returns: Json }
       has_role: {
