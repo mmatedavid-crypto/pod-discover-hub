@@ -16,6 +16,8 @@ const Index = () => {
   const [podcasts, setPodcasts] = useState<(PodcastLite & { podiverzum_rank?: number; featured?: boolean })[]>([]);
   const [trendingEps, setTrendingEps] = useState<EpisodeLite[]>([]);
   const [allEps, setAllEps] = useState<EpisodeLite[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -35,15 +37,17 @@ const Index = () => {
       },
     });
     (async () => {
+      try {
       const { data: c } = await supabase.from("categories").select("*").order("sort_order");
       setCats(c || []);
 
-      const { data: ps } = await supabase
+      const { data: ps, error: psErr } = await supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
         .limit(500);
+      if (psErr) throw psErr;
       const goodHealth = (p: any) => {
         const hs = (p.shadow_rank_components as any)?.health_state;
         return !hs || hs === "healthy" || hs === "recovered_rss_url";
@@ -55,13 +59,14 @@ const Index = () => {
 
       const eligibleIds = eligible.map((p: any) => p.id);
       if (eligibleIds.length) {
-        const { data: eps } = await supabase
+        const { data: eps, error: epsErr } = await supabase
           .from("episodes")
           .select("id,title,display_title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status,featured)")
-          .in("podcast_id", eligibleIds)
+          .in("podcast_id", eligibleIds.slice(0, 200))
           .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(400);
+        if (epsErr) throw epsErr;
         const sortFn = (a: any, b: any) => {
           const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
           if (br !== ar) return br - ar;
@@ -72,6 +77,12 @@ const Index = () => {
         };
         setTrendingEps(((eps || []).slice().sort(sortFn).slice(0, 12)) as any);
         setAllEps((eps || []) as any);
+      }
+      } catch (err) {
+        console.error("Index load failed", err);
+        setLoadError(true);
+      } finally {
+        setLoaded(true);
       }
     })();
   }, []);
@@ -198,9 +209,11 @@ const Index = () => {
           </section>
         )}
 
-        {!trendingEps.length && !topPodcasts.length && (
+        {loaded && !trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">
-            No episodes yet. <Link to="/admin" className="underline">Add some in admin</Link>.
+            {loadError
+              ? "Episodes are temporarily unavailable. Please refresh shortly."
+              : "Loading episodes…"}
           </div>
         )}
       </div>
