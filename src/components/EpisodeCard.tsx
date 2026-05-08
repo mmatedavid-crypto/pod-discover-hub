@@ -8,6 +8,7 @@ export type EpisodeLite = {
   title: string;
   display_title?: string | null;
   slug: string;
+  ai_summary?: string | null;
   summary?: string | null;
   description?: string | null;
   published_at?: string | null;
