@@ -103,6 +103,19 @@ export function FormulaCRunnerPanel() {
         <Cell label="Latest rank_updated_at" value={status?.latest_rank_updated_at ? new Date(status.latest_rank_updated_at).toLocaleString() : "—"} />
         <Cell label="Latest shadow_computed_at" value={status?.latest_shadow_computed_at ? new Date(status.latest_shadow_computed_at).toLocaleString() : "—"} />
       </div>
+
+      {recent.length > 0 && (
+        <div className="mt-3 text-xs">
+          <div className="text-muted-foreground mb-1">Recent runs (newest last)</div>
+          <div className="flex flex-wrap gap-1">
+            {recent.map((r, i) => (
+              <span key={i} className={`px-1.5 py-0.5 rounded border ${r.errors > 0 ? "border-destructive/30 text-destructive" : "border-border"}`}>
+                {new Date(r.ts).toLocaleTimeString()} · upd {r.updated} · rem {r.remaining_needing_change ?? "—"}{r.errors > 0 ? ` · err ${r.errors}` : ""}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
