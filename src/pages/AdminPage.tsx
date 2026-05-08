@@ -94,27 +94,76 @@ export default function AdminPage() {
       .gte("updated_at", todayStart.toISOString());
     const aiCostToday = ((summariesToday || 0) * 0.0003);
 
-    // Formula C v3 status
+    // Formula C v3 audit
     const tierCounts: Record<string, number> = {};
+    const legacyByLabel: Record<string, number> = {};
     let lastRankUpdated: string | null = null;
+    let lastShadowComputed: string | null = null;
     let legacyLabelLeaks = 0;
+    let missingShadow = 0;
+    let missingPodiverzumRank = 0;
+    let staleRankUpdated14d = 0;
+    let legacyMissingShadow = 0;
+    const cutoff14 = Date.now() - 14 * 86400_000;
     const VALID = new Set(["S", "A", "B", "C", "D", "E"]);
     for (const p of pods) {
       const lbl = p.rank_label || "(unranked)";
       tierCounts[lbl] = (tierCounts[lbl] || 0) + 1;
-      if (p.rank_label && !VALID.has(p.rank_label)) legacyLabelLeaks++;
-      if (p.rank_updated_at && (!lastRankUpdated || p.rank_updated_at > lastRankUpdated)) {
-        lastRankUpdated = p.rank_updated_at;
+      const isLegacy = !!p.rank_label && !VALID.has(p.rank_label);
+      if (isLegacy) {
+        legacyLabelLeaks++;
+        legacyByLabel[p.rank_label] = (legacyByLabel[p.rank_label] || 0) + 1;
+        if (p.shadow_rank == null) legacyMissingShadow++;
+      }
+      if (p.shadow_rank == null) missingShadow++;
+      if (p.podiverzum_rank == null) missingPodiverzumRank++;
+      if (p.rank_updated_at) {
+        if (!lastRankUpdated || p.rank_updated_at > lastRankUpdated) lastRankUpdated = p.rank_updated_at;
+        if (new Date(p.rank_updated_at).getTime() < cutoff14) staleRankUpdated14d++;
+      }
+      if (p.shadow_computed_at && (!lastShadowComputed || p.shadow_computed_at > lastShadowComputed)) {
+        lastShadowComputed = p.shadow_computed_at;
       }
     }
+
+    const auditAt = new Date().toISOString();
+    const audit = {
+      tierCounts, legacyByLabel, legacyLabelLeaks, legacyMissingShadow,
+      missingShadow, missingPodiverzumRank, staleRankUpdated14d,
+      lastRankUpdated, lastShadowComputed, auditAt,
+    };
+    // Persist audit log to console for ops visibility.
+    console.info("[formula-c-audit]", JSON.stringify(audit));
 
     setStats({
       totalPodcasts, totalEpisodes: epCount || 0, active, failed, notChecked,
       lastFetched, summariesToday: summariesToday || 0, aiCostToday,
       duplicatesSkipped, errors,
-      formulaC: { tierCounts, lastRankUpdated, legacyLabelLeaks },
+      formulaC: { ...audit, tierCounts, lastRankUpdated, legacyLabelLeaks },
     });
   };
+
+  const exportLegacyLabelCsv = () => {
+    const VALID = new Set(["S", "A", "B", "C", "D", "E"]);
+    const rows = podcasts.filter((p) => p.rank_label && !VALID.has(p.rank_label));
+    const cols = ["id","title","rank_label","podiverzum_rank","shadow_rank","rank_updated_at","shadow_computed_at","rss_status","health_state","full_backfill_completed_at","created_at"];
+    const esc = (v: any) => {
+      if (v == null) return "";
+      const s = String(v).replace(/"/g, '""');
+      return /[",\n]/.test(s) ? `"${s}"` : s;
+    };
+    const lines = [cols.join(",")];
+    for (const p of rows) {
+      lines.push(cols.map((c) => esc(c === "health_state" ? p.shadow_rank_components?.health_state : (p as any)[c])).join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `legacy-rank-label-leaks-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} rows`);
+  };
+
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -526,13 +575,36 @@ Header: apikey: <publishable key>`}</pre>
                 );
               })}
             </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs">
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Missing shadow_rank</div><div className="text-base font-semibold">{stats.formulaC.missingShadow}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Missing podiverzum_rank</div><div className={`text-base font-semibold ${stats.formulaC.missingPodiverzumRank ? "text-destructive" : ""}`}>{stats.formulaC.missingPodiverzumRank}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">rank_updated_at &gt; 14d old</div><div className="text-base font-semibold">{stats.formulaC.staleRankUpdated14d}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Last shadow_computed_at</div><div className="text-base font-semibold">{stats.formulaC.lastShadowComputed ? new Date(stats.formulaC.lastShadowComputed).toLocaleDateString() : "—"}</div></div>
+            </div>
             {stats.formulaC.legacyLabelLeaks > 0 && (
-              <div className="mt-3 p-2 rounded border border-amber-500/40 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300">
-                ⚠ {stats.formulaC.legacyLabelLeaks} podcast(s) still carry legacy
-                rank_label values (Elite/Excellent/Strong/Medium/Weak/Poor/Broken)
-                from the deprecated <code>recompute-ranks</code> function. They are
-                ignored by Formula C v3 ordering but should be cleaned up in a
-                future migration.
+              <div className="mt-3 p-3 rounded border border-amber-500/40 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-2">
+                <div>
+                  ⚠ <strong>{stats.formulaC.legacyLabelLeaks}</strong> podcast(s) carry legacy
+                  rank_label values (
+                  {Object.entries(stats.formulaC.legacyByLabel).map(([k, v]) => `${k}:${v}`).join(", ")}
+                  ). Of these, <strong>{stats.formulaC.legacyMissingShadow}</strong> have no
+                  <code> shadow_rank</code> — Formula C v3 has not yet processed them.
+                </div>
+                <div>
+                  Source: ingestion functions <code>pi-dump-process</code>,
+                  <code> queue-import</code>, <code>queue-import-runner</code>,
+                  <code> queue-drainer</code> hardcode legacy "Excellent"/"Strong"/"Indexed"
+                  labels at INSERT time. They are overwritten by Formula C v3
+                  <code> stage4-persist</code> on its next pass. <strong>Not stale leaks
+                  from <code>recompute-ranks</code></strong> — newly imported podcasts awaiting
+                  shadow ranking. Do not delete; will normalize via Phase 4 migration.
+                </div>
+                <button
+                  onClick={exportLegacyLabelCsv}
+                  className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs"
+                >
+                  Export legacy-label CSV ({stats.formulaC.legacyLabelLeaks})
+                </button>
               </div>
             )}
             <details className="mt-3 text-xs text-muted-foreground">
@@ -544,6 +616,9 @@ Header: apikey: <publishable key>`}</pre>
                 <li>Legacy <code>episode_rank</code> / <code>episode_rank_label</code> are intentionally ignored.</li>
               </ul>
             </details>
+            <div className="mt-2 text-[10px] text-muted-foreground">
+              Audit at: {new Date(stats.formulaC.auditAt).toLocaleString()}
+            </div>
           </section>
         )}
 
