@@ -111,7 +111,7 @@ const Index = () => {
 
   return (
     <Layout>
-      <IndexStats />
+      
       <section className="relative border-b border-border overflow-hidden bg-black">
         {/* Brand spotlight */}
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
