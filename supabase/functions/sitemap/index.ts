@@ -79,12 +79,12 @@ Deno.serve(async () => {
       if (broken || empty || SITEMAP_BAD.has(hs) || p.rank_label === "E") return;
       const tier = p.rank_label;
       const priority = tier === "S" ? "0.9" : tier === "A" ? "0.8" : tier === "B" ? "0.7" : tier === "C" ? "0.6" : "0.4";
-      urls.push(url(`${SITE}/podcast/${esc(p.slug)}`, p.updated_at, "daily", priority));
+      urls.push(url(`${SITE}/podcast/${esc(p.slug)}`, maxDate(p.updated_at, p.ai_enriched_at), "daily", priority));
     });
     (eps || []).forEach((e: any) => {
       const ps = e.podcasts?.slug;
       const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
-      if (ps && !broken) urls.push(url(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, e.updated_at, "weekly", "0.7"));
+      if (ps && !broken) urls.push(url(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, maxDate(e.updated_at, e.ai_enriched_at), "weekly", "0.7"));
     });
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
