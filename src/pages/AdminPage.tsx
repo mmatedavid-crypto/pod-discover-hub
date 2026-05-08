@@ -640,13 +640,6 @@ Header: apikey: <publishable key>`}</pre>
               <button onClick={bulkMark404Inactive} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Mark all failed 404 inactive</button>
               <button onClick={bulkHideFailed} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Hide failed feeds from public site</button>
               <button onClick={bulkDeleteFailedEmpty} className="px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground text-xs">Delete failed feeds with no episodes</button>
-              <button
-                disabled
-                title="Legacy ranking disabled — replaced by Formula C v3"
-                className="px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs cursor-not-allowed opacity-60"
-              >
-                Recompute Rank (legacy disabled — Formula C v3)
-              </button>
               <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
                 className="px-2 py-1 rounded-md border border-border bg-background text-xs">
                 <option value="created">Sort: newest</option>
