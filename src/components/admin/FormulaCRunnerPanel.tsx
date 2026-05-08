@@ -25,7 +25,7 @@ type Status = {
   remaining_needing_change?: number;
   latest_rank_updated_at?: string | null;
   latest_shadow_computed_at?: string | null;
-  last_run?: { last_run?: LastRun };
+  last_run?: { last_run?: LastRun; health?: string; recent_runs?: Array<{ ts: string; updated: number; errors: number; remaining_needing_change: number | null }> };
 };
 
 export function FormulaCRunnerPanel() {
@@ -49,18 +49,21 @@ export function FormulaCRunnerPanel() {
   }, []);
 
   const lr = status?.last_run?.last_run;
+  const recent = status?.last_run?.recent_runs ?? [];
   const remaining = status?.remaining_needing_change ?? 0;
   const errors = lr?.errors ?? 0;
   const lastTs = lr?.ts ? new Date(lr.ts) : null;
   const ageSec = lastTs ? Math.floor((Date.now() - lastTs.getTime()) / 1000) : null;
+  const serverHealth = status?.last_run?.health;
   const health =
+    serverHealth ? serverHealth :
     !lastTs ? "idle" :
     errors > 0 ? "error" :
     ageSec !== null && ageSec > 30 * 60 ? "stale" :
     remaining === 0 ? "idle" : "healthy";
   const healthCls =
     health === "healthy" ? "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30" :
-    health === "error"   ? "bg-destructive/15 text-destructive border-destructive/30" :
+    health === "error" || health === "stuck" ? "bg-destructive/15 text-destructive border-destructive/30" :
     health === "stale"   ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" :
     "bg-muted text-muted-foreground border-border";
 
