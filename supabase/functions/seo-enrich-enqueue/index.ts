@@ -1,6 +1,18 @@
 // Enqueues podcast + episode SEO enrichment jobs based on ai_seo_controls scope.
 // Idempotent (input_hash unique per kind/target).
-// Tier-aware priority: S>A>B>C. D/E and bad-health states are skipped.
+//
+// === Enqueue ordering contract (Formula C v3-safe) ===
+// 1. Podcast selection: rank_label IN (S,A,B,C) AND rss_status IN (active,
+//    not_checked) AND health_state NOT IN (rss_url_not_found,
+//    needs_manual_rss_review, confirmed_dead, quarantined_spam). When
+//    require_full_backfill, full_backfill_completed_at must be set.
+//    Ordered by podiverzum_rank DESC.
+// 2. Job priority is derived from podcast tier: S=100, A=80, B=60, C=40.
+//    D/E are excluded entirely.
+// 3. Episode ordering inside a podcast: published_at DESC, nullsFirst=false.
+// 4. Legacy `episodes.episode_rank` / `episode_rank_label` are intentionally
+//    IGNORED — they are frozen outputs of the deprecated `recompute-ranks`
+//    function and incompatible with Formula C v3.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { inputHash, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
