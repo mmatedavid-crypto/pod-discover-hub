@@ -2,6 +2,7 @@
 // Picks podcasts where full_backfill_completed_at IS NOT NULL, oldest last_fetched_at first.
 // Uses fetch-one.ts (bulk dedupe + bulk upsert). episodeCap small — only newest items matter.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { fetchOne } from "../_shared/fetch-one.ts";
 
 const corsHeaders = {
@@ -39,6 +40,8 @@ Deno.serve(async (req) => {
     if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE);
+    const __guard = await checkBackgroundJobsAllowed(admin, "incremental-refresh");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const token = authHeader.slice(7);
     let isAdmin = false;
     try {

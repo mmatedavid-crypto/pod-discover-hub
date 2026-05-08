@@ -2,6 +2,7 @@
 // Idempotent (input_hash unique per kind/target).
 // Tier-aware priority: S>A>B>C. D/E and bad-health states are skipped.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { inputHash, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
 
 const cors = {
@@ -40,6 +41,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const __guard = await checkBackgroundJobsAllowed(admin, "seo-enrich-enqueue");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "ai_seo_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;

@@ -3,6 +3,7 @@
 // verifies via title sim + GUID overlap, auto-recovers on high confidence,
 // queues medium-confidence for manual review, logs everything.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -78,6 +79,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const __guard = await checkBackgroundJobsAllowed(supabase, "rss-hunter");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
 
     // Kill switch
     const { data: ctrlRow } = await supabase.from("app_settings").select("value").eq("key", "rss_hunter_controls").maybeSingle();

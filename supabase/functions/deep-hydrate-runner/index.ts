@@ -3,6 +3,7 @@
 // MAX_PER_PASS caps episodes per podcast per call so huge feeds resume next run.
 // Marks completed + sets full_backfill_completed_at when target reached or feed exhausted.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { fetchOne } from "../_shared/fetch-one.ts";
 
 const corsHeaders = {
@@ -55,6 +56,8 @@ Deno.serve(async (req) => {
     if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE);
+    const __guard = await checkBackgroundJobsAllowed(admin, "deep-hydrate-runner");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
 
     const token = authHeader.slice(7);
     // Decode JWT payload (no verification needed — Supabase has already verified auth at this edge)

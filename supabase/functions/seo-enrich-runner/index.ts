@@ -5,6 +5,7 @@
 // - Writes seo_title/seo_description (and ai_summary for episodes).
 // - Never overwrites title or description.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
 
 const cors = {
@@ -36,6 +37,8 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const __guard = await checkBackgroundJobsAllowed(admin, "seo-enrich-runner");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
     const batch = Math.max(1, Math.min(50, Number(body.batch) || 20));
 

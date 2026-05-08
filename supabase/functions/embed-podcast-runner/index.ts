@@ -4,6 +4,7 @@
 // - Daily $ budget cap, retries via attempts counter in app_settings.
 // - Writes progress to app_settings.embed_progress.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -78,6 +79,8 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const __guard = await checkBackgroundJobsAllowed(admin, "embed-podcast-runner");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
 
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "embed_controls").maybeSingle();
