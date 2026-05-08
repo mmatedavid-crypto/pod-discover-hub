@@ -6,7 +6,7 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight } from "lucide-react";
 import { setSeo } from "@/lib/seo";
-import IndexStats from "@/components/IndexStats";
+
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
@@ -111,7 +111,7 @@ const Index = () => {
 
   return (
     <Layout>
-      <IndexStats />
+      
       <section className="relative border-b border-border overflow-hidden bg-black">
         {/* Brand spotlight */}
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
