@@ -80,24 +80,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Adaptive cadence based on remaining dirty episodes
+    // Adaptive cadence DISABLED during conservative recovery phase.
+    // The runner must NOT self-change jobid 10's cron schedule.
+    // Approved schedule (`0 6 * * *`) is managed manually until further notice.
     let pending = 0;
-    let recommended = "*/15 * * * *";
-    let applied: string | null = null;
+    const recommended: string | null = null;
+    const applied: string | null = null;
     try {
       const { count } = await admin
         .from("episodes")
         .select("id", { count: "exact", head: true })
         .is("display_title", null);
       pending = count ?? 0;
-      if (pending > 5000) recommended = "*/15 * * * *";
-      else if (pending >= 100) recommended = "0 * * * *";
-      else if (pending > 0) recommended = "0 */6 * * *";
-      else recommended = "0 6 * * *";
-      try {
-        await admin.rpc("set_title_cleanup_schedule", { _schedule: recommended });
-        applied = recommended;
-      } catch { /* noop */ }
     } catch (_) { /* ignore */ }
 
     await admin.from("app_settings").upsert({
