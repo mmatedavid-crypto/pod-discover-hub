@@ -92,6 +92,18 @@ Deno.serve(async (req) => {
   // To re-enable for emergency use, send {force_legacy:true}.
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    // Phase 3 runtime guard: log every attempted invocation so we can detect
+    // any caller that still reaches for legacy ranking. Safe — does not break
+    // production; returns 410 unless force_legacy is explicitly set.
+    const ua = req.headers.get("user-agent") || "?";
+    const ref = req.headers.get("referer") || req.headers.get("origin") || "?";
+    console.warn(JSON.stringify({
+      legacy_attempt: "recompute-ranks",
+      force_legacy: !!body.force_legacy,
+      method: req.method,
+      ua, ref,
+      ts: new Date().toISOString(),
+    }));
     if (!body.force_legacy) {
       return new Response(JSON.stringify({
         ok: false,
