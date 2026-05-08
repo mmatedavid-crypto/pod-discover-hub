@@ -63,12 +63,14 @@ Deno.serve(async (req) => {
     if (!isAdmin) return json({ error: "Forbidden: admin only" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const limit = Math.max(1, Math.min(100, Number(body.limit) || 20));
-    const concurrency = Math.max(1, Math.min(5, Number(body.concurrency) || 1));
+    const requestedLimit = Number(body.limit ?? body.batch);
+    const limit = Math.max(1, Math.min(3, Number.isFinite(requestedLimit) ? requestedLimit : 3));
+    const concurrency = 1;
     const useTier = body.use_rank_tier !== false; // default: tier-based
     const stale_hours = Math.max(0, Math.min(168, Number(body.stale_hours ?? 6)));
-    const episodeCap = Math.max(5, Math.min(50, Number(body.episode_cap) || 15));
-    const TIME_BUDGET_MS = Math.max(20_000, Math.min(110_000, Number(body.time_budget_ms) || 50_000));
+    const episodeCap = Math.max(3, Math.min(10, Number(body.episode_cap) || 5));
+    const TIME_BUDGET_MS = Math.max(20_000, Math.min(30_000, Number(body.time_budget_ms) || 25_000));
+    const PER_FEED_BUDGET_MS = Math.max(8_000, Math.min(12_000, Number(body.per_feed_timeout_ms) || 10_000));
     const trigger = (body.trigger as string) || "manual";
     const startedAt = Date.now();
 
@@ -93,7 +95,7 @@ Deno.serve(async (req) => {
         .or("quarantined_until.is.null,quarantined_until.lt." + nowIso)
         .or(dueOrNull)
         .order("last_fetched_at", { ascending: true, nullsFirst: true })
-        .limit(limit * 4);
+        .limit(limit);
     } else {
       const cutoff = new Date(Date.now() - stale_hours * 3600_000).toISOString();
       cq = cq.or(`last_fetched_at.is.null,last_fetched_at.lt.${cutoff}`);
@@ -121,7 +123,7 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS) return;
       scanned++;
       try {
-        const r = await fetchOne(admin, p, { episodeCap });
+        const r = await fetchOne(admin, p, { episodeCap, fetchTimeoutMs: Math.min(8_000, PER_FEED_BUDGET_MS) });
         const lower = (r?.error || "").toLowerCase();
         if (lower.includes("worker_resource_limit") || lower.includes(" 546") || lower.includes("timeout")) throttled = true;
         if (!r.ok) {
