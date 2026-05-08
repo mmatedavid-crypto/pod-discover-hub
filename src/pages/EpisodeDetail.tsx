@@ -146,8 +146,7 @@ export default function EpisodeDetail() {
           <Link to={`/podcast/${p.slug}`} className="hover:text-foreground">{p.display_title || p.title}</Link>
           {p.category && <Link to={`/category/${p.category.toLowerCase().replace(/[^a-z0-9]+/g,"-")}`} className="hover:text-foreground">· {p.category}</Link>}
           {e.published_at && <span>· {new Date(e.published_at).toLocaleDateString()}</span>}
-          {typeof e.episode_rank === "number" && e.episode_rank > 0 && <span className="px-1.5 py-0.5 rounded bg-secondary text-[10px]">Ep rank {e.episode_rank}</span>}
-          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">/ Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
+          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">· Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5">
