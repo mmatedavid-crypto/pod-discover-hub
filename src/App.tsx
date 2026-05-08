@@ -58,6 +58,7 @@ const App = () => (
           <Route path="/admin/search-insights" element={<AdminSearchInsightsPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
           <Route path="/admin/ai-enrichment" element={<AdminAiEnrichmentPage />} />
+          <Route path="/admin/cron-status" element={<AdminCronStatusPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />
