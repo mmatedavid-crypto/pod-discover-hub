@@ -49,7 +49,7 @@ export function EpisodeCard({
   const p = e.podcasts;
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
-  const desc = snippet(e.summary || e.description, 220, terms);
+  const desc = snippet(e.ai_summary || e.summary || e.description, 220, terms);
   const allEnts = showEntities
     ? [
         ...(e.topics || []).map((v) => ({ kind: "topic" as const, v })),
