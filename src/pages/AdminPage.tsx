@@ -500,6 +500,60 @@ Header: apikey: <publishable key>`}</pre>
           </div>
         </section>
 
+        {stats?.formulaC && (
+          <section className="p-4 rounded-lg border border-border bg-card">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="font-semibold">Formula C v3 — ranking status</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Live ranking is powered by Formula C v3 (<code>stage4-persist</code> + shadow ranking pipeline).
+                  Legacy <code>recompute-ranks</code> is deprecated and unreachable from the UI.
+                </p>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Last <code>rank_updated_at</code>:{" "}
+                <span className="font-medium text-foreground">
+                  {stats.formulaC.lastRankUpdated ? new Date(stats.formulaC.lastRankUpdated).toLocaleString() : "never"}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 mt-3">
+              {(["S","A","B","C","D","E","(unranked)"] as const).map((t) => {
+                const n = stats.formulaC.tierCounts[t] || 0;
+                const cls = t === "S" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                  : t === "A" ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
+                  : t === "B" ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
+                  : t === "C" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                  : "bg-muted text-muted-foreground border-border";
+                return (
+                  <div key={t} className={`p-2 rounded border ${cls}`}>
+                    <div className="text-[10px] uppercase tracking-wide opacity-80">Tier {t}</div>
+                    <div className="text-lg font-semibold">{n}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {stats.formulaC.legacyLabelLeaks > 0 && (
+              <div className="mt-3 p-2 rounded border border-amber-500/40 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300">
+                ⚠ {stats.formulaC.legacyLabelLeaks} podcast(s) still carry legacy
+                rank_label values (Elite/Excellent/Strong/Medium/Weak/Poor/Broken)
+                from the deprecated <code>recompute-ranks</code> function. They are
+                ignored by Formula C v3 ordering but should be cleaned up in a
+                future migration.
+              </div>
+            )}
+            <details className="mt-3 text-xs text-muted-foreground">
+              <summary className="cursor-pointer">Enqueue ordering contract (read-only)</summary>
+              <ul className="mt-2 ml-4 list-disc space-y-1">
+                <li>Podcast selection: <code>rank_label</code> ∈ {"{S,A,B,C}"}, healthy, ordered by <code>podiverzum_rank DESC</code>.</li>
+                <li>Job priority by tier: S=100, A=80, B=60, C=40 (D/E excluded).</li>
+                <li>Episode ordering inside a podcast: <code>published_at DESC</code>.</li>
+                <li>Legacy <code>episode_rank</code> / <code>episode_rank_label</code> are intentionally ignored.</li>
+              </ul>
+            </details>
+          </section>
+        )}
+
         {stats && (
           <section>
             <h2 className="font-semibold mb-3">Production overview</h2>
