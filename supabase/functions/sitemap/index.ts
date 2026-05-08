@@ -23,9 +23,16 @@ Deno.serve(async () => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const [{ data: cats }, { data: pods }, { data: eps }] = await Promise.all([
       supabase.from("categories").select("slug,created_at"),
-      supabase.from("podcasts").select("slug,updated_at,rss_status,podiverzum_rank,rank_label,shadow_rank_components,id"),
-      supabase.from("episodes").select("slug,updated_at,podcast_id,topics,people,companies,tickers,ingredients,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
+      supabase.from("podcasts").select("slug,updated_at,ai_enriched_at,rss_status,podiverzum_rank,rank_label,shadow_rank_components,id"),
+      supabase.from("episodes").select("slug,updated_at,ai_enriched_at,podcast_id,topics,people,companies,tickers,ingredients,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
     ]);
+
+    // lastmod = max(updated_at, ai_enriched_at) so search engines recrawl when SEO copy improves
+    const maxDate = (a?: string | null, b?: string | null) => {
+      if (!a) return b || null;
+      if (!b) return a || null;
+      return new Date(a) >= new Date(b) ? a : b;
+    };
 
     const epCount: Record<string, number> = {};
     (eps || []).forEach((e: any) => { if (e.podcast_id) epCount[e.podcast_id] = (epCount[e.podcast_id] || 0) + 1; });
