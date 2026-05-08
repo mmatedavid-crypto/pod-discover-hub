@@ -190,7 +190,36 @@ Deno.serve(async (req) => {
     };
 
     if (!dry) {
-      await supabase.from("app_settings").upsert({ key: "formula_c_runner", value: { last_run: summary } });
+      // Append to recent_runs (cap 5) and compute lightweight health signal
+      const { data: prevSetting } = await supabase
+        .from("app_settings").select("value").eq("key", "formula_c_runner").maybeSingle();
+      const prev = (prevSetting?.value as any) || {};
+      const recent = Array.isArray(prev.recent_runs) ? prev.recent_runs.slice(-4) : [];
+      const trimmedSummary = {
+        ts: summary.ts, updated: summary.updated, errors: summary.errors,
+        duration_ms: summary.duration_ms,
+        remaining_needing_change: (summary as any).remaining_needing_change ?? null,
+      };
+      const recent_runs = [...recent, trimmedSummary];
+
+      // Stuck detection: 3 consecutive runs with remaining>0 and no decrease
+      let health: "healthy" | "idle" | "stuck" | "error" = "healthy";
+      if (summary.errors > 0) health = "error";
+      else if ((summary as any).remaining_needing_change === 0) health = "idle";
+      else if (recent_runs.length >= 3) {
+        const tail = recent_runs.slice(-3).map((r: any) => r.remaining_needing_change);
+        if (tail.every((v: any) => typeof v === "number" && v > 0)
+            && tail[0] <= tail[1] && tail[1] <= tail[2]
+            && !(tail[0] === tail[1] && tail[1] === tail[2] && tail[0] === 0)) {
+          // non-decreasing across 3 runs while >0
+          if (tail[2] >= tail[0]) health = "stuck";
+        }
+      }
+
+      await supabase.from("app_settings").upsert({
+        key: "formula_c_runner",
+        value: { last_run: summary, recent_runs, health, updated_at: new Date().toISOString() },
+      });
     }
 
     console.log("[formula-c-runner]", JSON.stringify(summary));
