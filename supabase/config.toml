@@ -73,4 +73,7 @@ verify_jwt = false
 [functions.embed-podcast-runner]
 verify_jwt = false
 
+[functions.formula-c-runner]
+verify_jwt = false
+
 
