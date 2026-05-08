@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
               if (!dup) break;
               slug = `${slugBase}-${a + 1}`;
             }
-            const rankLabel = score >= 8 ? "Excellent" : score >= 6 ? "Strong" : "Indexed";
+            // Phase 4a: do NOT write legacy rank_label at INSERT. Leave NULL so Formula C v3 / stage4-persist assigns S/A/B/C/D/E.
             const { data: inserted, error: insErr } = await supabase.from("podcasts").insert({
               title: r.title || "Untitled",
               slug,
@@ -125,9 +125,7 @@ Deno.serve(async (req) => {
               source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
               podiverzum_rank: score,
-              rank_label: rankLabel,
               rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
-              rank_updated_at: new Date().toISOString(),
               // Mark for deferred deep hydration — handled by deep-hydrate-runner.
               deep_hydration_status: "not_started",
               deep_hydration_target: score >= 8 ? 100 : score >= 6 ? 75 : 40,
