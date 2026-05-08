@@ -1,6 +1,7 @@
 // Auto-drainer: runs on a schedule, processes up to 10 Rank>=4 queue items,
 // honors enable flag + lock in app_settings.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { fetchOne } from "../_shared/fetch-one.ts";
 
 const corsHeaders = {
@@ -107,6 +108,8 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(SUPABASE_URL, SERVICE);
+    const __guard = await checkBackgroundJobsAllowed(admin, "queue-drainer");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
 
     const setting = await readSetting(admin);
     const force = (() => { try { return new URL(req.url).searchParams.get("force") === "1"; } catch { return false; } })();

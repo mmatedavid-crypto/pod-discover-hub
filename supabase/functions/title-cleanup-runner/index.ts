@@ -2,6 +2,7 @@
 // Backfills `display_title` on episodes and podcasts. Zero AI cost.
 // Runs in batches, respects time budget, can be invoked manually or by cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { cleanTitle } from "../_shared/title-cleanup.ts";
 
 const corsHeaders = {
@@ -18,6 +19,8 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const __guard = await checkBackgroundJobsAllowed(admin, "title-cleanup-runner");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
     const limit = Math.max(50, Math.min(2000, Number(body.limit) || 500));
     const force = !!body.force; // re-process even rows that already have display_title

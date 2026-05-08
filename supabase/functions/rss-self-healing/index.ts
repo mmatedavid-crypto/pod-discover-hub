@@ -2,6 +2,7 @@
 // Picks failed/broken feeds (high quality first), tries to rediscover via Podcast Index,
 // auto-recovers on high confidence, flags for manual review on medium, marks not_found otherwise.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -52,6 +53,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const __guard = await checkBackgroundJobsAllowed(supabase, "rss-self-healing");
+    if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
     const limit = Math.max(1, Math.min(30, Number(body.limit) || 10));
     const TIME_BUDGET_MS = Math.max(20_000, Math.min(110_000, Number(body.time_budget_ms) || 60_000));
