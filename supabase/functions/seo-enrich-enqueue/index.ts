@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
           target_type: "episode",
           target_id: e.id,
           input_hash: hash,
-          priority: podPriById.get(e.podcast_id) ?? 5,
+          priority: podPriById.get(e.podcast_id) ?? 1,
           status: "pending",
           result: { prompt, pod_name: podName },
         });
