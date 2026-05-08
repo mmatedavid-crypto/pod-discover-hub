@@ -1099,6 +1099,10 @@ export type Database = {
         Args: { _schedule: string }
         Returns: undefined
       }
+      set_rss_self_healing_command: {
+        Args: { _active?: boolean; _command: string; _schedule?: string }
+        Returns: undefined
+      }
       set_title_cleanup_schedule: {
         Args: { _schedule: string }
         Returns: undefined
