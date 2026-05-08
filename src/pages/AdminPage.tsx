@@ -575,13 +575,36 @@ Header: apikey: <publishable key>`}</pre>
                 );
               })}
             </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs">
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Missing shadow_rank</div><div className="text-base font-semibold">{stats.formulaC.missingShadow}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Missing podiverzum_rank</div><div className={`text-base font-semibold ${stats.formulaC.missingPodiverzumRank ? "text-destructive" : ""}`}>{stats.formulaC.missingPodiverzumRank}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">rank_updated_at &gt; 14d old</div><div className="text-base font-semibold">{stats.formulaC.staleRankUpdated14d}</div></div>
+              <div className="p-2 rounded border border-border"><div className="text-muted-foreground">Last shadow_computed_at</div><div className="text-base font-semibold">{stats.formulaC.lastShadowComputed ? new Date(stats.formulaC.lastShadowComputed).toLocaleDateString() : "—"}</div></div>
+            </div>
             {stats.formulaC.legacyLabelLeaks > 0 && (
-              <div className="mt-3 p-2 rounded border border-amber-500/40 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300">
-                ⚠ {stats.formulaC.legacyLabelLeaks} podcast(s) still carry legacy
-                rank_label values (Elite/Excellent/Strong/Medium/Weak/Poor/Broken)
-                from the deprecated <code>recompute-ranks</code> function. They are
-                ignored by Formula C v3 ordering but should be cleaned up in a
-                future migration.
+              <div className="mt-3 p-3 rounded border border-amber-500/40 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-2">
+                <div>
+                  ⚠ <strong>{stats.formulaC.legacyLabelLeaks}</strong> podcast(s) carry legacy
+                  rank_label values (
+                  {Object.entries(stats.formulaC.legacyByLabel).map(([k, v]) => `${k}:${v}`).join(", ")}
+                  ). Of these, <strong>{stats.formulaC.legacyMissingShadow}</strong> have no
+                  <code> shadow_rank</code> — Formula C v3 has not yet processed them.
+                </div>
+                <div>
+                  Source: ingestion functions <code>pi-dump-process</code>,
+                  <code> queue-import</code>, <code>queue-import-runner</code>,
+                  <code> queue-drainer</code> hardcode legacy "Excellent"/"Strong"/"Indexed"
+                  labels at INSERT time. They are overwritten by Formula C v3
+                  <code> stage4-persist</code> on its next pass. <strong>Not stale leaks
+                  from <code>recompute-ranks</code></strong> — newly imported podcasts awaiting
+                  shadow ranking. Do not delete; will normalize via Phase 4 migration.
+                </div>
+                <button
+                  onClick={exportLegacyLabelCsv}
+                  className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs"
+                >
+                  Export legacy-label CSV ({stats.formulaC.legacyLabelLeaks})
+                </button>
               </div>
             )}
             <details className="mt-3 text-xs text-muted-foreground">
@@ -593,6 +616,9 @@ Header: apikey: <publishable key>`}</pre>
                 <li>Legacy <code>episode_rank</code> / <code>episode_rank_label</code> are intentionally ignored.</li>
               </ul>
             </details>
+            <div className="mt-2 text-[10px] text-muted-foreground">
+              Audit at: {new Date(stats.formulaC.auditAt).toLocaleString()}
+            </div>
           </section>
         )}
 
