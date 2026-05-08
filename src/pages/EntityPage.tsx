@@ -50,12 +50,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       });
       setDisplayName(exemplar);
 
-      // Rank/freshness sort + dedupe; latest first secondary sort
-      const sorted = visible.slice().sort((a, b) => {
-        const ar = a.episode_rank || 0, br = b.episode_rank || 0;
-        if (br !== ar) return br - ar;
-        return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime();
-      });
+      // Composite tier+freshness sort; latest first secondary
+      const sorted = visible.slice().sort(compareByScore);
       setEps(sorted.slice(0, 40) as any);
 
       // Related podcasts
