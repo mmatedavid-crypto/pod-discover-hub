@@ -94,27 +94,76 @@ export default function AdminPage() {
       .gte("updated_at", todayStart.toISOString());
     const aiCostToday = ((summariesToday || 0) * 0.0003);
 
-    // Formula C v3 status
+    // Formula C v3 audit
     const tierCounts: Record<string, number> = {};
+    const legacyByLabel: Record<string, number> = {};
     let lastRankUpdated: string | null = null;
+    let lastShadowComputed: string | null = null;
     let legacyLabelLeaks = 0;
+    let missingShadow = 0;
+    let missingPodiverzumRank = 0;
+    let staleRankUpdated14d = 0;
+    let legacyMissingShadow = 0;
+    const cutoff14 = Date.now() - 14 * 86400_000;
     const VALID = new Set(["S", "A", "B", "C", "D", "E"]);
     for (const p of pods) {
       const lbl = p.rank_label || "(unranked)";
       tierCounts[lbl] = (tierCounts[lbl] || 0) + 1;
-      if (p.rank_label && !VALID.has(p.rank_label)) legacyLabelLeaks++;
-      if (p.rank_updated_at && (!lastRankUpdated || p.rank_updated_at > lastRankUpdated)) {
-        lastRankUpdated = p.rank_updated_at;
+      const isLegacy = !!p.rank_label && !VALID.has(p.rank_label);
+      if (isLegacy) {
+        legacyLabelLeaks++;
+        legacyByLabel[p.rank_label] = (legacyByLabel[p.rank_label] || 0) + 1;
+        if (p.shadow_rank == null) legacyMissingShadow++;
+      }
+      if (p.shadow_rank == null) missingShadow++;
+      if (p.podiverzum_rank == null) missingPodiverzumRank++;
+      if (p.rank_updated_at) {
+        if (!lastRankUpdated || p.rank_updated_at > lastRankUpdated) lastRankUpdated = p.rank_updated_at;
+        if (new Date(p.rank_updated_at).getTime() < cutoff14) staleRankUpdated14d++;
+      }
+      if (p.shadow_computed_at && (!lastShadowComputed || p.shadow_computed_at > lastShadowComputed)) {
+        lastShadowComputed = p.shadow_computed_at;
       }
     }
+
+    const auditAt = new Date().toISOString();
+    const audit = {
+      tierCounts, legacyByLabel, legacyLabelLeaks, legacyMissingShadow,
+      missingShadow, missingPodiverzumRank, staleRankUpdated14d,
+      lastRankUpdated, lastShadowComputed, auditAt,
+    };
+    // Persist audit log to console for ops visibility.
+    console.info("[formula-c-audit]", JSON.stringify(audit));
 
     setStats({
       totalPodcasts, totalEpisodes: epCount || 0, active, failed, notChecked,
       lastFetched, summariesToday: summariesToday || 0, aiCostToday,
       duplicatesSkipped, errors,
-      formulaC: { tierCounts, lastRankUpdated, legacyLabelLeaks },
+      formulaC: { ...audit, tierCounts, lastRankUpdated, legacyLabelLeaks },
     });
   };
+
+  const exportLegacyLabelCsv = () => {
+    const VALID = new Set(["S", "A", "B", "C", "D", "E"]);
+    const rows = podcasts.filter((p) => p.rank_label && !VALID.has(p.rank_label));
+    const cols = ["id","title","rank_label","podiverzum_rank","shadow_rank","rank_updated_at","shadow_computed_at","rss_status","health_state","full_backfill_completed_at","created_at"];
+    const esc = (v: any) => {
+      if (v == null) return "";
+      const s = String(v).replace(/"/g, '""');
+      return /[",\n]/.test(s) ? `"${s}"` : s;
+    };
+    const lines = [cols.join(",")];
+    for (const p of rows) {
+      lines.push(cols.map((c) => esc(c === "health_state" ? p.shadow_rank_components?.health_state : (p as any)[c])).join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `legacy-rank-label-leaks-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} rows`);
+  };
+
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
