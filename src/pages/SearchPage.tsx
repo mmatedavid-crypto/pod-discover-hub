@@ -82,7 +82,7 @@ export default function SearchPage() {
         sortParam === "newest"
           ? chosen.slice().sort((a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()).slice(0, 80)
           : sortParam === "rank"
-          ? chosen.slice().sort((a: any, b: any) => (b.e.episode_rank || 0) - (a.e.episode_rank || 0)).slice(0, 80)
+          ? chosen.slice().sort((a: any, b: any) => episodeScore(b.e) - episodeScore(a.e)).slice(0, 80)
           : chosen.slice(0, 80); // "best" — preserve diversity-aware order from searchEpisodes()
       const mapped: EpisodeLite[] = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" }));
       setEpisodes(mapped);
