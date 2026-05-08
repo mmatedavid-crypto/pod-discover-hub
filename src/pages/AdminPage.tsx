@@ -316,22 +316,20 @@ export default function AdminPage() {
     refresh();
   };
 
-  const recalcRanks = async (podcast_id?: string) => {
-    setRecalcing(true);
-    const { data, error } = await supabase.functions.invoke("recompute-ranks", {
-      body: podcast_id ? { podcast_id, episodes: true } : { episodes: false },
-    });
-    setRecalcing(false);
-    if (error) return toast.error(error.message);
-    toast.success(`Recomputed ${data?.podcasts || 0} podcasts${data?.episodes ? `, ${data.episodes} episodes` : ""}`);
-    await refresh();
+  const recalcRanks = async (_podcast_id?: string) => {
+    // Legacy ranking disabled — replaced by Formula C v3 (shadow_rank / podiverzum_rank
+    // are computed by stage4-persist + shadow ranking pipeline). The legacy
+    // `recompute-ranks` edge function writes incompatible integer 1–10 ranks and
+    // frozen episode_rank labels, so it must NOT be invoked from the UI.
+    toast.warning("Legacy ranking disabled — replaced by Formula C v3.");
   };
 
   const setManualBoost = async (id: string, boost: number) => {
     const clamped = Math.max(-3, Math.min(3, boost));
     const { error } = await supabase.from("podcasts").update({ manual_rank_boost: clamped }).eq("id", id);
     if (error) return toast.error(error.message);
-    await recalcRanks(id);
+    toast.success("Manual boost saved. Will apply on next Formula C v3 ranking pass.");
+    await refresh();
   };
 
   const filtered = useMemo(() => {
@@ -580,8 +578,12 @@ Header: apikey: <publishable key>`}</pre>
               <button onClick={bulkMark404Inactive} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Mark all failed 404 inactive</button>
               <button onClick={bulkHideFailed} className="px-2.5 py-1 rounded-md bg-secondary text-xs">Hide failed feeds from public site</button>
               <button onClick={bulkDeleteFailedEmpty} className="px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground text-xs">Delete failed feeds with no episodes</button>
-              <button onClick={() => recalcRanks()} disabled={recalcing} className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs disabled:opacity-50">
-                {recalcing ? "Recomputing…" : "Recompute Podiverzum Rank"}
+              <button
+                disabled
+                title="Legacy ranking disabled — replaced by Formula C v3"
+                className="px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs cursor-not-allowed opacity-60"
+              >
+                Recompute Rank (legacy disabled — Formula C v3)
               </button>
               <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
                 className="px-2 py-1 rounded-md border border-border bg-background text-xs">
@@ -692,7 +694,7 @@ Header: apikey: <publishable key>`}</pre>
                         className="w-12 px-1 py-0.5 rounded bg-background border border-border text-center"
                       />
                     </label>
-                    <button onClick={() => recalcRanks(p.id)} disabled={recalcing} className="px-2 py-1 rounded bg-secondary disabled:opacity-50">Recalc</button>
+                    <button disabled title="Legacy ranking disabled — replaced by Formula C v3" className="px-2 py-1 rounded bg-muted text-muted-foreground opacity-60 cursor-not-allowed">Recalc (legacy)</button>
                     <button onClick={() => remove(p.id)} className="px-2 py-1 rounded bg-destructive text-destructive-foreground ml-auto">Delete</button>
                   </div>
                   {p.rank_reason?.factors && (
