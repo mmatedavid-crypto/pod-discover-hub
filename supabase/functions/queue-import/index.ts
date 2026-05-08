@@ -87,8 +87,7 @@ Deno.serve(async (req) => {
         slug = `${slugify(item.title)}-${a + 1}`;
       }
 
-      const rankLabel = item.candidate_rank >= 8 ? "Excellent" : item.candidate_rank >= 6 ? "Strong" : "Indexed";
-
+      // Phase 4a: do NOT write legacy rank_label at INSERT. Leave NULL so Formula C v3 / stage4-persist assigns S/A/B/C/D/E.
       const { data: inserted, error: insErr } = await admin.from("podcasts").insert({
         title: item.title, slug,
         description: item.description, rss_url: item.rss_url,
@@ -97,7 +96,6 @@ Deno.serve(async (req) => {
         source: "queue_bulk_import",
         rss_status: "not_checked",
         podiverzum_rank: item.candidate_rank,
-        rank_label: rankLabel,
         rank_reason: item.rank_reason,
       }).select("*").single();
 
