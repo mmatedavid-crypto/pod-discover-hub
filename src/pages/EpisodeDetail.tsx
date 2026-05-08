@@ -38,10 +38,11 @@ export default function EpisodeDetail() {
 
       const summary = stripHtml(e.summary);
       const desc = stripHtml(e.description);
-      const metaDesc = (summary || desc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
+      const aiSum = stripHtml(e.ai_summary);
+      const metaDesc = (e.seo_description || aiSum || summary || desc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
 
       setSeo({
-        title: `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
+        title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
         jsonLd: {
           "@context": "https://schema.org",
