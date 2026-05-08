@@ -48,7 +48,7 @@ export default function EpisodeDetail() {
           "@context": "https://schema.org",
           "@type": "PodcastEpisode",
           name: e.title,
-          description: summary || desc || undefined,
+          description: e.seo_description || aiSum || summary || desc || undefined,
           datePublished: e.published_at || undefined,
           url: typeof window !== "undefined" ? window.location.href : undefined,
           image: e.image_url || p.image_url || undefined,

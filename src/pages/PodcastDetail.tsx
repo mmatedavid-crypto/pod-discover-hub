@@ -33,7 +33,7 @@ export default function PodcastDetail() {
             "@context": "https://schema.org",
             "@type": "PodcastSeries",
             name: data.title,
-            description: cleanSummary || cleanDesc || undefined,
+            description: data.seo_description || cleanSummary || cleanDesc || undefined,
             image: data.image_url || undefined,
             url: typeof window !== "undefined" ? window.location.href : undefined,
             webFeed: data.rss_url || undefined,

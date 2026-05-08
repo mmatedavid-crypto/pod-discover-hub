@@ -23,9 +23,16 @@ Deno.serve(async () => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const [{ data: cats }, { data: pods }, { data: eps }] = await Promise.all([
       supabase.from("categories").select("slug,created_at"),
-      supabase.from("podcasts").select("slug,updated_at,rss_status,podiverzum_rank,rank_label,shadow_rank_components,id"),
-      supabase.from("episodes").select("slug,updated_at,podcast_id,topics,people,companies,tickers,ingredients,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
+      supabase.from("podcasts").select("slug,updated_at,ai_enriched_at,rss_status,podiverzum_rank,rank_label,shadow_rank_components,id"),
+      supabase.from("episodes").select("slug,updated_at,ai_enriched_at,podcast_id,topics,people,companies,tickers,ingredients,podcasts!inner(slug,rss_status)").order("published_at", { ascending: false }).limit(10000),
     ]);
+
+    // lastmod = max(updated_at, ai_enriched_at) so search engines recrawl when SEO copy improves
+    const maxDate = (a?: string | null, b?: string | null) => {
+      if (!a) return b || null;
+      if (!b) return a || null;
+      return new Date(a) >= new Date(b) ? a : b;
+    };
 
     const epCount: Record<string, number> = {};
     (eps || []).forEach((e: any) => { if (e.podcast_id) epCount[e.podcast_id] = (epCount[e.podcast_id] || 0) + 1; });
@@ -72,12 +79,12 @@ Deno.serve(async () => {
       if (broken || empty || SITEMAP_BAD.has(hs) || p.rank_label === "E") return;
       const tier = p.rank_label;
       const priority = tier === "S" ? "0.9" : tier === "A" ? "0.8" : tier === "B" ? "0.7" : tier === "C" ? "0.6" : "0.4";
-      urls.push(url(`${SITE}/podcast/${esc(p.slug)}`, p.updated_at, "daily", priority));
+      urls.push(url(`${SITE}/podcast/${esc(p.slug)}`, maxDate(p.updated_at, p.ai_enriched_at), "daily", priority));
     });
     (eps || []).forEach((e: any) => {
       const ps = e.podcasts?.slug;
       const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
-      if (ps && !broken) urls.push(url(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, e.updated_at, "weekly", "0.7"));
+      if (ps && !broken) urls.push(url(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, maxDate(e.updated_at, e.ai_enriched_at), "weekly", "0.7"));
     });
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
