@@ -10,6 +10,9 @@ import { setSeo } from "@/lib/seo";
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
+const HOMEPAGE_PODCAST_LIMIT = 120;
+const HOMEPAGE_EPISODE_LIMIT = 180;
+
 const Index = () => {
   const [q, setQ] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
@@ -46,7 +49,7 @@ const Index = () => {
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
-        .limit(500);
+        .limit(HOMEPAGE_PODCAST_LIMIT);
       if (psErr) throw psErr;
       const goodHealth = (p: any) => {
         const hs = (p.shadow_rank_components as any)?.health_state;
@@ -62,10 +65,10 @@ const Index = () => {
         const { data: eps, error: epsErr } = await supabase
           .from("episodes")
           .select("id,title,display_title,slug,summary,description,published_at,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status,featured)")
-          .in("podcast_id", eligibleIds.slice(0, 200))
+          .in("podcast_id", eligibleIds.slice(0, HOMEPAGE_PODCAST_LIMIT))
           .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(400);
+          .limit(HOMEPAGE_EPISODE_LIMIT);
         if (epsErr) throw epsErr;
         const sortFn = (a: any, b: any) => {
           const ar = a.episode_rank ?? 0, br = b.episode_rank ?? 0;
@@ -213,7 +216,7 @@ const Index = () => {
           <div className="text-center py-20 text-muted-foreground">
             {loadError
               ? "Episodes are temporarily unavailable. Please refresh shortly."
-              : "Loading episodes…"}
+              : "Featured episodes are temporarily unavailable."}
           </div>
         )}
       </div>
