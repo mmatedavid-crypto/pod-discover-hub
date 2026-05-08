@@ -127,6 +127,7 @@ export default function AdminHubPage() {
     {
       title: "System",
       tools: [
+        { to: "/admin/cron-status", title: "Cron Status", desc: "Active jobs, recent runs, durations, failures.", icon: Activity },
         { to: "/admin-bootstrap", title: "Admin Bootstrap", desc: "Temporary admin grant utility.", icon: Settings },
       ],
     },
