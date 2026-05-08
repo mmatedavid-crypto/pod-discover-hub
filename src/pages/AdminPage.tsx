@@ -92,12 +92,27 @@ export default function AdminPage() {
       .from("episodes").select("*", { count: "exact", head: true })
       .not("summary", "is", null)
       .gte("updated_at", todayStart.toISOString());
-    // Rough estimate: ~$0.0003 per Gemini Flash episode summary call
     const aiCostToday = ((summariesToday || 0) * 0.0003);
+
+    // Formula C v3 status
+    const tierCounts: Record<string, number> = {};
+    let lastRankUpdated: string | null = null;
+    let legacyLabelLeaks = 0;
+    const VALID = new Set(["S", "A", "B", "C", "D", "E"]);
+    for (const p of pods) {
+      const lbl = p.rank_label || "(unranked)";
+      tierCounts[lbl] = (tierCounts[lbl] || 0) + 1;
+      if (p.rank_label && !VALID.has(p.rank_label)) legacyLabelLeaks++;
+      if (p.rank_updated_at && (!lastRankUpdated || p.rank_updated_at > lastRankUpdated)) {
+        lastRankUpdated = p.rank_updated_at;
+      }
+    }
+
     setStats({
       totalPodcasts, totalEpisodes: epCount || 0, active, failed, notChecked,
       lastFetched, summariesToday: summariesToday || 0, aiCostToday,
       duplicatesSkipped, errors,
+      formulaC: { tierCounts, lastRankUpdated, legacyLabelLeaks },
     });
   };
 
