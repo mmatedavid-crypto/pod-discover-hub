@@ -543,6 +543,8 @@ Header: apikey: <publishable key>`}</pre>
           </div>
         </section>
 
+        <FormulaCRunnerPanel />
+
         {stats?.formulaC && (
           <section className="p-4 rounded-lg border border-border bg-card">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
