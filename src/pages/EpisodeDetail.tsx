@@ -77,7 +77,7 @@ export default function EpisodeDetail() {
           const col = ENTITY_COLUMN[kind];
           const { data: rs } = await supabase
             .from("episodes")
-            .select("id,title,display_title,slug,published_at,summary,description,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status)")
+            .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
             .neq("id", e.id)
             .contains(col, [v])
             .order("published_at", { ascending: false, nullsFirst: false })
@@ -92,26 +92,21 @@ export default function EpisodeDetail() {
       if (candidates.size < 6 && p.category) {
         const { data: rs } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rss_status)")
+          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
           .neq("id", e.id).neq("podcast_id", p.id)
           .eq("podcasts.category", p.category)
-          .order("episode_rank", { ascending: false })
           .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(8);
+          .limit(20);
         (rs || []).forEach((r: any) => candidates.set(r.id, r));
       }
       const rel = Array.from(candidates.values())
-        .sort((a, b) => {
-          const ar = a.episode_rank || 0, br = b.episode_rank || 0;
-          if (br !== ar) return br - ar;
-          return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime();
-        })
+        .sort(compareByScore)
         .slice(0, 8);
       setRelated(rel as any);
 
       const { data: mp } = await supabase
         .from("episodes")
-        .select("id,title,display_title,slug,published_at,summary,description,audio_url,episode_rank,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank)")
+        .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
         .eq("podcast_id", p.id).neq("id", e.id)
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(6);
