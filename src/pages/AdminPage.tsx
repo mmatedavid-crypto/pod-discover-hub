@@ -331,13 +331,6 @@ export default function AdminPage() {
     refresh();
   };
 
-  const recalcRanks = async (_podcast_id?: string) => {
-    // Legacy ranking disabled — replaced by Formula C v3 (shadow_rank / podiverzum_rank
-    // are computed by stage4-persist + shadow ranking pipeline). The legacy
-    // `recompute-ranks` edge function writes incompatible integer 1–10 ranks and
-    // frozen episode_rank labels, so it must NOT be invoked from the UI.
-    toast.warning("Legacy ranking disabled — replaced by Formula C v3.");
-  };
 
   const setManualBoost = async (id: string, boost: number) => {
     const clamped = Math.max(-3, Math.min(3, boost));
