@@ -1111,6 +1111,10 @@ export type Database = {
         Args: { _active?: boolean; _command: string; _schedule?: string }
         Returns: undefined
       }
+      set_seo_enrich_runner_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
       set_title_cleanup_schedule: {
         Args: { _schedule: string }
         Returns: undefined
