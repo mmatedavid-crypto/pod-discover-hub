@@ -1,16 +1,17 @@
 // Dynamic sitemap built from the database.
-//
 // Routes:
 //   GET /sitemap                       → sitemap-index (lists all sub-sitemaps)
 //   GET /sitemap?type=core             → home, categories, category hubs, static pages
 //   GET /sitemap?type=podcasts         → all healthy podcast detail pages
-//   GET /sitemap?type=entities         → topic/person/company/ticker/ingredient hubs (≥5 eps)
-//   GET /sitemap?type=episodes&page=N  → episode pages, 45 000 per page (1-indexed)
+//   GET /sitemap?type=entities&ym=YYYY-MM → entity hubs (≥3 eps in that month)
+//   GET /sitemap?type=episodes&ym=YYYY-MM → episode pages published that month
+//
+// Month buckets avoid Postgres deep-offset (statement_timeout) and keep
+// every chunk under 45k URLs (Google's 50k limit).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.com";
 const FN_BASE = `${Deno.env.get("SUPABASE_URL") || "https://iqzkayoqqagowvxeaphe.supabase.co"}/functions/v1/sitemap`;
-const EPISODES_PER_PAGE = 45000;
 
 const xmlHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,25 +32,51 @@ const maxDate = (a?: string | null, b?: string | null) => {
   if (!b) return a || null;
   return new Date(a) >= new Date(b) ? a : b;
 };
-
 function wrapUrlset(urls: string[]) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
 }
+function monthBounds(ym: string): { start: string; end: string } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym);
+  if (!m) return null;
+  const y = parseInt(m[1], 10), mo = parseInt(m[2], 10);
+  if (mo < 1 || mo > 12) return null;
+  const start = `${m[1]}-${m[2]}-01T00:00:00Z`;
+  const ny = mo === 12 ? y + 1 : y;
+  const nm = mo === 12 ? 1 : mo + 1;
+  const end = `${ny}-${String(nm).padStart(2, "0")}-01T00:00:00Z`;
+  return { start, end };
+}
+
+async function listMonths(supabase: ReturnType<typeof createClient>): Promise<string[]> {
+  // Use a bounded query to find the range, then enumerate months (cheap, no scan).
+  const [{ data: minRow }, { data: maxRow }] = await Promise.all([
+    supabase.from("episodes").select("published_at").not("published_at", "is", null).order("published_at", { ascending: true }).limit(1),
+    supabase.from("episodes").select("published_at").not("published_at", "is", null).order("published_at", { ascending: false }).limit(1),
+  ]);
+  const minD = minRow?.[0]?.published_at ? new Date(minRow[0].published_at) : new Date("2014-01-01");
+  const maxD = maxRow?.[0]?.published_at ? new Date(maxRow[0].published_at) : new Date();
+  // Clamp ridiculous lower bound (we have a 1970 outlier — start from 2014)
+  const startY = Math.max(2014, minD.getUTCFullYear());
+  const endY = maxD.getUTCFullYear();
+  const endM = maxD.getUTCMonth() + 1;
+  const months: string[] = [];
+  for (let y = startY; y <= endY; y++) {
+    const mEnd = y === endY ? endM : 12;
+    for (let m = 1; m <= mEnd; m++) months.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  return months;
+}
 
 async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
-  const { count } = await supabase
-    .from("episodes")
-    .select("id", { count: "exact", head: true });
-  const totalEps = count || 0;
-  const epPages = Math.max(1, Math.ceil(totalEps / EPISODES_PER_PAGE));
+  const months = await listMonths(supabase);
   const lastmod = new Date().toISOString();
   const entries: string[] = [
     `<sitemap><loc>${FN_BASE}?type=core</loc><lastmod>${lastmod}</lastmod></sitemap>`,
-    `<sitemap><loc>${FN_BASE}?type=entities</loc><lastmod>${lastmod}</lastmod></sitemap>`,
     `<sitemap><loc>${FN_BASE}?type=podcasts</loc><lastmod>${lastmod}</lastmod></sitemap>`,
   ];
-  for (let i = 1; i <= epPages; i++) {
-    entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;page=${i}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+  for (const ym of months) {
+    entries.push(`<sitemap><loc>${FN_BASE}?type=entities&amp;ym=${ym}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+    entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join("\n")}\n</sitemapindex>`;
 }
@@ -94,21 +121,51 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   return wrapUrlset(urls);
 }
 
-async function buildEntities(supabase: ReturnType<typeof createClient>) {
-  // Page through episodes pulling entity arrays only — keep payload tight.
+async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, ym: string) {
+  const b = monthBounds(ym);
+  if (!b) throw new Error(`bad ym: ${ym}`);
+  const urls: string[] = [];
+  let from = 0;
+  const CHUNK = 1000;
+  while (true) {
+    const { data: eps, error } = await supabase
+      .from("episodes")
+      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status)")
+      .gte("published_at", b.start)
+      .lt("published_at", b.end)
+      .order("published_at", { ascending: true })
+      .range(from, from + CHUNK - 1);
+    if (error) throw error;
+    if (!eps || eps.length === 0) break;
+    for (const e of eps as any[]) {
+      const ps = e.podcasts?.slug;
+      const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
+      if (ps && !broken) urls.push(urlTag(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, maxDate(e.updated_at, e.ai_enriched_at), "weekly", "0.7"));
+    }
+    if (eps.length < CHUNK) break;
+    from += CHUNK;
+  }
+  return wrapUrlset(urls);
+}
+
+async function buildEntitiesByMonth(supabase: ReturnType<typeof createClient>, ym: string) {
+  const b = monthBounds(ym);
+  if (!b) throw new Error(`bad ym: ${ym}`);
   const entCount: Record<string, { slug: string; n: number; lastmod?: string }> = {};
   const kinds: { col: "topics"|"people"|"companies"|"tickers"|"ingredients"; route: string }[] = [
     { col: "topics", route: "topic" }, { col: "people", route: "person" },
     { col: "companies", route: "company" }, { col: "tickers", route: "ticker" }, { col: "ingredients", route: "ingredient" },
   ];
   let from = 0;
-  const PAGE = 1000; // Postgrest max-rows cap
+  const CHUNK = 1000;
   while (true) {
     const { data: chunk, error } = await supabase
       .from("episodes")
       .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status)")
-      .order("id", { ascending: true })
-      .range(from, from + PAGE - 1);
+      .gte("published_at", b.start)
+      .lt("published_at", b.end)
+      .order("published_at", { ascending: true })
+      .range(from, from + CHUNK - 1);
     if (error) throw error;
     if (!chunk || chunk.length === 0) break;
     for (const e of chunk as any[]) {
@@ -124,40 +181,16 @@ async function buildEntities(supabase: ReturnType<typeof createClient>) {
         });
       }
     }
-    if (chunk.length < PAGE) break;
-    from += PAGE;
+    if (chunk.length < CHUNK) break;
+    from += CHUNK;
   }
   const urls: string[] = [];
   Object.entries(entCount).forEach(([key, info]) => {
-    if (info.n < 5) return;
+    if (info.n < 3) return;
     const route = key.split(":")[0];
     const priority = info.n >= 20 ? "0.8" : "0.6";
     urls.push(urlTag(`${SITE}/${route}/${esc(info.slug)}`, info.lastmod || null, "weekly", priority));
   });
-  return wrapUrlset(urls);
-}
-
-async function buildEpisodes(supabase: ReturnType<typeof createClient>, page: number) {
-  const startOffset = (page - 1) * EPISODES_PER_PAGE;
-  const endOffset = startOffset + EPISODES_PER_PAGE; // exclusive
-  const CHUNK = 1000; // Postgrest max-rows cap
-  const urls: string[] = [];
-  for (let off = startOffset; off < endOffset; off += CHUNK) {
-    const upper = Math.min(off + CHUNK, endOffset) - 1;
-    const { data: eps, error } = await supabase
-      .from("episodes")
-      .select("slug,updated_at,ai_enriched_at,podcasts!inner(slug,rss_status)")
-      .order("id", { ascending: true })
-      .range(off, upper);
-    if (error) throw error;
-    if (!eps || eps.length === 0) break;
-    for (const e of eps as any[]) {
-      const ps = e.podcasts?.slug;
-      const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
-      if (ps && !broken) urls.push(urlTag(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, maxDate(e.updated_at, e.ai_enriched_at), "weekly", "0.7"));
-    }
-    if (eps.length < (upper - off + 1)) break;
-  }
   return wrapUrlset(urls);
 }
 
@@ -166,20 +199,20 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const u = new URL(req.url);
     const type = u.searchParams.get("type");
-    const page = Math.max(1, parseInt(u.searchParams.get("page") || "1", 10) || 1);
+    const ym = u.searchParams.get("ym") || "";
 
     let body: string;
     if (!type) body = await buildSitemapIndex(supabase);
     else if (type === "core") body = await buildCore(supabase);
     else if (type === "podcasts") body = await buildPodcasts(supabase);
-    else if (type === "entities") body = await buildEntities(supabase);
-    else if (type === "episodes") body = await buildEpisodes(supabase, page);
+    else if (type === "episodes") body = await buildEpisodesByMonth(supabase, ym);
+    else if (type === "entities") body = await buildEntitiesByMonth(supabase, ym);
     else return new Response(`<!-- unknown type: ${type} -->`, { status: 400, headers: xmlHeaders });
 
     return new Response(body, { headers: xmlHeaders });
   } catch (e) {
     const msg = e instanceof Error ? `${e.name}: ${e.message}` : JSON.stringify(e);
-    console.error("sitemap error:", msg, e instanceof Error ? e.stack : "");
+    console.error("sitemap error:", msg);
     return new Response(`<!-- sitemap error: ${msg} -->`, { status: 500, headers: xmlHeaders });
   }
 });
