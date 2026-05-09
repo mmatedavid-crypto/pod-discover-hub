@@ -20,7 +20,8 @@ type Run = {
 };
 type Health = { generated_at: string; jobs: Job[]; recent_runs: Run[] };
 
-const ACTIVE_ALLOWLIST = new Set([8, 10, 13]);
+// 48h sprint (2026-05-09): full pipeline running. Revert to [8,10,13] after launch.
+const ACTIVE_ALLOWLIST = new Set([4, 7, 8, 10, 12, 13, 16, 18, 19, 20, 21, 22, 23, 24, 25, 26]);
 
 export default function AdminCronStatusPage() {
   useNoindex("Cron Status — Podiverzum");
@@ -104,7 +105,7 @@ export default function AdminCronStatusPage() {
 
         {unexpectedActive.length > 0 && (
           <div className="rounded-md border border-brand/30 bg-brand/10 px-4 py-3 text-sm text-brand">
-            ⚠ Unexpected active cron jobs (allowlist: 8, 10, 13):{" "}
+            ⚠ Unexpected active cron jobs (not in sprint allowlist):{" "}
             {unexpectedActive.map(j => `#${j.jobid} ${j.jobname}`).join(", ")}
           </div>
         )}
