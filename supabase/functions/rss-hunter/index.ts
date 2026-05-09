@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
       .select("id, title, rss_url, website_url, rank_label, ai_quality_score, ai_spam_score, shadow_rank_components, rss_hunt_attempts, last_rss_hunt_at, next_rss_hunt_at, consecutive_failure_count, rss_status")
       .or("rss_status.eq.failed,consecutive_failure_count.gte.5")
       .gte("ai_quality_score", 5)
+      .lt("rss_hunt_attempts", MAX_HUNT_ATTEMPTS)
       .or(dueOrNull)
       .limit(limit);
 
@@ -116,6 +117,7 @@ Deno.serve(async (req) => {
       .in("rank_label", ["S", "A", "B"])
       .not("website_url", "is", null)
       .not("rss_url", "is", null)
+      .lt("rss_hunt_attempts", MAX_HUNT_ATTEMPTS)
       .or(dueOrNull)
       .limit(limit * 4);
     const p1 = (p1raw || []).filter((p: any) => {
@@ -128,6 +130,7 @@ Deno.serve(async (req) => {
     const { data: p2 } = await supabase.from("podcasts")
       .select("id, title, rss_url, website_url, rank_label, ai_quality_score, ai_spam_score, shadow_rank_components, rss_hunt_attempts, last_rss_hunt_at, next_rss_hunt_at, consecutive_failure_count, rss_status")
       .eq("shadow_rank_components->>health_state", "recovered_rss_url")
+      .lt("rss_hunt_attempts", MAX_HUNT_ATTEMPTS)
       .or(`last_rss_hunt_at.is.null,last_rss_hunt_at.lt.${reverifyBefore}`)
       .limit(limit);
 
