@@ -39,14 +39,17 @@ async function buildOAuthHeader(method: string, url: string, ck: string, cs: str
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    // Auth: admin user OR service-role key
+    // Auth: admin user OR service-role key OR shared secret
     const authHeader = req.headers.get("Authorization") || "";
     const apikeyHeader = req.headers.get("apikey") || "";
+    const sharedSecret = req.headers.get("x-shared-secret") || "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const formulaSecret = Deno.env.get("FORMULA_C_RUNNER_SECRET") || "";
     const isServiceRole =
       authHeader === `Bearer ${serviceKey}` || apikeyHeader === serviceKey;
+    const isSharedSecret = formulaSecret && sharedSecret === formulaSecret;
 
-    if (!isServiceRole) {
+    if (!isServiceRole && !isSharedSecret) {
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_ANON_KEY")!,
