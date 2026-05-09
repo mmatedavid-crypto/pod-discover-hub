@@ -120,6 +120,12 @@ export default function AdminHubPage() {
       ],
     },
     {
+      title: "Marketing",
+      tools: [
+        { to: "/admin/social", title: "Daily Social Posts", desc: "Auto-generated X posts about today's fresh episodes. Preview, post now, history.", icon: Send, badge: "new", badgeTone: "warn" },
+      ],
+    },
+    {
       title: "Feedback",
       tools: [
         { to: "/admin/feedback", title: "Beta Feedback", desc: "User-submitted feedback and reports.", icon: MessageSquare, badge: counts.feedbackUnhandled, badgeTone: counts.feedbackUnhandled ? "danger" : "default" },
