@@ -60,15 +60,19 @@ Deno.serve(async (req) => {
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
 
     const token = authHeader.slice(7);
-    // Decode JWT payload (no verification needed — Supabase has already verified auth at this edge)
-    let isAdmin = false;
-    try {
-      const parts = token.split(".");
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-        if (payload.role === "service_role") isAdmin = true;
-      }
-    } catch { /* not a jwt */ }
+    // Accept new sb_secret_... service-role key by direct equality.
+    // Fall back to legacy JWT payload check for older keys.
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    let isAdmin = token === SERVICE_KEY;
+    if (!isAdmin) {
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+          if (payload.role === "service_role") isAdmin = true;
+        }
+      } catch { /* not a jwt */ }
+    }
     if (!isAdmin) {
       const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
       const { data: userData, error: userErr } = await userClient.auth.getUser();
