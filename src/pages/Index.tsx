@@ -4,22 +4,24 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, Sparkles } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
-const HOMEPAGE_PODCAST_LIMIT = 120;
-const HOMEPAGE_EPISODE_LIMIT = 180;
+const HOMEPAGE_EPISODE_LIMIT = 240;
+
+type FeedEpisode = EpisodeLite & { freshness_bucket?: "hot" | "fresh" | "recent" };
 
 const Index = () => {
   const [q, setQ] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
   const [podcasts, setPodcasts] = useState<(PodcastLite & { podiverzum_rank?: number; featured?: boolean })[]>([]);
-  const [trendingEps, setTrendingEps] = useState<EpisodeLite[]>([]);
-  const [allEps, setAllEps] = useState<EpisodeLite[]>([]);
+  const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
+  const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
+  const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const nav = useNavigate();
