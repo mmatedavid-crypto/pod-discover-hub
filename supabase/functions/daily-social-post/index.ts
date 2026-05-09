@@ -214,7 +214,7 @@ async function generatePost(episodes: EpisodeRow[]): Promise<{ text: string; mod
   const items = episodes.slice(0, 3).map((e) => {
     const epTitle = e.display_title || e.title;
     const podTitle = e.podcasts?.display_title || e.podcasts?.title || "";
-    const url = `${SITE_URL}/podcast/${e.podcasts?.slug}/episode/${e.slug}`;
+    const url = `${SITE_URL}/podcast/${e.podcasts?.slug}/${e.slug}`;
     const summary = (e.ai_summary || "").slice(0, 400);
     return { epTitle, podTitle, url, summary, category: e.podcasts?.category };
   });
@@ -324,7 +324,7 @@ Deno.serve(async (req) => {
             id: e.id,
             title: e.display_title || e.title,
             podcast: e.podcasts?.display_title || e.podcasts?.title,
-            url: `${SITE_URL}/podcast/${e.podcasts?.slug}/episode/${e.slug}`,
+            url: `${SITE_URL}/podcast/${e.podcasts?.slug}/${e.slug}`,
           })),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
