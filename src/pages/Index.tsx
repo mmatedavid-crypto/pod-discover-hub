@@ -7,6 +7,8 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight, Sparkles } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
+import { MoodCollections } from "@/components/MoodCollections";
+import { Skeleton } from "@/components/Skeletons";
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
@@ -189,6 +191,26 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto py-12 space-y-14">
+        <MoodCollections />
+
+        {!loaded && trendingEps.length === 0 && (
+          <section>
+            <Skeleton className="h-6 w-48 mb-4" />
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex gap-3 p-4 border border-border/50 rounded-xl">
+                  <Skeleton className="h-16 w-16 rounded-md" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-3 w-5/6" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {trendingEps.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">
