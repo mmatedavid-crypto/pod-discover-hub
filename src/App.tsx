@@ -25,6 +25,7 @@ import AdminSearchInsightsPage from "./pages/AdminSearchInsightsPage.tsx";
 import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
 import AdminAiEnrichmentPage from "./pages/AdminAiEnrichmentPage.tsx";
 import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
+import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
