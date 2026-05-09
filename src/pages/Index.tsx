@@ -44,14 +44,19 @@ const Index = () => {
     });
     (async () => {
       try {
-        const [catsRes, feedRes, podsRes] = await Promise.all([
+        const [catsRes, feedRes, evergreenRes, podsRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
             .from("mv_homepage_feed" as any)
-            .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank")
-            .lte("pod_rank", 8)
+            .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+            .lte("pod_rank", 6)
             .order("published_at", { ascending: false, nullsFirst: false })
             .limit(HOMEPAGE_EPISODE_LIMIT),
+          supabase
+            .from("mv_homepage_evergreen" as any)
+            .select("episode_id,title,display_title,slug,summary,description,ai_summary,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured")
+            .order("podiverzum_rank", { ascending: false, nullsFirst: false })
+            .limit(40),
           supabase
             .from("podcasts")
             .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
@@ -73,8 +78,7 @@ const Index = () => {
         );
         setPodcasts(eligible);
 
-        // Map MV rows to EpisodeLite shape
-        const eps: EpisodeLite[] = (feedRes.data || []).map((r: any) => ({
+        const mapRow = (r: any): FeedEpisode => ({
           id: r.episode_id,
           title: r.title,
           display_title: r.display_title,
@@ -84,6 +88,7 @@ const Index = () => {
           published_at: r.published_at,
           audio_url: r.audio_url,
           topics: r.topics,
+          freshness_bucket: r.freshness_bucket,
           podcasts: {
             slug: r.podcast_slug,
             title: r.podcast_title,
@@ -95,9 +100,19 @@ const Index = () => {
             rss_status: r.rss_status,
             featured: r.featured,
           } as any,
-        }));
-        setTrendingEps(eps.slice().sort(compareByScore).slice(0, 12));
+        });
+
+        const eps: FeedEpisode[] = (feedRes.data || []).map(mapRow);
+
+        // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
+        const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
+        const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
+        setTrendingEps(trendingPool.slice().sort(compareByScore).slice(0, 12));
         setAllEps(eps);
+
+        // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
+        const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
+        setEvergreenEps(evergreen.slice(0, 6));
       } catch (err) {
         console.error("Index load failed", err);
         setLoadError(true);
