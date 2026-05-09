@@ -401,6 +401,13 @@ export type Database = {
             foreignKeyName: "episodes_podcast_id_fkey"
             columns: ["podcast_id"]
             isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
             referencedRelation: "podcasts"
             referencedColumns: ["id"]
           },
@@ -1016,7 +1023,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      mv_homepage_feed: {
+        Row: {
+          audio_url: string | null
+          description: string | null
+          display_title: string | null
+          episode_id: string | null
+          featured: boolean | null
+          featured_rank: number | null
+          pod_rank: number | null
+          podcast_category: string | null
+          podcast_display_title: string | null
+          podcast_id: string | null
+          podcast_image_url: string | null
+          podcast_slug: string | null
+          podcast_title: string | null
+          podiverzum_rank: number | null
+          published_at: string | null
+          rank_label: string | null
+          rss_status: string | null
+          slug: string | null
+          summary: string | null
+          title: string | null
+          topics: string[] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       claim_ai_jobs: {
@@ -1078,6 +1110,7 @@ export type Database = {
         Args: { _older_than_minutes?: number }
         Returns: number
       }
+      refresh_homepage_feed: { Args: never; Returns: undefined }
       select_embed_candidates: {
         Args: { _limit: number; _model: string; _tiers: string[] }
         Returns: {

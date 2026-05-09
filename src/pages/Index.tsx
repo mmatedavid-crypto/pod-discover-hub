@@ -42,37 +42,60 @@ const Index = () => {
     });
     (async () => {
       try {
-      const { data: c } = await supabase.from("categories").select("*").order("sort_order");
-      setCats(c || []);
+        const [catsRes, feedRes, podsRes] = await Promise.all([
+          supabase.from("categories").select("*").order("sort_order"),
+          supabase
+            .from("mv_homepage_feed" as any)
+            .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank")
+            .lte("pod_rank", 8)
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(HOMEPAGE_EPISODE_LIMIT),
+          supabase
+            .from("podcasts")
+            .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
+            .or("featured.eq.true,rank_label.in.(S,A)")
+            .not("rss_status", "in", "(failed,inactive)")
+            .order("featured", { ascending: false })
+            .order("podiverzum_rank", { ascending: false })
+            .limit(40),
+        ]);
 
-      const { data: ps, error: psErr } = await supabase
-        .from("podcasts")
-        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
-        .order("featured", { ascending: false })
-        .order("podiverzum_rank", { ascending: false })
-        .limit(HOMEPAGE_PODCAST_LIMIT);
-      if (psErr) throw psErr;
-      const goodHealth = (p: any) => {
-        const hs = (p.shadow_rank_components as any)?.health_state;
-        return !hs || hs === "healthy" || hs === "recovered_rss_url";
-      };
-      const eligible = (ps || []).filter((p: any) =>
-        p.featured || (["S", "A"].includes(p.rank_label) && goodHealth(p) && p.rss_status !== "failed" && p.rss_status !== "inactive")
-      );
-      setPodcasts(eligible);
+        setCats(catsRes.data || []);
 
-      const eligibleIds = eligible.map((p: any) => p.id);
-      if (eligibleIds.length) {
-        const { data: eps, error: epsErr } = await supabase
-          .from("episodes")
-          .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured)")
-          .in("podcast_id", eligibleIds.slice(0, HOMEPAGE_PODCAST_LIMIT))
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(HOMEPAGE_EPISODE_LIMIT);
-        if (epsErr) throw epsErr;
-        setTrendingEps(((eps || []).slice().sort(compareByScore).slice(0, 12)) as any);
-        setAllEps((eps || []) as any);
-      }
+        const goodHealth = (p: any) => {
+          const hs = (p.shadow_rank_components as any)?.health_state;
+          return !hs || hs === "healthy" || hs === "recovered_rss_url";
+        };
+        const eligible = (podsRes.data || []).filter((p: any) =>
+          p.featured || (["S", "A"].includes(p.rank_label) && goodHealth(p))
+        );
+        setPodcasts(eligible);
+
+        // Map MV rows to EpisodeLite shape
+        const eps: EpisodeLite[] = (feedRes.data || []).map((r: any) => ({
+          id: r.episode_id,
+          title: r.title,
+          display_title: r.display_title,
+          slug: r.slug,
+          summary: r.summary,
+          description: r.description,
+          published_at: r.published_at,
+          audio_url: r.audio_url,
+          topics: r.topics,
+          podcasts: {
+            slug: r.podcast_slug,
+            title: r.podcast_title,
+            display_title: r.podcast_display_title,
+            image_url: r.podcast_image_url,
+            category: r.podcast_category,
+            podiverzum_rank: r.podiverzum_rank,
+            rank_label: r.rank_label,
+            rss_status: r.rss_status,
+            featured: r.featured,
+          } as any,
+        }));
+        setTrendingEps(eps.slice().sort(compareByScore).slice(0, 12));
+        setAllEps(eps);
       } catch (err) {
         console.error("Index load failed", err);
         setLoadError(true);
