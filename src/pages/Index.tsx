@@ -114,7 +114,7 @@ const Index = () => {
         // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
         const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
         const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
-        setTrendingEps(trendingPool.slice().sort(compareByScore).slice(0, 12));
+        setTrendingEps(trendingPool.slice().sort(compareByScore).slice(0, 8));
         setAllEps(eps);
 
         // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
