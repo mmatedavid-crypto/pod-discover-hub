@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
   const [q, setQ] = useState("");
@@ -32,10 +33,11 @@ export function SiteHeader() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search episodes…"
+            placeholder="Search episodes…  (press / )"
             className="w-full pl-9 pr-3 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
           />
         </form>
+        <ThemeToggle />
       </div>
     </header>
   );
