@@ -196,24 +196,36 @@ Deno.serve(async (req) => {
           last_rss_hunt_at: new Date().toISOString(),
         };
 
+        const giveUp = attempts >= MAX_HUNT_ATTEMPTS;
+
         if (!best) {
           // No usable candidate (or P2 reverify already settled)
           if (results.length && results[results.length - 1]?.id === p.id) {
             await supabase.from("podcasts").update({
               ...updateBase,
-              next_rss_hunt_at: new Date(Date.now() + reverifyDays * 86400_000).toISOString(),
+              next_rss_hunt_at: new Date(Date.now() + (giveUp ? GIVE_UP_PARK_DAYS : reverifyDays) * 86400_000).toISOString(),
             }).eq("id", p.id);
             continue;
           }
-          comp.health_state = comp.health_state || "rss_url_not_found";
-          comp.rss_hunt = { ...(comp.rss_hunt || {}), at: updateBase.last_rss_hunt_at, result: "not_found" };
+          if (giveUp) {
+            comp.health_state = "rss_url_unrecoverable";
+            comp.rss_hunt = {
+              ...(comp.rss_hunt || {}),
+              at: updateBase.last_rss_hunt_at,
+              result: "gave_up",
+              attempts,
+            };
+          } else {
+            comp.health_state = comp.health_state || "rss_url_not_found";
+            comp.rss_hunt = { ...(comp.rss_hunt || {}), at: updateBase.last_rss_hunt_at, result: "not_found" };
+          }
           await supabase.from("podcasts").update({
             ...updateBase,
             shadow_rank_components: comp,
-            next_rss_hunt_at: new Date(Date.now() + recheckDays * 86400_000).toISOString(),
+            next_rss_hunt_at: new Date(Date.now() + (giveUp ? GIVE_UP_PARK_DAYS : recheckDays) * 86400_000).toISOString(),
           }).eq("id", p.id);
-          notFound++;
-          results.push({ id: p.id, title: p.title, prio: p._prio, action: "not_found" });
+          if (giveUp) gaveUp++; else notFound++;
+          results.push({ id: p.id, title: p.title, prio: p._prio, action: giveUp ? "gave_up" : "not_found", attempts });
           continue;
         }
 
