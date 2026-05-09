@@ -12,6 +12,10 @@ const cors = {
 
 const RECHECK_DAYS_NOT_FOUND = 7;
 const REVERIFY_DAYS_RECOVERED = 7;
+// Hard cap: after this many failed hunt attempts we stop polling the feed.
+// Prevents wasted PI/RSS calls on permanently dead podcasts.
+const MAX_HUNT_ATTEMPTS = 10;
+const GIVE_UP_PARK_DAYS = 365;
 // Attempt-weighted backoff days: base * 2^min(attempts,4)
 function huntBackoffDays(baseDays: number, attempts: number): number {
   return baseDays * Math.pow(2, Math.min(attempts, 4));
