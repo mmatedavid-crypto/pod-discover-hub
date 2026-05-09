@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     const list = queue.slice(0, limit);
 
     const results: any[] = [];
-    let recovered = 0, manualReview = 0, notFound = 0, errors = 0, reverified = 0;
+    let recovered = 0, manualReview = 0, notFound = 0, errors = 0, reverified = 0, gaveUp = 0;
 
     for (const p of list) {
       if (Date.now() - startedAt > TIME_BUDGET_MS) break;
