@@ -32,6 +32,11 @@ const Index = () => {
     setSeo({
       title: "Podiverzum — Podcast episode discovery & search",
       description: "Search podcast episodes by topic, person, company, ticker, ingredient or idea.",
+      hreflang: [
+        { lang: "en", href: "https://podiverzum.com/" },
+        { lang: "hu", href: "https://podiverzum.com/hu" },
+        { lang: "x-default", href: "https://podiverzum.com/" },
+      ],
       jsonLd: {
         "@context": "https://schema.org",
         "@type": "WebSite",
