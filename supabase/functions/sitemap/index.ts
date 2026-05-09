@@ -69,19 +69,28 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
 
 async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   const SITEMAP_BAD = new Set(["needs_manual_rss_review", "quarantined_spam", "confirmed_dead"]);
-  const { data: pods } = await supabase
-    .from("podcasts")
-    .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components");
-
   const urls: string[] = [];
-  (pods || []).forEach((p: any) => {
-    const broken = p.rss_status === "failed" || p.rss_status === "inactive";
-    const hs = (p.shadow_rank_components as any)?.health_state;
-    if (broken || SITEMAP_BAD.has(hs) || p.rank_label === "E") return;
-    const tier = p.rank_label;
-    const priority = tier === "S" ? "0.9" : tier === "A" ? "0.8" : tier === "B" ? "0.7" : tier === "C" ? "0.6" : "0.4";
-    urls.push(urlTag(`${SITE}/podcast/${esc(p.slug)}`, maxDate(p.updated_at, p.ai_enriched_at), "daily", priority));
-  });
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data: pods, error } = await supabase
+      .from("podcasts")
+      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components")
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    if (!pods || pods.length === 0) break;
+    for (const p of pods as any[]) {
+      const broken = p.rss_status === "failed" || p.rss_status === "inactive";
+      const hs = (p.shadow_rank_components as any)?.health_state;
+      if (broken || SITEMAP_BAD.has(hs) || p.rank_label === "E") continue;
+      const tier = p.rank_label;
+      const priority = tier === "S" ? "0.9" : tier === "A" ? "0.8" : tier === "B" ? "0.7" : tier === "C" ? "0.6" : "0.4";
+      urls.push(urlTag(`${SITE}/podcast/${esc(p.slug)}`, maxDate(p.updated_at, p.ai_enriched_at), "daily", priority));
+    }
+    if (pods.length < PAGE) break;
+    from += PAGE;
+  }
   return wrapUrlset(urls);
 }
 
