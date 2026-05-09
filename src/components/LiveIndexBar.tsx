@@ -52,9 +52,17 @@ export default function LiveIndexBar() {
           console.warn("LiveIndexBar query error", error);
           return;
         }
-        const rows = ((data || []) as unknown as Item[]).filter(
-          (r) => r.title && r.podcasts && r.podcasts.rss_status !== "failed" && r.podcasts.rss_status !== "inactive"
-        );
+        const looksLikeJunk = (t: string) =>
+          /\bhttps?:\/\//i.test(t) ||
+          /\bwww\./i.test(t) ||
+          /\.(gov|com|org|net)\b/i.test(t) ||
+          /\bday\s*\d+\b.*\bpart\s*\d+\b/i.test(t) ||
+          t.length > 90;
+        const trim = (t: string) => (t.length > 70 ? t.slice(0, 67).trimEnd() + "…" : t);
+        const rows = ((data || []) as unknown as Item[])
+          .filter((r) => r.title && r.podcasts && r.podcasts.rss_status !== "failed" && r.podcasts.rss_status !== "inactive")
+          .filter((r) => !looksLikeJunk(r.display_title || r.title))
+          .map((r) => ({ ...r, display_title: trim(r.display_title || r.title), title: trim(r.title) }));
         // Prefer most recent ~72h window, but always keep at least 8 items so the marquee fills.
         const cutoff = Date.now() - 72 * 3600 * 1000;
         const recent = rows.filter((r) => new Date(r.created_at).getTime() >= cutoff);
