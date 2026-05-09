@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
     if (!isAdmin) return json({ error: "Forbidden: admin only" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const limit = Math.max(1, Math.min(50, Number(body.limit) || 10));
-    const concurrency = Math.max(1, Math.min(5, Number(body.concurrency) || 1));
+    const limit = Math.max(1, Math.min(100, Number(body.limit) || 10));
+    const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || 1));
     const MAX_PER_PASS = Math.max(20, Math.min(500, Number(body.max_per_pass) || 200));
     const TIME_BUDGET_MS = Math.max(20_000, Math.min(110_000, Number(body.time_budget_ms) || 50_000));
     const trigger = (body.trigger as string) || "manual";
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       .is("full_backfill_completed_at", null)
       .order("podiverzum_rank", { ascending: false })
       .order("last_deep_hydrated_at", { ascending: true, nullsFirst: true })
-      .limit(limit * 2);
+      .limit(limit + 10);
 
     if (cErr) throw cErr;
 
@@ -175,10 +175,9 @@ Deno.serve(async (req) => {
         return;
       }
 
-      const { count: epCount } = await admin
-        .from("episodes").select("id", { count: "exact", head: true })
-        .eq("podcast_id", p.id);
-      const total = epCount || 0;
+      // Skip extra count(*) round-trip; estimate from prior count + new inserts.
+      // The exact total is reconciled by incremental-refresh anyway.
+      const total = (Number(p.hydrated_episode_count) || 0) + (Number(res.new) || 0);
       newEpisodes += res.new || 0;
       duplicates += res.duplicates || 0;
 
