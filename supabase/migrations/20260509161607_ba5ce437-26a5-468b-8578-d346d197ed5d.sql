@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_podcasts_description_trgm ON public.podcasts USING GIN (description gin_trgm_ops);
