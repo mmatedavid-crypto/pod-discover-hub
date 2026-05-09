@@ -1,11 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  This static file is a fallback. The full, dynamic sitemap is served by an
-  edge function and lists all healthy podcast / episode / topic pages:
-  https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap
-  Both URLs are listed in robots.txt so search engines can find the dynamic one.
+  Sitemap index. Each <sitemap> entry is generated dynamically by the
+  Podiverzum edge function (`/functions/v1/sitemap?type=...&page=...`).
+  Episode pages are pre-listed up to page 12 (≈540k episodes capacity);
+  empty pages return a valid empty <urlset>, so over-provisioning is safe.
 -->
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://podiverzum.com/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-  <url><loc>https://podiverzum.com/categories</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-</urlset>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=core</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=entities</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=podcasts</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=1</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=2</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=3</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=4</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=5</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=6</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=7</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=8</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=9</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=10</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=11</loc></sitemap>
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap?type=episodes&amp;page=12</loc></sitemap>
+</sitemapindex>
