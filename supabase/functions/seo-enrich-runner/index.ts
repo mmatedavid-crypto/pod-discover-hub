@@ -33,15 +33,15 @@ async function callAI(model: string, messages: any[], tools: any[], toolName: st
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 50_000;
+  const TIME_BUDGET_MS = 110_000;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const __guard = await checkBackgroundJobsAllowed(admin, "seo-enrich-runner");
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
-    const batch = Math.max(1, Math.min(50, Number(body.batch) || 20));
-    const concurrency = Math.max(1, Math.min(6, Number(body.concurrency) || 3));
+    const batch = Math.max(1, Math.min(50, Number(body.batch) || 30));
+    const concurrency = Math.max(1, Math.min(6, Number(body.concurrency) || 6));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
@@ -190,8 +190,8 @@ Deno.serve(async (req) => {
       const { count: pending } = await admin.from("ai_enrichment_jobs").select("id", { count: "exact", head: true }).eq("status", "pending");
       const p = Number(pending || 0);
       if (rate_limited > 0) next_schedule = "*/30 * * * *";
-      else if (p > 500) next_schedule = "*/2 * * * *";
-      else if (p >= 100) next_schedule = "*/5 * * * *";
+      else if (p > 500) next_schedule = "* * * * *";
+      else if (p >= 100) next_schedule = "*/2 * * * *";
       else if (p >= 1) next_schedule = "*/10 * * * *";
       else next_schedule = "*/30 * * * *";
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
