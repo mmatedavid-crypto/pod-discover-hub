@@ -24,9 +24,30 @@ const Index = () => {
   const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
+  const [chips, setChips] = useState<{ label: string; query: string }[]>([
+    { label: "AI healthcare", query: "AI healthcare" },
+    { label: "Warren Buffett", query: "Warren Buffett" },
+    { label: "testosterone sleep", query: "testosterone sleep" },
+    { label: "Nvidia data centers", query: "Nvidia data centers" },
+    { label: "asparagus cooking", query: "asparagus cooking" },
+  ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const nav = useNavigate();
+
+  useEffect(() => {
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "search_suggestions")
+      .maybeSingle()
+      .then(({ data }) => {
+        const items = (data?.value as any)?.items;
+        if (Array.isArray(items) && items.length) {
+          setChips(items.filter((c) => c?.label && c?.query).slice(0, 8));
+        }
+      });
+  }, []);
 
   useEffect(() => {
     setSeo({
@@ -184,9 +205,9 @@ const Index = () => {
             </button>
           </form>
           <div className="mt-5 flex flex-wrap gap-2">
-            {["AI healthcare","Warren Buffett","testosterone sleep","asparagus cooking","Nvidia data centers"].map((ex) => (
-              <button key={ex} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(ex)}`)} className="chip">
-                {ex}
+            {chips.map((c) => (
+              <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip">
+                {c.label}
               </button>
             ))}
           </div>
