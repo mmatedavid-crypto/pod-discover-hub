@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
@@ -13,6 +13,10 @@ import { compareByScore } from "@/lib/episodeRank";
 import { SimilarEpisodes } from "@/components/SimilarEpisodes";
 import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { recordVisit } from "@/lib/recentlyPlayed";
+import { extractKeyMoments } from "@/lib/keyMoments";
+import { KeyMoments } from "@/components/KeyMoments";
+import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
@@ -28,6 +32,7 @@ export default function EpisodeDetail() {
   const [loading, setLoading] = useState(true);
   const [related, setRelated] = useState<EpisodeLite[]>([]);
   const [moreFromPod, setMoreFromPod] = useState<EpisodeLite[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!podcastSlug || !episodeSlug) return;
@@ -39,6 +44,15 @@ export default function EpisodeDetail() {
       setData(e ? { p, e } : { p, e: null });
       setLoading(false);
       if (!e) return;
+
+      // Track for "Continue listening" on the homepage
+      recordVisit({
+        podcastSlug: p.slug,
+        episodeSlug: e.slug,
+        title: e.display_title || e.title,
+        podcastTitle: p.display_title || p.title,
+        imageUrl: e.image_url || p.image_url,
+      });
 
       const summary = stripHtml(e.summary);
       const desc = stripHtml(e.description);
