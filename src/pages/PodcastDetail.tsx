@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, Globe, Activity, AlertTriangle } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
-import { setSeo, ogImageUrl } from "@/lib/seo";
+import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml, snippet } from "@/lib/text";
 import { PodcastDetailSkeleton } from "@/components/Skeletons";
@@ -33,15 +33,22 @@ export default function PodcastDetail() {
           description: snippet(data.seo_description || cleanSummary || cleanDesc || `Listen to ${data.title} on Podiverzum.`, 160),
           noindex: data.rss_status === "failed" || data.rss_status === "inactive",
           image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: data.category || "Podcast", image: data.image_url }),
-          jsonLd: {
-            "@context": "https://schema.org",
-            "@type": "PodcastSeries",
-            name: data.title,
-            description: data.seo_description || cleanSummary || cleanDesc || undefined,
-            image: data.image_url || undefined,
-            url: typeof window !== "undefined" ? window.location.href : undefined,
-            webFeed: data.rss_url || undefined,
-          },
+          jsonLd: [
+            {
+              "@context": "https://schema.org",
+              "@type": "PodcastSeries",
+              name: data.title,
+              description: data.seo_description || cleanSummary || cleanDesc || undefined,
+              image: data.image_url || undefined,
+              url: typeof window !== "undefined" ? window.location.href : undefined,
+              webFeed: data.rss_url || undefined,
+            },
+            breadcrumbJsonLd([
+              { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
+              ...(data.category ? [{ name: data.category, url: typeof window !== "undefined" ? `${window.location.origin}/category/${(data.category as string).toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : `/category/${data.category}` }] : []),
+              { name: data.display_title || data.title, url: typeof window !== "undefined" ? window.location.href : "" },
+            ]),
+          ],
         });
         const { data: e } = await supabase
           .from("episodes")

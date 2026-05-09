@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, ExternalLink } from "lucide-react";
-import { setSeo, ogImageUrl } from "@/lib/seo";
+import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
@@ -55,23 +55,30 @@ export default function EpisodeDetail() {
           subtitle: p.display_title || p.title,
           image: e.image_url || p.image_url,
         }),
-        jsonLd: {
-          "@context": "https://schema.org",
-          "@type": "PodcastEpisode",
-          name: e.title,
-          description: e.seo_description || aiSum || summary || desc || undefined,
-          datePublished: e.published_at || undefined,
-          url: typeof window !== "undefined" ? window.location.href : undefined,
-          image: e.image_url || p.image_url || undefined,
-          partOfSeries: {
-            "@type": "PodcastSeries",
-            name: p.title,
-            image: p.image_url || undefined,
-            url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
-            webFeed: p.rss_url || undefined,
+        jsonLd: [
+          {
+            "@context": "https://schema.org",
+            "@type": "PodcastEpisode",
+            name: e.title,
+            description: e.seo_description || aiSum || summary || desc || undefined,
+            datePublished: e.published_at || undefined,
+            url: typeof window !== "undefined" ? window.location.href : undefined,
+            image: e.image_url || p.image_url || undefined,
+            partOfSeries: {
+              "@type": "PodcastSeries",
+              name: p.title,
+              image: p.image_url || undefined,
+              url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
+              webFeed: p.rss_url || undefined,
+            },
+            associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
           },
-          associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
-        },
+          breadcrumbJsonLd([
+            { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
+            { name: p.display_title || p.title, url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : `/podcast/${p.slug}` },
+            { name: e.display_title || e.title, url: typeof window !== "undefined" ? window.location.href : "" },
+          ]),
+        ],
       });
 
       // Related episodes by shared entity, then category, then same podcast
