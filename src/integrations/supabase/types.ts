@@ -1053,6 +1053,7 @@ export type Database = {
         Args: { _model: string; _tiers: string[] }
         Returns: Json
       }
+      embed_episode_candidate_stats: { Args: { _model: string }; Returns: Json }
       formula_c_candidates: {
         Args: { _limit?: number }
         Returns: {
@@ -1090,7 +1091,31 @@ export type Database = {
           title: string
         }[]
       }
+      select_embed_episode_candidates: {
+        Args: { _limit: number; _model: string }
+        Returns: {
+          ai_summary: string
+          companies: string[]
+          description: string
+          display_title: string
+          id: string
+          ingredients: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_title: string
+          seo_description: string
+          tickers: string[]
+          title: string
+          topics: string[]
+        }[]
+      }
       set_deep_hydration_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
+      set_embed_episode_schedule: {
         Args: { _schedule: string }
         Returns: undefined
       }
