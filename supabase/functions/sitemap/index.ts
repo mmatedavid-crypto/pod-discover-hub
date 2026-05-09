@@ -178,6 +178,8 @@ Deno.serve(async (req) => {
 
     return new Response(body, { headers: xmlHeaders });
   } catch (e) {
-    return new Response(`<!-- sitemap error: ${e instanceof Error ? e.message : "error"} -->`, { status: 500, headers: xmlHeaders });
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : JSON.stringify(e);
+    console.error("sitemap error:", msg, e instanceof Error ? e.stack : "");
+    return new Response(`<!-- sitemap error: ${msg} -->`, { status: 500, headers: xmlHeaders });
   }
 });
