@@ -96,17 +96,8 @@ Deno.serve(async (req) => {
       let parsed: any = null; try { parsed = JSON.parse(text); } catch { /* noop */ }
       if (!resp.ok) return json({ error: `runner ${resp.status}: ${text.slice(0, 300)}` }, 502);
 
-      // Dynamic schedule adjustment: throttle => fall back; otherwise reconcile to recommendation.
-      const c = await counts();
-      const cur = await readSetting();
-      const currentSchedule = cur.cron_schedule || "*/2 * * * *";
-      if (parsed?.throttled) {
-        const fb = fallbackOf(currentSchedule);
-        if (fb.schedule !== currentSchedule) await applySchedule(fb.schedule, fb.mode, "auto_fallback_throttle");
-      } else {
-        const rec = recommendedFor(c.eligible);
-        if (rec.schedule !== currentSchedule) await applySchedule(rec.schedule, rec.mode, "auto_backlog_adjust");
-      }
+      // Auto-adjust DISABLED during conservative recovery phase. Schedule pinned manually to */10.
+      // Do NOT re-enable applySchedule() calls without explicit approval.
       return json({ ok: true, ran: parsed });
     }
 
