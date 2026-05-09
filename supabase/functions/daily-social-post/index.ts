@@ -307,6 +307,10 @@ Deno.serve(async (req) => {
 
     const { text, model } = await generatePost(episodes);
 
+    // Pick cover image: first episode's image, fallback to its podcast's image.
+    const coverUrl =
+      episodes[0]?.image_url || episodes[0]?.podcasts?.image_url || null;
+
     if (dryRun) {
       return new Response(
         JSON.stringify({
@@ -315,6 +319,7 @@ Deno.serve(async (req) => {
           generated_text: text,
           char_count: text.length,
           model,
+          cover_image_url: coverUrl,
           episodes: episodes.slice(0, 3).map((e) => ({
             id: e.id,
             title: e.display_title || e.title,
@@ -326,13 +331,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Upload media (best-effort; tweet still posts without it)
+    let mediaId: string | null = null;
+    if (coverUrl) {
+      mediaId = await uploadMedia(coverUrl);
+    }
+
     // Post to X
     let postId = "";
     let postUrl = "";
     let status: "success" | "failed" = "success";
     let errMsg: string | null = null;
     try {
-      const r = await postTweet(text);
+      const r = await postTweet(text, mediaId);
       postId = r.id;
       postUrl = r.url;
     } catch (e: any) {
@@ -352,7 +363,7 @@ Deno.serve(async (req) => {
       platform_post_url: postUrl || null,
       error: errMsg,
       trigger,
-      metadata: { char_count: text.length },
+      metadata: { char_count: text.length, cover_image_url: coverUrl, media_id: mediaId, has_media: !!mediaId },
     });
 
     return new Response(
