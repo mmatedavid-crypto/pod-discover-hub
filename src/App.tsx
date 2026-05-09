@@ -31,6 +31,10 @@ import PrivacyPage from "./pages/PrivacyPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import MoodCollectionPage from "./pages/MoodCollectionPage.tsx";
 import HuStubPage from "./pages/HuStubPage.tsx";
+import AboutPage from "./pages/AboutPage.tsx";
+import MethodologyPage from "./pages/MethodologyPage.tsx";
+import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
+import { SearchHotkey } from "./components/SearchHotkey.tsx";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +45,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <PageViewTracker />
+        <SearchHotkey />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/categories" element={<CategoriesPage />} />
@@ -72,6 +77,9 @@ const App = () => (
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/mood/:slug" element={<MoodCollectionPage />} />
           <Route path="/hu" element={<HuStubPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/methodology" element={<MethodologyPage />} />
+          <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

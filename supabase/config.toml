@@ -76,4 +76,7 @@ verify_jwt = false
 [functions.formula-c-runner]
 verify_jwt = false
 
+[functions.feed-xml]
+verify_jwt = false
+
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
@@ -13,6 +13,10 @@ import { compareByScore } from "@/lib/episodeRank";
 import { SimilarEpisodes } from "@/components/SimilarEpisodes";
 import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { recordVisit } from "@/lib/recentlyPlayed";
+import { extractKeyMoments } from "@/lib/keyMoments";
+import { KeyMoments } from "@/components/KeyMoments";
+import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
@@ -28,6 +32,7 @@ export default function EpisodeDetail() {
   const [loading, setLoading] = useState(true);
   const [related, setRelated] = useState<EpisodeLite[]>([]);
   const [moreFromPod, setMoreFromPod] = useState<EpisodeLite[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!podcastSlug || !episodeSlug) return;
@@ -40,10 +45,20 @@ export default function EpisodeDetail() {
       setLoading(false);
       if (!e) return;
 
+      // Track for "Continue listening" on the homepage
+      recordVisit({
+        podcastSlug: p.slug,
+        episodeSlug: e.slug,
+        title: e.display_title || e.title,
+        podcastTitle: p.display_title || p.title,
+        imageUrl: e.image_url || p.image_url,
+      });
+
       const summary = stripHtml(e.summary);
       const desc = stripHtml(e.description);
       const aiSum = stripHtml(e.ai_summary);
       const metaDesc = (e.seo_description || aiSum || summary || desc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
+      const moments = extractKeyMoments(desc || summary);
 
       setSeo({
         title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
@@ -72,6 +87,13 @@ export default function EpisodeDetail() {
               webFeed: p.rss_url || undefined,
             },
             associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
+            hasPart: moments.length
+              ? moments.map((m) => ({
+                  "@type": "Clip",
+                  name: m.label,
+                  startOffset: m.timeSec,
+                }))
+              : undefined,
           },
           breadcrumbJsonLd([
             { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
@@ -131,11 +153,24 @@ export default function EpisodeDetail() {
     })();
   }, [podcastSlug, episodeSlug]);
 
+  const moments = useMemo(
+    () => extractKeyMoments(stripHtml(data?.e?.description) || stripHtml(data?.e?.summary)),
+    [data?.e?.description, data?.e?.summary],
+  );
+
   if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
   if (!data?.e) return <NotFoundState title="Episode not found" message="That episode doesn't exist or has been removed." />;
   const { p, e } = data;
   const summary = stripHtml(e.ai_summary) || stripHtml(e.summary);
   const description = stripHtml(e.description);
+  const handleSeek = (sec: number) => {
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      a.currentTime = sec;
+      void a.play();
+    } catch { /* noop */ }
+  };
 
   const EntList = ({ kind, label }: { kind: EntityKind; label: string }) => {
     const items: string[] = e[ENTITY_COLUMN[kind]] || [];
@@ -182,6 +217,10 @@ export default function EpisodeDetail() {
           <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
         </div>
 
+        {e.audio_url && (
+          <InlineAudioPlayer ref={audioRef} src={e.audio_url} title={e.display_title || e.title} />
+        )}
+
         {summary && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-card">
             <div className="text-xs uppercase tracking-wide text-accent mb-1">AI summary</div>
@@ -191,6 +230,10 @@ export default function EpisodeDetail() {
 
         {description && description !== summary && (
           <div className="mt-6 text-sm text-foreground/90 whitespace-pre-wrap">{description}</div>
+        )}
+
+        {moments.length > 0 && (
+          <KeyMoments moments={moments} audioUrl={e.audio_url} onSeek={e.audio_url ? handleSeek : undefined} />
         )}
 
         <div className="grid gap-4 mt-8">

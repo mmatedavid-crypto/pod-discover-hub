@@ -9,6 +9,8 @@ import { setSeo } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
 import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
+import { ContinueListening } from "@/components/ContinueListening";
+import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
@@ -217,6 +219,7 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto py-12 space-y-14">
+        <ContinueListening />
         {/* Mood shelf — above trending on desktop, below on mobile */}
         <div className="hidden md:block">
           <MoodCollections />
@@ -306,6 +309,8 @@ const Index = () => {
             </div>
           </section>
         )}
+
+        <RecentlyAddedPodcasts limit={6} />
 
         {loaded && !trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">

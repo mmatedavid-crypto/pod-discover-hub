@@ -93,16 +93,31 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
       const total = visible.length;
       const noindex = total < NOINDEX_BELOW;
+      const entityType =
+        kind === "person" ? "Person" :
+        kind === "company" ? "Organization" :
+        kind === "ticker" ? "Corporation" :
+        "Thing";
+      const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
       setSeo({
         title: `Podcast episodes about ${exemplar} — Podiverzum`,
         description: `Discover podcast episodes about ${exemplar}, ranked by relevance, freshness and Podiverzum Rank.`,
         noindex,
-        jsonLd: noindex ? undefined : {
-          "@context": "https://schema.org",
-          "@type": "CollectionPage",
-          name: `Podcast episodes about ${exemplar}`,
-          about: { "@type": ENTITY_LABEL[kind] === "Person" ? "Person" : "Thing", name: exemplar },
-        },
+        jsonLd: noindex ? undefined : [
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `Podcast episodes about ${exemplar}`,
+            url: pageUrl || undefined,
+            about: { "@type": entityType, name: exemplar },
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": entityType,
+            name: exemplar,
+            url: pageUrl || undefined,
+          },
+        ],
       });
     })();
   }, [kind, slug, decoded]);
