@@ -150,6 +150,18 @@ export default function EpisodeDetail() {
   const { p, e } = data;
   const summary = stripHtml(e.ai_summary) || stripHtml(e.summary);
   const description = stripHtml(e.description);
+  const moments = useMemo(
+    () => extractKeyMoments(stripHtml(e.description) || stripHtml(e.summary)),
+    [e.description, e.summary],
+  );
+  const handleSeek = (sec: number) => {
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      a.currentTime = sec;
+      void a.play();
+    } catch { /* noop */ }
+  };
 
   const EntList = ({ kind, label }: { kind: EntityKind; label: string }) => {
     const items: string[] = e[ENTITY_COLUMN[kind]] || [];
@@ -196,6 +208,10 @@ export default function EpisodeDetail() {
           <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
         </div>
 
+        {e.audio_url && (
+          <InlineAudioPlayer ref={audioRef} src={e.audio_url} title={e.display_title || e.title} />
+        )}
+
         {summary && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-card">
             <div className="text-xs uppercase tracking-wide text-accent mb-1">AI summary</div>
@@ -205,6 +221,10 @@ export default function EpisodeDetail() {
 
         {description && description !== summary && (
           <div className="mt-6 text-sm text-foreground/90 whitespace-pre-wrap">{description}</div>
+        )}
+
+        {moments.length > 0 && (
+          <KeyMoments moments={moments} audioUrl={e.audio_url} onSeek={e.audio_url ? handleSeek : undefined} />
         )}
 
         <div className="grid gap-4 mt-8">
