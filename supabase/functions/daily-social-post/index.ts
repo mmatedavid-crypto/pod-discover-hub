@@ -116,9 +116,8 @@ type EpisodeRow = {
   } | null;
 };
 
-async function pickEpisodes(admin: any): Promise<EpisodeRow[]> {
-  // Last 24 hours, S/A tier or featured, ai_summary present.
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+async function pickEpisodesWithin(admin: any, hours: number): Promise<EpisodeRow[]> {
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const { data, error } = await admin
     .from("episodes")
     .select(`
@@ -128,10 +127,9 @@ async function pickEpisodes(admin: any): Promise<EpisodeRow[]> {
     .gte("published_at", since)
     .not("ai_summary", "is", null)
     .order("published_at", { ascending: false })
-    .limit(40);
+    .limit(60);
   if (error) throw new Error(`pickEpisodes: ${error.message}`);
   const rows = (data || []) as EpisodeRow[];
-  // Filter by tier S/A or featured, and dedupe per podcast (1 episode per podcast).
   const seen = new Set<string>();
   const filtered: EpisodeRow[] = [];
   for (const r of rows) {
@@ -144,6 +142,15 @@ async function pickEpisodes(admin: any): Promise<EpisodeRow[]> {
     if (filtered.length >= 6) break;
   }
   return filtered;
+}
+
+async function pickEpisodes(admin: any): Promise<EpisodeRow[]> {
+  // Try 24h, then 48h, then 72h windows.
+  for (const hours of [24, 48, 72]) {
+    const eps = await pickEpisodesWithin(admin, hours);
+    if (eps.length >= 2) return eps;
+  }
+  return [];
 }
 
 // ---------- Content generation ----------
