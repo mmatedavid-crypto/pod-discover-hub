@@ -220,6 +220,21 @@ const Index = () => {
           );
         })}
 
+        {evergreenEps.length > 0 && (
+          <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
+                  <Sparkles className="h-3 w-3" /> Evergreen
+                </div>
+                <h2 className="text-xl sm:text-2xl font-semibold">Worth a re-listen</h2>
+                <p className="text-xs text-muted-foreground mt-1">Older episodes from S-tier podcasts that still hold up.</p>
+              </div>
+            </div>
+            <EpisodeList items={evergreenEps} />
+          </section>
+        )}
+
         {topPodcasts.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">
