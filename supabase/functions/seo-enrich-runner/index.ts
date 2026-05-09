@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
     const batch = Math.max(1, Math.min(50, Number(body.batch) || 20));
+    const concurrency = Math.max(1, Math.min(6, Number(body.concurrency) || 3));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
