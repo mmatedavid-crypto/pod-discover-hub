@@ -450,6 +450,51 @@ export type Database = {
         }
         Relationships: []
       }
+      mood_collections: {
+        Row: {
+          accent_hsl: string | null
+          active: boolean
+          created_at: string
+          description: string | null
+          episode_ids: string[]
+          id: string
+          mood: string
+          podcast_ids: string[]
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent_hsl?: string | null
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          episode_ids?: string[]
+          id?: string
+          mood: string
+          podcast_ids?: string[]
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent_hsl?: string | null
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          episode_ids?: string[]
+          id?: string
+          mood?: string
+          podcast_ids?: string[]
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       page_events: {
         Row: {
           created_at: string
@@ -1210,6 +1255,52 @@ export type Database = {
       set_title_cleanup_schedule: {
         Args: { _schedule: string }
         Returns: undefined
+      }
+      similar_episodes: {
+        Args: { p_episode_id: string; p_limit?: number }
+        Returns: {
+          ai_summary: string
+          audio_url: string
+          description: string
+          display_title: string
+          episode_id: string
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          podiverzum_rank: number
+          published_at: string
+          rank_label: string
+          similarity: number
+          slug: string
+          summary: string
+          title: string
+          topics: string[]
+        }[]
+      }
+      similar_podcasts: {
+        Args: { p_limit?: number; p_podcast_id: string }
+        Returns: {
+          apple_url: string
+          category: string
+          description: string
+          display_title: string
+          featured: boolean
+          id: string
+          image_url: string
+          podiverzum_rank: number
+          rank_label: string
+          rss_status: string
+          similarity: number
+          slug: string
+          spotify_url: string
+          summary: string
+          title: string
+          website_url: string
+          youtube_url: string
+        }[]
       }
     }
     Enums: {
