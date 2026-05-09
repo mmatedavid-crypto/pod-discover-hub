@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
     if (!isAdmin) return json({ error: "Forbidden: admin only" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const limit = Math.max(1, Math.min(50, Number(body.limit) || 10));
-    const concurrency = Math.max(1, Math.min(5, Number(body.concurrency) || 1));
+    const limit = Math.max(1, Math.min(100, Number(body.limit) || 10));
+    const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || 1));
     const MAX_PER_PASS = Math.max(20, Math.min(500, Number(body.max_per_pass) || 200));
     const TIME_BUDGET_MS = Math.max(20_000, Math.min(110_000, Number(body.time_budget_ms) || 50_000));
     const trigger = (body.trigger as string) || "manual";
