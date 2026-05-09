@@ -127,18 +127,26 @@ async function buildEntities(supabase: ReturnType<typeof createClient>) {
 }
 
 async function buildEpisodes(supabase: ReturnType<typeof createClient>, page: number) {
-  const offset = (page - 1) * EPISODES_PER_PAGE;
-  const { data: eps } = await supabase
-    .from("episodes")
-    .select("slug,updated_at,ai_enriched_at,podcasts!inner(slug,rss_status)")
-    .order("id", { ascending: true })
-    .range(offset, offset + EPISODES_PER_PAGE - 1);
+  const startOffset = (page - 1) * EPISODES_PER_PAGE;
+  const endOffset = startOffset + EPISODES_PER_PAGE; // exclusive
+  const CHUNK = 1000; // Postgrest max-rows cap
   const urls: string[] = [];
-  (eps || []).forEach((e: any) => {
-    const ps = e.podcasts?.slug;
-    const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
-    if (ps && !broken) urls.push(urlTag(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, maxDate(e.updated_at, e.ai_enriched_at), "weekly", "0.7"));
-  });
+  for (let off = startOffset; off < endOffset; off += CHUNK) {
+    const upper = Math.min(off + CHUNK, endOffset) - 1;
+    const { data: eps, error } = await supabase
+      .from("episodes")
+      .select("slug,updated_at,ai_enriched_at,podcasts!inner(slug,rss_status)")
+      .order("id", { ascending: true })
+      .range(off, upper);
+    if (error) throw error;
+    if (!eps || eps.length === 0) break;
+    for (const e of eps as any[]) {
+      const ps = e.podcasts?.slug;
+      const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
+      if (ps && !broken) urls.push(urlTag(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, maxDate(e.updated_at, e.ai_enriched_at), "weekly", "0.7"));
+    }
+    if (eps.length < (upper - off + 1)) break;
+  }
   return wrapUrlset(urls);
 }
 
