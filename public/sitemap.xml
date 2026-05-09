@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  This static file is a fallback. The full, dynamic sitemap is served by an
-  edge function and lists all healthy podcast / episode / topic pages:
-  https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap
-  Both URLs are listed in robots.txt so search engines can find the dynamic one.
+  Top-level sitemap-index. Points to the dynamic sitemap function which itself
+  enumerates per-month sub-sitemaps for episodes and entity hubs, plus core
+  and podcasts. Submit the dynamic URL directly in Google Search Console for
+  best coverage:
+    https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap
 -->
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://podiverzum.com/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-  <url><loc>https://podiverzum.com/categories</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-</urlset>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap</loc></sitemap>
+</sitemapindex>
