@@ -252,6 +252,11 @@ const Index = () => {
           </section>
         )}
 
+        {/* Mood shelf — mobile position (below trending) */}
+        <div className="md:hidden">
+          <MoodCollections />
+        </div>
+
         {cats.filter((c) => c.slug !== "trending").map((c, idx) => {
           const items = epsByCat[c.name] || [];
           if (!items.length) return null;
