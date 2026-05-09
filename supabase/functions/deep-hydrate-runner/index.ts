@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       .is("full_backfill_completed_at", null)
       .order("podiverzum_rank", { ascending: false })
       .order("last_deep_hydrated_at", { ascending: true, nullsFirst: true })
-      .limit(limit * 2);
+      .limit(limit + 10);
 
     if (cErr) throw cErr;
 
