@@ -1338,6 +1338,8 @@ export type Database = {
         Args: { _schedule: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       similar_episodes: {
         Args: { p_episode_id: string; p_limit?: number }
         Returns: {

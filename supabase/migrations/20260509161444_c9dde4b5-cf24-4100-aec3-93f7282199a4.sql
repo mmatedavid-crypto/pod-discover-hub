@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_episodes_summary_trgm ON public.episodes USING GIN (summary gin_trgm_ops);
