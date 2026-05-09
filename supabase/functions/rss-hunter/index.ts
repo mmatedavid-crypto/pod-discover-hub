@@ -12,6 +12,10 @@ const cors = {
 
 const RECHECK_DAYS_NOT_FOUND = 7;
 const REVERIFY_DAYS_RECOVERED = 7;
+// Hard cap: after this many failed hunt attempts we stop polling the feed.
+// Prevents wasted PI/RSS calls on permanently dead podcasts.
+const MAX_HUNT_ATTEMPTS = 10;
+const GIVE_UP_PARK_DAYS = 365;
 // Attempt-weighted backoff days: base * 2^min(attempts,4)
 function huntBackoffDays(baseDays: number, attempts: number): number {
   return baseDays * Math.pow(2, Math.min(attempts, 4));
@@ -103,6 +107,7 @@ Deno.serve(async (req) => {
       .select("id, title, rss_url, website_url, rank_label, ai_quality_score, ai_spam_score, shadow_rank_components, rss_hunt_attempts, last_rss_hunt_at, next_rss_hunt_at, consecutive_failure_count, rss_status")
       .or("rss_status.eq.failed,consecutive_failure_count.gte.5")
       .gte("ai_quality_score", 5)
+      .lt("rss_hunt_attempts", MAX_HUNT_ATTEMPTS)
       .or(dueOrNull)
       .limit(limit);
 
@@ -112,6 +117,7 @@ Deno.serve(async (req) => {
       .in("rank_label", ["S", "A", "B"])
       .not("website_url", "is", null)
       .not("rss_url", "is", null)
+      .lt("rss_hunt_attempts", MAX_HUNT_ATTEMPTS)
       .or(dueOrNull)
       .limit(limit * 4);
     const p1 = (p1raw || []).filter((p: any) => {
@@ -124,6 +130,7 @@ Deno.serve(async (req) => {
     const { data: p2 } = await supabase.from("podcasts")
       .select("id, title, rss_url, website_url, rank_label, ai_quality_score, ai_spam_score, shadow_rank_components, rss_hunt_attempts, last_rss_hunt_at, next_rss_hunt_at, consecutive_failure_count, rss_status")
       .eq("shadow_rank_components->>health_state", "recovered_rss_url")
+      .lt("rss_hunt_attempts", MAX_HUNT_ATTEMPTS)
       .or(`last_rss_hunt_at.is.null,last_rss_hunt_at.lt.${reverifyBefore}`)
       .limit(limit);
 
@@ -138,7 +145,7 @@ Deno.serve(async (req) => {
     const list = queue.slice(0, limit);
 
     const results: any[] = [];
-    let recovered = 0, manualReview = 0, notFound = 0, errors = 0, reverified = 0;
+    let recovered = 0, manualReview = 0, notFound = 0, errors = 0, reverified = 0, gaveUp = 0;
 
     for (const p of list) {
       if (Date.now() - startedAt > TIME_BUDGET_MS) break;
@@ -189,24 +196,36 @@ Deno.serve(async (req) => {
           last_rss_hunt_at: new Date().toISOString(),
         };
 
+        const giveUp = attempts >= MAX_HUNT_ATTEMPTS;
+
         if (!best) {
           // No usable candidate (or P2 reverify already settled)
           if (results.length && results[results.length - 1]?.id === p.id) {
             await supabase.from("podcasts").update({
               ...updateBase,
-              next_rss_hunt_at: new Date(Date.now() + reverifyDays * 86400_000).toISOString(),
+              next_rss_hunt_at: new Date(Date.now() + (giveUp ? GIVE_UP_PARK_DAYS : reverifyDays) * 86400_000).toISOString(),
             }).eq("id", p.id);
             continue;
           }
-          comp.health_state = comp.health_state || "rss_url_not_found";
-          comp.rss_hunt = { ...(comp.rss_hunt || {}), at: updateBase.last_rss_hunt_at, result: "not_found" };
+          if (giveUp) {
+            comp.health_state = "rss_url_unrecoverable";
+            comp.rss_hunt = {
+              ...(comp.rss_hunt || {}),
+              at: updateBase.last_rss_hunt_at,
+              result: "gave_up",
+              attempts,
+            };
+          } else {
+            comp.health_state = comp.health_state || "rss_url_not_found";
+            comp.rss_hunt = { ...(comp.rss_hunt || {}), at: updateBase.last_rss_hunt_at, result: "not_found" };
+          }
           await supabase.from("podcasts").update({
             ...updateBase,
             shadow_rank_components: comp,
-            next_rss_hunt_at: new Date(Date.now() + recheckDays * 86400_000).toISOString(),
+            next_rss_hunt_at: new Date(Date.now() + (giveUp ? GIVE_UP_PARK_DAYS : recheckDays) * 86400_000).toISOString(),
           }).eq("id", p.id);
-          notFound++;
-          results.push({ id: p.id, title: p.title, prio: p._prio, action: "not_found" });
+          if (giveUp) gaveUp++; else notFound++;
+          results.push({ id: p.id, title: p.title, prio: p._prio, action: giveUp ? "gave_up" : "not_found", attempts });
           continue;
         }
 
@@ -296,7 +315,7 @@ Deno.serve(async (req) => {
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - startedAt,
       checked: results.length, recovered, manual_review: manualReview,
-      not_found: notFound, reverified, errors,
+      not_found: notFound, reverified, errors, gave_up: gaveUp,
       pool: { p0: p0?.length || 0, p1: p1.length, p2: p2?.length || 0 },
       due_count, recommended_schedule: recommended, applied_schedule: applied,
     };
