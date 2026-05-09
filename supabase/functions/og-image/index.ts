@@ -1,6 +1,9 @@
-// OG image edge function: SVG → PNG-like card for podcast/episode/site sharing.
+// OG image edge function: SVG card for podcast/episode/site sharing.
 // Dynamic SVG response cached by CDN. No external deps.
-import { corsHeaders } from "../_shared/cors.ts";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const FONT_STACK = "Inter, -apple-system, system-ui, sans-serif";
 
