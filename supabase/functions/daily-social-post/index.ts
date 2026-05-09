@@ -220,7 +220,7 @@ async function generatePost(episodes: EpisodeRow[]): Promise<{ text: string; mod
   });
 
   const sys =
-    "You write engaging info+entertainment posts for X/Twitter about new podcast episodes published today on Podiverzum (a podcast discovery site). Style: punchy, curious, conversational, US English. Hook the reader. NEVER use hashtags. NEVER use emojis. Keep it under 270 characters TOTAL including links (each shortened URL counts as 23 chars). Mention 2-3 episodes briefly with their podiverzum.com link. Do NOT add any commentary outside the post itself.";
+    "You write scroll-stopping info+entertainment posts for X/Twitter about new podcast episodes published today on Podiverzum (a podcast discovery site). Style: punchy, curious, conversational, US English. Lean into a tasteful clickbait hook — tease the most surprising, controversial, or juiciest angle from the episodes (a bold claim, a jaw-dropping number, a 'wait, what?' moment). Be intriguing but never misleading or sensationalist; the tease must reflect what's actually in the episode. NEVER use hashtags. NEVER use emojis. Keep it under 270 characters TOTAL including links (each shortened URL counts as 23 chars). Mention 2-3 episodes briefly with their podiverzum.com link. Do NOT add any commentary outside the post itself.";
 
   const user =
     "Write today's post. Mention these new episodes (pick the 2-3 most interesting; weave them naturally; one short sentence each + the URL):\n\n" +
