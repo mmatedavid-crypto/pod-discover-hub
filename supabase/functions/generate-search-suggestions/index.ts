@@ -50,12 +50,24 @@ Deno.serve(async (req) => {
     }
     const topEntities = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 50).map(([k]) => k).join(", ");
 
-    const sys =
-      "You curate the homepage search-chip strip for Podiverzum, a podcast episode search engine. " +
-      "Return 7 short, intriguing English search queries that real users would type to discover new podcast episodes, " +
-      "based on what's actually trending in the recent episode catalog. Mix: 2 named people/companies, " +
-      "2 broad topics, 2 timely angles, 1 lifestyle/curiosity. Each chip MUST be 1–4 words, lowercase except proper nouns, " +
-      "no quotes, no punctuation at the end. Avoid generic queries like 'news' or 'business'. Avoid duplicates.";
+    const sys = [
+      "You curate the homepage search-chip strip for Podiverzum, a serious podcast discovery engine for premium listeners.",
+      "Return EXACTLY 7 short English search queries a sophisticated user would type to discover trending podcast episodes.",
+      "STRICT RULES — every chip must satisfy ALL:",
+      "  • 1–4 words, recognizable to a globally informed reader (Wall Street Journal / The Economist audience).",
+      "  • A real searchable concept: a major company, well-known person, named technology, named product, or a concrete topical phrase.",
+      "  • NEVER a podcast show name (e.g. 'Joe Rogan Experience', 'Hardcore History', 'Fexingo History'). Topics, not shows.",
+      "  • NEVER vague single words like 'news', 'business', 'culture', 'history', 'millennials'.",
+      "  • NEVER fringe, conspiracy, occult or pseudoscience topics (no 'UFOs', 'inner earth', 'astrology', 'alien', 'flat earth', 'numerology').",
+      "  • NEVER NSFW, hateful, political-extremist or trauma topics.",
+      "  • Use proper capitalization for proper nouns; lowercase otherwise. No quotes, no trailing punctuation.",
+      "MIX rule (in this order, but shuffle the final order):",
+      "  2 named companies/products (e.g. 'Nvidia earnings', 'OpenAI Sora', 'Tesla robotaxi')",
+      "  2 named people (e.g. 'Sam Altman', 'Warren Buffett', 'Lex Fridman guests')",
+      "  2 timely topical phrases (e.g. 'AI chip shortage', 'GLP-1 drugs', 'Fed rate cut')",
+      "  1 evergreen high-quality phrase (e.g. 'longevity research', 'startup hiring', 'monetary policy')",
+      "If the recent catalog is dominated by low-quality conspiracy / clickbait titles, IGNORE them and fall back to credible mainstream topics.",
+    ].join("\n");
 
     const userPrompt =
       `RECENT EPISODE TITLES:\n${titleSample}\n\nTOP ENTITIES (last 14d):\n${topEntities}`;
@@ -117,7 +129,20 @@ Deno.serve(async (req) => {
         chips = (parsed.chips || []).slice(0, 8).filter((c: any) => c?.label && c?.query);
       } catch { /* ignore */ }
     }
-    if (!chips.length) chips = FALLBACK.map((q) => ({ label: q, query: q }));
+
+    // Server-side safety net: drop fringe / generic / show-name chips even if the model leaks them.
+    const BLOCK = /\b(ufo|ufos|alien|aliens|inner earth|flat earth|astrology|numerology|tarot|psychic|chemtrails|illuminati|qanon|conspiracy|simulation theory|reptilian|nazi|incel|onlyfans|porn)\b/i;
+    const GENERIC = /^(news|business|culture|history|politics|technology|science|sports|food|health|millennials|gen z|gen-z|fitness|society|life|life advice|podcast)$/i;
+    const tooShowy = /\b(podcast|show|series|interview series|hour|hour with)\b/i;
+    chips = chips
+      .map((c) => ({ label: String(c.label).trim(), query: String(c.query).trim() }))
+      .filter((c) => c.label.length >= 2 && c.label.length <= 32)
+      .filter((c) => c.label.split(/\s+/).length <= 4)
+      .filter((c) => !BLOCK.test(c.label) && !BLOCK.test(c.query))
+      .filter((c) => !GENERIC.test(c.label))
+      .filter((c) => !tooShowy.test(c.label));
+
+    if (chips.length < 5) chips = FALLBACK.map((q) => ({ label: q, query: q }));
 
     const value = { items: chips, generated_at: new Date().toISOString(), model: "google/gemini-2.5-flash" };
     await admin.from("app_settings").upsert({ key: "search_suggestions", value, updated_at: new Date().toISOString() });
