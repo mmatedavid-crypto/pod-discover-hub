@@ -217,8 +217,10 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto py-12 space-y-14">
-        <MoodCollections />
-
+        {/* Mood shelf — above trending on desktop, below on mobile */}
+        <div className="hidden md:block">
+          <MoodCollections />
+        </div>
         {!loaded && trendingEps.length === 0 && (
           <section>
             <Skeleton className="h-6 w-48 mb-4" />
