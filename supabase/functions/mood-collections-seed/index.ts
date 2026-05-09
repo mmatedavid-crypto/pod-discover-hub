@@ -14,7 +14,7 @@ const DEFAULT_SEEDS: Record<string, string> = {
   "morning-inspiration":
     "Energizing motivational morning podcasts about positive mindset, daily habits, productivity, gratitude, optimism and starting the day with intention.",
   "deep-focus":
-    "Calm, thoughtful long-form podcasts ideal for deep work and concentration: technology, science, programming, business strategy, slow conversation, no high-energy ads.",
+    "Long-form interview and analysis podcasts about technology, software engineering, startups, business strategy, venture capital, economics and product design. In-depth conversations with founders, engineers and investors. Not music, not sleep, not meditation.",
   "wind-down":
     "Relaxing evening podcasts: meditation, sleep stories, mindfulness, calm storytelling, soothing voices, philosophy, gentle reflection before bed.",
   "learn-something-new":
