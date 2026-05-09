@@ -69,43 +69,15 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
 
 async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   const SITEMAP_BAD = new Set(["needs_manual_rss_review", "quarantined_spam", "confirmed_dead"]);
-  // Page through podcasts (≤2.5k expected; one chunk is fine)
   const { data: pods } = await supabase
     .from("podcasts")
-    .select("id,slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components");
-  // Episode counts per podcast — needed to skip empty ones
-  const { data: epCountsRaw } = await supabase.rpc as any; // not available; do a lightweight scan instead
-  // Fallback: query episodes grouped by podcast_id via head:true count per podcast is too many round-trips.
-  // Instead, use a single aggregate query.
-  const { data: epCounts } = await supabase
-    .from("episodes")
-    .select("podcast_id", { count: "exact" }) // placeholder; we read below via paged scan
-    .limit(1);
-  // Build counts via paged scan
-  const counts: Record<string, number> = {};
-  let from = 0;
-  const PAGE = 5000;
-  while (true) {
-    const { data: chunk } = await supabase
-      .from("episodes")
-      .select("podcast_id")
-      .range(from, from + PAGE - 1);
-    if (!chunk || chunk.length === 0) break;
-    for (const r of chunk) {
-      const id = (r as any).podcast_id;
-      if (id) counts[id] = (counts[id] || 0) + 1;
-    }
-    if (chunk.length < PAGE) break;
-    from += PAGE;
-  }
-  void epCounts;
+    .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components");
 
   const urls: string[] = [];
   (pods || []).forEach((p: any) => {
     const broken = p.rss_status === "failed" || p.rss_status === "inactive";
-    const empty = !counts[p.id];
     const hs = (p.shadow_rank_components as any)?.health_state;
-    if (broken || empty || SITEMAP_BAD.has(hs) || p.rank_label === "E") return;
+    if (broken || SITEMAP_BAD.has(hs) || p.rank_label === "E") return;
     const tier = p.rank_label;
     const priority = tier === "S" ? "0.9" : tier === "A" ? "0.8" : tier === "B" ? "0.7" : tier === "C" ? "0.6" : "0.4";
     urls.push(urlTag(`${SITE}/podcast/${esc(p.slug)}`, maxDate(p.updated_at, p.ai_enriched_at), "daily", priority));
