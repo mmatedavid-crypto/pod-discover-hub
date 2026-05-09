@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Top-level sitemap-index. Points to the dynamic sitemap function which itself
-  enumerates per-month sub-sitemaps for episodes and entity hubs, plus core
-  and podcasts. Submit the dynamic URL directly in Google Search Console for
-  best coverage:
-    https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap
--->
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap><loc>https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap</loc></sitemap>
+<sitemap><loc>https://podiverzum.com/sitemaps/pages.xml</loc><lastmod>2026-05-09T21:30:57.934Z</lastmod></sitemap>
+<sitemap><loc>https://podiverzum.com/sitemaps/podcasts-1.xml</loc><lastmod>2026-05-09T21:30:57.934Z</lastmod></sitemap>
 </sitemapindex>
