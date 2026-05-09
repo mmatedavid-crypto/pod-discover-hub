@@ -164,6 +164,9 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          seo_description: string | null
+          seo_title: string | null
+          seo_updated_at: string | null
           slug: string
           sort_order: number
         }
@@ -172,6 +175,9 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          seo_description?: string | null
+          seo_title?: string | null
+          seo_updated_at?: string | null
           slug: string
           sort_order?: number
         }
@@ -180,6 +186,9 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          seo_description?: string | null
+          seo_title?: string | null
+          seo_updated_at?: string | null
           slug?: string
           sort_order?: number
         }
