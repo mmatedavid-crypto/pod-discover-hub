@@ -105,7 +105,7 @@ export default function AdminCronStatusPage() {
 
         {unexpectedActive.length > 0 && (
           <div className="rounded-md border border-brand/30 bg-brand/10 px-4 py-3 text-sm text-brand">
-            ⚠ Unexpected active cron jobs (allowlist: 8, 10, 13):{" "}
+            ⚠ Unexpected active cron jobs (not in sprint allowlist):{" "}
             {unexpectedActive.map(j => `#${j.jobid} ${j.jobname}`).join(", ")}
           </div>
         )}
