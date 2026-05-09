@@ -74,8 +74,9 @@ async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
     `<sitemap><loc>${FN_BASE}?type=core</loc><lastmod>${lastmod}</lastmod></sitemap>`,
     `<sitemap><loc>${FN_BASE}?type=podcasts</loc><lastmod>${lastmod}</lastmod></sitemap>`,
   ];
+  // Entity sub-sitemaps disabled until entity extraction is re-enabled
+  // (topics/people/companies/tickers/ingredients arrays are currently empty).
   for (const ym of months) {
-    entries.push(`<sitemap><loc>${FN_BASE}?type=entities&amp;ym=${ym}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
     entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join("\n")}\n</sitemapindex>`;
