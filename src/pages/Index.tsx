@@ -4,22 +4,24 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, Sparkles } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
 
-const HOMEPAGE_PODCAST_LIMIT = 120;
-const HOMEPAGE_EPISODE_LIMIT = 180;
+const HOMEPAGE_EPISODE_LIMIT = 240;
+
+type FeedEpisode = EpisodeLite & { freshness_bucket?: "hot" | "fresh" | "recent" };
 
 const Index = () => {
   const [q, setQ] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
   const [podcasts, setPodcasts] = useState<(PodcastLite & { podiverzum_rank?: number; featured?: boolean })[]>([]);
-  const [trendingEps, setTrendingEps] = useState<EpisodeLite[]>([]);
-  const [allEps, setAllEps] = useState<EpisodeLite[]>([]);
+  const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
+  const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
+  const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const nav = useNavigate();
@@ -42,14 +44,19 @@ const Index = () => {
     });
     (async () => {
       try {
-        const [catsRes, feedRes, podsRes] = await Promise.all([
+        const [catsRes, feedRes, evergreenRes, podsRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
             .from("mv_homepage_feed" as any)
-            .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank")
-            .lte("pod_rank", 8)
+            .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+            .lte("pod_rank", 6)
             .order("published_at", { ascending: false, nullsFirst: false })
             .limit(HOMEPAGE_EPISODE_LIMIT),
+          supabase
+            .from("mv_homepage_evergreen" as any)
+            .select("episode_id,title,display_title,slug,summary,description,ai_summary,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured")
+            .order("podiverzum_rank", { ascending: false, nullsFirst: false })
+            .limit(40),
           supabase
             .from("podcasts")
             .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
@@ -71,8 +78,7 @@ const Index = () => {
         );
         setPodcasts(eligible);
 
-        // Map MV rows to EpisodeLite shape
-        const eps: EpisodeLite[] = (feedRes.data || []).map((r: any) => ({
+        const mapRow = (r: any): FeedEpisode => ({
           id: r.episode_id,
           title: r.title,
           display_title: r.display_title,
@@ -82,6 +88,7 @@ const Index = () => {
           published_at: r.published_at,
           audio_url: r.audio_url,
           topics: r.topics,
+          freshness_bucket: r.freshness_bucket,
           podcasts: {
             slug: r.podcast_slug,
             title: r.podcast_title,
@@ -93,9 +100,19 @@ const Index = () => {
             rss_status: r.rss_status,
             featured: r.featured,
           } as any,
-        }));
-        setTrendingEps(eps.slice().sort(compareByScore).slice(0, 12));
+        });
+
+        const eps: FeedEpisode[] = (feedRes.data || []).map(mapRow);
+
+        // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
+        const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
+        const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
+        setTrendingEps(trendingPool.slice().sort(compareByScore).slice(0, 12));
         setAllEps(eps);
+
+        // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
+        const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
+        setEvergreenEps(evergreen.slice(0, 6));
       } catch (err) {
         console.error("Index load failed", err);
         setLoadError(true);
@@ -202,6 +219,21 @@ const Index = () => {
             </section>
           );
         })}
+
+        {evergreenEps.length > 0 && (
+          <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
+                  <Sparkles className="h-3 w-3" /> Evergreen
+                </div>
+                <h2 className="text-xl sm:text-2xl font-semibold">Worth a re-listen</h2>
+                <p className="text-xs text-muted-foreground mt-1">Older episodes from S-tier podcasts that still hold up.</p>
+              </div>
+            </div>
+            <EpisodeList items={evergreenEps} />
+          </section>
+        )}
 
         {topPodcasts.length > 0 && (
           <section>
