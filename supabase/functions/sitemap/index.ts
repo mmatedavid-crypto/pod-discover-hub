@@ -93,12 +93,14 @@ async function buildEntities(supabase: ReturnType<typeof createClient>) {
     { col: "companies", route: "company" }, { col: "tickers", route: "ticker" }, { col: "ingredients", route: "ingredient" },
   ];
   let from = 0;
-  const PAGE = 5000;
+  const PAGE = 1000; // Postgrest max-rows cap
   while (true) {
-    const { data: chunk } = await supabase
+    const { data: chunk, error } = await supabase
       .from("episodes")
       .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status)")
+      .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
+    if (error) throw error;
     if (!chunk || chunk.length === 0) break;
     for (const e of chunk as any[]) {
       const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
