@@ -183,7 +183,12 @@ Deno.serve(async (req) => {
       duplicates += res.duplicates || 0;
 
       const reachedTarget = target > 0 && total >= target;
-      const feedExhausted = (res.items ?? 0) < MAX_PER_PASS;
+      // Feed exhausted if either:
+      //  (1) RSS returned fewer items than we asked for (small feed), or
+      //  (2) we asked for a full page and got 0 new items — feed has nothing more to give.
+      const feedExhausted =
+        (res.items ?? 0) < MAX_PER_PASS ||
+        ((Number(res.new) || 0) === 0 && (Number(res.duplicates) || 0) > 0);
       const isComplete = reachedTarget || feedExhausted;
       const status = isComplete ? "completed" : "in_progress";
       if (isComplete) completed++;
