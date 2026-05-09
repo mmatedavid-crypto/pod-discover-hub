@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
       finished_at: new Date().toISOString(),
       duration_ms: Date.now() - startedAt,
       checked: results.length, recovered, manual_review: manualReview,
-      not_found: notFound, reverified, errors,
+      not_found: notFound, reverified, errors, gave_up: gaveUp,
       pool: { p0: p0?.length || 0, p1: p1.length, p2: p2?.length || 0 },
       due_count, recommended_schedule: recommended, applied_schedule: applied,
     };
