@@ -24,6 +24,7 @@ export function SiteFooter() {
           <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <Link to="/categories" className="hover:text-foreground transition-colors">Categories</Link>
             <Link to="/search" className="hover:text-foreground transition-colors">Search</Link>
+            <Link to="/hu" className="hover:text-foreground transition-colors" hrefLang="hu">Magyar</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
           </nav>
