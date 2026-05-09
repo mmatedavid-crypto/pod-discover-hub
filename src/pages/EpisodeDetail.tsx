@@ -3,13 +3,16 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, ExternalLink } from "lucide-react";
-import { setSeo } from "@/lib/seo";
+import { setSeo, ogImageUrl } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { ENTITY_COLUMN, EntityKind, ENTITY_LABEL, entityHref } from "@/lib/entity";
 import { EpisodeDetailSkeleton } from "@/components/Skeletons";
 import { compareByScore } from "@/lib/episodeRank";
+import { SimilarEpisodes } from "@/components/SimilarEpisodes";
+import { SharePanel } from "@/components/SharePanel";
+import { freshnessOf, relativeTime } from "@/lib/freshness";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
@@ -45,6 +48,13 @@ export default function EpisodeDetail() {
       setSeo({
         title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
+        ogType: "article",
+        image: ogImageUrl({
+          kind: "episode",
+          title: e.display_title || e.title,
+          subtitle: p.display_title || p.title,
+          image: e.image_url || p.image_url,
+        }),
         jsonLd: {
           "@context": "https://schema.org",
           "@type": "PodcastEpisode",
@@ -145,16 +155,24 @@ export default function EpisodeDetail() {
         <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
           <Link to={`/podcast/${p.slug}`} className="hover:text-foreground">{p.display_title || p.title}</Link>
           {p.category && <Link to={`/category/${p.category.toLowerCase().replace(/[^a-z0-9]+/g,"-")}`} className="hover:text-foreground">· {p.category}</Link>}
-          {e.published_at && <span>· {new Date(e.published_at).toLocaleDateString()}</span>}
+          {e.published_at && (
+            <span title={new Date(e.published_at).toLocaleString()}>· {relativeTime(e.published_at)}</span>
+          )}
+          {e.published_at && freshnessOf(e.published_at) === "new" && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> NEW
+            </span>
+          )}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">· Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
         </div>
 
-        <div className="flex flex-wrap gap-3 mt-5">
+        <div className="flex flex-wrap gap-3 mt-5 items-center">
           {e.audio_url && <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm"><ExternalLink className="h-4 w-4" /> Listen</a>}
           {e.episode_url && <a href={e.episode_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm">Episode page</a>}
           {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Apple className="h-4 w-4" /> Apple</a>}
           {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Music className="h-4 w-4" /> Spotify</a>}
           {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
+          <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
         </div>
 
         {summary && (
@@ -171,6 +189,15 @@ export default function EpisodeDetail() {
         <div className="grid gap-4 mt-8">
           {ENT_KINDS.map(({ kind, label }) => <EntList key={kind} kind={kind} label={label} />)}
         </div>
+
+        {related.length > 0 && (
+          <section className="mt-10">
+            <h2 className="font-semibold mb-3">Related episodes</h2>
+            <EpisodeList items={related} />
+          </section>
+        )}
+
+        <SimilarEpisodes episodeId={e.id} />
 
         {related.length > 0 && (
           <section className="mt-10">

@@ -29,6 +29,8 @@ import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
+import MoodCollectionPage from "./pages/MoodCollectionPage.tsx";
+import HuStubPage from "./pages/HuStubPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +70,8 @@ const App = () => (
           <Route path="/ingredient/:slug" element={<EntityPage kind="ingredient" />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/mood/:slug" element={<MoodCollectionPage />} />
+          <Route path="/hu" element={<HuStubPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

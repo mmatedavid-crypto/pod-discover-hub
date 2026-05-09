@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { PodcastCover } from "./PodcastCover";
 import { ExternalLink } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
+import { freshnessOf, relativeTime } from "@/lib/freshness";
 
 export type EpisodeLite = {
   id: string;
@@ -74,7 +75,24 @@ export function EpisodeCard({
           <Link to={`/podcast/${p.slug}`} className="hover:text-foreground font-medium">{podTitle}</Link>
           {p.category && <span className="opacity-60">·</span>}
           {p.category && <span>{p.category}</span>}
-          {e.published_at && <><span className="opacity-60">·</span><span>{new Date(e.published_at).toLocaleDateString()}</span></>}
+          {e.published_at && (() => {
+            const fr = freshnessOf(e.published_at);
+            return (
+              <>
+                <span className="opacity-60">·</span>
+                <span title={new Date(e.published_at).toLocaleString()}>{relativeTime(e.published_at)}</span>
+                {fr === "new" && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
+                    <span className="relative inline-flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                    </span>
+                    NEW
+                  </span>
+                )}
+              </>
+            );
+          })()}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
             <span className="px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-primary">Pod {Number(p.podiverzum_rank).toFixed(1)}</span>
           )}
