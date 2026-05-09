@@ -67,7 +67,7 @@ export default function AdminHubPage() {
     const sinceDay = startOfDay.toISOString();
     const [pods, eps, fb, search, zero, queue] = await Promise.all([
       supabase.from("podcasts").select("*", { count: "exact", head: true }),
-      supabase.from("episodes").select("*", { count: "exact", head: true }),
+      supabase.from("episodes").select("*", { count: "estimated", head: true }),
       supabase.from("beta_feedback").select("*", { count: "exact", head: true }).eq("handled", false),
       supabase.from("search_events").select("*", { count: "exact", head: true }).gte("created_at", sinceDay),
       supabase.from("search_events").select("*", { count: "exact", head: true }).gte("created_at", sinceDay).eq("result_count", 0),
