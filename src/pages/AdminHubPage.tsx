@@ -15,6 +15,7 @@ import {
   Settings,
   Sparkles,
   Radio,
+  Send,
 } from "lucide-react";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
@@ -116,6 +117,12 @@ export default function AdminHubPage() {
       tools: [
         { to: "/admin/analytics", title: "Page Analytics", desc: "Page views, routes, referrers, UTM.", icon: LineChart },
         { to: "/admin/search-insights", title: "Search Insights", desc: "Top queries, zero-results, fallback usage.", icon: SearchIcon, badge: counts.zeroResultToday ? `${counts.zeroResultToday} zero today` : counts.searchToday ? `${counts.searchToday} today` : null, badgeTone: counts.zeroResultToday ? "warn" : "default" },
+      ],
+    },
+    {
+      title: "Marketing",
+      tools: [
+        { to: "/admin/social", title: "Daily Social Posts", desc: "Auto-generated X posts about today's fresh episodes. Preview, post now, history.", icon: Send, badge: "new", badgeTone: "warn" },
       ],
     },
     {

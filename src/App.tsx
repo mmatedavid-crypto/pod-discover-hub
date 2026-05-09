@@ -25,6 +25,7 @@ import AdminSearchInsightsPage from "./pages/AdminSearchInsightsPage.tsx";
 import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
 import AdminAiEnrichmentPage from "./pages/AdminAiEnrichmentPage.tsx";
 import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
+import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
@@ -66,6 +67,7 @@ const App = () => (
           <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
           <Route path="/admin/ai-enrichment" element={<AdminAiEnrichmentPage />} />
           <Route path="/admin/cron-status" element={<AdminCronStatusPage />} />
+          <Route path="/admin/social" element={<AdminSocialPostsPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />

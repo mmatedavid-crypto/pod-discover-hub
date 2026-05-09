@@ -1064,6 +1064,57 @@ export type Database = {
         }
         Relationships: []
       }
+      social_posts: {
+        Row: {
+          ai_model: string | null
+          content: string
+          cost_usd: number | null
+          created_at: string
+          episode_ids: string[]
+          error: string | null
+          id: string
+          metadata: Json
+          platform: string
+          platform_post_id: string | null
+          platform_post_url: string | null
+          podcast_ids: string[]
+          status: string
+          trigger: string
+        }
+        Insert: {
+          ai_model?: string | null
+          content: string
+          cost_usd?: number | null
+          created_at?: string
+          episode_ids?: string[]
+          error?: string | null
+          id?: string
+          metadata?: Json
+          platform: string
+          platform_post_id?: string | null
+          platform_post_url?: string | null
+          podcast_ids?: string[]
+          status?: string
+          trigger?: string
+        }
+        Update: {
+          ai_model?: string | null
+          content?: string
+          cost_usd?: number | null
+          created_at?: string
+          episode_ids?: string[]
+          error?: string | null
+          id?: string
+          metadata?: Json
+          platform?: string
+          platform_post_id?: string | null
+          platform_post_url?: string | null
+          podcast_ids?: string[]
+          status?: string
+          trigger?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
