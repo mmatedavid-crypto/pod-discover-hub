@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
     const batch = Math.max(1, Math.min(50, Number(body.batch) || 20));
+    const concurrency = Math.max(1, Math.min(6, Number(body.concurrency) || 3));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
@@ -70,13 +71,15 @@ Deno.serve(async (req) => {
     if (cErr) throw cErr;
     const jobs = (claimed || []) as any[];
 
-    let processed = 0, succeeded = 0, failed = 0;
-    for (const job of jobs) {
-      if (Date.now() - startedAt > TIME_BUDGET_MS) break;
+    let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
+    let stop = false;
+
+    const runJob = async (job: any) => {
+      if (stop) return;
+      if (Date.now() - startedAt > TIME_BUDGET_MS) { stop = true; return; }
       if (spend >= dailyBudget) {
-        // release back to pending
         await admin.from("ai_enrichment_jobs").update({ status: "pending", locked_until: null }).eq("id", job.id);
-        continue;
+        return;
       }
       processed++;
       try {
@@ -146,6 +149,7 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
+        if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
         const giveUp = (job.attempts || 0) >= maxAttempts;
         await admin.from("ai_enrichment_jobs").update({
           status: giveUp ? "failed" : "pending",
@@ -153,7 +157,18 @@ Deno.serve(async (req) => {
           last_error: msg,
         }).eq("id", job.id);
       }
-    }
+    };
+
+    // Parallel pool: process `concurrency` jobs at a time (Gemini calls are I/O bound).
+    let i = 0;
+    const workers = Array.from({ length: concurrency }, async () => {
+      while (true) {
+        const idx = i++;
+        if (idx >= jobs.length || stop) return;
+        await runJob(jobs[idx]);
+      }
+    });
+    await Promise.all(workers);
 
     // Update daily spend
     await admin.from("ai_spend_daily").upsert({
@@ -168,7 +183,21 @@ Deno.serve(async (req) => {
       await admin.from("app_settings").upsert({ key: "ai_seo_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, claimed: jobs.length, processed, succeeded, failed, spend_usd: spend, reaped_stale_locks });
+    // Adaptive cron: tune schedule from current pending backlog so we don't burn empty ticks.
+    // pending>500 → */2, 100..500 → */5, 1..99 → */10, 0 → */30. Back off on rate-limit.
+    let next_schedule: string | null = null;
+    try {
+      const { count: pending } = await admin.from("ai_enrichment_jobs").select("id", { count: "exact", head: true }).eq("status", "pending");
+      const p = Number(pending || 0);
+      if (rate_limited > 0) next_schedule = "*/30 * * * *";
+      else if (p > 500) next_schedule = "*/2 * * * *";
+      else if (p >= 100) next_schedule = "*/5 * * * *";
+      else if (p >= 1) next_schedule = "*/10 * * * *";
+      else next_schedule = "*/30 * * * *";
+      try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
+    } catch { /* ignore */ }
+
+    return json({ ok: true, claimed: jobs.length, processed, succeeded, failed, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
