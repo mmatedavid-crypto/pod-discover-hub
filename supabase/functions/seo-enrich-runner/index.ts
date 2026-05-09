@@ -33,7 +33,7 @@ async function callAI(model: string, messages: any[], tools: any[], toolName: st
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 50_000;
+  const TIME_BUDGET_MS = 110_000;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
