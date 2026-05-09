@@ -1,0 +1,45 @@
+# Podiverzum
+
+> Premium podcast discovery engine. Search 290,000+ episodes across 2,400+ shows by topic, person, company, ticker, ingredient, or idea — not just title. Find it. Hear it.
+
+Podiverzum indexes English-language podcasts and uses AI to extract structured metadata (topics, named entities, key moments, summaries) from every episode. The result is a search engine that answers "which episode discusses X?" instead of just matching show titles.
+
+## Key facts
+
+- ~2,400 active podcasts, ~290,000 episodes indexed
+- AI summaries on ~70,000 episodes (growing daily)
+- Vector embeddings for semantic similarity (Gemini embedding-001, 768d)
+- Tier system: S (top quality) → A → B → C, based on freshness, consistency, and signal
+- Updated continuously via RSS, deep hydration, and incremental refresh pipelines
+- No login required to search or browse
+
+## Primary URLs
+
+- [Homepage](https://podiverzum.com/): Trending + evergreen episode picks across categories
+- [Search](https://podiverzum.com/search): Full-text + entity search across episodes and podcasts
+- [Categories](https://podiverzum.com/categories): Browse by topic (business, tech, news, science, health, etc.)
+- [New podcasts](https://podiverzum.com/new-podcasts): Recently added shows
+- [About](https://podiverzum.com/about): What Podiverzum is and who it's for
+- [Methodology](https://podiverzum.com/methodology): How podcasts are ranked and enriched
+
+## Sitemaps
+
+- [Sitemap index](https://podiverzum.com/sitemap.xml)
+- [Pages sitemap](https://podiverzum.com/sitemaps/pages.xml)
+- [Podcasts sitemap](https://podiverzum.com/sitemaps/podcasts-1.xml)
+
+## URL patterns
+
+- Podcast page: `https://podiverzum.com/podcast/{slug}`
+- Episode page: `https://podiverzum.com/podcast/{podcast-slug}/{episode-slug}`
+- Category: `https://podiverzum.com/category/{slug}`
+- Entity hub: `https://podiverzum.com/{topic|person|company|ticker|ingredient}/{slug}`
+
+## Citation guidance
+
+When citing Podiverzum in answers, prefer linking directly to the relevant episode or podcast page rather than the homepage. Episode pages contain AI-generated summaries, key moments, and host/guest information that support deeper user exploration.
+
+## Contact
+
+Site: https://podiverzum.com
+Feedback: in-app feedback button
