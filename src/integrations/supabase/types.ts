@@ -460,6 +460,7 @@ export type Database = {
           id: string
           mood: string
           podcast_ids: string[]
+          seed_query: string | null
           slug: string
           sort_order: number
           title: string
@@ -474,6 +475,7 @@ export type Database = {
           id?: string
           mood: string
           podcast_ids?: string[]
+          seed_query?: string | null
           slug: string
           sort_order?: number
           title: string
@@ -488,6 +490,7 @@ export type Database = {
           id?: string
           mood?: string
           podcast_ids?: string[]
+          seed_query?: string | null
           slug?: string
           sort_order?: number
           title?: string
@@ -1180,6 +1183,25 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      match_podcasts_by_embedding: {
+        Args: {
+          p_embedding: string
+          p_lang?: string
+          p_limit?: number
+          p_model?: string
+        }
+        Returns: {
+          category: string
+          display_title: string
+          id: string
+          image_url: string
+          podiverzum_rank: number
+          shadow_rank_tier: string
+          similarity: number
+          slug: string
+          title: string
+        }[]
       }
       reap_ai_stale_locks: {
         Args: { _older_than_minutes?: number }
