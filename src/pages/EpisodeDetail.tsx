@@ -58,6 +58,7 @@ export default function EpisodeDetail() {
       const desc = stripHtml(e.description);
       const aiSum = stripHtml(e.ai_summary);
       const metaDesc = (e.seo_description || aiSum || summary || desc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
+      const moments = extractKeyMoments(desc || summary);
 
       setSeo({
         title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
@@ -86,6 +87,13 @@ export default function EpisodeDetail() {
               webFeed: p.rss_url || undefined,
             },
             associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
+            hasPart: moments.length
+              ? moments.map((m) => ({
+                  "@type": "Clip",
+                  name: m.label,
+                  startOffset: m.timeSec,
+                }))
+              : undefined,
           },
           breadcrumbJsonLd([
             { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
