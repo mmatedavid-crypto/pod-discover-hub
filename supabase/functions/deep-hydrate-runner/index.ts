@@ -18,15 +18,16 @@ function json(b: any, s = 200) {
 }
 
 function targetForTier(tier: string | null, rank: number): number {
-  if (tier === "S") return 500;
-  if (tier === "A") return 300;
-  if (tier === "B") return 150;
-  if (tier === "C") return 50;
+  // 48h sprint targets (doubled): S=1000, A=600, B=300, C=100
+  if (tier === "S") return 1000;
+  if (tier === "A") return 600;
+  if (tier === "B") return 300;
+  if (tier === "C") return 100;
   // Fallback by numeric rank if tier is missing
-  if (rank >= 8.5) return 500;
-  if (rank >= 7.0) return 300;
-  if (rank >= 5.5) return 150;
-  if (rank >= 4.0) return 50;
+  if (rank >= 8.5) return 1000;
+  if (rank >= 7.0) return 600;
+  if (rank >= 5.5) return 300;
+  if (rank >= 4.0) return 100;
   return 0;
 }
 
