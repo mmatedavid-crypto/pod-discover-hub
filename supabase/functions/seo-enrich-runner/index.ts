@@ -190,8 +190,8 @@ Deno.serve(async (req) => {
       const { count: pending } = await admin.from("ai_enrichment_jobs").select("id", { count: "exact", head: true }).eq("status", "pending");
       const p = Number(pending || 0);
       if (rate_limited > 0) next_schedule = "*/30 * * * *";
-      else if (p > 500) next_schedule = "*/2 * * * *";
-      else if (p >= 100) next_schedule = "*/5 * * * *";
+      else if (p > 500) next_schedule = "* * * * *";
+      else if (p >= 100) next_schedule = "*/2 * * * *";
       else if (p >= 1) next_schedule = "*/10 * * * *";
       else next_schedule = "*/30 * * * *";
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
