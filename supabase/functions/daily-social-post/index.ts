@@ -105,6 +105,7 @@ type EpisodeRow = {
   slug: string;
   published_at: string | null;
   podcast_id: string;
+  image_url: string | null;
   podcasts: {
     id: string;
     title: string;
@@ -113,6 +114,7 @@ type EpisodeRow = {
     category: string | null;
     shadow_rank_tier: string | null;
     featured: boolean;
+    image_url: string | null;
   } | null;
 };
 
