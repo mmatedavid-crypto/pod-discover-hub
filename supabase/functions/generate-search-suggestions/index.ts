@@ -129,7 +129,20 @@ Deno.serve(async (req) => {
         chips = (parsed.chips || []).slice(0, 8).filter((c: any) => c?.label && c?.query);
       } catch { /* ignore */ }
     }
-    if (!chips.length) chips = FALLBACK.map((q) => ({ label: q, query: q }));
+
+    // Server-side safety net: drop fringe / generic / show-name chips even if the model leaks them.
+    const BLOCK = /\b(ufo|ufos|alien|aliens|inner earth|flat earth|astrology|numerology|tarot|psychic|chemtrails|illuminati|qanon|conspiracy|simulation theory|reptilian|nazi|incel|onlyfans|porn)\b/i;
+    const GENERIC = /^(news|business|culture|history|politics|technology|science|sports|food|health|millennials|gen z|gen-z|fitness|society|life|life advice|podcast)$/i;
+    const tooShowy = /\b(podcast|show|series|interview series|hour|hour with)\b/i;
+    chips = chips
+      .map((c) => ({ label: String(c.label).trim(), query: String(c.query).trim() }))
+      .filter((c) => c.label.length >= 2 && c.label.length <= 32)
+      .filter((c) => c.label.split(/\s+/).length <= 4)
+      .filter((c) => !BLOCK.test(c.label) && !BLOCK.test(c.query))
+      .filter((c) => !GENERIC.test(c.label))
+      .filter((c) => !tooShowy.test(c.label));
+
+    if (chips.length < 5) chips = FALLBACK.map((q) => ({ label: q, query: q }));
 
     const value = { items: chips, generated_at: new Date().toISOString(), model: "google/gemini-2.5-flash" };
     await admin.from("app_settings").upsert({ key: "search_suggestions", value, updated_at: new Date().toISOString() });
