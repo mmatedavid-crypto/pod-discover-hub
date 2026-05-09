@@ -75,19 +75,70 @@ async function buildOAuthHeader(
   return header;
 }
 
-async function postTweet(text: string): Promise<{ id: string; url: string }> {
+function getCreds() {
   const ck = Deno.env.get("TWITTER_CONSUMER_KEY");
   const cs = Deno.env.get("TWITTER_CONSUMER_SECRET");
   const at = Deno.env.get("TWITTER_ACCESS_TOKEN");
   const ats = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET");
   if (!ck || !cs || !at || !ats) throw new Error("Twitter credentials missing");
+  return { ck, cs, at, ats };
+}
 
+// Upload image to X via v1.1 media/upload (multipart form-data).
+// OAuth signature for multipart includes only oauth_* params (NOT body fields).
+async function uploadMedia(imageUrl: string): Promise<string | null> {
+  try {
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return null;
+    const ct = imgRes.headers.get("content-type") || "image/jpeg";
+    if (!/^image\/(jpeg|jpg|png|webp|gif)/i.test(ct)) return null;
+    const buf = new Uint8Array(await imgRes.arrayBuffer());
+    if (buf.byteLength > 4_900_000) return null; // ~5MB X limit
+    const ext = ct.includes("png") ? "png" : ct.includes("webp") ? "webp" : ct.includes("gif") ? "gif" : "jpg";
+
+    const { ck, cs, at, ats } = getCreds();
+    const url = "https://upload.twitter.com/1.1/media/upload.json";
+    const auth = await buildOAuthHeader("POST", url, ck, cs, at, ats);
+
+    const boundary = "----PodiverzumBoundary" + crypto.randomUUID().replace(/-/g, "");
+    const enc = new TextEncoder();
+    const head = enc.encode(
+      `--${boundary}\r\nContent-Disposition: form-data; name="media"; filename="cover.${ext}"\r\nContent-Type: ${ct}\r\n\r\n`
+    );
+    const tail = enc.encode(`\r\n--${boundary}--\r\n`);
+    const body = new Uint8Array(head.length + buf.length + tail.length);
+    body.set(head, 0);
+    body.set(buf, head.length);
+    body.set(tail, head.length + buf.length);
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: auth, "Content-Type": `multipart/form-data; boundary=${boundary}` },
+      body,
+    });
+    const txt = await res.text();
+    if (!res.ok) {
+      console.error("media upload failed:", res.status, txt);
+      return null;
+    }
+    const j = JSON.parse(txt);
+    return j?.media_id_string || null;
+  } catch (e) {
+    console.error("uploadMedia error:", (e as any)?.message || e);
+    return null;
+  }
+}
+
+async function postTweet(text: string, mediaId?: string | null): Promise<{ id: string; url: string }> {
+  const { ck, cs, at, ats } = getCreds();
   const url = `${X_API}/tweets`;
   const auth = await buildOAuthHeader("POST", url, ck, cs, at, ats);
+  const payload: any = { text };
+  if (mediaId) payload.media = { media_ids: [mediaId] };
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: auth, "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify(payload),
   });
   const body = await res.text();
   if (!res.ok) throw new Error(`X API ${res.status}: ${body}`);
@@ -105,6 +156,7 @@ type EpisodeRow = {
   slug: string;
   published_at: string | null;
   podcast_id: string;
+  image_url: string | null;
   podcasts: {
     id: string;
     title: string;
@@ -113,6 +165,7 @@ type EpisodeRow = {
     category: string | null;
     shadow_rank_tier: string | null;
     featured: boolean;
+    image_url: string | null;
   } | null;
 };
 
@@ -121,8 +174,8 @@ async function pickEpisodesWithin(admin: any, hours: number): Promise<EpisodeRow
   const { data, error } = await admin
     .from("episodes")
     .select(`
-      id, title, display_title, ai_summary, slug, published_at, podcast_id,
-      podcasts!inner(id, title, display_title, slug, category, shadow_rank_tier, featured)
+      id, title, display_title, ai_summary, slug, published_at, podcast_id, image_url,
+      podcasts!inner(id, title, display_title, slug, category, shadow_rank_tier, featured, image_url)
     `)
     .gte("published_at", since)
     .not("ai_summary", "is", null)
@@ -254,6 +307,10 @@ Deno.serve(async (req) => {
 
     const { text, model } = await generatePost(episodes);
 
+    // Pick cover image: first episode's image, fallback to its podcast's image.
+    const coverUrl =
+      episodes[0]?.image_url || episodes[0]?.podcasts?.image_url || null;
+
     if (dryRun) {
       return new Response(
         JSON.stringify({
@@ -262,6 +319,7 @@ Deno.serve(async (req) => {
           generated_text: text,
           char_count: text.length,
           model,
+          cover_image_url: coverUrl,
           episodes: episodes.slice(0, 3).map((e) => ({
             id: e.id,
             title: e.display_title || e.title,
@@ -273,13 +331,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Upload media (best-effort; tweet still posts without it)
+    let mediaId: string | null = null;
+    if (coverUrl) {
+      mediaId = await uploadMedia(coverUrl);
+    }
+
     // Post to X
     let postId = "";
     let postUrl = "";
     let status: "success" | "failed" = "success";
     let errMsg: string | null = null;
     try {
-      const r = await postTweet(text);
+      const r = await postTweet(text, mediaId);
       postId = r.id;
       postUrl = r.url;
     } catch (e: any) {
@@ -299,7 +363,7 @@ Deno.serve(async (req) => {
       platform_post_url: postUrl || null,
       error: errMsg,
       trigger,
-      metadata: { char_count: text.length },
+      metadata: { char_count: text.length, cover_image_url: coverUrl, media_id: mediaId, has_media: !!mediaId },
     });
 
     return new Response(

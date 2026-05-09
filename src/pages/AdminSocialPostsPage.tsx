@@ -123,6 +123,16 @@ export default function AdminSocialPostsPage() {
                 Preview · {preview.char_count} chars · {preview.model}
               </div>
               <pre className="whitespace-pre-wrap text-sm font-mono">{preview.generated_text}</pre>
+              {preview.cover_image_url && (
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Attached image:</div>
+                  <img
+                    src={preview.cover_image_url}
+                    alt="Tweet cover"
+                    className="rounded border border-border max-h-48 object-cover"
+                  />
+                </div>
+              )}
               <div className="text-xs text-muted-foreground">
                 Episodes used: {preview.episodes?.length || 0}
               </div>
