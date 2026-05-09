@@ -15,6 +15,7 @@ import {
   Settings,
   Sparkles,
   Radio,
+  Send,
 } from "lucide-react";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
