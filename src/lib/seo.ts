@@ -97,3 +97,17 @@ export function ogImageUrl(params: {
   if (params.image) url.searchParams.set("image", params.image);
   return url.toString();
 }
+
+/** Build a schema.org BreadcrumbList JSON-LD object. */
+export function breadcrumbJsonLd(items: { name: string; url: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((it, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: it.name,
+      item: it.url,
+    })),
+  };
+}

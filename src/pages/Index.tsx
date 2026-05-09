@@ -24,9 +24,30 @@ const Index = () => {
   const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
+  const [chips, setChips] = useState<{ label: string; query: string }[]>([
+    { label: "AI healthcare", query: "AI healthcare" },
+    { label: "Warren Buffett", query: "Warren Buffett" },
+    { label: "testosterone sleep", query: "testosterone sleep" },
+    { label: "Nvidia data centers", query: "Nvidia data centers" },
+    { label: "asparagus cooking", query: "asparagus cooking" },
+  ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const nav = useNavigate();
+
+  useEffect(() => {
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "search_suggestions")
+      .maybeSingle()
+      .then(({ data }) => {
+        const items = (data?.value as any)?.items;
+        if (Array.isArray(items) && items.length) {
+          setChips(items.filter((c) => c?.label && c?.query).slice(0, 8));
+        }
+      });
+  }, []);
 
   useEffect(() => {
     setSeo({
@@ -184,9 +205,9 @@ const Index = () => {
             </button>
           </form>
           <div className="mt-5 flex flex-wrap gap-2">
-            {["AI healthcare","Warren Buffett","testosterone sleep","asparagus cooking","Nvidia data centers"].map((ex) => (
-              <button key={ex} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(ex)}`)} className="chip">
-                {ex}
+            {chips.map((c) => (
+              <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip">
+                {c.label}
               </button>
             ))}
           </div>
@@ -196,8 +217,10 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto py-12 space-y-14">
-        <MoodCollections />
-
+        {/* Mood shelf — above trending on desktop, below on mobile */}
+        <div className="hidden md:block">
+          <MoodCollections />
+        </div>
         {!loaded && trendingEps.length === 0 && (
           <section>
             <Skeleton className="h-6 w-48 mb-4" />
@@ -229,6 +252,11 @@ const Index = () => {
           </section>
         )}
 
+        {/* Mood shelf — mobile position (below trending) */}
+        <div className="md:hidden">
+          <MoodCollections />
+        </div>
+
         {cats.filter((c) => c.slug !== "trending").map((c, idx) => {
           const items = epsByCat[c.name] || [];
           if (!items.length) return null;
@@ -252,9 +280,9 @@ const Index = () => {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
-                  <Sparkles className="h-3 w-3" /> Evergreen
+                  <Sparkles className="h-3 w-3" /> Timeless
                 </div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Worth a re-listen</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold">Timeless episodes</h2>
                 <p className="text-xs text-muted-foreground mt-1">Older episodes from S-tier podcasts that still hold up.</p>
               </div>
             </div>

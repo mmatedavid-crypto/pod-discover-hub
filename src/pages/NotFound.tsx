@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
-import { Compass } from "lucide-react";
+import { Compass, Search } from "lucide-react";
 
 export default function NotFound() {
   const location = useLocation();
+  const nav = useNavigate();
+  const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<PodcastLite[]>([]);
 
   useEffect(() => {
@@ -37,12 +39,27 @@ export default function NotFound() {
           </div>
           <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-3">Lost in the podiverse</h1>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            That page doesn't exist — but here's some great listening to point you home.
+            That page doesn't exist — but try a search, or pick from popular listening below.
           </p>
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
+            className="relative max-w-xl mx-auto mb-6"
+          >
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search episodes, people, companies, ideas…"
+              className="w-full pl-12 pr-28 py-3 rounded-xl bg-card border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60"
+            />
+            <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-lg text-sm font-semibold">
+              Search
+            </button>
+          </form>
           <div className="flex flex-wrap gap-3 justify-center text-sm">
             <Link to="/" className="px-4 py-2 rounded-md bg-primary text-primary-foreground">Go home</Link>
             <Link to="/categories" className="px-4 py-2 rounded-md border border-border hover:border-foreground/40">Browse categories</Link>
-            <Link to="/search" className="px-4 py-2 rounded-md border border-border hover:border-foreground/40">Search episodes</Link>
           </div>
         </div>
 

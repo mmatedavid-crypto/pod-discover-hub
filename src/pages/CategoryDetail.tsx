@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { setSeo } from "@/lib/seo";
+import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
@@ -42,15 +42,22 @@ export default function CategoryDetail() {
       setLoading(false);
       if (!c) return;
       setSeo({
-        title: `${c.name} podcast episodes — Podiverzum`,
-        description: `Discover the latest podcast episodes in ${c.name}, ranked by relevance, freshness and Podiverzum Rank.`,
-        jsonLd: {
-          "@context": "https://schema.org",
-          "@type": "CollectionPage",
-          name: `${c.name} podcast episodes`,
-          about: { "@type": "Thing", name: c.name },
-          url: typeof window !== "undefined" ? window.location.href : undefined,
-        },
+        title: c.seo_title || `${c.name} podcast episodes — Podiverzum`,
+        description: c.seo_description || `Discover the latest podcast episodes in ${c.name}, ranked by relevance, freshness and Podiverzum Rank.`,
+        jsonLd: [
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `${c.name} podcast episodes`,
+            about: { "@type": "Thing", name: c.name },
+            url: typeof window !== "undefined" ? window.location.href : undefined,
+          },
+          breadcrumbJsonLd([
+            { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
+            { name: "Categories", url: typeof window !== "undefined" ? `${window.location.origin}/categories` : "/categories" },
+            { name: c.name, url: typeof window !== "undefined" ? window.location.href : "" },
+          ]),
+        ],
       });
       const { data: ps } = await supabase
         .from("podcasts")
