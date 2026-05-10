@@ -137,7 +137,20 @@ const Index = () => {
         // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
         const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
         const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
-        setTrendingEps(trendingPool.slice().sort(compareByScore).slice(0, 8));
+        // Diversify: max 2 episodes per podcast in the trending strip so one show
+        // can't dominate. Spillover is appended after if we run short of 8 items.
+        const sorted = trendingPool.slice().sort(compareByScore);
+        const PER_PODCAST_CAP = 2;
+        const counts = new Map<string, number>();
+        const primary: FeedEpisode[] = [];
+        const overflow: FeedEpisode[] = [];
+        for (const e of sorted) {
+          const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
+          const n = counts.get(key) || 0;
+          if (n < PER_PODCAST_CAP) { primary.push(e); counts.set(key, n + 1); }
+          else overflow.push(e);
+        }
+        setTrendingEps([...primary, ...overflow].slice(0, 8));
         setAllEps(eps);
 
         // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
