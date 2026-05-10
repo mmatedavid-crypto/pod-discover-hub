@@ -15,13 +15,43 @@ const corsHeaders = {
 // podcast accidentally appears in an EN source it will be stored with its
 // real language and silently skipped from the EN site (see multilingual plan).
 const DEFAULT_SOURCES: { url: string; tag: string; lang_hint: string }[] = [
+  // Apple Podcasts — overall charts (proven to scrape well via Firecrawl)
   { url: "https://podcasts.apple.com/us/charts", tag: "apple-us-charts", lang_hint: "en" },
   { url: "https://podcasts.apple.com/gb/charts", tag: "apple-gb-charts", lang_hint: "en" },
-  { url: "https://en.wikipedia.org/wiki/List_of_most-downloaded_podcasts", tag: "wiki-top", lang_hint: "en" },
-  { url: "https://www.theguardian.com/tv-and-radio/series/the-guardians-50-best-podcasts-of-2024", tag: "guardian-2024", lang_hint: "en" },
-  { url: "https://www.nytimes.com/interactive/2024/arts/best-podcasts.html", tag: "nyt-2024", lang_hint: "en" },
-  { url: "https://www.reddit.com/r/podcasts/top/?t=year", tag: "reddit-podcasts-year", lang_hint: "en" },
-  { url: "https://www.reddit.com/r/podcastrecommendations/top/?t=year", tag: "reddit-recs-year", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/ca/charts", tag: "apple-ca-charts", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/au/charts", tag: "apple-au-charts", lang_hint: "en" },
+  // Apple Podcasts — genre charts (US). Each genre returns a top-N for that category.
+  { url: "https://podcasts.apple.com/us/genre/podcasts-business/id1321", tag: "apple-us-business", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-news/id1311", tag: "apple-us-news", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-technology/id1318", tag: "apple-us-tech", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-sports/id1545", tag: "apple-us-sports", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-comedy/id1303", tag: "apple-us-comedy", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-education/id1304", tag: "apple-us-education", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-health-fitness/id1512", tag: "apple-us-health", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-society-culture/id1324", tag: "apple-us-society", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-science/id1533", tag: "apple-us-science", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-history/id1487", tag: "apple-us-history", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-tv-film/id1309", tag: "apple-us-tv-film", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-arts/id1301", tag: "apple-us-arts", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-music/id1310", tag: "apple-us-music", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-leisure/id1502", tag: "apple-us-leisure", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-true-crime/id1488", tag: "apple-us-true-crime", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-government/id1511", tag: "apple-us-government", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-religion-spirituality/id1314", tag: "apple-us-religion", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-fiction/id1483", tag: "apple-us-fiction", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/us/genre/podcasts-kids-family/id1305", tag: "apple-us-kids", lang_hint: "en" },
+  // Apple GB genre charts — slightly different mix from US
+  { url: "https://podcasts.apple.com/gb/genre/podcasts-business/id1321", tag: "apple-gb-business", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/gb/genre/podcasts-news/id1311", tag: "apple-gb-news", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/gb/genre/podcasts-comedy/id1303", tag: "apple-gb-comedy", lang_hint: "en" },
+  // Spotify public top podcasts page (renders server-side enough for Firecrawl)
+  { url: "https://podcastcharts.byspotify.com/", tag: "spotify-charts-global", lang_hint: "en" },
+  { url: "https://podcastcharts.byspotify.com/us", tag: "spotify-charts-us", lang_hint: "en" },
+  { url: "https://podcastcharts.byspotify.com/gb", tag: "spotify-charts-gb", lang_hint: "en" },
+  // Curated list sites that publish actual show names
+  { url: "https://www.chartable.com/charts/itunes/us-all-podcasts-podcasts", tag: "chartable-us-all", lang_hint: "en" },
+  { url: "https://www.chartable.com/charts/itunes/gb-all-podcasts-podcasts", tag: "chartable-gb-all", lang_hint: "en" },
+  { url: "https://www.podchaser.com/lists/the-100-best-podcasts-105ZB1NB7K", tag: "podchaser-top100", lang_hint: "en" },
 ];
 
 // Normalize PI/BCP-47 language string to ISO-639-1 prefix ("en-us" → "en").
