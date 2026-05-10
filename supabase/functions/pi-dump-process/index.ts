@@ -218,7 +218,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, processed: counters.scanned, counters, auto_added_cap: maxAutoAdd }),
+    // Adaptive self-scheduling: re-tune cron based on remaining backlog.
+    let nextSchedule: string | null = null;
+    try {
+      const { count: pending } = await supabase.from("pi_feed_staging")
+        .select("id", { count: "exact", head: true }).eq("processed", false);
+      const { data: sched } = await supabase.rpc("set_pi_dump_process_schedule", { pending_count: pending || 0 });
+      nextSchedule = (sched as string) || null;
+    } catch (e) {
+      console.warn("adaptive schedule failed:", e instanceof Error ? e.message : e);
+    }
+
+    return new Response(JSON.stringify({ ok: true, processed: counters.scanned, counters, auto_added_cap: maxAutoAdd, next_schedule: nextSchedule }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "error" }),
