@@ -87,6 +87,7 @@ async function rerankRaw(q: string, items: any[]): Promise<string[] | null> {
     return Array.isArray(parsed?.ids) ? parsed.ids : null;
   } catch (e) { console.warn("rerank err", e); return null; }
 }
+const rerank = (q: string, items: any[]) => withTimeout(rerankRaw(q, items), 2200, "rerank");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
