@@ -228,13 +228,32 @@ export default function SearchPage() {
           </div>
         )}
 
+        {initial && loading && (
+          <div className="mt-10 p-6 border border-border rounded-lg bg-card">
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-hidden />
+              <div className="text-sm">
+                <div className="font-medium">Searching for “{initial}”…</div>
+                <div className="text-muted-foreground text-xs mt-0.5">
+                  Combining keyword, semantic and AI re-ranking. This usually takes 2–4 seconds.
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="h-14 rounded-md bg-muted/60 animate-pulse" />
+              <div className="h-14 rounded-md bg-muted/40 animate-pulse" />
+              <div className="h-14 rounded-md bg-muted/30 animate-pulse" />
+            </div>
+          </div>
+        )}
+
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
             No exact episode matches yet.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Try a broader search or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
           </div>
         )}
 
-        {initial && (podcasts.length > 0 || episodes.length > 0) && (
+        {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (
           <div className="mt-8 space-y-10">
             <section>
               <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
