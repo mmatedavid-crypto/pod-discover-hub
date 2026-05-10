@@ -3,6 +3,7 @@
 // POST { q: string, limit?: number, lang?: 'en'|'hu'|null, rerank?: boolean }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { understandQuery, buildExpandedQuery, type Understanding } from "../_shared/search-understand.ts";
+import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
