@@ -57,7 +57,7 @@
 
     /* Brand gradients & shadows */
     --gradient-brand: linear-gradient(135deg, hsl(0 84% 52%), hsl(0 92% 62%));
-    --gradient-surface: linear-gradient(180deg, hsl(0 0% 8%) 0%, hsl(0 0% 4%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
     --gradient-spot: radial-gradient(60% 50% at 50% 0%, hsl(0 84% 52% / 0.22), transparent 70%);
     --shadow-brand: 0 10px 40px -12px hsl(0 84% 52% / 0.45);
     --shadow-elevated: 0 1px 0 hsl(0 0% 100% / 0.04) inset, 0 12px 32px -16px hsl(0 0% 0% / 0.7);

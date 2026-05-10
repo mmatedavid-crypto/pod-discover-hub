@@ -83,7 +83,7 @@ export default function LiveIndexBar() {
   const loop = [...items, ...items];
 
   return (
-    <div className="border-b border-border/70 bg-black overflow-hidden">
+    <div className="dark bg-black text-foreground border-b border-border/70 overflow-hidden">
       <div className="flex items-stretch w-full">
         {/* LIVE label */}
         <div className="shrink-0 flex items-center gap-2 pl-3 sm:pl-4 pr-3 sm:pr-4 py-1.5 border-r border-border/60 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent">
