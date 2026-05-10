@@ -7,19 +7,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Curated default seeds. Public, scrape-friendly pages with podcast names.
-// Mix of EN authority lists + HU recommendations.
-const DEFAULT_SOURCES: { url: string; tag: string }[] = [
-  { url: "https://podcasts.apple.com/us/charts", tag: "apple-us-charts" },
-  { url: "https://podcasts.apple.com/gb/charts", tag: "apple-gb-charts" },
-  { url: "https://podcasts.apple.com/hu/charts", tag: "apple-hu-charts" },
-  { url: "https://en.wikipedia.org/wiki/List_of_most-downloaded_podcasts", tag: "wiki-top" },
-  { url: "https://www.theguardian.com/tv-and-radio/series/the-guardians-50-best-podcasts-of-2024", tag: "guardian-2024" },
-  { url: "https://www.nytimes.com/interactive/2024/arts/best-podcasts.html", tag: "nyt-2024" },
-  { url: "https://www.reddit.com/r/podcasts/top/?t=year", tag: "reddit-podcasts-year" },
-  { url: "https://www.reddit.com/r/podcastrecommendations/top/?t=year", tag: "reddit-recs-year" },
-  { url: "https://hungarianpodcasts.com/", tag: "hu-directory" },
+// Curated default seeds. Each source declares its expected language so we
+// don't accidentally mix English shows into Hungarian sources (or vice versa).
+// lang_hint: ISO-639-1 ("en", "hu") — used in the Gemini prompt and validated
+// against the PodcastIndex `language` field.
+const DEFAULT_SOURCES: { url: string; tag: string; lang_hint: string }[] = [
+  { url: "https://podcasts.apple.com/us/charts", tag: "apple-us-charts", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/gb/charts", tag: "apple-gb-charts", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/hu/charts", tag: "apple-hu-charts", lang_hint: "hu" },
+  { url: "https://en.wikipedia.org/wiki/List_of_most-downloaded_podcasts", tag: "wiki-top", lang_hint: "en" },
+  { url: "https://www.theguardian.com/tv-and-radio/series/the-guardians-50-best-podcasts-of-2024", tag: "guardian-2024", lang_hint: "en" },
+  { url: "https://www.nytimes.com/interactive/2024/arts/best-podcasts.html", tag: "nyt-2024", lang_hint: "en" },
+  { url: "https://www.reddit.com/r/podcasts/top/?t=year", tag: "reddit-podcasts-year", lang_hint: "en" },
+  { url: "https://www.reddit.com/r/podcastrecommendations/top/?t=year", tag: "reddit-recs-year", lang_hint: "en" },
+  { url: "https://hungarianpodcasts.com/", tag: "hu-directory", lang_hint: "hu" },
 ];
+
+// Normalize PI/BCP-47 language string to ISO-639-1 prefix ("en-us" → "en").
+function normLang(s: string | null | undefined): string | null {
+  if (!s) return null;
+  return String(s).toLowerCase().split(/[-_]/)[0] || null;
+}
 
 async function sha1Hex(input: string) {
   const buf = new TextEncoder().encode(input);
