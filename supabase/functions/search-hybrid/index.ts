@@ -11,21 +11,30 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const EPISODE_SELECT =
   "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language)";
 
+// Use Gemini directly (matches model used by embed-episode-runner: gemini-embedding-001, 768d).
 async function embed(q: string): Promise<number[] | null> {
-  if (!LOVABLE_API_KEY) return null;
+  if (!GEMINI_API_KEY) return null;
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY}`;
+    const r = await fetch(url, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-embedding-001", input: q, dimensions: 768 }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "models/gemini-embedding-001",
+        content: { parts: [{ text: q }] },
+        taskType: "RETRIEVAL_QUERY",
+        outputDimensionality: 768,
+      }),
     });
-    if (!r.ok) { console.warn("embed http", r.status, await r.text().catch(()=> "")); return null; }
+    if (!r.ok) { console.warn("embed http", r.status, (await r.text()).slice(0, 200)); return null; }
     const j = await r.json();
-    return j?.data?.[0]?.embedding ?? null;
+    const v = j?.embedding?.values as number[] | undefined;
+    return v && v.length === 768 ? v : null;
   } catch (e) { console.warn("embed err", e); return null; }
 }
 
