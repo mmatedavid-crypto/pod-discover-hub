@@ -22,6 +22,8 @@ export type EpisodeLite = {
   ingredients?: string[] | null;
   /** Optional UI hint from search relevance scoring. */
   matchBadge?: string | null;
+  /** Optional one-line AI reason why this matched the query. */
+  why_matched?: string | null;
   podcasts: {
     slug: string;
     title: string;
