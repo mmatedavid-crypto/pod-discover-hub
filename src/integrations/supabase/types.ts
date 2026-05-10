@@ -1472,7 +1472,7 @@ export type Database = {
       }
       refresh_episodes_search_text_batch: {
         Args: { _limit?: number }
-        Returns: number
+        Returns: Json
       }
       refresh_homepage_feed: { Args: never; Returns: undefined }
       search_backfill_batch: {
