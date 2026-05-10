@@ -175,10 +175,11 @@ async function pickEpisodesWithin(admin: any, hours: number): Promise<EpisodeRow
     .from("episodes")
     .select(`
       id, title, display_title, ai_summary, slug, published_at, podcast_id, image_url,
-      podcasts!inner(id, title, display_title, slug, category, shadow_rank_tier, featured, image_url)
+      podcasts!inner(id, title, display_title, slug, category, shadow_rank_tier, featured, image_url, language)
     `)
     .gte("published_at", since)
     .not("ai_summary", "is", null)
+    .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
     .order("published_at", { ascending: false })
     .limit(60);
   if (error) throw new Error(`pickEpisodes: ${error.message}`);

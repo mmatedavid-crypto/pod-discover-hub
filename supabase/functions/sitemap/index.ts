@@ -103,7 +103,9 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   while (true) {
     const { data: pods, error } = await supabase
       .from("podcasts")
-      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components")
+      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components,language")
+      // EN-only sitemap: hide non-English shows from Google. NULL=EN (legacy untagged).
+      .or("language.is.null,language.ilike.en%")
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) throw error;
@@ -131,9 +133,11 @@ async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: eps, error } = await supabase
       .from("episodes")
-      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status)")
+      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status,language)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
+      // EN-only: hide non-English podcasts' episodes from sitemap.
+      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;
@@ -162,9 +166,11 @@ async function buildEntitiesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: chunk, error } = await supabase
       .from("episodes")
-      .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status)")
+      .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status,language)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
+      // EN-only: skip entities derived from non-English shows.
+      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;
