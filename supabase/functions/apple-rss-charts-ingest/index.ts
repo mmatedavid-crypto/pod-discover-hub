@@ -172,7 +172,12 @@ Deno.serve(async (req) => {
         language: normLang(v.feed.language) || "en", // Apple charts -> EN markets
         author: v.feed.author || v.feed.ownerName || null,
         episode_count: v.feed.episodeCount ?? null,
-        newest_item_at: (v.feed.newestItemPubdate || v.feed.newestItemPublishTime) ? new Date((v.feed.newestItemPubdate || v.feed.newestItemPublishTime) * 1000).toISOString() : null,
+        // PI byitunesid does not return newestItemPubdate. Trust Apple Top-100 placement
+        // as a freshness signal (inactive shows fall off the chart within ~2 weeks),
+        // so stamp newest_item_at = now() as a conservative fallback.
+        newest_item_at: (v.feed.newestItemPubdate || v.feed.newestItemPublishTime)
+          ? new Date((v.feed.newestItemPubdate || v.feed.newestItemPublishTime) * 1000).toISOString()
+          : new Date().toISOString(),
         last_http_status: v.feed.lastHttpStatus ?? null,
         dead: v.feed.dead === 1,
       }));
