@@ -70,23 +70,50 @@ export default function SearchPage() {
 
     setLoading(true);
     (async () => {
-      const result = await searchEpisodes({ rawQuery: initial, scope: "all", limit: 80 });
-      if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
-      setBroadened(result.fallbackUsed);
-      setSemanticUsed(result.semanticUsed);
+      let mapped: EpisodeLite[] = [];
+      let usedFallback = false;
+      let semantic = false;
+      let reranked = false;
 
-      let chosen = result.all;
-      if (catParam) chosen = chosen.filter((x) => (x.e.podcasts?.category || "") === catParam);
+      // Search v2: hybrid lexical + semantic + AI re-rank via edge function.
+      try {
+        const { data, error } = await supabase.functions.invoke("search-hybrid", {
+          body: { q: initial, limit: 80, rerank: true, lang: "en" },
+        });
+        if (error) throw error;
+        let eps = (data?.episodes || []) as any[];
+        if (catParam) eps = eps.filter((e) => (e.podcasts?.category || "") === catParam);
+        if (sortParam === "newest") {
+          eps.sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
+        } else if (sortParam === "rank") {
+          eps.sort((a, b) => episodeScore(b) - episodeScore(a));
+        }
+        mapped = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: "matched result" }));
+        semantic = !!data?.semantic;
+        reranked = !!data?.reranked;
+        setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
+      } catch (err) {
+        console.warn("search-hybrid failed, falling back to legacy", err);
+        usedFallback = true;
+        const result = await searchEpisodes({ rawQuery: initial, scope: "all", limit: 80 });
+        if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
+        let chosen = result.all;
+        if (catParam) chosen = chosen.filter((x) => (x.e.podcasts?.category || "") === catParam);
+        const ranked =
+          sortParam === "newest"
+            ? chosen.slice().sort((a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()).slice(0, 80)
+            : sortParam === "rank"
+            ? chosen.slice().sort((a: any, b: any) => episodeScore(b.e) - episodeScore(a.e)).slice(0, 80)
+            : chosen.slice(0, 80);
+        mapped = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" }));
+        semantic = result.semanticUsed;
+        usedFallback = result.fallbackUsed || usedFallback;
+        setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
+      }
 
-      const ranked =
-        sortParam === "newest"
-          ? chosen.slice().sort((a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()).slice(0, 80)
-          : sortParam === "rank"
-          ? chosen.slice().sort((a: any, b: any) => episodeScore(b.e) - episodeScore(a.e)).slice(0, 80)
-          : chosen.slice(0, 80); // "best" — preserve diversity-aware order from searchEpisodes()
-      const mapped: EpisodeLite[] = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" }));
       setEpisodes(mapped);
-      setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
+      setBroadened(usedFallback);
+      setSemanticUsed(semantic || reranked);
 
       if (lastLoggedRef.current !== initial) {
         lastLoggedRef.current = initial;
@@ -96,7 +123,7 @@ export default function SearchPage() {
           query: initial.slice(0, 200),
           terms_count: terms.length,
           result_count: mapped.length,
-          fallback_used: result.fallbackUsed || result.semanticUsed,
+          fallback_used: usedFallback,
           viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
           user_id: sess.session?.user.id || null,
         }).then(() => {}, () => {});

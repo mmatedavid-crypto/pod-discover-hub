@@ -79,7 +79,8 @@ verify_jwt = false
 [functions.feed-xml]
 verify_jwt = false
 
-
+[functions.search-hybrid]
+verify_jwt = false
 
 [functions.process-email-queue]
 verify_jwt = true
