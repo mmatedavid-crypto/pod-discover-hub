@@ -73,26 +73,99 @@
     --sidebar-ring: 0 84% 52%;
   }
 
-  /* Light mode kept as graceful inversion (rarely used; site is dark-first) */
+  /* =========================================================
+     Light mode — Premium editorial (moodboard 2026-05-10)
+     Warm off-white canvas · pure-white cards · bold black type
+     Red signal · Apple-like calm
+     ========================================================= */
   .light {
-    --background: 40 22% 98%;
-    --foreground: 0 0% 6%;
-    --card: 0 0% 100%;
+    color-scheme: light;
+
+    /* Surfaces */
+    --background: 40 20% 98%;          /* #FAFAF8 warm off-white */
+    --foreground: 0 0% 6%;             /* near-black headings */
+
+    --card: 0 0% 100%;                  /* pure white cards on warm bg */
     --card-foreground: 0 0% 6%;
+
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 6%;
-    --primary: 0 84% 48%;
+
+    /* Brand red — slightly deeper for white-bg pop */
+    --primary: 0 84% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 14% 95%;
-    --secondary-foreground: 0 0% 6%;
-    --muted: 40 14% 95%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 0 84% 48%;
+    --primary-glow: 0 92% 60%;
+
+    /* Elevated neutral surface (chips, inputs idle) */
+    --secondary: 40 16% 96%;
+    --secondary-foreground: 0 0% 10%;
+
+    --muted: 40 16% 95%;
+    --muted-foreground: 0 0% 38%;       /* meta text */
+
+    --accent: 0 84% 50%;
     --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Hairline borders — barely-there gray */
     --border: 30 10% 90%;
-    --input: 30 10% 90%;
-    --ring: 0 84% 48%;
+    --input: 30 10% 88%;
+    --ring: 0 84% 50%;
+
+    /* Brand palette overrides */
+    --brand-red: 0 84% 50%;
+    --brand-red-soft: 0 84% 50% / 0.10;
+    --brand-red-glow: 0 92% 60%;
+    --brand-black: 0 0% 6%;
+    --brand-ink: 0 0% 100%;
+    --brand-line: 30 10% 90%;
+
+    /* Gradients & shadows tuned for light surface */
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(var(--background)) 100%);
+    --gradient-spot: radial-gradient(60% 50% at 50% 0%, hsl(0 84% 50% / 0.10), transparent 70%);
+    --shadow-brand: 0 12px 40px -16px hsl(0 84% 50% / 0.35);
+    --shadow-elevated: 0 1px 0 hsl(0 0% 0% / 0.02) inset, 0 8px 24px -16px hsl(0 0% 0% / 0.10);
+    --shadow-sharp: 0 1px 0 hsl(0 0% 0% / 0.02) inset;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 0 84% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 16% 96%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 30 10% 90%;
+    --sidebar-ring: 0 84% 50%;
   }
+
+  .light body { color-scheme: light; }
+
+  /* Hero spotlight subtler in light mode — soft pink glow, not heavy red */
+  .light .hero-spot {
+    background:
+      radial-gradient(50% 40% at 50% 0%, hsl(var(--brand-red) / 0.10), transparent 70%),
+      radial-gradient(35% 35% at 85% 15%, hsl(var(--brand-red-glow) / 0.08), transparent 70%),
+      radial-gradient(40% 40% at 15% 25%, hsl(0 0% 0% / 0.02), transparent 70%);
+  }
+
+  /* Grid texture inverts: dark hairlines on light bg */
+  .light .bg-grid {
+    background-image:
+      linear-gradient(hsl(0 0% 0% / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(0 0% 0% / 0.04) 1px, transparent 1px);
+  }
+
+  /* Card lift — softer shadow in light */
+  .light .card-lift:hover {
+    border-color: hsl(0 0% 82%);
+    box-shadow: 0 12px 32px -20px hsl(0 0% 0% / 0.18);
+  }
+
+  /* Selection — keep red but lighter overlay */
+  .light ::selection { background: hsl(var(--brand-red) / 0.22); color: hsl(var(--foreground)); }
+  .light mark { background: hsl(var(--brand-red) / 0.18); color: hsl(var(--foreground)); }
 }
 
 @layer base {
