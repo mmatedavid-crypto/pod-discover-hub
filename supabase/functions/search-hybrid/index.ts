@@ -219,7 +219,28 @@ Deno.serve(async (req) => {
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
-    if (wantRerank) rerankResult = await rerank(q, ordered);
+    let rerankCacheHit = false;
+    if (wantRerank) {
+      if (cachedRerank) {
+        // Filter to ids actually present in this result-set (DB content may have shifted)
+        const present = new Set(ordered.map((e: any) => e.id));
+        const filteredIds = cachedRerank.ids.filter((id) => present.has(id));
+        if (filteredIds.length >= 5) {
+          rerankResult = { ids: filteredIds, why: cachedRerank.why };
+          rerankCacheHit = true;
+        }
+      }
+      if (!rerankResult) {
+        rerankResult = await rerank(q, ordered);
+        if (rerankResult && rerankResult.ids.length) {
+          // Persist rerank cache (fire-and-forget)
+          supa.from("search_query_cache").update({
+            rerank: { ids: rerankResult.ids, why: rerankResult.why },
+            rerank_updated_at: new Date().toISOString(),
+          }).eq("q_norm", qNorm).then(() => {}, (e) => console.warn("rerank cache write", e));
+        }
+      }
+    }
     const tRerank = Date.now() - t0 - tEmb - tRpc;
 
     if (rerankResult && rerankResult.ids.length) {
@@ -240,6 +261,7 @@ Deno.serve(async (req) => {
         curated_synonyms: { matched: curated.matched_terms, expansions: curated.expansions },
         semantic: !!q_embedding,
         reranked: !!rerankResult,
+        rerank_cache_hit: rerankCacheHit,
         cache_hit: cacheHit,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
