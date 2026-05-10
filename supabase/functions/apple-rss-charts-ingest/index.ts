@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     const countries: string[] = Array.isArray(body.countries) && body.countries.length > 0
       ? body.countries.map((c: string) => String(c).toLowerCase())
       : DEFAULT_COUNTRIES;
-    const limit = Math.min(Math.max(Number(body.limit) || 200, 10), 200);
+    const limit = Math.min(Math.max(Number(body.limit) || 100, 10), 100);
     const dryRun = !!body.dryRun;
 
     // 1) Fetch country charts sequentially (Apple rate-limits parallel hits to 0 items)
