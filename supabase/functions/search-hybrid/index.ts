@@ -230,6 +230,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         episodes: ordered.slice(0, limit),
         understanding,
+        curated_synonyms: { matched: curated.matched_terms, expansions: curated.expansions },
         semantic: !!q_embedding,
         reranked: !!rerankResult,
         cache_hit: cacheHit,
