@@ -198,6 +198,17 @@ Deno.serve(async (req) => {
       const score = candTokens.size ? overlap / candTokens.size : 0;
       if (score < 0.4) { piMisses++; continue; }
 
+      // Script guard: when targeting Latin-script langs (en, es, etc.), reject titles
+      // dominated by CJK / Arabic / Cyrillic / Hebrew / Thai / Hangul / Kana glyphs.
+      const latinTargets = new Set(["en","es","pt","fr","de","it","nl","sv","da","no","pl","ro","hu"]);
+      if (latinTargets.has(c.langHint)) {
+        const t = String(top.title || "");
+        if (/[\u4e00-\u9fff\u0600-\u06ff\u0400-\u04ff\u0590-\u05ff\u0e00-\u0e7f\uac00-\ud7af\u3040-\u30ff]/.test(t)) {
+          langMismatches++;
+          continue;
+        }
+      }
+
       // Language guard: PI language must match the source's lang_hint when known.
       // If PI has no language set, we trust the AI extract's filter and let it through.
       const piLang = normLang(top.language);
@@ -205,6 +216,7 @@ Deno.serve(async (req) => {
         langMismatches++;
         continue;
       }
+
 
       piHits++;
       validated.push({ feed: top, candidate: c, lang_hint: c.langHint });
