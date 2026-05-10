@@ -124,20 +124,20 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     const qNorm = normalizeQ(q);
 
-    // 1) Cache lookup (understanding + embedding) — 7d TTL
+    // 1) Cache lookup (understanding + embedding + rerank) — 7d understanding, 24h rerank
     let understanding: Understanding | null = null;
     let q_embedding: number[] | null = null;
+    let cachedRerank: { ids: string[]; why: Record<string, string> } | null = null;
     let cacheHit = false;
     try {
       const { data: cached } = await supa
         .from("search_query_cache")
-        .select("understanding, embedding, updated_at")
+        .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
         .eq("q_norm", qNorm)
         .maybeSingle();
       if (cached && cached.updated_at && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000) {
         understanding = cached.understanding as Understanding;
         if (typeof cached.embedding === "string") {
-          // pgvector returns "[...]" string
           try {
             const arr = JSON.parse(cached.embedding);
             if (Array.isArray(arr) && arr.length === 768) q_embedding = arr as number[];
@@ -146,6 +146,13 @@ Deno.serve(async (req) => {
           q_embedding = cached.embedding as number[];
         }
         cacheHit = true;
+      }
+      // Rerank cache: 24h TTL, independent of understanding cache
+      if (cached?.rerank && cached.rerank_updated_at && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000) {
+        const r = cached.rerank as any;
+        if (Array.isArray(r?.ids) && r.ids.length) {
+          cachedRerank = { ids: r.ids, why: (r.why && typeof r.why === "object") ? r.why : {} };
+        }
       }
     } catch (e) { console.warn("cache read err", e); }
 
@@ -212,7 +219,28 @@ Deno.serve(async (req) => {
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
-    if (wantRerank) rerankResult = await rerank(q, ordered);
+    let rerankCacheHit = false;
+    if (wantRerank) {
+      if (cachedRerank) {
+        // Filter to ids actually present in this result-set (DB content may have shifted)
+        const present = new Set(ordered.map((e: any) => e.id));
+        const filteredIds = cachedRerank.ids.filter((id) => present.has(id));
+        if (filteredIds.length >= 5) {
+          rerankResult = { ids: filteredIds, why: cachedRerank.why };
+          rerankCacheHit = true;
+        }
+      }
+      if (!rerankResult) {
+        rerankResult = await rerank(q, ordered);
+        if (rerankResult && rerankResult.ids.length) {
+          // Persist rerank cache (fire-and-forget)
+          supa.from("search_query_cache").update({
+            rerank: { ids: rerankResult.ids, why: rerankResult.why },
+            rerank_updated_at: new Date().toISOString(),
+          }).eq("q_norm", qNorm).then(() => {}, (e) => console.warn("rerank cache write", e));
+        }
+      }
+    }
     const tRerank = Date.now() - t0 - tEmb - tRpc;
 
     if (rerankResult && rerankResult.ids.length) {
@@ -233,6 +261,7 @@ Deno.serve(async (req) => {
         curated_synonyms: { matched: curated.matched_terms, expansions: curated.expansions },
         semantic: !!q_embedding,
         reranked: !!rerankResult,
+        rerank_cache_hit: rerankCacheHit,
         cache_hit: cacheHit,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
