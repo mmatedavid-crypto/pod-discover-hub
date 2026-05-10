@@ -93,7 +93,7 @@ export default function SearchPage() {
         } else if (sortParam === "rank") {
           eps.sort((a, b) => episodeScore(b) - episodeScore(a));
         }
-        mapped = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: "matched result" }));
+        mapped = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "matched result", why_matched: e.why_matched || null }));
         semantic = !!data?.semantic;
         reranked = !!data?.reranked;
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
