@@ -1,0 +1,1 @@
+SELECT cron.unschedule('podiverzum-search-text-backfill-temp');
