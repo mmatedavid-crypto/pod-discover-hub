@@ -66,13 +66,12 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
 
-    // Claim a batch
-    const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: batch, _lock_seconds: 120 });
-    if (cErr) throw cErr;
-    const jobs = (claimed || []) as any[];
-
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
     let stop = false;
+    let total_claimed = 0;
+    let drain_loops = 0;
+    // Time we reserve at the end of the budget for spend upsert + adaptive cron RPC
+    const TAIL_RESERVE_MS = 5_000;
 
     const runJob = async (job: any) => {
       if (stop) return;
