@@ -212,11 +212,23 @@ function semanticExpansion(terms: string[], cap = 8): string[] {
   return out.slice(0, cap);
 }
 
-function orFilterForVariants(variants: string[]): string {
+// Split into two filters because PostgREST mixes text-trgm and array-GIN predicates
+// in a single OR, which makes the planner abandon BitmapOr and seq-scan ~300k rows
+// (statement timeout). Running them as two parallel queries keeps each on its index.
+function textOrFilter(variants: string[]): string {
   const ors: string[] = [];
   variants.forEach((t) => {
     const v = `%${escapeIlike(t)}%`;
-    ors.push(`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`);
+    // NOTE: episodes.description is intentionally excluded — no GIN trgm index yet
+    // (87k HTML rows, indexing pending). Including it triggers statement timeouts.
+    ors.push(`title.ilike.${v}`, `summary.ilike.${v}`, `ai_summary.ilike.${v}`);
+  });
+  return ors.join(",");
+}
+
+function arrayOrFilter(variants: string[]): string {
+  const ors: string[] = [];
+  variants.forEach((t) => {
     ors.push(`topics.cs.{${t}}`, `people.cs.{${t}}`, `companies.cs.{${t}}`, `tickers.cs.{${t}}`, `ingredients.cs.{${t}}`);
   });
   return ors.join(",");
@@ -384,24 +396,44 @@ function scoreEpisode(
   };
 }
 
-async function queryByGroups(termGroups: string[][], lang?: "hu" | "en" | null): Promise<any[]> {
-  let q = supabase.from("episodes").select(EPISODE_SELECT).limit(300);
-  termGroups.forEach((variants) => { q = q.or(orFilterForVariants(variants)); });
-  if (lang) q = q.like("podcasts.language", `${lang}%`);
-  const { data } = await q;
-  return data || [];
-}
-
-async function queryPerTerm(terms: string[], lang?: "hu" | "en" | null): Promise<any[]> {
-  const results = await Promise.all(terms.map(async (t) => {
-    let q = supabase.from("episodes").select(EPISODE_SELECT).or(orFilterForVariants([t])).limit(150);
-    if (lang) q = q.like("podcasts.language", `${lang}%`);
+// Run text-OR and array-OR as two parallel queries (see textOrFilter note above)
+// then dedupe by id. Each sub-query stays on its index instead of seq-scanning.
+async function runSplitOr(
+  filterPairs: { text: string; arr: string }[],
+  perQueryLimit: number,
+  lang?: "hu" | "en" | null,
+): Promise<any[]> {
+  const queries = filterPairs.flatMap(({ text, arr }) => {
+    const tq = supabase.from("episodes").select(EPISODE_SELECT).or(text).limit(perQueryLimit);
+    const aq = supabase.from("episodes").select(EPISODE_SELECT).or(arr).limit(perQueryLimit);
+    if (lang) {
+      tq.like("podcasts.language", `${lang}%`);
+      aq.like("podcasts.language", `${lang}%`);
+    }
+    return [tq, aq];
+  });
+  const results = await Promise.all(queries.map(async (q) => {
     const { data } = await q;
     return data || [];
   }));
   const map = new Map<string, any>();
   results.flat().forEach((e: any) => { if (!map.has(e.id)) map.set(e.id, e); });
   return Array.from(map.values());
+}
+
+async function queryByGroups(termGroups: string[][], lang?: "hu" | "en" | null): Promise<any[]> {
+  // One pair per group. Note: each group becomes its own pair of queries; we
+  // don't AND them server-side. The scorer enforces multi-term semantics later.
+  const pairs = termGroups.map((variants) => ({
+    text: textOrFilter(variants),
+    arr: arrayOrFilter(variants),
+  }));
+  return runSplitOr(pairs, 300, lang);
+}
+
+async function queryPerTerm(terms: string[], lang?: "hu" | "en" | null): Promise<any[]> {
+  const pairs = terms.map((t) => ({ text: textOrFilter([t]), arr: arrayOrFilter([t]) }));
+  return runSplitOr(pairs, 150, lang);
 }
 
 export type SearchScope = "all" | "category";
