@@ -20,7 +20,7 @@ function normalize(s: string): string {
 async function aiSuggest(prefix: string, seedTitles: string[]): Promise<string[]> {
   if (!LOVABLE_API_KEY) return [];
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 1500);
+  const t = setTimeout(() => ctrl.abort(), 3500);
   try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
