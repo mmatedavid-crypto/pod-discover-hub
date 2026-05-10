@@ -606,10 +606,10 @@ export async function searchEpisodes(opts: {
         (x.matchType === "exact_title" || x.matchType === "title" || x.matchType === "entity"),
     );
     const outside = diversify(dedupe(outsideRaw)).slice(0, 8);
-    return { inCategory: inCat, outsideCategory: outside, all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
+    return { inCategory: inCat, outsideCategory: outside, all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms, detectedLanguage };
   }
 
-  return { inCategory: [], outsideCategory: [], all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
+  return { inCategory: [], outsideCategory: [], all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms, detectedLanguage };
 }
 
 export const MATCH_LABEL: Record<MatchType, string> = {
