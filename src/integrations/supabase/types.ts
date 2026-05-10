@@ -1148,6 +1148,8 @@ export type Database = {
           embedding: string | null
           hits: number
           q_norm: string
+          rerank: Json | null
+          rerank_updated_at: string | null
           understanding: Json
           updated_at: string
         }
@@ -1156,6 +1158,8 @@ export type Database = {
           embedding?: string | null
           hits?: number
           q_norm: string
+          rerank?: Json | null
+          rerank_updated_at?: string | null
           understanding?: Json
           updated_at?: string
         }
@@ -1164,6 +1168,8 @@ export type Database = {
           embedding?: string | null
           hits?: number
           q_norm?: string
+          rerank?: Json | null
+          rerank_updated_at?: string | null
           understanding?: Json
           updated_at?: string
         }
