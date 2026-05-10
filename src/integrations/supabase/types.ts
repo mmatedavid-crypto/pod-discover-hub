@@ -1470,6 +1470,10 @@ export type Database = {
         Args: { _older_than_minutes?: number }
         Returns: number
       }
+      refresh_episodes_search_text_batch: {
+        Args: { _limit?: number }
+        Returns: Json
+      }
       refresh_homepage_feed: { Args: never; Returns: undefined }
       search_backfill_batch: {
         Args: { _batch?: number; _table: string }
