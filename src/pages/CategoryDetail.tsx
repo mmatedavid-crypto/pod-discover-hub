@@ -61,8 +61,11 @@ export default function CategoryDetail() {
       });
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
+        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language")
         .eq("category", c.name)
+        // EN-only site: exclude non-English podcasts (HU/etc). NULL language treated as EN
+        // since the legacy corpus is overwhelmingly English-but-untagged.
+        .or("language.is.null,language.ilike.en%")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
         .limit(80);
