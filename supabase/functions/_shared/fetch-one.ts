@@ -105,9 +105,10 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     return { ok: false, error: msg, new: 0, duplicates: 0, items: 0 };
   }
 
-  // Extract channel image + new-feed-url from feed head
+  // Extract channel image + new-feed-url + language from feed head
   let channelImage = "";
   let newFeedUrl = "";
+  let channelLanguage = "";
   try {
     const head = xml.split(/<item\b|<entry\b/i)[0] || "";
     const itunesM = head.match(/<itunes:image\b[^>]*href\s*=\s*["']([^"']+)["']/i);
@@ -115,10 +116,23 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     channelImage = (itunesM?.[1] || urlM?.[1] || "").trim();
     const nfu = head.match(/<itunes:new-feed-url>([\s\S]*?)<\/itunes:new-feed-url>/i);
     if (nfu?.[1]) newFeedUrl = nfu[1].trim();
+    const langM = head.match(/<language>([\s\S]*?)<\/language>/i);
+    if (langM?.[1]) channelLanguage = langM[1].trim().toLowerCase().slice(0, 8);
   } catch { /* noop */ }
 
   if (newFeedUrl && newFeedUrl !== podcast.rss_url) {
     await recordRssUrlChange(supabase, podcast.id, podcast.rss_url, newFeedUrl, "itunes_new_feed_url");
+  }
+
+  // Quick non-EN gate: if the feed's <language> declares a clearly non-English
+  // language, set podcasts.language so EN-only public surfaces hide it.
+  // Episodes are still upserted (db consistency); AI guard handles lying feeds.
+  if (channelLanguage && !channelLanguage.startsWith("en") && channelLanguage !== "mul" && channelLanguage !== "und") {
+    const currentLang = String(podcast.language || "").toLowerCase();
+    if (!currentLang || currentLang.startsWith("en") || currentLang !== channelLanguage) {
+      try { await supabase.from("podcasts").update({ language: channelLanguage }).eq("id", podcast.id); } catch { /* noop */ }
+      podcast.language = channelLanguage;
+    }
   }
 
   let items: ReturnType<typeof parseFeed> = [];

@@ -94,7 +94,13 @@ Deno.serve(async (req) => {
 
       // Hard reject: non-English, dead, stale
       const lang = (r.language || "").toLowerCase();
-      if (!lang.startsWith("en")) { updates.decision = "rejected"; updates.reject_reason = "non-English"; counters.rejected++; }
+      const aiLang = (r.ai_detected_language || "").toLowerCase().trim();
+      // AI scout's language verdict overrides RSS-claimed language. If Gemini saw
+      // anything other than English (and not 'mul'/'und'), reject — the RSS tag lied.
+      if (aiLang && aiLang !== "en" && aiLang !== "mul" && aiLang !== "und" && !aiLang.startsWith("en")) {
+        updates.decision = "rejected"; updates.reject_reason = `ai_lang:${aiLang}`; counters.rejected++;
+      }
+      else if (!lang.startsWith("en")) { updates.decision = "rejected"; updates.reject_reason = "non-English"; counters.rejected++; }
       else if (r.dead) { updates.decision = "rejected"; updates.reject_reason = "dead"; counters.rejected++; }
       else {
         const { score, reasons, ageDays } = scoreRow(r, maxAge);
