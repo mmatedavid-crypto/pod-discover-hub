@@ -7,19 +7,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Curated default seeds. Public, scrape-friendly pages with podcast names.
-// Mix of EN authority lists + HU recommendations.
-const DEFAULT_SOURCES: { url: string; tag: string }[] = [
-  { url: "https://podcasts.apple.com/us/charts", tag: "apple-us-charts" },
-  { url: "https://podcasts.apple.com/gb/charts", tag: "apple-gb-charts" },
-  { url: "https://podcasts.apple.com/hu/charts", tag: "apple-hu-charts" },
-  { url: "https://en.wikipedia.org/wiki/List_of_most-downloaded_podcasts", tag: "wiki-top" },
-  { url: "https://www.theguardian.com/tv-and-radio/series/the-guardians-50-best-podcasts-of-2024", tag: "guardian-2024" },
-  { url: "https://www.nytimes.com/interactive/2024/arts/best-podcasts.html", tag: "nyt-2024" },
-  { url: "https://www.reddit.com/r/podcasts/top/?t=year", tag: "reddit-podcasts-year" },
-  { url: "https://www.reddit.com/r/podcastrecommendations/top/?t=year", tag: "reddit-recs-year" },
-  { url: "https://hungarianpodcasts.com/", tag: "hu-directory" },
+// Curated default seeds. Each source declares its expected language so we
+// don't accidentally mix English shows into Hungarian sources (or vice versa).
+// lang_hint: ISO-639-1 ("en", "hu") — used in the Gemini prompt and validated
+// against the PodcastIndex `language` field.
+const DEFAULT_SOURCES: { url: string; tag: string; lang_hint: string }[] = [
+  { url: "https://podcasts.apple.com/us/charts", tag: "apple-us-charts", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/gb/charts", tag: "apple-gb-charts", lang_hint: "en" },
+  { url: "https://podcasts.apple.com/hu/charts", tag: "apple-hu-charts", lang_hint: "hu" },
+  { url: "https://en.wikipedia.org/wiki/List_of_most-downloaded_podcasts", tag: "wiki-top", lang_hint: "en" },
+  { url: "https://www.theguardian.com/tv-and-radio/series/the-guardians-50-best-podcasts-of-2024", tag: "guardian-2024", lang_hint: "en" },
+  { url: "https://www.nytimes.com/interactive/2024/arts/best-podcasts.html", tag: "nyt-2024", lang_hint: "en" },
+  { url: "https://www.reddit.com/r/podcasts/top/?t=year", tag: "reddit-podcasts-year", lang_hint: "en" },
+  { url: "https://www.reddit.com/r/podcastrecommendations/top/?t=year", tag: "reddit-recs-year", lang_hint: "en" },
+  { url: "https://hungarianpodcasts.com/", tag: "hu-directory", lang_hint: "hu" },
 ];
+
+// Normalize PI/BCP-47 language string to ISO-639-1 prefix ("en-us" → "en").
+function normLang(s: string | null | undefined): string | null {
+  if (!s) return null;
+  return String(s).toLowerCase().split(/[-_]/)[0] || null;
+}
 
 async function sha1Hex(input: string) {
   const buf = new TextEncoder().encode(input);
@@ -61,9 +69,14 @@ async function firecrawlScrape(url: string): Promise<string | null> {
   return data?.data?.markdown || data?.markdown || null;
 }
 
-async function geminiExtract(markdown: string, sourceTag: string, max: number, model: string) {
+async function geminiExtract(markdown: string, sourceTag: string, langHint: string, max: number, model: string) {
   const apiKey = Deno.env.get("LOVABLE_API_KEY")!;
+  const langName = langHint === "hu" ? "Hungarian" : langHint === "en" ? "English" : langHint;
   const prompt = `You are an expert podcast curator. Given the markdown of a webpage that lists or recommends podcasts, extract distinct podcasts.
+
+STRICT LANGUAGE FILTER: Only return podcasts whose primary spoken language is ${langName} (${langHint}).
+Skip any show in another language even if it appears on the page (e.g. cross-listed international shows).
+If unsure about a podcast's language, omit it.
 
 Return at most ${max} of the highest-quality, real podcasts (skip generic mentions, ads, blog posts).
 For each podcast, provide:
@@ -131,23 +144,30 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const sources: { url: string; tag: string }[] = Array.isArray(body.sources) && body.sources.length
-      ? body.sources.map((u: string) => ({ url: u, tag: new URL(u).hostname }))
+    const sources: { url: string; tag: string; lang_hint: string }[] = Array.isArray(body.sources) && body.sources.length
+      ? body.sources.map((s: any) => {
+          if (typeof s === "string") return { url: s, tag: new URL(s).hostname, lang_hint: body.lang_hint || "en" };
+          return { url: s.url, tag: s.tag || new URL(s.url).hostname, lang_hint: s.lang_hint || body.lang_hint || "en" };
+        })
       : DEFAULT_SOURCES;
     const model = body.model || "google/gemini-2.5-flash";
     const maxPerSource = Math.max(5, Math.min(50, Number(body.max_per_source) || 25));
     const dryRun = !!body.dry_run;
+    const strictLang = body.strict_lang !== false; // default ON
 
-    const candidates: { title: string; author?: string; reason?: string; sourceTag: string }[] = [];
-    const sourceStats: Record<string, { scraped: boolean; extracted: number }> = {};
+    const candidates: { title: string; author?: string; reason?: string; sourceTag: string; langHint: string }[] = [];
+    const sourceStats: Record<string, { scraped: boolean; extracted: number; lang_hint: string }> = {};
 
     for (const src of sources) {
       const md = await firecrawlScrape(src.url);
-      if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0 }; continue; }
-      const extracted = await geminiExtract(md, src.tag, maxPerSource, model);
-      sourceStats[src.tag] = { scraped: true, extracted: extracted.length };
+      if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0, lang_hint: src.lang_hint }; continue; }
+      const extracted = await geminiExtract(md, src.tag, src.lang_hint, maxPerSource, model);
+      sourceStats[src.tag] = { scraped: true, extracted: extracted.length, lang_hint: src.lang_hint };
       for (const p of extracted) {
-        if (p?.title) candidates.push({ title: String(p.title).trim(), author: p.author, reason: p.reason, sourceTag: src.tag });
+        if (p?.title) candidates.push({
+          title: String(p.title).trim(), author: p.author, reason: p.reason,
+          sourceTag: src.tag, langHint: src.lang_hint,
+        });
       }
     }
 
@@ -160,9 +180,9 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    // Validate via PodcastIndex search
+    // Validate via PodcastIndex search + language guard
     const validated: any[] = [];
-    let piHits = 0, piMisses = 0;
+    let piHits = 0, piMisses = 0, langMismatches = 0;
     for (const c of unique) {
       const term = c.author ? `${c.title} ${c.author}` : c.title;
       const result = await piSearch(term);
@@ -176,15 +196,27 @@ Deno.serve(async (req) => {
       for (const t of candTokens) if (piTokens.has(t)) overlap++;
       const score = candTokens.size ? overlap / candTokens.size : 0;
       if (score < 0.4) { piMisses++; continue; }
+
+      // Language guard: PI language must match the source's lang_hint when known.
+      // If PI has no language set, we trust the AI extract's filter and let it through.
+      const piLang = normLang(top.language);
+      if (strictLang && piLang && piLang !== c.langHint) {
+        langMismatches++;
+        continue;
+      }
+
       piHits++;
-      validated.push({ feed: top, candidate: c });
+      validated.push({ feed: top, candidate: c, lang_hint: c.langHint });
     }
 
     if (dryRun) {
       return new Response(JSON.stringify({
         ok: true, dry_run: true, sources: sourceStats,
-        candidates: unique.length, pi_hits: piHits, pi_misses: piMisses,
-        sample: validated.slice(0, 10).map((v) => ({ title: v.feed.title, url: v.feed.url, source: v.candidate.sourceTag })),
+        candidates: unique.length, pi_hits: piHits, pi_misses: piMisses, lang_mismatches: langMismatches,
+        sample: validated.slice(0, 10).map((v) => ({
+          title: v.feed.title, url: v.feed.url, lang: v.feed.language || null,
+          source: v.candidate.sourceTag, expected_lang: v.lang_hint,
+        })),
         elapsed_ms: Date.now() - t0,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -219,7 +251,9 @@ Deno.serve(async (req) => {
         website_url: v.feed.link || null,
         image_url: v.feed.image || v.feed.artwork || null,
         description: v.feed.description || v.candidate.reason || null,
-        language: v.feed.language || null,
+        // Always populate language: prefer PI value, fall back to source's lang_hint
+        // so downstream filters (homepage, categories, search) never treat it as English-by-default.
+        language: normLang(v.feed.language) || v.lang_hint,
         author: v.feed.author || v.feed.ownerName || v.candidate.author || null,
         episode_count: v.feed.episodeCount ?? null,
         newest_item_at: v.feed.newestItemPublishTime ? new Date(v.feed.newestItemPublishTime * 1000).toISOString() : null,
@@ -237,7 +271,7 @@ Deno.serve(async (req) => {
         feeds_received: validated.length,
         skipped_duplicates: validated.length - fresh.length,
         status: "processing",
-        notes: { sources: sourceStats, candidates: unique.length, pi_hits: piHits, pi_misses: piMisses },
+        notes: { sources: sourceStats, candidates: unique.length, pi_hits: piHits, pi_misses: piMisses, lang_mismatches: langMismatches },
         updated_at: new Date().toISOString(),
       }).eq("id", imp.id);
     }
@@ -248,6 +282,7 @@ Deno.serve(async (req) => {
       candidates: unique.length,
       pi_hits: piHits,
       pi_misses: piMisses,
+      lang_mismatches: langMismatches,
       already_known: validated.length - fresh.length,
       inserted,
       import_id: importId,
