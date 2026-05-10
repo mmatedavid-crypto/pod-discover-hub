@@ -51,7 +51,10 @@ export default function SearchPage() {
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
+  const [aiAnswer, setAiAnswer] = useState<string>("");
+  const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const lastLoggedRef = useRef<string>("");
+  const answerAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
