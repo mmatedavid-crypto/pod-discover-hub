@@ -74,8 +74,13 @@ Deno.serve(async (req) => {
     const limit = Math.min(Math.max(Number(body.limit) || 200, 10), 200);
     const dryRun = !!body.dryRun;
 
-    // 1) Fetch all country charts in parallel
-    const charts = await Promise.all(countries.map((c) => fetchAppleTop(c, limit)));
+    // 1) Fetch country charts sequentially (Apple rate-limits parallel hits to 0 items)
+    const charts: { country: string; items: any[]; error?: string }[] = [];
+    for (const c of countries) {
+      const r = await fetchAppleTop(c, limit);
+      charts.push(r);
+      await new Promise((r) => setTimeout(r, 250));
+    }
 
     // 2) Collect unique iTunes IDs across all countries
     const idMap = new Map<string, { id: string; name: string; sources: string[] }>();
