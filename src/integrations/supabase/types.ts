@@ -1539,6 +1539,10 @@ export type Database = {
         Args: { _schedule: string }
         Returns: undefined
       }
+      set_pi_dump_process_schedule: {
+        Args: { pending_count: number }
+        Returns: string
+      }
       set_rss_hunter_schedule: {
         Args: { _schedule: string }
         Returns: undefined
