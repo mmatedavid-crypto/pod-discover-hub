@@ -1420,6 +1420,10 @@ export type Database = {
         Returns: number
       }
       refresh_homepage_feed: { Args: never; Returns: undefined }
+      search_backfill_batch: {
+        Args: { _batch?: number; _table: string }
+        Returns: number
+      }
       select_embed_candidates: {
         Args: { _limit: number; _model: string; _tiers: string[] }
         Returns: {
