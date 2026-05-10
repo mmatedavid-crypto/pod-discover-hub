@@ -154,7 +154,58 @@ export default function SearchPage() {
         .map((x) => x.p);
       setPodcasts(rankedPs);
       setLoading(false);
+
+      // Kick off streaming AI answer when we have enough top results.
+      if (mapped.length >= 3) {
+        setAiAnswerLoading(true);
+        const ctrl = new AbortController();
+        answerAbortRef.current = ctrl;
+        try {
+          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-answer`;
+          const resp = await fetch(url, {
+            method: "POST",
+            signal: ctrl.signal,
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+            body: JSON.stringify({
+              q: initial,
+              episodes: mapped.slice(0, 6).map((e: any) => ({
+                title: e.display_title || e.title,
+                podcast: e.podcasts?.title || "",
+                summary: e.ai_summary || e.summary || "",
+              })),
+            }),
+          });
+          if (resp.ok && resp.body) {
+            const reader = resp.body.getReader();
+            const dec = new TextDecoder();
+            let buf = ""; let acc = ""; let done = false;
+            while (!done) {
+              const { done: d, value } = await reader.read();
+              if (d) break;
+              buf += dec.decode(value, { stream: true });
+              let nl: number;
+              while ((nl = buf.indexOf("\n")) !== -1) {
+                let line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+                if (line.endsWith("\r")) line = line.slice(0, -1);
+                if (!line.startsWith("data: ")) continue;
+                const js = line.slice(6).trim();
+                if (js === "[DONE]") { done = true; break; }
+                try {
+                  const p = JSON.parse(js);
+                  const c = p?.choices?.[0]?.delta?.content;
+                  if (c) { acc += c; setAiAnswer(acc); }
+                } catch { buf = line + "\n" + buf; break; }
+              }
+            }
+          }
+        } catch (e) {
+          if ((e as any)?.name !== "AbortError") console.warn("answer stream", e);
+        } finally {
+          setAiAnswerLoading(false);
+        }
+      }
     })();
+    return () => { answerAbortRef.current?.abort(); };
   }, [initial, sortParam, catParam]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
