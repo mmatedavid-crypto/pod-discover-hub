@@ -251,7 +251,9 @@ Deno.serve(async (req) => {
         website_url: v.feed.link || null,
         image_url: v.feed.image || v.feed.artwork || null,
         description: v.feed.description || v.candidate.reason || null,
-        language: v.feed.language || null,
+        // Always populate language: prefer PI value, fall back to source's lang_hint
+        // so downstream filters (homepage, categories, search) never treat it as English-by-default.
+        language: normLang(v.feed.language) || v.lang_hint,
         author: v.feed.author || v.feed.ownerName || v.candidate.author || null,
         episode_count: v.feed.episodeCount ?? null,
         newest_item_at: v.feed.newestItemPublishTime ? new Date(v.feed.newestItemPublishTime * 1000).toISOString() : null,
