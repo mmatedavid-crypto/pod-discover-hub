@@ -170,7 +170,8 @@ const Index = () => {
   return (
     <Layout>
       
-      <section className="relative border-b border-border overflow-hidden bg-black">
+      <section className="dark bg-background text-foreground relative border-b border-border overflow-hidden">
+        <div aria-hidden className="absolute inset-0 bg-black" />
         {/* Brand spotlight */}
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
