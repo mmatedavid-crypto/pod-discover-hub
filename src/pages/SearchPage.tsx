@@ -231,7 +231,7 @@ export default function SearchPage() {
         }
       }
     })();
-    return () => { answerAbortRef.current?.abort(); };
+    return () => { cancelled = true; answerAbortRef.current?.abort(); };
   }, [initial, sortParam, catParam]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
