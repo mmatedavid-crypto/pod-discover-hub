@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
 
     const { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
       q,
-      q_embedding: q_embedding as any,
+      q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
       lang,
     });
