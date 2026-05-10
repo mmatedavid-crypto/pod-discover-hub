@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
         language: normLang(v.feed.language) || "en", // Apple charts -> EN markets
         author: v.feed.author || v.feed.ownerName || null,
         episode_count: v.feed.episodeCount ?? null,
-        newest_item_at: v.feed.newestItemPublishTime ? new Date(v.feed.newestItemPublishTime * 1000).toISOString() : null,
+        newest_item_at: (v.feed.newestItemPubdate || v.feed.newestItemPublishTime) ? new Date((v.feed.newestItemPubdate || v.feed.newestItemPublishTime) * 1000).toISOString() : null,
         last_http_status: v.feed.lastHttpStatus ?? null,
         dead: v.feed.dead === 1,
       }));
