@@ -166,9 +166,11 @@ async function buildEntitiesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: chunk, error } = await supabase
       .from("episodes")
-      .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status)")
+      .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status,language)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
+      // EN-only: skip entities derived from non-English shows.
+      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;
