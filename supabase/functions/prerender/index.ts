@@ -96,8 +96,8 @@ function notFound(path: string) {
 async function buildHome(supabase: ReturnType<typeof createClient>) {
   const { data } = await supabase
     .from("mv_homepage_feed")
-    .select("episode_id, episode_title, episode_slug, episode_published_at, podcast_title, podcast_slug, ai_summary")
-    .order("episode_published_at", { ascending: false })
+    .select("episode_id, title, display_title, slug, summary, description, published_at, podcast_title, podcast_display_title, podcast_slug")
+    .order("published_at", { ascending: false })
     .limit(40);
 
   const rows = (data ?? []) as Array<Record<string, any>>;
@@ -105,9 +105,11 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
 
   const itemsHtml = items
     .map((r) => {
-      const url = `${SITE}/podcast/${r.podcast_slug}/${r.episode_slug}`;
-      const sum = stripHtml(r.ai_summary);
-      return `<li><a href="${esc(url)}"><strong>${esc(r.episode_title)}</strong></a> — <em>${esc(r.podcast_title)}</em>${sum ? `<p>${esc(truncate(sum, 280))}</p>` : ""}</li>`;
+      const url = `${SITE}/podcast/${r.podcast_slug}/${r.slug}`;
+      const sum = stripHtml(r.summary || r.description);
+      const epTitle = r.display_title || r.title;
+      const podTitle = r.podcast_display_title || r.podcast_title;
+      return `<li><a href="${esc(url)}"><strong>${esc(epTitle)}</strong></a> — <em>${esc(podTitle)}</em>${sum ? `<p>${esc(truncate(sum, 280))}</p>` : ""}</li>`;
     })
     .join("");
 
@@ -117,8 +119,8 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     itemListElement: items.map((r, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `${SITE}/podcast/${r.podcast_slug}/${r.episode_slug}`,
-      name: r.episode_title,
+      url: `${SITE}/podcast/${r.podcast_slug}/${r.slug}`,
+      name: r.display_title || r.title,
     })),
   };
   const website = {
