@@ -133,9 +133,11 @@ async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: eps, error } = await supabase
       .from("episodes")
-      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status)")
+      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status,language)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
+      // EN-only: hide non-English podcasts' episodes from sitemap.
+      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;
