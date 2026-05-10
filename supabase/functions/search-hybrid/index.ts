@@ -3,6 +3,7 @@
 // POST { q: string, limit?: number, lang?: 'en'|'hu'|null, rerank?: boolean }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { understandQuery, buildExpandedQuery, type Understanding } from "../_shared/search-understand.ts";
+import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -148,10 +149,11 @@ Deno.serve(async (req) => {
       }
     } catch (e) { console.warn("cache read err", e); }
 
-    // 2) Parallel: understanding (if missing) + embedding (if missing)
-    const [u, embVal] = await Promise.all([
+    // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
+    const [u, embVal, curated] = await Promise.all([
       understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
+      loadCuratedSynonyms(supa, qNorm),
     ]);
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
@@ -170,8 +172,12 @@ Deno.serve(async (req) => {
       supa.from("search_query_cache").update({ hits: 1, updated_at: new Date().toISOString() }).eq("q_norm", qNorm).then(() => {}, () => {});
     }
 
-    // 4) Hybrid RPC with expanded query (lexical) + original embedding (semantic)
-    const expanded = buildExpandedQuery(q, understanding);
+    // 4) Hybrid RPC with expanded query (lexical) + original embedding (semantic).
+    // Curated synonyms (typos, category synonyms) appended to lexical side; AI expansion on top.
+    const aiExpanded = buildExpandedQuery(q, understanding);
+    const expanded = curated.expansions.length
+      ? `${aiExpanded} ${curated.expansions.join(" ")}`.slice(0, 700)
+      : aiExpanded;
     const { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
       q: expanded,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
@@ -224,6 +230,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         episodes: ordered.slice(0, limit),
         understanding,
+        curated_synonyms: { matched: curated.matched_terms, expansions: curated.expansions },
         semantic: !!q_embedding,
         reranked: !!rerankResult,
         cache_hit: cacheHit,
