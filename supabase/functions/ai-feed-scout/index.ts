@@ -144,23 +144,30 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const sources: { url: string; tag: string }[] = Array.isArray(body.sources) && body.sources.length
-      ? body.sources.map((u: string) => ({ url: u, tag: new URL(u).hostname }))
+    const sources: { url: string; tag: string; lang_hint: string }[] = Array.isArray(body.sources) && body.sources.length
+      ? body.sources.map((s: any) => {
+          if (typeof s === "string") return { url: s, tag: new URL(s).hostname, lang_hint: body.lang_hint || "en" };
+          return { url: s.url, tag: s.tag || new URL(s.url).hostname, lang_hint: s.lang_hint || body.lang_hint || "en" };
+        })
       : DEFAULT_SOURCES;
     const model = body.model || "google/gemini-2.5-flash";
     const maxPerSource = Math.max(5, Math.min(50, Number(body.max_per_source) || 25));
     const dryRun = !!body.dry_run;
+    const strictLang = body.strict_lang !== false; // default ON
 
-    const candidates: { title: string; author?: string; reason?: string; sourceTag: string }[] = [];
-    const sourceStats: Record<string, { scraped: boolean; extracted: number }> = {};
+    const candidates: { title: string; author?: string; reason?: string; sourceTag: string; langHint: string }[] = [];
+    const sourceStats: Record<string, { scraped: boolean; extracted: number; lang_hint: string }> = {};
 
     for (const src of sources) {
       const md = await firecrawlScrape(src.url);
-      if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0 }; continue; }
-      const extracted = await geminiExtract(md, src.tag, maxPerSource, model);
-      sourceStats[src.tag] = { scraped: true, extracted: extracted.length };
+      if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0, lang_hint: src.lang_hint }; continue; }
+      const extracted = await geminiExtract(md, src.tag, src.lang_hint, maxPerSource, model);
+      sourceStats[src.tag] = { scraped: true, extracted: extracted.length, lang_hint: src.lang_hint };
       for (const p of extracted) {
-        if (p?.title) candidates.push({ title: String(p.title).trim(), author: p.author, reason: p.reason, sourceTag: src.tag });
+        if (p?.title) candidates.push({
+          title: String(p.title).trim(), author: p.author, reason: p.reason,
+          sourceTag: src.tag, langHint: src.lang_hint,
+        });
       }
     }
 
@@ -173,9 +180,9 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    // Validate via PodcastIndex search
+    // Validate via PodcastIndex search + language guard
     const validated: any[] = [];
-    let piHits = 0, piMisses = 0;
+    let piHits = 0, piMisses = 0, langMismatches = 0;
     for (const c of unique) {
       const term = c.author ? `${c.title} ${c.author}` : c.title;
       const result = await piSearch(term);
@@ -189,15 +196,27 @@ Deno.serve(async (req) => {
       for (const t of candTokens) if (piTokens.has(t)) overlap++;
       const score = candTokens.size ? overlap / candTokens.size : 0;
       if (score < 0.4) { piMisses++; continue; }
+
+      // Language guard: PI language must match the source's lang_hint when known.
+      // If PI has no language set, we trust the AI extract's filter and let it through.
+      const piLang = normLang(top.language);
+      if (strictLang && piLang && piLang !== c.langHint) {
+        langMismatches++;
+        continue;
+      }
+
       piHits++;
-      validated.push({ feed: top, candidate: c });
+      validated.push({ feed: top, candidate: c, lang_hint: c.langHint });
     }
 
     if (dryRun) {
       return new Response(JSON.stringify({
         ok: true, dry_run: true, sources: sourceStats,
-        candidates: unique.length, pi_hits: piHits, pi_misses: piMisses,
-        sample: validated.slice(0, 10).map((v) => ({ title: v.feed.title, url: v.feed.url, source: v.candidate.sourceTag })),
+        candidates: unique.length, pi_hits: piHits, pi_misses: piMisses, lang_mismatches: langMismatches,
+        sample: validated.slice(0, 10).map((v) => ({
+          title: v.feed.title, url: v.feed.url, lang: v.feed.language || null,
+          source: v.candidate.sourceTag, expected_lang: v.lang_hint,
+        })),
         elapsed_ms: Date.now() - t0,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
