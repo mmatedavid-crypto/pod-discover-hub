@@ -415,6 +415,8 @@ export type Database = {
           people: string[] | null
           podcast_id: string
           published_at: string | null
+          search_text: string | null
+          search_tsv: unknown
           seo_description: string | null
           seo_title: string | null
           slug: string
@@ -448,6 +450,8 @@ export type Database = {
           people?: string[] | null
           podcast_id: string
           published_at?: string | null
+          search_text?: string | null
+          search_tsv?: unknown
           seo_description?: string | null
           seo_title?: string | null
           slug: string
@@ -481,6 +485,8 @@ export type Database = {
           people?: string[] | null
           podcast_id?: string
           published_at?: string | null
+          search_text?: string | null
+          search_tsv?: unknown
           seo_description?: string | null
           seo_title?: string | null
           slug?: string
@@ -886,6 +892,8 @@ export type Database = {
           rss_hunt_attempts: number
           rss_status: string
           rss_url: string | null
+          search_text: string | null
+          search_tsv: unknown
           seo_description: string | null
           seo_title: string | null
           shadow_computed_at: string | null
@@ -950,6 +958,8 @@ export type Database = {
           rss_hunt_attempts?: number
           rss_status?: string
           rss_url?: string | null
+          search_text?: string | null
+          search_tsv?: unknown
           seo_description?: string | null
           seo_title?: string | null
           shadow_computed_at?: string | null
@@ -1014,6 +1024,8 @@ export type Database = {
           rss_hunt_attempts?: number
           rss_status?: string
           rss_url?: string | null
+          search_text?: string | null
+          search_tsv?: unknown
           seo_description?: string | null
           seo_title?: string | null
           shadow_computed_at?: string | null
@@ -1522,6 +1534,7 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"
