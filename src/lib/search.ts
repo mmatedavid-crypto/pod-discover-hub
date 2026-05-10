@@ -384,16 +384,19 @@ function scoreEpisode(
   };
 }
 
-async function queryByGroups(termGroups: string[][]): Promise<any[]> {
+async function queryByGroups(termGroups: string[][], lang?: "hu" | "en" | null): Promise<any[]> {
   let q = supabase.from("episodes").select(EPISODE_SELECT).limit(300);
   termGroups.forEach((variants) => { q = q.or(orFilterForVariants(variants)); });
+  if (lang) q = q.like("podcasts.language", `${lang}%`);
   const { data } = await q;
   return data || [];
 }
 
-async function queryPerTerm(terms: string[]): Promise<any[]> {
+async function queryPerTerm(terms: string[], lang?: "hu" | "en" | null): Promise<any[]> {
   const results = await Promise.all(terms.map(async (t) => {
-    const { data } = await supabase.from("episodes").select(EPISODE_SELECT).or(orFilterForVariants([t])).limit(150);
+    let q = supabase.from("episodes").select(EPISODE_SELECT).or(orFilterForVariants([t])).limit(150);
+    if (lang) q = q.like("podcasts.language", `${lang}%`);
+    const { data } = await q;
     return data || [];
   }));
   const map = new Map<string, any>();
