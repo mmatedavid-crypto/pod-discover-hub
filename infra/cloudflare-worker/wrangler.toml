@@ -1,0 +1,13 @@
+name = "podiverzum-bot-prerender"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Routes — wire these via the Cloudflare dashboard (Workers Routes) instead
+# if you prefer no-CLI setup. Both `apex` and `www` should be covered.
+#
+# Uncomment and edit if you deploy via `wrangler deploy`:
+#
+# routes = [
+#   { pattern = "podiverzum.com/*", zone_name = "podiverzum.com" },
+#   { pattern = "www.podiverzum.com/*", zone_name = "podiverzum.com" },
+# ]
