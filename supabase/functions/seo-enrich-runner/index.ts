@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
-    return json({ ok: true, claimed: jobs.length, processed, succeeded, failed, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule });
+    return json({ ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
