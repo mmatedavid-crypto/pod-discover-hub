@@ -145,9 +145,7 @@ export default function SearchPage() {
         setLoading(false);
       }
 
-      setEpisodes(mapped);
       setBroadened(usedFallback);
-      setSemanticUsed(semantic || reranked);
 
       if (lastLoggedRef.current !== initial) {
         lastLoggedRef.current = initial;
