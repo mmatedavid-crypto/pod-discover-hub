@@ -421,7 +421,9 @@ export async function searchEpisodes(opts: {
   scope?: SearchScope;             // default "all"
   categoryName?: string | null;    // when present and scope="category", category-aware grouping
   limit?: number;
-}): Promise<SearchResult> {
+  /** Override detected query language. Pass null to disable language filtering. */
+  language?: "hu" | "en" | null;
+}): Promise<SearchResult & { detectedLanguage: "hu" | "en" | null }> {
   const { rawQuery } = opts;
   const scope: SearchScope = opts.scope || "all";
   const categoryName = opts.categoryName || null;
@@ -431,7 +433,16 @@ export async function searchEpisodes(opts: {
   const effective = norm.normalized || rawQuery;
   const suggestion = norm.changed ? norm.normalized : null;
   const { terms, strict } = parseQuery(effective);
-  const empty: SearchResult = { inCategory: [], outsideCategory: [], all: [], semanticUsed: false, fallbackUsed: false, suggestion, termsForHighlight: terms };
+  // Language gate: keep HU and EN podcast pools separate. Detect from raw query
+  // (so accents survive normalization). Caller may override via opts.language.
+  const detectedLanguage = opts.language === null
+    ? null
+    : (opts.language ?? detectQueryLanguage(rawQuery));
+  const empty: SearchResult & { detectedLanguage: typeof detectedLanguage } = {
+    inCategory: [], outsideCategory: [], all: [],
+    semanticUsed: false, fallbackUsed: false, suggestion, termsForHighlight: terms,
+    detectedLanguage,
+  };
   if (!terms.length) return empty;
 
   const lcQ = effective.toLowerCase();
@@ -443,14 +454,14 @@ export async function searchEpisodes(opts: {
   const exactGroups = terms.map(expandSimple);
   if (intentAliases.length) intentAliases.forEach((a) => { if (!terms.some((t) => t.toLowerCase() === a.toLowerCase())) exactGroups.push([a]); });
 
-  let raw = await queryByGroups(exactGroups);
+  let raw = await queryByGroups(exactGroups, detectedLanguage);
   let fallbackUsed = false;
   if (raw.length === 0) {
-    raw = await queryPerTerm([...terms, ...intentAliases]);
+    raw = await queryPerTerm([...terms, ...intentAliases], detectedLanguage);
     if (raw.length > 0) fallbackUsed = true;
   } else if (terms.length >= 3 && raw.length < 8) {
     // Broaden candidate pool so the 2-of-N partial fallback has rows to score against.
-    const extra = await queryPerTerm([...terms, ...intentAliases]);
+    const extra = await queryPerTerm([...terms, ...intentAliases], detectedLanguage);
     if (extra.length) {
       const map = new Map<string, any>();
       raw.forEach((e: any) => map.set(e.id, e));
@@ -466,7 +477,7 @@ export async function searchEpisodes(opts: {
   const isSingleBroadConcept = terms.length === 1 && !!SEMANTIC_MAP[terms[0].toLowerCase()];
   if (semanticTerms.length && (raw.length < lowResultThreshold || isSingleBroadConcept)) {
     const semGroups = [semanticTerms]; // one OR group of related ideas
-    const semRaw = await queryByGroups(semGroups);
+    const semRaw = await queryByGroups(semGroups, detectedLanguage);
     if (semRaw.length) {
       const map = new Map<string, any>();
       raw.forEach((e: any) => map.set(e.id, e));
