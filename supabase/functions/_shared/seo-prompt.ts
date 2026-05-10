@@ -5,14 +5,15 @@ export const PODCAST_SEO_TOOL = {
   type: "function",
   function: {
     name: "podcast_seo",
-    description: "Generate SEO title and description for a podcast based ONLY on supplied metadata. Do not invent facts, hosts, guests, topics or claims.",
+    description: "Generate SEO title and description for a podcast based ONLY on supplied metadata. Do not invent facts, hosts, guests, topics or claims. Also detect the actual content language.",
     parameters: {
       type: "object",
       properties: {
         seo_title: { type: "string", description: "<=60 chars. Include show name. No clickbait. No emojis." },
         seo_description: { type: "string", description: "<=160 chars. Factual, neutral. Describe what the show covers based ONLY on the provided description/title." },
+        detected_language: { type: "string", description: "ISO 639-1 code (e.g. 'en','hu','es','fr','de','yo','fa','ar','zh','hi') of the ACTUAL podcast content language as inferred from title+description. If genuinely mixed/unknown, return 'mul'." },
       },
-      required: ["seo_title", "seo_description"],
+      required: ["seo_title", "seo_description", "detected_language"],
       additionalProperties: false,
     },
   },
@@ -22,15 +23,16 @@ export const EPISODE_SEO_TOOL = {
   type: "function",
   function: {
     name: "episode_seo",
-    description: "Generate SEO title, SEO description, and a 1-2 sentence neutral summary of a podcast episode based ONLY on the supplied metadata (title + description). Do NOT invent guests, claims, statistics, quotes, or topics not present in the input. If the description is empty or unclear, return short generic outputs based on the title alone.",
+    description: "Generate SEO title, SEO description, and a 1-2 sentence neutral summary of a podcast episode based ONLY on the supplied metadata (title + description). Do NOT invent guests, claims, statistics, quotes, or topics not present in the input. If the description is empty or unclear, return short generic outputs based on the title alone. Also detect the actual content language.",
     parameters: {
       type: "object",
       properties: {
         seo_title: { type: "string", description: "<=65 chars. Episode topic + show name. No emojis or clickbait." },
         seo_description: { type: "string", description: "<=160 chars. Neutral, factual summary suitable for a Google snippet." },
         ai_summary: { type: "string", description: "1-2 sentences, <=280 chars. Neutral. Only facts present in the input." },
+        detected_language: { type: "string", description: "ISO 639-1 code (e.g. 'en','hu','es','yo','fa','ar','zh','hi') of the ACTUAL episode language inferred from title+description. If genuinely mixed/unknown, return 'mul'." },
       },
-      required: ["seo_title", "seo_description", "ai_summary"],
+      required: ["seo_title", "seo_description", "ai_summary", "detected_language"],
       additionalProperties: false,
     },
   },

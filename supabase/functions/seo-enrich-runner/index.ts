@@ -119,13 +119,15 @@ Deno.serve(async (req) => {
           const sp = cut.lastIndexOf(" ");
           return (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[,;:\-–—\s]+$/, "") + "…";
         };
+        // Gemini-detected actual content language (ISO 639-1). If it's not 'en',
+        // overwrite podcasts.language so the EN-only public surfaces hide it.
+        const detectedLang = String(parsed.detected_language || "").toLowerCase().trim().slice(0, 8) || null;
         if (isPodcast) {
           const seo_title = trim(String(parsed.seo_title || ""), 65);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
-          await admin.from("podcasts").update({
-            seo_title, seo_description,
-            ai_enriched_at: new Date().toISOString(),
-          }).eq("id", job.target_id);
+          const update: any = { seo_title, seo_description, ai_enriched_at: new Date().toISOString() };
+          if (detectedLang && detectedLang !== "en") update.language = detectedLang;
+          await admin.from("podcasts").update(update).eq("id", job.target_id);
         } else {
           const seo_title = trim(String(parsed.seo_title || ""), 70);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
@@ -134,6 +136,19 @@ Deno.serve(async (req) => {
             seo_title, seo_description, ai_summary,
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
+          // If a real (non-mul) non-EN language is detected for the episode, fix the parent
+          // podcast if it's still mis-tagged as English. One Yoruba episode in an "en" feed
+          // means the show itself is non-EN.
+          if (detectedLang && detectedLang !== "en" && detectedLang !== "mul") {
+            const { data: ep } = await admin.from("episodes").select("podcast_id").eq("id", job.target_id).maybeSingle();
+            if (ep?.podcast_id) {
+              const { data: parent } = await admin.from("podcasts").select("language").eq("id", ep.podcast_id).maybeSingle();
+              const parentLang = String(parent?.language || "").toLowerCase();
+              if (!parentLang || parentLang.startsWith("en")) {
+                await admin.from("podcasts").update({ language: detectedLang }).eq("id", ep.podcast_id);
+              }
+            }
+          }
         }
 
         await admin.from("ai_enrichment_jobs").update({
