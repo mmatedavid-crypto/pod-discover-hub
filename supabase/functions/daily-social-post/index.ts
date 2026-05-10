@@ -233,7 +233,7 @@ async function generatePost(episodes: EpisodeRow[]): Promise<{ text: string; mod
       .join("\n\n") +
     "\n\nReturn ONLY the post text, no quotes, no preamble.";
 
-  const model = "google/gemini-2.5-flash";
+  const model = "google/gemini-2.5-flash-lite";
   const res = await fetch(LOVABLE_AI, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
