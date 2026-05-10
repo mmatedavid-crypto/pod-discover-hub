@@ -282,6 +282,7 @@ Deno.serve(async (req) => {
       candidates: unique.length,
       pi_hits: piHits,
       pi_misses: piMisses,
+      lang_mismatches: langMismatches,
       already_known: validated.length - fresh.length,
       inserted,
       import_id: importId,
