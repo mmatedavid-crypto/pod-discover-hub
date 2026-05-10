@@ -3,7 +3,25 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export const EPISODE_SELECT =
-  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status)";
+  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language)";
+
+// Detect a query's likely language. Returns ISO-639-1 code or null when ambiguous.
+// Hungarian-specific accents OR common HU stopwords -> "hu". Basic ASCII Latin -> "en".
+const HU_STOPWORDS = new Set([
+  "a","az","és","is","de","hogy","nem","van","vagy","egy","ez","ezt","ezek","azok",
+  "mi","mit","ki","kik","hol","mikor","miért","milyen","melyik","csak","már","még",
+  "majd","így","úgy","ott","itt","most","akkor","kell","lesz","volt","lenne","minden",
+  "valami","semmi","sok","kevés","nagy","kis","jó","rossz","új","régi","magyar","podcast",
+]);
+export function detectQueryLanguage(raw: string): "hu" | "en" | null {
+  const q = (raw || "").trim().toLowerCase();
+  if (!q) return null;
+  if (/[áéíóöőúüű]/.test(q)) return "hu";
+  const tokens = q.split(/[^a-z0-9]+/).filter((t) => t.length >= 2);
+  if (!tokens.length) return null;
+  for (const t of tokens) if (HU_STOPWORDS.has(t)) return "hu";
+  return /^[a-z0-9 ,.\-+&]+$/.test(q) ? "en" : null;
+}
 
 // High-confidence simple synonyms — small, safe expansion.
 const BUILTIN_SYNONYMS: Record<string, string[]> = {
