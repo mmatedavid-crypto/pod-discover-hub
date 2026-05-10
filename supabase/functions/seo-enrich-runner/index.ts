@@ -40,8 +40,8 @@ Deno.serve(async (req) => {
     const __guard = await checkBackgroundJobsAllowed(admin, "seo-enrich-runner");
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
-    const batch = Math.max(1, Math.min(50, Number(body.batch) || 30));
-    const concurrency = Math.max(1, Math.min(6, Number(body.concurrency) || 6));
+    const batch = Math.max(1, Math.min(100, Number(body.batch) || 60));
+    const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || 12));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
