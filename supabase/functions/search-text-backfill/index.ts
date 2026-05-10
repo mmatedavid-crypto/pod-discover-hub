@@ -28,10 +28,11 @@ Deno.serve(async (req) => {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    lastBatch = (data as number) ?? 0;
+    const result = data as { updated: number; done: boolean; cursor: string | null };
+    lastBatch = result?.updated ?? 0;
     totalUpdated += lastBatch;
     iterations += 1;
-    if (lastBatch === 0) break;
+    if (result?.done) break;
   }
 
   return new Response(JSON.stringify({
