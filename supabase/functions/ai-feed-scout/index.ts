@@ -69,9 +69,14 @@ async function firecrawlScrape(url: string): Promise<string | null> {
   return data?.data?.markdown || data?.markdown || null;
 }
 
-async function geminiExtract(markdown: string, sourceTag: string, max: number, model: string) {
+async function geminiExtract(markdown: string, sourceTag: string, langHint: string, max: number, model: string) {
   const apiKey = Deno.env.get("LOVABLE_API_KEY")!;
+  const langName = langHint === "hu" ? "Hungarian" : langHint === "en" ? "English" : langHint;
   const prompt = `You are an expert podcast curator. Given the markdown of a webpage that lists or recommends podcasts, extract distinct podcasts.
+
+STRICT LANGUAGE FILTER: Only return podcasts whose primary spoken language is ${langName} (${langHint}).
+Skip any show in another language even if it appears on the page (e.g. cross-listed international shows).
+If unsure about a podcast's language, omit it.
 
 Return at most ${max} of the highest-quality, real podcasts (skip generic mentions, ads, blog posts).
 For each podcast, provide:
