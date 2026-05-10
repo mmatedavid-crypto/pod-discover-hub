@@ -271,7 +271,7 @@ Deno.serve(async (req) => {
         feeds_received: validated.length,
         skipped_duplicates: validated.length - fresh.length,
         status: "processing",
-        notes: { sources: sourceStats, candidates: unique.length, pi_hits: piHits, pi_misses: piMisses },
+        notes: { sources: sourceStats, candidates: unique.length, pi_hits: piHits, pi_misses: piMisses, lang_mismatches: langMismatches },
         updated_at: new Date().toISOString(),
       }).eq("id", imp.id);
     }
