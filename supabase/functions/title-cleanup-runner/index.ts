@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const limit = Math.max(50, Math.min(2000, Number(body.limit) || 500));
     const force = !!body.force; // re-process even rows that already have display_title
-    const TIME_BUDGET_MS = 50_000;
+    const TIME_BUDGET_MS = Math.max(10_000, Math.min(110_000, Number(body.time_budget_ms) || 55_000));
     const startedAt = Date.now();
 
     // ---------- Podcasts ----------
