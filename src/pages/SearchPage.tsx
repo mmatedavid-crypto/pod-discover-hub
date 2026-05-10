@@ -309,6 +309,21 @@ export default function SearchPage() {
           </div>
         )}
 
+        {initial && !loading && (aiAnswer || aiAnswerLoading) && (
+          <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">AI overview</span>
+              {aiAnswerLoading && (
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
+              )}
+            </div>
+            <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+              {aiAnswer || <span className="text-muted-foreground">Synthesizing an overview from the top episodes…</span>}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-2">AI summary, may contain errors. Numbers reference the episodes below.</p>
+          </div>
+        )}
+
         {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (
           <div className="mt-8 space-y-10">
             <section>
