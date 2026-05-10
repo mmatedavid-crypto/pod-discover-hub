@@ -180,7 +180,6 @@ export default function SearchPage() {
         .slice(0, 18)
         .map((x) => x.p);
       setPodcasts(rankedPs);
-      setLoading(false);
 
       // Kick off streaming AI answer when we have enough top results.
       if (mapped.length >= 3) {
