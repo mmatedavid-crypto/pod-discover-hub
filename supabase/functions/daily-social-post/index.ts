@@ -169,7 +169,31 @@ type EpisodeRow = {
   } | null;
 };
 
-async function pickEpisodesWithin(admin: any, hours: number): Promise<EpisodeRow[]> {
+async function getRecentlyPostedIds(admin: any, days: number): Promise<{ episodes: Set<string>; podcasts: Set<string> }> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from("social_posts")
+    .select("episode_ids, podcast_ids")
+    .eq("platform", "x")
+    .in("status", ["success", "deleted"])
+    .gte("created_at", since);
+  const eps = new Set<string>();
+  const pods = new Set<string>();
+  if (!error && data) {
+    for (const row of data as { episode_ids: string[] | null; podcast_ids: string[] | null }[]) {
+      (row.episode_ids || []).forEach((id) => eps.add(id));
+      (row.podcast_ids || []).forEach((id) => pods.add(id));
+    }
+  }
+  return { episodes: eps, podcasts: pods };
+}
+
+async function pickEpisodesWithin(
+  admin: any,
+  hours: number,
+  excludeEpisodes: Set<string>,
+  excludePodcasts: Set<string>
+): Promise<EpisodeRow[]> {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const { data, error } = await admin
     .from("episodes")
@@ -181,7 +205,7 @@ async function pickEpisodesWithin(admin: any, hours: number): Promise<EpisodeRow
     .not("ai_summary", "is", null)
     .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
     .order("published_at", { ascending: false })
-    .limit(60);
+    .limit(80);
   if (error) throw new Error(`pickEpisodes: ${error.message}`);
   const rows = (data || []) as EpisodeRow[];
   const seen = new Set<string>();
@@ -191,6 +215,8 @@ async function pickEpisodesWithin(admin: any, hours: number): Promise<EpisodeRow
     const featured = r.podcasts?.featured;
     if (!(tier === "S" || tier === "A" || featured)) continue;
     if (seen.has(r.podcast_id)) continue;
+    if (excludeEpisodes.has(r.id)) continue;
+    if (excludePodcasts.has(r.podcast_id)) continue;
     seen.add(r.podcast_id);
     filtered.push(r);
     if (filtered.length >= 6) break;
@@ -199,9 +225,16 @@ async function pickEpisodesWithin(admin: any, hours: number): Promise<EpisodeRow
 }
 
 async function pickEpisodes(admin: any): Promise<EpisodeRow[]> {
+  // Exclude episodes & podcasts already tweeted in the last 30 days (no repeats).
+  const recent = await getRecentlyPostedIds(admin, 30);
   // Try 24h, then 48h, then 72h windows.
   for (const hours of [24, 48, 72]) {
-    const eps = await pickEpisodesWithin(admin, hours);
+    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, recent.podcasts);
+    if (eps.length >= 2) return eps;
+  }
+  // Fallback: relax podcast exclusion (still avoid same episode), widen to 96h.
+  for (const hours of [72, 96]) {
+    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, new Set());
     if (eps.length >= 2) return eps;
   }
   return [];
@@ -221,7 +254,7 @@ async function generatePost(episodes: EpisodeRow[]): Promise<{ text: string; mod
   });
 
   const sys =
-    "You write scroll-stopping clickbait posts for X/Twitter about new podcast episodes on Podiverzum. Style: punchy, curious, irresistible — like the best BuzzFeed/Morning Brew headlines but smarter. Open with a HOOK that creates a curiosity gap: a bold claim, a shocking number, a 'wait, what?' contradiction, or an open loop ('The one thing X won't tell you about Y...'). Tease the juiciest angle without spoiling the answer — make people NEED to click. Must be true to the episode (no fake/misleading claims). US English, conversational. NEVER use hashtags. NEVER use emojis. Keep it under 270 characters TOTAL including links (each shortened URL counts as 23 chars). Mention 2-3 episodes — for each, ONE razor-sharp tease + the podiverzum.com link. No intro, no outro, no commentary — just the post.";
+    "You write scroll-stopping clickbait posts for X/Twitter about new podcast episodes on Podiverzum. Style: punchy, curious, irresistible — like the best BuzzFeed/Morning Brew headlines but smarter. Open with a HOOK that creates a curiosity gap: a bold claim, a shocking number, a 'wait, what?' contradiction, or an open loop ('The one thing X won't tell you about Y...'). Tease the juiciest angle without spoiling the answer — make people NEED to click. For EACH episode, give a richer 1-2 sentence tease (not just a label) so the reader gets a real flavor of what's inside. Must be true to the episode (no fake/misleading claims). US English, conversational. NEVER use hashtags or '#' characters. NEVER use emojis. Aim for AROUND 270 characters TOTAL including links (each shortened URL counts as 23 chars) — use the space; do not stop at 150. Hard cap 280. Mention 2-3 episodes; each tease followed by its podiverzum.com link. No intro, no outro, no commentary — just the post.";
 
   const user =
     "Write today's post. Mention these new episodes (pick the 2-3 most interesting; weave them naturally; one short sentence each + the URL):\n\n" +
