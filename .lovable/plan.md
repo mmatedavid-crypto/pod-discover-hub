@@ -1,69 +1,78 @@
-## Search v2 — Implementation Plan
+# Bot prerender — `/` és `/podcast/{slug}` indító verzió
 
-A 298k epizódhoz a jelenlegi 8-OR PostgREST search nem skálázódik. Az `mem://plans/search-v2.md` szerint csinálom, négy lépésben. AI/embed backlog még nincs teljesen lecsapolva (12k AI pending), de mivel a sprint nem fut, most van időablak.
+## Cél
 
-### 1. Adatbázis: `search_text` materialized columns + indexek
+AI crawler-eknek (GPTBot, ClaudeBot, PerplexityBot, Google-Extended stb.) szerver oldalon legyártott, teljes HTML-t adni: `<title>`, meta description, canonical, **teljes JSON-LD** (PodcastSeries / PodcastEpisode / BreadcrumbList), H1, AI summary szöveg, kattintható linkek. A felhasználók továbbra is a normál SPA-t kapják — gyors, semmi sem változik nekik.
 
-**`episodes` táblán:**
-- `search_text` GENERATED column: `unaccent(coalesce(display_title,title) || ' ' || coalesce(ai_summary,'') || ' ' || coalesce(summary,'') || ' ' || array_to_string(topics||people||companies||ingredients||tickers, ' '))`
-- `search_tsv` tsvector GENERATED: `to_tsvector('simple', search_text)`
-- `description` kihagyva (87k HTML, külön epizódban kezeljük később)
-- 2 új index: `GIN search_tsv`, `GIN search_text gin_trgm_ops`
-- A 10 régi trgm/array indexet **csak az új live verifikálása után** dobjuk
+A csővezeték már áll (DNS proxied + Worker route-ok bekötve). Most a **tartalom** kerül bele.
 
-**`podcasts` táblán** ugyanez a pattern, de a category-vel együtt.
+## Hatókör — első iteráció
 
-`unaccent` extension engedélyezése (ha még nincs).
+Csak két útvonal típus, hogy gyorsan élesedjen és mérni tudjuk a hatást:
 
-### 2. Új RPC: `search_episodes_hybrid(q text, limit int, lang text)`
+1. `/` — homepage (trending + evergreen episode-ök listája)
+2. `/podcast/{slug}` — podcast részletes oldal (cím, leírás, AI summary, top 10 epizód)
 
-PostgreSQL function ami:
-- websearch_to_tsquery + ts_rank_cd a lexikai oldalon (top 100)
-- ha van `q_embedding` paraméter → cosine distance az `episode_embeddings`-en (top 100)
-- RRF (reciprocal rank fusion) a két listán → top 50
-- Visszaadja az episode-okat + lexical_rank + semantic_rank + rrf_score mezővel
-- EN-only filter (language IS NULL OR ILIKE 'en%')
+Második körben (külön kérésre): `/podcast/{slug}/{episode-slug}`, `/category/{slug}`, entitás hub-ok.
 
-### 3. Edge function `search-hybrid`
+## Architektúra
 
-- Bemenet: `{ q: string }`
-- Lépések:
-  1. Embedding generálás: Lovable AI `google/gemini-embedding-001` (768d) — ugyanaz mint az episode_embeddings
-  2. RPC hívás `search_episodes_hybrid(q, q_embedding, 50)`
-  3. AI re-rank: `google/gemini-2.5-flash-lite` a top 30-ra → top 15 sorrend + relevance label
-  4. Cache: `Deno.env`-ben memória LRU (10 perc TTL) — a re-ranker olcsó de queryk ismétlődnek
-- Output: ordered episodes + match_type per episode
+```text
+Bot UA?  ─yes─►  CF Worker  ──►  prerender-page edge fn  ──►  DB (RPC)
+                    │              ↓ HTML string
+                    ◄────── HTML + JSON-LD
+Human ──no──►  Worker passthrough  ──►  Lovable hosting (SPA)
+```
 
-### 4. Frontend `SearchPage.tsx`
+## Lépések
 
-- A `searchEpisodes()` helyett `supabase.functions.invoke("search-hybrid", { body: { q } })`
-- Régi `src/lib/search.ts` megmarad **fallback**-ként 1 hétig (ha edge function fail/timeout)
-- Loading state + "AI ranking..." badge ha re-rank folyik
-- Match type badge továbbra is megjelenik
+### 1. Edge function `prerender-page` (Supabase)
 
-### 5. Synonyms + Hungarian
+- Bemenet: `?path=/podcast/some-slug` (query param)
+- Logika:
+  - parse path → `{ kind: 'home' | 'podcast', slug? }`
+  - `home`: olvassa `mv_homepage_feed` + `mv_homepage_evergreen` MV-eket (top 30 + 10)
+  - `podcast`: `podcasts` row by slug (csak EN, healthy RSS) + top 10 episode by `published_at`
+  - HTML template (template literal, semmi React) — egyetlen `<html>` string visszaad
+- Tartalom a HTML-ben:
+  - `<title>` + meta description (a `seo_title` / `seo_description` mezőkből, vagy fallback a `title` / `summary`-ből)
+  - `<link rel="canonical">` mindig `https://podiverzum.com{path}`
+  - JSON-LD: WebSite + Organization homepage-en; PodcastSeries + BreadcrumbList podcast oldalon, `hasPart` listában az epizódok
+  - `<h1>`, AI summary `<p>`, epizód lista `<a href="...">` linkekkel
+  - `<noscript>` fallback link
+- Headers: `Cache-Control: public, max-age=3600`, `Vary: User-Agent`, `X-Prerendered: 1`, `Content-Type: text/html; charset=utf-8`
+- `verify_jwt = false` (publikus)
 
-- A meglévő `search_synonyms` táblát beolvassuk az edge function-ban → query expansion az embedding generálás ELŐTT
-- Az `unaccent` az indexen + a query oldalon is fut → `matchát` → `matchat` matchel
+### 2. Cloudflare Worker (`podiverzum-bot-prerender`) frissítése
 
-### Mit NEM csinálunk most
-- HU stemming/ragozás kezelés (HU launch előtti task)
-- Description GIN index retry (külön epizód, idle window)
-- Régi indexek dropolása (1 hét fallback után)
-- Query log driven synonym tuning (ongoing)
+A jelenleg passthrough Worker helyett:
 
-### Kockázatok
-- A `search_tsv` GENERATED column létrehozása 298k soron lock-olja a táblát ~1-2 percig. **Időpont kérdés**: most vagy éjszaka?
-- Az `embedding-001` API kvóta: minden user query 1 embedding call. Ha sok forgalom van, a re-rank cache fontos.
-- AI re-ranker latency ~1.5-2s. Streamelnünk kell-e a lexical eredményeket előre, majd re-rank után átrendezni? — első verzióban nem, blokkoló.
+- Bot UA detektor (regex listán): `GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|PerplexityBot|Google-Extended|Applebot-Extended|Bytespider|Meta-ExternalAgent|DuckAssistBot|CCBot|YouBot|Diffbot|Googlebot|Bingbot`
+- Path filter: csak `/` és `/^\/podcast\/[^\/]+$/` — minden más passthrough (még bot UA-val is)
+- Ha bot + támogatott path:
+  1. CF Cache API lookup (kulcs: `path + UA-osztály`)
+  2. Cache miss → `fetch('https://<project>.functions.supabase.co/prerender-page?path=...')`
+  3. Cache 1h-ra, `X-Prerender-Cache: HIT|MISS` header
+- Ha nem bot vagy nem támogatott path: `fetch(originalRequest)` (passthrough)
+- Hibatűrés: ha a prerender 5xx-et ad vagy timeout (>3s), passthrough az SPA-ra (sose törjük az oldalt)
 
-### Sorrend
-1. Migráció: `unaccent` + `search_text` + `search_tsv` + indexek (episodes + podcasts)
-2. RPC `search_episodes_hybrid`
-3. Edge function `search-hybrid` (cache + re-rank)
-4. Frontend switch + fallback
-5. QA: `mem://qa/search-issues.md` benchmark futtatás
+Worker upload a már meglévő API tokennel megy (Cloudflare API).
 
-**Kérdések indítás előtt:**
-- Most futtassam a migrációt vagy várjunk éjszakára? (298k row, lock ~1-2 perc)
-- Az AI re-rankert bekapcsoljuk indítástól, vagy első verzióban csak hybrid lexical+semantic, majd re-rank külön kapcsolóval?
+### 3. Smoke teszt
+
+`curl` szkripttel verifikáljuk:
+- bot UA + `/` → `X-Prerendered: 1`, JSON-LD jelen, megfelelő `<title>`
+- bot UA + `/podcast/<létező-slug>` → JSON-LD `@type: PodcastSeries`
+- bot UA + `/search?q=...` → passthrough (nincs `X-Prerendered`)
+- normál Chrome UA + `/` → passthrough, normál SPA HTML
+- második hívás bot UA-val → `X-Prerender-Cache: HIT`
+
+## Ami NEM ez a plan része (későbbre)
+
+- Episode detail, category, entity hub oldalak (külön iteráció — minta kell hozzá az első kettőből)
+- `bot_visits` logging tábla (egyelőre csak a Worker logokat nézzük)
+- Edge cache tisztítás új epizód érkezésekor (1h TTL bőven elég kezdetnek)
+
+## Becsült kockázat
+
+Alacsony — a Worker fail-safe (hiba esetén passthrough), és csak bot UA-knak változik valami. Felhasználói forgalom 0 hatás.
