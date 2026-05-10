@@ -74,18 +74,14 @@ export default function SearchPage() {
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
 
     setLoading(true);
+    let cancelled = false;
     (async () => {
       let mapped: EpisodeLite[] = [];
       let usedFallback = false;
       let semantic = false;
       let reranked = false;
 
-      // Search v2: hybrid lexical + semantic + AI re-rank via edge function.
-      try {
-        const { data, error } = await supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: true, lang: "en" },
-        });
-        if (error) throw error;
+      const applyHybridResponse = (data: any) => {
         let eps = (data?.episodes || []) as any[];
         if (catParam) eps = eps.filter((e) => (e.podcasts?.category || "") === catParam);
         if (sortParam === "newest") {
@@ -93,14 +89,44 @@ export default function SearchPage() {
         } else if (sortParam === "rank") {
           eps.sort((a, b) => episodeScore(b) - episodeScore(a));
         }
-        mapped = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "matched result", why_matched: e.why_matched || null }));
-        semantic = !!data?.semantic;
-        reranked = !!data?.reranked;
+        const next = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "matched result", why_matched: e.why_matched || null }));
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
+        return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked };
+      };
+
+      // Search v2: hybrid lexical + semantic. Two-phase for fast first paint:
+      //   Phase 1: rerank=false → ~1.5-2s, render results.
+      //   Phase 2: rerank=true → cache hit instant, else ~3.5s, merge why_matched chips.
+      try {
+        const phase1 = await supabase.functions.invoke("search-hybrid", {
+          body: { q: initial, limit: 80, rerank: false, lang: "en" },
+        });
+        if (phase1.error) throw phase1.error;
+        if (cancelled) return;
+        const r1 = applyHybridResponse(phase1.data);
+        mapped = r1.mapped;
+        semantic = r1.semantic;
+        setEpisodes(mapped);
+        setSemanticUsed(semantic);
+        setLoading(false);
+
+        // Phase 2: rerank (with cache). Fire-and-forget update.
+        supabase.functions.invoke("search-hybrid", {
+          body: { q: initial, limit: 80, rerank: true, lang: "en" },
+        }).then(({ data: data2, error: err2 }) => {
+          if (cancelled || err2 || !data2) return;
+          const r2 = applyHybridResponse(data2);
+          mapped = r2.mapped;
+          reranked = r2.reranked;
+          setEpisodes(mapped);
+          setSemanticUsed(r2.semantic || r2.reranked);
+        }, () => { /* ignore */ });
       } catch (err) {
+        if (cancelled) return;
         console.warn("search-hybrid failed, falling back to legacy", err);
         usedFallback = true;
         const result = await searchEpisodes({ rawQuery: initial, scope: "all", limit: 80 });
+        if (cancelled) return;
         if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
         let chosen = result.all;
         if (catParam) chosen = chosen.filter((x) => (x.e.podcasts?.category || "") === catParam);
@@ -114,6 +140,9 @@ export default function SearchPage() {
         semantic = result.semanticUsed;
         usedFallback = result.fallbackUsed || usedFallback;
         setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
+        setEpisodes(mapped);
+        setSemanticUsed(semantic);
+        setLoading(false);
       }
 
       setEpisodes(mapped);
