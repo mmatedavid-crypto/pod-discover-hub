@@ -103,7 +103,7 @@ export function EpisodeCard({
           )}
         </div>
         {e.why_matched && (
-          <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-foreground/80 leading-snug">
+          <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/40 bg-primary/10 text-foreground leading-snug">
             <span className="font-semibold text-primary mr-1">Why matched:</span>
             {e.why_matched}
           </p>
