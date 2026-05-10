@@ -25,7 +25,10 @@ function isPrerenderablePath(pathname) {
 }
 
 async function passthrough(request) {
-  return fetch(request);
+  const res = await fetch(request);
+  const headers = new Headers(res.headers);
+  headers.set("X-Worker", "podiverzum-bot-prerender");
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 
 async function fetchPrerender(pathname, controller) {
