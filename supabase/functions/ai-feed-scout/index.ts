@@ -1,0 +1,261 @@
+// AI podcast scout: Firecrawl scrape → Gemini extract → PodcastIndex validate → pi_feed_staging.
+// Body: { sources?: string[], lang?: 'en'|'hu'|'all', model?: string, max_per_source?: number, dry_run?: boolean }
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// Curated default seeds. Public, scrape-friendly pages with podcast names.
+// Mix of EN authority lists + HU recommendations.
+const DEFAULT_SOURCES: { url: string; tag: string }[] = [
+  { url: "https://podcasts.apple.com/us/charts", tag: "apple-us-charts" },
+  { url: "https://podcasts.apple.com/gb/charts", tag: "apple-gb-charts" },
+  { url: "https://podcasts.apple.com/hu/charts", tag: "apple-hu-charts" },
+  { url: "https://en.wikipedia.org/wiki/List_of_most-downloaded_podcasts", tag: "wiki-top" },
+  { url: "https://www.theguardian.com/tv-and-radio/series/the-guardians-50-best-podcasts-of-2024", tag: "guardian-2024" },
+  { url: "https://www.nytimes.com/interactive/2024/arts/best-podcasts.html", tag: "nyt-2024" },
+  { url: "https://www.reddit.com/r/podcasts/top/?t=year", tag: "reddit-podcasts-year" },
+  { url: "https://www.reddit.com/r/podcastrecommendations/top/?t=year", tag: "reddit-recs-year" },
+  { url: "https://hungarianpodcasts.com/", tag: "hu-directory" },
+];
+
+async function sha1Hex(input: string) {
+  const buf = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-1", buf);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function piSearch(term: string) {
+  const apiKey = Deno.env.get("PODCAST_INDEX_API_KEY")!;
+  const apiSecret = Deno.env.get("PODCAST_INDEX_API_SECRET")!;
+  const date = Math.floor(Date.now() / 1000).toString();
+  const auth = await sha1Hex(apiKey + apiSecret + date);
+  const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(term)}&max=3`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Podiverzum/1.0 ai-scout",
+      "X-Auth-Date": date,
+      "X-Auth-Key": apiKey,
+      "Authorization": auth,
+    },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function firecrawlScrape(url: string): Promise<string | null> {
+  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!apiKey) throw new Error("FIRECRAWL_API_KEY not configured");
+  const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
+  });
+  if (!res.ok) {
+    console.warn(`firecrawl ${url} -> ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    return null;
+  }
+  const data = await res.json();
+  return data?.data?.markdown || data?.markdown || null;
+}
+
+async function geminiExtract(markdown: string, sourceTag: string, max: number, model: string) {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY")!;
+  const prompt = `You are an expert podcast curator. Given the markdown of a webpage that lists or recommends podcasts, extract distinct podcasts.
+
+Return at most ${max} of the highest-quality, real podcasts (skip generic mentions, ads, blog posts).
+For each podcast, provide:
+- title: exact show name
+- author: host or publisher (best guess if implied)
+- reason: 1 short sentence why this is a notable podcast (from the page context)
+
+Source tag: ${sourceTag}
+
+PAGE MARKDOWN (truncated):
+${markdown.slice(0, 50000)}`;
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      tools: [{
+        type: "function",
+        function: {
+          name: "submit_podcasts",
+          description: "Submit the extracted podcast list",
+          parameters: {
+            type: "object",
+            properties: {
+              podcasts: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    author: { type: "string" },
+                    reason: { type: "string" },
+                  },
+                  required: ["title"],
+                },
+              },
+            },
+            required: ["podcasts"],
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "submit_podcasts" } },
+    }),
+  });
+  if (!res.ok) {
+    console.warn(`gemini extract failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+    return [];
+  }
+  const data = await res.json();
+  const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  if (!args) return [];
+  try {
+    const parsed = typeof args === "string" ? JSON.parse(args) : args;
+    return Array.isArray(parsed.podcasts) ? parsed.podcasts : [];
+  } catch {
+    return [];
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const t0 = Date.now();
+  try {
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const sources: { url: string; tag: string }[] = Array.isArray(body.sources) && body.sources.length
+      ? body.sources.map((u: string) => ({ url: u, tag: new URL(u).hostname }))
+      : DEFAULT_SOURCES;
+    const model = body.model || "google/gemini-2.5-flash";
+    const maxPerSource = Math.max(5, Math.min(50, Number(body.max_per_source) || 25));
+    const dryRun = !!body.dry_run;
+
+    const candidates: { title: string; author?: string; reason?: string; sourceTag: string }[] = [];
+    const sourceStats: Record<string, { scraped: boolean; extracted: number }> = {};
+
+    for (const src of sources) {
+      const md = await firecrawlScrape(src.url);
+      if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0 }; continue; }
+      const extracted = await geminiExtract(md, src.tag, maxPerSource, model);
+      sourceStats[src.tag] = { scraped: true, extracted: extracted.length };
+      for (const p of extracted) {
+        if (p?.title) candidates.push({ title: String(p.title).trim(), author: p.author, reason: p.reason, sourceTag: src.tag });
+      }
+    }
+
+    // Dedupe candidates by title+author
+    const seen = new Set<string>();
+    const unique = candidates.filter((c) => {
+      const key = `${c.title.toLowerCase()}|${(c.author || "").toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Validate via PodcastIndex search
+    const validated: any[] = [];
+    let piHits = 0, piMisses = 0;
+    for (const c of unique) {
+      const term = c.author ? `${c.title} ${c.author}` : c.title;
+      const result = await piSearch(term);
+      const top = result?.feeds?.[0];
+      if (!top || !top.url) { piMisses++; continue; }
+      // Loose match: title token overlap
+      const tNorm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const candTokens = new Set(tNorm(c.title).split(" ").filter((w) => w.length > 2));
+      const piTokens = new Set(tNorm(top.title || "").split(" ").filter((w) => w.length > 2));
+      let overlap = 0;
+      for (const t of candTokens) if (piTokens.has(t)) overlap++;
+      const score = candTokens.size ? overlap / candTokens.size : 0;
+      if (score < 0.4) { piMisses++; continue; }
+      piHits++;
+      validated.push({ feed: top, candidate: c });
+    }
+
+    if (dryRun) {
+      return new Response(JSON.stringify({
+        ok: true, dry_run: true, sources: sourceStats,
+        candidates: unique.length, pi_hits: piHits, pi_misses: piMisses,
+        sample: validated.slice(0, 10).map((v) => ({ title: v.feed.title, url: v.feed.url, source: v.candidate.sourceTag })),
+        elapsed_ms: Date.now() - t0,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Skip rows already in podcasts or staging
+    const urls = validated.map((v) => v.feed.url);
+    const exSet = new Set<string>();
+    for (let i = 0; i < urls.length; i += 200) {
+      const slice = urls.slice(i, i + 200);
+      const [{ data: p }, { data: s }] = await Promise.all([
+        supabase.from("podcasts").select("rss_url").in("rss_url", slice),
+        supabase.from("pi_feed_staging").select("rss_url").in("rss_url", slice),
+      ]);
+      (p || []).forEach((r: any) => exSet.add(r.rss_url));
+      (s || []).forEach((r: any) => exSet.add(r.rss_url));
+    }
+    const fresh = validated.filter((v) => !exSet.has(v.feed.url));
+
+    let inserted = 0, importId: string | null = null;
+    if (fresh.length > 0) {
+      const { data: imp, error: impErr } = await supabase.from("pi_dump_imports")
+        .insert({ source: "ai_scout", status: "ingesting", snapshot_date: new Date().toISOString().slice(0, 10) })
+        .select("id").single();
+      if (impErr) throw impErr;
+      importId = imp.id;
+
+      const rows = fresh.map((v) => ({
+        import_id: imp.id,
+        pi_id: v.feed.id ?? null,
+        rss_url: v.feed.url,
+        title: v.feed.title || v.candidate.title || null,
+        website_url: v.feed.link || null,
+        image_url: v.feed.image || v.feed.artwork || null,
+        description: v.feed.description || v.candidate.reason || null,
+        language: v.feed.language || null,
+        author: v.feed.author || v.feed.ownerName || v.candidate.author || null,
+        episode_count: v.feed.episodeCount ?? null,
+        newest_item_at: v.feed.newestItemPublishTime ? new Date(v.feed.newestItemPublishTime * 1000).toISOString() : null,
+        last_http_status: v.feed.lastHttpStatus ?? null,
+        dead: v.feed.dead === 1,
+      }));
+
+      const { error: upErr, count } = await supabase
+        .from("pi_feed_staging")
+        .upsert(rows, { onConflict: "rss_url", ignoreDuplicates: true, count: "exact" });
+      if (upErr) throw upErr;
+      inserted = count ?? rows.length;
+
+      await supabase.from("pi_dump_imports").update({
+        feeds_received: validated.length,
+        skipped_duplicates: validated.length - fresh.length,
+        status: "processing",
+        notes: { sources: sourceStats, candidates: unique.length, pi_hits: piHits, pi_misses: piMisses },
+        updated_at: new Date().toISOString(),
+      }).eq("id", imp.id);
+    }
+
+    return new Response(JSON.stringify({
+      ok: true,
+      sources: sourceStats,
+      candidates: unique.length,
+      pi_hits: piHits,
+      pi_misses: piMisses,
+      already_known: validated.length - fresh.length,
+      inserted,
+      import_id: importId,
+      elapsed_ms: Date.now() - t0,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e) {
+    console.error("ai-feed-scout error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+});
