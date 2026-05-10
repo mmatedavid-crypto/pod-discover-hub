@@ -3,7 +3,25 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export const EPISODE_SELECT =
-  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status)";
+  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language)";
+
+// Detect a query's likely language. Returns ISO-639-1 code or null when ambiguous.
+// Hungarian-specific accents OR common HU stopwords -> "hu". Basic ASCII Latin -> "en".
+const HU_STOPWORDS = new Set([
+  "a","az","és","is","de","hogy","nem","van","vagy","egy","ez","ezt","ezek","azok",
+  "mi","mit","ki","kik","hol","mikor","miért","milyen","melyik","csak","már","még",
+  "majd","így","úgy","ott","itt","most","akkor","kell","lesz","volt","lenne","minden",
+  "valami","semmi","sok","kevés","nagy","kis","jó","rossz","új","régi","magyar","podcast",
+]);
+export function detectQueryLanguage(raw: string): "hu" | "en" | null {
+  const q = (raw || "").trim().toLowerCase();
+  if (!q) return null;
+  if (/[áéíóöőúüű]/.test(q)) return "hu";
+  const tokens = q.split(/[^a-z0-9]+/).filter((t) => t.length >= 2);
+  if (!tokens.length) return null;
+  for (const t of tokens) if (HU_STOPWORDS.has(t)) return "hu";
+  return /^[a-z0-9 ,.\-+&]+$/.test(q) ? "en" : null;
+}
 
 // High-confidence simple synonyms — small, safe expansion.
 const BUILTIN_SYNONYMS: Record<string, string[]> = {
@@ -366,16 +384,19 @@ function scoreEpisode(
   };
 }
 
-async function queryByGroups(termGroups: string[][]): Promise<any[]> {
+async function queryByGroups(termGroups: string[][], lang?: "hu" | "en" | null): Promise<any[]> {
   let q = supabase.from("episodes").select(EPISODE_SELECT).limit(300);
   termGroups.forEach((variants) => { q = q.or(orFilterForVariants(variants)); });
+  if (lang) q = q.like("podcasts.language", `${lang}%`);
   const { data } = await q;
   return data || [];
 }
 
-async function queryPerTerm(terms: string[]): Promise<any[]> {
+async function queryPerTerm(terms: string[], lang?: "hu" | "en" | null): Promise<any[]> {
   const results = await Promise.all(terms.map(async (t) => {
-    const { data } = await supabase.from("episodes").select(EPISODE_SELECT).or(orFilterForVariants([t])).limit(150);
+    let q = supabase.from("episodes").select(EPISODE_SELECT).or(orFilterForVariants([t])).limit(150);
+    if (lang) q = q.like("podcasts.language", `${lang}%`);
+    const { data } = await q;
     return data || [];
   }));
   const map = new Map<string, any>();
@@ -400,7 +421,9 @@ export async function searchEpisodes(opts: {
   scope?: SearchScope;             // default "all"
   categoryName?: string | null;    // when present and scope="category", category-aware grouping
   limit?: number;
-}): Promise<SearchResult> {
+  /** Override detected query language. Pass null to disable language filtering. */
+  language?: "hu" | "en" | null;
+}): Promise<SearchResult & { detectedLanguage: "hu" | "en" | null }> {
   const { rawQuery } = opts;
   const scope: SearchScope = opts.scope || "all";
   const categoryName = opts.categoryName || null;
@@ -410,7 +433,16 @@ export async function searchEpisodes(opts: {
   const effective = norm.normalized || rawQuery;
   const suggestion = norm.changed ? norm.normalized : null;
   const { terms, strict } = parseQuery(effective);
-  const empty: SearchResult = { inCategory: [], outsideCategory: [], all: [], semanticUsed: false, fallbackUsed: false, suggestion, termsForHighlight: terms };
+  // Language gate: keep HU and EN podcast pools separate. Detect from raw query
+  // (so accents survive normalization). Caller may override via opts.language.
+  const detectedLanguage = opts.language === null
+    ? null
+    : (opts.language ?? detectQueryLanguage(rawQuery));
+  const empty: SearchResult & { detectedLanguage: typeof detectedLanguage } = {
+    inCategory: [], outsideCategory: [], all: [],
+    semanticUsed: false, fallbackUsed: false, suggestion, termsForHighlight: terms,
+    detectedLanguage,
+  };
   if (!terms.length) return empty;
 
   const lcQ = effective.toLowerCase();
@@ -422,14 +454,14 @@ export async function searchEpisodes(opts: {
   const exactGroups = terms.map(expandSimple);
   if (intentAliases.length) intentAliases.forEach((a) => { if (!terms.some((t) => t.toLowerCase() === a.toLowerCase())) exactGroups.push([a]); });
 
-  let raw = await queryByGroups(exactGroups);
+  let raw = await queryByGroups(exactGroups, detectedLanguage);
   let fallbackUsed = false;
   if (raw.length === 0) {
-    raw = await queryPerTerm([...terms, ...intentAliases]);
+    raw = await queryPerTerm([...terms, ...intentAliases], detectedLanguage);
     if (raw.length > 0) fallbackUsed = true;
   } else if (terms.length >= 3 && raw.length < 8) {
     // Broaden candidate pool so the 2-of-N partial fallback has rows to score against.
-    const extra = await queryPerTerm([...terms, ...intentAliases]);
+    const extra = await queryPerTerm([...terms, ...intentAliases], detectedLanguage);
     if (extra.length) {
       const map = new Map<string, any>();
       raw.forEach((e: any) => map.set(e.id, e));
@@ -445,7 +477,7 @@ export async function searchEpisodes(opts: {
   const isSingleBroadConcept = terms.length === 1 && !!SEMANTIC_MAP[terms[0].toLowerCase()];
   if (semanticTerms.length && (raw.length < lowResultThreshold || isSingleBroadConcept)) {
     const semGroups = [semanticTerms]; // one OR group of related ideas
-    const semRaw = await queryByGroups(semGroups);
+    const semRaw = await queryByGroups(semGroups, detectedLanguage);
     if (semRaw.length) {
       const map = new Map<string, any>();
       raw.forEach((e: any) => map.set(e.id, e));
@@ -574,10 +606,10 @@ export async function searchEpisodes(opts: {
         (x.matchType === "exact_title" || x.matchType === "title" || x.matchType === "entity"),
     );
     const outside = diversify(dedupe(outsideRaw)).slice(0, 8);
-    return { inCategory: inCat, outsideCategory: outside, all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
+    return { inCategory: inCat, outsideCategory: outside, all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms, detectedLanguage };
   }
 
-  return { inCategory: [], outsideCategory: [], all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms };
+  return { inCategory: [], outsideCategory: [], all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms, detectedLanguage };
 }
 
 export const MATCH_LABEL: Record<MatchType, string> = {

@@ -39,18 +39,45 @@ export const EPISODE_SEO_TOOL = {
 export const SYSTEM_PROMPT =
   "You write factual SEO metadata for podcast directory pages. You ONLY use the metadata supplied. " +
   "You never invent guests, hosts, claims, statistics, quotes, topics, or episode contents. " +
-  "If the input is sparse, return short, generic, accurate text. No emojis. No clickbait. No marketing fluff.";
+  "If the input is sparse, return short, generic, accurate text. No emojis. No clickbait. No marketing fluff. " +
+  "CRITICAL LANGUAGE RULE: write ALL output fields (seo_title, seo_description, ai_summary) in the same language as the source podcast/episode metadata. " +
+  "If the input is Hungarian, write in Hungarian. If English, write in English. Never translate or mix languages.";
 
-export function podcastUserPrompt(p: { display_title?: string|null; title: string; description?: string|null; category?: string|null }) {
-  const name = p.display_title || p.title;
-  const desc = (p.description || "").replace(/\s+/g, " ").trim().slice(0, 1500);
-  return `Podcast: ${name}\nCategory: ${p.category || "(unknown)"}\nDescription: ${desc || "(none)"}\n\nWrite SEO title and description.`;
+// Normalize a BCP-47 / ISO language string to a short ISO-639-1 code ("en-us" -> "en").
+function langCode(l?: string | null): string | null {
+  if (!l) return null;
+  return String(l).toLowerCase().split(/[-_]/)[0] || null;
+}
+function langName(code: string | null): string {
+  switch (code) {
+    case "hu": return "Hungarian (magyar)";
+    case "en": return "English";
+    case "de": return "German (Deutsch)";
+    case "es": return "Spanish (español)";
+    case "fr": return "French (français)";
+    case "it": return "Italian (italiano)";
+    case "pt": return "Portuguese (português)";
+    case "pl": return "Polish (polski)";
+    case "ro": return "Romanian (română)";
+    case "sk": return "Slovak (slovenčina)";
+    default: return code || "the source language";
+  }
 }
 
-export function episodeUserPrompt(e: { display_title?: string|null; title: string; description?: string|null }, podName: string) {
+export function podcastUserPrompt(p: { display_title?: string|null; title: string; description?: string|null; category?: string|null; language?: string|null }) {
+  const name = p.display_title || p.title;
+  const desc = (p.description || "").replace(/\s+/g, " ").trim().slice(0, 1500);
+  const code = langCode(p.language);
+  const langLine = code ? `Output language: ${langName(code)} (${code}). Write seo_title and seo_description in this language only.\n` : "";
+  return `${langLine}Podcast: ${name}\nCategory: ${p.category || "(unknown)"}\nDescription: ${desc || "(none)"}\n\nWrite SEO title and description.`;
+}
+
+export function episodeUserPrompt(e: { display_title?: string|null; title: string; description?: string|null; language?: string|null }, podName: string, podLanguage?: string | null) {
   const name = e.display_title || e.title;
   const desc = (e.description || "").replace(/\s+/g, " ").trim().slice(0, 2500);
-  return `Show: ${podName}\nEpisode: ${name}\nDescription: ${desc || "(none)"}\n\nWrite SEO title, SEO description, and ai_summary.`;
+  const code = langCode(e.language) || langCode(podLanguage);
+  const langLine = code ? `Output language: ${langName(code)} (${code}). Write seo_title, seo_description, and ai_summary in this language only.\n` : "";
+  return `${langLine}Show: ${podName}\nEpisode: ${name}\nDescription: ${desc || "(none)"}\n\nWrite SEO title, SEO description, and ai_summary.`;
 }
 
 // crude stable hash for input dedup
