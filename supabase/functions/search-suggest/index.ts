@@ -91,10 +91,12 @@ Deno.serve(async (req) => {
     const suggestions = await aiSuggest(prefix, seed);
     const dedup = Array.from(new Set(suggestions)).slice(0, 5);
 
-    // Persist (fire and forget)
-    supa.from("search_suggest_cache").upsert({
-      prefix, suggestions: dedup, updated_at: new Date().toISOString(),
-    }).then(() => {}, (e) => console.warn("cache write", e));
+    // Persist (fire and forget) — only cache non-empty results.
+    if (dedup.length > 0) {
+      supa.from("search_suggest_cache").upsert({
+        prefix, suggestions: dedup, updated_at: new Date().toISOString(),
+      }).then(() => {}, (e) => console.warn("cache write", e));
+    }
 
     return new Response(JSON.stringify({ suggestions: dedup, cached: false }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
