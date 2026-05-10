@@ -175,7 +175,18 @@ const Index = () => {
       (grouped[cat] ||= []).push(e);
     });
     Object.keys(grouped).forEach((k) => {
-      grouped[k] = grouped[k].sort(compareByScore).slice(0, 6);
+      const sorted = grouped[k].sort(compareByScore);
+      // Same per-podcast cap as trending: max 2 per show within a category strip.
+      const counts = new Map<string, number>();
+      const primary: EpisodeLite[] = [];
+      const overflow: EpisodeLite[] = [];
+      for (const e of sorted) {
+        const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
+        const n = counts.get(key) || 0;
+        if (n < 2) { primary.push(e); counts.set(key, n + 1); }
+        else overflow.push(e);
+      }
+      grouped[k] = [...primary, ...overflow].slice(0, 6);
     });
     return grouped;
   }, [allEps]);
