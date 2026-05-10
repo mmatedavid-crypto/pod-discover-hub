@@ -15,9 +15,11 @@ export default function NewPodcastsPage() {
     });
     supabase
       .from("podcasts")
-      .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at")
+      .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at,language")
       .not("rss_status", "in", "(failed,inactive)")
       .not("rank_label", "eq", "E")
+      // EN-only site: hide non-English shows. NULL = treated as EN (legacy untagged feeds).
+      .or("language.is.null,language.ilike.en%")
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(60)
       .then(({ data }) => {
