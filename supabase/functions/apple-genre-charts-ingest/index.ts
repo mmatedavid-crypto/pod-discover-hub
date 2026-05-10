@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
 
     // 3) Skip iTunes IDs we already have in podcasts (by source 'apple_*' or rss_url match later)
     //    Pre-filter against pi_feed_staging.pi_id and podcasts source not feasible -> resolve via PI then dedup by rss_url.
-    const CONCURRENCY = 4;
+    const CONCURRENCY = 10;
     let piHits = 0, piMisses = 0;
     const validated: { feed: any; itunesId: string; sources: string[] }[] = [];
     for (let i = 0; i < uniqueIds.length; i += CONCURRENCY) {
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
       for (const r of results) {
         if (r.feed) { piHits++; validated.push(r); } else { piMisses++; }
       }
-      await new Promise((r) => setTimeout(r, 60));
+      await new Promise((r) => setTimeout(r, 30));
     }
 
     // 4) Dedup against podcasts + pi_feed_staging via rss_url
