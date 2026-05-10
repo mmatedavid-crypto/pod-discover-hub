@@ -233,7 +233,7 @@ async function generatePost(episodes: EpisodeRow[]): Promise<{ text: string; mod
       .join("\n\n") +
     "\n\nReturn ONLY the post text, no quotes, no preamble.";
 
-  const model = "google/gemini-2.5-flash";
+  const model = "google/gemini-2.5-flash-lite";
   const res = await fetch(LOVABLE_AI, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -253,7 +253,16 @@ async function generatePost(episodes: EpisodeRow[]): Promise<{ text: string; mod
   const text = (j?.choices?.[0]?.message?.content || "").trim();
   if (!text) throw new Error("Empty AI response");
   // Light cleanup: strip surrounding quotes if any
-  const cleaned = text.replace(/^["']|["']$/g, "").trim();
+  let cleaned = text.replace(/^["']|["']$/g, "").trim();
+  // Defensive sanitizer: AI sometimes ignores instructions and generates hashtags/emojis.
+  // X returns 403 for malformed hashtags like "#1" (hashtags must start with a letter).
+  // Strip all '#' characters and emoji ranges.
+  cleaned = cleaned
+    .replace(/#/g, "")
+    // Strip common emoji & pictographic blocks
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   return { text: cleaned, model };
 }
 
