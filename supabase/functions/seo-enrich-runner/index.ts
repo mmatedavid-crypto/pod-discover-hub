@@ -159,16 +159,30 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Parallel pool: process `concurrency` jobs at a time (Gemini calls are I/O bound).
-    let i = 0;
-    const workers = Array.from({ length: concurrency }, async () => {
-      while (true) {
-        const idx = i++;
-        if (idx >= jobs.length || stop) return;
-        await runJob(jobs[idx]);
-      }
-    });
-    await Promise.all(workers);
+    // Drain loop: keep claiming new batches until time/budget runs out or queue is empty.
+    // Eliminates the ~93% idle-time-per-cron-tick problem when each batch finishes in 3-8s.
+    while (!stop) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) break;
+      if (spend >= dailyBudget) break;
+
+      const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: batch, _lock_seconds: 120 });
+      if (cErr) throw cErr;
+      const jobs = (claimed || []) as any[];
+      if (!jobs.length) break;
+      total_claimed += jobs.length;
+      drain_loops++;
+
+      let i = 0;
+      const workers = Array.from({ length: concurrency }, async () => {
+        while (true) {
+          const idx = i++;
+          if (idx >= jobs.length || stop) return;
+          if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) { stop = true; return; }
+          await runJob(jobs[idx]);
+        }
+      });
+      await Promise.all(workers);
+    }
 
     // Update daily spend
     await admin.from("ai_spend_daily").upsert({
