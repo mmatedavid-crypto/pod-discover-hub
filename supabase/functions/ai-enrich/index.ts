@@ -66,8 +66,11 @@ Deno.serve(async (req) => {
     }
 
     if (type === "episode") {
-      const { data: ep } = await supabase.from("episodes").select("*, podcasts(title)").eq("id", id).single();
+      const { data: ep } = await supabase.from("episodes").select("*, podcasts(title,language)").eq("id", id).single();
       if (!ep) throw new Error("episode not found");
+      const langRaw = ((ep as any).podcasts?.language) || "en";
+      const langCode = String(langRaw).toLowerCase().split(/[-_]/)[0] || "en";
+      const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
       const tools = [{
         type: "function",
         function: {
@@ -76,7 +79,7 @@ Deno.serve(async (req) => {
           parameters: {
             type: "object",
             properties: {
-              summary: { type: "string", description: "2-sentence neutral summary, max 280 chars." },
+              summary: { type: "string", description: `2-sentence neutral summary in ${langName}, max 280 chars.` },
               topics: { type: "array", items: { type: "string" } },
               people: { type: "array", items: { type: "string" } },
               companies: { type: "array", items: { type: "string" } },
@@ -90,7 +93,7 @@ Deno.serve(async (req) => {
       }];
       const j = await callAI(
         [
-          { role: "system", content: "You analyze podcast episode metadata and extract structured entities." },
+          { role: "system", content: `You analyze podcast episode metadata and extract structured entities. Write the summary field in ${langName} (${langCode}) — match the source language; never translate. Entity names (people, companies, tickers) stay in their original form.` },
           { role: "user", content: `Podcast: ${(ep as any).podcasts?.title}\nEpisode: ${ep.title}\n\nDescription: ${ep.description || "(none)"}` },
         ],
         tools,
