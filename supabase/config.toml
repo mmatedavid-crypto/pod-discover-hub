@@ -88,5 +88,8 @@ verify_jwt = false
 [functions.search-suggest]
 verify_jwt = false
 
+[functions.ai-feed-scout]
+verify_jwt = false
+
 [functions.process-email-queue]
 verify_jwt = true
