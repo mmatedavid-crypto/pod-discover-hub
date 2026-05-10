@@ -66,13 +66,12 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
 
-    // Claim a batch
-    const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: batch, _lock_seconds: 120 });
-    if (cErr) throw cErr;
-    const jobs = (claimed || []) as any[];
-
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
     let stop = false;
+    let total_claimed = 0;
+    let drain_loops = 0;
+    // Time we reserve at the end of the budget for spend upsert + adaptive cron RPC
+    const TAIL_RESERVE_MS = 5_000;
 
     const runJob = async (job: any) => {
       if (stop) return;
@@ -160,16 +159,30 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Parallel pool: process `concurrency` jobs at a time (Gemini calls are I/O bound).
-    let i = 0;
-    const workers = Array.from({ length: concurrency }, async () => {
-      while (true) {
-        const idx = i++;
-        if (idx >= jobs.length || stop) return;
-        await runJob(jobs[idx]);
-      }
-    });
-    await Promise.all(workers);
+    // Drain loop: keep claiming new batches until time/budget runs out or queue is empty.
+    // Eliminates the ~93% idle-time-per-cron-tick problem when each batch finishes in 3-8s.
+    while (!stop) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) break;
+      if (spend >= dailyBudget) break;
+
+      const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: batch, _lock_seconds: 120 });
+      if (cErr) throw cErr;
+      const jobs = (claimed || []) as any[];
+      if (!jobs.length) break;
+      total_claimed += jobs.length;
+      drain_loops++;
+
+      let i = 0;
+      const workers = Array.from({ length: concurrency }, async () => {
+        while (true) {
+          const idx = i++;
+          if (idx >= jobs.length || stop) return;
+          if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) { stop = true; return; }
+          await runJob(jobs[idx]);
+        }
+      });
+      await Promise.all(workers);
+    }
 
     // Update daily spend
     await admin.from("ai_spend_daily").upsert({
@@ -198,7 +211,7 @@ Deno.serve(async (req) => {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
-    return json({ ok: true, claimed: jobs.length, processed, succeeded, failed, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule });
+    return json({ ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
