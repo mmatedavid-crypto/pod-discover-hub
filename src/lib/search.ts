@@ -212,14 +212,23 @@ function semanticExpansion(terms: string[], cap = 8): string[] {
   return out.slice(0, cap);
 }
 
-function orFilterForVariants(variants: string[]): string {
+// Split into two filters because PostgREST mixes text-trgm and array-GIN predicates
+// in a single OR, which makes the planner abandon BitmapOr and seq-scan ~300k rows
+// (statement timeout). Running them as two parallel queries keeps each on its index.
+function textOrFilter(variants: string[]): string {
   const ors: string[] = [];
   variants.forEach((t) => {
     const v = `%${escapeIlike(t)}%`;
-    // NOTE: episodes.description has no GIN trgm index (87k HTML rows, indexing pending),
-    // so including it here triggers PostgREST statement timeouts. Use indexed columns
-    // only: title, summary, ai_summary, plus the array columns (all GIN-indexed).
+    // NOTE: episodes.description is intentionally excluded — no GIN trgm index yet
+    // (87k HTML rows, indexing pending). Including it triggers statement timeouts.
     ors.push(`title.ilike.${v}`, `summary.ilike.${v}`, `ai_summary.ilike.${v}`);
+  });
+  return ors.join(",");
+}
+
+function arrayOrFilter(variants: string[]): string {
+  const ors: string[] = [];
+  variants.forEach((t) => {
     ors.push(`topics.cs.{${t}}`, `people.cs.{${t}}`, `companies.cs.{${t}}`, `tickers.cs.{${t}}`, `ingredients.cs.{${t}}`);
   });
   return ors.join(",");
