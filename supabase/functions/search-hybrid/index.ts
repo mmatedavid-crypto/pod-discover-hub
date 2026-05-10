@@ -124,20 +124,20 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     const qNorm = normalizeQ(q);
 
-    // 1) Cache lookup (understanding + embedding) — 7d TTL
+    // 1) Cache lookup (understanding + embedding + rerank) — 7d understanding, 24h rerank
     let understanding: Understanding | null = null;
     let q_embedding: number[] | null = null;
+    let cachedRerank: { ids: string[]; why: Record<string, string> } | null = null;
     let cacheHit = false;
     try {
       const { data: cached } = await supa
         .from("search_query_cache")
-        .select("understanding, embedding, updated_at")
+        .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
         .eq("q_norm", qNorm)
         .maybeSingle();
       if (cached && cached.updated_at && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000) {
         understanding = cached.understanding as Understanding;
         if (typeof cached.embedding === "string") {
-          // pgvector returns "[...]" string
           try {
             const arr = JSON.parse(cached.embedding);
             if (Array.isArray(arr) && arr.length === 768) q_embedding = arr as number[];
@@ -146,6 +146,13 @@ Deno.serve(async (req) => {
           q_embedding = cached.embedding as number[];
         }
         cacheHit = true;
+      }
+      // Rerank cache: 24h TTL, independent of understanding cache
+      if (cached?.rerank && cached.rerank_updated_at && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000) {
+        const r = cached.rerank as any;
+        if (Array.isArray(r?.ids) && r.ids.length) {
+          cachedRerank = { ids: r.ids, why: (r.why && typeof r.why === "object") ? r.why : {} };
+        }
       }
     } catch (e) { console.warn("cache read err", e); }
 
