@@ -16,8 +16,15 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const EPISODE_SELECT =
   "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language)";
 
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => { console.warn(`${label} timeout ${ms}ms`); resolve(null); }, ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }).catch((e) => { clearTimeout(t); console.warn(`${label} err`, e); resolve(null); });
+  });
+}
+
 // Use Gemini directly (matches model used by embed-episode-runner: gemini-embedding-001, 768d).
-async function embed(q: string): Promise<number[] | null> {
+async function embedRaw(q: string): Promise<number[] | null> {
   if (!GEMINI_API_KEY) return null;
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY}`;
@@ -37,9 +44,10 @@ async function embed(q: string): Promise<number[] | null> {
     return v && v.length === 768 ? v : null;
   } catch (e) { console.warn("embed err", e); return null; }
 }
+const embed = (q: string) => withTimeout(embedRaw(q), 1800, "embed");
 
-async function rerank(q: string, items: any[]): Promise<string[] | null> {
-  if (!LOVABLE_API_KEY || items.length < 4) return null;
+async function rerankRaw(q: string, items: any[]): Promise<string[] | null> {
+  if (!LOVABLE_API_KEY || items.length < 5) return null;
   const top = items.slice(0, 30);
   const compact = top.map((e, i) => ({
     i, id: e.id,
