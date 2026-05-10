@@ -1,6 +1,8 @@
-// Search v2 hybrid endpoint: lexical (tsv+trgm) + semantic (vector RRF) + optional AI re-rank.
+// Search v2 hybrid endpoint: lexical (tsv+trgm) + semantic (vector RRF) + AI re-rank.
+// Now also: AI query understanding (cached) + per-result "why matched" snippets.
 // POST { q: string, limit?: number, lang?: 'en'|'hu'|null, rerank?: boolean }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { understandQuery, buildExpandedQuery, type Understanding } from "../_shared/search-understand.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +16,7 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const EPISODE_SELECT =
-  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language)";
+  "id,title,slug,published_at,summary,description,ai_summary,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language)";
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
   return new Promise((resolve) => {
@@ -23,7 +25,10 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | n
   });
 }
 
-// Use Gemini directly (matches model used by embed-episode-runner: gemini-embedding-001, 768d).
+function normalizeQ(q: string): string {
+  return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
+}
+
 async function embedRaw(q: string): Promise<number[] | null> {
   if (!GEMINI_API_KEY) return null;
   try {
@@ -38,7 +43,7 @@ async function embedRaw(q: string): Promise<number[] | null> {
         outputDimensionality: 768,
       }),
     });
-    if (!r.ok) { console.warn("embed http", r.status, (await r.text()).slice(0, 200)); return null; }
+    if (!r.ok) { console.warn("embed http", r.status); return null; }
     const j = await r.json();
     const v = j?.embedding?.values as number[] | undefined;
     return v && v.length === 768 ? v : null;
@@ -46,7 +51,7 @@ async function embedRaw(q: string): Promise<number[] | null> {
 }
 const embed = (q: string) => withTimeout(embedRaw(q), 1800, "embed");
 
-async function rerankRaw(q: string, items: any[]): Promise<string[] | null> {
+async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string[]; why: Record<string, string> } | null> {
   if (!LOVABLE_API_KEY || items.length < 5) return null;
   const top = items.slice(0, 30);
   const compact = top.map((e, i) => ({
@@ -62,8 +67,8 @@ async function rerankRaw(q: string, items: any[]): Promise<string[] | null> {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
-          { role: "system", content: "You re-rank podcast episode candidates by relevance to the user's query. Return JSON only." },
-          { role: "user", content: `Query: ${q}\nCandidates: ${JSON.stringify(compact)}\nReturn the top 15 most relevant ids in order.` },
+          { role: "system", content: "You re-rank podcast episodes by relevance and explain why each top result matches in <12 words." },
+          { role: "user", content: `Query: ${q}\nCandidates: ${JSON.stringify(compact)}\nReturn the top 15 most relevant ids in order, each with a one-line why_matched.` },
         ],
         tools: [{
           type: "function",
@@ -71,8 +76,18 @@ async function rerankRaw(q: string, items: any[]): Promise<string[] | null> {
             name: "rank",
             parameters: {
               type: "object", additionalProperties: false,
-              properties: { ids: { type: "array", items: { type: "string" }, maxItems: 15 } },
-              required: ["ids"],
+              properties: {
+                results: {
+                  type: "array",
+                  maxItems: 15,
+                  items: {
+                    type: "object", additionalProperties: false,
+                    properties: { id: { type: "string" }, why: { type: "string" } },
+                    required: ["id", "why"],
+                  },
+                },
+              },
+              required: ["results"],
             },
           },
         }],
@@ -84,10 +99,14 @@ async function rerankRaw(q: string, items: any[]): Promise<string[] | null> {
     const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return null;
     const parsed = typeof args === "string" ? JSON.parse(args) : args;
-    return Array.isArray(parsed?.ids) ? parsed.ids : null;
+    const results = Array.isArray(parsed?.results) ? parsed.results : [];
+    const ids = results.map((r: any) => r.id).filter(Boolean);
+    const why: Record<string, string> = {};
+    for (const r of results) if (r?.id && r?.why) why[r.id] = String(r.why).slice(0, 160);
+    return { ids, why };
   } catch (e) { console.warn("rerank err", e); return null; }
 }
-const rerank = (q: string, items: any[]) => withTimeout(rerankRaw(q, items), 2200, "rerank");
+const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 3500, "rerank");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -101,13 +120,60 @@ Deno.serve(async (req) => {
     if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-
     const t0 = Date.now();
-    const q_embedding = await embed(q);
+    const qNorm = normalizeQ(q);
+
+    // 1) Cache lookup (understanding + embedding) — 7d TTL
+    let understanding: Understanding | null = null;
+    let q_embedding: number[] | null = null;
+    let cacheHit = false;
+    try {
+      const { data: cached } = await supa
+        .from("search_query_cache")
+        .select("understanding, embedding, updated_at")
+        .eq("q_norm", qNorm)
+        .maybeSingle();
+      if (cached && cached.updated_at && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000) {
+        understanding = cached.understanding as Understanding;
+        if (typeof cached.embedding === "string") {
+          // pgvector returns "[...]" string
+          try {
+            const arr = JSON.parse(cached.embedding);
+            if (Array.isArray(arr) && arr.length === 768) q_embedding = arr as number[];
+          } catch { /* ignore */ }
+        } else if (Array.isArray(cached.embedding) && cached.embedding.length === 768) {
+          q_embedding = cached.embedding as number[];
+        }
+        cacheHit = true;
+      }
+    } catch (e) { console.warn("cache read err", e); }
+
+    // 2) Parallel: understanding (if missing) + embedding (if missing)
+    const [u, embVal] = await Promise.all([
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
+      q_embedding ? Promise.resolve(q_embedding) : embed(q),
+    ]);
+    understanding = u as Understanding;
+    if (!q_embedding) q_embedding = embVal;
     const tEmb = Date.now() - t0;
 
+    // 3) Persist to cache (fire and forget)
+    if (!cacheHit) {
+      supa.from("search_query_cache").upsert({
+        q_norm: qNorm,
+        understanding: understanding,
+        embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+        updated_at: new Date().toISOString(),
+      }).then(() => {}, (e) => console.warn("cache write", e));
+    } else {
+      supa.rpc("noop").then(() => {}, () => {});
+      supa.from("search_query_cache").update({ hits: 1, updated_at: new Date().toISOString() }).eq("q_norm", qNorm).then(() => {}, () => {});
+    }
+
+    // 4) Hybrid RPC with expanded query (lexical) + original embedding (semantic)
+    const expanded = buildExpandedQuery(q, understanding);
     const { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
-      q,
+      q: expanded,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
       lang,
@@ -120,13 +186,10 @@ Deno.serve(async (req) => {
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: eps, error: eErr } = await supa
-      .from("episodes")
-      .select(EPISODE_SELECT)
-      .in("id", ids);
+    const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
     if (eErr) {
       return new Response(JSON.stringify({ error: eErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -142,23 +205,28 @@ Deno.serve(async (req) => {
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
-    let rerankedIds: string[] | null = null;
-    if (wantRerank) rerankedIds = await rerank(q, ordered);
+    let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
+    if (wantRerank) rerankResult = await rerank(q, ordered);
     const tRerank = Date.now() - t0 - tEmb - tRpc;
 
-    if (rerankedIds && rerankedIds.length) {
-      const idx = new Map(rerankedIds.map((id, i) => [id, i]));
+    if (rerankResult && rerankResult.ids.length) {
+      const idx = new Map(rerankResult.ids.map((id, i) => [id, i]));
       ordered = ordered
         .map((e: any) => ({ e, r: idx.has(e.id) ? idx.get(e.id)! : 999 + (orderMap.get(e.id) ?? 0) }))
         .sort((a, b) => a.r - b.r)
-        .map((x) => x.e);
+        .map((x) => {
+          const why = rerankResult!.why[x.e.id];
+          return why ? { ...x.e, why_matched: why } : x.e;
+        });
     }
 
     return new Response(
       JSON.stringify({
         episodes: ordered.slice(0, limit),
+        understanding,
         semantic: !!q_embedding,
-        reranked: !!rerankedIds,
+        reranked: !!rerankResult,
+        cache_hit: cacheHit,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

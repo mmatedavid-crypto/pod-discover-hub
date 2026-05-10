@@ -51,7 +51,10 @@ export default function SearchPage() {
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
+  const [aiAnswer, setAiAnswer] = useState<string>("");
+  const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const lastLoggedRef = useRef<string>("");
+  const answerAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
@@ -66,7 +69,9 @@ export default function SearchPage() {
     setBroadened(false);
     setSemanticUsed(false);
     setSuggestion("");
-    if (!initial) { setPodcasts([]); setEpisodes([]); return; }
+    setAiAnswer("");
+    answerAbortRef.current?.abort();
+    if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
 
     setLoading(true);
     (async () => {
@@ -88,7 +93,7 @@ export default function SearchPage() {
         } else if (sortParam === "rank") {
           eps.sort((a, b) => episodeScore(b) - episodeScore(a));
         }
-        mapped = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: "matched result" }));
+        mapped = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "matched result", why_matched: e.why_matched || null }));
         semantic = !!data?.semantic;
         reranked = !!data?.reranked;
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
@@ -149,7 +154,58 @@ export default function SearchPage() {
         .map((x) => x.p);
       setPodcasts(rankedPs);
       setLoading(false);
+
+      // Kick off streaming AI answer when we have enough top results.
+      if (mapped.length >= 3) {
+        setAiAnswerLoading(true);
+        const ctrl = new AbortController();
+        answerAbortRef.current = ctrl;
+        try {
+          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-answer`;
+          const resp = await fetch(url, {
+            method: "POST",
+            signal: ctrl.signal,
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+            body: JSON.stringify({
+              q: initial,
+              episodes: mapped.slice(0, 6).map((e: any) => ({
+                title: e.display_title || e.title,
+                podcast: e.podcasts?.title || "",
+                summary: e.ai_summary || e.summary || "",
+              })),
+            }),
+          });
+          if (resp.ok && resp.body) {
+            const reader = resp.body.getReader();
+            const dec = new TextDecoder();
+            let buf = ""; let acc = ""; let done = false;
+            while (!done) {
+              const { done: d, value } = await reader.read();
+              if (d) break;
+              buf += dec.decode(value, { stream: true });
+              let nl: number;
+              while ((nl = buf.indexOf("\n")) !== -1) {
+                let line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+                if (line.endsWith("\r")) line = line.slice(0, -1);
+                if (!line.startsWith("data: ")) continue;
+                const js = line.slice(6).trim();
+                if (js === "[DONE]") { done = true; break; }
+                try {
+                  const p = JSON.parse(js);
+                  const c = p?.choices?.[0]?.delta?.content;
+                  if (c) { acc += c; setAiAnswer(acc); }
+                } catch { buf = line + "\n" + buf; break; }
+              }
+            }
+          }
+        } catch (e) {
+          if ((e as any)?.name !== "AbortError") console.warn("answer stream", e);
+        } finally {
+          setAiAnswerLoading(false);
+        }
+      }
     })();
+    return () => { answerAbortRef.current?.abort(); };
   }, [initial, sortParam, catParam]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
@@ -250,6 +306,21 @@ export default function SearchPage() {
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
             No exact episode matches yet.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Try a broader search or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
+          </div>
+        )}
+
+        {initial && !loading && (aiAnswer || aiAnswerLoading) && (
+          <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">AI overview</span>
+              {aiAnswerLoading && (
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
+              )}
+            </div>
+            <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+              {aiAnswer || <span className="text-muted-foreground">Synthesizing an overview from the top episodes…</span>}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-2">AI summary, may contain errors. Numbers reference the episodes below.</p>
           </div>
         )}
 

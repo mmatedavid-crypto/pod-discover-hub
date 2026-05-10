@@ -22,6 +22,8 @@ export type EpisodeLite = {
   ingredients?: string[] | null;
   /** Optional UI hint from search relevance scoring. */
   matchBadge?: string | null;
+  /** Optional one-line AI reason why this matched the query. */
+  why_matched?: string | null;
   podcasts: {
     slug: string;
     title: string;
@@ -100,6 +102,12 @@ export function EpisodeCard({
             <span className="px-1.5 py-0.5 rounded-md border border-border bg-secondary text-[10px] font-medium text-foreground/80">{e.matchBadge}</span>
           )}
         </div>
+        {e.why_matched && (
+          <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-foreground/80 leading-snug">
+            <span className="font-semibold text-primary mr-1">Why matched:</span>
+            {e.why_matched}
+          </p>
+        )}
         {desc && (
           <p className="text-sm text-muted-foreground line-clamp-2 mt-2 leading-relaxed">
             <HL text={desc} terms={terms} />

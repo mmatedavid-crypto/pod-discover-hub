@@ -1142,6 +1142,57 @@ export type Database = {
         }
         Relationships: []
       }
+      search_query_cache: {
+        Row: {
+          created_at: string
+          embedding: string | null
+          hits: number
+          q_norm: string
+          understanding: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          embedding?: string | null
+          hits?: number
+          q_norm: string
+          understanding?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string | null
+          hits?: number
+          q_norm?: string
+          understanding?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      search_suggest_cache: {
+        Row: {
+          created_at: string
+          hits: number
+          prefix: string
+          suggestions: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hits?: number
+          prefix: string
+          suggestions?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hits?: number
+          prefix?: string
+          suggestions?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       search_synonyms: {
         Row: {
           created_at: string
