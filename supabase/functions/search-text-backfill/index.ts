@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const TIME_BUDGET_MS = 110_000;
 const RESERVE_MS = 5_000;
-const BATCH = 1500;
+const BATCH = 5000;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
