@@ -216,7 +216,10 @@ function orFilterForVariants(variants: string[]): string {
   const ors: string[] = [];
   variants.forEach((t) => {
     const v = `%${escapeIlike(t)}%`;
-    ors.push(`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`);
+    // NOTE: episodes.description has no GIN trgm index (87k HTML rows, indexing pending),
+    // so including it here triggers PostgREST statement timeouts. Use indexed columns
+    // only: title, summary, ai_summary, plus the array columns (all GIN-indexed).
+    ors.push(`title.ilike.${v}`, `summary.ilike.${v}`, `ai_summary.ilike.${v}`);
     ors.push(`topics.cs.{${t}}`, `people.cs.{${t}}`, `companies.cs.{${t}}`, `tickers.cs.{${t}}`, `ingredients.cs.{${t}}`);
   });
   return ors.join(",");
