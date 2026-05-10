@@ -1,0 +1,1 @@
+DELETE FROM public.search_suggest_cache WHERE jsonb_array_length(suggestions) = 0;
