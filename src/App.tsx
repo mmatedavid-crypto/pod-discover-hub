@@ -35,6 +35,7 @@ import HuStubPage from "./pages/HuStubPage.tsx";
 import AboutPage from "./pages/AboutPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
+import DailyBriefPage from "./pages/DailyBriefPage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,7 @@ const App = () => (
           <Route path="/about" element={<AboutPage />} />
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/new" element={<NewPodcastsPage />} />
+          <Route path="/daily" element={<DailyBriefPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
