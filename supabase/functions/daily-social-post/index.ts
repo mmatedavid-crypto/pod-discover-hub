@@ -612,6 +612,81 @@ async function main(req: Request) {
   const trigger = body?.trigger || (dryRun ? "manual_preview" : "cron");
   const forceSlotTime: string | undefined = body?.force_slot;
 
+  // ---------- Manual override: post a fully-specified payload as-is ----------
+  if (body?.manual === true) {
+    const mainText: string = String(body.main_text || "").trim();
+    const replyText: string | null = body.reply_text ? String(body.reply_text).trim() : null;
+    if (!mainText) return jsonRes({ ok: false, error: "manual: main_text required" }, 400);
+    const imageUrl: string | null = body.image_url || null;
+    const episodeId: string | null = body.episode_id || null;
+    const podcastId: string | null = body.podcast_id || null;
+    const imageType: string = body.image_type || (imageUrl ? "branded_card" : "text_only");
+    const linkPlacement: string = body.link_placement || (replyText ? "reply" : "main");
+    const editorialScore: number | null = typeof body.editorial_style_score === "number" ? body.editorial_style_score : null;
+    const extraMeta = body.metadata && typeof body.metadata === "object" ? body.metadata : {};
+
+    const mediaId = imageUrl ? await uploadMedia(imageUrl) : null;
+    let postId = "", postUrl = "", replyId: string | null = null, replyUrl: string | null = null;
+    let status: "success" | "failed" = "success";
+    let errMsg: string | null = null;
+    try {
+      const r = await postTweet(mainText, { mediaId });
+      postId = r.id; postUrl = r.url;
+      if (replyText && postId) {
+        try {
+          const rr = await postTweet(replyText, { replyToId: postId });
+          replyId = rr.id; replyUrl = rr.url;
+        } catch (e: any) {
+          console.error("manual reply post failed:", e?.message || e);
+        }
+      }
+    } catch (e: any) {
+      status = "failed";
+      errMsg = e?.message || String(e);
+    }
+
+    await admin.from("social_posts").insert({
+      platform: "x", status,
+      content: mainText,
+      episode_ids: episodeId ? [episodeId] : [],
+      podcast_ids: podcastId ? [podcastId] : [],
+      ai_model: null,
+      platform_post_id: postId || null,
+      platform_post_url: postUrl || null,
+      error: errMsg,
+      trigger: body.trigger || "manual",
+      post_type: "manual",
+      hook_type: "editorial",
+      slot_utc: null,
+      link_placement: linkPlacement,
+      score: null,
+      score_breakdown: {},
+      metadata: {
+        manual: true,
+        first_post: true,
+        char_count: mainText.length,
+        image_type: imageType,
+        media_url: imageUrl,
+        media_id: mediaId,
+        has_media: !!mediaId,
+        reply_id: replyId,
+        reply_url: replyUrl,
+        reply_text: replyText,
+        editorial_style_score: editorialScore,
+        ...extraMeta,
+      },
+    });
+
+    return jsonRes({
+      ok: status === "success",
+      manual: true,
+      status, post_id: postId, post_url: postUrl,
+      reply_id: replyId, reply_url: replyUrl,
+      media_id: mediaId, image_type: imageType,
+      error: errMsg,
+    }, status === "success" ? 200 : 500);
+  }
+
   // Kill switch (skip for dry-run)
   if (!dryRun) {
     const guard = await checkBackgroundJobsAllowed(admin, "daily-social-post");
