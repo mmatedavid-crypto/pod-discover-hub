@@ -508,6 +508,36 @@ function episodeUrl(ep: EpisodeRow): string {
   return `${SITE_URL}/podcast/${ep.podcasts?.slug}/${ep.slug}`;
 }
 
+// Calls the generate-social-card edge function. Always safe — returns null on any error
+// so the caller can fall back to the raw cover image.
+async function generateSocialCard(
+  ep: EpisodeRow,
+  hookText: string,
+): Promise<{ ok: boolean; url?: string; image_type?: string } | null> {
+  try {
+    const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-social-card`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({ episode_id: ep.id, hook_text: hookText }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!res.ok) {
+      console.error("generate-social-card http", res.status, await res.text());
+      return null;
+    }
+    const j = await res.json();
+    if (j?.ok && j?.url) return { ok: true, url: j.url, image_type: j.image_type };
+    return null;
+  } catch (e: any) {
+    console.error("generate-social-card call failed:", e?.message || e);
+    return null;
+  }
+}
+
 async function main(req: Request) {
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
