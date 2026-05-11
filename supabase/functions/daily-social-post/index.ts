@@ -430,7 +430,7 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Pro
     "3) One sentence of context from THIS episode (what it actually gets into).",
     "4) Optional soft CTA only if it feels natural — never required.",
     "",
-    "LENGTH (HARD CAP — strictly enforced): each variant's text must be 170–240 characters. Absolute maximum 255 characters including spaces and line breaks. Variants over 255 characters are AUTOMATICALLY REJECTED. Count carefully. 3 short paragraphs ≈ 220 chars is a good target.",
+    "LENGTH (HARD CAP — strictly enforced): each variant's text must be 180–260 characters. Absolute maximum 280 characters including spaces and line breaks. Variants over 280 characters are AUTOMATICALLY REJECTED. Count carefully — three short paragraphs ≈ 220 chars is a good target.",
     "",
     "FORBIDDEN: hashtags, emojis, 'New episode', 'Check this out', 'Listen now', 'Don't miss', 'Tune in', 'Must-listen', 'This changes everything', 'The future of humanity', 'You need to listen to this', 'Here's what you need to know', 'This is the business model', 'Let that sink in', 'The uncomfortable truth', 'No one is talking about this', 'In today's episode', 'In this fascinating conversation', '...and what it means for humanity', '...and the future of everything', '...and where we go from here'. Never invent quotes or numbers. No fake controversy. No empty drama.",
     "",
