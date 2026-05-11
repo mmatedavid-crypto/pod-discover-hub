@@ -295,6 +295,39 @@ const Index = () => {
           </section>
         )}
 
+        {trendingEntityEps.length > 0 && (
+          <TrendingEntities
+            eyebrow="By topic right now"
+            title="What podcasters are talking about"
+            subtitle="Top topics across all shows in the last 14 days. Tap to dive in."
+            items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
+            icon="topic"
+          />
+        )}
+
+        {trendingEntityEps.length > 0 && (
+          <TrendingEntities
+            eyebrow="People in the news"
+            title="Names mentioned this week"
+            subtitle="Cross-show: founders, scientists, athletes, leaders."
+            items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
+            icon="person"
+          />
+        )}
+
+        {trendingEntityEps.length > 0 && (() => {
+          const companies = topEntitiesFrom(trendingEntityEps, "companies", "company", 10);
+          return companies.length ? (
+            <TrendingEntities
+              eyebrow="Companies on air"
+              title="Brands & organizations"
+              subtitle="Companies showing up across recent episodes."
+              items={companies}
+              icon="company"
+            />
+          ) : null;
+        })()}
+
         {/* Mood shelf — mobile position (below trending) */}
         <div className="md:hidden">
           <MoodCollections />
