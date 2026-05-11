@@ -734,6 +734,7 @@ export type Database = {
           processed_at: string | null
           reject_reason: string | null
           rss_url: string
+          rss_url_norm: string | null
           score: number | null
           title: string | null
           website_url: string | null
@@ -769,6 +770,7 @@ export type Database = {
           processed_at?: string | null
           reject_reason?: string | null
           rss_url: string
+          rss_url_norm?: string | null
           score?: number | null
           title?: string | null
           website_url?: string | null
@@ -804,6 +806,7 @@ export type Database = {
           processed_at?: string | null
           reject_reason?: string | null
           rss_url?: string
+          rss_url_norm?: string | null
           score?: number | null
           title?: string | null
           website_url?: string | null
@@ -892,6 +895,7 @@ export type Database = {
           rss_hunt_attempts: number
           rss_status: string
           rss_url: string | null
+          rss_url_norm: string | null
           search_text: string | null
           search_tsv: unknown
           seo_description: string | null
@@ -958,6 +962,7 @@ export type Database = {
           rss_hunt_attempts?: number
           rss_status?: string
           rss_url?: string | null
+          rss_url_norm?: string | null
           search_text?: string | null
           search_tsv?: unknown
           seo_description?: string | null
@@ -1024,6 +1029,7 @@ export type Database = {
           rss_hunt_attempts?: number
           rss_status?: string
           rss_url?: string | null
+          rss_url_norm?: string | null
           search_text?: string | null
           search_tsv?: unknown
           seo_description?: string | null
@@ -1451,6 +1457,10 @@ export type Database = {
           title: string
         }[]
       }
+      merge_duplicate_podcasts: {
+        Args: { _canonical_id: string; _duplicate_id: string; _reason?: string }
+        Returns: Json
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -1460,6 +1470,7 @@ export type Database = {
         }
         Returns: number
       }
+      normalize_rss_url: { Args: { _url: string }; Returns: string }
       purge_search_query_cache: {
         Args: { older_than_days?: number }
         Returns: number
@@ -1556,6 +1567,10 @@ export type Database = {
       set_pi_dump_process_schedule: {
         Args: { pending_count: number }
         Returns: string
+      }
+      set_podcast_dedup_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
       }
       set_rss_hunter_schedule: {
         Args: { _schedule: string }
