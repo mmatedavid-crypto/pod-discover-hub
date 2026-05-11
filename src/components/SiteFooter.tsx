@@ -27,7 +27,7 @@ export function SiteFooter() {
             <Link to="/new" className="hover:text-foreground transition-colors">New</Link>
             <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
             <Link to="/methodology" className="hover:text-foreground transition-colors">How we rank</Link>
-            <Link to="/hu" className="hover:text-foreground transition-colors" hrefLang="hu">Magyar</Link>
+            
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
           </nav>
