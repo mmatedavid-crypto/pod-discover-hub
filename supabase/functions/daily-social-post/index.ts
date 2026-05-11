@@ -508,6 +508,36 @@ function episodeUrl(ep: EpisodeRow): string {
   return `${SITE_URL}/podcast/${ep.podcasts?.slug}/${ep.slug}`;
 }
 
+// Calls the generate-social-card edge function. Always safe — returns null on any error
+// so the caller can fall back to the raw cover image.
+async function generateSocialCard(
+  ep: EpisodeRow,
+  hookText: string,
+): Promise<{ ok: boolean; url?: string; image_type?: string } | null> {
+  try {
+    const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-social-card`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({ episode_id: ep.id, hook_text: hookText }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!res.ok) {
+      console.error("generate-social-card http", res.status, await res.text());
+      return null;
+    }
+    const j = await res.json();
+    if (j?.ok && j?.url) return { ok: true, url: j.url, image_type: j.image_type };
+    return null;
+  } catch (e: any) {
+    console.error("generate-social-card call failed:", e?.message || e);
+    return null;
+  }
+}
+
 async function main(req: Request) {
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -609,6 +639,28 @@ async function main(req: Request) {
 
   const coverUrl = picked.ep.image_url || picked.ep.podcasts?.image_url || null;
 
+  // ----- Branded social card (best-effort, safe fallback) -----
+  // Priority: branded_card → episode_cover → podcast_cover → text_only.
+  // Default policy: flagship + topic slots → branded_card; discovery → episode_cover (faster, more raw).
+  const wantsBranded = slot.kind === "flagship" || slot.kind === "topic";
+  let imageType: "branded_card" | "episode_cover" | "podcast_cover" | "text_only" =
+    picked.ep.image_url ? "episode_cover" : picked.ep.podcasts?.image_url ? "podcast_cover" : "text_only";
+  let socialCardUrl: string | null = null;
+  let mediaUrl: string | null = coverUrl;
+
+  if (wantsBranded) {
+    try {
+      const card = await generateSocialCard(picked.ep, chosen.text);
+      if (card?.ok && card.url) {
+        socialCardUrl = card.url;
+        mediaUrl = card.url;
+        imageType = "branded_card";
+      }
+    } catch (e: any) {
+      console.error("social card error (using fallback cover):", e?.message || e);
+    }
+  }
+
   if (dryRun) {
     return jsonRes({
       ok: true, dry_run: true, slot,
@@ -621,6 +673,9 @@ async function main(req: Request) {
       matched_themes: picked.matchedThemes,
       matched_clickability: picked.matchedClick,
       cover_image_url: coverUrl,
+      social_card_url: socialCardUrl,
+      image_type: imageType,
+      media_url: mediaUrl,
       model,
       episode: {
         id: picked.ep.id,
@@ -633,8 +688,13 @@ async function main(req: Request) {
     });
   }
 
-  // Upload media (best-effort)
-  const mediaId = coverUrl ? await uploadMedia(coverUrl) : null;
+  // Upload media (best-effort) — prefer branded card, else raw cover.
+  const mediaId = mediaUrl ? await uploadMedia(mediaUrl) : null;
+  if (!mediaId && imageType === "branded_card" && coverUrl) {
+    // Branded upload failed → degrade to cover.
+    imageType = picked.ep.image_url ? "episode_cover" : "podcast_cover";
+    mediaUrl = coverUrl;
+  }
 
   // Post main tweet
   let postId = "", postUrl = "", replyId: string | null = null, replyUrl: string | null = null;
@@ -676,6 +736,9 @@ async function main(req: Request) {
     metadata: {
       char_count: mainText.length,
       cover_image_url: coverUrl,
+      social_card_url: socialCardUrl,
+      image_type: imageType,
+      media_url: mediaUrl,
       media_id: mediaId,
       has_media: !!mediaId,
       reply_id: replyId,
