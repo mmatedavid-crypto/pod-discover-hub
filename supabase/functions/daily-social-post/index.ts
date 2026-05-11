@@ -798,11 +798,12 @@ async function main(req: Request) {
     post_type: slot.kind,
     hook_type: chosen.type,
     slot_utc: slot.time,
-    link_placement: slot.linkPlacement,
+    link_placement: effectiveLinkPlacement,
     score: picked.score,
     score_breakdown: picked.breakdown,
     metadata: {
       char_count: mainText.length,
+      editorial_style_score: chosen.editorial_style_score,
       cover_image_url: coverUrl,
       social_card_url: socialCardUrl,
       image_type: imageType,
