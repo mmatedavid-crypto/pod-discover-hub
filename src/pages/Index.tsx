@@ -11,6 +11,8 @@ import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
+import { TrendingEntities } from "@/components/TrendingEntities";
+import { topEntitiesFrom } from "@/lib/aggregateEntities";
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
@@ -26,6 +28,7 @@ const Index = () => {
   const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
+  const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
   const [chips, setChips] = useState<{ label: string; query: string }[]>([
     { label: "AI healthcare", query: "AI healthcare" },
     { label: "Warren Buffett", query: "Warren Buffett" },
@@ -74,7 +77,8 @@ const Index = () => {
     });
     (async () => {
       try {
-        const [catsRes, feedRes, evergreenRes, podsRes] = await Promise.all([
+        const since14d = new Date(Date.now() - 14 * 86400_000).toISOString();
+        const [catsRes, feedRes, evergreenRes, podsRes, entityRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
             .from("mv_homepage_feed" as any)
@@ -95,6 +99,14 @@ const Index = () => {
             .order("featured", { ascending: false })
             .order("podiverzum_rank", { ascending: false })
             .limit(40),
+          supabase
+            .from("episodes")
+            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label)")
+            .gte("published_at", since14d)
+            .in("podcasts.rank_label", ["S", "A", "B"])
+            .or("language.is.null,language.ilike.en%", { foreignTable: "podcasts" })
+            .not("podcasts.rss_status", "in", "(failed,inactive)")
+            .limit(1500),
         ]);
 
         setCats(catsRes.data || []);
@@ -156,6 +168,9 @@ const Index = () => {
         // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
         const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
         setEvergreenEps(evergreen.slice(0, 6));
+
+        // Trending entities source (last 14 days, EN-only, healthy podcasts)
+        setTrendingEntityEps((entityRes.data || []) as any);
       } catch (err) {
         console.error("Index load failed", err);
         setLoadError(true);
@@ -279,6 +294,39 @@ const Index = () => {
             <EpisodeList items={trendingEps} />
           </section>
         )}
+
+        {trendingEntityEps.length > 0 && (
+          <TrendingEntities
+            eyebrow="By topic right now"
+            title="What podcasters are talking about"
+            subtitle="Top topics across all shows in the last 14 days. Tap to dive in."
+            items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
+            icon="topic"
+          />
+        )}
+
+        {trendingEntityEps.length > 0 && (
+          <TrendingEntities
+            eyebrow="People in the news"
+            title="Names mentioned this week"
+            subtitle="Cross-show: founders, scientists, athletes, leaders."
+            items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
+            icon="person"
+          />
+        )}
+
+        {trendingEntityEps.length > 0 && (() => {
+          const companies = topEntitiesFrom(trendingEntityEps, "companies", "company", 10);
+          return companies.length ? (
+            <TrendingEntities
+              eyebrow="Companies on air"
+              title="Brands & organizations"
+              subtitle="Companies showing up across recent episodes."
+              items={companies}
+              icon="company"
+            />
+          ) : null;
+        })()}
 
         {/* Mood shelf — mobile position (below trending) */}
         <div className="md:hidden">

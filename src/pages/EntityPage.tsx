@@ -136,30 +136,58 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
   const best = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
 
+  const last30Count = eps.filter((e) => {
+    if (!e.published_at) return false;
+    return Date.now() - new Date(e.published_at).getTime() < 30 * 86400_000;
+  }).length;
+
   return (
     <Layout>
-      <div className="container mx-auto py-10 max-w-4xl">
-        <div className="text-xs uppercase tracking-wide text-accent">{ENTITY_LABEL[kind]}</div>
-        <h1 className="text-3xl font-semibold mt-1">Podcast episodes about {displayName}</h1>
-        <p className="text-muted-foreground mt-2 text-sm">
-          {total} episode{total === 1 ? "" : "s"} indexed. Ranked by relevance, freshness and Podiverzum Rank.
-        </p>
+      {/* Hero */}
+      <section className="border-b border-border bg-background relative overflow-hidden">
+        <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-50" />
+        <div className="container mx-auto py-12 sm:py-14 max-w-5xl relative">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-primary">{ENTITY_LABEL[kind]}</div>
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2 leading-[1.05]">{displayName}</h1>
+          <p className="text-muted-foreground mt-3 max-w-2xl">
+            Cross-show podcast coverage of <span className="text-foreground font-medium">{displayName}</span>. Ranked by tier, freshness and Podiverzum Rank.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Stat label="Episodes indexed" value={total} />
+            <Stat label="Last 30 days" value={last30Count} />
+            <Stat label="Podcasts" value={pods.length} />
+          </div>
+        </div>
+      </section>
 
-        <section className="mt-8">
-          <h2 className="font-semibold mb-3">Latest episodes</h2>
+      <div className="container mx-auto py-10 max-w-5xl space-y-12">
+        <section>
+          <div className="flex items-end justify-between mb-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Fresh</div>
+              <h2 className="text-xl font-semibold">Latest episodes</h2>
+            </div>
+          </div>
           <EpisodeList items={newest} showEntities />
         </section>
 
         {rich && (
-          <section className="mt-10">
-            <h2 className="font-semibold mb-3">Best ranked episodes</h2>
+          <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
+            <div className="mb-3">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">Best of</div>
+              <h2 className="text-xl font-semibold">Highest-ranked episodes</h2>
+              <p className="text-xs text-muted-foreground mt-1">From S/A-tier shows that consistently deliver.</p>
+            </div>
             <EpisodeList items={best} showEntities />
           </section>
         )}
 
         {pods.length > 0 && (
-          <section className="mt-10">
-            <h2 className="font-semibold mb-3">Related podcasts</h2>
+          <section>
+            <div className="mb-3">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Sources</div>
+              <h2 className="text-xl font-semibold">Podcasts covering {displayName}</h2>
+            </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {pods.map((p) => <PodcastCard key={p.id} p={p} />)}
             </div>
@@ -167,14 +195,23 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         )}
 
         {related.length > 0 && (
-          <section className="mt-10">
-            <h2 className="font-semibold mb-3">Related</h2>
+          <section>
+            <div className="mb-3">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Connected</div>
+              <h2 className="text-xl font-semibold">Related</h2>
+              <p className="text-xs text-muted-foreground mt-1">People, companies and topics that show up alongside {displayName}.</p>
+            </div>
             <div className="flex flex-wrap gap-2">
               {related.map(({ kind: k, v }) => {
                 const s = k === "ticker" ? v.replace(/[^a-zA-Z0-9.]+/g,"").toUpperCase() : v.toLowerCase().replace(/[^a-z0-9]+/g,"-");
                 return (
-                  <Link key={`${k}-${v}`} to={`/${k}/${encodeURIComponent(s)}`} className="px-3 py-1 rounded-full bg-secondary text-sm hover:bg-accent hover:text-accent-foreground">
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-1">{k}</span>{v}
+                  <Link
+                    key={`${k}-${v}`}
+                    to={`/${k}/${encodeURIComponent(s)}`}
+                    className="px-3 py-1.5 rounded-full border border-border bg-card text-sm hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{k}</span>
+                    <span>{v}</span>
                   </Link>
                 );
               })}
@@ -182,10 +219,20 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           </section>
         )}
 
-        <p className="text-xs text-muted-foreground mt-10">
+        <p className="text-xs text-muted-foreground pt-4 border-t border-border/60">
           Indexed from public RSS feeds. Ranked by freshness, feed health and episode relevance.
         </p>
       </div>
     </Layout>
   );
 }
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-border bg-card/70 px-4 py-2.5 min-w-[110px]">
+      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+      <div className="text-xl font-semibold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
