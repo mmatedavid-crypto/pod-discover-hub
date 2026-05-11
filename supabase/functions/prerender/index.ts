@@ -36,6 +36,18 @@ const stripHtml = (s?: string | null) =>
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
 
+function htmlResponse(body: string, status = 200) {
+  // Build a fresh Headers per response — sharing a plain object can let the
+  // gateway override Content-Type to text/plain.
+  const h = new Headers();
+  h.set("Content-Type", "text/html; charset=utf-8");
+  h.set("Cache-Control", "public, max-age=600, s-maxage=86400");
+  h.set("Access-Control-Allow-Origin", "*");
+  h.set("X-Prerendered", "1");
+  h.set("Vary", "User-Agent");
+  return new Response(body, { status, headers: h });
+}
+
 function shell(opts: {
   title: string;
   description: string;
