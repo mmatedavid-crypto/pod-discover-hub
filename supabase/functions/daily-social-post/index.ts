@@ -706,6 +706,9 @@ async function main(req: Request) {
     metadata: {
       char_count: mainText.length,
       cover_image_url: coverUrl,
+      social_card_url: socialCardUrl,
+      image_type: imageType,
+      media_url: mediaUrl,
       media_id: mediaId,
       has_media: !!mediaId,
       reply_id: replyId,
