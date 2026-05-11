@@ -470,7 +470,7 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Pro
 
   const finalUser = feedback ? `${user}\n\nIMPORTANT FEEDBACK FROM PREVIOUS ATTEMPT:\n${feedback}\nFix all issues. Stay UNDER 255 CHARACTERS per variant.` : user;
 
-  const model = "google/gemini-2.5-flash";
+  const model = "google/gemini-2.5-pro";
   const res = await fetch(LOVABLE_AI, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
