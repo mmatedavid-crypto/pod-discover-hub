@@ -75,6 +75,50 @@ export default {
       return passthrough(request);
     }
 
+    // Proxy /sitemap.xml and /feed.xml to Supabase edge functions.
+    // /sitemap.xml → dynamic sitemap-index (core + podcasts + per-month episodes)
+    // /feed.xml    → recent-episodes RSS
+    // Both are cached at the edge (1h sitemap, 15m feed) so origin hits are minimal.
+    if (url.pathname === "/sitemap.xml" || url.pathname === "/feed.xml") {
+      const upstream =
+        url.pathname === "/sitemap.xml"
+          ? "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap"
+          : "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/feed-xml";
+      const cacheKey = new Request(`https://proxy-cache.podiverzum.com${url.pathname}`, { method: "GET" });
+      const cache = caches.default;
+      const hit = await cache.match(cacheKey);
+      if (hit) {
+        const h = new Headers(hit.headers);
+        h.set("X-Worker", "podiverzum-bot-prerender");
+        h.set("X-Proxy-Cache", "HIT");
+        return new Response(hit.body, { status: hit.status, headers: h });
+      }
+      try {
+        const res = await fetch(upstream, {
+          headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
+          cf: { cacheTtl: 0 },
+        });
+        if (!res.ok) return passthrough(request);
+        const body = await res.text();
+        const ttl = url.pathname === "/sitemap.xml" ? 3600 : 900;
+        const ct =
+          url.pathname === "/sitemap.xml"
+            ? "application/xml; charset=utf-8"
+            : "application/rss+xml; charset=utf-8";
+        const headers = new Headers({
+          "Content-Type": ct,
+          "Cache-Control": `public, max-age=${ttl}`,
+          "X-Worker": "podiverzum-bot-prerender",
+          "X-Proxy-Cache": "MISS",
+        });
+        const response = new Response(body, { status: 200, headers });
+        ctx.waitUntil(cache.put(cacheKey, response.clone()));
+        return response;
+      } catch {
+        return passthrough(request);
+      }
+    }
+
     // Not a bot, or path not prerenderable → straight to origin
     if (!isBot || !isPrerenderablePath(url.pathname)) {
       return passthrough(request);
