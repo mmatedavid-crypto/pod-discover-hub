@@ -693,9 +693,15 @@ async function main(req: Request) {
   }
 
   const link = episodeUrl(picked.ep);
-  // Format A (main): "<hook>\n\n<link>"; Format B (reply): main = "<hook>", reply = link.
-  const mainText = slot.linkPlacement === "main" ? `${chosen.text}\n\n${link}` : chosen.text;
-  const replyText = slot.linkPlacement === "reply" ? `Full episode on Podiverzum: ${link}` : null;
+  // X counts URLs as 23 chars regardless of actual length. Keep total ≤ 280.
+  // If "main" placement would overflow, switch this post to "reply" placement on the fly.
+  const X_URL_CHARS = 23;
+  let effectiveLinkPlacement = slot.linkPlacement;
+  if (effectiveLinkPlacement === "main" && (chosen.text.length + 2 + X_URL_CHARS) > 280) {
+    effectiveLinkPlacement = "reply";
+  }
+  const mainText = effectiveLinkPlacement === "main" ? `${chosen.text}\n\n${link}` : chosen.text;
+  const replyText = effectiveLinkPlacement === "reply" ? `Full episode on Podiverzum: ${link}` : null;
 
   const coverUrl = picked.ep.image_url || picked.ep.podcasts?.image_url || null;
 
