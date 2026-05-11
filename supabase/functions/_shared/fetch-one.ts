@@ -198,10 +198,24 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   }
 
   if (rowsToUpsert.length) {
-    const { error: upErr } = await supabase.from("episodes").upsert(rowsToUpsert, { onConflict: "podcast_id,slug" });
-    if (upErr) {
-      await markFailure(supabase, podcast, `upsert: ${upErr.message}`, false);
-      return { ok: false, error: upErr.message, new: 0, duplicates: 0, items: items.length };
+    // Dedupe within this batch by (podcast_id, slug) — feeds occasionally
+    // emit duplicate slugs which trigger Postgres "ON CONFLICT cannot affect row a second time".
+    const seenSlugs = new Set<string>();
+    const deduped: any[] = [];
+    for (const r of rowsToUpsert) {
+      if (seenSlugs.has(r.slug)) continue;
+      seenSlugs.add(r.slug);
+      deduped.push(r);
+    }
+    // Chunk upserts to avoid statement_timeout on large feeds (1000+ episodes).
+    const CHUNK = 200;
+    for (let i = 0; i < deduped.length; i += CHUNK) {
+      const slice = deduped.slice(i, i + CHUNK);
+      const { error: upErr } = await supabase.from("episodes").upsert(slice, { onConflict: "podcast_id,slug" });
+      if (upErr) {
+        await markFailure(supabase, podcast, `upsert: ${upErr.message}`, false);
+        return { ok: false, error: upErr.message, new: 0, duplicates: 0, items: items.length };
+      }
     }
   }
 
