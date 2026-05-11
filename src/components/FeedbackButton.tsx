@@ -10,8 +10,8 @@ export function FeedbackButton() {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
-  // Hide on admin and auth routes — those users have other channels.
   const hidden =
     pathname.startsWith("/admin") || pathname === "/auth" || pathname === "/admin-bootstrap";
 
@@ -21,6 +21,16 @@ export function FeedbackButton() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  useEffect(() => {
+    if (hidden) return;
+    const onScroll = () => {
+      if (window.scrollY > 600) setRevealed(true);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [hidden]);
 
   if (hidden) return null;
 
