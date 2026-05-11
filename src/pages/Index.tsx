@@ -260,6 +260,7 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto py-12 space-y-14">
+        <AskPodiverzum />
         <ContinueListening />
         {/* Mood shelf — above trending on desktop, below on mobile */}
         <div className="hidden md:block">
