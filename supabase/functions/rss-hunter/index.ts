@@ -310,8 +310,7 @@ Deno.serve(async (req) => {
     if (errors > 0) recommended = "0 */6 * * *";
     else if (due_count > 500) recommended = "*/30 * * * *";
     else if (due_count >= 100) recommended = "0 */2 * * *";
-    else if (due_count >= 1) recommended = "0 */6 * * *";
-    else recommended = "0 6 * * *";
+    else recommended = "0 */6 * * *"; // baseline self-probe (max 6h to detect new backlog)
 
     let applied: string | null = null;
     try {
