@@ -82,6 +82,20 @@ const BANNED_PHRASES = [
   /\bdon'?t miss\b/i,
   /\btune in\b/i,
   /\bmust[- ]listen\b/i,
+  /\bnew episode out\b/i,
+  /\bhere'?s what you need to know\b/i,
+  /\bthis changes everything\b/i,
+  /\bthe future of humanity\b/i,
+  /\byou need to listen\b/i,
+  /\bthis is the business model\b/i,
+  /\blet that sink in\b/i,
+  /\bthe uncomfortable truth\b/i,
+  /\bno one is talking about this\b/i,
+  /\bin today'?s episode\b/i,
+  /\bin this fascinating conversation\b/i,
+  /\bwhat (it|this) means for humanity\b/i,
+  /\bthe future of everything\b/i,
+  /\band where we go from here\b/i,
 ];
 
 // ---------- OAuth 1.0a HMAC-SHA1 ----------
@@ -378,15 +392,18 @@ function selectForSlot(scored: Scored[], slot: Slot): Scored | null {
 }
 
 // ---------- Hook generation ----------
+type HookVariant = { text: string; editorial_style_score: number; rationale?: string };
 type HookSet = {
   curiosity: string;
   contrarian: string;
   utility: string;
+  scores: { curiosity: number; contrarian: number; utility: number };
+  rationales: { curiosity: string; contrarian: string; utility: string };
   recommended: "curiosity" | "contrarian" | "utility";
   reason: string;
 };
 
-async function generateHooks(picked: Scored, slot: Slot): Promise<{ hooks: HookSet; model: string }> {
+async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Promise<{ hooks: HookSet; model: string }> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
   const ep = picked.ep;
@@ -401,38 +418,59 @@ async function generateHooks(picked: Scored, slot: Slot): Promise<{ hooks: HookS
   const themes = picked.matchedThemes.slice(0, 5).join(", ");
 
   const sys = [
-    "You are a sharp editorial writer for Podiverzum's X account.",
-    "You write like a smart human editor — concise, intelligent, slightly provocative.",
-    "Audience: international English-speaking readers (UK, US) interested in tech, AI, business, markets, ideas.",
-    "RULES:",
-    "- First line is the strongest line, usually under 90 chars.",
-    "- Total post 140–240 chars (hard cap 260; the link will be appended separately).",
-    "- No hashtags. No emojis. No 'New episode'. No 'Check this out'. No 'Listen now' as the hook.",
-    "- Never invent quotes. Never overstate. No fake controversy.",
-    "- Soft CTA allowed (e.g. 'Worth 40 minutes if you care about markets.').",
-    "- Be specific to THIS episode. The hook must NOT fit any random podcast.",
+    "You are a smart human editor writing for Podiverzum's X account.",
+    "Audience: international English-speaking readers (UK, US) — tech, AI, business, markets, ideas.",
+    "Goal: make a thoughtful reader stop and want to read more. Not viral one-liners. Not RSS reposts. Not generic AI summaries.",
+    "",
+    "VOICE: intelligent, curious, editorial, calm, concrete, slightly provocative when justified. Human — not AI-polished. Never academic, never hysterical, never marketing copy.",
+    "",
+    "STRUCTURE (use 2–4 short lines, separated by blank lines, when it helps readability):",
+    "1) A strong first line with a CONCRETE angle — a name, number, company, ticker, person, or specific tension. Not a slogan.",
+    "2) One short sentence naming the tension or why it matters now.",
+    "3) One sentence of context from THIS episode (what it actually gets into).",
+    "4) Optional soft CTA only if it feels natural — never required.",
+    "",
+    "LENGTH (HARD CAP — strictly enforced): each variant's text must be 180–260 characters. Absolute maximum 280 characters including spaces and line breaks. Variants over 280 characters are AUTOMATICALLY REJECTED. Count carefully — three short paragraphs ≈ 220 chars is a good target.",
+    "",
+    "FORBIDDEN: hashtags, emojis, 'New episode', 'Check this out', 'Listen now', 'Don't miss', 'Tune in', 'Must-listen', 'This changes everything', 'The future of humanity', 'You need to listen to this', 'Here's what you need to know', 'This is the business model', 'Let that sink in', 'The uncomfortable truth', 'No one is talking about this', 'In today's episode', 'In this fascinating conversation', '...and what it means for humanity', '...and the future of everything', '...and where we go from here'. Never invent quotes or numbers. No fake controversy. No empty drama.",
+    "",
+    "QUALITY BAR: each post must be specific to THIS episode — could not be swapped onto another podcast. Concrete > abstract. Curiosity > hype. Substance > slogan.",
+    "",
     "Return strict JSON only.",
   ].join("\n");
 
   const user = [
-    `Slot type: ${slot.kind} (${slot.kind === "flagship" ? "fresh, newsy" : slot.kind === "topic" ? "topic/entity-driven" : "curiosity/discovery"}).`,
+    `Slot type: ${slot.kind} (${slot.kind === "flagship" ? "fresh, newsy flagship" : slot.kind === "topic" ? "topic / entity-driven" : "curiosity / discovery"}).`,
     `Podcast: "${podTitle}"`,
     `Episode: "${epTitle}"`,
     entities ? `Notable people/companies/tickers: ${entities}` : "",
     themes ? `Matched themes: ${themes}` : "",
     `Summary: ${summary}`,
     "",
-    "Write 3 distinct hook variants for this single episode:",
-    "1) curiosity — opens a curiosity gap; hints at the most interesting angle.",
-    "2) contrarian — challenges a default assumption; offers a non-obvious framing.",
-    "3) utility — promises useful signal/lesson for a specific kind of reader.",
-    "Each hook is a complete X post body (no link, no hashtags, no emojis). 140–240 chars.",
-    "Then pick the strongest variant for THIS slot type.",
+    "Write 3 DISTINCT, FULL editorial X posts for this single episode — each a complete post body (no link, no hashtags, no emojis), written in the voice and structure above. Multi-line is encouraged. Each post should feel selected and written by a human editor, not generated.",
     "",
-    'Return JSON: { "curiosity": "...", "contrarian": "...", "utility": "...", "recommended": "curiosity|contrarian|utility", "reason": "..." }',
+    "Variants:",
+    "1) curiosity — opens a real curiosity gap with a concrete angle. Not a teaser, not a riddle.",
+    "2) contrarian — challenges the default framing of this topic with a specific, defensible counter-angle.",
+    "3) utility — names exactly which kind of reader this is for and what concrete signal they'll get.",
+    "",
+    "For each variant, also rate it 1–10 on editorial_style_score using this rubric:",
+    "+ strong, specific first line",
+    "+ concrete names / numbers / tickers / people",
+    "+ clear reason why it matters NOW",
+    "+ feels human, easy to read, no clichés",
+    "+ creates genuine curiosity (not cheap hype)",
+    "+ enough context to be worth reading",
+    "− generic, AI-sounding, slogan-like, abstract drama, summary-style, RSS-style, viral-guru tone",
+    "",
+    "Then pick the variant best suited to THIS slot type AND highest in editorial quality. Do not auto-pick the shortest or most dramatic.",
+    "",
+    'Return JSON: { "curiosity": { "text": "...", "editorial_style_score": 8, "rationale": "..." }, "contrarian": { "text": "...", "editorial_style_score": 7, "rationale": "..." }, "utility": { "text": "...", "editorial_style_score": 9, "rationale": "..." }, "recommended": "curiosity|contrarian|utility", "reason": "..." }',
   ].filter(Boolean).join("\n");
 
-  const model = "google/gemini-2.5-flash";
+  const finalUser = feedback ? `${user}\n\nIMPORTANT FEEDBACK FROM PREVIOUS ATTEMPT:\n${feedback}\nFix all issues. Stay UNDER 255 CHARACTERS per variant.` : user;
+
+  const model = "google/gemini-2.5-pro";
   const res = await fetch(LOVABLE_AI, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -441,7 +479,7 @@ async function generateHooks(picked: Scored, slot: Slot): Promise<{ hooks: HookS
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: sys },
-        { role: "user", content: user },
+        { role: "user", content: finalUser },
       ],
     }),
   });
@@ -450,14 +488,28 @@ async function generateHooks(picked: Scored, slot: Slot): Promise<{ hooks: HookS
   const raw = j?.choices?.[0]?.message?.content || "{}";
   let parsed: any;
   try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+  const v = (k: string) => {
+    const x = parsed?.[k];
+    if (x && typeof x === "object") return { text: sanitize(x.text || ""), score: clamp01to10(x.editorial_style_score), rationale: String(x.rationale || "") };
+    return { text: sanitize(typeof x === "string" ? x : ""), score: 0, rationale: "" };
+  };
+  const cu = v("curiosity"), co = v("contrarian"), ut = v("utility");
   const hooks: HookSet = {
-    curiosity: sanitize(parsed.curiosity || ""),
-    contrarian: sanitize(parsed.contrarian || ""),
-    utility: sanitize(parsed.utility || ""),
+    curiosity: cu.text,
+    contrarian: co.text,
+    utility: ut.text,
+    scores: { curiosity: cu.score, contrarian: co.score, utility: ut.score },
+    rationales: { curiosity: cu.rationale, contrarian: co.rationale, utility: ut.rationale },
     recommended: ["curiosity", "contrarian", "utility"].includes(parsed.recommended) ? parsed.recommended : "curiosity",
     reason: String(parsed.reason || ""),
   };
   return { hooks, model };
+}
+
+function clamp01to10(n: any): number {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  return Math.max(0, Math.min(10, Math.round(x)));
 }
 
 function sanitize(s: string): string {
@@ -465,17 +517,21 @@ function sanitize(s: string): string {
     .replace(/^["']|["']$/g, "")
     .replace(/#/g, "")
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/gu, "")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
 // ---------- Quality gate ----------
-function qualityGate(text: string, ep: EpisodeRow): { ok: boolean; reason?: string } {
+const MIN_EDITORIAL_SCORE = 8;
+function qualityGate(text: string, ep: EpisodeRow, editorialScore: number): { ok: boolean; reason?: string } {
   if (!text) return { ok: false, reason: "empty" };
-  if (text.length < 80) return { ok: false, reason: "too_short" };
-  if (text.length > 260) return { ok: false, reason: "too_long" };
+  if (text.length < 120) return { ok: false, reason: "too_short" };
+  if (text.length > 280) return { ok: false, reason: "too_long" };
   for (const re of BANNED_PHRASES) if (re.test(text)) return { ok: false, reason: `banned:${re}` };
-  // Generic-fit check: hook must mention something specific from the episode.
+  // Editorial style score from the model itself
+  if (editorialScore < MIN_EDITORIAL_SCORE) return { ok: false, reason: `low_editorial_score:${editorialScore}` };
+  // Generic-fit check: post must mention something specific from THIS episode.
   const hay = text.toLowerCase();
   const epTokens = (ep.display_title || ep.title).toLowerCase().split(/\W+/).filter((w) => w.length > 3);
   const entityHit = [
@@ -489,16 +545,22 @@ function qualityGate(text: string, ep: EpisodeRow): { ok: boolean; reason?: stri
 
 function pickHookWithGate(
   hooks: HookSet, ep: EpisodeRow, lastTwo: string[],
-): { text: string; type: "curiosity" | "contrarian" | "utility" } | null {
-  const order: Array<"curiosity" | "contrarian" | "utility"> = [hooks.recommended];
-  for (const t of ["curiosity", "contrarian", "utility"] as const) {
-    if (!order.includes(t)) order.push(t);
-  }
-  // Avoid same-pattern as last 2 posts (if all three differ from last two).
-  const filtered = order.filter((t) => !(lastTwo[0] === t && lastTwo[1] === t));
-  for (const t of filtered) {
-    const text = (hooks as any)[t] as string;
-    if (qualityGate(text, ep).ok) return { text, type: t };
+): { text: string; type: "curiosity" | "contrarian" | "utility"; editorial_style_score: number } | null {
+  const types: Array<"curiosity" | "contrarian" | "utility"> = ["curiosity", "contrarian", "utility"];
+  // Rank by editorial_style_score desc, then preference for the model's recommended, then slot-pattern diversity.
+  const ranked = types
+    .map((t) => ({ t, text: (hooks as any)[t] as string, score: hooks.scores[t] }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.t === hooks.recommended) return -1;
+      if (b.t === hooks.recommended) return 1;
+      return 0;
+    });
+  // Prefer not repeating the same hook type as the last two posts.
+  const sameAsLastTwo = (t: string) => lastTwo[0] === t && lastTwo[1] === t;
+  const ordered = [...ranked.filter((r) => !sameAsLastTwo(r.t)), ...ranked.filter((r) => sameAsLastTwo(r.t))];
+  for (const r of ordered) {
+    if (qualityGate(r.text, ep, r.score).ok) return { text: r.text, type: r.t, editorial_style_score: r.score };
   }
   return null;
 }
@@ -614,7 +676,13 @@ async function main(req: Request) {
   let { hooks, model } = await generateHooks(picked, slot);
   let chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
   if (!chosen) {
-    const second = await generateHooks(picked, slot);
+    const fb: string[] = [];
+    for (const t of ["curiosity", "contrarian", "utility"] as const) {
+      const txt = (hooks as any)[t] as string;
+      const g = qualityGate(txt, picked.ep, hooks.scores[t]);
+      fb.push(`- ${t}: ${txt.length} chars, score=${hooks.scores[t]}, gate=${g.ok ? "ok" : g.reason}`);
+    }
+    const second = await generateHooks(picked, slot, fb.join("\n"));
     hooks = second.hooks; model = second.model;
     chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
   }
@@ -633,9 +701,15 @@ async function main(req: Request) {
   }
 
   const link = episodeUrl(picked.ep);
-  // Format A (main): "<hook>\n\n<link>"; Format B (reply): main = "<hook>", reply = link.
-  const mainText = slot.linkPlacement === "main" ? `${chosen.text}\n\n${link}` : chosen.text;
-  const replyText = slot.linkPlacement === "reply" ? `Full episode on Podiverzum: ${link}` : null;
+  // X counts URLs as 23 chars regardless of actual length. Keep total ≤ 280.
+  // If "main" placement would overflow, switch this post to "reply" placement on the fly.
+  const X_URL_CHARS = 23;
+  let effectiveLinkPlacement = slot.linkPlacement;
+  if (effectiveLinkPlacement === "main" && (chosen.text.length + 2 + X_URL_CHARS) > 280) {
+    effectiveLinkPlacement = "reply";
+  }
+  const mainText = effectiveLinkPlacement === "main" ? `${chosen.text}\n\n${link}` : chosen.text;
+  const replyText = effectiveLinkPlacement === "reply" ? `Full episode on Podiverzum: ${link}` : null;
 
   const coverUrl = picked.ep.image_url || picked.ep.podcasts?.image_url || null;
 
@@ -667,8 +741,10 @@ async function main(req: Request) {
       generated_text: mainText,
       reply_text: replyText,
       hook_type: chosen.type,
+      editorial_style_score: chosen.editorial_style_score,
       hook_variants: hooks,
       char_count: mainText.length,
+      link_placement: effectiveLinkPlacement,
       score: picked.score, score_breakdown: picked.breakdown,
       matched_themes: picked.matchedThemes,
       matched_clickability: picked.matchedClick,
@@ -730,11 +806,12 @@ async function main(req: Request) {
     post_type: slot.kind,
     hook_type: chosen.type,
     slot_utc: slot.time,
-    link_placement: slot.linkPlacement,
+    link_placement: effectiveLinkPlacement,
     score: picked.score,
     score_breakdown: picked.breakdown,
     metadata: {
       char_count: mainText.length,
+      editorial_style_score: chosen.editorial_style_score,
       cover_image_url: coverUrl,
       social_card_url: socialCardUrl,
       image_type: imageType,
