@@ -105,7 +105,7 @@ export default function LiveIndexBar() {
           aria-label="Live index — recently indexed episodes"
         >
           <ul
-            className="flex items-center gap-6 sm:gap-8 whitespace-nowrap text-xs py-1.5 animate-[ticker_140s_linear_infinite] sm:animate-[ticker_120s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
+            className="flex items-center gap-6 sm:gap-8 whitespace-nowrap text-xs py-1 sm:py-1.5 animate-[ticker_140s_linear_infinite] sm:animate-[ticker_120s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
             style={{ width: "max-content" }}
           >
             {loop.map((it, i) => {
