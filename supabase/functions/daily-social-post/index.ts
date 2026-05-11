@@ -525,7 +525,7 @@ const MIN_EDITORIAL_SCORE = 8;
 function qualityGate(text: string, ep: EpisodeRow, editorialScore: number): { ok: boolean; reason?: string } {
   if (!text) return { ok: false, reason: "empty" };
   if (text.length < 120) return { ok: false, reason: "too_short" };
-  if (text.length > 300) return { ok: false, reason: "too_long" };
+  if (text.length > 255) return { ok: false, reason: "too_long" };
   for (const re of BANNED_PHRASES) if (re.test(text)) return { ok: false, reason: `banned:${re}` };
   // Editorial style score from the model itself
   if (editorialScore < MIN_EDITORIAL_SCORE) return { ok: false, reason: `low_editorial_score:${editorialScore}` };
