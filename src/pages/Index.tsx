@@ -13,6 +13,7 @@ import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
+import { AskPodiverzum } from "@/components/AskPodiverzum";
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
@@ -259,6 +260,7 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto py-12 space-y-14">
+        <AskPodiverzum />
         <ContinueListening />
         {/* Mood shelf — above trending on desktop, below on mobile */}
         <div className="hidden md:block">
