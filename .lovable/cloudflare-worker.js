@@ -84,7 +84,8 @@ export default {
         url.pathname === "/sitemap.xml"
           ? "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap"
           : "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/feed-xml";
-      const cacheKey = new Request(`https://proxy-cache.podiverzum.com${url.pathname}`, { method: "GET" });
+      // v2: bust prior cache after sitemap was split into bi-weekly halves.
+      const cacheKey = new Request(`https://proxy-cache-v2.podiverzum.com${url.pathname}`, { method: "GET" });
       const cache = caches.default;
       const hit = await cache.match(cacheKey);
       if (hit) {
