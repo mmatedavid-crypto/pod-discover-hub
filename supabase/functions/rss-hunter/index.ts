@@ -305,10 +305,21 @@ Deno.serve(async (req) => {
       due_count = count || 0;
     } catch { /* noop */ }
 
-    // Adaptive cadence DISABLED during conservative recovery phase.
-    // Approved schedule (`0 */6 * * *`) is managed manually until further notice.
-    const recommended: string | null = null;
-    const applied: string | null = null;
+    // Adaptive cadence based on hunting backlog (due_count) and error rate.
+    let recommended: string;
+    if (errors > 0) recommended = "0 */6 * * *";
+    else if (due_count > 500) recommended = "*/30 * * * *";
+    else if (due_count >= 100) recommended = "0 */2 * * *";
+    else if (due_count >= 1) recommended = "0 */6 * * *";
+    else recommended = "0 6 * * *";
+
+    let applied: string | null = null;
+    try {
+      await supabase.rpc("set_rss_hunter_schedule", { _schedule: recommended });
+      applied = recommended;
+    } catch (e) {
+      console.warn("set_rss_hunter_schedule failed:", (e as any)?.message);
+    }
 
     const summary = {
       started_at: new Date(startedAt).toISOString(),
