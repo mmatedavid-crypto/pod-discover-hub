@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         const batch = rows.slice(i, i + 500);
         const { error, count } = await admin
           .from("ai_enrichment_jobs")
-          .upsert(batch, { onConflict: "input_hash", ignoreDuplicates: true, count: "exact" });
+          .upsert(batch, { onConflict: "kind,target_type,target_id,input_hash", ignoreDuplicates: true, count: "exact" });
         if (error) { upsertErr = error.message; console.log("upsert_error", error); }
         else epJobs += (count ?? batch.length);
       }
