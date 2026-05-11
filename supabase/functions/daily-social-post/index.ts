@@ -392,10 +392,13 @@ function selectForSlot(scored: Scored[], slot: Slot): Scored | null {
 }
 
 // ---------- Hook generation ----------
+type HookVariant = { text: string; editorial_style_score: number; rationale?: string };
 type HookSet = {
   curiosity: string;
   contrarian: string;
   utility: string;
+  scores: { curiosity: number; contrarian: number; utility: number };
+  rationales: { curiosity: string; contrarian: string; utility: string };
   recommended: "curiosity" | "contrarian" | "utility";
   reason: string;
 };
