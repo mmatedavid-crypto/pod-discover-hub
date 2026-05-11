@@ -218,7 +218,7 @@ const Index = () => {
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
-        <div className="relative container mx-auto py-20 sm:py-32">
+        <div className="relative container mx-auto py-12 sm:py-28">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-primary shadow-sm animate-fade-up">
             <span className="relative inline-flex h-1.5 w-1.5">
               <span className="pulse-red" />
@@ -226,30 +226,32 @@ const Index = () => {
             </span>
             Live · Episode-first discovery
           </div>
-          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-6 leading-[1.02] animate-fade-up">
+          <h1 className="text-4xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
             <span className="text-foreground">Find it.</span>{" "}
             <span className="text-brand-gradient">Hear it.</span>
           </h1>
-          <p className="text-muted-foreground mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up">
-            Podiverzum searches the world of podcasts — by topic, person, company, ticker,
-            ingredient or idea. Premium discovery for serious listeners.
+          <p className="text-foreground/85 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
+            Search podcast episodes by what they actually discuss.
+          </p>
+          <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
+            Ask about people, companies, markets, technologies or ideas — and find the episodes that matter.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
-            className="mt-10 max-w-2xl relative focus-brand rounded-2xl transition-shadow animate-fade-up"
+            className="mt-6 sm:mt-10 max-w-2xl relative focus-brand rounded-2xl transition-shadow animate-fade-up"
           >
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Try: AI healthcare, Nvidia data centers, Italy food…"
-              className="w-full pl-12 pr-32 py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
+              placeholder="Try: Nvidia earnings, GLP-1 drugs, AI regulation…"
+              className="w-full pl-12 pr-28 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
             />
-            <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 rounded-xl text-sm font-semibold">
+            <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
               Search
             </button>
           </form>
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-4 sm:mt-5 flex flex-wrap gap-2">
             {chips.map((c) => (
               <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip">
                 {c.label}
