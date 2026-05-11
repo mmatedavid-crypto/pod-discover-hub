@@ -91,6 +91,9 @@ verify_jwt = false
 [functions.ai-feed-scout]
 verify_jwt = false
 
+[functions.episode-dedup-runner]
+verify_jwt = false
+
 [functions.process-email-queue]
 verify_jwt = true
 
