@@ -486,14 +486,28 @@ async function generateHooks(picked: Scored, slot: Slot): Promise<{ hooks: HookS
   const raw = j?.choices?.[0]?.message?.content || "{}";
   let parsed: any;
   try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+  const v = (k: string) => {
+    const x = parsed?.[k];
+    if (x && typeof x === "object") return { text: sanitize(x.text || ""), score: clamp01to10(x.editorial_style_score), rationale: String(x.rationale || "") };
+    return { text: sanitize(typeof x === "string" ? x : ""), score: 0, rationale: "" };
+  };
+  const cu = v("curiosity"), co = v("contrarian"), ut = v("utility");
   const hooks: HookSet = {
-    curiosity: sanitize(parsed.curiosity || ""),
-    contrarian: sanitize(parsed.contrarian || ""),
-    utility: sanitize(parsed.utility || ""),
+    curiosity: cu.text,
+    contrarian: co.text,
+    utility: ut.text,
+    scores: { curiosity: cu.score, contrarian: co.score, utility: ut.score },
+    rationales: { curiosity: cu.rationale, contrarian: co.rationale, utility: ut.rationale },
     recommended: ["curiosity", "contrarian", "utility"].includes(parsed.recommended) ? parsed.recommended : "curiosity",
     reason: String(parsed.reason || ""),
   };
   return { hooks, model };
+}
+
+function clamp01to10(n: any): number {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  return Math.max(0, Math.min(10, Math.round(x)));
 }
 
 function sanitize(s: string): string {
@@ -501,17 +515,21 @@ function sanitize(s: string): string {
     .replace(/^["']|["']$/g, "")
     .replace(/#/g, "")
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/gu, "")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
 // ---------- Quality gate ----------
-function qualityGate(text: string, ep: EpisodeRow): { ok: boolean; reason?: string } {
+const MIN_EDITORIAL_SCORE = 8;
+function qualityGate(text: string, ep: EpisodeRow, editorialScore: number): { ok: boolean; reason?: string } {
   if (!text) return { ok: false, reason: "empty" };
-  if (text.length < 80) return { ok: false, reason: "too_short" };
-  if (text.length > 260) return { ok: false, reason: "too_long" };
+  if (text.length < 120) return { ok: false, reason: "too_short" };
+  if (text.length > 300) return { ok: false, reason: "too_long" };
   for (const re of BANNED_PHRASES) if (re.test(text)) return { ok: false, reason: `banned:${re}` };
-  // Generic-fit check: hook must mention something specific from the episode.
+  // Editorial style score from the model itself
+  if (editorialScore < MIN_EDITORIAL_SCORE) return { ok: false, reason: `low_editorial_score:${editorialScore}` };
+  // Generic-fit check: post must mention something specific from THIS episode.
   const hay = text.toLowerCase();
   const epTokens = (ep.display_title || ep.title).toLowerCase().split(/\W+/).filter((w) => w.length > 3);
   const entityHit = [
@@ -525,16 +543,22 @@ function qualityGate(text: string, ep: EpisodeRow): { ok: boolean; reason?: stri
 
 function pickHookWithGate(
   hooks: HookSet, ep: EpisodeRow, lastTwo: string[],
-): { text: string; type: "curiosity" | "contrarian" | "utility" } | null {
-  const order: Array<"curiosity" | "contrarian" | "utility"> = [hooks.recommended];
-  for (const t of ["curiosity", "contrarian", "utility"] as const) {
-    if (!order.includes(t)) order.push(t);
-  }
-  // Avoid same-pattern as last 2 posts (if all three differ from last two).
-  const filtered = order.filter((t) => !(lastTwo[0] === t && lastTwo[1] === t));
-  for (const t of filtered) {
-    const text = (hooks as any)[t] as string;
-    if (qualityGate(text, ep).ok) return { text, type: t };
+): { text: string; type: "curiosity" | "contrarian" | "utility"; editorial_style_score: number } | null {
+  const types: Array<"curiosity" | "contrarian" | "utility"> = ["curiosity", "contrarian", "utility"];
+  // Rank by editorial_style_score desc, then preference for the model's recommended, then slot-pattern diversity.
+  const ranked = types
+    .map((t) => ({ t, text: (hooks as any)[t] as string, score: hooks.scores[t] }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.t === hooks.recommended) return -1;
+      if (b.t === hooks.recommended) return 1;
+      return 0;
+    });
+  // Prefer not repeating the same hook type as the last two posts.
+  const sameAsLastTwo = (t: string) => lastTwo[0] === t && lastTwo[1] === t;
+  const ordered = [...ranked.filter((r) => !sameAsLastTwo(r.t)), ...ranked.filter((r) => sameAsLastTwo(r.t))];
+  for (const r of ordered) {
+    if (qualityGate(r.text, ep, r.score).ok) return { text: r.text, type: r.t, editorial_style_score: r.score };
   }
   return null;
 }
