@@ -192,7 +192,8 @@ async function pickEpisodesWithin(
   admin: any,
   hours: number,
   excludeEpisodes: Set<string>,
-  excludePodcasts: Set<string>
+  excludePodcasts: Set<string>,
+  enforceCategoryDiversity = true,
 ): Promise<EpisodeRow[]> {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const { data, error } = await admin
@@ -205,19 +206,23 @@ async function pickEpisodesWithin(
     .not("ai_summary", "is", null)
     .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
     .order("published_at", { ascending: false })
-    .limit(80);
+    .limit(120);
   if (error) throw new Error(`pickEpisodes: ${error.message}`);
   const rows = (data || []) as EpisodeRow[];
-  const seen = new Set<string>();
+  const seenPodcasts = new Set<string>();
+  const seenCategories = new Set<string>();
   const filtered: EpisodeRow[] = [];
   for (const r of rows) {
     const tier = r.podcasts?.shadow_rank_tier;
     const featured = r.podcasts?.featured;
     if (!(tier === "S" || tier === "A" || featured)) continue;
-    if (seen.has(r.podcast_id)) continue;
+    if (seenPodcasts.has(r.podcast_id)) continue;
     if (excludeEpisodes.has(r.id)) continue;
     if (excludePodcasts.has(r.podcast_id)) continue;
-    seen.add(r.podcast_id);
+    const cat = (r.podcasts?.category || "").trim().toLowerCase();
+    if (enforceCategoryDiversity && cat && seenCategories.has(cat)) continue;
+    seenPodcasts.add(r.podcast_id);
+    if (cat) seenCategories.add(cat);
     filtered.push(r);
     if (filtered.length >= 6) break;
   }
