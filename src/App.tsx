@@ -31,7 +31,7 @@ import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import MoodCollectionPage from "./pages/MoodCollectionPage.tsx";
-import HuStubPage from "./pages/HuStubPage.tsx";
+
 import AboutPage from "./pages/AboutPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
