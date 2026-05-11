@@ -1244,49 +1244,100 @@ export type Database = {
       social_posts: {
         Row: {
           ai_model: string | null
+          bookmarks: number | null
           content: string
           cost_usd: number | null
           created_at: string
+          ctr: number | null
+          engagement_rate: number | null
           episode_ids: string[]
           error: string | null
+          follows: number | null
+          hook_type: string | null
           id: string
+          impressions: number | null
+          likes: number | null
+          link_clicks: number | null
+          link_placement: string | null
           metadata: Json
+          metrics_refreshed_at: string | null
+          parent_post_id: string | null
           platform: string
           platform_post_id: string | null
           platform_post_url: string | null
           podcast_ids: string[]
+          post_type: string | null
+          replies_count: number | null
+          reposts: number | null
+          score: number | null
+          score_breakdown: Json | null
+          slot_utc: string | null
           status: string
           trigger: string
         }
         Insert: {
           ai_model?: string | null
+          bookmarks?: number | null
           content: string
           cost_usd?: number | null
           created_at?: string
+          ctr?: number | null
+          engagement_rate?: number | null
           episode_ids?: string[]
           error?: string | null
+          follows?: number | null
+          hook_type?: string | null
           id?: string
+          impressions?: number | null
+          likes?: number | null
+          link_clicks?: number | null
+          link_placement?: string | null
           metadata?: Json
+          metrics_refreshed_at?: string | null
+          parent_post_id?: string | null
           platform: string
           platform_post_id?: string | null
           platform_post_url?: string | null
           podcast_ids?: string[]
+          post_type?: string | null
+          replies_count?: number | null
+          reposts?: number | null
+          score?: number | null
+          score_breakdown?: Json | null
+          slot_utc?: string | null
           status?: string
           trigger?: string
         }
         Update: {
           ai_model?: string | null
+          bookmarks?: number | null
           content?: string
           cost_usd?: number | null
           created_at?: string
+          ctr?: number | null
+          engagement_rate?: number | null
           episode_ids?: string[]
           error?: string | null
+          follows?: number | null
+          hook_type?: string | null
           id?: string
+          impressions?: number | null
+          likes?: number | null
+          link_clicks?: number | null
+          link_placement?: string | null
           metadata?: Json
+          metrics_refreshed_at?: string | null
+          parent_post_id?: string | null
           platform?: string
           platform_post_id?: string | null
           platform_post_url?: string | null
           podcast_ids?: string[]
+          post_type?: string | null
+          replies_count?: number | null
+          reposts?: number | null
+          score?: number | null
+          score_breakdown?: Json | null
+          slot_utc?: string | null
           status?: string
           trigger?: string
         }
