@@ -86,7 +86,7 @@ export default function LiveIndexBar() {
     <div className="bg-background text-foreground border-b border-border/70 overflow-hidden">
       <div className="flex items-stretch w-full">
         {/* LIVE label */}
-        <div className="shrink-0 flex items-center gap-2 pl-3 sm:pl-4 pr-3 sm:pr-4 py-1.5 border-r border-border/60 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent">
+        <div className="shrink-0 flex items-center gap-2 pl-3 sm:pl-4 pr-2.5 sm:pr-4 py-1 sm:py-1.5 border-r border-border/60 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent">
           <span className="relative inline-flex h-2 w-2">
             <span className="pulse-red" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary shadow-[0_0_10px_hsl(var(--brand-red)/0.95)]" />
@@ -105,7 +105,7 @@ export default function LiveIndexBar() {
           aria-label="Live index — recently indexed episodes"
         >
           <ul
-            className="flex items-center gap-6 sm:gap-8 whitespace-nowrap text-xs py-1.5 animate-[ticker_140s_linear_infinite] sm:animate-[ticker_120s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
+            className="flex items-center gap-6 sm:gap-8 whitespace-nowrap text-xs py-1 sm:py-1.5 animate-[ticker_140s_linear_infinite] sm:animate-[ticker_120s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
             style={{ width: "max-content" }}
           >
             {loop.map((it, i) => {
