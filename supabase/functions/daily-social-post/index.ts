@@ -468,6 +468,8 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Pro
     'Return JSON: { "curiosity": { "text": "...", "editorial_style_score": 8, "rationale": "..." }, "contrarian": { "text": "...", "editorial_style_score": 7, "rationale": "..." }, "utility": { "text": "...", "editorial_style_score": 9, "rationale": "..." }, "recommended": "curiosity|contrarian|utility", "reason": "..." }',
   ].filter(Boolean).join("\n");
 
+  const finalUser = feedback ? `${user}\n\nIMPORTANT FEEDBACK FROM PREVIOUS ATTEMPT:\n${feedback}\nFix all issues. Stay UNDER 255 CHARACTERS per variant.` : user;
+
   const model = "google/gemini-2.5-flash";
   const res = await fetch(LOVABLE_AI, {
     method: "POST",
