@@ -165,7 +165,10 @@ Deno.serve(async (req) => {
     else if (pending >= 200) recommended = "*/2 * * * *";
     else if (pending > 0) recommended = "*/5 * * * *";
     else recommended = "*/30 * * * *";
-    if (errors > embedded || durationMs > 100_000) {
+    // Step-down only when errors dominate, or when the queue is already small AND
+    // we're hitting the time budget (i.e. taking long for diminishing returns).
+    // While there's a real backlog (>2000), long runs are EXPECTED — that's drain mode.
+    if (errors > embedded || (durationMs > 100_000 && pending < 2000)) {
       const stepDown: Record<string, string> = {
         "* * * * *": "*/2 * * * *",
         "*/2 * * * *": "*/5 * * * *",
