@@ -263,13 +263,9 @@ const Index = () => {
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       </section>
 
-      <div className="container mx-auto py-12 space-y-14">
+      <div className="container mx-auto py-8 sm:py-12 space-y-10 sm:space-y-14">
         <AskPodiverzum />
         <ContinueListening />
-        {/* Mood shelf — above trending on desktop, below on mobile */}
-        <div className="hidden md:block">
-          <MoodCollections />
-        </div>
         {!loaded && trendingEps.length === 0 && (
           <section>
             <Skeleton className="h-6 w-48 mb-4" />
@@ -293,13 +289,15 @@ const Index = () => {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Editor's pulse</div>
-                <h2 className="text-2xl font-semibold">Trending episodes</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">Trending episodes</h2>
               </div>
-              <span className="text-xs text-muted-foreground">Ranked by relevance &amp; freshness</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">Selected · ranked · understood</span>
             </div>
             <EpisodeList items={trendingEps} />
           </section>
         )}
+
+        <MoodCollections />
 
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
@@ -333,11 +331,6 @@ const Index = () => {
             />
           ) : null;
         })()}
-
-        {/* Mood shelf — mobile position (below trending) */}
-        <div className="md:hidden">
-          <MoodCollections />
-        </div>
 
         {cats.filter((c) => c.slug !== "trending").map((c, idx) => {
           const items = epsByCat[c.name] || [];
