@@ -92,7 +92,7 @@ function computeDerived(pm: any, npm: any, om: any) {
   const engagement_rate = impressions && impressions > 0 ? +(engagements / impressions).toFixed(6) : null;
   const ctr = link_clicks != null && impressions && impressions > 0
     ? +(link_clicks / impressions).toFixed(6) : null;
-  return { impressions, likes, replies, reposts, bookmarks, link_clicks, follows, engagement_rate, ctr };
+  return { impressions, likes, replies_count: replies, reposts, bookmarks, link_clicks, follows, engagement_rate, ctr };
 }
 
 Deno.serve(async (req) => {
