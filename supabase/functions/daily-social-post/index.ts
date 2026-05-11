@@ -609,6 +609,28 @@ async function main(req: Request) {
 
   const coverUrl = picked.ep.image_url || picked.ep.podcasts?.image_url || null;
 
+  // ----- Branded social card (best-effort, safe fallback) -----
+  // Priority: branded_card → episode_cover → podcast_cover → text_only.
+  // Default policy: flagship + topic slots → branded_card; discovery → episode_cover (faster, more raw).
+  const wantsBranded = slot.kind === "flagship" || slot.kind === "topic";
+  let imageType: "branded_card" | "episode_cover" | "podcast_cover" | "text_only" =
+    picked.ep.image_url ? "episode_cover" : picked.ep.podcasts?.image_url ? "podcast_cover" : "text_only";
+  let socialCardUrl: string | null = null;
+  let mediaUrl: string | null = coverUrl;
+
+  if (wantsBranded) {
+    try {
+      const card = await generateSocialCard(picked.ep, chosen.text);
+      if (card?.ok && card.url) {
+        socialCardUrl = card.url;
+        mediaUrl = card.url;
+        imageType = "branded_card";
+      }
+    } catch (e: any) {
+      console.error("social card error (using fallback cover):", e?.message || e);
+    }
+  }
+
   if (dryRun) {
     return jsonRes({
       ok: true, dry_run: true, slot,
@@ -621,6 +643,9 @@ async function main(req: Request) {
       matched_themes: picked.matchedThemes,
       matched_clickability: picked.matchedClick,
       cover_image_url: coverUrl,
+      social_card_url: socialCardUrl,
+      image_type: imageType,
+      media_url: mediaUrl,
       model,
       episode: {
         id: picked.ep.id,
