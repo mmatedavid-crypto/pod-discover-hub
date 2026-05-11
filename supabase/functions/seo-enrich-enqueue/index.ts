@@ -116,8 +116,9 @@ Deno.serve(async (req) => {
     const podNameById = new Map(epPods.map((p) => [p.id, (p as any).display_title || (p as any).title || ""]));
 
     let epJobs = 0;
+    let collectedCount = 0;
+    let upsertErr: string | null = null;
     if (epPodIds.length) {
-      // Chunk podcast IDs to avoid PostgREST URL length limits (.in with 2000 uuids → 74kb URL).
       const CHUNK = 150;
       const collected: any[] = [];
       for (let i = 0; i < epPodIds.length && collected.length < maxEps; i += CHUNK) {
@@ -132,8 +133,8 @@ Deno.serve(async (req) => {
         if (eErr) throw eErr;
         for (const e of eps || []) collected.push(e);
       }
+      collectedCount = collected.length;
 
-      // Bulk insert. Conflicts on input_hash are silently skipped.
       const rows: any[] = [];
       for (const e of collected) {
         const podName = podNameById.get(e.podcast_id) || "";
@@ -154,7 +155,8 @@ Deno.serve(async (req) => {
         const { error, count } = await admin
           .from("ai_enrichment_jobs")
           .upsert(batch, { onConflict: "input_hash", ignoreDuplicates: true, count: "exact" });
-        if (!error) epJobs += (count ?? batch.length);
+        if (error) { upsertErr = error.message; console.log("upsert_error", error); }
+        else epJobs += (count ?? batch.length);
       }
     }
 
@@ -163,6 +165,9 @@ Deno.serve(async (req) => {
       podcasts_queued: podJobs,
       episodes_queued: epJobs,
       podcasts_considered: pods.length,
+      ep_podcasts_considered: epPods.length,
+      ep_episodes_collected: collectedCount,
+      upsert_err: upsertErr,
       scope: { min_rank: minRank, require_full_backfill: requireBackfill, tiers: allowedTiers },
     });
   } catch (e: any) {
