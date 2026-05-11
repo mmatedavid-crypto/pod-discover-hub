@@ -125,8 +125,34 @@ Deno.serve(async (req) => {
 
     await processPool(candidates || [], concurrency, work);
 
+    // Count podcasts actually due for refresh (stale beyond threshold) for adaptive cadence.
+    let due_count = 0;
+    try {
+      const { count } = await admin
+        .from("podcasts")
+        .select("id", { count: "exact", head: true })
+        .in("crawl_state", ["full_backfilled", "incremental_refresh"])
+        .is("next_fetch_at", null)
+        .not("last_fetched_at", "is", null)
+        .lte("last_fetched_at", staleCutoff);
+      due_count = count || 0;
+    } catch { /* noop */ }
+
     const errorish = failed > 0 || throttled;
-    const recommended = errorish ? "0 * * * *" : "*/30 * * * *";
+    let recommended: string;
+    if (errorish) recommended = "0 * * * *";
+    else if (due_count > 500) recommended = "*/5 * * * *";
+    else if (due_count >= 100) recommended = "*/10 * * * *";
+    else if (due_count >= 1) recommended = "*/30 * * * *";
+    else recommended = "0 * * * *";
+
+    let applied: string | null = null;
+    try {
+      await admin.rpc("set_incremental_refresh_schedule", { _schedule: recommended });
+      applied = recommended;
+    } catch (e) {
+      console.warn("set_incremental_refresh_schedule failed:", (e as any)?.message);
+    }
 
     const summary = {
       started_at: new Date(startedAt).toISOString(),
