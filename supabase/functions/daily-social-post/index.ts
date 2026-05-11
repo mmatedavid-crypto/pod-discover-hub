@@ -658,8 +658,13 @@ async function main(req: Request) {
     });
   }
 
-  // Upload media (best-effort)
-  const mediaId = coverUrl ? await uploadMedia(coverUrl) : null;
+  // Upload media (best-effort) — prefer branded card, else raw cover.
+  const mediaId = mediaUrl ? await uploadMedia(mediaUrl) : null;
+  if (!mediaId && imageType === "branded_card" && coverUrl) {
+    // Branded upload failed → degrade to cover.
+    imageType = picked.ep.image_url ? "episode_cover" : "podcast_cover";
+    mediaUrl = coverUrl;
+  }
 
   // Post main tweet
   let postId = "", postUrl = "", replyId: string | null = null, replyUrl: string | null = null;
