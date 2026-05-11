@@ -31,7 +31,7 @@ import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import MoodCollectionPage from "./pages/MoodCollectionPage.tsx";
-import HuStubPage from "./pages/HuStubPage.tsx";
+
 import AboutPage from "./pages/AboutPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
@@ -79,7 +79,7 @@ const App = () => (
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/mood/:slug" element={<MoodCollectionPage />} />
-          <Route path="/hu" element={<HuStubPage />} />
+          
           <Route path="/about" element={<AboutPage />} />
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/new" element={<NewPodcastsPage />} />
