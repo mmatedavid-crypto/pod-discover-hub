@@ -479,7 +479,7 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Pro
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: sys },
-        { role: "user", content: user },
+        { role: "user", content: finalUser },
       ],
     }),
   });
