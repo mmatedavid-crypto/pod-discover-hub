@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
       trigger, concurrency, limit, stale_hours, episode_cap: episodeCap,
       scanned, refreshed, failed, throttled, new_episodes: newEpisodes, not_modified: notModified,
       candidates_considered: (candidates || []).length,
-      recommended_schedule: recommended,
+      due_count, recommended_schedule: recommended, applied_schedule: applied,
     };
     await admin.from("app_settings").upsert({
       key: "incremental_refresh",
