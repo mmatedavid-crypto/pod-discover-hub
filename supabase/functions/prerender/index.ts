@@ -91,7 +91,7 @@ ${ld}
 }
 
 function notFound(path: string) {
-  return XXXNRPLACEXXX
+  return new Response(
     shell({
       title: "Not found — Podiverzum",
       description: "The requested page was not found.",
@@ -148,7 +148,7 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     },
   };
 
-  return XXXNRPLACEXXX
+  return new Response(
     shell({
       title: "Podiverzum — Premium podcast discovery",
       description:
@@ -218,7 +218,7 @@ async function buildPodcast(
 
   const longDesc = stripHtml(pod.description || pod.summary);
 
-  return XXXNRPLACEXXX
+  return new Response(
     shell({
       title,
       description: desc,
@@ -308,7 +308,7 @@ async function buildEpisode(
     ],
   };
 
-  return XXXNRPLACEXXX
+  return new Response(
     shell({
       title,
       description: desc,
@@ -388,7 +388,7 @@ async function buildCategory(
     })),
   };
 
-  return XXXNRPLACEXXX
+  return new Response(
     shell({
       title,
       description: desc,
@@ -468,7 +468,7 @@ async function buildEntity(
     })),
   };
 
-  return XXXNRPLACEXXX
+  return new Response(
     shell({
       title,
       description: desc,
