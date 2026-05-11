@@ -232,14 +232,19 @@ async function pickEpisodesWithin(
 async function pickEpisodes(admin: any): Promise<EpisodeRow[]> {
   // Exclude episodes & podcasts already tweeted in the last 30 days (no repeats).
   const recent = await getRecentlyPostedIds(admin, 30);
-  // Try 24h, then 48h, then 72h windows.
+  // Try 24h, then 48h, then 72h windows — with category diversity (max 1 per category).
   for (const hours of [24, 48, 72]) {
-    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, recent.podcasts);
+    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, recent.podcasts, true);
     if (eps.length >= 2) return eps;
   }
-  // Fallback: relax podcast exclusion (still avoid same episode), widen to 96h.
+  // Fallback 1: relax category diversity, keep podcast exclusion, widen to 96h.
   for (const hours of [72, 96]) {
-    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, new Set());
+    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, recent.podcasts, false);
+    if (eps.length >= 2) return eps;
+  }
+  // Fallback 2: relax podcast exclusion too.
+  for (const hours of [72, 96]) {
+    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, new Set(), false);
     if (eps.length >= 2) return eps;
   }
   return [];
