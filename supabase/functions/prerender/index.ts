@@ -16,11 +16,12 @@ const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.com";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const baseHeaders = {
+const baseHeaders: Record<string, string> = {
   "Content-Type": "text/html; charset=utf-8",
   "Cache-Control": "public, max-age=600, s-maxage=86400",
   "Access-Control-Allow-Origin": "*",
   "X-Prerendered": "1",
+  "Vary": "User-Agent",
 };
 
 const esc = (s: string) =>
