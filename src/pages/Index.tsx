@@ -168,6 +168,9 @@ const Index = () => {
         // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
         const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
         setEvergreenEps(evergreen.slice(0, 6));
+
+        // Trending entities source (last 14 days, EN-only, healthy podcasts)
+        setTrendingEntityEps((entityRes.data || []) as any);
       } catch (err) {
         console.error("Index load failed", err);
         setLoadError(true);
