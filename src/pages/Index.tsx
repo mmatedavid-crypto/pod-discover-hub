@@ -28,6 +28,7 @@ const Index = () => {
   const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
+  const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
   const [chips, setChips] = useState<{ label: string; query: string }[]>([
     { label: "AI healthcare", query: "AI healthcare" },
     { label: "Warren Buffett", query: "Warren Buffett" },
