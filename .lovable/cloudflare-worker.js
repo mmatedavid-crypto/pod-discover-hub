@@ -9,6 +9,12 @@ const PRERENDER_ENDPOINT =
 const SUPABASE_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxemtheW9xcWFnb3d2eGVhcGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDA3NzAsImV4cCI6MjA5MzU3Njc3MH0.KaeRcYcljGjrP_OAcTp_lapPSRsAYRq6gPJ2vYV7fz4";
 
+// Known malicious-scanner paths. We return a hard 404 (no body, no SPA shell)
+// so analytics/scanners stop seeing 200s for /wp-admin etc.
+// IMPORTANT: tested against real routes — none of these collide with app routes.
+const SCANNER_PATH_REGEX =
+  /^\/(wp-admin|wp-login|wp-content|wp-includes|wp-json|xmlrpc\.php|\.env|\.git|\.aws|\.ssh|\.docker|\.vscode|\.idea|phpmyadmin|pma|mysql|adminer|config\.php|configuration\.php|\.well-known\/security\.txt$|backup|backups|dump|dumps|\.bak|\.sql|\.zip|\.tar|\.tgz|cgi-bin|cgi|owa|autodiscover|ecp|exchange|boaform|HNAP1|hudson|jenkins|solr|jmx-console|manager\/html|actuator|console|telescope|debug|server-status|server-info|api\/login|api\/v1\/login)(\/|$|\.)/i;
+
 // Bot UAs that don't execute JS (or benefit from instant HTML)
 const BOT_UA_REGEX =
   /(GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity-User|Google-Extended|Applebot-Extended|Bytespider|Meta-ExternalAgent|Meta-ExternalFetcher|facebookexternalhit|DuckAssistBot|CCBot|YouBot|Diffbot|Googlebot|Bingbot|DuckDuckBot|YandexBot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|TelegramBot|Discordbot|SemrushBot|AhrefsBot|MJ12bot)/i;
@@ -49,6 +55,20 @@ export default {
     const url = new URL(request.url);
     const ua = request.headers.get("User-Agent") || "";
     const isBot = BOT_UA_REGEX.test(ua);
+
+    // Hard-404 known scanner paths BEFORE anything else (cheap, no origin hit).
+    // Regex is conservative — verified no real app route matches.
+    if (SCANNER_PATH_REGEX.test(url.pathname)) {
+      return new Response("Not Found", {
+        status: 404,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=86400",
+          "X-Worker": "podiverzum-bot-prerender",
+          "X-Blocked": "scanner-path",
+        },
+      });
+    }
 
     // Non-GET / non-HEAD: never prerender
     if (request.method !== "GET" && request.method !== "HEAD") {
