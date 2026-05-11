@@ -403,7 +403,7 @@ type HookSet = {
   reason: string;
 };
 
-async function generateHooks(picked: Scored, slot: Slot): Promise<{ hooks: HookSet; model: string }> {
+async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Promise<{ hooks: HookSet; model: string }> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
   const ep = picked.ep;
