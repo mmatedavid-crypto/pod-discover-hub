@@ -32,11 +32,9 @@ function mapRow(r: Row): EpisodeLite {
       image_url: r.podcasts?.image_url,
       category: r.podcasts?.category,
       podiverzum_rank: r.podcasts?.podiverzum_rank,
-      // @ts-expect-error extra fields used by sort
       rank_label: r.podcasts?.rank_label,
-      // @ts-expect-error extra fields used by filter
       rss_status: r.podcasts?.rss_status,
-    },
+    } as any,
   };
 }
 
