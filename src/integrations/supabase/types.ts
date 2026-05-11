@@ -847,6 +847,11 @@ export type Database = {
       }
       podcasts: {
         Row: {
+          ai_category_alt: string | null
+          ai_category_at: string | null
+          ai_category_confidence: number | null
+          ai_category_model: string | null
+          ai_category_needs_review: boolean | null
           ai_enriched_at: string | null
           ai_entities_version: number
           ai_quality_input_hash: string | null
@@ -914,6 +919,11 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          ai_category_alt?: string | null
+          ai_category_at?: string | null
+          ai_category_confidence?: number | null
+          ai_category_model?: string | null
+          ai_category_needs_review?: boolean | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_quality_input_hash?: string | null
@@ -981,6 +991,11 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          ai_category_alt?: string | null
+          ai_category_at?: string | null
+          ai_category_confidence?: number | null
+          ai_category_model?: string | null
+          ai_category_needs_review?: boolean | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_quality_input_hash?: string | null
@@ -1551,6 +1566,10 @@ export type Database = {
           title: string
           topics: string[]
         }[]
+      }
+      set_categorize_runner_schedule: {
+        Args: { _schedule: string }
+        Returns: string
       }
       set_deep_hydration_schedule: {
         Args: { _schedule: string }

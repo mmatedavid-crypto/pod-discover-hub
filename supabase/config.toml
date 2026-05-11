@@ -99,3 +99,6 @@ verify_jwt = true
 
 [functions.prerender]
 verify_jwt = false
+
+[functions.categorize-podcast-runner]
+verify_jwt = false
