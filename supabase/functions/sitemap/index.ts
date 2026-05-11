@@ -81,8 +81,11 @@ async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
   ];
   // Entity sub-sitemaps disabled until entity extraction is re-enabled
   // (topics/people/companies/tickers/ingredients arrays are currently empty).
+  // Split each month into two halves (1-15, 16-end) so no sub-sitemap exceeds
+  // Google's 50k URL limit (peak month was ~87k whole, ~44k per half).
   for (const ym of months) {
-    entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+    entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}&amp;part=1</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+    entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}&amp;part=2</loc><lastmod>${lastmod}</lastmod></sitemap>`);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join("\n")}\n</sitemapindex>`;
 }
