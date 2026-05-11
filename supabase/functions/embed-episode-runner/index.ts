@@ -62,7 +62,7 @@ async function embed(model: string, text: string): Promise<{ vec: number[]; toke
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 110_000;
+  const TIME_BUDGET_MS = 70_000;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
