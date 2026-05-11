@@ -1,13 +1,19 @@
-// Daily auto-post to X/Twitter (Facebook later).
-// Picks recent high-quality episodes, writes an info+entertainment post via Lovable AI,
-// posts to X with OAuth 1.0a, logs to social_posts table.
+// Editorial X automation for Podiverzum (English-only).
+// Slot-aware runner — invoked every 30 min by cron. If the current UTC time
+// matches a publishing slot, it picks ONE strong fresh episode, scores it,
+// generates 3 hook variants, runs a quality gate, then posts to X.
 //
 // Modes:
-//   POST { dry_run: true }   -> generate but don't post (preview)
-//   POST { dry_run: false }  -> generate + post to X
-//   GET                       -> health check
+//   POST {}                          → if a slot is active now, pick + post
+//   POST { dry_run: true }           → preview a post for the active slot (or "flagship" if none)
+//   POST { force_slot: "13:30" }     → force a slot regardless of clock
+//   POST { dry_run: true, force_slot: "21:30" }
+//   GET                              → health check
 //
-// Triggered by cron daily at 14:00 UTC (9 AM ET).
+// Slots (UTC):
+//   Weekdays (Mon–Fri): 13:30 (flagship), 17:30 (topic/entity), 21:30 (discovery)
+//   Weekends (Sat/Sun): 16:00 (flagship/evergreen), 20:00 (discovery)
+// Daily caps: weekdays 3, weekends 2. Same podcast cannot be re-posted within 3 days.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
@@ -21,60 +27,95 @@ const SITE_URL = "https://podiverzum.com";
 const X_API = "https://api.x.com/2";
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+// ---------- Slot definitions ----------
+type SlotKind = "flagship" | "topic" | "discovery";
+type Slot = { time: string; kind: SlotKind; linkPlacement: "main" | "reply" };
+
+const WEEKDAY_SLOTS: Slot[] = [
+  { time: "13:30", kind: "flagship",  linkPlacement: "main"  },
+  { time: "17:30", kind: "topic",     linkPlacement: "reply" },
+  { time: "21:30", kind: "discovery", linkPlacement: "reply" },
+];
+const WEEKEND_SLOTS: Slot[] = [
+  { time: "16:00", kind: "flagship",  linkPlacement: "main"  },
+  { time: "20:00", kind: "discovery", linkPlacement: "reply" },
+];
+
+// Tolerance window (minutes) — cron runs every 30m, allow ±10m drift.
+const SLOT_TOLERANCE_MIN = 10;
+
+function slotsForDay(d: Date): Slot[] {
+  const dow = d.getUTCDay(); // 0=Sun, 6=Sat
+  return (dow === 0 || dow === 6) ? WEEKEND_SLOTS : WEEKDAY_SLOTS;
+}
+
+function activeSlot(now: Date): Slot | null {
+  const slots = slotsForDay(now);
+  const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+  for (const s of slots) {
+    const [h, m] = s.time.split(":").map(Number);
+    const slotMin = h * 60 + m;
+    if (Math.abs(nowMin - slotMin) <= SLOT_TOLERANCE_MIN) return s;
+  }
+  return null;
+}
+
+// ---------- High-priority themes (scoring) ----------
+const HIGH_PRIORITY_THEMES = [
+  "ai", "ai agent", "agents", "openai", "anthropic", "nvidia", "apple",
+  "google", "meta", "microsoft", "tesla", "elon musk", "sam altman",
+  "jensen huang", "startup", "founder", "business", "investing", "market",
+  "bitcoin", "fed", "trump", "geopolitic", "defense", "energy",
+  "health", "longevity", "glp-1", "ozempic", "productivity", "culture",
+];
+
+const CLICKABILITY_KEYWORDS = [
+  "predict", "prediction", "debate", "contrarian", "controversial",
+  "wrong about", "warning", "surprising", "shocking", "what happens next",
+  "lesson", "future of", "the truth about", "vs", "versus",
+];
+
+const BANNED_PHRASES = [
+  /\bnew episode\b/i,
+  /\bcheck (this|it) out\b/i,
+  /\blisten now\b/i,
+  /\bdon'?t miss\b/i,
+  /\btune in\b/i,
+  /\bmust[- ]listen\b/i,
+];
+
 // ---------- OAuth 1.0a HMAC-SHA1 ----------
 function pctEncode(s: string): string {
   return encodeURIComponent(s).replace(/[!*'()]/g, (c) =>
     "%" + c.charCodeAt(0).toString(16).toUpperCase()
   );
 }
-
 async function hmacSha1(key: string, data: string): Promise<string> {
   const enc = new TextEncoder();
   const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(key),
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"]
+    "raw", enc.encode(key), { name: "HMAC", hash: "SHA-1" }, false, ["sign"]
   );
   const sig = await crypto.subtle.sign("HMAC", cryptoKey, enc.encode(data));
   return btoa(String.fromCharCode(...new Uint8Array(sig)));
 }
-
 async function buildOAuthHeader(
-  method: string,
-  url: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
+  method: string, url: string,
+  ck: string, cs: string, at: string, ats: string,
 ): Promise<string> {
-  const oauthParams: Record<string, string> = {
-    oauth_consumer_key: consumerKey,
+  const p: Record<string, string> = {
+    oauth_consumer_key: ck,
     oauth_nonce: crypto.randomUUID().replace(/-/g, ""),
     oauth_signature_method: "HMAC-SHA1",
     oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: accessToken,
+    oauth_token: at,
     oauth_version: "1.0",
   };
-  // For JSON body POSTs, do NOT include body params in signature base.
-  const paramString = Object.keys(oauthParams)
-    .sort()
-    .map((k) => `${pctEncode(k)}=${pctEncode(oauthParams[k])}`)
-    .join("&");
-  const signatureBase = `${method.toUpperCase()}&${pctEncode(url)}&${pctEncode(paramString)}`;
-  const signingKey = `${pctEncode(consumerSecret)}&${pctEncode(accessTokenSecret)}`;
-  const signature = await hmacSha1(signingKey, signatureBase);
-  oauthParams.oauth_signature = signature;
-  const header =
-    "OAuth " +
-    Object.keys(oauthParams)
-      .sort()
-      .map((k) => `${pctEncode(k)}="${pctEncode(oauthParams[k])}"`)
-      .join(", ");
-  return header;
+  const paramString = Object.keys(p).sort().map((k) => `${pctEncode(k)}=${pctEncode(p[k])}`).join("&");
+  const sigBase = `${method.toUpperCase()}&${pctEncode(url)}&${pctEncode(paramString)}`;
+  const signingKey = `${pctEncode(cs)}&${pctEncode(ats)}`;
+  p.oauth_signature = await hmacSha1(signingKey, sigBase);
+  return "OAuth " + Object.keys(p).sort().map((k) => `${pctEncode(k)}="${pctEncode(p[k])}"`).join(", ");
 }
-
 function getCreds() {
   const ck = Deno.env.get("TWITTER_CONSUMER_KEY");
   const cs = Deno.env.get("TWITTER_CONSUMER_SECRET");
@@ -84,8 +125,6 @@ function getCreds() {
   return { ck, cs, at, ats };
 }
 
-// Upload image to X via v1.1 media/upload (multipart form-data).
-// OAuth signature for multipart includes only oauth_* params (NOT body fields).
 async function uploadMedia(imageUrl: string): Promise<string | null> {
   try {
     const imgRes = await fetch(imageUrl);
@@ -93,35 +132,24 @@ async function uploadMedia(imageUrl: string): Promise<string | null> {
     const ct = imgRes.headers.get("content-type") || "image/jpeg";
     if (!/^image\/(jpeg|jpg|png|webp|gif)/i.test(ct)) return null;
     const buf = new Uint8Array(await imgRes.arrayBuffer());
-    if (buf.byteLength > 4_900_000) return null; // ~5MB X limit
+    if (buf.byteLength > 4_900_000) return null;
     const ext = ct.includes("png") ? "png" : ct.includes("webp") ? "webp" : ct.includes("gif") ? "gif" : "jpg";
-
     const { ck, cs, at, ats } = getCreds();
     const url = "https://upload.twitter.com/1.1/media/upload.json";
     const auth = await buildOAuthHeader("POST", url, ck, cs, at, ats);
-
     const boundary = "----PodiverzumBoundary" + crypto.randomUUID().replace(/-/g, "");
     const enc = new TextEncoder();
-    const head = enc.encode(
-      `--${boundary}\r\nContent-Disposition: form-data; name="media"; filename="cover.${ext}"\r\nContent-Type: ${ct}\r\n\r\n`
-    );
+    const head = enc.encode(`--${boundary}\r\nContent-Disposition: form-data; name="media"; filename="cover.${ext}"\r\nContent-Type: ${ct}\r\n\r\n`);
     const tail = enc.encode(`\r\n--${boundary}--\r\n`);
     const body = new Uint8Array(head.length + buf.length + tail.length);
-    body.set(head, 0);
-    body.set(buf, head.length);
-    body.set(tail, head.length + buf.length);
-
+    body.set(head, 0); body.set(buf, head.length); body.set(tail, head.length + buf.length);
     const res = await fetch(url, {
       method: "POST",
       headers: { Authorization: auth, "Content-Type": `multipart/form-data; boundary=${boundary}` },
       body,
     });
-    const txt = await res.text();
-    if (!res.ok) {
-      console.error("media upload failed:", res.status, txt);
-      return null;
-    }
-    const j = JSON.parse(txt);
+    if (!res.ok) { console.error("media upload failed:", res.status, await res.text()); return null; }
+    const j = JSON.parse(await res.text());
     return j?.media_id_string || null;
   } catch (e) {
     console.error("uploadMedia error:", (e as any)?.message || e);
@@ -129,12 +157,16 @@ async function uploadMedia(imageUrl: string): Promise<string | null> {
   }
 }
 
-async function postTweet(text: string, mediaId?: string | null): Promise<{ id: string; url: string }> {
+async function postTweet(
+  text: string,
+  opts: { mediaId?: string | null; replyToId?: string | null } = {},
+): Promise<{ id: string; url: string }> {
   const { ck, cs, at, ats } = getCreds();
   const url = `${X_API}/tweets`;
   const auth = await buildOAuthHeader("POST", url, ck, cs, at, ats);
   const payload: any = { text };
-  if (mediaId) payload.media = { media_ids: [mediaId] };
+  if (opts.mediaId) payload.media = { media_ids: [opts.mediaId] };
+  if (opts.replyToId) payload.reply = { in_reply_to_tweet_id: opts.replyToId };
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: auth, "Content-Type": "application/json" },
@@ -147,7 +179,7 @@ async function postTweet(text: string, mediaId?: string | null): Promise<{ id: s
   return { id, url: id ? `https://x.com/i/web/status/${id}` : "" };
 }
 
-// ---------- Episode selection ----------
+// ---------- Candidate selection & scoring ----------
 type EpisodeRow = {
   id: string;
   title: string;
@@ -157,6 +189,10 @@ type EpisodeRow = {
   published_at: string | null;
   podcast_id: string;
   image_url: string | null;
+  topics: string[] | null;
+  people: string[] | null;
+  companies: string[] | null;
+  tickers: string[] | null;
   podcasts: {
     id: string;
     title: string;
@@ -166,288 +202,521 @@ type EpisodeRow = {
     shadow_rank_tier: string | null;
     featured: boolean;
     image_url: string | null;
+    language: string | null;
   } | null;
 };
 
-async function getRecentlyPostedIds(admin: any, days: number): Promise<{ episodes: Set<string>; podcasts: Set<string> }> {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await admin
-    .from("social_posts")
-    .select("episode_ids, podcast_ids")
-    .eq("platform", "x")
-    .in("status", ["success", "deleted"])
-    .gte("created_at", since);
-  const eps = new Set<string>();
-  const pods = new Set<string>();
-  if (!error && data) {
-    for (const row of data as { episode_ids: string[] | null; podcast_ids: string[] | null }[]) {
-      (row.episode_ids || []).forEach((id) => eps.add(id));
-      (row.podcast_ids || []).forEach((id) => pods.add(id));
-    }
-  }
-  return { episodes: eps, podcasts: pods };
+type Scored = {
+  ep: EpisodeRow;
+  score: number;
+  breakdown: Record<string, number>;
+  matchedThemes: string[];
+  matchedClick: string[];
+  ageHours: number;
+};
+
+function tierScore(tier?: string | null, featured?: boolean): number {
+  if (tier === "S") return 1.0;
+  if (tier === "A") return 0.75;
+  if (featured) return 0.65;
+  if (tier === "B") return 0.45;
+  return 0.2;
+}
+function freshnessScore(publishedAt: string | null): number {
+  if (!publishedAt) return 0;
+  const ageH = (Date.now() - new Date(publishedAt).getTime()) / 3_600_000;
+  if (ageH < 24) return 1.0;
+  if (ageH < 48) return 0.7;
+  if (ageH < 72) return 0.45;
+  return 0.1;
+}
+function topicTrendScore(ep: EpisodeRow): { score: number; matched: string[] } {
+  const hay = [
+    ep.title, ep.display_title || "", ep.ai_summary || "",
+    ...(ep.topics || []), ...(ep.people || []), ...(ep.companies || []),
+  ].join(" ").toLowerCase();
+  const matched: string[] = [];
+  for (const t of HIGH_PRIORITY_THEMES) if (hay.includes(t)) matched.push(t);
+  if (matched.length === 0) return { score: 0.1, matched };
+  if (matched.length >= 3) return { score: 1.0, matched };
+  if (matched.length === 2) return { score: 0.75, matched };
+  return { score: 0.5, matched };
+}
+function entityStrengthScore(ep: EpisodeRow): number {
+  const n =
+    (ep.people?.length || 0) +
+    (ep.companies?.length || 0) +
+    (ep.tickers?.length || 0);
+  if (n >= 4) return 1.0;
+  if (n === 3) return 0.8;
+  if (n === 2) return 0.6;
+  if (n === 1) return 0.35;
+  return 0.1;
+}
+function aiSummaryQualityScore(s: string | null): number {
+  if (!s) return 0;
+  const len = s.trim().length;
+  if (len < 80) return 0.1;
+  // Penalize generic fillers
+  const generic = /(in this episode|join (us|me) (as|for)|we (talk|discuss) about)/i;
+  let base = Math.min(1, len / 600);
+  if (generic.test(s)) base *= 0.6;
+  return Math.max(0.15, base);
+}
+function clickabilityScore(ep: EpisodeRow): { score: number; matched: string[] } {
+  const hay = [ep.title, ep.display_title || "", ep.ai_summary || ""].join(" ").toLowerCase();
+  const matched: string[] = [];
+  for (const k of CLICKABILITY_KEYWORDS) if (hay.includes(k)) matched.push(k);
+  // Famous-people / company boost piggybacks on entity arrays
+  const boost = Math.min(0.4, ((ep.people?.length || 0) + (ep.companies?.length || 0)) * 0.1);
+  let s = 0.15 + matched.length * 0.18 + boost;
+  if (s > 1) s = 1;
+  return { score: s, matched };
 }
 
-async function pickEpisodesWithin(
-  admin: any,
-  hours: number,
-  excludeEpisodes: Set<string>,
-  excludePodcasts: Set<string>,
-  enforceCategoryDiversity = true,
-): Promise<EpisodeRow[]> {
-  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+function scoreEpisode(ep: EpisodeRow): Scored {
+  const podRank = tierScore(ep.podcasts?.shadow_rank_tier, ep.podcasts?.featured);
+  const fresh = freshnessScore(ep.published_at);
+  const topic = topicTrendScore(ep);
+  const ent = entityStrengthScore(ep);
+  const aiq = aiSummaryQualityScore(ep.ai_summary);
+  const click = clickabilityScore(ep);
+  const score =
+    podRank * 0.30 +
+    fresh   * 0.20 +
+    topic.score * 0.15 +
+    ent     * 0.15 +
+    aiq     * 0.10 +
+    click.score * 0.10;
+  const ageH = ep.published_at ? (Date.now() - new Date(ep.published_at).getTime()) / 3_600_000 : 999;
+  return {
+    ep, score,
+    breakdown: { podRank, fresh, topic: topic.score, ent, aiq, click: click.score },
+    matchedThemes: topic.matched,
+    matchedClick: click.matched,
+    ageHours: ageH,
+  };
+}
+
+async function loadCandidates(admin: any): Promise<EpisodeRow[]> {
+  const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
   const { data, error } = await admin
     .from("episodes")
     .select(`
       id, title, display_title, ai_summary, slug, published_at, podcast_id, image_url,
+      topics, people, companies, tickers,
       podcasts!inner(id, title, display_title, slug, category, shadow_rank_tier, featured, image_url, language)
     `)
     .gte("published_at", since)
     .not("ai_summary", "is", null)
     .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
     .order("published_at", { ascending: false })
-    .limit(120);
-  if (error) throw new Error(`pickEpisodes: ${error.message}`);
-  const rows = (data || []) as EpisodeRow[];
-  const seenPodcasts = new Set<string>();
-  const seenCategories = new Set<string>();
-  const filtered: EpisodeRow[] = [];
-  for (const r of rows) {
-    const tier = r.podcasts?.shadow_rank_tier;
-    const featured = r.podcasts?.featured;
-    if (!(tier === "S" || tier === "A" || featured)) continue;
-    if (seenPodcasts.has(r.podcast_id)) continue;
-    if (excludeEpisodes.has(r.id)) continue;
-    if (excludePodcasts.has(r.podcast_id)) continue;
-    const cat = (r.podcasts?.category || "").trim().toLowerCase();
-    if (enforceCategoryDiversity && cat && seenCategories.has(cat)) continue;
-    seenPodcasts.add(r.podcast_id);
-    if (cat) seenCategories.add(cat);
-    filtered.push(r);
-    if (filtered.length >= 6) break;
-  }
-  return filtered;
+    .limit(300);
+  if (error) throw new Error(`loadCandidates: ${error.message}`);
+  return (data || []) as EpisodeRow[];
 }
 
-async function pickEpisodes(admin: any): Promise<EpisodeRow[]> {
-  // Exclude episodes & podcasts already tweeted in the last 30 days (no repeats).
-  const recent = await getRecentlyPostedIds(admin, 30);
-  // Try 24h, then 48h, then 72h windows — with category diversity (max 1 per category).
-  for (const hours of [24, 48, 72]) {
-    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, recent.podcasts, true);
-    if (eps.length >= 2) return eps;
+async function recentlyPosted(admin: any) {
+  // For "no same podcast within 3 days" rule, plus today's count
+  const since3d = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const sinceToday = new Date();
+  sinceToday.setUTCHours(0, 0, 0, 0);
+  const { data } = await admin
+    .from("social_posts")
+    .select("podcast_ids, episode_ids, created_at, post_type, slot_utc")
+    .eq("platform", "x")
+    .in("status", ["success", "deleted"])
+    .gte("created_at", since3d.length ? since3d : new Date(0).toISOString());
+  const podcasts3d = new Set<string>();
+  const episodes3d = new Set<string>();
+  const todaySlots = new Set<string>();
+  let todayCount = 0;
+  let lastHookType: string | null = null;
+  let lastTwoHookTypes: string[] = [];
+  for (const r of (data || []) as any[]) {
+    (r.podcast_ids || []).forEach((id: string) => podcasts3d.add(id));
+    (r.episode_ids || []).forEach((id: string) => episodes3d.add(id));
+    if (new Date(r.created_at) >= sinceToday) {
+      todayCount++;
+      if (r.slot_utc) todaySlots.add(r.slot_utc);
+    }
   }
-  // Fallback 1: relax category diversity, keep podcast exclusion, widen to 96h.
-  for (const hours of [72, 96]) {
-    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, recent.podcasts, false);
-    if (eps.length >= 2) return eps;
-  }
-  // Fallback 2: relax podcast exclusion too.
-  for (const hours of [72, 96]) {
-    const eps = await pickEpisodesWithin(admin, hours, recent.episodes, new Set(), false);
-    if (eps.length >= 2) return eps;
-  }
-  return [];
+  // Last two hook types (any time, latest 2)
+  const { data: lastHooks } = await admin
+    .from("social_posts")
+    .select("hook_type")
+    .eq("platform", "x")
+    .eq("status", "success")
+    .not("hook_type", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(2);
+  lastTwoHookTypes = ((lastHooks || []) as any[]).map((r) => r.hook_type).filter(Boolean);
+  lastHookType = lastTwoHookTypes[0] || null;
+  return { podcasts3d, episodes3d, todayCount, todaySlots, lastHookType, lastTwoHookTypes };
 }
 
-// ---------- Content generation ----------
-async function generatePost(episodes: EpisodeRow[]): Promise<{ text: string; model: string }> {
+function selectForSlot(scored: Scored[], slot: Slot): Scored | null {
+  // Slot-specific re-rank tweaks
+  const reweighted = scored.map((s) => {
+    let bonus = 0;
+    if (slot.kind === "flagship") {
+      bonus += s.breakdown.fresh * 0.15 + s.breakdown.podRank * 0.1;
+    } else if (slot.kind === "topic") {
+      bonus += s.breakdown.ent * 0.2 + s.breakdown.topic * 0.15;
+    } else { // discovery
+      bonus += s.breakdown.click * 0.2 + s.breakdown.aiq * 0.1;
+    }
+    return { ...s, slotScore: s.score + bonus };
+  }).sort((a, b) => b.slotScore - a.slotScore);
+  // Quality floor
+  for (const r of reweighted) {
+    if (r.score < 0.42) continue; // skip filler
+    if (slot.kind === "flagship" && r.ageHours > 48) continue;
+    return r;
+  }
+  return null;
+}
+
+// ---------- Hook generation ----------
+type HookSet = {
+  curiosity: string;
+  contrarian: string;
+  utility: string;
+  recommended: "curiosity" | "contrarian" | "utility";
+  reason: string;
+};
+
+async function generateHooks(picked: Scored, slot: Slot): Promise<{ hooks: HookSet; model: string }> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+  const ep = picked.ep;
+  const podTitle = ep.podcasts?.display_title || ep.podcasts?.title || "";
+  const epTitle = ep.display_title || ep.title;
+  const summary = (ep.ai_summary || "").slice(0, 800);
+  const entities = [
+    ...(ep.people || []).slice(0, 4),
+    ...(ep.companies || []).slice(0, 4),
+    ...(ep.tickers || []).slice(0, 3),
+  ].join(", ");
+  const themes = picked.matchedThemes.slice(0, 5).join(", ");
 
-  const items = episodes.slice(0, 3).map((e) => {
-    const epTitle = e.display_title || e.title;
-    const podTitle = e.podcasts?.display_title || e.podcasts?.title || "";
-    const url = `${SITE_URL}/podcast/${e.podcasts?.slug}/${e.slug}`;
-    const summary = (e.ai_summary || "").slice(0, 400);
-    return { epTitle, podTitle, url, summary, category: e.podcasts?.category };
-  });
+  const sys = [
+    "You are a sharp editorial writer for Podiverzum's X account.",
+    "You write like a smart human editor — concise, intelligent, slightly provocative.",
+    "Audience: international English-speaking readers (UK, US) interested in tech, AI, business, markets, ideas.",
+    "RULES:",
+    "- First line is the strongest line, usually under 90 chars.",
+    "- Total post 140–240 chars (hard cap 260; the link will be appended separately).",
+    "- No hashtags. No emojis. No 'New episode'. No 'Check this out'. No 'Listen now' as the hook.",
+    "- Never invent quotes. Never overstate. No fake controversy.",
+    "- Soft CTA allowed (e.g. 'Worth 40 minutes if you care about markets.').",
+    "- Be specific to THIS episode. The hook must NOT fit any random podcast.",
+    "Return strict JSON only.",
+  ].join("\n");
 
-  const sys =
-    "You write scroll-stopping clickbait posts for X/Twitter about new podcast episodes on Podiverzum. Style: punchy, curious, irresistible — like the best BuzzFeed/Morning Brew headlines but smarter. Open with a HOOK that creates a curiosity gap: a bold claim, a shocking number, a 'wait, what?' contradiction, or an open loop ('The one thing X won't tell you about Y...'). Tease the juiciest angle without spoiling the answer — make people NEED to click. For EACH episode, give a richer 1-2 sentence tease (not just a label) so the reader gets a real flavor of what's inside. Must be true to the episode (no fake/misleading claims). US English, conversational. NEVER use hashtags or '#' characters. NEVER use emojis. Aim for AROUND 270 characters TOTAL including links (each shortened URL counts as 23 chars) — use the space; do not stop at 150. Hard cap 280. Mention 2-3 episodes; each tease followed by its podiverzum.com link. No intro, no outro, no commentary — just the post.";
+  const user = [
+    `Slot type: ${slot.kind} (${slot.kind === "flagship" ? "fresh, newsy" : slot.kind === "topic" ? "topic/entity-driven" : "curiosity/discovery"}).`,
+    `Podcast: "${podTitle}"`,
+    `Episode: "${epTitle}"`,
+    entities ? `Notable people/companies/tickers: ${entities}` : "",
+    themes ? `Matched themes: ${themes}` : "",
+    `Summary: ${summary}`,
+    "",
+    "Write 3 distinct hook variants for this single episode:",
+    "1) curiosity — opens a curiosity gap; hints at the most interesting angle.",
+    "2) contrarian — challenges a default assumption; offers a non-obvious framing.",
+    "3) utility — promises useful signal/lesson for a specific kind of reader.",
+    "Each hook is a complete X post body (no link, no hashtags, no emojis). 140–240 chars.",
+    "Then pick the strongest variant for THIS slot type.",
+    "",
+    'Return JSON: { "curiosity": "...", "contrarian": "...", "utility": "...", "recommended": "curiosity|contrarian|utility", "reason": "..." }',
+  ].filter(Boolean).join("\n");
 
-  const user =
-    "Write today's post. Mention these new episodes (pick the 2-3 most interesting; weave them naturally; one short sentence each + the URL):\n\n" +
-    items
-      .map(
-        (i, idx) =>
-          `${idx + 1}. Podcast: "${i.podTitle}" — Episode: "${i.epTitle}"\n   Category: ${i.category || "general"}\n   Summary: ${i.summary}\n   URL: ${i.url}`
-      )
-      .join("\n\n") +
-    "\n\nReturn ONLY the post text, no quotes, no preamble.";
-
-  const model = "google/gemini-2.5-flash-lite";
+  const model = "google/gemini-2.5-flash";
   const res = await fetch(LOVABLE_AI, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
+      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: sys },
         { role: "user", content: user },
       ],
     }),
   });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Lovable AI ${res.status}: ${t}`);
-  }
+  if (!res.ok) throw new Error(`Lovable AI ${res.status}: ${await res.text()}`);
   const j = await res.json();
-  const text = (j?.choices?.[0]?.message?.content || "").trim();
-  if (!text) throw new Error("Empty AI response");
-  // Light cleanup: strip surrounding quotes if any
-  let cleaned = text.replace(/^["']|["']$/g, "").trim();
-  // Defensive sanitizer: AI sometimes ignores instructions and generates hashtags/emojis.
-  // X returns 403 for malformed hashtags like "#1" (hashtags must start with a letter).
-  // Strip all '#' characters and emoji ranges.
-  cleaned = cleaned
+  const raw = j?.choices?.[0]?.message?.content || "{}";
+  let parsed: any;
+  try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+  const hooks: HookSet = {
+    curiosity: sanitize(parsed.curiosity || ""),
+    contrarian: sanitize(parsed.contrarian || ""),
+    utility: sanitize(parsed.utility || ""),
+    recommended: ["curiosity", "contrarian", "utility"].includes(parsed.recommended) ? parsed.recommended : "curiosity",
+    reason: String(parsed.reason || ""),
+  };
+  return { hooks, model };
+}
+
+function sanitize(s: string): string {
+  return String(s)
+    .replace(/^["']|["']$/g, "")
     .replace(/#/g, "")
-    // Strip common emoji & pictographic blocks
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/gu, "")
     .replace(/\s{2,}/g, " ")
     .trim();
-  return { text: cleaned, model };
 }
 
-// ---------- Main handler ----------
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+// ---------- Quality gate ----------
+function qualityGate(text: string, ep: EpisodeRow): { ok: boolean; reason?: string } {
+  if (!text) return { ok: false, reason: "empty" };
+  if (text.length < 80) return { ok: false, reason: "too_short" };
+  if (text.length > 260) return { ok: false, reason: "too_long" };
+  for (const re of BANNED_PHRASES) if (re.test(text)) return { ok: false, reason: `banned:${re}` };
+  // Generic-fit check: hook must mention something specific from the episode.
+  const hay = text.toLowerCase();
+  const epTokens = (ep.display_title || ep.title).toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+  const entityHit = [
+    ...(ep.people || []), ...(ep.companies || []), ...(ep.tickers || []), ...(ep.topics || []),
+  ].some((e) => e && hay.includes(String(e).toLowerCase()));
+  const titleHit = epTokens.some((t) => hay.includes(t));
+  const themeHit = HIGH_PRIORITY_THEMES.some((t) => hay.includes(t));
+  if (!entityHit && !titleHit && !themeHit) return { ok: false, reason: "too_generic" };
+  return { ok: true };
+}
 
+function pickHookWithGate(
+  hooks: HookSet, ep: EpisodeRow, lastTwo: string[],
+): { text: string; type: "curiosity" | "contrarian" | "utility" } | null {
+  const order: Array<"curiosity" | "contrarian" | "utility"> = [hooks.recommended];
+  for (const t of ["curiosity", "contrarian", "utility"] as const) {
+    if (!order.includes(t)) order.push(t);
+  }
+  // Avoid same-pattern as last 2 posts (if all three differ from last two).
+  const filtered = order.filter((t) => !(lastTwo[0] === t && lastTwo[1] === t));
+  for (const t of filtered) {
+    const text = (hooks as any)[t] as string;
+    if (qualityGate(text, ep).ok) return { text, type: t };
+  }
+  return null;
+}
+
+// ---------- Build & post ----------
+function episodeUrl(ep: EpisodeRow): string {
+  return `${SITE_URL}/podcast/${ep.podcasts?.slug}/${ep.slug}`;
+}
+
+async function main(req: Request) {
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
-
-  if (req.method === "GET") {
-    return new Response(JSON.stringify({ ok: true, function: "daily-social-post" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
 
   let body: any = {};
   try { body = await req.json(); } catch { /* empty */ }
   const dryRun = body?.dry_run === true;
   const trigger = body?.trigger || (dryRun ? "manual_preview" : "cron");
+  const forceSlotTime: string | undefined = body?.force_slot;
 
-  // Kill switch (skip for dry-run previews so admin can always preview)
+  // Kill switch (skip for dry-run)
   if (!dryRun) {
     const guard = await checkBackgroundJobsAllowed(admin, "daily-social-post");
     if (guard.blocked) {
-      return new Response(JSON.stringify({ ok: false, blocked: true, reason: guard.reason }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ ok: false, blocked: true, reason: guard.reason });
     }
   }
 
-  try {
-    const episodes = await pickEpisodes(admin);
-    if (episodes.length < 2) {
-      const msg = `Not enough fresh episodes (found ${episodes.length}, need >= 2). Skipping.`;
-      if (!dryRun) {
-        await admin.from("social_posts").insert({
-          platform: "x",
-          status: "skipped",
-          content: msg,
-          trigger,
-          metadata: { episode_count: episodes.length },
-        });
-      }
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: msg }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+  const now = new Date();
+  let slot: Slot | null = activeSlot(now);
+  if (forceSlotTime) {
+    const all = [...WEEKDAY_SLOTS, ...WEEKEND_SLOTS];
+    slot = all.find((s) => s.time === forceSlotTime) || null;
+  }
+  if (!slot) {
+    if (dryRun) {
+      // Default to flagship for preview convenience
+      slot = { time: "preview", kind: "flagship", linkPlacement: "main" };
+    } else {
+      return jsonRes({ ok: true, skipped: true, reason: "no_active_slot", utc: now.toISOString() });
+    }
+  }
+
+  // Daily cap
+  const recent = await recentlyPosted(admin);
+  const dow = now.getUTCDay();
+  const dailyCap = (dow === 0 || dow === 6) ? 2 : 3;
+  if (!dryRun && recent.todayCount >= dailyCap) {
+    return jsonRes({ ok: true, skipped: true, reason: "daily_cap_reached", todayCount: recent.todayCount });
+  }
+  // Same-slot already posted today?
+  if (!dryRun && slot.time !== "preview" && recent.todaySlots.has(slot.time)) {
+    return jsonRes({ ok: true, skipped: true, reason: "slot_already_posted", slot: slot.time });
+  }
+
+  // Load + score candidates
+  const all = await loadCandidates(admin);
+  const eligible = all.filter((e) => {
+    const tier = e.podcasts?.shadow_rank_tier;
+    const featured = e.podcasts?.featured;
+    if (!(tier === "S" || tier === "A" || featured)) return false;
+    if (recent.podcasts3d.has(e.podcast_id)) return false; // 3-day same-podcast cool-down
+    if (recent.episodes3d.has(e.id)) return false;
+    return true;
+  });
+  const scored = eligible.map(scoreEpisode);
+  const picked = selectForSlot(scored, slot);
+
+  if (!picked) {
+    const msg = `no_strong_candidate (eligible=${eligible.length}, slot=${slot.time}/${slot.kind})`;
+    if (!dryRun && slot.time !== "preview") {
+      await admin.from("social_posts").insert({
+        platform: "x", status: "skipped", content: msg, trigger,
+        post_type: slot.kind, slot_utc: slot.time, link_placement: slot.linkPlacement,
+        metadata: { eligible_count: eligible.length },
       });
     }
+    return jsonRes({ ok: true, skipped: true, reason: msg });
+  }
 
-    const { text, model } = await generatePost(episodes);
-
-    // Pick cover image: first episode's image, fallback to its podcast's image.
-    const coverUrl =
-      episodes[0]?.image_url || episodes[0]?.podcasts?.image_url || null;
-
-    if (dryRun) {
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          dry_run: true,
-          generated_text: text,
-          char_count: text.length,
-          model,
-          cover_image_url: coverUrl,
-          episodes: episodes.slice(0, 3).map((e) => ({
-            id: e.id,
-            title: e.display_title || e.title,
-            podcast: e.podcasts?.display_title || e.podcasts?.title,
-            url: `${SITE_URL}/podcast/${e.podcasts?.slug}/${e.slug}`,
-          })),
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+  // Generate hooks (with one regen retry if quality gate fails)
+  let { hooks, model } = await generateHooks(picked, slot);
+  let chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
+  if (!chosen) {
+    const second = await generateHooks(picked, slot);
+    hooks = second.hooks; model = second.model;
+    chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
+  }
+  if (!chosen) {
+    const msg = "quality_gate_failed";
+    if (!dryRun && slot.time !== "preview") {
+      await admin.from("social_posts").insert({
+        platform: "x", status: "skipped", content: JSON.stringify(hooks), trigger,
+        post_type: slot.kind, slot_utc: slot.time, link_placement: slot.linkPlacement,
+        episode_ids: [picked.ep.id], podcast_ids: [picked.ep.podcast_id],
+        ai_model: model, score: picked.score, score_breakdown: picked.breakdown,
+        error: msg, metadata: { hooks },
+      });
     }
+    return jsonRes({ ok: true, skipped: true, reason: msg, hooks });
+  }
 
-    // Upload media (best-effort; tweet still posts without it)
-    let mediaId: string | null = null;
-    if (coverUrl) {
-      mediaId = await uploadMedia(coverUrl);
-    }
+  const link = episodeUrl(picked.ep);
+  // Format A (main): "<hook>\n\n<link>"; Format B (reply): main = "<hook>", reply = link.
+  const mainText = slot.linkPlacement === "main" ? `${chosen.text}\n\n${link}` : chosen.text;
+  const replyText = slot.linkPlacement === "reply" ? `Full episode on Podiverzum: ${link}` : null;
 
-    // Post to X
-    let postId = "";
-    let postUrl = "";
-    let status: "success" | "failed" = "success";
-    let errMsg: string | null = null;
-    try {
-      const r = await postTweet(text, mediaId);
-      postId = r.id;
-      postUrl = r.url;
-    } catch (e: any) {
-      status = "failed";
-      errMsg = e?.message || String(e);
-    }
+  const coverUrl = picked.ep.image_url || picked.ep.podcasts?.image_url || null;
 
-    const usedEpisodes = episodes.slice(0, 3);
-    await admin.from("social_posts").insert({
-      platform: "x",
-      status,
-      content: text,
-      episode_ids: usedEpisodes.map((e) => e.id),
-      podcast_ids: usedEpisodes.map((e) => e.podcast_id),
-      ai_model: model,
-      platform_post_id: postId || null,
-      platform_post_url: postUrl || null,
-      error: errMsg,
-      trigger,
-      metadata: { char_count: text.length, cover_image_url: coverUrl, media_id: mediaId, has_media: !!mediaId },
+  if (dryRun) {
+    return jsonRes({
+      ok: true, dry_run: true, slot,
+      generated_text: mainText,
+      reply_text: replyText,
+      hook_type: chosen.type,
+      hook_variants: hooks,
+      char_count: mainText.length,
+      score: picked.score, score_breakdown: picked.breakdown,
+      matched_themes: picked.matchedThemes,
+      matched_clickability: picked.matchedClick,
+      cover_image_url: coverUrl,
+      model,
+      episode: {
+        id: picked.ep.id,
+        title: picked.ep.display_title || picked.ep.title,
+        podcast: picked.ep.podcasts?.display_title || picked.ep.podcasts?.title,
+        url: link,
+        tier: picked.ep.podcasts?.shadow_rank_tier,
+        published_at: picked.ep.published_at,
+      },
     });
+  }
 
-    return new Response(
-      JSON.stringify({
-        ok: status === "success",
-        status,
-        post_id: postId,
-        post_url: postUrl,
-        text,
-        error: errMsg,
-      }),
-      {
-        status: status === "success" ? 200 : 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+  // Upload media (best-effort)
+  const mediaId = coverUrl ? await uploadMedia(coverUrl) : null;
+
+  // Post main tweet
+  let postId = "", postUrl = "", replyId: string | null = null, replyUrl: string | null = null;
+  let status: "success" | "failed" = "success";
+  let errMsg: string | null = null;
+  try {
+    const r = await postTweet(mainText, { mediaId });
+    postId = r.id; postUrl = r.url;
+    if (replyText && postId) {
+      try {
+        const rr = await postTweet(replyText, { replyToId: postId });
+        replyId = rr.id; replyUrl = rr.url;
+      } catch (e: any) {
+        // Reply failure should not fail the whole run
+        console.error("reply post failed:", e?.message || e);
       }
-    );
+    }
+  } catch (e: any) {
+    status = "failed";
+    errMsg = e?.message || String(e);
+  }
+
+  await admin.from("social_posts").insert({
+    platform: "x", status,
+    content: mainText,
+    episode_ids: [picked.ep.id],
+    podcast_ids: [picked.ep.podcast_id],
+    ai_model: model,
+    platform_post_id: postId || null,
+    platform_post_url: postUrl || null,
+    error: errMsg,
+    trigger,
+    post_type: slot.kind,
+    hook_type: chosen.type,
+    slot_utc: slot.time,
+    link_placement: slot.linkPlacement,
+    score: picked.score,
+    score_breakdown: picked.breakdown,
+    metadata: {
+      char_count: mainText.length,
+      cover_image_url: coverUrl,
+      media_id: mediaId,
+      has_media: !!mediaId,
+      reply_id: replyId,
+      reply_url: replyUrl,
+      reply_text: replyText,
+      matched_themes: picked.matchedThemes,
+      matched_clickability: picked.matchedClick,
+      hook_variants: hooks,
+      age_hours: picked.ageHours,
+    },
+  });
+
+  return jsonRes({
+    ok: status === "success",
+    status, slot,
+    post_id: postId, post_url: postUrl,
+    reply_id: replyId, reply_url: replyUrl,
+    text: mainText, reply_text: replyText,
+    hook_type: chosen.type,
+    score: picked.score,
+    error: errMsg,
+  }, status === "success" ? 200 : 500);
+}
+
+function jsonRes(obj: any, status = 200): Response {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "GET") {
+    return jsonRes({ ok: true, function: "daily-social-post (editorial)", now: new Date().toISOString(), active_slot: activeSlot(new Date()) });
+  }
+  try {
+    return await main(req);
   } catch (e: any) {
     const msg = e?.message || String(e);
-    console.error("daily-social-post error:", msg);
-    if (!dryRun) {
-      await admin.from("social_posts").insert({
-        platform: "x",
-        status: "failed",
-        content: "",
-        error: msg,
-        trigger,
-      });
-    }
-    return new Response(JSON.stringify({ ok: false, error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("editorial-x-runner error:", msg);
+    return jsonRes({ ok: false, error: msg }, 500);
   }
 });
