@@ -56,7 +56,7 @@ Disallow: /search?
 Disallow: /search/
 
 Sitemap: https://podiverzum.com/sitemap.xml
-Sitemap: https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap
 
 # RSS feed of recent episodes
-# https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/feed-xml
+# https://podiverzum.com/feed.xml
+
