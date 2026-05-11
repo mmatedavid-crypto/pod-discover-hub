@@ -35,17 +35,22 @@ const maxDate = (a?: string | null, b?: string | null) => {
 function wrapUrlset(urls: string[]) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
 }
-function monthBounds(ym: string): { start: string; end: string } | null {
+function monthBounds(ym: string, part?: string | null): { start: string; end: string } | null {
   const m = /^(\d{4})-(\d{2})$/.exec(ym);
   if (!m) return null;
   const y = parseInt(m[1], 10), mo = parseInt(m[2], 10);
   if (mo < 1 || mo > 12) return null;
-  const start = `${m[1]}-${m[2]}-01T00:00:00Z`;
+  const monthStart = `${m[1]}-${m[2]}-01T00:00:00Z`;
+  const mid = `${m[1]}-${m[2]}-16T00:00:00Z`;
   const ny = mo === 12 ? y + 1 : y;
   const nm = mo === 12 ? 1 : mo + 1;
-  const end = `${ny}-${String(nm).padStart(2, "0")}-01T00:00:00Z`;
-  return { start, end };
+  const monthEnd = `${ny}-${String(nm).padStart(2, "0")}-01T00:00:00Z`;
+  // part=1 → days 1-15; part=2 → days 16-end; default → whole month (back-compat).
+  if (part === "1") return { start: monthStart, end: mid };
+  if (part === "2") return { start: mid, end: monthEnd };
+  return { start: monthStart, end: monthEnd };
 }
+
 
 async function listMonths(supabase: ReturnType<typeof createClient>): Promise<string[]> {
   // Use a bounded query to find the range, then enumerate months (cheap, no scan).
