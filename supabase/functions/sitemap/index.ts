@@ -215,12 +215,13 @@ Deno.serve(async (req) => {
     const u = new URL(req.url);
     const type = u.searchParams.get("type");
     const ym = u.searchParams.get("ym") || "";
+    const part = u.searchParams.get("part");
 
     let body: string;
     if (!type) body = await buildSitemapIndex(supabase);
     else if (type === "core") body = await buildCore(supabase);
     else if (type === "podcasts") body = await buildPodcasts(supabase);
-    else if (type === "episodes") body = await buildEpisodesByMonth(supabase, ym);
+    else if (type === "episodes") body = await buildEpisodesByMonth(supabase, ym, part);
     else if (type === "entities") body = await buildEntitiesByMonth(supabase, ym);
     else return new Response(`<!-- unknown type: ${type} -->`, { status: 400, headers: xmlHeaders });
 
