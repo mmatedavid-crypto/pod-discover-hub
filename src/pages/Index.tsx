@@ -11,6 +11,8 @@ import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
+import { TrendingEntities } from "@/components/TrendingEntities";
+import { topEntitiesFrom } from "@/lib/aggregateEntities";
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
