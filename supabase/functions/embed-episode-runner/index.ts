@@ -76,7 +76,8 @@ Deno.serve(async (req) => {
     const model = String(ctrl.model || "google/text-embedding-004");
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 1.0);
     const batch = Math.max(1, Math.min(200, Number(body.batch) || Number(ctrl.batch_size) || 50));
-    const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || 6));
+    const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || Number(ctrl.concurrency) || 6));
+    const TIME_RESERVE_MS = 8_000; // leave headroom for stats + cron RPC
 
     const dayKey = new Date().toISOString().slice(0, 10);
     const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
