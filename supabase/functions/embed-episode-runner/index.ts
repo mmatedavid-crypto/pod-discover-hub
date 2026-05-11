@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
       already_embedded: Number(s.already_embedded || 0),
       embed_spend_usd_today: embedSpend,
       cron_schedule: recommended,
-      model, batch_size: batch, concurrency,
+      model, batch_size: batch, concurrency, drain_passes: drainPasses,
     };
     await admin.from("app_settings").upsert({
       key: "embed_episode_progress", value: progress as any, updated_at: new Date().toISOString(),
