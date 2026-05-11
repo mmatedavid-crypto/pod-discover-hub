@@ -82,6 +82,20 @@ const BANNED_PHRASES = [
   /\bdon'?t miss\b/i,
   /\btune in\b/i,
   /\bmust[- ]listen\b/i,
+  /\bnew episode out\b/i,
+  /\bhere'?s what you need to know\b/i,
+  /\bthis changes everything\b/i,
+  /\bthe future of humanity\b/i,
+  /\byou need to listen\b/i,
+  /\bthis is the business model\b/i,
+  /\blet that sink in\b/i,
+  /\bthe uncomfortable truth\b/i,
+  /\bno one is talking about this\b/i,
+  /\bin today'?s episode\b/i,
+  /\bin this fascinating conversation\b/i,
+  /\bwhat (it|this) means for humanity\b/i,
+  /\bthe future of everything\b/i,
+  /\band where we go from here\b/i,
 ];
 
 // ---------- OAuth 1.0a HMAC-SHA1 ----------
