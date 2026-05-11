@@ -62,7 +62,7 @@ async function embed(model: string, text: string): Promise<{ vec: number[]; toke
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 110_000;
+  const TIME_BUDGET_MS = 45_000; // Supabase edge CPU budget ~50-60s; keep wall-time below to avoid kills
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -76,7 +76,8 @@ Deno.serve(async (req) => {
     const model = String(ctrl.model || "google/text-embedding-004");
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 1.0);
     const batch = Math.max(1, Math.min(200, Number(body.batch) || Number(ctrl.batch_size) || 50));
-    const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || 6));
+    const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || Number(ctrl.concurrency) || 6));
+    const TIME_RESERVE_MS = 8_000; // leave headroom for stats + cron RPC
 
     const dayKey = new Date().toISOString().slice(0, 10);
     const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
@@ -86,50 +87,62 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (embedSpend >= dailyBudget) return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
 
-    const { data: candRows, error: candErr } = await admin.rpc("select_embed_episode_candidates", {
-      _model: model, _limit: batch,
-    });
-    if (candErr) throw candErr;
-    const candidates: any[] = (candRows as any[]) || [];
-
     let embedded = 0, errors = 0;
     const errorSamples: any[] = [];
     let stop = false;
-    let i = 0;
+    let drainPasses = 0;
 
-    const runOne = async (e: any) => {
-      if (stop) return;
-      if (Date.now() - startedAt > TIME_BUDGET_MS) { stop = true; return; }
-      if (embedSpend >= dailyBudget) { stop = true; return; }
-      try {
-        const content = buildContent(e, model);
-        const hash = await sha256(content);
-        const { vec, tokens } = await embed(model, content);
-        const cost = (tokens / 1000) * PRICE_IN_PER_1K;
-        const vecStr = `[${vec.join(",")}]`;
-        const { error: upErr } = await admin.from("episode_embeddings").upsert({
-          episode_id: e.id, podcast_id: e.podcast_id,
-          model, embedding: vecStr, content_hash: hash,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "episode_id" });
-        if (upErr) throw upErr;
-        embedded++; embedSpend += cost; totalSpend += cost; calls++;
-      } catch (err: any) {
-        errors++;
-        const msg = String(err?.message || err);
-        if (msg === "rate_limited") stop = true;
-        if (errorSamples.length < 5) errorSamples.push({ id: e.id, error: msg });
-      }
-    };
+    // Drain loop: keep claiming + processing batches until time/budget runs out or queue empty.
+    while (!stop) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS - TIME_RESERVE_MS) break;
+      if (embedSpend >= dailyBudget) break;
 
-    const workers = Array.from({ length: concurrency }, async () => {
-      while (true) {
-        const idx = i++;
-        if (idx >= candidates.length || stop) return;
-        await runOne(candidates[idx]);
-      }
-    });
-    await Promise.all(workers);
+      const { data: candRows, error: candErr } = await admin.rpc("select_embed_episode_candidates", {
+        _model: model, _limit: batch,
+      });
+      if (candErr) throw candErr;
+      const candidates: any[] = (candRows as any[]) || [];
+      if (candidates.length === 0) break;
+      drainPasses++;
+
+      let i = 0;
+      const runOne = async (e: any) => {
+        if (stop) return;
+        if (Date.now() - startedAt > TIME_BUDGET_MS - TIME_RESERVE_MS) { stop = true; return; }
+        if (embedSpend >= dailyBudget) { stop = true; return; }
+        try {
+          const content = buildContent(e, model);
+          const hash = await sha256(content);
+          const { vec, tokens } = await embed(model, content);
+          const cost = (tokens / 1000) * PRICE_IN_PER_1K;
+          const vecStr = `[${vec.join(",")}]`;
+          const { error: upErr } = await admin.from("episode_embeddings").upsert({
+            episode_id: e.id, podcast_id: e.podcast_id,
+            model, embedding: vecStr, content_hash: hash,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "episode_id" });
+          if (upErr) throw upErr;
+          embedded++; embedSpend += cost; totalSpend += cost; calls++;
+        } catch (err: any) {
+          errors++;
+          const msg = String(err?.message || err);
+          if (msg === "rate_limited") stop = true;
+          if (errorSamples.length < 5) errorSamples.push({ id: e.id, error: msg });
+        }
+      };
+
+      const workers = Array.from({ length: concurrency }, async () => {
+        while (true) {
+          const idx = i++;
+          if (idx >= candidates.length || stop) return;
+          await runOne(candidates[idx]);
+        }
+      });
+      await Promise.all(workers);
+
+      // If RPC returned fewer than `batch`, queue is exhausted for this model.
+      if (candidates.length < batch) break;
+    }
 
     await admin.from("ai_spend_daily").upsert({
       day: dayKey, spend_usd: totalSpend, calls,
@@ -174,7 +187,7 @@ Deno.serve(async (req) => {
       already_embedded: Number(s.already_embedded || 0),
       embed_spend_usd_today: embedSpend,
       cron_schedule: recommended,
-      model, batch_size: batch, concurrency,
+      model, batch_size: batch, concurrency, drain_passes: drainPasses,
     };
     await admin.from("app_settings").upsert({
       key: "embed_episode_progress", value: progress as any, updated_at: new Date().toISOString(),
