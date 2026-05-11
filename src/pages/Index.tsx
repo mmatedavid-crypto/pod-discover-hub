@@ -77,7 +77,8 @@ const Index = () => {
     });
     (async () => {
       try {
-        const [catsRes, feedRes, evergreenRes, podsRes] = await Promise.all([
+        const since14d = new Date(Date.now() - 14 * 86400_000).toISOString();
+        const [catsRes, feedRes, evergreenRes, podsRes, entityRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
             .from("mv_homepage_feed" as any)
@@ -98,6 +99,14 @@ const Index = () => {
             .order("featured", { ascending: false })
             .order("podiverzum_rank", { ascending: false })
             .limit(40),
+          supabase
+            .from("episodes")
+            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label)")
+            .gte("published_at", since14d)
+            .in("podcasts.rank_label", ["S", "A", "B"])
+            .or("language.is.null,language.ilike.en%", { foreignTable: "podcasts" })
+            .not("podcasts.rss_status", "in", "(failed,inactive)")
+            .limit(1500),
         ]);
 
         setCats(catsRes.data || []);
