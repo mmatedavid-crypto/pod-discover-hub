@@ -91,15 +91,14 @@ ${ld}
 }
 
 function notFound(path: string) {
-  return new Response(
-    shell({
+  return new Response(new TextEncoder().encode(shell({
       title: "Not found — Podiverzum",
       description: "The requested page was not found.",
       canonical: `${SITE}${path}`,
       jsonLd: [],
       bodyHtml: "<h1>Not found</h1>",
       noindex: true,
-    }),
+    })),
     { status: 404, headers: new Headers(baseHeaders) },
   );
 }
@@ -148,8 +147,7 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     },
   };
 
-  return new Response(
-    shell({
+  return new Response(new TextEncoder().encode(shell({
       title: "Podiverzum — Premium podcast discovery",
       description:
         "Find the best podcast episodes by topic, person, company, ticker or ingredient. Curated, ranked and AI-summarised.",
@@ -157,7 +155,7 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
       jsonLd: [website, itemList],
       bodyHtml: `<header><h1>Podiverzum</h1><p>Premium podcast discovery — find it, hear it.</p></header>
 <main><h2>Latest episodes</h2><ul>${itemsHtml}</ul></main>`,
-    }),
+    })),
     { headers: new Headers(baseHeaders) },
   );
 }
@@ -218,8 +216,7 @@ async function buildPodcast(
 
   const longDesc = stripHtml(pod.description || pod.summary);
 
-  return new Response(
-    shell({
+  return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
@@ -230,7 +227,7 @@ async function buildPodcast(
 ${longDesc ? `<section><h2>About</h2><p>${esc(longDesc)}</p></section>` : ""}
 <section><h2>Episodes</h2><ul>${epHtml}</ul></section>
 </article>`,
-    }),
+    })),
     { headers: new Headers(baseHeaders) },
   );
 }
@@ -308,8 +305,7 @@ async function buildEpisode(
     ],
   };
 
-  return new Response(
-    shell({
+  return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
@@ -325,7 +321,7 @@ ${longText ? `<section>${longText.split(/\n+/).map((p) => `<p>${esc(p)}</p>`).jo
 ${entitySection ? `<section><h2>Mentioned</h2>${entitySection}</section>` : ""}
 ${ep.audio_url ? `<section><h2>Listen</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
 </article>`,
-    }),
+    })),
     { headers: new Headers(baseHeaders) },
   );
 }
@@ -388,15 +384,14 @@ async function buildCategory(
     })),
   };
 
-  return new Response(
-    shell({
+  return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       jsonLd: [itemList],
       bodyHtml: `<header><h1>${esc(cat.name)}</h1>${cat.description ? `<p>${esc(stripHtml(cat.description))}</p>` : ""}</header>
 <main><h2>Podcasts</h2><ul>${html}</ul></main>`,
-    }),
+    })),
     { headers: new Headers(baseHeaders) },
   );
 }
@@ -468,15 +463,14 @@ async function buildEntity(
     })),
   };
 
-  return new Response(
-    shell({
+  return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       jsonLd: [itemList],
       bodyHtml: `<header><h1>${esc(human)}</h1><p>Podcast episodes mentioning ${esc(human)}.</p></header>
 <main><ul>${html}</ul></main>`,
-    }),
+    })),
     { headers: new Headers(baseHeaders) },
   );
 }
@@ -520,7 +514,7 @@ Deno.serve(async (req) => {
     return notFound(path);
   } catch (err) {
     console.error("prerender error", err);
-    return new Response(`<!doctype html><title>Error</title>`, {
+    return new Response(new TextEncoder().encode(`<!doctype html><title>Error</title>`), {
       status: 500,
       headers: new Headers(baseHeaders),
     });
