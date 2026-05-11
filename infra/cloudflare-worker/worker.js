@@ -71,10 +71,25 @@ function shouldPrerender(pathname) {
   return false;
 }
 
+// Hard-404 these scanner paths regardless of UA. Conservative — no app routes match.
+const SCANNER_PATH_REGEX =
+  /^\/(wp-admin|wp-login|wp-content|wp-includes|wp-json|xmlrpc\.php|\.env|\.git|\.aws|\.ssh|\.docker|\.vscode|\.idea|phpmyadmin|pma|mysql|adminer|config\.php|configuration\.php|backup|backups|dump|dumps|\.bak|\.sql|\.zip|\.tar|\.tgz|cgi-bin|cgi|owa|autodiscover|ecp|exchange|boaform|HNAP1|hudson|jenkins|solr|jmx-console|manager\/html|actuator|console|telescope|debug|server-status|server-info|api\/login|api\/v1\/login)(\/|$|\.)/i;
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const ua = request.headers.get("user-agent") || "";
+
+    if (SCANNER_PATH_REGEX.test(url.pathname)) {
+      return new Response("Not Found", {
+        status: 404,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=86400",
+          "X-Blocked": "scanner-path",
+        },
+      });
+    }
 
     // Only handle GETs from bots on prerenderable paths.
     if (
