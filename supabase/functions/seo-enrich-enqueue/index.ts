@@ -136,9 +136,10 @@ Deno.serve(async (req) => {
       collectedCount = collected.length;
 
       const rows: any[] = [];
+      const sanitize = (s: string) => s.replace(/\u0000/g, "");
       for (const e of collected) {
-        const podName = podNameById.get(e.podcast_id) || "";
-        const prompt = episodeUserPrompt(e as any, podName);
+        const podName = sanitize(podNameById.get(e.podcast_id) || "");
+        const prompt = sanitize(episodeUserPrompt(e as any, podName));
         const hash = await inputHash(prompt);
         rows.push({
           kind: "seo_episode",
