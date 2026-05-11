@@ -136,7 +136,11 @@ Deno.serve(async (req) => {
       collectedCount = collected.length;
 
       const rows: any[] = [];
-      const sanitize = (s: string) => s.replace(/\u0000/g, "");
+      // Strip control chars (Postgres JSONB rejects \u0000) and lone surrogates.
+      const sanitize = (s: string) => s
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+        .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
+        .replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "$1");
       for (const e of collected) {
         const podName = sanitize(podNameById.get(e.podcast_id) || "");
         const prompt = sanitize(episodeUserPrompt(e as any, podName));
