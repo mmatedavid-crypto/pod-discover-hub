@@ -117,18 +117,29 @@ Deno.serve(async (req) => {
 
     let epJobs = 0;
     if (epPodIds.length) {
-      const { data: eps, error: eErr } = await admin.from("episodes")
-        .select("id, podcast_id, title, display_title, description, ai_summary, seo_title")
-        .in("podcast_id", epPodIds)
-        .is("ai_summary", null)
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .limit(maxEps);
-      if (eErr) throw eErr;
-      for (const e of eps || []) {
+      // Chunk podcast IDs to avoid PostgREST URL length limits (.in with 2000 uuids → 74kb URL).
+      const CHUNK = 150;
+      const collected: any[] = [];
+      for (let i = 0; i < epPodIds.length && collected.length < maxEps; i += CHUNK) {
+        const slice = epPodIds.slice(i, i + CHUNK);
+        const remaining = maxEps - collected.length;
+        const { data: eps, error: eErr } = await admin.from("episodes")
+          .select("id, podcast_id, title, display_title, description")
+          .in("podcast_id", slice)
+          .is("ai_summary", null)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(remaining);
+        if (eErr) throw eErr;
+        for (const e of eps || []) collected.push(e);
+      }
+
+      // Bulk insert. Conflicts on input_hash are silently skipped.
+      const rows: any[] = [];
+      for (const e of collected) {
         const podName = podNameById.get(e.podcast_id) || "";
         const prompt = episodeUserPrompt(e as any, podName);
         const hash = await inputHash(prompt);
-        const { error } = await admin.from("ai_enrichment_jobs").insert({
+        rows.push({
           kind: "seo_episode",
           target_type: "episode",
           target_id: e.id,
@@ -137,7 +148,13 @@ Deno.serve(async (req) => {
           status: "pending",
           result: { prompt, pod_name: podName },
         });
-        if (!error) epJobs++;
+      }
+      for (let i = 0; i < rows.length; i += 500) {
+        const batch = rows.slice(i, i + 500);
+        const { error, count } = await admin
+          .from("ai_enrichment_jobs")
+          .upsert(batch, { onConflict: "input_hash", ignoreDuplicates: true, count: "exact" });
+        if (!error) epJobs += (count ?? batch.length);
       }
     }
 
