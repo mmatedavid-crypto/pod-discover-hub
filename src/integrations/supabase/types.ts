@@ -1409,6 +1409,11 @@ export type Database = {
         }
       }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
+      dedup_episodes_audio_url_batch: {
+        Args: { _batch?: number }
+        Returns: number
+      }
+      dedup_episodes_guid_batch: { Args: { _batch?: number }; Returns: number }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
