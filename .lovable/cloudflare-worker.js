@@ -56,6 +56,20 @@ export default {
     const ua = request.headers.get("User-Agent") || "";
     const isBot = BOT_UA_REGEX.test(ua);
 
+    // Hard-404 known scanner paths BEFORE anything else (cheap, no origin hit).
+    // Regex is conservative — verified no real app route matches.
+    if (SCANNER_PATH_REGEX.test(url.pathname)) {
+      return new Response("Not Found", {
+        status: 404,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=86400",
+          "X-Worker": "podiverzum-bot-prerender",
+          "X-Blocked": "scanner-path",
+        },
+      });
+    }
+
     // Non-GET / non-HEAD: never prerender
     if (request.method !== "GET" && request.method !== "HEAD") {
       return passthrough(request);
