@@ -65,7 +65,8 @@ Deno.serve(async (req) => {
     // Tiers eligible for enqueue. D/E excluded.
     const allowedTiers: string[] = body.tiers || ctrl.tiers || ["S", "A", "B", "C"];
 
-    // Select target podcasts: by tier (preferred) + healthy + active/not_checked
+    // === PASS 1: Podcast SEO enqueue ===
+    // Only podcasts that still need SEO. Limited by maxPods.
     let pq = admin.from("podcasts")
       .select("id, title, display_title, description, category, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, crawl_state, seo_title, seo_description, rss_status")
       .in("rank_label", allowedTiers)
@@ -95,23 +96,36 @@ Deno.serve(async (req) => {
       if (!error) podJobs++;
     }
 
-    // Select target episodes from those podcasts, with tier-aware priority
-    const podIds = pods.map((p) => p.id);
-    const podPriById = new Map(pods.map((p) => [p.id, podPriority(p)]));
+    // === PASS 2: Episode SEO enqueue (INDEPENDENT of pass 1) ===
+    // BUGFIX: previously episodes were restricted to the maxPods set above,
+    // which filtered to podcasts still missing SEO. Since podcast SEO is ~92%
+    // complete, this starved the episode queue (~590 podcasts only). Now we
+    // enqueue episodes from ALL eligible S/A/B/C podcasts independently.
+    let epPq = admin.from("podcasts")
+      .select("id, title, display_title, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, rss_status")
+      .in("rank_label", allowedTiers)
+      .in("rss_status", ["active", "not_checked"])
+      .order("podiverzum_rank", { ascending: false })
+      .limit(2000);
+    if (requireBackfill) epPq = epPq.not("full_backfill_completed_at", "is", null);
+    const { data: epPodsRaw, error: epPErr } = await epPq;
+    if (epPErr) throw epPErr;
+    const epPods = (epPodsRaw || []).filter(isHealthy);
+    const epPodIds = epPods.map((p) => p.id);
+    const podPriById = new Map(epPods.map((p) => [p.id, podPriority(p)]));
+    const podNameById = new Map(epPods.map((p) => [p.id, (p as any).display_title || (p as any).title || ""]));
+
     let epJobs = 0;
-    if (podIds.length) {
+    if (epPodIds.length) {
       const { data: eps, error: eErr } = await admin.from("episodes")
-        .select("id, podcast_id, title, display_title, description, ai_summary, seo_title, podcasts!inner(title, display_title)")
-        .in("podcast_id", podIds)
+        .select("id, podcast_id, title, display_title, description, ai_summary, seo_title")
+        .in("podcast_id", epPodIds)
         .is("ai_summary", null)
-        // Formula C v3-safe: drop frozen `episode_rank` ordering. Podcast tier
-        // already drives per-episode priority via podPriById; freshness is the
-        // best remaining signal for which episodes to enrich first.
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(maxEps);
       if (eErr) throw eErr;
       for (const e of eps || []) {
-        const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
+        const podName = podNameById.get(e.podcast_id) || "";
         const prompt = episodeUserPrompt(e as any, podName);
         const hash = await inputHash(prompt);
         const { error } = await admin.from("ai_enrichment_jobs").insert({
