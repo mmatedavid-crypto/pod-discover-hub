@@ -676,7 +676,13 @@ async function main(req: Request) {
   let { hooks, model } = await generateHooks(picked, slot);
   let chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
   if (!chosen) {
-    const second = await generateHooks(picked, slot);
+    const fb: string[] = [];
+    for (const t of ["curiosity", "contrarian", "utility"] as const) {
+      const txt = (hooks as any)[t] as string;
+      const g = qualityGate(txt, picked.ep, hooks.scores[t]);
+      fb.push(`- ${t}: ${txt.length} chars, score=${hooks.scores[t]}, gate=${g.ok ? "ok" : g.reason}`);
+    }
+    const second = await generateHooks(picked, slot, fb.join("\n"));
     hooks = second.hooks; model = second.model;
     chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
   }
