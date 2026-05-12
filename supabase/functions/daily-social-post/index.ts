@@ -1,4 +1,4 @@
-// Editorial X automation for Podiverzum (English-only).
+// Editorial X automation for Podiverzum (Hungarian-only).
 // Slot-aware runner — invoked every 30 min by cron. If the current UTC time
 // matches a publishing slot, it picks ONE strong fresh episode, scores it,
 // generates 3 hook variants, runs a quality gate, then posts to X.
@@ -23,7 +23,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SITE_URL = "https://podiverzum.com";
+const SITE_URL = "https://podiverzum.hu";
 const X_API = "https://api.x.com/2";
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
@@ -323,7 +323,7 @@ async function loadCandidates(admin: any): Promise<EpisodeRow[]> {
     `)
     .gte("published_at", since)
     .not("ai_summary", "is", null)
-    .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
+    .or("language.is.null,language.ilike.hu%", { referencedTable: "podcasts" })
     .order("published_at", { ascending: false })
     .limit(300);
   if (error) throw new Error(`loadCandidates: ${error.message}`);
@@ -418,54 +418,54 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Pro
   const themes = picked.matchedThemes.slice(0, 5).join(", ");
 
   const sys = [
-    "You are a smart human editor writing for Podiverzum's X account.",
-    "Audience: international English-speaking readers (UK, US) — tech, AI, business, markets, ideas.",
-    "Goal: make a thoughtful reader stop and want to read more. Not viral one-liners. Not RSS reposts. Not generic AI summaries.",
+    "Egy okos, emberi szerkesztő vagy, aki a Podiverzum X (Twitter) fiókjára ír.",
+    "Közönség: magyar olvasók — tech, MI, üzlet, gazdaság, kultúra, ötletek iránt érdeklődők.",
+    "Cél: egy gondolkodó olvasót megállítani és olvasásra ösztönözni. Nem virális egysorosok. Nem RSS-másolatok. Nem általános MI-összefoglalók.",
     "",
-    "VOICE: intelligent, curious, editorial, calm, concrete, slightly provocative when justified. Human — not AI-polished. Never academic, never hysterical, never marketing copy.",
+    "HANGNEM: intelligens, kíváncsi, szerkesztői, nyugodt, konkrét, indokolt esetben enyhén provokatív. Emberi — nem MI-cizellált. Soha nem akadémikus, soha nem hisztérikus, soha nem marketingszöveg.",
     "",
-    "STRUCTURE (use 2–4 short lines, separated by blank lines, when it helps readability):",
-    "1) A strong first line with a CONCRETE angle — a name, number, company, ticker, person, or specific tension. Not a slogan.",
-    "2) One short sentence naming the tension or why it matters now.",
-    "3) One sentence of context from THIS episode (what it actually gets into).",
-    "4) Optional soft CTA only if it feels natural — never required.",
+    "SZERKEZET (használj 2–4 rövid sort, üres sorral elválasztva, ha javítja az olvashatóságot):",
+    "1) Erős nyitó sor KONKRÉT szöggel — név, szám, cég, részvény, személy vagy konkrét feszültség. Nem szlogen.",
+    "2) Egy rövid mondat, ami megnevezi a feszültséget vagy hogy miért fontos most.",
+    "3) Egy mondat kontextus EBBŐL az epizódból (miről szól valójában).",
+    "4) Opcionális finom CTA csak ha természetesen jön — soha nem kötelező.",
     "",
-    "LENGTH (HARD CAP — strictly enforced): each variant's text must be 180–260 characters. Absolute maximum 280 characters including spaces and line breaks. Variants over 280 characters are AUTOMATICALLY REJECTED. Count carefully — three short paragraphs ≈ 220 chars is a good target.",
+    "HOSSZ (KEMÉNY KORLÁT — szigorúan érvényesítve): minden változat szövege 180–260 karakter között. Abszolút maximum 280 karakter szóközökkel és sortörésekkel együtt. A 280 karakter feletti változatokat AUTOMATIKUSAN ELUTASÍTJUK. Számold pontosan — három rövid bekezdés ≈ 220 karakter jó cél.",
     "",
-    "FORBIDDEN: hashtags, emojis, 'New episode', 'Check this out', 'Listen now', 'Don't miss', 'Tune in', 'Must-listen', 'This changes everything', 'The future of humanity', 'You need to listen to this', 'Here's what you need to know', 'This is the business model', 'Let that sink in', 'The uncomfortable truth', 'No one is talking about this', 'In today's episode', 'In this fascinating conversation', '...and what it means for humanity', '...and the future of everything', '...and where we go from here'. Never invent quotes or numbers. No fake controversy. No empty drama.",
+    "TILTOTT: hashtag, emoji, 'Új epizód', 'Nézd meg', 'Hallgasd most', 'Ne hagyd ki', 'Kötelező hallgatás', 'Ez mindent megváltoztat', 'A jövő', 'Ezt hallgatnod kell', 'Íme amit tudnod kell', 'A mai epizódban', 'Ebben az izgalmas beszélgetésben', '...és mit jelent ez az emberiségnek'. Soha ne találj ki idézeteket vagy számokat. Nincs hamis vita. Nincs üres dráma.",
     "",
-    "QUALITY BAR: each post must be specific to THIS episode — could not be swapped onto another podcast. Concrete > abstract. Curiosity > hype. Substance > slogan.",
+    "MINŐSÉGI MÉRCE: minden poszt EZRE az epizódra legyen specifikus — ne lehessen átültetni másik podcastra. Konkrét > absztrakt. Kíváncsiság > hype. Lényeg > szlogen.",
     "",
-    "Return strict JSON only.",
+    "Csak szigorú JSON-t adj vissza.",
   ].join("\n");
 
   const user = [
-    `Slot type: ${slot.kind} (${slot.kind === "flagship" ? "fresh, newsy flagship" : slot.kind === "topic" ? "topic / entity-driven" : "curiosity / discovery"}).`,
+    `Slot típus: ${slot.kind} (${slot.kind === "flagship" ? "friss, hírértékű flagship" : slot.kind === "topic" ? "téma / entitás-vezérelt" : "kíváncsiság / felfedezés"}).`,
     `Podcast: "${podTitle}"`,
-    `Episode: "${epTitle}"`,
-    entities ? `Notable people/companies/tickers: ${entities}` : "",
-    themes ? `Matched themes: ${themes}` : "",
-    `Summary: ${summary}`,
+    `Epizód: "${epTitle}"`,
+    entities ? `Fontos szereplők/cégek/tickerek: ${entities}` : "",
+    themes ? `Illeszkedő témák: ${themes}` : "",
+    `Összefoglaló: ${summary}`,
     "",
-    "Write 3 DISTINCT, FULL editorial X posts for this single episode — each a complete post body (no link, no hashtags, no emojis), written in the voice and structure above. Multi-line is encouraged. Each post should feel selected and written by a human editor, not generated.",
+    "Írj 3 KÜLÖNBÖZŐ, TELJES szerkesztői X posztot ehhez az egy epizódhoz — mindegyik egy teljes poszt törzs (link nélkül, hashtag nélkül, emoji nélkül), a fenti hangnemmel és szerkezettel. A többsoros forma javasolt. Mindegyik posztnak emberi szerkesztő által válogatottnak és írottnak kell tűnnie, nem generáltnak.",
     "",
-    "Variants:",
-    "1) curiosity — opens a real curiosity gap with a concrete angle. Not a teaser, not a riddle.",
-    "2) contrarian — challenges the default framing of this topic with a specific, defensible counter-angle.",
-    "3) utility — names exactly which kind of reader this is for and what concrete signal they'll get.",
+    "Változatok:",
+    "1) curiosity — valódi kíváncsiság-rést nyit konkrét szöggel. Nem teaser, nem rejtvény.",
+    "2) contrarian — kihívja a téma alapértelmezett keretezését konkrét, védhető ellen-szöggel.",
+    "3) utility — pontosan megnevezi, milyen olvasónak szól és milyen konkrét jelet kap belőle.",
     "",
-    "For each variant, also rate it 1–10 on editorial_style_score using this rubric:",
-    "+ strong, specific first line",
-    "+ concrete names / numbers / tickers / people",
-    "+ clear reason why it matters NOW",
-    "+ feels human, easy to read, no clichés",
-    "+ creates genuine curiosity (not cheap hype)",
-    "+ enough context to be worth reading",
-    "− generic, AI-sounding, slogan-like, abstract drama, summary-style, RSS-style, viral-guru tone",
+    "Mindegyik változatra adj editorial_style_score-t 1–10-ig az alábbi rubrika alapján:",
+    "+ erős, konkrét nyitó sor",
+    "+ konkrét nevek / számok / tickerek / személyek",
+    "+ világos ok, hogy miért fontos MOST",
+    "+ emberinek hat, könnyen olvasható, nincs klisé",
+    "+ valódi kíváncsiságot kelt (nem olcsó hype)",
+    "+ elég kontextus ahhoz, hogy érdemes legyen olvasni",
+    "− általános, MI-hangzású, szlogen-szerű, absztrakt dráma, összefoglaló-szerű, RSS-szerű, virális-guru hangnem",
     "",
-    "Then pick the variant best suited to THIS slot type AND highest in editorial quality. Do not auto-pick the shortest or most dramatic.",
+    "Aztán válaszd ki azt a változatot, ami EHHEZ a slot-típushoz a legjobb ÉS a legmagasabb szerkesztői minőségű. Ne automatikusan a legrövidebbet vagy legdrámaibbat válaszd.",
     "",
-    'Return JSON: { "curiosity": { "text": "...", "editorial_style_score": 8, "rationale": "..." }, "contrarian": { "text": "...", "editorial_style_score": 7, "rationale": "..." }, "utility": { "text": "...", "editorial_style_score": 9, "rationale": "..." }, "recommended": "curiosity|contrarian|utility", "reason": "..." }',
+    'JSON: { "curiosity": { "text": "...", "editorial_style_score": 8, "rationale": "..." }, "contrarian": { "text": "...", "editorial_style_score": 7, "rationale": "..." }, "utility": { "text": "...", "editorial_style_score": 9, "rationale": "..." }, "recommended": "curiosity|contrarian|utility", "reason": "..." }',
   ].filter(Boolean).join("\n");
 
   const finalUser = feedback ? `${user}\n\nIMPORTANT FEEDBACK FROM PREVIOUS ATTEMPT:\n${feedback}\nFix all issues. Stay UNDER 255 CHARACTERS per variant.` : user;

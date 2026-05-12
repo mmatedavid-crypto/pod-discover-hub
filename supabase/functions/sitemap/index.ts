@@ -10,7 +10,7 @@
 // every chunk under 45k URLs (Google's 50k limit).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.com";
+const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const FN_BASE = `${Deno.env.get("SUPABASE_URL") || "https://iqzkayoqqagowvxeaphe.supabase.co"}/functions/v1/sitemap`;
 
 const xmlHeaders = {
@@ -113,7 +113,7 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
       .from("podcasts")
       .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components,language")
       // EN-only sitemap: hide non-English shows from Google. NULL=EN (legacy untagged).
-      .or("language.is.null,language.ilike.en%")
+      .or("language.is.null,language.ilike.hu%")
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) throw error;
@@ -145,7 +145,7 @@ async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, y
       .gte("published_at", b.start)
       .lt("published_at", b.end)
       // EN-only: hide non-English podcasts' episodes from sitemap.
-      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
+      .or("language.is.null,language.ilike.hu%", { referencedTable: "podcasts" })
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;
@@ -178,7 +178,7 @@ async function buildEntitiesByMonth(supabase: ReturnType<typeof createClient>, y
       .gte("published_at", b.start)
       .lt("published_at", b.end)
       // EN-only: skip entities derived from non-English shows.
-      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
+      .or("language.is.null,language.ilike.hu%", { referencedTable: "podcasts" })
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;

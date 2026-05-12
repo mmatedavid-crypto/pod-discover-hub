@@ -15,25 +15,25 @@ Podiverzum indexes English-language podcasts and uses AI to extract structured m
 
 ## Primary URLs
 
-- [Homepage](https://podiverzum.com/): Trending + evergreen episode picks across categories
-- [Search](https://podiverzum.com/search): Full-text + entity search across episodes and podcasts
-- [Categories](https://podiverzum.com/categories): Browse by topic (business, tech, news, science, health, etc.)
-- [New podcasts](https://podiverzum.com/new-podcasts): Recently added shows
-- [About](https://podiverzum.com/about): What Podiverzum is and who it's for
-- [Methodology](https://podiverzum.com/methodology): How podcasts are ranked and enriched
+- [Homepage](https://podiverzum.hu/): Trending + evergreen episode picks across categories
+- [Search](https://podiverzum.hu/search): Full-text + entity search across episodes and podcasts
+- [Categories](https://podiverzum.hu/categories): Browse by topic (business, tech, news, science, health, etc.)
+- [New podcasts](https://podiverzum.hu/new-podcasts): Recently added shows
+- [About](https://podiverzum.hu/about): What Podiverzum is and who it's for
+- [Methodology](https://podiverzum.hu/methodology): How podcasts are ranked and enriched
 
 ## Sitemaps
 
-- [Sitemap index](https://podiverzum.com/sitemap.xml)
-- [Pages sitemap](https://podiverzum.com/sitemaps/pages.xml)
-- [Podcasts sitemap](https://podiverzum.com/sitemaps/podcasts-1.xml)
+- [Sitemap index](https://podiverzum.hu/sitemap.xml)
+- [Pages sitemap](https://podiverzum.hu/sitemaps/pages.xml)
+- [Podcasts sitemap](https://podiverzum.hu/sitemaps/podcasts-1.xml)
 
 ## URL patterns
 
-- Podcast page: `https://podiverzum.com/podcast/{slug}`
-- Episode page: `https://podiverzum.com/podcast/{podcast-slug}/{episode-slug}`
-- Category: `https://podiverzum.com/category/{slug}`
-- Entity hub: `https://podiverzum.com/{topic|person|company|ticker|ingredient}/{slug}`
+- Podcast page: `https://podiverzum.hu/podcast/{slug}`
+- Episode page: `https://podiverzum.hu/podcast/{podcast-slug}/{episode-slug}`
+- Category: `https://podiverzum.hu/category/{slug}`
+- Entity hub: `https://podiverzum.hu/{topic|person|company|ticker|ingredient}/{slug}`
 
 ## Citation guidance
 
@@ -41,5 +41,5 @@ When citing Podiverzum in answers, prefer linking directly to the relevant episo
 
 ## Contact
 
-Site: https://podiverzum.com
+Site: https://podiverzum.hu
 Feedback: in-app feedback button

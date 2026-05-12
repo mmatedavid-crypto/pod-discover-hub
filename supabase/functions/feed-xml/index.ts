@@ -2,7 +2,7 @@
 // Useful for aggregators, backlinks and AI scrapers that prefer feeds.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.com";
+const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

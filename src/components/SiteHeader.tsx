@@ -63,9 +63,9 @@ export function SiteHeader() {
       <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
         <BrandMark />
         <nav className="hidden sm:flex items-center gap-6 ml-2">
-          <NavLink to="/daily" className={linkCls}>Daily Brief</NavLink>
-          <NavLink to="/categories" className={linkCls}>Categories</NavLink>
-          <NavLink to="/search" className={linkCls}>Search</NavLink>
+          <NavLink to="/napi" className={linkCls}>Napi</NavLink>
+          <NavLink to="/kategoriak" className={linkCls}>Kategóriák</NavLink>
+          <NavLink to="/kereses" className={linkCls}>Keresés</NavLink>
         </nav>
         <div ref={wrapRef} className="ml-auto relative w-full max-w-sm">
           <form
@@ -77,14 +77,14 @@ export function SiteHeader() {
               value={q}
               onChange={(e) => { setQ(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
-              placeholder="Search episodes…  (press / )"
+              placeholder="Keress epizódot…  ( / )"
               className="w-full pl-9 pr-3 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
             />
           </form>
           {open && q.trim().length >= 2 && (suggestions.length > 0 || loadingSugg) && (
             <div className="absolute left-0 right-0 mt-1 rounded-md border border-border bg-popover shadow-lg overflow-hidden z-40">
               {loadingSugg && suggestions.length === 0 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">Suggesting…</div>
+                <div className="px-3 py-2 text-xs text-muted-foreground">Javaslatok…</div>
               )}
               {suggestions.map((s) => (
                 <button

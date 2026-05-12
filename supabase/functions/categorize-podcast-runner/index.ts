@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
           .select("id, title, display_title, description, shadow_rank_tier")
           .is("category", null)
           .eq("shadow_rank_tier", tier)
-          .or("language.is.null,language.ilike.en%")
+          .or("language.is.null,language.ilike.hu%")
           .order("podiverzum_rank", { ascending: false, nullsFirst: false })
           .limit(need);
         if (data && data.length) candidates = candidates.concat(data);
@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
         .select("id", { count: "exact", head: true })
         .is("category", null)
         .in("shadow_rank_tier", ["S","A","B","C"])
-        .or("language.is.null,language.ilike.en%");
+        .or("language.is.null,language.ilike.hu%");
       totalRemaining = Number(remaining || 0);
       // Stepped backoff (2026-05-12): rate_limit no longer crashes cadence to */30 —
       // we slow down ONE notch instead, so a transient 429 doesn't kill throughput

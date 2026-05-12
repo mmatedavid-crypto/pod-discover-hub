@@ -19,7 +19,7 @@ export default function NewPodcastsPage() {
       .not("rss_status", "in", "(failed,inactive)")
       .not("rank_label", "eq", "E")
       // EN-only site: hide non-English shows. NULL = treated as EN (legacy untagged feeds).
-      .or("language.is.null,language.ilike.en%")
+      .or("language.is.null,language.ilike.hu%")
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(60)
       .then(({ data }) => {

@@ -13,7 +13,7 @@ export default function AboutPage() {
         "@context": "https://schema.org",
         "@type": "Organization",
         name: "Podiverzum",
-        url: "https://podiverzum.com",
+        url: "https://podiverzum.hu",
         description:
           "AI-powered podcast discovery engine. Search episodes by topic, person, company, ticker and idea.",
         sameAs: [],
@@ -128,7 +128,7 @@ export default function AboutPage() {
             Privacy →
           </Link>
           <a
-            href="mailto:hello@podiverzum.com?subject=Podiverzum%20feedback"
+            href="mailto:hello@podiverzum.hu?subject=Podiverzum%20feedback"
             className="px-4 py-2 rounded-md bg-secondary text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             Send feedback →

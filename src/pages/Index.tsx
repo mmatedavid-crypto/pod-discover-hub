@@ -62,18 +62,18 @@ const Index = () => {
       title: "Podiverzum — Podcast episode discovery & search",
       description: "Search podcast episodes by topic, person, company, ticker, ingredient or idea.",
       hreflang: [
-        { lang: "en", href: "https://podiverzum.com/" },
-        { lang: "hu", href: "https://podiverzum.com/hu" },
-        { lang: "x-default", href: "https://podiverzum.com/" },
+        { lang: "en", href: "https://podiverzum.hu/" },
+        { lang: "hu", href: "https://podiverzum.hu/hu" },
+        { lang: "x-default", href: "https://podiverzum.hu/" },
       ],
       jsonLd: {
         "@context": "https://schema.org",
         "@type": "WebSite",
         name: "Podiverzum",
-        url: "https://podiverzum.com",
+        url: "https://podiverzum.hu",
         potentialAction: {
           "@type": "SearchAction",
-          target: "https://podiverzum.com/search?q={search_term_string}",
+          target: "https://podiverzum.hu/search?q={search_term_string}",
           "query-input": "required name=search_term_string",
         },
       },
@@ -107,7 +107,7 @@ const Index = () => {
             .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label)")
             .gte("published_at", since14d)
             .in("podcasts.rank_label", ["S", "A", "B"])
-            .or("language.is.null,language.ilike.en%", { foreignTable: "podcasts" })
+            .or("language.is.null,language.ilike.hu%", { foreignTable: "podcasts" })
             .not("podcasts.rss_status", "in", "(failed,inactive)")
             .limit(1500),
         ]);

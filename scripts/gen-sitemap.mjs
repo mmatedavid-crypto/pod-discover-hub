@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 
-const SITE = 'https://podiverzum.com';
+const SITE = 'https://podiverzum.hu';
 const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');

@@ -55,8 +55,8 @@ Disallow: /growth-status
 Disallow: /search?
 Disallow: /search/
 
-Sitemap: https://podiverzum.com/sitemap.xml
+Sitemap: https://podiverzum.hu/sitemap.xml
 
 # RSS feed of recent episodes
-# https://podiverzum.com/feed.xml
+# https://podiverzum.hu/feed.xml
 

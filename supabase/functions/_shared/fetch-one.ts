@@ -59,7 +59,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   let finalUrl = podcast.rss_url as string;
 
   try {
-    const headers: Record<string, string> = { "User-Agent": "PodiverzumBot/1.0 (+https://podiverzum.com)" };
+    const headers: Record<string, string> = { "User-Agent": "PodiverzumBot/1.0 (+https://podiverzum.hu)" };
     if (podcast.last_etag) headers["If-None-Match"] = podcast.last_etag;
     if (podcast.last_modified) headers["If-Modified-Since"] = podcast.last_modified;
 

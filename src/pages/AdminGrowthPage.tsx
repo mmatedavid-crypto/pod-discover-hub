@@ -22,7 +22,7 @@ const DEFAULT_SETTINGS = {
   max_discovery_per_run: 50,
   max_ai_summaries_per_day: 200,
   discovery_categories: ["technology", "business", "science", "news", "education"],
-  language: "en",
+  language: "hu",
   max_episode_age_days: 90,
 };
 

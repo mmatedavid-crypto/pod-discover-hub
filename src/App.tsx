@@ -50,11 +50,15 @@ const App = () => (
         <SearchHotkey />
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/kategoriak" element={<CategoriesPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/kategoria/:slug" element={<CategoryDetail />} />
           <Route path="/category/:slug" element={<CategoryDetail />} />
           <Route path="/podcast/:podcastSlug" element={<PodcastDetail />} />
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
+          <Route path="/kereses" element={<SearchPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/belepes" element={<AuthPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/admin" element={<AdminHubPage />} />
           <Route path="/admin/podcasts" element={<AdminPage />} />
@@ -71,18 +75,29 @@ const App = () => (
           <Route path="/admin/social" element={<AdminSocialPostsPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
+          <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />
           <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />
+          <Route path="/szemely/:slug" element={<EntityPage kind="person" />} />
           <Route path="/person/:slug" element={<EntityPage kind="person" />} />
+          <Route path="/ceg/:slug" element={<EntityPage kind="company" />} />
           <Route path="/company/:slug" element={<EntityPage kind="company" />} />
           <Route path="/ticker/:slug" element={<EntityPage kind="ticker" />} />
+          <Route path="/hozzavalo/:slug" element={<EntityPage kind="ingredient" />} />
           <Route path="/ingredient/:slug" element={<EntityPage kind="ingredient" />} />
+          <Route path="/adatvedelem" element={<PrivacyPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/feltetelek" element={<TermsPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/hangulat/:slug" element={<MoodCollectionPage />} />
           <Route path="/mood/:slug" element={<MoodCollectionPage />} />
           
+          <Route path="/rolunk" element={<AboutPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/modszertan" element={<MethodologyPage />} />
           <Route path="/methodology" element={<MethodologyPage />} />
+          <Route path="/uj" element={<NewPodcastsPage />} />
           <Route path="/new" element={<NewPodcastsPage />} />
+          <Route path="/napi" element={<DailyBriefPage />} />
           <Route path="/daily" element={<DailyBriefPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
