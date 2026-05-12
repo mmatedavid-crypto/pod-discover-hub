@@ -160,6 +160,7 @@ For each podcast, provide:
 - title: exact show name
 - author: host or publisher (best guess if implied)
 - reason: 1 short sentence why this is a notable podcast (from the page context)
+- rss_url: ONLY if the page explicitly contains a direct RSS/feed URL (ends in .xml, /feed, /rss, or labeled "RSS"). Otherwise omit.
 
 Source tag: ${sourceTag}
 
