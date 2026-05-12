@@ -217,30 +217,50 @@ Deno.serve(async (req) => {
 
     // Validate via PodcastIndex search + language guard
     const validated: any[] = [];
-    let piHits = 0, piMisses = 0, langMismatches = 0;
+    const debugMisses: any[] = [];
+    let piHits = 0, piMisses = 0, langMismatches = 0, piEmpty = 0;
+    const tNorm = (s: string) =>
+      s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+       .replace(/[^a-z0-9]+/g, " ").trim();
     for (const c of unique) {
-      const term = c.author ? `${c.title} ${c.author}` : c.title;
-      const result = await piSearch(term);
-      const feeds: any[] = Array.isArray(result?.feeds) ? result.feeds : [];
-      if (!feeds.length) { piMisses++; continue; }
-      // Diacritic-insensitive token overlap (HU: ő,ű,á,é,í,ó,ö,ú → o,u,a,e,i,o,o,u)
-      const tNorm = (s: string) =>
-        s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
-         .replace(/[^a-z0-9]+/g, " ").trim();
-      const candTokens = new Set(tNorm(c.title).split(" ").filter((w) => w.length > 2));
-      // Pick the best-scoring PI feed across the top-N candidates (HU titles often
-      // have multiple near-matches; the first hit isn't always the right one).
+      // Try title-only first (HU titles + author confuse PI byterm); fall back to title+author.
+      let result = await piSearch(c.title);
+      let feeds: any[] = Array.isArray(result?.feeds) ? result.feeds : [];
+      if (!feeds.length && c.author) {
+        result = await piSearch(`${c.title} ${c.author}`);
+        feeds = Array.isArray(result?.feeds) ? result.feeds : [];
+      }
+      if (!feeds.length) {
+        piMisses++; piEmpty++;
+        if (debugMisses.length < 15) debugMisses.push({ title: c.title, author: c.author, reason: "pi_empty" });
+        continue;
+      }
+      const candNorm = tNorm(c.title);
+      const candTokens = new Set(candNorm.split(" ").filter((w) => w.length > 2));
       let best: any = null;
       let bestScore = 0;
       for (const f of feeds) {
         if (!f?.url) continue;
-        const piTokens = new Set(tNorm(f.title || "").split(" ").filter((w) => w.length > 2));
+        const piNorm = tNorm(f.title || "");
+        const piTokens = new Set(piNorm.split(" ").filter((w) => w.length > 2));
         let overlap = 0;
         for (const t of candTokens) if (piTokens.has(t)) overlap++;
-        const sc = candTokens.size ? overlap / candTokens.size : 0;
+        let sc = candTokens.size ? overlap / candTokens.size : 0;
+        // Substring boost: PI title contains full normalized cand title (or vice versa)
+        if (candNorm.length >= 6 && (piNorm.includes(candNorm) || candNorm.includes(piNorm))) {
+          sc = Math.max(sc, 0.9);
+        }
         if (sc > bestScore) { bestScore = sc; best = f; }
       }
-      if (!best || bestScore < 0.4) { piMisses++; continue; }
+      // Lowered threshold: HU titles tokenize into few words; 0.34 = 1-of-3 short titles match.
+      if (!best || bestScore < 0.34) {
+        piMisses++;
+        if (debugMisses.length < 15) debugMisses.push({
+          title: c.title, author: c.author, score: bestScore,
+          pi_top: feeds.slice(0, 3).map((f: any) => f.title),
+        });
+        continue;
+      }
       const top = best;
 
       // Script guard: when targeting Latin-script langs (en, es, etc.), reject titles
