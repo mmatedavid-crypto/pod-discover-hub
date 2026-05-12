@@ -23,6 +23,17 @@ const ICONS: Record<string, any> = {
   "news-now": Newspaper,
 };
 
+const MOOD_SUBTITLES: Record<string, string> = {
+  "elalvashoz": "Csendesebb, lassabb beszélgetések.",
+  "munkaba-menet": "Rövidebb, könnyen követhető epizódok.",
+  "edzeshez": "Energikusabb, pörgősebb hallgatnivalók.",
+  "hosszu-utra": "Hosszabb, mélyebb beszélgetések útközbenre.",
+  "vilag-esemenyei": "A fontos hírek és összefüggések háttere.",
+  "mosolyogashoz": "Könnyedebb, szórakoztató epizódok.",
+  "tanulashoz": "Tudás, magyarázatok és új nézőpontok.",
+  "elmelyuleshez": "Lassabb, gondolkodósabb beszélgetések.",
+};
+
 export function MoodCollections() {
   const [moods, setMoods] = useState<Mood[]>([]);
   useEffect(() => {
@@ -41,10 +52,10 @@ export function MoodCollections() {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
-            <Sparkles className="h-3 w-3" /> Hangulat alapján
+            <Sparkles className="h-3 w-3" /> Hallgatási helyzetek
           </div>
           <h2 className="text-xl sm:text-2xl font-semibold">Mihez van most kedved?</h2>
-          <p className="text-xs text-muted-foreground mt-1">Válogatott hallgatási ötletek, hetente frissítve.</p>
+          <p className="text-xs text-muted-foreground mt-1">Válogatott hallgatási ajánlók, rendszeresen frissítve.</p>
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -63,7 +74,7 @@ export function MoodCollections() {
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
               </div>
               <div className="mt-3 font-semibold leading-tight">{m.title}</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">{m.mood}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{MOOD_SUBTITLES[m.slug] || m.description || ""}</div>
             </Link>
           );
         })}

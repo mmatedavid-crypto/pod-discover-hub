@@ -37,7 +37,7 @@ const Index = () => {
     { label: "Hold Alapkezelő", query: "Hold Alapkezelő" },
     { label: "egészséges életmód", query: "egészséges életmód" },
     { label: "vállalkozói történetek", query: "vállalkozói történetek" },
-    { label: "politika hét", query: "politika hét" },
+    { label: "politikai háttér", query: "politikai háttér" },
   ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -230,10 +230,10 @@ const Index = () => {
             <span className="text-brand-gradient">Hallgasd meg.</span>
           </h1>
           <p className="text-foreground/85 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Keress podcast epizódokat aszerint, hogy miről beszélnek bennük valójában.
+            Keress magyar podcast epizódokat aszerint, miről szólnak valójában.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Kérdezz emberekről, cégekről, piacokról, technológiákról vagy ötletekről — és találd meg a fontos epizódokat.
+            Kérdezz emberekről, cégekről, piacokról, technológiákról vagy ötletekről — a Podiverzum megkeresi hozzájuk a releváns epizódokat.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -387,7 +387,7 @@ const Index = () => {
           <div className="text-center py-20 text-muted-foreground">
             {loadError
               ? "Az epizódok átmenetileg nem érhetők el. Próbáld újra hamarosan."
-              : "A kiemelt epizódok átmenetileg nem érhetők el."}
+              : "A kiemelt epizódok hamarosan megjelennek."}
           </div>
         )}
       </div>
