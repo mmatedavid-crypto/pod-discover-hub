@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
         results.push({ id: p.id, title: p.title, skipped: "invalid_podiverzum_rank" });
         continue;
       }
-      const tier = tierFor(score);
+      const tier = tierForWith(score, thresholds);
       const action = classifyAction(p, tier);
 
       if (diffOnly) {
