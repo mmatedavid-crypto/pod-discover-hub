@@ -100,14 +100,14 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         "Thing";
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
       setSeo({
-        title: `Podcast episodes about ${exemplar} — Podiverzum`,
-        description: `Discover podcast episodes about ${exemplar}, ranked by relevance, freshness and Podiverzum Rank.`,
+        title: `Podcast epizódok ${exemplar} témában — Podiverzum`,
+        description: `Fedezz fel ${exemplar} témában magyar podcast epizódokat — relevancia, frissesség és Podiverzum rang szerint rangsorolva.`,
         noindex,
         jsonLd: noindex ? undefined : [
           {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: `Podcast episodes about ${exemplar}`,
+            name: `Podcast epizódok: ${exemplar}`,
             url: pageUrl || undefined,
             about: { "@type": entityType, name: exemplar },
           },
@@ -122,12 +122,12 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     })();
   }, [kind, slug, decoded]);
 
-  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
 
   if (!eps.length) return (
     <NotFoundState
-      title={`No episodes about ${displayName}`}
-      message={`Podiverzum hasn't indexed enough podcast episodes about ${displayName} yet. Try the search instead.`}
+      title={`Nincs epizód ehhez: ${displayName}`}
+      message={`A Podiverzum még nem indexelt elég epizódot a következőhöz: ${displayName}. Próbáld a keresőt.`}
     />
   );
 
@@ -150,12 +150,12 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">{ENTITY_LABEL[kind]}</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2 leading-[1.05]">{displayName}</h1>
           <p className="text-muted-foreground mt-3 max-w-2xl">
-            Cross-show podcast coverage of <span className="text-foreground font-medium">{displayName}</span>. Ranked by tier, freshness and Podiverzum Rank.
+            Több műsoron átívelő podcast lefedettség: <span className="text-foreground font-medium">{displayName}</span>. Tier, frissesség és Podiverzum rang alapján rangsorolva.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Stat label="Episodes indexed" value={total} />
-            <Stat label="Last 30 days" value={last30Count} />
-            <Stat label="Podcasts" value={pods.length} />
+            <Stat label="Indexelt epizód" value={total} />
+            <Stat label="Elmúlt 30 nap" value={last30Count} />
+            <Stat label="Podcastek" value={pods.length} />
           </div>
         </div>
       </section>
@@ -164,8 +164,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         <section>
           <div className="flex items-end justify-between mb-3">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Fresh</div>
-              <h2 className="text-xl font-semibold">Latest episodes</h2>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Friss</div>
+              <h2 className="text-xl font-semibold">Legújabb epizódok</h2>
             </div>
           </div>
           <EpisodeList items={newest} showEntities />
@@ -174,9 +174,9 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         {rich && (
           <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
             <div className="mb-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">Best of</div>
-              <h2 className="text-xl font-semibold">Highest-ranked episodes</h2>
-              <p className="text-xs text-muted-foreground mt-1">From S/A-tier shows that consistently deliver.</p>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">Legjobbak</div>
+              <h2 className="text-xl font-semibold">Legmagasabbra rangsorolt epizódok</h2>
+              <p className="text-xs text-muted-foreground mt-1">A legjobb minőségű, S/A-tier műsorokból.</p>
             </div>
             <EpisodeList items={best} showEntities />
           </section>
@@ -185,8 +185,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         {pods.length > 0 && (
           <section>
             <div className="mb-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Sources</div>
-              <h2 className="text-xl font-semibold">Podcasts covering {displayName}</h2>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Források</div>
+              <h2 className="text-xl font-semibold">Podcastek, amelyek foglalkoznak ezzel: {displayName}</h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {pods.map((p) => <PodcastCard key={p.id} p={p} />)}
@@ -197,9 +197,9 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         {related.length > 0 && (
           <section>
             <div className="mb-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Connected</div>
-              <h2 className="text-xl font-semibold">Related</h2>
-              <p className="text-xs text-muted-foreground mt-1">People, companies and topics that show up alongside {displayName}.</p>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Kapcsolódó</div>
+              <h2 className="text-xl font-semibold">Hasonló</h2>
+              <p className="text-xs text-muted-foreground mt-1">Emberek, cégek és témák, amelyek együtt szerepelnek ezzel: {displayName}.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {related.map(({ kind: k, v }) => {
@@ -220,7 +220,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         )}
 
         <p className="text-xs text-muted-foreground pt-4 border-t border-border/60">
-          Indexed from public RSS feeds. Ranked by freshness, feed health and episode relevance.
+          Nyilvános RSS feedekből indexelve. Frissesség, feed-egészség és epizód-relevancia alapján rangsorolva.
         </p>
       </div>
     </Layout>

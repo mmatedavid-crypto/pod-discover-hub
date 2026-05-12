@@ -5,40 +5,40 @@ import { setSeo } from "@/lib/seo";
 export default function TermsPage() {
   useEffect(() => {
     setSeo({
-      title: "Terms — Podiverzum",
-      description: "Terms for using Podiverzum, a podcast episode search and discovery engine built on public RSS feeds.",
+      title: "Felhasználási feltételek — Podiverzum",
+      description: "A Podiverzum használati feltételei — egy magyar podcast epizód kereső és felfedező nyilvános RSS feedek alapján.",
     });
   }, []);
 
   return (
     <Layout>
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
-        <h1 className="text-3xl font-semibold mb-2">Terms</h1>
-        <p className="text-xs text-muted-foreground mb-8">Last updated {new Date().toLocaleDateString()}</p>
+        <h1 className="text-3xl font-semibold mb-2">Felhasználási feltételek</h1>
+        <p className="text-xs text-muted-foreground mb-8">Utoljára frissítve: {new Date().toLocaleDateString("hu-HU")}</p>
 
-        <p>Podiverzum is a podcast episode search and discovery engine. By using the site you agree to the following.</p>
+        <p>A Podiverzum egy podcast epizód kereső és felfedező. Az oldal használatával elfogadod az alábbiakat.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">What Podiverzum is</h2>
-        <p>Podiverzum helps you find podcast episodes by topic, person, company, ticker, ingredient and other ideas. Podcast content itself — including audio, descriptions and artwork — belongs to the original creators and publishers. Podiverzum indexes <strong>public RSS feeds</strong> and links you back to the original podcast or platform.</p>
+        <h2 className="mt-8 text-xl font-semibold">Mi a Podiverzum</h2>
+        <p>A Podiverzum segít megtalálni a podcast epizódokat témák, személyek, cégek, részvények, hozzávalók és más ötletek alapján. Maga a podcasttartalom — beleértve a hangot, leírásokat és borítóképeket — az eredeti alkotóké és kiadóké. A Podiverzum <strong>nyilvános RSS feedeket</strong> indexel és visszairányít az eredeti podcasthez vagy platformhoz.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">No guarantee of accuracy</h2>
-        <p>Search results, summaries, rankings and entity tags are generated automatically. They may be incomplete, out of date or imperfect. Use Podiverzum as a starting point, not a source of truth.</p>
+        <h2 className="mt-8 text-xl font-semibold">Nincs garancia a pontosságra</h2>
+        <p>A keresési találatok, összefoglalók, rangsorok és entitás-címkék automatikusan generálódnak. Lehetnek hiányosak, elavultak vagy tökéletlenek. Használd a Podiverzumot kiindulópontként, ne forrásként.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">Listening to podcasts</h2>
-        <p>When you click through to listen, you are using the original podcast publisher or a third-party platform (Apple, Spotify, YouTube, the show's own site, etc.). Their terms and privacy policies apply.</p>
+        <h2 className="mt-8 text-xl font-semibold">Podcast hallgatás</h2>
+        <p>Amikor átkattintasz hallgatni, az eredeti podcast kiadót vagy egy harmadik fél platformját használod (Apple, Spotify, YouTube, a műsor saját oldala stb.). Ezek saját feltételei és adatvédelmi szabályai érvényesek.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">Acceptable use</h2>
+        <h2 className="mt-8 text-xl font-semibold">Elfogadható használat</h2>
         <ul className="list-disc pl-5">
-          <li>Don't scrape Podiverzum in a way that disrupts the service.</li>
-          <li>Don't use the site to harass other users or misrepresent podcasts.</li>
-          <li>Don't try to break, probe or abuse the platform.</li>
+          <li>Ne scrape-eld a Podiverzumot úgy, hogy a szolgáltatást zavarja.</li>
+          <li>Ne használd az oldalt más felhasználók zaklatására vagy podcastek hamis bemutatására.</li>
+          <li>Ne próbáld feltörni, kifürkészni vagy visszaélni a platformmal.</li>
         </ul>
 
-        <h2 className="mt-8 text-xl font-semibold">Beta</h2>
-        <p>Podiverzum is currently in closed beta. Features, data and rankings may change without notice.</p>
+        <h2 className="mt-8 text-xl font-semibold">Béta</h2>
+        <p>A Podiverzum jelenleg zárt bétában van. A funkciók, adatok és rangsorok előzetes értesítés nélkül változhatnak.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">Contact</h2>
-        <p>Use the in-app feedback button for questions or to report an issue.</p>
+        <h2 className="mt-8 text-xl font-semibold">Kapcsolat</h2>
+        <p>Kérdéseidet vagy hibajelentéseidet az alkalmazáson belüli visszajelzés gombbal jelezheted.</p>
       </article>
     </Layout>
   );

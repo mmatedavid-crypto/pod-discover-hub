@@ -19,11 +19,11 @@ import { KeyMoments } from "@/components/KeyMoments";
 import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
-  { kind: "topic", label: "Topics" },
-  { kind: "person", label: "People" },
-  { kind: "company", label: "Companies" },
-  { kind: "ticker", label: "Tickers" },
-  { kind: "ingredient", label: "Ingredients" },
+  { kind: "topic", label: "Témák" },
+  { kind: "person", label: "Emberek" },
+  { kind: "company", label: "Cégek" },
+  { kind: "ticker", label: "Részvények" },
+  { kind: "ingredient", label: "Hozzávalók" },
 ];
 
 export default function EpisodeDetail() {
@@ -57,7 +57,7 @@ export default function EpisodeDetail() {
       const summary = stripHtml(e.summary);
       const desc = stripHtml(e.description);
       const aiSum = stripHtml(e.ai_summary);
-      const metaDesc = (e.seo_description || aiSum || summary || desc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
+      const metaDesc = (e.seo_description || aiSum || summary || desc || `Epizód a(z) ${p.display_title || p.title} podcastből — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
       setSeo({
@@ -96,7 +96,7 @@ export default function EpisodeDetail() {
               : undefined,
           },
           breadcrumbJsonLd([
-            { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
+            { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
             { name: p.display_title || p.title, url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : `/podcast/${p.slug}` },
             { name: e.display_title || e.title, url: typeof window !== "undefined" ? window.location.href : "" },
           ]),
@@ -159,7 +159,7 @@ export default function EpisodeDetail() {
   );
 
   if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
-  if (!data?.e) return <NotFoundState title="Episode not found" message="That episode doesn't exist or has been removed." />;
+  if (!data?.e) return <NotFoundState title="Nincs ilyen epizód" message="Ez az epizód nem létezik vagy eltávolításra került." />;
   const { p, e } = data;
   const summary = stripHtml(e.ai_summary) || stripHtml(e.summary);
   const description = stripHtml(e.description);
@@ -202,15 +202,15 @@ export default function EpisodeDetail() {
           )}
           {e.published_at && freshnessOf(e.published_at) === "new" && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> NEW
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
             </span>
           )}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">· Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5 items-center">
-          {e.audio_url && <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm"><ExternalLink className="h-4 w-4" /> Listen</a>}
-          {e.episode_url && <a href={e.episode_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm">Episode page</a>}
+          {e.audio_url && <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm"><ExternalLink className="h-4 w-4" /> Hallgatás</a>}
+          {e.episode_url && <a href={e.episode_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm">Epizód oldal</a>}
           {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Apple className="h-4 w-4" /> Apple</a>}
           {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Music className="h-4 w-4" /> Spotify</a>}
           {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
@@ -223,7 +223,7 @@ export default function EpisodeDetail() {
 
         {summary && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-card">
-            <div className="text-xs uppercase tracking-wide text-accent mb-1">AI summary</div>
+            <div className="text-xs uppercase tracking-wide text-accent mb-1">MI összefoglaló</div>
             <p className="whitespace-pre-wrap">{summary}</p>
           </div>
         )}
@@ -242,7 +242,7 @@ export default function EpisodeDetail() {
 
         {related.length > 0 && (
           <section className="mt-10">
-            <h2 className="font-semibold mb-3">Related episodes</h2>
+            <h2 className="font-semibold mb-3">Kapcsolódó epizódok</h2>
             <EpisodeList items={related} />
           </section>
         )}
@@ -251,21 +251,21 @@ export default function EpisodeDetail() {
 
         {related.length > 0 && (
           <section className="mt-10">
-            <h2 className="font-semibold mb-3">Related episodes</h2>
+            <h2 className="font-semibold mb-3">Kapcsolódó epizódok</h2>
             <EpisodeList items={related} />
           </section>
         )}
 
         {moreFromPod.length > 0 && (
           <section className="mt-10">
-            <h2 className="font-semibold mb-3">More from {p.display_title || p.title}</h2>
+            <h2 className="font-semibold mb-3">További epizódok — {p.display_title || p.title}</h2>
             <EpisodeList items={moreFromPod} />
           </section>
         )}
 
         <p className="text-xs text-muted-foreground mt-10">
-          Indexed from public RSS feed{p.rss_url ? ` (${(() => { try { return new URL(p.rss_url).hostname; } catch { return "source"; } })()})` : ""}.
-          Ranked by freshness, feed health and episode relevance.
+          Nyilvános RSS feedből indexelve{p.rss_url ? ` (${(() => { try { return new URL(p.rss_url).hostname; } catch { return "forrás"; } })()})` : ""}.
+          Frissesség, feed-egészség és epizód-relevancia alapján rangsorolva.
         </p>
       </div>
     </Layout>

@@ -29,8 +29,8 @@ export default function PodcastDetail() {
         const cleanSummary = stripHtml(data.summary);
         const cleanDesc = stripHtml(data.description);
         setSeo({
-          title: data.seo_title || `${data.title} — podcast on Podiverzum`,
-          description: snippet(data.seo_description || cleanSummary || cleanDesc || `Listen to ${data.title} on Podiverzum.`, 160),
+          title: data.seo_title || `${data.title} — podcast a Podiverzumon`,
+          description: snippet(data.seo_description || cleanSummary || cleanDesc || `Hallgasd a(z) ${data.title} podcastet a Podiverzumon.`, 160),
           noindex: data.rss_status === "failed" || data.rss_status === "inactive",
           image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: data.category || "Podcast", image: data.image_url }),
           jsonLd: [
@@ -44,7 +44,7 @@ export default function PodcastDetail() {
               webFeed: data.rss_url || undefined,
             },
             breadcrumbJsonLd([
-              { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
+              { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
               ...(data.category ? [{ name: data.category, url: typeof window !== "undefined" ? `${window.location.origin}/category/${(data.category as string).toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : `/category/${data.category}` }] : []),
               { name: data.display_title || data.title, url: typeof window !== "undefined" ? window.location.href : "" },
             ]),
@@ -62,7 +62,7 @@ export default function PodcastDetail() {
   }, [podcastSlug]);
 
   if (loading) return <Layout><PodcastDetailSkeleton /></Layout>;
-  if (!p) return <NotFoundState title="Podcast not found" message="That podcast doesn't exist or has been removed." />;
+  if (!p) return <NotFoundState title="Nincs ilyen podcast" message="Ez a podcast nem létezik vagy eltávolításra került." />;
 
   const healthState = (p.shadow_rank_components as any)?.health_state;
   const isHealthy = !healthState || healthState === "healthy" || healthState === "recovered_rss_url";
@@ -86,21 +86,21 @@ export default function PodcastDetail() {
             <div className="flex flex-wrap gap-2 mt-2 items-center text-xs">
               {p.rank_label && (
                 <span className="px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-primary">
-                  Tier {p.rank_label}
+                  {p.rank_label}-tier
                 </span>
               )}
               {isHealthy ? (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-green-500/30 bg-green-500/10 text-[10px] font-medium text-green-400">
-                  <Activity className="h-3 w-3" /> Active feed
+                  <Activity className="h-3 w-3" /> Aktív feed
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-[10px] font-medium text-amber-400">
-                  <AlertTriangle className="h-3 w-3" /> Feed issues
+                  <AlertTriangle className="h-3 w-3" /> Feed problémák
                 </span>
               )}
               {lastFresh && (
                 <span className="text-muted-foreground" title={new Date(p.last_fetched_at).toLocaleString()}>
-                  Updated {lastFresh}
+                  Frissítve {lastFresh}
                 </span>
               )}
             </div>
@@ -113,15 +113,15 @@ export default function PodcastDetail() {
               {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Apple className="h-4 w-4" /> Apple</a>}
               {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Music className="h-4 w-4" /> Spotify</a>}
               {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
-              {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Globe className="h-4 w-4" /> Website</a>}
+              {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Globe className="h-4 w-4" /> Weboldal</a>}
               <SharePanel title={p.display_title || p.title} />
             </div>
           </div>
         </div>
 
-        <h2 className="text-xl font-semibold mt-10 mb-4">Episodes</h2>
+        <h2 className="text-xl font-semibold mt-10 mb-4">Epizódok</h2>
         {eps.length === 0 ? (
-          <div className="text-muted-foreground">No episodes yet.</div>
+          <div className="text-muted-foreground">Még nincsenek epizódok.</div>
         ) : (
           <ul className="divide-y divide-border border border-border rounded-lg bg-card">
             {eps.map((e) => {
@@ -133,7 +133,7 @@ export default function PodcastDetail() {
                       {e.display_title || e.title}
                       {fr === "new" && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> NEW
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
                         </span>
                       )}
                     </div>
@@ -145,7 +145,7 @@ export default function PodcastDetail() {
                     )}
                   </Link>
                   {e.audio_url && (
-                    <a href={e.audio_url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground inline-block mt-2">↗ Listen</a>
+                    <a href={e.audio_url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground inline-block mt-2">↗ Hallgatás</a>
                   )}
                 </li>
               );
