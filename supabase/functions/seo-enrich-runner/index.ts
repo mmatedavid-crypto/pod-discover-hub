@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
     const batch = Math.max(1, Math.min(100, Number(body.batch) || 60));
-    const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || 12));
+    // Default concurrency 6: 8/12 hit Lovable AI Gateway 429 within seconds, forcing backoff.
+    const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || 6));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
