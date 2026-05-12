@@ -60,7 +60,7 @@ const Index = () => {
   useEffect(() => {
     setSeo({
       title: "Podiverzum — A magyar podcast kereső",
-      description: "Keress podcast epizódokat témák, személyek, cégek vagy ötletek alapján a magyar podcastok világában.",
+      description: "Keress a magyar podcastok epizódjaiban téma, név, cég vagy ötlet alapján.",
       hreflang: [
         { lang: "hu", href: "https://podiverzum.hu/" },
         { lang: "x-default", href: "https://podiverzum.hu/" },
@@ -223,7 +223,7 @@ const Index = () => {
               <span className="pulse-red" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
             </span>
-            Élő · Témakeresés epizódokban
+            Élő · Keresés epizódok mélyén
           </div>
           <h1 className="text-4xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
             <span className="text-foreground">Találd meg.</span>{" "}
@@ -233,7 +233,7 @@ const Index = () => {
             Keress magyar podcast epizódokban az alapján, amiről valójában szólnak.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Keress rá emberekre, cégekre, piacokra vagy ötletekre — a Podiverzum megtalálja a kapcsolódó podcast epizódokat.
+            Keress rá emberekre, cégekre, piacokra vagy ötletekre. A Podiverzum megtalálja a releváns podcast epizódokat.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -243,7 +243,7 @@ const Index = () => {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
+              placeholder="MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
               className="w-full pl-12 pr-28 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
             />
             <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
@@ -302,7 +302,7 @@ const Index = () => {
           <TrendingEntities
             eyebrow="Témák épp most"
             title="Miről beszélnek a podcasterek"
-            subtitle="Gyakori témák az elmúlt két hét adásaiból. Koppints és mélyedj el bennük."
+            subtitle="Az elmúlt két hét leggyakoribb témái. Válassz egyet, és hallgass bele az epizódokba."
             items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
             icon="topic"
           />
@@ -343,7 +343,7 @@ const Index = () => {
                   Több epizód <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-              <p className="text-xs text-muted-foreground mb-4">Friss epizódok — {c.name}</p>
+              <p className="text-xs text-muted-foreground mb-4">Válogatás a kategória friss epizódjaiból.</p>
               <EpisodeList items={items} />
             </section>
           );
@@ -369,10 +369,10 @@ const Index = () => {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Minőség mindenek felett</div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Top podcastek</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold">Top podcastok</h2>
               </div>
               <Link to="/kategoriak" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                Összes böngészése <ArrowRight className="h-3.5 w-3.5" />
+                Minden podcast <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -386,7 +386,7 @@ const Index = () => {
         {loaded && !trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">
             {loadError
-              ? "Az epizódok átmenetileg nem érhetők el. Kérjük, próbáld meg később."
+              ? "Az epizódok átmenetileg nem érhetők el. Kérlek, nézz vissza később."
               : "A kiemelt epizódok hamarosan megjelennek."}
           </div>
         )}

@@ -6,16 +6,16 @@ import { setSeo } from "@/lib/seo";
 export default function AboutPage() {
   useEffect(() => {
     setSeo({
-      title: "Rólunk — Podiverzum, magyar podcast felfedező",
+      title: "Rólunk — Podiverzum, magyar podcastkereső",
       description:
-        "A Podiverzum egy MI-alapú magyar podcast felfedező. Több ezer nyilvános podcast feedet indexelünk, hogy könnyen megtaláld az epizódokat, amelyek igazán érdekelnek.",
+        "A Podiverzum egy MI-alapú magyar podcastkereső. Több ezer podcastot dolgozunk fel, hogy könnyen megtaláld az epizódokat, amelyek igazán érdekelnek.",
       jsonLd: {
         "@context": "https://schema.org",
         "@type": "Organization",
         name: "Podiverzum",
         url: "https://podiverzum.hu",
         description:
-          "MI-alapú magyar podcast felfedező. Keress epizódokat témák, személyek, cégek vagy ötletek alapján.",
+          "MI-alapú magyar podcastkereső. Keress epizódokat témák, személyek, cégek vagy ötletek alapján.",
         sameAs: [],
       },
     });
@@ -27,14 +27,14 @@ export default function AboutPage() {
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Rólunk</div>
         <h1 className="text-3xl font-semibold mb-2">Találd meg. Hallgasd meg.</h1>
         <p className="text-muted-foreground !mt-2">
-          A Podiverzum egy MI-alapú podcast felfedező, amely a magyar podcast univerzum
-          legjavát teszi kereshetővé, érthetővé és könnyen bejárhatóvá.
+          A Podiverzum egy MI-alapú kereső, amellyel a magyar podcastok világa kereshetővé,
+          érthetővé és könnyen áttekinthetővé válik.
         </p>
         <p>
-          Nem tárolunk hanganyagot. Nem helyettesítjük a podcastlejátszókat. Nyilvános podcast
-          feedeket indexelünk, és segítünk megtalálni az epizódokat aszerint, hogy miről
-          szólnak valójában — emberekről, cégekről, piacokról, technológiákról, ötletekről,
-          helyekről, egészségről, kulturális trendekről és sok másról.
+          Nem tárolunk hanganyagot. Nem helyettesítjük a podcastlejátszókat. Nyilvános podcastokat
+          indexelünk, és segítünk megtalálni az epizódokat a tényleges tartalmuk alapján — emberekről,
+          cégekről, piacokról, technológiákról, ötletekről, helyekről, egészségről,
+          kulturális trendekről és sok másról.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Miért létezik a Podiverzum</h2>
@@ -42,7 +42,7 @@ export default function AboutPage() {
           A legtöbb podcastalkalmazás az általad már követett műsorok köré épül. Ez akkor jó,
           amikor pontosan tudod, mit akarsz hallgatni.
         </p>
-        <p>De a felfedezés még mindig széttöredezett.</p>
+        <p>Új podcastokat találni azonban még mindig nehézkes.</p>
         <p>
           Ha friss epizódokat keresnél a magyar gazdaságról, az MNB kamatdöntéséről, a Hold
           Alapkezelő elemzéseiről, a mesterséges intelligenciáról, az egészséges életmódról,
@@ -50,7 +50,7 @@ export default function AboutPage() {
           keresgélned, végig kell görgetned az egyes hírfolyamokat, vagy reménykedned kell, hogy
           a megfelelő epizód feltűnik valamelyik toplistán.
         </p>
-        <p>A Podiverzum erre a hiányzó rétegre épül.</p>
+        <p>Ezt a hiányt pótolja a Podiverzum.</p>
         <p>
           A podcasteket a webhez hasonlóan kezeljük: egy kereshető és rangsorolt indexet építünk
           epizódokból, műsorokból, témákból, emberekből, cégekből és ötletekből.
@@ -58,18 +58,18 @@ export default function AboutPage() {
 
         <h2 className="mt-10 text-xl font-semibold">Mit csinálunk</h2>
         <ul className="list-disc pl-5">
-          <li>Folyamatosan indexelünk több ezer nyilvános magyar podcast RSS feedet.</li>
+          <li>Folyamatosan indexelünk több ezer nyilvános magyar podcastot.</li>
           <li>
-            Mesterséges intelligencia segítségével megértjük, miről szólnak valójában az epizódok —
+            Mesterséges intelligencia segítségével feltárjuk, miről szólnak valójában a podcast epizódok —
             emberek, cégek, részvények, technológiák, helyek, témák és gondolatok mentén.
           </li>
           <li>
-            Frissesség, következetesség, minőség, relevancia és a feed megbízhatósága alapján
-            rangsorolunk podcasteket és epizódokat.
+            A podcastokat és epizódokat frissesség, relevancia, minőség és a forrás
+            megbízhatósága alapján rangsoroljuk.
           </li>
           <li>
-            Felfedező felületeket építünk: felkapott epizódok, időtálló válogatások,
-            kategóriaoldalak, hangulati ajánlók és tematikus oldalak.
+            Különféle nézetekkel segítjük a felfedezést: felkapott epizódok, időtálló
+            hallgatási ajánlók, kategóriák és tematikus oldalak.
           </li>
           <li>
             A hallgatókat visszairányítjuk az eredeti kiadóhoz — az Apple Podcasts, a Spotify,
@@ -85,7 +85,7 @@ export default function AboutPage() {
             <Link to="/adatvedelem" className="text-primary hover:underline">Adatvédelem</Link>.
           </li>
           <li>
-            Nem árulunk megjelenést. A rangsorolás képletalapú, minőségvezérelt és azt szolgálja,
+            Nem árulunk megjelenést. A rangsorolás algoritmikus és minőségelvű, célja,
             hogy a leghasznosabb találatok kerüljenek előre. Részletek:{" "}
             <Link to="/modszertan" className="text-primary hover:underline">Hogyan rangsorolunk</Link>.
           </li>
@@ -110,9 +110,9 @@ export default function AboutPage() {
         <h2 className="mt-10 text-xl font-semibold">Státusz</h2>
         <p>A Podiverzum jelenleg <strong>zárt bétában</strong> működik.</p>
         <p>
-          A katalógus napról napra bővül. A kereső, a rangsor, a tematikus oldalak és
-          a felfedező felületek folyamatosan javulnak, ahogy egyre több podcast epizód kerül
-          az indexünkbe, és ahogy azokat részletesebben feldolgozzuk és összekapcsoljuk.
+          A katalógus napról napra bővül. A kereső, a rangsorolás és a tematikus oldalak
+          folyamatosan javulnak, ahogy egyre több podcast epizód kerül az indexünkbe,
+          melyeket részletesen feldolgozunk és összekapcsolunk.
         </p>
 
         <div className="not-prose mt-12 flex flex-wrap gap-3">

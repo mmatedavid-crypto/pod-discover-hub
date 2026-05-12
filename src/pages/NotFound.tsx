@@ -14,8 +14,8 @@ export default function NotFound() {
 
   useEffect(() => {
     setSeo({
-      title: "Nincs ilyen oldal — Podiverzum",
-      description: "A keresett oldal nem létezik a Podiverzumon. Böngéssz a top podcastek között.",
+      title: "Az oldal nem található — Podiverzum",
+      description: "A keresett oldal nem található. Böngéssz a népszerű podcastok között, vagy használd a keresőt.",
       noindex: true,
     });
     console.warn("404:", location.pathname);
@@ -39,7 +39,7 @@ export default function NotFound() {
           </div>
           <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-3">Eltévedtél a podiverzumban</h1>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            Ez az oldal nem létezik — de próbálj keresni, vagy válassz a népszerű podcastek közül.
+            Ez az oldal nem található. Próbálj meg keresni, vagy böngéssz a népszerű podcastok között.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -50,7 +50,7 @@ export default function NotFound() {
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Keress epizódokat, embereket, cégeket, ötleteket…"
+              placeholder="Keress rá podcast epizódokra, témákra, személyekre…"
               className="w-full pl-12 pr-28 py-3 rounded-xl bg-card border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60"
             />
             <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-lg text-sm font-semibold">
