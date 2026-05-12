@@ -189,6 +189,7 @@ ${markdown.slice(0, 50000)}`;
                     title: { type: "string" },
                     author: { type: "string" },
                     reason: { type: "string" },
+                    rss_url: { type: "string" },
                   },
                   required: ["title"],
                 },
