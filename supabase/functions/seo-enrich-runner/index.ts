@@ -40,10 +40,10 @@ Deno.serve(async (req) => {
     const __guard = await checkBackgroundJobsAllowed(admin, "seo-enrich-runner");
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
-    const batch = Math.max(1, Math.min(100, Number(body.batch) || 60));
+    const batch = Math.max(1, Math.min(120, Number(body.batch) || 80));
     // 2026-05-12: switched to gemini-3.1-flash-lite-preview which has higher rate limits.
-    // Validated 480 jobs / 105s @ concurrency 12, 0 rate_limit. Bumped default 6→12.
-    const concurrency = Math.max(1, Math.min(20, Number(body.concurrency) || 12));
+    // Validated 480 jobs/105s @ conc 12; bumped to 16 after Cloud instance upgrade.
+    const concurrency = Math.max(1, Math.min(24, Number(body.concurrency) || 16));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
