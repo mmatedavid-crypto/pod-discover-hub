@@ -6,7 +6,7 @@ export default function PrivacyPage() {
   useEffect(() => {
     setSeo({
       title: "Adatvédelem — Podiverzum",
-      description: "A Podiverzum adatkezelési alapelvei: anonim analitika, opcionális visszajelzés, IP-címek rögzítése és személyes adatok továbbadása nélkül.",
+      description: "A Podiverzum adatkezelési elvei: anonim analitika, opcionális visszajelzés, az IP-címek rögzítése és a személyes adatok továbbadása nélkül.",
     });
   }, []);
 
@@ -16,10 +16,10 @@ export default function PrivacyPage() {
         <h1 className="text-3xl font-semibold mb-2">Adatvédelem</h1>
         <p className="text-xs text-muted-foreground mb-8">Utolsó frissítés: {new Date().toLocaleDateString("hu-HU")}</p>
 
-        <p>A Podiverzum egy podcastkereső. Célunk, hogy a lehető legkevesebb személyes adatot gyűjtsük. Ez az oldal bemutatja, hogy mit rögzítünk és miért.</p>
+        <p>A Podiverzum egy podcastkereső. Célunk, hogy a lehető legkevesebb személyes adatot gyűjtsük. Ezen az oldalon bemutatjuk, mit és miért rögzítünk.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Mit indexelünk</h2>
-        <p>A Podiverzum <strong>nyilvános podcast RSS-hírcsatornákat</strong> indexel. Hangfájlokat nem tárolunk. Az eredeti hanganyagok és adatok a tartalmat közzétevő podcastereké és szolgáltatóké.</p>
+        <p>A Podiverzum <strong>nyilvános podcast RSS-hírcsatornákat</strong> indexel. Hangfájlokat nem tárolunk. Az eredeti hanganyagok és adatok a podcasterek és szolgáltatóik tulajdona.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Visszajelzés</h2>
         <p>Ha visszajelzést küldesz, az üzenetedet a szolgáltatás fejlesztése érdekében eltároljuk. A beküldött visszajelzés a következő adatokat tartalmazhatja:</p>
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
           <li>az üzeneted</li>
           <li>az e-mail címed (ha megadod)</li>
           <li>az oldal címe (URL), ahonnan visszajelzést küldtél</li>
-          <li>a böngészőablak mérete és a böngésző azonosítója (user agent), ami a felületi hibák javításában segít</li>
+          <li>a böngészőablak mérete és a böngésző azonosítója (user agent), amely a felületi hibák javítását segíti</li>
           <li>az utolsó keresőkifejezés, ha a keresőoldalról küldted a visszajelzést</li>
         </ul>
         <p>A visszajelzéseket csak a Podiverzum fejlesztői látják.</p>
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
         </ul>
 
         <h2 className="mt-8 text-xl font-semibold">Kapcsolat</h2>
-        <p>Ha kérdésed van, a legegyszerűbben a visszajelzés gombbal érhetsz el minket. Ha választ szeretnél kapni, ne felejtsd el megadni az e-mail címedet.</p>
+        <p>Ha kérdésed van, legkönnyebben a visszajelzés gombbal tudsz nekünk írni. Ha választ szeretnél kapni, ne felejtsd el megadni az e-mail címedet.</p>
       </article>
     </Layout>
   );

@@ -50,7 +50,7 @@ export default function DailyBriefPage() {
   useEffect(() => {
     setSeo({
       title: "Napi válogatás — friss podcast epizódok | Podiverzum",
-      description: "A legjobb magyar podcast epizódok az elmúlt 24–72 órából, a Podiverzum válogatásában.",
+      description: "Friss magyar podcast epizódok az elmúlt 24–72 órából, a Podiverzum napi válogatásában.",
     });
   }, []);
 
@@ -125,7 +125,7 @@ export default function DailyBriefPage() {
             Mit érdemes hallgatni <span className="text-brand-gradient">ma</span>
           </h1>
           <p className="text-muted-foreground mt-3 max-w-2xl">
-            {today} · A legjobb friss epizódok az S/A-tier műsorokból. A Podiverzum válogatása, folyamatosan frissítve.
+            {today} · A legelismertebb műsorok friss epizódjai. Folyamatosan frissítve.
           </p>
 
           <div className="mt-6 inline-flex rounded-lg border border-border bg-card overflow-hidden text-sm">
@@ -151,7 +151,7 @@ export default function DailyBriefPage() {
 
         {!loading && top5.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
-            Nincs friss epizód az elmúlt {windowHours}h-ban. Próbálj szélesebb időablakot.
+            Nincs friss epizód az elmúlt {windowHours} órában. Válassz egy hosszabb időszakot.
           </div>
         )}
 
@@ -160,10 +160,10 @@ export default function DailyBriefPage() {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary mb-1">
-                  <Sparkles className="h-3 w-3" /> Top 5 most
+                  <Sparkles className="h-3 w-3" /> Az öt legfontosabb
                 </div>
                 <h2 className="text-2xl font-semibold">Ha csak ötre van időd</h2>
-                <p className="text-xs text-muted-foreground mt-1">Egy műsoronként. Tier, frissesség és Podiverzum rang alapján.</p>
+                <p className="text-xs text-muted-foreground mt-1">Műsoronként egy epizód. Minősítés, frissesség és relevancia alapján.</p>
               </div>
             </div>
             <EpisodeList items={top5} />
@@ -172,7 +172,7 @@ export default function DailyBriefPage() {
 
         {topTopics.length > 0 && (
           <TrendingEntities
-            eyebrow="A nap jelzései"
+            eyebrow="A nap témái"
             title="Miről beszélnek ma"
             subtitle="A mai epizódokban felbukkanó témák."
             items={topTopics}
@@ -182,7 +182,7 @@ export default function DailyBriefPage() {
 
         {topPeople.length > 0 && (
           <TrendingEntities
-            eyebrow="Emberek a mai válogatásban"
+            eyebrow="Személyek a mai válogatásban"
             title="Nevek, amiket ma hallasz"
             items={topPeople}
             icon="person"
