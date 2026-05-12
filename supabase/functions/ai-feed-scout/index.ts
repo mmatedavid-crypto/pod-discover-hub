@@ -221,16 +221,27 @@ Deno.serve(async (req) => {
     for (const c of unique) {
       const term = c.author ? `${c.title} ${c.author}` : c.title;
       const result = await piSearch(term);
-      const top = result?.feeds?.[0];
-      if (!top || !top.url) { piMisses++; continue; }
-      // Loose match: title token overlap
-      const tNorm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const feeds: any[] = Array.isArray(result?.feeds) ? result.feeds : [];
+      if (!feeds.length) { piMisses++; continue; }
+      // Diacritic-insensitive token overlap (HU: ő,ű,á,é,í,ó,ö,ú → o,u,a,e,i,o,o,u)
+      const tNorm = (s: string) =>
+        s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+         .replace(/[^a-z0-9]+/g, " ").trim();
       const candTokens = new Set(tNorm(c.title).split(" ").filter((w) => w.length > 2));
-      const piTokens = new Set(tNorm(top.title || "").split(" ").filter((w) => w.length > 2));
-      let overlap = 0;
-      for (const t of candTokens) if (piTokens.has(t)) overlap++;
-      const score = candTokens.size ? overlap / candTokens.size : 0;
-      if (score < 0.4) { piMisses++; continue; }
+      // Pick the best-scoring PI feed across the top-N candidates (HU titles often
+      // have multiple near-matches; the first hit isn't always the right one).
+      let best: any = null;
+      let bestScore = 0;
+      for (const f of feeds) {
+        if (!f?.url) continue;
+        const piTokens = new Set(tNorm(f.title || "").split(" ").filter((w) => w.length > 2));
+        let overlap = 0;
+        for (const t of candTokens) if (piTokens.has(t)) overlap++;
+        const sc = candTokens.size ? overlap / candTokens.size : 0;
+        if (sc > bestScore) { bestScore = sc; best = f; }
+      }
+      if (!best || bestScore < 0.4) { piMisses++; continue; }
+      const top = best;
 
       // Script guard: when targeting Latin-script langs (en, es, etc.), reject titles
       // dominated by CJK / Arabic / Cyrillic / Hebrew / Thai / Hangul / Kana glyphs.
