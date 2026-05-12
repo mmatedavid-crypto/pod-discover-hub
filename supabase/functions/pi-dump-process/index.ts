@@ -95,21 +95,26 @@ Deno.serve(async (req) => {
       counters.scanned++;
       const updates: any = { processed: true, processed_at: new Date().toISOString() };
 
-      // Hard reject: non-English, dead, stale
+      // HU-only mode: very lax. Reject only obvious non-HU, dead feeds, or AI-flagged spam.
       const lang = (r.language || "").toLowerCase();
       const aiLang = (r.ai_detected_language || "").toLowerCase().trim();
-      // AI scout's language verdict overrides RSS-claimed language. If Gemini saw
-      // anything other than English (and not 'mul'/'und'), reject — the RSS tag lied.
-      if (aiLang && aiLang !== "en" && aiLang !== "mul" && aiLang !== "und" && !aiLang.startsWith("en")) {
+      const huOk = lang.startsWith("hu") || aiLang.startsWith("hu") || (!aiLang || aiLang === "mul" || aiLang === "und");
+      const langTagOk = !lang || lang === "mul" || lang === "und" || lang.startsWith("hu");
+      const spamScore = Number(r.ai_spam_score) || 0;
+      if (r.dead) { updates.decision = "rejected"; updates.reject_reason = "dead"; counters.rejected++; }
+      else if (spamScore >= 0.75) { updates.decision = "rejected"; updates.reject_reason = `ai_spam:${spamScore}`; counters.rejected++; }
+      else if (aiLang && !aiLang.startsWith("hu") && aiLang !== "mul" && aiLang !== "und") {
+        // AI is sure it's not HU
         updates.decision = "rejected"; updates.reject_reason = `ai_lang:${aiLang}`; counters.rejected++;
       }
-      else if (!lang.startsWith("en")) { updates.decision = "rejected"; updates.reject_reason = "non-English"; counters.rejected++; }
-      else if (r.dead) { updates.decision = "rejected"; updates.reject_reason = "dead"; counters.rejected++; }
+      else if (!huOk && !langTagOk) {
+        updates.decision = "rejected"; updates.reject_reason = `non-HU:${lang}`; counters.rejected++;
+      }
       else {
         const { score, reasons, ageDays } = scoreRow(r, maxAge);
         updates.score = score;
-        if (ageDays > maxAge) { updates.decision = "rejected"; updates.reject_reason = "stale"; counters.rejected++; }
-        else {
+        // No stale rejection for HU — small market, keep everything that's not dead.
+        {
           // dedup check (re-check podcasts in case it was added meanwhile)
           const { data: existing } = await supabase.from("podcasts").select("id").eq("rss_url", r.rss_url).maybeSingle();
           if (existing) { updates.decision = "rejected"; updates.reject_reason = "already imported"; counters.skipped_duplicates++; }
