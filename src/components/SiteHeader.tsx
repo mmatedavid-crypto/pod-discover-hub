@@ -84,7 +84,7 @@ export function SiteHeader() {
           {open && q.trim().length >= 2 && (suggestions.length > 0 || loadingSugg) && (
             <div className="absolute left-0 right-0 mt-1 rounded-md border border-border bg-popover shadow-lg overflow-hidden z-40">
               {loadingSugg && suggestions.length === 0 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">Suggesting…</div>
+                <div className="px-3 py-2 text-xs text-muted-foreground">Javaslatok…</div>
               )}
               {suggestions.map((s) => (
                 <button
