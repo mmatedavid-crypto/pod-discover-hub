@@ -23,10 +23,10 @@ const HIDE_PREFIXES = ["/admin", "/auth", "/privacy", "/terms", "/admin-bootstra
 
 // Rotating prefix labels so the ticker feels like a live activity feed
 const PREFIXES = [
-  "Now indexed",
-  "Fresh episode",
-  "Just added",
-  "New in index",
+  "Most indexelve",
+  "Friss epizód",
+  "Épp érkezett",
+  "Új az indexben",
 ];
 
 export default function LiveIndexBar() {
@@ -92,17 +92,17 @@ export default function LiveIndexBar() {
             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary shadow-[0_0_10px_hsl(var(--brand-red)/0.95)]" />
           </span>
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.22em] text-foreground">
-            Live
+            Élő
           </span>
           <span className="hidden sm:inline text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            · Now indexing
+            · Folyamatosan indexelve
           </span>
         </div>
 
         {/* Ticker */}
         <div
           className="relative flex-1 min-w-0 overflow-hidden group"
-          aria-label="Live index — recently indexed episodes"
+          aria-label="Élő index — friss epizódok"
         >
           <ul
             className="flex items-center gap-6 sm:gap-8 whitespace-nowrap text-xs py-1 sm:py-1.5 animate-[ticker_140s_linear_infinite] sm:animate-[ticker_120s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"

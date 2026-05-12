@@ -41,10 +41,10 @@ export function MoodCollections() {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
-            <Sparkles className="h-3 w-3" /> Discover by mood
+            <Sparkles className="h-3 w-3" /> Hangulat alapján
           </div>
-          <h2 className="text-xl sm:text-2xl font-semibold">What are you in the mood for?</h2>
-          <p className="text-xs text-muted-foreground mt-1">Hand-picked listening ideas, refreshed weekly.</p>
+          <h2 className="text-xl sm:text-2xl font-semibold">Mihez van most kedved?</h2>
+          <p className="text-xs text-muted-foreground mt-1">Válogatott hallgatási ötletek, hetente frissítve.</p>
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">

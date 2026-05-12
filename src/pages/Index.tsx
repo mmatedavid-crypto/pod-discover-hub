@@ -31,13 +31,13 @@ const Index = () => {
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
   const [chips, setChips] = useState<{ label: string; query: string }[]>([
-    { label: "Nvidia earnings", query: "Nvidia earnings" },
-    { label: "Sam Altman", query: "Sam Altman" },
-    { label: "GLP-1 drugs", query: "GLP-1 drugs" },
-    { label: "Fed rate cuts", query: "Fed rate cuts" },
-    { label: "longevity research", query: "longevity research" },
-    { label: "AI regulation", query: "AI regulation" },
-    { label: "What Buffett said about Apple", query: "What Buffett said about Apple" },
+    { label: "MNB kamatdöntés", query: "MNB kamatdöntés" },
+    { label: "magyar gazdaság", query: "magyar gazdaság" },
+    { label: "mesterséges intelligencia", query: "mesterséges intelligencia" },
+    { label: "Hold Alapkezelő", query: "Hold Alapkezelő" },
+    { label: "egészséges életmód", query: "egészséges életmód" },
+    { label: "vállalkozói történetek", query: "vállalkozói történetek" },
+    { label: "politika hét", query: "politika hét" },
   ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -59,11 +59,10 @@ const Index = () => {
 
   useEffect(() => {
     setSeo({
-      title: "Podiverzum — Podcast episode discovery & search",
-      description: "Search podcast episodes by topic, person, company, ticker, ingredient or idea.",
+      title: "Podiverzum — Magyar podcast felfedező",
+      description: "Keress epizódokat témák, személyek, cégek vagy ötletek alapján a magyar podcast univerzumban.",
       hreflang: [
-        { lang: "en", href: "https://podiverzum.hu/" },
-        { lang: "hu", href: "https://podiverzum.hu/hu" },
+        { lang: "hu", href: "https://podiverzum.hu/" },
         { lang: "x-default", href: "https://podiverzum.hu/" },
       ],
       jsonLd: {
@@ -224,17 +223,17 @@ const Index = () => {
               <span className="pulse-red" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
             </span>
-            Live · Episode-first discovery
+            Élő · Epizód-alapú felfedezés
           </div>
           <h1 className="text-4xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
-            <span className="text-foreground">Find it.</span>{" "}
-            <span className="text-brand-gradient">Hear it.</span>
+            <span className="text-foreground">Találd meg.</span>{" "}
+            <span className="text-brand-gradient">Hallgasd meg.</span>
           </h1>
           <p className="text-foreground/85 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Search podcast episodes by what they actually discuss.
+            Keress podcast epizódokat aszerint, hogy miről beszélnek bennük valójában.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Ask about people, companies, markets, technologies or ideas — and find the episodes that matter.
+            Kérdezz emberekről, cégekről, piacokról, technológiákról vagy ötletekről — és találd meg a fontos epizódokat.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -244,11 +243,11 @@ const Index = () => {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Try: Nvidia earnings, GLP-1 drugs, AI regulation…"
+              placeholder="Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
               className="w-full pl-12 pr-28 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
             />
             <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
-              Search
+              Keresés
             </button>
           </form>
           <div className="mt-4 sm:mt-5 flex flex-wrap gap-2">
@@ -288,10 +287,10 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Editor's pulse</div>
-                <h2 className="text-2xl font-semibold tracking-tight">Trending episodes</h2>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Szerkesztői pulzus</div>
+                <h2 className="text-2xl font-semibold tracking-tight">Felkapott epizódok</h2>
               </div>
-              <span className="text-xs text-muted-foreground hidden sm:inline">Selected · ranked · understood</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">Válogatott · rangsorolt · értelmezett</span>
             </div>
             <EpisodeList items={trendingEps} />
           </section>
@@ -301,9 +300,9 @@ const Index = () => {
 
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
-            eyebrow="By topic right now"
-            title="What podcasters are talking about"
-            subtitle="Top topics across all shows in the last 14 days. Tap to dive in."
+            eyebrow="Témák épp most"
+            title="Miről beszélnek a podcasterek"
+            subtitle="Legnépszerűbb témák az összes műsorból az elmúlt 14 napban. Koppints és merülj el."
             items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
             icon="topic"
           />
@@ -311,9 +310,9 @@ const Index = () => {
 
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
-            eyebrow="People in the news"
-            title="Names mentioned this week"
-            subtitle="Cross-show: founders, scientists, athletes, leaders."
+            eyebrow="Emberek a hírekben"
+            title="Ezek a nevek pörögnek a héten"
+            subtitle="Több műsorban: alapítók, kutatók, sportolók, vezetők."
             items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
             icon="person"
           />
@@ -323,9 +322,9 @@ const Index = () => {
           const companies = topEntitiesFrom(trendingEntityEps, "companies", "company", 10);
           return companies.length ? (
             <TrendingEntities
-              eyebrow="Companies on air"
-              title="Brands & organizations"
-              subtitle="Companies showing up across recent episodes."
+              eyebrow="Cégek a műsorban"
+              title="Márkák és szervezetek"
+              subtitle="Cégek, amelyek felbukkannak a friss epizódokban."
               items={companies}
               icon="company"
             />
@@ -341,10 +340,10 @@ const Index = () => {
               <div className="flex items-end justify-between mb-1">
                 <h2 className="text-xl sm:text-2xl font-semibold">{c.name}</h2>
                 <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                  See more episodes <ArrowRight className="h-3.5 w-3.5" />
+                  Több epizód <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-              <p className="text-xs text-muted-foreground mb-4">Latest episodes in {c.name}</p>
+              <p className="text-xs text-muted-foreground mb-4">Friss epizódok — {c.name}</p>
               <EpisodeList items={items} />
             </section>
           );
@@ -355,10 +354,10 @@ const Index = () => {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
-                  <Sparkles className="h-3 w-3" /> Timeless
+                  <Sparkles className="h-3 w-3" /> Időtálló
                 </div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Timeless episodes</h2>
-                <p className="text-xs text-muted-foreground mt-1">Older episodes from S-tier podcasts that still hold up.</p>
+                <h2 className="text-xl sm:text-2xl font-semibold">Időtálló epizódok</h2>
+                <p className="text-xs text-muted-foreground mt-1">Régebbi, de ma is releváns epizódok a legjobb műsorokból.</p>
               </div>
             </div>
             <EpisodeList items={evergreenEps} />
@@ -369,11 +368,11 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Quality first</div>
-                <h2 className="text-xl sm:text-2xl font-semibold">High-rank podcasts</h2>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Minőség mindenek felett</div>
+                <h2 className="text-xl sm:text-2xl font-semibold">Top podcastek</h2>
               </div>
-              <Link to="/categories" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                Browse all <ArrowRight className="h-3.5 w-3.5" />
+              <Link to="/kategoriak" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                Összes böngészése <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -387,8 +386,8 @@ const Index = () => {
         {loaded && !trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">
             {loadError
-              ? "Episodes are temporarily unavailable. Please refresh shortly."
-              : "Featured episodes are temporarily unavailable."}
+              ? "Az epizódok átmenetileg nem érhetők el. Próbáld újra hamarosan."
+              : "A kiemelt epizódok átmenetileg nem érhetők el."}
           </div>
         )}
       </div>

@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles, ArrowRight, Search } from "lucide-react";
 
 const QUESTIONS = [
-  "Best founder interviews this month",
-  "What's new in GLP-1 research",
-  "Podcasts that explain the stock market",
-  "What Buffett said about Apple",
-  "Smart takes on AI regulation",
-  "Deep dives on the Fed's next move",
-  "Episodes about longevity science",
-  "Sam Altman on the future of AI",
+  "A hónap legjobb alapító interjúi",
+  "Mi a helyzet a magyar gazdasággal",
+  "Podcastek, amik elmagyarázzák a tőzsdét",
+  "Mit mond Hold Alapkezelő a piacról",
+  "Okos vélemények az MI szabályozásáról",
+  "Mély elemzések az MNB kamatdöntéséről",
+  "Epizódok az egészséges életmódról",
+  "Friderikusz legjobb interjúi",
 ];
 
 const ROTATE_MS = 3500;
@@ -47,17 +47,17 @@ export function AskPodiverzum() {
       <div className="relative">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-[10px] uppercase tracking-[0.22em] text-primary">
           <Sparkles className="h-3 w-3" />
-          Ask Podiverzum
+          Kérdezd a Podiverzumot
         </div>
 
         <h2 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-bold tracking-tight max-w-3xl leading-tight">
-          Ask anything. Every result explains{" "}
-          <span className="text-brand-gradient">why it matched.</span>
+          Kérdezz bármit. Minden találat elmondja,{" "}
+          <span className="text-brand-gradient">miért lett az.</span>
         </h2>
 
         <p className="mt-2 sm:mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-          Natural-language discovery across hundreds of thousands of podcast episodes —
-          with one-line explanations for why each result matched.
+          Természetes nyelvű felfedezés magyar podcast epizódok között —
+          minden találathoz egy mondatos magyarázattal, miért került oda.
         </p>
 
         <form
@@ -69,17 +69,17 @@ export function AskPodiverzum() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g. What's new in GLP-1 research"
+            placeholder="pl. Mi a helyzet a magyar gazdasággal"
             className="w-full pl-12 pr-28 sm:pr-36 py-3.5 sm:py-4 rounded-2xl bg-card/90 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
           />
           <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5">
-            Ask <ArrowRight className="h-4 w-4" />
+            Kérdezd <ArrowRight className="h-4 w-4" />
           </button>
         </form>
 
         <div className="mt-5 sm:mt-6">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-3">
-            Try one of these
+            Próbáld ezeket
           </div>
           <div className="grid sm:grid-cols-2 gap-2.5">
             {visible.map((question) => (

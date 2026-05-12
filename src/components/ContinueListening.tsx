@@ -17,9 +17,9 @@ export function ContinueListening() {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
-            <History className="h-3 w-3" /> Continue listening
+            <History className="h-3 w-3" /> Folytatás
           </div>
-          <h2 className="text-xl sm:text-2xl font-semibold">Where you left off</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold">Ahol abbahagytad</h2>
         </div>
         <button
           type="button"
@@ -29,7 +29,7 @@ export function ContinueListening() {
           }}
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
         >
-          <X className="h-3 w-3" /> Clear
+          <X className="h-3 w-3" /> Törlés
         </button>
       </div>
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
