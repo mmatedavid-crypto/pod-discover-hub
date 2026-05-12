@@ -126,7 +126,9 @@ Deno.serve(async (req) => {
         } catch (err: any) {
           errors++;
           const msg = String(err?.message || err);
-          if (msg === "rate_limited") stop = true;
+          // Don't kill the whole run on a single 429/503 — the candidate will simply
+          // be picked up again next tick (we never wrote to episode_embeddings).
+          // Only stop if rate-limit errors dominate, to avoid hammering the API.
           if (errorSamples.length < 5) errorSamples.push({ id: e.id, error: msg });
         }
       };
