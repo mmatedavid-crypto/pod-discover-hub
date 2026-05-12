@@ -10,8 +10,7 @@ export function SiteFooter() {
           <div className="space-y-4 max-w-sm">
             <BrandMark size={28} tagline />
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Magyar podcastfelfedező. Keress epizódokat témák, személyek,
-              cégek, piacok vagy ötletek alapján.
+              Magyar podcastkereső. Keress podcast epizódokat téma, személy, cég vagy akár egy gondolat alapján.
             </p>
             <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
               <span className="relative inline-flex h-1.5 w-1.5">
@@ -35,7 +34,7 @@ export function SiteFooter() {
         <div className="mt-10 pt-6 border-t border-border/70 flex flex-wrap gap-2 items-center justify-between text-xs">
           <span>© {new Date().getFullYear()} Podiverzum · Találd meg. Hallgasd meg.</span>
           <span className="opacity-70">
-            Nyilvános RSS feedekből indexelve · Frissesség, feedminőség és relevancia alapján rangsorolva.
+            Nyilvános RSS-csatornákból indexelve · Frissesség, relevancia és a forrás minősége alapján rangsorolva.
           </span>
         </div>
       </div>

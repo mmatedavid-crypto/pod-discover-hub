@@ -15,7 +15,7 @@ export function BrandMark({
   return (
     <Link
       to="/"
-      aria-label="Podiverzum — home"
+      aria-label="Podiverzum – kezdőlap"
       className={`group inline-flex items-center gap-2.5 ${className}`}
     >
       <span
@@ -39,7 +39,7 @@ export function BrandMark({
           </span>
           {tagline && (
             <span className="block mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Találd meg. <span className="text-primary">Hallgasd meg.</span>
+              A magyar podcast <span className="text-primary">kereső</span>
             </span>
           )}
         </span>
