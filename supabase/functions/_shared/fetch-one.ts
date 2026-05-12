@@ -117,7 +117,17 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     const nfu = head.match(/<itunes:new-feed-url>([\s\S]*?)<\/itunes:new-feed-url>/i);
     if (nfu?.[1]) newFeedUrl = nfu[1].trim();
     const langM = head.match(/<language>([\s\S]*?)<\/language>/i);
-    if (langM?.[1]) channelLanguage = langM[1].trim().toLowerCase().slice(0, 8);
+    if (langM?.[1]) {
+      // Strip CDATA wrapper, comments, whitespace; keep only ISO-639 prefix (e.g. "hu", "en-us").
+      const raw = langM[1]
+        .replace(/<!\[CDATA\[/gi, "")
+        .replace(/\]\]>/g, "")
+        .replace(/<!--[\s\S]*?-->/g, "")
+        .trim()
+        .toLowerCase();
+      const m = raw.match(/^([a-z]{2,3})(?:[-_]([a-z0-9]{2,4}))?/);
+      if (m) channelLanguage = m[2] ? `${m[1]}-${m[2]}` : m[1];
+    }
   } catch { /* noop */ }
 
   if (newFeedUrl && newFeedUrl !== podcast.rss_url) {
