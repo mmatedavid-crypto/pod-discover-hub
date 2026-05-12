@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
     const batch = Math.max(1, Math.min(100, Number(body.batch) || 60));
-    const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || 12));
+    // Default concurrency 6: 8/12 hit Lovable AI Gateway 429 within seconds, forcing backoff.
+    const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || 6));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
@@ -212,17 +213,25 @@ Deno.serve(async (req) => {
       await admin.from("app_settings").upsert({ key: "ai_seo_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    // Adaptive cron: tune schedule from current pending backlog so we don't burn empty ticks.
-    // pending>500 → */2, 100..500 → */5, 1..99 → */10, 0 → */30. Back off on rate-limit.
+    // Adaptive cron — STEPPED backoff. Never crash to */30 while backlog>0.
+    // Allowed: *, */2, */5, */10, */30. Steps: rate-limit gently slows but
+    // keeps cadence proportional to remaining work.
     let next_schedule: string | null = null;
     try {
       const { count: pending } = await admin.from("ai_enrichment_jobs").select("id", { count: "exact", head: true }).eq("status", "pending");
       const p = Number(pending || 0);
-      if (rate_limited > 0) next_schedule = "*/30 * * * *";
-      else if (p > 500) next_schedule = "* * * * *";
-      else if (p >= 100) next_schedule = "*/2 * * * *";
-      else if (p >= 1) next_schedule = "*/10 * * * *";
-      else next_schedule = "*/30 * * * *";
+      if (rate_limited > 0) {
+        // Gentle stepdown: still drain, just slower. Worst case */10 (was */30 — too aggressive).
+        if (p > 500) next_schedule = "*/2 * * * *";
+        else if (p >= 100) next_schedule = "*/5 * * * *";
+        else if (p >= 1) next_schedule = "*/10 * * * *";
+        else next_schedule = "*/30 * * * *";
+      } else {
+        if (p > 500) next_schedule = "* * * * *";
+        else if (p >= 100) next_schedule = "*/2 * * * *";
+        else if (p >= 1) next_schedule = "*/10 * * * *";
+        else next_schedule = "*/30 * * * *";
+      }
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
