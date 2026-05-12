@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
               rss_url: r.rss_url,
               website_url: r.website_url,
               image_url: r.image_url,
-              language: r.language || "en",
+              language: r.language || (aiLang.startsWith("hu") ? "hu" : "hu"),
               source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
               podiverzum_rank: score,
