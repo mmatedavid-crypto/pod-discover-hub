@@ -62,7 +62,7 @@ async function embed(model: string, text: string): Promise<{ vec: number[]; toke
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 45_000; // Supabase edge CPU budget ~50-60s; keep wall-time below to avoid kills
+  const TIME_BUDGET_MS = 55_000; // Supabase edge wall-clock ~60s; push close to it during drain
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -75,8 +75,8 @@ Deno.serve(async (req) => {
     if (ctrl.enabled === false) return json({ ok: true, paused: true });
     const model = String(ctrl.model || "google/text-embedding-004");
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 1.0);
-    const batch = Math.max(1, Math.min(200, Number(body.batch) || Number(ctrl.batch_size) || 50));
-    const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || Number(ctrl.concurrency) || 6));
+    const batch = Math.max(1, Math.min(250, Number(body.batch) || Number(ctrl.batch_size) || 50));
+    const concurrency = Math.max(1, Math.min(32, Number(body.concurrency) || Number(ctrl.concurrency) || 6));
     const TIME_RESERVE_MS = 8_000; // leave headroom for stats + cron RPC
 
     const dayKey = new Date().toISOString().slice(0, 10);
