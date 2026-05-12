@@ -63,9 +63,9 @@ export function SiteHeader() {
       <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
         <BrandMark />
         <nav className="hidden sm:flex items-center gap-6 ml-2">
-          <NavLink to="/daily" className={linkCls}>Daily Brief</NavLink>
-          <NavLink to="/categories" className={linkCls}>Categories</NavLink>
-          <NavLink to="/search" className={linkCls}>Search</NavLink>
+          <NavLink to="/napi" className={linkCls}>Napi</NavLink>
+          <NavLink to="/kategoriak" className={linkCls}>Kategóriák</NavLink>
+          <NavLink to="/kereses" className={linkCls}>Keresés</NavLink>
         </nav>
         <div ref={wrapRef} className="ml-auto relative w-full max-w-sm">
           <form
