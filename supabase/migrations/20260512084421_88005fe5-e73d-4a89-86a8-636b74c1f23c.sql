@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = jsonb_set(jsonb_set(value, '{concurrency}', '24'), '{batch_size}', '250'), updated_at = now() WHERE key = 'embed_episode_controls';
