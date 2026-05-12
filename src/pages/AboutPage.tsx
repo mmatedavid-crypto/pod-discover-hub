@@ -6,16 +6,16 @@ import { setSeo } from "@/lib/seo";
 export default function AboutPage() {
   useEffect(() => {
     setSeo({
-      title: "About Podiverzum — AI-powered podcast discovery",
+      title: "Rólunk — Podiverzum, magyar podcast felfedező",
       description:
-        "Podiverzum is an AI-powered podcast discovery engine. We index thousands of public podcast feeds and help listeners find episodes by what they actually discuss.",
+        "A Podiverzum MI-vezérelt magyar podcast felfedező. Több ezer nyilvános podcast feedet indexelünk, hogy könnyen megtaláld azokat az epizódokat, amelyek valóban érdekelnek.",
       jsonLd: {
         "@context": "https://schema.org",
         "@type": "Organization",
         name: "Podiverzum",
         url: "https://podiverzum.hu",
         description:
-          "AI-powered podcast discovery engine. Search episodes by topic, person, company, ticker and idea.",
+          "MI-vezérelt magyar podcast felfedező. Keress epizódokat témák, személyek, cégek vagy ötletek alapján.",
         sameAs: [],
       },
     });
@@ -24,114 +24,115 @@ export default function AboutPage() {
   return (
     <Layout>
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
-        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">About</div>
-        <h1 className="text-3xl font-semibold mb-2">Find it. Hear it.</h1>
+        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Rólunk</div>
+        <h1 className="text-3xl font-semibold mb-2">Találd meg. Hallgasd meg.</h1>
         <p className="text-muted-foreground !mt-2">
-          Podiverzum is an AI-powered podcast discovery engine built to make the best of
-          the public podcast ecosystem searchable, understandable and easier to explore.
+          A Podiverzum egy MI-vezérelt podcast felfedező, amely a magyar podcast univerzum
+          legjavát teszi kereshetővé, érthetővé és könnyen bejárhatóvá.
         </p>
         <p>
-          We do not host audio. We do not replace podcast apps. We index public podcast
-          feeds and help listeners discover episodes by what they actually discuss —
-          people, companies, markets, technologies, ideas, places, health topics,
-          cultural trends and more.
+          Nem hosztolunk hangot. Nem helyettesítjük a podcast appokat. Nyilvános podcast
+          feedeket indexelünk, és segítünk megtalálni az epizódokat aszerint, hogy miről
+          szólnak valójában — emberekről, cégekről, piacokról, technológiákról, ötletekről,
+          helyekről, egészségi témákról, kulturális trendekről és sok másról.
         </p>
 
-        <h2 className="mt-10 text-xl font-semibold">Why Podiverzum exists</h2>
+        <h2 className="mt-10 text-xl font-semibold">Miért létezik a Podiverzum</h2>
         <p>
-          Most podcast apps are designed around shows you already follow. They work well
-          when you know exactly what you want to hear.
+          A legtöbb podcast app az általad már követett műsorok köré épül. Ez akkor jó,
+          amikor pontosan tudod, mit akarsz hallgatni.
         </p>
-        <p>But discovery is still fragmented.</p>
+        <p>De a felfedezés még mindig széttöredezett.</p>
         <p>
-          If you want to find recent episodes about Nvidia earnings, Sam Altman, the
-          Federal Reserve, GLP-1 drugs, private credit, AI regulation, longevity,
-          Bitcoin ETFs or the war in Ukraine, you usually have to search by title,
-          scroll through individual feeds, or hope the right episode appears in a chart.
+          Ha friss epizódokat keresnél a magyar gazdaságról, az MNB kamatdöntésről, a Hold
+          Alapkezelő elemzéseiről, a mesterséges intelligenciáról, az egészséges életmódról,
+          a hazai politikáról vagy a vállalkozói történetekről, általában cím szerint kell
+          keresgélned, végig kell görgetned az egyes feedeket, vagy reménykedned kell, hogy
+          a megfelelő epizód feltűnik valamelyik chartban.
         </p>
-        <p>Podiverzum is built for that missing layer.</p>
+        <p>A Podiverzum erre a hiányzó rétegre épül.</p>
         <p>
-          We treat podcasts more like the web: a searchable, ranked index of episodes,
-          shows, topics, people, companies and ideas.
+          A podcasteket inkább úgy kezeljük, mint a webet: kereshető, rangsorolt index
+          epizódokról, műsorokról, témákról, emberekről, cégekről és ötletekről.
         </p>
 
-        <h2 className="mt-10 text-xl font-semibold">What we do</h2>
+        <h2 className="mt-10 text-xl font-semibold">Mit csinálunk</h2>
         <ul className="list-disc pl-5">
-          <li>We continuously index thousands of public podcast RSS feeds.</li>
+          <li>Folyamatosan indexelünk több ezer nyilvános magyar podcast RSS feedet.</li>
           <li>
-            We use AI to understand what episodes are actually about — including people,
-            companies, tickers, technologies, places, themes and topics.
+            MI segítségével megértjük, miről szólnak valójában az epizódok — emberek,
+            cégek, részvények, technológiák, helyek, témák és gondolatok mentén.
           </li>
           <li>
-            We rank podcasts and episodes by freshness, consistency, quality, relevance
-            and feed health.
+            Frissesség, következetesség, minőség, relevancia és feed-egészség alapján
+            rangsorolunk podcasteket és epizódokat.
           </li>
           <li>
-            We create discovery surfaces such as trending episodes, timeless picks,
-            category pages, mood collections and entity pages.
+            Felfedező felületeket építünk: felkapott epizódok, időtálló válogatások,
+            kategóriaoldalak, hangulatkollekciók és entitásoldalak.
           </li>
           <li>
-            We send listeners back to the original publisher — Apple Podcasts, Spotify,
-            YouTube, the show's website or wherever the creator publishes.
+            A hallgatókat visszaküldjük az eredeti kiadóhoz — Apple Podcasts, Spotify,
+            YouTube, a műsor saját oldala, vagy ahol az alkotó publikál.
           </li>
         </ul>
 
-        <h2 className="mt-10 text-xl font-semibold">What we don't do</h2>
+        <h2 className="mt-10 text-xl font-semibold">Mit nem csinálunk</h2>
         <ul className="list-disc pl-5">
-          <li>We don't host or stream audio. The audio belongs to its creators and publishers.</li>
+          <li>Nem hosztolunk és nem streamelünk hangot. A hang az alkotóké és kiadóké.</li>
           <li>
-            We don't sell personal data. See{" "}
-            <Link to="/privacy" className="text-primary hover:underline">Privacy</Link>.
+            Nem adjuk el a személyes adataidat. Lásd:{" "}
+            <Link to="/adatvedelem" className="text-primary hover:underline">Adatvédelem</Link>.
           </li>
           <li>
-            We don't sell placement. Rankings are formulaic, quality-driven and designed
-            to surface useful results. See{" "}
-            <Link to="/methodology" className="text-primary hover:underline">How we rank</Link>.
+            Nem árulunk megjelenést. A rangsor képletalapú, minőségvezérelt és arra szolgál,
+            hogy a hasznos találatok kerüljenek előre. Lásd:{" "}
+            <Link to="/modszertan" className="text-primary hover:underline">Hogyan rangsorolunk</Link>.
           </li>
-          <li>We don't run third-party advertising trackers.</li>
+          <li>Nem futtatunk harmadik féltől származó hirdetéskövetőket.</li>
         </ul>
 
-        <h2 className="mt-10 text-xl font-semibold">Built for serious listeners</h2>
+        <h2 className="mt-10 text-xl font-semibold">Komoly hallgatóknak építjük</h2>
         <p>
-          Podiverzum is built for people who use podcasts to learn, research, think and
-          discover.
+          A Podiverzum azoknak készül, akik a podcasteket tanulásra, kutatásra,
+          gondolkodásra és felfedezésre használják.
         </p>
         <p>
-          It is for listeners who want more than charts, subscriptions and algorithmic
-          recommendations. It is for people who want to search across thousands of
-          episodes and quickly understand which ones are worth their time.
+          Azoknak szól, akik többet akarnak a chartoknál, feliratkozásoknál és algoritmikus
+          ajánlóknál. Akik át akarnak nézni több ezer epizódot, és gyorsan szeretnék tudni,
+          melyik éri meg az idejüket.
         </p>
         <p>
-          Our goal is simple: make high-quality podcast discovery faster, smarter and
-          less noisy.
+          A célunk egyszerű: gyorsabbá, okosabbá és kevésbé zajossá tenni a minőségi
+          podcast felfedezést.
         </p>
 
-        <h2 className="mt-10 text-xl font-semibold">Status</h2>
-        <p>Podiverzum is currently in <strong>closed beta</strong>.</p>
+        <h2 className="mt-10 text-xl font-semibold">Státusz</h2>
+        <p>A Podiverzum jelenleg <strong>zárt bétában</strong> van.</p>
         <p>
-          The catalog grows daily. Search quality, rankings, entity pages and discovery
-          surfaces will continue to improve as more episodes are indexed, enriched and
-          connected.
+          A katalógus napról napra bővül. A kereső, a rangsor, az entitásoldalak és a
+          felfedező felületek folyamatosan javulnak, ahogy egyre több epizód kerül
+          indexelésre, gazdagításra és összekapcsolásra.
         </p>
 
         <div className="not-prose mt-12 flex flex-wrap gap-3">
           <Link
-            to="/methodology"
+            to="/modszertan"
             className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            How we rank →
+            Hogyan rangsorolunk →
           </Link>
           <Link
-            to="/privacy"
+            to="/adatvedelem"
             className="px-4 py-2 rounded-md bg-secondary text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
           >
-            Privacy →
+            Adatvédelem →
           </Link>
           <a
-            href="mailto:hello@podiverzum.hu?subject=Podiverzum%20feedback"
+            href="mailto:hello@podiverzum.hu?subject=Podiverzum%20visszajelzes"
             className="px-4 py-2 rounded-md bg-secondary text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
           >
-            Send feedback →
+            Visszajelzés küldése →
           </a>
         </div>
       </article>

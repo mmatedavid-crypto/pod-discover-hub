@@ -42,19 +42,19 @@ export default function CategoryDetail() {
       setLoading(false);
       if (!c) return;
       setSeo({
-        title: c.seo_title || `${c.name} podcast episodes — Podiverzum`,
-        description: c.seo_description || `Discover the latest podcast episodes in ${c.name}, ranked by relevance, freshness and Podiverzum Rank.`,
+        title: c.seo_title || `${c.name} podcastek és epizódok — Podiverzum`,
+        description: c.seo_description || `Fedezd fel a legfrissebb ${c.name} podcast epizódokat — relevancia, frissesség és Podiverzum rang szerint rangsorolva.`,
         jsonLd: [
           {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: `${c.name} podcast episodes`,
+            name: `${c.name} podcast epizódok`,
             about: { "@type": "Thing", name: c.name },
             url: typeof window !== "undefined" ? window.location.href : undefined,
           },
           breadcrumbJsonLd([
-            { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-            { name: "Categories", url: typeof window !== "undefined" ? `${window.location.origin}/categories` : "/categories" },
+            { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
+            { name: "Kategóriák", url: typeof window !== "undefined" ? `${window.location.origin}/kategoriak` : "/kategoriak" },
             { name: c.name, url: typeof window !== "undefined" ? window.location.href : "" },
           ]),
         ],
@@ -116,7 +116,7 @@ export default function CategoryDetail() {
       const r = await searchEpisodes({ rawQuery: queryParam, scope: scopeParam, categoryName: cat.name, limit: 60 });
       setSemanticUsed(r.semanticUsed);
       setSuggestion(r.suggestion);
-      const decorate = (arr: any[]) => arr.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" })) as EpisodeLite[];
+      const decorate = (arr: any[]) => arr.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "találat" })) as EpisodeLite[];
       setInCat(decorate(r.inCategory));
       setOutside(decorate(r.outsideCategory));
       setAllResults(decorate(r.all));
@@ -140,15 +140,15 @@ export default function CategoryDetail() {
     setParams(next);
   };
 
-  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
-  if (!cat) return <NotFoundState title="Category not found" message="That category doesn't exist or has been removed." />;
+  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
+  if (!cat) return <NotFoundState title="Nincs ilyen kategória" message="Ez a kategória nem létezik vagy eltávolításra került." />;
 
   return (
     <Layout>
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold">{cat.name}</h1>
         <p className="text-muted-foreground mt-1">
-          Latest podcast episodes in {cat.name}, ranked by relevance, freshness and Podiverzum Rank.
+          A legfrissebb {cat.name} podcast epizódok — relevancia, frissesség és Podiverzum rang szerint rangsorolva.
         </p>
 
         {/* Category-scoped search */}
@@ -157,16 +157,16 @@ export default function CategoryDetail() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={`Search in ${cat.name}…`}
+            placeholder={`Keresés ${cat.name} kategóriában…`}
             className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
           />
           <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
-            Search
+            Keresés
           </button>
         </form>
         <div className="flex flex-wrap gap-2 items-center mt-3 text-xs">
-          <span className="text-muted-foreground">Search scope:</span>
-          {([["category", `This category`], ["all", "All Podiverzum"]] as const).map(([k, l]) => (
+          <span className="text-muted-foreground">Keresés köre:</span>
+          {([["category", `Ebben a kategóriában`], ["all", "Egész Podiverzum"]] as const).map(([k, l]) => (
             <button
               key={k}
               onClick={() => setScope(k)}
@@ -179,21 +179,21 @@ export default function CategoryDetail() {
 
         {queryParam ? (
           <div className="mt-8 space-y-10">
-            {searchLoading && <div className="text-sm text-muted-foreground">Searching…</div>}
+            {searchLoading && <div className="text-sm text-muted-foreground">Keresés…</div>}
 
             {scopeParam === "category" && (
               <>
                 <section>
                   <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
-                    Best matches in {cat.name} ({inCat.length})
+                    Legjobb találatok itt: {cat.name} ({inCat.length})
                     {suggestion && suggestion.toLowerCase() !== queryParam.toLowerCase() && (
                       <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                        Showing results for {suggestion}
+                        Találatok erre: {suggestion}
                       </span>
                     )}
                     {semanticUsed && (
                       <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
-                        including related ideas
+                        kapcsolódó ötletekkel
                       </span>
                     )}
                   </h2>
@@ -201,16 +201,16 @@ export default function CategoryDetail() {
                     <EpisodeList items={inCat} terms={flatTerms} showEntities />
                   ) : (
                     <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-                      No matches in {cat.name}. Try “All Podiverzum” to broaden the search.
+                      Nincs találat itt: {cat.name}. Próbáld az „Egész Podiverzum” keresést.
                     </div>
                   )}
                 </section>
                 {outside.length > 0 && (
                   <section>
                     <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
-                      Strong matches outside {cat.name} ({outside.length})
+                      Erős találatok más kategóriákban ({outside.length})
                       <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                        outside this category
+                        kategórián kívül
                       </span>
                     </h2>
                     <EpisodeList items={outside} terms={flatTerms} showEntities />
@@ -222,15 +222,15 @@ export default function CategoryDetail() {
             {scopeParam === "all" && (
               <section>
                 <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
-                  Matching episodes ({allResults.length})
+                  Találatok ({allResults.length})
                   {suggestion && suggestion.toLowerCase() !== queryParam.toLowerCase() && (
                     <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                      Showing results for {suggestion}
+                      Találatok erre: {suggestion}
                     </span>
                   )}
                   {semanticUsed && (
                     <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
-                      including related ideas
+                      kapcsolódó ötletekkel
                     </span>
                   )}
                 </h2>
@@ -240,18 +240,18 @@ export default function CategoryDetail() {
           </div>
         ) : (
           <>
-            <h2 className="text-xl font-semibold mt-10 mb-4">Latest episodes in {cat.name}</h2>
+            <h2 className="text-xl font-semibold mt-10 mb-4">Friss epizódok — {cat.name}</h2>
             {episodes.length > 0 ? (
               <EpisodeList items={episodes} showTopics />
             ) : (
               <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-                No episodes indexed in this category yet. Podiverzum is still growing automatically.
+                Még nincs indexelt epizód ebben a kategóriában. A Podiverzum folyamatosan bővül.
               </div>
             )}
 
             {topics.length > 0 && (
               <>
-                <h2 className="text-xl font-semibold mt-10 mb-3">Popular topics</h2>
+                <h2 className="text-xl font-semibold mt-10 mb-3">Népszerű témák</h2>
                 <div className="flex flex-wrap gap-2">
                   {topics.map((t) => (
                     <Link key={t} to={`/topic/${encodeURIComponent(t.toLowerCase().replace(/[^a-z0-9]+/g,"-"))}`} className="px-3 py-1 rounded-full bg-secondary text-sm hover:bg-accent hover:text-accent-foreground">
@@ -264,7 +264,7 @@ export default function CategoryDetail() {
 
             {podcasts.length > 0 && (
               <>
-                <h2 className="text-xl font-semibold mt-10 mb-4">Top podcasts in {cat.name}</h2>
+                <h2 className="text-xl font-semibold mt-10 mb-4">Top podcastek — {cat.name}</h2>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
                 </div>

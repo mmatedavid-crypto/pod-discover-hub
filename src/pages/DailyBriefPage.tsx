@@ -38,7 +38,7 @@ function mapRow(r: Row): EpisodeLite {
   };
 }
 
-const PRETTY_DATE = new Intl.DateTimeFormat("en-US", {
+const PRETTY_DATE = new Intl.DateTimeFormat("hu-HU", {
   weekday: "long", month: "long", day: "numeric",
 });
 
@@ -49,8 +49,8 @@ export default function DailyBriefPage() {
 
   useEffect(() => {
     setSeo({
-      title: "Daily Brief — fresh podcast episodes today | Podiverzum",
-      description: "The best podcast episodes published in the last 24-72 hours, hand-ranked by Podiverzum.",
+      title: "Napi válogatás — friss podcast epizódok | Podiverzum",
+      description: "A legjobb magyar podcast epizódok az elmúlt 24–72 órából, a Podiverzum válogatásában.",
     });
   }, []);
 
@@ -100,7 +100,7 @@ export default function DailyBriefPage() {
     const seenIds = new Set(top5.map((e) => e.id));
     for (const e of ranked) {
       if (seenIds.has(e.id)) continue;
-      const cat = e.podcasts?.category || "More";
+      const cat = e.podcasts?.category || "Egyéb";
       (grouped[cat] ||= []).push(e);
     }
     return Object.entries(grouped)
@@ -119,13 +119,13 @@ export default function DailyBriefPage() {
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-60" />
         <div className="container mx-auto py-12 sm:py-16 relative">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-[10px] uppercase tracking-[0.22em] text-primary">
-            <Calendar className="h-3 w-3" /> Daily Brief
+            <Calendar className="h-3 w-3" /> Napi válogatás
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-4 leading-[1.05]">
-            What's worth hearing <span className="text-brand-gradient">today</span>
+            Mit érdemes hallgatni <span className="text-brand-gradient">ma</span>
           </h1>
           <p className="text-muted-foreground mt-3 max-w-2xl">
-            {today} · The best podcast episodes published recently across S/A-tier shows. Curated by Podiverzum, refreshed continuously.
+            {today} · A legjobb friss epizódok az S/A-tier műsorokból. A Podiverzum válogatása, folyamatosan frissítve.
           </p>
 
           <div className="mt-6 inline-flex rounded-lg border border-border bg-card overflow-hidden text-sm">
@@ -139,7 +139,7 @@ export default function DailyBriefPage() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Last {h}h
+                Elmúlt {h}h
               </button>
             ))}
           </div>
@@ -147,11 +147,11 @@ export default function DailyBriefPage() {
       </section>
 
       <div className="container mx-auto py-10 space-y-12">
-        {loading && <div className="text-muted-foreground py-10 text-center">Loading today's brief…</div>}
+        {loading && <div className="text-muted-foreground py-10 text-center">A mai válogatás betöltése…</div>}
 
         {!loading && top5.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
-            No fresh episodes in the last {windowHours}h. Try a wider window.
+            Nincs friss epizód az elmúlt {windowHours}h-ban. Próbálj szélesebb időablakot.
           </div>
         )}
 
@@ -160,10 +160,10 @@ export default function DailyBriefPage() {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary mb-1">
-                  <Sparkles className="h-3 w-3" /> Top 5 right now
+                  <Sparkles className="h-3 w-3" /> Top 5 most
                 </div>
-                <h2 className="text-2xl font-semibold">If you only have time for five</h2>
-                <p className="text-xs text-muted-foreground mt-1">One per show. Ranked by tier, freshness and Podiverzum Rank.</p>
+                <h2 className="text-2xl font-semibold">Ha csak ötre van időd</h2>
+                <p className="text-xs text-muted-foreground mt-1">Egy műsoronként. Tier, frissesség és Podiverzum rang alapján.</p>
               </div>
             </div>
             <EpisodeList items={top5} />
@@ -172,9 +172,9 @@ export default function DailyBriefPage() {
 
         {topTopics.length > 0 && (
           <TrendingEntities
-            eyebrow="Today's signal"
-            title="What's getting talked about"
-            subtitle="Topics surfacing across today's episodes."
+            eyebrow="A nap jelzései"
+            title="Miről beszélnek ma"
+            subtitle="A mai epizódokban felbukkanó témák."
             items={topTopics}
             icon="topic"
           />
@@ -182,8 +182,8 @@ export default function DailyBriefPage() {
 
         {topPeople.length > 0 && (
           <TrendingEntities
-            eyebrow="People in today's brief"
-            title="Names you'll hear today"
+            eyebrow="Emberek a mai válogatásban"
+            title="Nevek, amiket ma hallasz"
             items={topPeople}
             icon="person"
           />
@@ -195,14 +195,14 @@ export default function DailyBriefPage() {
               <h2 className="text-xl font-semibold inline-flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" /> {cat}
               </h2>
-              <span className="text-xs text-muted-foreground">{list.length} episode{list.length === 1 ? "" : "s"}</span>
+              <span className="text-xs text-muted-foreground">{list.length} epizód</span>
             </div>
             <EpisodeList items={list} />
           </section>
         ))}
 
         <div className="text-center pt-6">
-          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to home</Link>
+          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Vissza a kezdőlapra</Link>
         </div>
       </div>
     </Layout>

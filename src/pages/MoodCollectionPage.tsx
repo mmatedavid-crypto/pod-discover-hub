@@ -27,8 +27,8 @@ export default function MoodCollectionPage() {
       setLoading(false);
       if (!m) return;
       setSeo({
-        title: `${(m as any).title} — podcast collection | Podiverzum`,
-        description: (m as any).description || `Hand-picked podcasts and episodes for ${(m as any).mood}.`,
+        title: `${(m as any).title} — hangulat válogatás | Podiverzum`,
+        description: (m as any).description || `Válogatott podcastek és epizódok ehhez: ${(m as any).mood}.`,
       });
       const ids: string[] = (m as any).podcast_ids || [];
       const epIds: string[] = (m as any).episode_ids || [];
@@ -56,8 +56,8 @@ export default function MoodCollectionPage() {
     })();
   }, [slug]);
 
-  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
-  if (!mood) return <NotFoundState title="Collection not found" message="That collection doesn't exist or is no longer active." />;
+  if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
+  if (!mood) return <NotFoundState title="Nincs ilyen válogatás" message="Ez a válogatás nem létezik vagy már nem aktív." />;
 
   const accent = mood.accent_hsl ? `hsl(${mood.accent_hsl})` : "hsl(var(--primary))";
   const empty = podcasts.length === 0 && episodes.length === 0;
@@ -66,11 +66,11 @@ export default function MoodCollectionPage() {
     <Layout>
       <div className="container mx-auto py-10 max-w-5xl">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back home
+          <ArrowLeft className="h-3.5 w-3.5" /> Vissza a kezdőlapra
         </Link>
         <div className="mt-3 rounded-2xl border border-border bg-card/60 p-6 sm:p-8" style={{ background: `linear-gradient(135deg, ${accent}1a, transparent 70%), hsl(var(--card) / 0.6)` }}>
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] mb-2" style={{ color: accent }}>
-            <Sparkles className="h-3 w-3" /> Mood collection
+            <Sparkles className="h-3 w-3" /> Hangulat válogatás
           </div>
           <h1 className="text-3xl sm:text-4xl font-semibold">{mood.title}</h1>
           <p className="text-muted-foreground mt-2">{mood.description || mood.mood}</p>
@@ -78,19 +78,19 @@ export default function MoodCollectionPage() {
 
         {empty ? (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            This collection is being curated. Check back soon.
+            Ez a válogatás épp készül. Nézz vissza hamarosan.
           </div>
         ) : (
           <>
             {episodes.length > 0 && (
               <section className="mt-10">
-                <h2 className="font-semibold mb-3">Latest episodes</h2>
+                <h2 className="font-semibold mb-3">Friss epizódok</h2>
                 <EpisodeList items={episodes} />
               </section>
             )}
             {podcasts.length > 0 && (
               <section className="mt-10">
-                <h2 className="font-semibold mb-3">Podcasts in this collection</h2>
+                <h2 className="font-semibold mb-3">Podcastek a válogatásban</h2>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
                 </div>

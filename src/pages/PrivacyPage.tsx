@@ -5,55 +5,55 @@ import { setSeo } from "@/lib/seo";
 export default function PrivacyPage() {
   useEffect(() => {
     setSeo({
-      title: "Privacy — Podiverzum",
-      description: "How Podiverzum handles your data: optional feedback, search analytics, no IP tracking, no sale of personal data.",
+      title: "Adatvédelem — Podiverzum",
+      description: "Hogyan kezeli a Podiverzum az adataidat: opcionális visszajelzés, keresési analitika, IP-követés nélkül, személyes adatok eladása nélkül.",
     });
   }, []);
 
   return (
     <Layout>
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
-        <h1 className="text-3xl font-semibold mb-2">Privacy</h1>
-        <p className="text-xs text-muted-foreground mb-8">Last updated {new Date().toLocaleDateString()}</p>
+        <h1 className="text-3xl font-semibold mb-2">Adatvédelem</h1>
+        <p className="text-xs text-muted-foreground mb-8">Utoljára frissítve: {new Date().toLocaleDateString("hu-HU")}</p>
 
-        <p>Podiverzum is a podcast discovery engine. We aim to collect as little personal data as possible. This page explains what we collect and why.</p>
+        <p>A Podiverzum egy podcast felfedező. Igyekszünk a lehető legkevesebb személyes adatot gyűjteni. Ez az oldal elmagyarázza, mit gyűjtünk és miért.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">What we index</h2>
-        <p>Podiverzum indexes <strong>public podcast RSS feeds</strong>. We do not host audio. Original audio and metadata belong to the podcasts and platforms that publish them.</p>
+        <h2 className="mt-8 text-xl font-semibold">Mit indexelünk</h2>
+        <p>A Podiverzum <strong>nyilvános podcast RSS feedeket</strong> indexel. Hangot nem hosztolunk. Az eredeti hang és metaadat azoké a podcasteké és platformoké, amelyek közzéteszik.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">Feedback you send</h2>
-        <p>If you use the in-app feedback button, we store what you submit so we can improve the product. A feedback record may include:</p>
+        <h2 className="mt-8 text-xl font-semibold">Visszajelzés</h2>
+        <p>Ha használod az alkalmazáson belüli visszajelzés gombot, eltároljuk amit beküldesz, hogy fejleszthessük a terméket. Egy visszajelzés rekord tartalmazhatja:</p>
         <ul className="list-disc pl-5">
-          <li>your message</li>
-          <li>an optional email address (only if you choose to provide one)</li>
-          <li>the page URL where the feedback was sent</li>
-          <li>your viewport size and user-agent string (to reproduce UI issues)</li>
-          <li>your most recent search query, if you were on the search page</li>
+          <li>az üzeneted</li>
+          <li>opcionális e-mail címet (csak ha megadtad)</li>
+          <li>az oldal URL-jét, ahonnan a visszajelzést küldted</li>
+          <li>a viewport méretét és a böngésző user-agent stringjét (UI hibák reprodukálásához)</li>
+          <li>a legutóbbi keresési kifejezést, ha a keresőoldalon voltál</li>
         </ul>
-        <p>Feedback is visible only to Podiverzum administrators.</p>
+        <p>A visszajelzések csak a Podiverzum adminisztrátorai számára láthatók.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">Search analytics</h2>
-        <p>To improve search quality, we log each search with:</p>
+        <h2 className="mt-8 text-xl font-semibold">Keresési analitika</h2>
+        <p>A keresési minőség javítása érdekében minden keresést rögzítünk a következőkkel:</p>
         <ul className="list-disc pl-5">
-          <li>the query text</li>
-          <li>number of results returned</li>
-          <li>whether a broader fallback was used</li>
-          <li>your viewport width</li>
-          <li>a timestamp</li>
-        </ul>
-
-        <h2 className="mt-8 text-xl font-semibold">Page analytics</h2>
-        <p>We log basic page views such as route path, referrer, viewport size, timestamp and UTM campaign parameters when present.</p>
-
-        <h2 className="mt-8 text-xl font-semibold">What we don't do</h2>
-        <ul className="list-disc pl-5">
-          <li>We do not intentionally store IP addresses.</li>
-          <li>We do not sell personal data.</li>
-          <li>We do not use third-party advertising trackers.</li>
+          <li>a keresési szöveg</li>
+          <li>a visszaadott találatok száma</li>
+          <li>használtunk-e tágabb fallback keresést</li>
+          <li>a viewport szélessége</li>
+          <li>időbélyeg</li>
         </ul>
 
-        <h2 className="mt-8 text-xl font-semibold">Contact</h2>
-        <p>The fastest way to reach us is the in-app feedback button. You can include an email address if you want a reply.</p>
+        <h2 className="mt-8 text-xl font-semibold">Oldal analitika</h2>
+        <p>Alapvető oldalmegtekintéseket naplózunk: útvonal, hivatkozó, viewport méret, időbélyeg és UTM kampányparaméterek (ha vannak).</p>
+
+        <h2 className="mt-8 text-xl font-semibold">Mit nem csinálunk</h2>
+        <ul className="list-disc pl-5">
+          <li>Szándékosan nem tárolunk IP-címeket.</li>
+          <li>Nem adjuk el a személyes adatokat.</li>
+          <li>Nem használunk harmadik féltől származó hirdetéskövetőket.</li>
+        </ul>
+
+        <h2 className="mt-8 text-xl font-semibold">Kapcsolat</h2>
+        <p>A leggyorsabb módja az elérésünknek az alkalmazáson belüli visszajelzés gomb. Ha választ szeretnél, megadhatsz egy e-mail címet is.</p>
       </article>
     </Layout>
   );
