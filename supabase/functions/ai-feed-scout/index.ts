@@ -70,12 +70,13 @@ async function sha1Hex(input: string) {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function piSearch(term: string) {
+async function piSearch(term: string, lang?: string) {
   const apiKey = Deno.env.get("PODCAST_INDEX_API_KEY")!;
   const apiSecret = Deno.env.get("PODCAST_INDEX_API_SECRET")!;
   const date = Math.floor(Date.now() / 1000).toString();
   const auth = await sha1Hex(apiKey + apiSecret + date);
-  const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(term)}&max=5`;
+  const langQ = lang ? `&val=${encodeURIComponent(lang)}` : "";
+  const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(term)}&max=5${langQ}`;
   const res = await fetch(url, {
     headers: {
       "User-Agent": "Podiverzum/1.0 ai-scout",
@@ -86,6 +87,47 @@ async function piSearch(term: string) {
   });
   if (!res.ok) return null;
   return res.json();
+}
+
+// Tier 3: iTunes Search API (HU storefront). Works even when PodcastIndex doesn't
+// have the feed indexed yet — common for newer / niche HU podcasts.
+async function itunesSearch(term: string, country = "HU") {
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=${country}&media=podcast&limit=5&entity=podcast`;
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Podiverzum/1.0 ai-scout" } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data?.results) ? data.results : [];
+  } catch {
+    return [];
+  }
+}
+
+// Lightweight RSS validation: fetch first ~8KB and look for <rss / <feed root.
+async function validateRss(url: string): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Podiverzum/1.0 ai-scout", "Accept": "application/rss+xml,application/xml,text/xml,*/*" },
+      signal: ctrl.signal, redirect: "follow",
+    });
+    clearTimeout(t);
+    if (!res.ok || !res.body) return false;
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (total < 8192) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value); total += value.length;
+    }
+    try { await reader.cancel(); } catch { /* ignore */ }
+    const text = new TextDecoder().decode(new Uint8Array(chunks.flatMap((c) => Array.from(c)))).slice(0, 8192);
+    return /<rss[\s>]/i.test(text) || /<feed[\s>]/i.test(text);
+  } catch {
+    return false;
+  }
 }
 
 async function firecrawlScrape(url: string): Promise<string | null> {
@@ -118,6 +160,7 @@ For each podcast, provide:
 - title: exact show name
 - author: host or publisher (best guess if implied)
 - reason: 1 short sentence why this is a notable podcast (from the page context)
+- rss_url: ONLY if the page explicitly contains a direct RSS/feed URL (ends in .xml, /feed, /rss, or labeled "RSS"). Otherwise omit.
 
 Source tag: ${sourceTag}
 
@@ -146,6 +189,7 @@ ${markdown.slice(0, 50000)}`;
                     title: { type: "string" },
                     author: { type: "string" },
                     reason: { type: "string" },
+                    rss_url: { type: "string" },
                   },
                   required: ["title"],
                 },
@@ -190,7 +234,7 @@ Deno.serve(async (req) => {
     const dryRun = !!body.dry_run;
     const strictLang = body.strict_lang !== false; // default ON
 
-    const candidates: { title: string; author?: string; reason?: string; sourceTag: string; langHint: string }[] = [];
+    const candidates: { title: string; author?: string; reason?: string; rss_url?: string; sourceTag: string; langHint: string }[] = [];
     const sourceStats: Record<string, { scraped: boolean; extracted: number; lang_hint: string }> = {};
 
     for (const src of sources) {
@@ -201,6 +245,7 @@ Deno.serve(async (req) => {
       for (const p of extracted) {
         if (p?.title) candidates.push({
           title: String(p.title).trim(), author: p.author, reason: p.reason,
+          rss_url: typeof p.rss_url === "string" ? p.rss_url.trim() : undefined,
           sourceTag: src.tag, langHint: src.lang_hint,
         });
       }
@@ -215,26 +260,42 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    // Validate via PodcastIndex search + language guard
+    // 3-tier validation: (1) RSS direct from page, (2) PodcastIndex w/ lang filter, (3) iTunes HU storefront.
     const validated: any[] = [];
     const debugMisses: any[] = [];
     let piHits = 0, piMisses = 0, langMismatches = 0, piEmpty = 0;
+    let tier1 = 0, tier2 = 0, tier3 = 0;
     const tNorm = (s: string) =>
       s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
        .replace(/[^a-z0-9]+/g, " ").trim();
+
     for (const c of unique) {
-      // Try title-only first (HU titles + author confuse PI byterm); fall back to title+author.
-      let result = await piSearch(c.title);
+      // ---------- TIER 1: direct RSS URL extracted from page ----------
+      if (c.rss_url && /^https?:\/\//i.test(c.rss_url)) {
+        const ok = await validateRss(c.rss_url);
+        if (ok) {
+          tier1++; piHits++;
+          validated.push({
+            feed: { url: c.rss_url, title: c.title, author: c.author, description: c.reason, language: c.langHint },
+            candidate: c, lang_hint: c.langHint, tier: "rss_direct",
+          });
+          continue;
+        }
+      }
+
+      // ---------- TIER 2: PodcastIndex search (lang-filtered) ----------
+      let result = await piSearch(c.title, c.langHint);
       let feeds: any[] = Array.isArray(result?.feeds) ? result.feeds : [];
+      if (!feeds.length) {
+        // Retry without lang filter — PI's val= can be overly strict for sparse HU data
+        result = await piSearch(c.title);
+        feeds = Array.isArray(result?.feeds) ? result.feeds : [];
+      }
       if (!feeds.length && c.author) {
         result = await piSearch(`${c.title} ${c.author}`);
         feeds = Array.isArray(result?.feeds) ? result.feeds : [];
       }
-      if (!feeds.length) {
-        piMisses++; piEmpty++;
-        if (debugMisses.length < 15) debugMisses.push({ title: c.title, author: c.author, reason: "pi_empty" });
-        continue;
-      }
+
       const candNorm = tNorm(c.title);
       const candTokens = new Set(candNorm.split(" ").filter((w) => w.length > 2));
       let best: any = null;
@@ -246,54 +307,77 @@ Deno.serve(async (req) => {
         let overlap = 0;
         for (const t of candTokens) if (piTokens.has(t)) overlap++;
         let sc = candTokens.size ? overlap / candTokens.size : 0;
-        // Substring boost: PI title contains full normalized cand title (or vice versa)
         if (candNorm.length >= 6 && (piNorm.includes(candNorm) || candNorm.includes(piNorm))) {
           sc = Math.max(sc, 0.9);
         }
         if (sc > bestScore) { bestScore = sc; best = f; }
       }
-      // Lowered threshold: HU titles tokenize into few words; 0.34 = 1-of-3 short titles match.
-      if (!best || bestScore < 0.34) {
-        piMisses++;
-        if (debugMisses.length < 15) debugMisses.push({
-          title: c.title, author: c.author, score: bestScore,
-          pi_top: feeds.slice(0, 3).map((f: any) => f.title),
-        });
-        continue;
-      }
-      const top = best;
 
-      // Script guard: when targeting Latin-script langs (en, es, etc.), reject titles
-      // dominated by CJK / Arabic / Cyrillic / Hebrew / Thai / Hangul / Kana glyphs.
-      const latinTargets = new Set(["en","es","pt","fr","de","it","nl","sv","da","no","pl","ro","hu"]);
-      if (latinTargets.has(c.langHint)) {
-        const t = String(top.title || "");
-        if (/[\u4e00-\u9fff\u0600-\u06ff\u0400-\u04ff\u0590-\u05ff\u0e00-\u0e7f\uac00-\ud7af\u3040-\u30ff]/.test(t)) {
+      if (best && bestScore >= 0.34) {
+        const top = best;
+        const piLang = normLang(top.language);
+        if (strictLang && piLang && piLang !== c.langHint) {
           langMismatches++;
+        } else {
+          tier2++; piHits++;
+          validated.push({ feed: top, candidate: c, lang_hint: c.langHint, tier: "podcast_index" });
           continue;
         }
       }
 
-      // Language guard: PI language must match the source's lang_hint when known.
-      // If PI has no language set, we trust the AI extract's filter and let it through.
-      const piLang = normLang(top.language);
-      if (strictLang && piLang && piLang !== c.langHint) {
-        langMismatches++;
-        continue;
+      // ---------- TIER 3: iTunes Search (HU storefront) — catches feeds PI doesn't index ----------
+      const itunesResults = await itunesSearch(c.title, "HU");
+      let itBest: any = null;
+      let itScore = 0;
+      for (const r of itunesResults) {
+        if (!r?.feedUrl) continue;
+        const itNorm = tNorm(r.collectionName || r.trackName || "");
+        const itTokens = new Set(itNorm.split(" ").filter((w) => w.length > 2));
+        let overlap = 0;
+        for (const t of candTokens) if (itTokens.has(t)) overlap++;
+        let sc = candTokens.size ? overlap / candTokens.size : 0;
+        if (candNorm.length >= 6 && (itNorm.includes(candNorm) || candNorm.includes(itNorm))) {
+          sc = Math.max(sc, 0.9);
+        }
+        if (sc > itScore) { itScore = sc; itBest = r; }
+      }
+      if (itBest && itScore >= 0.34) {
+        const ok = await validateRss(itBest.feedUrl);
+        if (ok) {
+          tier3++; piHits++;
+          validated.push({
+            feed: {
+              url: itBest.feedUrl,
+              title: itBest.collectionName || c.title,
+              author: itBest.artistName || c.author,
+              image: itBest.artworkUrl600 || itBest.artworkUrl100,
+              link: itBest.collectionViewUrl,
+              language: c.langHint,
+              description: c.reason,
+            },
+            candidate: c, lang_hint: c.langHint, tier: "itunes_hu",
+          });
+          continue;
+        }
       }
 
-
-      piHits++;
-      validated.push({ feed: top, candidate: c, lang_hint: c.langHint });
+      // All tiers exhausted
+      piMisses++; if (!feeds.length) piEmpty++;
+      if (debugMisses.length < 15) debugMisses.push({
+        title: c.title, author: c.author,
+        pi_score: bestScore, itunes_score: itScore,
+        pi_top: feeds.slice(0, 3).map((f: any) => f.title),
+      });
     }
 
     if (dryRun) {
       return new Response(JSON.stringify({
         ok: true, dry_run: true, sources: sourceStats,
         candidates: unique.length, pi_hits: piHits, pi_misses: piMisses, pi_empty: piEmpty, lang_mismatches: langMismatches,
-        sample: validated.slice(0, 10).map((v) => ({
+        tiers: { rss_direct: tier1, podcast_index: tier2, itunes_hu: tier3 },
+        sample: validated.slice(0, 15).map((v) => ({
           title: v.feed.title, url: v.feed.url, lang: v.feed.language || null,
-          source: v.candidate.sourceTag, expected_lang: v.lang_hint,
+          source: v.candidate.sourceTag, expected_lang: v.lang_hint, tier: v.tier,
         })),
         debug_misses: debugMisses,
         elapsed_ms: Date.now() - t0,
@@ -362,6 +446,7 @@ Deno.serve(async (req) => {
       pi_hits: piHits,
       pi_misses: piMisses,
       lang_mismatches: langMismatches,
+      tiers: { rss_direct: tier1, podcast_index: tier2, itunes_hu: tier3 },
       already_known: validated.length - fresh.length,
       inserted,
       import_id: importId,
