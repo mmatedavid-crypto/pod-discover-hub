@@ -37,11 +37,11 @@ export function FeedbackButton() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const msg = message.trim();
-    if (msg.length < 3) { toast.error("Írj egy rövid üzenetet."); return; }
+    if (msg.length < 3) { toast.error("Az üzenet túl rövid."); return; }
     if (msg.length > 4000) { toast.error("Az üzenet túl hosszú."); return; }
     const trimmedEmail = email.trim();
     if (trimmedEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmedEmail)) {
-      toast.error("Adj meg érvényes e-mailt, vagy hagyd üresen.");
+      toast.error("Adj meg érvényes e-mail címet, vagy hagyd üresen.");
       return;
     }
     setBusy(true);
@@ -57,8 +57,8 @@ export function FeedbackButton() {
       user_id: sess.session?.user.id || null,
     });
     setBusy(false);
-    if (error) { toast.error("Nem sikerült elküldeni. Próbáld újra."); return; }
-    toast.success("Köszönjük — visszajelzés elküldve.");
+    if (error) { toast.error("Nem sikerült elküldeni. Próbáld meg újra."); return; }
+    toast.success("Köszönjük a visszajelzést.");
     setMessage(""); setEmail(""); setOpen(false);
   };
 
@@ -86,7 +86,7 @@ export function FeedbackButton() {
             </div>
             <form onSubmit={submit} className="p-4 space-y-3">
               <p className="text-xs text-muted-foreground">
-                Mondd el, mi működött, mi nem, vagy mit szeretnél a Podiverzumtól. Mindent elolvasunk.
+                Írd meg, mi működött, mi nem, vagy mit szeretnél a Podiverzumtól. Minden visszajelzést elolvasunk.
               </p>
               <textarea
                 value={message}
@@ -94,7 +94,7 @@ export function FeedbackButton() {
                 required
                 maxLength={4000}
                 rows={5}
-                placeholder="Mire gondoltál?"
+                placeholder="Üzenet..."
                 className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm outline-none focus:border-accent"
               />
               <input
@@ -102,7 +102,7 @@ export function FeedbackButton() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 maxLength={320}
-                placeholder="E-mail (opcionális, ha szeretnél választ)"
+                placeholder="E-mail cím (ha választ is szeretnél)"
                 className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm outline-none focus:border-accent"
               />
               <div className="flex items-center justify-end gap-2">

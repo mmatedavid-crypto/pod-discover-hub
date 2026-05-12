@@ -104,7 +104,7 @@ export function EpisodeCard({
         </div>
         {e.why_matched && (
           <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/40 bg-primary/10 text-foreground leading-snug">
-            <span className="font-semibold text-primary mr-1">Miért találat:</span>
+            <span className="font-semibold text-primary mr-1">Miért releváns:</span>
             {e.why_matched}
           </p>
         )}
@@ -135,7 +135,7 @@ export function EpisodeCard({
           </div>
         )}
         <div className="flex gap-3 mt-2.5 text-xs">
-          <Link to={`/podcast/${p.slug}/${e.slug}`} className="text-muted-foreground hover:text-foreground">Epizód megnyitása</Link>
+          <Link to={`/podcast/${p.slug}/${e.slug}`} className="text-muted-foreground hover:text-foreground">Részletek</Link>
           {e.audio_url && (
             <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
               <ExternalLink className="h-3 w-3" /> Hallgatás
