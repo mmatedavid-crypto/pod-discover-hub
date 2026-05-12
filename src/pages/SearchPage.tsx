@@ -385,7 +385,7 @@ export default function SearchPage() {
         )}
 
         <p className="text-xs text-muted-foreground mt-10">
-          Indexed from public RSS feeds. Ranked by query relevance, freshness, feed health and Podiverzum Rank.
+          Nyilvános RSS feedekből indexelve. Relevancia, frissesség, feed-egészség és Podiverzum rang alapján rangsorolva.
         </p>
       </div>
     </Layout>
