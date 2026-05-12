@@ -290,11 +290,12 @@ Deno.serve(async (req) => {
     if (dryRun) {
       return new Response(JSON.stringify({
         ok: true, dry_run: true, sources: sourceStats,
-        candidates: unique.length, pi_hits: piHits, pi_misses: piMisses, lang_mismatches: langMismatches,
+        candidates: unique.length, pi_hits: piHits, pi_misses: piMisses, pi_empty: piEmpty, lang_mismatches: langMismatches,
         sample: validated.slice(0, 10).map((v) => ({
           title: v.feed.title, url: v.feed.url, lang: v.feed.language || null,
           source: v.candidate.sourceTag, expected_lang: v.lang_hint,
         })),
+        debug_misses: debugMisses,
         elapsed_ms: Date.now() - t0,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
