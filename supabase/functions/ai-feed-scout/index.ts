@@ -260,26 +260,42 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    // Validate via PodcastIndex search + language guard
+    // 3-tier validation: (1) RSS direct from page, (2) PodcastIndex w/ lang filter, (3) iTunes HU storefront.
     const validated: any[] = [];
     const debugMisses: any[] = [];
     let piHits = 0, piMisses = 0, langMismatches = 0, piEmpty = 0;
+    let tier1 = 0, tier2 = 0, tier3 = 0;
     const tNorm = (s: string) =>
       s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
        .replace(/[^a-z0-9]+/g, " ").trim();
+
     for (const c of unique) {
-      // Try title-only first (HU titles + author confuse PI byterm); fall back to title+author.
-      let result = await piSearch(c.title);
+      // ---------- TIER 1: direct RSS URL extracted from page ----------
+      if (c.rss_url && /^https?:\/\//i.test(c.rss_url)) {
+        const ok = await validateRss(c.rss_url);
+        if (ok) {
+          tier1++; piHits++;
+          validated.push({
+            feed: { url: c.rss_url, title: c.title, author: c.author, description: c.reason, language: c.langHint },
+            candidate: c, lang_hint: c.langHint, tier: "rss_direct",
+          });
+          continue;
+        }
+      }
+
+      // ---------- TIER 2: PodcastIndex search (lang-filtered) ----------
+      let result = await piSearch(c.title, c.langHint);
       let feeds: any[] = Array.isArray(result?.feeds) ? result.feeds : [];
+      if (!feeds.length) {
+        // Retry without lang filter — PI's val= can be overly strict for sparse HU data
+        result = await piSearch(c.title);
+        feeds = Array.isArray(result?.feeds) ? result.feeds : [];
+      }
       if (!feeds.length && c.author) {
         result = await piSearch(`${c.title} ${c.author}`);
         feeds = Array.isArray(result?.feeds) ? result.feeds : [];
       }
-      if (!feeds.length) {
-        piMisses++; piEmpty++;
-        if (debugMisses.length < 15) debugMisses.push({ title: c.title, author: c.author, reason: "pi_empty" });
-        continue;
-      }
+
       const candNorm = tNorm(c.title);
       const candTokens = new Set(candNorm.split(" ").filter((w) => w.length > 2));
       let best: any = null;
@@ -291,45 +307,67 @@ Deno.serve(async (req) => {
         let overlap = 0;
         for (const t of candTokens) if (piTokens.has(t)) overlap++;
         let sc = candTokens.size ? overlap / candTokens.size : 0;
-        // Substring boost: PI title contains full normalized cand title (or vice versa)
         if (candNorm.length >= 6 && (piNorm.includes(candNorm) || candNorm.includes(piNorm))) {
           sc = Math.max(sc, 0.9);
         }
         if (sc > bestScore) { bestScore = sc; best = f; }
       }
-      // Lowered threshold: HU titles tokenize into few words; 0.34 = 1-of-3 short titles match.
-      if (!best || bestScore < 0.34) {
-        piMisses++;
-        if (debugMisses.length < 15) debugMisses.push({
-          title: c.title, author: c.author, score: bestScore,
-          pi_top: feeds.slice(0, 3).map((f: any) => f.title),
-        });
-        continue;
-      }
-      const top = best;
 
-      // Script guard: when targeting Latin-script langs (en, es, etc.), reject titles
-      // dominated by CJK / Arabic / Cyrillic / Hebrew / Thai / Hangul / Kana glyphs.
-      const latinTargets = new Set(["en","es","pt","fr","de","it","nl","sv","da","no","pl","ro","hu"]);
-      if (latinTargets.has(c.langHint)) {
-        const t = String(top.title || "");
-        if (/[\u4e00-\u9fff\u0600-\u06ff\u0400-\u04ff\u0590-\u05ff\u0e00-\u0e7f\uac00-\ud7af\u3040-\u30ff]/.test(t)) {
+      if (best && bestScore >= 0.34) {
+        const top = best;
+        const piLang = normLang(top.language);
+        if (strictLang && piLang && piLang !== c.langHint) {
           langMismatches++;
+        } else {
+          tier2++; piHits++;
+          validated.push({ feed: top, candidate: c, lang_hint: c.langHint, tier: "podcast_index" });
           continue;
         }
       }
 
-      // Language guard: PI language must match the source's lang_hint when known.
-      // If PI has no language set, we trust the AI extract's filter and let it through.
-      const piLang = normLang(top.language);
-      if (strictLang && piLang && piLang !== c.langHint) {
-        langMismatches++;
-        continue;
+      // ---------- TIER 3: iTunes Search (HU storefront) — catches feeds PI doesn't index ----------
+      const itunesResults = await itunesSearch(c.title, "HU");
+      let itBest: any = null;
+      let itScore = 0;
+      for (const r of itunesResults) {
+        if (!r?.feedUrl) continue;
+        const itNorm = tNorm(r.collectionName || r.trackName || "");
+        const itTokens = new Set(itNorm.split(" ").filter((w) => w.length > 2));
+        let overlap = 0;
+        for (const t of candTokens) if (itTokens.has(t)) overlap++;
+        let sc = candTokens.size ? overlap / candTokens.size : 0;
+        if (candNorm.length >= 6 && (itNorm.includes(candNorm) || candNorm.includes(itNorm))) {
+          sc = Math.max(sc, 0.9);
+        }
+        if (sc > itScore) { itScore = sc; itBest = r; }
+      }
+      if (itBest && itScore >= 0.34) {
+        const ok = await validateRss(itBest.feedUrl);
+        if (ok) {
+          tier3++; piHits++;
+          validated.push({
+            feed: {
+              url: itBest.feedUrl,
+              title: itBest.collectionName || c.title,
+              author: itBest.artistName || c.author,
+              image: itBest.artworkUrl600 || itBest.artworkUrl100,
+              link: itBest.collectionViewUrl,
+              language: c.langHint,
+              description: c.reason,
+            },
+            candidate: c, lang_hint: c.langHint, tier: "itunes_hu",
+          });
+          continue;
+        }
       }
 
-
-      piHits++;
-      validated.push({ feed: top, candidate: c, lang_hint: c.langHint });
+      // All tiers exhausted
+      piMisses++; if (!feeds.length) piEmpty++;
+      if (debugMisses.length < 15) debugMisses.push({
+        title: c.title, author: c.author,
+        pi_score: bestScore, itunes_score: itScore,
+        pi_top: feeds.slice(0, 3).map((f: any) => f.title),
+      });
     }
 
     if (dryRun) {
