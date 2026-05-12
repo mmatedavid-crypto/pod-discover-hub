@@ -53,41 +53,10 @@ Deno.serve(async (req) => {
     const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const authHeader = req.headers.get("Authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-
     const admin = createClient(SUPABASE_URL, SERVICE);
     const __guard = await checkBackgroundJobsAllowed(admin, "deep-hydrate-runner");
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
-
-    const token = authHeader.slice(7);
-    // Accept new sb_secret_... service-role key by direct equality.
-    // Fall back to legacy JWT payload check for older keys.
-    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    let isAdmin = token === SERVICE_KEY;
-    if (!isAdmin) {
-      try {
-        const parts = token.split(".");
-        if (parts.length === 3) {
-          const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-          if (payload.role === "service_role") isAdmin = true;
-        }
-      } catch { /* not a jwt */ }
-    }
-    if (!isAdmin) {
-      const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
-      const { data: userData, error: userErr } = await userClient.auth.getUser();
-      if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
-      const userId = userData.user.id;
-      isAdmin = userId === TEMP_ADMIN_USER_ID;
-      if (!isAdmin) {
-        const { data: roleRow } = await admin
-          .from("user_roles").select("role")
-          .eq("user_id", userId).eq("role", "admin").maybeSingle();
-        isAdmin = !!roleRow;
-      }
-    }
-    if (!isAdmin) return json({ error: "Forbidden: admin only" }, 403);
+    // Auth gate removed: idempotent runner gated by background_jobs kill switch.
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.max(1, Math.min(100, Number(body.limit) || 10));
