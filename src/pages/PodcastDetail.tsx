@@ -62,7 +62,7 @@ export default function PodcastDetail() {
   }, [podcastSlug]);
 
   if (loading) return <Layout><PodcastDetailSkeleton /></Layout>;
-  if (!p) return <NotFoundState title="Nincs ilyen podcast" message="Ez a podcast nem létezik vagy eltávolításra került." />;
+  if (!p) return <NotFoundState title="Nincs ilyen podcast" message="A keresett podcast nem létezik, vagy már nem elérhető." />;
 
   const healthState = (p.shadow_rank_components as any)?.health_state;
   const isHealthy = !healthState || healthState === "healthy" || healthState === "recovered_rss_url";
@@ -121,7 +121,7 @@ export default function PodcastDetail() {
 
         <h2 className="text-xl font-semibold mt-10 mb-4">Epizódok</h2>
         {eps.length === 0 ? (
-          <div className="text-muted-foreground">Ennek a podcastnek még nincsenek epizódjai.</div>
+          <div className="text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
         ) : (
           <ul className="divide-y divide-border border border-border rounded-lg bg-card">
             {eps.map((e) => {

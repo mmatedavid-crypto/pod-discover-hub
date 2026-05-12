@@ -16,10 +16,10 @@ export default function TermsPage() {
         <h1 className="text-3xl font-semibold mb-2">Felhasználási feltételek</h1>
         <p className="text-xs text-muted-foreground mb-8">Utoljára frissítve: {new Date().toLocaleDateString("hu-HU")}</p>
 
-        <p>A Podiverzum egy magyar podcast epizód kereső. Az oldal használata az alábbi feltételek elfogadását jelenti.</p>
+        <p>A Podiverzum egy kereső magyar podcast epizódokhoz. Az oldal használatával elfogadod az alábbi feltételeket.</p>
 
         <h2 className="mt-8 text-xl font-semibold">A szolgáltatásról</h2>
-        <p>A Podiverzum segít releváns podcast epizódokat találni témák, személyek, cégek és egyéb kifejezések alapján. A podcasttartalom maga – beleértve a hanganyagot, a leírásokat és a borítóképeket – az eredeti alkotók és kiadók tulajdonát képezi. A Podiverzum <strong>nyilvánosan elérhető RSS-hírcsatornákat</strong> indexel, és a lejátszáshoz visszairányít az eredeti műsorhoz vagy platformra.</p>
+        <p>A Podiverzum segít releváns podcast epizódokat találni témák, személyek, cégek és más kifejezések alapján. A podcasttartalom – beleértve a hanganyagot, a leírásokat és a borítóképeket – az eredeti alkotók és kiadók tulajdona. A Podiverzum <strong>nyilvánosan elérhető RSS-hírcsatornákat</strong> indexel, és a lejátszáshoz az epizód eredeti platformjára irányít át.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Az adatok pontossága</h2>
         <p>A keresési találatok, az összefoglalók, a rangsorok és a témacímkék automatikusan jönnek létre. Emiatt lehetnek hiányosak, elavultak vagy pontatlanok. Tekintsd a Podiverzumot kiindulópontnak, ne pedig hiteles forrásnak.</p>
@@ -35,7 +35,7 @@ export default function TermsPage() {
         </ul>
 
         <h2 className="mt-8 text-xl font-semibold">Béta verzió</h2>
-        <p>A Podiverzum jelenleg béta verzióként működik. A szolgáltatás funkciói, a megjelenített adatok és rangsorok előzetes értesítés nélkül változhatnak.</p>
+        <p>A Podiverzum jelenleg béta verzióként működik. A szolgáltatás funkciói, a megjelenített adatok és a rangsorok előzetes értesítés nélkül változhatnak.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Kapcsolat</h2>
         <p>Kérdés vagy hibajelentés esetén használd az oldalon található visszajelzés gombot.</p>

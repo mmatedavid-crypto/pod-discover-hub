@@ -11,7 +11,7 @@ export default function NewPodcastsPage() {
   useEffect(() => {
     setSeo({
       title: "Új podcastek — Podiverzum",
-      description: "A Podiverzum legfrissebben indexelt magyar podcastjei. Új műsorok, minőség és feed-egészség alapján rangsorolva.",
+      description: "A Podiverzum legfrissebben indexelt magyar podcastjai. A listát a minőség és a technikai megbízhatóság alapján állítjuk össze.",
     });
     supabase
       .from("podcasts")
@@ -31,16 +31,16 @@ export default function NewPodcastsPage() {
   return (
     <Layout>
       <div className="container mx-auto py-12 max-w-5xl">
-        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Friss az indexben</div>
+        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Frissen felfedezve</div>
         <h1 className="text-3xl font-semibold mt-2">Új podcastek</h1>
         <p className="text-muted-foreground mt-2 text-sm max-w-xl">
-          A Podiverzum által felfedezett és indexelt legújabb műsorok. Folyamatosan frissítve.
+          A Podiverzum által nemrégiben felfedezett műsorok. A lista folyamatosan frissül.
         </p>
         <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {items.map((p) => <PodcastCard key={p.id} p={p} />)}
         </div>
         {!loading && !items.length && (
-          <p className="text-muted-foreground mt-8">Még nincsenek új podcastek. Nézz vissza hamarosan.</p>
+          <p className="text-muted-foreground mt-8">Jelenleg nincsenek új műsorok a listában. Látogass vissza később.</p>
         )}
       </div>
     </Layout>

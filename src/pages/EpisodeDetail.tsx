@@ -264,8 +264,8 @@ export default function EpisodeDetail() {
         )}
 
         <p className="text-xs text-muted-foreground mt-10">
-          Nyilvános RSS feedből indexelve{p.rss_url ? ` (${(() => { try { return new URL(p.rss_url).hostname; } catch { return "forrás"; } })()})` : ""}.
-          Frissesség, feed-egészség és epizód-relevancia alapján rangsorolva.
+          Nyilvános RSS-forrásból indexelve{p.rss_url ? ` (${(() => { try { return new URL(p.rss_url).hostname; } catch { return "forrás"; } })()})` : ""}.
+          Frissesség, forrásminőség és relevancia alapján rangsorolva.
         </p>
       </div>
     </Layout>

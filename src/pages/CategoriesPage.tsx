@@ -9,7 +9,7 @@ export default function CategoriesPage() {
   useEffect(() => {
     setSeo({
       title: "Kategóriák — Podiverzum",
-      description: "Böngéssz a legjobb magyar podcastek között témák szerint — hírek, technológia, gazdaság, befektetés, egészség, kultúra, sport és még sok más.",
+      description: "Magyar podcastok témák szerint. Hírek, technológia, gazdaság, befektetés, egészség, kultúra, sport és sok más kategória.",
     });
     supabase.from("categories").select("*").order("sort_order").then(({ data }) => setCats(data || []));
   }, []);
@@ -17,7 +17,7 @@ export default function CategoriesPage() {
     <Layout>
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold mb-2">Kategóriák</h1>
-        <p className="text-muted-foreground mb-8">Böngéssz a legjobb magyar podcastek között téma szerint.</p>
+        <p className="text-muted-foreground mb-8">Magyar podcastok témák szerint rendezve.</p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {cats.map((c) => (
             <Link

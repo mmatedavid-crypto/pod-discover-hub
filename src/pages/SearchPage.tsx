@@ -60,7 +60,7 @@ export default function SearchPage() {
 
   useEffect(() => {
     setSeo({
-      title: initial ? `${initial} — Podiverzum keresés` : "Keresés magyar podcastokban — Podiverzum",
+      title: initial ? `${initial} – Podiverzum keresés` : "Keresés magyar podcastok között – Podiverzum",
       description: initial
         ? `Podcast epizódok ehhez a kereséshez: „${initial}”. Keress téma, név, cég vagy ötlet alapján.`
         : "Keress magyar podcast epizódok között téma, név, cég vagy ötlet alapján.",
@@ -346,7 +346,7 @@ export default function SearchPage() {
             <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
               {aiAnswer || <span className="text-muted-foreground">Összefoglaló készül a legjobb epizódok alapján…</span>}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-2">MI-alapú összefoglaló, amely hibákat is tartalmazhat. A számok a találati lista epizódjaira hivatkoznak.</p>
+            <p className="text-[10px] text-muted-foreground mt-2">MI-alapú összefoglaló, amely pontatlanságokat tartalmazhat. A szövegben lévő számok a találati lista epizódjaira utalnak.</p>
           </div>
         )}
 

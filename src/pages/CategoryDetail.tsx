@@ -42,8 +42,8 @@ export default function CategoryDetail() {
       setLoading(false);
       if (!c) return;
       setSeo({
-        title: c.seo_title || `${c.name} podcastek és epizódok — Podiverzum`,
-        description: c.seo_description || `Fedezd fel a legfrissebb ${c.name} podcast epizódokat — relevancia, frissesség és Podiverzum rang szerint rangsorolva.`,
+        title: c.seo_title || `${c.name} podcastok és epizódok — Podiverzum`,
+        description: c.seo_description || `Válogatás a legjobb ${c.name} podcast epizódokból. A sorrendet a relevancia, a frissesség és a Podiverzum-rang adja.`,
         jsonLd: [
           {
             "@context": "https://schema.org",
@@ -141,14 +141,14 @@ export default function CategoryDetail() {
   };
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
-  if (!cat) return <NotFoundState title="Nincs ilyen kategória" message="Ez a kategória nem létezik vagy eltávolításra került." />;
+  if (!cat) return <NotFoundState title="Nincs ilyen kategória" message="Ez a kategória nem létezik vagy eltávolították." />;
 
   return (
     <Layout>
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold">{cat.name}</h1>
         <p className="text-muted-foreground mt-1">
-          A legfrissebb {cat.name} podcast epizódok — relevancia, frissesség és Podiverzum rang szerint rangsorolva.
+          A legfrissebb ${cat.name} podcast epizódok, relevancia, frissesség és Podiverzum-rang szerint rendezve.
         </p>
 
         {/* Category-scoped search */}
@@ -157,7 +157,7 @@ export default function CategoryDetail() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={`Keresés ${cat.name} kategóriában…`}
+            placeholder={`Keresés ${cat.name} epizódok között…`}
             className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
           />
           <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
@@ -166,7 +166,7 @@ export default function CategoryDetail() {
         </form>
         <div className="flex flex-wrap gap-2 items-center mt-3 text-xs">
           <span className="text-muted-foreground">Keresés köre:</span>
-          {([["category", `Ebben a kategóriában`], ["all", "Egész Podiverzum"]] as const).map(([k, l]) => (
+          {([["category", `Ebben a kategóriában`], ["all", "Az egész Podiverzumban"]] as const).map(([k, l]) => (
             <button
               key={k}
               onClick={() => setScope(k)}
@@ -185,7 +185,7 @@ export default function CategoryDetail() {
               <>
                 <section>
                   <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
-                    Legjobb találatok itt: {cat.name} ({inCat.length})
+                    Találatok a kategórián belül ({inCat.length})
                     {suggestion && suggestion.toLowerCase() !== queryParam.toLowerCase() && (
                       <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
                         Találatok erre: {suggestion}
@@ -193,7 +193,7 @@ export default function CategoryDetail() {
                     )}
                     {semanticUsed && (
                       <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
-                        kapcsolódó ötletekkel
+                        jelentés alapján is
                       </span>
                     )}
                   </h2>
@@ -201,14 +201,14 @@ export default function CategoryDetail() {
                     <EpisodeList items={inCat} terms={flatTerms} showEntities />
                   ) : (
                     <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-                      Nincs találat itt: {cat.name}. Próbáld az „Egész Podiverzum” keresést.
+                      Nincs találat ebben a kategóriában. Próbálj keresni az egész Podiverzumban.
                     </div>
                   )}
                 </section>
                 {outside.length > 0 && (
                   <section>
                     <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
-                      Erős találatok más kategóriákban ({outside.length})
+                      Találatok más kategóriákból ({outside.length})
                       <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
                         kategórián kívül
                       </span>
@@ -230,7 +230,7 @@ export default function CategoryDetail() {
                   )}
                   {semanticUsed && (
                     <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
-                      kapcsolódó ötletekkel
+                      jelentés alapján is
                     </span>
                   )}
                 </h2>
@@ -245,7 +245,7 @@ export default function CategoryDetail() {
               <EpisodeList items={episodes} showTopics />
             ) : (
               <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-                Még nincs indexelt epizód ebben a kategóriában. A Podiverzum folyamatosan bővül.
+                Ebben a kategóriában még nincsenek podcast epizódok. A Podiverzum folyamatosan bővül.
               </div>
             )}
 
@@ -264,7 +264,7 @@ export default function CategoryDetail() {
 
             {podcasts.length > 0 && (
               <>
-                <h2 className="text-xl font-semibold mt-10 mb-4">Top podcastek — {cat.name}</h2>
+                <h2 className="text-xl font-semibold mt-10 mb-4">Kiemelt podcastok — {cat.name}</h2>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
                 </div>

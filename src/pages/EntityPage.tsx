@@ -100,8 +100,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         "Thing";
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
       setSeo({
-        title: `Podcast epizódok ${exemplar} témában — Podiverzum`,
-        description: `Fedezz fel ${exemplar} témában magyar podcast epizódokat — relevancia, frissesség és Podiverzum rang szerint rangsorolva.`,
+        title: `${exemplar}: podcast epizódok — Podiverzum`,
+        description: `Magyar podcast epizódok ${exemplar} témában. A Podiverzum keresője a műsorok minősége, az epizódok frissessége és relevanciája szerint rangsorol.`,
         noindex,
         jsonLd: noindex ? undefined : [
           {
@@ -126,8 +126,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
   if (!eps.length) return (
     <NotFoundState
-      title={`Nincs epizód ehhez: ${displayName}`}
-      message={`A Podiverzum még nem indexelt elég epizódot a következőhöz: ${displayName}. Próbáld a keresőt.`}
+      title={`Nincs találat ehhez: ${displayName}`}
+      message={`A Podiverzum még nem talált elegendő epizódot ${displayName} témájában. Próbálkozz a keresővel.`}
     />
   );
 
@@ -150,12 +150,12 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">{ENTITY_LABEL[kind]}</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2 leading-[1.05]">{displayName}</h1>
           <p className="text-muted-foreground mt-3 max-w-2xl">
-            Több műsoron átívelő podcast lefedettség: <span className="text-foreground font-medium">{displayName}</span>. Tier, frissesség és Podiverzum rang alapján rangsorolva.
+            Minden magyar podcast epizód, amiben szó esik erről: <span className="text-foreground font-medium">{displayName}</span>. Minőség, frissesség és relevancia szerint rangsorolva.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Stat label="Indexelt epizód" value={total} />
-            <Stat label="Elmúlt 30 nap" value={last30Count} />
-            <Stat label="Podcastek" value={pods.length} />
+            <Stat label="Epizódok" value={total} />
+            <Stat label="Új (30 nap)" value={last30Count} />
+            <Stat label="Műsorok" value={pods.length} />
           </div>
         </div>
       </section>
@@ -175,8 +175,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
             <div className="mb-3">
               <div className="text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">Legjobbak</div>
-              <h2 className="text-xl font-semibold">Legmagasabbra rangsorolt epizódok</h2>
-              <p className="text-xs text-muted-foreground mt-1">A legjobb minőségű, S/A-tier műsorokból.</p>
+              <h2 className="text-xl font-semibold">Kiemelt epizódok</h2>
+              <p className="text-xs text-muted-foreground mt-1">Válogatás a legmagasabbra értékelt műsorokból.</p>
             </div>
             <EpisodeList items={best} showEntities />
           </section>
@@ -186,7 +186,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           <section>
             <div className="mb-3">
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Források</div>
-              <h2 className="text-xl font-semibold">Podcastek, amelyek foglalkoznak ezzel: {displayName}</h2>
+              <h2 className="text-xl font-semibold">Műsorok, ahol téma: {displayName}</h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {pods.map((p) => <PodcastCard key={p.id} p={p} />)}
@@ -198,8 +198,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           <section>
             <div className="mb-3">
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Kapcsolódó</div>
-              <h2 className="text-xl font-semibold">Hasonló</h2>
-              <p className="text-xs text-muted-foreground mt-1">Emberek, cégek és témák, amelyek együtt szerepelnek ezzel: {displayName}.</p>
+              <h2 className="text-xl font-semibold">Gyakran együtt említve</h2>
+              <p className="text-xs text-muted-foreground mt-1">Személyek, cégek és témák, amik gyakran felbukkannak {displayName} mellett.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {related.map(({ kind: k, v }) => {
@@ -220,7 +220,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         )}
 
         <p className="text-xs text-muted-foreground pt-4 border-t border-border/60">
-          Nyilvános RSS feedekből indexelve. Frissesség, feed-egészség és epizód-relevancia alapján rangsorolva.
+          Nyilvános RSS-forrásokból indexelve. A rangsor frissesség, relevancia és a műsorok minősége alapján készül.
         </p>
       </div>
     </Layout>
@@ -235,4 +235,3 @@ function Stat({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
-

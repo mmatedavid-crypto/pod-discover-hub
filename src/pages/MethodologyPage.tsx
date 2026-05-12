@@ -6,9 +6,9 @@ import { setSeo } from "@/lib/seo";
 export default function MethodologyPage() {
   useEffect(() => {
     setSeo({
-      title: "Hogyan rangsorolunk? — A Podiverzum módszertana",
+      title: "A rangsorolás működése — A Podiverzum módszertana",
       description:
-        "Minőségközpontú podcastfelfedezés. A Podiverzum MI, adatelemzés és emberi szempontok alapján rangsorol — fizetett megjelenés nélkül.",
+        "Minőségközpontú podcastfelfedezés. A Podiverzum mesterséges intelligencia, adatelemzés és emberi szempontok alapján rangsorol — fizetett megjelenés nélkül.",
     });
   }, []);
 
@@ -55,7 +55,7 @@ export default function MethodologyPage() {
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">A podcastok minőségi mutatói</h2>
-        <p>A podcasteket egy saját minőségi modell értékeli.</p>
+        <p>A podcastok értékelését egy saját minőségi modell végzi.</p>
         <p>
           A modell figyelembe veszi, hogy egy műsor aktív-e, jól strukturált-e, könnyen
           felfedezhető-e, rendszeresen frissül-e, és mennyire értékes a hallgatóknak.
@@ -106,8 +106,8 @@ export default function MethodologyPage() {
         </p>
         <p>
           Ezek az oldalak a podcastok tartalmának elemzése alapján jönnek létre.
-          Segítenek egy témát több különböző műsoron keresztül megismerni, ahelyett,
-          hogy egyetlen podcastra korlátozódnánk.
+          Segítenek egy témát több különböző műsoron keresztül megismerni, nem csak egyetlen
+          podcast alapján.
         </p>
         <p>
           Csak akkor hozunk létre ilyen oldalakat, ha elegendő kapcsolódó epizód
@@ -147,8 +147,8 @@ export default function MethodologyPage() {
           visszajelzéseket, és javítani az automatikus elemzés hibáit.
         </p>
         <p>
-          Ha hiányzó podcastot, duplikált feedet, irreleváns találatot, rosszul
-          besorolt témát vagy oda nem illő epizódot látsz, jelezd nekünk az oldalon
+          Ha hiányzó podcastot, duplikált feedet, pontatlan találatot, rosszul
+          besorolt témát vagy oda nem illő epizódot találsz, jelezd nekünk az oldalon
           található visszajelzés gombbal.
         </p>
 

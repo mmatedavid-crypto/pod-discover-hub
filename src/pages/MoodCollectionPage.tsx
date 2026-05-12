@@ -27,8 +27,8 @@ export default function MoodCollectionPage() {
       setLoading(false);
       if (!m) return;
       setSeo({
-        title: `${(m as any).title} — hangulat válogatás | Podiverzum`,
-        description: (m as any).description || `Válogatott podcastek és epizódok ehhez: ${(m as any).mood}.`,
+        title: `${(m as any).title} — hangulatválogatás | Podiverzum`,
+        description: (m as any).description || `Válogatott podcastek és epizódok a következő hangulathoz: ${(m as any).mood}.`,
       });
       const ids: string[] = (m as any).podcast_ids || [];
       const epIds: string[] = (m as any).episode_ids || [];
@@ -70,7 +70,7 @@ export default function MoodCollectionPage() {
         </Link>
         <div className="mt-3 rounded-2xl border border-border bg-card/60 p-6 sm:p-8" style={{ background: `linear-gradient(135deg, ${accent}1a, transparent 70%), hsl(var(--card) / 0.6)` }}>
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] mb-2" style={{ color: accent }}>
-            <Sparkles className="h-3 w-3" /> Hangulat válogatás
+            <Sparkles className="h-3 w-3" /> Hangulatválogatás
           </div>
           <h1 className="text-3xl sm:text-4xl font-semibold">{mood.title}</h1>
           <p className="text-muted-foreground mt-2">{mood.description || mood.mood}</p>
