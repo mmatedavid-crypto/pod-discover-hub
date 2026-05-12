@@ -60,10 +60,10 @@ export default function SearchPage() {
 
   useEffect(() => {
     setSeo({
-      title: initial ? `${initial} — Podiverzum keresés` : "Podcast keresés — Podiverzum",
+      title: initial ? `${initial} — Podiverzum keresés` : "Keresés magyar podcastokban — Podiverzum",
       description: initial
-        ? `Podcast epizódok a következőre: „${initial}”. Keress témák, személyek, cégek vagy ötletek alapján.`
-        : "Keress podcast epizódok között témák, személyek, cégek vagy ötletek alapján.",
+        ? `Podcast epizódok ehhez a kereséshez: „${initial}”. Keress téma, név, cég vagy ötlet alapján.`
+        : "Keress magyar podcast epizódok között téma, név, cég vagy ötlet alapján.",
       noindex: !initial,
     });
     setBroadened(false);
@@ -89,7 +89,7 @@ export default function SearchPage() {
         } else if (sortParam === "rank") {
           eps.sort((a, b) => episodeScore(b) - episodeScore(a));
         }
-        const next = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "matched result", why_matched: e.why_matched || null }));
+        const next = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "Kulcsszavas találat", why_matched: e.why_matched || null }));
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
         return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked };
       };
@@ -136,7 +136,7 @@ export default function SearchPage() {
             : sortParam === "rank"
             ? chosen.slice().sort((a: any, b: any) => episodeScore(b.e) - episodeScore(a.e)).slice(0, 80)
             : chosen.slice(0, 80);
-        mapped = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" }));
+        mapped = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "Kulcsszavas találat" }));
         semantic = result.semanticUsed;
         usedFallback = result.fallbackUsed || usedFallback;
         setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
@@ -253,9 +253,9 @@ export default function SearchPage() {
   return (
     <Layout>
       <div className="container mx-auto py-10">
-        <h1 className="text-3xl font-semibold mb-2">Epizódok keresése</h1>
+        <h1 className="text-3xl font-semibold mb-2">Keresés</h1>
         <p className="text-muted-foreground mb-4 text-sm">
-          Írj szavakat szóközzel elválasztva, pl. <em>magyar gazdaság</em>. A <code className="px-1 bg-secondary rounded">+</code> jellel követelheted meg az összes kifejezést.
+          Írj be egy vagy több szót, pl. <em>magyar gazdaság</em>. A <code className="px-1 bg-secondary rounded">+</code> jellel megadhatod, hogy egy szónak szerepelnie kell.
         </p>
         <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -288,7 +288,7 @@ export default function SearchPage() {
             {([
               ["best", "Legjobb találat"],
               ["newest", "Legújabb"],
-              ["rank", "Legmagasabb rang"],
+              ["rank", "Rangsor szerint"],
             ] as const).map(([k, l]) => (
               <button
                 key={k}
@@ -317,7 +317,7 @@ export default function SearchPage() {
               <div className="text-sm">
                 <div className="font-medium">Keresés: „{initial}”…</div>
                 <div className="text-muted-foreground text-xs mt-0.5">
-                  Kulcsszavas, szemantikus és MI-újrarangsorolás kombinálása. Általában 2–4 másodperc.
+                  Kulcsszavas és szemantikus keresés, MI által finomított rangsorral. Általában 2–4 másodperc.
                 </div>
               </div>
             </div>
@@ -331,22 +331,22 @@ export default function SearchPage() {
 
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            Nincs pontos epizód találat.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Esetleg erre gondoltál: <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Próbálj tágabb kereséssel vagy <Link to="/kategoriak" className="underline text-foreground">böngéssz a kategóriák között</Link>.
+            Nincs találat erre a keresésre.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Esetleg erre gondoltál: <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Próbálkozz más szavakkal, vagy <Link to="/kategoriak" className="underline text-foreground">böngéssz a kategóriák között</Link>.
           </div>
         )}
 
         {initial && !loading && (aiAnswer || aiAnswerLoading) && (
           <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">MI áttekintés</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">MI-összefoglaló</span>
               {aiAnswerLoading && (
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
               )}
             </div>
             <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-              {aiAnswer || <span className="text-muted-foreground">Áttekintés készül a legjobb epizódok alapján…</span>}
+              {aiAnswer || <span className="text-muted-foreground">Összefoglaló készül a legjobb epizódok alapján…</span>}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-2">MI által generált összegzés, hibákat tartalmazhat. A számok az alábbi epizódokra utalnak.</p>
+            <p className="text-[10px] text-muted-foreground mt-2">MI-alapú összefoglaló, amely hibákat is tartalmazhat. A számok a találati lista epizódjaira hivatkoznak.</p>
           </div>
         )}
 
@@ -375,7 +375,7 @@ export default function SearchPage() {
             </section>
             {podcasts.length > 0 && (
               <section>
-                <h2 className="font-semibold mb-3">Találó podcastek ({podcasts.length})</h2>
+                <h2 className="font-semibold mb-3">Kapcsolódó podcastok ({podcasts.length})</h2>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
                 </div>
@@ -385,7 +385,7 @@ export default function SearchPage() {
         )}
 
         <p className="text-xs text-muted-foreground mt-10">
-          Nyilvános RSS feedekből indexelve. Relevancia, frissesség, feed-egészség és Podiverzum rang alapján rangsorolva.
+          A találatok nyilvános podcastokból származnak. A sorrendet a relevancia, a frissesség és a Podiverzum egyedi rangsorolása határozza meg.
         </p>
       </div>
     </Layout>

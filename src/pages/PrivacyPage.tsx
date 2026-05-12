@@ -6,7 +6,7 @@ export default function PrivacyPage() {
   useEffect(() => {
     setSeo({
       title: "Adatvédelem — Podiverzum",
-      description: "Hogyan kezeli a Podiverzum az adataidat: opcionális visszajelzés, keresési analitika, IP-követés nélkül, személyes adatok eladása nélkül.",
+      description: "A Podiverzum adatkezelési alapelvei: anonim analitika, opcionális visszajelzés, IP-címek rögzítése és személyes adatok továbbadása nélkül.",
     });
   }, []);
 
@@ -14,46 +14,46 @@ export default function PrivacyPage() {
     <Layout>
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <h1 className="text-3xl font-semibold mb-2">Adatvédelem</h1>
-        <p className="text-xs text-muted-foreground mb-8">Utoljára frissítve: {new Date().toLocaleDateString("hu-HU")}</p>
+        <p className="text-xs text-muted-foreground mb-8">Utolsó frissítés: {new Date().toLocaleDateString("hu-HU")}</p>
 
-        <p>A Podiverzum egy podcast felfedező. Igyekszünk a lehető legkevesebb személyes adatot gyűjteni. Ez az oldal elmagyarázza, mit gyűjtünk és miért.</p>
+        <p>A Podiverzum egy podcastkereső. Célunk, hogy a lehető legkevesebb személyes adatot gyűjtsük. Ez az oldal bemutatja, hogy mit rögzítünk és miért.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Mit indexelünk</h2>
-        <p>A Podiverzum <strong>nyilvános podcast RSS feedeket</strong> indexel. Hangot nem hosztolunk. Az eredeti hang és metaadat azoké a podcasteké és platformoké, amelyek közzéteszik.</p>
+        <p>A Podiverzum <strong>nyilvános podcast RSS-hírcsatornákat</strong> indexel. Hangfájlokat nem tárolunk. Az eredeti hanganyagok és adatok a tartalmat közzétevő podcastereké és szolgáltatóké.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Visszajelzés</h2>
-        <p>Ha használod az alkalmazáson belüli visszajelzés gombot, eltároljuk amit beküldesz, hogy fejleszthessük a terméket. Egy visszajelzés rekord tartalmazhatja:</p>
+        <p>Ha visszajelzést küldesz, az üzenetedet a szolgáltatás fejlesztése érdekében eltároljuk. A beküldött visszajelzés a következő adatokat tartalmazhatja:</p>
         <ul className="list-disc pl-5">
           <li>az üzeneted</li>
-          <li>opcionális e-mail címet (csak ha megadtad)</li>
-          <li>az oldal URL-jét, ahonnan a visszajelzést küldted</li>
-          <li>a viewport méretét és a böngésző user-agent stringjét (UI hibák reprodukálásához)</li>
-          <li>a legutóbbi keresési kifejezést, ha a keresőoldalon voltál</li>
+          <li>az e-mail címed (ha megadod)</li>
+          <li>az oldal címe (URL), ahonnan visszajelzést küldtél</li>
+          <li>a böngészőablak mérete és a böngésző azonosítója (user agent), ami a felületi hibák javításában segít</li>
+          <li>az utolsó keresőkifejezés, ha a keresőoldalról küldted a visszajelzést</li>
         </ul>
-        <p>A visszajelzések csak a Podiverzum adminisztrátorai számára láthatók.</p>
+        <p>A visszajelzéseket csak a Podiverzum fejlesztői látják.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Keresési analitika</h2>
-        <p>A keresési minőség javítása érdekében minden keresést rögzítünk a következőkkel:</p>
+        <p>A keresőnk minőségének javítása érdekében minden keresést anonim módon rögzítünk. A rögzített adatok:</p>
         <ul className="list-disc pl-5">
-          <li>a keresési szöveg</li>
+          <li>a keresett kifejezés</li>
           <li>a visszaadott találatok száma</li>
-          <li>használtunk-e tágabb fallback keresést</li>
-          <li>a viewport szélessége</li>
-          <li>időbélyeg</li>
+          <li>hogy történt-e automatikus, tágabb keresés</li>
+          <li>a böngészőablak szélessége</li>
+          <li>a keresés időpontja</li>
         </ul>
 
-        <h2 className="mt-8 text-xl font-semibold">Oldal analitika</h2>
-        <p>Alapvető oldalmegtekintéseket naplózunk: útvonal, hivatkozó, viewport méret, időbélyeg és UTM kampányparaméterek (ha vannak).</p>
+        <h2 className="mt-8 text-xl font-semibold">Oldalanalitika</h2>
+        <p>A szolgáltatás használatáról anonim statisztikát készítünk. Ehhez rögzítjük a megtekintett oldal címét, a hivatkozó oldalt, a böngészőablak méretét, az időpontot és az esetleges kampányparamétereket.</p>
 
-        <h2 className="mt-8 text-xl font-semibold">Mit nem csinálunk</h2>
+        <h2 className="mt-8 text-xl font-semibold">Amit soha nem teszünk</h2>
         <ul className="list-disc pl-5">
-          <li>Szándékosan nem tárolunk IP-címeket.</li>
-          <li>Nem adjuk el a személyes adatokat.</li>
-          <li>Nem használunk harmadik féltől származó hirdetéskövetőket.</li>
+          <li>Nem rögzítjük a látogatók IP-címét.</li>
+          <li>Személyes adatokat soha nem adunk tovább harmadik félnek.</li>
+          <li>Nem használunk külső hirdetési és követőkódokat (pl. Google Analytics, Facebook Pixel).</li>
         </ul>
 
         <h2 className="mt-8 text-xl font-semibold">Kapcsolat</h2>
-        <p>A leggyorsabb módja az elérésünknek az alkalmazáson belüli visszajelzés gomb. Ha választ szeretnél, megadhatsz egy e-mail címet is.</p>
+        <p>Ha kérdésed van, a legegyszerűbben a visszajelzés gombbal érhetsz el minket. Ha választ szeretnél kapni, ne felejtsd el megadni az e-mail címedet.</p>
       </article>
     </Layout>
   );
