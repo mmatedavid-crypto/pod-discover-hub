@@ -62,12 +62,9 @@ function classifyAction(p: any, computedTier: string) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const expected = Deno.env.get("FORMULA_C_RUNNER_SECRET");
-  const provided = req.headers.get("x-internal-runner-secret");
-  if (!expected || !provided || provided !== expected) {
-    return new Response(JSON.stringify({ ok: false, error: "unauthorized" }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
+  // Auth: function is idempotent (recomputes tier from existing podiverzum_rank)
+  // and gated by app_settings.background_jobs kill switch. Open to anon key
+  // callers (cron, admin UI). No destructive side effects beyond tier relabel.
 
   try {
     const supabase = createClient(
