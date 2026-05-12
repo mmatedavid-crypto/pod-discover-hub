@@ -10,7 +10,7 @@
 // every chunk under 45k URLs (Google's 50k limit).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.com";
+const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const FN_BASE = `${Deno.env.get("SUPABASE_URL") || "https://iqzkayoqqagowvxeaphe.supabase.co"}/functions/v1/sitemap`;
 
 const xmlHeaders = {

@@ -6,7 +6,7 @@
  *   (cached 24h via Cache API)
  * - Everything else: passthrough to Lovable origin
  *
- * Bind this Worker to:  podiverzum.com/*  and  www.podiverzum.com/*
+ * Bind this Worker to:  podiverzum.hu/*  and  www.podiverzum.hu/*
  *
  * No environment variables required — origin and prerender URL are constants.
  */

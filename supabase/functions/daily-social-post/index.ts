@@ -23,7 +23,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SITE_URL = "https://podiverzum.com";
+const SITE_URL = "https://podiverzum.hu";
 const X_API = "https://api.x.com/2";
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
