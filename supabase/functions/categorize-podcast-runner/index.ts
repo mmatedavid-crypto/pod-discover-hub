@@ -238,8 +238,16 @@ Deno.serve(async (req) => {
         .in("shadow_rank_tier", ["S","A","B","C"])
         .or("language.is.null,language.ilike.en%");
       totalRemaining = Number(remaining || 0);
-      if (rate_limited > 0) next_schedule = "*/30 * * * *";
-      else if (totalRemaining > 1000) next_schedule = "* * * * *";
+      // Stepped backoff (2026-05-12): rate_limit no longer crashes cadence to */30 —
+      // we slow down ONE notch instead, so a transient 429 doesn't kill throughput
+      // when there are still thousands waiting.
+      if (rate_limited > 0) {
+        if (totalRemaining > 1000)      next_schedule = "*/2 * * * *";
+        else if (totalRemaining > 200)  next_schedule = "*/5 * * * *";
+        else if (totalRemaining > 20)   next_schedule = "*/10 * * * *";
+        else if (totalRemaining > 0)    next_schedule = "*/30 * * * *";
+        else                            next_schedule = "0 * * * *";
+      } else if (totalRemaining > 1000) next_schedule = "* * * * *";
       else if (totalRemaining > 200)  next_schedule = "*/2 * * * *";
       else if (totalRemaining > 20)   next_schedule = "*/10 * * * *";
       else if (totalRemaining > 0)    next_schedule = "*/30 * * * *";
