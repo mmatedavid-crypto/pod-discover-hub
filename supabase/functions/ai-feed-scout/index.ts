@@ -446,6 +446,7 @@ Deno.serve(async (req) => {
       pi_hits: piHits,
       pi_misses: piMisses,
       lang_mismatches: langMismatches,
+      tiers: { rss_direct: tier1, podcast_index: tier2, itunes_hu: tier3 },
       already_known: validated.length - fresh.length,
       inserted,
       import_id: importId,
