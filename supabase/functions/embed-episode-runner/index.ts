@@ -159,16 +159,25 @@ Deno.serve(async (req) => {
     const pending = Number(s.missing_embedding || 0);
     const durationMs = Date.now() - startedAt;
 
-    // Adaptive cadence
+    // Adaptive cadence — STEPPED. Never fall to */30 while there's clearly work.
+    // Guard against broken stats RPC reporting pending=0 even when we just embedded rows
+    // (cache `embed_episode_eligible_cache` is the source of truth for backlog).
+    let eligibleCache = 0;
+    try {
+      const { data: cacheRow } = await admin.from("app_settings").select("value").eq("key", "embed_episode_eligible_cache").maybeSingle();
+      eligibleCache = Number((cacheRow?.value as any)?.eligible_total || 0);
+    } catch { /* ignore */ }
+    const { count: embeddedTotal } = await admin.from("episode_embeddings").select("episode_id", { count: "exact", head: true }).eq("model", model);
+    const realPending = Math.max(Number(pending || 0), eligibleCache - Number(embeddedTotal || 0));
+
     let recommended: string;
-    if (pending > 2000) recommended = "* * * * *";
-    else if (pending >= 200) recommended = "*/2 * * * *";
-    else if (pending > 0) recommended = "*/5 * * * *";
+    if (realPending > 2000) recommended = "* * * * *";
+    else if (realPending >= 200) recommended = "*/2 * * * *";
+    else if (realPending > 0) recommended = "*/5 * * * *";
     else recommended = "*/30 * * * *";
-    // Step-down only when errors dominate, or when the queue is already small AND
-    // we're hitting the time budget (i.e. taking long for diminishing returns).
-    // While there's a real backlog (>2000), long runs are EXPECTED — that's drain mode.
-    if (errors > embedded || (durationMs > 100_000 && pending < 2000)) {
+    // Step-down only when errors dominate. (Removed long-duration step-down: long
+    // runs at high backlog are EXPECTED — don't penalise drain mode.)
+    if (errors > embedded && embedded > 0) {
       const stepDown: Record<string, string> = {
         "* * * * *": "*/2 * * * *",
         "*/2 * * * *": "*/5 * * * *",
