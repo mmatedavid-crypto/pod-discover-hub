@@ -221,15 +221,18 @@ Deno.serve(async (req) => {
     try {
       const { count: pending } = await admin.from("ai_enrichment_jobs").select("id", { count: "exact", head: true }).eq("status", "pending");
       const p = Number(pending || 0);
+      // 2026-05-12: drain-loop processes hundreds per minute @ conc 16, so keep
+      // every-minute cadence as long as there's any meaningful backlog. Old thresholds
+      // (>500 → *, 100–500 → */2) wasted time idling whenever backlog dipped under 500.
       if (rate_limited > 0) {
-        // Gentle stepdown: still drain, just slower. Worst case */10 (was */30 — too aggressive).
-        if (p > 500) next_schedule = "*/2 * * * *";
-        else if (p >= 100) next_schedule = "*/5 * * * *";
+        // Gentle stepdown on rate limits, but still keep cadence proportional.
+        if (p > 100) next_schedule = "*/2 * * * *";
+        else if (p >= 10) next_schedule = "*/5 * * * *";
         else if (p >= 1) next_schedule = "*/10 * * * *";
         else next_schedule = "*/30 * * * *";
       } else {
-        if (p > 500) next_schedule = "* * * * *";
-        else if (p >= 100) next_schedule = "*/2 * * * *";
+        if (p > 50) next_schedule = "* * * * *";
+        else if (p >= 10) next_schedule = "*/2 * * * *";
         else if (p >= 1) next_schedule = "*/10 * * * *";
         else next_schedule = "*/30 * * * *";
       }
