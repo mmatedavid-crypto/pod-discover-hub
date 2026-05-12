@@ -39,7 +39,7 @@ export function BrandMark({
           </span>
           {tagline && (
             <span className="block mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Find it. <span className="text-primary">Hear it.</span>
+              Találd meg. <span className="text-primary">Hallgasd meg.</span>
             </span>
           )}
         </span>

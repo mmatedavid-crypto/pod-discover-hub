@@ -6,7 +6,7 @@ const QUESTIONS = [
   "A hónap legjobb alapító interjúi",
   "Mi a helyzet a magyar gazdasággal",
   "Podcastek, amik elmagyarázzák a tőzsdét",
-  "Mit mond Hold Alapkezelő a piacról",
+  "Mit mond a Hold Alapkezelő a piacról?",
   "Okos vélemények az MI szabályozásáról",
   "Mély elemzések az MNB kamatdöntéséről",
   "Epizódok az egészséges életmódról",
@@ -51,13 +51,13 @@ export function AskPodiverzum() {
         </div>
 
         <h2 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-bold tracking-tight max-w-3xl leading-tight">
-          Kérdezz bármit. Minden találat elmondja,{" "}
-          <span className="text-brand-gradient">miért lett az.</span>
+          Kérdezz bármit. Minden találat{" "}
+          <span className="text-brand-gradient">megmutatja, miért releváns.</span>
         </h2>
 
         <p className="mt-2 sm:mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-          Természetes nyelvű felfedezés magyar podcast epizódok között —
-          minden találathoz egy mondatos magyarázattal, miért került oda.
+          Természetes nyelvű keresés magyar podcast epizódok között —
+          minden találat mellett rövid magyarázattal, hogy miért került elő.
         </p>
 
         <form
@@ -69,7 +69,7 @@ export function AskPodiverzum() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="pl. Mi a helyzet a magyar gazdasággal"
+            placeholder="Pl.: Mi történik most a magyar gazdaságban?"
             className="w-full pl-12 pr-28 sm:pr-36 py-3.5 sm:py-4 rounded-2xl bg-card/90 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
           />
           <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5">

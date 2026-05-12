@@ -77,7 +77,7 @@ export function SiteHeader() {
               value={q}
               onChange={(e) => { setQ(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
-              placeholder="Keress epizódot…  ( / )"
+              placeholder="Keress epizódot vagy kérdezz témára…"
               className="w-full pl-9 pr-3 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
             />
           </form>
