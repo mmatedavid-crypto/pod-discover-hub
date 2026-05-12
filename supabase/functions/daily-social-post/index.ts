@@ -1,4 +1,4 @@
-// Editorial X automation for Podiverzum (English-only).
+// Editorial X automation for Podiverzum (Hungarian-only).
 // Slot-aware runner — invoked every 30 min by cron. If the current UTC time
 // matches a publishing slot, it picks ONE strong fresh episode, scores it,
 // generates 3 hook variants, runs a quality gate, then posts to X.
