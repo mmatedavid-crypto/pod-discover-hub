@@ -1,78 +1,143 @@
-# Bot prerender — `/` és `/podcast/{slug}` indító verzió
 
-## Cél
+# Podiverzum HU átállás
 
-AI crawler-eknek (GPTBot, ClaudeBot, PerplexityBot, Google-Extended stb.) szerver oldalon legyártott, teljes HTML-t adni: `<title>`, meta description, canonical, **teljes JSON-LD** (PodcastSeries / PodcastEpisode / BreadcrumbList), H1, AI summary szöveg, kattintható linkek. A felhasználók továbbra is a normál SPA-t kapják — gyors, semmi sem változik nekik.
+Cél: a remixelt projekt fusson **podiverzum.hu** (vagy hasonló) néven, **kizárólag magyar** podcast tartalommal, **teljes magyar UI-val**, az eredeti architektúra és funkciók megtartásával. Az EN forráskódban semmi sem hivatkozhat a régi EN tartalomra/domainre.
 
-A csővezeték már áll (DNS proxied + Worker route-ok bekötve). Most a **tartalom** kerül bele.
+---
 
-## Hatókör — első iteráció
+## Fázis 1 — Adatbázis tiszta lap (csak podcast/episode adat)
 
-Csak két útvonal típus, hogy gyorsan élesedjen és mérni tudjuk a hatást:
+Egyetlen migráció (TRUNCATE-eket egy tranzakcióban), minden config/admin marad.
 
-1. `/` — homepage (trending + evergreen episode-ök listája)
-2. `/podcast/{slug}` — podcast részletes oldal (cím, leírás, AI summary, top 10 epizód)
+**TRUNCATE (CASCADE ahol kell):**
+- `podcasts` — minden podcast törölve
+- `episodes` — minden epizód törölve
+- `podcast_embeddings`, `episode_embeddings`
+- `ai_enrichment_jobs` — minden függőben/befejezett job
+- `pi_feed_staging`, `pi_dump_imports` — staging takarítás
+- `discovery_queue`
+- `mv_homepage_feed`, `mv_homepage_evergreen` REFRESH (üresre)
+- `search_query_cache`, `search_suggest_cache` — angol cache törlés
+- `mood_collections` — episode_ids/podcast_ids hivatkoztak EN UUID-kre
+- `social_posts`, `growth_runs` — régi kampány/run adatok
+- `rss_url_history`, `page_events`, `search_events`, `beta_feedback`, `email_send_log` — analitika reset
+- `podcasts_backup_pre_c_v3` DROP (régi backup már nem releváns)
 
-Második körben (külön kérésre): `/podcast/{slug}/{episode-slug}`, `/category/{slug}`, entitás hub-ok.
+**Megmarad:** `app_settings`, `categories` (átnevezzük HU-ra Fázis 3-ban), `search_synonyms` (HU-ra cseréljük), `user_roles` + admin user, `email_send_state`, `email_unsubscribe_tokens`, `suppressed_emails`.
 
-## Architektúra
+**Sequence reset & defaults:**
+- `podcasts.language` default `'hu'` (volt `'en'`)
+- HU feed-scout default sources beállítása `app_settings`-ben (ld. Fázis 4)
+
+---
+
+## Fázis 2 — UI teljes magyarítása (EN eltávolítva)
+
+Hardcoded HU stringek mindenhol — nincs i18n setup (egyszerűbb, gyorsabb; ha később kell EN, akkor jön az i18n).
+
+**Érintett UI területek:**
+
+| Felület | Mit írunk át |
+|---|---|
+| `src/pages/Index.tsx` | hero, "Trending", "Fresh", "Recent", "Evergreen" → "Felkapott", "Friss", "Új", "Időtálló" |
+| `src/pages/SearchPage.tsx` + `SearchInput` | placeholder, "No results", "Did you mean", filter chip-ek |
+| `src/pages/PodcastDetail.tsx` | "Episodes", "Listen on", "All episodes", "Subscribe" → magyar |
+| `src/pages/EpisodeDetail.tsx` | "Listen", "About this episode", "Related" → magyar |
+| `src/pages/CategoryDetail.tsx` + `Categories` | kategória header sablonok |
+| `src/pages/NewPodcastsPage.tsx` | "Recently added" → "Új podcastok" |
+| `src/components/Layout/Header.tsx`, `Footer.tsx` | nav linkek, copyright |
+| `src/components/seo/*` (PodcastJsonLd, EpisodeJsonLd, MetaTags) | description/title sablonok HU |
+| `index.html` | `<title>`, meta description, og:locale `hu_HU` |
+| `src/pages/Auth.tsx` + auth komponensek | "Sign in", "Sign up", "Email", "Password" → magyar |
+| `src/components/feedback/*` | beta feedback widget szövegek |
+| Toast üzenetek (`useToast` hívások) | minden user-facing toast HU |
+| Empty states, error boundaries, 404 oldal | HU |
+| Date formatting | `date-fns/locale/hu` minden `format()` híváshoz |
+
+**Admin (`/admin/*`) marad angolul** — csak te látod, nem prioritás.
+
+**SEO sablonok (DB-ben):** `categories.seo_title/seo_description`, `app_settings`-ben tárolt SEO sablonok (ha vannak) HU-ra cserélve.
+
+---
+
+## Fázis 3 — Tartalom-pipeline HU-only
+
+**`_shared/seo-prompt.ts`** + minden Gemini prompt:
+- Output language instruction: "always respond in Hungarian"
+- "never translate" maradhat (forrás már HU lesz úgyis)
+
+**`ai-feed-scout` edge function:**
+- `DEFAULT_SOURCES` cseréje: Apple HU charts (`https://podcasts.apple.com/hu/charts`), HVG/Index/444/Telex podcast listák, Spotify HU top, Magyar Podcast adatbázis ha találunk, Wikipedia HU "Magyar podcastok" lista
+- `lang_hint: 'hu'` minden forráshoz
+- Gemini prompt szigorítva: csak `language='hu'` feed-eket fogadjon el
+
+**`pi-dump-process`:**
+- Reject ha `detected_language !== 'hu'` (volt: `=== 'en'`)
+- Felülírás logika ugyanaz (language-guard)
+
+**`_shared/incident-guard.ts`** és language-guard változatlan logikával, csak target `'hu'`.
+
+**Frontend filter (`mv_homepage_feed`, sitemap, daily-social-post, CategoryDetail, NewPodcastsPage):**
+- `podcasts.language IS NULL OR ILIKE 'hu%'` (volt `'en%'`)
+- Sitemap `<urlset>` `xml:lang="hu"`
+
+**`categories` HU átnevezés:** `name`, `slug`, `description` magyarra (pl. `business` → `uzlet`, `news` → `hirek`, `comedy` → `humor`, `technology` → `tech`, `health` → `egeszseg`, stb.). Slug váltás miatt **redirect map** nem kell, mert nincs régi tartalom.
+
+**`search_synonyms`:** EN szinonimák törölve, HU szinonimák seed (pl. `ai` → `mesterséges intelligencia`, `mi`; `vc` → `kockázati tőke`; `startup` → `cég, vállalkozás`).
+
+**Daily social post:** X/Twitter prompt magyarul, magyar copy stílus (info+szórakoztató, nincs hashtag/emoji továbbra is).
+
+---
+
+## Fázis 4 — Domain és deploy (új .hu)
+
+**Lépések (te végzed, én segítek a setupban):**
+
+1. **Domain vásárlás:** `podiverzum.hu` (vagy alternatíva) — Lovable Settings → Domains → Buy new domain (ha .hu támogatott), VAGY külső registrar (pl. Forpsi, Rackhost, Nethely) — utána manuális DNS.
+2. **Cloudflare:**
+   - Új CF zone a `.hu` domainre
+   - Új worker: `podiverzum-hu-bot-prerender` (a régi `podiverzum-bot-prerender` worker kód másolata, csak host check `podiverzum.hu`-ra)
+   - Routes: `podiverzum.hu/*`, `www.podiverzum.hu/*`
+   - Sitemap proxy: ugyanaz a logika, új cache key (`proxy-cache-hu-v1`)
+3. **Lovable kapcsolás:** Project Settings → Domains → Connect domain (proxy mode pipálva)
+4. **`index.html`:** `<html lang="hu">`, `og:locale="hu_HU"`, canonical `https://podiverzum.hu`
+5. **Sitemap edge function:** base URL `https://podiverzum.hu`
+6. **Robots.txt:** új sitemap URL
+7. **Google Search Console:** új property, sitemap submit (nincs migráció a régiről, friss start)
+
+---
+
+## Fázis 5 — Memory frissítés
+
+`mem://index.md` Core szabályok átírása:
+- "EN-only site" rule → "HU-only site"
+- AI summary language → HU
+- DEFAULT_SOURCES leírás → HU források
+- `[Multilingual rollout]` memory törölve vagy átírva
+- Új memory: `mem://plans/hu-launch.md` — a fenti checklist + post-launch teendők
+
+---
+
+## Sorrend és függőségek
 
 ```text
-Bot UA?  ─yes─►  CF Worker  ──►  prerender-page edge fn  ──►  DB (RPC)
-                    │              ↓ HTML string
-                    ◄────── HTML + JSON-LD
-Human ──no──►  Worker passthrough  ──►  Lovable hosting (SPA)
+Fázis 1 (DB wipe migration)         ← első, blokkolja a többit
+   ↓
+Fázis 3 (pipeline HU-only kód)      ← párhuzamos Fázis 2-vel
+Fázis 2 (UI magyarítás)             ← párhuzamos Fázis 3-mal
+   ↓
+Fázis 5 (memory update)             ← Fázis 2+3 után
+   ↓
+Fázis 4 (domain — te csinálod)      ← bármikor, de éles indítás előtt
 ```
 
-## Lépések
+---
 
-### 1. Edge function `prerender-page` (Supabase)
+## Amit MOST eldöntenél / megerősítenél
 
-- Bemenet: `?path=/podcast/some-slug` (query param)
-- Logika:
-  - parse path → `{ kind: 'home' | 'podcast', slug? }`
-  - `home`: olvassa `mv_homepage_feed` + `mv_homepage_evergreen` MV-eket (top 30 + 10)
-  - `podcast`: `podcasts` row by slug (csak EN, healthy RSS) + top 10 episode by `published_at`
-  - HTML template (template literal, semmi React) — egyetlen `<html>` string visszaad
-- Tartalom a HTML-ben:
-  - `<title>` + meta description (a `seo_title` / `seo_description` mezőkből, vagy fallback a `title` / `summary`-ből)
-  - `<link rel="canonical">` mindig `https://podiverzum.com{path}`
-  - JSON-LD: WebSite + Organization homepage-en; PodcastSeries + BreadcrumbList podcast oldalon, `hasPart` listában az epizódok
-  - `<h1>`, AI summary `<p>`, epizód lista `<a href="...">` linkekkel
-  - `<noscript>` fallback link
-- Headers: `Cache-Control: public, max-age=3600`, `Vary: User-Agent`, `X-Prerendered: 1`, `Content-Type: text/html; charset=utf-8`
-- `verify_jwt = false` (publikus)
+1. **Domain név** — `podiverzum.hu` ok, vagy más? (befolyásolja a hardcoded URL-eket sitemap/JSON-LD/canonical helyeken)
+2. **Kategória magyarítás** — minden kategóriát átnevezünk magyar slug-gal, vagy az angol slug-ok maradjanak (pl. `/category/business` de a megjelenítés "Üzlet")? **Javaslat: magyar slug** (SEO szempontból jobb).
+3. **Auth Google login** — marad-e? (Igen javasolt, ne piszkáljuk.)
+4. **`mood_collections`** — TRUNCATE most (mert EN UUID-kre hivatkoznak), és **későbbi seed** HU mood-okkal külön körben? Vagy most rögtön rakjak HU seed mood collectionöket (pl. "elalváshoz", "futáshoz", "munkába menet")?
 
-### 2. Cloudflare Worker (`podiverzum-bot-prerender`) frissítése
-
-A jelenleg passthrough Worker helyett:
-
-- Bot UA detektor (regex listán): `GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|PerplexityBot|Google-Extended|Applebot-Extended|Bytespider|Meta-ExternalAgent|DuckAssistBot|CCBot|YouBot|Diffbot|Googlebot|Bingbot`
-- Path filter: csak `/` és `/^\/podcast\/[^\/]+$/` — minden más passthrough (még bot UA-val is)
-- Ha bot + támogatott path:
-  1. CF Cache API lookup (kulcs: `path + UA-osztály`)
-  2. Cache miss → `fetch('https://<project>.functions.supabase.co/prerender-page?path=...')`
-  3. Cache 1h-ra, `X-Prerender-Cache: HIT|MISS` header
-- Ha nem bot vagy nem támogatott path: `fetch(originalRequest)` (passthrough)
-- Hibatűrés: ha a prerender 5xx-et ad vagy timeout (>3s), passthrough az SPA-ra (sose törjük az oldalt)
-
-Worker upload a már meglévő API tokennel megy (Cloudflare API).
-
-### 3. Smoke teszt
-
-`curl` szkripttel verifikáljuk:
-- bot UA + `/` → `X-Prerendered: 1`, JSON-LD jelen, megfelelő `<title>`
-- bot UA + `/podcast/<létező-slug>` → JSON-LD `@type: PodcastSeries`
-- bot UA + `/search?q=...` → passthrough (nincs `X-Prerendered`)
-- normál Chrome UA + `/` → passthrough, normál SPA HTML
-- második hívás bot UA-val → `X-Prerender-Cache: HIT`
-
-## Ami NEM ez a plan része (későbbre)
-
-- Episode detail, category, entity hub oldalak (külön iteráció — minta kell hozzá az első kettőből)
-- `bot_visits` logging tábla (egyelőre csak a Worker logokat nézzük)
-- Edge cache tisztítás új epizód érkezésekor (1h TTL bőven elég kezdetnek)
-
-## Becsült kockázat
-
-Alacsony — a Worker fail-safe (hiba esetén passthrough), és csak bot UA-knak változik valami. Felhasználói forgalom 0 hatás.
+Ha ezek megvannak, megyek a Fázis 1 migrációval.
