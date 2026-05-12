@@ -75,7 +75,7 @@ async function piSearch(term: string) {
   const apiSecret = Deno.env.get("PODCAST_INDEX_API_SECRET")!;
   const date = Math.floor(Date.now() / 1000).toString();
   const auth = await sha1Hex(apiKey + apiSecret + date);
-  const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(term)}&max=3`;
+  const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(term)}&max=5`;
   const res = await fetch(url, {
     headers: {
       "User-Agent": "Podiverzum/1.0 ai-scout",
