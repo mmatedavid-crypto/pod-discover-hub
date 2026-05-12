@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
       if (rate_limited > 0) {
         if (totalRemaining > 1000)      next_schedule = "*/2 * * * *";
         else if (totalRemaining > 200)  next_schedule = "*/5 * * * *";
-        else if (totalRemaining > 20)   next_schedule = "*/15 * * * *";
+        else if (totalRemaining > 20)   next_schedule = "*/10 * * * *";
         else if (totalRemaining > 0)    next_schedule = "*/30 * * * *";
         else                            next_schedule = "0 * * * *";
       } else if (totalRemaining > 1000) next_schedule = "* * * * *";
