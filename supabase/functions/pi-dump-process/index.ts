@@ -27,8 +27,11 @@ function scoreRow(r: any, maxAge: number) {
   if ((r.episode_count || 0) >= 100) { s += 2; reasons.push({ delta: 2, note: "100+ episodes" }); }
   else if ((r.episode_count || 0) >= 30) { s += 1; reasons.push({ delta: 1, note: "30+ episodes" }); }
   const lang = (r.language || "").toLowerCase();
-  if (lang.startsWith("en")) { s += 1; reasons.push({ delta: 1, note: "English" }); }
-  else { s -= 4; reasons.push({ delta: -4, note: "non-English" }); }
+  const aiLang = (r.ai_detected_language || "").toLowerCase().trim();
+  // HU-only mode: prefer Hungarian. Tolerate unknown/und/mul.
+  if (lang.startsWith("hu") || aiLang.startsWith("hu")) { s += 2; reasons.push({ delta: 2, note: "Hungarian" }); }
+  else if (!lang || lang === "mul" || lang === "und") { reasons.push({ delta: 0, note: "lang unknown" }); }
+  else { s -= 2; reasons.push({ delta: -2, note: `non-HU:${lang}` }); }
   if (r.dead) { s -= 5; reasons.push({ delta: -5, note: "dead" }); }
   if (r.last_http_status === 404) { s -= 5; reasons.push({ delta: -5, note: "HTTP 404" }); }
   return { score: Math.max(1, Math.min(10, Math.round(s))), reasons, ageDays };
@@ -52,7 +55,7 @@ Deno.serve(async (req) => {
     // Daily mode keeps the strict promotion threshold; foundation lowers the import threshold to Rank >= 4
     // (index-only — public promotion gates remain Rank >= 6 in the UI).
     const dailyMinRank = settings.min_rank_for_auto_add || 8;
-    const minRankImport = foundation ? 4 : dailyMinRank;
+    const minRankImport = foundation ? 1 : (settings.min_rank_for_auto_add_hu || 3);
     const maxAge = settings.max_episode_age_days || 90;
     const HARD_MAX_AUTO_ADD = 5;
     // Foundation mode lifts the per-call auto-add cap (technical batching only).
@@ -92,21 +95,26 @@ Deno.serve(async (req) => {
       counters.scanned++;
       const updates: any = { processed: true, processed_at: new Date().toISOString() };
 
-      // Hard reject: non-English, dead, stale
+      // HU-only mode: very lax. Reject only obvious non-HU, dead feeds, or AI-flagged spam.
       const lang = (r.language || "").toLowerCase();
       const aiLang = (r.ai_detected_language || "").toLowerCase().trim();
-      // AI scout's language verdict overrides RSS-claimed language. If Gemini saw
-      // anything other than English (and not 'mul'/'und'), reject — the RSS tag lied.
-      if (aiLang && aiLang !== "en" && aiLang !== "mul" && aiLang !== "und" && !aiLang.startsWith("en")) {
+      const huOk = lang.startsWith("hu") || aiLang.startsWith("hu") || (!aiLang || aiLang === "mul" || aiLang === "und");
+      const langTagOk = !lang || lang === "mul" || lang === "und" || lang.startsWith("hu");
+      const spamScore = Number(r.ai_spam_score) || 0;
+      if (r.dead) { updates.decision = "rejected"; updates.reject_reason = "dead"; counters.rejected++; }
+      else if (spamScore >= 0.75) { updates.decision = "rejected"; updates.reject_reason = `ai_spam:${spamScore}`; counters.rejected++; }
+      else if (aiLang && !aiLang.startsWith("hu") && aiLang !== "mul" && aiLang !== "und") {
+        // AI is sure it's not HU
         updates.decision = "rejected"; updates.reject_reason = `ai_lang:${aiLang}`; counters.rejected++;
       }
-      else if (!lang.startsWith("en")) { updates.decision = "rejected"; updates.reject_reason = "non-English"; counters.rejected++; }
-      else if (r.dead) { updates.decision = "rejected"; updates.reject_reason = "dead"; counters.rejected++; }
+      else if (!huOk && !langTagOk) {
+        updates.decision = "rejected"; updates.reject_reason = `non-HU:${lang}`; counters.rejected++;
+      }
       else {
         const { score, reasons, ageDays } = scoreRow(r, maxAge);
         updates.score = score;
-        if (ageDays > maxAge) { updates.decision = "rejected"; updates.reject_reason = "stale"; counters.rejected++; }
-        else {
+        // No stale rejection for HU — small market, keep everything that's not dead.
+        {
           // dedup check (re-check podcasts in case it was added meanwhile)
           const { data: existing } = await supabase.from("podcasts").select("id").eq("rss_url", r.rss_url).maybeSingle();
           if (existing) { updates.decision = "rejected"; updates.reject_reason = "already imported"; counters.skipped_duplicates++; }
@@ -127,7 +135,7 @@ Deno.serve(async (req) => {
               rss_url: r.rss_url,
               website_url: r.website_url,
               image_url: r.image_url,
-              language: r.language || "en",
+              language: r.language || (aiLang.startsWith("hu") ? "hu" : "hu"),
               source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
               podiverzum_rank: score,
