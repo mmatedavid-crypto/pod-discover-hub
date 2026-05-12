@@ -25,13 +25,13 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
-            <Plus className="h-3 w-3" /> Fresh in the index
+            <Plus className="h-3 w-3" /> Friss az indexben
           </div>
-          <h2 className="text-xl sm:text-2xl font-semibold">Recently added podcasts</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold">Új podcastek</h2>
         </div>
         {showLink && (
-          <Link to="/new" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-            See all <ArrowRight className="h-3.5 w-3.5" />
+          <Link to="/uj" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+            Összes <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         )}
       </div>

@@ -73,8 +73,8 @@ export function SimilarEpisodes({ episodeId, limit = 6 }: { episodeId: string; l
     <section className="mt-10">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-4 w-4 text-primary" />
-        <h2 className="font-semibold">Similar episodes</h2>
-        <span className="text-[11px] text-muted-foreground">AI-matched by meaning</span>
+        <h2 className="font-semibold">Hasonló epizódok</h2>
+        <span className="text-[11px] text-muted-foreground">MI-vel jelentés alapján párosítva</span>
       </div>
       <EpisodeList items={items} />
     </section>

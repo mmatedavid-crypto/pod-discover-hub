@@ -89,7 +89,7 @@ export function EpisodeCard({
                       <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
                       <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
                     </span>
-                    NEW
+                    ÚJ
                   </span>
                 )}
               </>
@@ -104,7 +104,7 @@ export function EpisodeCard({
         </div>
         {e.why_matched && (
           <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/40 bg-primary/10 text-foreground leading-snug">
-            <span className="font-semibold text-primary mr-1">Why matched:</span>
+            <span className="font-semibold text-primary mr-1">Miért találat:</span>
             {e.why_matched}
           </p>
         )}
@@ -135,10 +135,10 @@ export function EpisodeCard({
           </div>
         )}
         <div className="flex gap-3 mt-2.5 text-xs">
-          <Link to={`/podcast/${p.slug}/${e.slug}`} className="text-muted-foreground hover:text-foreground">Open episode</Link>
+          <Link to={`/podcast/${p.slug}/${e.slug}`} className="text-muted-foreground hover:text-foreground">Epizód megnyitása</Link>
           {e.audio_url && (
             <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
-              <ExternalLink className="h-3 w-3" /> Listen
+              <ExternalLink className="h-3 w-3" /> Hallgatás
             </a>
           )}
         </div>
@@ -148,7 +148,7 @@ export function EpisodeCard({
 }
 
 export function EpisodeList({
-  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false,
+  items, showTopics = false, empty = "Még nincsenek epizódok.", terms, showEntities = false,
 }: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
   return (

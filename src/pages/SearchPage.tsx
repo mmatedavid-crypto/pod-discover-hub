@@ -12,11 +12,11 @@ import { episodeScore } from "@/lib/episodeRank";
 type SortKey = "best" | "newest" | "rank";
 
 const EXAMPLES = [
-  "AI healthcare",
-  "Italy food",
-  "testosterone sleep",
-  "asparagus cooking",
-  "Nvidia data centers",
+  "MNB kamatdöntés",
+  "magyar tőzsde",
+  "Hold Alapkezelő",
+  "mesterséges intelligencia",
+  "magyar gazdaság",
 ];
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
@@ -60,10 +60,10 @@ export default function SearchPage() {
 
   useEffect(() => {
     setSeo({
-      title: initial ? `${initial} — Podiverzum episode search` : "Search podcast episodes — Podiverzum",
+      title: initial ? `${initial} — Podiverzum keresés` : "Podcast keresés — Podiverzum",
       description: initial
-        ? `Podcast episodes matching "${initial}". Search by topic, person, company, ticker or ingredient.`
-        : "Search podcast episodes by topic, person, company, ticker or ingredient.",
+        ? `Podcast epizódok a következőre: „${initial}”. Keress témák, személyek, cégek vagy ötletek alapján.`
+        : "Keress podcast epizódok között témák, személyek, cégek vagy ötletek alapján.",
       noindex: !initial,
     });
     setBroadened(false);
@@ -253,20 +253,20 @@ export default function SearchPage() {
   return (
     <Layout>
       <div className="container mx-auto py-10">
-        <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>
+        <h1 className="text-3xl font-semibold mb-2">Epizódok keresése</h1>
         <p className="text-muted-foreground mb-4 text-sm">
-          Type words separated by spaces, e.g. <em>Italy food</em>. Use <code className="px-1 bg-secondary rounded">+</code> to require all terms strictly.
+          Írj szavakat szóközzel elválasztva, pl. <em>magyar gazdaság</em>. A <code className="px-1 bg-secondary rounded">+</code> jellel követelheted meg az összes kifejezést.
         </p>
         <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Italy food"
+            placeholder="magyar gazdaság"
             className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
           />
           <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
-            Search
+            Keresés
           </button>
         </form>
 
@@ -284,11 +284,11 @@ export default function SearchPage() {
 
         {initial && (
           <div className="flex flex-wrap gap-2 items-center mt-6 text-xs">
-            <span className="text-muted-foreground">Sort:</span>
+            <span className="text-muted-foreground">Rendezés:</span>
             {([
-              ["best", "Best match"],
-              ["newest", "Newest"],
-              ["rank", "Highest episode rank"],
+              ["best", "Legjobb találat"],
+              ["newest", "Legújabb"],
+              ["rank", "Legmagasabb rang"],
             ] as const).map(([k, l]) => (
               <button
                 key={k}
@@ -300,8 +300,8 @@ export default function SearchPage() {
             ))}
             {categories.length > 1 && (
               <>
-                <span className="text-muted-foreground ml-2">Category:</span>
-                <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>All</button>
+                <span className="text-muted-foreground ml-2">Kategória:</span>
+                <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>Mind</button>
                 {categories.slice(0, 8).map((c) => (
                   <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{c}</button>
                 ))}
@@ -315,9 +315,9 @@ export default function SearchPage() {
             <div className="flex items-center gap-3">
               <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-hidden />
               <div className="text-sm">
-                <div className="font-medium">Searching for “{initial}”…</div>
+                <div className="font-medium">Keresés: „{initial}”…</div>
                 <div className="text-muted-foreground text-xs mt-0.5">
-                  Combining keyword, semantic and AI re-ranking. This usually takes 2–4 seconds.
+                  Kulcsszavas, szemantikus és MI-újrarangsorolás kombinálása. Általában 2–4 másodperc.
                 </div>
               </div>
             </div>
@@ -331,22 +331,22 @@ export default function SearchPage() {
 
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            No exact episode matches yet.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Try a broader search or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
+            Nincs pontos epizód találat.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Esetleg erre gondoltál: <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Próbálj tágabb kereséssel vagy <Link to="/kategoriak" className="underline text-foreground">böngéssz a kategóriák között</Link>.
           </div>
         )}
 
         {initial && !loading && (aiAnswer || aiAnswerLoading) && (
           <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">AI overview</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">MI áttekintés</span>
               {aiAnswerLoading && (
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
               )}
             </div>
             <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-              {aiAnswer || <span className="text-muted-foreground">Synthesizing an overview from the top episodes…</span>}
+              {aiAnswer || <span className="text-muted-foreground">Áttekintés készül a legjobb epizódok alapján…</span>}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-2">AI summary, may contain errors. Numbers reference the episodes below.</p>
+            <p className="text-[10px] text-muted-foreground mt-2">MI által generált összegzés, hibákat tartalmazhat. A számok az alábbi epizódokra utalnak.</p>
           </div>
         )}
 
@@ -354,20 +354,20 @@ export default function SearchPage() {
           <div className="mt-8 space-y-10">
             <section>
               <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
-                Matching episodes ({episodes.length})
+                Találatok ({episodes.length})
                 {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                    Showing results for {suggestion}
+                    Találatok erre: {suggestion}
                   </span>
                 )}
                 {semanticUsed && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
-                    including related ideas
+                    kapcsolódó ötletekkel
                   </span>
                 )}
                 {broadened && !semanticUsed && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                    Showing broader matches
+                    Tágabb találatok
                   </span>
                 )}
               </h2>
@@ -375,7 +375,7 @@ export default function SearchPage() {
             </section>
             {podcasts.length > 0 && (
               <section>
-                <h2 className="font-semibold mb-3">Matching podcasts ({podcasts.length})</h2>
+                <h2 className="font-semibold mb-3">Találó podcastek ({podcasts.length})</h2>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
                 </div>
@@ -385,7 +385,7 @@ export default function SearchPage() {
         )}
 
         <p className="text-xs text-muted-foreground mt-10">
-          Indexed from public RSS feeds. Ranked by query relevance, freshness, feed health and Podiverzum Rank.
+          Nyilvános RSS feedekből indexelve. Relevancia, frissesség, feed-egészség és Podiverzum rang alapján rangsorolva.
         </p>
       </div>
     </Layout>

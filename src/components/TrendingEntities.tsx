@@ -17,6 +17,14 @@ const ICONS = {
   company: Building2,
 };
 
+const KIND_LABEL: Record<string, string> = {
+  topic: "téma",
+  person: "személy",
+  company: "cég",
+  ticker: "részvény",
+  ingredient: "hozzávaló",
+};
+
 const HREF: Record<EntityKind, string> = {
   topic: "topic",
   person: "person",
@@ -45,7 +53,7 @@ export function TrendingEntities({ eyebrow, title, subtitle, items, icon = "topi
             className="group relative rounded-xl border border-border/70 bg-card/60 hover:bg-card hover:border-primary/40 p-3 transition-colors flex items-center justify-between gap-2 min-w-0"
           >
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{it.kind}</div>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{KIND_LABEL[it.kind] || it.kind}</div>
               <div className="font-medium text-sm truncate group-hover:text-primary transition-colors">{it.value}</div>
             </div>
             <div className="shrink-0 flex items-center gap-1">
