@@ -59,8 +59,8 @@ const Index = () => {
 
   useEffect(() => {
     setSeo({
-      title: "Podiverzum — Magyar podcast felfedező",
-      description: "Keress epizódokat témák, személyek, cégek vagy ötletek alapján a magyar podcast univerzumban.",
+      title: "Podiverzum — A magyar podcast kereső",
+      description: "Keress podcast epizódokat témák, személyek, cégek vagy ötletek alapján a magyar podcastok világában.",
       hreflang: [
         { lang: "hu", href: "https://podiverzum.hu/" },
         { lang: "x-default", href: "https://podiverzum.hu/" },
@@ -223,17 +223,17 @@ const Index = () => {
               <span className="pulse-red" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
             </span>
-            Élő · Epizód-alapú felfedezés
+            Élő · Témakeresés epizódokban
           </div>
           <h1 className="text-4xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
             <span className="text-foreground">Találd meg.</span>{" "}
             <span className="text-brand-gradient">Hallgasd meg.</span>
           </h1>
           <p className="text-foreground/85 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Keress magyar podcast epizódokat aszerint, miről szólnak valójában.
+            Keress magyar podcast epizódokban az alapján, amiről valójában szólnak.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Kérdezz emberekről, cégekről, piacokról, technológiákról vagy ötletekről — a Podiverzum megkeresi hozzájuk a releváns epizódokat.
+            Keress rá emberekre, cégekre, piacokra vagy ötletekre — a Podiverzum megtalálja a kapcsolódó podcast epizódokat.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -302,7 +302,7 @@ const Index = () => {
           <TrendingEntities
             eyebrow="Témák épp most"
             title="Miről beszélnek a podcasterek"
-            subtitle="Legnépszerűbb témák az összes műsorból az elmúlt 14 napban. Koppints és merülj el."
+            subtitle="Gyakori témák az elmúlt két hét adásaiból. Koppints és mélyedj el bennük."
             items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
             icon="topic"
           />
@@ -311,8 +311,8 @@ const Index = () => {
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
             eyebrow="Emberek a hírekben"
-            title="Ezek a nevek pörögnek a héten"
-            subtitle="Több műsorban: alapítók, kutatók, sportolók, vezetők."
+            title="Ezek a nevek pörögnek mostanában"
+            subtitle="Gyakori vendégek és említett nevek: alapítók, kutatók, sportolók, vezetők."
             items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
             icon="person"
           />
@@ -322,7 +322,7 @@ const Index = () => {
           const companies = topEntitiesFrom(trendingEntityEps, "companies", "company", 10);
           return companies.length ? (
             <TrendingEntities
-              eyebrow="Cégek a műsorban"
+              eyebrow="Cégek az adásokban"
               title="Márkák és szervezetek"
               subtitle="Cégek, amelyek felbukkannak a friss epizódokban."
               items={companies}
@@ -386,7 +386,7 @@ const Index = () => {
         {loaded && !trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">
             {loadError
-              ? "Az epizódok átmenetileg nem érhetők el. Próbáld újra hamarosan."
+              ? "Az epizódok átmenetileg nem érhetők el. Kérjük, próbáld meg később."
               : "A kiemelt epizódok hamarosan megjelennek."}
           </div>
         )}

@@ -25,12 +25,12 @@ const ICONS: Record<string, any> = {
 
 const MOOD_SUBTITLES: Record<string, string> = {
   "elalvashoz": "Csendesebb, lassabb beszélgetések.",
-  "munkaba-menet": "Rövidebb, könnyen követhető epizódok.",
+  "munkaba-menet": "Rövidebb, könnyed epizódok.",
   "edzeshez": "Energikusabb, pörgősebb hallgatnivalók.",
-  "hosszu-utra": "Hosszabb, mélyebb beszélgetések útközbenre.",
+  "hosszu-utra": "Hosszabb, mélyebb beszélgetések.",
   "vilag-esemenyei": "A fontos hírek és összefüggések háttere.",
   "mosolyogashoz": "Könnyedebb, szórakoztató epizódok.",
-  "tanulashoz": "Tudás, magyarázatok és új nézőpontok.",
+  "tanulashoz": "Tudás és új nézőpontok.",
   "elmelyuleshez": "Lassabb, gondolkodósabb beszélgetések.",
 };
 
@@ -55,7 +55,7 @@ export function MoodCollections() {
             <Sparkles className="h-3 w-3" /> Hallgatási helyzetek
           </div>
           <h2 className="text-xl sm:text-2xl font-semibold">Mihez van most kedved?</h2>
-          <p className="text-xs text-muted-foreground mt-1">Válogatott hallgatási ajánlók, rendszeresen frissítve.</p>
+          <p className="text-xs text-muted-foreground mt-1">Válogatott ajánlók, rendszeresen frissítve.</p>
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">

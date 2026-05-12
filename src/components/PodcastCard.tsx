@@ -37,7 +37,7 @@ export function PodcastCard({ p }: { p: PodcastLite }) {
           {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" aria-label="Apple Podcasts" className="hover:text-foreground"><Apple className="h-4 w-4" /></a>}
           {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" aria-label="Spotify" className="hover:text-foreground"><Music className="h-4 w-4" /></a>}
           {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" aria-label="YouTube" className="hover:text-foreground"><Youtube className="h-4 w-4" /></a>}
-          {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" aria-label="Website" className="hover:text-foreground"><Globe className="h-4 w-4" /></a>}
+          {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" aria-label="Weboldal" className="hover:text-foreground"><Globe className="h-4 w-4" /></a>}
         </div>
       </div>
     </article>

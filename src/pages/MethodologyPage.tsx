@@ -6,9 +6,9 @@ import { setSeo } from "@/lib/seo";
 export default function MethodologyPage() {
   useEffect(() => {
     setSeo({
-      title: "Hogyan rangsorolunk — Podiverzum módszertan",
+      title: "Hogyan rangsorolunk? — A Podiverzum módszertana",
       description:
-        "Minőségvezérelt podcast felfedezés. A Podiverzum MI-t, strukturált elemzést és szerkesztői jelzéseket kombinál — fizetett megjelenés nélkül.",
+        "Minőségközpontú podcastfelfedezés. A Podiverzum MI, adatelemzés és emberi szempontok alapján rangsorol — fizetett megjelenés nélkül.",
     });
   }, []);
 
@@ -16,18 +16,16 @@ export default function MethodologyPage() {
     <Layout>
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Módszertan</div>
-        <h1 className="text-3xl font-semibold mb-2">Minőségvezérelt podcast felfedezés</h1>
+        <h1 className="text-3xl font-semibold mb-2">Minőségközpontú podcastfelfedezés</h1>
         <p className="text-muted-foreground !mt-2">
-          A Podiverzum úgy rangsorolja a podcasteket és epizódokat, hogy a hallgatók
-          gyorsabban találják meg a leghasznosabb, legrelevánsabb és legmegbízhatóbb
-          tartalmakat.
+          A Podiverzum abban segít, hogy gyorsan megtaláld a legértékesebb, legrelevánsabb és
+          legmegbízhatóbb podcast epizódokat.
         </p>
         <p>
-          A rangsorrendszerünk mesterséges intelligenciát, strukturált metaadat-elemzést
-          és minőségközpontú felfedezési jelzéseket kombinál. A cél nem az, hogy a
-          leghangosabb műsorok vagy a legagresszívebben promotált tartalmak kerüljenek
-          előre — hanem hogy olyan epizódokat találjunk, amelyek valóban megérik a
-          hallgató idejét.
+          A rangsorolás mesterséges intelligenciát, részletes adatelemzést és minőségi
+          szempontokat ötvöz. A cél nem az, hogy a leghangosabb vagy legagresszívebben
+          hirdetett műsorok kerüljenek előre — hanem hogy olyan epizódokat emeljünk ki,
+          amelyek valóban megérik az idődet.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Nincs fizetett megjelenés</h2>
@@ -36,50 +34,53 @@ export default function MethodologyPage() {
         </p>
         <p>
           Egyetlen podcast sem fizethet azért, hogy előrébb kerüljön a kereső találatai,
-          kategóriaoldalai, felkapott szekciói vagy felfedezési kollekciói között. Az
+          a kategóriaoldalak, a felkapott listák vagy a hallgatási ajánlók között. Az
           üzleti kapcsolatok nem befolyásolják a rangsort.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Mit értékel a rendszerünk</h2>
         <p>
-          A Podiverzum több dimenzió mentén elemzi a podcasteket és epizódokat:
+          A Podiverzum több szempont alapján elemzi a podcasteket és epizódokat:
           tartalmi minőség, frissesség, relevancia, következetesség, felfedezhetőség és
           technikai megbízhatóság.
         </p>
         <p>
-          MI-t használunk, hogy jobban megértsük, miről szólnak az epizódok — beleértve
-          a tárgyalt témákat, embereket, cégeket, iparágakat, gondolatokat és ötleteket.
+          Mesterséges intelligencia segít megérteni, miről szólnak valójában az epizódok:
+          a tárgyalt témákról, személyekről, cégekről, iparágakról, gondolatokról és
+          ötletekről.
         </p>
         <p>
-          Így a Podiverzum túl tud lépni az egyszerű címbeli egyezésen, és gazdagabb
-          felfedezési réteget építhet az epizódok lényegére.
+          Így a kereső nemcsak a címek egyezésére hagyatkozik, hanem az epizódok valódi
+          tartalmát tárja fel.
         </p>
 
-        <h2 className="mt-10 text-xl font-semibold">Podcast minőségi jelzések</h2>
+        <h2 className="mt-10 text-xl font-semibold">A podcastok minőségi mutatói</h2>
         <p>A podcasteket egy saját minőségi modell értékeli.</p>
         <p>
-          A modell figyelembe veszi, hogy egy műsor aktív-e, jól strukturált-e,
-          felfedezhető-e, rendszeresen jelenik-e meg, és mennyire hasznos a hallgatók
-          számára. Azt is nézi, hogy a feed elegendő megbízható információt szolgáltat-e
-          a kereséshez, az összefoglaláshoz és az ajánláshoz.
+          A modell figyelembe veszi, hogy egy műsor aktív-e, jól strukturált-e, könnyen
+          felfedezhető-e, rendszeresen frissül-e, és mennyire értékes a hallgatóknak.
+          Azt is vizsgálja, hogy a podcast feedje elegendő megbízható információt
+          szolgáltat-e a kereséshez, az összefoglaláshoz és az ajánláshoz.
         </p>
         <p>
-          A modell pontos képletét, súlyait és küszöbeit nem hozzuk nyilvánosságra. Ez
-          védi a rangsorrendszer integritását és segít megelőzni a manipulációt.
+          A modell pontos képletét, súlyozását és küszöbértékeit nem hozzuk
+          nyilvánosságra. Ez védi a rangsorolás megbízhatóságát és segít megelőzni a
+          manipulációt.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Epizódrangsor</h2>
         <p>Az epizódok rangsora kontextusfüggő.</p>
         <p>
-          Egy friss epizód jól szerepelhet a felkapott felületeken. Egy mélyebb, régebbi
-          epizód jól szerepelhet az időtálló felfedezésben. Egy nagyon specifikus epizód
-          előtérbe kerülhet egy szűk keresésnél vagy entitásoldalon, akkor is, ha a
-          kezdőlapon nem jelenik meg.
+          Egy friss epizód a felkapott listákon kaphat helyet. Egy mélyebb, régebbi epizód
+          az időtálló tartalmak között jelenhet meg. Egy nagyon specifikus téma pedig
+          előtérbe kerülhet egy célzott keresésnél vagy egy témaoldalon, még ha a
+          kezdőlapra nem is kerül ki.
         </p>
         <p>
-          A rangsor figyelembe veszi a relevanciát, frissességet, minőséget, témakörhöz
-          illeszkedést és sokszínűséget. A cél, hogy ne legyenek ismétlődő találatok, és
-          szélesebb spektrumú erős epizódokat lehessen felfedezni.
+          A rangsorolás figyelembe veszi a relevanciát, a frissességet, a minőséget, a
+          tematikus illeszkedést és a sokszínűséget. A cél, hogy a találatok
+          változatosak legyenek, és minél több különböző, értékes epizódra lehessen
+          rátalálni.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Keresési rangsor</h2>
@@ -87,77 +88,78 @@ export default function MethodologyPage() {
           A Podiverzum keresője a jelentést érti, nem csak a kulcsszavakat.
         </p>
         <p>
-          Amikor valaki egy emberre, cégre, piaci témára, egészségügyi területre,
-          technológiára vagy kulturális trendre keres, olyan epizódokat keresünk, amelyek
-          érdemben foglalkoznak az adott témával — még akkor is, ha pontos szóhasználat
-          nem egyezik.
+          Amikor egy személyre, cégre, piaci témára, egészségügyi területre vagy
+          technológiai trendre keresel, olyan epizódokat keresünk, amelyek érdemben
+          foglalkoznak az adott témával – még akkor is, ha a pontos kulcsszavak nem
+          szerepelnek bennük.
         </p>
         <p>
-          A keresési találatok kombinálják a címben szereplő relevanciát, az epizód
-          kontextusát, az MI által megértett jelentést, a podcast minőségét és a
-          frissességet.
+          A keresési találatok rangsorolása ötvözi a cím relevanciáját, az epizód
+          kontextusát, a mesterséges intelligencia által értelmezett jelentést, a
+          podcast minőségi besorolását és az epizód frissességét.
         </p>
 
-        <h2 className="mt-10 text-xl font-semibold">Entitás- és témaoldalak</h2>
+        <h2 className="mt-10 text-xl font-semibold">Témaoldalak</h2>
         <p>
-          A Podiverzum felfedező oldalakat épít visszatérő emberek, cégek, témák,
-          részvények, iparágak és ötletek köré.
+          A Podiverzum gyűjtőoldalakat hoz létre gyakran tárgyalt személyek, cégek,
+          témák, részvények, iparágak és ötletek köré.
         </p>
         <p>
-          Ezek az oldalak az indexelt podcasttartalom strukturált elemzéséből születnek.
-          Segítenek egy témát több műsoron át bejárni, ahelyett, hogy egyetlen kiadóra
-          vagy feedre lennénk korlátozva.
+          Ezek az oldalak a podcastok tartalmának elemzése alapján jönnek létre.
+          Segítenek egy témát több különböző műsoron keresztül megismerni, ahelyett,
+          hogy egyetlen podcastra korlátozódnánk.
         </p>
         <p>
-          Csak akkor jelenítünk meg ilyen oldalakat, ha elég hasznos anyag van a mögötte.
+          Csak akkor hozunk létre ilyen oldalakat, ha elegendő kapcsolódó epizód
+          tartozik hozzájuk.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Mit kerülünk</h2>
         <p>
-          A Podiverzum kizárhatja vagy csökkentheti azoknak a tartalmaknak a láthatóságát,
-          amelyek hibásnak, duplikáltnak, félrevezetőnek, spamszerűnek, inaktívnak,
-          biztonságtalannak vagy az alapértelmezett felületeken nem megfelelőnek tűnnek.
+          A Podiverzum kizárhatja vagy hátrébb sorolhatja azokat a tartalmakat, amelyek
+          hibásnak, duplikáltnak, félrevezetőnek, kéretlennek, elavultnak vagy más
+          okból nemkívánatosnak minősülnek.
         </p>
         <p>
-          Jelenleg a Podiverzum kifejezetten magyar nyelvű felfedezésre épül. A nem
-          magyar nyelvű tartalmak a nyilvános felületeken nem jelennek meg.
+          A Podiverzum jelenleg a magyar nyelvű podcastok felfedezését szolgálja. Más
+          nyelvű tartalmak nem jelennek meg a felületen.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Miért változik a rangsor</h2>
         <p>A rangsor dinamikus.</p>
         <p>
           Egy podcast vagy epizód helyezése változhat, ha új tartalom jelenik meg, bővül
-          a katalógus, javul a metaadat, változik a feed, vagy a rendszer jobban megérti
-          a tartalmat.
+          a kínálat, javulnak az adatai, megváltozik a forrása (feed), vagy ha
+          rendszerünk mélyebben megérti a tartalmat.
         </p>
         <p>
-          Ez szándékos. A podcast felfedezésnek tükröznie kell a hosszú távú minőséget
-          és azt is, ami éppen aktuális.
+          Ez szándékos. Egy jó podcastkeresőnek egyszerre kell tükröznie a hosszú távú
+          minőséget és az aktualitásokat.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">MI és emberi felügyelet</h2>
         <p>
-          Az MI segít a Podiverzumnak megérteni és rendszerezni a podcasttartalmat
-          nagyságrendekkel.
+          A mesterséges intelligencia segít nagy mennyiségű podcasttartalmat gyorsan
+          megérteni és rendszerezni.
         </p>
         <p>
           Az emberi felügyelet segít fejleszteni a rendszert, áttekinteni a
-          visszajelzéseket és kijavítani azokat a hibákat, amelyeket az automatikus
-          elemzés elrontott.
+          visszajelzéseket, és javítani az automatikus elemzés hibáit.
         </p>
         <p>
-          Ha hiányzó podcastet, duplikált feedet, gyenge találatot, rosszul besorolt
-          témát vagy oda nem illő epizódot látsz, használd az alkalmazáson belüli
-          visszajelzés gombot.
+          Ha hiányzó podcastot, duplikált feedet, irreleváns találatot, rosszul
+          besorolt témát vagy oda nem illő epizódot látsz, jelezd nekünk az oldalon
+          található visszajelzés gombbal.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">A rangsor alapelve</h2>
-        <p>A Podiverzum a hasznos, minőségi podcasttartalmat jutalmazza.</p>
+        <p>A Podiverzum az értékes, minőségi podcasttartalmat emeli ki.</p>
         <p className="!mb-1">Nem a hype-ot.</p>
         <p className="!my-1">Nem a fizetést.</p>
         <p className="!mt-1">Nem a manipulációt.</p>
         <p>
-          A cél egyszerű: segítsünk megtalálni az epizódokat, amelyek megérik az időt.
+          A cél egyszerű: segítünk megtalálni azokat az epizódokat, amelyek valóban
+          megérik az idődet.
         </p>
 
         <div className="not-prose mt-12 flex flex-wrap gap-3">

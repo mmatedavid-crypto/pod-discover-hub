@@ -14,7 +14,7 @@ export function KeyMoments({
   return (
     <div className="mt-6 p-4 rounded-lg border border-border bg-card">
       <div className="text-xs uppercase tracking-wide text-accent mb-3 inline-flex items-center gap-1.5">
-        <Clock className="h-3 w-3" /> Kulcs pillanatok
+        <Clock className="h-3 w-3" /> Kulcspillanatok
       </div>
       <ol className="space-y-1.5">
         {moments.map((m) => {
