@@ -70,12 +70,13 @@ async function sha1Hex(input: string) {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function piSearch(term: string) {
+async function piSearch(term: string, lang?: string) {
   const apiKey = Deno.env.get("PODCAST_INDEX_API_KEY")!;
   const apiSecret = Deno.env.get("PODCAST_INDEX_API_SECRET")!;
   const date = Math.floor(Date.now() / 1000).toString();
   const auth = await sha1Hex(apiKey + apiSecret + date);
-  const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(term)}&max=5`;
+  const langQ = lang ? `&val=${encodeURIComponent(lang)}` : "";
+  const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(term)}&max=5${langQ}`;
   const res = await fetch(url, {
     headers: {
       "User-Agent": "Podiverzum/1.0 ai-scout",
@@ -86,6 +87,47 @@ async function piSearch(term: string) {
   });
   if (!res.ok) return null;
   return res.json();
+}
+
+// Tier 3: iTunes Search API (HU storefront). Works even when PodcastIndex doesn't
+// have the feed indexed yet — common for newer / niche HU podcasts.
+async function itunesSearch(term: string, country = "HU") {
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=${country}&media=podcast&limit=5&entity=podcast`;
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Podiverzum/1.0 ai-scout" } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data?.results) ? data.results : [];
+  } catch {
+    return [];
+  }
+}
+
+// Lightweight RSS validation: fetch first ~8KB and look for <rss / <feed root.
+async function validateRss(url: string): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Podiverzum/1.0 ai-scout", "Accept": "application/rss+xml,application/xml,text/xml,*/*" },
+      signal: ctrl.signal, redirect: "follow",
+    });
+    clearTimeout(t);
+    if (!res.ok || !res.body) return false;
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (total < 8192) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value); total += value.length;
+    }
+    try { await reader.cancel(); } catch { /* ignore */ }
+    const text = new TextDecoder().decode(new Uint8Array(chunks.flatMap((c) => Array.from(c)))).slice(0, 8192);
+    return /<rss[\s>]/i.test(text) || /<feed[\s>]/i.test(text);
+  } catch {
+    return false;
+  }
 }
 
 async function firecrawlScrape(url: string): Promise<string | null> {
