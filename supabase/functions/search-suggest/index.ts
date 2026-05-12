@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       .from("episodes")
       .select("title, podcasts!inner(language)")
       .ilike("search_text", `%${prefix}%`)
-      .or("language.is.null,language.ilike.en%", { foreignTable: "podcasts" })
+      .or("language.is.null,language.ilike.hu%", { foreignTable: "podcasts" })
       .limit(12);
     const seed = (rows || []).map((r: any) => String(r.title || "").slice(0, 100)).filter(Boolean);
 

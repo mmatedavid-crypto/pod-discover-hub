@@ -99,7 +99,7 @@ export default function AdminDiscoveryPage() {
       rss_url: r.rss_url,
       image_url: r.image_url ?? null,
       website_url: r.website_url ?? null,
-      language: (r.language || "en").slice(0, 8),
+      language: (r.language || "hu").slice(0, 8),
       category: category || null,
       rss_status: "not_checked",
     }).select("id").single();
