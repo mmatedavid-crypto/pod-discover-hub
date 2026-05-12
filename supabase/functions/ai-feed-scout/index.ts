@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
     const dryRun = !!body.dry_run;
     const strictLang = body.strict_lang !== false; // default ON
 
-    const candidates: { title: string; author?: string; reason?: string; sourceTag: string; langHint: string }[] = [];
+    const candidates: { title: string; author?: string; reason?: string; rss_url?: string; sourceTag: string; langHint: string }[] = [];
     const sourceStats: Record<string, { scraped: boolean; extracted: number; lang_hint: string }> = {};
 
     for (const src of sources) {
@@ -245,6 +245,7 @@ Deno.serve(async (req) => {
       for (const p of extracted) {
         if (p?.title) candidates.push({
           title: String(p.title).trim(), author: p.author, reason: p.reason,
+          rss_url: typeof p.rss_url === "string" ? p.rss_url.trim() : undefined,
           sourceTag: src.tag, langHint: src.lang_hint,
         });
       }
