@@ -26,13 +26,27 @@ const corsHeaders = {
 
 const VALID_TIERS = new Set(["S", "A", "B", "C", "D", "E"]);
 
-function tierFor(score: number): "S" | "A" | "B" | "C" | "D" | "E" {
-  if (score >= 8.5) return "S";
-  if (score >= 7.0) return "A";
-  if (score >= 5.5) return "B";
-  if (score >= 4.0) return "C";
-  if (score >= 2.5) return "D";
+const DEFAULT_THRESHOLDS = { S: 8.5, A: 7.0, B: 5.5, C: 4.0, D: 2.5 };
+
+function tierForWith(score: number, t: { S: number; A: number; B: number; C: number; D: number }): "S" | "A" | "B" | "C" | "D" | "E" {
+  if (score >= t.S) return "S";
+  if (score >= t.A) return "A";
+  if (score >= t.B) return "B";
+  if (score >= t.C) return "C";
+  if (score >= t.D) return "D";
   return "E";
+}
+
+async function loadThresholds(supabase: any): Promise<{ S: number; A: number; B: number; C: number; D: number }> {
+  try {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", "formula_c_thresholds").maybeSingle();
+    const v = data?.value as any;
+    if (v && typeof v === "object" && typeof v.S === "number" && typeof v.A === "number" && typeof v.B === "number" && typeof v.C === "number" && typeof v.D === "number") {
+      // Guard: monotonically decreasing.
+      if (v.S > v.A && v.A > v.B && v.B > v.C && v.C > v.D) return v;
+    }
+  } catch (_) { /* ignore, fall back */ }
+  return DEFAULT_THRESHOLDS;
 }
 
 function classifyAction(p: any, computedTier: string) {
