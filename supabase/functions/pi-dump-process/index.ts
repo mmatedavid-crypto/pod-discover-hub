@@ -27,8 +27,11 @@ function scoreRow(r: any, maxAge: number) {
   if ((r.episode_count || 0) >= 100) { s += 2; reasons.push({ delta: 2, note: "100+ episodes" }); }
   else if ((r.episode_count || 0) >= 30) { s += 1; reasons.push({ delta: 1, note: "30+ episodes" }); }
   const lang = (r.language || "").toLowerCase();
-  if (lang.startsWith("en")) { s += 1; reasons.push({ delta: 1, note: "English" }); }
-  else { s -= 4; reasons.push({ delta: -4, note: "non-English" }); }
+  const aiLang = (r.ai_detected_language || "").toLowerCase().trim();
+  // HU-only mode: prefer Hungarian. Tolerate unknown/und/mul.
+  if (lang.startsWith("hu") || aiLang.startsWith("hu")) { s += 2; reasons.push({ delta: 2, note: "Hungarian" }); }
+  else if (!lang || lang === "mul" || lang === "und") { reasons.push({ delta: 0, note: "lang unknown" }); }
+  else { s -= 2; reasons.push({ delta: -2, note: `non-HU:${lang}` }); }
   if (r.dead) { s -= 5; reasons.push({ delta: -5, note: "dead" }); }
   if (r.last_http_status === 404) { s -= 5; reasons.push({ delta: -5, note: "HTTP 404" }); }
   return { score: Math.max(1, Math.min(10, Math.round(s))), reasons, ageDays };
