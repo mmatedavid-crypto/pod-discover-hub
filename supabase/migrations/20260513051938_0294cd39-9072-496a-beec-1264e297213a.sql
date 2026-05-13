@@ -1,0 +1,1 @@
+ALTER TABLE public.podcasts ALTER COLUMN language DROP DEFAULT;
