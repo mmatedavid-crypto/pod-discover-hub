@@ -28,7 +28,7 @@ export function AskPodiverzum() {
     return () => clearInterval(t);
   }, [paused]);
 
-  const visible = Array.from({ length: 4 }, (_, k) => QUESTIONS[(idx + k) % QUESTIONS.length]);
+  const visible = Array.from({ length: 3 }, (_, k) => QUESTIONS[(idx + k) % QUESTIONS.length]);
 
   const go = (query: string) => {
     if (!query.trim()) return;
