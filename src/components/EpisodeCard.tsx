@@ -148,16 +148,31 @@ export function EpisodeCard({
 }
 
 export function EpisodeList({
-  items, showTopics = false, empty = "Még nincsenek epizódok.", terms, showEntities = false,
-}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean }) {
+  items, showTopics = false, empty = "Még nincsenek epizódok.", terms, showEntities = false, scrollOnMobile = false,
+}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
-  return (
-    <ul className="divide-y divide-border/70 border border-border/70 rounded-xl bg-card/60 surface overflow-hidden">
+  const desktop = (
+    <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 border border-border/70 rounded-xl bg-card/60 surface overflow-hidden`}>
       {items.map((e) => (
         <li key={e.id} className="transition-colors">
           <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
         </li>
       ))}
     </ul>
+  );
+  if (!scrollOnMobile) return desktop;
+  return (
+    <>
+      <div className="sm:hidden -mx-4">
+        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pl-4 pr-12 pb-2 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {items.map((e) => (
+            <div key={e.id} className="snap-start shrink-0 w-[78vw] max-w-[340px] rounded-xl border border-border/70 bg-card/60 surface overflow-hidden">
+              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+            </div>
+          ))}
+        </div>
+      </div>
+      {desktop}
+    </>
   );
 }
