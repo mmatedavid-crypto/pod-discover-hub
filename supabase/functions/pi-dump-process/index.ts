@@ -135,7 +135,10 @@ Deno.serve(async (req) => {
               rss_url: r.rss_url,
               website_url: r.website_url,
               image_url: r.image_url,
-              language: r.language || (aiLang.startsWith("hu") ? "hu" : "hu"),
+              // Don't fake HU. If feed didn't declare a language, leave NULL —
+              // RSS fetch / AI language guard will set it. NULL keeps the podcast
+              // off HU public surfaces until language is verified.
+              language: r.language || (aiLang && aiLang !== "mul" ? aiLang : null),
               source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
               podiverzum_rank: score,
