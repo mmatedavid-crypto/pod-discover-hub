@@ -10,9 +10,11 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
   useEffect(() => {
     supabase
       .from("podcasts")
-      .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at")
+      .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at,language")
       .not("rss_status", "in", "(failed,inactive)")
       .not("rank_label", "eq", "E")
+      // HU-only site: explicit hu language required (NULL is excluded to avoid leaking foreign feeds).
+      .ilike("language", "hu%")
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(limit)
       .then(({ data }) => setItems((data || []) as any));
