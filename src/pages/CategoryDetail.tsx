@@ -65,7 +65,7 @@ export default function CategoryDetail() {
         .eq("category", c.name)
         // EN-only site: exclude non-English podcasts (HU/etc). NULL language treated as EN
         // since the legacy corpus is overwhelmingly English-but-untagged.
-        .or("language.is.null,language.ilike.hu%")
+        .or("language.ilike.hu%")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
         .limit(80);
