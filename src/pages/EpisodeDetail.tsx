@@ -60,9 +60,11 @@ export default function EpisodeDetail() {
       const metaDesc = (e.seo_description || aiSum || summary || desc || `Epizód a(z) ${p.display_title || p.title} podcastből — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
+      const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
       setSeo({
         title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
+        canonical,
         ogType: "article",
         image: ogImageUrl({
           kind: "episode",
