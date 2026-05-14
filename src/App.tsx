@@ -37,6 +37,8 @@ import AboutPage from "./pages/AboutPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
 import DailyBriefPage from "./pages/DailyBriefPage.tsx";
+import ContactPage from "./pages/ContactPage.tsx";
+import MoodsPage from "./pages/MoodsPage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 
 const queryClient = new QueryClient();
@@ -101,6 +103,10 @@ const App = () => (
           <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="/napi" element={<DailyBriefPage />} />
           <Route path="/daily" element={<DailyBriefPage />} />
+          <Route path="/kapcsolat" element={<ContactPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/hangulatok" element={<MoodsPage />} />
+          <Route path="/moods" element={<MoodsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
