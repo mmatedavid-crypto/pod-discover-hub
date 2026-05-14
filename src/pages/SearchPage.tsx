@@ -73,6 +73,7 @@ export default function SearchPage() {
     setAiAnswer("");
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
+    pushRecentSearch(initial);
 
     setLoading(true);
     let cancelled = false;
