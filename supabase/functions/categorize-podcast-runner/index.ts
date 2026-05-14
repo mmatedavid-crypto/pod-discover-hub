@@ -42,7 +42,15 @@ const CATEGORIES: { slug: string; name: string; hint: string }[] = [
 const ENUM_SLUGS = CATEGORIES.map(c => c.slug);
 const SLUG_TO_NAME = Object.fromEntries(CATEGORIES.map(c => [c.slug, c.name]));
 
-const SYSTEM = `You categorize podcasts into ONE of a fixed taxonomy. You MUST pick from the provided slugs. Be decisive: if the show is even loosely a fit, classify it. Use "uncertain" only when the description is empty or genuinely cross-genre with no dominant lane. Confidence is your honest belief, not modesty.`;
+const SYSTEM = `You categorize podcasts into ONE of a fixed taxonomy. You MUST pick from the provided slugs. Be decisive: if the show is even loosely a fit, classify it. Use low confidence only when the description is empty or genuinely cross-genre with no dominant lane.
+
+HUNGARIAN CONTEXT (most podcasts are HU):
+- "Reggeli show" / kereskedelmi rádiós reggeli műsor (Balázsék, Bochkor, Class FM, Music FM, Retro Rádió Reggeli) → comedy. They are entertainment/humor-first, NOT society-culture or film-tv, even when celebrities are guests.
+- "Rádiószínház", "hangjáték", "hangoskönyv" narratív fikcióval → fiction-audio-drama.
+- Egyházi prédikáció, igehirdetés, bibliatanulmány → religion-spirituality (még ha "Balázs Podcast"-nak hívják is).
+- Munkajogi / jogi szakmai podcast → business (jog mint szakma) — kivéve ha tisztán oktató jellegű, akkor education.
+- Magyar gazdasági/közéleti reggeli show (Millásreggeli, Péntek Reggel) → news (közélet a fő tartalom, nem entertainment).
+- Pszichológia, párkapcsolat, terápia → psychology-relationships, NEM self-improvement, hacsak nem produktivitás/szokások a fókusz.`;
 
 function buildPrompt(p: any): string {
   const cats = CATEGORIES.map(c => `- ${c.slug} — ${c.name}: ${c.hint}`).join("\n");
