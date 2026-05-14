@@ -207,7 +207,14 @@ export default function EpisodeDetail() {
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
             </span>
           )}
-          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">· Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
+          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
+            <span
+              className="text-[10px] text-muted-foreground"
+              title="A Podiverzum forrásminőség-jelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján."
+            >
+              · Forrás {Number(p.podiverzum_rank).toFixed(1)}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5 items-center">
