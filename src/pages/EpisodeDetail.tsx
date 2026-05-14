@@ -60,9 +60,11 @@ export default function EpisodeDetail() {
       const metaDesc = (e.seo_description || aiSum || summary || desc || `Epizód a(z) ${p.display_title || p.title} podcastből — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
+      const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
       setSeo({
         title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
+        canonical,
         ogType: "article",
         image: ogImageUrl({
           kind: "episode",
@@ -205,7 +207,14 @@ export default function EpisodeDetail() {
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
             </span>
           )}
-          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">· Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
+          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
+            <span
+              className="text-[10px] text-muted-foreground"
+              title="A Podiverzum forrásminőség-jelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján."
+            >
+              · Forrás {Number(p.podiverzum_rank).toFixed(1)}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5 items-center">
@@ -223,8 +232,9 @@ export default function EpisodeDetail() {
 
         {summary && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-card">
-            <div className="text-xs uppercase tracking-wide text-accent mb-1">MI összefoglaló</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Összefoglaló</div>
             <p className="whitespace-pre-wrap">{summary}</p>
+            <p className="text-[10px] text-muted-foreground mt-2">Indexelt epizód-metaadatból generálva.</p>
           </div>
         )}
 

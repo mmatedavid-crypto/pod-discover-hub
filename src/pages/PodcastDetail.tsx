@@ -11,6 +11,8 @@ import { PodcastDetailSkeleton } from "@/components/Skeletons";
 import { SimilarPodcasts } from "@/components/SimilarPodcasts";
 import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { TrendingEntities } from "@/components/TrendingEntities";
+import { topEntitiesFrom } from "@/lib/aggregateEntities";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
@@ -28,9 +30,11 @@ export default function PodcastDetail() {
       if (data) {
         const cleanSummary = stripHtml(data.summary);
         const cleanDesc = stripHtml(data.description);
+        const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${data.slug}` : undefined;
         setSeo({
           title: data.seo_title || `${data.title} – Podiverzum`,
           description: snippet(data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`, 160),
+          canonical,
           noindex: data.rss_status === "failed" || data.rss_status === "inactive",
           image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: data.category || "Podcast", image: data.image_url }),
           jsonLd: [
@@ -52,7 +56,7 @@ export default function PodcastDetail() {
         });
         const { data: e } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url")
+          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
           .eq("podcast_id", data.id)
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(60);
@@ -84,9 +88,12 @@ export default function PodcastDetail() {
             <h1 className="text-3xl font-semibold mt-1">{p.display_title || p.title}</h1>
 
             <div className="flex flex-wrap gap-2 mt-2 items-center text-xs">
-              {p.rank_label && (
-                <span className="px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-primary">
-                  {p.rank_label}-kategória
+              {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-muted-foreground"
+                  title="A Podiverzum forrásminőség-jelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján."
+                >
+                  Forrás {Number(p.podiverzum_rank).toFixed(1)}
                 </span>
               )}
               {isHealthy ? (
@@ -118,6 +125,26 @@ export default function PodcastDetail() {
             </div>
           </div>
         </div>
+
+        {(() => {
+          const epsLite = eps as any[];
+          const people = topEntitiesFrom(epsLite, "people", "person", 8);
+          const companies = topEntitiesFrom(epsLite, "companies", "company", 8);
+          const topics = topEntitiesFrom(epsLite, "topics", "topic", 8);
+          const all = [
+            people.length ? { eyebrow: "Emberek", title: "Az adásokban emlegetett emberek", items: people, icon: "person" as const } : null,
+            companies.length ? { eyebrow: "Cégek", title: "Visszatérő cégek és márkák", items: companies, icon: "company" as const } : null,
+            topics.length ? { eyebrow: "Témák", title: "Visszatérő témák", items: topics, icon: "topic" as const } : null,
+          ].filter(Boolean) as Array<{ eyebrow: string; title: string; items: any[]; icon: "person" | "company" | "topic" }>;
+          if (!all.length) return null;
+          return (
+            <div className="mt-10 grid gap-6">
+              {all.map((s) => (
+                <TrendingEntities key={s.eyebrow} eyebrow={s.eyebrow} title={s.title} items={s.items} icon={s.icon} />
+              ))}
+            </div>
+          );
+        })()}
 
         <h2 className="text-xl font-semibold mt-10 mb-4">Epizódok</h2>
         {eps.length === 0 ? (
