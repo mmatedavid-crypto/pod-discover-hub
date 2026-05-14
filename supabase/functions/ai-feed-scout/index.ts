@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
           return { url: s.url, tag: s.tag || new URL(s.url).hostname, lang_hint: s.lang_hint || body.lang_hint || "en" };
         })
       : DEFAULT_SOURCES;
-    const model = body.model || "google/gemini-2.5-flash";
+    const model = body.model || "google/gemini-2.5-pro";
     const maxPerSource = Math.max(5, Math.min(50, Number(body.max_per_source) || 25));
     const dryRun = !!body.dry_run;
     const strictLang = body.strict_lang !== false; // default ON
