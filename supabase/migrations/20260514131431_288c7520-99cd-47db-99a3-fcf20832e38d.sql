@@ -1,0 +1,1 @@
+UPDATE podcasts SET pi_backfill_approved=true WHERE language ILIKE 'hu%' AND rss_status='active' AND pi_backfill_completed_at IS NULL AND rank_label IN ('B','C') AND pi_backfill_peeked_at IS NOT NULL AND (pi_backfill_dry_run->'lang_recheck'->>'lang')='hu' AND pi_backfill_approved IS DISTINCT FROM true;
