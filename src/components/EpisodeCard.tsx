@@ -96,7 +96,12 @@ export function EpisodeCard({
             );
           })()}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
-            <span className="px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-primary">Pod {Number(p.podiverzum_rank).toFixed(1)}</span>
+            <span
+              className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-muted-foreground"
+              title="A Podiverzum forrásminőség-jelzése: relevancia, frissesség, állandóság és feed-állapot alapján."
+            >
+              Forrás {Number(p.podiverzum_rank).toFixed(1)}
+            </span>
           )}
           {e.matchBadge && (
             <span className="px-1.5 py-0.5 rounded-md border border-border bg-secondary text-[10px] font-medium text-foreground/80">{e.matchBadge}</span>

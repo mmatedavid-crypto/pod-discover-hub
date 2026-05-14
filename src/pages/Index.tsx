@@ -30,7 +30,7 @@ const Index = () => {
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
-  const [chips, setChips] = useState<{ label: string; query: string }[]>([
+  const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
     { label: "MNB kamatdöntés", query: "MNB kamatdöntés" },
     { label: "magyar gazdaság", query: "magyar gazdaság" },
     { label: "mesterséges intelligencia", query: "mesterséges intelligencia" },
@@ -38,10 +38,27 @@ const Index = () => {
     { label: "egészséges életmód", query: "egészséges életmód" },
     { label: "vállalkozói történetek", query: "vállalkozói történetek" },
     { label: "politikai háttér", query: "politikai háttér" },
+    { label: "MI szabályozás", query: "MI szabályozás" },
+    { label: "tőzsde", query: "tőzsde" },
+    { label: "Friderikusz", query: "Friderikusz" },
   ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [heroPlaceholder, setHeroPlaceholder] = useState(
+    typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
+      ? "Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
+      : "Téma vagy gondolat…"
+  );
   const nav = useNavigate();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setHeroPlaceholder(mq.matches ? "Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…" : "Téma vagy gondolat…");
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     supabase
@@ -52,10 +69,20 @@ const Index = () => {
       .then(({ data }) => {
         const items = (data?.value as any)?.items;
         if (Array.isArray(items) && items.length) {
-          setChips(items.filter((c) => c?.label && c?.query).slice(0, 8));
+          const cleaned = items.filter((c: any) => c?.label && c?.query);
+          if (cleaned.length >= 4) setChipPool(cleaned);
         }
       });
   }, []);
+
+  // Stable per-week rotation
+  const visibleChips = useMemo(() => {
+    if (!chipPool.length) return [];
+    const week = Math.floor(Date.now() / (7 * 86400_000));
+    const offset = week % chipPool.length;
+    const n = Math.min(5, chipPool.length);
+    return Array.from({ length: n }, (_, i) => chipPool[(offset + i) % chipPool.length]);
+  }, [chipPool]);
 
   useEffect(() => {
     setSeo({
@@ -217,52 +244,59 @@ const Index = () => {
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
-        <div className="relative container mx-auto py-12 sm:py-28">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-primary shadow-sm animate-fade-up">
-            <span className="relative inline-flex h-1.5 w-1.5">
-              <span className="pulse-red" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
-            </span>
-            Élő · Keresés epizódok mélyén
+        <div className="relative container mx-auto pt-6 pb-6 sm:pt-6 sm:pb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/60 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-muted-foreground shadow-sm animate-fade-up">
+            Podcast felfedezés
           </div>
-          <h1 className="text-4xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
-            <span className="text-foreground">Találd meg.</span>{" "}
-            <span className="text-brand-gradient">Hallgasd meg.</span>
+          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
+            Találd meg. <span className="text-brand-gradient">Hallgasd meg.</span>
           </h1>
-          <p className="text-foreground/85 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Keress magyar podcast epizódokban az alapján, amiről valójában szólnak.
+          <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
+            Indulj abból, ami érdekel — ne a műsor nevéből.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Keress rá emberekre, cégekre, piacokra vagy ötletekre. A Podiverzum megtalálja a releváns podcast epizódokat.
+            Keress téma, személy, cég, piac, technológia vagy gondolat alapján.
           </p>
           <form
-            onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
+            onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/kereses?q=${encodeURIComponent(q.trim())}`); }}
             className="mt-6 sm:mt-10 max-w-2xl relative focus-brand rounded-2xl transition-shadow animate-fade-up"
           >
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
-              className="w-full pl-12 pr-28 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
+              placeholder={heroPlaceholder}
+              className="w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
             />
             <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
               Keresés
             </button>
           </form>
-          <div className="mt-4 sm:mt-5 flex flex-wrap gap-2">
-            {chips.map((c) => (
-              <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip">
-                {c.label}
-              </button>
-            ))}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
+            <div className="flex flex-nowrap items-center gap-2 min-w-0">
+              {visibleChips.map((c, i) => (
+                <button
+                  key={c.label}
+                  type="button"
+                  onClick={() => nav(`/kereses?q=${encodeURIComponent(c.query)}`)}
+                  className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
+                    i >= 3 ? "!hidden sm:!inline-flex" : ""
+                  } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <span className="sm:ml-auto sm:pl-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap shrink-0">
+              Folyamatosan bővülő index
+            </span>
           </div>
         </div>
         {/* bottom rule */}
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       </section>
 
-      <div className="container mx-auto py-8 sm:py-12 space-y-10 sm:space-y-14">
+      <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <AskPodiverzum />
         <ContinueListening />
         {!loaded && trendingEps.length === 0 && (
@@ -287,12 +321,19 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Szerkesztői pulzus</div>
                 <h2 className="text-2xl font-semibold tracking-tight">Felkapott epizódok</h2>
+                <p className="text-xs text-muted-foreground mt-1">Friss epizódok a műsorok között.</p>
               </div>
-              <span className="text-xs text-muted-foreground hidden sm:inline">Válogatott · rangsorolt · értelmezett</span>
             </div>
-            <EpisodeList items={trendingEps} scrollOnMobile />
+            <div className="hidden md:grid md:grid-cols-2 gap-4">
+              <EpisodeList items={trendingEps.slice(0, 3)} />
+              {trendingEps.length > 3 && (
+                <EpisodeList items={trendingEps.slice(3, 6)} />
+              )}
+            </div>
+            <div className="md:hidden">
+              <EpisodeList items={trendingEps} scrollOnMobile />
+            </div>
           </section>
         )}
 
