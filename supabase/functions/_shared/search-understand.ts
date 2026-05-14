@@ -24,7 +24,7 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
       signal: ctrl.signal,
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: "You expand a podcast search query for hybrid search. Return concise, plain-English synonyms and entity names. Never invent facts." },
           { role: "user", content: `Query: "${q}"\nReturn entities (people/companies/topics named in the query), 3-6 expanded_terms (closely related keywords), 3-6 synonyms, intent (one of: topic, person, company, ticker, episode, question), and language (ISO code).` },

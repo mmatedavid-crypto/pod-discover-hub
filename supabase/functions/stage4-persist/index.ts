@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
           ai_confidence: g.confidence,
           ai_reasons: g.reasons,
           ai_input_hash: g.h,
-          ai_model: "google/gemini-2.5-flash-lite",
+          ai_model: "google/gemini-2.5-flash",
           ai_gated_at: new Date().toISOString(),
         }).eq("id", g.id);
         if (error) counters.errors.push(`gate ${g.id}: ${error.message}`);
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
           ai_spam_score: q.spam,
           ai_quality_reason: { reasons: q.reasons },
           ai_quality_input_hash: q.h,
-          ai_quality_model: "google/gemini-2.5-flash-lite",
+          ai_quality_model: "google/gemini-2.5-flash",
           ai_quality_updated_at: new Date().toISOString(),
         }).eq("id", q.id);
         if (error) counters.errors.push(`qual ${q.id}: ${error.message}`);

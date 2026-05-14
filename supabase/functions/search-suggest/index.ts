@@ -27,7 +27,7 @@ async function aiSuggest(prefix: string, seedTitles: string[]): Promise<string[]
       signal: ctrl.signal,
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: "You suggest podcast search completions. Return short, natural search queries (2-5 words). No punctuation, lowercase." },
           { role: "user", content: `Prefix: "${prefix}"\nExisting episode titles for inspiration:\n${seedTitles.slice(0, 12).join("\n")}\nReturn 5 distinct, natural search queries that complete or extend the prefix.` },
