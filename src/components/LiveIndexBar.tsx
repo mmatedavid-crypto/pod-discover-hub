@@ -21,13 +21,7 @@ type Item = {
 
 const HIDE_PREFIXES = ["/admin", "/auth", "/privacy", "/terms", "/admin-bootstrap", "/growth-status"];
 
-// Rotating prefix labels so the ticker feels like a live activity feed
-const PREFIXES = [
-  "Most indexelve",
-  "Friss epizód",
-  "Épp érkezett",
-  "Új az indexben",
-];
+// Quiet, single label so the ticker doesn't compete with the hero
 
 export default function LiveIndexBar() {
   const { pathname } = useLocation();
