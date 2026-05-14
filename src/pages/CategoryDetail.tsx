@@ -59,13 +59,17 @@ export default function CategoryDetail() {
           ]),
         ],
       });
+      // HU categories map to one or more English taxonomy buckets via taxonomy_keys.
+      // Fall back to the legacy `c.name = podcasts.category` match if the column is empty
+      // (so old rows without taxonomy_keys still resolve something).
+      const taxKeys: string[] = Array.isArray((c as any).taxonomy_keys) && (c as any).taxonomy_keys.length
+        ? (c as any).taxonomy_keys
+        : [c.name];
       const { data: ps } = await supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language")
-        .eq("category", c.name)
-        // EN-only site: exclude non-English podcasts (HU/etc). NULL language treated as EN
-        // since the legacy corpus is overwhelmingly English-but-untagged.
-        .or("language.ilike.hu%")
+        .in("category", taxKeys)
+        .ilike("language", "hu%")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
         .limit(80);

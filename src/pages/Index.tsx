@@ -373,12 +373,29 @@ const Index = () => {
         })()}
 
         {(() => {
+          // HU categories map to one or more English taxonomy buckets via taxonomy_keys.
+          // Aggregate episode lists across all mapped keys for each HU tile.
+          const itemsForCat = (c: any): EpisodeLite[] => {
+            const keys: string[] = Array.isArray(c.taxonomy_keys) && c.taxonomy_keys.length
+              ? c.taxonomy_keys
+              : [c.name];
+            const merged: EpisodeLite[] = [];
+            const seen = new Set<string>();
+            for (const k of keys) {
+              for (const e of (epsByCat[k] || [])) {
+                if (seen.has(e.id)) continue;
+                seen.add(e.id);
+                merged.push(e);
+              }
+            }
+            return merged.slice(0, 6);
+          };
           const populated = cats
-            .filter((c) => c.slug !== "trending" && (epsByCat[c.name]?.length ?? 0) > 0)
-            .sort((a, b) => (epsByCat[b.name]?.length ?? 0) - (epsByCat[a.name]?.length ?? 0))
+            .filter((c: any) => c.slug !== "trending" && itemsForCat(c).length > 0)
+            .sort((a: any, b: any) => itemsForCat(b).length - itemsForCat(a).length)
             .slice(0, 3);
-          return populated.map((c, idx) => {
-            const items = epsByCat[c.name] || [];
+          return populated.map((c: any, idx: number) => {
+            const items = itemsForCat(c);
             const tinted = idx % 2 === 1;
             return (
               <section key={c.id} className={tinted ? "rounded-2xl bg-card/40 border border-border/60 p-5 sm:p-6" : ""}>
