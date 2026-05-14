@@ -11,6 +11,8 @@ import { PodcastDetailSkeleton } from "@/components/Skeletons";
 import { SimilarPodcasts } from "@/components/SimilarPodcasts";
 import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { TrendingEntities } from "@/components/TrendingEntities";
+import { topEntitiesFrom } from "@/lib/aggregateEntities";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
