@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
           .from("podcasts")
           .select("id, title, display_title, description, shadow_rank_tier, ai_category_confidence")
           .eq("shadow_rank_tier", tier)
-          .or("language.ilike.hu%")
+          .ilike("language", "hu%")
           .order("podiverzum_rank", { ascending: false, nullsFirst: false })
           .limit(need * 3); // overfetch — we filter+dedupe below
         if (recategorize) {
