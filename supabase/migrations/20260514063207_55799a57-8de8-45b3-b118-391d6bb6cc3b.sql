@@ -1,0 +1,1 @@
+INSERT INTO app_settings (key, value) VALUES ('embed_controls', '{"batch": 50, "model": "google/gemini-embedding-001", "tiers": ["S","A","B","C"], "dimensions": 768, "concurrency": 4, "daily_budget_usd": 2}'::jsonb) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
