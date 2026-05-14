@@ -321,12 +321,19 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Szerkesztői pulzus</div>
                 <h2 className="text-2xl font-semibold tracking-tight">Felkapott epizódok</h2>
+                <p className="text-xs text-muted-foreground mt-1">Friss epizódok a műsorok között.</p>
               </div>
-              <span className="text-xs text-muted-foreground hidden sm:inline">Válogatott · rangsorolt · értelmezett</span>
             </div>
-            <EpisodeList items={trendingEps} scrollOnMobile />
+            <div className="hidden md:grid md:grid-cols-2 gap-4">
+              <EpisodeList items={trendingEps.slice(0, 3)} />
+              {trendingEps.length > 3 && (
+                <EpisodeList items={trendingEps.slice(3, 6)} />
+              )}
+            </div>
+            <div className="md:hidden">
+              <EpisodeList items={trendingEps} scrollOnMobile />
+            </div>
           </section>
         )}
 
