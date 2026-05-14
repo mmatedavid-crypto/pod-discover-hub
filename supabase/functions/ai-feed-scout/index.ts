@@ -51,9 +51,27 @@ const DEFAULT_SOURCES: { url: string; tag: string; lang_hint: string }[] = [
   { url: "https://rtl.hu/podcast", tag: "media-rtl", lang_hint: "hu" },
   { url: "https://www.partizan.hu/podcastok", tag: "media-partizan", lang_hint: "hu" },
   { url: "https://merce.hu/podcast/", tag: "media-merce", lang_hint: "hu" },
-  // Magyar közmédia
+  // Magyar közmédia & rádiók
   { url: "https://mediaklikk.hu/musor/podcastok/", tag: "pub-mediaklikk", lang_hint: "hu" },
   { url: "https://radio.hu/podcastok", tag: "pub-radio-hu", lang_hint: "hu" },
+  { url: "https://infostart.hu/podcast", tag: "radio-inforadio", lang_hint: "hu" },
+  { url: "https://www.klubradio.hu/musorok", tag: "radio-klubradio", lang_hint: "hu" },
+  { url: "https://www.spirit.hu/podcastok", tag: "radio-spirit", lang_hint: "hu" },
+  // Szakmai / niche magyar média
+  { url: "https://g7.hu/cimke/podcast/", tag: "media-g7", lang_hint: "hu" },
+  { url: "https://forbes.hu/cimke/podcast/", tag: "media-forbes", lang_hint: "hu" },
+  { url: "https://qubit.hu/cimke/podcast", tag: "media-qubit", lang_hint: "hu" },
+  { url: "https://valaszonline.hu/category/podcast/", tag: "media-valasz", lang_hint: "hu" },
+  { url: "https://mandiner.hu/cimke/podcast", tag: "media-mandiner", lang_hint: "hu" },
+  { url: "https://www.azonnali.hu/cimke/podcast", tag: "media-azonnali", lang_hint: "hu" },
+  { url: "https://24.hu/szorakozas/podcast/", tag: "media-24-szorakozas", lang_hint: "hu" },
+  // Erdélyi magyar nyelvű média
+  { url: "https://maszol.ro/podcast", tag: "media-maszol-ro", lang_hint: "hu" },
+  { url: "https://transtelex.ro/podcast", tag: "media-transtelex-ro", lang_hint: "hu" },
+  // Aggregátorok / podcast directory-k (HU szűrővel)
+  { url: "https://podtail.com/hu/top-podcasts/", tag: "agg-podtail-hu", lang_hint: "hu" },
+  { url: "https://www.listennotes.com/podcasts/?language=Hungarian", tag: "agg-listennotes-hu", lang_hint: "hu" },
+  { url: "https://www.podme.com/hu", tag: "agg-podme-hu", lang_hint: "hu" },
   // Wikipedia HU lista
   { url: "https://hu.wikipedia.org/wiki/Magyar_podcastok_list%C3%A1ja", tag: "wiki-hu-podcasts", lang_hint: "hu" },
 ];
@@ -237,7 +255,16 @@ Deno.serve(async (req) => {
     const candidates: { title: string; author?: string; reason?: string; rss_url?: string; sourceTag: string; langHint: string }[] = [];
     const sourceStats: Record<string, { scraped: boolean; extracted: number; lang_hint: string }> = {};
 
-    for (const src of sources) {
+    // Time budget: keep total work under 130s so we always have time to insert+respond
+    // before Lovable's 150s edge-function idle timeout. Sources are shuffled per run
+    // so different ones get processed first across cron invocations.
+    const TIME_BUDGET_MS = 130_000;
+    const SCRAPE_PHASE_MS = 80_000; // leave ~50s for PI/iTunes validation + insert
+    const shuffled = sources.slice().sort(() => Math.random() - 0.5);
+    let scrapeAborted = false;
+
+    for (const src of shuffled) {
+      if (Date.now() - t0 > SCRAPE_PHASE_MS) { scrapeAborted = true; break; }
       const md = await firecrawlScrape(src.url);
       if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0, lang_hint: src.lang_hint }; continue; }
       const extracted = await geminiExtract(md, src.tag, src.lang_hint, maxPerSource, model);
@@ -270,6 +297,7 @@ Deno.serve(async (req) => {
        .replace(/[^a-z0-9]+/g, " ").trim();
 
     for (const c of unique) {
+      if (Date.now() - t0 > TIME_BUDGET_MS) { scrapeAborted = true; break; }
       // ---------- TIER 1: direct RSS URL extracted from page ----------
       if (c.rss_url && /^https?:\/\//i.test(c.rss_url)) {
         const ok = await validateRss(c.rss_url);
