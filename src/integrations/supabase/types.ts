@@ -891,6 +891,9 @@ export type Database = {
           manual_rank_boost: number
           next_fetch_at: string | null
           next_rss_hunt_at: string | null
+          pi_backfill_completed_at: string | null
+          pi_backfill_episode_count: number | null
+          pi_backfill_error: string | null
           podiverzum_rank: number
           quarantined_until: string | null
           rank_label: string | null
@@ -963,6 +966,9 @@ export type Database = {
           manual_rank_boost?: number
           next_fetch_at?: string | null
           next_rss_hunt_at?: string | null
+          pi_backfill_completed_at?: string | null
+          pi_backfill_episode_count?: number | null
+          pi_backfill_error?: string | null
           podiverzum_rank?: number
           quarantined_until?: string | null
           rank_label?: string | null
@@ -1035,6 +1041,9 @@ export type Database = {
           manual_rank_boost?: number
           next_fetch_at?: string | null
           next_rss_hunt_at?: string | null
+          pi_backfill_completed_at?: string | null
+          pi_backfill_episode_count?: number | null
+          pi_backfill_error?: string | null
           podiverzum_rank?: number
           quarantined_until?: string | null
           rank_label?: string | null
