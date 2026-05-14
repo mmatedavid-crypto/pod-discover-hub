@@ -78,60 +78,40 @@ export default function LiveIndexBar() {
 
   return (
     <div className="bg-background text-foreground border-b border-border/70 overflow-hidden">
-      <div className="flex items-stretch w-full">
-        {/* LIVE label */}
-        <div className="shrink-0 flex items-center gap-2 pl-3 sm:pl-4 pr-2.5 sm:pr-4 py-1 sm:py-1.5 border-r border-border/60 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent">
-          <span className="relative inline-flex h-2 w-2">
-            <span className="pulse-red" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary shadow-[0_0_10px_hsl(var(--brand-red)/0.95)]" />
-          </span>
-          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.22em] text-foreground">
-            Élő
-          </span>
-          <span className="hidden sm:inline text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            · Folyamatosan indexelve
-          </span>
-        </div>
-
-        {/* Ticker */}
-        <div
-          className="relative flex-1 min-w-0 overflow-hidden group"
-          aria-label="Élő index — friss epizódok"
+      {/* Ticker — full width */}
+      <div
+        className="relative w-full overflow-hidden group"
+        aria-label="Frissen indexelt epizódok"
+      >
+        <ul
+          className="flex items-center gap-6 sm:gap-8 whitespace-nowrap text-xs py-1 sm:py-1.5 animate-[ticker_140s_linear_infinite] sm:animate-[ticker_120s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
+          style={{ width: "max-content" }}
         >
-          <ul
-            className="flex items-center gap-6 sm:gap-8 whitespace-nowrap text-xs py-1 sm:py-1.5 animate-[ticker_140s_linear_infinite] sm:animate-[ticker_120s_linear_infinite] group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none"
-            style={{ width: "max-content" }}
-          >
-            {loop.map((it, i) => {
-              const prefix = PREFIXES[i % PREFIXES.length];
-              const epTitle = it.display_title || it.title;
-              const podTitle = it.podcasts!.display_title || it.podcasts!.title;
-              return (
-                <li key={`${it.id}-${i}`} className="shrink-0 flex items-center gap-2">
-                  <span className="h-1 w-1 rounded-full bg-primary/70 shrink-0" aria-hidden />
-                  <span className="text-[10px] uppercase tracking-[0.16em] text-primary/80 font-semibold shrink-0">
-                    {prefix}:
+          {loop.map((it, i) => {
+            const epTitle = it.display_title || it.title;
+            const podTitle = it.podcasts!.display_title || it.podcasts!.title;
+            return (
+              <li key={`${it.id}-${i}`} className="shrink-0 flex items-center gap-2">
+                <span className="h-1 w-1 rounded-full bg-primary/70 shrink-0" aria-hidden />
+                <Link
+                  to={`/podcast/${it.podcasts!.slug}/${it.slug}`}
+                  className="group/item inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  <span className="text-foreground/95 group-hover/item:underline decoration-primary/60 underline-offset-4">
+                    {podTitle}
                   </span>
-                  <Link
-                    to={`/podcast/${it.podcasts!.slug}/${it.slug}`}
-                    className="group/item inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
-                  >
-                    <span className="text-foreground/95 group-hover/item:underline decoration-primary/60 underline-offset-4">
-                      {podTitle}
-                    </span>
-                    <span className="opacity-60">— {epTitle}</span>
-                    {it.podcasts!.category && (
-                      <span className="hidden md:inline opacity-50">· {it.podcasts!.category}</span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-          {/* Edge fade masks */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent" />
-        </div>
+                  <span className="opacity-60">— {epTitle}</span>
+                  {it.podcasts!.category && (
+                    <span className="hidden md:inline opacity-50">· {it.podcasts!.category}</span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+        {/* Edge fade masks */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent" />
       </div>
     </div>
   );
