@@ -51,9 +51,27 @@ const DEFAULT_SOURCES: { url: string; tag: string; lang_hint: string }[] = [
   { url: "https://rtl.hu/podcast", tag: "media-rtl", lang_hint: "hu" },
   { url: "https://www.partizan.hu/podcastok", tag: "media-partizan", lang_hint: "hu" },
   { url: "https://merce.hu/podcast/", tag: "media-merce", lang_hint: "hu" },
-  // Magyar közmédia
+  // Magyar közmédia & rádiók
   { url: "https://mediaklikk.hu/musor/podcastok/", tag: "pub-mediaklikk", lang_hint: "hu" },
   { url: "https://radio.hu/podcastok", tag: "pub-radio-hu", lang_hint: "hu" },
+  { url: "https://infostart.hu/podcast", tag: "radio-inforadio", lang_hint: "hu" },
+  { url: "https://www.klubradio.hu/musorok", tag: "radio-klubradio", lang_hint: "hu" },
+  { url: "https://www.spirit.hu/podcastok", tag: "radio-spirit", lang_hint: "hu" },
+  // Szakmai / niche magyar média
+  { url: "https://g7.hu/cimke/podcast/", tag: "media-g7", lang_hint: "hu" },
+  { url: "https://forbes.hu/cimke/podcast/", tag: "media-forbes", lang_hint: "hu" },
+  { url: "https://qubit.hu/cimke/podcast", tag: "media-qubit", lang_hint: "hu" },
+  { url: "https://valaszonline.hu/category/podcast/", tag: "media-valasz", lang_hint: "hu" },
+  { url: "https://mandiner.hu/cimke/podcast", tag: "media-mandiner", lang_hint: "hu" },
+  { url: "https://www.azonnali.hu/cimke/podcast", tag: "media-azonnali", lang_hint: "hu" },
+  { url: "https://24.hu/szorakozas/podcast/", tag: "media-24-szorakozas", lang_hint: "hu" },
+  // Erdélyi magyar nyelvű média
+  { url: "https://maszol.ro/podcast", tag: "media-maszol-ro", lang_hint: "hu" },
+  { url: "https://transtelex.ro/podcast", tag: "media-transtelex-ro", lang_hint: "hu" },
+  // Aggregátorok / podcast directory-k (HU szűrővel)
+  { url: "https://podtail.com/hu/top-podcasts/", tag: "agg-podtail-hu", lang_hint: "hu" },
+  { url: "https://www.listennotes.com/podcasts/?language=Hungarian", tag: "agg-listennotes-hu", lang_hint: "hu" },
+  { url: "https://www.podme.com/hu", tag: "agg-podme-hu", lang_hint: "hu" },
   // Wikipedia HU lista
   { url: "https://hu.wikipedia.org/wiki/Magyar_podcastok_list%C3%A1ja", tag: "wiki-hu-podcasts", lang_hint: "hu" },
 ];
