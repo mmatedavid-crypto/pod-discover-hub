@@ -63,22 +63,27 @@ Deno.serve(async (req) => {
 
     const { data: rows, error } = await supabase
       .from("podcasts")
-      .select("id,title,description,language,rank_label")
+      .select("id,title,description,language,rank_label,pi_backfill_dry_run")
       .ilike("language", "hu%")
       .in("rank_label", tiers)
       .not("pi_backfill_peeked_at", "is", null)
       .is("pi_backfill_completed_at", null)
-      .limit(limit);
+      .limit(500);
     if (error) throw error;
+    // Skip already-rechecked (marker in pi_backfill_dry_run.lang_recheck)
+    const pending = (rows || []).filter((r: any) => !r?.pi_backfill_dry_run?.lang_recheck).slice(0, limit);
 
     const results: any[] = [];
     let changed = 0, kept = 0, errors = 0;
-    for (const p of rows || []) {
+    for (const p of pending) {
       const det = await detectLanguage(p.title, p.description || "");
       if (!det) { errors++; results.push({ id: p.id, title: p.title, ok: false }); continue; }
       const isHu = det.lang === "hu" && det.confidence >= 0.6;
+      const marker = { lang_recheck: { lang: det.lang, conf: det.confidence, at: new Date().toISOString() } };
+      const mergedDryRun = { ...(p.pi_backfill_dry_run || {}), ...marker };
       if (isHu) {
         kept++;
+        await supabase.from("podcasts").update({ pi_backfill_dry_run: mergedDryRun }).eq("id", p.id);
         results.push({ id: p.id, title: p.title, lang: det.lang, conf: det.confidence, kept: true });
       } else {
         changed++;
@@ -86,13 +91,14 @@ Deno.serve(async (req) => {
           language: det.lang === "unknown" ? null : det.lang,
           pi_backfill_completed_at: new Date().toISOString(),
           pi_backfill_approved: false,
+          pi_backfill_dry_run: mergedDryRun,
           pi_backfill_error: `lang_recheck: ${det.lang} (${det.confidence}) ${det.reason}`.slice(0, 500),
         }).eq("id", p.id);
         results.push({ id: p.id, title: p.title, was: "hu", now: det.lang, conf: det.confidence, reason: det.reason });
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, processed: rows?.length || 0, changed, kept, errors, results }), {
+    return new Response(JSON.stringify({ ok: true, processed: pending.length, changed, kept, errors, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
