@@ -99,7 +99,7 @@ export default function SearchPage() {
       //   Phase 2: rerank=true → cache hit instant, else ~3.5s, merge why_matched chips.
       try {
         const phase1 = await supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: false, lang: "en" },
+          body: { q: initial, limit: 80, rerank: false, lang: "hu" },
         });
         if (phase1.error) throw phase1.error;
         if (cancelled) return;
@@ -112,7 +112,7 @@ export default function SearchPage() {
 
         // Phase 2: rerank (with cache). Fire-and-forget update.
         supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: true, lang: "en" },
+          body: { q: initial, limit: 80, rerank: true, lang: "hu" },
         }).then(({ data: data2, error: err2 }) => {
           if (cancelled || err2 || !data2) return;
           const r2 = applyHybridResponse(data2);
