@@ -86,9 +86,12 @@ export default function PodcastDetail() {
             <h1 className="text-3xl font-semibold mt-1">{p.display_title || p.title}</h1>
 
             <div className="flex flex-wrap gap-2 mt-2 items-center text-xs">
-              {p.rank_label && (
-                <span className="px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-primary">
-                  {p.rank_label}-kategória
+              {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-muted-foreground"
+                  title="A Podiverzum forrásminőség-jelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján."
+                >
+                  Forrás {Number(p.podiverzum_rank).toFixed(1)}
                 </span>
               )}
               {isHealthy ? (
