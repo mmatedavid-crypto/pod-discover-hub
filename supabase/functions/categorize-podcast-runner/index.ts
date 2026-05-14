@@ -201,18 +201,33 @@ Deno.serve(async (req) => {
 
       // pick next batch: order by tier priority, then podiverzum_rank desc
       let candidates: any[] = [];
-      for (const tier of tierOrder) {
+      const seenIds = new Set<string>();
+      const tiersToUse = recategorize ? reTiers : tierOrder;
+      for (const tier of tiersToUse) {
         const need = batch - candidates.length;
         if (need <= 0) break;
-        const { data } = await admin
+        let q = admin
           .from("podcasts")
-          .select("id, title, display_title, description, shadow_rank_tier")
-          .is("category", null)
+          .select("id, title, display_title, description, shadow_rank_tier, ai_category_confidence")
           .eq("shadow_rank_tier", tier)
           .or("language.ilike.hu%")
           .order("podiverzum_rank", { ascending: false, nullsFirst: false })
-          .limit(need);
-        if (data && data.length) candidates = candidates.concat(data);
+          .limit(need * 3); // overfetch — we filter+dedupe below
+        if (recategorize) {
+          // Pull rows whose existing confidence is < reMaxConf (or never categorized)
+          q = q.or(`ai_category_confidence.is.null,ai_category_confidence.lt.${reMaxConf}`);
+        } else {
+          q = q.is("category", null);
+        }
+        const { data } = await q;
+        if (data && data.length) {
+          for (const row of data) {
+            if (candidates.length >= batch) break;
+            if (seenIds.has(row.id)) continue;
+            seenIds.add(row.id);
+            candidates.push(row);
+          }
+        }
       }
       if (!candidates.length) break;
       total_claimed += candidates.length;
