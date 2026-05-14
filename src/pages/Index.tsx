@@ -30,7 +30,7 @@ const Index = () => {
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
-  const [chips, setChips] = useState<{ label: string; query: string }[]>([
+  const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
     { label: "MNB kamatdöntés", query: "MNB kamatdöntés" },
     { label: "magyar gazdaság", query: "magyar gazdaság" },
     { label: "mesterséges intelligencia", query: "mesterséges intelligencia" },
@@ -38,10 +38,27 @@ const Index = () => {
     { label: "egészséges életmód", query: "egészséges életmód" },
     { label: "vállalkozói történetek", query: "vállalkozói történetek" },
     { label: "politikai háttér", query: "politikai háttér" },
+    { label: "MI szabályozás", query: "MI szabályozás" },
+    { label: "tőzsde", query: "tőzsde" },
+    { label: "Friderikusz", query: "Friderikusz" },
   ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [heroPlaceholder, setHeroPlaceholder] = useState(
+    typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
+      ? "Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
+      : "Téma vagy gondolat…"
+  );
   const nav = useNavigate();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setHeroPlaceholder(mq.matches ? "Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…" : "Téma vagy gondolat…");
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     supabase
@@ -52,10 +69,20 @@ const Index = () => {
       .then(({ data }) => {
         const items = (data?.value as any)?.items;
         if (Array.isArray(items) && items.length) {
-          setChips(items.filter((c) => c?.label && c?.query).slice(0, 8));
+          const cleaned = items.filter((c: any) => c?.label && c?.query);
+          if (cleaned.length >= 4) setChipPool(cleaned);
         }
       });
   }, []);
+
+  // Stable per-week rotation
+  const visibleChips = useMemo(() => {
+    if (!chipPool.length) return [];
+    const week = Math.floor(Date.now() / (7 * 86400_000));
+    const offset = week % chipPool.length;
+    const n = Math.min(5, chipPool.length);
+    return Array.from({ length: n }, (_, i) => chipPool[(offset + i) % chipPool.length]);
+  }, [chipPool]);
 
   useEffect(() => {
     setSeo({
