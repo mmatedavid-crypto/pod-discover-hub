@@ -8,6 +8,7 @@ import { Search } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
+import { pushRecentSearch } from "@/lib/recentSearches";
 
 type SortKey = "best" | "newest" | "rank";
 
@@ -72,6 +73,7 @@ export default function SearchPage() {
     setAiAnswer("");
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
+    pushRecentSearch(initial);
 
     setLoading(true);
     let cancelled = false;
