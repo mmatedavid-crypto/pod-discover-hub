@@ -27,6 +27,7 @@ import AdminAiEnrichmentPage from "./pages/AdminAiEnrichmentPage.tsx";
 import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
 import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
+import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
@@ -77,6 +78,7 @@ const App = () => (
           <Route path="/admin/cron-status" element={<AdminCronStatusPage />} />
           <Route path="/admin/social" element={<AdminSocialPostsPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
+          <Route path="/admin/pi-backfill" element={<AdminPiBackfillPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />

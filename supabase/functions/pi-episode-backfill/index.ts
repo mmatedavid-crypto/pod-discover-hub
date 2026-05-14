@@ -212,6 +212,9 @@ Deno.serve(async (req) => {
     } else {
       q = q.ilike("language", "hu%").eq("rss_status", "active");
       if (!force) q = q.is("pi_backfill_completed_at", null);
+      // Tier szűrés: S/A automata, B/C csak admin-jóváhagyott
+      // Egy lekérdezésben: rank_label IN (S,A) OR (rank_label IN (B,C) AND pi_backfill_approved=true)
+      q = q.or("and(rank_label.in.(S,A)),and(rank_label.in.(B,C),pi_backfill_approved.eq.true)");
       q = q.order("podiverzum_rank", { ascending: false, nullsFirst: false }).limit(limit);
     }
 
