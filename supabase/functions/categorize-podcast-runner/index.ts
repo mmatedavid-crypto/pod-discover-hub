@@ -121,6 +121,15 @@ Deno.serve(async (req) => {
     const concurrency = Math.max(1, Math.min(12, Number(body.concurrency ?? ctrl.concurrency ?? 6)));
     const model = String(ctrl.model || "google/gemini-2.5-flash");
     const lowConf = Number(ctrl.low_confidence_threshold ?? 0.75);
+    // Recategorize mode: re-run on already-categorized podcasts (HU re-review pass).
+    // recategorize=true → pick all S/A/B/C, ordered by rank, ignoring `category IS NULL`.
+    // recategorizeMaxConfidence (default 1.0) → only re-run rows whose existing confidence is BELOW this.
+    // recategorizeTiers (default ["S","A"]) → which tiers to re-process.
+    const recategorize: boolean = body.recategorize === true;
+    const reMaxConf: number = Number(body.recategorizeMaxConfidence ?? 1.0);
+    const reTiers: string[] = Array.isArray(body.recategorizeTiers) && body.recategorizeTiers.length
+      ? body.recategorizeTiers
+      : ["S", "A"];
 
     // Today's spend (reuse ai_spend_daily, separate by_kind bucket)
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
