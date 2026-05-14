@@ -255,7 +255,16 @@ Deno.serve(async (req) => {
     const candidates: { title: string; author?: string; reason?: string; rss_url?: string; sourceTag: string; langHint: string }[] = [];
     const sourceStats: Record<string, { scraped: boolean; extracted: number; lang_hint: string }> = {};
 
-    for (const src of sources) {
+    // Time budget: keep total work under 130s so we always have time to insert+respond
+    // before Lovable's 150s edge-function idle timeout. Sources are shuffled per run
+    // so different ones get processed first across cron invocations.
+    const TIME_BUDGET_MS = 130_000;
+    const SCRAPE_PHASE_MS = 80_000; // leave ~50s for PI/iTunes validation + insert
+    const shuffled = sources.slice().sort(() => Math.random() - 0.5);
+    let scrapeAborted = false;
+
+    for (const src of shuffled) {
+      if (Date.now() - t0 > SCRAPE_PHASE_MS) { scrapeAborted = true; break; }
       const md = await firecrawlScrape(src.url);
       if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0, lang_hint: src.lang_hint }; continue; }
       const extracted = await geminiExtract(md, src.tag, src.lang_hint, maxPerSource, model);
