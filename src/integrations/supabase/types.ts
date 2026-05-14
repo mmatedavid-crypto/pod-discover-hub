@@ -169,6 +169,7 @@ export type Database = {
           seo_updated_at: string | null
           slug: string
           sort_order: number
+          taxonomy_keys: string[]
         }
         Insert: {
           created_at?: string
@@ -180,6 +181,7 @@ export type Database = {
           seo_updated_at?: string | null
           slug: string
           sort_order?: number
+          taxonomy_keys?: string[]
         }
         Update: {
           created_at?: string
@@ -191,6 +193,7 @@ export type Database = {
           seo_updated_at?: string | null
           slug?: string
           sort_order?: number
+          taxonomy_keys?: string[]
         }
         Relationships: []
       }
