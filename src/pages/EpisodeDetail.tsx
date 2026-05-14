@@ -232,8 +232,9 @@ export default function EpisodeDetail() {
 
         {summary && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-card">
-            <div className="text-xs uppercase tracking-wide text-accent mb-1">MI összefoglaló</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Összefoglaló</div>
             <p className="whitespace-pre-wrap">{summary}</p>
+            <p className="text-[10px] text-muted-foreground mt-2">Indexelt epizód-metaadatból generálva.</p>
           </div>
         )}
 
