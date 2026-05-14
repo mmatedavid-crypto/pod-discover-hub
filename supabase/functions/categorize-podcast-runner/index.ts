@@ -260,9 +260,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Adaptive cron tuning
+    // Adaptive cron tuning — only when running the normal "fill-in NULL" pass.
+    // Recategorize runs are one-off admin triggers; they should not retune the schedule.
     let next_schedule: string | null = null;
-    try {
+    if (!recategorize) try {
       const { count: remaining } = await admin
         .from("podcasts")
         .select("id", { count: "exact", head: true })
