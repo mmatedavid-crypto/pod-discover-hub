@@ -54,7 +54,7 @@ export default function PodcastDetail() {
         });
         const { data: e } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url")
+          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
           .eq("podcast_id", data.id)
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(60);
