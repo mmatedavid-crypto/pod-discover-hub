@@ -32,8 +32,8 @@ const CATEGORIES: { slug: string; name: string; hint: string }[] = [
   { slug: "culture",                  name: "Film, TV & Pop Culture",     hint: "Movies, TV recaps, celebrities, pop-culture commentary" },
   { slug: "arts",                     name: "Arts",                       hint: "Visual arts, design, architecture, theater, creativity, art history" },
   { slug: "music",                    name: "Music",                      hint: "Music interviews, music history, artist deep dives, music criticism" },
-  { slug: "comedy",                   name: "Comedy",                     hint: "Comedy talk, stand-up, improv, comedians chatting, humor-first shows" },
-  { slug: "fiction-audio-drama",      name: "Fiction & Audio Drama",      hint: "Scripted fiction, audio drama, narrative storytelling, podcast novels" },
+  { slug: "comedy",                   name: "Comedy",                     hint: "Comedy talk, stand-up, improv, comedians chatting, humor-first shows. HU: kereskedelmi rádiós reggeli show-k (Balázsék, Bochkor, Class FM Morning Show), könnyed hangvételű rádiós beszélgetések — ezek IDE tartoznak, NEM a Society & Culture vagy Film/TV alá." },
+  { slug: "fiction-audio-drama",      name: "Fiction & Audio Drama",      hint: "Scripted fiction, audio drama, narrative storytelling, podcast novels. HU: rádiószínház, hangjáték, hangoskönyv-szerű narratív fikció." },
   { slug: "true-crime",               name: "True Crime & Paranormal",    hint: "True crime, mysteries, paranormal, ghost stories, conspiracy" },
   { slug: "sports",                   name: "Sports",                     hint: "Sports talk, leagues, athletes, fantasy, betting, sports business" },
   { slug: "food",                     name: "Food",                       hint: "Cooking, recipes, restaurants, food culture, drinks" },
@@ -42,7 +42,15 @@ const CATEGORIES: { slug: string; name: string; hint: string }[] = [
 const ENUM_SLUGS = CATEGORIES.map(c => c.slug);
 const SLUG_TO_NAME = Object.fromEntries(CATEGORIES.map(c => [c.slug, c.name]));
 
-const SYSTEM = `You categorize podcasts into ONE of a fixed taxonomy. You MUST pick from the provided slugs. Be decisive: if the show is even loosely a fit, classify it. Use "uncertain" only when the description is empty or genuinely cross-genre with no dominant lane. Confidence is your honest belief, not modesty.`;
+const SYSTEM = `You categorize podcasts into ONE of a fixed taxonomy. You MUST pick from the provided slugs. Be decisive: if the show is even loosely a fit, classify it. Use low confidence only when the description is empty or genuinely cross-genre with no dominant lane.
+
+HUNGARIAN CONTEXT (most podcasts are HU):
+- "Reggeli show" / kereskedelmi rádiós reggeli műsor (Balázsék, Bochkor, Class FM, Music FM, Retro Rádió Reggeli) → comedy. They are entertainment/humor-first, NOT society-culture or film-tv, even when celebrities are guests.
+- "Rádiószínház", "hangjáték", "hangoskönyv" narratív fikcióval → fiction-audio-drama.
+- Egyházi prédikáció, igehirdetés, bibliatanulmány → religion-spirituality (még ha "Balázs Podcast"-nak hívják is).
+- Munkajogi / jogi szakmai podcast → business (jog mint szakma) — kivéve ha tisztán oktató jellegű, akkor education.
+- Magyar gazdasági/közéleti reggeli show (Millásreggeli, Péntek Reggel) → news (közélet a fő tartalom, nem entertainment).
+- Pszichológia, párkapcsolat, terápia → psychology-relationships, NEM self-improvement, hacsak nem produktivitás/szokások a fókusz.`;
 
 function buildPrompt(p: any): string {
   const cats = CATEGORIES.map(c => `- ${c.slug} — ${c.name}: ${c.hint}`).join("\n");
@@ -113,6 +121,15 @@ Deno.serve(async (req) => {
     const concurrency = Math.max(1, Math.min(12, Number(body.concurrency ?? ctrl.concurrency ?? 6)));
     const model = String(ctrl.model || "google/gemini-2.5-flash");
     const lowConf = Number(ctrl.low_confidence_threshold ?? 0.75);
+    // Recategorize mode: re-run on already-categorized podcasts (HU re-review pass).
+    // recategorize=true → pick all S/A/B/C, ordered by rank, ignoring `category IS NULL`.
+    // recategorizeMaxConfidence (default 1.0) → only re-run rows whose existing confidence is BELOW this.
+    // recategorizeTiers (default ["S","A"]) → which tiers to re-process.
+    const recategorize: boolean = body.recategorize === true;
+    const reMaxConf: number = Number(body.recategorizeMaxConfidence ?? 1.0);
+    const reTiers: string[] = Array.isArray(body.recategorizeTiers) && body.recategorizeTiers.length
+      ? body.recategorizeTiers
+      : ["S", "A"];
 
     // Today's spend (reuse ai_spend_daily, separate by_kind bucket)
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
@@ -184,18 +201,33 @@ Deno.serve(async (req) => {
 
       // pick next batch: order by tier priority, then podiverzum_rank desc
       let candidates: any[] = [];
-      for (const tier of tierOrder) {
+      const seenIds = new Set<string>();
+      const tiersToUse = recategorize ? reTiers : tierOrder;
+      for (const tier of tiersToUse) {
         const need = batch - candidates.length;
         if (need <= 0) break;
-        const { data } = await admin
+        let q = admin
           .from("podcasts")
-          .select("id, title, display_title, description, shadow_rank_tier")
-          .is("category", null)
+          .select("id, title, display_title, description, shadow_rank_tier, ai_category_confidence")
           .eq("shadow_rank_tier", tier)
-          .or("language.ilike.hu%")
+          .ilike("language", "hu%")
           .order("podiverzum_rank", { ascending: false, nullsFirst: false })
-          .limit(need);
-        if (data && data.length) candidates = candidates.concat(data);
+          .limit(need * 3); // overfetch — we filter+dedupe below
+        if (recategorize) {
+          // Pull rows whose existing confidence is < reMaxConf (or never categorized)
+          q = q.or(`ai_category_confidence.is.null,ai_category_confidence.lt.${reMaxConf}`);
+        } else {
+          q = q.is("category", null);
+        }
+        const { data } = await q;
+        if (data && data.length) {
+          for (const row of data) {
+            if (candidates.length >= batch) break;
+            if (seenIds.has(row.id)) continue;
+            seenIds.add(row.id);
+            candidates.push(row);
+          }
+        }
       }
       if (!candidates.length) break;
       total_claimed += candidates.length;
@@ -228,9 +260,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Adaptive cron tuning
+    // Adaptive cron tuning — only when running the normal "fill-in NULL" pass.
+    // Recategorize runs are one-off admin triggers; they should not retune the schedule.
     let next_schedule: string | null = null;
-    try {
+    if (!recategorize) try {
       const { count: remaining } = await admin
         .from("podcasts")
         .select("id", { count: "exact", head: true })
