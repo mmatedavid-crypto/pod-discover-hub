@@ -126,6 +126,26 @@ export default function PodcastDetail() {
           </div>
         </div>
 
+        {(() => {
+          const epsLite = eps as any[];
+          const people = topEntitiesFrom(epsLite, "people", "person", 8);
+          const companies = topEntitiesFrom(epsLite, "companies", "company", 8);
+          const topics = topEntitiesFrom(epsLite, "topics", "topic", 8);
+          const all = [
+            people.length ? { eyebrow: "Emberek", title: "Az adásokban emlegetett emberek", items: people, icon: "person" as const } : null,
+            companies.length ? { eyebrow: "Cégek", title: "Visszatérő cégek és márkák", items: companies, icon: "company" as const } : null,
+            topics.length ? { eyebrow: "Témák", title: "Visszatérő témák", items: topics, icon: "topic" as const } : null,
+          ].filter(Boolean) as Array<{ eyebrow: string; title: string; items: any[]; icon: "person" | "company" | "topic" }>;
+          if (!all.length) return null;
+          return (
+            <div className="mt-10 grid gap-6">
+              {all.map((s) => (
+                <TrendingEntities key={s.eyebrow} eyebrow={s.eyebrow} title={s.title} items={s.items} icon={s.icon} />
+              ))}
+            </div>
+          );
+        })()}
+
         <h2 className="text-xl font-semibold mt-10 mb-4">Epizódok</h2>
         {eps.length === 0 ? (
           <div className="text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
