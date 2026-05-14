@@ -28,9 +28,11 @@ export default function PodcastDetail() {
       if (data) {
         const cleanSummary = stripHtml(data.summary);
         const cleanDesc = stripHtml(data.description);
+        const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${data.slug}` : undefined;
         setSeo({
           title: data.seo_title || `${data.title} – Podiverzum`,
           description: snippet(data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`, 160),
+          canonical,
           noindex: data.rss_status === "failed" || data.rss_status === "inactive",
           image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: data.category || "Podcast", image: data.image_url }),
           jsonLd: [
