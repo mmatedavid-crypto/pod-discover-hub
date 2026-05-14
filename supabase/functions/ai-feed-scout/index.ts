@@ -297,6 +297,7 @@ Deno.serve(async (req) => {
        .replace(/[^a-z0-9]+/g, " ").trim();
 
     for (const c of unique) {
+      if (Date.now() - t0 > TIME_BUDGET_MS) { scrapeAborted = true; break; }
       // ---------- TIER 1: direct RSS URL extracted from page ----------
       if (c.rss_url && /^https?:\/\//i.test(c.rss_url)) {
         const ok = await validateRss(c.rss_url);
