@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = jsonb_set(value, '{model}', '"google/gemini-2.5-flash"'), updated_at = now() WHERE key = 'ai_categorize_controls';
