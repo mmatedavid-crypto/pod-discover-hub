@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     // Pick high-quality broken feeds first
     const { data: cands } = await supabase
       .from("podcasts")
-      .select("id, title, rss_url, rss_status, consecutive_failure_count, ai_quality_score, ai_spam_score, last_fetch_error, shadow_rank_components")
+      .select("id, title, rss_url, website_url, rss_status, consecutive_failure_count, ai_quality_score, ai_spam_score, last_fetch_error, shadow_rank_components")
       .or("rss_status.eq.failed,consecutive_failure_count.gte.5")
       .gte("ai_quality_score", 6)
       .lt("ai_spam_score", 4)
@@ -119,6 +119,25 @@ Deno.serve(async (req) => {
           const conf = 0.6 * v.sim + 0.3 * piSim + 0.1 * (v.ok ? 1 : 0);
           if (!best || conf > best.conf) best = { url: f.url, conf, feedTitle: v.feedTitle };
         }
+
+        // Website fallback: if PI didn't yield a strong match, scrape the website
+        // for <link rel="alternate" type="application/rss+xml"> + try common paths.
+        // Critical for HU CMS feeds (Telex, 444, HVG, Index, Mandiner) that aren't well-indexed in PI.
+        if ((!best || best.conf < 0.85) && p.website_url) {
+          const candUrls = await discoverFeedFromWebsite(p.website_url);
+          for (const u of candUrls) {
+            if (!u || u === p.rss_url) continue;
+            const v = await verifyFeed(u, p.title);
+            if (!v.ok) continue;
+            // No PI signal here, weight feed-title sim higher; small bonus for being website-derived (same domain = strong signal)
+            const sameDomain = (() => {
+              try { return new URL(u).hostname === new URL(p.website_url).hostname; } catch { return false; }
+            })();
+            const conf = 0.7 * v.sim + 0.2 * (v.ok ? 1 : 0) + (sameDomain ? 0.1 : 0);
+            if (!best || conf > best.conf) best = { url: u, conf, feedTitle: v.feedTitle };
+          }
+        }
+
         const oldUrl = p.rss_url;
         const comp = (p.shadow_rank_components as any) || {};
         if (best && best.conf >= 0.85) {
