@@ -12,7 +12,7 @@
  */
 
 const PRERENDER_ENDPOINT =
-  "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/prerender";
+  "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/prerender";
 
 // Lovable origin host (proxied via Cloudflare). Workers route runs BEFORE
 // the proxy returns, so we just `fetch(request)` to passthrough.
