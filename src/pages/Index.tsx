@@ -297,7 +297,7 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
-        <AskPodiverzum />
+        
         <ContinueListening />
         {!loaded && trendingEps.length === 0 && (
           <section>
