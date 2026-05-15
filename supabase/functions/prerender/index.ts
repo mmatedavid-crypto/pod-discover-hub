@@ -62,8 +62,8 @@ function shell(opts: {
   const ld = opts.jsonLd
     .map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</script>`)
     .join("\n");
-  return `<!doctype html>
-<html lang="en">
+return `<!doctype html>
+<html lang="hu">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -92,11 +92,11 @@ ${ld}
 
 function notFound(path: string) {
   return new Response(new TextEncoder().encode(shell({
-      title: "Not found — Podiverzum",
-      description: "The requested page was not found.",
+      title: "Nincs ilyen oldal — Podiverzum",
+      description: "A keresett oldal nem található.",
       canonical: `${SITE}${path}`,
       jsonLd: [],
-      bodyHtml: "<h1>Not found</h1>",
+      bodyHtml: "<h1>Nincs ilyen oldal</h1>",
       noindex: true,
     })),
     { status: 404, headers: new Headers(baseHeaders) },
@@ -148,13 +148,13 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
   };
 
   return new Response(new TextEncoder().encode(shell({
-      title: "Podiverzum — Premium podcast discovery",
+      title: "Podiverzum — Találd meg. Hallgasd meg.",
       description:
-        "Find the best podcast episodes by topic, person, company, ticker or ingredient. Curated, ranked and AI-summarised.",
+        "Magyar podcast felfedező. Keress epizódokat témák, személyek, cégek vagy ötletek alapján. Találd meg. Hallgasd meg.",
       canonical: `${SITE}/`,
       jsonLd: [website, itemList],
-      bodyHtml: `<header><h1>Podiverzum</h1><p>Premium podcast discovery — find it, hear it.</p></header>
-<main><h2>Latest episodes</h2><ul>${itemsHtml}</ul></main>`,
+      bodyHtml: `<header><h1>Podiverzum</h1><p>Magyar podcast felfedező — találd meg, hallgasd meg.</p></header>
+<main><h2>Friss epizódok</h2><ul>${itemsHtml}</ul></main>`,
     })),
     { headers: new Headers(baseHeaders) },
   );
@@ -182,7 +182,7 @@ async function buildPodcast(
   const title = pod.seo_title || `${pod.display_title || pod.title} — Podiverzum`;
   const desc =
     pod.seo_description ||
-    truncate(stripHtml(pod.summary || pod.description) || `${pod.title} podcast on Podiverzum.`, 160);
+    truncate(stripHtml(pod.summary || pod.description) || `${pod.title} podcast a Podiverzumon.`, 160);
   const canonical = `${SITE}/podcast/${pod.slug}`;
 
   const epHtml = eps
@@ -200,7 +200,7 @@ async function buildPodcast(
     url: canonical,
     image: pod.image_url || undefined,
     description: stripHtml(pod.description || pod.summary) || undefined,
-    inLanguage: pod.language || "en",
+    inLanguage: pod.language || "hu",
     sameAs: [pod.website_url].filter(Boolean),
   };
   const itemList = {
@@ -224,8 +224,8 @@ async function buildPodcast(
       jsonLd: [series, itemList],
       bodyHtml: `<article>
 <header><h1>${esc(pod.display_title || pod.title)}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}</header>
-${longDesc ? `<section><h2>About</h2><p>${esc(longDesc)}</p></section>` : ""}
-<section><h2>Episodes</h2><ul>${epHtml}</ul></section>
+${longDesc ? `<section><h2>A műsorról</h2><p>${esc(longDesc)}</p></section>` : ""}
+<section><h2>Epizódok</h2><ul>${epHtml}</ul></section>
 </article>`,
     })),
     { headers: new Headers(baseHeaders) },
@@ -259,18 +259,18 @@ async function buildEpisode(
   const canonical = `${SITE}/podcast/${pod.slug}/${ep.slug}`;
   const longText = stripHtml(ep.ai_summary || ep.summary || ep.description);
 
-  const entities: Array<{ k: string; vals: string[] }> = [
-    { k: "topic", vals: ep.topics ?? [] },
-    { k: "person", vals: ep.people ?? [] },
-    { k: "company", vals: ep.companies ?? [] },
-    { k: "ticker", vals: ep.tickers ?? [] },
-    { k: "ingredient", vals: ep.ingredients ?? [] },
+  const entities: Array<{ k: string; label: string; vals: string[] }> = [
+    { k: "topic", label: "Témák", vals: ep.topics ?? [] },
+    { k: "person", label: "Személyek", vals: ep.people ?? [] },
+    { k: "company", label: "Cégek", vals: ep.companies ?? [] },
+    { k: "ticker", label: "Tickerek", vals: ep.tickers ?? [] },
+    { k: "ingredient", label: "Hozzávalók", vals: ep.ingredients ?? [] },
   ];
   const entitySection = entities
     .filter((e) => e.vals.length)
     .map(
       (e) =>
-        `<h3>${esc(e.k)}s</h3><ul>${e.vals
+        `<h3>${esc(e.label)}</h3><ul>${e.vals
           .slice(0, 20)
           .map((v) => `<li><a href="${SITE}/${e.k}/${esc(slugify(v, e.k))}">${esc(v)}</a></li>`)
           .join("")}</ul>`,
@@ -285,7 +285,7 @@ async function buildEpisode(
     datePublished: ep.published_at || undefined,
     description: longText || undefined,
     image: ep.image_url || pod.image_url || undefined,
-    inLanguage: pod.language || "en",
+    inLanguage: pod.language || "hu",
     associatedMedia: ep.audio_url
       ? { "@type": "MediaObject", contentUrl: ep.audio_url }
       : undefined,
@@ -299,7 +299,7 @@ async function buildEpisode(
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: SITE },
+      { "@type": "ListItem", position: 1, name: "Kezdőlap", item: SITE },
       { "@type": "ListItem", position: 2, name: pod.display_title || pod.title, item: `${SITE}/podcast/${pod.slug}` },
       { "@type": "ListItem", position: 3, name: ep.display_title || ep.title, item: canonical },
     ],
@@ -318,8 +318,8 @@ async function buildEpisode(
   ${ep.published_at ? `<time datetime="${esc(ep.published_at)}">${esc(ep.published_at.slice(0, 10))}</time>` : ""}
 </header>
 ${longText ? `<section>${longText.split(/\n+/).map((p) => `<p>${esc(p)}</p>`).join("")}</section>` : ""}
-${entitySection ? `<section><h2>Mentioned</h2>${entitySection}</section>` : ""}
-${ep.audio_url ? `<section><h2>Listen</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
+${entitySection ? `<section><h2>Említett entitások</h2>${entitySection}</section>` : ""}
+${ep.audio_url ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
 </article>`,
     })),
     { headers: new Headers(baseHeaders) },
@@ -359,10 +359,10 @@ async function buildCategory(
     .limit(50);
 
   const list = (pods ?? []) as Array<Record<string, any>>;
-  const title = cat.seo_title || `${cat.name} podcasts — Podiverzum`;
+  const title = cat.seo_title || `${cat.name} podcastek — Podiverzum`;
   const desc =
     cat.seo_description ||
-    truncate(stripHtml(cat.description) || `Top ${cat.name} podcasts on Podiverzum.`, 160);
+    truncate(stripHtml(cat.description) || `A legjobb ${cat.name} podcastek a Podiverzumon.`, 160);
   const canonical = `${SITE}/category/${cat.slug}`;
 
   const html = list
@@ -390,7 +390,7 @@ async function buildCategory(
       canonical,
       jsonLd: [itemList],
       bodyHtml: `<header><h1>${esc(cat.name)}</h1>${cat.description ? `<p>${esc(stripHtml(cat.description))}</p>` : ""}</header>
-<main><h2>Podcasts</h2><ul>${html}</ul></main>`,
+<main><h2>Podcastek</h2><ul>${html}</ul></main>`,
     })),
     { headers: new Headers(baseHeaders) },
   );
@@ -431,16 +431,16 @@ async function buildEntity(
       ((r as any)[arrayCol] as string[] | null)?.some((v) => slugify(v, kind) === slug),
     );
   }
-  // EN-only filter
+  // HU-only filter
   rows = rows.filter((r: any) => {
     const lang = r.podcast?.language;
-    return !lang || /^en/i.test(lang);
+    return lang && /^hu/i.test(lang);
   });
   if (!rows.length) return null;
 
   const human = slug.replace(/-/g, " ");
-  const title = `${human} — episodes on Podiverzum`;
-  const desc = `Podcast episodes that discuss ${human}. Curated and AI-summarised on Podiverzum.`;
+  const title = `${human} — epizódok a Podiverzumon`;
+  const desc = `Magyar podcast epizódok, amelyek a következőről szólnak: ${human}. Válogatva és AI-összefoglalóval a Podiverzumon.`;
   const canonical = `${SITE}/${kind}/${slug}`;
 
   const list = rows.slice(0, 40);
@@ -468,7 +468,7 @@ async function buildEntity(
       description: desc,
       canonical,
       jsonLd: [itemList],
-      bodyHtml: `<header><h1>${esc(human)}</h1><p>Podcast episodes mentioning ${esc(human)}.</p></header>
+      bodyHtml: `<header><h1>${esc(human)}</h1><p>Magyar podcast epizódok, amelyek ezt említik: ${esc(human)}.</p></header>
 <main><ul>${html}</ul></main>`,
     })),
     { headers: new Headers(baseHeaders) },
