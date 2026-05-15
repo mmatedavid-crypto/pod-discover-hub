@@ -5,9 +5,9 @@
 // - Fail-safe: any prerender error or non-2xx → passthrough (never break the site)
 
 const PRERENDER_ENDPOINT =
-  "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/prerender";
+  "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/prerender";
 const SUPABASE_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxemtheW9xcWFnb3d2eGVhcGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDA3NzAsImV4cCI6MjA5MzU3Njc3MH0.KaeRcYcljGjrP_OAcTp_lapPSRsAYRq6gPJ2vYV7fz4";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlveGV3a2xheWJvdWd6cG16dmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODAxNDAsImV4cCI6MjA5NDE1NjE0MH0.R5tBT9VgFqWPvd5AYPIb16vJXmB7c116MSMfAuogwv8";
 
 // Known malicious-scanner paths. We return a hard 404 (no body, no SPA shell)
 // so analytics/scanners stop seeing 200s for /wp-admin etc.
