@@ -23,16 +23,20 @@ export const EPISODE_SEO_TOOL = {
   type: "function",
   function: {
     name: "episode_seo",
-    description: "Generate SEO title, SEO description, and a 1-2 sentence neutral summary of a podcast episode based ONLY on the supplied metadata (title + description). Do NOT invent guests, claims, statistics, quotes, or topics not present in the input. If the description is empty or unclear, return short generic outputs based on the title alone. Also detect the actual content language.",
+    description: "Generate SEO title, SEO description, a 1-2 sentence neutral summary, AND extract structured entities (people, companies, tickers, topics) of a podcast episode based ONLY on the supplied metadata (title + description). Do NOT invent guests, claims, statistics, quotes, or topics not present in the input. If the description is empty or unclear, return short generic outputs based on the title alone and empty arrays for entities. Also detect the actual content language.",
     parameters: {
       type: "object",
       properties: {
         seo_title: { type: "string", description: "<=65 chars. Episode topic + show name. No emojis or clickbait." },
         seo_description: { type: "string", description: "<=160 chars. Neutral, factual summary suitable for a Google snippet." },
         ai_summary: { type: "string", description: "1-2 sentences, <=280 chars. Neutral. Only facts present in the input." },
+        people: { type: "array", items: { type: "string" }, description: "Up to 6 named people (hosts, guests, mentioned figures) explicitly present in the metadata. Use full names in original form (do not translate). Empty if none." },
+        companies: { type: "array", items: { type: "string" }, description: "Up to 6 named organizations or companies explicitly mentioned. Original form. Empty if none." },
+        tickers: { type: "array", items: { type: "string" }, description: "Up to 6 stock ticker symbols (uppercase, e.g. 'AAPL', 'OTP'). Empty if none." },
+        topics: { type: "array", items: { type: "string" }, description: "Up to 6 short topic tags (1-3 words each, lowercase) in the source language. Empty if none." },
         detected_language: { type: "string", description: "ISO 639-1 code (e.g. 'en','hu','es','yo','fa','ar','zh','hi') of the ACTUAL episode language inferred from title+description. If genuinely mixed/unknown, return 'mul'." },
       },
-      required: ["seo_title", "seo_description", "ai_summary", "detected_language"],
+      required: ["seo_title", "seo_description", "ai_summary", "people", "companies", "tickers", "topics", "detected_language"],
       additionalProperties: false,
     },
   },
