@@ -22,16 +22,26 @@ const EXAMPLES = [
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
-function scorePodcast(p: any, terms: string[]): number {
+function scorePodcast(p: any, terms: string[], fullPhrase: string): number {
   let s = 0;
   const title = (p.title || "").toLowerCase();
+  const displayTitle = (p.display_title || "").toLowerCase();
   const summary = (p.summary || "").toLowerCase();
   const desc = (p.description || "").toLowerCase();
   const cat = (p.category || "").toLowerCase();
+  const phrase = fullPhrase.toLowerCase().trim();
+  // Full-phrase title hit: huge boost (e.g. "zsiday viktor" -> "Zsiday Viktor podcast")
+  if (phrase && phrase.length >= 3) {
+    if (title === phrase || displayTitle === phrase) s += 400;
+    else if (title.includes(phrase) || displayTitle.includes(phrase)) s += 200;
+    else if (summary.includes(phrase)) s += 30;
+    else if (desc.includes(phrase)) s += 15;
+  }
   terms.forEach((term) => {
     const t = term.toLowerCase();
     if (title === t) s += 50;
     if (title.includes(t)) s += 25;
+    if (displayTitle.includes(t)) s += 20;
     if (cat.includes(t)) s += 8;
     if (summary.includes(t)) s += 6;
     if (desc.includes(t)) s += 3;
@@ -54,6 +64,7 @@ export default function SearchPage() {
   const [suggestion, setSuggestion] = useState<string>("");
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
+  const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
 
@@ -71,6 +82,7 @@ export default function SearchPage() {
     setSemanticUsed(false);
     setSuggestion("");
     setAiAnswer("");
+    setPiFallback(null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
@@ -81,7 +93,6 @@ export default function SearchPage() {
       let mapped: EpisodeLite[] = [];
       let usedFallback = false;
       let semantic = false;
-      let reranked = false;
 
       const applyHybridResponse = (data: any) => {
         let eps = (data?.episodes || []) as any[];
@@ -96,9 +107,7 @@ export default function SearchPage() {
         return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked };
       };
 
-      // Search v2: hybrid lexical + semantic. Two-phase for fast first paint:
-      //   Phase 1: rerank=false → ~1.5-2s, render results.
-      //   Phase 2: rerank=true → cache hit instant, else ~3.5s, merge why_matched chips.
+      // Search v2: hybrid lexical + semantic. Two-phase for fast first paint.
       try {
         const phase1 = await supabase.functions.invoke("search-hybrid", {
           body: { q: initial, limit: 80, rerank: false, lang: "hu" },
@@ -112,14 +121,12 @@ export default function SearchPage() {
         setSemanticUsed(semantic);
         setLoading(false);
 
-        // Phase 2: rerank (with cache). Fire-and-forget update.
         supabase.functions.invoke("search-hybrid", {
           body: { q: initial, limit: 80, rerank: true, lang: "hu" },
         }).then(({ data: data2, error: err2 }) => {
           if (cancelled || err2 || !data2) return;
           const r2 = applyHybridResponse(data2);
           mapped = r2.mapped;
-          reranked = r2.reranked;
           setEpisodes(mapped);
           setSemanticUsed(r2.semantic || r2.reranked);
         }, () => { /* ignore */ });
@@ -163,25 +170,43 @@ export default function SearchPage() {
         }).then(() => {}, () => {});
       }
 
-      // Podcasts query (separate, simpler).
+      // Podcasts query (separate, simpler). Includes full-phrase title hit.
       const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
+      const fullPhrase = initial.trim();
       let pq = supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .limit(60);
+      if (fullPhrase.length >= 3) {
+        const fp = `%${escapeIlike(fullPhrase)}%`;
+        pq = pq.or([`title.ilike.${fp}`, `display_title.ilike.${fp}`, `description.ilike.${fp}`, `summary.ilike.${fp}`].join(","));
+      }
       terms.forEach((t) => {
         const v = `%${escapeIlike(t)}%`;
-        pq = pq.or([`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`].join(","));
+        pq = pq.or([`title.ilike.${v}`, `display_title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`].join(","));
       });
       const { data: ps } = await pq;
       const visiblePs = (ps || []).filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"));
       const rankedPs = visiblePs
-        .map((p) => ({ p, s: scorePodcast(p, terms) + ((p.podiverzum_rank ?? 0) * 0.5) }))
+        .map((p) => ({ p, s: scorePodcast(p, terms, fullPhrase) + ((p.podiverzum_rank ?? 0) * 0.5) }))
         .filter((x) => x.s > 0)
         .sort((a, b) => b.s - a.s)
         .slice(0, 18)
         .map((x) => x.p);
       setPodcasts(rankedPs);
+
+      // PodcastIndex live fallback: if local DB has 0 podcast title matches and the
+      // query looks like a name, ask PI byterm. The fallback fn also stages best
+      // matches into pi_feed_staging so the pipeline ingests them in minutes.
+      const looksLikeName = fullPhrase.length >= 3 && /[a-zA-ZáéíóöőúüűÁÉÍÓÖŐÚÜŰ]/.test(fullPhrase);
+      if (rankedPs.length === 0 && mapped.length === 0 && looksLikeName) {
+        supabase.functions.invoke("search-pi-fallback", {
+          body: { query: fullPhrase, maxStage: 5 },
+        }).then(({ data, error }) => {
+          if (cancelled || error || !data?.candidates?.length) return;
+          setPiFallback({ candidates: data.candidates, staged: data.staged || 0 });
+        }, () => { /* ignore */ });
+      }
 
       // Kick off streaming AI answer when we have enough top results.
       if (mapped.length >= 3) {
@@ -251,6 +276,23 @@ export default function SearchPage() {
     if (c) next.set("cat", c); else next.delete("cat");
     setParams(next);
   };
+
+  // Hero podcast match: word-boundary phrase hit on title/display_title.
+  const heroPodcast = useMemo(() => {
+    const phrase = initial.trim().toLowerCase();
+    if (phrase.length < 3 || loading) return null;
+    const phraseRe = new RegExp(
+      `(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}\\p{N}]|$)`,
+      "iu"
+    );
+    return podcasts.find((p) => {
+      const t = (p.title || "");
+      const d = ((p as any).display_title || "");
+      return phraseRe.test(t) || phraseRe.test(d);
+    }) || null;
+  }, [initial, podcasts, loading]);
+
+  const podcastsList = heroPodcast ? podcasts.filter((p) => p.id !== heroPodcast.id) : podcasts;
 
   return (
     <Layout>
@@ -331,9 +373,80 @@ export default function SearchPage() {
           </div>
         )}
 
-        {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
+        {initial && !loading && podcasts.length === 0 && episodes.length === 0 && !piFallback && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
             Nincs találat erre a keresésre.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Esetleg erre gondoltál: <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Próbálkozz más szavakkal, vagy <Link to="/kategoriak" className="underline text-foreground">böngéssz a kategóriák között</Link>.
+          </div>
+        )}
+
+        {initial && !loading && piFallback && piFallback.candidates.length > 0 && podcasts.length === 0 && (
+          <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {piFallback.staged > 0 ? "Hamarosan elérhető" : "Külső forrásban megtaláltuk"}
+              </span>
+              {piFallback.staged > 0 && (
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
+              )}
+            </div>
+            <p className="text-sm text-foreground/80 mb-3">
+              Ezek még nem voltak az adatbázisunkban. {piFallback.staged > 0
+                ? `Most beraktuk ${piFallback.staged} feedet a feldolgozási sorba — pár percen belül megjelennek az epizódok.`
+                : "Már a feldolgozási sorban vannak."}
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {piFallback.candidates.slice(0, 6).map((c, i) => {
+                const inner = (
+                  <div className="flex gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/40 transition-colors h-full">
+                    {c.image_url && (
+                      <img src={c.image_url} alt={c.title} loading="lazy"
+                        className="w-14 h-14 rounded-md object-cover shrink-0 border border-border/60" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm leading-tight line-clamp-2">{c.title}</div>
+                      {c.author && <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{c.author}</div>}
+                      <div className="text-[10px] mt-1.5 inline-flex items-center gap-1">
+                        {c.status === "indexed" && <span className="text-primary font-medium">Elérhető →</span>}
+                        {c.status === "staged" && <span className="text-muted-foreground">Hamarosan</span>}
+                        {c.status === "new" && <span className="text-muted-foreground">Hamarosan</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+                return c.status === "indexed" && c.podcast_slug ? (
+                  <Link key={i} to={`/podcast/${c.podcast_slug}`}>{inner}</Link>
+                ) : (
+                  <div key={i}>{inner}</div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {heroPodcast && (
+          <div className="mt-8">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-2">Legjobb podcast találat</div>
+            <Link
+              to={`/podcast/${heroPodcast.slug}`}
+              className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
+            >
+              {heroPodcast.image_url && (
+                <img src={heroPodcast.image_url} alt={(heroPodcast as any).display_title || heroPodcast.title} loading="lazy"
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shrink-0 border border-border/60" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">
+                  {(heroPodcast as any).display_title || heroPodcast.title}
+                </div>
+                {heroPodcast.category && <div className="text-xs text-muted-foreground mt-1">{heroPodcast.category}</div>}
+                {(heroPodcast.summary || heroPodcast.description) && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">
+                    {heroPodcast.summary || heroPodcast.description}
+                  </p>
+                )}
+                <div className="text-[11px] text-primary font-medium mt-2">Podcast megnyitása →</div>
+              </div>
+            </Link>
           </div>
         )}
 
@@ -354,32 +467,36 @@ export default function SearchPage() {
 
         {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (
           <div className="mt-8 space-y-10">
-            <section>
-              <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
-                Találatok ({episodes.length})
-                {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
-                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                    Találatok erre: {suggestion}
-                  </span>
-                )}
-                {semanticUsed && (
-                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
-                    kapcsolódó ötletekkel
-                  </span>
-                )}
-                {broadened && !semanticUsed && (
-                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                    Tágabb találatok
-                  </span>
-                )}
-              </h2>
-              <EpisodeList items={episodes} terms={flatTerms} showEntities />
-            </section>
-            {podcasts.length > 0 && (
+            {episodes.length > 0 && (
               <section>
-                <h2 className="font-semibold mb-3">Kapcsolódó podcastok ({podcasts.length})</h2>
+                <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
+                  Találatok ({episodes.length})
+                  {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
+                    <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                      Találatok erre: {suggestion}
+                    </span>
+                  )}
+                  {semanticUsed && (
+                    <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
+                      kapcsolódó ötletekkel
+                    </span>
+                  )}
+                  {broadened && !semanticUsed && (
+                    <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                      Tágabb találatok
+                    </span>
+                  )}
+                </h2>
+                <EpisodeList items={episodes} terms={flatTerms} showEntities />
+              </section>
+            )}
+            {podcastsList.length > 0 && (
+              <section>
+                <h2 className="font-semibold mb-3">
+                  {heroPodcast ? "További kapcsolódó podcastok" : "Kapcsolódó podcastok"} ({podcastsList.length})
+                </h2>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+                  {podcastsList.map((p) => <PodcastCard key={p.id} p={p} />)}
                 </div>
               </section>
             )}
