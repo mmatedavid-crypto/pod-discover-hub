@@ -82,10 +82,10 @@ export default {
     if (url.pathname === "/sitemap.xml" || url.pathname === "/feed.xml") {
       const upstream =
         url.pathname === "/sitemap.xml"
-          ? "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap"
-          : "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/feed-xml";
-      // v2: bust prior cache after sitemap was split into bi-weekly halves.
-      const cacheKey = new Request(`https://proxy-cache-v2.podiverzum.com${url.pathname}`, { method: "GET" });
+          ? "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/sitemap"
+          : "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/feed-xml";
+      // v3: bust prior cache after switching to podiverzum.hu (HU launch).
+      const cacheKey = new Request(`https://proxy-cache-v3.podiverzum.hu${url.pathname}`, { method: "GET" });
       const cache = caches.default;
       const hit = await cache.match(cacheKey);
       if (hit) {
