@@ -134,8 +134,29 @@ Deno.serve(async (req) => {
           const seo_title = trim(String(parsed.seo_title || ""), 70);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
           const ai_summary = trim(String(parsed.ai_summary || ""), 280);
+          // Entities: arrays from Gemini tool call. Cap each list to 6, dedupe, drop empties.
+          const cleanArr = (a: any, max = 6): string[] => {
+            if (!Array.isArray(a)) return [];
+            const seen = new Set<string>();
+            const out: string[] = [];
+            for (const v of a) {
+              const s = String(v || "").replace(/\s+/g, " ").trim().slice(0, 80);
+              if (!s) continue;
+              const k = s.toLowerCase();
+              if (seen.has(k)) continue;
+              seen.add(k); out.push(s);
+              if (out.length >= max) break;
+            }
+            return out;
+          };
+          const people = cleanArr(parsed.people);
+          const companies = cleanArr(parsed.companies);
+          const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
+          const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
           await admin.from("episodes").update({
             seo_title, seo_description, ai_summary,
+            people, companies, tickers, topics,
+            ai_entities_version: 1,
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
           // If a real (non-mul) non-EN language is detected for the episode, fix the parent
