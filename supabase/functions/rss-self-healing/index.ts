@@ -3,21 +3,45 @@
 // auto-recovers on high confidence, flags for manual review on medium, marks not_found otherwise.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { titleSim as sim } from "../_shared/title-similarity.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function norm(s: string) {
-  return (s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
-}
-function sim(a: string, b: string) {
-  const A = new Set(norm(a).split(" ").filter(Boolean));
-  const B = new Set(norm(b).split(" ").filter(Boolean));
-  if (!A.size || !B.size) return 0;
-  let inter = 0; A.forEach((t) => { if (B.has(t)) inter++; });
-  return inter / Math.max(A.size, B.size);
+// Try to discover an RSS feed URL from a website. Handles HU CMS feeds (Telex, 444, HVG, Index, Mandiner).
+async function discoverFeedFromWebsite(websiteUrl: string): Promise<string[]> {
+  const found: string[] = [];
+  try {
+    const r = await fetch(websiteUrl, {
+      headers: { "User-Agent": "Podiverzum/1.0 (+rss-discovery)" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (r.ok) {
+      const html = (await r.text()).slice(0, 200_000);
+      // <link rel="alternate" type="application/(rss|atom)+xml" href="...">
+      const linkRe = /<link[^>]+rel=["']alternate["'][^>]+type=["']application\/(?:rss|atom)\+xml["'][^>]*>/gi;
+      const hrefRe = /href=["']([^"']+)["']/i;
+      const matches = html.match(linkRe) || [];
+      for (const m of matches) {
+        const h = m.match(hrefRe);
+        if (h) found.push(new URL(h[1], websiteUrl).toString());
+      }
+    }
+  } catch { /* swallow */ }
+
+  // Common conventional paths
+  try {
+    const base = new URL(websiteUrl);
+    for (const p of ["/feed", "/rss", "/feed/podcast", "/podcast.xml", "/feed.xml", "/rss.xml", "/feed/"]) {
+      found.push(new URL(p, base.origin).toString());
+    }
+  } catch { /* invalid url */ }
+
+  // Dedupe, cap
+  return Array.from(new Set(found)).slice(0, 8);
 }
 
 async function piSearch(title: string) {
@@ -63,7 +87,7 @@ Deno.serve(async (req) => {
     // Pick high-quality broken feeds first
     const { data: cands } = await supabase
       .from("podcasts")
-      .select("id, title, rss_url, rss_status, consecutive_failure_count, ai_quality_score, ai_spam_score, last_fetch_error, shadow_rank_components")
+      .select("id, title, rss_url, website_url, rss_status, consecutive_failure_count, ai_quality_score, ai_spam_score, last_fetch_error, shadow_rank_components")
       .or("rss_status.eq.failed,consecutive_failure_count.gte.5")
       .gte("ai_quality_score", 6)
       .lt("ai_spam_score", 4)
@@ -95,6 +119,25 @@ Deno.serve(async (req) => {
           const conf = 0.6 * v.sim + 0.3 * piSim + 0.1 * (v.ok ? 1 : 0);
           if (!best || conf > best.conf) best = { url: f.url, conf, feedTitle: v.feedTitle };
         }
+
+        // Website fallback: if PI didn't yield a strong match, scrape the website
+        // for <link rel="alternate" type="application/rss+xml"> + try common paths.
+        // Critical for HU CMS feeds (Telex, 444, HVG, Index, Mandiner) that aren't well-indexed in PI.
+        if ((!best || best.conf < 0.85) && p.website_url) {
+          const candUrls = await discoverFeedFromWebsite(p.website_url);
+          for (const u of candUrls) {
+            if (!u || u === p.rss_url) continue;
+            const v = await verifyFeed(u, p.title);
+            if (!v.ok) continue;
+            // No PI signal here, weight feed-title sim higher; small bonus for being website-derived (same domain = strong signal)
+            const sameDomain = (() => {
+              try { return new URL(u).hostname === new URL(p.website_url).hostname; } catch { return false; }
+            })();
+            const conf = 0.7 * v.sim + 0.2 * (v.ok ? 1 : 0) + (sameDomain ? 0.1 : 0);
+            if (!best || conf > best.conf) best = { url: u, conf, feedTitle: v.feedTitle };
+          }
+        }
+
         const oldUrl = p.rss_url;
         const comp = (p.shadow_rank_components as any) || {};
         if (best && best.conf >= 0.85) {
