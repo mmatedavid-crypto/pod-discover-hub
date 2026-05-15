@@ -127,7 +127,7 @@ export default {
 
     // Bot + prerenderable path: try cache → prerender → fallback origin
     const cacheKey = new Request(
-      `https://prerender-cache.podiverzum.com${url.pathname}`,
+      `https://prerender-cache-v3.podiverzum.hu${url.pathname}`,
       { method: "GET" },
     );
     const cache = caches.default;
