@@ -1,143 +1,50 @@
+## Helyzetkép
 
-# Podiverzum HU átállás
+- 61 097 epizód (60 555 HU). Cél: ≥100k → ~40k hiányzik.
+- 15 829 epizódnak már van `ai_summary` (SEO runner munkája), de **0**-nak van entitása (people/companies/topics). Ezeket újra kell futtatni — de **csak entitás-extrakcióval**, az ai_summary maradhat.
+- A maradék ~45k még feldolgozatlan: ezeknek mostantól **egyben** kell mennie (summary + entitások egy AI hívásban).
 
-Cél: a remixelt projekt fusson **podiverzum.hu** (vagy hasonló) néven, **kizárólag magyar** podcast tartalommal, **teljes magyar UI-val**, az eredeti architektúra és funkciók megtartásával. Az EN forráskódban semmi sem hivatkozhat a régi EN tartalomra/domainre.
+## Terv
 
----
+### 1) Új SEO/summary feldolgozás leállítása, váltás kombinált pipeline-ra
 
-## Fázis 1 — Adatbázis tiszta lap (csak podcast/episode adat)
+- `seo-enrich-enqueue` cron (jobid 5) átállítása: csak akkor töltsön `seo_episode` jobokat, ha az episode-nak **nincs** ai_summary-je (ez már így megy). Új jobokat viszont az `ai-enrich` runner dolgozza fel, hogy egyszerre kapjon summary+entitást.
+- Két út:
+  - **A:** Új job-kind `enrich_episode_full` bevezetése, és új runner `ai-enrich-runner` (drain-loop, mint a seo-runneré, de Gemini tool-callinggal entitásokat is kér).
+  - **B:** A meglévő `seo-enrich-runner`-be belerakjuk az entitás kinyerést (a `_shared/seo-prompt.ts` tool-schemájához hozzáadjuk: people/companies/tickers/topics/ingredients), és egy hívásban mindent visszakap. Olcsóbb (kevesebb új infra).
+- **Választás: B.** Egyetlen prompt, egyetlen call, ugyanaz a runner; a táblát csak bővítjük.
 
-Egyetlen migráció (TRUNCATE-eket egy tranzakcióban), minden config/admin marad.
+### 2) 15 829 már-summarizált epizód entitás-backfillje
 
-**TRUNCATE (CASCADE ahol kell):**
-- `podcasts` — minden podcast törölve
-- `episodes` — minden epizód törölve
-- `podcast_embeddings`, `episode_embeddings`
-- `ai_enrichment_jobs` — minden függőben/befejezett job
-- `pi_feed_staging`, `pi_dump_imports` — staging takarítás
-- `discovery_queue`
-- `mv_homepage_feed`, `mv_homepage_evergreen` REFRESH (üresre)
-- `search_query_cache`, `search_suggest_cache` — angol cache törlés
-- `mood_collections` — episode_ids/podcast_ids hivatkoztak EN UUID-kre
-- `social_posts`, `growth_runs` — régi kampány/run adatok
-- `rss_url_history`, `page_events`, `search_events`, `beta_feedback`, `email_send_log` — analitika reset
-- `podcasts_backup_pre_c_v3` DROP (régi backup már nem releváns)
+- Új edge function `entity-backfill-runner`: lapoz az `episodes`-ban (`ai_summary IS NOT NULL AND ai_entities_version = 0`), Gemini Flash Lite tool-call **csak** entitásokra (kisebb prompt, olcsóbb), bulk update people/companies/tickers/topics + `ai_entities_version=1`.
+- Saját kis cron: `*/2 * * * *`, batch 100, drain-loop 110s. Becsült költség: 15 829 × ~$0.0003 ≈ **$5 össz**, 1–2 nap alatt lefut a $50/nap kereten belül (parallel a fő SEO drain-nel).
 
-**Megmarad:** `app_settings`, `categories` (átnevezzük HU-ra Fázis 3-ban), `search_synonyms` (HU-ra cseréljük), `user_roles` + admin user, `email_send_state`, `email_unsubscribe_tokens`, `suppressed_emails`.
+### 3) Epizódszám felhúzása ~100k-ra
 
-**Sequence reset & defaults:**
-- `podcasts.language` default `'hu'` (volt `'en'`)
-- HU feed-scout default sources beállítása `app_settings`-ben (ld. Fázis 4)
+Két párhuzamos forrás:
 
----
+- **Deep hydration boost:** A 158 A-tier + 142 S-tier HU podcast nagy részénél a back-catalog még nincs lehúzva (`deep_done=0` mindenhol). A sprint cél most S=1000/A=600/B=300/C=100 epizód/pod — ez papíron **142×1000 + 158×600 + 312×300 + 38×100 = ~330k** kapacitás. Csak a runner cadence-én múlik. → A `deep-hydrate-runner` cron felgyorsítása `*/2`-ről `* * * * *`-re, amíg el nem érjük a 100k-t.
+- **Új HU forrás keresés:** `ai-feed-scout` HU sources kibővítése (Apple HU charts, Spotify HU, gPodder HU, Listen Notes HU, magyar podcast aggregátorok). Ez napi 50–200 új feed-et hoz be → `pi-dump-process` automatikusan beemeli őket.
 
-## Fázis 2 — UI teljes magyarítása (EN eltávolítva)
+### Sorrend
 
-Hardcoded HU stringek mindenhol — nincs i18n setup (egyszerűbb, gyorsabb; ha később kell EN, akkor jön az i18n).
+1. Most: B opció — `seo-enrich-runner` + `_shared/seo-prompt.ts` bővítése entitásokkal (új feldolgozású ~45k egyben jön).
+2. Most: új `entity-backfill-runner` + cron a 15 829 már-summarizált epizódra.
+3. Most: `deep-hydrate-runner` cron `* * * * *`-ra (jobid 2), amíg a HU epizódszám ≥100k. Adaptív RPC visszaállítja, ha kifogynak a candidate-ek.
+4. Most: `ai-feed-scout` HU forráslista bővítése (külön mini-PR, már részben megvolt).
 
-**Érintett UI területek:**
+### Költség / idő
 
-| Felület | Mit írunk át |
-|---|---|
-| `src/pages/Index.tsx` | hero, "Trending", "Fresh", "Recent", "Evergreen" → "Felkapott", "Friss", "Új", "Időtálló" |
-| `src/pages/SearchPage.tsx` + `SearchInput` | placeholder, "No results", "Did you mean", filter chip-ek |
-| `src/pages/PodcastDetail.tsx` | "Episodes", "Listen on", "All episodes", "Subscribe" → magyar |
-| `src/pages/EpisodeDetail.tsx` | "Listen", "About this episode", "Related" → magyar |
-| `src/pages/CategoryDetail.tsx` + `Categories` | kategória header sablonok |
-| `src/pages/NewPodcastsPage.tsx` | "Recently added" → "Új podcastok" |
-| `src/components/Layout/Header.tsx`, `Footer.tsx` | nav linkek, copyright |
-| `src/components/seo/*` (PodcastJsonLd, EpisodeJsonLd, MetaTags) | description/title sablonok HU |
-| `index.html` | `<title>`, meta description, og:locale `hu_HU` |
-| `src/pages/Auth.tsx` + auth komponensek | "Sign in", "Sign up", "Email", "Password" → magyar |
-| `src/components/feedback/*` | beta feedback widget szövegek |
-| Toast üzenetek (`useToast` hívások) | minden user-facing toast HU |
-| Empty states, error boundaries, 404 oldal | HU |
-| Date formatting | `date-fns/locale/hu` minden `format()` híváshoz |
+- Kombinált runner (B): a már beállított $50/nap budget bőven elég, ai-summary az új 45k-n ugyanannyiba kerül mint korábban, az entitások járulékos +20% token.
+- Backfill 15.8k: ~$5 össz, ~1 nap.
+- Deep hydration: nincs AI költsége, csak fetch/parse.
+- ETA: 100k epizód ~3–4 nap, teljes entitás-coverage ~3 nap.
 
-**Admin (`/admin/*`) marad angolul** — csak te látod, nem prioritás.
+## Technikai részletek
 
-**SEO sablonok (DB-ben):** `categories.seo_title/seo_description`, `app_settings`-ben tárolt SEO sablonok (ha vannak) HU-ra cserélve.
+- `_shared/seo-prompt.ts` `EPISODE_SEO_TOOL` paraméterek bővítése: `people[]`, `companies[]`, `tickers[]`, `topics[]`, `ingredients[]` (max 6/lista, csak ha valóban szerepelnek). Strict JSON schema, `additionalProperties:false`.
+- `seo-enrich-runner` parsed-handler: episode-update-be belerakni `people/companies/tickers/topics/ingredients` mezőket + `ai_entities_version=1`.
+- `entity-backfill-runner`: külön function, saját kis tool csak entity arrays-szel, NEM ír seo_title/seo_description/ai_summary-be. Drain loop, $5/nap saját budget.
+- `set_deep_hydration_schedule` RPC `*` cron-ra állítása amíg `count(episodes WHERE p.language='hu') < 100000`.
 
----
-
-## Fázis 3 — Tartalom-pipeline HU-only
-
-**`_shared/seo-prompt.ts`** + minden Gemini prompt:
-- Output language instruction: "always respond in Hungarian"
-- "never translate" maradhat (forrás már HU lesz úgyis)
-
-**`ai-feed-scout` edge function:**
-- `DEFAULT_SOURCES` cseréje: Apple HU charts (`https://podcasts.apple.com/hu/charts`), HVG/Index/444/Telex podcast listák, Spotify HU top, Magyar Podcast adatbázis ha találunk, Wikipedia HU "Magyar podcastok" lista
-- `lang_hint: 'hu'` minden forráshoz
-- Gemini prompt szigorítva: csak `language='hu'` feed-eket fogadjon el
-
-**`pi-dump-process`:**
-- Reject ha `detected_language !== 'hu'` (volt: `=== 'en'`)
-- Felülírás logika ugyanaz (language-guard)
-
-**`_shared/incident-guard.ts`** és language-guard változatlan logikával, csak target `'hu'`.
-
-**Frontend filter (`mv_homepage_feed`, sitemap, daily-social-post, CategoryDetail, NewPodcastsPage):**
-- `podcasts.language IS NULL OR ILIKE 'hu%'` (volt `'en%'`)
-- Sitemap `<urlset>` `xml:lang="hu"`
-
-**`categories` HU átnevezés:** `name`, `slug`, `description` magyarra (pl. `business` → `uzlet`, `news` → `hirek`, `comedy` → `humor`, `technology` → `tech`, `health` → `egeszseg`, stb.). Slug váltás miatt **redirect map** nem kell, mert nincs régi tartalom.
-
-**`search_synonyms`:** EN szinonimák törölve, HU szinonimák seed (pl. `ai` → `mesterséges intelligencia`, `mi`; `vc` → `kockázati tőke`; `startup` → `cég, vállalkozás`).
-
-**Daily social post:** X/Twitter prompt magyarul, magyar copy stílus (info+szórakoztató, nincs hashtag/emoji továbbra is).
-
----
-
-## Fázis 4 — Domain és deploy (új .hu)
-
-**Lépések (te végzed, én segítek a setupban):**
-
-1. **Domain vásárlás:** `podiverzum.hu` (vagy alternatíva) — Lovable Settings → Domains → Buy new domain (ha .hu támogatott), VAGY külső registrar (pl. Forpsi, Rackhost, Nethely) — utána manuális DNS.
-2. **Cloudflare:**
-   - Új CF zone a `.hu` domainre
-   - Új worker: `podiverzum-hu-bot-prerender` (a régi `podiverzum-bot-prerender` worker kód másolata, csak host check `podiverzum.hu`-ra)
-   - Routes: `podiverzum.hu/*`, `www.podiverzum.hu/*`
-   - Sitemap proxy: ugyanaz a logika, új cache key (`proxy-cache-hu-v1`)
-3. **Lovable kapcsolás:** Project Settings → Domains → Connect domain (proxy mode pipálva)
-4. **`index.html`:** `<html lang="hu">`, `og:locale="hu_HU"`, canonical `https://podiverzum.hu`
-5. **Sitemap edge function:** base URL `https://podiverzum.hu`
-6. **Robots.txt:** új sitemap URL
-7. **Google Search Console:** új property, sitemap submit (nincs migráció a régiről, friss start)
-
----
-
-## Fázis 5 — Memory frissítés
-
-`mem://index.md` Core szabályok átírása:
-- "EN-only site" rule → "HU-only site"
-- AI summary language → HU
-- DEFAULT_SOURCES leírás → HU források
-- `[Multilingual rollout]` memory törölve vagy átírva
-- Új memory: `mem://plans/hu-launch.md` — a fenti checklist + post-launch teendők
-
----
-
-## Sorrend és függőségek
-
-```text
-Fázis 1 (DB wipe migration)         ← első, blokkolja a többit
-   ↓
-Fázis 3 (pipeline HU-only kód)      ← párhuzamos Fázis 2-vel
-Fázis 2 (UI magyarítás)             ← párhuzamos Fázis 3-mal
-   ↓
-Fázis 5 (memory update)             ← Fázis 2+3 után
-   ↓
-Fázis 4 (domain — te csinálod)      ← bármikor, de éles indítás előtt
-```
-
----
-
-## Amit MOST eldöntenél / megerősítenél
-
-1. **Domain név** — `podiverzum.hu` ok, vagy más? (befolyásolja a hardcoded URL-eket sitemap/JSON-LD/canonical helyeken)
-2. **Kategória magyarítás** — minden kategóriát átnevezünk magyar slug-gal, vagy az angol slug-ok maradjanak (pl. `/category/business` de a megjelenítés "Üzlet")? **Javaslat: magyar slug** (SEO szempontból jobb).
-3. **Auth Google login** — marad-e? (Igen javasolt, ne piszkáljuk.)
-4. **`mood_collections`** — TRUNCATE most (mert EN UUID-kre hivatkoznak), és **későbbi seed** HU mood-okkal külön körben? Vagy most rögtön rakjak HU seed mood collectionöket (pl. "elalváshoz", "futáshoz", "munkába menet")?
-
-Ha ezek megvannak, megyek a Fázis 1 migrációval.
+Indulás után ezt egy üzenetben követem (queue mélység, epizódszám, költés).
