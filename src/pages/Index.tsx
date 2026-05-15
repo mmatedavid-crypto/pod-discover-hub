@@ -13,7 +13,7 @@ import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
-import { AskPodiverzum } from "@/components/AskPodiverzum";
+
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
@@ -297,7 +297,7 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
-        <AskPodiverzum />
+        
         <ContinueListening />
         {!loaded && trendingEps.length === 0 && (
           <section>
