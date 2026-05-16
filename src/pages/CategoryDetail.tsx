@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+
+// Deprecated category slugs → canonical successor. Client-side redirect (replace)
+// stands in for a 301 on the SPA; the CF worker / prerender layer treats Navigate
+// replaces as canonical. Sitemap already excludes inactive categories.
+const CATEGORY_REDIRECTS: Record<string, string> = {
+  eletmod: "egeszseg",        // Életmód → Egészség (fő utód; gasztro/párkapcsolat külön kategória)
+  radioszinhaz: "konyvek",    // Rádiószínház → Könyvek & Irodalom
+  lifestyle: "egeszseg",
+  "radio-theater": "konyvek",
+};
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
@@ -22,6 +32,8 @@ export default function CategoryDetail() {
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const redirectTo = slug ? CATEGORY_REDIRECTS[slug] : undefined;
+
   // Search state
   const [q, setQ] = useState(queryParam);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -34,7 +46,7 @@ export default function CategoryDetail() {
   useEffect(() => { setQ(queryParam); }, [queryParam]);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug || redirectTo) return;
     (async () => {
       setLoading(true);
       const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).maybeSingle();
@@ -144,6 +156,7 @@ export default function CategoryDetail() {
     setParams(next);
   };
 
+  if (redirectTo) return <Navigate to={`/category/${redirectTo}`} replace />;
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
   if (!cat) return <NotFoundState title="Nincs ilyen kategória" message="Ez a kategória nem létezik vagy eltávolították." />;
 
