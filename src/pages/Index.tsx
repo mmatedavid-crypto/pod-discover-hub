@@ -336,15 +336,6 @@ const Index = () => {
 
         <MoodCollections />
 
-        {trendingEntityEps.length > 0 && (
-          <TrendingEntities
-            eyebrow="Témák épp most"
-            title="Miről beszélnek a podcasterek"
-            subtitle="Az elmúlt két hét leggyakoribb témái. Válassz egyet, és hallgass bele az epizódokba."
-            items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
-            icon="topic"
-          />
-        )}
 
 
         {(() => {
