@@ -1,97 +1,113 @@
+# Személy-entitások minőség-sprint
 
-# v13 kereső port a remix → podiverzum.hu
+Három párhuzamos workstream, közös DB-séma migrációval indít, majd runner- és frontend-változások.
 
-## Cél
+---
 
-A `Podiverzum` remix (`566ed77a-…`) v13 keresőmotorja 1:1-ben átkerül ide. A felhasználó által tapasztalt zaj („Zsiday Viktor" → Orbán-találatok, ASTS → asztrológia, ködös találatok ritka neveknél) ezzel rendszerszinten megszűnik.
+## 1. DB séma (egy migráció)
 
-## Mit kapunk meg
+**`podcasts` tábla**
+- `hosts text[] not null default '{}'` — kanonikus host-nevek (pl. `['Bochkor Gábor','Boros Lajos']`).
+- `hosts_updated_at timestamptz` — mikor szerkesztette admin / AI utoljára.
+- `hosts_source text` — `manual` | `ai_inferred` | `null`.
 
-1. **MUST gate** ritka tokenekre + entitásokra (IDF-alapú)
-2. **3-pass MUST relaxálás** + **entity pyramid fallback** ticker/person/company esetekre
-3. **Spell correction** (pg_trgm) ismeretlen szavakra
-4. **HyDE** (hipotetikus dokumentum embedding) topical/question intentre
-5. **Cohere rerank v3.5** (cross-encoder, $2/nap budget, ~150 ms)
-6. **Entity resolver** (entity_profiles + topic_hubs trgm match)
-7. **Stopword + gibberish gate** (azonnali bail értelmetlen lekérdezésre)
-8. **Freshness decay** news/ticker intentre
-9. **Bigram MUST** person/company query többszavas entitásra
-10. **MMR diversity** (egy podcast max 2 a top-10-ben)
-11. **Engine version flag** (`engine=v8…v13` query paramen visszafelé tesztelhető)
-12. **Cirkuit breaker** AI-hívásokra (60 s cooldown 3 hiba után)
-13. **Chunk-level passage recall** (v13) — *opcionális, lásd lent*
+**`episodes` tábla**
+- `mentioned text[] not null default '{}'` — csak említve, nincs jelen.
+- `people` jelentése szigorodik: kizárólag **megszólaló** vendég/szereplő.
+- `ai_entities_version` bumpolva: `2` = új modell futott (mentioned + host-szűrés).
 
-## Műveleti sorrend
+**`entity_profiles` tábla** (már létezik, csak töltjük)
+- Bevezetjük az auto-jelölést: új `app_settings.entity_profile_controls` kulcs (`min_episodes`, `daily_budget_usd`, `enabled`, `model`).
 
-### 1. fázis — DB migrációk (egy nagy migráció)
+**RLS:** mindkettő public read + admin write — az existing podcasts/episodes policy alá tartoznak, nincs új policy.
 
-| Objektum | Típus | Megjegyzés |
-|---|---|---|
-| `search_episodes_hybrid(...)` | RPC csere | Új szignatúra: `required_terms`, `entity_terms`, `alpha_lex`, `p_decay_lambda`, `phrase_terms` |
-| `token_df_cache` | TÁBLA | Lazy IDF cache |
-| `token_idf(p_tokens text[])` | RPC | Visszaadja a tokenek df-jét, 7d cache |
-| `suggest_token_corrections(p_tokens text[])` | RPC | trgm spell-correction df ≥ 50, sim ≥ 0.6 |
-| `entity_profiles` | TÁBLA | Kanonikus entitások (kind/slug/display_name) |
-| `topic_hubs` | TÁBLA | Curated topic hubs aliases tömbbel — HU-specifikus seedet külön kell töltenünk, EN seedet kihagyjuk |
-| `resolve_query_entities(p_q, p_max, p_threshold)` | RPC | trgm fuzzy entitás resolver |
-| `search_hyde_cache` | TÁBLA | HyDE szöveg + embedding 7d cache |
-| `match_podcast_by_name(p_q, p_max, p_threshold)` | RPC | Navigációs pin („Joe Rogan" → adott podcast epizódjai) |
+---
 
-Mindegyikre **RLS**: public read + admin write.
+## 2. Hostok kiszűrése (workstream A)
 
-A `search_episodes_hybrid` régi szignatúra `DROP`-olva, az új SQL-jét a remix `20260515154936` migrációjából vesszük át (chunk-augmentáció nélkül, lásd 4. fázis).
+**Admin UI** (`/admin/podcasts/:id` vagy új panel a podcast detail oldalon)
+- Hosts szerkeszthető lista (chip input).
+- "AI javaslat hostokra" gomb → új edge function `infer-hosts` egyszer lefuttatja a podcast leírás+pár ep cím alapján Geminivel, de mentés csak admin-jóváhagyással.
 
-### 2. fázis — Shared edge function modulok
+**Runner változások**
+- `seo-enrich-runner` és `entity-backfill-runner` minden epizódnál:
+  1. Lekéri a podcast `hosts` tömbjét.
+  2. AI extract után **kiveszi a `people` és `mentioned` tömbből** a hostokat (case-insensitive, ékezet-toleráns összehasonlítás).
+- A search-hybrid HyDE prompt és `MARKET_SYMBOL_ALIASES`-szerű listák nem érintve.
 
-Új fájlok másolása a remixből:
-- `supabase/functions/_shared/search-understand.ts` (ticker prompt + cirkuit breaker)
-- `supabase/functions/_shared/search-hyde.ts` (új)
-- `supabase/functions/_shared/cohere-rerank.ts` (új)
+**Backfill**
+- Egyszeri SQL update, ami megnyitja a host-szűrést a régi sorokon: `update episodes set people = array(select x from unnest(people) x where lower(x) not in (...)) where podcast_id = ...`. Adminból futtatható, vagy egyszeri script.
 
-### 3. fázis — `search-hybrid` edge function átírás
+---
 
-Az 1148 soros remix-verzió portolása. Egy magyar-specifikus változtatás kell:
-- a `lang` default már most `null`/`"hu"` a hívóknál → nincs change kliensen, de a runtime `lang` paramétert a remix `"en"`-re defaultolja: ez **`"hu"`-ra állítjuk**, hogy a HU-only site továbbra is HU találatokat adjon.
-- `RARE_GATE_STOPWORDS` listához hozzáfűzünk minimum magyar töltelékszavakat (a, az, és, vagy, de, hogy, mert, ez, az, egy, van, volt, lesz, csak, már, még, most, podcast, epizód, műsor, beszélgetés).
+## 3. Jelen vs. említve (workstream B)
 
-### 4. fázis — Mit hagyunk ki *most*
+**AI tool schema bővítés**
+- `seo-enrich-runner` (`EPISODE_SEO_TOOL`) és `entity-backfill-runner` (`ENTITY_TOOL`):
+  - `people`: max 6, csak akik **megszólalnak** (vendég, host, interjúalany).
+  - `mentioned`: max 6, akikről beszélnek, de nincsenek jelen.
+  - Promptban explicit szabály: politikusok, hírességek alapból `mentioned`, **kivéve** ha a leírás egyértelműen jelzi (pl. „interjú", „vendégünk", „beszélgetés vele").
+- Új `ai_entities_version=2` marker. A `seo-enrich-enqueue` és az entity-backfill `version < 2` epizódokat eligible-nek tekinti — fokozatos újrafutás.
 
-- **Chunk augmentation (v13)**: hiányzik az `episode_chunks` tábla + `search_episode_chunks` RPC + transcript-chunking pipeline. Engineflag-en `chunkAugment: false` lesz (default `engine=v12`). Külön sprintet érdemel — az STT pilot futása után térünk vissza rá.
-- **`topic_hubs` seed**: az angol seedek (GLP-1 stb.) nem relevánsak HU-ra. Üres táblát hozunk létre; külön feladat a magyar hubok feltöltése.
+**Frontend (`EntityPage.tsx`)**
+- Új `kind="person"` oldalon a lekérdezés mind `people`, mind `mentioned` mezőre néz, de:
+  - Fő lista: ahol `people` tartalmazza (megszólal).
+  - Külön szekció lent: „Említve" — ahol csak `mentioned`.
+  - Stat-row új mező: „Megszólal X ep · Említve Y ep".
+- `aggregateEntities.ts` kibővítve `field: "mentioned"` opcióval (entity tag cloudokhoz, ha kell).
 
-### 5. fázis — Titok
+---
 
-`COHERE_API_KEY` hozzáadása. Cohere `rerank-v3.5` $2/1000 hívás; napi $2 budget a kódban beégetve, app_settings.`cohere_rerank_daily_spent` jsonb tartja a fogyást.
+## 4. Auto sztár-profil oldalak (workstream C)
 
-### 6. fázis — Smoke teszt + élesítés
+**Új runner: `entity-profile-runner` edge function + cron jobid 24**
+- Cadence: `0 */6 * * *` (6 óránként).
+- Controls: `app_settings.entity_profile_controls`:
+  ```json
+  { "enabled": true, "min_episodes": 8, "daily_budget_usd": 3,
+    "model": "google/gemini-3.1-flash-lite-preview", "max_per_run": 20 }
+  ```
+- Logika:
+  1. SQL aggregálás: `people` mezőből számolja, hány HU epizódban szólal meg egy név (slug szerint). Csak `published_at >= now() - 730d` és csak `podcasts.language ILIKE 'hu%'`.
+  2. Jelöltek = aki ≥ `min_episodes` ep-ben, de még nincs `entity_profiles` rekordja (vagy `updated_at < now() - 30d`).
+  3. Top N (max_per_run) jelöltre AI-bio generálás (név, ki ő egy mondatban, miről beszél tipikusan, 80-160 szó, magyarul).
+  4. `featured_episode_ids` = top 5 epizód a frissesség + tier alapján (`compareByScore` JS-ben replikálva SQL-ben, vagy egyszerű frissességalapú).
+  5. Upsert `entity_profiles`-be (`kind='person'`, `slug`, `display_name`, `bio`, `episode_ids`, `featured_episode_ids`, `model`, `cost_usd`).
+- Budget guard ugyanaz a pattern, mint az `entity-backfill-runner`-nél: `ai_spend_daily.by_kind.entity_profile`.
 
-`supabase--curl_edge_functions` POST `/search-hybrid` 6 lekérdezésre:
-- `"Zsiday Viktor"` → várjuk Concorde / Zsiday epizódok top-3
-- `"ASTS"` → ticker gate, AST SpaceMobile fallback
-- `"asdfghjkl"` → nonsense_gate true, 0 epizód
-- `"a"` → stopword_gate true
-- `"Bertalan Tóth Putyin"` → konkrét személy + esemény
-- `"makrogazdaság"` → tág topical, HyDE aktív
+**Frontend (`EntityPage.tsx`)**
+- `useEffect`-ben a lekérdezés mellé `entity_profiles` lookup slug + kind szerint.
+- Ha van profil:
+  - Hero alá kerül egy „Bio" card (`p.bio`), és a Featured szekció prioritást kap (`featured_episode_ids`).
+  - SEO description a `bio` első mondatából (jobb mint a generikus szöveg).
+  - JSON-LD `Person.description` mező hozzáadva.
+- Ha nincs profil, marad a jelenlegi viselkedés.
 
-Cohere és HyDE telemetria a response JSON-ban; logolva az `edge_function_logs`-ban.
+**Admin felület** (`/admin/people` új oldal — opcionális, MVP-ben kihagyható)
+- Lista a jelöltekről, manuális trigger, bio újragenerálása.
 
-## Kockázat & visszafordíthatóság
+---
 
-- A régi `search_episodes_hybrid` szignatúra **eltűnik** → ha valami más edge fn hívja (search-suggest, search-answer), az hibás lesz. Ellenőrzés a portolás közben; ha igen, azt is frissítjük az új szignatúrára vagy default-okkal kompatibilissé tesszük.
-- Az `engine=v8` paraméter visszaad egy egyszerűbb futtatást, így gyors A/B tesztre van fallback.
-- Migráció reverzibilis: a régi RPC SQL-jét megőrzöm jegyzetben (csak az új lép működésbe).
+## 5. Sorrend és kockázat
 
-## Becsült terjedelem
+1. **DB migráció** (kicsi, biztonságos — csak default-tal új oszlopok).
+2. **Runner-ek + tool schema** (visszafelé kompatibilis, mert default `[]`).
+3. **Host admin UI + 1-2 nagy podcastnál kézi feltöltés** (Frizbi, 444 stb. — gyors win).
+4. **EntityPage frontend** (új `mentioned` szekció, profile bio).
+5. **`entity-profile-runner` + cron** (utolsó, mert előtte legyen tisztább a `people` adat).
 
-- 1 migrációs SQL (~600 sor)
-- 3 shared TS fájl (~300 sor összesen)
-- 1 átírt edge fn (~1150 sor)
-- 1 titok-kérés
+**Költségbecslés:** ~$1-2/nap extra (entity-profile-runner), a meglévő runner-ek csak ~+5% tokenért (egy plusz tömb a tool output-ban).
 
-## Mit kérek tőled jóváhagyásra
+**Mit NEM csinálunk most:** Beszélgetés-stílusú segmentáció, transcript-alapú szerepfelismerés, kézi adminkurálás minden szereplőre. Ezek később jöhetnek.
 
-1. Indulhatunk a migrációval (1. fázis)?
-2. Most kérjem be a `COHERE_API_KEY`-t, vagy intézed külön?
-3. A `chunk augmentation` későbbi sprintbe halasztása oké?
+---
 
-A jóváhagyás után indítom a migrációt, majd folyamatosan jelzem a fázisok végét.
+## Mit szeretnék jóváhagyni
+
+- ✅ Séma változtatások (3 oszlop)
+- ✅ Két runner módosítása (host-szűrés + `mentioned` mező)
+- ✅ EntityPage frontend bővítése (mentioned szekció + bio render)
+- ✅ Új `entity-profile-runner` + cron jobid 24 6 óránként, $3/nap budget
+- ✅ Host admin szerkesztés a podcast oldalon
+
+Ha jó, lefuttatom a migrációt, és sorban deployolom a runnereket.

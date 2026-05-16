@@ -577,6 +577,7 @@ export type Database = {
           id: string
           image_url: string | null
           ingredients: string[] | null
+          mentioned: string[]
           people: string[] | null
           podcast_id: string
           published_at: string | null
@@ -616,6 +617,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           ingredients?: string[] | null
+          mentioned?: string[]
           people?: string[] | null
           podcast_id: string
           published_at?: string | null
@@ -655,6 +657,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           ingredients?: string[] | null
+          mentioned?: string[]
           people?: string[] | null
           podcast_id?: string
           published_at?: string | null
@@ -1109,6 +1112,9 @@ export type Database = {
           featured: boolean
           featured_rank: number | null
           full_backfill_completed_at: string | null
+          hosts: string[]
+          hosts_source: string | null
+          hosts_updated_at: string | null
           hydrated_episode_count: number
           id: string
           image_url: string | null
@@ -1194,6 +1200,9 @@ export type Database = {
           featured?: boolean
           featured_rank?: number | null
           full_backfill_completed_at?: string | null
+          hosts?: string[]
+          hosts_source?: string | null
+          hosts_updated_at?: string | null
           hydrated_episode_count?: number
           id?: string
           image_url?: string | null
@@ -1279,6 +1288,9 @@ export type Database = {
           featured?: boolean
           featured_rank?: number | null
           full_backfill_completed_at?: string | null
+          hosts?: string[]
+          hosts_source?: string | null
+          hosts_updated_at?: string | null
           hydrated_episode_count?: number
           id?: string
           image_url?: string | null
