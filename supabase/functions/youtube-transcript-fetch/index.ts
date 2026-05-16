@@ -26,8 +26,22 @@ const json = (b: any, s = 200) =>
 
 const SUPADATA_URL = "https://api.supadata.ai/v1/youtube/transcript";
 const COST_PER_CALL = 0.0005; // approx, conservative
+const DB_TIMEOUT_MS = 12_000;
+const SUPADATA_TIMEOUT_MS = 20_000;
 
 type Segment = { text: string; offset: number; duration: number; lang?: string };
+
+function timeoutFetch(timeoutMs: number) {
+  return async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(input, { ...init, signal: init.signal ?? controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
 
 async function fetchSupadata(videoId: string, apiKey: string, preferredLang?: string): Promise<{
   text: string;
@@ -39,7 +53,7 @@ async function fetchSupadata(videoId: string, apiKey: string, preferredLang?: st
   // Request segmented (no text=true) so we get offsets/durations.
   const params = new URLSearchParams({ videoId });
   if (preferredLang) params.set("lang", preferredLang);
-  const r = await fetch(`${SUPADATA_URL}?${params}`, {
+  const r = await timeoutFetch(SUPADATA_TIMEOUT_MS)(`${SUPADATA_URL}?${params}`, {
     headers: { "x-api-key": apiKey },
   });
   if (!r.ok) {
