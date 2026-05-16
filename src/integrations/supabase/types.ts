@@ -368,6 +368,51 @@ export type Database = {
         }
         Relationships: []
       }
+      entity_profiles: {
+        Row: {
+          appearance_stats: Json
+          bio: string | null
+          cost_usd: number | null
+          display_name: string
+          episode_ids: string[]
+          episodes_summary: string | null
+          featured_episode_ids: string[]
+          generated_at: string
+          kind: string
+          model: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          appearance_stats?: Json
+          bio?: string | null
+          cost_usd?: number | null
+          display_name: string
+          episode_ids?: string[]
+          episodes_summary?: string | null
+          featured_episode_ids?: string[]
+          generated_at?: string
+          kind: string
+          model?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          appearance_stats?: Json
+          bio?: string | null
+          cost_usd?: number | null
+          display_name?: string
+          episode_ids?: string[]
+          episodes_summary?: string | null
+          featured_episode_ids?: string[]
+          generated_at?: string
+          kind?: string
+          model?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episode_embeddings: {
         Row: {
           content_hash: string
@@ -1321,6 +1366,7 @@ export type Database = {
       }
       search_events: {
         Row: {
+          confidence_band: string | null
           created_at: string
           fallback_used: boolean
           id: string
@@ -1331,6 +1377,7 @@ export type Database = {
           viewport_width: number | null
         }
         Insert: {
+          confidence_band?: string | null
           created_at?: string
           fallback_used?: boolean
           id?: string
@@ -1341,6 +1388,7 @@ export type Database = {
           viewport_width?: number | null
         }
         Update: {
+          confidence_band?: string | null
           created_at?: string
           fallback_used?: boolean
           id?: string
@@ -1349,6 +1397,27 @@ export type Database = {
           terms_count?: number
           user_id?: string | null
           viewport_width?: number | null
+        }
+        Relationships: []
+      }
+      search_hyde_cache: {
+        Row: {
+          created_at: string
+          embedding: string | null
+          hyde_text: string
+          q_norm: string
+        }
+        Insert: {
+          created_at?: string
+          embedding?: string | null
+          hyde_text: string
+          q_norm: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string | null
+          hyde_text?: string
+          q_norm?: string
         }
         Relationships: []
       }
@@ -1556,6 +1625,90 @@ export type Database = {
         }
         Relationships: []
       }
+      token_df_cache: {
+        Row: {
+          computed_at: string
+          df: number
+          token: string
+        }
+        Insert: {
+          computed_at?: string
+          df: number
+          token: string
+        }
+        Update: {
+          computed_at?: string
+          df?: number
+          token?: string
+        }
+        Relationships: []
+      }
+      topic_hubs: {
+        Row: {
+          accent_hsl: string | null
+          active: boolean
+          aliases: string[]
+          appearance_stats: Json
+          bio: string | null
+          category: string | null
+          cost_usd: number | null
+          created_at: string
+          description: string | null
+          episode_ids: string[]
+          episodes_summary: string | null
+          featured_episode_ids: string[]
+          generated_at: string | null
+          id: string
+          model: string | null
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent_hsl?: string | null
+          active?: boolean
+          aliases?: string[]
+          appearance_stats?: Json
+          bio?: string | null
+          category?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          description?: string | null
+          episode_ids?: string[]
+          episodes_summary?: string | null
+          featured_episode_ids?: string[]
+          generated_at?: string | null
+          id?: string
+          model?: string | null
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent_hsl?: string | null
+          active?: boolean
+          aliases?: string[]
+          appearance_stats?: Json
+          bio?: string | null
+          category?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          description?: string | null
+          episode_ids?: string[]
+          episodes_summary?: string | null
+          featured_episode_ids?: string[]
+          generated_at?: string | null
+          id?: string
+          model?: string | null
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1727,6 +1880,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      match_podcast_by_name: {
+        Args: { p_max?: number; p_q: string; p_threshold?: number }
+        Returns: {
+          podcast_id: string
+          similarity: number
+          slug: string
+          title: string
+        }[]
+      }
       match_podcasts_by_embedding: {
         Args: {
           p_embedding: string
@@ -1785,16 +1947,30 @@ export type Database = {
         Returns: Json
       }
       refresh_homepage_feed: { Args: never; Returns: undefined }
+      resolve_query_entities: {
+        Args: { p_max?: number; p_q: string; p_threshold?: number }
+        Returns: {
+          display_name: string
+          kind: string
+          similarity: number
+          slug: string
+        }[]
+      }
       search_backfill_batch: {
         Args: { _batch?: number; _table: string }
         Returns: number
       }
       search_episodes_hybrid: {
         Args: {
+          alpha_lex?: number
+          entity_terms?: string[]
           lang?: string
           limit_n?: number
+          p_decay_lambda?: number
+          phrase_terms?: string[]
           q: string
           q_embedding?: string
+          required_terms?: string[]
         }
         Returns: {
           episode_id: string
@@ -1927,6 +2103,22 @@ export type Database = {
           title: string
           website_url: string
           youtube_url: string
+        }[]
+      }
+      suggest_token_corrections: {
+        Args: { p_tokens: string[] }
+        Returns: {
+          df: number
+          similarity: number
+          suggestion: string
+          token: string
+        }[]
+      }
+      token_idf: {
+        Args: { p_tokens: string[] }
+        Returns: {
+          df: number
+          token: string
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }
