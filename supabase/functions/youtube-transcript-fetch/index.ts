@@ -145,8 +145,11 @@ Deno.serve(async (req) => {
     let ok = 0, no_captions = 0, errors = 0, callsMade = 0;
     const errorDetails: any[] = [];
 
+    const delayMs = Number(ctrl.delay_ms ?? 1500);
     let cursor = 0;
-    async function worker() {
+    async function worker(workerIdx: number) {
+      // Stagger workers to avoid thundering herd on first tick
+      if (workerIdx > 0) await new Promise((r) => setTimeout(r, workerIdx * 500));
       while (cursor < todo.length) {
         if (Date.now() - startedAt > TIME_BUDGET_MS) return;
         const ep = todo[cursor++];
