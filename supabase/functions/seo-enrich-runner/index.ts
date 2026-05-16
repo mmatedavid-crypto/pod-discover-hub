@@ -171,15 +171,14 @@ Deno.serve(async (req) => {
             ai_entities_version: 2,
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
-          // If a real (non-mul) non-EN language is detected for the episode, fix the parent
-          // podcast if it's still mis-tagged as English. One Yoruba episode in an "en" feed
-          // means the show itself is non-EN.
-          if (detectedLang && detectedLang !== "en" && detectedLang !== "mul") {
+          // If a real (non-mul) language is detected for the episode and it disagrees with
+          // the parent podcast's tag, fix the parent. Handles both wrong-EN→other AND wrong-HU→EN.
+          if (detectedLang && detectedLang !== "mul") {
             const { data: ep } = await admin.from("episodes").select("podcast_id").eq("id", job.target_id).maybeSingle();
             if (ep?.podcast_id) {
               const { data: parent } = await admin.from("podcasts").select("language").eq("id", ep.podcast_id).maybeSingle();
               const parentLang = String(parent?.language || "").toLowerCase();
-              if (!parentLang || parentLang.startsWith("en")) {
+              if (!parentLang || !parentLang.startsWith(detectedLang)) {
                 await admin.from("podcasts").update({ language: detectedLang }).eq("id", ep.podcast_id);
               }
             }
