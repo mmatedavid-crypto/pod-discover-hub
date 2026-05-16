@@ -165,10 +165,74 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === PASS 3: Transcript-grounded ai_summary regeneration ===
+    // Targets episodes that already have a transcript but whose ai_summary was
+    // (or would be) generated from the short description only. These get a new
+    // job with a distinct input_hash so they don't conflict with the older
+    // description-based job for the same episode.
+    const transcriptRegenLimit = Number(body.max_transcript_regen ?? ctrl.max_transcript_regen_per_run ?? 200);
+    let transcriptJobs = 0;
+    let transcriptCandidates = 0;
+    let transcriptUpsertErr: string | null = null;
+    if (transcriptRegenLimit > 0) {
+      const { data: trEps, error: trErr } = await admin
+        .from("episode_transcripts")
+        .select("episode_id, transcript, episodes!inner(id, podcast_id, title, display_title, description, ai_summary_source, podcasts!inner(id, title, display_title, language, hosts, rank_label, rss_status, shadow_rank_components, full_backfill_completed_at))")
+        .order("created_at", { ascending: false })
+        .limit(transcriptRegenLimit * 3);
+      if (trErr) {
+        transcriptUpsertErr = trErr.message;
+      } else {
+        const sanitize = (s: string) => s
+          .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+          .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
+          .replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "$1");
+        const rows: any[] = [];
+        for (const t of (trEps || [])) {
+          if (rows.length >= transcriptRegenLimit) break;
+          const ep: any = (t as any).episodes;
+          if (!ep) continue;
+          if (ep.ai_summary_source === "transcript") continue;
+          const pod: any = ep.podcasts;
+          if (!pod) continue;
+          if (!allowedTiers.includes(String(pod.rank_label || "").toUpperCase())) continue;
+          if (!["active", "not_checked"].includes(String(pod.rss_status || ""))) continue;
+          if (!isHealthy(pod)) continue;
+          if (requireBackfill && !pod.full_backfill_completed_at) continue;
+          transcriptCandidates++;
+          const podName = sanitize(pod.display_title || pod.title || "");
+          const transcript = String((t as any).transcript || "");
+          const prompt = sanitize(episodeUserPrompt(ep, podName, pod.language, pod.hosts, transcript));
+          // Hash includes a transcript marker so it's distinct from the description-only job.
+          const hash = await inputHash(prompt + "|tr:" + transcript.slice(0, 200));
+          rows.push({
+            kind: "seo_episode",
+            target_type: "episode",
+            target_id: ep.id,
+            input_hash: hash,
+            priority: podPriority(pod),
+            status: "pending",
+            result: { prompt, pod_name: podName, source: "transcript" },
+          });
+        }
+        for (let i = 0; i < rows.length; i += 500) {
+          const batch = rows.slice(i, i + 500);
+          const { error, count } = await admin
+            .from("ai_enrichment_jobs")
+            .upsert(batch, { onConflict: "kind,target_type,target_id,input_hash", ignoreDuplicates: true, count: "exact" });
+          if (error) { transcriptUpsertErr = error.message; console.log("transcript_upsert_error", error); }
+          else transcriptJobs += (count ?? batch.length);
+        }
+      }
+    }
+
     return json({
       ok: true,
       podcasts_queued: podJobs,
       episodes_queued: epJobs,
+      transcript_regen_queued: transcriptJobs,
+      transcript_candidates: transcriptCandidates,
+      transcript_upsert_err: transcriptUpsertErr,
       podcasts_considered: pods.length,
       ep_podcasts_considered: epPods.length,
       ep_episodes_collected: collectedCount,
