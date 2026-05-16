@@ -6,7 +6,7 @@
 // - Never overwrites title or description.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
-import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
+import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, episodeUserPrompt, filterHosts } from "../_shared/seo-prompt.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -92,11 +92,12 @@ Deno.serve(async (req) => {
             if (!p) throw new Error("target_missing");
             prompt = podcastUserPrompt(p as any);
           } else {
-            const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title,language)").eq("id", job.target_id).maybeSingle();
+            const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title,language,hosts)").eq("id", job.target_id).maybeSingle();
             if (!e) throw new Error("target_missing");
             const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
             const podLanguage = ((e as any).podcasts?.language) || null;
-            prompt = episodeUserPrompt(e as any, podName, podLanguage);
+            const podHosts = ((e as any).podcasts?.hosts) || [];
+            prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts);
           }
         }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
@@ -149,14 +150,24 @@ Deno.serve(async (req) => {
             }
             return out;
           };
-          const people = cleanArr(parsed.people);
+          // For episode jobs we need the podcast hosts to scrub them out
+          // (the runner-side filter is a belt-and-braces guard on top of the prompt rule).
+          let epHosts: string[] = [];
+          let epPodcastId: string | null = null;
+          {
+            const { data: ep2 } = await admin.from("episodes").select("podcast_id, podcasts!inner(hosts)").eq("id", job.target_id).maybeSingle();
+            epPodcastId = (ep2 as any)?.podcast_id || null;
+            epHosts = ((ep2 as any)?.podcasts?.hosts) || [];
+          }
+          const people = filterHosts(cleanArr(parsed.people), epHosts);
+          const mentioned = filterHosts(cleanArr(parsed.mentioned), epHosts);
           const companies = cleanArr(parsed.companies);
           const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
           const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
           await admin.from("episodes").update({
             seo_title, seo_description, ai_summary,
-            people, companies, tickers, topics,
-            ai_entities_version: 1,
+            people, mentioned, companies, tickers, topics,
+            ai_entities_version: 2,
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
           // If a real (non-mul) non-EN language is detected for the episode, fix the parent
