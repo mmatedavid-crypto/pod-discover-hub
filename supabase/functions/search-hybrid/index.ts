@@ -1,9 +1,12 @@
 // Search v2 hybrid endpoint: lexical (tsv+trgm) + semantic (vector RRF) + AI re-rank.
-// Now also: AI query understanding (cached) + per-result "why matched" snippets.
-// POST { q: string, limit?: number, lang?: 'en'|'hu'|null, rerank?: boolean }
+// v13-port from Podiverzum remix. Chunk-augmentation disabled by default
+// (engine v12) — engine=v13 query param available if/when episode_chunks ships.
+// POST { q: string, limit?: number, lang?: 'en'|'hu'|null, rerank?: boolean, engine?: string }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { understandQuery, buildExpandedQuery, type Understanding } from "../_shared/search-understand.ts";
 import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
+import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
+import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +31,163 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | n
 
 function normalizeQ(q: string): string {
   return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
+}
+
+const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
+  eth: ["Ethereum", "Ether"],
+  btc: ["Bitcoin"],
+  sol: ["Solana"],
+  xrp: ["XRP Ledger", "Ripple"],
+  ada: ["Cardano"],
+  doge: ["Dogecoin"],
+  avax: ["Avalanche"],
+  link: ["Chainlink"],
+  dot: ["Polkadot"],
+  matic: ["Polygon"],
+  nbis: ["Nebius", "Nebius Group"],
+  asts: ["AST SpaceMobile"],
+  smci: ["Super Micro Computer", "Supermicro"],
+  pltr: ["Palantir"],
+  rddt: ["Reddit"],
+  arm: ["Arm Holdings"],
+  coin: ["Coinbase"],
+  hood: ["Robinhood"],
+  rivn: ["Rivian"],
+  lcid: ["Lucid Motors"],
+  mstr: ["MicroStrategy"],
+  nvda: ["Nvidia"],
+  tsla: ["Tesla"],
+  amd: ["AMD", "Advanced Micro Devices"],
+  meta: ["Meta", "Facebook"],
+  goog: ["Google", "Alphabet"],
+  googl: ["Google", "Alphabet"],
+  msft: ["Microsoft"],
+  aapl: ["Apple"],
+  amzn: ["Amazon"],
+  nflx: ["Netflix"],
+  tsm: ["TSMC", "Taiwan Semiconductor"],
+};
+
+const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
+
+// Stop-words excluded from rare-token MUST gate (common English + Hungarian + podcast filler).
+const RARE_GATE_STOPWORDS = new Set([
+  // English articles / aux / pronouns
+  "a","an","the","is","am","are","was","were","be","been","being","do","does","did","done",
+  "has","have","had","having","of","in","on","at","to","by","as","or","if","it","its","i","me","my",
+  "we","us","our","he","she","him","her","his","they","them","their","you","your","yours","myself",
+  "and","but","not","no","so","up","off","out","into","over","under","than","then","also","only","very",
+  "for","with","that","this","from","what","when","where","how","why","who","which","whom","whose",
+  // Hungarian articles / common words (accents already stripped by normalizeQ)
+  "az","es","vagy","de","hogy","mert","ez","egy","van","volt","lesz","csak","mar","meg","most",
+  "ha","sem","is","ne","nem","igen","ott","itt","oda","ide","nincs","ki","be","fel","le","at",
+  "mi","te","o","mink","tik","ok","engem","teged","ot","minket","titeket","oket","nekem","neked","neki",
+  "ami","aki","ahol","amikor","mig","valamint","azonban","viszont","tehat","tovabba","amit","akit",
+  // Podcast filler — EN + HU
+  "podcast","podcasts","episode","episodes","show","shows","talk","talks","about","best","top","new",
+  "latest","good","great","like","just","one","two","three","all","any","some","more","most","much","even",
+  "epizod","epizodok","musor","beszelgetes","interju","adasok","resz","reszek",
+]);
+
+function looksLikeGibberish(t: string): boolean {
+  if (t.length < 4) return false;
+  if (/^(.)\1{3,}$/.test(t)) return true;
+  if (/[a-z]/.test(t) && /\d/.test(t) && t.length <= 10 && !/^[a-z]+\d{1,4}$/.test(t)) {
+    if (!/^(gpt|llama|claude|gemini|rtx|gtx|h|a|b|m|i|core|ipv|ip|mp|mp3|mp4|h264|h265|w|wd|sd|hd)\d/.test(t)) return true;
+  }
+  if (t.length >= 6 && !/[aeiouy]/.test(t)) return true;
+  return false;
+}
+
+function tokenizeForRareGate(q: string, isTickerQ: boolean): string[] {
+  if (isTickerQ) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/)) {
+    const t = raw.trim();
+    if (t.length < 3 || t.length > 30) continue;
+    if (RARE_GATE_STOPWORDS.has(t)) continue;
+    if (/^\d+$/.test(t)) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+const MARKET_SYMBOL_SECTORS: Record<string, string> = {
+  nbis: "AI cloud computing GPU infrastructure data centers hyperscaler",
+  asts: "satellite communications space-based mobile broadband",
+  smci: "AI server hardware data center GPU infrastructure",
+  pltr: "data analytics enterprise AI software defense tech",
+  rddt: "social media online communities user-generated content",
+  arm: "semiconductor chip design ARM architecture mobile processors",
+  coin: "cryptocurrency exchange digital assets bitcoin trading",
+  hood: "retail trading brokerage fintech investing app",
+  rivn: "electric vehicles EV trucks automotive startups",
+  lcid: "luxury electric vehicles EV automotive",
+  mstr: "bitcoin treasury enterprise software cryptocurrency",
+  nvda: "GPU AI chips semiconductor accelerated computing",
+  tsla: "electric vehicles autonomous driving energy storage",
+  amd: "semiconductor CPU GPU chips data center",
+  meta: "social media VR augmented reality advertising platform",
+  goog: "search advertising cloud computing AI Android",
+  googl: "search advertising cloud computing AI Android",
+  msft: "cloud computing Azure enterprise software AI Copilot",
+  aapl: "consumer electronics iPhone services ecosystem",
+  amzn: "ecommerce AWS cloud computing logistics",
+  nflx: "streaming video entertainment subscription content",
+  tsm: "semiconductor foundry chip manufacturing advanced nodes",
+  eth: "ethereum smart contracts DeFi blockchain",
+  btc: "bitcoin cryptocurrency digital gold store of value",
+  sol: "solana blockchain web3 high-performance L1",
+  xrp: "ripple cross-border payments crypto",
+  doge: "dogecoin meme cryptocurrency",
+  avax: "avalanche blockchain L1 DeFi",
+};
+
+const TICKER_HELPER_WORDS = new Set([
+  "stock","stocks","share","shares","ticker","equity","equities",
+  "részvény","reszveny","részvények","reszvenyek","papír","papir",
+  "price","quote","chart","earnings","revenue","sales","results","guidance","forecast",
+  "analysis","analyst","valuation","market","cap","financials","quarter","q1","q2","q3","q4",
+]);
+function compactMarketSymbol(q: string): string | null {
+  const trimmed = q.trim();
+  const hadDollar = trimmed.startsWith("$");
+  const t = trimmed.replace(/^\$/, "");
+  const isAllCaps = (s: string) => s === s.toUpperCase() && /[A-Z]/.test(s);
+  if (/^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t)) {
+    if (hadDollar || isAllCaps(t)) return t.toUpperCase();
+    return null;
+  }
+  const parts = t.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2 && parts.length <= 4) {
+    const core = parts.filter((p) => !TICKER_HELPER_WORDS.has(p.toLowerCase()));
+    if (core.length === 1 && /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(core[0])) {
+      if (hadDollar || isAllCaps(core[0])) return core[0].toUpperCase();
+    }
+  }
+  return null;
+}
+
+function uniqueClean(values: string[], max = 12): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of values) {
+    const v = String(raw || "").trim();
+    const key = v.toLowerCase();
+    if (!v || seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function quoteWebSearchTerm(term: string): string {
+  return term.includes(" ") ? `"${term.replace(/"/g, " ").trim()}"` : term;
 }
 
 async function embedRaw(q: string): Promise<number[] | null> {
@@ -66,9 +226,9 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
-          { role: "system", content: "You re-rank podcast episodes by relevance and explain why each top result matches in <12 words." },
+          { role: "system", content: "You re-rank Hungarian podcast episodes by relevance and explain why each top result matches in <12 words, in Hungarian." },
           { role: "user", content: `Query: ${q}\nCandidates: ${JSON.stringify(compact)}\nReturn the top 15 most relevant ids in order, each with a one-line why_matched.` },
         ],
         tools: [{
@@ -113,18 +273,51 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const body = await req.json().catch(() => ({}));
-    const q = String(body.q || "").trim();
+    let q = String(body.q || "").trim();
     const limit = Math.min(80, Math.max(5, Number(body.limit) || 50));
-    const lang = body.lang === null ? null : (typeof body.lang === "string" ? body.lang : "en");
+    const lang = body.lang === null ? null : (typeof body.lang === "string" ? body.lang : "hu");
     const wantRerank = body.rerank !== false;
+
+    // Engine version flags. Default v12 (no chunk augmentation; episode_chunks not yet shipped).
+    const engineRaw = String(body.engine || "v12").toLowerCase();
+    const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 12; })();
+    const FF = {
+      threePassMust: engN >= 9,
+      mmrDiversity: engN >= 9,
+      hallucinationGuard: engN >= 10,
+      entityPyramid: engN >= 10,
+      spell: engN >= 11,
+      decay: engN >= 12,
+      bigramMust: engN >= 12,
+      hyde: engN >= 12,
+      cohere: engN >= 12,
+      chunkAugment: engN >= 13,
+    };
 
     if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const t0 = Date.now();
-    const qNorm = normalizeQ(q);
+    let qNorm = normalizeQ(q);
 
-    // 1) Cache lookup (understanding + embedding + rerank) — 7d understanding, 24h rerank
+    // Stopword + gibberish gate.
+    {
+      const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 1);
+      const meaningful = tokens.filter((t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
+      const allGibberish = meaningful.length > 0 && meaningful.every((t) => looksLikeGibberish(t));
+      if (tokens.length > 0 && (meaningful.length === 0 || allGibberish)) {
+        return new Response(JSON.stringify({
+          episodes: [],
+          timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
+          confidence_band: "low",
+          stopword_gate: meaningful.length === 0,
+          gibberish_gate: allGibberish,
+          reason: allGibberish ? "gibberish_only" : "stopwords_only",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    // 1) Cache lookup
     let understanding: Understanding | null = null;
     let q_embedding: number[] | null = null;
     let cachedRerank: { ids: string[]; why: Record<string, string> } | null = null;
@@ -147,7 +340,6 @@ Deno.serve(async (req) => {
         }
         cacheHit = true;
       }
-      // Rerank cache: 24h TTL, independent of understanding cache
       if (cached?.rerank && cached.rerank_updated_at && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000) {
         const r = cached.rerank as any;
         if (Array.isArray(r?.ids) && r.ids.length) {
@@ -156,9 +348,17 @@ Deno.serve(async (req) => {
       }
     } catch (e) { console.warn("cache read err", e); }
 
-    // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
+    const marketSymbol = compactMarketSymbol(q);
+    const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
+    const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
+    if (isTickerQ && understanding) {
+      const hasCompany = (understanding.entities || []).some((e) => typeof e === "string" && e.includes(" "));
+      if (!hasCompany && !symbolAliases.length) understanding = null;
+    }
+
+    // 2) Parallel: understanding + embedding + curated synonyms
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 700),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
@@ -166,8 +366,24 @@ Deno.serve(async (req) => {
     if (!q_embedding) q_embedding = embVal;
     const tEmb = Date.now() - t0;
 
-    // 3) Persist to cache (fire and forget)
-    if (!cacheHit) {
+    // Ticker override
+    if (isTickerQ && marketSymbol) {
+      const sym = marketSymbol;
+      const aiEntities = (understanding?.entities || []).filter((e) => e && e.toUpperCase() !== sym);
+      const curatedCompanies = (curated.expansions || []).filter((e) => e && e.toUpperCase() !== sym);
+      const resolvedNames = uniqueClean([...symbolAliases, ...curatedCompanies, ...aiEntities], 10);
+      understanding = {
+        entities: uniqueClean([sym, ...resolvedNames], 8),
+        expanded_terms: uniqueClean([sym, ...resolvedNames], 8),
+        synonyms: [],
+        intent: "ticker",
+        language: understanding?.language || "hu",
+      };
+      cachedRerank = null;
+    }
+
+    // 3) Persist to cache
+    if (!cacheHit || isTickerQ) {
       supa.from("search_query_cache").upsert({
         q_norm: qNorm,
         understanding: understanding,
@@ -175,34 +391,433 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).then(() => {}, (e) => console.warn("cache write", e));
     } else {
-      supa.rpc("noop").then(() => {}, () => {});
       supa.from("search_query_cache").update({ hits: 1, updated_at: new Date().toISOString() }).eq("q_norm", qNorm).then(() => {}, () => {});
     }
 
-    // 4) Hybrid RPC with expanded query (lexical) + original embedding (semantic).
-    // Curated synonyms (typos, category synonyms) appended to lexical side; AI expansion on top.
+    // 4) Hybrid RPC
     const aiExpanded = buildExpandedQuery(q, understanding);
-    const curatedOr = curated.expansions
-      .map((t) => (t.includes(" ") ? `"${t.replace(/"/g, "")}"` : t))
-      .join(" or ");
-    const expanded = curatedOr
-      ? `${aiExpanded} or ${curatedOr}`.slice(0, 700)
+    const expanded = curated.expansions.length
+      ? `${aiExpanded} ${curated.expansions.join(" ")}`.slice(0, 700)
       : aiExpanded;
-    const { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
-      q: expanded,
+
+    const rawEntities = (understanding?.entities || [])
+      .map((s) => String(s || "").trim())
+      .filter((s) => s.length >= 3 && s.length <= 60);
+    const resolvedMarketTerms = isTickerQ && marketSymbol
+      ? uniqueClean([
+          marketSymbol,
+          ...symbolAliases,
+          ...(curated.expansions || []),
+          ...rawEntities.filter((t) => t.toUpperCase() !== marketSymbol),
+        ], 8)
+      : [];
+    const strictCandidateTerms = isTickerQ && resolvedMarketTerms.length
+      ? [
+          resolvedMarketTerms.find((t) => t.includes(" "))
+            || resolvedMarketTerms.find((t) => t.toUpperCase() !== marketSymbol)
+            || resolvedMarketTerms[0],
+        ].filter(Boolean) as string[]
+      : rawEntities;
+    const intent = String(understanding?.intent || "").toLowerCase();
+    const highPrecisionIntent = isTickerQ || intent === "person" || intent === "company" || intent === "ticker" || intent === "episode";
+    const requiredTermsBase = (highPrecisionIntent ? strictCandidateTerms : [])
+      .slice()
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 4);
+
+    // Rare-token MUST gate via IDF
+    const rareGateTokens = tokenizeForRareGate(q, isTickerQ);
+    let rareTokens: string[] = [];
+    let unknownTokens: string[] = [];
+    let unknownTokenCount = 0;
+    let idfRpcOk = false;
+    if (rareGateTokens.length) {
+      try {
+        const { data: idfRows, error: idfErr } = await supa.rpc("token_idf", { p_tokens: rareGateTokens });
+        if (idfErr) throw idfErr;
+        idfRpcOk = true;
+        const RARE_THRESHOLD = 200;
+        const UNKNOWN_THRESHOLD = 1;
+        const rows = ((idfRows as Array<{ token: string; df: number }>) || []);
+        rareTokens = rows.filter((r) => r.df > 0 && r.df < RARE_THRESHOLD).map((r) => r.token);
+        const dfMap = new Map(rows.map((r) => [r.token, r.df]));
+        unknownTokens = rareGateTokens.filter((t) => {
+          const df = dfMap.get(t);
+          return df === undefined ? true : df < UNKNOWN_THRESHOLD;
+        });
+        unknownTokenCount = unknownTokens.length;
+      } catch (e) { console.warn("token_idf err", e); }
+    }
+
+    // Spell-correction
+    const spellCorrections: Array<{ from: string; to: string }> = [];
+    const rawEntitiesPre = (understanding?.entities || [])
+      .map((s) => String(s || "").trim())
+      .filter((s) => s.length >= 3 && s.length <= 60);
+    const trustedEntitiesPre = rawEntitiesPre.filter((e) => {
+      if (e.includes(" ")) return true;
+      const tk = e.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      return !(tk.length === 1 && rareGateTokens.includes(tk[0]));
+    });
+    if (FF.spell && idfRpcOk && !isTickerQ && unknownTokens.length > 0 && trustedEntitiesPre.length === 0) {
+      const correctable = unknownTokens.filter((t) => {
+        const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+        const m = q.match(re);
+        if (m && /[A-Z]/.test(m[0])) return false;
+        return t.length >= 4 && /^[a-z]+$/.test(t);
+      });
+      if (correctable.length) {
+        try {
+          const { data: sugRows } = await supa.rpc("suggest_token_corrections", { p_tokens: correctable });
+          const sugs = (sugRows as Array<{ token: string; suggestion: string; similarity: number }> | null) || [];
+          for (const s of sugs) if (s?.token && s?.suggestion && s.token !== s.suggestion) {
+            spellCorrections.push({ from: s.token, to: s.suggestion });
+          }
+        } catch (e) { console.warn("spell rpc err", e); }
+      }
+      if (spellCorrections.length) {
+        let rewritten = q;
+        for (const c of spellCorrections) {
+          rewritten = rewritten.replace(new RegExp(`\\b${c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), c.to);
+        }
+        q = rewritten;
+        qNorm = normalizeQ(rewritten);
+        const newEmb = await embed(rewritten);
+        if (newEmb) q_embedding = newEmb;
+        const newGateTokens = tokenizeForRareGate(rewritten, false);
+        try {
+          const { data: idfRows2 } = await supa.rpc("token_idf", { p_tokens: newGateTokens });
+          const rows2 = ((idfRows2 as Array<{ token: string; df: number }>) || []);
+          rareTokens = rows2.filter((r) => r.df > 0 && r.df < 200).map((r) => r.token);
+          const df2 = new Map(rows2.map((r) => [r.token, r.df]));
+          unknownTokens = newGateTokens.filter((t) => (df2.get(t) ?? 0) < 1);
+          unknownTokenCount = unknownTokens.length;
+        } catch { /* ignore */ }
+      }
+    }
+
+    // Nonsense gate
+    const trustedEntities = rawEntities.filter((e) => {
+      const lc = e.toLowerCase();
+      if (e.includes(" ")) return true;
+      const tokens = lc.split(/[^a-z0-9]+/).filter(Boolean);
+      if (tokens.length === 1 && rareGateTokens.includes(tokens[0])) return false;
+      return true;
+    });
+    if (
+      FF.hallucinationGuard &&
+      idfRpcOk &&
+      !isTickerQ &&
+      rareGateTokens.length > 0 &&
+      unknownTokenCount === rareGateTokens.length &&
+      trustedEntities.length === 0
+    ) {
+      return new Response(JSON.stringify({
+        episodes: [],
+        understanding,
+        timing: { embed_ms: tEmb, rpc_ms: 0, total_ms: Date.now() - t0 },
+        semantic: !!q_embedding,
+        cache_hit: cacheHit,
+        confidence_band: "low",
+        rare_tokens: rareGateTokens,
+        nonsense_gate: true,
+        reason: "no_known_tokens",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Phrase tokens
+    const phraseTokens = qNorm.split(/[^a-z0-9]+/).filter(
+      (t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t)
+    );
+    const phrasePool: string[] = [];
+    if (highPrecisionIntent && !isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4) {
+      for (const t of phraseTokens) phrasePool.push(t);
+    }
+
+    // Entity resolution
+    let resolvedEntities: Array<{ kind: string; display_name: string; slug: string; similarity: number }> = [];
+    if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
+      const resolved = await withTimeout(
+        supa.rpc("resolve_query_entities", { p_q: q, p_max: 6, p_threshold: 0.45 }).then((r: any) => r.data),
+        400, "resolve_query_entities",
+      );
+      if (Array.isArray(resolved)) resolvedEntities = resolved as any;
+    }
+    const resolvedNames = uniqueClean(resolvedEntities.map((r) => r.display_name), 4);
+
+    const gatedRareTokens = (FF.hallucinationGuard && highPrecisionIntent) ? rareTokens : [];
+    const requiredTerms = uniqueClean([...requiredTermsBase, ...gatedRareTokens, ...phrasePool], 8);
+    const entityTerms = uniqueClean([...rawEntities, ...resolvedNames], 10);
+    const contiguousPhrase = (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4)
+      ? [phraseTokens.join(" ")] : [];
+    const phraseTerms = uniqueClean([...contiguousPhrase, ...resolvedNames], 6);
+
+    if (
+      FF.bigramMust &&
+      (intent === "person" || intent === "company") &&
+      contiguousPhrase.length &&
+      rawEntities.some((e) => e.toLowerCase() === contiguousPhrase[0].toLowerCase())
+    ) {
+      if (!requiredTerms.includes(contiguousPhrase[0])) requiredTerms.push(contiguousPhrase[0]);
+    }
+
+    const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
+    const decayLambda = (FF.decay && (intent === "news" || intent === "ticker" || intent === "company")) ? 0.15 : 0;
+
+    // HyDE
+    let hydeUsed = false;
+    let hydeCacheHit: boolean | null = null;
+    if (
+      FF.hyde &&
+      q_embedding &&
+      (intent === "topic" || intent === "question" || intent === "") &&
+      !isTickerQ &&
+      qNorm.split(/\s+/).filter(Boolean).length >= 3
+    ) {
+      try {
+        const hyde = await getHydeExpansion(supa, qNorm, q);
+        if (hyde && hyde.embedding.length === 768) {
+          q_embedding = blendEmbeddings(q_embedding, hyde.embedding, 0.6);
+          hydeUsed = true;
+          hydeCacheHit = hyde.cache_hit;
+        }
+      } catch (e) { console.warn("hyde err", e); }
+    }
+
+    // Lexical query
+    let lexQ = q;
+    if (isTickerQ && marketSymbol) {
+      const companies = uniqueClean([
+        ...symbolAliases,
+        ...(curated.expansions || []),
+        ...rawEntities.filter((t) => t.toUpperCase() !== marketSymbol),
+        marketSymbol,
+      ], 8);
+      if (companies.length) {
+        lexQ = companies.map(quoteWebSearchTerm).join(" OR ");
+      }
+    } else {
+      const synExpansions = uniqueClean([
+        ...(curated.expansions || []),
+        ...((understanding?.synonyms as string[]) || []),
+        ...((understanding?.expanded_terms as string[]) || []),
+      ], 6).filter((t) => t.toLowerCase() !== q.toLowerCase());
+      if (synExpansions.length) {
+        const parts = [quoteWebSearchTerm(q), ...synExpansions.map(quoteWebSearchTerm)];
+        lexQ = parts.join(" OR ");
+      }
+    }
+
+    let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
+      q: lexQ,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
       lang,
+      required_terms: requiredTerms.length ? requiredTerms : null,
+      entity_terms: entityTerms.length ? entityTerms : null,
+      alpha_lex: alphaLex,
+      p_decay_lambda: decayLambda,
+      phrase_terms: phraseTerms.length ? phraseTerms : null,
     });
     if (error) {
       console.error("rpc err", error);
       return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    let mustGateApplied = requiredTerms.length > 0;
+    let mustGateRelaxed = false;
+    let mustGateDropped = false;
+    const strictRows = rows || [];
+    const strictHitIds = new Set(strictRows.map((r: any) => r.episode_id));
+    const strictIds = new Set(strictHitIds);
+    const appendNew = (extra: any[] | null | undefined) => {
+      if (!extra) return;
+      for (const r of extra) {
+        if (!strictIds.has(r.episode_id)) {
+          strictRows.push(r);
+          strictIds.add(r.episode_id);
+        }
+      }
+    };
+
+    // Pass 2 — drop phrase requirement
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && phrasePool.length) {
+      const noPhraseTerms = requiredTerms.filter((t) => !phrasePool.includes(t));
+      if (noPhraseTerms.length !== requiredTerms.length) {
+        const retry = await supa.rpc("search_episodes_hybrid", {
+          q: lexQ,
+          q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+          limit_n: Math.max(limit, 50),
+          lang,
+          required_terms: noPhraseTerms.length ? noPhraseTerms : null,
+          entity_terms: entityTerms.length ? entityTerms : null,
+          alpha_lex: alphaLex,
+          p_decay_lambda: decayLambda,
+          phrase_terms: phraseTerms.length ? phraseTerms : null,
+        });
+        if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
+      }
+    }
+
+    // Pass 3 — relaxed gate
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied) {
+      const strictTerms = requiredTerms.filter((t) => t.includes(" ") && !phrasePool.includes(t));
+      const relaxedTerms = strictTerms.length ? strictTerms : null;
+      if ((relaxedTerms?.join("|") || "") !== requiredTerms.join("|")) {
+        const retry = await supa.rpc("search_episodes_hybrid", {
+          q: lexQ,
+          q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+          limit_n: Math.max(limit, 50),
+          lang,
+          required_terms: relaxedTerms,
+          entity_terms: entityTerms.length ? entityTerms : null,
+          alpha_lex: alphaLex,
+          p_decay_lambda: decayLambda,
+          phrase_terms: phraseTerms.length ? phraseTerms : null,
+        });
+        if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
+      }
+    }
+
+    // Pass 4 — drop gate
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0) {
+      const retry2 = await supa.rpc("search_episodes_hybrid", {
+        q: lexQ,
+        q_embedding: `[${q_embedding.join(",")}]`,
+        limit_n: Math.max(limit, 50),
+        lang,
+        required_terms: null,
+        entity_terms: entityTerms.length ? entityTerms : null,
+        alpha_lex: Math.min(alphaLex, 0.35),
+        p_decay_lambda: decayLambda,
+        phrase_terms: phraseTerms.length ? phraseTerms : null,
+      });
+      if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
+    }
+
+    // Entity pyramid fallback
+    let sectorFallback = false;
+    let sectorHint: string | null = null;
+    let fallbackKind: "ticker" | "person" | "company" | null = null;
+    if (FF.entityPyramid && strictRows.length === 0) {
+      let entityName: string | null = null;
+      let contextTerms: string | null = null;
+
+      if (isTickerQ && marketSymbol) {
+        fallbackKind = "ticker";
+        entityName = symbolAliases[0]
+          || rawEntities.find((t) => t.toUpperCase() !== marketSymbol)
+          || (curated.expansions || [])[0]
+          || marketSymbol;
+        contextTerms = MARKET_SYMBOL_SECTORS[marketSymbol.toLowerCase()] || null;
+      } else if (understanding?.intent === "person" || understanding?.intent === "company") {
+        const primaryEntity = rawEntities.find((t) => t.includes(" ")) || rawEntities[0];
+        if (primaryEntity) {
+          fallbackKind = understanding.intent as "person" | "company";
+          entityName = primaryEntity;
+          const ctx = uniqueClean([
+            ...((understanding.expanded_terms as string[]) || []),
+            ...((understanding.synonyms as string[]) || []),
+          ], 6).filter((t) => t.toLowerCase() !== primaryEntity.toLowerCase());
+          if (ctx.length) contextTerms = ctx.join(" ");
+        }
+      }
+
+      if (entityName && contextTerms) {
+        const sectorQText = `${entityName} ${contextTerms}`.trim();
+        const sectorEmb = await embed(sectorQText);
+        if (sectorEmb) {
+          const retry3 = await supa.rpc("search_episodes_hybrid", {
+            q: entityName,
+            q_embedding: `[${sectorEmb.join(",")}]`,
+            limit_n: Math.max(limit, 30),
+            lang,
+            required_terms: null,
+            entity_terms: null,
+            alpha_lex: 0.15,
+          });
+          if (!retry3.error && retry3.data?.length) {
+            appendNew(retry3.data);
+            sectorFallback = true;
+            sectorHint = contextTerms.split(/\s+/).slice(0, 6).join(" ");
+          }
+        }
+      }
+    }
+
+    // Known-item podcast pin
+    let podcastPinSlug: string | null = null;
+    let podcastPinTitle: string | null = null;
+    let podcastPinIds: string[] = [];
+    if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
+      const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes|epizod|musor)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
+      const pmRes = await withTimeout(
+        supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
+        300, "match_podcast_by_name",
+      );
+      const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
+      const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
+      if (top && sim >= 0.6) {
+        podcastPinSlug = top.slug;
+        podcastPinTitle = top.title;
+        const { data: pinEps } = await supa
+          .from("episodes")
+          .select("id")
+          .eq("podcast_id", top.podcast_id)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(8);
+        if (pinEps?.length) podcastPinIds = pinEps.map((e: any) => e.id);
+        for (const id of podcastPinIds) {
+          if (!strictIds.has(id)) {
+            strictRows.unshift({ episode_id: id, lex_score: 1, sem_score: 1, hybrid_score: 1 } as any);
+            strictIds.add(id);
+            strictHitIds.add(id);
+          }
+        }
+      }
+    }
+
+    // Confidence band
+    const strictCount = strictHitIds.size;
+    let confidenceBand: "high" | "medium" | "low";
+    if (sectorFallback || mustGateDropped) confidenceBand = "low";
+    else if (mustGateApplied && strictCount >= 5 && !mustGateRelaxed) confidenceBand = "high";
+    else if (strictCount >= 3) confidenceBand = "medium";
+    else confidenceBand = "low";
+
+    // Chunk augmentation (v13 — disabled by default; episode_chunks not yet shipped)
+    let chunkAugmented = 0;
+    if (FF.chunkAugment && q_embedding && strictRows.length < 30) {
+      try {
+        const { data: chunkRows } = await supa.rpc("search_episode_chunks", {
+          query_embedding: `[${q_embedding.join(",")}]`,
+          match_count: 30,
+          candidate_pool: 400,
+        });
+        const cr = (chunkRows as any[]) || [];
+        for (const c of cr) {
+          if (strictIds.has(c.episode_id)) continue;
+          strictRows.push({
+            episode_id: c.episode_id,
+            lex_score: 0,
+            sem_score: c.similarity || 0,
+            hybrid_score: (c.similarity || 0) * 0.92,
+            chunk_source: c.best_source,
+          } as any);
+          strictIds.add(c.episode_id);
+          chunkAugmented++;
+          if (chunkAugmented >= 20) break;
+        }
+      } catch (err) {
+        console.warn("chunk_augment_failed", err);
+      }
+    }
+
+    rows = strictRows;
     const tRpc = Date.now() - t0 - tEmb;
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -221,11 +836,37 @@ Deno.serve(async (req) => {
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
+    // Cohere reranker
+    let cohereRerankUsed = false;
+    let cohereLatency = 0;
+    if (
+      FF.cohere &&
+      ordered.length >= 10 &&
+      (confidenceBand === "high" || confidenceBand === "medium") &&
+      !sectorFallback
+    ) {
+      const candidates: CohereRerankInput[] = ordered.slice(0, 30).map((e: any) => ({
+        id: e.id,
+        text: `${e.podcasts?.title || ""} — ${e.title || ""}\n${(e.ai_summary || e.summary || e.description || "").slice(0, 500)}`,
+      }));
+      const co = await cohereRerank(supa, q, candidates, Math.min(30, candidates.length));
+      if (co && co.ids.length) {
+        cohereRerankUsed = true;
+        cohereLatency = co.latency_ms;
+        const rank = new Map(co.ids.map((id, i) => [id, i]));
+        const head = ordered
+          .filter((e: any) => rank.has(e.id))
+          .sort((a: any, b: any) => (rank.get(a.id)! - rank.get(b.id)!));
+        const tail = ordered.filter((e: any) => !rank.has(e.id));
+        ordered = [...head, ...tail];
+      }
+    }
+
+    // Gemini reranker fallback
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
     let rerankCacheHit = false;
-    if (wantRerank) {
+    if (wantRerank && !cohereRerankUsed) {
       if (cachedRerank) {
-        // Filter to ids actually present in this result-set (DB content may have shifted)
         const present = new Set(ordered.map((e: any) => e.id));
         const filteredIds = cachedRerank.ids.filter((id) => present.has(id));
         if (filteredIds.length >= 5) {
@@ -236,7 +877,6 @@ Deno.serve(async (req) => {
       if (!rerankResult) {
         rerankResult = await rerank(q, ordered);
         if (rerankResult && rerankResult.ids.length) {
-          // Persist rerank cache (fire-and-forget)
           supa.from("search_query_cache").update({
             rerank: { ids: rerankResult.ids, why: rerankResult.why },
             rerank_updated_at: new Date().toISOString(),
@@ -249,12 +889,96 @@ Deno.serve(async (req) => {
     if (rerankResult && rerankResult.ids.length) {
       const idx = new Map(rerankResult.ids.map((id, i) => [id, i]));
       ordered = ordered
-        .map((e: any) => ({ e, r: idx.has(e.id) ? idx.get(e.id)! : 999 + (orderMap.get(e.id) ?? 0) }))
-        .sort((a, b) => a.r - b.r)
+        .map((e: any) => ({
+          e,
+          pin: strictHitIds.has(e.id) ? 0 : 1,
+          r: idx.has(e.id) ? idx.get(e.id)! : 999 + (orderMap.get(e.id) ?? 0),
+        }))
+        .sort((a, b) => a.pin - b.pin || a.r - b.r)
         .map((x) => {
           const why = rerankResult!.why[x.e.id];
           return why ? { ...x.e, why_matched: why } : x.e;
         });
+    }
+
+    // Entity-pinning boost
+    const pinEntities = uniqueClean([
+      ...((understanding?.entities as string[]) || []),
+    ], 6).map((s) => s.toLowerCase()).filter((s) => s.length >= 3);
+    if (pinEntities.length) {
+      const strictBrandMatch = (e: any): boolean => {
+        const arrays: string[] = [
+          ...(Array.isArray(e.people) ? e.people : []),
+          ...(Array.isArray(e.companies) ? e.companies : []),
+          ...(Array.isArray(e.tickers) ? e.tickers : []),
+        ].map((s) => String(s || "").toLowerCase());
+        if (!arrays.length) return false;
+        return pinEntities.some((ent) => arrays.some((v) => v === ent || v.includes(ent)));
+      };
+      const matchEntity = (e: any): boolean => {
+        const hayParts = [
+          e.title || "",
+          (Array.isArray(e.people) ? e.people.join(" ") : ""),
+          (Array.isArray(e.companies) ? e.companies.join(" ") : ""),
+          (Array.isArray(e.tickers) ? e.tickers.join(" ") : ""),
+          (Array.isArray(e.topics) ? e.topics.join(" ") : ""),
+        ];
+        const hay = hayParts.join(" ").toLowerCase();
+        return pinEntities.some((ent) => {
+          const re = new RegExp(`(?:^|[^a-z0-9])${ent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^a-z0-9])`);
+          return re.test(hay);
+        });
+      };
+      const annotated = ordered.map((e: any) => ({
+        e,
+        strict: strictBrandMatch(e),
+        hit: matchEntity(e),
+      }));
+      const strictBrand = annotated.filter((x) => x.strict).map((x) => x.e);
+      const looseHits = annotated.filter((x) => !x.strict && x.hit).map((x) => x.e);
+      const misses = annotated.filter((x) => !x.strict && !x.hit).map((x) => x.e);
+      if (strictBrand.length > 0 || looseHits.length > 0) {
+        const strictHead = strictBrand.slice(0, 6);
+        const strictTail = strictBrand.slice(6);
+        ordered = [...strictHead, ...looseHits, ...strictTail, ...misses];
+      }
+    }
+
+    // MMR diversity
+    const diversify = (list: any[]): any[] => {
+      if (list.length <= 5) return list;
+      const caps: Array<{ until: number; max: number }> = [
+        { until: 10, max: 2 },
+        { until: 20, max: 3 },
+      ];
+      const counts = new Map<string, number>();
+      const kept: any[] = [];
+      const overflow: any[] = [];
+      for (const e of list) {
+        const pid = e.podcast_id || e.podcasts?.slug || "unknown";
+        if (strictHitIds.has(e.id)) {
+          kept.push(e);
+          counts.set(pid, (counts.get(pid) || 0) + 1);
+          continue;
+        }
+        const pos = kept.length;
+        const cap = caps.find((c) => pos < c.until);
+        const cur = counts.get(pid) || 0;
+        if (cap && cur >= cap.max) { overflow.push(e); continue; }
+        kept.push(e);
+        counts.set(pid, cur + 1);
+      }
+      return [...kept, ...overflow];
+    };
+    if (FF.mmrDiversity) ordered = diversify(ordered);
+
+    // Final podcast pin
+    if (podcastPinIds.length) {
+      const pinSet = new Set(podcastPinIds);
+      const pinned = ordered.filter((e: any) => pinSet.has(e.id));
+      const rest = ordered.filter((e: any) => !pinSet.has(e.id));
+      pinned.sort((a: any, b: any) => podcastPinIds.indexOf(a.id) - podcastPinIds.indexOf(b.id));
+      ordered = [...pinned, ...rest];
     }
 
     return new Response(
@@ -266,6 +990,23 @@ Deno.serve(async (req) => {
         reranked: !!rerankResult,
         rerank_cache_hit: rerankCacheHit,
         cache_hit: cacheHit,
+        must_gate: mustGateApplied,
+        must_gate_relaxed: mustGateRelaxed,
+        must_gate_dropped: mustGateDropped,
+        sector_fallback: sectorFallback,
+        sector_hint: sectorHint,
+        fallback_kind: fallbackKind,
+        ticker_symbol: isTickerQ ? marketSymbol : null,
+        confidence_band: confidenceBand,
+        rare_tokens: rareTokens,
+        spell_corrections: spellCorrections.length ? spellCorrections : undefined,
+        podcast_pin: podcastPinSlug ? { slug: podcastPinSlug, title: podcastPinTitle } : null,
+        cohere_used: cohereRerankUsed,
+        cohere_latency_ms: cohereLatency || undefined,
+        hyde_used: hydeUsed,
+        hyde_cache_hit: hydeCacheHit,
+        chunk_augmented: chunkAugmented || undefined,
+        engine: `v${engN}`,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
