@@ -10,17 +10,26 @@ const cors = {
 const EMBED_MODEL = "google/gemini-embedding-001";
 
 // Default seeds per mood slug — used if seed_query is null on the row.
+// HU mood collections: magyar nyelvű seed promptok a magyar podcast korpuszhoz.
 const DEFAULT_SEEDS: Record<string, string> = {
-  "morning-inspiration":
-    "Energizing motivational morning podcasts about positive mindset, daily habits, productivity, gratitude, optimism and starting the day with intention.",
-  "deep-focus":
-    "Long-form interview and analysis podcasts about technology, software engineering, startups, business strategy, venture capital, economics and product design. In-depth conversations with founders, engineers and investors. Not music, not sleep, not meditation.",
-  "wind-down":
-    "Relaxing evening podcasts: meditation, sleep stories, mindfulness, calm storytelling, soothing voices, philosophy, gentle reflection before bed.",
-  "learn-something-new":
-    "Curious educational podcasts that explain ideas: history, science, psychology, economics, big ideas, popular intellectual interviews, learning every episode.",
-  "news-now":
-    "Daily news and current affairs podcasts: world news, politics, business news, breaking stories, daily briefings, journalism.",
+  "elalvashoz":
+    "Nyugodt, lassú beszélgetésű magyar podcastok elalváshoz és kikapcsolódáshoz. Meditáció, mindfulness, relaxáció, halk hangú mesélés, alvássegítő történetek, lélektani témák, csendes esti reflexió. Nem hírműsor, nem politika, nem humor.",
+  "munkaba-menet": 
+    "Rövidebb, könnyen fogyasztható magyar podcastok reggeli ingázáshoz, munkába menet. Napindító összefoglalók, friss hírek tömören, motivációs és produktivitási tippek, kávé melletti hallgatnivaló. Tempós, de nem hangos.",
+  "reggeli-radio":
+    "Klasszikus reggeli rádiós műsorok és napindító magyar podcastok: élő hangulat, vendégek, könnyed beszélgetés, zenei betétek, aktuális hírek, humoros betelefonálók. Balázsék, Bochkor, kereskedelmi reggeli rádiók stílusa.",
+  "edzeshez":
+    "Energikus, pörgős magyar podcastok edzéshez, futáshoz, kondizáshoz. Sport, fitness, motiváció, teljesítmény, mentális erő, sportolói interjúk, lendületes beszélgetések. Magas energia, gyors tempó.",
+  "hosszu-utra":
+    "Hosszabb, mélyebb magyar podcast beszélgetések autós utazáshoz, hosszú útra. Másfél-három órás interjúk, sztorizós formátumok, dokumentarista riportok, igazi mélyfúrások egy témába vagy egy emberbe.",
+  "vilag-esemenyei":
+    "Magyar podcastok a világ aktuális eseményeiről: politika, gazdaság, geopolitika, háború, választások, nemzetközi hírek, elemzések, háttér-beszélgetések újságírókkal és szakértőkkel.",
+  "mosolyogashoz":
+    "Könnyed, szórakoztató, humoros magyar podcastok: stand-up, vicces beszélgetések, popkultúra, abszurd sztorik, baráti társalgási formátumok, nevettetős tartalom. Nem komoly, nem nyomasztó.",
+  "tanulashoz":
+    "Ismeretterjesztő, oktatási magyar podcastok: tudomány, történelem, pszichológia, mesterséges intelligencia, technológia, közgazdaságtan, érdekes új ismeretek minden epizódban. Tanulhatsz belőle.",
+  "elmelyuleshez":
+    "Lassabb tempójú, gondolkodós magyar podcastok: filozófia, pszichológia, önismeret, spiritualitás, életvezetés, mély beszélgetések az élet nagy kérdéseiről. Reflektív, nem felszínes.",
 };
 
 async function embed(text: string): Promise<number[]> {
