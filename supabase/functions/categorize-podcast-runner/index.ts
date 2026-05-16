@@ -52,7 +52,10 @@ HUNGARIAN CONTEXT (most podcasts are HU):
 - Egyházi prédikáció, igehirdetés, bibliatanulmány → religion-spirituality (még ha "Balázs Podcast"-nak hívják is).
 - Munkajogi / jogi szakmai podcast → business (jog mint szakma) — kivéve ha tisztán oktató jellegű, akkor education.
 - Magyar gazdasági/közéleti reggeli show (Millásreggeli, Péntek Reggel) → news (közélet a fő tartalom, nem entertainment).
-- Pszichológia, párkapcsolat, terápia → psychology-relationships, NEM self-improvement, hacsak nem produktivitás/szokások a fókusz.`;
+- Tőzsde, befektetés, kripto, makrogazdaság, személyes pénzügyek → finance, NEM business. A "business" csak akkor, ha a fókusz a vállalkozásépítés/menedzsment/karrier (pl. founder interjúk, B2B).
+- Randizás, házasság, szex, párkapcsolati tanácsok → relationships, NEM psychology-relationships. A "psychology-relationships" akkor, ha a fókusz a mentális egészség / terápia / önismeret általában (pl. nárcizmus, kötődéselméletek, családdinamika), NEM kifejezetten romantikus.
+- Pszichológia, terápia → psychology-relationships, NEM self-improvement, hacsak nem produktivitás/szokások a fókusz.
+- Főzés, receptek, éttermek, gasztronómia, kávé, bor → food.`;
 
 function buildPrompt(p: any): string {
   const cats = CATEGORIES.map(c => `- ${c.slug} — ${c.name}: ${c.hint}`).join("\n");
