@@ -1114,6 +1114,7 @@ export type Database = {
           youtube_channel_id: string | null
           youtube_channel_title: string | null
           youtube_episode_count: number | null
+          youtube_last_episode_pair_at: string | null
           youtube_last_scouted_at: string | null
           youtube_paired_at: string | null
           youtube_pairing_status: string
@@ -1198,6 +1199,7 @@ export type Database = {
           youtube_channel_id?: string | null
           youtube_channel_title?: string | null
           youtube_episode_count?: number | null
+          youtube_last_episode_pair_at?: string | null
           youtube_last_scouted_at?: string | null
           youtube_paired_at?: string | null
           youtube_pairing_status?: string
@@ -1282,6 +1284,7 @@ export type Database = {
           youtube_channel_id?: string | null
           youtube_channel_title?: string | null
           youtube_episode_count?: number | null
+          youtube_last_episode_pair_at?: string | null
           youtube_last_scouted_at?: string | null
           youtube_paired_at?: string | null
           youtube_pairing_status?: string
