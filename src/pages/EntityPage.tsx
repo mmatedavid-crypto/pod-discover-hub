@@ -12,13 +12,24 @@ import { compareByScore, episodeScore } from "@/lib/episodeRank";
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
 
+interface EntityProfile {
+  slug: string;
+  display_name: string;
+  bio?: string | null;
+  episodes_summary?: string | null;
+  featured_episode_ids?: string[] | null;
+  appearance_stats?: any;
+}
+
 export default function EntityPage({ kind }: { kind: EntityKind }) {
   const { slug = "" } = useParams();
   const decoded = useMemo(() => decodeURIComponent(slug), [slug]);
   const [eps, setEps] = useState<EpisodeLite[]>([]);
+  const [mentionedEps, setMentionedEps] = useState<EpisodeLite[]>([]);
   const [pods, setPods] = useState<PodcastLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>(decoded);
+  const [profile, setProfile] = useState<EntityProfile | null>(null);
   const [related, setRelated] = useState<{ kind: EntityKind; v: string; n: number }[]>([]);
 
   useEffect(() => {
@@ -26,35 +37,63 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     (async () => {
       setLoading(true);
       const col = ENTITY_COLUMN[kind];
+
+      // Curated profile (only meaningful for kind=person at the moment, but harmless to look up)
+      let prof: EntityProfile | null = null;
+      if (kind === "person") {
+        const { data: pr } = await supabase
+          .from("entity_profiles")
+          .select("slug, display_name, bio, episodes_summary, featured_episode_ids, appearance_stats")
+          .eq("kind", "person")
+          .eq("slug", decoded.toLowerCase().replace(/[^a-z0-9]+/g, "-"))
+          .maybeSingle();
+        if (pr) prof = pr as any;
+        setProfile(prof);
+      } else {
+        setProfile(null);
+      }
+
+      // Pull recent candidates: select both `people` and `mentioned` arrays so we
+      // can distinguish speakers from talked-about persons.
+      const selectCols = `id,title,slug,published_at,summary,description,audio_url,topics,people,mentioned,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured)`;
       const { data: cand } = await supabase
         .from("episodes")
-        .select(`id,title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured)`)
-        .not(col, "is", null)
+        .select(selectCols)
+        .or(kind === "person" ? `${col}.not.is.null,mentioned.not.is.null` : `${col}.not.is.null`)
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(800);
 
-      const matches: any[] = [];
-      let exemplar = decoded;
+      const speakerMatches: any[] = [];
+      const mentionedMatches: any[] = [];
+      let exemplar = prof?.display_name || decoded;
       (cand || []).forEach((e: any) => {
-        const arr: string[] = e[col] || [];
-        const hit = arr.find((v) => matchesEntitySlug(kind, v, decoded));
-        if (hit) {
-          matches.push(e);
-          if (exemplar === decoded) exemplar = hit;
+        const peopleArr: string[] = e[col] || [];
+        const hitPeople = peopleArr.find((v) => matchesEntitySlug(kind, v, decoded));
+        const mentionedArr: string[] = kind === "person" ? (e.mentioned || []) : [];
+        const hitMentioned = mentionedArr.find((v) => matchesEntitySlug(kind, v, decoded));
+        if (hitPeople) {
+          speakerMatches.push(e);
+          if (exemplar === decoded) exemplar = hitPeople;
+        } else if (hitMentioned) {
+          // Only push to mentioned bucket if NOT already a speaker — speaker wins.
+          mentionedMatches.push(e);
+          if (exemplar === decoded) exemplar = hitMentioned;
         }
       });
-      // Filter out broken parent feeds
-      const visible = matches.filter((e) => {
+      const filterVisible = (e: any) => {
         const ps = e.podcasts;
         return ps && ps.rss_status !== "failed" && ps.rss_status !== "inactive";
-      });
-      setDisplayName(exemplar);
+      };
+      const visible = speakerMatches.filter(filterVisible);
+      const visibleMentioned = mentionedMatches.filter(filterVisible);
+      setDisplayName(prof?.display_name || exemplar);
 
-      // Composite tier+freshness sort; latest first secondary
       const sorted = visible.slice().sort(compareByScore);
       setEps(sorted.slice(0, 40) as any);
+      const sortedM = visibleMentioned.slice().sort(compareByScore);
+      setMentionedEps(sortedM.slice(0, 20) as any);
 
-      // Related podcasts
+      // Related podcasts (only from speaker matches — more authoritative)
       const podMap = new Map<string, any>();
       visible.forEach((e: any) => { if (e.podcasts) podMap.set(e.podcast_id, e.podcasts); });
       const podIds = Array.from(podMap.keys());
@@ -72,8 +111,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         setPods([]);
       }
 
-      // Related entities (co-occurring)
-      const co: { kind: EntityKind; v: string; n: number }[] = [];
+      // Related entities (co-occurring) from speaker matches
       const tally = new Map<string, { kind: EntityKind; v: string; n: number }>();
       visible.forEach((e: any) => {
         (Object.keys(ENTITY_COLUMN) as EntityKind[]).forEach((k) => {
@@ -86,35 +124,41 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           });
         });
       });
+      const co: { kind: EntityKind; v: string; n: number }[] = [];
       tally.forEach((x) => co.push(x));
       setRelated(co.sort((a, b) => b.n - a.n).slice(0, 16));
 
       setLoading(false);
 
       const total = visible.length;
-      const noindex = total < NOINDEX_BELOW;
+      const noindex = total < NOINDEX_BELOW && !prof; // profile pages always indexable
       const entityType =
         kind === "person" ? "Person" :
         kind === "company" ? "Organization" :
         kind === "ticker" ? "Corporation" :
         "Thing";
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
+      const finalName = prof?.display_name || exemplar;
+      const seoDesc = prof?.bio
+        ? prof.bio.split(/\.\s+/)[0].slice(0, 160)
+        : `Magyar podcast epizódok ${finalName} témában. A Podiverzum keresője a műsorok minősége, az epizódok frissessége és relevanciája szerint rangsorol.`;
       setSeo({
-        title: `${exemplar}: podcast epizódok — Podiverzum`,
-        description: `Magyar podcast epizódok ${exemplar} témában. A Podiverzum keresője a műsorok minősége, az epizódok frissessége és relevanciája szerint rangsorol.`,
+        title: `${finalName}: podcast epizódok — Podiverzum`,
+        description: seoDesc,
         noindex,
         jsonLd: noindex ? undefined : [
           {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
-            name: `Podcast epizódok: ${exemplar}`,
+            name: `Podcast epizódok: ${finalName}`,
             url: pageUrl || undefined,
-            about: { "@type": entityType, name: exemplar },
+            about: { "@type": entityType, name: finalName },
           },
           {
             "@context": "https://schema.org",
             "@type": entityType,
-            name: exemplar,
+            name: finalName,
+            description: prof?.bio || undefined,
             url: pageUrl || undefined,
           },
         ],
@@ -124,7 +168,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
 
-  if (!eps.length) return (
+  if (!eps.length && !mentionedEps.length) return (
     <NotFoundState
       title={`Nincs találat ehhez: ${displayName}`}
       message={`A Podiverzum még nem talált elegendő epizódot ${displayName} témájában. Próbálkozz a keresővel.`}
@@ -134,7 +178,13 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const total = eps.length;
   const rich = total >= RICH_AT;
   const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
-  const best = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
+  const featuredIds = profile?.featured_episode_ids || [];
+  const featuredFromProfile = featuredIds.length
+    ? featuredIds.map((id) => eps.find((e) => e.id === id)).filter(Boolean) as EpisodeLite[]
+    : [];
+  const best = featuredFromProfile.length >= 3
+    ? featuredFromProfile
+    : eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
 
   const last30Count = eps.filter((e) => {
     if (!e.published_at) return false;
@@ -149,11 +199,16 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         <div className="container mx-auto py-12 sm:py-14 max-w-5xl relative">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">{ENTITY_LABEL[kind]}</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2 leading-[1.05]">{displayName}</h1>
-          <p className="text-muted-foreground mt-3 max-w-2xl">
-            Minden magyar podcast epizód, amiben szó esik erről: <span className="text-foreground font-medium">{displayName}</span>. Minőség, frissesség és relevancia szerint rangsorolva.
-          </p>
+          {profile?.bio ? (
+            <p className="text-foreground/85 mt-4 max-w-2xl leading-relaxed">{profile.bio}</p>
+          ) : (
+            <p className="text-muted-foreground mt-3 max-w-2xl">
+              Minden magyar podcast epizód, amiben {kind === "person" ? "megszólal" : "szó esik erről"}: <span className="text-foreground font-medium">{displayName}</span>. Minőség, frissesség és relevancia szerint rangsorolva.
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap gap-3">
-            <Stat label="Epizódok" value={total} />
+            <Stat label={kind === "person" ? "Megszólal" : "Epizódok"} value={total} />
+            {kind === "person" && mentionedEps.length > 0 && <Stat label="Említve" value={mentionedEps.length} />}
             <Stat label="Új (30 nap)" value={last30Count} />
             <Stat label="Műsorok" value={pods.length} />
           </div>
@@ -161,22 +216,26 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
-        <section>
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Friss</div>
-              <h2 className="text-xl font-semibold">Legújabb epizódok</h2>
+        {eps.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Friss</div>
+                <h2 className="text-xl font-semibold">{kind === "person" ? "Legújabb epizódok, ahol megszólal" : "Legújabb epizódok"}</h2>
+              </div>
             </div>
-          </div>
-          <EpisodeList items={newest} showEntities />
-        </section>
+            <EpisodeList items={newest} showEntities />
+          </section>
+        )}
 
         {rich && (
           <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
             <div className="mb-3">
               <div className="text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">Legjobbak</div>
               <h2 className="text-xl font-semibold">Kiemelt epizódok</h2>
-              <p className="text-xs text-muted-foreground mt-1">Válogatás a legmagasabbra értékelt műsorokból.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {featuredFromProfile.length >= 3 ? "Kurált válogatás." : "Válogatás a legmagasabbra értékelt műsorokból."}
+              </p>
             </div>
             <EpisodeList items={best} showEntities />
           </section>
@@ -191,6 +250,17 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {pods.map((p) => <PodcastCard key={p.id} p={p} />)}
             </div>
+          </section>
+        )}
+
+        {kind === "person" && mentionedEps.length > 0 && (
+          <section>
+            <div className="mb-3">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Említve</div>
+              <h2 className="text-xl font-semibold">Epizódok, ahol szó esik {displayName}-ról</h2>
+              <p className="text-xs text-muted-foreground mt-1">{displayName} nincs jelen ezekben az epizódokban, de említik vagy szó esik róla.</p>
+            </div>
+            <EpisodeList items={mentionedEps} showEntities />
           </section>
         )}
 
