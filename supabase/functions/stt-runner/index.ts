@@ -171,10 +171,13 @@ Deno.serve(async (req) => {
         if (!aRes.ok) throw new Error(`audio_fetch_${aRes.status}`);
         const buf = new Uint8Array(await aRes.arrayBuffer());
         if (buf.byteLength > maxBytes) {
+          console.log(`skip too_big GET ${buf.byteLength} url=${audioUrl}`);
           skipped_too_big++;
-          await admin.from("ai_enrichment_jobs").update({
-            status: "failed", last_error: `audio_too_large:${buf.byteLength}`, completed_at: new Date().toISOString(),
-          }).eq("id", job.id);
+          if (!String(job.id).startsWith("pilot-")) {
+            await admin.from("ai_enrichment_jobs").update({
+              status: "failed", last_error: `audio_too_large:${buf.byteLength}`, completed_at: new Date().toISOString(),
+            }).eq("id", job.id);
+          }
           return;
         }
         const mime = aRes.headers.get("content-type")?.split(";")[0]?.trim() || detectMimeFromUrl(audioUrl);
