@@ -46,7 +46,7 @@ const Index = () => {
   const [loaded, setLoaded] = useState(false);
   const [heroPlaceholder, setHeroPlaceholder] = useState(
     typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
-      ? "Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
+      ? "MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
       : "Téma vagy gondolat…"
   );
   const nav = useNavigate();
