@@ -205,6 +205,13 @@ Deno.serve(async (req) => {
         candidates_written += candidatesToInsert.length;
         auto += podAuto; ai_paired += podAi; no_match += podNo;
 
+        if (!dry) {
+          await admin.from("podcasts").update({
+            youtube_last_episode_pair_at: new Date().toISOString(),
+            youtube_episode_count: items.length,
+          }).eq("id", pod.id);
+        }
+
         results.push({
           podcast_id: pod.id, title: pod.title, channel_id: pod.youtube_channel_id,
           episodes_total: eps?.length || 0, yt_videos: items.length,
