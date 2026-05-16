@@ -28,6 +28,7 @@ import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
 import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
 import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
+import AdminHostsPage from "./pages/AdminHostsPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
