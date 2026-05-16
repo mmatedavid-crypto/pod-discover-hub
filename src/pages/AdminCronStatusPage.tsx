@@ -21,7 +21,7 @@ type Run = {
 type Health = { generated_at: string; jobs: Job[]; recent_runs: Run[] };
 
 // HU launch sprint (2026-05-16): all 23 pipeline crons active (incl. STT pilot 22-23). Revert post-launch.
-const ACTIVE_ALLOWLIST = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
+const ACTIVE_ALLOWLIST = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]);
 
 export default function AdminCronStatusPage() {
   useNoindex("Cron Status — Podiverzum");
