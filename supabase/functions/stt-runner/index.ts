@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
         .in("podcast_id", podIds)
         .not("audio_url", "is", null)
         .order("published_at", { ascending: false })
-        .limit(pilotN * 10);
+        .limit(Math.max(pilotN * 40, 200));
       const epIds = (eps || []).map((e: any) => e.id);
       const { data: existing } = await admin.from("episode_transcripts").select("episode_id").in("episode_id", epIds).eq("model", model);
       const haveSet = new Set((existing || []).map((r: any) => r.episode_id));
