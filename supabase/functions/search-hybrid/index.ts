@@ -182,8 +182,11 @@ Deno.serve(async (req) => {
     // 4) Hybrid RPC with expanded query (lexical) + original embedding (semantic).
     // Curated synonyms (typos, category synonyms) appended to lexical side; AI expansion on top.
     const aiExpanded = buildExpandedQuery(q, understanding);
-    const expanded = curated.expansions.length
-      ? `${aiExpanded} ${curated.expansions.join(" ")}`.slice(0, 700)
+    const curatedOr = curated.expansions
+      .map((t) => (t.includes(" ") ? `"${t.replace(/"/g, "")}"` : t))
+      .join(" or ");
+    const expanded = curatedOr
+      ? `${aiExpanded} or ${curatedOr}`.slice(0, 700)
       : aiExpanded;
     const { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
       q: expanded,
