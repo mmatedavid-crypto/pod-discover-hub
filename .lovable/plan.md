@@ -1,122 +1,97 @@
+
+# v13 kereső port a remix → podiverzum.hu
+
 ## Cél
 
-Magyar epizódok teljes hangos átirata Gemini preview modellel, ugyanazon a mintán mint az eddigi pipeline-ok (edge fn runner + adaptív cron + `app_settings` controls + `ai_spend_daily` budget + tier-prioritás).
+A `Podiverzum` remix (`566ed77a-…`) v13 keresőmotorja 1:1-ben átkerül ide. A felhasználó által tapasztalt zaj („Zsiday Viktor" → Orbán-találatok, ASTS → asztrológia, ködös találatok ritka neveknél) ezzel rendszerszinten megszűnik.
 
-## Architektúra (egy mondatban)
+## Mit kapunk meg
 
-`stt-enqueue` → `ai_enrichment_jobs` (kind=`stt`) → `stt-runner` (drain loop) → Gemini audio in → `episode_transcripts` táblába írja. Minden gomb az `app_settings.stt_controls`-ból jön, így 0 deploy-jal váltható model / budget / batch.
+1. **MUST gate** ritka tokenekre + entitásokra (IDF-alapú)
+2. **3-pass MUST relaxálás** + **entity pyramid fallback** ticker/person/company esetekre
+3. **Spell correction** (pg_trgm) ismeretlen szavakra
+4. **HyDE** (hipotetikus dokumentum embedding) topical/question intentre
+5. **Cohere rerank v3.5** (cross-encoder, $2/nap budget, ~150 ms)
+6. **Entity resolver** (entity_profiles + topic_hubs trgm match)
+7. **Stopword + gibberish gate** (azonnali bail értelmetlen lekérdezésre)
+8. **Freshness decay** news/ticker intentre
+9. **Bigram MUST** person/company query többszavas entitásra
+10. **MMR diversity** (egy podcast max 2 a top-10-ben)
+11. **Engine version flag** (`engine=v8…v13` query paramen visszafelé tesztelhető)
+12. **Cirkuit breaker** AI-hívásokra (60 s cooldown 3 hiba után)
+13. **Chunk-level passage recall** (v13) — *opcionális, lásd lent*
 
-## Komponensek
+## Műveleti sorrend
 
-### 1. DB migráció — `episode_transcripts` tábla
+### 1. fázis — DB migrációk (egy nagy migráció)
 
-```text
-episode_id uuid PK
-podcast_id uuid NOT NULL
-model text NOT NULL          -- pl. google/gemini-3.1-pro-preview
-language text                -- detektált, pl. 'hu'
-transcript text NOT NULL     -- nyers szöveg
-segments jsonb               -- opcionális: [{start, end, text}] ha a model adja
-duration_seconds int
-audio_bytes bigint
-input_tokens int
-output_tokens int
-cost_usd numeric
-content_hash text            -- audio_url + size hash → re-run guard
-created_at, updated_at
-```
+| Objektum | Típus | Megjegyzés |
+|---|---|---|
+| `search_episodes_hybrid(...)` | RPC csere | Új szignatúra: `required_terms`, `entity_terms`, `alpha_lex`, `p_decay_lambda`, `phrase_terms` |
+| `token_df_cache` | TÁBLA | Lazy IDF cache |
+| `token_idf(p_tokens text[])` | RPC | Visszaadja a tokenek df-jét, 7d cache |
+| `suggest_token_corrections(p_tokens text[])` | RPC | trgm spell-correction df ≥ 50, sim ≥ 0.6 |
+| `entity_profiles` | TÁBLA | Kanonikus entitások (kind/slug/display_name) |
+| `topic_hubs` | TÁBLA | Curated topic hubs aliases tömbbel — HU-specifikus seedet külön kell töltenünk, EN seedet kihagyjuk |
+| `resolve_query_entities(p_q, p_max, p_threshold)` | RPC | trgm fuzzy entitás resolver |
+| `search_hyde_cache` | TÁBLA | HyDE szöveg + embedding 7d cache |
+| `match_podcast_by_name(p_q, p_max, p_threshold)` | RPC | Navigációs pin („Joe Rogan" → adott podcast epizódjai) |
 
-RLS: admin write, public read (ugyanaz a minta mint `episode_embeddings`).
-Indexek: `(podcast_id)`, `(model)`, `(created_at desc)`.
+Mindegyikre **RLS**: public read + admin write.
 
-### 2. `app_settings.stt_controls` (egyetlen JSONB)
+A `search_episodes_hybrid` régi szignatúra `DROP`-olva, az új SQL-jét a remix `20260515154936` migrációjából vesszük át (chunk-augmentáció nélkül, lásd 4. fázis).
 
-```json
-{
-  "enabled": true,
-  "model": "google/gemini-2.5-flash",
-  "daily_budget_usd": 5,
-  "batch_size": 4,
-  "concurrency": 2,
-  "max_audio_mb": 25,
-  "tiers": ["S","A"],
-  "max_duration_min": 120,
-  "skip_if_no_audio": true
-}
-```
+### 2. fázis — Shared edge function modulok
 
-Külön kis JSONB az A/B kísérlethez: `stt_pilot_overrides` (pl. 10 epizód `gemini-3.1-pro-preview` modellel, force enqueue).
+Új fájlok másolása a remixből:
+- `supabase/functions/_shared/search-understand.ts` (ticker prompt + cirkuit breaker)
+- `supabase/functions/_shared/search-hyde.ts` (új)
+- `supabase/functions/_shared/cohere-rerank.ts` (új)
 
-### 3. `stt-enqueue` edge fn
+### 3. fázis — `search-hybrid` edge function átírás
 
-- Kiválaszt tier-szűrve magyar epizódokat ahol nincs még `episode_transcripts` sor a kiválasztott `model`-re és van `audio_url`.
-- Bulk insert `ai_enrichment_jobs` (`kind='stt'`, `target_type='episode'`, `input_hash = sha(audio_url|size|model)`, `priority` = tier-aware: S=100/A=80/B=60/C=40).
-- Adaptív cron (`set_stt_enqueue_schedule` RPC, allowlist `*/5`,`*/30`,`0 * * * *`).
+Az 1148 soros remix-verzió portolása. Egy magyar-specifikus változtatás kell:
+- a `lang` default már most `null`/`"hu"` a hívóknál → nincs change kliensen, de a runtime `lang` paramétert a remix `"en"`-re defaultolja: ez **`"hu"`-ra állítjuk**, hogy a HU-only site továbbra is HU találatokat adjon.
+- `RARE_GATE_STOPWORDS` listához hozzáfűzünk minimum magyar töltelékszavakat (a, az, és, vagy, de, hogy, mert, ez, az, egy, van, volt, lesz, csak, már, még, most, podcast, epizód, műsor, beszélgetés).
 
-### 4. `stt-runner` edge fn (a kritikus rész)
+### 4. fázis — Mit hagyunk ki *most*
 
-Drain-loop egy invocation-ön belül (mint a `seo-enrich-runner`):
+- **Chunk augmentation (v13)**: hiányzik az `episode_chunks` tábla + `search_episode_chunks` RPC + transcript-chunking pipeline. Engineflag-en `chunkAugment: false` lesz (default `engine=v12`). Külön sprintet érdemel — az STT pilot futása után térünk vissza rá.
+- **`topic_hubs` seed**: az angol seedek (GLP-1 stb.) nem relevánsak HU-ra. Üres táblát hozunk létre; külön feladat a magyar hubok feltöltése.
 
-1. `claim_ai_jobs(kind='stt', limit=batch_size)` (meglévő RPC, ha kell, `kind` paraméteres változat).
-2. Minden job-ra párhuzamosan (concurrency limit):
-   - HEAD audio URL → méret check (skip ha > max_audio_mb).
-   - GET audio → bytes.
-   - Lovable AI Gateway hívás `generateContent`-tel, `inline_data: { mime_type, data: base64(audio) }` + system prompt:
-     > "Te magyar nyelvű podcast átíró vagy. Add vissza a teljes átiratot tisztán, beszélő-tagolás nélkül, írásjelekkel. Soha ne fordíts. Soha ne foglald össze."
-   - Költség kalkuláció a model token árából → `ai_spend_daily.by_kind.stt`.
-   - `episode_transcripts` upsert (onConflict `episode_id,model`).
-3. Daily budget guard a hurok elején (mint `seo-enrich-runner`).
-4. `reap_ai_stale_locks(5min)` a futás végén.
-5. Adaptív cron RPC (`set_stt_runner_schedule`, allowlist `*`,`*/2`,`*/10`,`*/30`).
+### 5. fázis — Titok
 
-### 5. Pilot mód (azonnal használható)
+`COHERE_API_KEY` hozzáadása. Cohere `rerank-v3.5` $2/1000 hívás; napi $2 budget a kódban beégetve, app_settings.`cohere_rerank_daily_spent` jsonb tartja a fogyást.
 
-Admin oldal vagy egyszerű curl-rel:
-```
-POST /functions/v1/stt-runner?pilot=10&model=google/gemini-3.1-pro-preview
-```
-Beolvas 10 epizódot tier S-ből, force-run, **nem** ír cron-t, csak `episode_transcripts`-ot + logol egy összesítőt (átlagos cost, átlagos token, példa-átirat link). Így A/B-zhetsz model-ek között 1 invocation-nel.
+### 6. fázis — Smoke teszt + élesítés
 
-### 6. Cron jegek
+`supabase--curl_edge_functions` POST `/search-hybrid` 6 lekérdezésre:
+- `"Zsiday Viktor"` → várjuk Concorde / Zsiday epizódok top-3
+- `"ASTS"` → ticker gate, AST SpaceMobile fallback
+- `"asdfghjkl"` → nonsense_gate true, 0 epizód
+- `"a"` → stopword_gate true
+- `"Bertalan Tóth Putyin"` → konkrét személy + esemény
+- `"makrogazdaság"` → tág topical, HyDE aktív
 
-- jobid X: `podiverzum-stt-enqueue` — adaptív, default `*/30`.
-- jobid Y: `podiverzum-stt-runner` — adaptív, default `*/10`.
-- Mindkettő OFF-ról indul; te kapcsolod be amikor a pilot tetszik.
+Cohere és HyDE telemetria a response JSON-ban; logolva az `edge_function_logs`-ban.
 
-## Biztonsági / költség korlátok
+## Kockázat & visszafordíthatóság
 
-- `incident-guard` import (fail-closed kill switch).
-- `daily_budget_usd` hard stop a runnerben.
-- `max_audio_mb` és `max_duration_min` filter, hogy ne futtassunk 4 órás videós feedeket.
-- `tiers` allowlist — alapból csak S/A indul, B/C csak ha kifejezetten engeded.
-- Re-run guard: `(episode_id, model)` unique → ugyanaz a model nem futhat újra véletlenül.
-- Model váltás = új sor, nem felülírás → összehasonlítható marad.
+- A régi `search_episodes_hybrid` szignatúra **eltűnik** → ha valami más edge fn hívja (search-suggest, search-answer), az hibás lesz. Ellenőrzés a portolás közben; ha igen, azt is frissítjük az új szignatúrára vagy default-okkal kompatibilissé tesszük.
+- Az `engine=v8` paraméter visszaad egy egyszerűbb futtatást, így gyors A/B tesztre van fallback.
+- Migráció reverzibilis: a régi RPC SQL-jét megőrzöm jegyzetben (csak az új lép működésbe).
 
-## Technikai részletek
+## Becsült terjedelem
 
-- Lovable AI Gateway endpoint: `https://ai.gateway.lovable.dev/v1/chat/completions`, header `Authorization: Bearer ${LOVABLE_API_KEY}`, body `messages: [{ role:'user', content:[{type:'text', text:'…'}, {type:'input_audio', input_audio:{data:base64, format:'mp3'}}] }]`. Ha a Lovable gateway nem támogatja az audio input modalitást egy adott modelre, fallback: direkt Google Generative Language REST `models/<model>:generateContent` hívás `GEMINI_API_KEY`-vel (akkor új secret kell — szólok).
-- Tárolás: nem mentünk audio bytes-t, csak az átiratot.
-- Sitemap / UI: ebben a körben **nem** publikáljuk a transzkriptet — csak DB-be megy, mint belső input további AI lépésekhez (summary v2, keresési highlight, key-moments).
+- 1 migrációs SQL (~600 sor)
+- 3 shared TS fájl (~300 sor összesen)
+- 1 átírt edge fn (~1150 sor)
+- 1 titok-kérés
 
-## Mit építsek meg most
+## Mit kérek tőled jóváhagyásra
 
-1. Migráció: `episode_transcripts` tábla + RLS + indexek + `app_settings.stt_controls` seed.
-2. `stt-enqueue` edge fn (tier-szűrés, bulk upsert jobok).
-3. `stt-runner` edge fn (drain loop, audio fetch, Gemini call, costing, upsert).
-4. Adaptív cron RPC-k (`set_stt_enqueue_schedule`, `set_stt_runner_schedule`) — allowlistezve.
-5. **Cron jobok OFF-on hagyva.** Te indítod kézzel egy 10 epizódos pilot-tal, és csak utána kapcsoljuk be.
+1. Indulhatunk a migrációval (1. fázis)?
+2. Most kérjem be a `COHERE_API_KEY`-t, vagy intézed külön?
+3. A `chunk augmentation` későbbi sprintbe halasztása oké?
 
-## Mit NEM építek most (külön körben)
-
-- Frontend admin UI (`/admin/stt`) — később, ha tetszik az eredmény.
-- Post-correction réteg (entity-szótár + AI polish) — külön sprint.
-- Transzkript-megjelenítés epizód oldalon — termékdöntés.
-- Stripe-jellegű kvóta felhasználónként — nincs is felhasználói feature mögötte.
-
-## Nyitott kérdések mielőtt nyomom
-
-1. **Tárhely**: az átiratot tisztán szövegként mentem `episode_transcripts.transcript`-be (HU átlag ~6-12k karakter / epizód, ~100MB / 10k epizód — semmiség). OK?
-2. **Pilot model**: első körben `gemini-2.5-flash` (olcsó baseline) **vagy** rögtön `gemini-3.1-pro-preview` (drága, csúcs minőség)? Javaslat: Flash baseline → ugyanazon az 5 epizódon Pro preview → összehasonlítás.
-3. **Tier scope**: csak S/A induljon (~300 HU pod, becsült ~30-50k epizód), vagy mind S/A/B/C (~650 pod, ~528k epizód, **nagyságrendileg drágább**)?
-
-Megerősítésed után létrehozom a migrációt, edge fn-eket, és futtathatsz egy 10 epizódos pilotot percek alatt.
+A jóváhagyás után indítom a migrációt, majd folyamatosan jelzem a fázisok végét.
