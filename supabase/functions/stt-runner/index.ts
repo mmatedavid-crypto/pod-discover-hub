@@ -156,10 +156,13 @@ Deno.serve(async (req) => {
           const cl = head.headers.get("content-length");
           if (cl) audioBytes = parseInt(cl, 10);
           if (audioBytes && audioBytes > maxBytes) {
+            console.log(`skip too_big HEAD ${audioBytes} url=${audioUrl}`);
             skipped_too_big++;
-            await admin.from("ai_enrichment_jobs").update({
-              status: "failed", last_error: `audio_too_large:${audioBytes}`, completed_at: new Date().toISOString(),
-            }).eq("id", job.id);
+            if (!String(job.id).startsWith("pilot-")) {
+              await admin.from("ai_enrichment_jobs").update({
+                status: "failed", last_error: `audio_too_large:${audioBytes}`, completed_at: new Date().toISOString(),
+              }).eq("id", job.id);
+            }
             return;
           }
         } catch { /* ignore */ }
