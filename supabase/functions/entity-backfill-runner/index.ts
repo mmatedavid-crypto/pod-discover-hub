@@ -5,6 +5,7 @@
 // concurrency, repeat until time/budget runs out or no rows remain.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { filterHosts } from "../_shared/seo-prompt.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
