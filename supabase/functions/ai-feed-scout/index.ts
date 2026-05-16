@@ -580,9 +580,10 @@ Deno.serve(async (req) => {
         website_url: v.feed.link || null,
         image_url: v.feed.image || v.feed.artwork || null,
         description: v.feed.description || v.candidate.reason || null,
-        // Always populate language: prefer PI value, fall back to source's lang_hint
-        // so downstream filters (homepage, categories, search) never treat it as English-by-default.
-        language: normLang(v.feed.language) || v.lang_hint,
+        // ONLY use a verified language (PI value or detected from RSS <language>).
+        // NEVER fall back to the source's lang_hint — that was the bug that
+        // stamped spanish/english feeds as `hu` and let them past every filter.
+        language: normLang(v.feed.language),
         author: v.feed.author || v.feed.ownerName || v.candidate.author || null,
         episode_count: v.feed.episodeCount ?? null,
         newest_item_at: v.feed.newestItemPublishTime ? new Date(v.feed.newestItemPublishTime * 1000).toISOString() : null,
