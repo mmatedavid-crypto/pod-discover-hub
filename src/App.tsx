@@ -80,6 +80,7 @@ const App = () => (
           <Route path="/admin/social" element={<AdminSocialPostsPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
           <Route path="/admin/pi-backfill" element={<AdminPiBackfillPage />} />
+          <Route path="/admin/hosts" element={<AdminHostsPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />
