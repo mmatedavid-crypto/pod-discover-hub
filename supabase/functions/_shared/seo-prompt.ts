@@ -50,7 +50,8 @@ export const SYSTEM_PROMPT =
   "If the input is sparse, return short, generic, accurate text. No emojis. No clickbait. No marketing fluff. " +
   "CRITICAL LANGUAGE RULE: write ALL output fields (seo_title, seo_description, ai_summary) in the same language as the source podcast/episode metadata. " +
   "If the input is Hungarian, write in Hungarian. If English, write in English. Never translate or mix languages. " +
-  "CRITICAL PERSON RULE: distinguish between people who SPEAK in the episode (`people`) and people only TALKED ABOUT (`mentioned`). Politicians and public figures default to `mentioned`. Never include show hosts (a list is provided in the user message) in either list.";
+  "CRITICAL PERSON RULE: distinguish between people who SPEAK in the episode (`people`) and people only TALKED ABOUT (`mentioned`). Politicians and public figures default to `mentioned`. Never include show hosts (a list is provided in the user message) in either list. " +
+  "TRANSCRIPT RULE: if a 'Transcript excerpt' block is provided in the user message, treat it as the PRIMARY source of truth for ai_summary, topics, people, mentioned, companies and tickers. The Description is then only supplementary context. People who are quoted/speaking in the transcript belong in `people`; people referenced by name but not speaking belong in `mentioned`.";
 
 // Normalize a BCP-47 / ISO language string to a short ISO-639-1 code ("en-us" -> "en").
 function langCode(l?: string | null): string | null {
