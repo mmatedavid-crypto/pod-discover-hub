@@ -38,27 +38,30 @@ async function fetchPlayerResponse(videoId: string): Promise<any> {
   const body = {
     context: {
       client: {
-        clientName: "ANDROID",
-        clientVersion: "19.09.37",
-        androidSdkVersion: 30,
+        clientName: "IOS",
+        clientVersion: "19.09.3",
+        deviceMake: "Apple",
+        deviceModel: "iPhone14,3",
+        osName: "iPhone",
+        osVersion: "17.1.1.21B91",
         hl: "hu",
         gl: "HU",
-        userAgent: "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+        userAgent: "com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 17_1_1 like Mac OS X;)",
       },
     },
     videoId,
-    params: "CgIQBg==",
+    contentCheckOk: true,
+    racyCheckOk: true,
   };
   const r = await fetch(
-    "https://www.youtube.com/youtubei/v1/player?key=AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+    "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "User-Agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
-        "X-YouTube-Client-Name": "3",
-        "X-YouTube-Client-Version": "19.09.37",
-        "Accept-Language": "hu-HU,hu;q=0.9",
+        "User-Agent": "com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 17_1_1 like Mac OS X;)",
+        "X-YouTube-Client-Name": "5",
+        "X-YouTube-Client-Version": "19.09.3",
       },
       body: JSON.stringify(body),
     },
