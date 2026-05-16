@@ -1857,6 +1857,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      clean_slug: { Args: { fallback: string; input: string }; Returns: string }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       dedup_episodes_audio_url_batch: {
         Args: { _batch?: number }
@@ -2117,6 +2118,7 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      slug_with_suffix: { Args: { base: string; n: number }; Returns: string }
       suggest_token_corrections: {
         Args: { p_tokens: string[] }
         Returns: {

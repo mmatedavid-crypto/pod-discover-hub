@@ -2,9 +2,10 @@
 // Crawler features: ETag/Last-Modified caching, 301 + <itunes:new-feed-url> following,
 // repeated-failure → quarantine/dead, crawl_state transitions.
 import { parseFeed } from "./rss.ts";
+import { slugify as slugifyShared } from "./slug.ts";
 
 function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "episode";
+  return slugifyShared(s, "episode");
 }
 
 const DEAD_THRESHOLD = 3;        // consecutive 404/410 → dead

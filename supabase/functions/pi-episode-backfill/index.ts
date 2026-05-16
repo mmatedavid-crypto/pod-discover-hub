@@ -26,8 +26,9 @@ async function sha1Hex(input: string) {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+import { slugify as slugifyShared } from "../_shared/slug.ts";
 function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "episode";
+  return slugifyShared(s, "episode");
 }
 
 async function piHeaders() {
