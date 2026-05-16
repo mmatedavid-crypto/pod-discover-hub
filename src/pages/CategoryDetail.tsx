@@ -32,6 +32,8 @@ export default function CategoryDetail() {
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const redirectTo = slug ? CATEGORY_REDIRECTS[slug] : undefined;
+
   // Search state
   const [q, setQ] = useState(queryParam);
   const [searchLoading, setSearchLoading] = useState(false);
