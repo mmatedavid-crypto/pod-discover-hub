@@ -346,28 +346,6 @@ const Index = () => {
           />
         )}
 
-        {trendingEntityEps.length > 0 && (
-          <TrendingEntities
-            eyebrow="Emberek a hírekben"
-            title="Ezek a nevek pörögnek mostanában"
-            subtitle="Gyakori vendégek és említett nevek: alapítók, kutatók, sportolók, vezetők."
-            items={topEntitiesFrom(trendingEntityEps, "people", "person", 10, { excludeHosts: true, blocklist: ["Csukás István"] })}
-            icon="person"
-          />
-        )}
-
-        {trendingEntityEps.length > 0 && (() => {
-          const companies = topEntitiesFrom(trendingEntityEps, "companies", "company", 10);
-          return companies.length ? (
-            <TrendingEntities
-              eyebrow="Cégek az adásokban"
-              title="Márkák és szervezetek"
-              subtitle="Cégek, amelyek felbukkannak a friss epizódokban."
-              items={companies}
-              icon="company"
-            />
-          ) : null;
-        })()}
 
         {(() => {
           // HU categories map to one or more English taxonomy buckets via taxonomy_keys.
