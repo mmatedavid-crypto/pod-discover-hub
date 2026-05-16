@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = value || '{"max_audio_mb": 80, "concurrency": 1}'::jsonb, updated_at = now() WHERE key='stt_controls';

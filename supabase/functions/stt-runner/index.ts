@@ -156,10 +156,13 @@ Deno.serve(async (req) => {
           const cl = head.headers.get("content-length");
           if (cl) audioBytes = parseInt(cl, 10);
           if (audioBytes && audioBytes > maxBytes) {
+            console.log(`skip too_big HEAD ${audioBytes} url=${audioUrl}`);
             skipped_too_big++;
-            await admin.from("ai_enrichment_jobs").update({
-              status: "failed", last_error: `audio_too_large:${audioBytes}`, completed_at: new Date().toISOString(),
-            }).eq("id", job.id);
+            if (!String(job.id).startsWith("pilot-")) {
+              await admin.from("ai_enrichment_jobs").update({
+                status: "failed", last_error: `audio_too_large:${audioBytes}`, completed_at: new Date().toISOString(),
+              }).eq("id", job.id);
+            }
             return;
           }
         } catch { /* ignore */ }
@@ -168,10 +171,13 @@ Deno.serve(async (req) => {
         if (!aRes.ok) throw new Error(`audio_fetch_${aRes.status}`);
         const buf = new Uint8Array(await aRes.arrayBuffer());
         if (buf.byteLength > maxBytes) {
+          console.log(`skip too_big GET ${buf.byteLength} url=${audioUrl}`);
           skipped_too_big++;
-          await admin.from("ai_enrichment_jobs").update({
-            status: "failed", last_error: `audio_too_large:${buf.byteLength}`, completed_at: new Date().toISOString(),
-          }).eq("id", job.id);
+          if (!String(job.id).startsWith("pilot-")) {
+            await admin.from("ai_enrichment_jobs").update({
+              status: "failed", last_error: `audio_too_large:${buf.byteLength}`, completed_at: new Date().toISOString(),
+            }).eq("id", job.id);
+          }
           return;
         }
         const mime = aRes.headers.get("content-type")?.split(";")[0]?.trim() || detectMimeFromUrl(audioUrl);
@@ -237,11 +243,27 @@ Deno.serve(async (req) => {
         .in("podcast_id", podIds)
         .not("audio_url", "is", null)
         .order("published_at", { ascending: false })
-        .limit(pilotN * 3);
+        .limit(pilotN * 10);
       const epIds = (eps || []).map((e: any) => e.id);
       const { data: existing } = await admin.from("episode_transcripts").select("episode_id").in("episode_id", epIds).eq("model", model);
       const haveSet = new Set((existing || []).map((r: any) => r.episode_id));
-      const todo = (eps as any[]).filter(e => !haveSet.has(e.id)).slice(0, pilotN);
+      const candidates = (eps as any[]).filter(e => !haveSet.has(e.id));
+
+      // HEAD pre-filter (small batch, sequential to spare CPU)
+      const sized: any[] = [];
+      for (const e of candidates.slice(0, 20)) {
+        if (sized.length >= pilotN * 2) break;
+        try {
+          const h = await fetch(e.audio_url, { method: "HEAD", redirect: "follow" });
+          const cl = parseInt(h.headers.get("content-length") || "0", 10);
+          if (cl > 0 && cl <= maxBytes) sized.push({ ...e, bytes: cl });
+        } catch { /* ignore */ }
+      }
+      sized.sort((a, b) => a.bytes - b.bytes);
+      const todo = sized.slice(0, pilotN);
+      console.log(`pilot: ${candidates.length} cand, ${sized.length} sized, picking ${todo.length}, sizes=${todo.map(t=>t.bytes).join(",")}`);
+
+
 
       let i = 0;
       const workers = Array.from({ length: concurrency }, async () => {
