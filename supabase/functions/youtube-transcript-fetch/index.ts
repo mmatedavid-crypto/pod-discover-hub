@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
           ok++;
         } catch (e: any) {
           const msg = e?.message || String(e);
-          if (msg.includes("watch_4") || msg.includes("watch_5")) blocked++;
+          if (msg.includes("innertube_4") || msg.includes("innertube_5")) blocked++;
           else errors++;
           if (errorDetails.length < 5) errorDetails.push({ ep: ep.id, vid: ep.youtube_video_id, err: msg });
         }
