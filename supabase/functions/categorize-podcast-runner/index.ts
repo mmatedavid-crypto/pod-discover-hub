@@ -15,15 +15,17 @@ const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, h
 const PRICE_IN_PER_1K = 0.000075;
 const PRICE_OUT_PER_1K = 0.0003;
 
-// Canonical 21 categories — slug, name, one-liner browse intent
+// Canonical categories — slug, name, one-liner browse intent
 const CATEGORIES: { slug: string; name: string; hint: string }[] = [
   { slug: "news",                     name: "News & Politics",            hint: "Daily news, politics, current affairs, geopolitics, journalism" },
-  { slug: "business",                 name: "Business & Finance",         hint: "Business strategy, entrepreneurship, finance, investing, markets, economics, VC" },
+  { slug: "business",                 name: "Business & Finance",         hint: "Business strategy, entrepreneurship, management, careers, sales, marketing, B2B, founder stories. NOT primarily investing/markets — that goes to 'finance'." },
+  { slug: "finance",                  name: "Finance",                    hint: "Investing, stock market, crypto, macroeconomics, personal finance, real estate investing, portfolio building, ETFs. HU: tőzsde, befektetés, kripto, infláció, pénzügyi tanácsadás." },
   { slug: "technology",               name: "Technology",                 hint: "Software, AI, startups, hardware, cybersecurity, dev culture" },
   { slug: "science",                  name: "Science & Ideas",            hint: "Hard science, physics, biology, neuroscience, big-idea intellectual deep dives" },
   { slug: "health",                   name: "Health, Fitness & Longevity",hint: "Medicine, nutrition, fitness, longevity, biohacking, mental health (clinical)" },
-  { slug: "psychology-relationships", name: "Psychology & Relationships", hint: "Therapy talk, relationships, dating, attachment styles, narcissism, family dynamics, somatic" },
-  { slug: "self-improvement",         name: "Self-Improvement",           hint: "Productivity, motivation, mindset, habits, life coaching, success" },
+  { slug: "psychology-relationships", name: "Psychology & Relationships", hint: "Therapy talk, mental health, attachment styles, narcissism, family dynamics, somatic — PSYCHOLOGY focus. If the show is primarily about romantic relationships/dating/marriage/sex, use 'relationships' instead." },
+  { slug: "relationships",            name: "Relationships",              hint: "Dating, marriage, sex, couples therapy, divorce, romantic relationships. HU: párkapcsolat, randizás, házasság, szex, válás." },
+  { slug: "self-improvement",         name: "Self-Improvement",           hint: "Productivity, motivation, mindset, habits, life coaching, success — NOT therapy/relationships." },
   { slug: "society-culture",          name: "Society & Culture",          hint: "Society, culture, lifestyle, travel, philosophy of everyday life, interviews" },
   { slug: "religion-spirituality",    name: "Religion & Spirituality",    hint: "Christianity, theology, Bible, Islam, Judaism, Buddhism, prayer, spirituality" },
   { slug: "education",                name: "Education & Explainer",      hint: "Learning, language, explainers, lectures, how-things-work, academic" },
@@ -36,7 +38,7 @@ const CATEGORIES: { slug: string; name: string; hint: string }[] = [
   { slug: "fiction-audio-drama",      name: "Fiction & Audio Drama",      hint: "Scripted fiction, audio drama, narrative storytelling, podcast novels. HU: rádiószínház, hangjáték, hangoskönyv-szerű narratív fikció." },
   { slug: "true-crime",               name: "True Crime & Paranormal",    hint: "True crime, mysteries, paranormal, ghost stories, conspiracy" },
   { slug: "sports",                   name: "Sports",                     hint: "Sports talk, leagues, athletes, fantasy, betting, sports business" },
-  { slug: "food",                     name: "Food",                       hint: "Cooking, recipes, restaurants, food culture, drinks" },
+  { slug: "food",                     name: "Food",                       hint: "Cooking, recipes, restaurants, food culture, drinks, coffee, wine. HU: gasztronómia, főzés, éttermek, kávé, bor." },
   { slug: "kids-family",              name: "Kids & Family",              hint: "Kids storytelling, family-friendly, parenting" },
 ];
 const ENUM_SLUGS = CATEGORIES.map(c => c.slug);
