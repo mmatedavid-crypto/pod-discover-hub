@@ -34,40 +34,43 @@ type CaptionTrack = {
 
 // Use innertube /player API with ANDROID client — much less bot-filtered than
 // scraping the watch page (YT serves consent/empty player responses to edge IPs).
+// Try multiple innertube clients; first one with captionTracks wins.
+const CLIENTS = [
+  { name: "WEB", version: "2.20240826.01.00", num: "1", key: "AIzaSyAO_FL9ZRr4xKgFb_a40bH7m4mYZP1nNkw" },
+  { name: "ANDROID", version: "19.09.37", num: "3", key: "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w" },
+  { name: "TVHTML5_SIMPLY_EMBEDDED_PLAYER", version: "2.0", num: "85", key: "AIzaSyAO_FL9ZRr4xKgFb_a40bH7m4mYZP1nNkw" },
+];
+
 async function fetchPlayerResponse(videoId: string): Promise<any> {
-  const body = {
-    context: {
-      client: {
-        clientName: "IOS",
-        clientVersion: "19.09.3",
-        deviceMake: "Apple",
-        deviceModel: "iPhone14,3",
-        osName: "iPhone",
-        osVersion: "17.1.1.21B91",
-        hl: "hu",
-        gl: "HU",
-        userAgent: "com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 17_1_1 like Mac OS X;)",
-      },
-    },
-    videoId,
-    contentCheckOk: true,
-    racyCheckOk: true,
-  };
-  const r = await fetch(
-    "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 17_1_1 like Mac OS X;)",
-        "X-YouTube-Client-Name": "5",
-        "X-YouTube-Client-Version": "19.09.3",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!r.ok) throw new Error(`innertube_${r.status}`);
-  return await r.json();
+  const errors: string[] = [];
+  for (const c of CLIENTS) {
+    try {
+      const body = {
+        context: { client: { clientName: c.name, clientVersion: c.version, hl: "hu", gl: "HU" } },
+        videoId, contentCheckOk: true, racyCheckOk: true,
+      };
+      const r = await fetch(
+        `https://www.youtube.com/youtubei/v1/player?key=${c.key}&prettyPrint=false`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-YouTube-Client-Name": c.num,
+            "X-YouTube-Client-Version": c.version,
+            "User-Agent": "Mozilla/5.0",
+            "Origin": "https://www.youtube.com",
+          },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!r.ok) { errors.push(`${c.name}:${r.status}`); continue; }
+      const j = await r.json();
+      const tracks = j?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      if (tracks?.length) return j;
+      errors.push(`${c.name}:no_tracks`);
+    } catch (e: any) { errors.push(`${c.name}:${e?.message || "err"}`); }
+  }
+  throw new Error(`all_clients_failed:${errors.join(",")}`);
 }
 
 function extractCaptionTracks(player: any): CaptionTrack[] {
