@@ -160,6 +160,7 @@ export type Database = {
       }
       categories: {
         Row: {
+          active: boolean
           created_at: string
           description: string | null
           id: string
@@ -172,6 +173,7 @@ export type Database = {
           taxonomy_keys: string[]
         }
         Insert: {
+          active?: boolean
           created_at?: string
           description?: string | null
           id?: string
@@ -184,6 +186,7 @@ export type Database = {
           taxonomy_keys?: string[]
         }
         Update: {
+          active?: boolean
           created_at?: string
           description?: string | null
           id?: string
