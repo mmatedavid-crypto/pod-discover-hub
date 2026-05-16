@@ -129,7 +129,8 @@ Deno.serve(async (req) => {
           const seo_title = trim(String(parsed.seo_title || ""), 65);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
           const update: any = { seo_title, seo_description, ai_enriched_at: new Date().toISOString() };
-          if (detectedLang && detectedLang !== "en") update.language = detectedLang;
+          // Always trust Gemini's detection (except 'mul'): fixes both EN→other AND wrong-HU→EN.
+          if (detectedLang && detectedLang !== "mul") update.language = detectedLang;
           await admin.from("podcasts").update(update).eq("id", job.target_id);
         } else {
           const seo_title = trim(String(parsed.seo_title || ""), 70);
