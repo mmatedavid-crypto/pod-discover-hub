@@ -87,15 +87,22 @@ export function episodeUserPrompt(
   podName: string,
   podLanguage?: string | null,
   hosts?: string[] | null,
+  transcript?: string | null,
 ) {
   const name = e.display_title || e.title;
-  const desc = (e.description || "").replace(/\s+/g, " ").trim().slice(0, 2500);
+  const hasTranscript = typeof transcript === "string" && transcript.trim().length > 200;
+  // When transcript is present, shrink the description (it's only secondary context) to save tokens.
+  const descCap = hasTranscript ? 800 : 2500;
+  const desc = (e.description || "").replace(/\s+/g, " ").trim().slice(0, descCap);
   const code = langCode(e.language) || langCode(podLanguage);
   const langLine = code ? `Output language: ${langName(code)} (${code}). Write seo_title, seo_description, and ai_summary in this language only.\n` : "";
   const hostList = Array.isArray(hosts) && hosts.length > 0
     ? `Show hosts (DO NOT include any of these names in 'people' or 'mentioned' — they are the show creators, not episode subjects): ${hosts.join(", ")}\n`
     : "";
-  return `${langLine}${hostList}Show: ${podName}\nEpisode: ${name}\nDescription: ${desc || "(none)"}\n\nWrite SEO title, SEO description, ai_summary, and extract entities. Remember: people = speakers, mentioned = talked-about-but-absent.`;
+  const transcriptBlock = hasTranscript
+    ? `\nTranscript excerpt (PRIMARY SOURCE — use this for ai_summary, topics and entities):\n"""\n${transcript!.replace(/\s+/g, " ").trim().slice(0, 4000)}\n"""\n`
+    : "";
+  return `${langLine}${hostList}Show: ${podName}\nEpisode: ${name}\nDescription: ${desc || "(none)"}\n${transcriptBlock}\nWrite SEO title, SEO description, ai_summary, and extract entities. Remember: people = speakers, mentioned = talked-about-but-absent.`;
 }
 
 // Case-insensitive, accent-insensitive host filter helper.
