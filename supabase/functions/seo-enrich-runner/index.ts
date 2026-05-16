@@ -182,10 +182,12 @@ Deno.serve(async (req) => {
           const companies = cleanArr(parsed.companies);
           const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
           const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
+          const fromTranscript = !!(job as any).__has_transcript;
           await admin.from("episodes").update({
             seo_title, seo_description, ai_summary,
             people, mentioned, companies, tickers, topics,
-            ai_entities_version: 2,
+            ai_entities_version: fromTranscript ? 3 : 2,
+            ai_summary_source: fromTranscript ? "transcript" : "description",
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
           // If a real (non-mul) language is detected for the episode and it disagrees with
