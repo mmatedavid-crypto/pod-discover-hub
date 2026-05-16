@@ -32,25 +32,43 @@ type CaptionTrack = {
   name?: { simpleText?: string };
 };
 
-async function fetchWatchPage(videoId: string): Promise<string> {
-  const r = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=hu`, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-      "Accept-Language": "hu-HU,hu;q=0.9,en;q=0.5",
+// Use innertube /player API with ANDROID client — much less bot-filtered than
+// scraping the watch page (YT serves consent/empty player responses to edge IPs).
+async function fetchPlayerResponse(videoId: string): Promise<any> {
+  const body = {
+    context: {
+      client: {
+        clientName: "ANDROID",
+        clientVersion: "19.09.37",
+        androidSdkVersion: 30,
+        hl: "hu",
+        gl: "HU",
+        userAgent: "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+      },
     },
-  });
-  if (!r.ok) throw new Error(`watch_${r.status}`);
-  return await r.text();
+    videoId,
+    params: "CgIQBg==",
+  };
+  const r = await fetch(
+    "https://www.youtube.com/youtubei/v1/player?key=AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+        "X-YouTube-Client-Name": "3",
+        "X-YouTube-Client-Version": "19.09.37",
+        "Accept-Language": "hu-HU,hu;q=0.9",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!r.ok) throw new Error(`innertube_${r.status}`);
+  return await r.json();
 }
 
-function extractCaptionTracks(html: string): CaptionTrack[] {
-  // ytInitialPlayerResponse = {...};
-  const m = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;\s*(?:var|<\/script>)/s);
-  if (!m) return [];
-  try {
-    const obj = JSON.parse(m[1]);
-    return obj?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-  } catch { return []; }
+function extractCaptionTracks(player: any): CaptionTrack[] {
+  return player?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
 }
 
 function pickTrack(tracks: CaptionTrack[]): CaptionTrack | null {
