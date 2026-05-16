@@ -50,7 +50,8 @@ export const SYSTEM_PROMPT =
   "If the input is sparse, return short, generic, accurate text. No emojis. No clickbait. No marketing fluff. " +
   "CRITICAL LANGUAGE RULE: write ALL output fields (seo_title, seo_description, ai_summary) in the same language as the source podcast/episode metadata. " +
   "If the input is Hungarian, write in Hungarian. If English, write in English. Never translate or mix languages. " +
-  "CRITICAL PERSON RULE: distinguish between people who SPEAK in the episode (`people`) and people only TALKED ABOUT (`mentioned`). Politicians and public figures default to `mentioned`. Never include show hosts (a list is provided in the user message) in either list.";
+  "CRITICAL PERSON RULE: distinguish between people who SPEAK in the episode (`people`) and people only TALKED ABOUT (`mentioned`). Politicians and public figures default to `mentioned`. Never include show hosts (a list is provided in the user message) in either list. " +
+  "TRANSCRIPT RULE: if a 'Transcript excerpt' block is provided in the user message, treat it as the PRIMARY source of truth for ai_summary, topics, people, mentioned, companies and tickers. The Description is then only supplementary context. People who are quoted/speaking in the transcript belong in `people`; people referenced by name but not speaking belong in `mentioned`.";
 
 // Normalize a BCP-47 / ISO language string to a short ISO-639-1 code ("en-us" -> "en").
 function langCode(l?: string | null): string | null {
@@ -86,15 +87,22 @@ export function episodeUserPrompt(
   podName: string,
   podLanguage?: string | null,
   hosts?: string[] | null,
+  transcript?: string | null,
 ) {
   const name = e.display_title || e.title;
-  const desc = (e.description || "").replace(/\s+/g, " ").trim().slice(0, 2500);
+  const hasTranscript = typeof transcript === "string" && transcript.trim().length > 200;
+  // When transcript is present, shrink the description (it's only secondary context) to save tokens.
+  const descCap = hasTranscript ? 800 : 2500;
+  const desc = (e.description || "").replace(/\s+/g, " ").trim().slice(0, descCap);
   const code = langCode(e.language) || langCode(podLanguage);
   const langLine = code ? `Output language: ${langName(code)} (${code}). Write seo_title, seo_description, and ai_summary in this language only.\n` : "";
   const hostList = Array.isArray(hosts) && hosts.length > 0
     ? `Show hosts (DO NOT include any of these names in 'people' or 'mentioned' — they are the show creators, not episode subjects): ${hosts.join(", ")}\n`
     : "";
-  return `${langLine}${hostList}Show: ${podName}\nEpisode: ${name}\nDescription: ${desc || "(none)"}\n\nWrite SEO title, SEO description, ai_summary, and extract entities. Remember: people = speakers, mentioned = talked-about-but-absent.`;
+  const transcriptBlock = hasTranscript
+    ? `\nTranscript excerpt (PRIMARY SOURCE — use this for ai_summary, topics and entities):\n"""\n${transcript!.replace(/\s+/g, " ").trim().slice(0, 4000)}\n"""\n`
+    : "";
+  return `${langLine}${hostList}Show: ${podName}\nEpisode: ${name}\nDescription: ${desc || "(none)"}\n${transcriptBlock}\nWrite SEO title, SEO description, ai_summary, and extract entities. Remember: people = speakers, mentioned = talked-about-but-absent.`;
 }
 
 // Case-insensitive, accent-insensitive host filter helper.

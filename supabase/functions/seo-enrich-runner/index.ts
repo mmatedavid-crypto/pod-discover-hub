@@ -104,7 +104,17 @@ Deno.serve(async (req) => {
             const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
             const podLanguage = ((e as any).podcasts?.language) || null;
             const podHosts = ((e as any).podcasts?.hosts) || [];
-            prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts);
+            // Fetch latest transcript (if any) — used as PRIMARY source when present.
+            const { data: tr } = await admin
+              .from("episode_transcripts")
+              .select("transcript")
+              .eq("episode_id", job.target_id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const transcript = (tr as any)?.transcript || null;
+            (job as any).__has_transcript = !!(transcript && String(transcript).trim().length > 200);
+            prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts, transcript);
           }
         }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
@@ -172,10 +182,14 @@ Deno.serve(async (req) => {
           const companies = cleanArr(parsed.companies);
           const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
           const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
+          // Source flag: either we fetched a transcript in this run, OR the enqueuer
+          // pre-baked the prompt with `source: 'transcript'` in result.
+          const fromTranscript = !!(job as any).__has_transcript || job.result?.source === "transcript";
           await admin.from("episodes").update({
             seo_title, seo_description, ai_summary,
             people, mentioned, companies, tickers, topics,
-            ai_entities_version: 2,
+            ai_entities_version: fromTranscript ? 3 : 2,
+            ai_summary_source: fromTranscript ? "transcript" : "description",
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
           // If a real (non-mul) language is detected for the episode and it disagrees with
