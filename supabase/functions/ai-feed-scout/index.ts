@@ -410,14 +410,22 @@ Deno.serve(async (req) => {
       if (Date.now() - t0 > TIME_BUDGET_MS) { scrapeAborted = true; break; }
       // ---------- TIER 1: direct RSS URL extracted from page ----------
       if (c.rss_url && /^https?:\/\//i.test(c.rss_url)) {
-        const ok = await validateRss(c.rss_url);
-        if (ok) {
-          tier1++; piHits++;
-          validated.push({
-            feed: { url: c.rss_url, title: c.title, author: c.author, description: c.reason, language: c.langHint },
-            candidate: c, lang_hint: c.langHint, tier: "rss_direct",
-          });
-          continue;
+        const v = await validateRss(c.rss_url);
+        if (v.ok) {
+          // STRICT language gate: only HU or unknown/und/mul. Cross-listed
+          // Spanish/English shows on HU pages were leaking through before.
+          if (!isHuOrUnknown(v.language)) {
+            langMismatches++;
+          } else {
+            tier1++; piHits++;
+            // Carry the *actual* detected language (or null) — never fall back
+            // to the page-level lang_hint, that's what poisoned the DB before.
+            validated.push({
+              feed: { url: c.rss_url, title: c.title, author: c.author, description: c.reason, language: v.language },
+              candidate: c, lang_hint: c.langHint, tier: "rss_direct",
+            });
+            continue;
+          }
         }
       }
 
@@ -454,11 +462,26 @@ Deno.serve(async (req) => {
       if (best && bestScore >= 0.34) {
         const top = best;
         const piLang = normLang(top.language);
-        if (strictLang && piLang && piLang !== c.langHint) {
+        // STRICT gate: PI's language must be HU or unknown. Previously when
+        // `piLang` was falsy we accepted blindly — that's how non-HU leaked in.
+        if (!isHuOrUnknown(piLang)) {
           langMismatches++;
         } else {
+          // If PI didn't report a language, confirm by fetching the RSS itself.
+          let confirmedLang = piLang;
+          if (!confirmedLang && top.url) {
+            const v = await validateRss(top.url);
+            if (!v.ok || !isHuOrUnknown(v.language)) {
+              langMismatches++;
+              continue;
+            }
+            confirmedLang = v.language;
+          }
           tier2++; piHits++;
-          validated.push({ feed: top, candidate: c, lang_hint: c.langHint, tier: "podcast_index" });
+          validated.push({
+            feed: { ...top, language: confirmedLang },
+            candidate: c, lang_hint: c.langHint, tier: "podcast_index",
+          });
           continue;
         }
       }
