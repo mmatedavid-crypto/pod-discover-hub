@@ -127,8 +127,9 @@ export default function PodcastDetail() {
         </div>
 
         {(() => {
-          const epsLite = eps as any[];
-          const people = topEntitiesFrom(epsLite, "people", "person", 8);
+          // Inject podcast.hosts onto each episode-lite so excludeHosts can filter them out
+          const epsLite = (eps as any[]).map((e) => ({ ...e, podcasts: { hosts: p.hosts || [] } }));
+          const people = topEntitiesFrom(epsLite, "people", "person", 8, { excludeHosts: true, blocklist: ["Csukás István"] });
           const companies = topEntitiesFrom(epsLite, "companies", "company", 8);
           const topics = topEntitiesFrom(epsLite, "topics", "topic", 8);
           const all = [
