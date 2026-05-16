@@ -160,8 +160,8 @@ Deno.serve(async (req) => {
         if (Date.now() - startedAt > TIME_BUDGET_MS) return;
         const ep = todo[cursor++];
         try {
-          const html = await fetchWatchPage(ep.youtube_video_id!);
-          const tracks = extractCaptionTracks(html);
+          const player = await fetchPlayerResponse(ep.youtube_video_id!);
+          const tracks = extractCaptionTracks(player);
           if (!tracks.length) { no_captions++; continue; }
           const track = pickTrack(tracks);
           if (!track) { no_captions++; continue; }
