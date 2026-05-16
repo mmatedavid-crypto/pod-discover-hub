@@ -175,45 +175,59 @@ Deno.serve(async (req) => {
     let transcriptCandidates = 0;
     let transcriptUpsertErr: string | null = null;
     if (transcriptRegenLimit > 0) {
-      const { data: trEps, error: trErr } = await admin
+      // 1. Fetch most recent transcripts (no FK relationship to episodes — query in two steps).
+      const { data: trRows, error: trErr } = await admin
         .from("episode_transcripts")
-        .select("episode_id, transcript, episodes!inner(id, podcast_id, title, display_title, description, ai_summary_source, podcasts!inner(id, title, display_title, language, hosts, rank_label, rss_status, shadow_rank_components, full_backfill_completed_at))")
+        .select("episode_id, transcript")
         .order("created_at", { ascending: false })
         .limit(transcriptRegenLimit * 3);
       if (trErr) {
         transcriptUpsertErr = trErr.message;
       } else {
+        const transcriptById = new Map<string, string>();
+        for (const r of (trRows || [])) {
+          const id = (r as any).episode_id;
+          if (id && !transcriptById.has(id)) transcriptById.set(id, (r as any).transcript || "");
+        }
+        const epIds = Array.from(transcriptById.keys());
+        // 2. Fetch episode + podcast metadata for those episode ids.
         const sanitize = (s: string) => s
           .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
           .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
           .replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "$1");
         const rows: any[] = [];
-        for (const t of (trEps || [])) {
-          if (rows.length >= transcriptRegenLimit) break;
-          const ep: any = (t as any).episodes;
-          if (!ep) continue;
-          if (ep.ai_summary_source === "transcript") continue;
-          const pod: any = ep.podcasts;
-          if (!pod) continue;
-          if (!allowedTiers.includes(String(pod.rank_label || "").toUpperCase())) continue;
-          if (!["active", "not_checked"].includes(String(pod.rss_status || ""))) continue;
-          if (!isHealthy(pod)) continue;
-          if (requireBackfill && !pod.full_backfill_completed_at) continue;
-          transcriptCandidates++;
-          const podName = sanitize(pod.display_title || pod.title || "");
-          const transcript = String((t as any).transcript || "");
-          const prompt = sanitize(episodeUserPrompt(ep, podName, pod.language, pod.hosts, transcript));
-          // Hash includes a transcript marker so it's distinct from the description-only job.
-          const hash = await inputHash(prompt + "|tr:" + transcript.slice(0, 200));
-          rows.push({
-            kind: "seo_episode",
-            target_type: "episode",
-            target_id: ep.id,
-            input_hash: hash,
-            priority: podPriority(pod),
-            status: "pending",
-            result: { prompt, pod_name: podName, source: "transcript" },
-          });
+        const CHUNK = 150;
+        for (let i = 0; i < epIds.length && rows.length < transcriptRegenLimit; i += CHUNK) {
+          const slice = epIds.slice(i, i + CHUNK);
+          const { data: eps, error: eErr } = await admin
+            .from("episodes")
+            .select("id, podcast_id, title, display_title, description, ai_summary_source, podcasts!inner(id, title, display_title, language, hosts, rank_label, rss_status, shadow_rank_components, full_backfill_completed_at)")
+            .in("id", slice);
+          if (eErr) { transcriptUpsertErr = eErr.message; break; }
+          for (const ep of (eps || [])) {
+            if (rows.length >= transcriptRegenLimit) break;
+            if ((ep as any).ai_summary_source === "transcript") continue;
+            const pod: any = (ep as any).podcasts;
+            if (!pod) continue;
+            if (!allowedTiers.includes(String(pod.rank_label || "").toUpperCase())) continue;
+            if (!["active", "not_checked"].includes(String(pod.rss_status || ""))) continue;
+            if (!isHealthy(pod)) continue;
+            if (requireBackfill && !pod.full_backfill_completed_at) continue;
+            transcriptCandidates++;
+            const podName = sanitize(pod.display_title || pod.title || "");
+            const transcript = String(transcriptById.get((ep as any).id) || "");
+            const prompt = sanitize(episodeUserPrompt(ep as any, podName, pod.language, pod.hosts, transcript));
+            const hash = await inputHash(prompt + "|tr:" + transcript.slice(0, 200));
+            rows.push({
+              kind: "seo_episode",
+              target_type: "episode",
+              target_id: (ep as any).id,
+              input_hash: hash,
+              priority: podPriority(pod),
+              status: "pending",
+              result: { prompt, pod_name: podName, source: "transcript" },
+            });
+          }
         }
         for (let i = 0; i < rows.length; i += 500) {
           const batch = rows.slice(i, i + 500);
