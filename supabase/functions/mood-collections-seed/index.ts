@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       const { data: matches, error: mErr } = await admin.rpc("match_podcasts_by_embedding", {
         p_embedding: vec as unknown as string,
         p_limit: limit,
-        p_lang: "en",
+        p_lang: "hu",
         p_model: EMBED_MODEL,
       });
       if (mErr) {
