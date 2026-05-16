@@ -166,6 +166,24 @@ const MARKET_SYMBOL_SECTORS: Record<string, string> = {
   xrp: "ripple cross-border payments crypto",
   doge: "dogecoin meme cryptocurrency",
   avax: "avalanche blockchain L1 DeFi",
+  // BÉT szektorok
+  otp: "bankszektor lakossági banki szolgáltatások közép-európai bank",
+  mol: "olaj gáz energia downstream petrolkémia üzemanyag",
+  richter: "gyógyszeripar pharma nőgyógyászati készítmények biotechnológia",
+  mtelekom: "telekommunikáció mobilszolgáltató internet kábeltévé",
+  opus: "építőipar energetika holding diverzifikált",
+  "4ig": "informatika IT szolgáltatások védelmi technológia űripar",
+  masterplast: "építőanyag szigetelés homlokzati rendszerek",
+  any: "értékpapír-nyomtatás okmánybiztonság kártya",
+  waberer: "logisztika közúti szállítmányozás fuvarozás",
+  alteo: "megújuló energia áramtermelés energiakereskedelem",
+  autowallis: "autókereskedelem gépjármű import",
+  duna: "ingatlanközvetítés ingatlanpiac lakáspiac",
+  raba: "járműipar haszonjármű alkatrész tengely",
+  zwack: "italgyártás likőr Unicum szeszipar",
+  cig: "biztosító életbiztosítás pénzügyi szolgáltatás",
+  pannergy: "geotermikus energia távhő megújuló",
+  delta: "informatika rendszerintegráció IT szolgáltatások",
 };
 
 const TICKER_HELPER_WORDS = new Set([
