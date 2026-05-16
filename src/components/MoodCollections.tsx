@@ -112,12 +112,7 @@ export function MoodCollections() {
       .then(({ data }) => setMoods((data as any) || []));
   }, []);
 
-  const ranked = useMemo(() => {
-    if (!moods.length) return [];
-    const hour = new Date().getHours();
-    const recents = getRecentSearches();
-    return scoreMoods(moods, hour, recents);
-  }, [moods]);
+  const ranked = useMemo(() => moods, [moods]);
 
   const visible = useMemo(() => (isMobile ? ranked.slice(0, 4) : ranked), [ranked, isMobile]);
 

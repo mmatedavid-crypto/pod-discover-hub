@@ -46,7 +46,7 @@ const Index = () => {
   const [loaded, setLoaded] = useState(false);
   const [heroPlaceholder, setHeroPlaceholder] = useState(
     typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
-      ? "Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
+      ? "MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…"
       : "Téma vagy gondolat…"
   );
   const nav = useNavigate();
@@ -54,7 +54,7 @@ const Index = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(min-width: 640px)");
-    const update = () => setHeroPlaceholder(mq.matches ? "Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…" : "Téma vagy gondolat…");
+    const update = () => setHeroPlaceholder(mq.matches ? "MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…" : "Téma vagy gondolat…");
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
@@ -287,9 +287,6 @@ const Index = () => {
                 </button>
               ))}
             </div>
-            <span className="sm:ml-auto sm:pl-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap shrink-0">
-              Folyamatosan bővülő index
-            </span>
           </div>
         </div>
         {/* bottom rule */}
