@@ -287,9 +287,6 @@ const Index = () => {
                 </button>
               ))}
             </div>
-            <span className="sm:ml-auto sm:pl-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap shrink-0">
-              Folyamatosan bővülő index
-            </span>
           </div>
         </div>
         {/* bottom rule */}
