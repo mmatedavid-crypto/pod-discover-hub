@@ -51,37 +51,44 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
+// Native Google Generative Language API. Strips `google/` prefix; only Gemini models supported.
+// Returns OpenAI-shape `{choices,usage}` so the rest of the runner is unchanged.
 async function callGeminiSTT(model: string, audioBase64: string, mime: string) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("missing_GEMINI_API_KEY");
+  const nativeModel = model.replace(/^google\//, "");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${nativeModel}:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Írd át az alábbi magyar podcast hangfelvételt teljes egészében, szöveghűen." },
-            {
-              type: "input_audio",
-              input_audio: { data: audioBase64, format: mime.includes("mpeg") ? "mp3" : (mime.split("/")[1] || "mp3") },
-            },
-          ],
-        },
-      ],
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{
+        role: "user",
+        parts: [
+          { text: "Írd át az alábbi magyar podcast hangfelvételt teljes egészében, szöveghűen." },
+          { inline_data: { mime_type: mime, data: audioBase64 } },
+        ],
+      }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 32768 },
     }),
   });
   if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
+  if (res.status === 402 || res.status === 403) throw new Error(`provider_${res.status}`);
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    throw new Error(`ai_${res.status}: ${txt.slice(0, 200)}`);
+    throw new Error(`gemini_${res.status}: ${txt.slice(0, 300)}`);
   }
-  return res.json();
+  const j = await res.json();
+  const text = (j?.candidates?.[0]?.content?.parts || []).map((p: any) => p?.text || "").join("").trim();
+  const um = j?.usageMetadata || {};
+  return {
+    choices: [{ message: { content: text } }],
+    usage: {
+      prompt_tokens: Number(um.promptTokenCount || 0),
+      completion_tokens: Number(um.candidatesTokenCount || 0),
+    },
+  };
 }
 
 Deno.serve(async (req) => {
