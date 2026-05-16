@@ -1,113 +1,54 @@
-# Személy-entitások minőség-sprint
+## Cél
 
-Három párhuzamos workstream, közös DB-séma migrációval indít, majd runner- és frontend-változások.
+1. **Töröljük** az 56 nem-magyar podcastet és minden hozzájuk tartozó származékot a DB-ből.
+2. **Bezárjuk a szivárgást** az `ai-feed-scout`-ban, ami miatt egyáltalán bekerültek — a `language='hu'`-ként stamp-elte őket akkor is, ha valójában spanyol/angol/kínai stb.
 
----
+## Mi a hiba (root cause)
 
-## 1. DB séma (egy migráció)
+`ai-feed-scout/index.ts:540`:
+```
+language: normLang(v.feed.language) || v.lang_hint,
+```
+Ha a Podcast Index nem ad nyelvet, vagy Tier 1-ben közvetlen RSS URL-t talált (ahol sosem ellenőrizzük a `<language>` tag-et), akkor a forrás oldal `lang_hint`-jét (`"hu"`) sütjük be. Ezután a `pi-dump-process` látja, hogy `language='hu'`, és nyugodtan importálja — pedig a feed valójában spanyol.
 
-**`podcasts` tábla**
-- `hosts text[] not null default '{}'` — kanonikus host-nevek (pl. `['Bochkor Gábor','Boros Lajos']`).
-- `hosts_updated_at timestamptz` — mikor szerkesztette admin / AI utoljára.
-- `hosts_source text` — `manual` | `ai_inferred` | `null`.
+Tier 2 fallback (`piSearch` lang nélkül) szintén beengedi a feedet, ha PI nem ad vissza nyelvet (`piLang` falsy → if-ág kihagyva).
 
-**`episodes` tábla**
-- `mentioned text[] not null default '{}'` — csak említve, nincs jelen.
-- `people` jelentése szigorodik: kizárólag **megszólaló** vendég/szereplő.
-- `ai_entities_version` bumpolva: `2` = új modell futott (mentioned + host-szűrés).
+Tier 3 (iTunes HU storefront) ugyanígy — egyáltalán nem nézi a tényleges feed nyelvét.
 
-**`entity_profiles` tábla** (már létezik, csak töltjük)
-- Bevezetjük az auto-jelölést: új `app_settings.entity_profile_controls` kulcs (`min_episodes`, `daily_budget_usd`, `enabled`, `model`).
+## Lépések
 
-**RLS:** mindkettő public read + admin write — az existing podcasts/episodes policy alá tartoznak, nincs új policy.
+### 1) Adattisztítás (egy migration)
 
----
+Nyelv szerinti bontás: 36 en, 9 zh, 5 es, 2 fr, 1 nl/de/pt + 1 `und=` → összesen **56 podcast, ~1850 epizód**.
 
-## 2. Hostok kiszűrése (workstream A)
+Egy `DELETE FROM podcasts WHERE language IS NOT NULL AND language NOT ILIKE 'hu%'` — a `podcasts`-ról lefelé minden kapcsolódó sort (episodes, embeddings, transcripts, youtube_links, candidates stb.) explicit `DELETE`-ekkel törlünk, mert a táblákon nincs FK CASCADE. Sorrend:
+- `episode_embeddings`, `episode_transcripts`, `episode_youtube_links` az érintett podcast_id-kra
+- `episodes` az érintett podcast_id-kra
+- `podcast_embeddings`, `podcast_youtube_candidates` az érintett podcast_id-kra
+- végül `podcasts`
 
-**Admin UI** (`/admin/podcasts/:id` vagy új panel a podcast detail oldalon)
-- Hosts szerkeszthető lista (chip input).
-- "AI javaslat hostokra" gomb → új edge function `infer-hosts` egyszer lefuttatja a podcast leírás+pár ep cím alapján Geminivel, de mentés csak admin-jóváhagyással.
+A `pi_feed_staging`-ből is töröljük azokat a sorokat, ahol a `rss_url` egyezik a most törölt podcastekével, hogy a `pi-dump-process` ne importálja vissza őket.
 
-**Runner változások**
-- `seo-enrich-runner` és `entity-backfill-runner` minden epizódnál:
-  1. Lekéri a podcast `hosts` tömbjét.
-  2. AI extract után **kiveszi a `people` és `mentioned` tömbből** a hostokat (case-insensitive, ékezet-toleráns összehasonlítás).
-- A search-hybrid HyDE prompt és `MARKET_SYMBOL_ALIASES`-szerű listák nem érintve.
+### 2) Scout javítás (`supabase/functions/ai-feed-scout/index.ts`)
 
-**Backfill**
-- Egyszeri SQL update, ami megnyitja a host-szűrést a régi sorokon: `update episodes set people = array(select x from unnest(people) x where lower(x) not in (...)) where podcast_id = ...`. Adminból futtatható, vagy egyszeri script.
+- **NE** essünk vissza a `lang_hint`-re a staging language mezőjében. Ha nincs megbízható forrás (PI vagy RSS `<language>` tag), írjunk `NULL`-t. Ezt a `pi-dump-process` szigorúan szűri (kombinálva az AI nyelvérzékeléssel) — sokkal biztonságosabb, mint hamis HU stamp.
+- **Tier 1 (rss_direct)**: a `validateRss`-ben már lehívjuk az első ~8KB-ot. Bővítsük úgy, hogy visszaadja a detektált `<language>` / `<itunes:language>` értéket is, és csak akkor fogadjuk el, ha hu-ra prefixel (vagy üres/und → akkor `NULL`-lel staging-be, majd a downstream szigorú HU szűrőre bízzuk).
+- **Tier 2 (PodcastIndex)**: ha a PI-tól strict lang nélkül kérdezünk (fallback), és `piLang` kitöltött és nem `hu`, **utasítsuk el** (most: ha `piLang` falsy, beengedi).
+- **Tier 3 (iTunes HU)**: az iTunes feedUrl-jét futtassuk át ugyanazon a `<language>` ellenőrzésen — ha nem HU, dobjuk el.
 
----
+### 3) Védőháló a `pi-dump-process`-ban
 
-## 3. Jelen vs. említve (workstream B)
+Egy kis szigorítás: ha `r.language` üres ÉS `r.ai_detected_language` üres → ne importáljuk azonnal, hanem kérjünk AI nyelvérzékelést (a meglévő `ai-enrich` / language guard pipeline keretében), és csak utána döntsünk. Egyelőre elég: ha `r.language` nem `hu%` és nem `mul/und/null` → reject (ez most is megvan), és **a scout-stamp leállítása után** ez ténylegesen fogni fogja a nem-HU feedeket.
 
-**AI tool schema bővítés**
-- `seo-enrich-runner` (`EPISODE_SEO_TOOL`) és `entity-backfill-runner` (`ENTITY_TOOL`):
-  - `people`: max 6, csak akik **megszólalnak** (vendég, host, interjúalany).
-  - `mentioned`: max 6, akikről beszélnek, de nincsenek jelen.
-  - Promptban explicit szabály: politikusok, hírességek alapból `mentioned`, **kivéve** ha a leírás egyértelműen jelzi (pl. „interjú", „vendégünk", „beszélgetés vele").
-- Új `ai_entities_version=2` marker. A `seo-enrich-enqueue` és az entity-backfill `version < 2` epizódokat eligible-nek tekinti — fokozatos újrafutás.
+## Technikai jegyzetek
 
-**Frontend (`EntityPage.tsx`)**
-- Új `kind="person"` oldalon a lekérdezés mind `people`, mind `mentioned` mezőre néz, de:
-  - Fő lista: ahol `people` tartalmazza (megszólal).
-  - Külön szekció lent: „Említve" — ahol csak `mentioned`.
-  - Stat-row új mező: „Megszólal X ep · Említve Y ep".
-- `aggregateEntities.ts` kibővítve `field: "mentioned"` opcióval (entity tag cloudokhoz, ha kell).
+- A `podcasts`-on nincs `ON DELETE CASCADE`, ezért az adattisztítás migration-ben minden függő tábla rendjén DELETE.
+- Az `und=` (1 db) törölhető — szemét érték.
+- A 36 angol podcast között sok lehet legacy launch előtti rang-emelt adat — a user megerősítette: töröljük.
+- A scout módosítása után csökkenni fog a sikeres találati arány — ez szándékos, inkább kevesebb HU mint sok spanyol szemét.
 
----
+## Mit NEM csinálunk most
 
-## 4. Auto sztár-profil oldalak (workstream C)
-
-**Új runner: `entity-profile-runner` edge function + cron jobid 24**
-- Cadence: `0 */6 * * *` (6 óránként).
-- Controls: `app_settings.entity_profile_controls`:
-  ```json
-  { "enabled": true, "min_episodes": 8, "daily_budget_usd": 3,
-    "model": "google/gemini-3.1-flash-lite-preview", "max_per_run": 20 }
-  ```
-- Logika:
-  1. SQL aggregálás: `people` mezőből számolja, hány HU epizódban szólal meg egy név (slug szerint). Csak `published_at >= now() - 730d` és csak `podcasts.language ILIKE 'hu%'`.
-  2. Jelöltek = aki ≥ `min_episodes` ep-ben, de még nincs `entity_profiles` rekordja (vagy `updated_at < now() - 30d`).
-  3. Top N (max_per_run) jelöltre AI-bio generálás (név, ki ő egy mondatban, miről beszél tipikusan, 80-160 szó, magyarul).
-  4. `featured_episode_ids` = top 5 epizód a frissesség + tier alapján (`compareByScore` JS-ben replikálva SQL-ben, vagy egyszerű frissességalapú).
-  5. Upsert `entity_profiles`-be (`kind='person'`, `slug`, `display_name`, `bio`, `episode_ids`, `featured_episode_ids`, `model`, `cost_usd`).
-- Budget guard ugyanaz a pattern, mint az `entity-backfill-runner`-nél: `ai_spend_daily.by_kind.entity_profile`.
-
-**Frontend (`EntityPage.tsx`)**
-- `useEffect`-ben a lekérdezés mellé `entity_profiles` lookup slug + kind szerint.
-- Ha van profil:
-  - Hero alá kerül egy „Bio" card (`p.bio`), és a Featured szekció prioritást kap (`featured_episode_ids`).
-  - SEO description a `bio` első mondatából (jobb mint a generikus szöveg).
-  - JSON-LD `Person.description` mező hozzáadva.
-- Ha nincs profil, marad a jelenlegi viselkedés.
-
-**Admin felület** (`/admin/people` új oldal — opcionális, MVP-ben kihagyható)
-- Lista a jelöltekről, manuális trigger, bio újragenerálása.
-
----
-
-## 5. Sorrend és kockázat
-
-1. **DB migráció** (kicsi, biztonságos — csak default-tal új oszlopok).
-2. **Runner-ek + tool schema** (visszafelé kompatibilis, mert default `[]`).
-3. **Host admin UI + 1-2 nagy podcastnál kézi feltöltés** (Frizbi, 444 stb. — gyors win).
-4. **EntityPage frontend** (új `mentioned` szekció, profile bio).
-5. **`entity-profile-runner` + cron** (utolsó, mert előtte legyen tisztább a `people` adat).
-
-**Költségbecslés:** ~$1-2/nap extra (entity-profile-runner), a meglévő runner-ek csak ~+5% tokenért (egy plusz tömb a tool output-ban).
-
-**Mit NEM csinálunk most:** Beszélgetés-stílusú segmentáció, transcript-alapú szerepfelismerés, kézi adminkurálás minden szereplőre. Ezek később jöhetnek.
-
----
-
-## Mit szeretnék jóváhagyni
-
-- ✅ Séma változtatások (3 oszlop)
-- ✅ Két runner módosítása (host-szűrés + `mentioned` mező)
-- ✅ EntityPage frontend bővítése (mentioned szekció + bio render)
-- ✅ Új `entity-profile-runner` + cron jobid 24 6 óránként, $3/nap budget
-- ✅ Host admin szerkesztés a podcast oldalon
-
-Ha jó, lefuttatom a migrációt, és sorban deployolom a runnereket.
+- Nem nyúlunk a `seo-enrich-runner` AI language guard logikájához (jól működik).
+- Nem módosítjuk a frontend HU filtereket (már szigorúak).
+- Nem futtatjuk újra a scout-ot azonnal — a user dönthet róla a tisztítás után.

@@ -214,8 +214,10 @@ async function itunesSearch(term: string, country = "HU") {
   }
 }
 
-// Lightweight RSS validation: fetch first ~8KB and look for <rss / <feed root.
-async function validateRss(url: string): Promise<boolean> {
+// Lightweight RSS validation: fetch first ~16KB, confirm it's an RSS/Atom feed,
+// and extract the declared language (<language> or <itunes:language>) if present.
+// Returns { ok, language } so callers can do strict per-language gating.
+async function validateRss(url: string): Promise<{ ok: boolean; language: string | null }> {
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
@@ -224,21 +226,36 @@ async function validateRss(url: string): Promise<boolean> {
       signal: ctrl.signal, redirect: "follow",
     });
     clearTimeout(t);
-    if (!res.ok || !res.body) return false;
+    if (!res.ok || !res.body) return { ok: false, language: null };
     const reader = res.body.getReader();
     const chunks: Uint8Array[] = [];
     let total = 0;
-    while (total < 8192) {
+    // Pull 16KB — channel metadata (incl. <language>) is almost always within that.
+    while (total < 16384) {
       const { done, value } = await reader.read();
       if (done || !value) break;
       chunks.push(value); total += value.length;
     }
     try { await reader.cancel(); } catch { /* ignore */ }
-    const text = new TextDecoder().decode(new Uint8Array(chunks.flatMap((c) => Array.from(c)))).slice(0, 8192);
-    return /<rss[\s>]/i.test(text) || /<feed[\s>]/i.test(text);
+    const text = new TextDecoder().decode(new Uint8Array(chunks.flatMap((c) => Array.from(c)))).slice(0, 16384);
+    const ok = /<rss[\s>]/i.test(text) || /<feed[\s>]/i.test(text);
+    if (!ok) return { ok: false, language: null };
+    // <language>hu</language>, <itunes:language>hu-HU</itunes:language>, or Atom <feed xml:lang="hu">
+    const m =
+      text.match(/<language>\s*([^<\s]+)\s*<\/language>/i) ||
+      text.match(/<itunes:language>\s*([^<\s]+)\s*<\/itunes:language>/i) ||
+      text.match(/<feed[^>]*xml:lang=["']([^"']+)["']/i);
+    return { ok: true, language: m ? normLang(m[1]) : null };
   } catch {
-    return false;
+    return { ok: false, language: null };
   }
+}
+
+// True if `lang` is HU or unknown/multi (so we don't reject feeds that just omit the tag).
+function isHuOrUnknown(lang: string | null): boolean {
+  if (!lang) return true;
+  const l = lang.toLowerCase();
+  return l.startsWith("hu") || l === "mul" || l === "und";
 }
 
 async function firecrawlScrape(url: string): Promise<string | null> {
@@ -393,14 +410,22 @@ Deno.serve(async (req) => {
       if (Date.now() - t0 > TIME_BUDGET_MS) { scrapeAborted = true; break; }
       // ---------- TIER 1: direct RSS URL extracted from page ----------
       if (c.rss_url && /^https?:\/\//i.test(c.rss_url)) {
-        const ok = await validateRss(c.rss_url);
-        if (ok) {
-          tier1++; piHits++;
-          validated.push({
-            feed: { url: c.rss_url, title: c.title, author: c.author, description: c.reason, language: c.langHint },
-            candidate: c, lang_hint: c.langHint, tier: "rss_direct",
-          });
-          continue;
+        const v = await validateRss(c.rss_url);
+        if (v.ok) {
+          // STRICT language gate: only HU or unknown/und/mul. Cross-listed
+          // Spanish/English shows on HU pages were leaking through before.
+          if (!isHuOrUnknown(v.language)) {
+            langMismatches++;
+          } else {
+            tier1++; piHits++;
+            // Carry the *actual* detected language (or null) — never fall back
+            // to the page-level lang_hint, that's what poisoned the DB before.
+            validated.push({
+              feed: { url: c.rss_url, title: c.title, author: c.author, description: c.reason, language: v.language },
+              candidate: c, lang_hint: c.langHint, tier: "rss_direct",
+            });
+            continue;
+          }
         }
       }
 
@@ -437,11 +462,26 @@ Deno.serve(async (req) => {
       if (best && bestScore >= 0.34) {
         const top = best;
         const piLang = normLang(top.language);
-        if (strictLang && piLang && piLang !== c.langHint) {
+        // STRICT gate: PI's language must be HU or unknown. Previously when
+        // `piLang` was falsy we accepted blindly — that's how non-HU leaked in.
+        if (!isHuOrUnknown(piLang)) {
           langMismatches++;
         } else {
+          // If PI didn't report a language, confirm by fetching the RSS itself.
+          let confirmedLang = piLang;
+          if (!confirmedLang && top.url) {
+            const v = await validateRss(top.url);
+            if (!v.ok || !isHuOrUnknown(v.language)) {
+              langMismatches++;
+              continue;
+            }
+            confirmedLang = v.language;
+          }
           tier2++; piHits++;
-          validated.push({ feed: top, candidate: c, lang_hint: c.langHint, tier: "podcast_index" });
+          validated.push({
+            feed: { ...top, language: confirmedLang },
+            candidate: c, lang_hint: c.langHint, tier: "podcast_index",
+          });
           continue;
         }
       }
@@ -463,22 +503,27 @@ Deno.serve(async (req) => {
         if (sc > itScore) { itScore = sc; itBest = r; }
       }
       if (itBest && itScore >= 0.34) {
-        const ok = await validateRss(itBest.feedUrl);
-        if (ok) {
-          tier3++; piHits++;
-          validated.push({
-            feed: {
-              url: itBest.feedUrl,
-              title: itBest.collectionName || c.title,
-              author: itBest.artistName || c.author,
-              image: itBest.artworkUrl600 || itBest.artworkUrl100,
-              link: itBest.collectionViewUrl,
-              language: c.langHint,
-              description: c.reason,
-            },
-            candidate: c, lang_hint: c.langHint, tier: "itunes_hu",
-          });
-          continue;
+        const v = await validateRss(itBest.feedUrl);
+        if (v.ok) {
+          // STRICT language gate — iTunes HU storefront still lists foreign shows.
+          if (!isHuOrUnknown(v.language)) {
+            langMismatches++;
+          } else {
+            tier3++; piHits++;
+            validated.push({
+              feed: {
+                url: itBest.feedUrl,
+                title: itBest.collectionName || c.title,
+                author: itBest.artistName || c.author,
+                image: itBest.artworkUrl600 || itBest.artworkUrl100,
+                link: itBest.collectionViewUrl,
+                language: v.language,
+                description: c.reason,
+              },
+              candidate: c, lang_hint: c.langHint, tier: "itunes_hu",
+            });
+            continue;
+          }
         }
       }
 
@@ -535,9 +580,10 @@ Deno.serve(async (req) => {
         website_url: v.feed.link || null,
         image_url: v.feed.image || v.feed.artwork || null,
         description: v.feed.description || v.candidate.reason || null,
-        // Always populate language: prefer PI value, fall back to source's lang_hint
-        // so downstream filters (homepage, categories, search) never treat it as English-by-default.
-        language: normLang(v.feed.language) || v.lang_hint,
+        // ONLY use a verified language (PI value or detected from RSS <language>).
+        // NEVER fall back to the source's lang_hint — that was the bug that
+        // stamped spanish/english feeds as `hu` and let them past every filter.
+        language: normLang(v.feed.language),
         author: v.feed.author || v.feed.ownerName || v.candidate.author || null,
         episode_count: v.feed.episodeCount ?? null,
         newest_item_at: v.feed.newestItemPublishTime ? new Date(v.feed.newestItemPublishTime * 1000).toISOString() : null,
