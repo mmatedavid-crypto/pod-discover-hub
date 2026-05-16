@@ -395,6 +395,60 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_transcripts: {
+        Row: {
+          audio_bytes: number | null
+          content_hash: string | null
+          cost_usd: number | null
+          created_at: string
+          duration_seconds: number | null
+          episode_id: string
+          id: string
+          input_tokens: number | null
+          language: string | null
+          model: string
+          output_tokens: number | null
+          podcast_id: string
+          segments: Json | null
+          transcript: string
+          updated_at: string
+        }
+        Insert: {
+          audio_bytes?: number | null
+          content_hash?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          episode_id: string
+          id?: string
+          input_tokens?: number | null
+          language?: string | null
+          model: string
+          output_tokens?: number | null
+          podcast_id: string
+          segments?: Json | null
+          transcript: string
+          updated_at?: string
+        }
+        Update: {
+          audio_bytes?: number | null
+          content_hash?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          episode_id?: string
+          id?: string
+          input_tokens?: number | null
+          language?: string | null
+          model?: string
+          output_tokens?: number | null
+          podcast_id?: string
+          segments?: Json | null
+          transcript?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episodes: {
         Row: {
           ai_enriched_at: string | null
@@ -1429,6 +1483,35 @@ export type Database = {
     Functions: {
       claim_ai_jobs: {
         Args: { _limit: number; _lock_seconds?: number }
+        Returns: {
+          attempts: number
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          id: string
+          input_hash: string
+          input_tokens: number | null
+          kind: string
+          last_error: string | null
+          locked_until: string | null
+          model: string | null
+          output_tokens: number | null
+          priority: number
+          result: Json | null
+          started_at: string | null
+          status: string
+          target_id: string
+          target_type: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ai_enrichment_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_ai_jobs_by_kind: {
+        Args: { _kind: string; _limit: number; _lock_seconds?: number }
         Returns: {
           attempts: number
           completed_at: string | null

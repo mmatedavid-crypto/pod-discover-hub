@@ -1,50 +1,122 @@
-## Helyzetkép
+## Cél
 
-- 61 097 epizód (60 555 HU). Cél: ≥100k → ~40k hiányzik.
-- 15 829 epizódnak már van `ai_summary` (SEO runner munkája), de **0**-nak van entitása (people/companies/topics). Ezeket újra kell futtatni — de **csak entitás-extrakcióval**, az ai_summary maradhat.
-- A maradék ~45k még feldolgozatlan: ezeknek mostantól **egyben** kell mennie (summary + entitások egy AI hívásban).
+Magyar epizódok teljes hangos átirata Gemini preview modellel, ugyanazon a mintán mint az eddigi pipeline-ok (edge fn runner + adaptív cron + `app_settings` controls + `ai_spend_daily` budget + tier-prioritás).
 
-## Terv
+## Architektúra (egy mondatban)
 
-### 1) Új SEO/summary feldolgozás leállítása, váltás kombinált pipeline-ra
+`stt-enqueue` → `ai_enrichment_jobs` (kind=`stt`) → `stt-runner` (drain loop) → Gemini audio in → `episode_transcripts` táblába írja. Minden gomb az `app_settings.stt_controls`-ból jön, így 0 deploy-jal váltható model / budget / batch.
 
-- `seo-enrich-enqueue` cron (jobid 5) átállítása: csak akkor töltsön `seo_episode` jobokat, ha az episode-nak **nincs** ai_summary-je (ez már így megy). Új jobokat viszont az `ai-enrich` runner dolgozza fel, hogy egyszerre kapjon summary+entitást.
-- Két út:
-  - **A:** Új job-kind `enrich_episode_full` bevezetése, és új runner `ai-enrich-runner` (drain-loop, mint a seo-runneré, de Gemini tool-callinggal entitásokat is kér).
-  - **B:** A meglévő `seo-enrich-runner`-be belerakjuk az entitás kinyerést (a `_shared/seo-prompt.ts` tool-schemájához hozzáadjuk: people/companies/tickers/topics/ingredients), és egy hívásban mindent visszakap. Olcsóbb (kevesebb új infra).
-- **Választás: B.** Egyetlen prompt, egyetlen call, ugyanaz a runner; a táblát csak bővítjük.
+## Komponensek
 
-### 2) 15 829 már-summarizált epizód entitás-backfillje
+### 1. DB migráció — `episode_transcripts` tábla
 
-- Új edge function `entity-backfill-runner`: lapoz az `episodes`-ban (`ai_summary IS NOT NULL AND ai_entities_version = 0`), Gemini Flash Lite tool-call **csak** entitásokra (kisebb prompt, olcsóbb), bulk update people/companies/tickers/topics + `ai_entities_version=1`.
-- Saját kis cron: `*/2 * * * *`, batch 100, drain-loop 110s. Becsült költség: 15 829 × ~$0.0003 ≈ **$5 össz**, 1–2 nap alatt lefut a $50/nap kereten belül (parallel a fő SEO drain-nel).
+```text
+episode_id uuid PK
+podcast_id uuid NOT NULL
+model text NOT NULL          -- pl. google/gemini-3.1-pro-preview
+language text                -- detektált, pl. 'hu'
+transcript text NOT NULL     -- nyers szöveg
+segments jsonb               -- opcionális: [{start, end, text}] ha a model adja
+duration_seconds int
+audio_bytes bigint
+input_tokens int
+output_tokens int
+cost_usd numeric
+content_hash text            -- audio_url + size hash → re-run guard
+created_at, updated_at
+```
 
-### 3) Epizódszám felhúzása ~100k-ra
+RLS: admin write, public read (ugyanaz a minta mint `episode_embeddings`).
+Indexek: `(podcast_id)`, `(model)`, `(created_at desc)`.
 
-Két párhuzamos forrás:
+### 2. `app_settings.stt_controls` (egyetlen JSONB)
 
-- **Deep hydration boost:** A 158 A-tier + 142 S-tier HU podcast nagy részénél a back-catalog még nincs lehúzva (`deep_done=0` mindenhol). A sprint cél most S=1000/A=600/B=300/C=100 epizód/pod — ez papíron **142×1000 + 158×600 + 312×300 + 38×100 = ~330k** kapacitás. Csak a runner cadence-én múlik. → A `deep-hydrate-runner` cron felgyorsítása `*/2`-ről `* * * * *`-re, amíg el nem érjük a 100k-t.
-- **Új HU forrás keresés:** `ai-feed-scout` HU sources kibővítése (Apple HU charts, Spotify HU, gPodder HU, Listen Notes HU, magyar podcast aggregátorok). Ez napi 50–200 új feed-et hoz be → `pi-dump-process` automatikusan beemeli őket.
+```json
+{
+  "enabled": true,
+  "model": "google/gemini-2.5-flash",
+  "daily_budget_usd": 5,
+  "batch_size": 4,
+  "concurrency": 2,
+  "max_audio_mb": 25,
+  "tiers": ["S","A"],
+  "max_duration_min": 120,
+  "skip_if_no_audio": true
+}
+```
 
-### Sorrend
+Külön kis JSONB az A/B kísérlethez: `stt_pilot_overrides` (pl. 10 epizód `gemini-3.1-pro-preview` modellel, force enqueue).
 
-1. Most: B opció — `seo-enrich-runner` + `_shared/seo-prompt.ts` bővítése entitásokkal (új feldolgozású ~45k egyben jön).
-2. Most: új `entity-backfill-runner` + cron a 15 829 már-summarizált epizódra.
-3. Most: `deep-hydrate-runner` cron `* * * * *`-ra (jobid 2), amíg a HU epizódszám ≥100k. Adaptív RPC visszaállítja, ha kifogynak a candidate-ek.
-4. Most: `ai-feed-scout` HU forráslista bővítése (külön mini-PR, már részben megvolt).
+### 3. `stt-enqueue` edge fn
 
-### Költség / idő
+- Kiválaszt tier-szűrve magyar epizódokat ahol nincs még `episode_transcripts` sor a kiválasztott `model`-re és van `audio_url`.
+- Bulk insert `ai_enrichment_jobs` (`kind='stt'`, `target_type='episode'`, `input_hash = sha(audio_url|size|model)`, `priority` = tier-aware: S=100/A=80/B=60/C=40).
+- Adaptív cron (`set_stt_enqueue_schedule` RPC, allowlist `*/5`,`*/30`,`0 * * * *`).
 
-- Kombinált runner (B): a már beállított $50/nap budget bőven elég, ai-summary az új 45k-n ugyanannyiba kerül mint korábban, az entitások járulékos +20% token.
-- Backfill 15.8k: ~$5 össz, ~1 nap.
-- Deep hydration: nincs AI költsége, csak fetch/parse.
-- ETA: 100k epizód ~3–4 nap, teljes entitás-coverage ~3 nap.
+### 4. `stt-runner` edge fn (a kritikus rész)
+
+Drain-loop egy invocation-ön belül (mint a `seo-enrich-runner`):
+
+1. `claim_ai_jobs(kind='stt', limit=batch_size)` (meglévő RPC, ha kell, `kind` paraméteres változat).
+2. Minden job-ra párhuzamosan (concurrency limit):
+   - HEAD audio URL → méret check (skip ha > max_audio_mb).
+   - GET audio → bytes.
+   - Lovable AI Gateway hívás `generateContent`-tel, `inline_data: { mime_type, data: base64(audio) }` + system prompt:
+     > "Te magyar nyelvű podcast átíró vagy. Add vissza a teljes átiratot tisztán, beszélő-tagolás nélkül, írásjelekkel. Soha ne fordíts. Soha ne foglald össze."
+   - Költség kalkuláció a model token árából → `ai_spend_daily.by_kind.stt`.
+   - `episode_transcripts` upsert (onConflict `episode_id,model`).
+3. Daily budget guard a hurok elején (mint `seo-enrich-runner`).
+4. `reap_ai_stale_locks(5min)` a futás végén.
+5. Adaptív cron RPC (`set_stt_runner_schedule`, allowlist `*`,`*/2`,`*/10`,`*/30`).
+
+### 5. Pilot mód (azonnal használható)
+
+Admin oldal vagy egyszerű curl-rel:
+```
+POST /functions/v1/stt-runner?pilot=10&model=google/gemini-3.1-pro-preview
+```
+Beolvas 10 epizódot tier S-ből, force-run, **nem** ír cron-t, csak `episode_transcripts`-ot + logol egy összesítőt (átlagos cost, átlagos token, példa-átirat link). Így A/B-zhetsz model-ek között 1 invocation-nel.
+
+### 6. Cron jegek
+
+- jobid X: `podiverzum-stt-enqueue` — adaptív, default `*/30`.
+- jobid Y: `podiverzum-stt-runner` — adaptív, default `*/10`.
+- Mindkettő OFF-ról indul; te kapcsolod be amikor a pilot tetszik.
+
+## Biztonsági / költség korlátok
+
+- `incident-guard` import (fail-closed kill switch).
+- `daily_budget_usd` hard stop a runnerben.
+- `max_audio_mb` és `max_duration_min` filter, hogy ne futtassunk 4 órás videós feedeket.
+- `tiers` allowlist — alapból csak S/A indul, B/C csak ha kifejezetten engeded.
+- Re-run guard: `(episode_id, model)` unique → ugyanaz a model nem futhat újra véletlenül.
+- Model váltás = új sor, nem felülírás → összehasonlítható marad.
 
 ## Technikai részletek
 
-- `_shared/seo-prompt.ts` `EPISODE_SEO_TOOL` paraméterek bővítése: `people[]`, `companies[]`, `tickers[]`, `topics[]`, `ingredients[]` (max 6/lista, csak ha valóban szerepelnek). Strict JSON schema, `additionalProperties:false`.
-- `seo-enrich-runner` parsed-handler: episode-update-be belerakni `people/companies/tickers/topics/ingredients` mezőket + `ai_entities_version=1`.
-- `entity-backfill-runner`: külön function, saját kis tool csak entity arrays-szel, NEM ír seo_title/seo_description/ai_summary-be. Drain loop, $5/nap saját budget.
-- `set_deep_hydration_schedule` RPC `*` cron-ra állítása amíg `count(episodes WHERE p.language='hu') < 100000`.
+- Lovable AI Gateway endpoint: `https://ai.gateway.lovable.dev/v1/chat/completions`, header `Authorization: Bearer ${LOVABLE_API_KEY}`, body `messages: [{ role:'user', content:[{type:'text', text:'…'}, {type:'input_audio', input_audio:{data:base64, format:'mp3'}}] }]`. Ha a Lovable gateway nem támogatja az audio input modalitást egy adott modelre, fallback: direkt Google Generative Language REST `models/<model>:generateContent` hívás `GEMINI_API_KEY`-vel (akkor új secret kell — szólok).
+- Tárolás: nem mentünk audio bytes-t, csak az átiratot.
+- Sitemap / UI: ebben a körben **nem** publikáljuk a transzkriptet — csak DB-be megy, mint belső input további AI lépésekhez (summary v2, keresési highlight, key-moments).
 
-Indulás után ezt egy üzenetben követem (queue mélység, epizódszám, költés).
+## Mit építsek meg most
+
+1. Migráció: `episode_transcripts` tábla + RLS + indexek + `app_settings.stt_controls` seed.
+2. `stt-enqueue` edge fn (tier-szűrés, bulk upsert jobok).
+3. `stt-runner` edge fn (drain loop, audio fetch, Gemini call, costing, upsert).
+4. Adaptív cron RPC-k (`set_stt_enqueue_schedule`, `set_stt_runner_schedule`) — allowlistezve.
+5. **Cron jobok OFF-on hagyva.** Te indítod kézzel egy 10 epizódos pilot-tal, és csak utána kapcsoljuk be.
+
+## Mit NEM építek most (külön körben)
+
+- Frontend admin UI (`/admin/stt`) — később, ha tetszik az eredmény.
+- Post-correction réteg (entity-szótár + AI polish) — külön sprint.
+- Transzkript-megjelenítés epizód oldalon — termékdöntés.
+- Stripe-jellegű kvóta felhasználónként — nincs is felhasználói feature mögötte.
+
+## Nyitott kérdések mielőtt nyomom
+
+1. **Tárhely**: az átiratot tisztán szövegként mentem `episode_transcripts.transcript`-be (HU átlag ~6-12k karakter / epizód, ~100MB / 10k epizód — semmiség). OK?
+2. **Pilot model**: első körben `gemini-2.5-flash` (olcsó baseline) **vagy** rögtön `gemini-3.1-pro-preview` (drága, csúcs minőség)? Javaslat: Flash baseline → ugyanazon az 5 epizódon Pro preview → összehasonlítás.
+3. **Tier scope**: csak S/A induljon (~300 HU pod, becsült ~30-50k epizód), vagy mind S/A/B/C (~650 pod, ~528k epizód, **nagyságrendileg drágább**)?
+
+Megerősítésed után létrehozom a migrációt, edge fn-eket, és futtathatsz egy 10 epizódos pilotot percek alatt.
