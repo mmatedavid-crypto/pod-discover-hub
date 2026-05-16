@@ -351,7 +351,7 @@ const Index = () => {
             eyebrow="Emberek a hírekben"
             title="Ezek a nevek pörögnek mostanában"
             subtitle="Gyakori vendégek és említett nevek: alapítók, kutatók, sportolók, vezetők."
-            items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
+            items={topEntitiesFrom(trendingEntityEps, "people", "person", 10, { excludeHosts: true, blocklist: ["Csukás István"] })}
             icon="person"
           />
         )}
