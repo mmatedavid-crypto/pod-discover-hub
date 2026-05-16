@@ -28,8 +28,8 @@ export function AskPodiverzum() {
   const [paused, setPaused] = useState(false);
   const [placeholder, setPlaceholder] = useState(
     typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
-      ? "Pl.: Mit mond a Hold Alapkezelő a piacról?"
-      : "Pl.: Tőzsde, MNB, alapítók…"
+      ? "Mit mond a Hold Alapkezelő a piacról?"
+      : "Tőzsde, MNB, alapítók…"
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const tickRef = useRef({ next: 4, cw: 0, k: 4 });
@@ -40,8 +40,8 @@ export function AskPodiverzum() {
     const update = () =>
       setPlaceholder(
         mq.matches
-          ? "Pl.: Mit mond a Hold Alapkezelő a piacról?"
-          : "Pl.: Tőzsde, MNB, alapítók…"
+          ? "Mit mond a Hold Alapkezelő a piacról?"
+          : "Tőzsde, MNB, alapítók…"
       );
     update();
     mq.addEventListener("change", update);
