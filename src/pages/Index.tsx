@@ -130,7 +130,7 @@ const Index = () => {
             .limit(40),
           supabase
             .from("episodes")
-            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label)")
+            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label,hosts)")
             .gte("published_at", since14d)
             .in("podcasts.rank_label", ["S", "A", "B"])
             .or("language.ilike.hu%", { foreignTable: "podcasts" })
@@ -351,7 +351,7 @@ const Index = () => {
             eyebrow="Emberek a hírekben"
             title="Ezek a nevek pörögnek mostanában"
             subtitle="Gyakori vendégek és említett nevek: alapítók, kutatók, sportolók, vezetők."
-            items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
+            items={topEntitiesFrom(trendingEntityEps, "people", "person", 10, { excludeHosts: true, blocklist: ["Csukás István"] })}
             icon="person"
           />
         )}
