@@ -46,7 +46,7 @@ export default function CategoryDetail() {
   useEffect(() => { setQ(queryParam); }, [queryParam]);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug || redirectTo) return;
     (async () => {
       setLoading(true);
       const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).maybeSingle();
