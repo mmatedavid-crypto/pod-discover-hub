@@ -71,7 +71,16 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
 }
 
 export function buildExpandedQuery(q: string, u: Understanding): string {
-  const extras = [...u.expanded_terms, ...u.synonyms, ...u.entities].filter(Boolean);
+  // websearch_to_tsquery treats spaces as AND. Expansion terms must be OR-joined,
+  // otherwise queries like "Zsiday Viktor" + AI-expanded "Hungarian economist portfolio manager"
+  // become an AND of all words and return zero lexical matches — leaving only semantic results,
+  // which surface tangentially related content (e.g. other "Viktor" episodes about Hungary).
+  const extras = [...u.expanded_terms, ...u.synonyms, ...u.entities]
+    .map((s) => (s || "").trim())
+    .filter(Boolean);
   if (!extras.length) return q;
-  return `${q} ${extras.join(" ")}`.slice(0, 500);
+  // Keep original q as the primary AND-clause; OR-add each expansion term as a quoted phrase
+  // so multi-word expansions ("portfolio manager") stay together instead of ANDing.
+  const orParts = extras.map((t) => (t.includes(" ") ? `"${t.replace(/"/g, "")}"` : t));
+  return `${q} or ${orParts.join(" or ")}`.slice(0, 500);
 }
