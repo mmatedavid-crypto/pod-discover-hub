@@ -87,22 +87,26 @@ async function sha256(s: string): Promise<string> {
 
 async function logSpend(admin: any, calls: number, costUsd: number) {
   if (!calls) return;
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: row } = await admin.from("ai_spend_daily").select("*").eq("day", today).maybeSingle();
-  const prev = row || { day: today, spend_usd: 0, calls: 0, by_kind: {} };
-  const byKind = (prev.by_kind || {}) as Record<string, any>;
-  const cur = byKind.youtube_transcript || { calls: 0, spend_usd: 0 };
-  byKind.youtube_transcript = {
-    calls: (cur.calls || 0) + calls,
-    spend_usd: Number(((cur.spend_usd || 0) + costUsd).toFixed(6)),
-  };
-  await admin.from("ai_spend_daily").upsert({
-    day: today,
-    spend_usd: Number((Number(prev.spend_usd || 0) + costUsd).toFixed(6)),
-    calls: (prev.calls || 0) + calls,
-    by_kind: byKind,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "day" });
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: row } = await admin.from("ai_spend_daily").select("*").eq("day", today).maybeSingle();
+    const prev = row || { day: today, spend_usd: 0, calls: 0, by_kind: {} };
+    const byKind = (prev.by_kind || {}) as Record<string, any>;
+    const cur = byKind.youtube_transcript || { calls: 0, spend_usd: 0 };
+    byKind.youtube_transcript = {
+      calls: (cur.calls || 0) + calls,
+      spend_usd: Number(((cur.spend_usd || 0) + costUsd).toFixed(6)),
+    };
+    await admin.from("ai_spend_daily").upsert({
+      day: today,
+      spend_usd: Number((Number(prev.spend_usd || 0) + costUsd).toFixed(6)),
+      calls: (prev.calls || 0) + calls,
+      by_kind: byKind,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "day" });
+  } catch (e) {
+    console.warn("youtube-transcript-fetch spend log skipped", (e as any)?.message || String(e));
+  }
 }
 
 Deno.serve(async (req) => {
