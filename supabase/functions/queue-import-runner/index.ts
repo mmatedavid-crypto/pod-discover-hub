@@ -1,6 +1,7 @@
 // Backend bulk runner: processes discovery_queue in server-side batches.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { fetchOne } from "../_shared/fetch-one.ts";
+import { slugify as slugifyShared } from "../_shared/slug.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,7 @@ const corsHeaders = {
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
 function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "podcast";
+  return slugifyShared(s, "podcast");
 }
 
 function backoffMin(attempts: number): number {

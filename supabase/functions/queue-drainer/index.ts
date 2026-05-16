@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { fetchOne } from "../_shared/fetch-one.ts";
+import { slugify as slugifyShared } from "../_shared/slug.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ const MIN_RANK = 4;
 const LOCK_MS = 5 * 60 * 1000;
 
 function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "podcast";
+  return slugifyShared(s, "podcast");
 }
 
 function lightCap(rank: number) {

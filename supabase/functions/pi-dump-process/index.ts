@@ -9,8 +9,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+import { slugify as slugifyShared } from "../_shared/slug.ts";
 function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "podcast";
+  return slugifyShared(s, "podcast");
 }
 
 function scoreRow(r: any, maxAge: number) {

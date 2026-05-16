@@ -2,6 +2,7 @@
 // Refreshes feeds, recomputes ranks, runs limited discovery, auto-adds high-rank candidates.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { fetchOne } from "../_shared/fetch-one.ts";
+import { slugify as slugifyShared } from "../_shared/slug.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +10,7 @@ const corsHeaders = {
 };
 
 function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "podcast";
+  return slugifyShared(s, "podcast");
 }
 
 async function sha1Hex(input: string) {
