@@ -111,7 +111,11 @@ Deno.serve(async (req) => {
       try {
         const desc = String(ep.description || ep.ai_summary || "").replace(/\s+/g, " ").trim().slice(0, 2500);
         const podName = ep.podcasts?.display_title || ep.podcasts?.title || "";
-        const userPrompt = `Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract entities.`;
+        const podHosts: string[] = Array.isArray(ep.podcasts?.hosts) ? ep.podcasts.hosts : [];
+        const hostLine = podHosts.length
+          ? `Show hosts (DO NOT include any of these names in 'people' or 'mentioned'): ${podHosts.join(", ")}\n`
+          : "";
+        const userPrompt = `${hostLine}Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract entities. people = speakers only; mentioned = talked-about but absent.`;
         const ai = await callAI(model, [
           { role: "system", content: SYSTEM },
           { role: "user", content: userPrompt },
@@ -124,14 +128,15 @@ Deno.serve(async (req) => {
         const parsed = args ? JSON.parse(args) : null;
         if (!parsed) throw new Error("no_tool_call");
 
-        const people = cleanArr(parsed.people);
+        const people = filterHosts(cleanArr(parsed.people), podHosts);
+        const mentioned = filterHosts(cleanArr(parsed.mentioned), podHosts);
         const companies = cleanArr(parsed.companies);
         const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
         const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
 
         await admin.from("episodes").update({
-          people, companies, tickers, topics,
-          ai_entities_version: 1,
+          people, mentioned, companies, tickers, topics,
+          ai_entities_version: 2,
         }).eq("id", ep.id);
 
         succeeded++;
@@ -140,7 +145,7 @@ Deno.serve(async (req) => {
         failed++;
         const msg = err?.message || "error";
         if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
-        // Mark as v=0 still (no change) so it gets retried on next run.
+        // Mark unchanged so it gets retried on next run.
       }
     };
 
@@ -150,9 +155,9 @@ Deno.serve(async (req) => {
 
       const { data: rows, error } = await admin
         .from("episodes")
-        .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, language)")
+        .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, language, hosts)")
         .not("ai_summary", "is", null)
-        .eq("ai_entities_version", 0)
+        .lt("ai_entities_version", 2)
         .ilike("podcasts.language", "hu%")
         .limit(batch);
       if (error) throw error;
