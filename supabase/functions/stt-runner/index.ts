@@ -249,19 +249,20 @@ Deno.serve(async (req) => {
       const haveSet = new Set((existing || []).map((r: any) => r.episode_id));
       const candidates = (eps as any[]).filter(e => !haveSet.has(e.id));
 
-      // HEAD pre-filter: get content-length for each, keep only those under maxBytes, sort smallest first
+      // HEAD pre-filter (small batch, sequential to spare CPU)
       const sized: any[] = [];
-      await Promise.all(candidates.slice(0, 60).map(async (e) => {
+      for (const e of candidates.slice(0, 20)) {
+        if (sized.length >= pilotN * 2) break;
         try {
           const h = await fetch(e.audio_url, { method: "HEAD", redirect: "follow" });
           const cl = parseInt(h.headers.get("content-length") || "0", 10);
           if (cl > 0 && cl <= maxBytes) sized.push({ ...e, bytes: cl });
-          else if (cl === 0) sized.push({ ...e, bytes: 0 }); // unknown — try it
         } catch { /* ignore */ }
-      }));
-      sized.sort((a, b) => (a.bytes || 999999999) - (b.bytes || 999999999));
+      }
+      sized.sort((a, b) => a.bytes - b.bytes);
       const todo = sized.slice(0, pilotN);
-      console.log(`pilot: ${candidates.length} cand, ${sized.length} sized, picking ${todo.length}`);
+      console.log(`pilot: ${candidates.length} cand, ${sized.length} sized, picking ${todo.length}, sizes=${todo.map(t=>t.bytes).join(",")}`);
+
 
 
       let i = 0;
