@@ -449,6 +449,69 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_youtube_links: {
+        Row: {
+          confidence: string
+          created_at: string
+          episode_id: string
+          found_by: string | null
+          id: string
+          match_score: number | null
+          podcast_id: string
+          status: string
+          updated_at: string
+          validated_by: string | null
+          validation_reason: Json
+          youtube_channel_id: string | null
+          youtube_description: string | null
+          youtube_duration_seconds: number | null
+          youtube_published_at: string | null
+          youtube_title: string | null
+          youtube_video_id: string
+          youtube_view_count: number | null
+        }
+        Insert: {
+          confidence?: string
+          created_at?: string
+          episode_id: string
+          found_by?: string | null
+          id?: string
+          match_score?: number | null
+          podcast_id: string
+          status?: string
+          updated_at?: string
+          validated_by?: string | null
+          validation_reason?: Json
+          youtube_channel_id?: string | null
+          youtube_description?: string | null
+          youtube_duration_seconds?: number | null
+          youtube_published_at?: string | null
+          youtube_title?: string | null
+          youtube_video_id: string
+          youtube_view_count?: number | null
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          episode_id?: string
+          found_by?: string | null
+          id?: string
+          match_score?: number | null
+          podcast_id?: string
+          status?: string
+          updated_at?: string
+          validated_by?: string | null
+          validation_reason?: Json
+          youtube_channel_id?: string | null
+          youtube_description?: string | null
+          youtube_duration_seconds?: number | null
+          youtube_published_at?: string | null
+          youtube_title?: string | null
+          youtube_video_id?: string
+          youtube_view_count?: number | null
+        }
+        Relationships: []
+      }
       episodes: {
         Row: {
           ai_enriched_at: string | null
@@ -483,7 +546,11 @@ export type Database = {
           title: string
           topics: string[] | null
           updated_at: string
+          youtube_match_score: number | null
+          youtube_paired_at: string | null
+          youtube_pairing_status: string
           youtube_url: string | null
+          youtube_video_id: string | null
         }
         Insert: {
           ai_enriched_at?: string | null
@@ -518,7 +585,11 @@ export type Database = {
           title: string
           topics?: string[] | null
           updated_at?: string
+          youtube_match_score?: number | null
+          youtube_paired_at?: string | null
+          youtube_pairing_status?: string
           youtube_url?: string | null
+          youtube_video_id?: string | null
         }
         Update: {
           ai_enriched_at?: string | null
@@ -553,7 +624,11 @@ export type Database = {
           title?: string
           topics?: string[] | null
           updated_at?: string
+          youtube_match_score?: number | null
+          youtube_paired_at?: string | null
+          youtube_pairing_status?: string
           youtube_url?: string | null
+          youtube_video_id?: string | null
         }
         Relationships: [
           {
@@ -902,6 +977,63 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_youtube_candidates: {
+        Row: {
+          channel_description: string | null
+          channel_thumbnail_url: string | null
+          channel_title: string | null
+          confidence: string
+          created_at: string
+          found_by: string | null
+          id: string
+          match_score: number | null
+          podcast_id: string
+          status: string
+          subscriber_count: number | null
+          updated_at: string
+          validated_by: string | null
+          validation_reason: Json
+          video_count: number | null
+          youtube_channel_id: string
+        }
+        Insert: {
+          channel_description?: string | null
+          channel_thumbnail_url?: string | null
+          channel_title?: string | null
+          confidence?: string
+          created_at?: string
+          found_by?: string | null
+          id?: string
+          match_score?: number | null
+          podcast_id: string
+          status?: string
+          subscriber_count?: number | null
+          updated_at?: string
+          validated_by?: string | null
+          validation_reason?: Json
+          video_count?: number | null
+          youtube_channel_id: string
+        }
+        Update: {
+          channel_description?: string | null
+          channel_thumbnail_url?: string | null
+          channel_title?: string | null
+          confidence?: string
+          created_at?: string
+          found_by?: string | null
+          id?: string
+          match_score?: number | null
+          podcast_id?: string
+          status?: string
+          subscriber_count?: number | null
+          updated_at?: string
+          validated_by?: string | null
+          validation_reason?: Json
+          video_count?: number | null
+          youtube_channel_id?: string
+        }
+        Relationships: []
+      }
       podcasts: {
         Row: {
           ai_category_alt: string | null
@@ -979,6 +1111,12 @@ export type Database = {
           title: string
           updated_at: string
           website_url: string | null
+          youtube_channel_id: string | null
+          youtube_channel_title: string | null
+          youtube_episode_count: number | null
+          youtube_last_scouted_at: string | null
+          youtube_paired_at: string | null
+          youtube_pairing_status: string
           youtube_url: string | null
         }
         Insert: {
@@ -1057,6 +1195,12 @@ export type Database = {
           title: string
           updated_at?: string
           website_url?: string | null
+          youtube_channel_id?: string | null
+          youtube_channel_title?: string | null
+          youtube_episode_count?: number | null
+          youtube_last_scouted_at?: string | null
+          youtube_paired_at?: string | null
+          youtube_pairing_status?: string
           youtube_url?: string | null
         }
         Update: {
@@ -1135,6 +1279,12 @@ export type Database = {
           title?: string
           updated_at?: string
           website_url?: string | null
+          youtube_channel_id?: string | null
+          youtube_channel_title?: string | null
+          youtube_episode_count?: number | null
+          youtube_last_scouted_at?: string | null
+          youtube_paired_at?: string | null
+          youtube_pairing_status?: string
           youtube_url?: string | null
         }
         Relationships: []
