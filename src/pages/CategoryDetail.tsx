@@ -156,6 +156,7 @@ export default function CategoryDetail() {
     setParams(next);
   };
 
+  if (redirectTo) return <Navigate to={`/category/${redirectTo}`} replace />;
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
   if (!cat) return <NotFoundState title="Nincs ilyen kategória" message="Ez a kategória nem létezik vagy eltávolították." />;
 
