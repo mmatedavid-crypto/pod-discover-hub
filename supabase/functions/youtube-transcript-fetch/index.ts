@@ -116,9 +116,7 @@ Deno.serve(async (req) => {
     const SUPADATA_API_KEY = Deno.env.get("SUPADATA_API_KEY");
     if (!SUPADATA_API_KEY) return json({ error: "SUPADATA_API_KEY not configured" }, 500);
 
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
-      global: { fetch: timeoutFetch(DB_TIMEOUT_MS) },
-    });
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const guard = await checkBackgroundJobsAllowed(admin, "youtube-transcript-fetch");
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
