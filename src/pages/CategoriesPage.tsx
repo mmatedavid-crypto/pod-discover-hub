@@ -11,7 +11,7 @@ export default function CategoriesPage() {
       title: "Kategóriák — Podiverzum",
       description: "Magyar podcastok témák szerint. Hírek, technológia, gazdaság, befektetés, egészség, kultúra, sport és sok más kategória.",
     });
-    supabase.from("categories").select("*").order("sort_order").then(({ data }) => setCats(data || []));
+    supabase.from("categories").select("*").eq("active", true).order("sort_order").then(({ data }) => setCats(data || []));
   }, []);
   return (
     <Layout>
