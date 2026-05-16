@@ -256,10 +256,19 @@ Deno.serve(async (req) => {
       const haveSet = new Set((existing || []).map((r: any) => r.episode_id));
       const candidates = (eps as any[]).filter(e => !haveSet.has(e.id));
 
-      // No HEAD pre-filter — many CDNs misreport / disallow HEAD. Just take the first few candidates;
-      // the GET path enforces maxBytes and will skip oversized files.
-      const todo = candidates.slice(0, Math.max(pilotN, 1));
-      console.log(`pilot: ${candidates.length} cand, picking ${todo.length} (no HEAD filter)`);
+      // HEAD-based size filter; only keep candidates that fit in maxBytes.
+      const sized: any[] = [];
+      for (const e of candidates.slice(0, 100)) {
+        if (sized.length >= Math.max(pilotN * 4, 8)) break;
+        try {
+          const h = await fetch(e.audio_url, { method: "HEAD", redirect: "follow" });
+          const cl = parseInt(h.headers.get("content-length") || "0", 10);
+          if (cl > 0 && cl <= maxBytes) sized.push({ ...e, bytes: cl });
+        } catch { /* ignore */ }
+      }
+      sized.sort((a, b) => a.bytes - b.bytes);
+      const todo = sized.slice(0, pilotN);
+      console.log(`pilot: ${candidates.length} cand, ${sized.length} fit<=${maxBytes}, picking ${todo.length}, sizes=${todo.map(t=>t.bytes).join(",")}`);
 
 
 
