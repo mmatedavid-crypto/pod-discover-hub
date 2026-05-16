@@ -150,14 +150,24 @@ Deno.serve(async (req) => {
             }
             return out;
           };
-          const people = cleanArr(parsed.people);
+          // For episode jobs we need the podcast hosts to scrub them out
+          // (the runner-side filter is a belt-and-braces guard on top of the prompt rule).
+          let epHosts: string[] = [];
+          let epPodcastId: string | null = null;
+          {
+            const { data: ep2 } = await admin.from("episodes").select("podcast_id, podcasts!inner(hosts)").eq("id", job.target_id).maybeSingle();
+            epPodcastId = (ep2 as any)?.podcast_id || null;
+            epHosts = ((ep2 as any)?.podcasts?.hosts) || [];
+          }
+          const people = filterHosts(cleanArr(parsed.people), epHosts);
+          const mentioned = filterHosts(cleanArr(parsed.mentioned), epHosts);
           const companies = cleanArr(parsed.companies);
           const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
           const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
           await admin.from("episodes").update({
             seo_title, seo_description, ai_summary,
-            people, companies, tickers, topics,
-            ai_entities_version: 1,
+            people, mentioned, companies, tickers, topics,
+            ai_entities_version: 2,
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
           // If a real (non-mul) non-EN language is detected for the episode, fix the parent
