@@ -104,7 +104,17 @@ Deno.serve(async (req) => {
             const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
             const podLanguage = ((e as any).podcasts?.language) || null;
             const podHosts = ((e as any).podcasts?.hosts) || [];
-            prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts);
+            // Fetch latest transcript (if any) — used as PRIMARY source when present.
+            const { data: tr } = await admin
+              .from("episode_transcripts")
+              .select("transcript")
+              .eq("episode_id", job.target_id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const transcript = (tr as any)?.transcript || null;
+            (job as any).__has_transcript = !!(transcript && String(transcript).trim().length > 200);
+            prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts, transcript);
           }
         }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
