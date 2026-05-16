@@ -66,8 +66,29 @@ const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
   amzn: ["Amazon"],
   nflx: ["Netflix"],
   tsm: ["TSMC", "Taiwan Semiconductor"],
+  // BÉT (Budapesti Értéktőzsde) — magyar blue chipek és mid-capek
+  otp: ["OTP Bank", "OTP"],
+  mol: ["MOL Nyrt", "MOL Magyar Olaj"],
+  richter: ["Richter Gedeon", "Gedeon Richter"],
+  mtelekom: ["Magyar Telekom"],
+  opus: ["Opus Global"],
+  "4ig": ["4iG", "4iG Nyrt"],
+  masterplast: ["Masterplast"],
+  any: ["ANY Biztonsági Nyomda"],
+  waberer: ["Waberer's", "Waberers"],
+  akko: ["AKKO Invest"],
+  alteo: ["ALTEO"],
+  autowallis: ["AutoWallis"],
+  duna: ["Duna House"],
+  raba: ["Rába"],
+  zwack: ["Zwack Unicum"],
+  cig: ["CIG Pannónia"],
+  pannergy: ["PannErgy"],
+  delta: ["Delta Technologies"],
 };
 
+// "ANY", "MOL", "OTP" stb. közneveknek is tűnhetnek angolul, de magyar tőzsdei
+// környezetben gyakran tickerként szerepelnek — ezért NEM tesszük a non-ticker listára.
 const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
 
 // Stop-words excluded from rare-token MUST gate (common English + Hungarian + podcast filler).
@@ -145,6 +166,24 @@ const MARKET_SYMBOL_SECTORS: Record<string, string> = {
   xrp: "ripple cross-border payments crypto",
   doge: "dogecoin meme cryptocurrency",
   avax: "avalanche blockchain L1 DeFi",
+  // BÉT szektorok
+  otp: "bankszektor lakossági banki szolgáltatások közép-európai bank",
+  mol: "olaj gáz energia downstream petrolkémia üzemanyag",
+  richter: "gyógyszeripar pharma nőgyógyászati készítmények biotechnológia",
+  mtelekom: "telekommunikáció mobilszolgáltató internet kábeltévé",
+  opus: "építőipar energetika holding diverzifikált",
+  "4ig": "informatika IT szolgáltatások védelmi technológia űripar",
+  masterplast: "építőanyag szigetelés homlokzati rendszerek",
+  any: "értékpapír-nyomtatás okmánybiztonság kártya",
+  waberer: "logisztika közúti szállítmányozás fuvarozás",
+  alteo: "megújuló energia áramtermelés energiakereskedelem",
+  autowallis: "autókereskedelem gépjármű import",
+  duna: "ingatlanközvetítés ingatlanpiac lakáspiac",
+  raba: "járműipar haszonjármű alkatrész tengely",
+  zwack: "italgyártás likőr Unicum szeszipar",
+  cig: "biztosító életbiztosítás pénzügyi szolgáltatás",
+  pannergy: "geotermikus energia távhő megújuló",
+  delta: "informatika rendszerintegráció IT szolgáltatások",
 };
 
 const TICKER_HELPER_WORDS = new Set([
@@ -158,9 +197,16 @@ function compactMarketSymbol(q: string): string | null {
   const hadDollar = trimmed.startsWith("$");
   const t = trimmed.replace(/^\$/, "");
   const isAllCaps = (s: string) => s === s.toUpperCase() && /[A-Z]/.test(s);
+  // Explicit BÉT / alfanumerikus alias match (pl. "4iG", "4IG", "richter", "MTELEKOM")
+  const aliasKey = t.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  if (MARKET_SYMBOL_ALIASES[aliasKey]) return aliasKey.toUpperCase();
   if (/^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t)) {
     if (hadDollar || isAllCaps(t)) return t.toUpperCase();
     return null;
+  }
+  // Alfanumerikus tickerek (pl. "4iG") — csak $ vagy all-caps prefix esetén
+  if (/^[A-Za-z0-9]{2,6}$/.test(t) && /[A-Za-z]/.test(t) && /[0-9]/.test(t)) {
+    if (hadDollar || isAllCaps(t)) return t.toUpperCase();
   }
   const parts = t.split(/\s+/).filter(Boolean);
   if (parts.length >= 2 && parts.length <= 4) {
