@@ -55,7 +55,11 @@ Deno.serve(async (req) => {
     // Controls
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "ai_seo_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
-    if (ctrl.enabled === false) return json({ ok: true, paused: true });
+    if (ctrl.enabled === false) {
+      // Slow cadence to minimum while paused — no point waking up every minute.
+      try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: "*/30 * * * *" }); } catch { /* ignore */ }
+      return json({ ok: true, paused: true });
+    }
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 1);
     const model = String(ctrl.model || "google/gemini-2.5-flash");
     const maxAttempts = Number(ctrl.max_attempts || 3);
@@ -66,7 +70,10 @@ Deno.serve(async (req) => {
     const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
     let spend = Number(spendRow?.spend_usd || 0);
     let calls = Number(spendRow?.calls || 0);
-    if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
+    if (spend >= dailyBudget) {
+      try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: "*/30 * * * *" }); } catch { /* ignore */ }
+      return json({ ok: true, budget_reached: true, spend });
+    }
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
     let stop = false;
