@@ -565,6 +565,7 @@ export type Database = {
           ai_enriched_at: string | null
           ai_entities_version: number
           ai_summary: string | null
+          ai_summary_source: string | null
           apple_url: string | null
           audio_url: string | null
           companies: string[] | null
@@ -605,6 +606,7 @@ export type Database = {
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_summary?: string | null
+          ai_summary_source?: string | null
           apple_url?: string | null
           audio_url?: string | null
           companies?: string[] | null
@@ -645,6 +647,7 @@ export type Database = {
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_summary?: string | null
+          ai_summary_source?: string | null
           apple_url?: string | null
           audio_url?: string | null
           companies?: string[] | null

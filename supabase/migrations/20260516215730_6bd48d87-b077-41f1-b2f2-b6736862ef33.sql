@@ -1,0 +1,1 @@
+ALTER TABLE public.episodes ADD COLUMN IF NOT EXISTS ai_summary_source text;
