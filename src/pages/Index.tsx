@@ -54,7 +54,7 @@ const Index = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(min-width: 640px)");
-    const update = () => setHeroPlaceholder(mq.matches ? "Pl.: MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…" : "Téma vagy gondolat…");
+    const update = () => setHeroPlaceholder(mq.matches ? "MNB kamatdöntés, mesterséges intelligencia, Hold Alapkezelő…" : "Téma vagy gondolat…");
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
