@@ -66,8 +66,29 @@ const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
   amzn: ["Amazon"],
   nflx: ["Netflix"],
   tsm: ["TSMC", "Taiwan Semiconductor"],
+  // BÉT (Budapesti Értéktőzsde) — magyar blue chipek és mid-capek
+  otp: ["OTP Bank", "OTP"],
+  mol: ["MOL Nyrt", "MOL Magyar Olaj"],
+  richter: ["Richter Gedeon", "Gedeon Richter"],
+  mtelekom: ["Magyar Telekom"],
+  opus: ["Opus Global"],
+  "4ig": ["4iG", "4iG Nyrt"],
+  masterplast: ["Masterplast"],
+  any: ["ANY Biztonsági Nyomda"],
+  waberer: ["Waberer's", "Waberers"],
+  akko: ["AKKO Invest"],
+  alteo: ["ALTEO"],
+  autowallis: ["AutoWallis"],
+  duna: ["Duna House"],
+  raba: ["Rába"],
+  zwack: ["Zwack Unicum"],
+  cig: ["CIG Pannónia"],
+  pannergy: ["PannErgy"],
+  delta: ["Delta Technologies"],
 };
 
+// "ANY", "MOL", "OTP" stb. közneveknek is tűnhetnek angolul, de magyar tőzsdei
+// környezetben gyakran tickerként szerepelnek — ezért NEM tesszük a non-ticker listára.
 const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
 
 // Stop-words excluded from rare-token MUST gate (common English + Hungarian + podcast filler).
