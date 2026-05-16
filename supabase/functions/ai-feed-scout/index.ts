@@ -503,22 +503,27 @@ Deno.serve(async (req) => {
         if (sc > itScore) { itScore = sc; itBest = r; }
       }
       if (itBest && itScore >= 0.34) {
-        const ok = await validateRss(itBest.feedUrl);
-        if (ok) {
-          tier3++; piHits++;
-          validated.push({
-            feed: {
-              url: itBest.feedUrl,
-              title: itBest.collectionName || c.title,
-              author: itBest.artistName || c.author,
-              image: itBest.artworkUrl600 || itBest.artworkUrl100,
-              link: itBest.collectionViewUrl,
-              language: c.langHint,
-              description: c.reason,
-            },
-            candidate: c, lang_hint: c.langHint, tier: "itunes_hu",
-          });
-          continue;
+        const v = await validateRss(itBest.feedUrl);
+        if (v.ok) {
+          // STRICT language gate — iTunes HU storefront still lists foreign shows.
+          if (!isHuOrUnknown(v.language)) {
+            langMismatches++;
+          } else {
+            tier3++; piHits++;
+            validated.push({
+              feed: {
+                url: itBest.feedUrl,
+                title: itBest.collectionName || c.title,
+                author: itBest.artistName || c.author,
+                image: itBest.artworkUrl600 || itBest.artworkUrl100,
+                link: itBest.collectionViewUrl,
+                language: v.language,
+                description: c.reason,
+              },
+              candidate: c, lang_hint: c.langHint, tier: "itunes_hu",
+            });
+            continue;
+          }
         }
       }
 
