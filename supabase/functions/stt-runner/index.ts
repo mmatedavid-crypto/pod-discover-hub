@@ -258,8 +258,8 @@ Deno.serve(async (req) => {
 
       // HEAD pre-filter (small batch, sequential to spare CPU)
       const sized: any[] = [];
-      for (const e of candidates.slice(0, 20)) {
-        if (sized.length >= pilotN * 2) break;
+      for (const e of candidates.slice(0, 80)) {
+        if (sized.length >= Math.max(pilotN * 3, 6)) break;
         try {
           const h = await fetch(e.audio_url, { method: "HEAD", redirect: "follow" });
           const cl = parseInt(h.headers.get("content-length") || "0", 10);
