@@ -197,9 +197,16 @@ function compactMarketSymbol(q: string): string | null {
   const hadDollar = trimmed.startsWith("$");
   const t = trimmed.replace(/^\$/, "");
   const isAllCaps = (s: string) => s === s.toUpperCase() && /[A-Z]/.test(s);
+  // Explicit BÉT / alfanumerikus alias match (pl. "4iG", "4IG", "richter", "MTELEKOM")
+  const aliasKey = t.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  if (MARKET_SYMBOL_ALIASES[aliasKey]) return aliasKey.toUpperCase();
   if (/^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t)) {
     if (hadDollar || isAllCaps(t)) return t.toUpperCase();
     return null;
+  }
+  // Alfanumerikus tickerek (pl. "4iG") — csak $ vagy all-caps prefix esetén
+  if (/^[A-Za-z0-9]{2,6}$/.test(t) && /[A-Za-z]/.test(t) && /[0-9]/.test(t)) {
+    if (hadDollar || isAllCaps(t)) return t.toUpperCase();
   }
   const parts = t.split(/\s+/).filter(Boolean);
   if (parts.length >= 2 && parts.length <= 4) {
