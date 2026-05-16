@@ -20,22 +20,24 @@ const ENTITY_TOOL = {
   type: "function",
   function: {
     name: "extract_entities",
-    description: "Extract structured entities from a podcast episode based ONLY on title + description. Do NOT invent entities not present in the source.",
+    description:
+      "Extract structured entities from a podcast episode based ONLY on title + description. Do NOT invent entities.\n\nCRITICAL: distinguish between people who SPEAK in the episode (`people`: guests, interviewees) and people only TALKED ABOUT (`mentioned`: politicians, public figures referenced in discussion). Politicians like Orbán Viktor or Magyar Péter default to `mentioned` UNLESS the metadata clearly states they are guests / interviewees / speakers.\n\nNEVER include the show's own host names (provided in the user message) in either `people` or `mentioned`.",
     parameters: {
       type: "object",
       properties: {
-        people: { type: "array", items: { type: "string" }, description: "Up to 6 named people (hosts, guests, mentioned figures), original-language full names." },
+        people: { type: "array", items: { type: "string" }, description: "Up to 6 named people who SPEAK in the episode (guests, interviewees). NOT hosts. NOT people only mentioned. Original-language full names." },
+        mentioned: { type: "array", items: { type: "string" }, description: "Up to 6 named people TALKED ABOUT but NOT PRESENT in the episode. Politicians, public figures default here." },
         companies: { type: "array", items: { type: "string" }, description: "Up to 6 named organizations or companies." },
         tickers: { type: "array", items: { type: "string" }, description: "Up to 6 stock ticker symbols (uppercase like AAPL, OTP)." },
         topics: { type: "array", items: { type: "string" }, description: "Up to 6 short topic tags (1-3 words, lowercase, source language)." },
       },
-      required: ["people", "companies", "tickers", "topics"],
+      required: ["people", "mentioned", "companies", "tickers", "topics"],
       additionalProperties: false,
     },
   },
 };
 
-const SYSTEM = "You extract structured entities from podcast episode metadata. You ONLY include entities literally present in the input. If unsure, return empty arrays. No invention.";
+const SYSTEM = "You extract structured entities from podcast episode metadata. You ONLY include entities literally present in the input. Distinguish `people` (speakers) from `mentioned` (talked about but absent). Never include show hosts in either list. If unsure, return empty arrays. No invention.";
 
 async function callAI(model: string, messages: any[]) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
