@@ -182,7 +182,9 @@ Deno.serve(async (req) => {
           const companies = cleanArr(parsed.companies);
           const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
           const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
-          const fromTranscript = !!(job as any).__has_transcript;
+          // Source flag: either we fetched a transcript in this run, OR the enqueuer
+          // pre-baked the prompt with `source: 'transcript'` in result.
+          const fromTranscript = !!(job as any).__has_transcript || job.result?.source === "transcript";
           await admin.from("episodes").update({
             seo_title, seo_description, ai_summary,
             people, mentioned, companies, tickers, topics,
