@@ -214,8 +214,10 @@ async function itunesSearch(term: string, country = "HU") {
   }
 }
 
-// Lightweight RSS validation: fetch first ~8KB and look for <rss / <feed root.
-async function validateRss(url: string): Promise<boolean> {
+// Lightweight RSS validation: fetch first ~16KB, confirm it's an RSS/Atom feed,
+// and extract the declared language (<language> or <itunes:language>) if present.
+// Returns { ok, language } so callers can do strict per-language gating.
+async function validateRss(url: string): Promise<{ ok: boolean; language: string | null }> {
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
@@ -224,21 +226,36 @@ async function validateRss(url: string): Promise<boolean> {
       signal: ctrl.signal, redirect: "follow",
     });
     clearTimeout(t);
-    if (!res.ok || !res.body) return false;
+    if (!res.ok || !res.body) return { ok: false, language: null };
     const reader = res.body.getReader();
     const chunks: Uint8Array[] = [];
     let total = 0;
-    while (total < 8192) {
+    // Pull 16KB — channel metadata (incl. <language>) is almost always within that.
+    while (total < 16384) {
       const { done, value } = await reader.read();
       if (done || !value) break;
       chunks.push(value); total += value.length;
     }
     try { await reader.cancel(); } catch { /* ignore */ }
-    const text = new TextDecoder().decode(new Uint8Array(chunks.flatMap((c) => Array.from(c)))).slice(0, 8192);
-    return /<rss[\s>]/i.test(text) || /<feed[\s>]/i.test(text);
+    const text = new TextDecoder().decode(new Uint8Array(chunks.flatMap((c) => Array.from(c)))).slice(0, 16384);
+    const ok = /<rss[\s>]/i.test(text) || /<feed[\s>]/i.test(text);
+    if (!ok) return { ok: false, language: null };
+    // <language>hu</language>, <itunes:language>hu-HU</itunes:language>, or Atom <feed xml:lang="hu">
+    const m =
+      text.match(/<language>\s*([^<\s]+)\s*<\/language>/i) ||
+      text.match(/<itunes:language>\s*([^<\s]+)\s*<\/itunes:language>/i) ||
+      text.match(/<feed[^>]*xml:lang=["']([^"']+)["']/i);
+    return { ok: true, language: m ? normLang(m[1]) : null };
   } catch {
-    return false;
+    return { ok: false, language: null };
   }
+}
+
+// True if `lang` is HU or unknown/multi (so we don't reject feeds that just omit the tag).
+function isHuOrUnknown(lang: string | null): boolean {
+  if (!lang) return true;
+  const l = lang.toLowerCase();
+  return l.startsWith("hu") || l === "mul" || l === "und";
 }
 
 async function firecrawlScrape(url: string): Promise<string | null> {
