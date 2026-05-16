@@ -112,7 +112,9 @@ Deno.serve(async (req) => {
     const SUPADATA_API_KEY = Deno.env.get("SUPADATA_API_KEY");
     if (!SUPADATA_API_KEY) return json({ error: "SUPADATA_API_KEY not configured" }, 500);
 
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+      global: { fetch: timeoutFetch(DB_TIMEOUT_MS) },
+    });
     const guard = await checkBackgroundJobsAllowed(admin, "youtube-transcript-fetch");
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
@@ -187,7 +189,7 @@ Deno.serve(async (req) => {
             content_hash,
             cost_usd: COST_PER_CALL,
             updated_at: new Date().toISOString(),
-          }, { onConflict: "episode_id" });
+          }, { onConflict: "episode_id,model" });
           if (upErr) { errors++; errorDetails.push({ ep: ep.id, err: upErr.message }); continue; }
           ok++;
         } catch (e: any) {
