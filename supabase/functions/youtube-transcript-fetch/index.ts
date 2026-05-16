@@ -186,9 +186,10 @@ Deno.serve(async (req) => {
           }
           if (errorDetails.length < 5) errorDetails.push({ ep: ep.id, vid: ep.youtube_video_id, err: msg });
         }
+        if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
       }
     }
-    await Promise.all(Array.from({ length: concurrency }, () => worker()));
+    await Promise.all(Array.from({ length: concurrency }, (_, i) => worker(i)));
 
     await logSpend(admin, callsMade, callsMade * COST_PER_CALL);
 
