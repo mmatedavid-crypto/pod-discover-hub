@@ -26,8 +26,22 @@ const json = (b: any, s = 200) =>
 
 const SUPADATA_URL = "https://api.supadata.ai/v1/youtube/transcript";
 const COST_PER_CALL = 0.0005; // approx, conservative
+const DB_TIMEOUT_MS = 12_000;
+const SUPADATA_TIMEOUT_MS = 20_000;
 
 type Segment = { text: string; offset: number; duration: number; lang?: string };
+
+function timeoutFetch(timeoutMs: number) {
+  return async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(input, { ...init, signal: init.signal ?? controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
 
 async function fetchSupadata(videoId: string, apiKey: string, preferredLang?: string): Promise<{
   text: string;
@@ -39,7 +53,7 @@ async function fetchSupadata(videoId: string, apiKey: string, preferredLang?: st
   // Request segmented (no text=true) so we get offsets/durations.
   const params = new URLSearchParams({ videoId });
   if (preferredLang) params.set("lang", preferredLang);
-  const r = await fetch(`${SUPADATA_URL}?${params}`, {
+  const r = await timeoutFetch(SUPADATA_TIMEOUT_MS)(`${SUPADATA_URL}?${params}`, {
     headers: { "x-api-key": apiKey },
   });
   if (!r.ok) {
@@ -73,22 +87,26 @@ async function sha256(s: string): Promise<string> {
 
 async function logSpend(admin: any, calls: number, costUsd: number) {
   if (!calls) return;
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: row } = await admin.from("ai_spend_daily").select("*").eq("day", today).maybeSingle();
-  const prev = row || { day: today, spend_usd: 0, calls: 0, by_kind: {} };
-  const byKind = (prev.by_kind || {}) as Record<string, any>;
-  const cur = byKind.youtube_transcript || { calls: 0, spend_usd: 0 };
-  byKind.youtube_transcript = {
-    calls: (cur.calls || 0) + calls,
-    spend_usd: Number(((cur.spend_usd || 0) + costUsd).toFixed(6)),
-  };
-  await admin.from("ai_spend_daily").upsert({
-    day: today,
-    spend_usd: Number((Number(prev.spend_usd || 0) + costUsd).toFixed(6)),
-    calls: (prev.calls || 0) + calls,
-    by_kind: byKind,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "day" });
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: row } = await admin.from("ai_spend_daily").select("*").eq("day", today).maybeSingle();
+    const prev = row || { day: today, spend_usd: 0, calls: 0, by_kind: {} };
+    const byKind = (prev.by_kind || {}) as Record<string, any>;
+    const cur = byKind.youtube_transcript || { calls: 0, spend_usd: 0 };
+    byKind.youtube_transcript = {
+      calls: (cur.calls || 0) + calls,
+      spend_usd: Number(((cur.spend_usd || 0) + costUsd).toFixed(6)),
+    };
+    await admin.from("ai_spend_daily").upsert({
+      day: today,
+      spend_usd: Number((Number(prev.spend_usd || 0) + costUsd).toFixed(6)),
+      calls: (prev.calls || 0) + calls,
+      by_kind: byKind,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "day" });
+  } catch (e) {
+    console.warn("youtube-transcript-fetch spend log skipped", (e as any)?.message || String(e));
+  }
 }
 
 Deno.serve(async (req) => {
@@ -98,7 +116,9 @@ Deno.serve(async (req) => {
     const SUPADATA_API_KEY = Deno.env.get("SUPADATA_API_KEY");
     if (!SUPADATA_API_KEY) return json({ error: "SUPADATA_API_KEY not configured" }, 500);
 
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+      global: { fetch: timeoutFetch(DB_TIMEOUT_MS) },
+    });
     const guard = await checkBackgroundJobsAllowed(admin, "youtube-transcript-fetch");
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
@@ -173,7 +193,7 @@ Deno.serve(async (req) => {
             content_hash,
             cost_usd: COST_PER_CALL,
             updated_at: new Date().toISOString(),
-          }, { onConflict: "episode_id" });
+          }, { onConflict: "episode_id,model" });
           if (upErr) { errors++; errorDetails.push({ ep: ep.id, err: upErr.message }); continue; }
           ok++;
         } catch (e: any) {
