@@ -201,10 +201,14 @@ Deno.serve(async (req) => {
         ? { ...(p.shadow_rank_components as Record<string, unknown>) } : {};
       const healthState = (typeof prevComp.health_state === "string" && prevComp.health_state)
         ? prevComp.health_state as string : "healthy";
-      const newComp = { ...prevComp, formula: "C_v3", source: "formula-c-runner-v1", health_state: healthState };
+      const newComp = {
+        ...prevComp, formula: "C_v3", source: "formula-c-runner-v1", health_state: healthState,
+        base_tier: baseTier,
+        freshness_demotion: gate.demoted ? gate.reason || "demoted" : null,
+      };
 
       if (dry) {
-        results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, dry_run: true });
+        results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, base_tier: baseTier, new_tier: tier, freshness_demotion: gate.demoted ? gate.reason : null, dry_run: true });
         continue;
       }
 
@@ -216,7 +220,11 @@ Deno.serve(async (req) => {
         shadow_computed_at: nowIso,
         rank_label: tier,
         rank_updated_at: nowIso,
-        rank_reason: { formula: "C_v3", source: "formula-c-runner-v1", from: "podiverzum_rank", podiverzum_rank: score },
+        rank_reason: {
+          formula: "C_v3", source: "formula-c-runner-v1", from: "podiverzum_rank",
+          podiverzum_rank: score, base_tier: baseTier,
+          freshness_demotion: gate.demoted ? gate.reason || "demoted" : null,
+        },
       }).eq("id", p.id);
 
       if (updErr) {
@@ -224,7 +232,7 @@ Deno.serve(async (req) => {
         results.push({ id: p.id, title: p.title, error: updErr.message });
       } else {
         updated++;
-        results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, new_tier: tier });
+        results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, base_tier: baseTier, new_tier: tier, freshness_demotion: gate.demoted ? gate.reason : null });
       }
     }
 
