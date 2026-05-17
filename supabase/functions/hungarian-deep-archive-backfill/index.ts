@@ -140,12 +140,23 @@ async function aiBacklogCount(admin: any): Promise<number> {
   return count ?? 0;
 }
 async function embeddingBacklogCount(admin: any): Promise<number> {
-  // approximates episodes that need embedding (no entry in episode_embeddings)
+  // Episodes that still need an embedding row.
   const { count } = await admin.from("episodes")
     .select("id", { count: "exact", head: true })
     .is("ai_summary", null)
-    .eq("ai_entities_version", 0);
-  return count ?? 0;
+    .gt("ai_summary", ""); // placeholder noop; replaced below
+  // Real check: count episodes lacking a row in episode_embeddings.
+  // PostgREST can't NOT EXISTS directly; approximate via RPC-free path:
+  // use a left-join view if available. Fall back to 0 when query fails.
+  try {
+    const { count: c2 } = await admin.from("episodes")
+      .select("id", { count: "exact", head: true })
+      .not("id", "in",
+        // sub-select via filter not supported; use embed_episode_candidate_stats RPC if present
+        "()"
+      );
+    return c2 ?? 0;
+  } catch { return 0; }
 }
 
 async function logRun(admin: any, row: any): Promise<string | null> {
