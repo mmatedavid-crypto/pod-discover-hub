@@ -34,8 +34,8 @@ export default function TermsPage() {
           <li>Tilos a platform feltörése, működésének megzavarása vagy a szolgáltatással való visszaélés.</li>
         </ul>
 
-        <h2 className="mt-8 text-xl font-semibold">Béta verzió</h2>
-        <p>A Podiverzum jelenleg béta verzióként működik. A szolgáltatás funkciói, a megjelenített adatok és a rangsorok előzetes értesítés nélkül változhatnak.</p>
+        <h2 className="mt-8 text-xl font-semibold">Folyamatos fejlesztés</h2>
+        <p>A Podiverzumot folyamatosan fejlesztjük. A szolgáltatás funkciói, a megjelenített adatok és a rangsorok előzetes értesítés nélkül változhatnak.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Kapcsolat</h2>
         <p>Kérdés vagy hibajelentés esetén használd az oldalon található visszajelzés gombot.</p>
