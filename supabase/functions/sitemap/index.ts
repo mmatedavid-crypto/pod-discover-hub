@@ -11,7 +11,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
-const FN_BASE = `${Deno.env.get("SUPABASE_URL") || "https://iqzkayoqqagowvxeaphe.supabase.co"}/functions/v1/sitemap`;
+// Sitemap-index child URLs must be served from the canonical apex domain.
+// The Cloudflare worker proxies /sitemap.xml (with query string) back to this edge fn.
+const FN_BASE = `${SITE}/sitemap.xml`;
 
 const xmlHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,17 +93,31 @@ async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
 }
 
 async function buildCore(supabase: ReturnType<typeof createClient>) {
-  const { data: cats } = await supabase.from("categories").select("slug,created_at");
+  const { data: cats } = await supabase.from("categories").select("slug,created_at").eq("active", true);
   const urls: string[] = [
     urlTag(`${SITE}/`, null, "daily", "1.0"),
     urlTag(`${SITE}/kategoriak`, null, "daily", "0.7"),
     urlTag(`${SITE}/temak`, null, "daily", "0.8"),
     urlTag(`${SITE}/szemelyek`, null, "daily", "0.7"),
+    urlTag(`${SITE}/hangulatok`, null, "weekly", "0.7"),
+    urlTag(`${SITE}/uj`, null, "daily", "0.6"),
+    urlTag(`${SITE}/napi`, null, "daily", "0.6"),
     urlTag(`${SITE}/rolunk`, null, "monthly", "0.4"),
     urlTag(`${SITE}/modszertan`, null, "monthly", "0.4"),
-    urlTag(`${SITE}/uj`, null, "daily", "0.6"),
+    urlTag(`${SITE}/kapcsolat`, null, "yearly", "0.3"),
+    urlTag(`${SITE}/adatvedelem`, null, "yearly", "0.2"),
+    urlTag(`${SITE}/feltetelek`, null, "yearly", "0.2"),
   ];
   (cats || []).forEach((c: any) => urls.push(urlTag(`${SITE}/kategoria/${esc(c.slug)}`, c.created_at, "daily", "0.8")));
+
+  // Indexable mood collections
+  const { data: moods } = await supabase
+    .from("mood_collections")
+    .select("slug, updated_at")
+    .eq("active", true)
+    .eq("is_indexable", true)
+    .gte("recommended_episode_count", 10);
+  (moods || []).forEach((m: any) => urls.push(urlTag(`${SITE}/hangulatok/${esc(m.slug)}`, m.updated_at, "weekly", "0.7")));
 
   // Indexable topic pages
   const { data: topics } = await supabase
@@ -139,9 +155,10 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   while (true) {
     const { data: pods, error } = await supabase
       .from("podcasts")
-      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components,language")
-      // EN-only sitemap: hide non-English shows from Google. NULL=EN (legacy untagged).
-      .or("is_hungarian.eq.true")
+      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components,language,language_decision,is_hungarian")
+      // Canonical HU gate — RSS language metadata is unreliable.
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) throw error;
@@ -169,11 +186,12 @@ async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: eps, error } = await supabase
       .from("episodes")
-      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status,language)")
+      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status,language,language_decision,is_hungarian)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
-      // EN-only: hide non-English podcasts' episodes from sitemap.
-      .or("is_hungarian.eq.true", { referencedTable: "podcasts" })
+      // Canonical HU gate on parent podcast.
+      .eq("podcasts.is_hungarian", true)
+      .eq("podcasts.language_decision", "accept_hungarian")
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;
@@ -202,11 +220,11 @@ async function buildEntitiesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: chunk, error } = await supabase
       .from("episodes")
-      .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status,language)")
+      .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status,language,language_decision,is_hungarian)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
-      // EN-only: skip entities derived from non-English shows.
-      .or("is_hungarian.eq.true", { referencedTable: "podcasts" })
+      .eq("podcasts.is_hungarian", true)
+      .eq("podcasts.language_decision", "accept_hungarian")
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;

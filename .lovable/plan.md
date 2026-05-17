@@ -1,69 +1,84 @@
+# Pre-publish SEO / Sitemap / Robots javítások
 
-# Semantic Discovery & Personalized Mood — Phased Plan
+## Jelenlegi állapot (audit)
 
-A 18-pontos kérés egyetlen loopban nem teljesíthető tisztességesen (több új edge function, RPC, admin felület, benchmark, design változás). Az alábbi fázisokban szállítom, mindegyik fázis külön loop, külön QA-val. Az állapotfelmérés most:
+- `supabase/functions/sitemap/index.ts` HU szűrője csak `is_hungarian=true` → 691 helyett 1377 podcast szivárogna át; kell a `language_decision='accept_hungarian'` is.
+- Sitemap **index** child URL-jei `FN_BASE = https://<projectref>.supabase.co/functions/v1/sitemap?type=...` formátumban mennek → GSC a Supabase domain-t látja a sitemap tartalmában. Nem oké.
+- `public/robots.txt` Sitemap direktívája szintén Supabase URL-re mutat.
+- Cloudflare Worker (`.lovable/cloudflare-worker.js`) **már** proxyzza `https://podiverzum.hu/sitemap.xml` → Supabase sitemap edge fn (1h cache). Tehát a dinamikus megoldás már a helyén van, csak ki kell bővíteni a query-s child URL-ekre.
+- `public/sitemap.xml` statikus fájl létezik, de a Worker árnyékolja → tényleg sosem szolgálódik ki podiverzum.hu-ról. Félrevezető, törölni vagy újragenerálni kell egy „buildtime" snapshotként (B opció), de mivel A út jó, törlés a tisztább.
+- robots.txt blokkolja a `/kereses`-t és `/search`-öt → noindex meta sosem érvényesül.
+- Indexable oldalak (homepage, podcast, episode, category, topic, person, mood, statikus) noindex-szabálya rendben (`useNoindex` csak admin/auth/404/keresés).
 
-- HU-approved podcastok: **691**, HU epizódok: **63 655**
-- episode_embeddings: **63 655 / 63 655 = 100%**
-- podcast_embeddings: **691 / 691 = 100%**
-- episode_chunks: **59 134** (~93%)
-- `app_settings.search_engine` jelenleg **nincs** beállítva — a search-hybrid alapból v12
+## Megvalósítás
 
-A vektorizálás tehát kész — biztonsággal építhetünk rá.
+### 1) Sitemap edge function — kanonikus HU gate
+File: `supabase/functions/sitemap/index.ts`
 
-## Globális garanciák (minden fázisban)
-- Minden public RPC / edge fn szűr: `podcasts.is_hungarian = true AND podcasts.language_decision = 'accept_hungarian'`.
-- Minden publikus AI szöveg `_shared/hu-language-guard` szűrőn megy át; nem-HU esetén egyszeri regenerálás, utána HU fallback.
-- Nincs nyers score publikusan; nincs „IP alapján…” jellegű copy.
-- Sitemap: arbitrary search/AI oldal NEM kerül bele.
+Cseréljük minden helyen az `.or("is_hungarian.eq.true"...)` szűrőt a szigorú gate-re:
 
-## Fázisok
+- `buildPodcasts`: `.eq("is_hungarian", true).eq("language_decision", "accept_hungarian")` + meglévő rss_status/rank_label/health_state kizárások.
+- `buildEpisodesByMonth`: `podcasts!inner(...)` joinban ugyanígy, `.eq("podcasts.is_hungarian", true).eq("podcasts.language_decision", "accept_hungarian")` + nem broken RSS.
+- `buildEntitiesByMonth` (jelenleg amúgy is kikapcsolva az index-ben): ugyanaz a join feltétel — vagy hagyjuk inaktívan.
+- `buildCore`: kategóriák, topics (`is_indexable=true AND is_public=true`), people (a meglévő szigorú activation/ai_review gate marad) — nem érint nyelv.
+- Mood collections — jelenleg `buildCore` nem listázza őket; ha kell, hozzáadunk `mood_collections.is_indexable=true AND active=true AND recommended_episode_count >= 10` szűrővel (ezt használja a statikus gen is).
 
-### Fázis 1 — Search alapok v13 + HU guard + "Miért releváns?" (PART 1, 2, 4)
-- `app_settings.search_engine` upsert default jsonbbal (default v13, fallback v12, chunk_aug=false, semantic=on, cohere=on, quality_guard=on).
-- `search-hybrid`: ha nincs explicit `engine` paraméter, beolvassa az app_settinget. Quality guard: ha top-1 score < küszöb VAGY 0 találat → fallback v12. Egységes HU-only podcast filter.
-- `search-answer`: HU guard (regen 1x → fallback). Soha nem ad ki nem-HU mondatot.
-- SearchPage: "Miért releváns?" 1 mondatos magyar magyarázat találatonként magas-konfidenciánál (entity/topic/title hit alapján, nem AI generált).
-- Homepage hero / AskPodiverzum copy: „Keress gondolat, téma, személy vagy kérdés alapján — nem csak műsorcímre.”
+### 2) Sitemap kanonikus URL podiverzum.hu alatt
 
-### Fázis 2 — Hasonló epizódok + hasonló podcastok beépítése (PART 5, 6)
-- A meglévő `SimilarEpisodes` / `SimilarPodcasts` komponensek **már léteznek**, de nincsenek beillesztve. Mountolás EpisodeDetail és PodcastDetail aljára.
-- `similar_episodes` és `similar_podcasts` RPC-k áttekintése: HU-only filter biztosítása, azonos podcast enyhe downweight, friss + source score rerank, 4–8 elem, gyenge match esetén szekció elrejtése.
-- Empty-state: ha nincs erős match, semmit nem renderelünk.
+- `FN_BASE` cseréje: `const FN_BASE = "https://podiverzum.hu/sitemap";` — így a sitemap-index minden child loc-ja `https://podiverzum.hu/sitemap?type=core` stb. lesz.
+- Worker bővítése (`.lovable/cloudflare-worker.js` és `infra/cloudflare-worker/worker.js`): a `/sitemap.xml` és `/sitemap` (query-vel) is proxy-zódjon Supabase felé. Cache-key tartalmazza a query stringet. TTL marad 1h. Bump cache namespace v4-re.
+- `public/robots.txt` Sitemap direktíva: `Sitemap: https://podiverzum.hu/sitemap.xml`.
+- `public/sitemap.xml` statikus fájl és `public/sitemaps/*.xml` törlése (a Worker árnyékolja, és félreérthető). A `scripts/gen-sitemap.mjs`-t megtartjuk de jelöljük "no longer used"-nak vagy töröljük.
 
-### Fázis 3 — Methodology oldal frissítés (PART 3)
-- `/modszertan` átírás magyarul: jelentésalapú keresés, HU-only filter, AI összefoglalók, editorial safeguardok, sitemap szabály. Nincs technikai zsargon (vector/embedding/cosine).
+### 3) Stale sitemap kockázat
 
-### Fázis 4 — Mood cards perszonalizáció (PART 7, 8, 9, 11, 12)
-- Új edge fn `get-personalized-mood-cards`: input { viewport, tod, dow, returning_pref? }. Output: 4 (mobile) / 6 (tablet+desktop) kártya, mind reason_label-lel ("Reggelre ajánlva", "Friss témák", stb.). Csak nem-érzékeny kontextus, semmi „IP-d alapján". Cookie consent: localStorage `mood_pref_v1` minimális preferencia (utoljára kattintott mood, max 5).
-- `MoodCollections.tsx` átállítása az edge fn-re; viewport-szabályos layout (2x2 mobil, 2x3/3x2 tablet/desktop), „Összes hangulat” link.
-- `MoodsPage.tsx` (`/hangulatok`) audit: HU-only filter, minden aktív mood listázva, magyar leírások, fallback.
+- Mivel A út megy: dinamikus, mindig friss adatbázisból. Nincs build hook, nem lehet elfelejteni. Stale risk = 0 (1h CF cache).
+- `package.json` változatlan.
 
-### Fázis 5 — Mood vector-powered ajánlás (PART 10)
-- `mood_collections` séma kiegészítés: `seed_embedding vector(768)`, `positive_topic_hints text[]`, `negative_topic_hints text[]`, `preferred_duration_min/max int`, `energy_level text`, `freshness_weight numeric`, `evergreen_weight numeric`.
-- `mood-collections-seed` edge fn frissítés: minden aktívra seed embedding generálás (Lovable AI gemini-embedding-001, 768d).
-- `MoodCollectionPage.tsx` váltása vektoros RPC-re (`recommend_episodes_for_mood`): HU-only, kiküszöböli rejected/non-HU, per-podcast cap (max 2-3), rerank semantic + recency + duration + source. Same-podcast downweight.
+### 4) robots.txt frissítés
 
-### Fázis 6 — Ask Podiverzum semantic upgrade (PART 13)
-- `search-answer` mostani v13 hybrid + cited episode cards; HU guard; alacsony konfidencia → magyar „Nem találtam elég releváns epizódot" üzenet. Nincs külső tény, csak grounded.
+Új tartalom (vázlat):
 
-### Fázis 7 — Admin vector & benchmark (PART 14, 16)
-- `/admin/vector-search` új oldal: coverage számok (HU ep / embed / chunks / podcast emb / pending / failed / utolsó embedding), search engine setting toggle, mood coverage, smoke test gomb.
-- Benchmark tool: lista a megadott 15 teszt-queryvel, mindhárom engine-en (v12 / v13 / v13+chunk-aug) top 10 + score komponensek + latency + HU-only flag. CSV export.
-- Iterációs súlyok admin-állíthatók `app_settings.search_engine.weights`-en keresztül.
+```
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /admin-bootstrap
+Disallow: /growth-status
+Disallow: /auth
+Disallow: /belepes
 
-### Fázis 8 — Chunk-aug behind flag + finomhangolás (PART 15)
-- `search-hybrid` v13 chunk-aug ág: ha `chunk_aug_enabled=true`, hosszú/long-tail queryken `episode_chunks` hit boostolja a parent epizódot (NEM helyettesít, csak boost). Threshold + cap.
-- Tuning a Fázis 7 benchmark alapján: title/entity/person/semantic súlyok, podcast diversity, freshness.
+Sitemap: https://podiverzum.hu/sitemap.xml
+```
 
-### Fázis 9 — SEO szabályok + verifikáció (PART 17, 18)
-- Sitemap audit: nincs `/kereses?q=…` URL benne; mood oldalak csak ha curated + 10+ HU epizód + egyedi meta. Robots noindex a generikus search result oldalakra.
-- Verifikációs riport: a PART 18 minden pontja számokkal.
+- Eltávolítjuk: `/kereses*`, `/search*` Disallow (a SearchPage már noindex, follow → engedjük crawlolni).
+- AI bot explicit Allow blokkok maradnak (Googlebot/Bingbot/OAI-SearchBot stb.).
+- A `/admin`, `/admin-bootstrap`, `/growth-status` Disallow marad. `/internal`, `/debug` route nincs az appban; nem adunk hozzá nem létező pathot.
 
-## Mit kérek tőled (priorizálás)
-A teljes 9 fázis sok loop. Két kérdés:
+### 5) Audit run (a fixek után)
 
-1) Mehet-e ebben a sorrendben (1 → 9), és minden fázis külön loopban?
-2) Van-e fázis amit ki akarsz hagyni vagy előrébb hozni (pl. Mood vektoros recsi (5) fontosabb-e most, mint Ask Podiverzum upgrade (6))?
+- `curl https://podiverzum.hu/robots.txt` → 200, helyes tartalom.
+- `curl https://podiverzum.hu/sitemap.xml` → 200, valid XML, child loc-ok podiverzum.hu alatt.
+- Fetch egy child sitemap-et (`?type=podcasts`, `?type=core`, egy `?type=episodes&ym=...&part=1`) → 200, csak `https://podiverzum.hu/...` URL-ek.
+- Leaks ellenőrzés: `grep -E "(podiverzum\.com|lovable\.app|supabase\.co|localhost)"` minden lekért XML-ben → 0 találat.
+- Számolás: total URL, breakdown core/podcasts/episodes (people a core-ban).
+- DB ellenőrzés: foreign podcast (`is_hungarian=false OR language_decision<>'accept_hungarian'`) nem szerepel — random spot-check 3 sample.
+- HTTP 200 audit: `/`, `/kategoriak`, `/szemelyek`, `/hangulatok`, `/temak`, `/uj`, `/napi`, `/rolunk`, `/modszertan`, `/adatvedelem`, `/feltetelek`, `/kapcsolat`, egy podcast, egy episode, egy topic, egy person, egy mood detail page.
+- Noindex meta ellenőrzés a `/kereses` és `/admin` route-on (HTML response-ban).
 
-Ha igen-mehet-így, akkor most a **Fázis 1**-et viszem végig (search v13 default + HU guard + Miért releváns + hero copy), és a végén jelentek számokkal. A többi fázist a következő loopokban.
+### 6) Final report
+
+A user által kért 10 részes táblát adom vissza a végén, számokkal, „safe to publish" / „safe to submit GSC" döntéssel, és a launch sorrenddel (publish → CF purge `/robots.txt` + `/sitemap.xml` → GSC submission).
+
+## Technikai részletek
+
+- A Worker deploy-ja külön folyamat — a `.lovable/cloudflare-worker.js` változás akkor lép életbe ha a Worker újra deploy-olódik (Cloudflare dashboard / wrangler). Megemlítem a végén mint manuális launch step.
+- Az edge function deploy automatikus (Lovable Cloud).
+- Régi CF cache (`proxy-cache-v3`) kulcsot bump-oljuk v4-re, hogy az új sitemap azonnal érvényesüljön deploy után.
+
+## Nem érintett
+
+- Auth flow, business logic, AI pipeline, search ranking — semmi nem változik.
+- `is_indexable`/activation szabályok nem változnak.
+- Tracking / `page_events` változatlan.
