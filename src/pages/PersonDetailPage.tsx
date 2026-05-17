@@ -49,7 +49,7 @@ export default function PersonDetailPage() {
       setLoading(true);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, short_bio, overview_text, image_url, image_attribution, image_author, image_license, image_license_url, image_original_url, image_status, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status")
+        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
@@ -168,9 +168,7 @@ export default function PersonDetailPage() {
   const hasMentioned = segments.mentioned.length > 0;
   const distinctSections = [hasInterviews, hasSubjects, hasMentioned].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
-  const attributionText = person.image_status === "cached" && (person.image_author || person.image_attribution || person.image_license)
-    ? `Kép: ${person.image_author || person.image_attribution || ""}${person.image_license ? `, ${person.image_license}` : ""}`.trim()
-    : null;
+  const bioText = (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim()) || (eps.length > 0 ? huFallbackBio(person.name) : null);
 
   return (
     <Layout>
@@ -182,28 +180,12 @@ export default function PersonDetailPage() {
             <span className="text-foreground">{person.name}</span>
           </nav>
           <div className="flex flex-col sm:flex-row items-start gap-6">
-            <div className="flex flex-col items-start gap-2">
-              {person.image_url ? (
-                <img src={person.image_url} alt={person.name} width={112} height={112} loading="lazy" className="h-28 w-28 rounded-full object-cover border border-border" />
-              ) : <Initials name={person.name} />}
-              {attributionText && (
-                <button onClick={() => setShowSource(s => !s)} className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
-                  Képforrás
-                </button>
-              )}
-              {showSource && attributionText && (
-                <p className="text-[10px] text-muted-foreground max-w-[12rem] leading-tight">
-                  {attributionText}
-                  {person.image_license_url && <> · <a href={person.image_license_url} target="_blank" rel="noopener noreferrer nofollow" className="underline">licenc</a></>}
-                  {person.image_original_url && <> · <a href={person.image_original_url} target="_blank" rel="noopener noreferrer nofollow" className="underline">forrás</a></>}
-                </p>
-              )}
-            </div>
+            <PersonAvatar name={person.name} size="xl" />
             <div className="min-w-0 flex-1">
               <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személy</div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{person.name}</h1>
-              {(person.ai_bio || person.short_bio) && (
-                <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{person.ai_bio || person.short_bio}</p>
+              {bioText && (
+                <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{bioText}</p>
               )}
               {person.wikipedia_url && person.wikipedia_match_status === "verified" && (
                 <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-3 inline-block">Wikipedia: {person.wikipedia_title} →</a>
