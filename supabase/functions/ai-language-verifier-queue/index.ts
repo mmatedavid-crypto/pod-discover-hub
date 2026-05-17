@@ -104,18 +104,20 @@ Deno.serve(async (req) => {
         let action: string;
         const patch: Record<string, unknown> = {};
 
+        const prevReason = (it.rank_reason && typeof it.rank_reason === "object") ? it.rank_reason : { legacy: it.rank_reason ?? null };
+        const aiBlock = { ai_lang: det.lang, ai_conf: det.confidence, ai_reason: (det.reason || "").slice(0, 300), ai_model: model, ai_at: new Date().toISOString() };
         if (confident && !isHu && det.lang !== "unknown") {
           action = "reject_foreign";
           patch.status = "rejected";
-          patch.rank_reason = `ai_lang:${det.lang}:${det.confidence.toFixed(2)} ${det.reason || ""}`.slice(0, 500);
+          patch.rank_reason = { ...prevReason, ...aiBlock, ai_decision: "reject_foreign" };
           rejected_foreign++;
         } else if (confident && isHu) {
           action = "kept_hu";
-          patch.rank_reason = `ai_lang_hu:${det.confidence.toFixed(2)} ${(it.rank_reason || "").slice(0, 200)}`.slice(0, 500);
+          patch.rank_reason = { ...prevReason, ...aiBlock, ai_decision: "kept_hu" };
           kept_hu++;
         } else {
           action = "review";
-          patch.rank_reason = `ai_lang_uncertain:${det.lang}:${det.confidence.toFixed(2)} ${(it.rank_reason || "").slice(0, 200)}`.slice(0, 500);
+          patch.rank_reason = { ...prevReason, ...aiBlock, ai_decision: "review_uncertain" };
           review++;
         }
 
