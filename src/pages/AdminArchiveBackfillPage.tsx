@@ -213,16 +213,74 @@ export default function AdminArchiveBackfillPage() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-border bg-card p-4 space-y-2">
+        <section className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h2 className="font-semibold">Automation</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
             <Stat label="Cron" v={controls.cron_enabled === false ? "off" : "on"} tone={controls.cron_enabled === false ? "warn" : "default"} small />
             <Stat label="Schedule" v="37 */6 * * *" small />
+            <Stat label="Next run" v={nextCronRun("37 */6 * * *")} small />
             <Stat label="Active tiers" v={(controls.tier_filter || []).join("/")} small />
             <Stat label="✓ scheduled runs" v={controls.successful_scheduled_run_count ?? 0} />
-            <Stat label="B-tier auto" v={(controls.successful_scheduled_run_count ?? 0) >= (controls.expand_to_b_tier_after_successful_runs ?? 3) ? "yes" : "no"} small />
-            <Stat label="AI backlog cap" v={controls.pause_if_enrichment_backlog_above ?? "—"} small />
+            <Stat
+              label="B-tier auto"
+              v={(controls.successful_scheduled_run_count ?? 0) >= (controls.expand_to_b_tier_after_successful_runs ?? 3) ? "active" : `wait ${(controls.expand_to_b_tier_after_successful_runs ?? 3) - (controls.successful_scheduled_run_count ?? 0)}`}
+              small
+            />
           </div>
+
+          {/* Backlog trends + warnings derived from recentRuns */}
+          {(() => {
+            const completed = recentRuns.filter((r) => r.status === "completed");
+            const last5 = completed.slice(0, 5);
+            const trendAi = last5.map((r) => r.ai_backlog_after ?? r.ai_backlog_before ?? 0).reverse();
+            const trendEmb = last5.map((r) => r.embedding_backlog_after ?? r.embedding_backlog_before ?? 0).reverse();
+            const warnings: string[] = [];
+            const lastEmb = trendEmb[trendEmb.length - 1];
+            if (lastEmb !== undefined && lastEmb > 2000) warnings.push(`Embedding backlog ${lastEmb} above 2,000 after last run.`);
+            const aiSeq = completed.slice(0, 3).map((r) => r.ai_backlog_after ?? r.ai_backlog_before ?? 0);
+            if (aiSeq.length === 3 && aiSeq[0] > aiSeq[1] && aiSeq[1] > aiSeq[2]) warnings.push("AI backlog increased for 3 consecutive runs.");
+            const newSeq = completed.slice(0, 3).map((r) => r.new_episodes_inserted ?? 0);
+            if (newSeq.length === 3 && newSeq.every((n) => n > 1400)) warnings.push("New episodes >1,400 in 3 consecutive runs — enrichment pressure may accumulate.");
+            const lastErrRate = completed.length > 0 ? (completed[0].failed_feeds || 0) / Math.max(1, completed[0].podcasts_processed || 1) : 0;
+            return (
+              <div className="space-y-2 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <TrendBox label="AI backlog (last 5 completed)" series={trendAi} />
+                  <TrendBox label="Embedding backlog (last 5 completed)" series={trendEmb} />
+                </div>
+                {warnings.length > 0 ? (
+                  <div className="rounded-md border border-brand/40 bg-brand/10 p-2 text-brand">
+                    <div className="font-medium mb-1">Warnings</div>
+                    <ul className="list-disc pl-4 space-y-0.5">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground">No warnings. Last error rate: {(lastErrRate * 100).toFixed(0)}%.</div>
+                )}
+                <div className="border-t border-border pt-2">
+                  <div className="font-medium mb-1">Last 5 runs</div>
+                  <table className="w-full">
+                    <thead><tr className="text-muted-foreground text-left"><th>Started</th><th>Tiers</th><th>Pods</th><th>New</th><th>Dup</th><th>Failed</th><th>AI bl.</th><th>Emb bl.</th></tr></thead>
+                    <tbody>
+                      {last5.map((r) => (
+                        <tr key={r.id} className="border-t border-border">
+                          <td className="py-0.5">{new Date(r.started_at).toLocaleString()}</td>
+                          <td>{(r.tier_filter || []).join("/")}</td>
+                          <td>{r.podcasts_processed}</td>
+                          <td className="font-medium">{r.new_episodes_inserted}</td>
+                          <td>{r.duplicates_skipped}</td>
+                          <td>{r.failed_feeds}</td>
+                          <td>{r.ai_backlog_before ?? "—"} → {r.ai_backlog_after ?? "—"}</td>
+                          <td>{r.embedding_backlog_before ?? "—"} → {r.embedding_backlog_after ?? "—"}</td>
+                        </tr>
+                      ))}
+                      {last5.length === 0 && <tr><td colSpan={8} className="text-muted-foreground py-2">No completed runs yet.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
           <p className="text-xs text-muted-foreground">
             Cron: <code>podiverzum-hu-deep-archive-6h</code> (jobid 28). After {controls.expand_to_b_tier_after_successful_runs ?? 3} successful runs, B-tier is added automatically. Skips when AI backlog &gt; {controls.pause_if_enrichment_backlog_above ?? 50000}, embedding backlog &gt; {controls.pause_if_embedding_backlog_above ?? 50000}, or recent error rate &gt; {Math.round((controls.pause_if_error_rate_above ?? 0.2) * 100)}%.
           </p>
