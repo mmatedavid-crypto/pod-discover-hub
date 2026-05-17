@@ -1062,6 +1062,75 @@ export type Database = {
         }
         Relationships: []
       }
+      hu_archive_backfill_runs: {
+        Row: {
+          ai_backlog_after: number | null
+          ai_backlog_before: number | null
+          created_at: string
+          details: Json
+          duplicates_skipped: number
+          embedding_backlog_after: number | null
+          embedding_backlog_before: number | null
+          error_message: string | null
+          failed_feeds: number
+          finished_at: string | null
+          id: string
+          new_episodes_inserted: number
+          podcasts_processed: number
+          runtime_ms: number | null
+          skipped_reason: string | null
+          started_at: string
+          status: string
+          throttled: boolean
+          tier_filter: string[]
+          trigger_source: string
+        }
+        Insert: {
+          ai_backlog_after?: number | null
+          ai_backlog_before?: number | null
+          created_at?: string
+          details?: Json
+          duplicates_skipped?: number
+          embedding_backlog_after?: number | null
+          embedding_backlog_before?: number | null
+          error_message?: string | null
+          failed_feeds?: number
+          finished_at?: string | null
+          id?: string
+          new_episodes_inserted?: number
+          podcasts_processed?: number
+          runtime_ms?: number | null
+          skipped_reason?: string | null
+          started_at?: string
+          status?: string
+          throttled?: boolean
+          tier_filter?: string[]
+          trigger_source?: string
+        }
+        Update: {
+          ai_backlog_after?: number | null
+          ai_backlog_before?: number | null
+          created_at?: string
+          details?: Json
+          duplicates_skipped?: number
+          embedding_backlog_after?: number | null
+          embedding_backlog_before?: number | null
+          error_message?: string | null
+          failed_feeds?: number
+          finished_at?: string | null
+          id?: string
+          new_episodes_inserted?: number
+          podcasts_processed?: number
+          runtime_ms?: number | null
+          skipped_reason?: string | null
+          started_at?: string
+          status?: string
+          throttled?: boolean
+          tier_filter?: string[]
+          trigger_source?: string
+        }
+        Relationships: []
+      }
       mood_collections: {
         Row: {
           accent_hsl: string | null
