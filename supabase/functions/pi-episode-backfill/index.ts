@@ -247,6 +247,7 @@ Deno.serve(async (req) => {
       .from("podcasts")
       .select("id", { count: "exact", head: true })
       .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .eq("rss_status", "active")
       .is("pi_backfill_completed_at", null);
 
