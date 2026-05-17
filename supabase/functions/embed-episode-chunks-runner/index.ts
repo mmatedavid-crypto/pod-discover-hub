@@ -240,17 +240,14 @@ Deno.serve(async (req) => {
     const s = (stats as any) || {};
     const pending = Number(s.missing || 0);
 
+    // RPC expects minute-part only (e.g., "*", "*/2", "*/15", "*/30", "0 * * * *")
     let recommended: string;
-    if (pending > 2000) recommended = "* * * * *";
-    else if (pending >= 200) recommended = "*/2 * * * *";
-    else if (pending > 0) recommended = "*/15 * * * *";
-    else recommended = "*/30 * * * *";
+    if (pending > 2000) recommended = "*";
+    else if (pending >= 200) recommended = "*/2";
+    else if (pending > 0) recommended = "*/15";
+    else recommended = "*/30";
     if (errors > episodesProcessed && episodesProcessed > 0) {
-      const stepDown: Record<string, string> = {
-        "* * * * *": "*/2 * * * *",
-        "*/2 * * * *": "*/15 * * * *",
-        "*/15 * * * *": "*/30 * * * *",
-      };
+      const stepDown: Record<string, string> = { "*": "*/2", "*/2": "*/15", "*/15": "*/30" };
       recommended = stepDown[recommended] || recommended;
     }
     try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: recommended }); } catch { }
