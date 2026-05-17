@@ -1,0 +1,2 @@
+REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_homepage_feed;
+REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_homepage_evergreen;
