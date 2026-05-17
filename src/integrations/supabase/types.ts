@@ -649,16 +649,21 @@ export type Database = {
           companies: string[] | null
           created_at: string
           description: string | null
+          detected_language: string | null
           display_title: string | null
           episode_rank: number
           episode_rank_label: string | null
           episode_rank_reason: Json
           episode_rank_updated_at: string | null
           episode_url: string | null
+          foreign_score: number | null
           guid: string | null
+          hungarian_score: number | null
           id: string
           image_url: string | null
           ingredients: string[] | null
+          language_checked_at: string | null
+          language_evidence: Json
           mentioned: string[]
           people: string[] | null
           podcast_id: string
@@ -690,16 +695,21 @@ export type Database = {
           companies?: string[] | null
           created_at?: string
           description?: string | null
+          detected_language?: string | null
           display_title?: string | null
           episode_rank?: number
           episode_rank_label?: string | null
           episode_rank_reason?: Json
           episode_rank_updated_at?: string | null
           episode_url?: string | null
+          foreign_score?: number | null
           guid?: string | null
+          hungarian_score?: number | null
           id?: string
           image_url?: string | null
           ingredients?: string[] | null
+          language_checked_at?: string | null
+          language_evidence?: Json
           mentioned?: string[]
           people?: string[] | null
           podcast_id: string
@@ -731,16 +741,21 @@ export type Database = {
           companies?: string[] | null
           created_at?: string
           description?: string | null
+          detected_language?: string | null
           display_title?: string | null
           episode_rank?: number
           episode_rank_label?: string | null
           episode_rank_reason?: Json
           episode_rank_updated_at?: string | null
           episode_url?: string | null
+          foreign_score?: number | null
           guid?: string | null
+          hungarian_score?: number | null
           id?: string
           image_url?: string | null
           ingredients?: string[] | null
+          language_checked_at?: string | null
+          language_evidence?: Json
           mentioned?: string[]
           people?: string[] | null
           podcast_id?: string
@@ -1133,6 +1148,105 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_language_cleanup_log: {
+        Row: {
+          deleted_ai_job_count: number
+          deleted_at: string
+          deleted_embedding_count: number
+          deleted_related_episode_count: number
+          deletion_reason: string
+          detected_language: string | null
+          evidence: Json
+          foreign_score: number | null
+          hungarian_score: number | null
+          id: string
+          podcast_id: string | null
+          rss_url: string | null
+          title: string | null
+        }
+        Insert: {
+          deleted_ai_job_count?: number
+          deleted_at?: string
+          deleted_embedding_count?: number
+          deleted_related_episode_count?: number
+          deletion_reason: string
+          detected_language?: string | null
+          evidence?: Json
+          foreign_score?: number | null
+          hungarian_score?: number | null
+          id?: string
+          podcast_id?: string | null
+          rss_url?: string | null
+          title?: string | null
+        }
+        Update: {
+          deleted_ai_job_count?: number
+          deleted_at?: string
+          deleted_embedding_count?: number
+          deleted_related_episode_count?: number
+          deletion_reason?: string
+          detected_language?: string | null
+          evidence?: Json
+          foreign_score?: number | null
+          hungarian_score?: number | null
+          id?: string
+          podcast_id?: string | null
+          rss_url?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
+      podcast_language_review_queue: {
+        Row: {
+          created_at: string
+          detected_language: string | null
+          evidence: Json
+          foreign_score: number | null
+          hungarian_score: number | null
+          id: string
+          podcast_id: string
+          reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rss_url: string | null
+          status: string
+          title: string | null
+          website_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          detected_language?: string | null
+          evidence?: Json
+          foreign_score?: number | null
+          hungarian_score?: number | null
+          id?: string
+          podcast_id: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rss_url?: string | null
+          status?: string
+          title?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          detected_language?: string | null
+          evidence?: Json
+          foreign_score?: number | null
+          hungarian_score?: number | null
+          id?: string
+          podcast_id?: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rss_url?: string | null
+          status?: string
+          title?: string | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       podcast_youtube_candidates: {
         Row: {
           channel_description: string | null
@@ -1216,18 +1330,26 @@ export type Database = {
           deep_hydration_status: string
           deep_hydration_target: number | null
           description: string | null
+          detected_language: string | null
           display_title: string | null
           featured: boolean
           featured_rank: number | null
+          foreign_score: number | null
           full_backfill_completed_at: string | null
           hosts: string[]
           hosts_source: string | null
           hosts_updated_at: string | null
+          hungarian_score: number | null
           hydrated_episode_count: number
           id: string
           image_url: string | null
+          is_hungarian: boolean
           is_sample: boolean
           language: string | null
+          language_checked_at: string | null
+          language_decision: string | null
+          language_evidence: Json
+          language_rejection_reason: string | null
           last_deep_hydrated_at: string | null
           last_etag: string | null
           last_fetch_duplicate_count: number
@@ -1304,18 +1426,26 @@ export type Database = {
           deep_hydration_status?: string
           deep_hydration_target?: number | null
           description?: string | null
+          detected_language?: string | null
           display_title?: string | null
           featured?: boolean
           featured_rank?: number | null
+          foreign_score?: number | null
           full_backfill_completed_at?: string | null
           hosts?: string[]
           hosts_source?: string | null
           hosts_updated_at?: string | null
+          hungarian_score?: number | null
           hydrated_episode_count?: number
           id?: string
           image_url?: string | null
+          is_hungarian?: boolean
           is_sample?: boolean
           language?: string | null
+          language_checked_at?: string | null
+          language_decision?: string | null
+          language_evidence?: Json
+          language_rejection_reason?: string | null
           last_deep_hydrated_at?: string | null
           last_etag?: string | null
           last_fetch_duplicate_count?: number
@@ -1392,18 +1522,26 @@ export type Database = {
           deep_hydration_status?: string
           deep_hydration_target?: number | null
           description?: string | null
+          detected_language?: string | null
           display_title?: string | null
           featured?: boolean
           featured_rank?: number | null
+          foreign_score?: number | null
           full_backfill_completed_at?: string | null
           hosts?: string[]
           hosts_source?: string | null
           hosts_updated_at?: string | null
+          hungarian_score?: number | null
           hydrated_episode_count?: number
           id?: string
           image_url?: string | null
+          is_hungarian?: boolean
           is_sample?: boolean
           language?: string | null
+          language_checked_at?: string | null
+          language_decision?: string | null
+          language_evidence?: Json
+          language_rejection_reason?: string | null
           last_deep_hydrated_at?: string | null
           last_etag?: string | null
           last_fetch_duplicate_count?: number
