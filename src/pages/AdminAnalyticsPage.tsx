@@ -17,6 +17,11 @@ type Row = {
   utm_campaign: string | null;
   utm_term: string | null;
   utm_content: string | null;
+  session_id: string | null;
+  dwell_ms: number | null;
+  ua_browser: string | null;
+  ua_os: string | null;
+  is_bot: boolean | null;
 };
 
 function classifyRoute(path: string): string {
@@ -53,7 +58,7 @@ export default function AdminAnalyticsPage() {
         const since = new Date(Date.now() - windowDays * 86400_000).toISOString();
         const { data: r } = await supabase
           .from("page_events")
-          .select("id,path,full_url,referrer,viewport_width,user_id,created_at,utm_source,utm_medium,utm_campaign,utm_term,utm_content")
+          .select("id,path,full_url,referrer,viewport_width,user_id,created_at,utm_source,utm_medium,utm_campaign,utm_term,utm_content,session_id,dwell_ms,ua_browser,ua_os,is_bot")
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(10000);
