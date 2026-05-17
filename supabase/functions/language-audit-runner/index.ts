@@ -140,8 +140,10 @@ Deno.serve(async (req) => {
     }, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
+  } catch (e: any) {
+    const msg = e?.message || e?.error_description || e?.hint || JSON.stringify(e);
+    console.error("language-audit-runner error:", msg, e);
+    return new Response(JSON.stringify({ error: msg, raw: e }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
