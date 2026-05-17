@@ -32,7 +32,7 @@ export function SiteFooter() {
           </div>
 
           {/* Mobile: 2 tidy rows of 4 links each, evenly spaced. */}
-          <nav className="sm:hidden grid grid-cols-4 gap-x-3 gap-y-3 text-xs">
+          <nav className="sm:hidden grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
             {[...EXPLORE, ...COMPANY].map((l) => (
               <Link
                 key={l.to}
