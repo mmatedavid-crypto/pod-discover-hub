@@ -1,142 +1,69 @@
 
-# /szemelyek curated discovery redesign + person relevance hardening
+# Semantic Discovery & Personalized Mood — Phased Plan
 
-This is a multi-part change covering schema, ranking logic, AI validation, UI redesign and targeted data cleanups. It is intentionally scoped to people / person-episode relevance — no topic groups, no host carousel, no public exposure of editorial internals.
+A 18-pontos kérés egyetlen loopban nem teljesíthető tisztességesen (több új edge function, RPC, admin felület, benchmark, design változás). Az alábbi fázisokban szállítom, mindegyik fázis külön loop, külön QA-val. Az állapotfelmérés most:
 
----
+- HU-approved podcastok: **691**, HU epizódok: **63 655**
+- episode_embeddings: **63 655 / 63 655 = 100%**
+- podcast_embeddings: **691 / 691 = 100%**
+- episode_chunks: **59 134** (~93%)
+- `app_settings.search_engine` jelenleg **nincs** beállítva — a search-hybrid alapból v12
 
-## 1. Database schema additions (migration)
+A vektorizálás tehát kész — biztonsággal építhetünk rá.
 
-Add to `people`:
-- `people_hub_score numeric NOT NULL DEFAULT 0`
-- `recent_relevant_episode_count_30d int NOT NULL DEFAULT 0`
-- `latest_accepted_relevant_episode_at timestamptz`
-- `one_show_host boolean NOT NULL DEFAULT false`
-- `disambiguation_label text`
-- `disambiguation_context text`
-- `canonical_identity_key text`
-- `identity_confidence numeric NOT NULL DEFAULT 0`
-- `identity_status text NOT NULL DEFAULT 'normal'`  -- normal / ambiguous / split_needed / split_resolved / needs_review
-- `manual_approval_status` already exists — add value `'approved_browsable'` semantically (text, no enum)
+## Globális garanciák (minden fázisban)
+- Minden public RPC / edge fn szűr: `podcasts.is_hungarian = true AND podcasts.language_decision = 'accept_hungarian'`.
+- Minden publikus AI szöveg `_shared/hu-language-guard` szűrőn megy át; nem-HU esetén egyszeri regenerálás, utána HU fallback.
+- Nincs nyers score publikusan; nincs „IP alapján…” jellegű copy.
+- Sitemap: arbitrary search/AI oldal NEM kerül bele.
 
-Add to `person_episode_mentions`:
-- `relevance_status text NOT NULL DEFAULT 'pending'`  -- pending / accepted / rejected / needs_review
-- `final_relevance_score numeric`
-- `validation_source text`  -- rule / ai / manual
-- `ai_identity_match text`  -- same_person / different_person_same_name / substring_false_positive / uncertain
-- `ai_reason text`
-- `ai_evidence_phrases text[]`
-- `ai_judged_at timestamptz`
-- `ai_model text`
+## Fázisok
 
-Indexes:
-- `idx_people_hub_score` on `(is_browsable_in_people_hub, people_hub_score DESC)`
-- `idx_pem_person_relevance` on `(person_id, relevance_status)`
+### Fázis 1 — Search alapok v13 + HU guard + "Miért releváns?" (PART 1, 2, 4)
+- `app_settings.search_engine` upsert default jsonbbal (default v13, fallback v12, chunk_aug=false, semantic=on, cohere=on, quality_guard=on).
+- `search-hybrid`: ha nincs explicit `engine` paraméter, beolvassa az app_settinget. Quality guard: ha top-1 score < küszöb VAGY 0 találat → fallback v12. Egységes HU-only podcast filter.
+- `search-answer`: HU guard (regen 1x → fallback). Soha nem ad ki nem-HU mondatot.
+- SearchPage: "Miért releváns?" 1 mondatos magyar magyarázat találatonként magas-konfidenciánál (entity/topic/title hit alapján, nem AI generált).
+- Homepage hero / AskPodiverzum copy: „Keress gondolat, téma, személy vagy kérdés alapján — nem csak műsorcímre.”
 
-RPCs:
-- `refresh_people_hub_score()` — recomputes `people_hub_score`, `recent_relevant_episode_count_30d`, `latest_accepted_relevant_episode_at`, `one_show_host`, and refreshes `is_browsable_in_people_hub` using the new score + one-show-host penalty.
-- `admin_get_hub_candidates(section text, limit_n int)` returning ranked lists for the 3 hub sections.
+### Fázis 2 — Hasonló epizódok + hasonló podcastok beépítése (PART 5, 6)
+- A meglévő `SimilarEpisodes` / `SimilarPodcasts` komponensek **már léteznek**, de nincsenek beillesztve. Mountolás EpisodeDetail és PodcastDetail aljára.
+- `similar_episodes` és `similar_podcasts` RPC-k áttekintése: HU-only filter biztosítása, azonos podcast enyhe downweight, friss + source score rerank, 4–8 elem, gyenge match esetén szekció elrejtése.
+- Empty-state: ha nincs erős match, semmit nem renderelünk.
 
-## 2. Hub score formula (inside RPC)
+### Fázis 3 — Methodology oldal frissítés (PART 3)
+- `/modszertan` átírás magyarul: jelentésalapú keresés, HU-only filter, AI összefoglalók, editorial safeguardok, sitemap szabály. Nincs technikai zsargon (vector/embedding/cosine).
 
-```
-score =
-  3.0 * recent_relevant_episode_count_30d
-+ 2.5 * distinct_podcast_count
-+ 1.5 * strong_mention_count
-+ 1.0 * (verified_wikipedia ? 1 : 0)
-+ 0.5 * (editorial_priority ? editorial_priority_level/100 : 0)
-+ 0.1 * episode_count
-- 5.0 * (one_show_host ? 1 : 0)
-- 4.0 * (identity_status IN ('ambiguous','split_needed','needs_review') ? 1 : 0)
-- 3.0 * (ai_review_status='duplicate_candidate' ? 1 : 0)
-```
+### Fázis 4 — Mood cards perszonalizáció (PART 7, 8, 9, 11, 12)
+- Új edge fn `get-personalized-mood-cards`: input { viewport, tod, dow, returning_pref? }. Output: 4 (mobile) / 6 (tablet+desktop) kártya, mind reason_label-lel ("Reggelre ajánlva", "Friss témák", stb.). Csak nem-érzékeny kontextus, semmi „IP-d alapján". Cookie consent: localStorage `mood_pref_v1` minimális preferencia (utoljára kattintott mood, max 5).
+- `MoodCollections.tsx` átállítása az edge fn-re; viewport-szabályos layout (2x2 mobil, 2x3/3x2 tablet/desktop), „Összes hangulat” link.
+- `MoodsPage.tsx` (`/hangulatok`) audit: HU-only filter, minden aktív mood listázva, magyar leírások, fallback.
 
-`one_show_host = (distinct_podcast_count = 1 AND host_count >= 1)`.
+### Fázis 5 — Mood vector-powered ajánlás (PART 10)
+- `mood_collections` séma kiegészítés: `seed_embedding vector(768)`, `positive_topic_hints text[]`, `negative_topic_hints text[]`, `preferred_duration_min/max int`, `energy_level text`, `freshness_weight numeric`, `evergreen_weight numeric`.
+- `mood-collections-seed` edge fn frissítés: minden aktívra seed embedding generálás (Lovable AI gemini-embedding-001, 768d).
+- `MoodCollectionPage.tsx` váltása vektoros RPC-re (`recommend_episodes_for_mood`): HU-only, kiküszöböli rejected/non-HU, per-podcast cap (max 2-3), rerank semantic + recency + duration + source. Same-podcast downweight.
 
-`is_browsable_in_people_hub = true` requires:
-- accepted relevance evidence exists
-- NOT one_show_host (unless `manual_approval_status='approved_browsable'` OR `editorial_priority` with cross-person evidence)
-- identity_status NOT IN ('ambiguous','split_needed','needs_review')
-- ai_review_status NOT IN ('needs_human_review','duplicate_candidate')
+### Fázis 6 — Ask Podiverzum semantic upgrade (PART 13)
+- `search-answer` mostani v13 hybrid + cited episode cards; HU guard; alacsony konfidencia → magyar „Nem találtam elég releváns epizódot" üzenet. Nincs külső tény, csak grounded.
 
-## 3. Edge functions
+### Fázis 7 — Admin vector & benchmark (PART 14, 16)
+- `/admin/vector-search` új oldal: coverage számok (HU ep / embed / chunks / podcast emb / pending / failed / utolsó embedding), search engine setting toggle, mood coverage, smoke test gomb.
+- Benchmark tool: lista a megadott 15 teszt-queryvel, mindhárom engine-en (v12 / v13 / v13+chunk-aug) top 10 + score komponensek + latency + HU-only flag. CSV export.
+- Iterációs súlyok admin-állíthatók `app_settings.search_engine.weights`-en keresztül.
 
-**New**: `supabase/functions/person-relevance-judge/index.ts`
-- Input: person_id (optional batch_limit, target ids)
-- Selects pending or weak `person_episode_mentions` (filtered to HU-accepted podcasts), prioritizing same-name / editorial / public people + Lakatos Péter / Pólus Enikő / Frei Tamás.
-- Calls `google/gemini-2.5-flash` (Lovable AI) with strict Hungarian-output JSON tool.
-- Writes `relevance_status`, `final_relevance_score`, `ai_*` fields. Logs spend in `ai_spend_daily.by_kind.person_relevance`.
-- $2/day budget guard, 110s drain loop.
+### Fázis 8 — Chunk-aug behind flag + finomhangolás (PART 15)
+- `search-hybrid` v13 chunk-aug ág: ha `chunk_aug_enabled=true`, hosszú/long-tail queryken `episode_chunks` hit boostolja a parent epizódot (NEM helyettesít, csak boost). Threshold + cap.
+- Tuning a Fázis 7 benchmark alapján: title/entity/person/semantic súlyok, podcast diversity, freshness.
 
-**New**: `supabase/functions/people-hub-refresh/index.ts`
-- Calls `refresh_people_hub_score()` RPC. Schedulable hourly later (not added to cron in this pass to avoid backlog interference).
+### Fázis 9 — SEO szabályok + verifikáció (PART 17, 18)
+- Sitemap audit: nincs `/kereses?q=…` URL benne; mood oldalak csak ha curated + 10+ HU epizód + egyedi meta. Robots noindex a generikus search result oldalakra.
+- Verifikációs riport: a PART 18 minden pontja számokkal.
 
-**Updated**: `editorial-people-seed-matcher` — when creating/updating people, set `identity_status='ambiguous'` if another person with same normalized_name exists.
+## Mit kérek tőled (priorizálás)
+A teljes 9 fázis sok loop. Két kérdés:
 
-## 4. Targeted cleanup script (one-off via `pi-dump-process` style admin endpoint, or SQL via `supabase--insert`)
+1) Mehet-e ebben a sorrendben (1 → 9), és minden fázis külön loopban?
+2) Van-e fázis amit ki akarsz hagyni vagy előrébb hozni (pl. Mood vektoros recsi (5) fontosabb-e most, mint Ask Podiverzum upgrade (6))?
 
-- **Lakatos Péter split**: classify each mention by token presence in episode title+summary+podcast title:
-  - Cluster A (business): videoton, üzlet, gazdaság, ipar, vállalat, menedzsment, befektetés, cég
-  - Cluster B (sport): sport, táplálkozás, edzés, egészség, teljesítmény, életmód, étrend, mozgás
-  - Else: needs_review
-  - Create `lakatos-peter-videoton-holding` (label "Üzletember, Videoton Holding") and `lakatos-peter-sport-taplalkozas` (label "Sport és táplálkozás"). Move mentions accordingly. Mark original as `identity_status='split_resolved'`, hide from hub.
-
-- **Pólus Enikő FP**: reject mentions whose episode text contains "kántorné", "ibolya", or "többpólusú" / "pólus" without "enikő".
-
-- **Frei Tamás FP**: reject mentions where episode title/summary contains "freiburg" or "mire való az iskola" without "frei tamás" full match.
-
-- **Bochkor Gábor**: recompute one_show_host; expected → hidden from hub.
-
-All cleanup applied only to HU-accepted podcasts (`is_hungarian=true AND language_decision='accept_hungarian'`).
-
-## 5. UI redesign
-
-**New** `src/components/PersonCard.tsx` — single reusable card:
-- `PersonAvatar` (existing, unchanged — already uses brand gradient HSL tokens, no black/red inconsistency. Confirm + tidy if needed).
-- Name + optional `disambiguation_label` subtitle.
-- Meta row: `N epizód · M műsor` + `Friss` badge if `latest_accepted_relevant_episode_at >= now()-30d`.
-- Optional context line derived from top topics aggregated from accepted mentions.
-
-**Rewrite** `src/pages/PeopleHubPage.tsx`:
-- Hero + search (kept).
-- Sections (in order):
-  1. **Mostanában említve** — accepted relevant episode in last 30d, ordered by `latest_accepted_relevant_episode_at desc`, limit 12.
-  2. **Több műsorban szerepel** — `distinct_podcast_count >= 2 AND strong_mention_count >= 2`, ordered by `people_hub_score desc`, limit 18.
-  3. **Kiemelt beszélgetések szereplői** — top `people_hub_score` overall (no public "editorial" label), limit 24, dedup with section 2.
-- Removed: "Legtöbb epizódban".
-- Filtering: `is_browsable_in_people_hub=true` (unchanged).
-- Responsive: mobile single column, tablet 2 col, desktop 3 col, generous spacing.
-
-**Update** `src/pages/PersonDetailPage.tsx`:
-- Show `disambiguation_label` as subtitle under H1 if present.
-- Episode query filters to `relevance_status='accepted' OR final_relevance_score>=0.75 OR validation_source='manual'`, fallback for legacy (`mention_type IN ('host','guest','subject') AND confidence>=0.80`).
-- Continue using `PersonAvatar` (already consistent).
-
-## 6. Verification
-
-After migrations + cleanup + AI judge sample run, query DB for:
-- old vs new browsable count
-- Bochkor Gábor hub status
-- one-show-host hidden count
-- Lakatos Péter cluster sizes
-- Friss badge count + 20 examples
-- AI judge totals (accepted/rejected/needs_review) + spend
-- Pólus Enikő / Frei Tamás false-positive removal counts
-- confirm no public surface reads editorial_priority / manually_seeded / editorial_notes
-
-## Scope guardrails
-
-- No topic group sections.
-- No public host carousel.
-- No exposure of editorial internals.
-- No changes to ranking/search/AI pipelines unrelated to person relevance.
-- HU-only filter preserved everywhere.
-
-## Risks / notes
-
-- AI judge will not finish judging all backlog in one run — drain loop processes a batch, leaves rest pending. Page rules already gate display on accepted/score/manual + legacy fallback so UX stays intact.
-- Lakatos split is heuristic; episodes that match neither cluster go to `needs_review` and remain on the original (now hidden) record until reviewed.
-- New `people_hub_score` columns are derived — `refresh_people_hub_score()` must be re-run after relevance changes. Will be invoked at end of cleanup and from people-hub-refresh fn.
-
-Proceed?
+Ha igen-mehet-így, akkor most a **Fázis 1**-et viszem végig (search v13 default + HU guard + Miért releváns + hero copy), és a végén jelentek számokkal. A többi fázist a következő loopokban.

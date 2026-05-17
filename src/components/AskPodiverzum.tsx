@@ -90,11 +90,11 @@ export function AskPodiverzum() {
         </div>
 
         <h2 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-bold tracking-tight max-w-3xl leading-tight">
-          Kérdezz a <span className="text-brand-gradient">saját szavaiddal.</span>
+          Keress <span className="text-brand-gradient">gondolat, téma, személy</span> vagy kérdés alapján — nem csak műsorcímre.
         </h2>
 
         <p className="mt-2 sm:mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-          Írd le, mire vagy kíváncsi. A Podiverzum nem a címekben, hanem a tartalomban keres — jelentés, kontextus és téma alapján.
+          A Podiverzum nem csak címekben keres. Az epizódok jelentése, témái és összefüggései alapján is találatokat ad — érti, miről szólnak az epizódok.
         </p>
         <p className="mt-1 text-xs sm:text-sm text-muted-foreground/80 max-w-2xl">
           A találatok megmondják, miért kerültek elő.

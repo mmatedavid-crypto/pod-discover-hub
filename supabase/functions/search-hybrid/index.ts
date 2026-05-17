@@ -324,9 +324,18 @@ Deno.serve(async (req) => {
     const lang = body.lang === null ? null : (typeof body.lang === "string" ? body.lang : "hu");
     const wantRerank = body.rerank !== false;
 
-    // Engine version flags. Default v12 (no chunk augmentation; episode_chunks not yet shipped).
-    const engineRaw = String(body.engine || "v12").toLowerCase();
-    const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 12; })();
+    // Engine version flags. Default comes from app_settings.search_engine when caller
+    // does not pin it explicitly. quality_guard re-runs with fallback engine if v13 returns 0.
+    const supaPre = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    let engineCfg: any = { default_engine: "v13", fallback_engine: "v12", chunk_aug_enabled: false, quality_guard_enabled: true };
+    try {
+      const { data: cfgRow } = await supaPre.from("app_settings").select("value").eq("key", "search_engine").maybeSingle();
+      if (cfgRow?.value && typeof cfgRow.value === "object") engineCfg = { ...engineCfg, ...cfgRow.value };
+    } catch (_) { /* keep defaults */ }
+    const engineRaw = String(body.engine || engineCfg.default_engine || "v13").toLowerCase();
+    const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 13; })();
+    // Chunk-aug is a soft flag; v13 only uses it when both engN>=13 AND config allows.
+    const chunkAugAllowed = engN >= 13 && !!engineCfg.chunk_aug_enabled;
     const FF = {
       threePassMust: engN >= 9,
       mmrDiversity: engN >= 9,
@@ -337,12 +346,12 @@ Deno.serve(async (req) => {
       bigramMust: engN >= 12,
       hyde: engN >= 12,
       cohere: engN >= 12,
-      chunkAugment: engN >= 13,
+      chunkAugment: chunkAugAllowed,
     };
 
     if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const supa = supaPre;
     const t0 = Date.now();
     let qNorm = normalizeQ(q);
 
