@@ -32,7 +32,7 @@ export default function AboutPage() {
         </p>
         <p>
           Nem tárolunk hanganyagot. Nem helyettesítjük a podcastlejátszókat. Nyilvános podcastokat
-          indexelünk, és segítünk megtalálni az epizódokat a tényleges tartalmuk alapján — emberekről,
+          indexelünk, és segítünk megtalálni az epizódokat a tényleges tartalmuk alapján — személyekről,
           cégekről, piacokról, technológiákról, ötletekről, helyekről, egészségről,
           kulturális trendekről és sok másról.
         </p>
@@ -53,7 +53,7 @@ export default function AboutPage() {
         <p>Ezt a hiányt pótolja a Podiverzum.</p>
         <p>
           A podcasteket a webhez hasonlóan kezeljük: egy kereshető és rangsorolt indexet építünk
-          epizódokból, műsorokból, témákból, emberekből, cégekből és ötletekből.
+          epizódokból, műsorokból, témákból, személyekből, cégekből és ötletekből.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Mit csinálunk</h2>
@@ -61,7 +61,7 @@ export default function AboutPage() {
           <li>Folyamatosan indexelünk több ezer nyilvános magyar podcastot.</li>
           <li>
             Mesterséges intelligencia segítségével feltárjuk, miről szólnak valójában a podcast epizódok —
-            emberek, cégek, részvények, technológiák, helyek, témák és gondolatok mentén.
+            személyek, cégek, részvények, technológiák, helyek, témák és gondolatok mentén.
           </li>
           <li>
             A podcastokat és epizódokat frissesség, relevancia, minőség és a forrás
