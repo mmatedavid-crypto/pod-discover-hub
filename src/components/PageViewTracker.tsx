@@ -85,6 +85,9 @@ export default function PageViewTracker() {
     lastLogged.current = key;
     enterTime.current = Date.now();
 
+    const eventId = (crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    currentEventId.current = eventId;
+
     (async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -92,27 +95,23 @@ export default function PageViewTracker() {
         const params = new URLSearchParams(location.search);
         const utm = (k: string) => params.get(k) || null;
         const { browser, os, isBot } = parseUA(navigator.userAgent);
-        const { data: inserted } = await supabase
-          .from("page_events")
-          .insert({
-            path,
-            full_url: window.location.href,
-            referrer: document.referrer || null,
-            viewport_width: window.innerWidth,
-            user_id: uid,
-            utm_source: utm("utm_source"),
-            utm_medium: utm("utm_medium"),
-            utm_campaign: utm("utm_campaign"),
-            utm_term: utm("utm_term"),
-            utm_content: utm("utm_content"),
-            session_id: getSessionId(),
-            ua_browser: browser,
-            ua_os: os,
-            is_bot: isBot,
-          })
-          .select("id")
-          .single();
-        if (inserted?.id) currentEventId.current = inserted.id as string;
+        await supabase.from("page_events").insert({
+          id: eventId,
+          path,
+          full_url: window.location.href,
+          referrer: document.referrer || null,
+          viewport_width: window.innerWidth,
+          user_id: uid,
+          utm_source: utm("utm_source"),
+          utm_medium: utm("utm_medium"),
+          utm_campaign: utm("utm_campaign"),
+          utm_term: utm("utm_term"),
+          utm_content: utm("utm_content"),
+          session_id: getSessionId(),
+          ua_browser: browser,
+          ua_os: os,
+          is_bot: isBot,
+        });
       } catch {
         /* swallow — analytics must never break the app */
       }
