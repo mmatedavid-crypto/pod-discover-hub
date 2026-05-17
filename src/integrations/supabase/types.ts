@@ -1064,8 +1064,10 @@ export type Database = {
       people: {
         Row: {
           ai_bio: string | null
+          ai_bio_confidence: number
           ai_bio_generated_at: string | null
           ai_bio_model: string | null
+          ai_bio_sources: Json
           ai_bio_status: string
           confidence: number
           created_at: string
@@ -1078,6 +1080,7 @@ export type Database = {
           image_license_url: string | null
           image_original_url: string | null
           image_source: string | null
+          image_status: string
           image_storage_path: string | null
           image_url: string | null
           is_indexable: boolean
@@ -1085,18 +1088,29 @@ export type Database = {
           latest_episode_at: string | null
           name: string
           normalized_name: string
+          overview_generated_at: string | null
+          overview_sources: Json
+          overview_text: string | null
           podcast_count: number
           short_bio: string | null
           slug: string
+          strong_mention_count: number
           updated_at: string
           wikidata_id: string | null
+          wikipedia_description: string | null
+          wikipedia_extract: string | null
+          wikipedia_match_confidence: number
+          wikipedia_match_evidence: Json
+          wikipedia_match_status: string
           wikipedia_title: string | null
           wikipedia_url: string | null
         }
         Insert: {
           ai_bio?: string | null
+          ai_bio_confidence?: number
           ai_bio_generated_at?: string | null
           ai_bio_model?: string | null
+          ai_bio_sources?: Json
           ai_bio_status?: string
           confidence?: number
           created_at?: string
@@ -1109,6 +1123,7 @@ export type Database = {
           image_license_url?: string | null
           image_original_url?: string | null
           image_source?: string | null
+          image_status?: string
           image_storage_path?: string | null
           image_url?: string | null
           is_indexable?: boolean
@@ -1116,18 +1131,29 @@ export type Database = {
           latest_episode_at?: string | null
           name: string
           normalized_name: string
+          overview_generated_at?: string | null
+          overview_sources?: Json
+          overview_text?: string | null
           podcast_count?: number
           short_bio?: string | null
           slug: string
+          strong_mention_count?: number
           updated_at?: string
           wikidata_id?: string | null
+          wikipedia_description?: string | null
+          wikipedia_extract?: string | null
+          wikipedia_match_confidence?: number
+          wikipedia_match_evidence?: Json
+          wikipedia_match_status?: string
           wikipedia_title?: string | null
           wikipedia_url?: string | null
         }
         Update: {
           ai_bio?: string | null
+          ai_bio_confidence?: number
           ai_bio_generated_at?: string | null
           ai_bio_model?: string | null
+          ai_bio_sources?: Json
           ai_bio_status?: string
           confidence?: number
           created_at?: string
@@ -1140,6 +1166,7 @@ export type Database = {
           image_license_url?: string | null
           image_original_url?: string | null
           image_source?: string | null
+          image_status?: string
           image_storage_path?: string | null
           image_url?: string | null
           is_indexable?: boolean
@@ -1147,11 +1174,20 @@ export type Database = {
           latest_episode_at?: string | null
           name?: string
           normalized_name?: string
+          overview_generated_at?: string | null
+          overview_sources?: Json
+          overview_text?: string | null
           podcast_count?: number
           short_bio?: string | null
           slug?: string
+          strong_mention_count?: number
           updated_at?: string
           wikidata_id?: string | null
+          wikipedia_description?: string | null
+          wikipedia_extract?: string | null
+          wikipedia_match_confidence?: number
+          wikipedia_match_evidence?: Json
+          wikipedia_match_status?: string
           wikipedia_title?: string | null
           wikipedia_url?: string | null
         }
@@ -1194,6 +1230,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      person_enrichment_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          input_snapshot: Json
+          job_type: string
+          output_snapshot: Json
+          person_id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          input_snapshot?: Json
+          job_type: string
+          output_snapshot?: Json
+          person_id: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          input_snapshot?: Json
+          job_type?: string
+          output_snapshot?: Json
+          person_id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
       }
       person_episode_mentions: {
         Row: {
