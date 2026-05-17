@@ -7,14 +7,12 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import NotFoundState from "@/components/NotFoundState";
 import { compareByScore } from "@/lib/episodeRank";
+import PersonAvatar from "@/components/PersonAvatar";
 
 interface Person {
   id: string; name: string; slug: string;
   ai_bio: string | null; short_bio: string | null;
   overview_text: string | null;
-  image_url: string | null; image_attribution: string | null;
-  image_author: string | null; image_license: string | null; image_license_url: string | null;
-  image_original_url: string | null; image_status: string | null;
   wikipedia_url: string | null; wikipedia_title: string | null;
   wikipedia_match_status: string | null;
   episode_count: number; podcast_count: number;
@@ -22,13 +20,8 @@ interface Person {
   latest_episode_at: string | null;
 }
 
-function Initials({ name, size = 112 }: { name: string; size?: number }) {
-  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join("");
-  return (
-    <div style={{ width: size, height: size }} className="rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-border flex items-center justify-center text-3xl font-semibold text-foreground/80 shrink-0">
-      {initials || "?"}
-    </div>
-  );
+function huFallbackBio(name: string): string {
+  return `${name} magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók.`;
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {

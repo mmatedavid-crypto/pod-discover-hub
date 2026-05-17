@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
+import PersonAvatar from "@/components/PersonAvatar";
 
 interface PersonLite {
   id: string;
@@ -11,16 +12,6 @@ interface PersonLite {
   episode_count: number;
   podcast_count: number;
   latest_episode_at: string | null;
-  image_url: string | null;
-}
-
-function Initials({ name }: { name: string }) {
-  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join("");
-  return (
-    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-border flex items-center justify-center text-sm font-semibold text-foreground/80">
-      {initials || "?"}
-    </div>
-  );
 }
 
 export default function PeopleHubPage() {
@@ -31,18 +22,30 @@ export default function PeopleHubPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: all } = await supabase
+      const baseCols = "id, slug, name, episode_count, podcast_count, latest_episode_at";
+      // Browsable hub only — single-podcast/weak people may remain indexable but are hidden from the hub.
+      const baseQuery = supabase
         .from("people")
-        .select("id, slug, name, episode_count, podcast_count, latest_episode_at, image_url")
+        .select(baseCols)
         .eq("is_public", true)
+        .eq("is_browsable_in_people_hub", true)
+        .in("activation_status", ["indexable", "public_noindex", "manual_approved"])
+        .neq("ai_review_status", "needs_human_review")
+        .neq("ai_review_status", "duplicate_candidate");
+
+      const { data: all } = await baseQuery
         .order("episode_count", { ascending: false })
         .limit(200);
       setPeople((all || []) as any);
 
       const { data: tr } = await supabase
         .from("people")
-        .select("id, slug, name, episode_count, podcast_count, latest_episode_at, image_url")
+        .select(baseCols)
         .eq("is_public", true)
+        .eq("is_browsable_in_people_hub", true)
+        .in("activation_status", ["indexable", "public_noindex", "manual_approved"])
+        .neq("ai_review_status", "needs_human_review")
+        .neq("ai_review_status", "duplicate_candidate")
         .not("latest_episode_at", "is", null)
         .order("latest_episode_at", { ascending: false })
         .limit(12);
@@ -111,9 +114,7 @@ export default function PeopleHubPage() {
 function PersonRow({ p }: { p: PersonLite }) {
   return (
     <Link to={`/szemelyek/${p.slug}`} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card/70 hover:border-primary/40 transition-colors">
-      {p.image_url ? (
-        <img src={p.image_url} alt={p.name} width={48} height={48} loading="lazy" className="h-12 w-12 rounded-full object-cover border border-border" />
-      ) : <Initials name={p.name} />}
+      <PersonAvatar name={p.name} size="md" />
       <div className="min-w-0">
         <div className="font-medium truncate">{p.name}</div>
         <div className="text-xs text-muted-foreground">{p.episode_count} epizód · {p.podcast_count} műsor</div>
