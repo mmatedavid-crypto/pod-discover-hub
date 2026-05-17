@@ -1,55 +1,67 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
-import PersonAvatar from "@/components/PersonAvatar";
+import PersonCard, { PersonCardData } from "@/components/PersonCard";
 
-interface PersonLite {
+interface PersonRow extends PersonCardData {
   id: string;
-  slug: string;
-  name: string;
-  episode_count: number;
-  podcast_count: number;
-  latest_episode_at: string | null;
+  people_hub_score: number;
+  distinct_podcast_count: number;
+  strong_mention_count: number;
+  recent_relevant_episode_count_30d: number;
 }
 
+const BASE_COLS = "id, slug, name, disambiguation_label, episode_count, podcast_count, distinct_podcast_count, strong_mention_count, recent_relevant_episode_count_30d, latest_accepted_relevant_episode_at, people_hub_score";
+
+const baseFilter = () =>
+  supabase
+    .from("people")
+    .select(BASE_COLS)
+    .eq("is_public", true)
+    .eq("is_browsable_in_people_hub", true)
+    .in("activation_status", ["indexable", "public_noindex", "manual_approved"])
+    .neq("ai_review_status", "needs_human_review")
+    .neq("ai_review_status", "duplicate_candidate");
+
 export default function PeopleHubPage() {
-  const [people, setPeople] = useState<PersonLite[]>([]);
-  const [trending, setTrending] = useState<PersonLite[]>([]);
+  const [recent, setRecent] = useState<PersonRow[]>([]);
+  const [crossPodcast, setCrossPodcast] = useState<PersonRow[]>([]);
+  const [featured, setFeatured] = useState<PersonRow[]>([]);
+  const [searchPool, setSearchPool] = useState<PersonRow[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const baseCols = "id, slug, name, episode_count, podcast_count, latest_episode_at";
-      // Browsable hub only — single-podcast/weak people may remain indexable but are hidden from the hub.
-      const baseQuery = supabase
-        .from("people")
-        .select(baseCols)
-        .eq("is_public", true)
-        .eq("is_browsable_in_people_hub", true)
-        .in("activation_status", ["indexable", "public_noindex", "manual_approved"])
-        .neq("ai_review_status", "needs_human_review")
-        .neq("ai_review_status", "duplicate_candidate");
-
-      const { data: all } = await baseQuery
-        .order("episode_count", { ascending: false })
-        .limit(200);
-      setPeople((all || []) as any);
-
-      const { data: tr } = await supabase
-        .from("people")
-        .select(baseCols)
-        .eq("is_public", true)
-        .eq("is_browsable_in_people_hub", true)
-        .in("activation_status", ["indexable", "public_noindex", "manual_approved"])
-        .neq("ai_review_status", "needs_human_review")
-        .neq("ai_review_status", "duplicate_candidate")
-        .not("latest_episode_at", "is", null)
-        .order("latest_episode_at", { ascending: false })
+      // Section 1: recently mentioned (last 30d)
+      const { data: recentData } = await baseFilter()
+        .gt("recent_relevant_episode_count_30d", 0)
+        .order("latest_accepted_relevant_episode_at", { ascending: false })
         .limit(12);
-      setTrending((tr || []) as any);
+
+      // Section 2: cross-podcast relevance
+      const { data: crossData } = await baseFilter()
+        .gte("distinct_podcast_count", 2)
+        .gte("strong_mention_count", 2)
+        .order("people_hub_score", { ascending: false })
+        .limit(18);
+
+      // Section 3: featured conversations (top score)
+      const { data: featuredData } = await baseFilter()
+        .order("people_hub_score", { ascending: false })
+        .limit(36);
+
+      // Search pool
+      const { data: poolData } = await baseFilter()
+        .order("people_hub_score", { ascending: false })
+        .limit(300);
+
+      setRecent((recentData || []) as any);
+      setCrossPodcast((crossData || []) as any);
+      const crossIds = new Set((crossData || []).map((p: any) => p.id));
+      setFeatured(((featuredData || []) as any[]).filter(p => !crossIds.has(p.id)).slice(0, 24));
+      setSearchPool((poolData || []) as any);
       setLoading(false);
 
       setSeo({
@@ -66,15 +78,15 @@ export default function PeopleHubPage() {
   }, []);
 
   const filtered = q.trim().length >= 2
-    ? people.filter(p => p.name.toLowerCase().includes(q.toLowerCase().trim()))
-    : people;
+    ? searchPool.filter(p => p.name.toLowerCase().includes(q.toLowerCase().trim()))
+    : null;
 
   return (
     <Layout>
       <section className="border-b border-border bg-background">
-        <div className="container mx-auto py-10 sm:py-14 max-w-5xl">
+        <div className="container mx-auto py-10 sm:py-14 max-w-5xl px-4">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személyek</div>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2">Személyek magyar podcastokban</h1>
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">Személyek magyar podcastokban</h1>
           <p className="text-foreground/80 mt-4 max-w-2xl">
             Fedezz fel embereket, akik magyar podcastokban szerepelnek vagy szóba kerülnek. Politikusok, üzleti vezetők, alkotók, kutatók.
           </p>
@@ -87,38 +99,55 @@ export default function PeopleHubPage() {
         </div>
       </section>
 
-      <div className="container mx-auto py-10 max-w-5xl space-y-10">
-        {trending.length > 0 && (
+      <div className="container mx-auto py-10 max-w-5xl px-4 space-y-12">
+        {loading && <div className="text-muted-foreground">Betöltés…</div>}
+
+        {filtered ? (
           <section>
-            <h2 className="text-xl font-semibold mb-3">Mostanában említve</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {trending.map(p => <PersonRow key={p.id} p={p} />)}
-            </div>
+            <h2 className="text-xl font-semibold mb-4">Találatok</h2>
+            {filtered.length === 0 ? (
+              <div className="text-muted-foreground text-sm">Nincs találat.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filtered.slice(0, 60).map(p => <PersonCard key={p.id} p={p} />)}
+              </div>
+            )}
           </section>
+        ) : (
+          <>
+            {recent.length > 0 && (
+              <section>
+                <h2 className="text-xl sm:text-2xl font-semibold mb-4">Mostanában említve</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {recent.map(p => <PersonCard key={p.id} p={p} />)}
+                </div>
+              </section>
+            )}
+
+            {crossPodcast.length > 0 && (
+              <section>
+                <h2 className="text-xl sm:text-2xl font-semibold mb-4">Több műsorban szerepel</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {crossPodcast.map(p => <PersonCard key={p.id} p={p} />)}
+                </div>
+              </section>
+            )}
+
+            {featured.length > 0 && (
+              <section>
+                <h2 className="text-xl sm:text-2xl font-semibold mb-4">Kiemelt beszélgetések szereplői</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {featured.map(p => <PersonCard key={p.id} p={p} />)}
+                </div>
+              </section>
+            )}
+
+            {!loading && recent.length === 0 && crossPodcast.length === 0 && featured.length === 0 && (
+              <div className="text-muted-foreground text-sm">Még nincs elérhető személy.</div>
+            )}
+          </>
         )}
-        <section>
-          <h2 className="text-xl font-semibold mb-3">Legtöbb epizódban</h2>
-          {loading && <div className="text-muted-foreground">Betöltés…</div>}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filtered.slice(0, 60).map(p => <PersonRow key={p.id} p={p} />)}
-          </div>
-          {!loading && filtered.length === 0 && (
-            <div className="text-muted-foreground text-sm">Nincs találat.</div>
-          )}
-        </section>
       </div>
     </Layout>
-  );
-}
-
-function PersonRow({ p }: { p: PersonLite }) {
-  return (
-    <Link to={`/szemelyek/${p.slug}`} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card/70 hover:border-primary/40 transition-colors">
-      <PersonAvatar name={p.name} size="md" />
-      <div className="min-w-0">
-        <div className="font-medium truncate">{p.name}</div>
-        <div className="text-xs text-muted-foreground">{p.episode_count} epizód · {p.podcast_count} műsor</div>
-      </div>
-    </Link>
   );
 }

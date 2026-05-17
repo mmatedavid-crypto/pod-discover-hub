@@ -18,6 +18,8 @@ interface Person {
   episode_count: number; podcast_count: number;
   is_indexable: boolean;
   latest_episode_at: string | null;
+  disambiguation_label: string | null;
+  disambiguation_context: string | null;
 }
 
 function huFallbackBio(name: string): string {
@@ -49,31 +51,39 @@ export default function PersonDetailPage() {
       setLoading(true);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status")
+        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
       const blocked = !pp || !pp.is_public || pp.activation_status === "inactive"
         || ["hide","reject"].includes(pp.ai_recommended_action || "")
-        || ["needs_human_review","duplicate_candidate"].includes(pp.ai_review_status || "");
+        || ["needs_human_review","duplicate_candidate"].includes(pp.ai_review_status || "")
+        || ["split_resolved"].includes(pp.identity_status || "");
       if (blocked) { setNotFound(true); setLoading(false); return; }
       setPerson(p as any);
 
       const { data: mentions } = await supabase
         .from("person_episode_mentions")
-        .select("episode_id, podcast_id, mention_type, confidence, episodes!inner(id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
+        .select("episode_id, podcast_id, mention_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
         .eq("person_id", (p as any).id)
         .eq("episodes.podcasts.is_hungarian", true)
         .eq("episodes.podcasts.language_decision", "accept_hungarian")
-        .limit(300);
+        .limit(500);
 
       const epList: any[] = [];
       const podMap = new Map<string, any>();
       (mentions || []).forEach((m: any) => {
-        if (m.episodes) {
-          epList.push({ ...m.episodes, mention_type: m.mention_type });
-          if (m.episodes.podcasts) podMap.set(m.episodes.podcast_id, m.episodes.podcasts);
-        }
+        if (!m.episodes) return;
+        const accepted = m.relevance_status === "accepted";
+        const strongAi = Number(m.final_relevance_score || 0) >= 0.75;
+        const manual = m.validation_source === "manual";
+        const legacyOk = (!m.relevance_status || m.relevance_status === "pending")
+          && ["host","guest","subject"].includes(m.mention_type)
+          && Number(m.confidence || 0) >= 0.80;
+        if (m.relevance_status === "rejected" || m.relevance_status === "needs_review") return;
+        if (!(accepted || strongAi || manual || legacyOk)) return;
+        epList.push({ ...m.episodes, mention_type: m.mention_type });
+        if (m.episodes.podcasts) podMap.set(m.episodes.podcast_id, m.episodes.podcasts);
       });
       setEps(epList.sort(compareByScore) as any);
 
@@ -183,6 +193,9 @@ export default function PersonDetailPage() {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személy</div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{person.name}</h1>
+              {person.disambiguation_label && (
+                <div className="text-sm text-muted-foreground mt-1">{person.disambiguation_label}</div>
+              )}
               {bioText && (
                 <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{bioText}</p>
               )}

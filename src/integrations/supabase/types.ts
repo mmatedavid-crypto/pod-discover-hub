@@ -1172,8 +1172,11 @@ export type Database = {
           ai_review_summary: string | null
           ai_reviewed_at: string | null
           browsable_reason: string | null
+          canonical_identity_key: string | null
           confidence: number
           created_at: string
+          disambiguation_context: string | null
+          disambiguation_label: string | null
           distinct_podcast_count: number
           editorial_notes: string | null
           editorial_priority: boolean
@@ -1182,6 +1185,8 @@ export type Database = {
           guest_count: number
           host_count: number
           id: string
+          identity_confidence: number
+          identity_status: string
           image_attribution: string | null
           image_author: string | null
           image_checked_at: string | null
@@ -1195,6 +1200,7 @@ export type Database = {
           is_browsable_in_people_hub: boolean
           is_indexable: boolean
           is_public: boolean
+          latest_accepted_relevant_episode_at: string | null
           latest_episode_at: string | null
           manual_approval_status: string
           manual_approved: boolean
@@ -1202,10 +1208,13 @@ export type Database = {
           mentioned_count: number
           name: string
           normalized_name: string
+          one_show_host: boolean
           overview_generated_at: string | null
           overview_sources: Json
           overview_text: string | null
+          people_hub_score: number
           podcast_count: number
+          recent_relevant_episode_count_30d: number
           short_bio: string | null
           slug: string
           strong_mention_count: number
@@ -1243,8 +1252,11 @@ export type Database = {
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
           browsable_reason?: string | null
+          canonical_identity_key?: string | null
           confidence?: number
           created_at?: string
+          disambiguation_context?: string | null
+          disambiguation_label?: string | null
           distinct_podcast_count?: number
           editorial_notes?: string | null
           editorial_priority?: boolean
@@ -1253,6 +1265,8 @@ export type Database = {
           guest_count?: number
           host_count?: number
           id?: string
+          identity_confidence?: number
+          identity_status?: string
           image_attribution?: string | null
           image_author?: string | null
           image_checked_at?: string | null
@@ -1266,6 +1280,7 @@ export type Database = {
           is_browsable_in_people_hub?: boolean
           is_indexable?: boolean
           is_public?: boolean
+          latest_accepted_relevant_episode_at?: string | null
           latest_episode_at?: string | null
           manual_approval_status?: string
           manual_approved?: boolean
@@ -1273,10 +1288,13 @@ export type Database = {
           mentioned_count?: number
           name: string
           normalized_name: string
+          one_show_host?: boolean
           overview_generated_at?: string | null
           overview_sources?: Json
           overview_text?: string | null
+          people_hub_score?: number
           podcast_count?: number
+          recent_relevant_episode_count_30d?: number
           short_bio?: string | null
           slug: string
           strong_mention_count?: number
@@ -1314,8 +1332,11 @@ export type Database = {
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
           browsable_reason?: string | null
+          canonical_identity_key?: string | null
           confidence?: number
           created_at?: string
+          disambiguation_context?: string | null
+          disambiguation_label?: string | null
           distinct_podcast_count?: number
           editorial_notes?: string | null
           editorial_priority?: boolean
@@ -1324,6 +1345,8 @@ export type Database = {
           guest_count?: number
           host_count?: number
           id?: string
+          identity_confidence?: number
+          identity_status?: string
           image_attribution?: string | null
           image_author?: string | null
           image_checked_at?: string | null
@@ -1337,6 +1360,7 @@ export type Database = {
           is_browsable_in_people_hub?: boolean
           is_indexable?: boolean
           is_public?: boolean
+          latest_accepted_relevant_episode_at?: string | null
           latest_episode_at?: string | null
           manual_approval_status?: string
           manual_approved?: boolean
@@ -1344,10 +1368,13 @@ export type Database = {
           mentioned_count?: number
           name?: string
           normalized_name?: string
+          one_show_host?: boolean
           overview_generated_at?: string | null
           overview_sources?: Json
           overview_text?: string | null
+          people_hub_score?: number
           podcast_count?: number
+          recent_relevant_episode_count_30d?: number
           short_bio?: string | null
           slug?: string
           strong_mention_count?: number
@@ -1549,37 +1576,61 @@ export type Database = {
       }
       person_episode_mentions: {
         Row: {
+          ai_evidence_phrases: string[]
+          ai_identity_match: string | null
+          ai_judged_at: string | null
+          ai_model: string | null
+          ai_reason: string | null
           confidence: number
           created_at: string
           episode_id: string
           evidence: string | null
+          final_relevance_score: number | null
           id: string
           mention_type: string
           person_id: string
           podcast_id: string
+          relevance_status: string
           source: string | null
+          validation_source: string | null
         }
         Insert: {
+          ai_evidence_phrases?: string[]
+          ai_identity_match?: string | null
+          ai_judged_at?: string | null
+          ai_model?: string | null
+          ai_reason?: string | null
           confidence?: number
           created_at?: string
           episode_id: string
           evidence?: string | null
+          final_relevance_score?: number | null
           id?: string
           mention_type?: string
           person_id: string
           podcast_id: string
+          relevance_status?: string
           source?: string | null
+          validation_source?: string | null
         }
         Update: {
+          ai_evidence_phrases?: string[]
+          ai_identity_match?: string | null
+          ai_judged_at?: string | null
+          ai_model?: string | null
+          ai_reason?: string | null
           confidence?: number
           created_at?: string
           episode_id?: string
           evidence?: string | null
+          final_relevance_score?: number | null
           id?: string
           mention_type?: string
           person_id?: string
           podcast_id?: string
+          relevance_status?: string
           source?: string | null
+          validation_source?: string | null
         }
         Relationships: [
           {
@@ -3470,6 +3521,7 @@ export type Database = {
         Returns: Json
       }
       refresh_homepage_feed: { Args: never; Returns: undefined }
+      refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
