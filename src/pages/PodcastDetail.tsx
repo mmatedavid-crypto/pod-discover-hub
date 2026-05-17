@@ -133,7 +133,7 @@ export default function PodcastDetail() {
           const companies = topEntitiesFrom(epsLite, "companies", "company", 8);
           const topics = topEntitiesFrom(epsLite, "topics", "topic", 8);
           const all = [
-            people.length ? { eyebrow: "Emberek", title: "Az adásokban emlegetett emberek", items: people, icon: "person" as const } : null,
+            people.length ? { eyebrow: "Emberek", title: "Az adásokban említett emberek", items: people, icon: "person" as const } : null,
             companies.length ? { eyebrow: "Cégek", title: "Visszatérő cégek és márkák", items: companies, icon: "company" as const } : null,
             topics.length ? { eyebrow: "Témák", title: "Visszatérő témák", items: topics, icon: "topic" as const } : null,
           ].filter(Boolean) as Array<{ eyebrow: string; title: string; items: any[]; icon: "person" | "company" | "topic" }>;
