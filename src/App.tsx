@@ -104,6 +104,8 @@ const App = () => (
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/feltetelek" element={<TermsPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/hangulatok/:slug" element={<MoodCollectionPage />} />
+          <Route path="/moods/:slug" element={<MoodCollectionPage />} />
           <Route path="/hangulat/:slug" element={<MoodCollectionPage />} />
           <Route path="/mood/:slug" element={<MoodCollectionPage />} />
           
