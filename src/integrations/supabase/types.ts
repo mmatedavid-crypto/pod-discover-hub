@@ -1063,15 +1063,33 @@ export type Database = {
       }
       people: {
         Row: {
+          activated_at: string | null
+          activation_reason: string | null
+          activation_status: string
           ai_bio: string | null
           ai_bio_confidence: number
           ai_bio_generated_at: string | null
           ai_bio_model: string | null
           ai_bio_sources: Json
           ai_bio_status: string
+          ai_duplicate_of_person_id: string | null
+          ai_recommended_action: string | null
+          ai_recommended_canonical_name: string | null
+          ai_recommended_slug: string | null
+          ai_review_confidence: number | null
+          ai_review_flags: string[]
+          ai_review_model: string | null
+          ai_review_score: number | null
+          ai_review_sources: Json
+          ai_review_status: string
+          ai_review_summary: string | null
+          ai_reviewed_at: string | null
           confidence: number
           created_at: string
+          distinct_podcast_count: number
           episode_count: number
+          guest_count: number
+          host_count: number
           id: string
           image_attribution: string | null
           image_author: string | null
@@ -1086,6 +1104,8 @@ export type Database = {
           is_indexable: boolean
           is_public: boolean
           latest_episode_at: string | null
+          manual_approved: boolean
+          mentioned_count: number
           name: string
           normalized_name: string
           overview_generated_at: string | null
@@ -1095,6 +1115,7 @@ export type Database = {
           short_bio: string | null
           slug: string
           strong_mention_count: number
+          subject_count: number
           updated_at: string
           wikidata_id: string | null
           wikipedia_description: string | null
@@ -1106,15 +1127,33 @@ export type Database = {
           wikipedia_url: string | null
         }
         Insert: {
+          activated_at?: string | null
+          activation_reason?: string | null
+          activation_status?: string
           ai_bio?: string | null
           ai_bio_confidence?: number
           ai_bio_generated_at?: string | null
           ai_bio_model?: string | null
           ai_bio_sources?: Json
           ai_bio_status?: string
+          ai_duplicate_of_person_id?: string | null
+          ai_recommended_action?: string | null
+          ai_recommended_canonical_name?: string | null
+          ai_recommended_slug?: string | null
+          ai_review_confidence?: number | null
+          ai_review_flags?: string[]
+          ai_review_model?: string | null
+          ai_review_score?: number | null
+          ai_review_sources?: Json
+          ai_review_status?: string
+          ai_review_summary?: string | null
+          ai_reviewed_at?: string | null
           confidence?: number
           created_at?: string
+          distinct_podcast_count?: number
           episode_count?: number
+          guest_count?: number
+          host_count?: number
           id?: string
           image_attribution?: string | null
           image_author?: string | null
@@ -1129,6 +1168,8 @@ export type Database = {
           is_indexable?: boolean
           is_public?: boolean
           latest_episode_at?: string | null
+          manual_approved?: boolean
+          mentioned_count?: number
           name: string
           normalized_name: string
           overview_generated_at?: string | null
@@ -1138,6 +1179,7 @@ export type Database = {
           short_bio?: string | null
           slug: string
           strong_mention_count?: number
+          subject_count?: number
           updated_at?: string
           wikidata_id?: string | null
           wikipedia_description?: string | null
@@ -1149,15 +1191,33 @@ export type Database = {
           wikipedia_url?: string | null
         }
         Update: {
+          activated_at?: string | null
+          activation_reason?: string | null
+          activation_status?: string
           ai_bio?: string | null
           ai_bio_confidence?: number
           ai_bio_generated_at?: string | null
           ai_bio_model?: string | null
           ai_bio_sources?: Json
           ai_bio_status?: string
+          ai_duplicate_of_person_id?: string | null
+          ai_recommended_action?: string | null
+          ai_recommended_canonical_name?: string | null
+          ai_recommended_slug?: string | null
+          ai_review_confidence?: number | null
+          ai_review_flags?: string[]
+          ai_review_model?: string | null
+          ai_review_score?: number | null
+          ai_review_sources?: Json
+          ai_review_status?: string
+          ai_review_summary?: string | null
+          ai_reviewed_at?: string | null
           confidence?: number
           created_at?: string
+          distinct_podcast_count?: number
           episode_count?: number
+          guest_count?: number
+          host_count?: number
           id?: string
           image_attribution?: string | null
           image_author?: string | null
@@ -1172,6 +1232,8 @@ export type Database = {
           is_indexable?: boolean
           is_public?: boolean
           latest_episode_at?: string | null
+          manual_approved?: boolean
+          mentioned_count?: number
           name?: string
           normalized_name?: string
           overview_generated_at?: string | null
@@ -1181,6 +1243,7 @@ export type Database = {
           short_bio?: string | null
           slug?: string
           strong_mention_count?: number
+          subject_count?: number
           updated_at?: string
           wikidata_id?: string | null
           wikipedia_description?: string | null
@@ -1192,6 +1255,77 @@ export type Database = {
           wikipedia_url?: string | null
         }
         Relationships: []
+      }
+      person_ai_review_jobs: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          input_snapshot: Json
+          output_snapshot: Json
+          person_id: string
+          priority: number
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          input_snapshot?: Json
+          output_snapshot?: Json
+          person_id: string
+          priority?: number
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          input_snapshot?: Json
+          output_snapshot?: Json
+          person_id?: string
+          priority?: number
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       person_aliases: {
         Row: {
@@ -1227,6 +1361,27 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1334,6 +1489,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "person_episode_mentions_podcast_id_fkey"
             columns: ["podcast_id"]
             isOneToOne: false
@@ -1393,6 +1569,27 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
             referencedColumns: ["id"]
           },
           {
@@ -2699,6 +2896,160 @@ export type Database = {
         }
         Relationships: []
       }
+      person_activation_status_view: {
+        Row: {
+          activation_reason: string | null
+          activation_status: string | null
+          ai_recommended_action: string | null
+          ai_review_status: string | null
+          confidence: number | null
+          distinct_podcast_count: number | null
+          episode_count: number | null
+          guest_count: number | null
+          host_count: number | null
+          id: string | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          latest_episode_at: string | null
+          mentioned_count: number | null
+          name: string | null
+          slug: string | null
+          strong_mention_count: number | null
+          subject_count: number | null
+          wikipedia_match_status: string | null
+        }
+        Insert: {
+          activation_reason?: string | null
+          activation_status?: string | null
+          ai_recommended_action?: string | null
+          ai_review_status?: string | null
+          confidence?: number | null
+          distinct_podcast_count?: number | null
+          episode_count?: number | null
+          guest_count?: number | null
+          host_count?: number | null
+          id?: string | null
+          is_indexable?: boolean | null
+          is_public?: boolean | null
+          latest_episode_at?: string | null
+          mentioned_count?: number | null
+          name?: string | null
+          slug?: string | null
+          strong_mention_count?: number | null
+          subject_count?: number | null
+          wikipedia_match_status?: string | null
+        }
+        Update: {
+          activation_reason?: string | null
+          activation_status?: string | null
+          ai_recommended_action?: string | null
+          ai_review_status?: string | null
+          confidence?: number | null
+          distinct_podcast_count?: number | null
+          episode_count?: number | null
+          guest_count?: number | null
+          host_count?: number | null
+          id?: string | null
+          is_indexable?: boolean | null
+          is_public?: boolean | null
+          latest_episode_at?: string | null
+          mentioned_count?: number | null
+          name?: string | null
+          slug?: string | null
+          strong_mention_count?: number | null
+          subject_count?: number | null
+          wikipedia_match_status?: string | null
+        }
+        Relationships: []
+      }
+      person_ai_action_queue_view: {
+        Row: {
+          activation_status: string | null
+          ai_recommended_action: string | null
+          ai_review_confidence: number | null
+          ai_review_flags: string[] | null
+          ai_review_status: string | null
+          ai_review_summary: string | null
+          distinct_podcast_count: number | null
+          episode_count: number | null
+          id: string | null
+          name: string | null
+          slug: string | null
+          strong_mention_count: number | null
+        }
+        Insert: {
+          activation_status?: string | null
+          ai_recommended_action?: string | null
+          ai_review_confidence?: number | null
+          ai_review_flags?: string[] | null
+          ai_review_status?: string | null
+          ai_review_summary?: string | null
+          distinct_podcast_count?: number | null
+          episode_count?: number | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+          strong_mention_count?: number | null
+        }
+        Update: {
+          activation_status?: string | null
+          ai_recommended_action?: string | null
+          ai_review_confidence?: number | null
+          ai_review_flags?: string[] | null
+          ai_review_status?: string | null
+          ai_review_summary?: string | null
+          distinct_podcast_count?: number | null
+          episode_count?: number | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+          strong_mention_count?: number | null
+        }
+        Relationships: []
+      }
+      person_ai_duplicate_candidates_view: {
+        Row: {
+          ai_duplicate_of_person_id: string | null
+          ai_review_confidence: number | null
+          ai_review_summary: string | null
+          id: string | null
+          name: string | null
+          slug: string | null
+        }
+        Insert: {
+          ai_duplicate_of_person_id?: string | null
+          ai_review_confidence?: number | null
+          ai_review_summary?: string | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+        }
+        Update: {
+          ai_duplicate_of_person_id?: string | null
+          ai_review_confidence?: number | null
+          ai_review_summary?: string | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+        }
+        Relationships: []
+      }
+      person_ai_review_summary_view: {
+        Row: {
+          duplicate_candidates: number | null
+          needs_human_review: number | null
+          pending: number | null
+          recommended_hide: number | null
+          recommended_keep_indexable: number | null
+          recommended_merge: number | null
+          recommended_needs_review: number | null
+          recommended_noindex: number | null
+          recommended_reject: number | null
+          reviewed: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       claim_ai_jobs: {
@@ -2867,6 +3218,7 @@ export type Database = {
         Returns: Json
       }
       refresh_homepage_feed: { Args: never; Returns: undefined }
+      refresh_person_activation_status: { Args: never; Returns: Json }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
