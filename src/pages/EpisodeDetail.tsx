@@ -250,21 +250,7 @@ export default function EpisodeDetail() {
           {ENT_KINDS.map(({ kind, label }) => <EntList key={kind} kind={kind} label={label} />)}
         </div>
 
-        {related.length > 0 && (
-          <section className="mt-10">
-            <h2 className="font-semibold mb-3">Kapcsolódó epizódok</h2>
-            <EpisodeList items={related} />
-          </section>
-        )}
-
         <SimilarEpisodes episodeId={e.id} />
-
-        {related.length > 0 && (
-          <section className="mt-10">
-            <h2 className="font-semibold mb-3">Kapcsolódó epizódok</h2>
-            <EpisodeList items={related} />
-          </section>
-        )}
 
         {moreFromPod.length > 0 && (
           <section className="mt-10">

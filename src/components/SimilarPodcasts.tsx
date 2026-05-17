@@ -3,16 +3,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { PodcastCard, PodcastLite } from "./PodcastCard";
 import { Sparkles } from "lucide-react";
 
-type Row = PodcastLite & { similarity: number };
+type Row = PodcastLite & {
+  similarity: number;
+  final_score: number;
+  episode_count: number | null;
+  latest_episode_at: string | null;
+};
 
-export function SimilarPodcasts({ podcastId, limit = 6 }: { podcastId: string; limit?: number }) {
+const MIN_RESULTS = 3;
+
+export function SimilarPodcasts({ podcastId, limit = 8 }: { podcastId: string; limit?: number }) {
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     supabase
-      .rpc("similar_podcasts" as any, { p_podcast_id: podcastId, p_limit: limit })
+      .rpc("get_similar_podcasts_by_embedding" as any, { p_podcast_id: podcastId, p_limit: limit })
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error || !Array.isArray(data)) setItems([]);
@@ -22,14 +29,14 @@ export function SimilarPodcasts({ podcastId, limit = 6 }: { podcastId: string; l
     return () => { cancelled = true; };
   }, [podcastId, limit]);
 
-  if (loading || items.length === 0) return null;
+  if (loading || items.length < MIN_RESULTS) return null;
   return (
     <section className="mt-12">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-1">
         <Sparkles className="h-4 w-4 text-primary" />
         <h2 className="font-semibold">Hasonló podcastok</h2>
-        <span className="text-[11px] text-muted-foreground">MI-alapú ajánlás</span>
       </div>
+      <p className="text-xs text-muted-foreground mb-3">Hasonló témájú magyar podcastok.</p>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {items.map((p) => <PodcastCard key={p.id} p={p} />)}
       </div>
