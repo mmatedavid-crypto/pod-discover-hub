@@ -34,7 +34,7 @@ export default function MoodsPage() {
     const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
     return (
       <Link
-        to={`/hangulat/${m.slug}`}
+        to={`/hangulatok/${m.slug}`}
         className="group relative overflow-hidden rounded-xl border border-border/70 hover:border-primary/40 p-4 transition-colors"
         style={{ background: `linear-gradient(135deg, ${accent}1a, transparent 60%), hsl(var(--card) / 0.7)` }}
       >
