@@ -20,7 +20,7 @@ import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
-  { kind: "person", label: "Emberek" },
+  { kind: "person", label: "Személyek" },
   { kind: "company", label: "Cégek" },
   { kind: "ticker", label: "Részvények" },
   { kind: "ingredient", label: "Hozzávalók" },

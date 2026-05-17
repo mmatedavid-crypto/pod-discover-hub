@@ -122,7 +122,7 @@ export default function PeopleHubPage() {
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személyek</div>
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">Személyek magyar podcastokban</h1>
           <p className="text-foreground/80 mt-4 max-w-2xl">
-            Fedezz fel embereket, akik magyar podcastokban szerepelnek vagy szóba kerülnek. Politikusok, üzleti vezetők, alkotók, kutatók.
+            Fedezz fel személyeket, akik magyar podcastokban szerepelnek vagy szóba kerülnek. Politikusok, üzleti vezetők, alkotók, kutatók.
           </p>
           <input
             value={q}
