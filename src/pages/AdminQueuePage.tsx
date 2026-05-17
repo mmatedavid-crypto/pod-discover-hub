@@ -48,7 +48,7 @@ export default function AdminQueuePage() {
     setLangBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("ai-language-verifier-queue", {
-        body: { limit: 300, min_rank: 4, concurrency: 8 },
+        body: { limit: 500, min_rank: 4, concurrency: 18 },
       });
       if (error) throw error;
       toast.success(`AI lang: scanned ${data.scanned} · rejected ${data.rejected_foreign} · kept HU ${data.kept_hu} · uncertain ${data.review} · errors ${data.errors}`);
