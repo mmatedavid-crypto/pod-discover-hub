@@ -139,6 +139,7 @@ export default function AdminHubPage() {
       title: "Quality & Safety",
       tools: [
         { to: "/admin/language-gate", title: "Language Gate", desc: "Foreign podcast audit, review queue, cleanup.", icon: Shield, badge: "new", badgeTone: "warn" },
+        { to: "/admin/vector-search", title: "Vector Search & Moods", desc: "Mood diagnostics, recommendation test, personalized card preview.", icon: Sparkles, badge: "new", badgeTone: "warn" },
         { to: "/admin/hosts", title: "Hosts", desc: "Host management and verification.", icon: Users },
       ],
     },
