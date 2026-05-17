@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
     if (explicitIds.length > 0) {
       q = q.in("id", explicitIds);
     } else {
-      q = q.eq("is_hungarian", true).eq("rss_status", "active");
+      q = q.eq("is_hungarian", true).eq("language_decision", "accept_hungarian").eq("rss_status", "active");
       if (!force) q = q.is("pi_backfill_completed_at", null);
       // Tier szűrés: S/A automata, B/C csak admin-jóváhagyott
       // Egy lekérdezésben: rank_label IN (S,A) OR (rank_label IN (B,C) AND pi_backfill_approved=true)
