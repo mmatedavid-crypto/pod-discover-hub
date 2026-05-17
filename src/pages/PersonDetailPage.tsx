@@ -193,6 +193,9 @@ export default function PersonDetailPage() {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személy</div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{person.name}</h1>
+              {person.disambiguation_label && (
+                <div className="text-sm text-muted-foreground mt-1">{person.disambiguation_label}</div>
+              )}
               {bioText && (
                 <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{bioText}</p>
               )}
