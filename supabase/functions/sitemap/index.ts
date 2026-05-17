@@ -172,11 +172,12 @@ async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: eps, error } = await supabase
       .from("episodes")
-      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status,language)")
+      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status,language,language_decision,is_hungarian)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
-      // EN-only: hide non-English podcasts' episodes from sitemap.
-      .or("is_hungarian.eq.true", { referencedTable: "podcasts" })
+      // Canonical HU gate on parent podcast.
+      .eq("podcasts.is_hungarian", true)
+      .eq("podcasts.language_decision", "accept_hungarian")
       .order("published_at", { ascending: true })
       .range(from, from + CHUNK - 1);
     if (error) throw error;
