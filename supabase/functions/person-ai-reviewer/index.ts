@@ -344,9 +344,18 @@ async function selectCandidates(admin: any, limit: number): Promise<string[]> {
   }
 
   if (ids.length < limit) {
-    // 3. people with possible duplicates (same normalized_name)
-    const { data: dups } = await admin.rpc("find_duplicate_person_ids", { _limit: limit }).maybeSingle?.() ?? { data: null };
-    add(dups as any);
+    // 3. people sharing normalized_name with another row (possible duplicates)
+    const { data: nameGroups } = await admin
+      .from("people").select("normalized_name").eq("is_public", true).limit(2000);
+    const counts = new Map<string, number>();
+    (nameGroups || []).forEach((r: any) => counts.set(r.normalized_name, (counts.get(r.normalized_name) || 0) + 1));
+    const dupNames = [...counts.entries()].filter(([, n]) => n >= 2).map(([k]) => k).slice(0, 50);
+    if (dupNames.length > 0) {
+      const { data: dupRows } = await admin.from("people").select("id, episode_count")
+        .in("normalized_name", dupNames).eq("ai_review_status", "pending")
+        .order("episode_count", { ascending: false }).limit(limit);
+      add(dupRows);
+    }
   }
 
   if (ids.length < limit) {
