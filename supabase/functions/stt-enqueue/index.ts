@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const { data: pods } = await admin
       .from("podcasts")
       .select("id, shadow_rank_tier")
-      .ilike("language", "hu%")
+      .eq("is_hungarian", true)
       .in("shadow_rank_tier", tiers)
       .eq("rss_status", "active")
       .limit(2000);

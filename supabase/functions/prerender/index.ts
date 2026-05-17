@@ -352,7 +352,7 @@ async function buildCategory(
     .from("podcasts")
     .select("title, display_title, slug, summary, image_url")
     .eq("category", cat.name)
-    .or("language.ilike.hu%")
+    .or("is_hungarian.eq.true")
     .eq("rss_status", "active")
     .gte("podiverzum_rank", 3)
     .order("podiverzum_rank", { ascending: false })

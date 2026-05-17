@@ -14,7 +14,7 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
       .not("rss_status", "in", "(failed,inactive)")
       .not("rank_label", "eq", "E")
       // HU-only site: explicit hu language required (NULL is excluded to avoid leaking foreign feeds).
-      .ilike("language", "hu%")
+      .eq("is_hungarian", true)
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(limit)
       .then(({ data }) => setItems((data || []) as any));

@@ -3,6 +3,7 @@
 // Caps per call: 100 staging rows scored, 5 auto-adds (subject to settings.max_auto_add_per_run).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { fetchOne } from "../_shared/fetch-one.ts";
+import { runHuIngestionGate, enqueueLanguageReview, logIngestionRejection } from "../_shared/hu-ingestion-gate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,6 +121,20 @@ Deno.serve(async (req) => {
           const { data: existing } = await supabase.from("podcasts").select("id").eq("rss_url", r.rss_url).maybeSingle();
           if (existing) { updates.decision = "rejected"; updates.reject_reason = "already imported"; counters.skipped_duplicates++; }
           else if (score >= minRankImport && autoAddedThisRun < maxAutoAdd) {
+            // HU language gate — block foreign before any insert / hydration.
+            const gate = runHuIngestionGate({
+              title: r.title, description: r.description, rss_language: r.language,
+              rss_url: r.rss_url, website_url: r.website_url,
+            });
+            if (gate.result.language_decision === "reject_foreign") {
+              await logIngestionRejection(supabase, { title: r.title, rss_url: r.rss_url }, gate.result, "pi-dump-process");
+              updates.decision = "rejected";
+              updates.reject_reason = `hu_gate:${gate.result.rejection_reason || gate.result.detected_language}`;
+              counters.rejected++;
+              // skip to next row
+              await supabase.from("pi_feed_staging").update({ ...updates, processed: true, processed_at: new Date().toISOString(), process_attempts: (r.process_attempts || 0) + 1 }).eq("id", r.id);
+              continue;
+            }
             // Insert podcast + hydrate RSS
             const slugBase = slugify(r.title || "podcast");
             let slug = slugBase;
@@ -136,18 +151,18 @@ Deno.serve(async (req) => {
               rss_url: r.rss_url,
               website_url: r.website_url,
               image_url: r.image_url,
-              // Don't fake HU. If feed didn't declare a language, leave NULL —
-              // RSS fetch / AI language guard will set it. NULL keeps the podcast
-              // off HU public surfaces until language is verified.
               language: r.language || (aiLang && aiLang !== "mul" ? aiLang : null),
               source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
               podiverzum_rank: score,
               rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
-              // Mark for deferred deep hydration — handled by deep-hydrate-runner.
               deep_hydration_status: "not_started",
               deep_hydration_target: score >= 8 ? 100 : score >= 6 ? 75 : 40,
+              ...gate.fields,
             }).select("id").maybeSingle();
+            if (inserted && gate.result.language_decision === "review_uncertain") {
+              await enqueueLanguageReview(supabase, { id: inserted.id, title: r.title, rss_url: r.rss_url, website_url: r.website_url }, gate.result);
+            }
 
             if (insErr || !inserted) {
               updates.decision = "failed";

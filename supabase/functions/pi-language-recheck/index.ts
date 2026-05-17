@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     const { data: rows, error } = await supabase
       .from("podcasts")
       .select("id,title,description,language,rank_label,pi_backfill_dry_run")
-      .ilike("language", "hu%")
+      .eq("is_hungarian", true)
       .in("rank_label", tiers)
       .not("pi_backfill_peeked_at", "is", null)
       .is("pi_backfill_completed_at", null)
