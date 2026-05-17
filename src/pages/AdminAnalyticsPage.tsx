@@ -17,6 +17,11 @@ type Row = {
   utm_campaign: string | null;
   utm_term: string | null;
   utm_content: string | null;
+  session_id: string | null;
+  dwell_ms: number | null;
+  ua_browser: string | null;
+  ua_os: string | null;
+  is_bot: boolean | null;
 };
 
 function classifyRoute(path: string): string {
@@ -53,7 +58,7 @@ export default function AdminAnalyticsPage() {
         const since = new Date(Date.now() - windowDays * 86400_000).toISOString();
         const { data: r } = await supabase
           .from("page_events")
-          .select("id,path,full_url,referrer,viewport_width,user_id,created_at,utm_source,utm_medium,utm_campaign,utm_term,utm_content")
+          .select("id,path,full_url,referrer,viewport_width,user_id,created_at,utm_source,utm_medium,utm_campaign,utm_term,utm_content,session_id,dwell_ms,ua_browser,ua_os,is_bot")
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(10000);
@@ -126,7 +131,30 @@ export default function AdminAnalyticsPage() {
     const utmCombos = Array.from(comboMap.entries()).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n).slice(0, 20);
     const utmTagged = rows.filter((r) => r.utm_source || r.utm_medium || r.utm_campaign).length;
 
-    return { total, unique, mobile, routes, topPaths, refs, days, utmSources, utmCampaigns, utmCombos, utmTagged };
+    // Audience
+    const humans = rows.filter((r) => !r.is_bot);
+    const bots = rows.filter((r) => r.is_bot);
+    const tallyField = (key: keyof Row, source: Row[] = humans) => {
+      const m = new Map<string, number>();
+      source.forEach((r) => {
+        const v = (r[key] as string | null) || null;
+        if (!v) return;
+        m.set(v, (m.get(v) || 0) + 1);
+      });
+      return Array.from(m.entries()).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n);
+    };
+    const browsers = tallyField("ua_browser");
+    const oses = tallyField("ua_os");
+    const dwells = humans.map((r) => r.dwell_ms || 0).filter((d) => d > 0);
+    const avgDwellSec = dwells.length ? Math.round(dwells.reduce((a, b) => a + b, 0) / dwells.length / 1000) : 0;
+    const medianDwellSec = dwells.length ? Math.round(dwells.sort((a, b) => a - b)[Math.floor(dwells.length / 2)] / 1000) : 0;
+    const sessions = new Map<string, number>();
+    humans.forEach((r) => { if (r.session_id) sessions.set(r.session_id, (sessions.get(r.session_id) || 0) + 1); });
+    const sessionCount = sessions.size;
+    const avgPagesPerSession = sessionCount ? +(humans.filter(r => r.session_id).length / sessionCount).toFixed(2) : 0;
+    const botShare = pct(bots.length, total);
+
+    return { total, unique, mobile, routes, topPaths, refs, days, utmSources, utmCampaigns, utmCombos, utmTagged, browsers, oses, avgDwellSec, medianDwellSec, sessionCount, avgPagesPerSession, botShare, botCount: bots.length };
   }, [rows]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -157,7 +185,16 @@ export default function AdminAnalyticsPage() {
           <Stat label="Approx. unique visitors" value={stats.unique.toLocaleString()} />
           <Stat label="Mobile views" value={`${stats.mobile} (${pct(stats.mobile, stats.total)}%)`} />
           <Stat label="Days with data" value={stats.days.length.toString()} />
+          <Stat label="Sessions" value={stats.sessionCount.toLocaleString()} />
+          <Stat label="Pages / session (avg)" value={String(stats.avgPagesPerSession)} />
+          <Stat label="Avg dwell" value={`${stats.avgDwellSec}s (median ${stats.medianDwellSec}s)`} />
+          <Stat label="Bot traffic" value={`${stats.botCount} (${stats.botShare}%)`} />
         </div>
+
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <UtmTable title="Browser (humans)" rows={stats.browsers} />
+          <UtmTable title="Operating system (humans)" rows={stats.oses} />
+        </section>
 
         <section>
           <h2 className="font-semibold mb-2">Daily trend</h2>

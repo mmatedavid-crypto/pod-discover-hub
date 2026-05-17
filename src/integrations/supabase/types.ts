@@ -1148,10 +1148,15 @@ export type Database = {
       page_events: {
         Row: {
           created_at: string
+          dwell_ms: number | null
           full_url: string | null
           id: string
+          is_bot: boolean | null
           path: string
           referrer: string | null
+          session_id: string | null
+          ua_browser: string | null
+          ua_os: string | null
           user_id: string | null
           utm_campaign: string | null
           utm_content: string | null
@@ -1162,10 +1167,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dwell_ms?: number | null
           full_url?: string | null
           id?: string
+          is_bot?: boolean | null
           path: string
           referrer?: string | null
+          session_id?: string | null
+          ua_browser?: string | null
+          ua_os?: string | null
           user_id?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
@@ -1176,10 +1186,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dwell_ms?: number | null
           full_url?: string | null
           id?: string
+          is_bot?: boolean | null
           path?: string
           referrer?: string | null
+          session_id?: string | null
+          ua_browser?: string | null
+          ua_os?: string | null
           user_id?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
@@ -3869,6 +3884,10 @@ export type Database = {
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }
+      update_page_event_dwell: {
+        Args: { _dwell_ms: number; _id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"
