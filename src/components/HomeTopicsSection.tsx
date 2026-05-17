@@ -49,13 +49,15 @@ export function HomeTopicsSection() {
           </Link>
         </div>
 
-        {/* Numbered topic grid */}
+        {/* Numbered topic grid — 8 on mobile, 12 on larger screens */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden border border-border">
           {PRIORITY.map((t, i) => (
             <Link
               key={t.slug}
               to={`/temak/${t.slug}`}
-              className="group relative flex items-center justify-between gap-3 bg-card px-4 py-4 hover:bg-secondary transition-colors"
+              className={`group relative flex items-center justify-between gap-3 bg-card px-4 py-3 sm:py-4 hover:bg-secondary transition-colors ${
+                i >= 8 ? "hidden sm:flex" : ""
+              }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-[11px] tabular-nums text-muted-foreground group-hover:text-primary font-mono w-6 shrink-0">
@@ -66,7 +68,6 @@ export function HomeTopicsSection() {
                 </span>
               </div>
               <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
-              {/* Left brand bar on hover */}
               <span
                 aria-hidden
                 className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary scale-y-0 group-hover:scale-y-100 transition-transform origin-top"

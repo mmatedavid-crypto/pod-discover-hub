@@ -366,11 +366,10 @@ const Index = () => {
             .filter((c: any) => c.slug !== "trending" && itemsForCat(c).length > 0)
             .sort((a: any, b: any) => itemsForCat(b).length - itemsForCat(a).length)
             .slice(0, 3);
-          return populated.map((c: any, idx: number) => {
+          return populated.map((c: any) => {
             const items = itemsForCat(c);
-            const tinted = idx % 2 === 1;
             return (
-              <section key={c.id} className={tinted ? "rounded-2xl bg-card/40 border border-border/60 p-5 sm:p-6" : ""}>
+              <section key={c.id}>
                 <div className="flex items-end justify-between mb-1">
                   <h2 className="text-xl sm:text-2xl font-semibold">{c.name}</h2>
                   <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
@@ -394,7 +393,7 @@ const Index = () => {
         </div>
 
         {evergreenEps.length > 0 && (
-          <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
+          <section className="sm:rounded-2xl sm:border sm:border-primary/20 sm:bg-gradient-to-br sm:from-primary/5 sm:via-card/40 sm:to-card/40 sm:p-6">
             <div className="flex items-end justify-between mb-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
@@ -404,7 +403,7 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Régebbi, de ma is releváns epizódok a legjobb műsorokból.</p>
               </div>
             </div>
-            <EpisodeList items={evergreenEps} />
+            <EpisodeList items={evergreenEps} scrollOnMobile />
           </section>
         )}
 
