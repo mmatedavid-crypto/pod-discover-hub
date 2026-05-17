@@ -18,9 +18,9 @@ export default function MoodsPage() {
 
   useEffect(() => {
     setSeo({
-      title: "Hangulatok — válogatott podcast-gyűjtemények | Podiverzum",
+      title: "Hallgatási helyzetek — magyar podcast ajánlók | Podiverzum",
       description:
-        "Tematikus podcast-epizódgyűjtemények hangulat, formátum és hallgatási helyzet szerint.",
+        "Válassz hangulatot, napszakot vagy helyzetet, és fedezz fel hozzá illő magyar podcast epizódokat.",
     });
     supabase
       .from("mood_collections" as any)
