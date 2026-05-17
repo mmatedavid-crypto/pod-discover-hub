@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { fetchOne } from "../_shared/fetch-one.ts";
 import { slugify as slugifyShared } from "../_shared/slug.ts";
+import { runHuIngestionGate, enqueueLanguageReview, logIngestionRejection } from "../_shared/hu-ingestion-gate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
