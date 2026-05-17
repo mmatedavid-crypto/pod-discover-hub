@@ -207,7 +207,25 @@ export default function AdminArchiveBackfillPage() {
             <Button onClick={runDry} disabled={busy}>Run dry audit</Button>
             <Button onClick={runBatch} disabled={busy || controls.enabled === false} variant="default">Run backfill batch</Button>
             <Button onClick={togglePause} variant="outline">{controls.enabled === false ? "Resume" : "Pause"}</Button>
+            <Button onClick={() => saveControls({ cron_enabled: !(controls.cron_enabled !== false) })} variant="outline">
+              {controls.cron_enabled === false ? "Enable cron" : "Pause cron"}
+            </Button>
           </div>
+        </section>
+
+        <section className="rounded-lg border border-border bg-card p-4 space-y-2">
+          <h2 className="font-semibold">Automation</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+            <Stat label="Cron" v={controls.cron_enabled === false ? "off" : "on"} tone={controls.cron_enabled === false ? "warn" : "default"} small />
+            <Stat label="Schedule" v="37 */6 * * *" small />
+            <Stat label="Active tiers" v={(controls.tier_filter || []).join("/")} small />
+            <Stat label="✓ scheduled runs" v={controls.successful_scheduled_run_count ?? 0} />
+            <Stat label="B-tier auto" v={(controls.successful_scheduled_run_count ?? 0) >= (controls.expand_to_b_tier_after_successful_runs ?? 3) ? "yes" : "no"} small />
+            <Stat label="AI backlog cap" v={controls.pause_if_enrichment_backlog_above ?? "—"} small />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Cron: <code>podiverzum-hu-deep-archive-6h</code> (jobid 28). After {controls.expand_to_b_tier_after_successful_runs ?? 3} successful runs, B-tier is added automatically. Skips when AI backlog &gt; {controls.pause_if_enrichment_backlog_above ?? 50000}, embedding backlog &gt; {controls.pause_if_embedding_backlog_above ?? 50000}, or recent error rate &gt; {Math.round((controls.pause_if_error_rate_above ?? 0.2) * 100)}%.
+          </p>
         </section>
 
         {lastRun && (
