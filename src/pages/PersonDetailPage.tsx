@@ -203,10 +203,10 @@ export default function PersonDetailPage() {
                 <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-3 inline-block">Wikipedia: {person.wikipedia_title} →</a>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5 max-w-xl">
-                <StatCard label="Indexelt epizódok" value={person.episode_count || eps.length} />
+                <StatCard label="Indexelt epizódok" value={eps.length} />
                 <StatCard label="Elmúlt 30 nap" value={last30} />
-                <StatCard label="Podcastok" value={person.podcast_count || pods.length} />
-                <StatCard label="Legutóbbi említés" value={person.latest_episode_at ? new Date(person.latest_episode_at).toLocaleDateString("hu-HU") : "—"} />
+                <StatCard label="Podcastok" value={new Set(eps.map((e: any) => e.podcast_id)).size} />
+                <StatCard label="Legutóbbi említés" value={eps[0]?.published_at ? new Date(eps[0].published_at).toLocaleDateString("hu-HU") : (person.latest_episode_at ? new Date(person.latest_episode_at).toLocaleDateString("hu-HU") : "—")} />
               </div>
             </div>
           </div>
