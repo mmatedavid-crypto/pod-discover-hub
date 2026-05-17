@@ -3654,6 +3654,14 @@ export type Database = {
         Args: { _older_than_minutes?: number }
         Returns: number
       }
+      recompute_mood_recommended_counts: {
+        Args: never
+        Returns: {
+          count: number
+          mood_slug: string
+          weak: boolean
+        }[]
+      }
       refresh_episodes_search_text_batch: {
         Args: { _limit?: number }
         Returns: Json

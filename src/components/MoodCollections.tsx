@@ -84,7 +84,7 @@ export function MoodCollections() {
           return (
             <Link
               key={c.slug}
-              to={c.href || `/hangulat/${c.slug}`}
+              to={c.href || `/hangulatok/${c.slug}`}
               className="group relative overflow-hidden rounded-xl border border-border/70 bg-card/70 p-4 hover:border-primary/40 transition-colors"
             >
               <div className="flex items-start justify-between">

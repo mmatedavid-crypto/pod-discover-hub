@@ -2,15 +2,25 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { setSeo } from "@/lib/seo";
+import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, Sparkles } from "lucide-react";
+
+const SITE = "https://podiverzum.hu";
+
+type RelatedMood = {
+  slug: string;
+  title: string;
+  short_description: string | null;
+  accent_hsl: string | null;
+};
 
 export default function MoodCollectionPage() {
   const { slug } = useParams();
   const [mood, setMood] = useState<any>(null);
   const [episodes, setEpisodes] = useState<EpisodeLite[]>([]);
+  const [related, setRelated] = useState<RelatedMood[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,20 +38,35 @@ export default function MoodCollectionPage() {
         setLoading(false);
         return;
       }
-      // Mood detail pages are noindex by default until is_indexable=true is set per mood.
+      const canonical = `${SITE}/hangulatok/${(m as any).slug}`;
       setSeo({
         title: `${(m as any).title} — hallgatási helyzet | Podiverzum`,
         description:
           (m as any).short_description ||
           (m as any).description ||
           `Magyar podcast epizódok ehhez a hallgatási helyzethez: ${(m as any).title}.`,
+        canonical,
         noindex: !(m as any).is_indexable,
+        jsonLd: breadcrumbJsonLd([
+          { name: "Podiverzum", url: SITE },
+          { name: "Hallgatási helyzetek", url: `${SITE}/hangulatok` },
+          { name: (m as any).title, url: canonical },
+        ]),
       });
 
-      const { data: recs } = await supabase.rpc("get_mood_episode_recommendations", {
-        p_mood_slug: slug,
-        p_limit: 18,
-      });
+      const [{ data: recs }, { data: rel }] = await Promise.all([
+        supabase.rpc("get_mood_episode_recommendations", {
+          p_mood_slug: slug,
+          p_limit: 18,
+        }),
+        supabase
+          .from("mood_collections" as any)
+          .select("slug,title,short_description,accent_hsl,sort_order")
+          .eq("active", true)
+          .neq("slug", slug)
+          .order("sort_order")
+          .limit(6),
+      ]);
 
       const mapped: EpisodeLite[] = ((recs as any[]) || []).map((r) => ({
         id: r.episode_id,
@@ -65,6 +90,7 @@ export default function MoodCollectionPage() {
         } as any,
       }));
       setEpisodes(mapped);
+      setRelated(((rel as any[]) || []) as RelatedMood[]);
       setLoading(false);
     })();
   }, [slug]);
@@ -84,16 +110,24 @@ export default function MoodCollectionPage() {
     );
 
   const accent = mood.accent_hsl ? `hsl(${mood.accent_hsl})` : "hsl(var(--primary))";
+  const subtitle =
+    mood.short_description || "Magyar podcast epizódok ehhez a hallgatási helyzethez.";
 
   return (
     <Layout>
       <div className="container mx-auto py-10 max-w-5xl">
-        <Link
-          to="/hangulatok"
-          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        {/* Breadcrumb */}
+        <nav
+          aria-label="Breadcrumb"
+          className="text-xs text-muted-foreground inline-flex items-center gap-1 flex-wrap"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Összes hallgatási helyzet
-        </Link>
+          <Link to="/" className="hover:text-foreground">Podiverzum</Link>
+          <ChevronRight className="h-3 w-3" />
+          <Link to="/hangulatok" className="hover:text-foreground">Hallgatási helyzetek</Link>
+          <ChevronRight className="h-3 w-3" />
+          <span className="text-foreground">{mood.title}</span>
+        </nav>
+
         <div
           className="mt-3 rounded-2xl border border-border bg-card/60 p-6 sm:p-8"
           style={{
@@ -114,7 +148,8 @@ export default function MoodCollectionPage() {
 
         {episodes.length > 0 ? (
           <section className="mt-10">
-            <h2 className="font-semibold mb-3">Ajánlott magyar epizódok</h2>
+            <h2 className="font-semibold text-lg">Ajánlott epizódok</h2>
+            <p className="text-xs text-muted-foreground mt-1 mb-4">{subtitle}</p>
             <EpisodeList items={episodes} />
           </section>
         ) : (
@@ -122,6 +157,45 @@ export default function MoodCollectionPage() {
             Egyelőre nincs erős találat ehhez a hallgatási helyzethez. Nézz vissza hamarosan.
           </div>
         )}
+
+        {related.length > 0 && (
+          <section className="mt-12">
+            <h2 className="font-semibold text-lg mb-3">További hallgatási helyzetek</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {related.map((r) => {
+                const a = r.accent_hsl ? `hsl(${r.accent_hsl})` : "hsl(var(--primary))";
+                return (
+                  <Link
+                    key={r.slug}
+                    to={`/hangulatok/${r.slug}`}
+                    className="group rounded-xl border border-border/70 hover:border-primary/40 p-4 transition-colors"
+                    style={{ background: `linear-gradient(135deg, ${a}1a, transparent 70%), hsl(var(--card) / 0.6)` }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <Sparkles className="h-4 w-4" style={{ color: a }} />
+                      <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <div className="mt-2 font-medium text-sm leading-tight">{r.title}</div>
+                    {r.short_description && (
+                      <div className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                        {r.short_description}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        <div className="mt-10">
+          <Link
+            to="/hangulatok"
+            className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Összes hallgatási helyzet
+          </Link>
+        </div>
       </div>
     </Layout>
   );

@@ -31,6 +31,7 @@ import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
 import AdminHostsPage from "./pages/AdminHostsPage.tsx";
 import AdminLanguageGatePage from "./pages/AdminLanguageGatePage.tsx";
 import AdminPersonQualityReviewPage from "./pages/AdminPersonQualityReviewPage.tsx";
+import AdminVectorSearchPage from "./pages/AdminVectorSearchPage.tsx";
 import PeopleHubPage from "./pages/PeopleHubPage.tsx";
 import PersonDetailPage from "./pages/PersonDetailPage.tsx";
 import TopicsHubPage from "./pages/TopicsHubPage.tsx";
@@ -89,6 +90,7 @@ const App = () => (
           <Route path="/admin/hosts" element={<AdminHostsPage />} />
           <Route path="/admin/language-gate" element={<AdminLanguageGatePage />} />
           <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
+          <Route path="/admin/vector-search" element={<AdminVectorSearchPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />
@@ -104,6 +106,8 @@ const App = () => (
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/feltetelek" element={<TermsPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/hangulatok/:slug" element={<MoodCollectionPage />} />
+          <Route path="/moods/:slug" element={<MoodCollectionPage />} />
           <Route path="/hangulat/:slug" element={<MoodCollectionPage />} />
           <Route path="/mood/:slug" element={<MoodCollectionPage />} />
           
