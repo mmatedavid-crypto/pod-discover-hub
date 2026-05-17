@@ -1,96 +1,160 @@
-## A jelenlegi állapot (HU korpusz, 830 podcast)
 
-`app_settings.formula_c_thresholds` jelenleg HU-kalibrált: **S≥6, A≥5, B≥4, C≥3, D≥2**. A `podiverzum_rank` viszont a HU korpuszon nem folytonos 0–10 skála, hanem csak **7 diszkrét egész érték (3,4,5,6,8,9,10)**, így a küszöbök gyakorlatilag egy 1‑az‑1 leképezést adnak:
+# People Editorial Quality Layer + HU Localization Fix
 
-| podiverzum_rank | rank_label | db | átlag epizód | aktív RSS | friss 30d | friss 180d |
-|---:|:---:|---:|---:|---:|---:|---:|
-| 10 | S | 186 | ~175 | 163 | 162 | 174 |
-| 9 | S | 7 | 45 | 7 | 6 | 7 |
-| 8 | S | 6 | 7 | 6 | 1 | 6 |
-| 6 | S | 117 | 68 | 115 | 96 | 106 |
-| 5 | A | 155 | 32 | 151 | 46 | 74 |
-| 4 | B | 326 | 9 | 313 | 79 | 130 |
-| 3 | C | 38 | 5 | 36 | 4 | 8 |
+15 részből álló terv. Sorrendben haladok, minden lépést egy commitba zárok és a végén jelentést adok.
 
-Aggregát:
-- **S: 281 (34%)**, A: 155 (19%), B: 326 (39%), C: 38 (5%), D/E: 0, null: 30
-- S+A = 436 podcast (53%) — ez az a halmaz, amit a főoldali MV-k, evergreen, sitemap, AI sprintek és a kereső ranking is „minőségi" jelzésként használ.
+---
 
-## Problémák
+## 1. DB migráció — `people` + új táblák
 
-1. **Inflált S-tier.** 281 podcast jelölése „S" devalválja a címkét. Külön gond, hogy a `podiverzum_rank=6` és `podiverzum_rank=8` is S-be esik, pedig a 8-asok közül csak 1/6 friss 30 napon belül — ezek valójában B/A jellegű shows-ok.
-2. **Felesleges A↔B ugrás csak +1 raw ponton.** A=5 → 32 átlagos epizód, frissességi ráta ~30%. B=4 → 9 epizód, ~24% friss. A különbség nem indokolja a kétszintű kategorizálást a jelenlegi corpusban.
-3. **C alig létezik (38 db) és D/E üres.** A ladder alsó fele nem dolgozik, miközben az adminban duplikálva van a B (326).
-4. **Nincs frissességi gate a tierbe.** Egy 5 éves S-szintű podcast ugyanúgy bekerül a homepage trending feedbe (csak az epizód-szintű 30 napos filter szűr, de a podcast tiering nem). Eredmény: dead-but-S shows előnyt élveznek a sitemapban és az AI prioritásokban.
-5. **Az S-tier a refresh intervalt is vezérli (S=30p).** 281 podcastot percenként polling-olunk az RSS-en — sok közöttük inaktív.
+**`people` új oszlopok** (admin-only, NEM exponáljuk publikusan):
+- `is_browsable_in_people_hub bool default false`
+- `browsable_reason text`
+- `editorial_priority bool default false`
+- `editorial_priority_level int default 0`
+- `editorial_notes text`
+- `manually_seeded bool default false`
+- `manual_approval_status text default 'none'` (enum-szerű: `none/approved_public/approved_indexable/approved_browsable/rejected/needs_review`)
 
-## Cél
+**Új tábla `editorial_people_seed`** (admin-only, RLS: csak admin SELECT/WRITE — nem public read):
+- id, name, canonical_name, slug, aliases[], context_hints[], priority_level, status, matched_person_id, notes, timestamps
 
-Olyan küszöbök, ahol a HU korpusban:
-- **S ≈ top 10–12%** (csak igazán friss, mély katalógusú, aktív RSS-szel rendelkező shows)
-- **A ≈ 15–20%** (rendszeresen aktív, közepes katalógus)
-- **B ≈ 30–35%** (működik, de ritka vagy szegényesebb)
-- **C/D ≈ a maradék** (alvó / kis volumen / nem fontos)
+**Új view `person_missing_content_review_view`** — admin only (security definer fn vagy RLS-zárolt).
 
-Ez kb. **S≤100, A≈140–160, B≈280–320, C+D≈170–250** célzott eloszlást ad.
+**Frissített RPC `refresh_person_activation_status()`** — kiszámolja az új `is_browsable_in_people_hub` + `browsable_reason` mezőket a megadott A/B/C/D szabályok szerint, kizárólag HU-elfogadott podcastok (is_hungarian=true AND language_decision='accept_hungarian') figyelembevételével.
 
-## Két lépcsős megoldás
+**`app_settings`** új kulcs `person_pages` = `{ images_enabled: false }`.
 
-### 1. lépcső — küszöbök szigorítása (azonnali, alacsony kockázatú)
+---
 
-Új `formula_c_thresholds` HU-ra: **S=8, A=5, B=4, C=3, D=2**.
+## 2. Editorial seed adatok
 
-Eredmény az aktuális rangokon:
-- S: 178+7+6 = **191** (rank≥8, 23%) — még mindig magas
-- A: **117** (rank=6, 14%)
-- (átsorolt) A: + rank=5 → ahhoz hogy A=5 maradjon, a B-t mozgatni kell
-- B: **326** (rank=4, 39%)
-- C: **38** (rank=3)
+`editorial_people_seed`-be betöltöm a 14 felsorolt nevet (Frei Tamás, Zsiday Viktor, Ruff Bálint, Sz. Bíró Zoltán, Balásy Zsolt, Lakatos Péter, Schiffer András, Schwab Richárd, Pólus Enikő, Mészáros Blanka, Szirmai Marcel (+ Pogány Induló alias), Hajdu Tibor, Trill Zsolt, Kasza Tibor (+ Kasza Tibi alias)) priority_level + context_hints + aliases mezőkkel.
 
-Ez önmagában csökkenti az S-t 34→23%-ra, és levesz egy refresh-load adag terhelést.
+---
 
-### 2. lépcső — frissességi gate az S/A-ra (cél: valódi „top tier")
+## 3. Új edge function `editorial-people-seed-matcher`
 
-A küszöb mellé egy másodlagos szűrő, ami csak a `rank_label` címkét húzza vissza, a `podiverzum_rank` raw értéket nem módosítja:
+Bemenet: opcionálisan seed slug. Default: minden `status='active'` seed.
 
-- **S marad** csak, ha (`rss_status='active'` ÉS friss 90 napon belül ÉS hydrated_episode_count ≥ 20). Egyébként → A.
-- **A marad** csak, ha friss 180 napon belül. Egyébként → B.
+Algoritmus seed-enként, HU-elfogadott korpuszon:
+1. Person név/normalized/alias keresés.
+2. Episode title/description/ai_summary ILIKE + context-token boost.
+3. Podcast title/description/host/guest match.
+4. Confidence score alias + context-token + co-occurring terms alapján.
+5. Disambiguáció: Lakatos Péter→Videoton kontextus required, Pólus Enikő→pszichológia, Szirmai Marcel↔Pogány Induló merge, Kasza Tibor↔Kasza Tibi alias.
 
-Becsült eredmény a fenti táblából (kb.):
-- S: 191 → ~150–160 (mert 180+ből ~170 friss 30d-n, és a 6 db rank=8 nagyrésze kiesik)
-- A: 117 + S→A átsoroltak ≈ 150
-- B: 326 + A→B átsoroltak ≈ 360
-- C: 38
+Eredmény:
+- Erős evidence (≥2 episode mention magas confidence): person create/attach, aliases insert, `person_episode_mentions` insert, `person_podcast_map` update, recompute counts, `editorial_priority=true`, `manually_seeded=true`.
+- Gyenge/kétséges: `seed.status='needs_review'`, evidence JSON-ba mentve.
+- Semmi evidence: seed marad, NINCS public page.
+- Soha nem hozunk létre üres public oldalt.
 
-Implementálás vagy a `formula-c-runner`-ben, mint új komponens (`tier_after_freshness`), vagy egy külön szakaszként a `shadow_rank_tier` után. Visszavonhatóság: a `rank_reason` JSONB-be `freshness_demotion` mezővel logoljuk az átsorolást.
+Manuális admin trigger a `/admin/person-quality-review` oldalról.
 
-## Érintett felületek (impact ellenőrzés)
+---
 
-- `mv_homepage_feed` — S/A vagy featured. Az S szűkítésével a feed kisebb lesz, de az evergreen MV (S only) érintettsége a fontos: ott akarjuk a szigorítást.
-- `mv_homepage_evergreen` — csak S, 30–365 napos epizódok. Ez pontosan a réteg, ahol a túl bőkezű S-tier ártott.
-- Sitemap — S/A podcast oldalakat tartalmaz; szigorítás után jobb minőségű URL halmaz.
-- Refresh interval — S=30p, A=2h. ~80–100 podcastnyi csökkenés az S-szinten → kevesebb RSS poll.
-- AI sprintek (`deep-hydrate-runner`, `seo-enrich`, `embed-podcast`) — tier-aware prioritások és napi quoták. Kevesebb S/A → gyorsabb backlog feldolgozás.
-- Search ranking — `src/lib/search.ts` `tierMap` súlyok. Nem kell módosítani; csak kevesebb show kap magas súlyt.
+## 4. Frontend — Person hub és detail oldalak
 
-## Tervezett lépések
+**`src/pages/PeopleHubPage.tsx`**:
+- Lekérdezés szűrése `is_browsable_in_people_hub = true` + meglévő public/active feltételek.
+- `<Initials>` komponens mindenkire (nincs image, akkor sem ha `image_url` létezik).
+- Semmilyen editorial badge / "seed" / "priority" jelzés.
 
-1. **Dry-run riport** — egy SELECT query, ami megmutatja:
-   - jelenlegi vs. javasolt rank_label eloszlás (lépcső 1 és 1+2 után)
-   - melyik konkrét S-tier podcastok esnének vissza A/B-be
-   - a refresh-poll terhelés várható csökkenése
-   - hány homepage / evergreen / sitemap URL érintett
-2. **User jóváhagyás** a dry-run alapján.
-3. **Migration**: `app_settings.formula_c_thresholds` frissítése (S=8, A=5, B=4, C=3, D=2).
-4. **formula-c-runner kiterjesztés** opcionálisan a 2. lépcső frissességi gate-tel (külön PR, opcionális).
-5. **Tömeges relabel**: `formula-c-runner` lefuttatása minden HU podcastra (`ids=[…]` vagy `limit` ciklusban). A runner idempotens, csak `rank_label`-t és `shadow_rank_tier`-t mozgat.
-6. **MV refresh** (`refresh_homepage_feed()`).
-7. **Verifikáció** — riport futtatása újra, főoldal vizuális ellenőrzés, sitemap diff.
-8. **Memory frissítés** a `formula-c-thresholds.md` jegyzetben.
+**`src/pages/PersonDetailPage.tsx`** (megnézem első körben):
+- Monogram avatar globálisan, kép elrejtése.
+- Képforrás attribútum elrejtve ha kép nincs renderelve.
+- Hiányzó `ai_bio` esetén safe HU fallback szöveg.
+- Hiányzó `overview_text` esetén overview kártya elrejtése vagy episode-alapú HU fallback.
+- Semmi editorial label / seeded info.
 
-## Nyitott kérdések a usernek
+**Új közös komponens `<PersonAvatar />`** (`src/components/PersonAvatar.tsx`) — egységes initials/monogram, stabil hash-alapú neutral gradient, accessible contrast, méretvariánsok (sm/md/lg). Lecseréli a HubPage és Detail meglévő avatar-megjelenítését.
 
-1. Csak az **1. lépcsőt** futtassuk most (csak threshold), és a frissességi gate-et külön körben? Vagy egyszerre mindkettő?
-2. Az S-tier célaránya **~10–12%** (kb. 90–100 podcast) megfelelő? Vagy szigorúbb (top 5%, ~40) / lazább (top 15%, ~125)?
-3. A frissességi „S-megtartás" küszöbe **90 nap** és **20 epizód** elfogadható? (Alternatíva: 60 nap / 30 epizód, vagy 120 nap / 10 epizód.)
-4. Mi legyen az A-megtartás frissességi limitje — **180 nap** vagy szigorúbb (90 nap)?
+---
+
+## 5. HU lokalizáció — generated text + UI címkék
+
+**Globális AI text language guard** új helper `supabase/functions/_shared/hu-language-guard.ts`:
+- Egyszerű karakter-arány heurisztika (HU-specifikus betűk: őűáéíóúö + stopwordok `és/hogy/a/az/nem/van`).
+- Ha output <30% magyaros vagy >25% angol stopword arány → regenerate egyszer erősebb HU instrukcióval → ha még mindig nem HU → előre definiált HU fallback.
+
+**Érintett edge function-ök** (system promptot kemény HU-only-ra állítom + guard hívás):
+- `search-answer` (ez generálja a "Zsiday" alatti angol szöveget — kritikus fix).
+- `search-suggest` — HU lowercase prompt erősítés.
+- `person-bio-generator` — explicit HU output, guard.
+- `entity-profile-runner` — overview szövegek HU-only.
+- `seo-enrich-runner` — már HU-aware de a guardot ráteszem a public-facing summary mezőkre.
+
+**Frontend angol címke csere** (rg-vel végigfutok és cserélem ahol publikus):
+- Overview → Áttekintés
+- Person → Személy
+- Episodes indexed → Indexelt epizódok
+- Last 30 days → Elmúlt 30 nap
+- Why it matched → Miért releváns?
+- Drawn from indexed episodes → Az indexelt epizódok alapján generálva.
+- Related episodes → Kapcsolódó epizódok
+- Related people → Kapcsolódó személyek
+- Search summary → Keresési összefoglaló
+- No results → Nincs találat
+- Try searching → Próbálj más keresést
+- Trending → Felkapott
+- Fresh → Friss
+- Evergreen → Időtálló
+- (Admin oldalakat hagyom angolul ahol jelenleg azok.)
+
+**SearchPage AI summary**: ha `search-answer` üres/nem HU → HU fallback szöveg renderelése ("Ehhez a kereséshez magyar podcast epizódokat találtunk…").
+
+---
+
+## 6. Admin — `/admin/person-quality-review` bővítés
+
+Új tab/szekciók a meglévő `AdminPersonQualityReviewPage.tsx`-be:
+- Editorial seed státusz táblázat (matched / no-evidence-yet / needs_review).
+- Browsable státusz oszlop + filter csipek: one-podcast-only / indexable-not-browsable / browsable / missing-bio / seed-matched / seed-no-evidence.
+- Akciógombok: make browsable, hide from hub, generate bio, generate overview, approve/reject seed match, merge aliases, set manual approval, regenerate HU summary, run seed-matcher.
+- CSV export a `person_missing_content_review_view`-ból (kliens-oldali CSV blob letöltés).
+
+---
+
+## 7. Verifikációs futás + jelentés
+
+A migrációk és kód deploy után lefuttatom:
+1. Seed insert.
+2. `editorial-people-seed-matcher` invoke.
+3. `refresh_person_activation_status()` RPC.
+4. `app_settings.person_pages.images_enabled=false`.
+5. Missing content view export top 50.
+6. Sanity SELECT-ek: count szerinti before/after, sitemap people count, Zsiday search-answer válasz nyelve.
+
+Visszaadom a részletes riportot (Editorial seed / Browsable+Indexable / Images / Missing content / HU localization / Public safety / Files changed) pontosan a PART 15 szerinti formátumban.
+
+---
+
+## Technikai részletek
+
+**Tools sorrend**:
+1. `supabase--migration` (séma + RPC + view).
+2. `supabase--insert` (seed adatok + app_settings).
+3. `code--write` az új edge function + frontend komponensek.
+4. `code--line_replace` a meglévő frontend / edge fn módosításokhoz.
+5. `supabase--deploy_edge_functions` az új és módosított fn-ekre.
+6. `supabase--curl_edge_functions` a matcher futtatására + `supabase--read_query` a riporthoz.
+
+**Biztonsági szempontok**:
+- `editorial_people_seed` és új admin oszlopok: RLS csak admin SELECT/WRITE — NEM `public read`. Public RPC-k és view-k SOHA nem szelektálnak ezekből az oszlopokból (`editorial_priority`, `manually_seeded`, `editorial_notes`, `browsable_reason` kivéve admin).
+- `person_missing_content_review_view` security definer wrapper RPC-vel hívható csak admin által.
+- JSON-LD, sitemap, public meta tagek ellenőrzése: csak `name`, `slug`, `wikipedia_url`, `wikidata_id`, `episode_count`, `latest_episode_at`, `image_url` (=null mostantól), `short_bio`/`ai_bio`/`overview_text` mehet ki — semmi editorial.
+
+**Méret becslés**: ~1 migráció (300+ sor SQL), 1 új edge fn (400+ sor), ~10 frontend fájl módosítás, ~5 edge fn HU guard injektálás, 1 új komponens, seed insert ~14 sor + 25 alias.
+
+---
+
+## Kockázatok / nyitott pontok
+
+- Az `editorial-people-seed-matcher` első futása hosszú lehet (ILIKE keresések 850 podcast × seed). Time budget: 50s, ha túlfut, részleges progress + folytatható (seed-enként commit).
+- A `has_role()` security definer fn-t használom RLS-hez ahogy az index megköveteli.
+- A frontend cseréknél a tailwind/design tokenek megmaradnak.
+- Disambiguation (Lakatos Péter / Hajdu Tibor) konzervatív lesz: kétes match → `needs_review`, nem auto-create.
+- A HU language guard heurisztika nem 100%-os; csak nyilvánvalóan angol kimeneten triggerel — false-positive elkerülés végett küszöbök konzervatívak.
+
+Ha jóváhagyod, megyek és implementálom egyben.
