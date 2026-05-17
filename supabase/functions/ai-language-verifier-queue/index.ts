@@ -83,11 +83,14 @@ Deno.serve(async (req) => {
     const CONCURRENCY = Math.max(1, Math.min(24, Number(body?.concurrency) || 16));
     const TIME_BUDGET_MS = 100_000;
 
-    const { data: rows, error } = await supabase
+    const rescan = body?.rescan === true;
+    let q = supabase
       .from("discovery_queue")
       .select("id,title,description,language,candidate_rank,rank_reason")
       .eq("status", "pending")
-      .gte("candidate_rank", minRank)
+      .gte("candidate_rank", minRank);
+    if (!rescan) q = q.or("rank_reason->>ai_decision.is.null,rank_reason.is.null");
+    const { data: rows, error } = await q
       .order("candidate_rank", { ascending: false })
       .limit(limit);
     if (error) throw error;
