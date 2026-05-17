@@ -93,17 +93,31 @@ async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
 }
 
 async function buildCore(supabase: ReturnType<typeof createClient>) {
-  const { data: cats } = await supabase.from("categories").select("slug,created_at");
+  const { data: cats } = await supabase.from("categories").select("slug,created_at").eq("active", true);
   const urls: string[] = [
     urlTag(`${SITE}/`, null, "daily", "1.0"),
     urlTag(`${SITE}/kategoriak`, null, "daily", "0.7"),
     urlTag(`${SITE}/temak`, null, "daily", "0.8"),
     urlTag(`${SITE}/szemelyek`, null, "daily", "0.7"),
+    urlTag(`${SITE}/hangulatok`, null, "weekly", "0.7"),
+    urlTag(`${SITE}/uj`, null, "daily", "0.6"),
+    urlTag(`${SITE}/napi`, null, "daily", "0.6"),
     urlTag(`${SITE}/rolunk`, null, "monthly", "0.4"),
     urlTag(`${SITE}/modszertan`, null, "monthly", "0.4"),
-    urlTag(`${SITE}/uj`, null, "daily", "0.6"),
+    urlTag(`${SITE}/kapcsolat`, null, "yearly", "0.3"),
+    urlTag(`${SITE}/adatvedelem`, null, "yearly", "0.2"),
+    urlTag(`${SITE}/feltetelek`, null, "yearly", "0.2"),
   ];
   (cats || []).forEach((c: any) => urls.push(urlTag(`${SITE}/kategoria/${esc(c.slug)}`, c.created_at, "daily", "0.8")));
+
+  // Indexable mood collections
+  const { data: moods } = await supabase
+    .from("mood_collections")
+    .select("slug, updated_at")
+    .eq("active", true)
+    .eq("is_indexable", true)
+    .gte("recommended_episode_count", 10);
+  (moods || []).forEach((m: any) => urls.push(urlTag(`${SITE}/hangulatok/${esc(m.slug)}`, m.updated_at, "weekly", "0.7")));
 
   // Indexable topic pages
   const { data: topics } = await supabase
