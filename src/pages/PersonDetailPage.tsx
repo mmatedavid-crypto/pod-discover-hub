@@ -117,6 +117,7 @@ export default function PersonDetailPage() {
       const bio = (p as any).ai_bio || (p as any).short_bio;
       const verifiedWiki = (p as any).wikipedia_match_status === "verified";
       const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
+      const thinPage = epList.length < 2;
 
       const jsonLd: any[] = [
         {
@@ -150,9 +151,8 @@ export default function PersonDetailPage() {
       setSeo({
         title: `${(p as any).name} podcast epizódok, interjúk és említések | Podiverzum`,
         description: bio?.slice(0, 160) || safeDesc,
-        noindex: !(p as any).is_indexable,
-        
-        jsonLd: !(p as any).is_indexable ? undefined : jsonLd,
+        noindex: !(p as any).is_indexable || thinPage,
+        jsonLd: (!(p as any).is_indexable || thinPage) ? undefined : jsonLd,
       });
     })();
   }, [slug]);
@@ -203,10 +203,10 @@ export default function PersonDetailPage() {
                 <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-3 inline-block">Wikipedia: {person.wikipedia_title} →</a>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5 max-w-xl">
-                <StatCard label="Indexelt epizódok" value={person.episode_count || eps.length} />
+                <StatCard label="Indexelt epizódok" value={eps.length} />
                 <StatCard label="Elmúlt 30 nap" value={last30} />
-                <StatCard label="Podcastok" value={person.podcast_count || pods.length} />
-                <StatCard label="Legutóbbi említés" value={person.latest_episode_at ? new Date(person.latest_episode_at).toLocaleDateString("hu-HU") : "—"} />
+                <StatCard label="Podcastok" value={new Set(eps.map((e: any) => e.podcast_id)).size} />
+                <StatCard label="Legutóbbi említés" value={eps[0]?.published_at ? new Date(eps[0].published_at).toLocaleDateString("hu-HU") : (person.latest_episode_at ? new Date(person.latest_episode_at).toLocaleDateString("hu-HU") : "—")} />
               </div>
             </div>
           </div>
