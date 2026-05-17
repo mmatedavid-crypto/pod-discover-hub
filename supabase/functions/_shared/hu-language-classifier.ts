@@ -282,7 +282,17 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
   let decision: LanguageDecision;
   let finalDetected = detected;
 
-  // Tie-breakers and conservative thresholds
+  // Tie-breakers and conservative thresholds.
+  //
+  // CORE PRINCIPLE: a podcast with strong Hungarian signal must NEVER be auto-rejected,
+  // even if it also contains foreign words (bilingual marketing copy, English titles
+  // mixed in, etc.). Worst case for a HU-positive podcast is "review_uncertain".
+  const strongHuSignal =
+    rssLang === "hu" ||
+    huAccentRatioVal >= 0.01 ||
+    huMatches.count >= 5 ||
+    !!huDomain;
+
   if (rssLang === "hu" && foreign < 30) {
     decision = "accept_hungarian";
     finalDetected = "hu";
@@ -291,17 +301,24 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     decision = "accept_hungarian";
     finalDetected = "hu";
     path.push("accept:strong_hu");
+  } else if (strongHuSignal && foreign < 50) {
+    decision = "accept_hungarian";
+    finalDetected = "hu";
+    path.push("accept:hu_signal_dominant");
+  } else if (strongHuSignal) {
+    // HU is clearly present but foreign is also strong → bilingual / mixed.
+    // NEVER reject. Send to review so a human can decide.
+    decision = "review_uncertain";
+    path.push("review:hu_signal_with_foreign");
   } else if (foreign >= 55 && hu < 20) {
     decision = "reject_foreign";
     rejectReason = `text_dominant_${finalDetected}`;
     path.push("reject:strong_foreign");
-  } else if (foreign >= 70) {
-    // Even with some HU presence, very strong foreign = reject
+  } else if (foreign >= 70 && hu < 30) {
     decision = "reject_foreign";
     rejectReason = `text_dominant_${finalDetected}`;
     path.push("reject:very_strong_foreign");
   } else if (titleHeavy.length < 100 && hu < 20 && foreign < 20) {
-    // Not enough data
     decision = "review_uncertain";
     path.push("review:insufficient_data");
   } else if (hu < 20 && foreign < 20 && !rssLang) {
@@ -314,7 +331,7 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     decision = "accept_hungarian";
     finalDetected = "hu";
     path.push("accept:hu_outweighs_foreign");
-  } else if (foreign > hu) {
+  } else if (foreign > hu + 15) {
     decision = "reject_foreign";
     rejectReason = `text_foreign_${finalDetected}`;
     path.push("reject:foreign_outweighs_hu");
