@@ -190,6 +190,8 @@ Deno.serve(async (req) => {
       .from("podcasts").select("id", { count: "exact", head: true })
       .in("rank_label", ["S", "A", "B", "C"])
       .in("rss_status", ["active", "not_checked"])
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .is("full_backfill_completed_at", null);
 
     const summary = {
