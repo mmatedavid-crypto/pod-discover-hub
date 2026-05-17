@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
     let q = admin
       .from("podcasts")
-      .select("id, title, description, author, language, rss_url, website_url, category, is_hungarian, language_decision, language_checked_at")
+      .select("id, title, description, language, rss_url, website_url, category, is_hungarian, language_decision, language_checked_at")
       .order("created_at", { ascending: true })
       .limit(limit);
 
