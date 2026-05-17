@@ -11,7 +11,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
-const FN_BASE = `${Deno.env.get("SUPABASE_URL") || "https://iqzkayoqqagowvxeaphe.supabase.co"}/functions/v1/sitemap`;
+// Sitemap-index child URLs must be served from the canonical apex domain.
+// The Cloudflare worker proxies /sitemap.xml (with query string) back to this edge fn.
+const FN_BASE = `${SITE}/sitemap.xml`;
 
 const xmlHeaders = {
   "Access-Control-Allow-Origin": "*",
