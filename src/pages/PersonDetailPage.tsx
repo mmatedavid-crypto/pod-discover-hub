@@ -117,6 +117,7 @@ export default function PersonDetailPage() {
       const bio = (p as any).ai_bio || (p as any).short_bio;
       const verifiedWiki = (p as any).wikipedia_match_status === "verified";
       const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
+      const thinPage = epList.length < 2;
 
       const jsonLd: any[] = [
         {
