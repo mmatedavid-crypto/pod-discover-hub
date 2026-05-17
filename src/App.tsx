@@ -117,6 +117,10 @@ const App = () => (
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/hangulatok" element={<MoodsPage />} />
           <Route path="/moods" element={<MoodsPage />} />
+          <Route path="/temak" element={<TopicsHubPage />} />
+          <Route path="/temak/:slug" element={<TopicDetailPage />} />
+          <Route path="/szemelyek" element={<PeopleHubPage />} />
+          <Route path="/szemelyek/:slug" element={<PersonDetailPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -67,6 +67,10 @@ export function SiteHeader() {
           <NavLink to="/napi" className={linkCls}>Napi</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/kategoriak" className={linkCls}>Kategóriák</NavLink>
+          <span aria-hidden className="h-4 w-px bg-border/50" />
+          <NavLink to="/temak" className={linkCls}>Témák</NavLink>
+          <span aria-hidden className="h-4 w-px bg-border/50" />
+          <NavLink to="/szemelyek" className={linkCls}>Személyek</NavLink>
         </nav>
         {isHome && (
           <NavLink

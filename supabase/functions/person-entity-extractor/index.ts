@@ -286,9 +286,34 @@ Deno.serve(async (req) => {
     }
     await chunkUpsert("podcast_topic_map", podcastTopicRows, "podcast_id,topic_id");
 
-    // ---------- Refresh topic counters ----------
-    await supabase.rpc("noop").catch(() => {/* ignore — fallback via SQL below */});
-    // Use direct update via PostgREST is awkward; rely on next call to admin RPC. Skip in-place for now.
+    // ---------- Refresh topic counters via direct SQL ----------
+    try {
+      // Recompute episode_count and podcast_count per topic from mapping tables, HU-gated.
+      const { data: topicIds } = await supabase.from("topics").select("id");
+      for (const t of (topicIds || []) as any[]) {
+        const { count: epCount } = await supabase
+          .from("episode_topic_map")
+          .select("episode_id, episodes!inner(podcast_id, podcasts!inner(is_hungarian, language_decision))", { count: "exact", head: true })
+          .eq("topic_id", t.id)
+          .eq("episodes.podcasts.is_hungarian", true)
+          .eq("episodes.podcasts.language_decision", "accept_hungarian");
+        const { count: podCount } = await supabase
+          .from("podcast_topic_map")
+          .select("podcast_id, podcasts!inner(is_hungarian, language_decision)", { count: "exact", head: true })
+          .eq("topic_id", t.id)
+          .eq("podcasts.is_hungarian", true)
+          .eq("podcasts.language_decision", "accept_hungarian");
+        const indexable = (podCount || 0) >= 5 || (epCount || 0) >= 15;
+        await supabase.from("topics").update({
+          episode_count: epCount || 0,
+          podcast_count: podCount || 0,
+          is_indexable: indexable,
+          updated_at: new Date().toISOString(),
+        }).eq("id", t.id);
+      }
+    } catch (e) {
+      errors.push(`topic_count_refresh: ${e instanceof Error ? e.message : String(e)}`);
+    }
 
     await supabase.from("entity_extraction_runs").update({
       status: errors.length ? "failed" : "completed",

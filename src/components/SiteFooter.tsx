@@ -2,9 +2,12 @@ import { Link } from "react-router-dom";
 import { BrandMark } from "./Brand";
 
 const EXPLORE = [
-  { to: "/kategoriak", label: "Kategóriák" },
-  { to: "/kereses", label: "Keresés" },
+  { to: "/temak", label: "Témák" },
+  { to: "/szemelyek", label: "Személyek" },
+  { to: "/kategoriak", label: "Podcast kategóriák" },
+  { to: "/napi", label: "Friss epizódok" },
   { to: "/uj", label: "Új podcastok" },
+  { to: "/kereses?q=legjobb+magyar+podcastok", label: "Legjobb magyar podcastok" },
   { to: "/modszertan", label: "Módszertan" },
 ];
 
@@ -29,7 +32,7 @@ export function SiteFooter() {
           </div>
 
           {/* Mobile: 2 tidy rows of 4 links each, evenly spaced. */}
-          <nav className="sm:hidden grid grid-cols-4 gap-x-3 gap-y-3 text-xs">
+          <nav className="sm:hidden grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
             {[...EXPLORE, ...COMPANY].map((l) => (
               <Link
                 key={l.to}
