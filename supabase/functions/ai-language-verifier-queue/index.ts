@@ -61,7 +61,7 @@ async function detectLanguage(model: string, title: string, description: string)
     }),
   });
   if (resp.status === 402) throw new Error("ai_credits_exhausted_402");
-  if (resp.status === 429) throw new Error("ai_rate_limit_429");
+  if (resp.status === 429) { (detectLanguage as any)._429 = Date.now(); throw new Error("ai_rate_limit_429"); }
   if (!resp.ok) throw new Error(`ai_http_${resp.status}`);
   const j = await resp.json();
   const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
