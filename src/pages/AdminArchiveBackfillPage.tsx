@@ -36,6 +36,7 @@ type Row = {
 
 type Controls = {
   enabled: boolean;
+  cron_enabled?: boolean;
   max_podcasts_per_run: number;
   max_new_episodes_per_run: number;
   max_runtime_seconds: number;
@@ -43,6 +44,31 @@ type Controls = {
   dry_run: boolean;
   force_refresh: boolean;
   per_domain_min_ms: number;
+  pause_if_enrichment_backlog_above?: number;
+  pause_if_embedding_backlog_above?: number;
+  pause_if_error_rate_above?: number;
+  expand_to_b_tier_after_successful_runs?: number;
+  successful_scheduled_run_count?: number;
+};
+
+type RunRow = {
+  id: string;
+  started_at: string;
+  finished_at: string | null;
+  status: string;
+  trigger_source: string;
+  tier_filter: string[];
+  podcasts_processed: number;
+  new_episodes_inserted: number;
+  duplicates_skipped: number;
+  failed_feeds: number;
+  skipped_reason: string | null;
+  runtime_ms: number | null;
+  ai_backlog_before: number | null;
+  ai_backlog_after: number | null;
+  embedding_backlog_before: number | null;
+  embedding_backlog_after: number | null;
+  error_message: string | null;
 };
 
 const TIERS = ["S","A","B","C"] as const;
