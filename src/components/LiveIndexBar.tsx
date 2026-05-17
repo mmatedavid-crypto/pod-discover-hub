@@ -77,7 +77,7 @@ export default function LiveIndexBar() {
   const loop = [...items, ...items];
 
   return (
-    <div className="bg-background text-foreground border-b border-border/70 overflow-hidden">
+    <div className="hidden min-[400px]:block bg-background text-foreground border-b border-border/70 overflow-hidden">
       {/* Ticker — full width */}
       <div
         className="relative w-full overflow-hidden group"
