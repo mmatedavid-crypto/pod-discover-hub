@@ -301,10 +301,13 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     huMatches.count >= 5 ||
     !!huDomain;
 
-  if (rssLang === "hu" && foreign < 30) {
+  // rss=hu alone is NOT enough: an RSS feed can lie. Require at least one
+  // independent HU signal (accents, HU words, or HU domain). Otherwise → review.
+  const hasHuTextEvidence = huAccentRatioVal > 0 || huMatches.count >= 2 || !!huDomain;
+  if (rssLang === "hu" && foreign < 30 && hasHuTextEvidence) {
     decision = "accept_hungarian";
     finalDetected = "hu";
-    path.push("accept:rss_hu+low_foreign");
+    path.push("accept:rss_hu+text_evidence+low_foreign");
   } else if (hu >= 55 && foreign < 30) {
     decision = "accept_hungarian";
     finalDetected = "hu";
