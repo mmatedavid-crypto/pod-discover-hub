@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
 
     const summary = {
       ts: new Date().toISOString(),
-      mode, considered: rows?.length || 0, updated, skipped, errors,
+      mode, considered: rows?.length || 0, updated, skipped, errors, demoted,
       no_change: diffOnly ? noChange : undefined,
       duration_ms, ...remaining,
     };
