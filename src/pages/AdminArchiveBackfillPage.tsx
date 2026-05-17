@@ -79,19 +79,23 @@ export default function AdminArchiveBackfillPage() {
   const [lastRun, setLastRun] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [topRows, setTopRows] = useState<Row[]>([]);
+  const [recentRuns, setRecentRuns] = useState<RunRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
-    const [ctrlRes, lastRes, view] = await Promise.all([
+    const [ctrlRes, lastRes, view, runsRes] = await Promise.all([
       supabase.from("app_settings").select("value").eq("key", "hu_deep_archive_controls").maybeSingle(),
       supabase.from("app_settings").select("value").eq("key", "hu_deep_archive_last_run").maybeSingle(),
       (supabase as any).from("v_hu_archive_completeness")
         .select("podcast_id,title,slug,rank_label,episode_count,pi_backfill_episode_count,pi_gap,pass_status,pi_backfill_approved,full_backfill_completed_at,pi_backfill_completed_at"),
+      (supabase as any).from("hu_archive_backfill_runs")
+        .select("*").order("started_at", { ascending: false }).limit(20),
     ]);
     setControls((ctrlRes.data?.value as any) || null);
     setLastRun(lastRes.data?.value || null);
+    setRecentRuns((runsRes.data as RunRow[]) || []);
     const all: Row[] = (view.data as any[]) || [];
 
     const totals = all.reduce((acc: any, r) => {
