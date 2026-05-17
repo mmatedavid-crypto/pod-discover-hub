@@ -190,7 +190,7 @@ export function EpisodeList({
           className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
         />
       </div>
-      <div className={scrollOnMobile ? "hidden sm:block" : ""}>{desktop}</div>
+      {desktop}
     </>
   );
 }
