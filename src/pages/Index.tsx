@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { TrendingEntities } from "@/components/TrendingEntities";
+import { HomeTopicsSection } from "@/components/HomeTopicsSection";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 
 
