@@ -1315,6 +1315,8 @@ export type Database = {
           editorial_priority: boolean
           editorial_priority_level: number
           episode_count: number
+          gated_episode_count: number
+          gated_podcast_count: number
           guest_count: number
           host_count: number
           id: string
@@ -1395,6 +1397,8 @@ export type Database = {
           editorial_priority?: boolean
           editorial_priority_level?: number
           episode_count?: number
+          gated_episode_count?: number
+          gated_podcast_count?: number
           guest_count?: number
           host_count?: number
           id?: string
@@ -1475,6 +1479,8 @@ export type Database = {
           editorial_priority?: boolean
           editorial_priority_level?: number
           episode_count?: number
+          gated_episode_count?: number
+          gated_podcast_count?: number
           guest_count?: number
           host_count?: number
           id?: string
@@ -3795,6 +3801,14 @@ export type Database = {
           count: number
           mood_slug: string
           weak: boolean
+        }[]
+      }
+      recompute_person_gated_counts: {
+        Args: never
+        Returns: {
+          single_ep_count: number
+          updated_count: number
+          zero_ep_count: number
         }[]
       }
       refresh_episodes_search_text_batch: {
