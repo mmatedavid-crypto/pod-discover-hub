@@ -239,15 +239,20 @@ Deno.serve(async (req) => {
     // Eligibility: is_public + (is_indexable OR episode_count>=3 OR (podcast_count>=1 AND host) OR strong_mention_count>=2)
     const { data } = await admin
       .from("people")
-      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, is_indexable, ai_bio_status")
+      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, is_indexable, ai_bio_status, activation_status, ai_recommended_action, ai_review_status")
       .eq("is_public", true)
+      .in("activation_status", ["indexable","manual_approved"])
       .or("is_indexable.eq.true,episode_count.gte.3,strong_mention_count.gte.2")
       .order("episode_count", { ascending: false })
       .order("strong_mention_count", { ascending: false })
       .order("podcast_count", { ascending: false })
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
       .limit(limit * 3);
-    const filtered = (data || []).filter((r: any) => force || r.ai_bio_status !== "completed").slice(0, limit);
+    const filtered = (data || []).filter((r: any) =>
+      (force || r.ai_bio_status !== "completed") &&
+      !["hide","reject","merge"].includes(r.ai_recommended_action || "") &&
+      !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
+    ).slice(0, limit);
     ids = filtered.map((r: any) => r.id);
   }
 
