@@ -45,19 +45,14 @@ User-agent: Diffbot
 Allow: /
 
 # ===== Default (all other bots, incl. Googlebot, Bingbot) =====
+# Search result pages stay crawlable so Google can read their noindex meta.
 User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /admin/
 Disallow: /admin-bootstrap
+Disallow: /growth-status
 Disallow: /auth
 Disallow: /belepes
-Disallow: /growth-status
-Disallow: /search
-Disallow: /search?
-Disallow: /search/
-Disallow: /kereses
-Disallow: /kereses?
-Disallow: /kereses/
 
-Sitemap: https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/sitemap
+Sitemap: https://podiverzum.hu/sitemap.xml
