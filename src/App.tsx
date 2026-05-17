@@ -28,6 +28,7 @@ import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
 import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
 import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
+import AdminArchiveBackfillPage from "./pages/AdminArchiveBackfillPage.tsx";
 import AdminHostsPage from "./pages/AdminHostsPage.tsx";
 import AdminLanguageGatePage from "./pages/AdminLanguageGatePage.tsx";
 import AdminPersonQualityReviewPage from "./pages/AdminPersonQualityReviewPage.tsx";
@@ -87,6 +88,7 @@ const App = () => (
           <Route path="/admin/social" element={<AdminSocialPostsPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
           <Route path="/admin/pi-backfill" element={<AdminPiBackfillPage />} />
+          <Route path="/admin/archive-backfill" element={<AdminArchiveBackfillPage />} />
           <Route path="/admin/hosts" element={<AdminHostsPage />} />
           <Route path="/admin/language-gate" element={<AdminLanguageGatePage />} />
           <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
