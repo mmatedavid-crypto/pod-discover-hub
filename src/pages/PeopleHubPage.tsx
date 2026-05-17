@@ -12,7 +12,9 @@ interface PersonRow extends PersonCardData {
   recent_relevant_episode_count_30d: number;
 }
 
-const BASE_COLS = "id, slug, name, disambiguation_label, episode_count, podcast_count, distinct_podcast_count, strong_mention_count, recent_relevant_episode_count_30d, latest_accepted_relevant_episode_at, people_hub_score";
+const MIN_SECTION = 4;
+
+const BASE_COLS = "id, slug, name, disambiguation_label, short_bio, ai_bio, episode_count, podcast_count, distinct_podcast_count, strong_mention_count, recent_relevant_episode_count_30d, latest_accepted_relevant_episode_at, people_hub_score";
 
 const baseFilter = () =>
   supabase
@@ -24,6 +26,18 @@ const baseFilter = () =>
     .neq("ai_review_status", "needs_human_review")
     .neq("ai_review_status", "duplicate_candidate");
 
+function dedupeFill(primary: PersonRow[], fill: PersonRow[], target: number, excludeIds: Set<string>): PersonRow[] {
+  const ids = new Set(primary.map(p => p.id));
+  const out = [...primary];
+  for (const p of fill) {
+    if (out.length >= target) break;
+    if (ids.has(p.id) || excludeIds.has(p.id)) continue;
+    out.push(p);
+    ids.add(p.id);
+  }
+  return out;
+}
+
 export default function PeopleHubPage() {
   const [recent, setRecent] = useState<PersonRow[]>([]);
   const [crossPodcast, setCrossPodcast] = useState<PersonRow[]>([]);
@@ -34,34 +48,54 @@ export default function PeopleHubPage() {
 
   useEffect(() => {
     (async () => {
-      // Section 1: recently mentioned (last 30d)
-      const { data: recentData } = await baseFilter()
-        .gt("recent_relevant_episode_count_30d", 0)
-        .order("latest_accepted_relevant_episode_at", { ascending: false })
-        .limit(12);
-
-      // Section 2: cross-podcast relevance
-      const { data: crossData } = await baseFilter()
-        .gte("distinct_podcast_count", 2)
-        .gte("strong_mention_count", 2)
-        .order("people_hub_score", { ascending: false })
-        .limit(18);
-
-      // Section 3: featured conversations (top score)
-      const { data: featuredData } = await baseFilter()
-        .order("people_hub_score", { ascending: false })
-        .limit(36);
-
-      // Search pool
+      // Pull a larger eligible pool once for in-memory section building + fill
       const { data: poolData } = await baseFilter()
         .order("people_hub_score", { ascending: false })
-        .limit(300);
+        .limit(400);
+      const pool = ((poolData || []) as any) as PersonRow[];
 
-      setRecent((recentData || []) as any);
-      setCrossPodcast((crossData || []) as any);
-      const crossIds = new Set((crossData || []).map((p: any) => p.id));
-      setFeatured(((featuredData || []) as any[]).filter(p => !crossIds.has(p.id)).slice(0, 24));
-      setSearchPool((poolData || []) as any);
+      const now = Date.now();
+      const days = (n: number) => now - n * 24 * 3600 * 1000;
+      const tsOf = (p: PersonRow) => p.latest_accepted_relevant_episode_at ? new Date(p.latest_accepted_relevant_episode_at).getTime() : 0;
+
+      // Section 1: Mostanában említve — primary: ≤30d
+      const recent30 = pool
+        .filter(p => p.recent_relevant_episode_count_30d > 0)
+        .sort((a, b) => tsOf(b) - tsOf(a))
+        .slice(0, 12);
+      // Fallback fill: ≤60d, then by latest accepted episode overall
+      const recentFill = pool
+        .filter(p => tsOf(p) >= days(60))
+        .sort((a, b) => tsOf(b) - tsOf(a));
+      const recentFillAny = pool
+        .filter(p => tsOf(p) > 0)
+        .sort((a, b) => tsOf(b) - tsOf(a));
+      let recentFinal = dedupeFill(recent30, recentFill, 12, new Set());
+      recentFinal = dedupeFill(recentFinal, recentFillAny, Math.max(MIN_SECTION, 8), new Set());
+
+      // Section 2: Több műsorban szerepel — primary
+      const crossPrimary = pool
+        .filter(p => p.distinct_podcast_count >= 2 && p.strong_mention_count >= 2)
+        .sort((a, b) => (b.people_hub_score || 0) - (a.people_hub_score || 0))
+        .slice(0, 18);
+      // Fallback fill: distinct_podcast_count >= 2 and high hub score
+      const crossFill = pool
+        .filter(p => p.distinct_podcast_count >= 2)
+        .sort((a, b) => (b.people_hub_score || 0) - (a.people_hub_score || 0));
+      const crossFinal = dedupeFill(crossPrimary, crossFill, 18, new Set());
+
+      // Section 3: Érdemes felfedezni — general discovery, exclude what we already showed
+      const used = new Set<string>([...recentFinal.map(p => p.id), ...crossFinal.map(p => p.id)]);
+      const featuredPool = pool
+        .filter(p => !used.has(p.id))
+        .sort((a, b) => (b.people_hub_score || 0) - (a.people_hub_score || 0))
+        .slice(0, 24);
+
+      // Enforce minimum section count: hide sections with < MIN_SECTION
+      setRecent(recentFinal.length >= MIN_SECTION ? recentFinal : []);
+      setCrossPodcast(crossFinal.length >= MIN_SECTION ? crossFinal : []);
+      setFeatured(featuredPool.length >= MIN_SECTION ? featuredPool : []);
+      setSearchPool(pool);
       setLoading(false);
 
       setSeo({
@@ -135,7 +169,7 @@ export default function PeopleHubPage() {
 
             {featured.length > 0 && (
               <section>
-                <h2 className="text-xl sm:text-2xl font-semibold mb-4">Kiemelt beszélgetések szereplői</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold mb-4">Érdemes felfedezni</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {featured.map(p => <PersonCard key={p.id} p={p} />)}
                 </div>
