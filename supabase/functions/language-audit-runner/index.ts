@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
       const result: LanguageResult = classifyHungarianPodcastCandidate({
         title: p.title,
         description: p.description,
-        author: p.author ?? null,
+        author: null,
         rss_language: p.language,
         rss_url: p.rss_url,
         website_url: p.website_url,
