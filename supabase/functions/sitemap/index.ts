@@ -186,7 +186,7 @@ async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: eps, error } = await supabase
       .from("episodes")
-      .select("slug,updated_at,ai_enriched_at,published_at,podcasts!inner(slug,rss_status,language,language_decision,is_hungarian)")
+      .select("slug,updated_at,ai_enriched_at,published_at,ai_summary,description,podcasts!inner(slug,rss_status,language,language_decision,is_hungarian)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
       // Canonical HU gate on parent podcast.
@@ -199,7 +199,12 @@ async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, y
     for (const e of eps as any[]) {
       const ps = e.podcasts?.slug;
       const broken = e.podcasts?.rss_status === "failed" || e.podcasts?.rss_status === "inactive";
-      if (ps && !broken) urls.push(urlTag(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, maxDate(e.updated_at, e.ai_enriched_at), "weekly", "0.7"));
+      // Thin-content gate: skip episodes without enough body text. They remain
+      // reachable on the site and via internal search, just not promoted to Google.
+      const sumLen = (e.ai_summary || "").length;
+      const descLen = (e.description || "").length;
+      const thin = sumLen <= 80 && descLen <= 200;
+      if (ps && !broken && !thin) urls.push(urlTag(`${SITE}/podcast/${esc(ps)}/${esc(e.slug)}`, maxDate(e.updated_at, e.ai_enriched_at), "weekly", "0.7"));
     }
     if (eps.length < CHUNK) break;
     from += CHUNK;
