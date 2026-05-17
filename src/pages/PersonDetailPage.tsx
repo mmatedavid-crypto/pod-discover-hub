@@ -151,9 +151,8 @@ export default function PersonDetailPage() {
       setSeo({
         title: `${(p as any).name} podcast epizódok, interjúk és említések | Podiverzum`,
         description: bio?.slice(0, 160) || safeDesc,
-        noindex: !(p as any).is_indexable,
-        
-        jsonLd: !(p as any).is_indexable ? undefined : jsonLd,
+        noindex: !(p as any).is_indexable || thinPage,
+        jsonLd: (!(p as any).is_indexable || thinPage) ? undefined : jsonLd,
       });
     })();
   }, [slug]);
