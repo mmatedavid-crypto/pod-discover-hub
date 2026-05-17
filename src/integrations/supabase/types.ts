@@ -2140,6 +2140,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_publicly_visible_hu_podcast: {
+        Args: { p_id: string }
+        Returns: boolean
+      }
       match_podcast_by_name: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
