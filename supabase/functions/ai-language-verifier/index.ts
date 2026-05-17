@@ -175,7 +175,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ok: true, mode, dry_run: dryRun, model, min_confidence: minConf,
-      scanned: rows?.length || 0,
+      scanned: (rows?.length || 0) - remaining,
+      remaining_in_batch: remaining,
       flipped_to_hu, flipped_to_foreign, kept, review_uncertain: review, errors,
       elapsed_ms: Date.now() - started,
       results,
