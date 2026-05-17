@@ -18,6 +18,8 @@ interface Person {
   episode_count: number; podcast_count: number;
   is_indexable: boolean;
   latest_episode_at: string | null;
+  disambiguation_label: string | null;
+  disambiguation_context: string | null;
 }
 
 function huFallbackBio(name: string): string {
