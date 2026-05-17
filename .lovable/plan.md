@@ -1,160 +1,142 @@
 
-# People Editorial Quality Layer + HU Localization Fix
+# /szemelyek curated discovery redesign + person relevance hardening
 
-15 részből álló terv. Sorrendben haladok, minden lépést egy commitba zárok és a végén jelentést adok.
-
----
-
-## 1. DB migráció — `people` + új táblák
-
-**`people` új oszlopok** (admin-only, NEM exponáljuk publikusan):
-- `is_browsable_in_people_hub bool default false`
-- `browsable_reason text`
-- `editorial_priority bool default false`
-- `editorial_priority_level int default 0`
-- `editorial_notes text`
-- `manually_seeded bool default false`
-- `manual_approval_status text default 'none'` (enum-szerű: `none/approved_public/approved_indexable/approved_browsable/rejected/needs_review`)
-
-**Új tábla `editorial_people_seed`** (admin-only, RLS: csak admin SELECT/WRITE — nem public read):
-- id, name, canonical_name, slug, aliases[], context_hints[], priority_level, status, matched_person_id, notes, timestamps
-
-**Új view `person_missing_content_review_view`** — admin only (security definer fn vagy RLS-zárolt).
-
-**Frissített RPC `refresh_person_activation_status()`** — kiszámolja az új `is_browsable_in_people_hub` + `browsable_reason` mezőket a megadott A/B/C/D szabályok szerint, kizárólag HU-elfogadott podcastok (is_hungarian=true AND language_decision='accept_hungarian') figyelembevételével.
-
-**`app_settings`** új kulcs `person_pages` = `{ images_enabled: false }`.
+This is a multi-part change covering schema, ranking logic, AI validation, UI redesign and targeted data cleanups. It is intentionally scoped to people / person-episode relevance — no topic groups, no host carousel, no public exposure of editorial internals.
 
 ---
 
-## 2. Editorial seed adatok
+## 1. Database schema additions (migration)
 
-`editorial_people_seed`-be betöltöm a 14 felsorolt nevet (Frei Tamás, Zsiday Viktor, Ruff Bálint, Sz. Bíró Zoltán, Balásy Zsolt, Lakatos Péter, Schiffer András, Schwab Richárd, Pólus Enikő, Mészáros Blanka, Szirmai Marcel (+ Pogány Induló alias), Hajdu Tibor, Trill Zsolt, Kasza Tibor (+ Kasza Tibi alias)) priority_level + context_hints + aliases mezőkkel.
+Add to `people`:
+- `people_hub_score numeric NOT NULL DEFAULT 0`
+- `recent_relevant_episode_count_30d int NOT NULL DEFAULT 0`
+- `latest_accepted_relevant_episode_at timestamptz`
+- `one_show_host boolean NOT NULL DEFAULT false`
+- `disambiguation_label text`
+- `disambiguation_context text`
+- `canonical_identity_key text`
+- `identity_confidence numeric NOT NULL DEFAULT 0`
+- `identity_status text NOT NULL DEFAULT 'normal'`  -- normal / ambiguous / split_needed / split_resolved / needs_review
+- `manual_approval_status` already exists — add value `'approved_browsable'` semantically (text, no enum)
 
----
+Add to `person_episode_mentions`:
+- `relevance_status text NOT NULL DEFAULT 'pending'`  -- pending / accepted / rejected / needs_review
+- `final_relevance_score numeric`
+- `validation_source text`  -- rule / ai / manual
+- `ai_identity_match text`  -- same_person / different_person_same_name / substring_false_positive / uncertain
+- `ai_reason text`
+- `ai_evidence_phrases text[]`
+- `ai_judged_at timestamptz`
+- `ai_model text`
 
-## 3. Új edge function `editorial-people-seed-matcher`
+Indexes:
+- `idx_people_hub_score` on `(is_browsable_in_people_hub, people_hub_score DESC)`
+- `idx_pem_person_relevance` on `(person_id, relevance_status)`
 
-Bemenet: opcionálisan seed slug. Default: minden `status='active'` seed.
+RPCs:
+- `refresh_people_hub_score()` — recomputes `people_hub_score`, `recent_relevant_episode_count_30d`, `latest_accepted_relevant_episode_at`, `one_show_host`, and refreshes `is_browsable_in_people_hub` using the new score + one-show-host penalty.
+- `admin_get_hub_candidates(section text, limit_n int)` returning ranked lists for the 3 hub sections.
 
-Algoritmus seed-enként, HU-elfogadott korpuszon:
-1. Person név/normalized/alias keresés.
-2. Episode title/description/ai_summary ILIKE + context-token boost.
-3. Podcast title/description/host/guest match.
-4. Confidence score alias + context-token + co-occurring terms alapján.
-5. Disambiguáció: Lakatos Péter→Videoton kontextus required, Pólus Enikő→pszichológia, Szirmai Marcel↔Pogány Induló merge, Kasza Tibor↔Kasza Tibi alias.
+## 2. Hub score formula (inside RPC)
 
-Eredmény:
-- Erős evidence (≥2 episode mention magas confidence): person create/attach, aliases insert, `person_episode_mentions` insert, `person_podcast_map` update, recompute counts, `editorial_priority=true`, `manually_seeded=true`.
-- Gyenge/kétséges: `seed.status='needs_review'`, evidence JSON-ba mentve.
-- Semmi evidence: seed marad, NINCS public page.
-- Soha nem hozunk létre üres public oldalt.
+```
+score =
+  3.0 * recent_relevant_episode_count_30d
++ 2.5 * distinct_podcast_count
++ 1.5 * strong_mention_count
++ 1.0 * (verified_wikipedia ? 1 : 0)
++ 0.5 * (editorial_priority ? editorial_priority_level/100 : 0)
++ 0.1 * episode_count
+- 5.0 * (one_show_host ? 1 : 0)
+- 4.0 * (identity_status IN ('ambiguous','split_needed','needs_review') ? 1 : 0)
+- 3.0 * (ai_review_status='duplicate_candidate' ? 1 : 0)
+```
 
-Manuális admin trigger a `/admin/person-quality-review` oldalról.
+`one_show_host = (distinct_podcast_count = 1 AND host_count >= 1)`.
 
----
+`is_browsable_in_people_hub = true` requires:
+- accepted relevance evidence exists
+- NOT one_show_host (unless `manual_approval_status='approved_browsable'` OR `editorial_priority` with cross-person evidence)
+- identity_status NOT IN ('ambiguous','split_needed','needs_review')
+- ai_review_status NOT IN ('needs_human_review','duplicate_candidate')
 
-## 4. Frontend — Person hub és detail oldalak
+## 3. Edge functions
 
-**`src/pages/PeopleHubPage.tsx`**:
-- Lekérdezés szűrése `is_browsable_in_people_hub = true` + meglévő public/active feltételek.
-- `<Initials>` komponens mindenkire (nincs image, akkor sem ha `image_url` létezik).
-- Semmilyen editorial badge / "seed" / "priority" jelzés.
+**New**: `supabase/functions/person-relevance-judge/index.ts`
+- Input: person_id (optional batch_limit, target ids)
+- Selects pending or weak `person_episode_mentions` (filtered to HU-accepted podcasts), prioritizing same-name / editorial / public people + Lakatos Péter / Pólus Enikő / Frei Tamás.
+- Calls `google/gemini-2.5-flash` (Lovable AI) with strict Hungarian-output JSON tool.
+- Writes `relevance_status`, `final_relevance_score`, `ai_*` fields. Logs spend in `ai_spend_daily.by_kind.person_relevance`.
+- $2/day budget guard, 110s drain loop.
 
-**`src/pages/PersonDetailPage.tsx`** (megnézem első körben):
-- Monogram avatar globálisan, kép elrejtése.
-- Képforrás attribútum elrejtve ha kép nincs renderelve.
-- Hiányzó `ai_bio` esetén safe HU fallback szöveg.
-- Hiányzó `overview_text` esetén overview kártya elrejtése vagy episode-alapú HU fallback.
-- Semmi editorial label / seeded info.
+**New**: `supabase/functions/people-hub-refresh/index.ts`
+- Calls `refresh_people_hub_score()` RPC. Schedulable hourly later (not added to cron in this pass to avoid backlog interference).
 
-**Új közös komponens `<PersonAvatar />`** (`src/components/PersonAvatar.tsx`) — egységes initials/monogram, stabil hash-alapú neutral gradient, accessible contrast, méretvariánsok (sm/md/lg). Lecseréli a HubPage és Detail meglévő avatar-megjelenítését.
+**Updated**: `editorial-people-seed-matcher` — when creating/updating people, set `identity_status='ambiguous'` if another person with same normalized_name exists.
 
----
+## 4. Targeted cleanup script (one-off via `pi-dump-process` style admin endpoint, or SQL via `supabase--insert`)
 
-## 5. HU lokalizáció — generated text + UI címkék
+- **Lakatos Péter split**: classify each mention by token presence in episode title+summary+podcast title:
+  - Cluster A (business): videoton, üzlet, gazdaság, ipar, vállalat, menedzsment, befektetés, cég
+  - Cluster B (sport): sport, táplálkozás, edzés, egészség, teljesítmény, életmód, étrend, mozgás
+  - Else: needs_review
+  - Create `lakatos-peter-videoton-holding` (label "Üzletember, Videoton Holding") and `lakatos-peter-sport-taplalkozas` (label "Sport és táplálkozás"). Move mentions accordingly. Mark original as `identity_status='split_resolved'`, hide from hub.
 
-**Globális AI text language guard** új helper `supabase/functions/_shared/hu-language-guard.ts`:
-- Egyszerű karakter-arány heurisztika (HU-specifikus betűk: őűáéíóúö + stopwordok `és/hogy/a/az/nem/van`).
-- Ha output <30% magyaros vagy >25% angol stopword arány → regenerate egyszer erősebb HU instrukcióval → ha még mindig nem HU → előre definiált HU fallback.
+- **Pólus Enikő FP**: reject mentions whose episode text contains "kántorné", "ibolya", or "többpólusú" / "pólus" without "enikő".
 
-**Érintett edge function-ök** (system promptot kemény HU-only-ra állítom + guard hívás):
-- `search-answer` (ez generálja a "Zsiday" alatti angol szöveget — kritikus fix).
-- `search-suggest` — HU lowercase prompt erősítés.
-- `person-bio-generator` — explicit HU output, guard.
-- `entity-profile-runner` — overview szövegek HU-only.
-- `seo-enrich-runner` — már HU-aware de a guardot ráteszem a public-facing summary mezőkre.
+- **Frei Tamás FP**: reject mentions where episode title/summary contains "freiburg" or "mire való az iskola" without "frei tamás" full match.
 
-**Frontend angol címke csere** (rg-vel végigfutok és cserélem ahol publikus):
-- Overview → Áttekintés
-- Person → Személy
-- Episodes indexed → Indexelt epizódok
-- Last 30 days → Elmúlt 30 nap
-- Why it matched → Miért releváns?
-- Drawn from indexed episodes → Az indexelt epizódok alapján generálva.
-- Related episodes → Kapcsolódó epizódok
-- Related people → Kapcsolódó személyek
-- Search summary → Keresési összefoglaló
-- No results → Nincs találat
-- Try searching → Próbálj más keresést
-- Trending → Felkapott
-- Fresh → Friss
-- Evergreen → Időtálló
-- (Admin oldalakat hagyom angolul ahol jelenleg azok.)
+- **Bochkor Gábor**: recompute one_show_host; expected → hidden from hub.
 
-**SearchPage AI summary**: ha `search-answer` üres/nem HU → HU fallback szöveg renderelése ("Ehhez a kereséshez magyar podcast epizódokat találtunk…").
+All cleanup applied only to HU-accepted podcasts (`is_hungarian=true AND language_decision='accept_hungarian'`).
 
----
+## 5. UI redesign
 
-## 6. Admin — `/admin/person-quality-review` bővítés
+**New** `src/components/PersonCard.tsx` — single reusable card:
+- `PersonAvatar` (existing, unchanged — already uses brand gradient HSL tokens, no black/red inconsistency. Confirm + tidy if needed).
+- Name + optional `disambiguation_label` subtitle.
+- Meta row: `N epizód · M műsor` + `Friss` badge if `latest_accepted_relevant_episode_at >= now()-30d`.
+- Optional context line derived from top topics aggregated from accepted mentions.
 
-Új tab/szekciók a meglévő `AdminPersonQualityReviewPage.tsx`-be:
-- Editorial seed státusz táblázat (matched / no-evidence-yet / needs_review).
-- Browsable státusz oszlop + filter csipek: one-podcast-only / indexable-not-browsable / browsable / missing-bio / seed-matched / seed-no-evidence.
-- Akciógombok: make browsable, hide from hub, generate bio, generate overview, approve/reject seed match, merge aliases, set manual approval, regenerate HU summary, run seed-matcher.
-- CSV export a `person_missing_content_review_view`-ból (kliens-oldali CSV blob letöltés).
+**Rewrite** `src/pages/PeopleHubPage.tsx`:
+- Hero + search (kept).
+- Sections (in order):
+  1. **Mostanában említve** — accepted relevant episode in last 30d, ordered by `latest_accepted_relevant_episode_at desc`, limit 12.
+  2. **Több műsorban szerepel** — `distinct_podcast_count >= 2 AND strong_mention_count >= 2`, ordered by `people_hub_score desc`, limit 18.
+  3. **Kiemelt beszélgetések szereplői** — top `people_hub_score` overall (no public "editorial" label), limit 24, dedup with section 2.
+- Removed: "Legtöbb epizódban".
+- Filtering: `is_browsable_in_people_hub=true` (unchanged).
+- Responsive: mobile single column, tablet 2 col, desktop 3 col, generous spacing.
 
----
+**Update** `src/pages/PersonDetailPage.tsx`:
+- Show `disambiguation_label` as subtitle under H1 if present.
+- Episode query filters to `relevance_status='accepted' OR final_relevance_score>=0.75 OR validation_source='manual'`, fallback for legacy (`mention_type IN ('host','guest','subject') AND confidence>=0.80`).
+- Continue using `PersonAvatar` (already consistent).
 
-## 7. Verifikációs futás + jelentés
+## 6. Verification
 
-A migrációk és kód deploy után lefuttatom:
-1. Seed insert.
-2. `editorial-people-seed-matcher` invoke.
-3. `refresh_person_activation_status()` RPC.
-4. `app_settings.person_pages.images_enabled=false`.
-5. Missing content view export top 50.
-6. Sanity SELECT-ek: count szerinti before/after, sitemap people count, Zsiday search-answer válasz nyelve.
+After migrations + cleanup + AI judge sample run, query DB for:
+- old vs new browsable count
+- Bochkor Gábor hub status
+- one-show-host hidden count
+- Lakatos Péter cluster sizes
+- Friss badge count + 20 examples
+- AI judge totals (accepted/rejected/needs_review) + spend
+- Pólus Enikő / Frei Tamás false-positive removal counts
+- confirm no public surface reads editorial_priority / manually_seeded / editorial_notes
 
-Visszaadom a részletes riportot (Editorial seed / Browsable+Indexable / Images / Missing content / HU localization / Public safety / Files changed) pontosan a PART 15 szerinti formátumban.
+## Scope guardrails
 
----
+- No topic group sections.
+- No public host carousel.
+- No exposure of editorial internals.
+- No changes to ranking/search/AI pipelines unrelated to person relevance.
+- HU-only filter preserved everywhere.
 
-## Technikai részletek
+## Risks / notes
 
-**Tools sorrend**:
-1. `supabase--migration` (séma + RPC + view).
-2. `supabase--insert` (seed adatok + app_settings).
-3. `code--write` az új edge function + frontend komponensek.
-4. `code--line_replace` a meglévő frontend / edge fn módosításokhoz.
-5. `supabase--deploy_edge_functions` az új és módosított fn-ekre.
-6. `supabase--curl_edge_functions` a matcher futtatására + `supabase--read_query` a riporthoz.
+- AI judge will not finish judging all backlog in one run — drain loop processes a batch, leaves rest pending. Page rules already gate display on accepted/score/manual + legacy fallback so UX stays intact.
+- Lakatos split is heuristic; episodes that match neither cluster go to `needs_review` and remain on the original (now hidden) record until reviewed.
+- New `people_hub_score` columns are derived — `refresh_people_hub_score()` must be re-run after relevance changes. Will be invoked at end of cleanup and from people-hub-refresh fn.
 
-**Biztonsági szempontok**:
-- `editorial_people_seed` és új admin oszlopok: RLS csak admin SELECT/WRITE — NEM `public read`. Public RPC-k és view-k SOHA nem szelektálnak ezekből az oszlopokból (`editorial_priority`, `manually_seeded`, `editorial_notes`, `browsable_reason` kivéve admin).
-- `person_missing_content_review_view` security definer wrapper RPC-vel hívható csak admin által.
-- JSON-LD, sitemap, public meta tagek ellenőrzése: csak `name`, `slug`, `wikipedia_url`, `wikidata_id`, `episode_count`, `latest_episode_at`, `image_url` (=null mostantól), `short_bio`/`ai_bio`/`overview_text` mehet ki — semmi editorial.
-
-**Méret becslés**: ~1 migráció (300+ sor SQL), 1 új edge fn (400+ sor), ~10 frontend fájl módosítás, ~5 edge fn HU guard injektálás, 1 új komponens, seed insert ~14 sor + 25 alias.
-
----
-
-## Kockázatok / nyitott pontok
-
-- Az `editorial-people-seed-matcher` első futása hosszú lehet (ILIKE keresések 850 podcast × seed). Time budget: 50s, ha túlfut, részleges progress + folytatható (seed-enként commit).
-- A `has_role()` security definer fn-t használom RLS-hez ahogy az index megköveteli.
-- A frontend cseréknél a tailwind/design tokenek megmaradnak.
-- Disambiguation (Lakatos Péter / Hajdu Tibor) konzervatív lesz: kétes match → `needs_review`, nem auto-create.
-- A HU language guard heurisztika nem 100%-os; csak nyilvánvalóan angol kimeneten triggerel — false-positive elkerülés végett küszöbök konzervatívak.
-
-Ha jóváhagyod, megyek és implementálom egyben.
+Proceed?
