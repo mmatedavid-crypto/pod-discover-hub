@@ -209,6 +209,9 @@ export default function AdminQueuePage() {
             <Button onClick={() => runBatch(25)} disabled={bulkBusy} variant="outline">
               Import next 25 Rank ≥ 4
             </Button>
+            <Button onClick={runLangVerify} disabled={langBusy} variant="outline">
+              {langBusy ? "Verifying…" : "Purge non-HU (AI)"}
+            </Button>
             <Button asChild variant="outline"><Link to="/admin/growth">Growth Dashboard</Link></Button>
           </div>
         </div>
