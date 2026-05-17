@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import {
   Activity,
   Database,
+  Globe,
   Inbox,
   LineChart,
   ListChecks,
@@ -13,9 +14,11 @@ import {
   MessageSquare,
   Search as SearchIcon,
   Settings,
+  Shield,
   Sparkles,
   Radio,
   Send,
+  Users,
 } from "lucide-react";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
