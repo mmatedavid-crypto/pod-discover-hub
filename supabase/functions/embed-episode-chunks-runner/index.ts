@@ -59,8 +59,10 @@ async function embed(model: string, text: string): Promise<{ vec: number[]; toke
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 55_000;
-  const TIME_RESERVE_MS = 8_000;
+  // CPU-budget on edge runtime is tight when each chunk = 768 floats + sha256.
+  // Keep wall time short so we exit cleanly and write progress before CPU exceeds.
+  const TIME_BUDGET_MS = 22_000;
+  const TIME_RESERVE_MS = 5_000;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -75,7 +77,7 @@ Deno.serve(async (req) => {
     const ctrl = (ctrlRow?.value || {}) as any;
     const cleanerCtrl = (cleanerRow?.value || {}) as CleanerCtrl;
     if (ctrl.enabled === false) {
-      try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30 * * * *" }); } catch { }
+      try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30" }); } catch { }
       return json({ ok: true, paused: true });
     }
     const model = String(ctrl.model || "google/gemini-embedding-001");
@@ -94,7 +96,7 @@ Deno.serve(async (req) => {
     let totalSpend = Number(spendRow?.spend_usd || 0);
     let calls = Number(spendRow?.calls || 0);
     if (embedSpend >= dailyBudget) {
-      try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30 * * * *" }); } catch { }
+      try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30" }); } catch { }
       return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
     }
 
@@ -238,17 +240,14 @@ Deno.serve(async (req) => {
     const s = (stats as any) || {};
     const pending = Number(s.missing || 0);
 
+    // RPC expects minute-part only (e.g., "*", "*/2", "*/15", "*/30", "0 * * * *")
     let recommended: string;
-    if (pending > 2000) recommended = "* * * * *";
-    else if (pending >= 200) recommended = "*/2 * * * *";
-    else if (pending > 0) recommended = "*/15 * * * *";
-    else recommended = "*/30 * * * *";
+    if (pending > 2000) recommended = "*";
+    else if (pending >= 200) recommended = "*/2";
+    else if (pending > 0) recommended = "*/15";
+    else recommended = "*/30";
     if (errors > episodesProcessed && episodesProcessed > 0) {
-      const stepDown: Record<string, string> = {
-        "* * * * *": "*/2 * * * *",
-        "*/2 * * * *": "*/15 * * * *",
-        "*/15 * * * *": "*/30 * * * *",
-      };
+      const stepDown: Record<string, string> = { "*": "*/2", "*/2": "*/15", "*/15": "*/30" };
       recommended = stepDown[recommended] || recommended;
     }
     try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: recommended }); } catch { }
