@@ -121,3 +121,36 @@ Deno.test("Bilingual goes to review, not auto-reject", () => {
   });
   assertEquals(r.language_decision === "accept_hungarian" || r.language_decision === "review_uncertain", true);
 });
+
+Deno.test("HU podcast with bilingual marketing copy NOT rejected (Friderikusz)", () => {
+  const r = classifyHungarianPodcastCandidate({
+    title: "Friderikusz Podcast",
+    description: "A Friderikusz Podcast egy heti rendszerességgel jelentkező magyar nyelvű beszélgetős műsor, ahol Friderikusz Sándor a vendégekkel a hét legfontosabb közéleti, kulturális és gazdasági témáit beszéli ki. New episode every week.",
+    rss_language: "hu",
+    episode_titles: [
+      "Heti vendég: a magyar gazdaság helyzete",
+      "Friderikusz Sándor: így működik a közélet",
+      "Új évad indul: minden héten új vendég",
+      "Beszélgetés a magyar kultúráról",
+    ],
+  });
+  if (r.language_decision === "reject_foreign") {
+    throw new Error(`HU podcast was rejected! hu=${r.hungarian_score} foreign=${r.foreign_score} evidence=${JSON.stringify(r.evidence)}`);
+  }
+});
+
+Deno.test("HU podcast with English title accent NOT rejected (Apaidő)", () => {
+  const r = classifyHungarianPodcastCandidate({
+    title: "Apaidő",
+    description: "Magyar apák beszélgetnek a gyereknevelésről, a családi életről és arról, milyen ma apának lenni Magyarországon.",
+    rss_language: "",
+    episode_titles: [
+      "Hogyan beszéljünk a gyerekkel a nehéz dolgokról",
+      "Apaként a karrier és a család között",
+      "Magyar apák őszintén",
+    ],
+  });
+  if (r.language_decision === "reject_foreign") {
+    throw new Error(`HU podcast was rejected! hu=${r.hungarian_score} foreign=${r.foreign_score}`);
+  }
+});
