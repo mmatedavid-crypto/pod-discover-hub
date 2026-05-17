@@ -93,6 +93,8 @@ Deno.serve(async (req) => {
       .select("id, title, slug, rss_url, image_url, podiverzum_rank, rank_label, shadow_rank_components, rss_status, deep_hydration_status, deep_hydration_target, last_deep_hydrated_at, hydrated_episode_count, full_backfill_completed_at")
       .in("rank_label", ["S", "A", "B", "C"])
       .in("rss_status", ["active", "not_checked"])
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .is("full_backfill_completed_at", null)
       .order("podiverzum_rank", { ascending: false })
       .order("last_deep_hydrated_at", { ascending: true, nullsFirst: true })
@@ -188,6 +190,8 @@ Deno.serve(async (req) => {
       .from("podcasts").select("id", { count: "exact", head: true })
       .in("rank_label", ["S", "A", "B", "C"])
       .in("rss_status", ["active", "not_checked"])
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .is("full_backfill_completed_at", null);
 
     const summary = {

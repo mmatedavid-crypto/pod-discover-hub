@@ -1023,6 +1023,13 @@ export type Database = {
             referencedRelation: "podcasts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
       growth_runs: {
@@ -1767,6 +1774,13 @@ export type Database = {
             referencedRelation: "podcasts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "person_episode_mentions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
       person_podcast_map: {
@@ -1856,6 +1870,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "podcasts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
           },
         ]
       }
@@ -2225,6 +2246,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "podcasts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_topic_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
           },
           {
             foreignKeyName: "podcast_topic_map_topic_id_fkey"
@@ -3372,6 +3400,29 @@ export type Database = {
           strong_mention_count?: number | null
           subject_count?: number | null
           wikipedia_match_status?: string | null
+        }
+        Relationships: []
+      }
+      v_hu_archive_completeness: {
+        Row: {
+          episode_count: number | null
+          full_backfill_completed_at: string | null
+          hydrated_episode_count: number | null
+          last_fetched_at: string | null
+          latest_episode_at: string | null
+          oldest_episode_at: string | null
+          pass_status: string | null
+          pi_backfill_approved: boolean | null
+          pi_backfill_completed_at: string | null
+          pi_backfill_episode_count: number | null
+          pi_gap: number | null
+          podcast_id: string | null
+          podiverzum_rank: number | null
+          rank_label: string | null
+          rss_status: string | null
+          rss_url: string | null
+          slug: string | null
+          title: string | null
         }
         Relationships: []
       }
