@@ -141,9 +141,10 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   while (true) {
     const { data: pods, error } = await supabase
       .from("podcasts")
-      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components,language")
-      // EN-only sitemap: hide non-English shows from Google. NULL=EN (legacy untagged).
-      .or("is_hungarian.eq.true")
+      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components,language,language_decision,is_hungarian")
+      // Canonical HU gate — RSS language metadata is unreliable.
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) throw error;
