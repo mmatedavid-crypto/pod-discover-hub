@@ -30,6 +30,18 @@ const DEFAULT_SEEDS: Record<string, string> = {
     "Ismeretterjesztő, oktatási magyar podcastok: tudomány, történelem, pszichológia, mesterséges intelligencia, technológia, közgazdaságtan, érdekes új ismeretek minden epizódban. Tanulhatsz belőle.",
   "elmelyuleshez":
     "Lassabb tempójú, gondolkodós magyar podcastok: filozófia, pszichológia, önismeret, spiritualitás, életvezetés, mély beszélgetések az élet nagy kérdéseiről. Reflektív, nem felszínes.",
+  "uzleti-inspiracio":
+    "Magyar podcastok vállalkozásról, cégépítésről, startupokról, vezetésről, marketingről, growth-ról, sales-ről, csapatépítésről. Vállalkozói interjúk, alapítói történetek, gyakorlati üzleti tanulságok.",
+  "penzugyi-gondolkodas":
+    "Magyar podcastok pénzügyekről, befektetésekről, tőzsdéről, részvényekről, makrogazdaságról, inflációról, kamatokról, állampapírról, magánnyugdíjról, vagyonkezelésről, megtakarításról. Komoly pénzügyi elemzések.",
+  "kulturahoz":
+    "Magyar podcastok kultúráról: könyvek, irodalom, színház, képzőművészet, zene, klasszikus művek, kortárs alkotók, kritika, esszé, kulturális események. Igényes, reflektív beszélgetések.",
+  "filmekhez":
+    "Magyar podcastok filmekről, sorozatokról, rendezőkről, színészekről, filmes újdonságokról, kritikákról, mozis ajánlókról, streaming sorozatokról, filmtörténetről.",
+  "nyugodt-beszelgetesek":
+    "Csendes, lassú tempójú, emberi magyar podcast beszélgetések. Mély interjúk, személyes történetek, reflexió, pszichológia, mindfulness, életvezetés. Nem hírműsor, nem politika.",
+  "gyors-frissites":
+    "Rövid, gyors magyar podcast epizódok: napi hírösszefoglalók, percpodcastok, rövid hírelemzések, friss aktualitások tömören. 5-15 perces formátumok, lényegre törő tartalom.",
 };
 
 async function embed(text: string): Promise<number[]> {
