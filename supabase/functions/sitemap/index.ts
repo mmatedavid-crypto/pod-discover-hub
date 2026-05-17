@@ -94,12 +94,35 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
   const { data: cats } = await supabase.from("categories").select("slug,created_at");
   const urls: string[] = [
     urlTag(`${SITE}/`, null, "daily", "1.0"),
-    urlTag(`${SITE}/categories`, null, "daily", "0.7"),
-    urlTag(`${SITE}/about`, null, "monthly", "0.4"),
-    urlTag(`${SITE}/methodology`, null, "monthly", "0.4"),
-    urlTag(`${SITE}/new-podcasts`, null, "daily", "0.6"),
+    urlTag(`${SITE}/kategoriak`, null, "daily", "0.7"),
+    urlTag(`${SITE}/temak`, null, "daily", "0.8"),
+    urlTag(`${SITE}/szemelyek`, null, "daily", "0.7"),
+    urlTag(`${SITE}/rolunk`, null, "monthly", "0.4"),
+    urlTag(`${SITE}/modszertan`, null, "monthly", "0.4"),
+    urlTag(`${SITE}/uj`, null, "daily", "0.6"),
   ];
-  (cats || []).forEach((c: any) => urls.push(urlTag(`${SITE}/category/${esc(c.slug)}`, c.created_at, "daily", "0.8")));
+  (cats || []).forEach((c: any) => urls.push(urlTag(`${SITE}/kategoria/${esc(c.slug)}`, c.created_at, "daily", "0.8")));
+
+  // Indexable topic pages
+  const { data: topics } = await supabase
+    .from("topics").select("slug, updated_at")
+    .eq("is_public", true).eq("is_indexable", true).limit(2000);
+  (topics || []).forEach((t: any) => urls.push(urlTag(`${SITE}/temak/${esc(t.slug)}`, t.updated_at, "weekly", "0.7")));
+
+  // Indexable person pages
+  let from = 0;
+  while (true) {
+    const { data: people } = await supabase
+      .from("people").select("slug, updated_at")
+      .eq("is_public", true).eq("is_indexable", true)
+      .order("episode_count", { ascending: false })
+      .range(from, from + 999);
+    if (!people || people.length === 0) break;
+    people.forEach((p: any) => urls.push(urlTag(`${SITE}/szemelyek/${esc(p.slug)}`, p.updated_at, "weekly", "0.6")));
+    if (people.length < 1000) break;
+    from += 1000;
+  }
+
   return wrapUrlset(urls);
 }
 
