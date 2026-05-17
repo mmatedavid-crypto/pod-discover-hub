@@ -1,16 +1,18 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Search, LayoutGrid } from "lucide-react";
+import { Search, LayoutGrid, Menu } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
 export function SiteHeader() {
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [loadingSugg, setLoadingSugg] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const nav = useNavigate();
   const isHome = useLocation().pathname === "/";
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,7 +83,48 @@ export function SiteHeader() {
             Kategóriák
           </NavLink>
         )}
-        <div ref={wrapRef} className={`sm:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "block sm:block"}`}>
+        {/* Mobile hamburger menu */}
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              aria-label="Menü"
+              className={`sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${isHome ? "" : "ml-auto"}`}
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-72">
+            <SheetHeader>
+              <SheetTitle>Menü</SheetTitle>
+            </SheetHeader>
+            <nav className="mt-6 flex flex-col gap-1">
+              {[
+                { to: "/napi", label: "Napi" },
+                { to: "/kategoriak", label: "Kategóriák" },
+                { to: "/temak", label: "Témák" },
+                { to: "/szemelyek", label: "Személyek" },
+                { to: "/kereses", label: "Keresés" },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `px-3 py-2.5 rounded-md text-base transition-colors ${
+                      isActive
+                        ? "bg-secondary text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          </SheetContent>
+        </Sheet>
+        <div ref={wrapRef} className={`sm:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden sm:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submit(q); }}
             className="relative focus-brand rounded-md transition-shadow"

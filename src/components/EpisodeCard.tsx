@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { PodcastCover } from "./PodcastCover";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 
@@ -114,7 +114,7 @@ export function EpisodeCard({
           </p>
         )}
         {desc && (
-          <p className="text-sm text-muted-foreground line-clamp-2 mt-2 leading-relaxed">
+          <p className="text-sm text-muted-foreground line-clamp-3 sm:line-clamp-2 mt-2 leading-relaxed">
             <HL text={desc} terms={terms} />
           </p>
         )}
@@ -139,10 +139,30 @@ export function EpisodeCard({
             })}
           </div>
         )}
-        <div className="flex gap-3 mt-2.5 text-xs">
-          <Link to={`/podcast/${p.slug}/${e.slug}`} className="text-muted-foreground hover:text-foreground">Részletek</Link>
+        <div className="flex gap-2 mt-2.5 text-xs">
+          {/* Mobile: compact icon buttons */}
+          <Link
+            to={`/podcast/${p.slug}/${e.slug}`}
+            aria-label="Részletek"
+            className="sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </Link>
           {e.audio_url && (
-            <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+            <a
+              href={e.audio_url}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Hallgatás"
+              className="sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+            >
+              <Play className="h-3.5 w-3.5" />
+            </a>
+          )}
+          {/* Tablet/desktop: text links */}
+          <Link to={`/podcast/${p.slug}/${e.slug}`} className="hidden sm:inline text-muted-foreground hover:text-foreground">Részletek</Link>
+          {e.audio_url && (
+            <a href={e.audio_url} target="_blank" rel="noreferrer" className="hidden sm:inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
               <ExternalLink className="h-3 w-3" /> Hallgatás
             </a>
           )}
@@ -157,7 +177,7 @@ export function EpisodeList({
 }: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
   const desktop = (
-    <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 border border-border/70 rounded-xl bg-card/60 surface overflow-hidden`}>
+    <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:surface overflow-hidden`}>
       {items.map((e) => (
         <li key={e.id} className="transition-colors">
           <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />

@@ -338,8 +338,6 @@ const Index = () => {
           </section>
         )}
 
-        <HomeTopicsSection />
-
         <MoodCollections />
 
 
@@ -382,6 +380,8 @@ const Index = () => {
             );
           });
         })()}
+
+        <HomeTopicsSection />
 
         <div className="flex justify-center">
           <Link
