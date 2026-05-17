@@ -109,14 +109,19 @@ Deno.serve(async (req) => {
         tier: r.shadow_rank_tier,
       }));
 
-      if (!dryRun && ids.length) {
+      if (!dryRun) {
+        // Store the seed embedding as pgvector literal "[v1,v2,...]" so future
+        // mood-recommendation RPCs can query episode_embeddings without re-embedding.
+        const seedLit = `[${vec.join(",")}]`;
+        const payload: Record<string, unknown> = {
+          seed_query: m.seed_query || seed,
+          seed_embedding: seedLit,
+          updated_at: new Date().toISOString(),
+        };
+        if (ids.length) payload.podcast_ids = ids;
         const { error: upErr } = await admin
           .from("mood_collections")
-          .update({
-            podcast_ids: ids,
-            seed_query: m.seed_query || seed,
-            updated_at: new Date().toISOString(),
-          })
+          .update(payload)
           .eq("id", m.id);
         if (upErr) {
           results.push({ slug: m.slug, ok: false, error: upErr.message });
