@@ -127,7 +127,6 @@ export default function PersonDetailPage() {
           description: bio || undefined,
           url: pageUrl,
           sameAs: (p as any).wikipedia_url ? [(p as any).wikipedia_url] : undefined,
-          image: (p as any).image_url || undefined,
         });
       } else {
         jsonLd.unshift({
