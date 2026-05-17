@@ -277,6 +277,39 @@ export default function AdminArchiveBackfillPage() {
             </table>
           </div>
         </section>
+
+        <section className="rounded-lg border border-border bg-card p-4">
+          <h2 className="font-semibold mb-2">Recent runs (last 20)</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-muted-foreground">
+                  <th className="py-1">Started</th><th>Trigger</th><th>Status</th><th>Tiers</th>
+                  <th>Pods</th><th>New ep.</th><th>Dup</th><th>Failed</th><th>AI bl.</th><th>Skip / err</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRuns.map((r) => (
+                  <tr key={r.id} className="border-t border-border">
+                    <td className="py-1 pr-2">{new Date(r.started_at).toLocaleString()}</td>
+                    <td>{r.trigger_source}</td>
+                    <td className={r.status === "failed" ? "text-destructive" : r.status === "skipped" ? "text-brand" : ""}>{r.status}</td>
+                    <td>{(r.tier_filter || []).join("/")}</td>
+                    <td>{r.podcasts_processed}</td>
+                    <td className="font-medium">{r.new_episodes_inserted}</td>
+                    <td>{r.duplicates_skipped}</td>
+                    <td>{r.failed_feeds}</td>
+                    <td>{r.ai_backlog_before ?? "—"} → {r.ai_backlog_after ?? "—"}</td>
+                    <td className="truncate max-w-[220px] text-muted-foreground">{r.skipped_reason || r.error_message || ""}</td>
+                  </tr>
+                ))}
+                {recentRuns.length === 0 && (
+                  <tr><td colSpan={10} className="text-muted-foreground py-4 text-center">No runs yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </Layout>
   );
