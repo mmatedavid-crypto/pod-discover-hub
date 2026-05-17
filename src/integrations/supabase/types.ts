@@ -3443,6 +3443,62 @@ export type Database = {
       formula_c_status: { Args: never; Returns: Json }
       get_cron_health: { Args: never; Returns: Json }
       get_ops_dashboard_status: { Args: never; Returns: Json }
+      get_related_episodes_by_embedding: {
+        Args: {
+          p_downweight_same_podcast?: boolean
+          p_episode_id: string
+          p_limit?: number
+        }
+        Returns: {
+          ai_summary: string
+          audio_url: string
+          description: string
+          display_title: string
+          episode_id: string
+          final_score: number
+          image_url: string
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          podiverzum_rank: number
+          published_at: string
+          rank_label: string
+          related_reason: string
+          similarity: number
+          slug: string
+          summary: string
+          title: string
+          topics: string[]
+        }[]
+      }
+      get_similar_podcasts_by_embedding: {
+        Args: { p_limit?: number; p_podcast_id: string }
+        Returns: {
+          apple_url: string
+          category: string
+          description: string
+          display_title: string
+          episode_count: number
+          featured: boolean
+          final_score: number
+          id: string
+          image_url: string
+          latest_episode_at: string
+          podiverzum_rank: number
+          rank_label: string
+          rss_status: string
+          similarity: number
+          slug: string
+          spotify_url: string
+          summary: string
+          title: string
+          website_url: string
+          youtube_url: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
