@@ -416,6 +416,84 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_chunks: {
+        Row: {
+          char_end: number
+          char_start: number
+          chunk_count: number
+          chunk_idx: number
+          content: string
+          content_hash: string
+          embedding: string
+          episode_id: string
+          model: string
+          podcast_id: string
+          updated_at: string
+        }
+        Insert: {
+          char_end?: number
+          char_start?: number
+          chunk_count: number
+          chunk_idx: number
+          content: string
+          content_hash: string
+          embedding: string
+          episode_id: string
+          model: string
+          podcast_id: string
+          updated_at?: string
+        }
+        Update: {
+          char_end?: number
+          char_start?: number
+          chunk_count?: number
+          chunk_idx?: number
+          content?: string
+          content_hash?: string
+          embedding?: string
+          episode_id?: string
+          model?: string
+          podcast_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      episode_clean_text: {
+        Row: {
+          cleaned_text: string
+          cleaner_method: string
+          cost_usd: number | null
+          created_at: string
+          episode_id: string
+          model: string | null
+          removed_categories: string[]
+          source_hash: string
+          updated_at: string
+        }
+        Insert: {
+          cleaned_text: string
+          cleaner_method: string
+          cost_usd?: number | null
+          created_at?: string
+          episode_id: string
+          model?: string | null
+          removed_categories?: string[]
+          source_hash: string
+          updated_at?: string
+        }
+        Update: {
+          cleaned_text?: string
+          cleaner_method?: string
+          cost_usd?: number | null
+          created_at?: string
+          episode_id?: string
+          model?: string | null
+          removed_categories?: string[]
+          source_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episode_embeddings: {
         Row: {
           content_hash: string
@@ -1006,6 +1084,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      podcast_boilerplate_blocks: {
+        Row: {
+          block_hash: string
+          block_text: string
+          detected_at: string
+          hit_count: number
+          podcast_id: string
+        }
+        Insert: {
+          block_hash: string
+          block_text: string
+          detected_at?: string
+          hit_count?: number
+          podcast_id: string
+        }
+        Update: {
+          block_hash?: string
+          block_text?: string
+          detected_at?: string
+          hit_count?: number
+          podcast_id?: string
+        }
+        Relationships: []
       }
       podcast_embeddings: {
         Row: {
@@ -1878,6 +1980,7 @@ export type Database = {
         Args: { _model: string; _tiers: string[] }
         Returns: Json
       }
+      embed_chunks_candidate_stats: { Args: { _model: string }; Returns: Json }
       embed_episode_candidate_stats: { Args: { _model: string }; Returns: Json }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -2011,6 +2114,26 @@ export type Database = {
           title: string
         }[]
       }
+      select_embed_chunks_candidates: {
+        Args: { _limit: number; _model: string }
+        Returns: {
+          ai_summary: string
+          companies: string[]
+          description: string
+          display_title: string
+          id: string
+          ingredients: string[]
+          people: string[]
+          podcast_display_title: string
+          podcast_id: string
+          podcast_language: string
+          podcast_tier: string
+          podcast_title: string
+          tickers: string[]
+          title: string
+          topics: string[]
+        }[]
+      }
       select_embed_episode_candidates: {
         Args: { _limit: number; _model: string }
         Returns: {
@@ -2038,6 +2161,10 @@ export type Database = {
       set_deep_hydration_schedule: {
         Args: { _schedule: string }
         Returns: undefined
+      }
+      set_embed_episode_chunks_schedule: {
+        Args: { _schedule: string }
+        Returns: Json
       }
       set_embed_episode_schedule: {
         Args: { _schedule: string }
