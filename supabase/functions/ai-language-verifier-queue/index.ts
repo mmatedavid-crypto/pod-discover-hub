@@ -97,8 +97,28 @@ Deno.serve(async (req) => {
     const queue = [...(rows || [])];
 
     const processOne = async (it: any) => {
+      let det: { lang: string; confidence: number; reason: string } | null = null;
+      let lastErr: any = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          det = await detectLanguage(model, it.title || "", it.description || "");
+          break;
+        } catch (e) {
+          lastErr = e;
+          const msg = String((e as Error)?.message || e);
+          if (msg.includes("429")) {
+            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1) + Math.random() * 1500));
+            continue;
+          }
+          break;
+        }
+      }
+      if (!det) {
+        errors++;
+        results.push({ id: it.id, title: it.title, error: String((lastErr as Error)?.message || lastErr) });
+        return;
+      }
       try {
-        const det = await detectLanguage(model, it.title || "", it.description || "");
         const confident = det.confidence >= minConf;
         const isHu = det.lang === "hu";
         let action: string;
