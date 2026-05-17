@@ -59,8 +59,10 @@ async function embed(model: string, text: string): Promise<{ vec: number[]; toke
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 55_000;
-  const TIME_RESERVE_MS = 8_000;
+  // CPU-budget on edge runtime is tight when each chunk = 768 floats + sha256.
+  // Keep wall time short so we exit cleanly and write progress before CPU exceeds.
+  const TIME_BUDGET_MS = 22_000;
+  const TIME_RESERVE_MS = 5_000;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
