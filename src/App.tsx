@@ -90,6 +90,7 @@ const App = () => (
           <Route path="/admin/hosts" element={<AdminHostsPage />} />
           <Route path="/admin/language-gate" element={<AdminLanguageGatePage />} />
           <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
+          <Route path="/admin/vector-search" element={<AdminVectorSearchPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />
