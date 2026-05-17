@@ -117,6 +117,10 @@ function scoreCandidate(person: any, entity: any, summary: any): { score: number
 async function processPerson(admin: any, personId: string): Promise<any> {
   const { data: p } = await admin.from("people").select("*").eq("id", personId).maybeSingle();
   if (!p) return { skipped: "not_found" };
+  // Activation/review gate — do not waste enrichment on inactive/blocked people.
+  if (!p.is_public || p.activation_status === "inactive") return { id: personId, skipped: "inactive" };
+  if (["hide","reject","merge"].includes(p.ai_recommended_action || "")) return { id: personId, skipped: "ai_blocked" };
+  if (["needs_human_review","duplicate_candidate"].includes(p.ai_review_status || "")) return { id: personId, skipped: "review_pending" };
 
   // gather context
   const { data: aliases } = await admin.from("person_aliases").select("alias").eq("person_id", personId).limit(20);
@@ -258,14 +262,19 @@ Deno.serve(async (req) => {
   if (ids.length === 0) {
     const { data } = await admin
       .from("people")
-      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status")
+      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status, activation_status, ai_recommended_action, ai_review_status")
       .eq("is_public", true)
+      .in("activation_status", ["indexable","manual_approved","public_noindex"])
       .or("wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null")
       .order("episode_count", { ascending: false })
       .order("podcast_count", { ascending: false })
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
-      .limit(limit);
-    ids = (data || []).map((r: any) => r.id);
+      .limit(limit * 2);
+    const filtered = (data || []).filter((r: any) =>
+      !["hide","reject","merge"].includes(r.ai_recommended_action || "") &&
+      !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
+    ).slice(0, limit);
+    ids = filtered.map((r: any) => r.id);
   }
 
   const results: any[] = [];

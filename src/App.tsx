@@ -30,6 +30,7 @@ import AdminLivePage from "./pages/AdminLivePage.tsx";
 import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
 import AdminHostsPage from "./pages/AdminHostsPage.tsx";
 import AdminLanguageGatePage from "./pages/AdminLanguageGatePage.tsx";
+import AdminPersonQualityReviewPage from "./pages/AdminPersonQualityReviewPage.tsx";
 import PeopleHubPage from "./pages/PeopleHubPage.tsx";
 import PersonDetailPage from "./pages/PersonDetailPage.tsx";
 import TopicsHubPage from "./pages/TopicsHubPage.tsx";
@@ -87,6 +88,7 @@ const App = () => (
           <Route path="/admin/pi-backfill" element={<AdminPiBackfillPage />} />
           <Route path="/admin/hosts" element={<AdminHostsPage />} />
           <Route path="/admin/language-gate" element={<AdminLanguageGatePage />} />
+          <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />

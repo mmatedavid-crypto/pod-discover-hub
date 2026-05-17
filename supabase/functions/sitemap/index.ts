@@ -109,16 +109,21 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
     .eq("is_public", true).eq("is_indexable", true).limit(2000);
   (topics || []).forEach((t: any) => urls.push(urlTag(`${SITE}/temak/${esc(t.slug)}`, t.updated_at, "weekly", "0.7")));
 
-  // Indexable person pages
+  // Indexable person pages — strict activation + AI review gate
   let from = 0;
   while (true) {
     const { data: people } = await supabase
-      .from("people").select("slug, updated_at")
+      .from("people").select("slug, updated_at, ai_recommended_action, ai_review_status")
       .eq("is_public", true).eq("is_indexable", true)
+      .in("activation_status", ["indexable","manual_approved"])
       .order("episode_count", { ascending: false })
       .range(from, from + 999);
     if (!people || people.length === 0) break;
-    people.forEach((p: any) => urls.push(urlTag(`${SITE}/szemelyek/${esc(p.slug)}`, p.updated_at, "weekly", "0.6")));
+    (people as any[]).forEach((p) => {
+      if (["hide","reject"].includes(p.ai_recommended_action || "")) return;
+      if (["needs_human_review","duplicate_candidate"].includes(p.ai_review_status || "")) return;
+      urls.push(urlTag(`${SITE}/szemelyek/${esc(p.slug)}`, p.updated_at, "weekly", "0.6"));
+    });
     if (people.length < 1000) break;
     from += 1000;
   }

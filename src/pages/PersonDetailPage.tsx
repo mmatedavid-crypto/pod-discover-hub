@@ -56,10 +56,14 @@ export default function PersonDetailPage() {
       setLoading(true);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, short_bio, overview_text, image_url, image_attribution, image_author, image_license, image_license_url, image_original_url, image_status, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at")
+        .select("id, name, slug, ai_bio, short_bio, overview_text, image_url, image_attribution, image_author, image_license, image_license_url, image_original_url, image_status, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status")
         .eq("slug", slug)
         .maybeSingle();
-      if (!p || !(p as any).is_public) { setNotFound(true); setLoading(false); return; }
+      const pp: any = p;
+      const blocked = !pp || !pp.is_public || pp.activation_status === "inactive"
+        || ["hide","reject"].includes(pp.ai_recommended_action || "")
+        || ["needs_human_review","duplicate_candidate"].includes(pp.ai_review_status || "");
+      if (blocked) { setNotFound(true); setLoading(false); return; }
       setPerson(p as any);
 
       const { data: mentions } = await supabase
