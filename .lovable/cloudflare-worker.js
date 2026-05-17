@@ -75,6 +75,63 @@ export default {
       return passthrough(request);
     }
 
+    // Serve our own /robots.txt directly from the Worker so that Cloudflare's
+    // "Managed robots.txt / AI Scrapers and Crawlers" feature cannot inject a
+    // contradictory Disallow block ahead of our policy.
+    if (url.pathname === "/robots.txt") {
+      const body = [
+        "# Podiverzum robots policy (served by edge worker; overrides any CF managed injection)",
+        "",
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /admin",
+        "Disallow: /admin/",
+        "Disallow: /admin-bootstrap",
+        "Disallow: /growth-status",
+        "Disallow: /auth",
+        "Disallow: /belepes",
+        "",
+        "User-agent: Googlebot",
+        "Allow: /",
+        "",
+        "User-agent: Bingbot",
+        "Allow: /",
+        "",
+        "User-agent: OAI-SearchBot",
+        "Allow: /",
+        "",
+        "User-agent: ChatGPT-User",
+        "Allow: /",
+        "",
+        "User-agent: GPTBot",
+        "Allow: /",
+        "",
+        "User-agent: PerplexityBot",
+        "Allow: /",
+        "",
+        "User-agent: ClaudeBot",
+        "Allow: /",
+        "",
+        "User-agent: Google-Extended",
+        "Allow: /",
+        "",
+        "User-agent: Applebot-Extended",
+        "Allow: /",
+        "",
+        "Sitemap: https://podiverzum.hu/sitemap.xml",
+        "",
+      ].join("\n");
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+          "X-Worker": "podiverzum-bot-prerender",
+          "X-Robots-Source": "worker-inline",
+        },
+      });
+    }
+
     // Proxy /sitemap.xml and /feed.xml to Supabase edge functions.
     // /sitemap.xml → dynamic sitemap-index (core + podcasts + per-month episodes)
     // /feed.xml    → recent-episodes RSS
