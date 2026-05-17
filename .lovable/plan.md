@@ -1,77 +1,96 @@
-# Person + Topic SEO Layer for podiverzum.hu
+## A jelenlegi állapot (HU korpusz, 830 podcast)
 
-Massive scope (14 parts). I'll execute in **6 sequential phases**, each shippable and verifiable. After each phase I'll report and continue. All public queries enforce `podcasts.is_hungarian = true AND podcasts.language_decision = 'accept_hungarian'`. No public company pages — organizations stored in a generic `entities` table for later.
+`app_settings.formula_c_thresholds` jelenleg HU-kalibrált: **S≥6, A≥5, B≥4, C≥3, D≥2**. A `podiverzum_rank` viszont a HU korpuszon nem folytonos 0–10 skála, hanem csak **7 diszkrét egész érték (3,4,5,6,8,9,10)**, így a küszöbök gyakorlatilag egy 1‑az‑1 leképezést adnak:
 
-## Phase 1 — Data model (DB migration)
+| podiverzum_rank | rank_label | db | átlag epizód | aktív RSS | friss 30d | friss 180d |
+|---:|:---:|---:|---:|---:|---:|---:|
+| 10 | S | 186 | ~175 | 163 | 162 | 174 |
+| 9 | S | 7 | 45 | 7 | 6 | 7 |
+| 8 | S | 6 | 7 | 6 | 1 | 6 |
+| 6 | S | 117 | 68 | 115 | 96 | 106 |
+| 5 | A | 155 | 32 | 151 | 46 | 74 |
+| 4 | B | 326 | 9 | 313 | 79 | 130 |
+| 3 | C | 38 | 5 | 36 | 4 | 8 |
 
-Single migration creating:
+Aggregát:
+- **S: 281 (34%)**, A: 155 (19%), B: 326 (39%), C: 38 (5%), D/E: 0, null: 30
+- S+A = 436 podcast (53%) — ez az a halmaz, amit a főoldali MV-k, evergreen, sitemap, AI sprintek és a kereső ranking is „minőségi" jelzésként használ.
 
-- `people`, `person_aliases`, `person_episode_mentions`, `person_podcast_map`, `entity_extraction_runs`
-- `entities` (generic, for organizations now, future-proof)
-- `topics`, `topic_aliases`, `episode_topic_map`, `podcast_topic_map`
-- Storage bucket `entity-images` (public read) for cached Wikimedia images
-- RLS: public read on all, admin write
-- Indexes: slug, normalized_name, person_id, episode_id, topic_id
-- Helper RPCs: `select_person_page_episodes(person_id)`, `select_topic_page_episodes(topic_id)`, `select_topic_page_podcasts(topic_id)` — all enforcing HU gate
-- Seed all ~80 priority topics from PART 7 with HU SEO copy
+## Problémák
 
-## Phase 2 — Person extraction worker
+1. **Inflált S-tier.** 281 podcast jelölése „S" devalválja a címkét. Külön gond, hogy a `podiverzum_rank=6` és `podiverzum_rank=8` is S-be esik, pedig a 8-asok közül csak 1/6 friss 30 napon belül — ezek valójában B/A jellegű shows-ok.
+2. **Felesleges A↔B ugrás csak +1 raw ponton.** A=5 → 32 átlagos epizód, frissességi ráta ~30%. B=4 → 9 epizód, ~24% friss. A különbség nem indokolja a kétszintű kategorizálást a jelenlegi corpusban.
+3. **C alig létezik (38 db) és D/E üres.** A ladder alsó fele nem dolgozik, miközben az adminban duplikálva van a B (326).
+4. **Nincs frissességi gate a tierbe.** Egy 5 éves S-szintű podcast ugyanúgy bekerül a homepage trending feedbe (csak az epizód-szintű 30 napos filter szűr, de a podcast tiering nem). Eredmény: dead-but-S shows előnyt élveznek a sitemapban és az AI prioritásokban.
+5. **Az S-tier a refresh intervalt is vezérli (S=30p).** 281 podcastot percenként polling-olunk az RSS-en — sok közöttük inaktív.
 
-Edge fn `person-entity-extractor`:
-- Reads episodes joined to HU-approved podcasts
-- Uses existing `episodes.people`, `episodes.mentioned`, `podcasts.hosts` arrays already populated by SEO enrichment
-- Normalizes names (NFKD, lowercase, dedupe via aliases)
-- Computes confidence using PART 2 rules (host / guest in title / mention count / single first name reject)
-- Upserts `people`, `person_aliases`, `person_episode_mentions`, `person_podcast_map`
-- Sets `is_public` / `is_indexable` per thresholds
-- Logs to `entity_extraction_runs`
-- Cron `*/30` (controls in `app_settings.person_extractor_controls`, $1/day cap — mostly free since it reuses existing AI extractions)
+## Cél
 
-## Phase 3 — AI bio + Wikimedia image pipeline
+Olyan küszöbök, ahol a HU korpusban:
+- **S ≈ top 10–12%** (csak igazán friss, mély katalógusú, aktív RSS-szel rendelkező shows)
+- **A ≈ 15–20%** (rendszeresen aktív, közepes katalógus)
+- **B ≈ 30–35%** (működik, de ritka vagy szegényesebb)
+- **C/D ≈ a maradék** (alvó / kis volumen / nem fontos)
 
-Edge fn `person-enricher`:
-- For `is_public` people without bio: query Wikidata SPARQL by name + HU context → get `wikidata_id`, `wikipedia_title`, `wikipedia_url`, `P18` image filename
-- Fetch MediaWiki `imageinfo` + `extmetadata` → license, author, attribution
-- Only accept reusable licenses (CC-BY*, CC0, PD); skip fair-use/unclear
-- Download image, resize to 160/320/640 WebP via `Sharp` (use Deno-compatible `imagescript` or fetch through an image transform service)
-- Upload all 3 sizes to `entity-images` Storage bucket, store paths
-- Generate HU bio via Lovable AI Gateway (`google/gemini-2.5-flash`) — strict no-hallucination prompt, fallback template if data weak
-- Store all attribution + license fields; never hotlink
-- Daily cron, $3/day cap
+Ez kb. **S≤100, A≈140–160, B≈280–320, C+D≈170–250** célzott eloszlást ad.
 
-## Phase 4 — Public pages
+## Két lépcsős megoldás
 
-- `/szemelyek` — hub: search, trending (by recent mention count), category-grouped people
-- `/szemelyek/:slug` — person detail per PART 5 layout (breadcrumb, image+attribution, AI bio, episode sections, related podcasts/topics/people, search box, FAQ)
-- `/temak` — topic hub grouped by domain
-- `/temak/:slug` — topic detail per PART 8 layout
-- All pages: react-helmet SEO (title/desc/canonical/OG), JSON-LD (Person/CollectionPage/BreadcrumbList/FAQPage), `noindex` when `is_indexable=false`
-- Strict HU filter on every query
-- Image rendering uses local Storage URL only, with width/height + lazy loading + `<picture>` srcset for 3 sizes
-- Initials avatar fallback component
+### 1. lépcső — küszöbök szigorítása (azonnali, alacsony kockázatú)
 
-## Phase 5 — Internal linking + sitemap
+Új `formula_c_thresholds` HU-ra: **S=8, A=5, B=4, C=3, D=2**.
 
-- Add **Témák** to main nav (next to Kategóriák), **Személyek** to nav + footer
-- Add homepage compact section "Podcast témák szerint" (12 priority topics)
-- Footer links: Témák, Személyek, Magyar podcastok, Friss epizódok, Új podcastok
-- Update `sitemap` edge fn: include indexable `/szemelyek/:slug` + `/temak/:slug` (joined query with HU gate + `is_indexable=true`)
-- Cross-links: person→topics/podcasts, topic→people/podcasts/siblings
+Eredmény az aktuális rangokon:
+- S: 178+7+6 = **191** (rank≥8, 23%) — még mindig magas
+- A: **117** (rank=6, 14%)
+- (átsorolt) A: + rank=5 → ahhoz hogy A=5 maradjon, a B-t mozgatni kell
+- B: **326** (rank=4, 39%)
+- C: **38** (rank=3)
 
-## Phase 6 — Admin pages + verification
+Ez önmagában csökkenti az S-t 34→23%-ra, és levesz egy refresh-load adag terhelést.
 
-- `/admin/entities/people` — list, search, merge duplicates, edit aliases, approve/reject, regenerate bio, refresh image, manual image upload, toggle indexability
-- `/admin/topics` — list, edit SEO copy, refresh mappings, approve/reject, sitemap refresh trigger
-- Link both from `/admin` hub page
-- Final verification report with all counts requested in PART 14
+### 2. lépcső — frissességi gate az S/A-ra (cél: valódi „top tier")
 
-## Technical notes
+A küszöb mellé egy másodlagos szűrő, ami csak a `rank_label` címkét húzza vissza, a `podiverzum_rank` raw értéket nem módosítja:
 
-- Topic mapping uses keyword aliases + existing `episodes.topics` arrays + AI extraction; capped at 5/episode, 8/podcast; specific > broad
-- Materialized views for hot paths: `mv_person_episodes`, `mv_topic_episodes`, `mv_topic_podcasts`, refreshed every 15 min
-- HU gate is non-negotiable on every public RPC + page query
-- Performance: lazy load images, MV-backed queries, react-helmet for per-route SEO
+- **S marad** csak, ha (`rss_status='active'` ÉS friss 90 napon belül ÉS hydrated_episode_count ≥ 20). Egyébként → A.
+- **A marad** csak, ha friss 180 napon belül. Egyébként → B.
 
-## Scope confirmation
+Becsült eredmény a fenti táblából (kb.):
+- S: 191 → ~150–160 (mert 180+ből ~170 friss 30d-n, és a 6 db rank=8 nagyrésze kiesik)
+- A: 117 + S→A átsoroltak ≈ 150
+- B: 326 + A→B átsoroltak ≈ 360
+- C: 38
 
-This is ~2 weeks of work compressed. I'll execute Phase 1 in this turn (migration only — single tool call, then awaits your approval). After approval, I'll continue with Phases 2–6 across subsequent turns, reporting after each phase. **Confirm to proceed with Phase 1 migration.**
+Implementálás vagy a `formula-c-runner`-ben, mint új komponens (`tier_after_freshness`), vagy egy külön szakaszként a `shadow_rank_tier` után. Visszavonhatóság: a `rank_reason` JSONB-be `freshness_demotion` mezővel logoljuk az átsorolást.
+
+## Érintett felületek (impact ellenőrzés)
+
+- `mv_homepage_feed` — S/A vagy featured. Az S szűkítésével a feed kisebb lesz, de az evergreen MV (S only) érintettsége a fontos: ott akarjuk a szigorítást.
+- `mv_homepage_evergreen` — csak S, 30–365 napos epizódok. Ez pontosan a réteg, ahol a túl bőkezű S-tier ártott.
+- Sitemap — S/A podcast oldalakat tartalmaz; szigorítás után jobb minőségű URL halmaz.
+- Refresh interval — S=30p, A=2h. ~80–100 podcastnyi csökkenés az S-szinten → kevesebb RSS poll.
+- AI sprintek (`deep-hydrate-runner`, `seo-enrich`, `embed-podcast`) — tier-aware prioritások és napi quoták. Kevesebb S/A → gyorsabb backlog feldolgozás.
+- Search ranking — `src/lib/search.ts` `tierMap` súlyok. Nem kell módosítani; csak kevesebb show kap magas súlyt.
+
+## Tervezett lépések
+
+1. **Dry-run riport** — egy SELECT query, ami megmutatja:
+   - jelenlegi vs. javasolt rank_label eloszlás (lépcső 1 és 1+2 után)
+   - melyik konkrét S-tier podcastok esnének vissza A/B-be
+   - a refresh-poll terhelés várható csökkenése
+   - hány homepage / evergreen / sitemap URL érintett
+2. **User jóváhagyás** a dry-run alapján.
+3. **Migration**: `app_settings.formula_c_thresholds` frissítése (S=8, A=5, B=4, C=3, D=2).
+4. **formula-c-runner kiterjesztés** opcionálisan a 2. lépcső frissességi gate-tel (külön PR, opcionális).
+5. **Tömeges relabel**: `formula-c-runner` lefuttatása minden HU podcastra (`ids=[…]` vagy `limit` ciklusban). A runner idempotens, csak `rank_label`-t és `shadow_rank_tier`-t mozgat.
+6. **MV refresh** (`refresh_homepage_feed()`).
+7. **Verifikáció** — riport futtatása újra, főoldal vizuális ellenőrzés, sitemap diff.
+8. **Memory frissítés** a `formula-c-thresholds.md` jegyzetben.
+
+## Nyitott kérdések a usernek
+
+1. Csak az **1. lépcsőt** futtassuk most (csak threshold), és a frissességi gate-et külön körben? Vagy egyszerre mindkettő?
+2. Az S-tier célaránya **~10–12%** (kb. 90–100 podcast) megfelelő? Vagy szigorúbb (top 5%, ~40) / lazább (top 15%, ~125)?
+3. A frissességi „S-megtartás" küszöbe **90 nap** és **20 epizód** elfogadható? (Alternatíva: 60 nap / 30 epizód, vagy 120 nap / 10 epizód.)
+4. Mi legyen az A-megtartás frissességi limitje — **180 nap** vagy szigorúbb (90 nap)?
