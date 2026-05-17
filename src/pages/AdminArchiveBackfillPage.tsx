@@ -390,3 +390,32 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+// Next fire time for "37 */6 * * *" (UTC): minute 37 at hours 0/6/12/18.
+function nextCronRun(_expr: string): string {
+  const now = new Date();
+  for (let i = 0; i < 48; i++) {
+    const d = new Date(now.getTime() + i * 60 * 60 * 1000);
+    d.setUTCMinutes(37, 0, 0);
+    if (d.getUTCHours() % 6 !== 0) continue;
+    if (d.getTime() <= now.getTime()) continue;
+    return d.toLocaleString();
+  }
+  return "—";
+}
+
+function TrendBox({ label, series }: { label: string; series: number[] }) {
+  const max = Math.max(1, ...series);
+  return (
+    <div className="rounded-md border border-border p-2">
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
+      <div className="flex items-end gap-1 h-10">
+        {series.length === 0 && <span className="text-xs text-muted-foreground">no data</span>}
+        {series.map((v, i) => (
+          <div key={i} className="flex-1 bg-brand/40 rounded-sm" style={{ height: `${(v / max) * 100}%`, minHeight: 2 }} title={String(v)} />
+        ))}
+      </div>
+      <div className="text-[11px] text-muted-foreground mt-1">{series.length > 0 ? `latest ${series[series.length - 1]}` : "—"}</div>
+    </div>
+  );
+}
