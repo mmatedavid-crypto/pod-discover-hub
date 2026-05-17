@@ -346,12 +346,12 @@ Deno.serve(async (req) => {
       bigramMust: engN >= 12,
       hyde: engN >= 12,
       cohere: engN >= 12,
-      chunkAugment: engN >= 13,
+      chunkAugment: chunkAugAllowed,
     };
 
     if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const supa = supaPre;
     const t0 = Date.now();
     let qNorm = normalizeQ(q);
 
