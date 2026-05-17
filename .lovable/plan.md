@@ -1,132 +1,77 @@
-# HU-Only Language Gate & Cleanup
+# Person + Topic SEO Layer for podiverzum.hu
 
-Critical fix: podiverzum.hu currently shows Arabic/English podcasts. Need durable language classification at ingestion + DB cleanup + public query guards. Big scope — done in 5 phases, each shippable.
+Massive scope (14 parts). I'll execute in **6 sequential phases**, each shippable and verifiable. After each phase I'll report and continue. All public queries enforce `podcasts.is_hungarian = true AND podcasts.language_decision = 'accept_hungarian'`. No public company pages — organizations stored in a generic `entities` table for later.
 
-## Phase 0 — Stop the bleeding (5 min)
+## Phase 1 — Data model (DB migration)
 
-1. Flip `app_settings.background_jobs.incident_mode = true` immediately (already supported by `_shared/incident-guard.ts`). This stops: rss-hunter, rss-self-healing, incremental-refresh, deep-hydrate, queue-drainer, ai-enrich, seo-enrich-*, embed-*, daily-social-post, entity-backfill, categorize-podcast-runner, pi-dump-process, ai-feed-scout, stt-runner, youtube-* — all already gated.
-2. Public site stays up (incident-guard only used by background jobs).
+Single migration creating:
 
-## Phase 1 — DB schema (1 migration)
+- `people`, `person_aliases`, `person_episode_mentions`, `person_podcast_map`, `entity_extraction_runs`
+- `entities` (generic, for organizations now, future-proof)
+- `topics`, `topic_aliases`, `episode_topic_map`, `podcast_topic_map`
+- Storage bucket `entity-images` (public read) for cached Wikimedia images
+- RLS: public read on all, admin write
+- Indexes: slug, normalized_name, person_id, episode_id, topic_id
+- Helper RPCs: `select_person_page_episodes(person_id)`, `select_topic_page_episodes(topic_id)`, `select_topic_page_podcasts(topic_id)` — all enforcing HU gate
+- Seed all ~80 priority topics from PART 7 with HU SEO copy
 
-Add to `podcasts`:
-- `language_decision text` (`accept_hungarian` | `reject_foreign` | `review_uncertain` | NULL)
-- `hungarian_score int`, `foreign_score int`
-- `detected_language text`
-- `language_checked_at timestamptz`
-- `language_evidence jsonb default '{}'`
-- `language_rejection_reason text`
-- `is_hungarian bool default false`
+## Phase 2 — Person extraction worker
 
-Add to `episodes`:
-- `detected_language text`, `hungarian_score int`, `foreign_score int`
-- `language_checked_at timestamptz`, `language_evidence jsonb default '{}'`
+Edge fn `person-entity-extractor`:
+- Reads episodes joined to HU-approved podcasts
+- Uses existing `episodes.people`, `episodes.mentioned`, `podcasts.hosts` arrays already populated by SEO enrichment
+- Normalizes names (NFKD, lowercase, dedupe via aliases)
+- Computes confidence using PART 2 rules (host / guest in title / mention count / single first name reject)
+- Upserts `people`, `person_aliases`, `person_episode_mentions`, `person_podcast_map`
+- Sets `is_public` / `is_indexable` per thresholds
+- Logs to `entity_extraction_runs`
+- Cron `*/30` (controls in `app_settings.person_extractor_controls`, $1/day cap — mostly free since it reuses existing AI extractions)
 
-New tables:
-- `podcast_language_review_queue` (id, podcast_id, title, rss_url, website_url, detected_language, hungarian_score, foreign_score, reason, evidence jsonb, status, created_at, reviewed_at)
-- `podcast_language_cleanup_log` (id, podcast_id, title, rss_url, detected_language, hungarian_score, foreign_score, deletion_reason, deleted_related_episode_count, deleted_embedding_count, deleted_ai_job_count, deleted_at, evidence jsonb)
+## Phase 3 — AI bio + Wikimedia image pipeline
 
-Indexes on `podcasts(is_hungarian, language_decision)`, `podcasts(language_checked_at)`.
+Edge fn `person-enricher`:
+- For `is_public` people without bio: query Wikidata SPARQL by name + HU context → get `wikidata_id`, `wikipedia_title`, `wikipedia_url`, `P18` image filename
+- Fetch MediaWiki `imageinfo` + `extmetadata` → license, author, attribution
+- Only accept reusable licenses (CC-BY*, CC0, PD); skip fair-use/unclear
+- Download image, resize to 160/320/640 WebP via `Sharp` (use Deno-compatible `imagescript` or fetch through an image transform service)
+- Upload all 3 sizes to `entity-images` Storage bucket, store paths
+- Generate HU bio via Lovable AI Gateway (`google/gemini-2.5-flash`) — strict no-hallucination prompt, fallback template if data weak
+- Store all attribution + license fields; never hotlink
+- Daily cron, $3/day cap
 
-Bootstrap: backfill `is_hungarian=true, language_decision='accept_hungarian'` for podcasts where `language ILIKE 'hu%'` AS A STARTING POINT — Phase 3 audit will re-classify and demote foreign ones.
+## Phase 4 — Public pages
 
-## Phase 2 — Classifier (shared lib)
+- `/szemelyek` — hub: search, trending (by recent mention count), category-grouped people
+- `/szemelyek/:slug` — person detail per PART 5 layout (breadcrumb, image+attribution, AI bio, episode sections, related podcasts/topics/people, search box, FAQ)
+- `/temak` — topic hub grouped by domain
+- `/temak/:slug` — topic detail per PART 8 layout
+- All pages: react-helmet SEO (title/desc/canonical/OG), JSON-LD (Person/CollectionPage/BreadcrumbList/FAQPage), `noindex` when `is_indexable=false`
+- Strict HU filter on every query
+- Image rendering uses local Storage URL only, with width/height + lazy loading + `<picture>` srcset for 3 sizes
+- Initials avatar fallback component
 
-`supabase/functions/_shared/hu-language-classifier.ts`:
+## Phase 5 — Internal linking + sitemap
 
-```ts
-classifyHungarianPodcastCandidate({
-  title, description, author, rss_language, rss_url, website_url,
-  episode_titles[], episode_descriptions[], categories[]
-}) => {
-  language_decision, hungarian_score (0-100), foreign_score (0-100),
-  detected_language, rejection_reason, evidence
-}
-```
+- Add **Témák** to main nav (next to Kategóriák), **Személyek** to nav + footer
+- Add homepage compact section "Podcast témák szerint" (12 priority topics)
+- Footer links: Témák, Személyek, Magyar podcastok, Friss epizódok, Új podcastok
+- Update `sitemap` edge fn: include indexable `/szemelyek/:slug` + `/temak/:slug` (joined query with HU gate + `is_indexable=true`)
+- Cross-links: person→topics/podcasts, topic→people/podcasts/siblings
 
-Heuristic scoring (no AI call — fast, free, deterministic):
-- **Script detection**: count chars in Arabic/Cyrillic/CJK/Hebrew unicode ranges. >5% non-Latin in combined corpus → immediate reject.
-- **HU markers**: `őűáéíóúöü` accent chars, common HU words (`és, hogy, nem, van, csak, már, így, mert, lehet, magyar, podcast, beszélgetés, epizód, vendég, élet, világ, történet, ...`), HU bigrams (`gy, ny, ty, sz, cs, zs`).
-- **EN markers**: stop words (`the, and, with, this, that, from, what, your, about, episode, show, podcast, host, guest`), no HU accents anywhere.
-- **DE/FR/ES/IT markers**: smaller wordlists for tagging detected_language.
-- **RSS language**: explicit `en/ar/de/...` + EN/foreign text evidence → reject. `hu/hu-HU` → +30 HU score. Empty → neutral.
-- **Domain hints**: `.hu`, `podkaszt.hu`, `hallod.hu`, `telex.hu`, `444.hu`, `index.hu`, `partizan`, `mandiner`, `g7.hu` → +20 HU. Known foreign: `npr.org, bbc.co.uk, theringer.com, sans.org, cisa.gov` → +30 foreign.
-- **Decision thresholds**: `hungarian_score >= 60 && foreign_score < 30` → accept. `foreign_score >= 60 && hungarian_score < 20` → reject. else → review_uncertain.
-- **Hard rules override**: dominant non-Latin script → reject regardless. RSS `hu*` + zero foreign evidence → accept.
+## Phase 6 — Admin pages + verification
 
-Evidence object: `{hu_words: [...], en_words: [...], scripts: {arabic: 12, latin: 800}, domain_hint, rss_lang, decision_path: [...]}`.
-
-Deno unit tests with fixtures: HU podcasts (empty lang), Cybersecurity Headlines, SANS, Big Picture, Arabic-script feed, bilingual edge cases.
-
-## Phase 3 — DB-wide audit & cleanup
-
-New edge function `language-audit-runner`:
-- Query: podcast + latest 8 episodes (title/description). Score in batches of 100.
-- Write decision to `podcasts.*` fields.
-- For `reject_foreign` + high confidence (foreign_score >= 75): collect into cleanup batch.
-- For `review_uncertain`: set `is_hungarian=false`, insert into review queue (skip duplicates).
-- For `accept_hungarian`: set `is_hungarian=true`.
-
-Dry-run first (`?dry_run=1`): returns counts only. User approves → real run.
-
-Deletion (`language-cleanup-runner`):
-- For each rejected podcast: snapshot to `podcast_language_cleanup_log` with counts BEFORE deletion.
-- Cascade delete: `episode_chunks`, `episode_embeddings`, `episode_clean_text`, `episode_transcripts`, `episode_youtube_links`, `episodes`, `podcast_embeddings`, `podcast_youtube_candidates`, `podcast_boilerplate_blocks`, `ai_enrichment_jobs` (where target=this podcast/its episodes), `discovery_queue` rows referencing it, `social_posts` referencing only this podcast, finally `podcasts` row.
-- Batch of 50 per invocation, time-budgeted.
-
-## Phase 4 — Ingestion gates
-
-Add gate call in:
-- `pi-dump-process` (most important — main funnel)
-- `queue-import` & `queue-drainer` & `queue-import-runner`
-- `rss-hunter` (when promoting candidate)
-- `ai-feed-scout` (after Firecrawl+Gemini, before staging)
-- `pi-recent-ingest`, `pi-topic-ingest`, `pi-hu-bulk-pull`, `itunes-hu-enumerate` — gate at staging entry
-- `deep-hydrate-runner` — skip if `is_hungarian=false`
-- `seo-enrich-enqueue`, `embed-podcast-runner`, `embed-episode-runner`, `embed-episode-chunks-runner`, `entity-backfill-runner`, `categorize-podcast-runner`, `daily-social-post` — all filter `is_hungarian=true`
-
-Gate flow in ingestion:
-1. Fetch minimal RSS (already done) → extract title/desc/lang + first 5-10 episode titles.
-2. Call classifier.
-3. accept → insert with `is_hungarian=true, language_decision='accept_hungarian'`.
-4. reject → log to cleanup_log with `deletion_reason='gate_at_ingestion'`, do NOT insert.
-5. review → insert with `is_hungarian=false, language_decision='review_uncertain'`, add to review queue.
-
-## Phase 5 — Public query guards
-
-Update everywhere that reads podcasts/episodes for public surfaces:
-- `mv_homepage_feed` & `mv_homepage_evergreen` MVs: replace `language ILIKE 'hu%'` with `is_hungarian = true AND language_decision = 'accept_hungarian'`.
-- `sitemap` edge fn, `prerender`, `search-hybrid`, `search-suggest`, `CategoryDetail`, `NewPodcastsPage`, `Index.tsx`, `PodcastDetail`, `EpisodeDetail` similar episodes, `SimilarPodcasts`, `TrendingEntities`, `RecentlyAddedPodcasts`, entity pages.
-- One helper: `.eq('is_hungarian', true).eq('language_decision', 'accept_hungarian')` chained on every public podcast query.
-
-## Phase 6 — Admin panel
-
-New page `/admin/language-gate` (`AdminLanguageGatePage.tsx`):
-- Counters: accepted / rejected / review_pending / last_audit_at / last_cleanup_at.
-- Top detected foreign languages (group by `detected_language`).
-- Recent ingestion rejections (last 50 from cleanup log where `deletion_reason='gate_at_ingestion'`).
-- Review queue table with approve/reject buttons (writes back to podcasts.language_decision + is_hungarian).
-- Buttons: "Run language audit (dry-run)", "Run language audit (apply)", "Run cleanup of rejected", "Resume background jobs" (clears incident_mode after user confirms cleanup done).
-- Link from AdminHubPage.
-
-## Phase 7 — Tests & verification
-
-Deno tests in `_shared/hu-language-classifier_test.ts` with fixtures.
-
-Final manual verification on user request:
-- SQL: zero `is_hungarian=false` rows visible on homepage MVs.
-- Spot-check homepage in preview.
-- Report counts.
-
-## Open question
-
-Do you want me to start with **Phase 0 (pause jobs) + Phase 1 (migration) + Phase 2 (classifier) + Phase 3 (audit dry-run)** in this turn so you can review the dry-run report before any deletion? That's the safest path. After you OK the dry-run, I run cleanup + ingestion gates + public guards + admin panel.
-
-Or go all-in: pause, classify, cleanup-with-conservative-thresholds (foreign_score≥75 only), gate ingestion, guard public — all in one shot, with full report at the end.
+- `/admin/entities/people` — list, search, merge duplicates, edit aliases, approve/reject, regenerate bio, refresh image, manual image upload, toggle indexability
+- `/admin/topics` — list, edit SEO copy, refresh mappings, approve/reject, sitemap refresh trigger
+- Link both from `/admin` hub page
+- Final verification report with all counts requested in PART 14
 
 ## Technical notes
 
-- No new AI cost — classifier is pure heuristic. AI can be added later as tiebreaker for `review_uncertain` cases via the existing `pi-language-recheck` pattern.
-- Cleanup log preserves what was deleted (title, rss_url, evidence) — recoverable if a podcast is wrongly removed.
-- `review_uncertain` defaults to hidden but not deleted — safe middle ground.
-- Re-classification is idempotent (uses `language_checked_at` to skip recently-checked).
+- Topic mapping uses keyword aliases + existing `episodes.topics` arrays + AI extraction; capped at 5/episode, 8/podcast; specific > broad
+- Materialized views for hot paths: `mv_person_episodes`, `mv_topic_episodes`, `mv_topic_podcasts`, refreshed every 15 min
+- HU gate is non-negotiable on every public RPC + page query
+- Performance: lazy load images, MV-backed queries, react-helmet for per-route SEO
+
+## Scope confirmation
+
+This is ~2 weeks of work compressed. I'll execute Phase 1 in this turn (migration only — single tool call, then awaits your approval). After approval, I'll continue with Phases 2–6 across subsequent turns, reporting after each phase. **Confirm to proceed with Phase 1 migration.**

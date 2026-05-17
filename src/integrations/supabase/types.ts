@@ -371,6 +371,90 @@ export type Database = {
         }
         Relationships: []
       }
+      entities: {
+        Row: {
+          created_at: string
+          entity_type: string
+          episode_count: number
+          id: string
+          is_indexable: boolean
+          is_public: boolean
+          metadata: Json
+          name: string
+          normalized_name: string
+          slug: string
+          updated_at: string
+          wikidata_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_type: string
+          episode_count?: number
+          id?: string
+          is_indexable?: boolean
+          is_public?: boolean
+          metadata?: Json
+          name: string
+          normalized_name: string
+          slug: string
+          updated_at?: string
+          wikidata_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_type?: string
+          episode_count?: number
+          id?: string
+          is_indexable?: boolean
+          is_public?: boolean
+          metadata?: Json
+          name?: string
+          normalized_name?: string
+          slug?: string
+          updated_at?: string
+          wikidata_id?: string | null
+        }
+        Relationships: []
+      }
+      entity_extraction_runs: {
+        Row: {
+          created_person_count: number
+          error_message: string | null
+          extracted_person_count: number
+          finished_at: string | null
+          id: string
+          run_type: string
+          scanned_episode_count: number
+          started_at: string
+          status: string
+          updated_person_count: number
+        }
+        Insert: {
+          created_person_count?: number
+          error_message?: string | null
+          extracted_person_count?: number
+          finished_at?: string | null
+          id?: string
+          run_type?: string
+          scanned_episode_count?: number
+          started_at?: string
+          status?: string
+          updated_person_count?: number
+        }
+        Update: {
+          created_person_count?: number
+          error_message?: string | null
+          extracted_person_count?: number
+          finished_at?: string | null
+          id?: string
+          run_type?: string
+          scanned_episode_count?: number
+          started_at?: string
+          status?: string
+          updated_person_count?: number
+        }
+        Relationships: []
+      }
       entity_profiles: {
         Row: {
           appearance_stats: Json
@@ -520,6 +604,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      episode_topic_map: {
+        Row: {
+          confidence: number
+          created_at: string
+          episode_id: string
+          source: string | null
+          topic_id: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          episode_id: string
+          source?: string | null
+          topic_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          episode_id?: string
+          source?: string | null
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_topic_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_topic_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_topic_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_topic_map_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       episode_transcripts: {
         Row: {
@@ -924,6 +1061,288 @@ export type Database = {
         }
         Relationships: []
       }
+      people: {
+        Row: {
+          ai_bio: string | null
+          ai_bio_generated_at: string | null
+          ai_bio_model: string | null
+          ai_bio_status: string
+          confidence: number
+          created_at: string
+          episode_count: number
+          id: string
+          image_attribution: string | null
+          image_author: string | null
+          image_checked_at: string | null
+          image_license: string | null
+          image_license_url: string | null
+          image_original_url: string | null
+          image_source: string | null
+          image_storage_path: string | null
+          image_url: string | null
+          is_indexable: boolean
+          is_public: boolean
+          latest_episode_at: string | null
+          name: string
+          normalized_name: string
+          podcast_count: number
+          short_bio: string | null
+          slug: string
+          updated_at: string
+          wikidata_id: string | null
+          wikipedia_title: string | null
+          wikipedia_url: string | null
+        }
+        Insert: {
+          ai_bio?: string | null
+          ai_bio_generated_at?: string | null
+          ai_bio_model?: string | null
+          ai_bio_status?: string
+          confidence?: number
+          created_at?: string
+          episode_count?: number
+          id?: string
+          image_attribution?: string | null
+          image_author?: string | null
+          image_checked_at?: string | null
+          image_license?: string | null
+          image_license_url?: string | null
+          image_original_url?: string | null
+          image_source?: string | null
+          image_storage_path?: string | null
+          image_url?: string | null
+          is_indexable?: boolean
+          is_public?: boolean
+          latest_episode_at?: string | null
+          name: string
+          normalized_name: string
+          podcast_count?: number
+          short_bio?: string | null
+          slug: string
+          updated_at?: string
+          wikidata_id?: string | null
+          wikipedia_title?: string | null
+          wikipedia_url?: string | null
+        }
+        Update: {
+          ai_bio?: string | null
+          ai_bio_generated_at?: string | null
+          ai_bio_model?: string | null
+          ai_bio_status?: string
+          confidence?: number
+          created_at?: string
+          episode_count?: number
+          id?: string
+          image_attribution?: string | null
+          image_author?: string | null
+          image_checked_at?: string | null
+          image_license?: string | null
+          image_license_url?: string | null
+          image_original_url?: string | null
+          image_source?: string | null
+          image_storage_path?: string | null
+          image_url?: string | null
+          is_indexable?: boolean
+          is_public?: boolean
+          latest_episode_at?: string | null
+          name?: string
+          normalized_name?: string
+          podcast_count?: number
+          short_bio?: string | null
+          slug?: string
+          updated_at?: string
+          wikidata_id?: string | null
+          wikipedia_title?: string | null
+          wikipedia_url?: string | null
+        }
+        Relationships: []
+      }
+      person_aliases: {
+        Row: {
+          alias: string
+          confidence: number
+          created_at: string
+          id: string
+          normalized_alias: string
+          person_id: string
+          source: string | null
+        }
+        Insert: {
+          alias: string
+          confidence?: number
+          created_at?: string
+          id?: string
+          normalized_alias: string
+          person_id: string
+          source?: string | null
+        }
+        Update: {
+          alias?: string
+          confidence?: number
+          created_at?: string
+          id?: string
+          normalized_alias?: string
+          person_id?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_episode_mentions: {
+        Row: {
+          confidence: number
+          created_at: string
+          episode_id: string
+          evidence: string | null
+          id: string
+          mention_type: string
+          person_id: string
+          podcast_id: string
+          source: string | null
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          episode_id: string
+          evidence?: string | null
+          id?: string
+          mention_type?: string
+          person_id: string
+          podcast_id: string
+          source?: string | null
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          episode_id?: string
+          evidence?: string | null
+          id?: string
+          mention_type?: string
+          person_id?: string
+          podcast_id?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_podcast_map: {
+        Row: {
+          confidence: number
+          created_at: string
+          episode_count: number
+          id: string
+          latest_episode_at: string | null
+          person_id: string
+          podcast_id: string
+          role: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          episode_count?: number
+          id?: string
+          latest_episode_at?: string | null
+          person_id: string
+          podcast_id: string
+          role?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          episode_count?: number
+          id?: string
+          latest_episode_at?: string | null
+          person_id?: string
+          podcast_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pi_dump_imports: {
         Row: {
           auto_added: number
@@ -1246,6 +1665,59 @@ export type Database = {
           website_url?: string | null
         }
         Relationships: []
+      }
+      podcast_topic_map: {
+        Row: {
+          confidence: number
+          created_at: string
+          podcast_id: string
+          source: string | null
+          topic_id: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          podcast_id: string
+          source?: string | null
+          topic_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          podcast_id?: string
+          source?: string | null
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_topic_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_topic_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_topic_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_topic_map_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       podcast_youtube_candidates: {
         Row: {
@@ -1901,6 +2373,38 @@ export type Database = {
         }
         Relationships: []
       }
+      topic_aliases: {
+        Row: {
+          alias: string
+          id: string
+          normalized_alias: string
+          topic_id: string
+          weight: number
+        }
+        Insert: {
+          alias: string
+          id?: string
+          normalized_alias: string
+          topic_id: string
+          weight?: number
+        }
+        Update: {
+          alias?: string
+          id?: string
+          normalized_alias?: string
+          topic_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_aliases_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topic_hubs: {
         Row: {
           accent_hsl: string | null
@@ -1966,6 +2470,83 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      topics: {
+        Row: {
+          created_at: string
+          description: string | null
+          domain: string | null
+          episode_count: number
+          h1: string | null
+          id: string
+          intro_text: string | null
+          is_indexable: boolean
+          is_public: boolean
+          name: string
+          parent_topic_id: string | null
+          podcast_count: number
+          priority: number
+          seo_description: string | null
+          seo_title: string | null
+          short_name: string | null
+          slug: string
+          sort_order: number
+          topic_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          episode_count?: number
+          h1?: string | null
+          id?: string
+          intro_text?: string | null
+          is_indexable?: boolean
+          is_public?: boolean
+          name: string
+          parent_topic_id?: string | null
+          podcast_count?: number
+          priority?: number
+          seo_description?: string | null
+          seo_title?: string | null
+          short_name?: string | null
+          slug: string
+          sort_order?: number
+          topic_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          episode_count?: number
+          h1?: string | null
+          id?: string
+          intro_text?: string | null
+          is_indexable?: boolean
+          is_public?: boolean
+          name?: string
+          parent_topic_id?: string | null
+          podcast_count?: number
+          priority?: number
+          seo_description?: string | null
+          seo_title?: string | null
+          short_name?: string | null
+          slug?: string
+          sort_order?: number
+          topic_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_parent_topic_id_fkey"
+            columns: ["parent_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
