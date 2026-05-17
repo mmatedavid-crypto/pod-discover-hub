@@ -80,12 +80,17 @@ export default {
     // /feed.xml    → recent-episodes RSS
     // Both are cached at the edge (1h sitemap, 15m feed) so origin hits are minimal.
     if (url.pathname === "/sitemap.xml" || url.pathname === "/feed.xml") {
-      const upstream =
-        url.pathname === "/sitemap.xml"
-          ? "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/sitemap"
-          : "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/feed-xml";
-      // v3: bust prior cache after switching to podiverzum.hu (HU launch).
-      const cacheKey = new Request(`https://proxy-cache-v3.podiverzum.hu${url.pathname}`, { method: "GET" });
+      const isSitemap = url.pathname === "/sitemap.xml";
+      const upstreamBase = isSitemap
+        ? "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/sitemap"
+        : "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/feed-xml";
+      // Forward query string (sitemap-index child URLs use ?type=...&ym=...&part=...).
+      const upstream = url.search ? `${upstreamBase}${url.search}` : upstreamBase;
+      // v4: bumped after sitemap canonicalization (podiverzum.hu child URLs + HU gate).
+      const cacheKey = new Request(
+        `https://proxy-cache-v4.podiverzum.hu${url.pathname}${url.search}`,
+        { method: "GET" },
+      );
       const cache = caches.default;
       const hit = await cache.match(cacheKey);
       if (hit) {
@@ -101,11 +106,10 @@ export default {
         });
         if (!res.ok) return passthrough(request);
         const body = await res.text();
-        const ttl = url.pathname === "/sitemap.xml" ? 3600 : 900;
-        const ct =
-          url.pathname === "/sitemap.xml"
-            ? "application/xml; charset=utf-8"
-            : "application/rss+xml; charset=utf-8";
+        const ttl = isSitemap ? 3600 : 900;
+        const ct = isSitemap
+          ? "application/xml; charset=utf-8"
+          : "application/rss+xml; charset=utf-8";
         const headers = new Headers({
           "Content-Type": ct,
           "Cache-Control": `public, max-age=${ttl}`,
