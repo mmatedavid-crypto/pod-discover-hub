@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     const ctrl = (ctrlRow?.value || {}) as any;
     const cleanerCtrl = (cleanerRow?.value || {}) as CleanerCtrl;
     if (ctrl.enabled === false) {
-      try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30 * * * *" }); } catch { }
+      try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30" }); } catch { }
       return json({ ok: true, paused: true });
     }
     const model = String(ctrl.model || "google/gemini-embedding-001");
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     let totalSpend = Number(spendRow?.spend_usd || 0);
     let calls = Number(spendRow?.calls || 0);
     if (embedSpend >= dailyBudget) {
-      try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30 * * * *" }); } catch { }
+      try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30" }); } catch { }
       return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
     }
 
