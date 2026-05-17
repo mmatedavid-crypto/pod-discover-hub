@@ -117,6 +117,10 @@ function scoreCandidate(person: any, entity: any, summary: any): { score: number
 async function processPerson(admin: any, personId: string): Promise<any> {
   const { data: p } = await admin.from("people").select("*").eq("id", personId).maybeSingle();
   if (!p) return { skipped: "not_found" };
+  // Activation/review gate — do not waste enrichment on inactive/blocked people.
+  if (!p.is_public || p.activation_status === "inactive") return { id: personId, skipped: "inactive" };
+  if (["hide","reject","merge"].includes(p.ai_recommended_action || "")) return { id: personId, skipped: "ai_blocked" };
+  if (["needs_human_review","duplicate_candidate"].includes(p.ai_review_status || "")) return { id: personId, skipped: "review_pending" };
 
   // gather context
   const { data: aliases } = await admin.from("person_aliases").select("alias").eq("person_id", personId).limit(20);
