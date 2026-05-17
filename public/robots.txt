@@ -60,4 +60,4 @@ Disallow: /kereses
 Disallow: /kereses?
 Disallow: /kereses/
 
-Sitemap: https://podiverzum.hu/sitemap.xml
+Sitemap: https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/sitemap
