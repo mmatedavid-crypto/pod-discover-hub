@@ -1,6 +1,8 @@
-// search-answer: streams a 2-3 sentence Hungarian AI summary of the top episodes for a query.
-// POST { q: string, episodes: [{title,podcast,summary}] }  -> SSE stream
-// HU-only on podiverzum.hu — uses hu-language-guard for non-stream fallback when stream fails.
+// search-answer: returns a 2-3 sentence Hungarian AI summary for the top episodes of a query.
+// HU-only on podiverzum.hu — we no longer stream raw model tokens to the browser. The model is
+// called once, validated by hu-language-guard, regenerated once if not Hungarian, and finally a
+// Hungarian fallback is used. The response is emitted as a single SSE chunk so the client renders
+// it identically to the old streamed path. This guarantees no English text ever reaches the user.
 import { isHungarianish } from "../_shared/hu-language-guard.ts";
 
 const corsHeaders = {
@@ -24,9 +26,9 @@ function huFallback(q: string): string {
   return `A „${q}” kereséshez kapcsolódó magyar podcast epizódokat találtunk. Böngészd a találatokat, vagy pontosítsd a keresést egy témával, névvel vagy műsorcímmel.`;
 }
 
-async function nonStreamHu(q: string, compact: any[]): Promise<string> {
+async function callOnce(q: string, compact: any[], extra?: string): Promise<string> {
   const user = `Kérdés: ${q}\n\nLegjobb epizódok:\n${compact.map((c) => `[${c.i}] ${c.title} — ${c.podcast}\n  ${c.summary}`).join("\n")}\n\nÍrd meg a magyar nyelvű összefoglalót MOST.`;
-  const attempt = async (extra?: string) => {
+  try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -41,12 +43,23 @@ async function nonStreamHu(q: string, compact: any[]): Promise<string> {
     if (!r.ok) return "";
     const j = await r.json();
     return String(j?.choices?.[0]?.message?.content || "").trim();
-  };
-  const first = await attempt();
-  if (first && isHungarianish(first)) return first;
-  const second = await attempt("FIGYELEM: A KORÁBBI válaszod nem magyar volt. KIZÁRÓLAG MAGYARUL válaszolj.");
-  if (second && isHungarianish(second)) return second;
-  return huFallback(q);
+  } catch (e) {
+    console.warn("search-answer callOnce err", e);
+    return "";
+  }
+}
+
+function emitSse(text: string): Response {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      const payload = JSON.stringify({ choices: [{ delta: { content: text } }] });
+      controller.enqueue(enc.encode(`data: ${payload}\n\n`));
+      controller.enqueue(enc.encode(`data: [DONE]\n\n`));
+      controller.close();
+    },
+  });
+  return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
 }
 
 Deno.serve(async (req) => {
@@ -64,69 +77,21 @@ Deno.serve(async (req) => {
       podcast: String(e.podcast || "").slice(0, 60),
       summary: String(e.summary || "").slice(0, 260),
     }));
-    const user = `Kérdés: ${q}\n\nLegjobb epizódok:\n${compact.map((c) => `[${c.i}] ${c.title} — ${c.podcast}\n  ${c.summary}`).join("\n")}\n\nÍrd meg a magyar nyelvű összefoglalót MOST.`;
 
-    const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "system", content: SYS }, { role: "user", content: user }],
-        stream: true,
-      }),
-    });
+    // Attempt 1
+    const first = await callOnce(q, compact);
+    if (first && isHungarianish(first)) return emitSse(first);
 
-    if (!upstream.ok || !upstream.body) {
-      // Non-stream HU fallback path with guard.
-      const text = await nonStreamHu(q, compact);
-      const enc = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          // Emit as a single SSE chunk so the client renders it identically.
-          const payload = JSON.stringify({ choices: [{ delta: { content: text } }] });
-          controller.enqueue(enc.encode(`data: ${payload}\n\n`));
-          controller.enqueue(enc.encode(`data: [DONE]\n\n`));
-          controller.close();
-        },
-      });
-      return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
-    }
+    if (first) console.warn("search-answer non-HU first try", { q, sample: first.slice(0, 80) });
 
-    // Tee stream — pass through to client while we also accumulate to language-check.
-    const [a, b] = upstream.body.tee();
+    // Attempt 2 — explicit Hungarian-only reinforcement
+    const second = await callOnce(q, compact, "FIGYELEM: A KORÁBBI válaszod nem magyar volt. KIZÁRÓLAG MAGYARUL válaszolj.");
+    if (second && isHungarianish(second)) return emitSse(second);
 
-    // Background language-check; if non-HU, log only (we cannot rewind the user's stream).
-    (async () => {
-      try {
-        const reader = b.getReader();
-        const dec = new TextDecoder();
-        let buf = "", acc = "", done = false;
-        while (!done) {
-          const { done: d, value } = await reader.read();
-          if (d) break;
-          buf += dec.decode(value, { stream: true });
-          let nl: number;
-          while ((nl = buf.indexOf("\n")) !== -1) {
-            const line = buf.slice(0, nl).replace(/\r$/, ""); buf = buf.slice(nl + 1);
-            if (!line.startsWith("data: ")) continue;
-            const js = line.slice(6).trim();
-            if (js === "[DONE]") { done = true; break; }
-            try {
-              const p = JSON.parse(js);
-              const c = p?.choices?.[0]?.delta?.content;
-              if (c) acc += c;
-            } catch { /* ignore */ }
-          }
-        }
-        if (acc && !isHungarianish(acc)) {
-          console.warn("search-answer non-HU output detected", { q, sample: acc.slice(0, 80) });
-        }
-      } catch (e) { console.warn("hu guard tee", e); }
-    })();
+    if (second) console.warn("search-answer non-HU second try", { q, sample: second.slice(0, 80) });
 
-    return new Response(a, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    // Fallback
+    return emitSse(huFallback(q));
   } catch (e) {
     console.error("search-answer err", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
