@@ -262,14 +262,19 @@ Deno.serve(async (req) => {
   if (ids.length === 0) {
     const { data } = await admin
       .from("people")
-      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status")
+      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status, activation_status, ai_recommended_action, ai_review_status")
       .eq("is_public", true)
+      .in("activation_status", ["indexable","manual_approved","public_noindex"])
       .or("wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null")
       .order("episode_count", { ascending: false })
       .order("podcast_count", { ascending: false })
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
-      .limit(limit);
-    ids = (data || []).map((r: any) => r.id);
+      .limit(limit * 2);
+    const filtered = (data || []).filter((r: any) =>
+      !["hide","reject","merge"].includes(r.ai_recommended_action || "") &&
+      !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
+    ).slice(0, limit);
+    ids = filtered.map((r: any) => r.id);
   }
 
   const results: any[] = [];
