@@ -121,13 +121,58 @@ Deno.serve(async (req) => {
 
     const { data: rows, error: selErr } = await supabase
       .from("podcasts")
-      .select("id, title, podiverzum_rank, rank_label, rank_updated_at, shadow_rank, shadow_rank_tier, shadow_rank_components, shadow_computed_at")
+      .select("id, title, language, rss_status, hydrated_episode_count, podiverzum_rank, rank_label, rank_updated_at, shadow_rank, shadow_rank_tier, shadow_rank_components, shadow_computed_at")
       .in("id", targetIds);
     if (selErr) throw selErr;
 
+    // Freshness gate: fetch last episode date per podcast in this batch.
+    // S retained only if active RSS + last episode within 90 days + >=20 hydrated episodes.
+    // A retained only if last episode within 180 days. Otherwise demoted one notch.
+    const lastEpByPodcast = new Map<string, number>();
+    try {
+      const { data: lastEps } = await supabase
+        .from("episodes")
+        .select("podcast_id, published_at")
+        .in("podcast_id", targetIds)
+        .order("published_at", { ascending: false })
+        .limit(50000);
+      for (const e of lastEps || []) {
+        const pid = (e as any).podcast_id;
+        const ts = (e as any).published_at ? new Date((e as any).published_at).getTime() : 0;
+        const cur = lastEpByPodcast.get(pid) || 0;
+        if (ts > cur) lastEpByPodcast.set(pid, ts);
+      }
+    } catch (_) { /* freshness optional */ }
+
+    const NOW = Date.now();
+    const D90 = 90 * 24 * 3600_000;
+    const D180 = 180 * 24 * 3600_000;
+    function applyFreshnessGate(baseTier: string, podcast: any): { tier: string; demoted: boolean; reason?: string } {
+      const lastEp = lastEpByPodcast.get(podcast.id) || 0;
+      const ageMs = lastEp ? NOW - lastEp : Number.POSITIVE_INFINITY;
+      const hydrated = Number(podcast.hydrated_episode_count) || 0;
+      const rss = String(podcast.rss_status || "");
+      if (baseTier === "S") {
+        const keep = rss === "active" && ageMs <= D90 && hydrated >= 20;
+        if (!keep) {
+          const reasons: string[] = [];
+          if (rss !== "active") reasons.push("rss_not_active");
+          if (ageMs > D90) reasons.push("stale_gt_90d");
+          if (hydrated < 20) reasons.push("low_episodes_lt_20");
+          return { tier: "A", demoted: true, reason: reasons.join(",") };
+        }
+      }
+      if (baseTier === "A") {
+        if (ageMs > D180) {
+          return { tier: "B", demoted: true, reason: "stale_gt_180d" };
+        }
+      }
+      return { tier: baseTier, demoted: false };
+    }
+
     const t0 = Date.now();
     const results: any[] = [];
-    let updated = 0, skipped = 0, errors = 0, noChange = 0;
+    let updated = 0, skipped = 0, errors = 0, noChange = 0, demoted = 0;
 
     for (const p of rows || []) {
       const score = Number(p.podiverzum_rank);
@@ -136,7 +181,10 @@ Deno.serve(async (req) => {
         results.push({ id: p.id, title: p.title, skipped: "invalid_podiverzum_rank" });
         continue;
       }
-      const tier = tierForWith(score, thresholds);
+      const baseTier = tierForWith(score, thresholds);
+      const gate = applyFreshnessGate(baseTier, p);
+      const tier = gate.tier;
+      if (gate.demoted) demoted++;
       const action = classifyAction(p, tier);
 
       if (diffOnly) {
@@ -153,10 +201,14 @@ Deno.serve(async (req) => {
         ? { ...(p.shadow_rank_components as Record<string, unknown>) } : {};
       const healthState = (typeof prevComp.health_state === "string" && prevComp.health_state)
         ? prevComp.health_state as string : "healthy";
-      const newComp = { ...prevComp, formula: "C_v3", source: "formula-c-runner-v1", health_state: healthState };
+      const newComp = {
+        ...prevComp, formula: "C_v3", source: "formula-c-runner-v1", health_state: healthState,
+        base_tier: baseTier,
+        freshness_demotion: gate.demoted ? gate.reason || "demoted" : null,
+      };
 
       if (dry) {
-        results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, dry_run: true });
+        results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, base_tier: baseTier, new_tier: tier, freshness_demotion: gate.demoted ? gate.reason : null, dry_run: true });
         continue;
       }
 
@@ -168,7 +220,11 @@ Deno.serve(async (req) => {
         shadow_computed_at: nowIso,
         rank_label: tier,
         rank_updated_at: nowIso,
-        rank_reason: { formula: "C_v3", source: "formula-c-runner-v1", from: "podiverzum_rank", podiverzum_rank: score },
+        rank_reason: {
+          formula: "C_v3", source: "formula-c-runner-v1", from: "podiverzum_rank",
+          podiverzum_rank: score, base_tier: baseTier,
+          freshness_demotion: gate.demoted ? gate.reason || "demoted" : null,
+        },
       }).eq("id", p.id);
 
       if (updErr) {
@@ -176,7 +232,7 @@ Deno.serve(async (req) => {
         results.push({ id: p.id, title: p.title, error: updErr.message });
       } else {
         updated++;
-        results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, new_tier: tier });
+        results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, base_tier: baseTier, new_tier: tier, freshness_demotion: gate.demoted ? gate.reason : null });
       }
     }
 
@@ -197,7 +253,7 @@ Deno.serve(async (req) => {
 
     const summary = {
       ts: new Date().toISOString(),
-      mode, considered: rows?.length || 0, updated, skipped, errors,
+      mode, considered: rows?.length || 0, updated, skipped, errors, demoted,
       no_change: diffOnly ? noChange : undefined,
       duration_ms, ...remaining,
     };
