@@ -335,6 +335,8 @@ const Index = () => {
           </section>
         )}
 
+        <HomeTopicsSection />
+
         <MoodCollections />
 
 
