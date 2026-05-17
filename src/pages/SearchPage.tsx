@@ -314,43 +314,62 @@ export default function SearchPage() {
           </button>
         </form>
 
-        <div className="flex flex-wrap gap-2 mt-3">
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex}
-              onClick={() => { setQ(ex); setParams({ q: ex }); }}
-              className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground"
-            >
-              {ex}
-            </button>
-          ))}
-        </div>
-
-        {initial && (
-          <div className="flex flex-wrap gap-2 items-center mt-6 text-xs">
-            <span className="text-muted-foreground">Rendezés:</span>
-            {([
-              ["best", "Legjobb találat"],
-              ["newest", "Legújabb"],
-              ["rank", "Rangsor szerint"],
-            ] as const).map(([k, l]) => (
+        {!initial && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {EXAMPLES.map((ex) => (
               <button
-                key={k}
-                onClick={() => setSort(k)}
-                className={`px-2.5 py-1 rounded-full border ${sortParam === k ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}
+                key={ex}
+                onClick={() => { setQ(ex); setParams({ q: ex }); }}
+                className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground"
               >
-                {l}
+                {ex}
               </button>
             ))}
-            {categories.length > 1 && (
-              <>
-                <span className="text-muted-foreground ml-2">Kategória:</span>
-                <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>Mind</button>
-                {categories.slice(0, 8).map((c) => (
-                  <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{c}</button>
-                ))}
-              </>
-            )}
+          </div>
+        )}
+
+        {initial && (
+          <div className="mt-5 sm:mt-6 text-xs">
+            {/* Mobile: compact native select */}
+            <div className="sm:hidden flex items-center gap-2">
+              <label htmlFor="sort-mobile" className="text-muted-foreground">Rendezés:</label>
+              <select
+                id="sort-mobile"
+                value={sortParam}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className="bg-card border border-border rounded-md px-2 py-1 text-xs focus:border-primary outline-none"
+              >
+                <option value="best">Relevancia</option>
+                <option value="newest">Legfrissebb</option>
+                <option value="rank">Időtálló</option>
+              </select>
+            </div>
+            {/* Desktop/tablet: button group, kept as-is */}
+            <div className="hidden sm:flex flex-wrap gap-2 items-center">
+              <span className="text-muted-foreground">Rendezés:</span>
+              {([
+                ["best", "Legjobb találat"],
+                ["newest", "Legújabb"],
+                ["rank", "Rangsor szerint"],
+              ] as const).map(([k, l]) => (
+                <button
+                  key={k}
+                  onClick={() => setSort(k)}
+                  className={`px-2.5 py-1 rounded-full border ${sortParam === k ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}
+                >
+                  {l}
+                </button>
+              ))}
+              {categories.length > 1 && (
+                <>
+                  <span className="text-muted-foreground ml-2">Kategória:</span>
+                  <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>Mind</button>
+                  {categories.slice(0, 8).map((c) => (
+                    <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{c}</button>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
         )}
 
