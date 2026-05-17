@@ -238,10 +238,18 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
 
   // EN/foreign signals
   const enScore = Math.min(45, enMatches.count * 2);
-  const deScore = Math.min(30, deMatches.count * 3);
-  const frScore = Math.min(30, frMatches.count * 3);
-  const esScore = Math.min(30, esMatches.count * 3);
-  const itScore = Math.min(30, itMatches.count * 3);
+
+  // DE/FR/ES/IT: only register when there are MANY distinct matches AND there's no
+  // strong Hungarian signal. Otherwise common particles like "mit", "per", "in"
+  // misfire on Hungarian text.
+  const hasStrongHu = huMatches.count >= 5 || huAccentRatioVal >= 0.01 || rssLang === "hu";
+  const SECONDARY_MIN = hasStrongHu ? 6 : 4;
+  const secondaryScore = (count: number) =>
+    count >= SECONDARY_MIN ? Math.min(30, (count - SECONDARY_MIN + 1) * 5) : 0;
+  const deScore = secondaryScore(deMatches.count);
+  const frScore = secondaryScore(frMatches.count);
+  const esScore = secondaryScore(esMatches.count);
+  const itScore = secondaryScore(itMatches.count);
 
   // Determine dominant foreign language
   const foreignTallies: Array<[string, number]> = [
