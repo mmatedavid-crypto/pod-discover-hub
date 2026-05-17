@@ -42,6 +42,21 @@ export default function AdminQueuePage() {
   const [drainer, setDrainer] = useState<any>(null);
   const [drainerBusy, setDrainerBusy] = useState(false);
   const [pendingR4, setPendingR4] = useState(0);
+  const [langBusy, setLangBusy] = useState(false);
+
+  const runLangVerify = async () => {
+    setLangBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-language-verifier-queue", {
+        body: { limit: 300, min_rank: 4, concurrency: 8 },
+      });
+      if (error) throw error;
+      toast.success(`AI lang: scanned ${data.scanned} · rejected ${data.rejected_foreign} · kept HU ${data.kept_hu} · uncertain ${data.review} · errors ${data.errors}`);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "lang verify failed");
+    } finally { setLangBusy(false); }
+  };
 
   useEffect(() => {
     (async () => {
@@ -208,6 +223,9 @@ export default function AdminQueuePage() {
             </Button>
             <Button onClick={() => runBatch(25)} disabled={bulkBusy} variant="outline">
               Import next 25 Rank ≥ 4
+            </Button>
+            <Button onClick={runLangVerify} disabled={langBusy} variant="outline">
+              {langBusy ? "Verifying…" : "Purge non-HU (AI)"}
             </Button>
             <Button asChild variant="outline"><Link to="/admin/growth">Growth Dashboard</Link></Button>
           </div>
