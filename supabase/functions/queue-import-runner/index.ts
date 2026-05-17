@@ -57,7 +57,17 @@ async function importOne(admin: any, item: any) {
     slug = `${slugify(item.title)}-${a + 1}`;
   }
 
-  // Phase 4a: do NOT write legacy rank_label at INSERT. Leave NULL so Formula C v3 / stage4-persist assigns S/A/B/C/D/E.
+  // HU language gate — block foreign before any insert
+  const gate = runHuIngestionGate({
+    title: item.title, description: item.description, rss_language: item.language,
+    rss_url: item.rss_url, website_url: item.website_url, categories: item.category ? [item.category] : [],
+  });
+  if (gate.result.language_decision === "reject_foreign") {
+    await logIngestionRejection(admin, { title: item.title, rss_url: item.rss_url }, gate.result, "queue-import-runner");
+    const reason = `hu_gate_reject:${gate.result.rejection_reason || gate.result.detected_language}`;
+    await setQueueFail({ import_status: "failed", import_error: reason, status: "rejected" });
+    return { ...base, status: "failed", reason };
+  }
   const { data: inserted, error: insErr } = await admin.from("podcasts").insert({
     title: item.title, slug,
     description: item.description, rss_url: item.rss_url,
@@ -67,7 +77,11 @@ async function importOne(admin: any, item: any) {
     rss_status: "not_checked",
     podiverzum_rank: item.candidate_rank,
     rank_reason: item.rank_reason,
+    ...gate.fields,
   }).select("*").single();
+  if (inserted && gate.result.language_decision === "review_uncertain") {
+    await enqueueLanguageReview(admin, { id: inserted.id, title: item.title, rss_url: item.rss_url, website_url: item.website_url }, gate.result);
+  }
 
   if (insErr || !inserted) {
     const reason = `insert failed: ${insErr?.message || "unknown"}`;
