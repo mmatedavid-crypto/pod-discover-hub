@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import {
   Activity,
   Database,
+  Globe,
   Inbox,
   LineChart,
   ListChecks,
@@ -13,9 +14,11 @@ import {
   MessageSquare,
   Search as SearchIcon,
   Settings,
+  Shield,
   Sparkles,
   Radio,
   Send,
+  Users,
 } from "lucide-react";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
@@ -133,9 +136,17 @@ export default function AdminHubPage() {
       ],
     },
     {
+      title: "Quality & Safety",
+      tools: [
+        { to: "/admin/language-gate", title: "Language Gate", desc: "Foreign podcast audit, review queue, cleanup.", icon: Shield, badge: "new", badgeTone: "warn" },
+        { to: "/admin/hosts", title: "Hosts", desc: "Host management and verification.", icon: Users },
+      ],
+    },
+    {
       title: "System",
       tools: [
         { to: "/admin/cron-status", title: "Cron Status", desc: "Active jobs, recent runs, durations, failures.", icon: Activity },
+        { to: "/admin/pi-backfill", title: "PI Backfill", desc: "Podcast Index bulk backfill controls.", icon: Globe },
         { to: "/admin-bootstrap", title: "Admin Bootstrap", desc: "Temporary admin grant utility.", icon: Settings },
       ],
     },
