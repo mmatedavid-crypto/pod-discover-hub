@@ -199,7 +199,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
       podcast_id: podcast.id,
       title: it.title,
       slug,
-      description: (it.description || "").slice(0, 4000),
+      description: (it.description || "").slice(0, 12000),
       published_at: it.published,
       audio_url: it.audio_url || null,
       episode_url: it.link || null,

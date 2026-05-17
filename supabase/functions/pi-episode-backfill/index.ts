@@ -106,7 +106,7 @@ async function processPodcast(supabase: any, podcast: any, dryRun: boolean) {
         audio,
         published,
         title: it.title.toString().slice(0, 500),
-        description: (it.description || "").toString().slice(0, 4000),
+        description: (it.description || "").toString().slice(0, 12000),
         image: it.image || it.feedImage || null,
         slug: `${slugBase}-${slugSuffix}`,
       };
