@@ -133,7 +133,7 @@ const Index = () => {
             .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label,hosts)")
             .gte("published_at", since14d)
             .in("podcasts.rank_label", ["S", "A", "B"])
-            .or("language.ilike.hu%", { foreignTable: "podcasts" })
+            .or("is_hungarian.eq.true", { foreignTable: "podcasts" })
             .not("podcasts.rss_status", "in", "(failed,inactive)")
             .limit(1500),
         ]);

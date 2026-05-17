@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
       .eq("youtube_pairing_status", "paired")
       .not("youtube_channel_id", "is", null);
     if (podcastIdParam) q = q.eq("id", podcastIdParam);
-    else q = q.in("shadow_rank_tier", tiers).ilike("language", "hu%")
+    else q = q.in("shadow_rank_tier", tiers).eq("is_hungarian", true)
       .order("youtube_last_episode_pair_at", { ascending: true, nullsFirst: true })
       .limit(batch);
     const { data: pods, error: pErr } = await q;

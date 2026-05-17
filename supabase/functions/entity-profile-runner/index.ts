@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
         .select("id, people, podcast_id, published_at, podcasts!inner(language)")
         .not("people", "is", null)
         .gte("published_at", twoYearsAgo)
-        .ilike("podcasts.language", "hu%")
+        .eq("podcasts.is_hungarian", true)
         .order("published_at", { ascending: false, nullsFirst: false })
         .range(from, from + PAGE - 1);
       if (error) throw error;

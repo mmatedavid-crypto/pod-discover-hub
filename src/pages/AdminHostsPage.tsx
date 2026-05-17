@@ -47,7 +47,7 @@ export default function AdminHostsPage() {
     let q = supabase
       .from("podcasts")
       .select("id,title,display_title,slug,language,podiverzum_rank,rank_label,hosts,hosts_source,hosts_updated_at")
-      .ilike("language", "hu%")
+      .eq("is_hungarian", true)
       .order("podiverzum_rank", { ascending: false, nullsFirst: false })
       .limit(200);
     if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);

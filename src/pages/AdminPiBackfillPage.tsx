@@ -50,7 +50,7 @@ export default function AdminPiBackfillPage() {
     const { data } = await supabase
       .from("podcasts")
       .select("id,title,rank_label,podiverzum_rank,pi_backfill_approved,pi_backfill_completed_at,pi_backfill_peeked_at,pi_backfill_dry_run,hydrated_episode_count")
-      .ilike("language", "hu%")
+      .eq("is_hungarian", true)
       .eq("rss_status", "active")
       .is("pi_backfill_completed_at", null)
       .in("rank_label", tiers)
@@ -60,14 +60,14 @@ export default function AdminPiBackfillPage() {
 
     // Statisztika: hány S/A automata, hány B/C peek-elt, jóváhagyott
     const { count: saCount } = await supabase.from("podcasts").select("id", { count: "exact", head: true })
-      .ilike("language", "hu%").eq("rss_status", "active").is("pi_backfill_completed_at", null).in("rank_label", ["S", "A"]);
+      .eq("is_hungarian", true).eq("rss_status", "active").is("pi_backfill_completed_at", null).in("rank_label", ["S", "A"]);
     const { count: bcTotal } = await supabase.from("podcasts").select("id", { count: "exact", head: true })
-      .ilike("language", "hu%").eq("rss_status", "active").is("pi_backfill_completed_at", null).in("rank_label", ["B", "C"]);
+      .eq("is_hungarian", true).eq("rss_status", "active").is("pi_backfill_completed_at", null).in("rank_label", ["B", "C"]);
     const { count: bcPeeked } = await supabase.from("podcasts").select("id", { count: "exact", head: true })
-      .ilike("language", "hu%").eq("rss_status", "active").is("pi_backfill_completed_at", null).in("rank_label", ["B", "C"])
+      .eq("is_hungarian", true).eq("rss_status", "active").is("pi_backfill_completed_at", null).in("rank_label", ["B", "C"])
       .not("pi_backfill_peeked_at", "is", null);
     const { count: bcApproved } = await supabase.from("podcasts").select("id", { count: "exact", head: true })
-      .ilike("language", "hu%").eq("rss_status", "active").is("pi_backfill_completed_at", null).in("rank_label", ["B", "C"])
+      .eq("is_hungarian", true).eq("rss_status", "active").is("pi_backfill_completed_at", null).in("rank_label", ["B", "C"])
       .eq("pi_backfill_approved", true);
     setStats({ saCount, bcTotal, bcPeeked, bcApproved });
     setLoading(false);

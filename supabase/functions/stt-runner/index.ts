@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
 
     // PILOT mode: synthesize jobs in-memory, run, exit (no queue write, no cron change)
     if (pilotN) {
-      const { data: pods } = await admin.from("podcasts").select("id").ilike("language", "hu%").eq("shadow_rank_tier", "S").eq("rss_status", "active").limit(60);
+      const { data: pods } = await admin.from("podcasts").select("id").eq("is_hungarian", true).eq("shadow_rank_tier", "S").eq("rss_status", "active").limit(60);
       const podIds = (pods || []).map((p: any) => p.id);
       const { data: eps } = await admin
         .from("episodes")

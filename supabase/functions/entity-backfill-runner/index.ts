@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
         .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, language, hosts)")
         .not("ai_summary", "is", null)
         .lt("ai_entities_version", 2)
-        .ilike("podcasts.language", "hu%")
+        .eq("podcasts.is_hungarian", true)
         .limit(batch);
       if (error) throw error;
       const list = (rows || []) as any[];

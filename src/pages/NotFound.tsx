@@ -22,7 +22,7 @@ export default function NotFound() {
     supabase
       .from("podcasts")
       .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status")
-      .ilike("language", "hu%")
+      .eq("is_hungarian", true)
       .or("featured.eq.true,rank_label.eq.S")
       .not("rss_status", "in", "(failed,inactive)")
       .order("featured", { ascending: false })

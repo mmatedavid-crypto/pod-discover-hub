@@ -323,7 +323,7 @@ async function loadCandidates(admin: any): Promise<EpisodeRow[]> {
     `)
     .gte("published_at", since)
     .not("ai_summary", "is", null)
-    .or("language.ilike.hu%", { referencedTable: "podcasts" })
+    .or("is_hungarian.eq.true", { referencedTable: "podcasts" })
     .order("published_at", { ascending: false })
     .limit(300);
   if (error) throw new Error(`loadCandidates: ${error.message}`);
