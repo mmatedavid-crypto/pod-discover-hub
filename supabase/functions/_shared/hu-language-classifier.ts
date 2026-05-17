@@ -32,34 +32,43 @@ export interface LanguageResult {
 const HU_ACCENTS = "áéíóöőúüűÁÉÍÓÖŐÚÜŰ";
 
 // High-signal Hungarian function words and very common nouns/verbs.
+// Loanwords shared with English ("podcast", "interview" etc.) are intentionally excluded
+// so they don't double-count on both sides.
 const HU_WORDS = new Set([
   "és","hogy","nem","van","csak","már","így","mert","lehet","kell","volt",
   "most","még","azt","aki","ami","ezt","ezek","azok","mint","sem","ha",
   "vagy","majd","után","előtt","közben","felé","fölött","mellett","helyett",
-  "magyar","magyarországi","budapest","podcast","beszélgetés","epizód","adás",
-  "vendég","élet","világ","történet","évad","rész","interjú","műsor","heti",
+  "magyar","magyarországi","budapest","beszélgetés","epizód","adás",
+  "vendég","élet","világ","történet","évad","rész","műsor","heti",
   "napi","kérdés","válasz","gondolat","gondolkodás","barát","család","gyerek",
   "iskola","munka","pénz","ember","emberek","férfi","nő","fiatal","idős",
-  "hogyan","miért","melyik","milyen","mikor","hol","ki","mit","mi",
+  "hogyan","miért","melyik","milyen","mikor","hol",
   "egy","két","három","négy","öt","tíz","száz","ezer","millió",
   "új","régi","jó","rossz","szép","fontos","érdekes","igaz","hamis",
-  "ország","város","falu","ház","autó","út","helyett","mellett",
+  "ország","város","falu","ház","autó","út",
   "üdvözöljük","köszönöm","kérem","segítség","figyelem",
-  "üzlet","vállalkozás","gazdaság","politika","kultúra","sport","zene","film",
+  "üzlet","vállalkozás","gazdaság","politika","kultúra","zene",
+  "minden","semmi","valami","valaki","mindig","soha","gyakran",
+  "szerint","alatt","fölött","között","során","végén","elején",
+  "tegnap","holnap","ma","este","reggel","délután",
+  "saját","közös","együtt","külön","nélkül","miatt",
+  "ahol","ahogy","akkor","azért","mégis","tehát","persze",
+  "boldog","szomorú","nehéz","könnyű","fiatalok","idősek",
 ]);
 
-// English function words + common content words (high frequency on EN podcasts)
+// English function/content words. EXCLUDES loanwords also common in HU ("podcast",
+// "interview", "online", "tech", "sport", "business", "music", "film", "video").
 const EN_WORDS = new Set([
   "the","and","with","this","that","from","what","your","about","have","has",
   "are","was","were","will","would","could","should","been","being","they",
   "their","them","there","these","those","which","when","where","while",
-  "episode","show","podcast","host","guest","welcome","today","week","weekly",
-  "daily","season","series","interview","story","stories","news","update",
+  "episode","show","host","guest","welcome","today","week","weekly",
+  "daily","season","series","story","stories","news","update",
   "talk","talking","discuss","discussion","conversation","review","reviews",
   "best","new","top","big","small","more","less","most","first","last",
   "people","person","man","woman","kids","family","friend","life","work",
-  "money","business","economy","politics","culture","sport","sports","music",
-  "movie","movies","film","films","tech","technology","science","health",
+  "money","economy","politics","culture","sports",
+  "movie","movies","films","technology","science","health",
   "security","cybersecurity","stormcenter","headlines",
 ]);
 
