@@ -284,6 +284,93 @@ export type Database = {
         }
         Relationships: []
       }
+      editorial_people_seed: {
+        Row: {
+          aliases: string[]
+          canonical_name: string | null
+          context_hints: string[]
+          created_at: string
+          evidence: Json
+          id: string
+          last_run_at: string | null
+          matched_person_id: string | null
+          name: string
+          notes: string | null
+          priority_level: number
+          slug: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          aliases?: string[]
+          canonical_name?: string | null
+          context_hints?: string[]
+          created_at?: string
+          evidence?: Json
+          id?: string
+          last_run_at?: string | null
+          matched_person_id?: string | null
+          name: string
+          notes?: string | null
+          priority_level?: number
+          slug?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          aliases?: string[]
+          canonical_name?: string | null
+          context_hints?: string[]
+          created_at?: string
+          evidence?: Json
+          id?: string
+          last_run_at?: string | null
+          matched_person_id?: string | null
+          name?: string
+          notes?: string | null
+          priority_level?: number
+          slug?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -1084,9 +1171,13 @@ export type Database = {
           ai_review_status: string
           ai_review_summary: string | null
           ai_reviewed_at: string | null
+          browsable_reason: string | null
           confidence: number
           created_at: string
           distinct_podcast_count: number
+          editorial_notes: string | null
+          editorial_priority: boolean
+          editorial_priority_level: number
           episode_count: number
           guest_count: number
           host_count: number
@@ -1101,10 +1192,13 @@ export type Database = {
           image_status: string
           image_storage_path: string | null
           image_url: string | null
+          is_browsable_in_people_hub: boolean
           is_indexable: boolean
           is_public: boolean
           latest_episode_at: string | null
+          manual_approval_status: string
           manual_approved: boolean
+          manually_seeded: boolean
           mentioned_count: number
           name: string
           normalized_name: string
@@ -1148,9 +1242,13 @@ export type Database = {
           ai_review_status?: string
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
+          browsable_reason?: string | null
           confidence?: number
           created_at?: string
           distinct_podcast_count?: number
+          editorial_notes?: string | null
+          editorial_priority?: boolean
+          editorial_priority_level?: number
           episode_count?: number
           guest_count?: number
           host_count?: number
@@ -1165,10 +1263,13 @@ export type Database = {
           image_status?: string
           image_storage_path?: string | null
           image_url?: string | null
+          is_browsable_in_people_hub?: boolean
           is_indexable?: boolean
           is_public?: boolean
           latest_episode_at?: string | null
+          manual_approval_status?: string
           manual_approved?: boolean
+          manually_seeded?: boolean
           mentioned_count?: number
           name: string
           normalized_name: string
@@ -1212,9 +1313,13 @@ export type Database = {
           ai_review_status?: string
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
+          browsable_reason?: string | null
           confidence?: number
           created_at?: string
           distinct_podcast_count?: number
+          editorial_notes?: string | null
+          editorial_priority?: boolean
+          editorial_priority_level?: number
           episode_count?: number
           guest_count?: number
           host_count?: number
@@ -1229,10 +1334,13 @@ export type Database = {
           image_status?: string
           image_storage_path?: string | null
           image_url?: string | null
+          is_browsable_in_people_hub?: boolean
           is_indexable?: boolean
           is_public?: boolean
           latest_episode_at?: string | null
+          manual_approval_status?: string
           manual_approved?: boolean
+          manually_seeded?: boolean
           mentioned_count?: number
           name?: string
           normalized_name?: string
@@ -1325,6 +1433,13 @@ export type Database = {
             referencedRelation: "person_ai_duplicate_candidates_view"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
         ]
       }
       person_aliases: {
@@ -1383,6 +1498,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "person_ai_duplicate_candidates_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -1510,6 +1632,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
             foreignKeyName: "person_episode_mentions_podcast_id_fkey"
             columns: ["podcast_id"]
             isOneToOne: false
@@ -1591,6 +1720,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "person_ai_duplicate_candidates_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
           },
           {
             foreignKeyName: "person_podcast_map_podcast_id_fkey"
@@ -3050,8 +3186,124 @@ export type Database = {
         }
         Relationships: []
       }
+      person_missing_content_review_view: {
+        Row: {
+          activation_status: string | null
+          ai_bio_status: string | null
+          distinct_podcast_count: number | null
+          editorial_priority: boolean | null
+          episode_count: number | null
+          guest_count: number | null
+          has_ai_bio: boolean | null
+          has_overview_text: boolean | null
+          host_count: number | null
+          is_browsable_in_people_hub: boolean | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          manually_seeded: boolean | null
+          mapped_podcasts: string[] | null
+          mentioned_count: number | null
+          missing_reason: string | null
+          name: string | null
+          person_id: string | null
+          recommended_action: string | null
+          sample_episode_titles: string[] | null
+          slug: string | null
+          strong_mention_count: number | null
+          subject_count: number | null
+          wikipedia_match_status: string | null
+        }
+        Insert: {
+          activation_status?: string | null
+          ai_bio_status?: string | null
+          distinct_podcast_count?: number | null
+          editorial_priority?: boolean | null
+          episode_count?: number | null
+          guest_count?: number | null
+          has_ai_bio?: never
+          has_overview_text?: never
+          host_count?: number | null
+          is_browsable_in_people_hub?: boolean | null
+          is_indexable?: boolean | null
+          is_public?: boolean | null
+          manually_seeded?: boolean | null
+          mapped_podcasts?: never
+          mentioned_count?: number | null
+          missing_reason?: never
+          name?: string | null
+          person_id?: string | null
+          recommended_action?: never
+          sample_episode_titles?: never
+          slug?: string | null
+          strong_mention_count?: number | null
+          subject_count?: number | null
+          wikipedia_match_status?: string | null
+        }
+        Update: {
+          activation_status?: string | null
+          ai_bio_status?: string | null
+          distinct_podcast_count?: number | null
+          editorial_priority?: boolean | null
+          episode_count?: number | null
+          guest_count?: number | null
+          has_ai_bio?: never
+          has_overview_text?: never
+          host_count?: number | null
+          is_browsable_in_people_hub?: boolean | null
+          is_indexable?: boolean | null
+          is_public?: boolean | null
+          manually_seeded?: boolean | null
+          mapped_podcasts?: never
+          mentioned_count?: number | null
+          missing_reason?: never
+          name?: string | null
+          person_id?: string | null
+          recommended_action?: never
+          sample_episode_titles?: never
+          slug?: string | null
+          strong_mention_count?: number | null
+          subject_count?: number | null
+          wikipedia_match_status?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      admin_person_missing_content: {
+        Args: { p_limit?: number }
+        Returns: {
+          activation_status: string | null
+          ai_bio_status: string | null
+          distinct_podcast_count: number | null
+          editorial_priority: boolean | null
+          episode_count: number | null
+          guest_count: number | null
+          has_ai_bio: boolean | null
+          has_overview_text: boolean | null
+          host_count: number | null
+          is_browsable_in_people_hub: boolean | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          manually_seeded: boolean | null
+          mapped_podcasts: string[] | null
+          mentioned_count: number | null
+          missing_reason: string | null
+          name: string | null
+          person_id: string | null
+          recommended_action: string | null
+          sample_episode_titles: string[] | null
+          slug: string | null
+          strong_mention_count: number | null
+          subject_count: number | null
+          wikipedia_match_status: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "person_missing_content_review_view"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_ai_jobs: {
         Args: { _limit: number; _lock_seconds?: number }
         Returns: {
