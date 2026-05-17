@@ -126,6 +126,9 @@ const Index = () => {
             .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
             .or("featured.eq.true,rank_label.in.(S,A)")
             .not("rss_status", "in", "(failed,inactive)")
+            // HU-only safety gate (strict): must have passed the language gate
+            .eq("is_hungarian", true)
+            .eq("language_decision", "accept_hungarian")
             .order("featured", { ascending: false })
             .order("podiverzum_rank", { ascending: false })
             .limit(40),
