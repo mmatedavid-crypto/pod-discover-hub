@@ -89,6 +89,12 @@ Deno.serve(async (req) => {
         changed++;
         await supabase.from("podcasts").update({
           language: det.lang === "unknown" ? null : det.lang,
+          // CRITICAL: flip the HU safety flags too — otherwise the homepage MVs keep
+          // showing this foreign podcast as Hungarian-accepted.
+          is_hungarian: false,
+          language_decision: "reject_foreign",
+          language_rejection_reason: `pi_lang_recheck:${det.lang}:${det.confidence}`,
+          language_checked_at: new Date().toISOString(),
           pi_backfill_completed_at: new Date().toISOString(),
           pi_backfill_approved: false,
           pi_backfill_dry_run: mergedDryRun,
