@@ -51,6 +51,10 @@ function pickOverviewStyleLine(host: number, guest: number, subject: number, men
 async function processPerson(admin: any, personId: string, opts: { force?: boolean }): Promise<any> {
   const { data: p } = await admin.from("people").select("*").eq("id", personId).maybeSingle();
   if (!p) return { id: personId, skipped: "not_found" };
+  // Activation/review gate
+  if (!p.is_public || p.activation_status === "inactive") return { id: personId, skipped: "inactive" };
+  if (["hide","reject","merge"].includes(p.ai_recommended_action || "")) return { id: personId, skipped: "ai_blocked" };
+  if (["needs_human_review","duplicate_candidate"].includes(p.ai_review_status || "")) return { id: personId, skipped: "review_pending" };
 
   if (!opts.force && p.ai_bio_status === "completed" && p.ai_bio && p.overview_text) {
     return { id: personId, skipped: "already_done" };
