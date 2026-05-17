@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     const minConf = Math.max(0.5, Math.min(0.99, Number(body?.min_confidence) || 0.7));
     const model = String(body?.model || DEFAULT_MODEL);
     const minRank = Math.max(0, Number(body?.min_rank) || 0);
-    const CONCURRENCY = Math.max(1, Math.min(8, Number(body?.concurrency) || 6));
+    const CONCURRENCY = Math.max(1, Math.min(24, Number(body?.concurrency) || 16));
     const TIME_BUDGET_MS = 100_000;
 
     const { data: rows, error } = await supabase
