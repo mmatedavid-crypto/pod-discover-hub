@@ -30,6 +30,10 @@ import AdminLivePage from "./pages/AdminLivePage.tsx";
 import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
 import AdminHostsPage from "./pages/AdminHostsPage.tsx";
 import AdminLanguageGatePage from "./pages/AdminLanguageGatePage.tsx";
+import PeopleHubPage from "./pages/PeopleHubPage.tsx";
+import PersonDetailPage from "./pages/PersonDetailPage.tsx";
+import TopicsHubPage from "./pages/TopicsHubPage.tsx";
+import TopicDetailPage from "./pages/TopicDetailPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
