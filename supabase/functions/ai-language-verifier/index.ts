@@ -106,10 +106,13 @@ Deno.serve(async (req) => {
     const { data: rows, error } = await q;
     if (error) throw error;
 
+    const CONCURRENCY = Math.max(1, Math.min(8, Number(body?.concurrency) || 6));
+    const TIME_BUDGET_MS = 100_000;
     const results: any[] = [];
     let flipped_to_hu = 0, flipped_to_foreign = 0, kept = 0, review = 0, errors = 0;
 
-    for (const p of rows || []) {
+    const queue = [...(rows || [])];
+    const processOne = async (p: any) => {
       try {
         const { data: eps } = await supabase
           .from("episodes")
@@ -130,8 +133,7 @@ Deno.serve(async (req) => {
         };
 
         if (confident && isHu) {
-          if (!p.is_hungarian || p.language_decision !== "accept_hungarian") action = "flip_to_hu";
-          else action = "kept_hu";
+          action = (!p.is_hungarian || p.language_decision !== "accept_hungarian") ? "flip_to_hu" : "kept_hu";
           patch.is_hungarian = true;
           patch.language_decision = "accept_hungarian";
           patch.language = "hu";
@@ -147,9 +149,7 @@ Deno.serve(async (req) => {
           patch.language_rejection_reason = `ai_low_confidence:${det.lang}:${det.confidence.toFixed(2)}`;
         }
 
-        if (!dryRun) {
-          await supabase.from("podcasts").update(patch).eq("id", p.id);
-        }
+        if (!dryRun) await supabase.from("podcasts").update(patch).eq("id", p.id);
 
         if (action === "flip_to_hu") flipped_to_hu++;
         else if (action === "flip_to_foreign") flipped_to_foreign++;
@@ -161,7 +161,17 @@ Deno.serve(async (req) => {
         errors++;
         results.push({ id: p.id, title: p.title, error: String((e as Error)?.message || e) });
       }
-    }
+    };
+
+    const workers = Array.from({ length: CONCURRENCY }, async () => {
+      while (queue.length && Date.now() - started < TIME_BUDGET_MS) {
+        const next = queue.shift();
+        if (!next) break;
+        await processOne(next);
+      }
+    });
+    await Promise.all(workers);
+    const remaining = queue.length;
 
     return new Response(JSON.stringify({
       ok: true, mode, dry_run: dryRun, model, min_confidence: minConf,
