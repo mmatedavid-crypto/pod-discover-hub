@@ -1060,14 +1060,28 @@ export type Database = {
           accent_hsl: string | null
           active: boolean
           created_at: string
+          default_reason_label: string | null
           description: string | null
+          energy_level: string
           episode_ids: string[]
+          evergreen_weight: number
+          freshness_weight: number
           id: string
+          is_indexable: boolean
           mood: string
+          negative_topic_hints: string[]
           podcast_ids: string[]
+          positive_topic_hints: string[]
+          preferred_duration_max: number | null
+          preferred_duration_min: number | null
+          recommended_episode_count: number
+          seed_embedding: string | null
           seed_query: string | null
+          short_description: string | null
           slug: string
           sort_order: number
+          source_quality_weight: number
+          time_affinity: Json
           title: string
           updated_at: string
         }
@@ -1075,14 +1089,28 @@ export type Database = {
           accent_hsl?: string | null
           active?: boolean
           created_at?: string
+          default_reason_label?: string | null
           description?: string | null
+          energy_level?: string
           episode_ids?: string[]
+          evergreen_weight?: number
+          freshness_weight?: number
           id?: string
+          is_indexable?: boolean
           mood: string
+          negative_topic_hints?: string[]
           podcast_ids?: string[]
+          positive_topic_hints?: string[]
+          preferred_duration_max?: number | null
+          preferred_duration_min?: number | null
+          recommended_episode_count?: number
+          seed_embedding?: string | null
           seed_query?: string | null
+          short_description?: string | null
           slug: string
           sort_order?: number
+          source_quality_weight?: number
+          time_affinity?: Json
           title: string
           updated_at?: string
         }
@@ -1090,14 +1118,28 @@ export type Database = {
           accent_hsl?: string | null
           active?: boolean
           created_at?: string
+          default_reason_label?: string | null
           description?: string | null
+          energy_level?: string
           episode_ids?: string[]
+          evergreen_weight?: number
+          freshness_weight?: number
           id?: string
+          is_indexable?: boolean
           mood?: string
+          negative_topic_hints?: string[]
           podcast_ids?: string[]
+          positive_topic_hints?: string[]
+          preferred_duration_max?: number | null
+          preferred_duration_min?: number | null
+          recommended_episode_count?: number
+          seed_embedding?: string | null
           seed_query?: string | null
+          short_description?: string | null
           slug?: string
           sort_order?: number
+          source_quality_weight?: number
+          time_affinity?: Json
           title?: string
           updated_at?: string
         }
@@ -3442,7 +3484,47 @@ export type Database = {
       }
       formula_c_status: { Args: never; Returns: Json }
       get_cron_health: { Args: never; Returns: Json }
+      get_mood_episode_recommendations: {
+        Args: { p_exclude?: string[]; p_limit?: number; p_mood_slug: string }
+        Returns: {
+          ai_summary: string
+          audio_url: string
+          description: string
+          display_title: string
+          episode_id: string
+          final_score: number
+          image_url: string
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          podiverzum_rank: number
+          published_at: string
+          rank_label: string
+          similarity: number
+          slug: string
+          summary: string
+          title: string
+          topics: string[]
+        }[]
+      }
       get_ops_dashboard_status: { Args: never; Returns: Json }
+      get_personalized_mood_cards: {
+        Args: { p_dow?: number; p_hour?: number; p_viewport?: string }
+        Returns: {
+          description: string
+          energy_level: string
+          href: string
+          reason_label: string
+          representative_episode_count: number
+          short_description: string
+          slug: string
+          sort_order: number
+          title: string
+        }[]
+      }
       get_related_episodes_by_embedding: {
         Args: {
           p_downweight_same_podcast?: boolean
