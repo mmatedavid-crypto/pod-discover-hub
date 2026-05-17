@@ -136,9 +136,17 @@ export default function AdminHubPage() {
       ],
     },
     {
+      title: "Quality & Safety",
+      tools: [
+        { to: "/admin/language-gate", title: "Language Gate", desc: "Foreign podcast audit, review queue, cleanup.", icon: Shield, badge: "new", badgeTone: "warn" },
+        { to: "/admin/hosts", title: "Hosts", desc: "Host management and verification.", icon: Users },
+      ],
+    },
+    {
       title: "System",
       tools: [
         { to: "/admin/cron-status", title: "Cron Status", desc: "Active jobs, recent runs, durations, failures.", icon: Activity },
+        { to: "/admin/pi-backfill", title: "PI Backfill", desc: "Podcast Index bulk backfill controls.", icon: Globe },
         { to: "/admin-bootstrap", title: "Admin Bootstrap", desc: "Temporary admin grant utility.", icon: Settings },
       ],
     },
