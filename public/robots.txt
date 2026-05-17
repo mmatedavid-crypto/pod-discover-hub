@@ -51,12 +51,13 @@ Disallow: /admin
 Disallow: /admin/
 Disallow: /admin-bootstrap
 Disallow: /auth
+Disallow: /belepes
 Disallow: /growth-status
+Disallow: /search
 Disallow: /search?
 Disallow: /search/
+Disallow: /kereses
+Disallow: /kereses?
+Disallow: /kereses/
 
 Sitemap: https://podiverzum.hu/sitemap.xml
-
-# RSS feed of recent episodes
-# https://podiverzum.hu/feed.xml
-
