@@ -399,6 +399,8 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
   return json({
     ok: true, dry_run: dryRun, elapsed_ms: Date.now() - t0,
     processed, classified, no_good_match, too_thin, needs_review, failed, cached_skips,
+    rate_limited: rateLimited,
     spend_usd: mySpend, budget_usd: dailyBudget, model,
+    effective_batch: batch, effective_concurrency: concurrency,
   });
 });
