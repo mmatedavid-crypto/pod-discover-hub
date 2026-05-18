@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
   }
 
   // recompute hub
-  await supabase.rpc("refresh_people_hub_score").catch(() => {});
+  try { await supabase.rpc("refresh_people_hub_score"); } catch { /* ignore */ }
 
   return new Response(JSON.stringify({
     ok: true,
