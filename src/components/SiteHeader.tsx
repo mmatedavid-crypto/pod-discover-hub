@@ -4,17 +4,10 @@ import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder } from "lucide-react"
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
-import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
+import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
-type Suggestion = {
-  type: "podcast" | "person" | "topic" | "category" | "query";
-  label: string;
-  subtitle?: string;
-  href: string;
-  image_url?: string | null;
-  confidence: number;
-};
+type Suggestion = GhostSuggestion;
 
 const ICON: Record<Suggestion["type"], any> = {
   podcast: Mic,
@@ -24,22 +17,15 @@ const ICON: Record<Suggestion["type"], any> = {
   query: Search,
 };
 
-function normLabel(s: string): string {
-  return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-}
-
 export function SiteHeader() {
   const [q, setQ] = useState("");
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
-  const [loadingSugg, setLoadingSugg] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const nav = useNavigate();
   const isHome = useLocation().pathname === "/";
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { suggestions, loading: loadingSugg } = useSearchSuggestions(q, 8);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -49,44 +35,7 @@ export function SiteHeader() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    abortRef.current?.abort();
-    const trimmed = q.trim();
-    if (trimmed.length < 2) { setSuggestions([]); setLoadingSugg(false); return; }
-    setLoadingSugg(true);
-    debounceRef.current = setTimeout(async () => {
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
-      try {
-        const { data, error } = await supabase.functions.invoke("search-autocomplete", {
-          body: { q: trimmed, limit: 8 },
-        });
-        if (!error && Array.isArray(data?.suggestions)) setSuggestions(data.suggestions);
-      } catch { /* ignore */ }
-      finally { setLoadingSugg(false); }
-    }, 160);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [q]);
-
-  // Google-style ghost-text completion: take the first suggestion whose
-  // normalized label starts with the typed prefix. We show its remaining
-  // characters in muted color after the typed text.
-  const ghost = (() => {
-    const trimmed = q;
-    if (!trimmed || trimmed !== trimmed.trimStart()) return "";
-    const qn = normLabel(trimmed);
-    if (qn.length < 2) return "";
-    for (const s of suggestions) {
-      if (s.type === "query" && normLabel(s.label) === qn) continue;
-      const ln = normLabel(s.label);
-      if (ln.length > qn.length && ln.startsWith(qn)) {
-        // Preserve the original label's casing for the ghost suffix.
-        return s.label.slice(trimmed.length);
-      }
-    }
-    return "";
-  })();
+  const ghost = computeGhost(q, suggestions);
 
   const acceptGhost = () => {
     if (!ghost) return false;

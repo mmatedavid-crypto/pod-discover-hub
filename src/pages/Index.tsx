@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search, ArrowRight, Sparkles } from "lucide-react";
+import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
 import { MoodCollections } from "@/components/MoodCollections";
@@ -14,6 +14,15 @@ import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { HomeTopicsSection } from "@/components/HomeTopicsSection";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
+import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
+
+const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
+  podcast: Mic,
+  person: User,
+  topic: Hash,
+  category: Folder,
+  query: Search,
+};
 
 
 
@@ -51,6 +60,31 @@ const Index = () => {
       : "Téma vagy gondolat…"
   );
   const nav = useNavigate();
+  const heroWrapRef = useRef<HTMLDivElement | null>(null);
+  const heroInputRef = useRef<HTMLInputElement | null>(null);
+  const [heroOpen, setHeroOpen] = useState(false);
+  const { suggestions: heroSugg, loading: heroLoadingSugg } = useSearchSuggestions(q, 8);
+  const heroGhost = computeGhost(q, heroSugg);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (!heroWrapRef.current?.contains(e.target as Node)) setHeroOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const acceptHeroGhost = () => {
+    if (!heroGhost) return false;
+    const completed = q + heroGhost;
+    setQ(completed);
+    setHeroOpen(true);
+    requestAnimationFrame(() => {
+      const el = heroInputRef.current;
+      if (el) el.setSelectionRange(completed.length, completed.length);
+    });
+    return true;
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -261,21 +295,90 @@ const Index = () => {
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
             Keress téma, személy, cég, piac, technológia vagy gondolat alapján.
           </p>
+          <div ref={heroWrapRef} className="mt-6 sm:mt-10 max-w-2xl relative animate-fade-up">
           <form
-            onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/kereses?q=${encodeURIComponent(q.trim())}`); }}
-            className="mt-6 sm:mt-10 max-w-2xl relative focus-brand rounded-2xl transition-shadow animate-fade-up"
+            onSubmit={(e) => { e.preventDefault(); setHeroOpen(false); if (q.trim()) nav(`/kereses?q=${encodeURIComponent(q.trim())}`); }}
+            className="relative focus-brand rounded-2xl transition-shadow"
           >
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
+            {heroGhost && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 text-base whitespace-pre overflow-hidden pointer-events-none flex items-center"
+              >
+                <span className="invisible">{q}</span>
+                <span className="text-muted-foreground/50">{heroGhost}</span>
+              </div>
+            )}
             <input
+              ref={heroInputRef}
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => { setQ(e.target.value); setHeroOpen(true); }}
+              onFocus={() => setHeroOpen(true)}
+              onKeyDown={(e) => {
+                if (!heroGhost) return;
+                if (e.key === "Tab" && !e.shiftKey) {
+                  e.preventDefault();
+                  acceptHeroGhost();
+                  return;
+                }
+                if (e.key === "ArrowRight") {
+                  const el = e.currentTarget;
+                  if (el.selectionStart === q.length && el.selectionEnd === q.length) {
+                    e.preventDefault();
+                    acceptHeroGhost();
+                  }
+                }
+              }}
               placeholder={heroPlaceholder}
-              className="w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
+              aria-label="Keresés"
+              aria-autocomplete="list"
+              aria-expanded={heroOpen}
+              autoComplete="off"
+              spellCheck={false}
+              className="relative w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
             />
             <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
               Keresés
             </button>
           </form>
+          {heroOpen && q.trim().length >= 2 && (heroSugg.length > 0 || heroLoadingSugg) && (
+            <div
+              role="listbox"
+              className="absolute left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-lg overflow-hidden z-40 max-h-[70vh] overflow-y-auto"
+            >
+              {heroLoadingSugg && heroSugg.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">Javaslatok…</div>
+              )}
+              {heroSugg.map((s, i) => {
+                const Icon = SUGG_ICON[s.type] || Search;
+                return (
+                  <button
+                    key={`${s.type}:${s.label}:${i}`}
+                    type="button"
+                    role="option"
+                    onMouseDown={(e) => { e.preventDefault(); setHeroOpen(false); setQ(""); nav(s.href); }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 border-b border-border/40 last:border-b-0"
+                  >
+                    {s.image_url ? (
+                      <img src={s.image_url} alt="" loading="lazy" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                    ) : (
+                      <span className="h-7 w-7 rounded bg-muted/60 flex items-center justify-center shrink-0">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{s.label}</span>
+                      {s.subtitle && (
+                        <span className="block text-[11px] text-muted-foreground truncate">{s.subtitle}</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
             <div className="flex flex-nowrap items-center gap-2 min-w-0">
               {visibleChips.map((c, i) => (
