@@ -59,6 +59,8 @@ export default function SearchPage() {
   const [episodes, setEpisodes] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryLabels, setCategoryLabels] = useState<Record<string, string>>({});
+  const [heroPerson, setHeroPerson] = useState<{ name: string; slug: string; image_url: string | null; short_bio: string | null; gated_episode_count: number | null } | null>(null);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
@@ -69,6 +71,43 @@ export default function SearchPage() {
   const answerAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { setQ(initial); }, [initial]);
+
+  // Load HU category label map (taxonomy_key -> HU name)
+  useEffect(() => {
+    supabase.from("categories").select("name,taxonomy_keys").then(({ data }) => {
+      if (!data) return;
+      const map: Record<string, string> = {};
+      (data as any[]).forEach((c) => {
+        (c.taxonomy_keys || []).forEach((k: string) => { if (k && !map[k]) map[k] = c.name; });
+      });
+      setCategoryLabels(map);
+    }, () => {});
+  }, []);
+
+  // Hero person: best person match for the query
+  useEffect(() => {
+    setHeroPerson(null);
+    const phrase = initial.trim();
+    if (phrase.length < 3) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("people")
+        .select("name,slug,image_url,short_bio,gated_episode_count,is_public,is_indexable")
+        .ilike("name", `%${phrase.replace(/[%_]/g, " ")}%`)
+        .eq("is_public", true)
+        .eq("is_indexable", true)
+        .order("gated_episode_count", { ascending: false, nullsFirst: false })
+        .limit(5);
+      if (cancelled || !data?.length) return;
+      const pn = phrase.toLowerCase();
+      const best = (data as any[]).find((p) => (p.name || "").toLowerCase() === pn)
+        || (data as any[]).find((p) => (p.name || "").toLowerCase().includes(pn))
+        || data[0];
+      if (best && (best.gated_episode_count ?? 0) >= 1) setHeroPerson(best as any);
+    })();
+    return () => { cancelled = true; };
+  }, [initial]);
 
   useEffect(() => {
     setSeo({
@@ -365,7 +404,7 @@ export default function SearchPage() {
                   <span className="text-muted-foreground ml-2">Kategória:</span>
                   <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>Mind</button>
                   {categories.slice(0, 8).map((c) => (
-                    <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{c}</button>
+                    <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{categoryLabels[c] || c}</button>
                   ))}
                 </>
               )}
@@ -442,6 +481,33 @@ export default function SearchPage() {
           </div>
         )}
 
+        {heroPerson && (
+          <div className="mt-8">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-2">Legjobb személy találat</div>
+            <Link
+              to={`/szemelyek/${heroPerson.slug}`}
+              className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
+            >
+              {heroPerson.image_url ? (
+                <img src={heroPerson.image_url} alt={heroPerson.name} loading="lazy"
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shrink-0 border border-border/60" />
+              ) : (
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-muted shrink-0 border border-border/60" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">{heroPerson.name}</div>
+                {typeof heroPerson.gated_episode_count === "number" && heroPerson.gated_episode_count > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">{heroPerson.gated_episode_count} epizód</div>
+                )}
+                {heroPerson.short_bio && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{heroPerson.short_bio}</p>
+                )}
+                <div className="text-[11px] text-primary font-medium mt-2">Személy oldal megnyitása →</div>
+              </div>
+            </Link>
+          </div>
+        )}
+
         {heroPodcast && (
           <div className="mt-8">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-2">Legjobb podcast találat</div>
@@ -457,7 +523,7 @@ export default function SearchPage() {
                 <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">
                   {(heroPodcast as any).display_title || heroPodcast.title}
                 </div>
-                {heroPodcast.category && <div className="text-xs text-muted-foreground mt-1">{heroPodcast.category}</div>}
+                {heroPodcast.category && <div className="text-xs text-muted-foreground mt-1">{categoryLabels[heroPodcast.category] || heroPodcast.category}</div>}
                 {(heroPodcast.summary || heroPodcast.description) && (
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">
                     {heroPodcast.summary || heroPodcast.description}
