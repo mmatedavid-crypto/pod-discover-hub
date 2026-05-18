@@ -56,11 +56,11 @@ Deno.serve(async (req) => {
         .order("podiverzum_rank", { ascending: false, nullsFirst: false })
         .limit(6),
       supa.from("people")
-        .select("name,slug,image_url,gated_episode_count,is_indexable")
+        .select("name,slug,image_url,gated_episode_count,is_indexable,disambiguation_label,normalized_name")
         .eq("is_public", true)
         .or(`name.ilike.${prefix},normalized_name.ilike.${prefix}`)
         .order("gated_episode_count", { ascending: false })
-        .limit(5),
+        .limit(8),
       // Alias lookup — surfaces canonical people via known aliases (e.g. "Zsiday" → "Zsiday Viktor")
       supa.from("person_aliases")
         .select("alias, confidence, people!inner(name,slug,image_url,is_public,gated_episode_count)")
@@ -100,17 +100,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // People
-    for (const p of (persRes.data || [])) {
-      const n = String((p as any).name || "");
-      if (!n) continue;
-      const conf = norm(n).startsWith(q) ? 0.85 : 0.6;
+    // People — score by (exact name match → big bonus) + (startsWith → small bonus) + gated episode count.
+    // This prevents "Magyar Péter" query from being outranked by similarly-spelled "Magyari Péter"
+    // just because the latter has more gated episodes.
+    const peopleRanked = (persRes.data || [])
+      .map((p: any) => {
+        const n = String(p.name || "");
+        const nn = String(p.normalized_name || norm(n));
+        const exact = nn === q;
+        const starts = nn.startsWith(q + " ") || nn === q;
+        const eps = Number(p.gated_episode_count || 0);
+        const score = (exact ? 10000 : 0) + (starts ? 500 : 0) + eps;
+        return { p, n, nn, exact, starts, score };
+      })
+      .filter((r) => r.n)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    for (const r of peopleRanked) {
+      const conf = r.exact ? 0.95 : r.starts ? 0.85 : 0.6;
+      const dis = String((r.p as any).disambiguation_label || "").trim();
       out.push({
         type: "person",
-        label: n,
-        subtitle: "Személy",
-        href: `/szemelyek/${(p as any).slug}`,
-        image_url: (p as any).image_url || null,
+        label: r.n,
+        subtitle: dis ? `Személy · ${dis}` : "Személy",
+        href: `/szemelyek/${(r.p as any).slug}`,
+        image_url: (r.p as any).image_url || null,
         confidence: conf,
       });
     }
