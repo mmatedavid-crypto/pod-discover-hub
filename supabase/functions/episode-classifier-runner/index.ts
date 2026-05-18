@@ -140,8 +140,32 @@ Deno.serve(async (req) => {
   const dailyBudget = Number(ctrl.daily_budget_usd ?? 10);
   const model = String(body.model || ctrl.model || "google/gemini-2.5-flash-lite");
   const price = MODEL_PRICES[model] || MODEL_PRICES["google/gemini-2.5-flash-lite"];
-  const batch = Math.max(1, Math.min(200, Number(body.batch) || ctrl.batch_size || 60));
-  const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || ctrl.concurrency || 4));
+
+  // Adaptive throttle: scale toward max ceilings on clean streaks, scale down on errors.
+  const maxBatch = Math.max(1, Math.min(1500, Number(ctrl.max_batch_size) || 800));
+  const maxConc = Math.max(1, Math.min(40, Number(ctrl.max_concurrency) || 20));
+  const minBatch = Math.max(1, Number(ctrl.min_batch_size) || 60);
+  const minConc = Math.max(1, Number(ctrl.min_concurrency) || 3);
+  const baseBatch = Number(ctrl.batch_size) || 120;
+  const baseConc = Number(ctrl.concurrency) || 6;
+  const autoAdapt = ctrl.auto_adapt !== false;
+  const recentRuns: any[] = Array.isArray(ctrl.recent_runs) ? ctrl.recent_runs.slice(-3) : [];
+  let adaptiveBatch = baseBatch;
+  let adaptiveConc = baseConc;
+  if (autoAdapt && recentRuns.length >= 1) {
+    const lastErr = recentRuns[recentRuns.length - 1]?.errors || 0;
+    const lastRate = recentRuns[recentRuns.length - 1]?.rate_limited || 0;
+    const cleanStreak = recentRuns.filter((r) => (r?.errors || 0) === 0 && (r?.rate_limited || 0) === 0).length;
+    if (lastRate > 0 || lastErr > 5) {
+      adaptiveBatch = Math.max(minBatch, Math.floor(baseBatch * 0.5));
+      adaptiveConc = Math.max(minConc, Math.floor(baseConc * 0.5));
+    } else if (cleanStreak >= recentRuns.length && recentRuns.length >= 2) {
+      adaptiveBatch = Math.min(maxBatch, Math.floor(baseBatch * 1.5));
+      adaptiveConc = Math.min(maxConc, baseConc + 2);
+    }
+  }
+  const batch = Math.max(1, Math.min(maxBatch, Number(body.batch) || adaptiveBatch));
+  const concurrency = Math.max(1, Math.min(maxConc, Number(body.concurrency) || adaptiveConc));
 
   // Load taxonomy
   const [{ data: cats }, { data: tops }] = await Promise.all([
