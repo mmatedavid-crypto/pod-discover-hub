@@ -596,6 +596,88 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_ai_classifications: {
+        Row: {
+          classification_status: string
+          confidence: number
+          created_at: string
+          episode_id: string
+          false_positive_risks: string[]
+          id: string
+          model_version: string | null
+          primary_category: string | null
+          reason_hu: string | null
+          rejected_topics: Json
+          reviewed_by: string
+          secondary_categories: Json
+          source_hash: string
+          taxonomy_version: string
+          topics: Json
+          updated_at: string
+          vector_evidence: Json
+        }
+        Insert: {
+          classification_status?: string
+          confidence?: number
+          created_at?: string
+          episode_id: string
+          false_positive_risks?: string[]
+          id?: string
+          model_version?: string | null
+          primary_category?: string | null
+          reason_hu?: string | null
+          rejected_topics?: Json
+          reviewed_by?: string
+          secondary_categories?: Json
+          source_hash: string
+          taxonomy_version?: string
+          topics?: Json
+          updated_at?: string
+          vector_evidence?: Json
+        }
+        Update: {
+          classification_status?: string
+          confidence?: number
+          created_at?: string
+          episode_id?: string
+          false_positive_risks?: string[]
+          id?: string
+          model_version?: string | null
+          primary_category?: string | null
+          reason_hu?: string | null
+          rejected_topics?: Json
+          reviewed_by?: string
+          secondary_categories?: Json
+          source_hash?: string
+          taxonomy_version?: string
+          topics?: Json
+          updated_at?: string
+          vector_evidence?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eac_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eac_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "eac_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
       episode_category_overrides: {
         Row: {
           category_slug: string
@@ -3152,6 +3234,66 @@ export type Database = {
         }
         Relationships: []
       }
+      suggested_taxonomy_items: {
+        Row: {
+          confidence: number
+          created_at: string
+          description_hu: string | null
+          distinct_podcast_count: number
+          episode_count: number
+          id: string
+          overlap_with_existing_categories: Json
+          overlap_with_existing_topics: Json
+          reason_hu: string | null
+          reviewed_at: string | null
+          sample_episode_ids: string[]
+          sample_podcast_ids: string[]
+          search_demand_score: number
+          status: string
+          suggested_name_hu: string
+          suggested_slug: string
+          type: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          description_hu?: string | null
+          distinct_podcast_count?: number
+          episode_count?: number
+          id?: string
+          overlap_with_existing_categories?: Json
+          overlap_with_existing_topics?: Json
+          reason_hu?: string | null
+          reviewed_at?: string | null
+          sample_episode_ids?: string[]
+          sample_podcast_ids?: string[]
+          search_demand_score?: number
+          status?: string
+          suggested_name_hu: string
+          suggested_slug: string
+          type: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          description_hu?: string | null
+          distinct_podcast_count?: number
+          episode_count?: number
+          id?: string
+          overlap_with_existing_categories?: Json
+          overlap_with_existing_topics?: Json
+          reason_hu?: string | null
+          reviewed_at?: string | null
+          sample_episode_ids?: string[]
+          sample_podcast_ids?: string[]
+          search_demand_score?: number
+          status?: string
+          suggested_name_hu?: string
+          suggested_slug?: string
+          type?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -3828,6 +3970,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      episode_classifier_stats: { Args: never; Returns: Json }
       formula_c_candidates: {
         Args: { _limit?: number }
         Returns: {
@@ -4071,6 +4214,13 @@ export type Database = {
           lex_rank: number
           score: number
           sem_rank: number
+        }[]
+      }
+      select_classifier_candidates: {
+        Args: { p_limit?: number; p_taxonomy_version?: string }
+        Returns: {
+          episode_id: string
+          podcast_id: string
         }[]
       }
       select_embed_candidates: {

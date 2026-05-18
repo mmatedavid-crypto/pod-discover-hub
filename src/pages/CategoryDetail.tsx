@@ -105,47 +105,63 @@ export default function CategoryDetail() {
       setPodcasts(promotedPodcasts);
 
       const promotedIds = promotedPodcasts.map((p: any) => p.id);
-      if (promotedIds.length) {
-        const [{ data: eps }, { data: overrides }] = await Promise.all([
-          supabase
-            .from("episodes")
-            .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
-            .in("podcast_id", promotedIds)
-            .order("published_at", { ascending: false, nullsFirst: false })
-            .limit(120),
-          supabase
-            .from("episode_category_overrides")
-            .select("episode_id, status")
-            .eq("category_slug", slug),
-        ]);
-        const rejected = new Set((overrides || []).filter((o: any) => o.status === "rejected").map((o: any) => o.episode_id));
-        // Pure freshness first with a per-podcast cap of 2 so a single chatty
-        // show cannot dominate the category. Episodes the AI judge marked as
-        // false positives for this category are hidden even if their podcast
-        // is globally assigned to it.
-        const byDate = (eps || [])
-          .filter((e: any) => !rejected.has(e.id))
-          .slice()
-          .sort((a: any, b: any) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
-        const capPerPodcast = (list: any[], cap: number, take: number) => {
-          const seen = new Map<string, number>();
-          const out: any[] = [];
-          for (const e of list) {
-            const pid = e.podcast_id || e.podcasts?.slug || "_";
-            const n = seen.get(pid) || 0;
-            if (n >= cap) continue;
-            seen.set(pid, n + 1);
-            out.push(e);
-            if (out.length >= take) break;
-          }
-          return out;
-        };
-        const sorted = capPerPodcast(byDate, 2, 25);
-        setEpisodes(sorted as any);
-        const t = new Map<string, number>();
-        (sorted || []).forEach((e: any) => (e.topics || []).forEach((x: string) => t.set(x, (t.get(x) || 0) + 1)));
-        setTopics([...t.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k]) => k));
+      const [{ data: eps }, { data: overrides }, { data: classifiedRows }] = await Promise.all([
+        promotedIds.length
+          ? supabase
+              .from("episodes")
+              .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
+              .in("podcast_id", promotedIds)
+              .order("published_at", { ascending: false, nullsFirst: false })
+              .limit(120)
+          : Promise.resolve({ data: [] as any[] }),
+        supabase
+          .from("episode_category_overrides")
+          .select("episode_id, status")
+          .eq("category_slug", slug),
+        supabase
+          .from("episode_ai_classifications")
+          .select("episode_id, primary_category, secondary_categories, episodes!inner(id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,is_hungarian,language_decision))")
+          .eq("classification_status", "classified")
+          .or(`primary_category.eq.${slug},secondary_categories.cs.${JSON.stringify([slug])}`)
+          .eq("episodes.podcasts.is_hungarian", true)
+          .eq("episodes.podcasts.language_decision", "accept_hungarian")
+          .order("episode_id")
+          .limit(200),
+      ]);
+      const rejected = new Set((overrides || []).filter((o: any) => o.status === "rejected").map((o: any) => o.episode_id));
+      // Merge: prefer episode-level AI classification rows (precision-first),
+      // then fall back to podcast-level category episodes for shows without
+      // episode-level classification yet. Rejected overrides always hidden.
+      const merged = new Map<string, any>();
+      for (const c of (classifiedRows || [])) {
+        const e: any = (c as any).episodes;
+        if (e && !rejected.has(e.id)) merged.set(e.id, e);
       }
+      for (const e of (eps || [])) {
+        if (e && !rejected.has(e.id) && !merged.has(e.id)) merged.set(e.id, e);
+      }
+      const merged_list = [...merged.values()];
+      const byDate = merged_list
+        .slice()
+        .sort((a: any, b: any) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
+      const capPerPodcast = (list: any[], cap: number, take: number) => {
+        const seen = new Map<string, number>();
+        const out: any[] = [];
+        for (const e of list) {
+          const pid = e.podcast_id || e.podcasts?.slug || "_";
+          const n = seen.get(pid) || 0;
+          if (n >= cap) continue;
+          seen.set(pid, n + 1);
+          out.push(e);
+          if (out.length >= take) break;
+        }
+        return out;
+      };
+      const sorted = capPerPodcast(byDate, 2, 25);
+      setEpisodes(sorted as any);
+      const t = new Map<string, number>();
+      (sorted || []).forEach((e: any) => (e.topics || []).forEach((x: string) => t.set(x, (t.get(x) || 0) + 1)));
+      setTopics([...t.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k]) => k));
     })();
   }, [slug]);
 

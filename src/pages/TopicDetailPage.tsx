@@ -44,7 +44,7 @@ export default function TopicDetailPage() {
       const topicId = (t as any).id;
       const epSelect = "id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
 
-      const [{ data: reviewRows }, { data: mapRows }, { data: rejectedRows }] = await Promise.all([
+      const [{ data: reviewRows }, { data: mapRows }, { data: rejectedRows }, { data: classRows }] = await Promise.all([
         supabase
           .from("episode_topic_relevance_reviews")
           .select(`episode_id, confidence, episodes!inner(${epSelect})`)
@@ -65,13 +65,31 @@ export default function TopicDetailPage() {
           .select("episode_id")
           .eq("topic_id", topicId)
           .eq("status", "rejected"),
+        supabase
+          .from("episode_ai_classifications")
+          .select(`episode_id, topics, classification_status, confidence, episodes!inner(${epSelect})`)
+          .eq("classification_status", "classified")
+          .contains("topics", JSON.stringify([{ slug }]) as any)
+          .eq("episodes.podcasts.is_hungarian", true)
+          .eq("episodes.podcasts.language_decision", "accept_hungarian")
+          .limit(200),
       ]);
       const rejectedSet = new Set((rejectedRows || []).map((r: any) => r.episode_id));
       const byId = new Map<string, any>();
+      // Highest trust first: explicit judge accepts
       for (const r of (reviewRows || [])) {
         const e: any = (r as any).episodes;
         if (e && !rejectedSet.has(e.id)) byId.set(e.id, e);
       }
+      // Then: episode-level AI classification with topic confidence >= 0.6
+      for (const r of (classRows || [])) {
+        const e: any = (r as any).episodes;
+        if (!e || rejectedSet.has(e.id) || byId.has(e.id)) continue;
+        const topicArr = (r as any).topics as Array<{ slug: string; confidence: number }>;
+        const hit = topicArr?.find((t) => t.slug === slug);
+        if (hit && (hit.confidence ?? 0) >= 0.6) byId.set(e.id, e);
+      }
+      // Weak fallback: legacy episode_topic_map (only if not rejected)
       for (const r of (mapRows || [])) {
         const e: any = (r as any).episodes;
         if (e && !rejectedSet.has(e.id) && !byId.has(e.id)) byId.set(e.id, e);
