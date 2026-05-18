@@ -59,6 +59,8 @@ export default function SearchPage() {
   const [episodes, setEpisodes] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryLabels, setCategoryLabels] = useState<Record<string, string>>({});
+  const [heroPerson, setHeroPerson] = useState<{ name: string; slug: string; image_url: string | null; short_bio: string | null; gated_episode_count: number | null } | null>(null);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
