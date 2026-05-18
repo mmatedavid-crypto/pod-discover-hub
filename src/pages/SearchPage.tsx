@@ -93,10 +93,9 @@ export default function SearchPage() {
     (async () => {
       const { data } = await supabase
         .from("people")
-        .select("name,slug,image_url,short_bio,gated_episode_count,is_public,is_indexable")
+        .select("name,slug,image_url,short_bio,gated_episode_count,is_public")
         .ilike("name", `%${phrase.replace(/[%_]/g, " ")}%`)
         .eq("is_public", true)
-        .eq("is_indexable", true)
         .order("gated_episode_count", { ascending: false, nullsFirst: false })
         .limit(5);
       if (cancelled || !data?.length) return;
