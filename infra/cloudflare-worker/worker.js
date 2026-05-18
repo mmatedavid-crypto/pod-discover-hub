@@ -80,6 +80,20 @@ export default {
     const url = new URL(request.url);
     const ua = request.headers.get("user-agent") || "";
 
+    // Permanent www -> apex redirect (preserves path + query).
+    // Runs first so no other logic (passthrough, prerender) can downgrade it to 302.
+    if (url.hostname === "www.podiverzum.hu") {
+      const target = `https://podiverzum.hu${url.pathname}${url.search}`;
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: target,
+          "Cache-Control": "public, max-age=86400",
+          "X-Redirect": "www-to-apex-301",
+        },
+      });
+    }
+
     if (SCANNER_PATH_REGEX.test(url.pathname)) {
       return new Response("Not Found", {
         status: 404,
