@@ -108,7 +108,10 @@ export default function AboutPage() {
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Státusz</h2>
-        <p>A Podiverzum jelenleg <strong>zárt bétában</strong> működik.</p>
+        <p>
+          A Podiverzum jelenleg <strong>nyilvános bétában</strong> működik — bárki
+          szabadon használhatja, de még aktív fejlesztés alatt áll.
+        </p>
         <p>
           A katalógus napról napra bővül. A kereső, a rangsorolás és a tematikus oldalak
           folyamatosan javulnak, ahogy egyre több podcast epizód kerül az indexünkbe,
