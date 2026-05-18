@@ -153,13 +153,13 @@ Deno.serve(async (req) => {
   const validCatSlugs = new Set((cats || []).map((c: any) => c.slug));
   const validTopicSlugs = new Set((tops || []).map((t: any) => t.slug));
 
-  // Spend tracking
+  // Spend tracking (atomic per-kind via add_ai_spend RPC)
   const dayKey = new Date().toISOString().slice(0, 10);
-  const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
-  const byKind = (spendRow?.by_kind || {}) as any;
-  let mySpend = Number(byKind.episode_classifier || 0);
-  let totalSpend = Number(spendRow?.spend_usd || 0);
-  let calls = Number(spendRow?.calls || 0);
+  const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", dayKey).maybeSingle();
+  const byKind0 = (spendRow?.by_kind || {}) as any;
+  let mySpend = Number(byKind0.episode_classifier || 0);
+  let runIncrement = 0; // cost accumulated in this invocation
+  let runCalls = 0;
   if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend_usd: mySpend });
 
   let processed = 0, classified = 0, no_good_match = 0, too_thin = 0, needs_review = 0, failed = 0, cached_skips = 0;
