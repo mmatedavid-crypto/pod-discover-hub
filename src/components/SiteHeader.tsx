@@ -4,17 +4,10 @@ import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder } from "lucide-react"
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
-import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
+import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
-type Suggestion = {
-  type: "podcast" | "person" | "topic" | "category" | "query";
-  label: string;
-  subtitle?: string;
-  href: string;
-  image_url?: string | null;
-  confidence: number;
-};
+type Suggestion = GhostSuggestion;
 
 const ICON: Record<Suggestion["type"], any> = {
   podcast: Mic,
@@ -23,10 +16,6 @@ const ICON: Record<Suggestion["type"], any> = {
   category: Folder,
   query: Search,
 };
-
-function normLabel(s: string): string {
-  return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-}
 
 export function SiteHeader() {
   const [q, setQ] = useState("");
