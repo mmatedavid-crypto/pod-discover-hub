@@ -46,8 +46,8 @@ Deno.serve(async (req) => {
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-    // Four parallel reads — keep each one tight.
-    const [podRes, persRes, aliasRes, topRes, catRes] = await Promise.all([
+    // Parallel reads — keep each one tight.
+    const [podRes, persRes, aliasRes, topRes, catRes, qcacheRes] = await Promise.all([
       supa.from("podcasts")
         .select("title,slug,image_url,podiverzum_rank,rank_label")
         .eq("is_hungarian", true)
@@ -77,6 +77,12 @@ Deno.serve(async (req) => {
         .select("name,slug,active")
         .eq("active", true)
         .ilike("name", ilike)
+        .limit(4),
+      // Past popular search queries — Google-style "people also searched for"
+      supa.from("search_query_cache")
+        .select("q_norm,hits")
+        .ilike("q_norm", prefix)
+        .order("hits", { ascending: false })
         .limit(4),
     ]);
 
