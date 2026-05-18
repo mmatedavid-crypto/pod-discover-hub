@@ -105,8 +105,12 @@ async function callAI(prompt: string): Promise<{ result: any; cost: number } | n
 
 async function logSpend(supabase: any, cost: number) {
   const day = new Date().toISOString().slice(0, 10);
-  await supabase.rpc("upsert_ai_spend", { p_day: day, p_kind: "person_relevance", p_cost: cost, p_calls: 1 }).then(() => {}).catch(async () => {
-    // fallback: manual upsert
+  try {
+    const { error } = await supabase.rpc("upsert_ai_spend", { p_day: day, p_kind: "person_relevance", p_cost: cost, p_calls: 1 });
+    if (!error) return;
+  } catch { /* fall through */ }
+  // fallback: manual upsert
+  try {
     const { data } = await supabase.from("ai_spend_daily").select("*").eq("day", day).maybeSingle();
     const cur = data || { day, spend_usd: 0, calls: 0, by_kind: {} };
     const by = cur.by_kind || {};
@@ -117,7 +121,7 @@ async function logSpend(supabase: any, cost: number) {
       calls: (cur.calls || 0) + 1,
       by_kind: by,
     });
-  });
+  } catch { /* ignore */ }
 }
 
 async function getSpendToday(supabase: any): Promise<number> {
@@ -142,13 +146,15 @@ Deno.serve(async (req) => {
   while (Date.now() - startedAt < TIME_BUDGET_MS - RESERVE_MS) {
     if (spendToday >= DAILY_BUDGET_USD) break;
 
-    // claim a batch of pending mentions on HU-approved podcasts
+    // claim a batch of pending mentions on HU-approved podcasts.
+    // Filter podcast directly via mentions.podcast_id (PostgREST cannot reliably
+    // filter on two-level nested embeds like episodes.podcasts.is_hungarian).
     let q = supabase
       .from("person_episode_mentions")
-      .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), episodes!inner(title, summary, ai_summary, podcasts!inner(title, description, is_hungarian, language_decision))")
+      .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
       .eq("relevance_status", "pending")
-      .eq("episodes.podcasts.is_hungarian", true)
-      .eq("episodes.podcasts.language_decision", "accept_hungarian")
+      .eq("podcasts.is_hungarian", true)
+      .eq("podcasts.language_decision", "accept_hungarian")
       .order("confidence", { ascending: false })
       .limit(batchLimit);
     if (targetPersonIds) q = q.in("person_id", targetPersonIds);
@@ -182,8 +188,8 @@ Deno.serve(async (req) => {
         ep_title: m.episodes.title,
         ep_summary: m.episodes.summary,
         ep_ai_summary: m.episodes.ai_summary,
-        pod_title: m.episodes.podcasts.title,
-        pod_description: m.episodes.podcasts.description,
+        pod_title: m.podcasts.title,
+        pod_description: m.podcasts.description,
       };
 
       try {
@@ -222,7 +228,7 @@ Deno.serve(async (req) => {
   }
 
   // recompute hub
-  await supabase.rpc("refresh_people_hub_score").catch(() => {});
+  try { await supabase.rpc("refresh_people_hub_score"); } catch { /* ignore */ }
 
   return new Response(JSON.stringify({
     ok: true,
