@@ -302,7 +302,7 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       else if (finalStatus === "no_good_match") no_good_match++;
       else if (finalStatus === "too_thin") too_thin++;
       else needs_review++;
-      mySpend += cost; totalSpend += cost; calls++;
+      mySpend += cost; runIncrement += cost; runCalls++;
     } catch (e: any) {
       failed++;
       const msg = e?.message || "error";
