@@ -17,6 +17,8 @@ import { recordVisit } from "@/lib/recentlyPlayed";
 import { extractKeyMoments } from "@/lib/keyMoments";
 import { KeyMoments } from "@/components/KeyMoments";
 import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
+import { EpisodeAudioPlayer } from "@/components/smart-player/EpisodeAudioPlayer";
+import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
