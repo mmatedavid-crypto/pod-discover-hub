@@ -60,6 +60,31 @@ const Index = () => {
       : "Téma vagy gondolat…"
   );
   const nav = useNavigate();
+  const heroWrapRef = useRef<HTMLDivElement | null>(null);
+  const heroInputRef = useRef<HTMLInputElement | null>(null);
+  const [heroOpen, setHeroOpen] = useState(false);
+  const { suggestions: heroSugg, loading: heroLoadingSugg } = useSearchSuggestions(q, 8);
+  const heroGhost = computeGhost(q, heroSugg);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (!heroWrapRef.current?.contains(e.target as Node)) setHeroOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const acceptHeroGhost = () => {
+    if (!heroGhost) return false;
+    const completed = q + heroGhost;
+    setQ(completed);
+    setHeroOpen(true);
+    requestAnimationFrame(() => {
+      const el = heroInputRef.current;
+      if (el) el.setSelectionRange(completed.length, completed.length);
+    });
+    return true;
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
