@@ -1,123 +1,91 @@
+# P0 Quality Fix — podiverzum.hu
 
-# HU Deep Archive Backfill
+This is a large multi-system fix. I will execute it in 4 phases, each independently verifiable. Each phase ends with a written report section. I will stop and ask if any phase requires destructive changes (mass-deleting bad topic mappings, etc.).
 
-## Findings (PART 1 — live audit)
+---
 
-HU-approved universe (`is_hungarian=true AND language_decision='accept_hungarian'`):
+## Phase 1 — Diagnostics & instrumentation (NO behavior change yet)
 
-- **691 podcasts**, **63 664 episodes** already indexed
-- Tiers: S=38, A=172, B=443, C=38, D/E=0
-- RSS deep-hydration: **671/691 done**, 20 pending
-- PodcastIndex (PI) historical backfill: **621/691 done**, 70 pending
-- Episode-count buckets: <20 ep = 283 pods, 20–100 = 250, 101–500 = 127, 500+ = 31
+Goal: build the data I need before changing ranking/classifier logic, so fixes are evidence-based, not guesswork.
 
-**Conclusion:** the existing two-pass pipeline (`deep-hydrate-runner` over live RSS + `pi-episode-backfill` over the PodcastIndex archive) has already done ~90% of the work for HU. The real gaps are:
+1. **Topic/Search gap audit (read-only SQL)**
+   - For every public topic: current `episode_topic_map` count vs. `search_episodes_hybrid` count for the topic name + aliases (HU-gated).
+   - Surface top 20 worst gaps + 10 worst false-positives (per topic, lowest-confidence mappings).
+2. **Friderikusz × Oktatás dump** — list every (episode, podcast) pair currently in Oktatás coming from Friderikusz; check title/summary for education keywords; mark false positives.
+3. **Drágám hol a vacsorám × Food dump** — same logic, food keywords.
+4. **Művészet freshness dump** — top 20 by `published_at` currently shown on the topic page, with podcast distribution, to confirm Hangosító dominance + age.
+5. **Public stability window** — query `page_events` errors, edge-function logs (`hu_archive_backfill_runs`, `ai_enrichment_jobs` failures, `cloud_status`) for the reported afternoon window.
 
-1. **Neither runner is HU-strict.** `deep-hydrate-runner` has no language filter at all; `pi-episode-backfill` uses only `is_hungarian=true` (not the `language_decision` gate). This means non-HU shows can leak into runs.
-2. **B/C-tier PI backfill is gated by a manual `pi_backfill_approved=true` flag.** For HU-approved B/C this is the right gate in general but no one has bulk-approved the HU B-tier (443 shows) — so their PI historical archives are not being pulled.
-3. **No HU-specific orchestrator** that combines "fetch live RSS to exhaustion → then PI sweep" per podcast with a single budget.
-4. **No admin dashboard** for archive completeness / progress.
-5. **Sitemap eligibility for thin old episodes** is not explicitly gated; needs a minimum-content rule.
+Deliverable: a one-shot report printed in chat + saved to `mem://qa/p0-2026-05-18.md`.
 
-Because the heavy backfill is already mostly done, the plan is small and focused — not a from-scratch build.
+---
 
-## Plan
+## Phase 2 — Classifier guardrails (episode-level evidence + negative hints)
 
-### Step 1 — HU-strict gating on existing runners (PART 2)
+Touches: `supabase/functions/categorize-podcast-runner` (and any topic mapper used by `episode_topic_map`), DB seed data on `topics` table.
 
-Edit `supabase/functions/deep-hydrate-runner/index.ts` candidate query: add
-`.eq("is_hungarian", true).eq("language_decision", "accept_hungarian")`.
-Edit `supabase/functions/pi-episode-backfill/index.ts` filter to add `.eq("language_decision", "accept_hungarian")` alongside the existing `is_hungarian=true`.
+1. Add `positive_hints` / `negative_hints` / `min_evidence_score` columns to `topics` (migration) if not present; otherwise reuse existing `metadata` JSONB.
+2. Seed hints for: Food/Gasztronómia, Oktatás, Művészet, Sport, Orosz irodalom/kultúra (new disambiguation topic or guard rule).
+3. Update topic-mapping logic so an episode is mapped ONLY if episode-level text (title + description + ai_summary + search_text) hits ≥1 positive hint and no negative hint, OR podcast is wholly about the topic (≥80% of recent episodes match).
+4. One-shot cleanup migration: delete `episode_topic_map` rows that fail the new guard for the 4 problem topics (Food, Oktatás, Művészet false-positives), then re-run mapper for those topics.
+5. Recompute `topics.episode_count` / `podcast_count`.
 
-Outcome: every future run is HU-only by construction; no risk of pulling non-HU archives.
+I will pause before the destructive cleanup step and show the count of rows to be deleted per topic.
 
-### Step 2 — Bulk-approve B-tier HU for PI backfill (PART 2)
+---
 
-One `supabase--insert` UPDATE:
-`UPDATE podcasts SET pi_backfill_approved=true WHERE is_hungarian=true AND language_decision='accept_hungarian' AND rank_label='B' AND pi_backfill_completed_at IS NULL;`
+## Phase 3 — Search intent + freshness + autocomplete
 
-Leaves C-tier behind a manual approval (admin can approve case-by-case from the dashboard in Step 4).
+Touches: `supabase/functions/search-hybrid`, `supabase/functions/search-suggest`, new `supabase/functions/search-autocomplete` (or extend `search-suggest`), `src/pages/SearchPage.tsx`, `src/pages/TopicDetailPage.tsx`, `src/pages/CategoryDetail.tsx`.
 
-### Step 3 — `hungarian-deep-archive-backfill` orchestrator edge function (PART 3)
+1. **Podcast-title intent** in `search-hybrid`: pre-step that calls `match_podcast_by_name(query)`; if confidence ≥ 0.85, returns a `podcast_intent` block (the podcast card + latest 10 episodes ordered by `published_at DESC`) ahead of semantic results. Frontend renders a "Podcast találat" card.
+2. **HU adjective vs. surname disambiguation**: in `_shared/search-understand.ts`, when query contains `orosz` + {`irodalom`,`kultúra`,`könyv`,`író`,`zene`,`film`,`művészet`}, downrank `people.name ILIKE 'Orosz %'` hits and war/geopolitics-only episodes. General pattern: `<adj> + <topic-noun>` ⇒ treat first token as adjective, not surname.
+3. **Freshness fix on topic/category pages**: `TopicDetailPage` "Friss epizódok" — sort by `published_at DESC` with a per-podcast cap (max 2 per podcast in the top 12), only include episodes published within last 365 days when a fresher pool exists. Same fix for `CategoryDetail`.
+4. **Autocomplete `/api/search-autocomplete`** (new edge function, public, no JWT, no logging of PII):
+   - Inputs: `q` (≥2 chars), `limit` (default 8).
+   - Sources, in priority order: podcast titles (ILIKE + trigram), people names (HU-gated, `is_public`), topics (positive hint match), categories, popular `search_query_cache` entries.
+   - Returns typed suggestions: `{ type, label, subtitle, href, confidence, image_url? }`.
+   - Cached 60s per `q` in memory; no DB cache to keep latency low.
+   - Wire into `SiteHeader` search input (debounced 150ms, mobile-friendly dropdown, ARIA combobox, no indexable links).
+5. Block autocomplete URLs in `public/robots.txt` and ensure not in sitemap.
 
-Thin orchestrator that, per run, picks N HU podcasts (priority order: featured → S → A → B-approved → C-approved) where either `full_backfill_completed_at IS NULL` or `pi_backfill_completed_at IS NULL`, and for each one invokes:
+---
 
-1. `deep-hydrate-runner` for that podcast id (RSS exhaustion) if RSS pass not done.
-2. `pi-episode-backfill` for that podcast id (`podcast_ids:[...]`) if PI pass not done.
+## Phase 4 — Stability audit & report
 
-Reuses existing dedupe (`podcast_id,slug` + guid + episode_url checks already in `fetch-one.ts` and `pi-episode-backfill`). Calls `checkBackgroundJobsAllowed` (incident guard). Controls in `app_settings.hu_deep_archive_controls`:
+1. Query the user-reported afternoon window (≈12:00–18:00 local on 2026-05-18):
+   - Public 5xx in edge logs (`search-hybrid`, `search-suggest`, `prerender`, `og-image`, `sitemap`).
+   - `cloud_status` snapshot.
+   - Cron overlap: any background job claiming > 30s during the window.
+2. If a culprit is found (likely: archive backfill or embed-episode-chunks at `*` colliding with peak traffic), apply one of:
+   - Tighten `TIME_BUDGET` on the offending runner.
+   - Add traffic-aware backoff: skip run if a public-read indicator (e.g. `app_settings.public_traffic_high`) is set.
+3. Verify `_shared/incident-guard.ts` still fail-closes correctly (it does; just confirm).
+4. Final regression run of the test set listed in the request; print before/after counts.
 
-- `max_podcasts_per_run` (default 8)
-- `max_new_episodes_per_run` (default 1500)
-- `max_runtime_seconds` (default 110)
-- `tier_filter` (default `["S","A","B"]`)
-- `dry_run` (default false)
-- `force_refresh` (default false — when true, re-pulls even if `*_completed_at IS NOT NULL`)
-- `per_domain_min_ms` (default 1500) — host-throttle between feeds on the same host
-
-Logs every run into a new lightweight `hu_deep_archive_runs` row (or extends `app_settings.hu_deep_archive.last_run` like `deep_hydration` does — simpler).
-
-Cron: **not added by default.** Triggered from the admin dashboard. Safer for soft-open week; can be cron-scheduled later.
-
-### Step 4 — Admin dashboard `/admin/archive-backfill` (PART 6)
-
-New page `src/pages/AdminArchiveBackfillPage.tsx`, linked from `AdminHubPage`. Read-only stats sourced from a new SQL view `v_hu_archive_completeness` (HU podcasts × counts/bucket/tier/pass-status). Controls:
-
-- "Run dry audit" — invokes orchestrator with `dry_run=true`
-- "Run backfill batch" — invokes with current controls
-- Pause / Resume — flips `app_settings.hu_deep_archive_controls.enabled`
-- Tier filter + max-new-episodes inputs (persist to `app_settings`)
-- Approve-for-PI button per podcast row (sets `pi_backfill_approved=true`)
-
-Lists: total HU podcasts, total HU episodes, processed-today, remaining (RSS pass, PI pass), failed feeds, dup-skipped, top-30 "biggest potential gains" (PI `episode_count` vs DB count).
-
-### Step 5 — Enrichment + indexing policy (PARTS 4 & 5)
-
-No new runner code needed — the existing pipeline already absorbs new episodes:
-
-- `seo-enrich-enqueue` picks up new episodes from HU-approved S/A/B/C pods (`ai_summary IS NULL`), already drains via `seo-enrich-runner` under a $50/day cap.
-- `embed-episode-runner` picks new rows under its $3/day cap.
-- `entity-backfill-runner` covers entity arrays for `ai_entities_version=0` HU episodes.
-
-Add **one sitemap-eligibility rule** in `supabase/functions/sitemap/index.ts` episode query: only include episodes where `published_at IS NOT NULL AND (length(coalesce(ai_summary,'')) > 80 OR length(coalesce(description,'')) > 200)`. Thin old episodes stay searchable internally but stay out of the sitemap until enrichment fills them out. No noindex meta change needed (episodes not in sitemap simply aren't promoted; the existing route still renders).
-
-### Step 6 — First dry audit (PART 7)
-
-After Steps 1–4 ship, click "Run dry audit". Returns per-podcast `pi_items_available - current_count` deltas, top-30 list, estimated AI enrichment cost (avg ~$0.0008 per episode at current model), embedding cost (~$0.0001 per episode).
-
-### Step 7 — First real batch (PART 8)
-
-If dry audit is sane, run with: `tier_filter=["S","A"]`, `max_podcasts_per_run=15`, `max_new_episodes_per_run=2000`. Single click from dashboard.
-
-### Step 8 — Verification report (PART 9)
-
-Dashboard "Last run" panel renders the full before/after diff (episode counts, failed feeds, dup-skipped, enrichment + embedding backlog deltas, spend-cap status, public-site health from the last `mv_homepage_feed` refresh timestamp).
+---
 
 ## Technical notes
 
-```text
-deep-hydrate-runner    ── RSS exhaustion ──► episodes (live feed)
-pi-episode-backfill    ── PI historical  ──► episodes (archive)
-        │
-        ▼
-hungarian-deep-archive-backfill (NEW)
-        │  HU-strict, tier-priority, budgeted, resumable
-        ▼
-seo-enrich-runner / embed-episode-runner / entity-backfill-runner
-        │  unchanged, already HU-aware, daily-cap gated
-        ▼
-sitemap (NEW thin-content gate) → public
-```
+- All new edge functions deploy with default `verify_jwt = false`; no `config.toml` edits required.
+- New migration files: 1 for topic hints schema, 1 for cleanup (data ops via insert tool, not migration).
+- `topics.positive_hints` / `negative_hints` are `text[]` columns; `min_evidence_score` `numeric DEFAULT 0.3`.
+- Regression queries saved to `mem://qa/search-issues.md` (append).
+- Memory updates: index entry for "P0 quality 2026-05-18" pointing to the QA file.
 
-Files to touch:
-- `supabase/functions/deep-hydrate-runner/index.ts` (HU gate)
-- `supabase/functions/pi-episode-backfill/index.ts` (HU gate)
-- `supabase/functions/sitemap/index.ts` (thin-episode gate)
-- `supabase/functions/hungarian-deep-archive-backfill/index.ts` (NEW)
-- `src/pages/AdminArchiveBackfillPage.tsx` (NEW) + route in `App.tsx` + link in `AdminHubPage.tsx`
-- migration: SQL view `v_hu_archive_completeness`, `app_settings` rows for `hu_deep_archive_controls`
-- one-off `supabase--insert`: bulk-approve HU B-tier for PI
+---
 
-No cron added in this plan — runner is dashboard-triggered. Cron can be added in a follow-up once the first 2–3 manual runs look clean.
+## What I will NOT do
 
-Safety: incident guard wired in; daily AI/embedding caps unchanged ($50 / $3); per-domain throttle prevents RSS host hammering; idempotent via existing dedupe; non-HU podcasts impossible to touch (gated at SQL level).
+- No Smart Player Phase 2 work.
+- No new product features.
+- No schema changes outside the topic guardrails + autocomplete needs.
+- No mass deletes without showing counts first.
+
+---
+
+## Estimated execution
+
+~25–40 tool calls across the 4 phases. Phase 1 alone is ~8 read-only queries and produces the report that tells me exactly how aggressive Phase 2's cleanup must be.
+
+Approve to proceed, or tell me which phases to skip / reorder.
