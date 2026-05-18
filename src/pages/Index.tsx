@@ -383,22 +383,24 @@ const Index = () => {
             </div>
           )}
           </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
-            <div className="flex flex-nowrap items-center gap-2 min-w-0">
-              {visibleChips.map((c, i) => (
-                <button
-                  key={c.label}
-                  type="button"
-                  onClick={() => nav(`/kereses?q=${encodeURIComponent(c.query)}`)}
-                  className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
-                    i >= 3 ? "!hidden sm:!inline-flex" : ""
-                  } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
-                >
-                  {c.label}
-                </button>
-              ))}
+          {!hasSearched && q.length === 0 && (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
+              <div className="flex flex-nowrap items-center gap-2 min-w-0">
+                {visibleChips.map((c, i) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => nav(`/kereses?q=${encodeURIComponent(c.query)}`)}
+                    className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
+                      i >= 3 ? "!hidden sm:!inline-flex" : ""
+                    } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         {/* bottom rule */}
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
