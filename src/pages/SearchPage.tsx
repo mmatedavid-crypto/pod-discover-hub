@@ -72,6 +72,43 @@ export default function SearchPage() {
 
   useEffect(() => { setQ(initial); }, [initial]);
 
+  // Load HU category label map (taxonomy_key -> HU name)
+  useEffect(() => {
+    supabase.from("categories").select("name,taxonomy_keys").then(({ data }) => {
+      if (!data) return;
+      const map: Record<string, string> = {};
+      (data as any[]).forEach((c) => {
+        (c.taxonomy_keys || []).forEach((k: string) => { if (k && !map[k]) map[k] = c.name; });
+      });
+      setCategoryLabels(map);
+    }, () => {});
+  }, []);
+
+  // Hero person: best person match for the query
+  useEffect(() => {
+    setHeroPerson(null);
+    const phrase = initial.trim();
+    if (phrase.length < 3) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("people")
+        .select("name,slug,image_url,short_bio,gated_episode_count,is_public,is_indexable")
+        .ilike("name", `%${phrase.replace(/[%_]/g, " ")}%`)
+        .eq("is_public", true)
+        .eq("is_indexable", true)
+        .order("gated_episode_count", { ascending: false, nullsFirst: false })
+        .limit(5);
+      if (cancelled || !data?.length) return;
+      const pn = phrase.toLowerCase();
+      const best = (data as any[]).find((p) => (p.name || "").toLowerCase() === pn)
+        || (data as any[]).find((p) => (p.name || "").toLowerCase().includes(pn))
+        || data[0];
+      if (best && (best.gated_episode_count ?? 0) >= 1) setHeroPerson(best as any);
+    })();
+    return () => { cancelled = true; };
+  }, [initial]);
+
   useEffect(() => {
     setSeo({
       title: initial ? `${initial} – Podiverzum keresés` : "Keresés magyar podcastok között – Podiverzum",
