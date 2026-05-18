@@ -115,6 +115,29 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Aliases → canonical people (e.g. "Zsiday" → "Zsiday Viktor")
+    const personSlugsSeen = new Set(
+      (persRes.data || []).map((p: any) => String(p.slug || "")),
+    );
+    for (const row of (aliasRes.data || []) as any[]) {
+      const person = row.people;
+      if (!person || !person.is_public) continue;
+      const slug = String(person.slug || "");
+      if (!slug || personSlugsSeen.has(slug)) continue;
+      personSlugsSeen.add(slug);
+      const aliasLabel = String(row.alias || "").trim();
+      const canonical = String(person.name || "");
+      if (!canonical) continue;
+      out.push({
+        type: "person",
+        label: canonical,
+        subtitle: aliasLabel && norm(aliasLabel) !== norm(canonical) ? `Személy · ${aliasLabel}` : "Személy",
+        href: `/szemelyek/${slug}`,
+        image_url: person.image_url || null,
+        confidence: 0.82,
+      });
+    }
+
     // Topics
     for (const t of (topRes.data || [])) {
       const name = String((t as any).name || "");
