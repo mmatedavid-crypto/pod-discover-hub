@@ -636,7 +636,36 @@ export type Database = {
           source_hash?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "eco_category_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "eco_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eco_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "eco_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+        ]
       }
       episode_chunks: {
         Row: {
@@ -842,7 +871,36 @@ export type Database = {
           suggested_topic_ids?: string[]
           topic_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "etrr_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etrr_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "etrr_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "etrr_topic_fk"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       episode_transcripts: {
         Row: {
@@ -3885,6 +3943,18 @@ export type Database = {
       is_publicly_visible_hu_podcast: {
         Args: { p_id: string }
         Returns: boolean
+      }
+      match_hu_episodes_by_embedding: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          query_embedding: string
+        }
+        Returns: {
+          episode_id: string
+          podcast_id: string
+          similarity: number
+        }[]
       }
       match_podcast_by_name: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
