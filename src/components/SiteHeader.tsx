@@ -24,6 +24,10 @@ const ICON: Record<Suggestion["type"], any> = {
   query: Search,
 };
 
+function normLabel(s: string): string {
+  return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
 export function SiteHeader() {
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -35,6 +39,7 @@ export function SiteHeader() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -63,6 +68,37 @@ export function SiteHeader() {
     }, 160);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [q]);
+
+  // Google-style ghost-text completion: take the first suggestion whose
+  // normalized label starts with the typed prefix. We show its remaining
+  // characters in muted color after the typed text.
+  const ghost = (() => {
+    const trimmed = q;
+    if (!trimmed || trimmed !== trimmed.trimStart()) return "";
+    const qn = normLabel(trimmed);
+    if (qn.length < 2) return "";
+    for (const s of suggestions) {
+      if (s.type === "query" && normLabel(s.label) === qn) continue;
+      const ln = normLabel(s.label);
+      if (ln.length > qn.length && ln.startsWith(qn)) {
+        // Preserve the original label's casing for the ghost suffix.
+        return s.label.slice(trimmed.length);
+      }
+    }
+    return "";
+  })();
+
+  const acceptGhost = () => {
+    if (!ghost) return false;
+    const completed = q + ghost;
+    setQ(completed);
+    setOpen(true);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) el.setSelectionRange(completed.length, completed.length);
+    });
+    return true;
+  };
 
   const submitQuery = (val: string) => {
     const v = val.trim();
@@ -150,23 +186,52 @@ export function SiteHeader() {
         <div ref={wrapRef} className={`sm:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden sm:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submitQuery(q); }}
-            className="relative focus-brand rounded-md transition-shadow"
+            className="relative focus-brand rounded-md transition-shadow bg-card border border-border focus-within:border-primary/60"
             role="search"
           >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+            {/* Ghost-text mirror: matches input font/padding exactly. The typed
+                prefix is rendered invisibly so the muted suffix lines up
+                perfectly behind the real input caret. */}
+            {ghost && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 pl-9 pr-12 py-2 text-sm whitespace-pre overflow-hidden pointer-events-none flex items-center"
+              >
+                <span className="invisible">{q}</span>
+                <span className="text-muted-foreground/50">{ghost}</span>
+              </div>
+            )}
             <input
+              ref={inputRef}
               value={q}
               onChange={(e) => { setQ(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
+              onKeyDown={(e) => {
+                if (!ghost) return;
+                if (e.key === "Tab" && !e.shiftKey) {
+                  e.preventDefault();
+                  acceptGhost();
+                  return;
+                }
+                if (e.key === "ArrowRight") {
+                  const el = e.currentTarget;
+                  if (el.selectionStart === q.length && el.selectionEnd === q.length) {
+                    e.preventDefault();
+                    acceptGhost();
+                  }
+                }
+              }}
               placeholder="Keresés podcastok, személyek, témák…"
               aria-label="Keresés"
               aria-autocomplete="list"
               aria-expanded={open}
               autoComplete="off"
-              className="w-full pl-9 pr-12 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
+              spellCheck={false}
+              className="relative w-full pl-9 pr-12 py-2 rounded-md bg-transparent outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
             />
-            <kbd className="hidden md:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center justify-center h-5 min-w-[20px] px-1.5 rounded border border-border bg-muted/40 text-[10px] font-medium text-muted-foreground/70 pointer-events-none">
-              /
+            <kbd className="hidden md:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center justify-center h-5 min-w-[20px] px-1.5 rounded border border-border bg-muted/40 text-[10px] font-medium text-muted-foreground/70 pointer-events-none z-10">
+              {ghost ? "Tab" : "/"}
             </kbd>
           </form>
           {open && q.trim().length >= 2 && (suggestions.length > 0 || loadingSugg) && (
