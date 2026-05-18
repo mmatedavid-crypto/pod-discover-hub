@@ -301,7 +301,7 @@ const Index = () => {
           </p>
           <div ref={heroWrapRef} className="mt-6 sm:mt-10 max-w-2xl relative animate-fade-up">
           <form
-            onSubmit={(e) => { e.preventDefault(); setHeroOpen(false); if (q.trim()) nav(`/kereses?q=${encodeURIComponent(q.trim())}`); }}
+            onSubmit={(e) => { e.preventDefault(); setHeroOpen(false); if (q.trim()) { try { window.localStorage.setItem("podi:hasSearched", "1"); } catch {} setHasSearched(true); nav(`/kereses?q=${encodeURIComponent(q.trim())}`); } }}
             className="relative focus-brand rounded-2xl transition-shadow"
           >
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
