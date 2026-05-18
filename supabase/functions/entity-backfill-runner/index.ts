@@ -178,21 +178,22 @@ Deno.serve(async (req) => {
       await Promise.all(workers);
     }
 
-    // Update spend
-    await admin.from("ai_spend_daily").upsert({
-      day: dayKey,
-      spend_usd: totalSpend,
-      calls,
-      by_kind: { ...byKind, entity_backfill: mySpend },
-      updated_at: new Date().toISOString(),
-    });
+    // Atomic per-key merge — does NOT clobber other runners' by_kind entries.
+    if (runIncrement > 0) {
+      await admin.rpc("merge_ai_spend", {
+        p_day: dayKey,
+        p_delta: { entity_backfill: runIncrement } as any,
+        p_total_amount: runIncrement,
+        p_calls: runCalls,
+      } as any);
+    }
 
     if (mySpend >= dailyBudget) {
       const newCtrl = { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() };
       await admin.from("app_settings").upsert({ key: "entity_backfill_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, drain_loops, total_seen, processed, succeeded, failed, rate_limited, spend_usd: mySpend, total_spend_usd: totalSpend, elapsed_ms: Date.now() - startedAt });
+    return json({ ok: true, drain_loops, total_seen, processed, succeeded, failed, rate_limited, spend_usd: mySpend, run_increment_usd: runIncrement, elapsed_ms: Date.now() - startedAt });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
