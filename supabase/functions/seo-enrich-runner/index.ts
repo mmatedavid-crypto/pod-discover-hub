@@ -256,12 +256,15 @@ Deno.serve(async (req) => {
       await Promise.all(workers);
     }
 
-    // Update daily spend
-    await admin.from("ai_spend_daily").upsert({
-      day: dayKey, spend_usd: spend, calls,
-      by_kind: { ...(spendRow?.by_kind || {}) },
-      updated_at: new Date().toISOString(),
-    });
+    // Atomic per-key merge — does NOT clobber other runners' by_kind entries.
+    if (runIncrement > 0) {
+      await admin.rpc("merge_ai_spend", {
+        p_day: dayKey,
+        p_delta: { seo_enrich: runIncrement } as any,
+        p_total_amount: runIncrement,
+        p_calls: runCalls,
+      } as any);
+    }
 
     // Auto-pause if budget reached
     if (spend >= dailyBudget) {
