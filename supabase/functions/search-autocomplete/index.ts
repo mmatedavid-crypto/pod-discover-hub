@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     // Four parallel reads — keep each one tight.
-    const [podRes, persRes, topRes, catRes] = await Promise.all([
+    const [podRes, persRes, aliasRes, topRes, catRes] = await Promise.all([
       supa.from("podcasts")
         .select("title,slug,image_url,podiverzum_rank,rank_label")
         .eq("is_hungarian", true)
@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
         .eq("is_public", true)
         .or(`name.ilike.${prefix},normalized_name.ilike.${prefix}`)
         .order("gated_episode_count", { ascending: false })
+        .limit(5),
+      // Alias lookup — surfaces canonical people via known aliases (e.g. "Zsiday" → "Zsiday Viktor")
+      supa.from("person_aliases")
+        .select("alias, confidence, people!inner(name,slug,image_url,is_public,gated_episode_count)")
+        .ilike("normalized_alias", prefix)
+        .gte("confidence", 0.7)
         .limit(5),
       supa.from("topics")
         .select("name,slug,short_name,episode_count,is_public")
@@ -106,6 +112,29 @@ Deno.serve(async (req) => {
         href: `/szemelyek/${(p as any).slug}`,
         image_url: (p as any).image_url || null,
         confidence: conf,
+      });
+    }
+
+    // Aliases → canonical people (e.g. "Zsiday" → "Zsiday Viktor")
+    const personSlugsSeen = new Set(
+      (persRes.data || []).map((p: any) => String(p.slug || "")),
+    );
+    for (const row of (aliasRes.data || []) as any[]) {
+      const person = row.people;
+      if (!person || !person.is_public) continue;
+      const slug = String(person.slug || "");
+      if (!slug || personSlugsSeen.has(slug)) continue;
+      personSlugsSeen.add(slug);
+      const aliasLabel = String(row.alias || "").trim();
+      const canonical = String(person.name || "");
+      if (!canonical) continue;
+      out.push({
+        type: "person",
+        label: canonical,
+        subtitle: aliasLabel && norm(aliasLabel) !== norm(canonical) ? `Személy · ${aliasLabel}` : "Személy",
+        href: `/szemelyek/${slug}`,
+        image_url: person.image_url || null,
+        confidence: 0.82,
       });
     }
 
