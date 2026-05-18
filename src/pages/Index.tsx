@@ -63,6 +63,10 @@ const Index = () => {
   const heroWrapRef = useRef<HTMLDivElement | null>(null);
   const heroInputRef = useRef<HTMLInputElement | null>(null);
   const [heroOpen, setHeroOpen] = useState(false);
+  const [hasSearched, setHasSearched] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("podi:hasSearched") === "1";
+  });
   const { suggestions: heroSugg, loading: heroLoadingSugg } = useSearchSuggestions(q, 8);
   const heroGhost = computeGhost(q, heroSugg);
 
