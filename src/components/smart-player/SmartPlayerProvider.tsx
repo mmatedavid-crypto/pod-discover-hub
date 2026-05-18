@@ -175,13 +175,14 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!("mediaSession" in navigator) || !currentEpisode) return;
     try {
+      const artwork: MediaImage[] = currentEpisode.imageUrl
+        ? [{ src: currentEpisode.imageUrl, sizes: "512x512", type: "image/jpeg" }]
+        : [{ src: "/icon-512.png", sizes: "512x512", type: "image/png" }];
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentEpisode.title,
         artist: currentEpisode.podcastTitle || "Podiverzum",
         album: "Podiverzum",
-        artwork: currentEpisode.imageUrl
-          ? [{ src: currentEpisode.imageUrl, sizes: "512x512", type: "image/jpeg" }]
-          : [],
+        artwork,
       });
       navigator.mediaSession.setActionHandler("play", () => audioRef.current?.play());
       navigator.mediaSession.setActionHandler("pause", () => audioRef.current?.pause());
