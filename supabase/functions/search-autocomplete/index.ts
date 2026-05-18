@@ -185,6 +185,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Past popular search queries from cache (Google-style query suggestions).
+    for (const row of (qcacheRes.data || []) as any[]) {
+      const qn = String(row.q_norm || "").trim();
+      if (!qn || qn === q) continue;
+      out.push({
+        type: "query",
+        label: qn,
+        subtitle: "Korábbi keresés",
+        href: `/kereses?q=${encodeURIComponent(qn)}`,
+        confidence: 0.65,
+      });
+    }
+
     // Always cap and dedupe by (type,label) — sort by confidence desc.
     const seen = new Set<string>();
     const deduped = out
