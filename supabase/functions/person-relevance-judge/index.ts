@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     // filter on two-level nested embeds like episodes.podcasts.is_hungarian).
     let q = supabase
       .from("person_episode_mentions")
-      .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
+      .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
       .eq("relevance_status", "pending")
       .eq("podcasts.is_hungarian", true)
       .eq("podcasts.language_decision", "accept_hungarian")
