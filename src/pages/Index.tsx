@@ -63,6 +63,10 @@ const Index = () => {
   const heroWrapRef = useRef<HTMLDivElement | null>(null);
   const heroInputRef = useRef<HTMLInputElement | null>(null);
   const [heroOpen, setHeroOpen] = useState(false);
+  const [hasSearched, setHasSearched] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("podi:hasSearched") === "1";
+  });
   const { suggestions: heroSugg, loading: heroLoadingSugg } = useSearchSuggestions(q, 8);
   const heroGhost = computeGhost(q, heroSugg);
 
@@ -297,7 +301,7 @@ const Index = () => {
           </p>
           <div ref={heroWrapRef} className="mt-6 sm:mt-10 max-w-2xl relative animate-fade-up">
           <form
-            onSubmit={(e) => { e.preventDefault(); setHeroOpen(false); if (q.trim()) nav(`/kereses?q=${encodeURIComponent(q.trim())}`); }}
+            onSubmit={(e) => { e.preventDefault(); setHeroOpen(false); if (q.trim()) { try { window.localStorage.setItem("podi:hasSearched", "1"); } catch {} setHasSearched(true); nav(`/kereses?q=${encodeURIComponent(q.trim())}`); } }}
             className="relative focus-brand rounded-2xl transition-shadow"
           >
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
@@ -379,22 +383,24 @@ const Index = () => {
             </div>
           )}
           </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
-            <div className="flex flex-nowrap items-center gap-2 min-w-0">
-              {visibleChips.map((c, i) => (
-                <button
-                  key={c.label}
-                  type="button"
-                  onClick={() => nav(`/kereses?q=${encodeURIComponent(c.query)}`)}
-                  className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
-                    i >= 3 ? "!hidden sm:!inline-flex" : ""
-                  } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
-                >
-                  {c.label}
-                </button>
-              ))}
+          {!hasSearched && q.length === 0 && (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
+              <div className="flex flex-nowrap items-center gap-2 min-w-0">
+                {visibleChips.map((c, i) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => nav(`/kereses?q=${encodeURIComponent(c.query)}`)}
+                    className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
+                      i >= 3 ? "!hidden sm:!inline-flex" : ""
+                    } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         {/* bottom rule */}
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
