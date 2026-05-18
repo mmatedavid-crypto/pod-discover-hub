@@ -50,6 +50,8 @@ import DailyBriefPage from "./pages/DailyBriefPage.tsx";
 import ContactPage from "./pages/ContactPage.tsx";
 import MoodsPage from "./pages/MoodsPage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
+import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
+import { SmartPlayerBar } from "./components/smart-player/SmartPlayerBar";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +61,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <SmartPlayerProvider>
         <PageViewTracker />
         <SearchHotkey />
         <Routes>
@@ -131,6 +134,8 @@ const App = () => (
           <Route path="/szemelyek/:slug" element={<PersonDetailPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <SmartPlayerBar />
+        </SmartPlayerProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

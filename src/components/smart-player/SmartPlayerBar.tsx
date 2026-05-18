@@ -1,0 +1,185 @@
+import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
+import { PlayerProgress } from "./PlayerControls";
+import { PlayerBrandMark } from "./BrandMark";
+import { t, formatSpeedLabel } from "@/lib/playerLocale";
+
+export function SmartPlayerBar() {
+  const {
+    playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
+    toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
+  } = useSmartPlayer();
+
+  if (!playerVisible || !currentEpisode) return null;
+
+  const ep = currentEpisode;
+  const href = ep.podcastSlug && ep.episodeSlug ? `/podcast/${ep.podcastSlug}/${ep.episodeSlug}` : null;
+  const hasDuration = isFinite(duration) && duration > 0;
+  const showPreviewChip = previewActive && !(flags.enabled && flags.show_on_public_episode_pages);
+
+  return (
+    <>
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        role="region"
+        aria-label="Smart Player"
+      >
+        {showPreviewChip && (
+          <div className="absolute -top-4 left-3 text-[8px] uppercase tracking-[0.16em] text-muted-foreground bg-card border border-border rounded-t px-1.5 py-0.5">
+            {t("preview")}
+          </div>
+        )}
+        <div className="container mx-auto px-3 py-2 flex items-center gap-3">
+          {ep.imageUrl && (
+            <img src={ep.imageUrl} alt="" className="h-10 w-10 rounded-md object-cover shrink-0 border border-border" />
+          )}
+          <button
+            className="min-w-0 flex-1 text-left"
+            onClick={() => setExpanded(true)}
+            aria-label={t("open")}
+          >
+            <div className="text-sm font-medium truncate">{ep.title}</div>
+            <div className="text-[11px] text-muted-foreground truncate">
+              {ep.podcastTitle}
+              {hasDuration && (
+                <span className="ml-2 tabular-nums">· {formatTime(currentTime)} / {formatTime(duration)}</span>
+              )}
+              {isLoading && !error && <span className="ml-2">· {t("loading")}</span>}
+              {error && <span className="ml-2 text-amber-500">· {t("playbackError")}</span>}
+            </div>
+          </button>
+          {!error && (
+            <div className="hidden sm:flex items-center gap-1">
+              <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("back15")}>−15</button>
+              <button onClick={() => seekBy(30)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("fwd30")}>+30</button>
+            </div>
+          )}
+          {error && ep.externalUrl ? (
+            <a
+              href={ep.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground shrink-0"
+            >{t("openOriginal")}</a>
+          ) : (
+            <button
+              onClick={toggle}
+              className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
+              aria-label={isPlaying ? t("pause") : t("play")}
+            >
+              {isPlaying ? "❚❚" : "▶"}
+            </button>
+          )}
+          <button
+            onClick={stop}
+            className="text-muted-foreground hover:text-foreground text-xs px-1.5 hidden sm:inline-flex"
+            aria-label={t("close")}
+          >✕</button>
+        </div>
+        <div className="container mx-auto px-3 pb-2">
+          <PlayerProgress compact />
+        </div>
+      </div>
+
+      {expanded && (
+        <div
+          className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col overflow-hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+          role="dialog"
+          aria-label="Expanded player"
+        >
+          <PlayerBrandMark className="-right-10 -bottom-20" size={360} opacity={0.035} />
+          <div className="flex items-center justify-between p-3 border-b border-border">
+            <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ {t("close")}</button>
+            {href && (
+              <Link to={href} onClick={() => setExpanded(false)} className="text-xs text-accent">{t("open")}</Link>
+            )}
+          </div>
+          <div className="flex-1 overflow-auto p-6 flex flex-col items-center gap-5">
+            {ep.imageUrl && (
+              <img src={ep.imageUrl} alt="" className="h-56 w-56 rounded-xl object-cover border border-border" />
+            )}
+            <div className="text-center max-w-md">
+              <div className="text-lg font-semibold">{ep.title}</div>
+              <div className="text-sm text-muted-foreground mt-1">{ep.podcastTitle}</div>
+            </div>
+            {error ? (
+              <div className="w-full max-w-md rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-center">
+                <div className="mb-3">{t("fallbackUnavailable")}</div>
+                {ep.externalUrl && (
+                  <a
+                    href={ep.externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-sm px-4 py-2 rounded-md bg-primary text-primary-foreground"
+                  >{t("openOriginal")}</a>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="w-full max-w-md">
+                  <PlayerProgress />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => seekBy(-15)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("back15")}>−15s</button>
+                  <button
+                    onClick={toggle}
+                    className="h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg"
+                    aria-label={isPlaying ? t("pause") : t("play")}
+                  >
+                    {isPlaying ? "❚❚" : "▶"}
+                  </button>
+                  <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("fwd30")}>+30s</button>
+                </div>
+                <SpeedSection />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SpeedSection() {
+  const { playbackRate, setPlaybackRate } = useSmartPlayer();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  return (
+    <div className="w-full max-w-md flex flex-col items-center gap-2" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground"
+        aria-expanded={open}
+      >
+        {t("playbackSpeed")} · {formatSpeedLabel(playbackRate)}
+      </button>
+      {open && (
+        <div className="w-full flex flex-wrap justify-center gap-2 px-4">
+          {[0.5, 1, 1.25, 1.5, 2].map((s) => (
+            <button
+              key={s}
+              onClick={() => { setPlaybackRate(s); setOpen(false); }}
+              className={`text-xs px-3 py-1.5 rounded-md border min-w-[56px] ${
+                playbackRate === s
+                  ? "border-primary bg-primary/15 text-primary font-semibold"
+                  : "border-border bg-card hover:bg-secondary"
+              }`}
+              aria-pressed={playbackRate === s}
+            >{formatSpeedLabel(s)}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
