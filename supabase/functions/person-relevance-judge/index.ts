@@ -105,8 +105,12 @@ async function callAI(prompt: string): Promise<{ result: any; cost: number } | n
 
 async function logSpend(supabase: any, cost: number) {
   const day = new Date().toISOString().slice(0, 10);
-  await supabase.rpc("upsert_ai_spend", { p_day: day, p_kind: "person_relevance", p_cost: cost, p_calls: 1 }).then(() => {}).catch(async () => {
-    // fallback: manual upsert
+  try {
+    const { error } = await supabase.rpc("upsert_ai_spend", { p_day: day, p_kind: "person_relevance", p_cost: cost, p_calls: 1 });
+    if (!error) return;
+  } catch { /* fall through */ }
+  // fallback: manual upsert
+  try {
     const { data } = await supabase.from("ai_spend_daily").select("*").eq("day", day).maybeSingle();
     const cur = data || { day, spend_usd: 0, calls: 0, by_kind: {} };
     const by = cur.by_kind || {};
@@ -117,7 +121,7 @@ async function logSpend(supabase: any, cost: number) {
       calls: (cur.calls || 0) + 1,
       by_kind: by,
     });
-  });
+  } catch { /* ignore */ }
 }
 
 async function getSpendToday(supabase: any): Promise<number> {
