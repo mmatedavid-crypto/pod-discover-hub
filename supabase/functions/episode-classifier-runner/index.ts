@@ -347,11 +347,18 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
     const ids = (candIds || []).map((r: any) => r.episode_id);
     if (!ids.length) break;
 
-    const { data: eps } = await admin
-      .from("episodes")
-      .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, category)")
-      .in("id", ids);
-    if (!eps?.length) break;
+    // Chunk .in() to avoid PostgREST URL length limits (was silently breaking on batch>~150)
+    const eps: any[] = [];
+    for (let c = 0; c < ids.length; c += 100) {
+      const chunk = ids.slice(c, c + 100);
+      const { data: epsChunk, error: epsErr } = await admin
+        .from("episodes")
+        .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, category)")
+        .in("id", chunk);
+      if (epsErr) { failed++; continue; }
+      if (epsChunk?.length) eps.push(...epsChunk);
+    }
+    if (!eps.length) break;
 
     let i = 0;
     const workers = Array.from({ length: concurrency }, async () => {
