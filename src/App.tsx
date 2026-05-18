@@ -120,6 +120,7 @@ const App = () => (
           <Route path="/about" element={<AboutPage />} />
           <Route path="/modszertan" element={<MethodologyPage />} />
           <Route path="/methodology" element={<MethodologyPage />} />
+          <Route path="/uj-podcastok" element={<NewPodcastsPage />} />
           <Route path="/uj" element={<NewPodcastsPage />} />
           <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="/napi" element={<DailyBriefPage />} />
