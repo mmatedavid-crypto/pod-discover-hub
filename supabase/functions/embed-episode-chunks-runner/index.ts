@@ -223,19 +223,21 @@ Deno.serve(async (req) => {
       if (candidates.length < batch) break;
     }
 
-    await admin.from("ai_spend_daily").upsert({
-      day: dayKey,
-      spend_usd: totalSpend,
-      calls,
-      by_kind: {
-        ...byKind,
-        embed_episode_chunks_usd: embedSpend,
-        embed_episode_chunks_count: Number(byKind.embed_episode_chunks_count || 0) + chunksWritten,
-        embed_episode_clean_usd: cleanSpend,
-        embed_episode_clean_count: Number(byKind.embed_episode_clean_count || 0) + cleanedAI,
-      },
-      updated_at: new Date().toISOString(),
-    });
+    // Atomic per-key merge — does NOT clobber other runners' by_kind entries.
+    const totalIncrement = embedSpendIncrement + cleanSpendIncrement;
+    if (totalIncrement > 0 || chunksWritten > 0 || cleanedAI > 0) {
+      await admin.rpc("merge_ai_spend", {
+        p_day: dayKey,
+        p_delta: {
+          embed_episode_chunks_usd: embedSpendIncrement,
+          embed_episode_chunks_count: chunksWritten,
+          embed_episode_clean_usd: cleanSpendIncrement,
+          embed_episode_clean_count: cleanedAI,
+        } as any,
+        p_total_amount: totalIncrement,
+        p_calls: runCalls,
+      } as any);
+    }
 
     const { data: stats } = await admin.rpc("embed_chunks_candidate_stats", { _model: model });
     const s = (stats as any) || {};
