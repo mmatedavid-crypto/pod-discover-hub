@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
         }).eq("id", job.id);
 
         succeeded++;
-        spend += cost; calls++;
+        spend += cost; runIncrement += cost; runCalls++;
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
