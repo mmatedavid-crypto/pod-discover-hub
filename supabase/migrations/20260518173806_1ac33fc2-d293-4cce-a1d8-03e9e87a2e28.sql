@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = value || '{"batch_size":300,"concurrency":10,"max_batch_size":500,"max_concurrency":14,"recent_runs":[]}'::jsonb, updated_at=now() WHERE key='episode_ai_classifier_controls';
