@@ -88,14 +88,14 @@ Deno.serve(async (req) => {
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 5);
     const model = String(ctrl.model || "google/gemini-3.1-flash-lite-preview");
 
-    // Today's spend (shared ai_spend_daily table; we record under by_kind.entity_backfill)
+    // Today's spend (shared ai_spend_daily; per-key merged atomically via merge_ai_spend RPC)
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const dayKey = today.toISOString().slice(0, 10);
-    const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
+    const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", dayKey).maybeSingle();
     const byKind = (spendRow?.by_kind || {}) as any;
     let mySpend = Number(byKind.entity_backfill || 0);
-    let totalSpend = Number(spendRow?.spend_usd || 0);
-    let calls = Number(spendRow?.calls || 0);
+    let runIncrement = 0;
+    let runCalls = 0;
     if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend: mySpend });
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
