@@ -229,8 +229,12 @@ export default function EpisodeDetail() {
           <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
         </div>
 
-        {e.audio_url && (
-          <InlineAudioPlayer ref={audioRef} src={e.audio_url} title={e.display_title || e.title} />
+        {smartPlayerVisible ? (
+          <EpisodeAudioPlayer episode={e} podcast={p} />
+        ) : (
+          e.audio_url && (
+            <InlineAudioPlayer ref={audioRef} src={e.audio_url} title={e.display_title || e.title} />
+          )
         )}
 
         {summary && (
