@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
             const hash = await sha256(`${model}|${idx}/${chunkCount}|${content}`);
             const { vec, tokens } = await embed(model, content);
             const cost = (tokens / 1000) * EMBED_PRICE_PER_1K;
-            embedSpend += cost; totalSpend += cost; calls++;
+            embedSpend += cost; embedSpendIncrement += cost; runCalls++;
             rows.push({
               episode_id: e.id,
               podcast_id: e.podcast_id,
