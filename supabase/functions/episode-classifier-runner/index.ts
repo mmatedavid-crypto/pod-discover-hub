@@ -331,7 +331,8 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
     } catch (e: any) {
       failed++;
       const msg = e?.message || "error";
-      if (msg === "rate_limited" || msg === "budget_exhausted_provider") stop = true;
+      if (msg === "rate_limited") { rateLimited++; stop = true; }
+      else if (msg === "budget_exhausted_provider") stop = true;
     }
   };
 
