@@ -363,6 +363,19 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       }
     });
     await Promise.all(workers);
+
+    // Flush spend after each batch so partial work is accounted even if killed.
+    if (!dryRun && runIncrement > 0) {
+      try {
+        await admin.rpc("add_ai_spend", {
+          p_day: dayKey,
+          p_kind: "episode_classifier",
+          p_amount: runIncrement,
+          p_calls: runCalls,
+        } as any);
+        runIncrement = 0; runCalls = 0;
+      } catch (_e) { /* ignore, retry next batch */ }
+    }
   }
 
   if (!dryRun && runIncrement > 0) {
