@@ -188,8 +188,8 @@ Deno.serve(async (req) => {
         ep_title: m.episodes.title,
         ep_summary: m.episodes.summary,
         ep_ai_summary: m.episodes.ai_summary,
-        pod_title: m.episodes.podcasts.title,
-        pod_description: m.episodes.podcasts.description,
+        pod_title: m.podcasts.title,
+        pod_description: m.podcasts.description,
       };
 
       try {
