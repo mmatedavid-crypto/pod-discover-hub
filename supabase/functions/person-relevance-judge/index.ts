@@ -146,13 +146,15 @@ Deno.serve(async (req) => {
   while (Date.now() - startedAt < TIME_BUDGET_MS - RESERVE_MS) {
     if (spendToday >= DAILY_BUDGET_USD) break;
 
-    // claim a batch of pending mentions on HU-approved podcasts
+    // claim a batch of pending mentions on HU-approved podcasts.
+    // Filter podcast directly via mentions.podcast_id (PostgREST cannot reliably
+    // filter on two-level nested embeds like episodes.podcasts.is_hungarian).
     let q = supabase
       .from("person_episode_mentions")
-      .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), episodes!inner(title, summary, ai_summary, podcasts!inner(title, description, is_hungarian, language_decision))")
+      .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
       .eq("relevance_status", "pending")
-      .eq("episodes.podcasts.is_hungarian", true)
-      .eq("episodes.podcasts.language_decision", "accept_hungarian")
+      .eq("podcasts.is_hungarian", true)
+      .eq("podcasts.language_decision", "accept_hungarian")
       .order("confidence", { ascending: false })
       .limit(batchLimit);
     if (targetPersonIds) q = q.in("person_id", targetPersonIds);
