@@ -374,10 +374,24 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       p_calls: runCalls,
     } as any);
   }
-  if (!dryRun && mySpend >= dailyBudget) {
+  // Persist run telemetry for adaptive throttle (last 3 runs).
+  if (!dryRun) {
+    const runEntry = {
+      ts: new Date().toISOString(),
+      processed, classified, failed, rate_limited: rateLimited,
+      errors: failed, batch, concurrency,
+      elapsed_ms: Date.now() - t0,
+    };
+    const nextRuns = [...recentRuns, runEntry].slice(-3);
+    const nextCtrl: any = { ...ctrl, recent_runs: nextRuns };
+    if (mySpend >= dailyBudget) {
+      nextCtrl.enabled = false;
+      nextCtrl.auto_paused_reason = "daily_budget_reached";
+      nextCtrl.auto_paused_at = new Date().toISOString();
+    }
     await admin.from("app_settings").upsert({
       key: "episode_ai_classifier_controls",
-      value: { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() },
+      value: nextCtrl,
       updated_at: new Date().toISOString(),
     });
   }
