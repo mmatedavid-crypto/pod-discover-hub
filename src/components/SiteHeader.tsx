@@ -186,7 +186,7 @@ export function SiteHeader() {
         <div ref={wrapRef} className={`sm:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden sm:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submitQuery(q); }}
-            className="relative focus-brand rounded-md transition-shadow"
+            className="relative focus-brand rounded-md transition-shadow bg-card border border-border focus-within:border-primary/60"
             role="search"
           >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
