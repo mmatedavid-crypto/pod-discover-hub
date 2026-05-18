@@ -19,7 +19,7 @@ const cors = {
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-const TIME_BUDGET_MS = 50_000;
+const TIME_BUDGET_MS = 22_000;
 const TAXONOMY_VERSION = "v1";
 
 // Pricing (USD per 1K tokens) — gemini-2.5-flash-lite via Lovable AI Gateway
@@ -140,8 +140,32 @@ Deno.serve(async (req) => {
   const dailyBudget = Number(ctrl.daily_budget_usd ?? 10);
   const model = String(body.model || ctrl.model || "google/gemini-2.5-flash-lite");
   const price = MODEL_PRICES[model] || MODEL_PRICES["google/gemini-2.5-flash-lite"];
-  const batch = Math.max(1, Math.min(200, Number(body.batch) || ctrl.batch_size || 60));
-  const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || ctrl.concurrency || 4));
+
+  // Adaptive throttle: scale toward max ceilings on clean streaks, scale down on errors.
+  const maxBatch = Math.max(1, Math.min(1500, Number(ctrl.max_batch_size) || 800));
+  const maxConc = Math.max(1, Math.min(40, Number(ctrl.max_concurrency) || 20));
+  const minBatch = Math.max(1, Number(ctrl.min_batch_size) || 60);
+  const minConc = Math.max(1, Number(ctrl.min_concurrency) || 3);
+  const baseBatch = Number(ctrl.batch_size) || 120;
+  const baseConc = Number(ctrl.concurrency) || 6;
+  const autoAdapt = ctrl.auto_adapt !== false;
+  const recentRuns: any[] = Array.isArray(ctrl.recent_runs) ? ctrl.recent_runs.slice(-3) : [];
+  let adaptiveBatch = baseBatch;
+  let adaptiveConc = baseConc;
+  if (autoAdapt && recentRuns.length >= 1) {
+    const lastErr = recentRuns[recentRuns.length - 1]?.errors || 0;
+    const lastRate = recentRuns[recentRuns.length - 1]?.rate_limited || 0;
+    const cleanStreak = recentRuns.filter((r) => (r?.errors || 0) === 0 && (r?.rate_limited || 0) === 0).length;
+    if (lastRate > 0 || lastErr > 5) {
+      adaptiveBatch = Math.max(minBatch, Math.floor(baseBatch * 0.5));
+      adaptiveConc = Math.max(minConc, Math.floor(baseConc * 0.5));
+    } else if (cleanStreak >= recentRuns.length && recentRuns.length >= 2) {
+      adaptiveBatch = Math.min(maxBatch, Math.floor(baseBatch * 1.5));
+      adaptiveConc = Math.min(maxConc, baseConc + 2);
+    }
+  }
+  const batch = Math.max(1, Math.min(maxBatch, Number(body.batch) || adaptiveBatch));
+  const concurrency = Math.max(1, Math.min(maxConc, Number(body.concurrency) || adaptiveConc));
 
   // Load taxonomy
   const [{ data: cats }, { data: tops }] = await Promise.all([
@@ -163,6 +187,7 @@ Deno.serve(async (req) => {
   if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend_usd: mySpend });
 
   let processed = 0, classified = 0, no_good_match = 0, too_thin = 0, needs_review = 0, failed = 0, cached_skips = 0;
+  let rateLimited = 0;
   let stop = false;
 
   const runOne = async (ep: any) => {
@@ -306,7 +331,8 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
     } catch (e: any) {
       failed++;
       const msg = e?.message || "error";
-      if (msg === "rate_limited" || msg === "budget_exhausted_provider") stop = true;
+      if (msg === "rate_limited") { rateLimited++; stop = true; }
+      else if (msg === "budget_exhausted_provider") stop = true;
     }
   };
 
@@ -337,6 +363,19 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       }
     });
     await Promise.all(workers);
+
+    // Flush spend after each batch so partial work is accounted even if killed.
+    if (!dryRun && runIncrement > 0) {
+      try {
+        await admin.rpc("add_ai_spend", {
+          p_day: dayKey,
+          p_kind: "episode_classifier",
+          p_amount: runIncrement,
+          p_calls: runCalls,
+        } as any);
+        runIncrement = 0; runCalls = 0;
+      } catch (_e) { /* ignore, retry next batch */ }
+    }
   }
 
   if (!dryRun && runIncrement > 0) {
@@ -348,10 +387,24 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       p_calls: runCalls,
     } as any);
   }
-  if (!dryRun && mySpend >= dailyBudget) {
+  // Persist run telemetry for adaptive throttle (last 3 runs).
+  if (!dryRun) {
+    const runEntry = {
+      ts: new Date().toISOString(),
+      processed, classified, failed, rate_limited: rateLimited,
+      errors: failed, batch, concurrency,
+      elapsed_ms: Date.now() - t0,
+    };
+    const nextRuns = [...recentRuns, runEntry].slice(-3);
+    const nextCtrl: any = { ...ctrl, recent_runs: nextRuns };
+    if (mySpend >= dailyBudget) {
+      nextCtrl.enabled = false;
+      nextCtrl.auto_paused_reason = "daily_budget_reached";
+      nextCtrl.auto_paused_at = new Date().toISOString();
+    }
     await admin.from("app_settings").upsert({
       key: "episode_ai_classifier_controls",
-      value: { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() },
+      value: nextCtrl,
       updated_at: new Date().toISOString(),
     });
   }
@@ -359,6 +412,8 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
   return json({
     ok: true, dry_run: dryRun, elapsed_ms: Date.now() - t0,
     processed, classified, no_good_match, too_thin, needs_review, failed, cached_skips,
+    rate_limited: rateLimited,
     spend_usd: mySpend, budget_usd: dailyBudget, model,
+    effective_batch: batch, effective_concurrency: concurrency,
   });
 });
