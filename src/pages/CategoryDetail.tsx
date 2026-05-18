@@ -112,7 +112,26 @@ export default function CategoryDetail() {
           .in("podcast_id", promotedIds)
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(80);
-        const sorted = (eps || []).slice().sort(compareByScore).slice(0, 25);
+        // Pure freshness first with a per-podcast cap of 2 so a single chatty
+        // show cannot dominate the category. Old scoring fallback was burying
+        // genuinely fresh episodes under high-score evergreens.
+        const byDate = (eps || []).slice().sort(
+          (a: any, b: any) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
+        );
+        const capPerPodcast = (list: any[], cap: number, take: number) => {
+          const seen = new Map<string, number>();
+          const out: any[] = [];
+          for (const e of list) {
+            const pid = e.podcast_id || e.podcasts?.slug || "_";
+            const n = seen.get(pid) || 0;
+            if (n >= cap) continue;
+            seen.set(pid, n + 1);
+            out.push(e);
+            if (out.length >= take) break;
+          }
+          return out;
+        };
+        const sorted = capPerPodcast(byDate, 2, 25);
         setEpisodes(sorted as any);
         const t = new Map<string, number>();
         (sorted || []).forEach((e: any) => (e.topics || []).forEach((x: string) => t.set(x, (t.get(x) || 0) + 1)));

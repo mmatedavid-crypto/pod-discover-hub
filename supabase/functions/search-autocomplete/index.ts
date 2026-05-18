@@ -1,0 +1,166 @@
+// search-autocomplete: rich typed typeahead for the global search box.
+// POST { q: string, limit?: number } -> { suggestions: Suggestion[] }
+// Suggestion = { type: 'podcast'|'person'|'topic'|'category'|'query',
+//                label, subtitle?, href, image_url?, confidence }
+//
+// HU-only by design (the public site is HU-only). No PII logging, no cookies.
+// Fast: 4 parallel ILIKE/trgm queries against indexed columns. No AI call,
+// no cache table writes — purely read-only for stability.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+type Suggestion = {
+  type: "podcast" | "person" | "topic" | "category" | "query";
+  label: string;
+  subtitle?: string;
+  href: string;
+  image_url?: string | null;
+  confidence: number;
+};
+
+function norm(s: string): string {
+  return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const json = (b: unknown, s = 200) =>
+    new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  try {
+    const body = await req.json().catch(() => ({}));
+    const rawQ = String(body?.q ?? body?.prefix ?? "").trim();
+    const limit = Math.min(12, Math.max(3, Number(body?.limit ?? 8)));
+    if (rawQ.length < 2) return json({ suggestions: [] });
+    const q = norm(rawQ);
+    const ilike = `%${q}%`;
+    const prefix = `${q}%`;
+
+    const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+
+    // Four parallel reads — keep each one tight.
+    const [podRes, persRes, topRes, catRes] = await Promise.all([
+      supa.from("podcasts")
+        .select("title,slug,image_url,podiverzum_rank,rank_label")
+        .eq("is_hungarian", true)
+        .eq("language_decision", "accept_hungarian")
+        .or(`title.ilike.${ilike},display_title.ilike.${ilike}`)
+        .order("podiverzum_rank", { ascending: false, nullsFirst: false })
+        .limit(6),
+      supa.from("people")
+        .select("name,slug,image_url,gated_episode_count,is_indexable")
+        .eq("is_public", true)
+        .or(`name.ilike.${prefix},normalized_name.ilike.${prefix}`)
+        .order("gated_episode_count", { ascending: false })
+        .limit(5),
+      supa.from("topics")
+        .select("name,slug,short_name,episode_count,is_public")
+        .eq("is_public", true)
+        .or(`name.ilike.${ilike},short_name.ilike.${ilike}`)
+        .order("episode_count", { ascending: false })
+        .limit(5),
+      supa.from("categories")
+        .select("name,slug,active")
+        .eq("active", true)
+        .ilike("name", ilike)
+        .limit(4),
+    ]);
+
+    const out: Suggestion[] = [];
+
+    // Podcasts first — exact/title-prefix matches get the highest confidence.
+    for (const p of (podRes.data || [])) {
+      const t = String((p as any).title || "");
+      const tNorm = norm(t);
+      let conf = 0.5;
+      if (tNorm === q) conf = 1.0;
+      else if (tNorm.startsWith(q)) conf = 0.9;
+      else if (tNorm.includes(` ${q}`) || tNorm.includes(`${q} `)) conf = 0.75;
+      out.push({
+        type: "podcast",
+        label: t,
+        subtitle: "Podcast",
+        href: `/podcast/${(p as any).slug}`,
+        image_url: (p as any).image_url || null,
+        confidence: conf,
+      });
+    }
+
+    // People
+    for (const p of (persRes.data || [])) {
+      const n = String((p as any).name || "");
+      if (!n) continue;
+      const conf = norm(n).startsWith(q) ? 0.85 : 0.6;
+      out.push({
+        type: "person",
+        label: n,
+        subtitle: "Személy",
+        href: `/szemelyek/${(p as any).slug}`,
+        image_url: (p as any).image_url || null,
+        confidence: conf,
+      });
+    }
+
+    // Topics
+    for (const t of (topRes.data || [])) {
+      const name = String((t as any).name || "");
+      if (!name) continue;
+      const conf = norm(name).startsWith(q) ? 0.8 : 0.55;
+      out.push({
+        type: "topic",
+        label: name,
+        subtitle: "Téma",
+        href: `/temak/${(t as any).slug}`,
+        confidence: conf,
+      });
+    }
+
+    // Categories
+    for (const c of (catRes.data || [])) {
+      const name = String((c as any).name || "");
+      if (!name) continue;
+      out.push({
+        type: "category",
+        label: name,
+        subtitle: "Kategória",
+        href: `/category/${(c as any).slug}`,
+        confidence: norm(name).startsWith(q) ? 0.7 : 0.5,
+      });
+    }
+
+    // Always cap and dedupe by (type,label) — sort by confidence desc.
+    const seen = new Set<string>();
+    const deduped = out
+      .sort((a, b) => b.confidence - a.confidence)
+      .filter((s) => {
+        const k = `${s.type}:${s.label.toLowerCase()}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })
+      .slice(0, limit);
+
+    // Always offer a "Search …" fallback as the last row so the user can
+    // submit free-text even if nothing matches structurally.
+    deduped.push({
+      type: "query",
+      label: rawQ,
+      subtitle: `Keresés: „${rawQ}”`,
+      href: `/kereses?q=${encodeURIComponent(rawQ)}`,
+      confidence: 0.1,
+    });
+
+    return json({ suggestions: deduped });
+  } catch (e) {
+    console.error("search-autocomplete err", e);
+    return json({ suggestions: [], error: (e as Error).message }, 200);
+  }
+});

@@ -1,15 +1,32 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Search, LayoutGrid, Menu } from "lucide-react";
+import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
+type Suggestion = {
+  type: "podcast" | "person" | "topic" | "category" | "query";
+  label: string;
+  subtitle?: string;
+  href: string;
+  image_url?: string | null;
+  confidence: number;
+};
+
+const ICON: Record<Suggestion["type"], any> = {
+  podcast: Mic,
+  person: User,
+  topic: Hash,
+  category: Folder,
+  query: Search,
+};
+
 export function SiteHeader() {
   const [q, setQ] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loadingSugg, setLoadingSugg] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -37,21 +54,27 @@ export function SiteHeader() {
       const ctrl = new AbortController();
       abortRef.current = ctrl;
       try {
-        const { data, error } = await supabase.functions.invoke("search-suggest", {
-          body: { prefix: trimmed },
+        const { data, error } = await supabase.functions.invoke("search-autocomplete", {
+          body: { q: trimmed, limit: 8 },
         });
-        if (!error && Array.isArray(data?.suggestions)) setSuggestions(data.suggestions.slice(0, 5));
+        if (!error && Array.isArray(data?.suggestions)) setSuggestions(data.suggestions);
       } catch { /* ignore */ }
       finally { setLoadingSugg(false); }
-    }, 220);
+    }, 160);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [q]);
 
-  const submit = (val: string) => {
+  const submitQuery = (val: string) => {
     const v = val.trim();
     if (!v) return;
     setOpen(false);
     nav(`/kereses?q=${encodeURIComponent(v)}`);
+  };
+
+  const pickSuggestion = (s: Suggestion) => {
+    setOpen(false);
+    setQ("");
+    nav(s.href);
   };
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>
@@ -126,16 +149,20 @@ export function SiteHeader() {
         </Sheet>
         <div ref={wrapRef} className={`sm:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden sm:block"}`}>
           <form
-            onSubmit={(e) => { e.preventDefault(); submit(q); }}
+            onSubmit={(e) => { e.preventDefault(); submitQuery(q); }}
             className="relative focus-brand rounded-md transition-shadow"
+            role="search"
           >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               value={q}
               onChange={(e) => { setQ(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
-              placeholder="Keresés"
+              placeholder="Keresés podcastok, személyek, témák…"
               aria-label="Keresés"
+              aria-autocomplete="list"
+              aria-expanded={open}
+              autoComplete="off"
               className="w-full pl-9 pr-12 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
             />
             <kbd className="hidden md:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center justify-center h-5 min-w-[20px] px-1.5 rounded border border-border bg-muted/40 text-[10px] font-medium text-muted-foreground/70 pointer-events-none">
@@ -143,21 +170,44 @@ export function SiteHeader() {
             </kbd>
           </form>
           {open && q.trim().length >= 2 && (suggestions.length > 0 || loadingSugg) && (
-            <div className="absolute left-0 right-0 mt-1 rounded-md border border-border bg-popover shadow-lg overflow-hidden z-40">
+            <div
+              role="listbox"
+              className="absolute left-0 right-0 mt-1 rounded-md border border-border bg-popover shadow-lg overflow-hidden z-40 max-h-[70vh] overflow-y-auto"
+            >
               {loadingSugg && suggestions.length === 0 && (
                 <div className="px-3 py-2 text-xs text-muted-foreground">Javaslatok…</div>
               )}
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); submit(s); }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2"
-                >
-                  <Search className="h-3 w-3 text-muted-foreground" />
-                  <span>{s}</span>
-                </button>
-              ))}
+              {suggestions.map((s, i) => {
+                const Icon = ICON[s.type] || Search;
+                return (
+                  <button
+                    key={`${s.type}:${s.label}:${i}`}
+                    type="button"
+                    role="option"
+                    onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 border-b border-border/40 last:border-b-0"
+                  >
+                    {s.image_url ? (
+                      <img
+                        src={s.image_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-7 w-7 rounded object-cover bg-muted shrink-0"
+                      />
+                    ) : (
+                      <span className="h-7 w-7 rounded bg-muted/60 flex items-center justify-center shrink-0">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{s.label}</span>
+                      {s.subtitle && (
+                        <span className="block text-[11px] text-muted-foreground truncate">{s.subtitle}</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

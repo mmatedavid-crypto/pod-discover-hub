@@ -130,7 +130,23 @@ export default function TopicDetailPage() {
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
   if (notFound || !topic) return <NotFoundState title="Nincs ilyen téma" message="A keresett téma nem található." />;
 
-  const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
+  // Pure freshness, with per-podcast cap of 2 in the top section so a single
+  // chatty show (e.g. Radnóti, Hangosító) cannot monopolise "Friss epizódok".
+  const capPerPodcast = (list: EpisodeLite[], cap: number, take: number) => {
+    const seen = new Map<string, number>();
+    const out: EpisodeLite[] = [];
+    for (const e of list) {
+      const pid = (e as any).podcast_id || (e as any).podcasts?.slug || "_";
+      const n = seen.get(pid) || 0;
+      if (n >= cap) continue;
+      seen.set(pid, n + 1);
+      out.push(e);
+      if (out.length >= take) break;
+    }
+    return out;
+  };
+  const byDate = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
+  const newest = capPerPodcast(byDate, 2, 12);
   const evergreen = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
 
   return (
