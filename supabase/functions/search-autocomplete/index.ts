@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     // Four parallel reads — keep each one tight.
-    const [podRes, persRes, topRes, catRes] = await Promise.all([
+    const [podRes, persRes, aliasRes, topRes, catRes] = await Promise.all([
       supa.from("podcasts")
         .select("title,slug,image_url,podiverzum_rank,rank_label")
         .eq("is_hungarian", true)
