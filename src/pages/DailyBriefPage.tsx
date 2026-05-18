@@ -160,9 +160,15 @@ export default function DailyBriefPage() {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary mb-1">
-                  <Sparkles className="h-3 w-3" /> Az öt legfontosabb
+                  <Sparkles className="h-3 w-3" /> {top5.length === 1 ? "A legfontosabb" : `A legfontosabb ${top5.length}`}
                 </div>
-                <h2 className="text-2xl font-semibold">Ha csak ötre van időd</h2>
+                <h2 className="text-2xl font-semibold">
+                  {top5.length >= 5
+                    ? "Ha csak ötre van időd"
+                    : top5.length === 1
+                    ? "Ha csak egyre van időd"
+                    : `Ha csak ${top5.length === 2 ? "kettőre" : top5.length === 3 ? "háromra" : "négyre"} van időd`}
+                </h2>
                 <p className="text-xs text-muted-foreground mt-1">Műsoronként egy epizód. Minősítés, frissesség és relevancia alapján.</p>
               </div>
             </div>
