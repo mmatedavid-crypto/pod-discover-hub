@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
               cleanedMethod = r.cleaner_method;
               if (r.cost_usd) {
                 cleanSpend += r.cost_usd;
-                totalSpend += r.cost_usd;
+                cleanSpendIncrement += r.cost_usd;
                 cleanedAI++;
               }
               await admin.from("episode_clean_text").upsert({
