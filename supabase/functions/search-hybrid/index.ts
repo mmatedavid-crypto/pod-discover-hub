@@ -421,6 +421,29 @@ Deno.serve(async (req) => {
     if (!q_embedding) q_embedding = embVal;
     const tEmb = Date.now() - t0;
 
+    // === P0 fix: adj+noun topic guard (e.g. "orosz irodalom" must NOT promote Orosz Ferenc) ===
+    // Recompute here defensively — cached understanding rows may pre-date the guard,
+    // and even fresh ones can be polluted by the upstream LLM with surname-only entities.
+    const adjNoun = (understanding?.adj_noun) || detectAdjNounTopic(q);
+    if (adjNoun) {
+      const adj = adjNoun.adjective.toLowerCase();
+      const noun = adjNoun.noun.toLowerCase();
+      const stripped = (understanding?.entities || []).filter((e) => {
+        const lc = String(e || "").toLowerCase().trim();
+        if (!lc) return false;
+        if (lc === adj) return false;
+        const firstTok = lc.split(/\s+/)[0];
+        if (firstTok === adj && !lc.includes(noun)) return false;
+        return true;
+      });
+      understanding = {
+        ...(understanding as Understanding),
+        entities: stripped,
+        intent: "topic",
+        adj_noun: adjNoun,
+      };
+    }
+
     // Ticker override
     if (isTickerQ && marketSymbol) {
       const sym = marketSymbol;
