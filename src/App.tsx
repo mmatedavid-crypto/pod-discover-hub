@@ -134,6 +134,8 @@ const App = () => (
           <Route path="/szemelyek/:slug" element={<PersonDetailPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <SmartPlayerBar />
+        </SmartPlayerProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
