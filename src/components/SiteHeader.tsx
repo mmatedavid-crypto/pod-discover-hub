@@ -228,7 +228,7 @@ export function SiteHeader() {
               aria-expanded={open}
               autoComplete="off"
               spellCheck={false}
-              className="relative w-full pl-9 pr-12 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
+              className="relative w-full pl-9 pr-12 py-2 rounded-md bg-transparent outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
             />
             <kbd className="hidden md:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center justify-center h-5 min-w-[20px] px-1.5 rounded border border-border bg-muted/40 text-[10px] font-medium text-muted-foreground/70 pointer-events-none z-10">
               {ghost ? "Tab" : "/"}
