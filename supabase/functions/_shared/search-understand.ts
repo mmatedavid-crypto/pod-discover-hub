@@ -101,11 +101,20 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
     const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return EMPTY;
     const p = typeof args === "string" ? JSON.parse(args) : args;
+    const adjNoun = detectAdjNounTopic(q);
+    const intent = adjNoun ? "topic" : (typeof p?.intent === "string" ? p.intent : "topic");
+    const expanded_terms = Array.isArray(p?.expanded_terms) ? p.expanded_terms.slice(0, 8) : [];
+    if (adjNoun) {
+      // Push noun + adj+noun phrase into expansion so FTS sees the topic, not the surname.
+      if (!expanded_terms.includes(adjNoun.noun)) expanded_terms.unshift(adjNoun.noun);
+      const phrase = `${adjNoun.adjective} ${adjNoun.noun}`;
+      if (!expanded_terms.includes(phrase)) expanded_terms.unshift(phrase);
+    }
     return {
       entities: Array.isArray(p?.entities) ? p.entities.slice(0, 8) : [],
-      expanded_terms: Array.isArray(p?.expanded_terms) ? p.expanded_terms.slice(0, 8) : [],
+      expanded_terms: expanded_terms.slice(0, 8),
       synonyms: Array.isArray(p?.synonyms) ? p.synonyms.slice(0, 8) : [],
-      intent: typeof p?.intent === "string" ? p.intent : "topic",
+      intent,
       language: typeof p?.language === "string" ? p.language.toLowerCase().slice(0, 5) : "hu",
     };
   } catch (e) {
