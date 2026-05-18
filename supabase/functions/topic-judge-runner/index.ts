@@ -12,8 +12,9 @@ const cors = {
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-const PRICE_IN_PER_1K = 0.000075;
-const PRICE_OUT_PER_1K = 0.0003;
+// Gemini 2.5 Flash Lite via Lovable AI Gateway: $0.10/M input, $0.40/M output
+const PRICE_IN_PER_1K = 0.0001;
+const PRICE_OUT_PER_1K = 0.0004;
 const TIME_BUDGET_MS = 50_000;
 
 const JUDGE_TOOL = {

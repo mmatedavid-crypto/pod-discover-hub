@@ -98,18 +98,27 @@ Deno.serve(async (req) => {
       if (candidates.size >= perTopicLimit) break;
     }
 
-    // (2) vector match
+    // (2) vector match — HU-gated nearest episodes to topic anchor
     if (candidates.size < perTopicLimit) {
-      const emb = await embed(`${t.name} — ${pos.slice(0, 6).join(", ")}`);
+      const anchor = `${t.name} — ${pos.slice(0, 8).join(", ")}`;
+      const emb = await embed(anchor);
       if (emb) {
-        const { data } = await admin.rpc("match_episodes_by_embedding", {
+        const { data: matches } = await admin.rpc("match_hu_episodes_by_embedding", {
           query_embedding: emb as any,
           match_count: 80,
-        } as any).maybeSingle().then(() => ({ data: null })).catch(() => ({ data: null }));
-        // Fallback: direct query via SQL (no RPC) — try a custom select
-        if (!data) {
-          // Use raw read against episode_embeddings via REST not available without RPC;
-          // skip silently if no helper exists. Keyword + map sources are enough for sprint 1.
+          min_similarity: 0.72,
+        } as any);
+        const matchIds = (matches || []).map((m: any) => m.episode_id);
+        if (matchIds.length) {
+          const { data: eps } = await admin
+            .from("episodes")
+            .select("id, title, description, ai_summary, podcast_id")
+            .in("id", matchIds);
+          for (const e of (eps || [])) {
+            const text = `${e.title || ""}\n${e.ai_summary || e.description || ""}`;
+            if (!candidates.has(e.id)) candidates.set(e.id, { source: "vector", text });
+            if (candidates.size >= perTopicLimit) break;
+          }
         }
       }
     }
