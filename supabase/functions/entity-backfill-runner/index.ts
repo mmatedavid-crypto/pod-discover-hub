@@ -88,14 +88,14 @@ Deno.serve(async (req) => {
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 5);
     const model = String(ctrl.model || "google/gemini-3.1-flash-lite-preview");
 
-    // Today's spend (shared ai_spend_daily table; we record under by_kind.entity_backfill)
+    // Today's spend (shared ai_spend_daily; per-key merged atomically via merge_ai_spend RPC)
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const dayKey = today.toISOString().slice(0, 10);
-    const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
+    const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", dayKey).maybeSingle();
     const byKind = (spendRow?.by_kind || {}) as any;
     let mySpend = Number(byKind.entity_backfill || 0);
-    let totalSpend = Number(spendRow?.spend_usd || 0);
-    let calls = Number(spendRow?.calls || 0);
+    let runIncrement = 0;
+    let runCalls = 0;
     if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend: mySpend });
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
         }).eq("id", ep.id);
 
         succeeded++;
-        mySpend += cost; totalSpend += cost; calls++;
+        mySpend += cost; runIncrement += cost; runCalls++;
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
@@ -178,21 +178,22 @@ Deno.serve(async (req) => {
       await Promise.all(workers);
     }
 
-    // Update spend
-    await admin.from("ai_spend_daily").upsert({
-      day: dayKey,
-      spend_usd: totalSpend,
-      calls,
-      by_kind: { ...byKind, entity_backfill: mySpend },
-      updated_at: new Date().toISOString(),
-    });
+    // Atomic per-key merge — does NOT clobber other runners' by_kind entries.
+    if (runIncrement > 0) {
+      await admin.rpc("merge_ai_spend", {
+        p_day: dayKey,
+        p_delta: { entity_backfill: runIncrement } as any,
+        p_total_amount: runIncrement,
+        p_calls: runCalls,
+      } as any);
+    }
 
     if (mySpend >= dailyBudget) {
       const newCtrl = { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() };
       await admin.from("app_settings").upsert({ key: "entity_backfill_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, drain_loops, total_seen, processed, succeeded, failed, rate_limited, spend_usd: mySpend, total_spend_usd: totalSpend, elapsed_ms: Date.now() - startedAt });
+    return json({ ok: true, drain_loops, total_seen, processed, succeeded, failed, rate_limited, spend_usd: mySpend, run_increment_usd: runIncrement, elapsed_ms: Date.now() - startedAt });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }

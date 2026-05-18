@@ -153,13 +153,13 @@ Deno.serve(async (req) => {
   const validCatSlugs = new Set((cats || []).map((c: any) => c.slug));
   const validTopicSlugs = new Set((tops || []).map((t: any) => t.slug));
 
-  // Spend tracking
+  // Spend tracking (atomic per-kind via add_ai_spend RPC)
   const dayKey = new Date().toISOString().slice(0, 10);
-  const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
-  const byKind = (spendRow?.by_kind || {}) as any;
-  let mySpend = Number(byKind.episode_classifier || 0);
-  let totalSpend = Number(spendRow?.spend_usd || 0);
-  let calls = Number(spendRow?.calls || 0);
+  const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", dayKey).maybeSingle();
+  const byKind0 = (spendRow?.by_kind || {}) as any;
+  let mySpend = Number(byKind0.episode_classifier || 0);
+  let runIncrement = 0; // cost accumulated in this invocation
+  let runCalls = 0;
   if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend_usd: mySpend });
 
   let processed = 0, classified = 0, no_good_match = 0, too_thin = 0, needs_review = 0, failed = 0, cached_skips = 0;
@@ -302,7 +302,7 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       else if (finalStatus === "no_good_match") no_good_match++;
       else if (finalStatus === "too_thin") too_thin++;
       else needs_review++;
-      mySpend += cost; totalSpend += cost; calls++;
+      mySpend += cost; runIncrement += cost; runCalls++;
     } catch (e: any) {
       failed++;
       const msg = e?.message || "error";
@@ -339,21 +339,21 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
     await Promise.all(workers);
   }
 
-  if (!dryRun) {
-    await admin.from("ai_spend_daily").upsert({
-      day: dayKey,
-      spend_usd: totalSpend,
-      calls,
-      by_kind: { ...byKind, episode_classifier: mySpend },
+  if (!dryRun && runIncrement > 0) {
+    // Atomic per-kind merge — does NOT clobber other runners' by_kind entries.
+    await admin.rpc("add_ai_spend", {
+      p_day: dayKey,
+      p_kind: "episode_classifier",
+      p_amount: runIncrement,
+      p_calls: runCalls,
+    } as any);
+  }
+  if (!dryRun && mySpend >= dailyBudget) {
+    await admin.from("app_settings").upsert({
+      key: "episode_ai_classifier_controls",
+      value: { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() },
       updated_at: new Date().toISOString(),
     });
-    if (mySpend >= dailyBudget) {
-      await admin.from("app_settings").upsert({
-        key: "episode_ai_classifier_controls",
-        value: { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() },
-        updated_at: new Date().toISOString(),
-      });
-    }
   }
 
   return json({

@@ -64,12 +64,14 @@ Deno.serve(async (req) => {
     const model = String(ctrl.model || "google/gemini-2.5-flash");
     const maxAttempts = Number(ctrl.max_attempts || 3);
 
-    // Today's spend
+    // Today's spend (read-only snapshot for the budget check; writes go through merge_ai_spend RPC)
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const dayKey = today.toISOString().slice(0, 10);
-    const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
-    let spend = Number(spendRow?.spend_usd || 0);
-    let calls = Number(spendRow?.calls || 0);
+    const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind, spend_usd").eq("day", dayKey).maybeSingle();
+    const seoSpend0 = Number(((spendRow?.by_kind || {}) as any).seo_enrich || 0);
+    let spend = seoSpend0;
+    let runIncrement = 0;
+    let runCalls = 0;
     if (spend >= dailyBudget) {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: "*/30 * * * *" }); } catch { /* ignore */ }
       return json({ ok: true, budget_reached: true, spend });
@@ -215,7 +217,7 @@ Deno.serve(async (req) => {
         }).eq("id", job.id);
 
         succeeded++;
-        spend += cost; calls++;
+        spend += cost; runIncrement += cost; runCalls++;
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
@@ -254,12 +256,15 @@ Deno.serve(async (req) => {
       await Promise.all(workers);
     }
 
-    // Update daily spend
-    await admin.from("ai_spend_daily").upsert({
-      day: dayKey, spend_usd: spend, calls,
-      by_kind: { ...(spendRow?.by_kind || {}) },
-      updated_at: new Date().toISOString(),
-    });
+    // Atomic per-key merge — does NOT clobber other runners' by_kind entries.
+    if (runIncrement > 0) {
+      await admin.rpc("merge_ai_spend", {
+        p_day: dayKey,
+        p_delta: { seo_enrich: runIncrement } as any,
+        p_total_amount: runIncrement,
+        p_calls: runCalls,
+      } as any);
+    }
 
     // Auto-pause if budget reached
     if (spend >= dailyBudget) {

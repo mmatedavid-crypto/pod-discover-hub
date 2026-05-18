@@ -89,12 +89,13 @@ Deno.serve(async (req) => {
     const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || Number(ctrl.concurrency) || 6));
 
     const dayKey = new Date().toISOString().slice(0, 10);
-    const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
+    const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", dayKey).maybeSingle();
     const byKind = (spendRow?.by_kind as any) || {};
     let embedSpend = Number(byKind.embed_episode_chunks_usd || 0);
     let cleanSpend = Number(byKind.embed_episode_clean_usd || 0);
-    let totalSpend = Number(spendRow?.spend_usd || 0);
-    let calls = Number(spendRow?.calls || 0);
+    let embedSpendIncrement = 0;
+    let cleanSpendIncrement = 0;
+    let runCalls = 0;
     if (embedSpend >= dailyBudget) {
       try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30" }); } catch { }
       return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
@@ -143,7 +144,7 @@ Deno.serve(async (req) => {
               cleanedMethod = r.cleaner_method;
               if (r.cost_usd) {
                 cleanSpend += r.cost_usd;
-                totalSpend += r.cost_usd;
+                cleanSpendIncrement += r.cost_usd;
                 cleanedAI++;
               }
               await admin.from("episode_clean_text").upsert({
@@ -176,7 +177,7 @@ Deno.serve(async (req) => {
             const hash = await sha256(`${model}|${idx}/${chunkCount}|${content}`);
             const { vec, tokens } = await embed(model, content);
             const cost = (tokens / 1000) * EMBED_PRICE_PER_1K;
-            embedSpend += cost; totalSpend += cost; calls++;
+            embedSpend += cost; embedSpendIncrement += cost; runCalls++;
             rows.push({
               episode_id: e.id,
               podcast_id: e.podcast_id,
@@ -222,19 +223,21 @@ Deno.serve(async (req) => {
       if (candidates.length < batch) break;
     }
 
-    await admin.from("ai_spend_daily").upsert({
-      day: dayKey,
-      spend_usd: totalSpend,
-      calls,
-      by_kind: {
-        ...byKind,
-        embed_episode_chunks_usd: embedSpend,
-        embed_episode_chunks_count: Number(byKind.embed_episode_chunks_count || 0) + chunksWritten,
-        embed_episode_clean_usd: cleanSpend,
-        embed_episode_clean_count: Number(byKind.embed_episode_clean_count || 0) + cleanedAI,
-      },
-      updated_at: new Date().toISOString(),
-    });
+    // Atomic per-key merge — does NOT clobber other runners' by_kind entries.
+    const totalIncrement = embedSpendIncrement + cleanSpendIncrement;
+    if (totalIncrement > 0 || chunksWritten > 0 || cleanedAI > 0) {
+      await admin.rpc("merge_ai_spend", {
+        p_day: dayKey,
+        p_delta: {
+          embed_episode_chunks_usd: embedSpendIncrement,
+          embed_episode_chunks_count: chunksWritten,
+          embed_episode_clean_usd: cleanSpendIncrement,
+          embed_episode_clean_count: cleanedAI,
+        } as any,
+        p_total_amount: totalIncrement,
+        p_calls: runCalls,
+      } as any);
+    }
 
     const { data: stats } = await admin.rpc("embed_chunks_candidate_stats", { _model: model });
     const s = (stats as any) || {};

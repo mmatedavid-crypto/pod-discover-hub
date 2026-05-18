@@ -3856,6 +3856,15 @@ export type Database = {
       }
     }
     Functions: {
+      add_ai_spend: {
+        Args: {
+          p_amount: number
+          p_calls?: number
+          p_day: string
+          p_kind: string
+        }
+        Returns: undefined
+      }
       admin_person_missing_content: {
         Args: { p_limit?: number }
         Returns: {
@@ -4126,6 +4135,15 @@ export type Database = {
           slug: string
           title: string
         }[]
+      }
+      merge_ai_spend: {
+        Args: {
+          p_calls?: number
+          p_day: string
+          p_delta: Json
+          p_total_amount?: number
+        }
+        Returns: undefined
       }
       merge_duplicate_podcasts: {
         Args: { _canonical_id: string; _duplicate_id: string; _reason?: string }
