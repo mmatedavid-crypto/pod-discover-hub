@@ -106,18 +106,27 @@ export default function CategoryDetail() {
 
       const promotedIds = promotedPodcasts.map((p: any) => p.id);
       if (promotedIds.length) {
-        const { data: eps } = await supabase
-          .from("episodes")
-          .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
-          .in("podcast_id", promotedIds)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(80);
+        const [{ data: eps }, { data: overrides }] = await Promise.all([
+          supabase
+            .from("episodes")
+            .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
+            .in("podcast_id", promotedIds)
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(120),
+          supabase
+            .from("episode_category_overrides")
+            .select("episode_id, status")
+            .eq("category_slug", slug),
+        ]);
+        const rejected = new Set((overrides || []).filter((o: any) => o.status === "rejected").map((o: any) => o.episode_id));
         // Pure freshness first with a per-podcast cap of 2 so a single chatty
-        // show cannot dominate the category. Old scoring fallback was burying
-        // genuinely fresh episodes under high-score evergreens.
-        const byDate = (eps || []).slice().sort(
-          (a: any, b: any) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
-        );
+        // show cannot dominate the category. Episodes the AI judge marked as
+        // false positives for this category are hidden even if their podcast
+        // is globally assigned to it.
+        const byDate = (eps || [])
+          .filter((e: any) => !rejected.has(e.id))
+          .slice()
+          .sort((a: any, b: any) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
         const capPerPodcast = (list: any[], cap: number, take: number) => {
           const seen = new Map<string, number>();
           const out: any[] = [];

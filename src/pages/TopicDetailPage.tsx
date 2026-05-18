@@ -39,15 +39,44 @@ export default function TopicDetailPage() {
       if (!t || !(t as any).is_public) { setNotFound(true); setLoading(false); return; }
       setTopic(t as any);
 
-      // Episodes mapped to topic, HU-gated via inner join podcasts
-      const { data: epRows } = await supabase
-        .from("episode_topic_map")
-        .select("episode_id, confidence, episodes!inner(id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
-        .eq("topic_id", (t as any).id)
-        .eq("episodes.podcasts.is_hungarian", true)
-        .eq("episodes.podcasts.language_decision", "accept_hungarian")
-        .limit(200);
-      const epList: any[] = (epRows || []).map((r: any) => r.episodes).filter(Boolean);
+      // Episodes mapped to topic, HU-gated. Prefer judge-accepted reviews; union with
+      // remaining episode_topic_map rows that have NOT been rejected by the judge.
+      const topicId = (t as any).id;
+      const epSelect = "id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
+
+      const [{ data: reviewRows }, { data: mapRows }, { data: rejectedRows }] = await Promise.all([
+        supabase
+          .from("episode_topic_relevance_reviews")
+          .select(`episode_id, confidence, episodes!inner(${epSelect})`)
+          .eq("topic_id", topicId)
+          .eq("status", "accepted")
+          .eq("episodes.podcasts.is_hungarian", true)
+          .eq("episodes.podcasts.language_decision", "accept_hungarian")
+          .limit(200),
+        supabase
+          .from("episode_topic_map")
+          .select(`episode_id, confidence, episodes!inner(${epSelect})`)
+          .eq("topic_id", topicId)
+          .eq("episodes.podcasts.is_hungarian", true)
+          .eq("episodes.podcasts.language_decision", "accept_hungarian")
+          .limit(200),
+        supabase
+          .from("episode_topic_relevance_reviews")
+          .select("episode_id")
+          .eq("topic_id", topicId)
+          .eq("status", "rejected"),
+      ]);
+      const rejectedSet = new Set((rejectedRows || []).map((r: any) => r.episode_id));
+      const byId = new Map<string, any>();
+      for (const r of (reviewRows || [])) {
+        const e: any = (r as any).episodes;
+        if (e && !rejectedSet.has(e.id)) byId.set(e.id, e);
+      }
+      for (const r of (mapRows || [])) {
+        const e: any = (r as any).episodes;
+        if (e && !rejectedSet.has(e.id) && !byId.has(e.id)) byId.set(e.id, e);
+      }
+      const epList: any[] = [...byId.values()];
       setEps(epList.sort(compareByScore).slice(0, 40) as any);
 
       // Podcasts mapped to topic

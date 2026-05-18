@@ -14,6 +14,20 @@ export type Understanding = {
 
 const EMPTY: Understanding = { entities: [], expanded_terms: [], synonyms: [], intent: "topic", language: "hu" };
 
+// HU adjective+topic-noun disambiguation. Queries like "orosz irodalom" / "francia film"
+// must be treated as topic queries, not person-name matches (e.g. Orosz Ferenc).
+// Returns the noun if matched, else null. Caller uses this to push the noun into
+// expanded_terms and hint search-hybrid to downrank people matches whose surname
+// equals the adjective.
+const HU_ADJ = ["orosz", "magyar", "francia", "német", "olasz", "angol", "amerikai", "japán", "kínai", "spanyol", "lengyel", "ukrán", "román"];
+const HU_TOPIC_NOUN = ["irodalom", "kultúra", "kultura", "művészet", "muveszet", "zene", "film", "könyv", "konyv", "író", "iro", "költő", "kolto", "történelem", "tortenelem"];
+const ADJ_NOUN_RE = new RegExp(`\\b(${HU_ADJ.join("|")})\\s+(${HU_TOPIC_NOUN.join("|")})\\b`, "i");
+export function detectAdjNounTopic(q: string): { adjective: string; noun: string } | null {
+  const m = (q || "").toLowerCase().match(ADJ_NOUN_RE);
+  if (!m) return null;
+  return { adjective: m[1], noun: m[2] };
+}
+
 // In-memory circuit breaker. If the AI gateway times out or 5xx's repeatedly,
 // short-circuit subsequent calls for COOLDOWN_MS so we don't waste latency on
 // known-bad upstream. Resets automatically.
@@ -87,11 +101,20 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
     const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return EMPTY;
     const p = typeof args === "string" ? JSON.parse(args) : args;
+    const adjNoun = detectAdjNounTopic(q);
+    const intent = adjNoun ? "topic" : (typeof p?.intent === "string" ? p.intent : "topic");
+    const expanded_terms = Array.isArray(p?.expanded_terms) ? p.expanded_terms.slice(0, 8) : [];
+    if (adjNoun) {
+      // Push noun + adj+noun phrase into expansion so FTS sees the topic, not the surname.
+      if (!expanded_terms.includes(adjNoun.noun)) expanded_terms.unshift(adjNoun.noun);
+      const phrase = `${adjNoun.adjective} ${adjNoun.noun}`;
+      if (!expanded_terms.includes(phrase)) expanded_terms.unshift(phrase);
+    }
     return {
       entities: Array.isArray(p?.entities) ? p.entities.slice(0, 8) : [],
-      expanded_terms: Array.isArray(p?.expanded_terms) ? p.expanded_terms.slice(0, 8) : [],
+      expanded_terms: expanded_terms.slice(0, 8),
       synonyms: Array.isArray(p?.synonyms) ? p.synonyms.slice(0, 8) : [],
-      intent: typeof p?.intent === "string" ? p.intent : "topic",
+      intent,
       language: typeof p?.language === "string" ? p.language.toLowerCase().slice(0, 5) : "hu",
     };
   } catch (e) {

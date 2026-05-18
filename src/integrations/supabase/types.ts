@@ -164,7 +164,10 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          min_evidence_score: number
           name: string
+          negative_hints: string[]
+          positive_hints: string[]
           seo_description: string | null
           seo_title: string | null
           seo_updated_at: string | null
@@ -177,7 +180,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          min_evidence_score?: number
           name: string
+          negative_hints?: string[]
+          positive_hints?: string[]
           seo_description?: string | null
           seo_title?: string | null
           seo_updated_at?: string | null
@@ -190,7 +196,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          min_evidence_score?: number
           name?: string
+          negative_hints?: string[]
+          positive_hints?: string[]
           seo_description?: string | null
           seo_title?: string | null
           seo_updated_at?: string | null
@@ -587,6 +596,48 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_category_overrides: {
+        Row: {
+          category_slug: string
+          confidence: number
+          created_at: string
+          episode_id: string
+          id: string
+          model_version: string | null
+          reason_hu: string | null
+          reviewed_at: string | null
+          reviewed_by: string
+          source_hash: string
+          status: string
+        }
+        Insert: {
+          category_slug: string
+          confidence?: number
+          created_at?: string
+          episode_id: string
+          id?: string
+          model_version?: string | null
+          reason_hu?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string
+          source_hash: string
+          status?: string
+        }
+        Update: {
+          category_slug?: string
+          confidence?: number
+          created_at?: string
+          episode_id?: string
+          id?: string
+          model_version?: string | null
+          reason_hu?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string
+          source_hash?: string
+          status?: string
+        }
+        Relationships: []
+      }
       episode_chunks: {
         Row: {
           char_end: number
@@ -744,6 +795,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      episode_topic_relevance_reviews: {
+        Row: {
+          candidate_source: string
+          confidence: number
+          created_at: string
+          episode_id: string
+          id: string
+          model_version: string | null
+          reason_hu: string | null
+          reviewed_at: string | null
+          reviewed_by: string
+          source_hash: string
+          status: string
+          suggested_topic_ids: string[]
+          topic_id: string
+        }
+        Insert: {
+          candidate_source: string
+          confidence?: number
+          created_at?: string
+          episode_id: string
+          id?: string
+          model_version?: string | null
+          reason_hu?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string
+          source_hash: string
+          status?: string
+          suggested_topic_ids?: string[]
+          topic_id: string
+        }
+        Update: {
+          candidate_source?: string
+          confidence?: number
+          created_at?: string
+          episode_id?: string
+          id?: string
+          model_version?: string | null
+          reason_hu?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string
+          source_hash?: string
+          status?: string
+          suggested_topic_ids?: string[]
+          topic_id?: string
+        }
+        Relationships: []
       }
       episode_transcripts: {
         Row: {
@@ -3146,9 +3245,12 @@ export type Database = {
           intro_text: string | null
           is_indexable: boolean
           is_public: boolean
+          min_evidence_score: number
           name: string
+          negative_hints: string[]
           parent_topic_id: string | null
           podcast_count: number
+          positive_hints: string[]
           priority: number
           seo_description: string | null
           seo_title: string | null
@@ -3168,9 +3270,12 @@ export type Database = {
           intro_text?: string | null
           is_indexable?: boolean
           is_public?: boolean
+          min_evidence_score?: number
           name: string
+          negative_hints?: string[]
           parent_topic_id?: string | null
           podcast_count?: number
+          positive_hints?: string[]
           priority?: number
           seo_description?: string | null
           seo_title?: string | null
@@ -3190,9 +3295,12 @@ export type Database = {
           intro_text?: string | null
           is_indexable?: boolean
           is_public?: boolean
+          min_evidence_score?: number
           name?: string
+          negative_hints?: string[]
           parent_topic_id?: string | null
           podcast_count?: number
+          positive_hints?: string[]
           priority?: number
           seo_description?: string | null
           seo_title?: string | null
