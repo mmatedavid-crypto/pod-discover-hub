@@ -187,6 +187,7 @@ Deno.serve(async (req) => {
   if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend_usd: mySpend });
 
   let processed = 0, classified = 0, no_good_match = 0, too_thin = 0, needs_review = 0, failed = 0, cached_skips = 0;
+  let rateLimited = 0;
   let stop = false;
 
   const runOne = async (ep: any) => {
