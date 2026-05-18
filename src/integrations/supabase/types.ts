@@ -4136,6 +4136,15 @@ export type Database = {
           title: string
         }[]
       }
+      merge_ai_spend: {
+        Args: {
+          p_calls?: number
+          p_day: string
+          p_delta: Json
+          p_total_amount?: number
+        }
+        Returns: undefined
+      }
       merge_duplicate_podcasts: {
         Args: { _canonical_id: string; _duplicate_id: string; _reason?: string }
         Returns: Json
