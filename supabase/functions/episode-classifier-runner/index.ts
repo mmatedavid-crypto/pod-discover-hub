@@ -339,21 +339,21 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
     await Promise.all(workers);
   }
 
-  if (!dryRun) {
-    await admin.from("ai_spend_daily").upsert({
-      day: dayKey,
-      spend_usd: totalSpend,
-      calls,
-      by_kind: { ...byKind, episode_classifier: mySpend },
+  if (!dryRun && runIncrement > 0) {
+    // Atomic per-kind merge — does NOT clobber other runners' by_kind entries.
+    await admin.rpc("add_ai_spend", {
+      p_day: dayKey,
+      p_kind: "episode_classifier",
+      p_amount: runIncrement,
+      p_calls: runCalls,
+    } as any);
+  }
+  if (!dryRun && mySpend >= dailyBudget) {
+    await admin.from("app_settings").upsert({
+      key: "episode_ai_classifier_controls",
+      value: { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() },
       updated_at: new Date().toISOString(),
     });
-    if (mySpend >= dailyBudget) {
-      await admin.from("app_settings").upsert({
-        key: "episode_ai_classifier_controls",
-        value: { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() },
-        updated_at: new Date().toISOString(),
-      });
-    }
   }
 
   return json({
