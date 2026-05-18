@@ -3856,6 +3856,15 @@ export type Database = {
       }
     }
     Functions: {
+      add_ai_spend: {
+        Args: {
+          p_amount: number
+          p_calls?: number
+          p_day: string
+          p_kind: string
+        }
+        Returns: undefined
+      }
       admin_person_missing_content: {
         Args: { p_limit?: number }
         Returns: {
