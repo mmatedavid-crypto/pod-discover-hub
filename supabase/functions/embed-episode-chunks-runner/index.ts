@@ -89,12 +89,13 @@ Deno.serve(async (req) => {
     const concurrency = Math.max(1, Math.min(16, Number(body.concurrency) || Number(ctrl.concurrency) || 6));
 
     const dayKey = new Date().toISOString().slice(0, 10);
-    const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
+    const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", dayKey).maybeSingle();
     const byKind = (spendRow?.by_kind as any) || {};
     let embedSpend = Number(byKind.embed_episode_chunks_usd || 0);
     let cleanSpend = Number(byKind.embed_episode_clean_usd || 0);
-    let totalSpend = Number(spendRow?.spend_usd || 0);
-    let calls = Number(spendRow?.calls || 0);
+    let embedSpendIncrement = 0;
+    let cleanSpendIncrement = 0;
+    let runCalls = 0;
     if (embedSpend >= dailyBudget) {
       try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30" }); } catch { }
       return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
