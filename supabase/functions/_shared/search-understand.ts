@@ -10,9 +10,13 @@ export type Understanding = {
   synonyms: string[];
   intent: string;
   language: string;
+  // Set when the query matches an adjective+topic-noun pattern (e.g. "orosz irodalom").
+  // Caller MUST treat as topic_intent and downrank person-name matches whose surname
+  // equals `adjective` (e.g. Orosz Ferenc must not dominate results for "orosz irodalom").
+  adj_noun?: { adjective: string; noun: string } | null;
 };
 
-const EMPTY: Understanding = { entities: [], expanded_terms: [], synonyms: [], intent: "topic", language: "hu" };
+const EMPTY: Understanding = { entities: [], expanded_terms: [], synonyms: [], intent: "topic", language: "hu", adj_noun: null };
 
 // HU adjective+topic-noun disambiguation. Queries like "orosz irodalom" / "francia film"
 // must be treated as topic queries, not person-name matches (e.g. Orosz Ferenc).
@@ -110,12 +114,29 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
       const phrase = `${adjNoun.adjective} ${adjNoun.noun}`;
       if (!expanded_terms.includes(phrase)) expanded_terms.unshift(phrase);
     }
+    let rawEntities: string[] = Array.isArray(p?.entities) ? p.entities.slice(0, 8) : [];
+    if (adjNoun) {
+      // Strip any "person-like" entity that is only the adjective (e.g. "Orosz") or
+      // whose first token equals the adjective (HU surname-first, e.g. "Orosz Ferenc").
+      // This prevents the downstream entity-pinning step from promoting unrelated
+      // people whose surname collides with a topic adjective.
+      const adj = adjNoun.adjective.toLowerCase();
+      rawEntities = rawEntities.filter((e) => {
+        const lc = String(e || "").toLowerCase().trim();
+        if (!lc) return false;
+        if (lc === adj) return false;
+        const firstTok = lc.split(/\s+/)[0];
+        if (firstTok === adj && !lc.includes(adjNoun.noun.toLowerCase())) return false;
+        return true;
+      });
+    }
     return {
-      entities: Array.isArray(p?.entities) ? p.entities.slice(0, 8) : [],
+      entities: rawEntities,
       expanded_terms: expanded_terms.slice(0, 8),
       synonyms: Array.isArray(p?.synonyms) ? p.synonyms.slice(0, 8) : [],
       intent,
       language: typeof p?.language === "string" ? p.language.toLowerCase().slice(0, 5) : "hu",
+      adj_noun: adjNoun,
     };
   } catch (e) {
     clearTimeout(t);

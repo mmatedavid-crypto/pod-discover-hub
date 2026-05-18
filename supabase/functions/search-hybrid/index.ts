@@ -3,7 +3,7 @@
 // (engine v12) — engine=v13 query param available if/when episode_chunks ships.
 // POST { q: string, limit?: number, lang?: 'en'|'hu'|null, rerank?: boolean, engine?: string }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { understandQuery, buildExpandedQuery, type Understanding } from "../_shared/search-understand.ts";
+import { understandQuery, buildExpandedQuery, detectAdjNounTopic, type Understanding } from "../_shared/search-understand.ts";
 import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
 import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
@@ -420,6 +420,29 @@ Deno.serve(async (req) => {
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
     const tEmb = Date.now() - t0;
+
+    // === P0 fix: adj+noun topic guard (e.g. "orosz irodalom" must NOT promote Orosz Ferenc) ===
+    // Recompute here defensively — cached understanding rows may pre-date the guard,
+    // and even fresh ones can be polluted by the upstream LLM with surname-only entities.
+    const adjNoun = (understanding?.adj_noun) || detectAdjNounTopic(q);
+    if (adjNoun) {
+      const adj = adjNoun.adjective.toLowerCase();
+      const noun = adjNoun.noun.toLowerCase();
+      const stripped = (understanding?.entities || []).filter((e) => {
+        const lc = String(e || "").toLowerCase().trim();
+        if (!lc) return false;
+        if (lc === adj) return false;
+        const firstTok = lc.split(/\s+/)[0];
+        if (firstTok === adj && !lc.includes(noun)) return false;
+        return true;
+      });
+      understanding = {
+        ...(understanding as Understanding),
+        entities: stripped,
+        intent: "topic",
+        adj_noun: adjNoun,
+      };
+    }
 
     // Ticker override
     if (isTickerQ && marketSymbol) {
