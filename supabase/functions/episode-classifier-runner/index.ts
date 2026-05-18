@@ -19,7 +19,7 @@ const cors = {
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-const TIME_BUDGET_MS = 50_000;
+const TIME_BUDGET_MS = 22_000;
 const TAXONOMY_VERSION = "v1";
 
 // Pricing (USD per 1K tokens) — gemini-2.5-flash-lite via Lovable AI Gateway
