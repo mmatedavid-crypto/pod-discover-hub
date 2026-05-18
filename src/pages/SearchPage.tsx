@@ -404,7 +404,7 @@ export default function SearchPage() {
                   <span className="text-muted-foreground ml-2">Kategória:</span>
                   <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>Mind</button>
                   {categories.slice(0, 8).map((c) => (
-                    <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{c}</button>
+                    <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{categoryLabels[c] || c}</button>
                   ))}
                 </>
               )}
