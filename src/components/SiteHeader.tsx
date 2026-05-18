@@ -24,6 +24,10 @@ const ICON: Record<Suggestion["type"], any> = {
   query: Search,
 };
 
+function normLabel(s: string): string {
+  return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
 export function SiteHeader() {
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -35,6 +39,7 @@ export function SiteHeader() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -63,6 +68,37 @@ export function SiteHeader() {
     }, 160);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [q]);
+
+  // Google-style ghost-text completion: take the first suggestion whose
+  // normalized label starts with the typed prefix. We show its remaining
+  // characters in muted color after the typed text.
+  const ghost = (() => {
+    const trimmed = q;
+    if (!trimmed || trimmed !== trimmed.trimStart()) return "";
+    const qn = normLabel(trimmed);
+    if (qn.length < 2) return "";
+    for (const s of suggestions) {
+      if (s.type === "query" && normLabel(s.label) === qn) continue;
+      const ln = normLabel(s.label);
+      if (ln.length > qn.length && ln.startsWith(qn)) {
+        // Preserve the original label's casing for the ghost suffix.
+        return s.label.slice(trimmed.length);
+      }
+    }
+    return "";
+  })();
+
+  const acceptGhost = () => {
+    if (!ghost) return false;
+    const completed = q + ghost;
+    setQ(completed);
+    setOpen(true);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) el.setSelectionRange(completed.length, completed.length);
+    });
+    return true;
+  };
 
   const submitQuery = (val: string) => {
     const v = val.trim();
