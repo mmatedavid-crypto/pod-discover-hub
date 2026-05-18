@@ -14,6 +14,20 @@ export type Understanding = {
 
 const EMPTY: Understanding = { entities: [], expanded_terms: [], synonyms: [], intent: "topic", language: "hu" };
 
+// HU adjective+topic-noun disambiguation. Queries like "orosz irodalom" / "francia film"
+// must be treated as topic queries, not person-name matches (e.g. Orosz Ferenc).
+// Returns the noun if matched, else null. Caller uses this to push the noun into
+// expanded_terms and hint search-hybrid to downrank people matches whose surname
+// equals the adjective.
+const HU_ADJ = ["orosz", "magyar", "francia", "német", "olasz", "angol", "amerikai", "japán", "kínai", "spanyol", "lengyel", "ukrán", "román"];
+const HU_TOPIC_NOUN = ["irodalom", "kultúra", "kultura", "művészet", "muveszet", "zene", "film", "könyv", "konyv", "író", "iro", "költő", "kolto", "történelem", "tortenelem"];
+const ADJ_NOUN_RE = new RegExp(`\\b(${HU_ADJ.join("|")})\\s+(${HU_TOPIC_NOUN.join("|")})\\b`, "i");
+export function detectAdjNounTopic(q: string): { adjective: string; noun: string } | null {
+  const m = (q || "").toLowerCase().match(ADJ_NOUN_RE);
+  if (!m) return null;
+  return { adjective: m[1], noun: m[2] };
+}
+
 // In-memory circuit breaker. If the AI gateway times out or 5xx's repeatedly,
 // short-circuit subsequent calls for COOLDOWN_MS so we don't waste latency on
 // known-bad upstream. Resets automatically.
