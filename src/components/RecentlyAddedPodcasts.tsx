@@ -33,7 +33,7 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
           <h2 className="text-xl sm:text-2xl font-semibold">Új podcastek</h2>
         </div>
         {showLink && (
-          <Link to="/uj" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <Link to="/uj-podcastok" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
             Összes <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         )}
