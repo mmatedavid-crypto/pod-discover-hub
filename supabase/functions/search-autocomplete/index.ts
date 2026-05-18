@@ -61,6 +61,12 @@ Deno.serve(async (req) => {
         .or(`name.ilike.${prefix},normalized_name.ilike.${prefix}`)
         .order("gated_episode_count", { ascending: false })
         .limit(5),
+      // Alias lookup — surfaces canonical people via known aliases (e.g. "Zsiday" → "Zsiday Viktor")
+      supa.from("person_aliases")
+        .select("alias, confidence, people!inner(name,slug,image_url,is_public,gated_episode_count)")
+        .ilike("normalized_alias", prefix)
+        .gte("confidence", 0.7)
+        .limit(5),
       supa.from("topics")
         .select("name,slug,short_name,episode_count,is_public")
         .eq("is_public", true)
