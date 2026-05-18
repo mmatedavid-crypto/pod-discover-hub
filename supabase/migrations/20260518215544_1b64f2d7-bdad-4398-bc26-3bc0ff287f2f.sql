@@ -1,0 +1,1 @@
+UPDATE public.podcasts SET is_hungarian = true, language_decision = 'accept_hungarian' WHERE id IN ('cacf4e99-9c17-4f5f-a4c8-f104b7b91c82','795b3ad4-e9fc-4dfe-a605-51a883c53a83');
