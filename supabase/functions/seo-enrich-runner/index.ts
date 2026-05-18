@@ -64,12 +64,14 @@ Deno.serve(async (req) => {
     const model = String(ctrl.model || "google/gemini-2.5-flash");
     const maxAttempts = Number(ctrl.max_attempts || 3);
 
-    // Today's spend
+    // Today's spend (read-only snapshot for the budget check; writes go through merge_ai_spend RPC)
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const dayKey = today.toISOString().slice(0, 10);
-    const { data: spendRow } = await admin.from("ai_spend_daily").select("*").eq("day", dayKey).maybeSingle();
-    let spend = Number(spendRow?.spend_usd || 0);
-    let calls = Number(spendRow?.calls || 0);
+    const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind, spend_usd").eq("day", dayKey).maybeSingle();
+    const seoSpend0 = Number(((spendRow?.by_kind || {}) as any).seo_enrich || 0);
+    let spend = seoSpend0;
+    let runIncrement = 0;
+    let runCalls = 0;
     if (spend >= dailyBudget) {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: "*/30 * * * *" }); } catch { /* ignore */ }
       return json({ ok: true, budget_reached: true, spend });
