@@ -3900,6 +3900,14 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      backfill_mentions_from_people_array: {
+        Args: { p_dry_run?: boolean; p_person_ids?: string[] }
+        Returns: {
+          inserted_count: number
+          person_count: number
+          sample: Json
+        }[]
+      }
       claim_ai_jobs: {
         Args: { _limit: number; _lock_seconds?: number }
         Returns: {
