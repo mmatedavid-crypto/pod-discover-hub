@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search, ArrowRight, Sparkles } from "lucide-react";
+import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
 import { MoodCollections } from "@/components/MoodCollections";
@@ -14,6 +14,15 @@ import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { HomeTopicsSection } from "@/components/HomeTopicsSection";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
+import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
+
+const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
+  podcast: Mic,
+  person: User,
+  topic: Hash,
+  category: Folder,
+  query: Search,
+};
 
 
 
