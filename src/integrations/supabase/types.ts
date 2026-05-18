@@ -2131,6 +2131,51 @@ export type Database = {
           },
         ]
       }
+      player_events: {
+        Row: {
+          created_at: string
+          duration_sec: number | null
+          episode_id: string | null
+          event_type: string
+          id: string
+          meta: Json
+          playback_rate: number | null
+          podcast_id: string | null
+          position_sec: number | null
+          session_id: string | null
+          user_agent: string | null
+          viewport_width: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_sec?: number | null
+          episode_id?: string | null
+          event_type: string
+          id?: string
+          meta?: Json
+          playback_rate?: number | null
+          podcast_id?: string | null
+          position_sec?: number | null
+          session_id?: string | null
+          user_agent?: string | null
+          viewport_width?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_sec?: number | null
+          episode_id?: string | null
+          event_type?: string
+          id?: string
+          meta?: Json
+          playback_rate?: number | null
+          podcast_id?: string | null
+          position_sec?: number | null
+          session_id?: string | null
+          user_agent?: string | null
+          viewport_width?: number | null
+        }
+        Relationships: []
+      }
       podcast_boilerplate_blocks: {
         Row: {
           block_hash: string
