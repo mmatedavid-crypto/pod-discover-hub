@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
         }).eq("id", ep.id);
 
         succeeded++;
-        mySpend += cost; totalSpend += cost; calls++;
+        mySpend += cost; runIncrement += cost; runCalls++;
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
