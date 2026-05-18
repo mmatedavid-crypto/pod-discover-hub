@@ -189,20 +189,49 @@ export function SiteHeader() {
             className="relative focus-brand rounded-md transition-shadow"
             role="search"
           >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+            {/* Ghost-text mirror: matches input font/padding exactly. The typed
+                prefix is rendered invisibly so the muted suffix lines up
+                perfectly behind the real input caret. */}
+            {ghost && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 pl-9 pr-12 py-2 text-sm whitespace-pre overflow-hidden pointer-events-none flex items-center"
+              >
+                <span className="invisible">{q}</span>
+                <span className="text-muted-foreground/50">{ghost}</span>
+              </div>
+            )}
             <input
+              ref={inputRef}
               value={q}
               onChange={(e) => { setQ(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
+              onKeyDown={(e) => {
+                if (!ghost) return;
+                if (e.key === "Tab" && !e.shiftKey) {
+                  e.preventDefault();
+                  acceptGhost();
+                  return;
+                }
+                if (e.key === "ArrowRight") {
+                  const el = e.currentTarget;
+                  if (el.selectionStart === q.length && el.selectionEnd === q.length) {
+                    e.preventDefault();
+                    acceptGhost();
+                  }
+                }
+              }}
               placeholder="Keresés podcastok, személyek, témák…"
               aria-label="Keresés"
               aria-autocomplete="list"
               aria-expanded={open}
               autoComplete="off"
-              className="w-full pl-9 pr-12 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
+              spellCheck={false}
+              className="relative w-full pl-9 pr-12 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
             />
-            <kbd className="hidden md:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center justify-center h-5 min-w-[20px] px-1.5 rounded border border-border bg-muted/40 text-[10px] font-medium text-muted-foreground/70 pointer-events-none">
-              /
+            <kbd className="hidden md:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center justify-center h-5 min-w-[20px] px-1.5 rounded border border-border bg-muted/40 text-[10px] font-medium text-muted-foreground/70 pointer-events-none z-10">
+              {ghost ? "Tab" : "/"}
             </kbd>
           </form>
           {open && q.trim().length >= 2 && (suggestions.length > 0 || loadingSugg) && (
