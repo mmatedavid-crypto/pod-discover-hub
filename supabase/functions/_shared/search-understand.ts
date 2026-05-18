@@ -10,9 +10,13 @@ export type Understanding = {
   synonyms: string[];
   intent: string;
   language: string;
+  // Set when the query matches an adjective+topic-noun pattern (e.g. "orosz irodalom").
+  // Caller MUST treat as topic_intent and downrank person-name matches whose surname
+  // equals `adjective` (e.g. Orosz Ferenc must not dominate results for "orosz irodalom").
+  adj_noun?: { adjective: string; noun: string } | null;
 };
 
-const EMPTY: Understanding = { entities: [], expanded_terms: [], synonyms: [], intent: "topic", language: "hu" };
+const EMPTY: Understanding = { entities: [], expanded_terms: [], synonyms: [], intent: "topic", language: "hu", adj_noun: null };
 
 // HU adjective+topic-noun disambiguation. Queries like "orosz irodalom" / "francia film"
 // must be treated as topic queries, not person-name matches (e.g. Orosz Ferenc).
