@@ -378,6 +378,48 @@ export type Database = {
             referencedRelation: "person_missing_content_review_view"
             referencedColumns: ["person_id"]
           },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "editorial_people_seed_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
         ]
       }
       email_send_log: {
@@ -1845,6 +1887,48 @@ export type Database = {
             referencedRelation: "person_missing_content_review_view"
             referencedColumns: ["person_id"]
           },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_ai_review_jobs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
         ]
       }
       person_aliases: {
@@ -1855,7 +1939,13 @@ export type Database = {
           id: string
           normalized_alias: string
           person_id: string
+          review_reason: string | null
+          reviewed_at: string | null
+          scope: string
+          scope_episode_id: string | null
+          scope_podcast_id: string | null
           source: string | null
+          status: string
         }
         Insert: {
           alias: string
@@ -1864,7 +1954,13 @@ export type Database = {
           id?: string
           normalized_alias: string
           person_id: string
+          review_reason?: string | null
+          reviewed_at?: string | null
+          scope?: string
+          scope_episode_id?: string | null
+          scope_podcast_id?: string | null
           source?: string | null
+          status?: string
         }
         Update: {
           alias?: string
@@ -1873,7 +1969,13 @@ export type Database = {
           id?: string
           normalized_alias?: string
           person_id?: string
+          review_reason?: string | null
+          reviewed_at?: string | null
+          scope?: string
+          scope_episode_id?: string | null
+          scope_podcast_id?: string | null
           source?: string | null
+          status?: string
         }
         Relationships: [
           {
@@ -1911,7 +2013,70 @@ export type Database = {
             referencedRelation: "person_missing_content_review_view"
             referencedColumns: ["person_id"]
           },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      person_common_surname_watchlist: {
+        Row: {
+          created_at: string
+          normalized: string
+          reason: string | null
+          surname: string
+        }
+        Insert: {
+          created_at?: string
+          normalized: string
+          reason?: string | null
+          surname: string
+        }
+        Update: {
+          created_at?: string
+          normalized?: string
+          reason?: string | null
+          surname?: string
+        }
+        Relationships: []
       }
       person_enrichment_jobs: {
         Row: {
@@ -2068,6 +2233,48 @@ export type Database = {
             referencedColumns: ["person_id"]
           },
           {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "person_episode_mentions_podcast_id_fkey"
             columns: ["podcast_id"]
             isOneToOne: false
@@ -2163,6 +2370,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "person_missing_content_review_view"
             referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "person_podcast_map_podcast_id_fkey"
@@ -4161,6 +4410,216 @@ export type Database = {
           rss_url: string | null
           slug: string | null
           title: string | null
+        }
+        Relationships: []
+      }
+      v_person_diag_alias_review_queue: {
+        Row: {
+          alias: string | null
+          confidence: number | null
+          created_at: string | null
+          id: string | null
+          normalized_alias: string | null
+          on_surname_watchlist: boolean | null
+          person_id: string | null
+          person_name: string | null
+          person_slug: string | null
+          review_reason: string | null
+          reviewed_at: string | null
+          scope: string | null
+          source: string | null
+          status: string | null
+          token_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_person_diag_duplicate_clusters: {
+        Row: {
+          a_eps: number | null
+          a_indexable: boolean | null
+          a_public: boolean | null
+          b_eps: number | null
+          b_indexable: boolean | null
+          b_public: boolean | null
+          person_a_id: string | null
+          person_a_name: string | null
+          person_a_slug: string | null
+          person_b_id: string | null
+          person_b_name: string | null
+          person_b_slug: string | null
+          sim: number | null
+        }
+        Relationships: []
+      }
+      v_person_diag_high_reject_ratio: {
+        Row: {
+          accepted_cnt: number | null
+          gated_episode_count: number | null
+          id: string | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          name: string | null
+          needs_review_cnt: number | null
+          pending_cnt: number | null
+          reject_ratio: number | null
+          rejected_cnt: number | null
+          slug: string | null
+          total_cnt: number | null
+        }
+        Relationships: []
+      }
+      v_person_diag_pending_backlog: {
+        Row: {
+          id: string | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          name: string | null
+          needs_review_cnt: number | null
+          pending_cnt: number | null
+          slug: string | null
+          total_mentions: number | null
+        }
+        Relationships: []
+      }
+      v_person_diag_surname_only_candidates: {
+        Row: {
+          confidence: number | null
+          gated_episode_count: number | null
+          gated_podcast_count: number | null
+          id: string | null
+          identity_status: string | null
+          is_browsable_in_people_hub: boolean | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          name: string | null
+          on_watchlist: boolean | null
+          risk_level: string | null
+          slug: string | null
+          token_count: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          gated_episode_count?: number | null
+          gated_podcast_count?: number | null
+          id?: string | null
+          identity_status?: string | null
+          is_browsable_in_people_hub?: boolean | null
+          is_indexable?: boolean | null
+          is_public?: boolean | null
+          name?: string | null
+          on_watchlist?: never
+          risk_level?: never
+          slug?: string | null
+          token_count?: never
+        }
+        Update: {
+          confidence?: number | null
+          gated_episode_count?: number | null
+          gated_podcast_count?: number | null
+          id?: string | null
+          identity_status?: string | null
+          is_browsable_in_people_hub?: boolean | null
+          is_indexable?: boolean | null
+          is_public?: boolean | null
+          name?: string | null
+          on_watchlist?: never
+          risk_level?: never
+          slug?: string | null
+          token_count?: never
+        }
+        Relationships: []
+      }
+      v_person_diag_weak_public_pages: {
+        Row: {
+          accepted_cnt: number | null
+          confidence: number | null
+          gated_episode_count: number | null
+          gated_podcast_count: number | null
+          id: string | null
+          is_browsable_in_people_hub: boolean | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          name: string | null
+          pending_cnt: number | null
+          slug: string | null
         }
         Relationships: []
       }
