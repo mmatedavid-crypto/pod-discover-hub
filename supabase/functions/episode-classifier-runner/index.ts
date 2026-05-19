@@ -12,6 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -21,13 +22,6 @@ const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, h
 
 const TIME_BUDGET_MS = 60_000;
 const TAXONOMY_VERSION = "v1";
-
-// Pricing (USD per 1K tokens) — gemini-2.5-flash-lite via Lovable AI Gateway
-const MODEL_PRICES: Record<string, { in: number; out: number }> = {
-  "google/gemini-2.5-flash-lite": { in: 0.00010, out: 0.00040 },
-  "google/gemini-2.5-flash":      { in: 0.00030, out: 0.00250 },
-  "google/gemini-3.1-flash-preview": { in: 0.00010, out: 0.00040 },
-};
 
 const CLASSIFIER_TOOL = {
   type: "function",
@@ -139,7 +133,6 @@ Deno.serve(async (req) => {
   const dryRun = body.dry_run === true;
   const dailyBudget = Number(ctrl.daily_budget_usd ?? 10);
   const model = String(body.model || ctrl.model || "google/gemini-2.5-flash-lite");
-  const price = MODEL_PRICES[model] || MODEL_PRICES["google/gemini-2.5-flash-lite"];
 
   // Adaptive throttle: scale toward max ceilings on clean streaks, scale down on errors.
   const maxBatch = Math.max(1, Math.min(1500, Number(ctrl.max_batch_size) || 800));
@@ -281,7 +274,7 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       const usage = ai.usage || {};
       const inTok = Number(usage.prompt_tokens || 0);
       const outTok = Number(usage.completion_tokens || 0);
-      const cost = (inTok / 1000) * price.in + (outTok / 1000) * price.out;
+      const cost = chatTokenCostUsd(model, inTok, outTok);
       const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       if (!args) throw new Error("no_tool_call");
       parsed = typeof args === "string" ? JSON.parse(args) : args;
