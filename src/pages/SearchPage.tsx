@@ -322,10 +322,16 @@ export default function SearchPage() {
     setParams(next);
   };
 
-  // Hero podcast match: word-boundary phrase hit on title/display_title.
+  // Hero podcast match: prefer the server-pinned podcast (accent-insensitive,
+  // multi-tier RPC). Fall back to local word-boundary phrase match if no pin.
   const heroPodcast = useMemo(() => {
+    if (loading) return null;
+    if (pinnedPodcast) {
+      const local = podcasts.find((p) => p.slug === pinnedPodcast.slug);
+      return local || pinnedPodcast;
+    }
     const phrase = initial.trim().toLowerCase();
-    if (phrase.length < 3 || loading) return null;
+    if (phrase.length < 3) return null;
     const phraseRe = new RegExp(
       `(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}\\p{N}]|$)`,
       "iu"
@@ -335,9 +341,9 @@ export default function SearchPage() {
       const d = ((p as any).display_title || "");
       return phraseRe.test(t) || phraseRe.test(d);
     }) || null;
-  }, [initial, podcasts, loading]);
+  }, [initial, podcasts, loading, pinnedPodcast]);
 
-  const podcastsList = heroPodcast ? podcasts.filter((p) => p.id !== heroPodcast.id) : podcasts;
+  const podcastsList = heroPodcast ? podcasts.filter((p) => p.id !== heroPodcast.id && p.slug !== heroPodcast.slug) : podcasts;
 
   return (
     <Layout>
