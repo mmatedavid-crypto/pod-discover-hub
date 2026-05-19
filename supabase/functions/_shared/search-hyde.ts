@@ -120,9 +120,10 @@ export async function getHydeExpansion(supa: any, qNorm: string, q: string): Pro
     }
   } catch (e) { console.warn("hyde cache read err", e); }
 
-  const hydeText = await withTimeout(generateHydeText(q), 1700, "hyde-gen");
+  // Quality-first: HyDE materially improves conceptual topic queries; give it room.
+  const hydeText = await withTimeout(generateHydeText(q), 2500, "hyde-gen");
   if (!hydeText) return null;
-  const emb = await withTimeout(embedHyde(hydeText), 1500, "hyde-embed");
+  const emb = await withTimeout(embedHyde(hydeText), 2500, "hyde-embed");
   if (!emb) return null;
 
   supa.from("search_hyde_cache").upsert({
