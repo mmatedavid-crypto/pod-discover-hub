@@ -82,7 +82,7 @@ export default function PodcastDetail() {
           </div>
           <div className="min-w-0">
             {p.category && (
-              <Link to={`/category/${p.category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`} className="text-xs uppercase tracking-wide text-accent">
+              <Link to={`/category/${slugify(p.category)}`} className="text-xs uppercase tracking-wide text-accent">
                 {p.category}
               </Link>
             )}
