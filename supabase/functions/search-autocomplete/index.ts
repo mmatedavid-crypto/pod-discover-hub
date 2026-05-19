@@ -41,13 +41,19 @@ Deno.serve(async (req) => {
     const limit = Math.min(12, Math.max(3, Number(body?.limit ?? 8)));
     if (rawQ.length < 2) return json({ suggestions: [] });
     const q = norm(rawQ);
+    // Standalone .ilike() helpers accept `%` directly.
     const ilike = `%${q}%`;
     const prefix = `${q}%`;
-    // Accent-insensitive variants for `podcasts.normalized_title`
+    // IMPORTANT: PostgREST .or() filter values must use `*` (not `%`) for ILIKE
+    // wildcards — raw `%` inside an `or=(...)` URL value is treated as the
+    // start of a percent-escape by Cloudflare/PostgREST and silently returns 0
+    // rows (or a 1101 worker error). Using `*` avoids URL encoding pitfalls.
     const qNoSpace = q.replace(/\s+/g, " ").trim();
-    const nIlike = `%${qNoSpace}%`;
-    const nPrefix = `${qNoSpace}%`;
-    const nTokenInfix = `% ${qNoSpace} %`;
+    const nPrefixStar = `${qNoSpace}*`;
+    const nIlikeStar = `*${qNoSpace}*`;
+    const nTokenInfixStar = `* ${qNoSpace} *`;
+    const ilikeStar = `*${q}*`;
+    const prefixStar = `${q}*`;
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
@@ -57,13 +63,13 @@ Deno.serve(async (req) => {
         .select("title,slug,image_url,podiverzum_rank,rank_label,normalized_title")
         .eq("is_hungarian", true)
         .eq("language_decision", "accept_hungarian")
-        .or(`normalized_title.ilike.${nPrefix},normalized_title.ilike.${nTokenInfix},normalized_title.ilike.${nIlike},title.ilike.${ilike}`)
+        .or(`normalized_title.ilike.${nPrefixStar},normalized_title.ilike.${nTokenInfixStar},normalized_title.ilike.${nIlikeStar},title.ilike.${ilikeStar}`)
         .order("podiverzum_rank", { ascending: false, nullsFirst: false })
-        .limit(8),
+        .limit(10),
       supa.from("people")
         .select("name,slug,image_url,gated_episode_count,is_indexable,disambiguation_label,normalized_name")
         .eq("is_public", true)
-        .or(`name.ilike.${prefix},normalized_name.ilike.${prefix}`)
+        .or(`name.ilike.${prefixStar},normalized_name.ilike.${prefixStar}`)
         .order("gated_episode_count", { ascending: false })
         .limit(8),
       // Alias lookup — surfaces canonical people via known aliases (e.g. "Zsiday" → "Zsiday Viktor")
