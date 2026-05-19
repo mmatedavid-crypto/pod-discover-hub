@@ -283,4 +283,9 @@
     border: 1px solid hsl(var(--border));
     box-shadow: var(--shadow-elevated);
   }
+
+  @keyframes search-stage-fade {
+    from { opacity: 0; transform: translateY(2px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
