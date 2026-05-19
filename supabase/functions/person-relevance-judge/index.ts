@@ -198,17 +198,15 @@ Deno.serve(async (req) => {
   while (Date.now() - startedAt < TIME_BUDGET_MS - RESERVE_MS) {
     if (spendToday >= DAILY_BUDGET_USD) break;
 
-    // claim a batch of pending mentions on HU-approved podcasts.
-    // Filter podcast directly via mentions.podcast_id (PostgREST cannot reliably
-    // filter on two-level nested embeds like episodes.podcasts.is_hungarian).
+    // Atomic claim: flips relevance_status='pending'→'in_progress' with SKIP LOCKED so
+    // multiple concurrent invocations never overlap.
+    const { data: claimed, error: claimErr } = await supabase.rpc("claim_person_judge_batch", { _limit: batchLimit });
+    if (claimErr || !claimed || claimed.length === 0) break;
+    const claimedIds: string[] = (claimed as any[]).map((r: any) => (typeof r === "string" ? r : r.id));
     let q = supabase
       .from("person_episode_mentions")
       .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
-      .eq("relevance_status", "pending")
-      .eq("podcasts.is_hungarian", true)
-      .eq("podcasts.language_decision", "accept_hungarian")
-      .order("confidence", { ascending: false })
-      .limit(batchLimit);
+      .in("id", claimedIds);
     if (targetPersonIds) q = q.in("person_id", targetPersonIds);
     const { data: rows, error } = await q;
     if (error || !rows || rows.length === 0) break;
