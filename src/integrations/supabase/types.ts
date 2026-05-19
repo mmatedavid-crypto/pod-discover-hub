@@ -2415,6 +2415,65 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_aliases: {
+        Row: {
+          alias: string
+          confidence: number
+          created_at: string
+          id: string
+          normalized_alias: string
+          podcast_id: string
+          source: string
+        }
+        Insert: {
+          alias: string
+          confidence?: number
+          created_at?: string
+          id?: string
+          normalized_alias: string
+          podcast_id: string
+          source?: string
+        }
+        Update: {
+          alias?: string
+          confidence?: number
+          created_at?: string
+          id?: string
+          normalized_alias?: string
+          podcast_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_aliases_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_aliases_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_aliases_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_aliases_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       podcast_boilerplate_blocks: {
         Row: {
           block_hash: string
