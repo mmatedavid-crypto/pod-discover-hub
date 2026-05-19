@@ -855,29 +855,45 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Known-item podcast pin
+    // Known-item podcast pin (P0 — strict podcast-title intent)
     let podcastPinSlug: string | null = null;
     let podcastPinTitle: string | null = null;
+    let podcastPinImage: string | null = null;
+    let podcastPinDescription: string | null = null;
+    let podcastPinMatchType: string | null = null;
+    let podcastPinSimilarity: number | null = null;
     let podcastPinIds: string[] = [];
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
       const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes|epizod|musor)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
-      // Quality-first: 300ms was missing legitimate podcast-title intent matches
-      // ("Hold After Hours", "Drágám hol a vacsorám"). 1200ms is comfortable.
       const pmRes = await withTimeout(
         supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
         1200, "match_podcast_by_name",
       );
       const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
       const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
-      if (top && sim >= 0.6) {
+      const mtype = top?.match_type as string | undefined;
+      // Pin when the match is exact, full-token, or prefix (high-confidence
+      // podcast-title intent). Substring matches (sim 0.78) only pin when the
+      // query is at least 5 chars to avoid noise on short queries.
+      const pinAllowed = top && (
+        mtype === "exact" || mtype === "token" || mtype === "prefix" ||
+        (mtype === "substr" && cleanedQ.length >= 5) ||
+        sim >= 0.78
+      );
+      if (pinAllowed) {
         podcastPinSlug = top.slug;
         podcastPinTitle = top.title;
-        const { data: pinEps } = await supa
-          .from("episodes")
-          .select("id")
-          .eq("podcast_id", top.podcast_id)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(8);
+        podcastPinMatchType = mtype || null;
+        podcastPinSimilarity = sim;
+        const [{ data: pinMeta }, { data: pinEps }] = await Promise.all([
+          supa.from("podcasts").select("image_url,description,summary").eq("id", top.podcast_id).maybeSingle(),
+          supa.from("episodes").select("id").eq("podcast_id", top.podcast_id)
+            .order("published_at", { ascending: false, nullsFirst: false }).limit(8),
+        ]);
+        if (pinMeta) {
+          podcastPinImage = (pinMeta as any).image_url || null;
+          podcastPinDescription = (pinMeta as any).description || (pinMeta as any).summary || null;
+        }
         if (pinEps?.length) podcastPinIds = pinEps.map((e: any) => e.id);
         for (const id of podcastPinIds) {
           if (!strictIds.has(id)) {
