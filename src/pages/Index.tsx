@@ -280,7 +280,7 @@ const Index = () => {
   return (
     <Layout>
       
-      <section className="bg-background text-foreground relative border-b border-border overflow-hidden">
+      <section className="bg-background text-foreground relative z-30 border-b border-border">
         <div aria-hidden className="absolute inset-0 bg-background" />
         {/* Brand spotlight */}
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
@@ -349,7 +349,7 @@ const Index = () => {
           {heroOpen && q.trim().length >= 2 && (heroSugg.length > 0 || heroLoadingSugg) && (
             <div
               role="listbox"
-              className="absolute left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-lg overflow-hidden z-40 max-h-[70vh] overflow-y-auto"
+              className="absolute left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-lg z-50 max-h-[70vh] overflow-y-auto"
             >
               {heroLoadingSugg && heroSugg.length === 0 && (
                 <div className="px-3 py-2 text-xs text-muted-foreground">Javaslatok…</div>
