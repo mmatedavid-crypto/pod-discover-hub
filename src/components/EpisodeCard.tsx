@@ -123,7 +123,7 @@ export function EpisodeCard({
         {(showTopics && e.topics && e.topics.length > 0) && (
           <div className="flex flex-wrap gap-1 mt-2.5">
             {e.topics.slice(0, 5).map((t) => (
-              <Link key={t} to={`/topic/${encodeURIComponent(t.toLowerCase().replace(/[^a-z0-9]+/g,"-"))}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
+              <Link key={t} to={`/topic/${encodeURIComponent(slugify(t))}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                 {t}
               </Link>
             ))}
