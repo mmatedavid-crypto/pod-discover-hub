@@ -413,7 +413,7 @@ Deno.serve(async (req) => {
 
     // 2) Parallel: understanding + embedding + curated synonyms
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 700),
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
