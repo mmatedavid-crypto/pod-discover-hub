@@ -4367,6 +4367,7 @@ export type Database = {
       match_podcast_by_name: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
+          match_type: string
           podcast_id: string
           similarity: number
           slug: string
