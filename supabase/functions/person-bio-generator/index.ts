@@ -1,6 +1,7 @@
 // Hungarian AI bio + overview generator for People
 // Uses Lovable AI Gateway (google/gemini-2.5-flash). Strict no-hallucination prompts.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,7 @@ async function callAI(system: string, user: string): Promise<{ text: string; cos
   const text = j?.choices?.[0]?.message?.content || "";
   const inTok = j?.usage?.prompt_tokens || 0;
   const outTok = j?.usage?.completion_tokens || 0;
-  const cost = (inTok / 1e6) * 0.075 + (outTok / 1e6) * 0.3;
+  const cost = chatTokenCostUsd(MODEL, Number(inTok || 0), Number(outTok || 0));
   return { text: text.trim(), cost, ok: true };
 }
 
