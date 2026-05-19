@@ -397,7 +397,14 @@ Deno.serve(async (req) => {
         .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
         .eq("q_norm", qNorm)
         .maybeSingle();
-      if (cached && cached.updated_at && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000) {
+      // Quality-first: cache rows carry their ranking/understanding version inside
+      // the JSON blob. When the policy version bumps, older rows are ignored so
+      // bad rankings don't survive a logic change.
+      const cuv = (cached?.understanding as any)?.__uv;
+      const understandingFresh = cached && cached.updated_at
+        && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000
+        && (cuv === undefined || Number(cuv) >= UNDERSTANDING_VERSION);
+      if (understandingFresh) {
         understanding = cached.understanding as Understanding;
         if (typeof cached.embedding === "string") {
           try {
@@ -409,7 +416,11 @@ Deno.serve(async (req) => {
         }
         cacheHit = true;
       }
-      if (cached?.rerank && cached.rerank_updated_at && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000) {
+      const crv = (cached?.rerank as any)?.__rv;
+      const rerankFresh = cached?.rerank && cached.rerank_updated_at
+        && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000
+        && (crv === undefined ? false : Number(crv) >= RANKING_VERSION);
+      if (rerankFresh) {
         const r = cached.rerank as any;
         if (Array.isArray(r?.ids) && r.ids.length) {
           cachedRerank = { ids: r.ids, why: (r.why && typeof r.why === "object") ? r.why : {} };
@@ -476,11 +487,14 @@ Deno.serve(async (req) => {
       cachedRerank = null;
     }
 
-    // 3) Persist to cache
+    // 3) Persist to cache (versioned)
     if (!cacheHit || isTickerQ) {
+      const understandingToCache = understanding
+        ? { ...(understanding as any), __uv: UNDERSTANDING_VERSION }
+        : null;
       supa.from("search_query_cache").upsert({
         q_norm: qNorm,
-        understanding: understanding,
+        understanding: understandingToCache,
         embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
         updated_at: new Date().toISOString(),
       }).then(() => {}, (e) => console.warn("cache write", e));
@@ -977,7 +991,7 @@ Deno.serve(async (req) => {
         rerankResult = await rerank(q, ordered);
         if (rerankResult && rerankResult.ids.length) {
           supa.from("search_query_cache").update({
-            rerank: { ids: rerankResult.ids, why: rerankResult.why },
+            rerank: { ids: rerankResult.ids, why: rerankResult.why, __rv: RANKING_VERSION },
             rerank_updated_at: new Date().toISOString(),
           }).eq("q_norm", qNorm).then(() => {}, (e) => console.warn("rerank cache write", e));
         }
