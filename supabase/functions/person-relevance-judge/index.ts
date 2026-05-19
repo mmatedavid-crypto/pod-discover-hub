@@ -9,7 +9,7 @@ const RESERVE_MS = 8_000;
 const MODEL = "google/gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 
-async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; enabled: boolean }> {
+async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
   try {
     const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
     const v = data?.value || {};
@@ -17,10 +17,29 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
       budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
       batchLimit: Number(v.batch_limit ?? 30),
       enabled: v.enabled !== false,
+      autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
+      raw: v,
     };
   } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, enabled: true };
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, enabled: true, autoDisableWhenEmpty: true, raw: {} };
   }
+}
+
+async function setControls(supabase: any, patch: Record<string, any>, prev: any) {
+  const merged = { ...(prev || {}), ...patch };
+  await supabase.from("app_settings").upsert({ key: "person_relevance_judge_controls", value: merged, updated_at: new Date().toISOString() });
+}
+
+async function countPendingHU(supabase: any, personIds?: string[] | null): Promise<number> {
+  let q = supabase
+    .from("person_episode_mentions")
+    .select("id, podcasts!person_episode_mentions_podcast_id_fkey!inner(is_hungarian, language_decision)", { count: "exact", head: true })
+    .eq("relevance_status", "pending")
+    .eq("podcasts.is_hungarian", true)
+    .eq("podcasts.language_decision", "accept_hungarian");
+  if (personIds && personIds.length) q = q.in("person_id", personIds);
+  const { count } = await q;
+  return Number(count || 0);
 }
 
 interface PendingRow {
