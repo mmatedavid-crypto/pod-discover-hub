@@ -150,7 +150,12 @@ Deno.serve(async (req) => {
 
   let body: any = {};
   try { body = req.method === "POST" ? await req.json() : {}; } catch {}
-  const batchLimit = Math.min(Math.max(Number(body.batch_limit) || 30, 1), 200);
+  const settings = await getBudgetFromSettings(supabase);
+  if (!settings.enabled) {
+    return new Response(JSON.stringify({ ok: true, skipped: "disabled_in_settings" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+  const DAILY_BUDGET_USD = settings.budget;
+  const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 200);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
   const startedAt = Date.now();
