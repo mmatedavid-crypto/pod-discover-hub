@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = jsonb_set(jsonb_set(jsonb_set(value, '{concurrency}', '16'::jsonb), '{batch_limit}', '160'::jsonb), '{note}', '"Drain boost 2026-05-19: direct Gemini API, concurrency 16, batch 160, $50/day."'::jsonb), updated_at = now() WHERE key = 'person_relevance_judge_controls';
