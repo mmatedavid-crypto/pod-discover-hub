@@ -18,6 +18,7 @@ import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
+import { slugify } from "@/lib/slug";
 import { compareByScore } from "@/lib/episodeRank";
 
 export default function CategoryDetail() {
