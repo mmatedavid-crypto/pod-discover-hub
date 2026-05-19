@@ -45,7 +45,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           .from("entity_profiles")
           .select("slug, display_name, bio, episodes_summary, featured_episode_ids, appearance_stats")
           .eq("kind", "person")
-          .eq("slug", decoded.toLowerCase().replace(/[^a-z0-9]+/g, "-"))
+          .eq("slug", entitySlug("person", decoded))
           .maybeSingle();
         if (pr) prof = pr as any;
         setProfile(prof);
