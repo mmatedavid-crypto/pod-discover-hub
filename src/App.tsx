@@ -97,6 +97,7 @@ const App = () => (
           <Route path="/admin/language-gate" element={<AdminLanguageGatePage />} />
           <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
           <Route path="/admin/vector-search" element={<AdminVectorSearchPage />} />
+          <Route path="/admin/search-benchmark" element={<AdminSearchBenchmarkPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />
