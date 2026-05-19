@@ -96,11 +96,12 @@ Deno.serve(async (req) => {
     // Podcasts first — exact/title-prefix matches get the highest confidence.
     for (const p of (podRes.data || [])) {
       const t = String((p as any).title || "");
-      const tNorm = norm(t);
+      const nt = String((p as any).normalized_title || norm(t));
       let conf = 0.5;
-      if (tNorm === q) conf = 1.0;
-      else if (tNorm.startsWith(q)) conf = 0.9;
-      else if (tNorm.includes(` ${q}`) || tNorm.includes(`${q} `)) conf = 0.75;
+      if (nt === q || nt === qNoSpace) conf = 1.0;
+      else if (nt.startsWith(qNoSpace)) conf = 0.9;
+      else if ((` ${nt} `).includes(` ${qNoSpace} `)) conf = 0.85;
+      else if (nt.includes(qNoSpace)) conf = 0.7;
       out.push({
         type: "podcast",
         label: t,
