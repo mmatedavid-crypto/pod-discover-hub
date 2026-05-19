@@ -7,7 +7,21 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 const TIME_BUDGET_MS = 110_000;
 const RESERVE_MS = 8_000;
 const MODEL = "google/gemini-2.5-flash";
-const DAILY_BUDGET_USD = 2.0;
+const DEFAULT_DAILY_BUDGET_USD = 2.0;
+
+async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; enabled: boolean }> {
+  try {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
+    const v = data?.value || {};
+    return {
+      budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
+      batchLimit: Number(v.batch_limit ?? 30),
+      enabled: v.enabled !== false,
+    };
+  } catch {
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, enabled: true };
+  }
+}
 
 interface PendingRow {
   id: string;
