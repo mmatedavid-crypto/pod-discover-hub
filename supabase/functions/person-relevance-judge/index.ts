@@ -9,7 +9,7 @@ const RESERVE_MS = 8_000;
 const MODEL = "google/gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 
-async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; enabled: boolean }> {
+async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
   try {
     const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
     const v = data?.value || {};
@@ -17,10 +17,29 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
       budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
       batchLimit: Number(v.batch_limit ?? 30),
       enabled: v.enabled !== false,
+      autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
+      raw: v,
     };
   } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, enabled: true };
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, enabled: true, autoDisableWhenEmpty: true, raw: {} };
   }
+}
+
+async function setControls(supabase: any, patch: Record<string, any>, prev: any) {
+  const merged = { ...(prev || {}), ...patch };
+  await supabase.from("app_settings").upsert({ key: "person_relevance_judge_controls", value: merged, updated_at: new Date().toISOString() });
+}
+
+async function countPendingHU(supabase: any, personIds?: string[] | null): Promise<number> {
+  let q = supabase
+    .from("person_episode_mentions")
+    .select("id, podcasts!person_episode_mentions_podcast_id_fkey!inner(is_hungarian, language_decision)", { count: "exact", head: true })
+    .eq("relevance_status", "pending")
+    .eq("podcasts.is_hungarian", true)
+    .eq("podcasts.language_decision", "accept_hungarian");
+  if (personIds && personIds.length) q = q.in("person_id", personIds);
+  const { count } = await q;
+  return Number(count || 0);
 }
 
 interface PendingRow {
@@ -158,6 +177,15 @@ Deno.serve(async (req) => {
   const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 200);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
+  // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
+  const initialPending = await countPendingHU(supabase, targetPersonIds);
+  if (initialPending === 0) {
+    const patch: any = { last_run_status: "no_work", last_run_at: new Date().toISOString(), last_remaining_pending: 0 };
+    if (settings.autoDisableWhenEmpty && !targetPersonIds) patch.enabled = false;
+    await setControls(supabase, patch, settings.raw);
+    return new Response(JSON.stringify({ ok: true, status: "no_work", remaining_pending: 0, runner_disabled: !!patch.enabled === false && settings.autoDisableWhenEmpty }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
   const startedAt = Date.now();
   let processed = 0, accepted = 0, rejected = 0, needs_review = 0, errors = 0;
   let spendToday = await getSpendToday(supabase);
@@ -249,9 +277,38 @@ Deno.serve(async (req) => {
   // recompute hub
   try { await supabase.rpc("refresh_people_hub_score"); } catch { /* ignore */ }
 
+  // Post-run: remaining pending + self-shutdown
+  const remainingPending = await countPendingHU(supabase, targetPersonIds);
+  let runnerDisabled = false;
+  let status = "completed";
+  if (errors > 0 && processed === 0) status = "failed";
+  else if (remainingPending === 0) {
+    status = "drained";
+    if (settings.autoDisableWhenEmpty && !targetPersonIds) {
+      await setControls(supabase, {
+        enabled: false,
+        last_run_status: "drained",
+        last_run_at: new Date().toISOString(),
+        last_remaining_pending: 0,
+        last_processed: processed, last_accepted: accepted, last_rejected: rejected, last_needs_review: needs_review,
+      }, settings.raw);
+      runnerDisabled = true;
+    }
+  } else {
+    await setControls(supabase, {
+      last_run_status: status,
+      last_run_at: new Date().toISOString(),
+      last_remaining_pending: remainingPending,
+      last_processed: processed, last_accepted: accepted, last_rejected: rejected, last_needs_review: needs_review,
+    }, settings.raw);
+  }
+
   return new Response(JSON.stringify({
     ok: true,
+    status,
     processed, accepted, rejected, needs_review, errors,
+    remaining_pending: remainingPending,
+    runner_disabled: runnerDisabled,
     spend_today_usd: spendToday,
     elapsed_ms: Date.now() - startedAt,
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
