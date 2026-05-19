@@ -9,19 +9,20 @@ const RESERVE_MS = 8_000;
 const MODEL = "google/gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 
-async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
+async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
   try {
     const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
     const v = data?.value || {};
     return {
       budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
       batchLimit: Number(v.batch_limit ?? 30),
+      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), 16),
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
       raw: v,
     };
   } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, enabled: true, autoDisableWhenEmpty: true, raw: {} };
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, raw: {} };
   }
 }
 
