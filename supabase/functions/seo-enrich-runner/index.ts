@@ -7,16 +7,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, episodeUserPrompt, filterHosts } from "../_shared/seo-prompt.ts";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
-
-// Rough Gemini Flash pricing for budget gauge ($/1k tokens).
-const PRICE_IN_PER_1K = 0.000075;
-const PRICE_OUT_PER_1K = 0.0003;
 
 async function callAI(model: string, messages: any[], tools: any[], toolName: string) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -128,7 +125,7 @@ Deno.serve(async (req) => {
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);
-        const cost = (inTok / 1000) * PRICE_IN_PER_1K + (outTok / 1000) * PRICE_OUT_PER_1K;
+        const cost = chatTokenCostUsd(model, inTok, outTok);
 
         const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
         const parsed = args ? JSON.parse(args) : null;
