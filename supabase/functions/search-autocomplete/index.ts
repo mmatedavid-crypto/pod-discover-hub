@@ -58,14 +58,21 @@ Deno.serve(async (req) => {
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     // Parallel reads — keep each one tight.
-    const [podRes, persRes, aliasRes, topRes, catRes, qcacheRes] = await Promise.all([
+    const [podRes, podAliasRes, persRes, aliasRes, topRes, catRes, qcacheRes] = await Promise.all([
       supa.from("podcasts")
         .select("title,slug,image_url,podiverzum_rank,rank_label,normalized_title")
         .eq("is_hungarian", true)
         .eq("language_decision", "accept_hungarian")
         .or(`normalized_title.ilike.${nPrefixStar},normalized_title.ilike.${nTokenInfixStar},normalized_title.ilike.${nIlikeStar},title.ilike.${ilikeStar}`)
         .order("podiverzum_rank", { ascending: false, nullsFirst: false })
-        .limit(10),
+        .limit(12),
+      // Podcast aliases — surfaces canonical podcasts via known short forms
+      // (e.g. "after" → Hold After Hours, "part" → Partizán)
+      supa.from("podcast_aliases")
+        .select("alias,confidence,podcasts!inner(title,slug,image_url,podiverzum_rank,rank_label,is_hungarian,language_decision,rss_status)")
+        .or(`normalized_alias.eq.${qNoSpace},normalized_alias.ilike.${nPrefixStar}`)
+        .gte("confidence", 0.7)
+        .limit(8),
       supa.from("people")
         .select("name,slug,image_url,gated_episode_count,is_indexable,disambiguation_label,normalized_name")
         .eq("is_public", true)
@@ -99,20 +106,72 @@ Deno.serve(async (req) => {
 
     const out: Suggestion[] = [];
 
-    // Podcasts first — exact/title-prefix matches get the highest confidence.
+    // Rank-label tiebreak — small bonus so ties surface the bigger brand first.
+    const rankLabelBonus = (rl: any): number => {
+      const s = String(rl || "").toUpperCase();
+      if (s === "S") return 0.04;
+      if (s === "A") return 0.03;
+      if (s === "B") return 0.02;
+      if (s === "C") return 0.01;
+      return 0;
+    };
+
+    const podSlugsSeen = new Set<string>();
+
+    // Podcast aliases first — high-confidence brand-intent matches sit just
+    // below true exact-title matches (1.0). Sort so EXACT alias rows win the
+    // dedupe race over weaker prefix-alias rows for the same podcast.
+    const aliasRows = ((podAliasRes.data || []) as any[]).slice().sort((a, b) => {
+      const an = norm(String(a.alias || ""));
+      const bn = norm(String(b.alias || ""));
+      const ax = an === q || an === qNoSpace ? 0 : 1;
+      const bx = bn === q || bn === qNoSpace ? 0 : 1;
+      return ax - bx;
+    });
+    for (const row of aliasRows) {
+      const p = row.podcasts;
+      if (!p) continue;
+      if (!p.is_hungarian || p.language_decision !== "accept_hungarian") continue;
+      if (["failed", "inactive", "blocked", "dead"].includes(String(p.rss_status || ""))) continue;
+      const slug = String(p.slug || "");
+      if (!slug || podSlugsSeen.has(slug)) continue;
+      podSlugsSeen.add(slug);
+      const aliasNorm = norm(String(row.alias || ""));
+      const exactAlias = aliasNorm === q || aliasNorm === qNoSpace;
+      const aliasConf = Number(row.confidence) || 0.9;
+      // Exact alias with strong confidence wins decisively; weaker matches
+      // (prefix-on-alias) get a modest boost only.
+      const base = exactAlias && aliasConf >= 0.85 ? 0.96 : 0.86 * aliasConf;
+      const conf = Math.min(0.99, base + rankLabelBonus(p.rank_label));
+      out.push({
+        type: "podcast",
+        label: String(p.title || ""),
+        subtitle: "Podcast",
+        href: `/podcast/${slug}`,
+        image_url: p.image_url || null,
+        confidence: conf,
+      });
+    }
+
+
+    // Podcasts — title-based matches.
     for (const p of (podRes.data || [])) {
+      const slug = String((p as any).slug || "");
+      if (!slug || podSlugsSeen.has(slug)) continue;
+      podSlugsSeen.add(slug);
       const t = String((p as any).title || "");
       const nt = String((p as any).normalized_title || norm(t));
-      let conf = 0.5;
-      if (nt === q || nt === qNoSpace) conf = 1.0;
-      else if (nt.startsWith(qNoSpace)) conf = 0.9;
-      else if ((` ${nt} `).includes(` ${qNoSpace} `)) conf = 0.85;
-      else if (nt.includes(qNoSpace)) conf = 0.7;
+      let base = 0.5;
+      if (nt === q || nt === qNoSpace) base = 1.0;
+      else if (nt.startsWith(qNoSpace)) base = 0.9;
+      else if ((` ${nt} `).includes(` ${qNoSpace} `)) base = 0.85;
+      else if (nt.includes(qNoSpace)) base = 0.7;
+      const conf = Math.min(0.99, base + rankLabelBonus((p as any).rank_label));
       out.push({
         type: "podcast",
         label: t,
         subtitle: "Podcast",
-        href: `/podcast/${(p as any).slug}`,
+        href: `/podcast/${slug}`,
         image_url: (p as any).image_url || null,
         confidence: conf,
       });
