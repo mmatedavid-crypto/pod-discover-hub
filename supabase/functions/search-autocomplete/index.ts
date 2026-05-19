@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       supa.from("topics")
         .select("name,slug,short_name,episode_count,is_public")
         .eq("is_public", true)
-        .or(`name.ilike.${ilike},short_name.ilike.${ilike}`)
+        .or(`name.ilike.${ilikeStar},short_name.ilike.${ilikeStar}`)
         .order("episode_count", { ascending: false })
         .limit(5),
       supa.from("categories")
