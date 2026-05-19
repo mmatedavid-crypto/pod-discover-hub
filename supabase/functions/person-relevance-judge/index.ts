@@ -277,9 +277,38 @@ Deno.serve(async (req) => {
   // recompute hub
   try { await supabase.rpc("refresh_people_hub_score"); } catch { /* ignore */ }
 
+  // Post-run: remaining pending + self-shutdown
+  const remainingPending = await countPendingHU(supabase, targetPersonIds);
+  let runnerDisabled = false;
+  let status = "completed";
+  if (errors > 0 && processed === 0) status = "failed";
+  else if (remainingPending === 0) {
+    status = "drained";
+    if (settings.autoDisableWhenEmpty && !targetPersonIds) {
+      await setControls(supabase, {
+        enabled: false,
+        last_run_status: "drained",
+        last_run_at: new Date().toISOString(),
+        last_remaining_pending: 0,
+        last_processed: processed, last_accepted: accepted, last_rejected: rejected, last_needs_review: needs_review,
+      }, settings.raw);
+      runnerDisabled = true;
+    }
+  } else {
+    await setControls(supabase, {
+      last_run_status: status,
+      last_run_at: new Date().toISOString(),
+      last_remaining_pending: remainingPending,
+      last_processed: processed, last_accepted: accepted, last_rejected: rejected, last_needs_review: needs_review,
+    }, settings.raw);
+  }
+
   return new Response(JSON.stringify({
     ok: true,
+    status,
     processed, accepted, rejected, needs_review, errors,
+    remaining_pending: remainingPending,
+    runner_disabled: runnerDisabled,
     spend_today_usd: spendToday,
     elapsed_ms: Date.now() - startedAt,
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
