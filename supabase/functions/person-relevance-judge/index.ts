@@ -177,6 +177,15 @@ Deno.serve(async (req) => {
   const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 200);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
+  // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
+  const initialPending = await countPendingHU(supabase, targetPersonIds);
+  if (initialPending === 0) {
+    const patch: any = { last_run_status: "no_work", last_run_at: new Date().toISOString(), last_remaining_pending: 0 };
+    if (settings.autoDisableWhenEmpty && !targetPersonIds) patch.enabled = false;
+    await setControls(supabase, patch, settings.raw);
+    return new Response(JSON.stringify({ ok: true, status: "no_work", remaining_pending: 0, runner_disabled: !!patch.enabled === false && settings.autoDisableWhenEmpty }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
   const startedAt = Date.now();
   let processed = 0, accepted = 0, rejected = 0, needs_review = 0, errors = 0;
   let spendToday = await getSpendToday(supabase);
