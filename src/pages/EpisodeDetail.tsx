@@ -224,22 +224,150 @@ export default function EpisodeDetail() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3 mt-5 items-center">
-          {e.audio_url && <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm"><ExternalLink className="h-4 w-4" /> Hallgatás</a>}
-          {/* "Epizód oldal" gomb eltávolítva: az RSS-ből jövő link a felhasználót elnavigálta az oldalról, és nem hozott értéket. */}
-          {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Apple className="h-4 w-4" /> Apple</a>}
-          {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Music className="h-4 w-4" /> Spotify</a>}
-          {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
-          <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
-        </div>
+        {(() => {
+          const audioSrc = detectAudioSource(e);
+          const canInternalPlay = smartPlayerVisible && !!audioSrc;
+          const isCurrent = currentEpisode?.id === e.id;
+          const isThisPlaying = isCurrent && isPlaying;
 
-        {smartPlayerVisible ? (
-          <EpisodeAudioPlayer episode={e} podcast={p} />
-        ) : (
-          e.audio_url && (
-            <InlineAudioPlayer ref={audioRef} src={e.audio_url} title={e.display_title || e.title} />
-          )
-        )}
+          const handleInternalPrimary = () => {
+            if (!audioSrc) return;
+            if (isCurrent) {
+              toggle();
+              return;
+            }
+            const prog = getProgress(e.id);
+            const canResume = !!prog && prog.currentTime > 30 && !prog.completed;
+            const ep: SmartPlayerEpisode = {
+              id: e.id,
+              title: e.display_title || e.title,
+              podcastId: p.id,
+              podcastTitle: p.display_title || p.title,
+              podcastSlug: p.slug || null,
+              episodeSlug: e.slug || null,
+              imageUrl: e.image_url || p.image_url || null,
+              audioUrl: audioSrc.url,
+              externalUrl: e.episode_url || e.audio_url || null,
+            };
+            play(ep, { resume: canResume });
+          };
+
+          const trackExternal = (platform: string, url: string) => {
+            logPlayerEvent({
+              eventType: "external_open",
+              episodeId: e.id,
+              podcastId: p.id,
+              meta: { platform, url },
+            });
+          };
+
+          const externalFallbackHref = e.audio_url || e.episode_url || null;
+          const externalFallbackLabel = e.audio_url
+            ? "Megnyitás külső lejátszóban"
+            : "Megnyitás az eredeti oldalon";
+
+          return (
+            <>
+              {/* Primary CTA */}
+              <div className="mt-5">
+                {canInternalPlay ? (
+                  <button
+                    onClick={handleInternalPrimary}
+                    aria-label={isThisPlaying ? "Szünet" : "Hallgatás"}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[0_6px_22px_-8px_hsl(var(--brand-red)/0.55)] hover:bg-primary/90 transition-colors"
+                  >
+                    {isThisPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                    <span>{isThisPlaying ? "Szünet" : isCurrent ? "Folytatás" : "Hallgatás"}</span>
+                  </button>
+                ) : externalFallbackHref ? (
+                  <a
+                    href={externalFallbackHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => trackExternal("original_page", externalFallbackHref)}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[0_6px_22px_-8px_hsl(var(--brand-red)/0.55)] hover:bg-primary/90 transition-colors"
+                  >
+                    <ExternalLink className="h-5 w-5" />
+                    <span>{externalFallbackLabel}</span>
+                  </a>
+                ) : null}
+              </div>
+
+              {/* Secondary platform row */}
+              {(p.apple_url || p.spotify_url || p.youtube_url) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground mr-1 hidden sm:inline">
+                    Más platformon
+                  </span>
+                  {p.apple_url && (
+                    <a
+                      href={p.apple_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => trackExternal("apple", p.apple_url)}
+                      aria-label="Megnyitás Apple Podcasts-ban"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-card/60 text-xs text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
+                    >
+                      <Apple className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Apple</span>
+                    </a>
+                  )}
+                  {p.spotify_url && (
+                    <a
+                      href={p.spotify_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => trackExternal("spotify", p.spotify_url)}
+                      aria-label="Megnyitás Spotify-on"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-card/60 text-xs text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
+                    >
+                      <Music className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Spotify</span>
+                    </a>
+                  )}
+                  {p.youtube_url && (
+                    <a
+                      href={p.youtube_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => trackExternal("youtube", p.youtube_url)}
+                      aria-label="Megnyitás YouTube-on"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-card/60 text-xs text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
+                    >
+                      <Youtube className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">YouTube</span>
+                    </a>
+                  )}
+                  {canInternalPlay && e.episode_url && (
+                    <a
+                      href={e.episode_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => trackExternal("original_page", e.episode_url)}
+                      aria-label="Eredeti oldal megnyitása"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-card/60 text-xs text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
+                    >
+                      <Globe className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Eredeti</span>
+                    </a>
+                  )}
+                  <div className="ml-auto">
+                    <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
+                  </div>
+                </div>
+              )}
+
+              {/* Smart Player card (or legacy inline fallback) */}
+              {smartPlayerVisible ? (
+                <EpisodeAudioPlayer episode={e} podcast={p} />
+              ) : (
+                e.audio_url && (
+                  <InlineAudioPlayer ref={audioRef} src={e.audio_url} title={e.display_title || e.title} />
+                )
+              )}
+            </>
+          );
+        })()}
 
         {summary && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-card">
