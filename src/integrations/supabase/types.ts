@@ -4735,6 +4735,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_person_judge_batch: { Args: { _limit: number }; Returns: string[] }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       dedup_episodes_audio_url_batch: {

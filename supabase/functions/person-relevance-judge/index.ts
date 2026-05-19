@@ -4,11 +4,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const TIME_BUDGET_MS = 18_000;
-const RESERVE_MS = 2_500;
+const TIME_BUDGET_MS = 35_000;
+const RESERVE_MS = 4_000;
 const MODEL = "gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
-const MAX_CONCURRENCY = 48;
+const MAX_CONCURRENCY = 250;
 
 async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
   try {
@@ -17,7 +17,7 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
     return {
       budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
       batchLimit: Number(v.batch_limit ?? 30),
-      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), 48),
+      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), MAX_CONCURRENCY),
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
       raw: v,
@@ -178,9 +178,17 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, skipped: "disabled_in_settings" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   const DAILY_BUDGET_USD = settings.budget;
-  const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 200);
+  const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 800);
   const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), MAX_CONCURRENCY);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
+
+  // Reap stale 'in_progress' rows (workers that died) — reset to 'pending' if older than 5 min.
+  try {
+    await supabase.from("person_episode_mentions")
+      .update({ relevance_status: "pending" })
+      .eq("relevance_status", "in_progress")
+      .lt("ai_judged_at", new Date(Date.now() - 5 * 60_000).toISOString());
+  } catch { /* ignore */ }
 
   // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
   const initialPending = await countPendingHU(supabase, targetPersonIds);
@@ -198,17 +206,15 @@ Deno.serve(async (req) => {
   while (Date.now() - startedAt < TIME_BUDGET_MS - RESERVE_MS) {
     if (spendToday >= DAILY_BUDGET_USD) break;
 
-    // claim a batch of pending mentions on HU-approved podcasts.
-    // Filter podcast directly via mentions.podcast_id (PostgREST cannot reliably
-    // filter on two-level nested embeds like episodes.podcasts.is_hungarian).
+    // Atomic claim: flips relevance_status='pending'→'in_progress' with SKIP LOCKED so
+    // multiple concurrent invocations never overlap.
+    const { data: claimed, error: claimErr } = await supabase.rpc("claim_person_judge_batch", { _limit: batchLimit });
+    if (claimErr || !claimed || claimed.length === 0) break;
+    const claimedIds: string[] = (claimed as any[]).map((r: any) => (typeof r === "string" ? r : r.id));
     let q = supabase
       .from("person_episode_mentions")
       .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
-      .eq("relevance_status", "pending")
-      .eq("podcasts.is_hungarian", true)
-      .eq("podcasts.language_decision", "accept_hungarian")
-      .order("confidence", { ascending: false })
-      .limit(batchLimit);
+      .in("id", claimedIds);
     if (targetPersonIds) q = q.in("person_id", targetPersonIds);
     const { data: rows, error } = await q;
     if (error || !rows || rows.length === 0) break;
