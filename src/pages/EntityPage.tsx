@@ -6,7 +6,7 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
-import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug } from "@/lib/entity";
+import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entitySlug, matchesEntitySlug } from "@/lib/entity";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
 
 const NOINDEX_BELOW = 5;
