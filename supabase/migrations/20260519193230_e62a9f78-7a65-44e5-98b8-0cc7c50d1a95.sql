@@ -1,0 +1,2 @@
+UPDATE app_settings SET value = jsonb_set(jsonb_set(jsonb_set(value, '{concurrency}', '32'::jsonb), '{batch_limit}', '250'::jsonb), '{note}', '"Drain boost 2026-05-19: direct Gemini API ONLY, concurrency 32, batch 250, single cron *."'::jsonb), updated_at = now() WHERE key = 'person_relevance_judge_controls';
+SELECT cron.alter_job(35, active := false);

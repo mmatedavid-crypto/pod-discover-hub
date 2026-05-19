@@ -4,10 +4,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const TIME_BUDGET_MS = 110_000;
-const RESERVE_MS = 8_000;
-const MODEL = "google/gemini-2.5-flash";
+const TIME_BUDGET_MS = 18_000;
+const RESERVE_MS = 2_500;
+const MODEL = "gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
+const MAX_CONCURRENCY = 48;
 
 async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
   try {
@@ -16,7 +17,7 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
     return {
       budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
       batchLimit: Number(v.batch_limit ?? 30),
-      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), 16),
+      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), 48),
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
       raw: v,
@@ -74,7 +75,7 @@ const TOOL = {
       evidence_phrases: { type: "array", items: { type: "string" }, maxItems: 5 },
       should_show_publicly: { type: "boolean" },
       is_false_positive: { type: "boolean" },
-      false_positive_reason: { type: ["string", "null"] },
+      false_positive_reason: { type: "string", nullable: true },
     },
     required: ["is_relevant", "relevance_score", "recommended_mention_type", "identity_match", "reason", "evidence_phrases", "should_show_publicly", "is_false_positive"],
   },
@@ -133,37 +134,10 @@ async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result
   return { result: fc.args, cost };
 }
 
-async function callAIGateway(prompt: string, apiKey: string): Promise<{ result: any; cost: number } | null> {
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: "user", content: prompt }],
-      tools: [{ type: "function", function: TOOL }],
-      tool_choice: { type: "function", function: { name: TOOL.name } },
-    }),
-  });
-  if (!r.ok) {
-    if (r.status === 429 || r.status === 402) throw new Error(`rate_limit:${r.status}`);
-    return null;
-  }
-  const j = await r.json();
-  const args = j.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (!args) return null;
-  let parsed: any;
-  try { parsed = JSON.parse(args); } catch { return null; }
-  const usage = j.usage || {};
-  const cost = ((usage.prompt_tokens || 0) * 0.075 + (usage.completion_tokens || 0) * 0.30) / 1_000_000;
-  return { result: parsed, cost };
-}
-
 async function callAI(prompt: string): Promise<{ result: any; cost: number } | null> {
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  if (geminiKey) return await callAIDirect(prompt, geminiKey);
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) return null;
-  return await callAIGateway(prompt, apiKey);
+  if (!geminiKey) throw new Error("GEMINI_API_KEY missing — direct API required");
+  return await callAIDirect(prompt, geminiKey);
 }
 
 async function logSpend(supabase: any, cost: number) {
@@ -205,7 +179,7 @@ Deno.serve(async (req) => {
   }
   const DAILY_BUDGET_USD = settings.budget;
   const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 200);
-  const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), 16);
+  const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), MAX_CONCURRENCY);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
   // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.

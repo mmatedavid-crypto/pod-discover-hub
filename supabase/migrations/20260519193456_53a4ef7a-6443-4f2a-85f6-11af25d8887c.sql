@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = jsonb_set(value, '{concurrency}', '24'::jsonb), updated_at = now() WHERE key = 'person_relevance_judge_controls';
