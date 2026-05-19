@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = value || jsonb_build_object('batch_limit', 100, 'note', 'Bugfix 2026-05-19: batch_limit 500 caused PostgREST URL overflow on .in() filter; loop silently exited with processed=0. Reduced to 100.'), updated_at = now() WHERE key = 'person_relevance_judge_controls';
