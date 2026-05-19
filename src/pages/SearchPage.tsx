@@ -69,6 +69,7 @@ export default function SearchPage() {
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
   const [confidence, setConfidence] = useState<"high" | "medium" | "low" | null>(null);
+  const [pinnedPodcast, setPinnedPodcast] = useState<any | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
 
