@@ -4,10 +4,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const TIME_BUDGET_MS = 110_000;
-const RESERVE_MS = 8_000;
-const MODEL = "google/gemini-2.5-flash";
+const TIME_BUDGET_MS = 50_000;
+const RESERVE_MS = 4_000;
+const MODEL = "gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
+const MAX_CONCURRENCY = 48;
 
 async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
   try {
