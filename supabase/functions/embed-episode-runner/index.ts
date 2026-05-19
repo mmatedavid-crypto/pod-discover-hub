@@ -2,6 +2,7 @@
 // Mirrors embed-podcast-runner: hash-cached, daily $ budget, adaptive cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { embeddingTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -9,8 +10,6 @@ const cors = {
 };
 const json = (b: any, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
-
-const PRICE_IN_PER_1K = 0.000025;
 
 async function sha256(s: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -114,7 +113,7 @@ Deno.serve(async (req) => {
           const content = buildContent(e, model);
           const hash = await sha256(content);
           const { vec, tokens } = await embed(model, content);
-          const cost = (tokens / 1000) * PRICE_IN_PER_1K;
+          const cost = embeddingTokenCostUsd(model, tokens);
           const vecStr = `[${vec.join(",")}]`;
           const { error: upErr } = await admin.from("episode_embeddings").upsert({
             episode_id: e.id, podcast_id: e.podcast_id,
