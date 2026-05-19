@@ -1,0 +1,1 @@
+SELECT cron.alter_job(32, schedule => '* * * * *'); SELECT cron.alter_job(35, schedule => '* * * * *');
