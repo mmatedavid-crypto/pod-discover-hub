@@ -1,5 +1,6 @@
 // Episode description cleaner: deterministic heuristics + optional AI fallback.
 // Output is hash-cached in episode_clean_text. Never throws on AI failure; falls back to heuristic.
+import { chatTokenCostUsd } from "./ai-pricing.ts";
 
 export type CleanerCtrl = {
   enabled?: boolean;
@@ -132,10 +133,6 @@ async function callAICleaner(model: string, text: string): Promise<{ cleaned_tex
   }
 }
 
-// Lovable AI Flash-Lite rough pricing per 1k tokens
-const AI_PRICE_IN_PER_1K = 0.000019;
-const AI_PRICE_OUT_PER_1K = 0.000076;
-
 export async function cleanEpisodeText(
   raw: string,
   ctrl: CleanerCtrl,
@@ -161,7 +158,7 @@ export async function cleanEpisodeText(
   }
   const inTok = Number(ai.usage?.prompt_tokens || Math.ceil(h.text.length / 4));
   const outTok = Number(ai.usage?.completion_tokens || Math.ceil(ai.cleaned_text.length / 4));
-  const cost = (inTok / 1000) * AI_PRICE_IN_PER_1K + (outTok / 1000) * AI_PRICE_OUT_PER_1K;
+  const cost = chatTokenCostUsd(model, inTok, outTok);
   return {
     cleaned_text: ai.cleaned_text,
     removed_categories: Array.from(new Set([...h.removed, ...ai.removed_categories])),
