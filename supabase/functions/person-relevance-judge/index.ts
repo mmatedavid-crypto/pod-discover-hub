@@ -109,9 +109,31 @@ Jelenlegi szabályalapú besorolás: mention_type=${r.mention_type}, confidence=
 Hívd meg a judge_person_episode_relevance tool-t.`;
 }
 
-async function callAI(prompt: string): Promise<{ result: any; cost: number } | null> {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) return null;
+async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result: any; cost: number } | null> {
+  // Direct Google Generative Language API — bypasses Lovable Gateway RPM limits.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      tools: [{ functionDeclarations: [TOOL] }],
+      toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [TOOL.name] } },
+    }),
+  });
+  if (!r.ok) {
+    if (r.status === 429 || r.status === 503) throw new Error(`rate_limit:${r.status}`);
+    return null;
+  }
+  const j = await r.json();
+  const fc = j.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
+  if (!fc?.args) return null;
+  const usage = j.usageMetadata || {};
+  const cost = ((usage.promptTokenCount || 0) * 0.075 + (usage.candidatesTokenCount || 0) * 0.30) / 1_000_000;
+  return { result: fc.args, cost };
+}
+
+async function callAIGateway(prompt: string, apiKey: string): Promise<{ result: any; cost: number } | null> {
   const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -132,9 +154,16 @@ async function callAI(prompt: string): Promise<{ result: any; cost: number } | n
   let parsed: any;
   try { parsed = JSON.parse(args); } catch { return null; }
   const usage = j.usage || {};
-  // crude cost estimate: $0.075/M input + $0.30/M output
   const cost = ((usage.prompt_tokens || 0) * 0.075 + (usage.completion_tokens || 0) * 0.30) / 1_000_000;
   return { result: parsed, cost };
+}
+
+async function callAI(prompt: string): Promise<{ result: any; cost: number } | null> {
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  if (geminiKey) return await callAIDirect(prompt, geminiKey);
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) return null;
+  return await callAIGateway(prompt, apiKey);
 }
 
 async function logSpend(supabase: any, cost: number) {
