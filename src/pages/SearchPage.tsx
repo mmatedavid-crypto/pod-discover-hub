@@ -166,6 +166,14 @@ export default function SearchPage() {
         setSemanticUsed(semantic || r1.reranked);
         const cb = phase1.data?.confidence_band;
         if (cb === "high" || cb === "medium" || cb === "low") setConfidence(cb);
+        const pin = phase1.data?.podcast_pin;
+        if (pin?.slug) {
+          setPinnedPodcast({
+            id: pin.slug, slug: pin.slug, title: pin.title,
+            image_url: pin.image_url, description: pin.description,
+            summary: pin.description,
+          });
+        }
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
