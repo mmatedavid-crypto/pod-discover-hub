@@ -2736,6 +2736,7 @@ export type Database = {
           manual_rank_boost: number
           next_fetch_at: string | null
           next_rss_hunt_at: string | null
+          normalized_title: string | null
           pi_backfill_approved: boolean | null
           pi_backfill_completed_at: string | null
           pi_backfill_dry_run: Json | null
@@ -2832,6 +2833,7 @@ export type Database = {
           manual_rank_boost?: number
           next_fetch_at?: string | null
           next_rss_hunt_at?: string | null
+          normalized_title?: string | null
           pi_backfill_approved?: boolean | null
           pi_backfill_completed_at?: string | null
           pi_backfill_dry_run?: Json | null
@@ -2928,6 +2930,7 @@ export type Database = {
           manual_rank_boost?: number
           next_fetch_at?: string | null
           next_rss_hunt_at?: string | null
+          normalized_title?: string | null
           pi_backfill_approved?: boolean | null
           pi_backfill_completed_at?: string | null
           pi_backfill_dry_run?: Json | null
@@ -4348,6 +4351,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      immutable_unaccent: { Args: { s: string }; Returns: string }
       is_publicly_visible_hu_podcast: {
         Args: { p_id: string }
         Returns: boolean
@@ -4367,6 +4371,7 @@ export type Database = {
       match_podcast_by_name: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
+          match_type: string
           podcast_id: string
           similarity: number
           slug: string
@@ -4414,6 +4419,7 @@ export type Database = {
         }
         Returns: number
       }
+      normalize_podcast_title: { Args: { s: string }; Returns: string }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
       purge_search_query_cache: {
         Args: { older_than_days?: number }

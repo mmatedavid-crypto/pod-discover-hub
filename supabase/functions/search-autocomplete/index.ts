@@ -43,18 +43,23 @@ Deno.serve(async (req) => {
     const q = norm(rawQ);
     const ilike = `%${q}%`;
     const prefix = `${q}%`;
+    // Accent-insensitive variants for `podcasts.normalized_title`
+    const qNoSpace = q.replace(/\s+/g, " ").trim();
+    const nIlike = `%${qNoSpace}%`;
+    const nPrefix = `${qNoSpace}%`;
+    const nTokenInfix = `% ${qNoSpace} %`;
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     // Parallel reads — keep each one tight.
     const [podRes, persRes, aliasRes, topRes, catRes, qcacheRes] = await Promise.all([
       supa.from("podcasts")
-        .select("title,slug,image_url,podiverzum_rank,rank_label")
+        .select("title,slug,image_url,podiverzum_rank,rank_label,normalized_title")
         .eq("is_hungarian", true)
         .eq("language_decision", "accept_hungarian")
-        .or(`title.ilike.${ilike},display_title.ilike.${ilike}`)
+        .or(`normalized_title.ilike.${nPrefix},normalized_title.ilike.${nTokenInfix},normalized_title.ilike.${nIlike},title.ilike.${ilike}`)
         .order("podiverzum_rank", { ascending: false, nullsFirst: false })
-        .limit(6),
+        .limit(8),
       supa.from("people")
         .select("name,slug,image_url,gated_episode_count,is_indexable,disambiguation_label,normalized_name")
         .eq("is_public", true)
@@ -91,11 +96,12 @@ Deno.serve(async (req) => {
     // Podcasts first — exact/title-prefix matches get the highest confidence.
     for (const p of (podRes.data || [])) {
       const t = String((p as any).title || "");
-      const tNorm = norm(t);
+      const nt = String((p as any).normalized_title || norm(t));
       let conf = 0.5;
-      if (tNorm === q) conf = 1.0;
-      else if (tNorm.startsWith(q)) conf = 0.9;
-      else if (tNorm.includes(` ${q}`) || tNorm.includes(`${q} `)) conf = 0.75;
+      if (nt === q || nt === qNoSpace) conf = 1.0;
+      else if (nt.startsWith(qNoSpace)) conf = 0.9;
+      else if ((` ${nt} `).includes(` ${qNoSpace} `)) conf = 0.85;
+      else if (nt.includes(qNoSpace)) conf = 0.7;
       out.push({
         type: "podcast",
         label: t,

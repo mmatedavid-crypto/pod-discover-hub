@@ -69,6 +69,7 @@ export default function SearchPage() {
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
   const [confidence, setConfidence] = useState<"high" | "medium" | "low" | null>(null);
+  const [pinnedPodcast, setPinnedPodcast] = useState<any | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
 
@@ -124,6 +125,7 @@ export default function SearchPage() {
     setAiAnswer("");
     setPiFallback(null);
     setConfidence(null);
+    setPinnedPodcast(null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
@@ -164,6 +166,14 @@ export default function SearchPage() {
         setSemanticUsed(semantic || r1.reranked);
         const cb = phase1.data?.confidence_band;
         if (cb === "high" || cb === "medium" || cb === "low") setConfidence(cb);
+        const pin = phase1.data?.podcast_pin;
+        if (pin?.slug) {
+          setPinnedPodcast({
+            id: pin.slug, slug: pin.slug, title: pin.title,
+            image_url: pin.image_url, description: pin.description,
+            summary: pin.description,
+          });
+        }
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -312,10 +322,16 @@ export default function SearchPage() {
     setParams(next);
   };
 
-  // Hero podcast match: word-boundary phrase hit on title/display_title.
+  // Hero podcast match: prefer the server-pinned podcast (accent-insensitive,
+  // multi-tier RPC). Fall back to local word-boundary phrase match if no pin.
   const heroPodcast = useMemo(() => {
+    if (loading) return null;
+    if (pinnedPodcast) {
+      const local = podcasts.find((p) => p.slug === pinnedPodcast.slug);
+      return local || pinnedPodcast;
+    }
     const phrase = initial.trim().toLowerCase();
-    if (phrase.length < 3 || loading) return null;
+    if (phrase.length < 3) return null;
     const phraseRe = new RegExp(
       `(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}\\p{N}]|$)`,
       "iu"
@@ -325,9 +341,9 @@ export default function SearchPage() {
       const d = ((p as any).display_title || "");
       return phraseRe.test(t) || phraseRe.test(d);
     }) || null;
-  }, [initial, podcasts, loading]);
+  }, [initial, podcasts, loading, pinnedPodcast]);
 
-  const podcastsList = heroPodcast ? podcasts.filter((p) => p.id !== heroPodcast.id) : podcasts;
+  const podcastsList = heroPodcast ? podcasts.filter((p) => p.id !== heroPodcast.id && p.slug !== heroPodcast.slug) : podcasts;
 
   return (
     <Layout>
