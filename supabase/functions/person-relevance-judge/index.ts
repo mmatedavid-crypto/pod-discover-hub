@@ -3,6 +3,7 @@
 // HU-output JSON tool call; writes relevance_status + ai_* fields on person_episode_mentions.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const TIME_BUDGET_MS = 35_000;
 const RESERVE_MS = 4_000;
@@ -130,7 +131,7 @@ async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result
   const fc = j.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
   if (!fc?.args) return null;
   const usage = j.usageMetadata || {};
-  const cost = ((usage.promptTokenCount || 0) * 0.075 + (usage.candidatesTokenCount || 0) * 0.30) / 1_000_000;
+  const cost = chatTokenCostUsd(MODEL, Number(usage.promptTokenCount || 0), Number(usage.candidatesTokenCount || 0));
   return { result: fc.args, cost };
 }
 

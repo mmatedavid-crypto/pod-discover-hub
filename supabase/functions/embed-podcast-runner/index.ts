@@ -5,6 +5,7 @@
 // - Writes progress to app_settings.embed_progress.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { embeddingTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -19,9 +20,6 @@ const BAD_HEALTH = new Set([
   "confirmed_dead",
   "quarantined_spam",
 ]);
-
-// google/text-embedding-004 ~ $0.000025 per 1k input tokens (effectively free at our scale)
-const PRICE_IN_PER_1K = 0.000025;
 
 async function sha256(s: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -161,7 +159,7 @@ Deno.serve(async (req) => {
       processed++;
       try {
         const { vec, tokens } = await embed(model, content);
-        const cost = (tokens / 1000) * PRICE_IN_PER_1K;
+        const cost = embeddingTokenCostUsd(model, tokens);
         const vecStr = `[${vec.join(",")}]`;
         const { error: upErr } = await admin.from("podcast_embeddings").upsert({
           podcast_id: p.id,

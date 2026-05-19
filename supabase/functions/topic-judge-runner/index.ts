@@ -5,6 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -12,9 +13,6 @@ const cors = {
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-// Gemini 2.5 Flash Lite via Lovable AI Gateway: $0.10/M input, $0.40/M output
-const PRICE_IN_PER_1K = 0.0001;
-const PRICE_OUT_PER_1K = 0.0004;
 const TIME_BUDGET_MS = 50_000;
 
 const JUDGE_TOOL = {
@@ -137,7 +135,7 @@ Döntsd el, hogy az EPIZÓD-szintű tartalom valóban a TÉMÁROL szól-e.`;
       const usage = ai.usage || {};
       const inTok = Number(usage.prompt_tokens || 0);
       const outTok = Number(usage.completion_tokens || 0);
-      const cost = (inTok / 1000) * PRICE_IN_PER_1K + (outTok / 1000) * PRICE_OUT_PER_1K;
+      const cost = chatTokenCostUsd(model, inTok, outTok);
       const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       if (!args) throw new Error("no_tool_call");
       const parsed = typeof args === "string" ? JSON.parse(args) : args;

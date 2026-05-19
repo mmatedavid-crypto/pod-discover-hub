@@ -5,6 +5,7 @@
 // language_decision='accept_hungarian'.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -156,7 +157,7 @@ async function callAI(payload: any): Promise<{ args: any; cost: number; error?: 
   try { parsed = JSON.parse(call.function.arguments); } catch { return { args: null, cost: 0, error: "parse_fail" }; }
   const inTok = j?.usage?.prompt_tokens || 0;
   const outTok = j?.usage?.completion_tokens || 0;
-  const cost = (inTok / 1e6) * 0.075 + (outTok / 1e6) * 0.3;
+  const cost = chatTokenCostUsd(MODEL, Number(inTok || 0), Number(outTok || 0));
   return { args: parsed, cost };
 }
 

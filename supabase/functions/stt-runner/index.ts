@@ -8,6 +8,7 @@
 // with input_audio content part. Falls back to no-call if audio too large.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -15,18 +16,6 @@ const cors = {
 };
 const json = (b: any, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
-
-// Rough pricing for Gemini audio (per 1k tokens). These are approximate;
-// audio input is metered by Google differently but we track relative spend.
-const PRICING: Record<string, { in: number; out: number }> = {
-  "google/gemini-2.5-flash":             { in: 0.000075, out: 0.0003 },
-  "google/gemini-2.5-flash-lite":        { in: 0.00003,  out: 0.00012 },
-  "google/gemini-3-flash-preview":       { in: 0.000075, out: 0.0003 },
-  "google/gemini-3.1-flash-lite-preview":{ in: 0.00003,  out: 0.00012 },
-  "google/gemini-3.1-pro-preview":       { in: 0.00125,  out: 0.005 },
-  "google/gemini-2.5-pro":               { in: 0.00125,  out: 0.005 },
-};
-const priceOf = (model: string) => PRICING[model] || PRICING["google/gemini-2.5-flash"];
 
 const SYSTEM_PROMPT =
   "You are a faithful Hungarian podcast transcriber. Return the COMPLETE verbatim transcript of the audio in the source language (Hungarian). Use proper punctuation and paragraph breaks every few sentences. Do NOT summarize, do NOT translate, do NOT add headings, do NOT add speaker labels unless clearly identifiable. Output only the transcript text — nothing else.";
@@ -197,8 +186,7 @@ Deno.serve(async (req) => {
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);
-        const p = priceOf(model);
-        const cost = (inTok / 1000) * p.in + (outTok / 1000) * p.out;
+        const cost = chatTokenCostUsd(model, inTok, outTok, "audio");
         spend += cost; calls++;
         byKind.stt = Number(byKind.stt || 0) + cost;
 

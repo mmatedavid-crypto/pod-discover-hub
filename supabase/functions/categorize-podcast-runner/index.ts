@@ -4,16 +4,13 @@
 // auto-tunes its own cron via set_categorize_runner_schedule.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
-
-// Gemini Flash rough pricing
-const PRICE_IN_PER_1K = 0.000075;
-const PRICE_OUT_PER_1K = 0.0003;
 
 // Canonical categories — slug, name, one-liner browse intent
 const CATEGORIES: { slug: string; name: string; hint: string }[] = [
@@ -160,7 +157,7 @@ Deno.serve(async (req) => {
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);
-        const cost = (inTok / 1000) * PRICE_IN_PER_1K + (outTok / 1000) * PRICE_OUT_PER_1K;
+        const cost = chatTokenCostUsd(model, inTok, outTok);
         const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
         if (!args) throw new Error("no_tool_call");
         const parsed = JSON.parse(args);

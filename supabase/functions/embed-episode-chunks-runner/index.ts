@@ -5,6 +5,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { cleanEpisodeText, chunkText, type CleanerCtrl } from "../_shared/episode-text-cleaner.ts";
+import { embeddingTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -12,8 +13,6 @@ const cors = {
 };
 const json = (b: any, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
-
-const EMBED_PRICE_PER_1K = 0.000025;
 
 async function sha256(s: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -176,7 +175,7 @@ Deno.serve(async (req) => {
               : prefix;
             const hash = await sha256(`${model}|${idx}/${chunkCount}|${content}`);
             const { vec, tokens } = await embed(model, content);
-            const cost = (tokens / 1000) * EMBED_PRICE_PER_1K;
+            const cost = embeddingTokenCostUsd(model, tokens);
             embedSpend += cost; embedSpendIncrement += cost; runCalls++;
             rows.push({
               episode_id: e.id,
