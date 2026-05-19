@@ -121,6 +121,7 @@ export default function AdminHubPage() {
         { to: "/admin/live", title: "Live Visitors", desc: "Active visitors right now + today's totals.", icon: Activity, badge: "live", badgeTone: "warn" },
         { to: "/admin/analytics", title: "Page Analytics", desc: "Page views, routes, referrers, UTM.", icon: LineChart },
         { to: "/admin/search-insights", title: "Search Insights", desc: "Top queries, zero-results, fallback usage.", icon: SearchIcon, badge: counts.zeroResultToday ? `${counts.zeroResultToday} zero today` : counts.searchToday ? `${counts.searchToday} today` : null, badgeTone: counts.zeroResultToday ? "warn" : "default" },
+        { to: "/admin/search-benchmark", title: "Search Benchmark", desc: "Golden query set, precision/NDCG/MRR, competitor scoring.", icon: SearchIcon, badge: "new", badgeTone: "warn" },
       ],
     },
     {

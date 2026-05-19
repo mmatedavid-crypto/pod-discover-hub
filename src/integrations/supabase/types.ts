@@ -2997,6 +2997,206 @@ export type Database = {
         }
         Relationships: []
       }
+      search_benchmark_competitors: {
+        Row: {
+          collected_at: string
+          collected_by: string | null
+          golden_id: string
+          id: string
+          notes: string | null
+          precision_at_5: number | null
+          scores: Json
+          source: string
+          top_results: Json
+        }
+        Insert: {
+          collected_at?: string
+          collected_by?: string | null
+          golden_id: string
+          id?: string
+          notes?: string | null
+          precision_at_5?: number | null
+          scores?: Json
+          source: string
+          top_results?: Json
+        }
+        Update: {
+          collected_at?: string
+          collected_by?: string | null
+          golden_id?: string
+          id?: string
+          notes?: string | null
+          precision_at_5?: number | null
+          scores?: Json
+          source?: string
+          top_results?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_benchmark_competitors_golden_id_fkey"
+            columns: ["golden_id"]
+            isOneToOne: false
+            referencedRelation: "search_golden_queries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      search_benchmark_results: {
+        Row: {
+          confidence_band: string | null
+          created_at: string
+          detected_intent: string | null
+          golden_id: string
+          id: string
+          intent_correct: boolean | null
+          latency_ms: number | null
+          ndcg_at_10: number | null
+          notes: string | null
+          precision_at_3: number | null
+          precision_at_5: number | null
+          query: string
+          raw_meta: Json
+          reciprocal_rank: number | null
+          result_count: number
+          run_id: string
+          scored_at: string | null
+          scores: Json
+          top_results: Json
+          used_cohere: boolean | null
+          used_fallback: boolean | null
+          used_hyde: boolean | null
+          used_must_gate: boolean | null
+          used_podcast_pin: boolean | null
+          used_vector: boolean | null
+        }
+        Insert: {
+          confidence_band?: string | null
+          created_at?: string
+          detected_intent?: string | null
+          golden_id: string
+          id?: string
+          intent_correct?: boolean | null
+          latency_ms?: number | null
+          ndcg_at_10?: number | null
+          notes?: string | null
+          precision_at_3?: number | null
+          precision_at_5?: number | null
+          query: string
+          raw_meta?: Json
+          reciprocal_rank?: number | null
+          result_count?: number
+          run_id: string
+          scored_at?: string | null
+          scores?: Json
+          top_results?: Json
+          used_cohere?: boolean | null
+          used_fallback?: boolean | null
+          used_hyde?: boolean | null
+          used_must_gate?: boolean | null
+          used_podcast_pin?: boolean | null
+          used_vector?: boolean | null
+        }
+        Update: {
+          confidence_band?: string | null
+          created_at?: string
+          detected_intent?: string | null
+          golden_id?: string
+          id?: string
+          intent_correct?: boolean | null
+          latency_ms?: number | null
+          ndcg_at_10?: number | null
+          notes?: string | null
+          precision_at_3?: number | null
+          precision_at_5?: number | null
+          query?: string
+          raw_meta?: Json
+          reciprocal_rank?: number | null
+          result_count?: number
+          run_id?: string
+          scored_at?: string | null
+          scores?: Json
+          top_results?: Json
+          used_cohere?: boolean | null
+          used_fallback?: boolean | null
+          used_hyde?: boolean | null
+          used_must_gate?: boolean | null
+          used_podcast_pin?: boolean | null
+          used_vector?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_benchmark_results_golden_id_fkey"
+            columns: ["golden_id"]
+            isOneToOne: false
+            referencedRelation: "search_golden_queries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_benchmark_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "search_benchmark_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      search_benchmark_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          engine: string | null
+          false_positive_rate: number | null
+          id: string
+          intent_accuracy: number | null
+          label: string | null
+          latency_p50: number | null
+          latency_p95: number | null
+          mrr: number | null
+          ndcg_at_10: number | null
+          notes: string | null
+          precision_at_3: number | null
+          precision_at_5: number | null
+          query_count: number
+          zero_result_rate: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          engine?: string | null
+          false_positive_rate?: number | null
+          id?: string
+          intent_accuracy?: number | null
+          label?: string | null
+          latency_p50?: number | null
+          latency_p95?: number | null
+          mrr?: number | null
+          ndcg_at_10?: number | null
+          notes?: string | null
+          precision_at_3?: number | null
+          precision_at_5?: number | null
+          query_count?: number
+          zero_result_rate?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          engine?: string | null
+          false_positive_rate?: number | null
+          id?: string
+          intent_accuracy?: number | null
+          label?: string | null
+          latency_p50?: number | null
+          latency_p95?: number | null
+          mrr?: number | null
+          ndcg_at_10?: number | null
+          notes?: string | null
+          precision_at_3?: number | null
+          precision_at_5?: number | null
+          query_count?: number
+          zero_result_rate?: number | null
+        }
+        Relationships: []
+      }
       search_events: {
         Row: {
           confidence_band: string | null
@@ -3030,6 +3230,54 @@ export type Database = {
           terms_count?: number
           user_id?: string | null
           viewport_width?: number | null
+        }
+        Relationships: []
+      }
+      search_golden_queries: {
+        Row: {
+          active: boolean
+          created_at: string
+          expected_entity: string | null
+          expected_intent: string | null
+          expected_podcast_slug: string | null
+          id: string
+          must_exclude: Json
+          must_include: Json
+          notes: string | null
+          query: string
+          query_type: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          expected_entity?: string | null
+          expected_intent?: string | null
+          expected_podcast_slug?: string | null
+          id?: string
+          must_exclude?: Json
+          must_include?: Json
+          notes?: string | null
+          query: string
+          query_type: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          expected_entity?: string | null
+          expected_intent?: string | null
+          expected_podcast_slug?: string | null
+          id?: string
+          must_exclude?: Json
+          must_include?: Json
+          notes?: string | null
+          query?: string
+          query_type?: string
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
