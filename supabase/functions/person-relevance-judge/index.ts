@@ -183,12 +183,12 @@ Deno.serve(async (req) => {
   const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), MAX_CONCURRENCY);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
-  // Reap stale 'in_progress' rows (workers that died) — reset to 'pending' if older than 5 min.
+  // Reap stale 'in_progress' rows (workers that died) — reset to 'pending' if older than 90s.
   try {
     await supabase.from("person_episode_mentions")
-      .update({ relevance_status: "pending" })
+      .update({ relevance_status: "pending", ai_judged_at: null })
       .eq("relevance_status", "in_progress")
-      .lt("ai_judged_at", new Date(Date.now() - 5 * 60_000).toISOString());
+      .lt("ai_judged_at", new Date(Date.now() - 90_000).toISOString());
   } catch { /* ignore */ }
 
   // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
@@ -234,68 +234,85 @@ Deno.serve(async (req) => {
     const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
     const processOne = async (m: any) => {
-      if (Date.now() - startedAt > TIME_BUDGET_MS - RESERVE_MS) return;
-      if (spendToday >= DAILY_BUDGET_USD) return;
-      const pending: PendingRow = {
-        id: m.id,
-        person_id: m.person_id,
-        episode_id: m.episode_id,
-        mention_type: m.mention_type,
-        confidence: Number(m.confidence || 0),
-        person_name: m.people.name,
-        person_aliases: aliasMap.get(m.person_id) || [],
-        disambiguation_label: m.people.disambiguation_label,
-        disambiguation_context: m.people.disambiguation_context,
-        ep_title: m.episodes.title,
-        ep_summary: m.episodes.summary,
-        ep_ai_summary: m.episodes.ai_summary,
-        pod_title: m.podcasts.title,
-        pod_description: m.podcasts.description,
+      // CRITICAL: every non-terminal exit MUST release the claim back to 'pending',
+      // otherwise rows stay in_progress with fresh ai_judged_at and the reaper can't
+      // touch them for 5 min — exactly the bug that stranded 3,763 rows.
+      let terminal = false;
+      const release = async () => {
+        if (terminal) return;
+        try {
+          await supabase.from("person_episode_mentions")
+            .update({ relevance_status: "pending", ai_judged_at: null })
+            .eq("id", m.id)
+            .eq("relevance_status", "in_progress");
+        } catch { /* ignore */ }
       };
 
-      // up to 3 attempts on rate_limit with exponential backoff
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const out = await callAI(buildPrompt(pending));
-          if (!out) { errors++; return; }
-          spendToday += out.cost;
-          await logSpend(supabase, out.cost);
-          const r = out.result;
-          let status: string;
-          if (r.is_false_positive || r.identity_match === "substring_false_positive" || r.identity_match === "different_person_same_name") status = "rejected";
-          else if (r.identity_match === "uncertain" || !r.should_show_publicly) status = "needs_review";
-          else if (r.is_relevant && r.relevance_score >= 0.6) status = "accepted";
-          else status = "rejected";
+      try {
+        if (Date.now() - startedAt > TIME_BUDGET_MS - RESERVE_MS) return;
+        if (spendToday >= DAILY_BUDGET_USD) return;
+        const pending: PendingRow = {
+          id: m.id,
+          person_id: m.person_id,
+          episode_id: m.episode_id,
+          mention_type: m.mention_type,
+          confidence: Number(m.confidence || 0),
+          person_name: m.people.name,
+          person_aliases: aliasMap.get(m.person_id) || [],
+          disambiguation_label: m.people.disambiguation_label,
+          disambiguation_context: m.people.disambiguation_context,
+          ep_title: m.episodes.title,
+          ep_summary: m.episodes.summary,
+          ep_ai_summary: m.episodes.ai_summary,
+          pod_title: m.podcasts.title,
+          pod_description: m.podcasts.description,
+        };
 
-          if (status === "accepted") accepted++;
-          else if (status === "rejected") rejected++;
-          else needs_review++;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const out = await callAI(buildPrompt(pending));
+            if (!out) { errors++; return; }
+            spendToday += out.cost;
+            await logSpend(supabase, out.cost);
+            const r = out.result;
+            let status: string;
+            if (r.is_false_positive || r.identity_match === "substring_false_positive" || r.identity_match === "different_person_same_name") status = "rejected";
+            else if (r.identity_match === "uncertain" || !r.should_show_publicly) status = "needs_review";
+            else if (r.is_relevant && r.relevance_score >= 0.6) status = "accepted";
+            else status = "rejected";
 
-          await supabase.from("person_episode_mentions").update({
-            relevance_status: status,
-            final_relevance_score: r.relevance_score,
-            validation_source: "ai",
-            ai_identity_match: r.identity_match,
-            ai_reason: r.reason,
-            ai_evidence_phrases: r.evidence_phrases || [],
-            ai_judged_at: new Date().toISOString(),
-            ai_model: MODEL,
-            mention_type: status === "accepted" && r.recommended_mention_type !== "none" ? r.recommended_mention_type : m.mention_type,
-          }).eq("id", m.id);
-          processed++;
-          return;
-        } catch (e) {
-          if (String(e).includes("rate_limit")) {
-            rateLimitHits++;
-            // backoff: 1.5s, 4s, 8s
-            await sleep([1500, 4000, 8000][attempt] || 8000);
-            continue;
+            if (status === "accepted") accepted++;
+            else if (status === "rejected") rejected++;
+            else needs_review++;
+
+            await supabase.from("person_episode_mentions").update({
+              relevance_status: status,
+              final_relevance_score: r.relevance_score,
+              validation_source: "ai",
+              ai_identity_match: r.identity_match,
+              ai_reason: r.reason,
+              ai_evidence_phrases: r.evidence_phrases || [],
+              ai_judged_at: new Date().toISOString(),
+              ai_model: MODEL,
+              mention_type: status === "accepted" && r.recommended_mention_type !== "none" ? r.recommended_mention_type : m.mention_type,
+            }).eq("id", m.id);
+            processed++;
+            terminal = true;
+            return;
+          } catch (e) {
+            if (String(e).includes("rate_limit")) {
+              rateLimitHits++;
+              await sleep([1500, 4000, 8000][attempt] || 8000);
+              continue;
+            }
+            errors++;
+            return;
           }
-          errors++;
-          return;
         }
+        errors++;
+      } finally {
+        await release();
       }
-      errors++; // exhausted retries
     };
 
     // worker pool
