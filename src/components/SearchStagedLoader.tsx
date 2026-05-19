@@ -44,7 +44,8 @@ export function SearchStagedLoader({ query }: Props) {
           </div>
           <div
             key={line}
-            className="text-xs text-muted-foreground mt-0.5 animate-fade-in"
+            className="text-xs text-muted-foreground mt-0.5 transition-opacity duration-500"
+            style={{ animation: "search-stage-fade 400ms ease-out both" }}
           >
             {line}
           </div>
