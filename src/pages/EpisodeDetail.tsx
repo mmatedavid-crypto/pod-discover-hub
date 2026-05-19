@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, ExternalLink } from "lucide-react";
+import { Apple, Music, Youtube, ExternalLink, Play, Pause, Globe } from "lucide-react";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
@@ -19,7 +19,10 @@ import { extractKeyMoments } from "@/lib/keyMoments";
 import { KeyMoments } from "@/components/KeyMoments";
 import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 import { EpisodeAudioPlayer } from "@/components/smart-player/EpisodeAudioPlayer";
-import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
+import { useSmartPlayer, type SmartPlayerEpisode } from "@/components/smart-player/SmartPlayerProvider";
+import { detectAudioSource } from "@/lib/playerAudio";
+import { getProgress } from "@/lib/playerProgress";
+import { logPlayerEvent } from "@/lib/playerEvents";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
