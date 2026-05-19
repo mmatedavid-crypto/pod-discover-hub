@@ -8,7 +8,7 @@ const TIME_BUDGET_MS = 35_000;
 const RESERVE_MS = 4_000;
 const MODEL = "gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
-const MAX_CONCURRENCY = 48;
+const MAX_CONCURRENCY = 250;
 
 async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
   try {
