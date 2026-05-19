@@ -9,19 +9,20 @@ const RESERVE_MS = 8_000;
 const MODEL = "google/gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 
-async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
+async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
   try {
     const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
     const v = data?.value || {};
     return {
       budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
       batchLimit: Number(v.batch_limit ?? 30),
+      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), 16),
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
       raw: v,
     };
   } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, enabled: true, autoDisableWhenEmpty: true, raw: {} };
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, raw: {} };
   }
 }
 
@@ -175,6 +176,7 @@ Deno.serve(async (req) => {
   }
   const DAILY_BUDGET_USD = settings.budget;
   const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 200);
+  const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), 16);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
   // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
@@ -218,10 +220,12 @@ Deno.serve(async (req) => {
       aliasMap.set(a.person_id, list);
     });
 
-    for (const m of rows as any[]) {
-      if (Date.now() - startedAt > TIME_BUDGET_MS - RESERVE_MS) break;
-      if (spendToday >= DAILY_BUDGET_USD) break;
+    let rateLimitHits = 0;
+    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+    const processOne = async (m: any) => {
+      if (Date.now() - startedAt > TIME_BUDGET_MS - RESERVE_MS) return;
+      if (spendToday >= DAILY_BUDGET_USD) return;
       const pending: PendingRow = {
         id: m.id,
         person_id: m.person_id,
@@ -239,38 +243,67 @@ Deno.serve(async (req) => {
         pod_description: m.podcasts.description,
       };
 
-      try {
-        const out = await callAI(buildPrompt(pending));
-        if (!out) { errors++; continue; }
-        spendToday += out.cost;
-        await logSpend(supabase, out.cost);
-        const r = out.result;
-        let status: string;
-        if (r.is_false_positive || r.identity_match === "substring_false_positive" || r.identity_match === "different_person_same_name") status = "rejected";
-        else if (r.identity_match === "uncertain" || !r.should_show_publicly) status = "needs_review";
-        else if (r.is_relevant && r.relevance_score >= 0.6) status = "accepted";
-        else status = "rejected";
+      // up to 3 attempts on rate_limit with exponential backoff
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const out = await callAI(buildPrompt(pending));
+          if (!out) { errors++; return; }
+          spendToday += out.cost;
+          await logSpend(supabase, out.cost);
+          const r = out.result;
+          let status: string;
+          if (r.is_false_positive || r.identity_match === "substring_false_positive" || r.identity_match === "different_person_same_name") status = "rejected";
+          else if (r.identity_match === "uncertain" || !r.should_show_publicly) status = "needs_review";
+          else if (r.is_relevant && r.relevance_score >= 0.6) status = "accepted";
+          else status = "rejected";
 
-        if (status === "accepted") accepted++;
-        else if (status === "rejected") rejected++;
-        else needs_review++;
+          if (status === "accepted") accepted++;
+          else if (status === "rejected") rejected++;
+          else needs_review++;
 
-        await supabase.from("person_episode_mentions").update({
-          relevance_status: status,
-          final_relevance_score: r.relevance_score,
-          validation_source: "ai",
-          ai_identity_match: r.identity_match,
-          ai_reason: r.reason,
-          ai_evidence_phrases: r.evidence_phrases || [],
-          ai_judged_at: new Date().toISOString(),
-          ai_model: MODEL,
-          mention_type: status === "accepted" && r.recommended_mention_type !== "none" ? r.recommended_mention_type : m.mention_type,
-        }).eq("id", m.id);
-        processed++;
-      } catch (e) {
-        errors++;
-        if (String(e).includes("rate_limit")) { spendToday = DAILY_BUDGET_USD; break; }
+          await supabase.from("person_episode_mentions").update({
+            relevance_status: status,
+            final_relevance_score: r.relevance_score,
+            validation_source: "ai",
+            ai_identity_match: r.identity_match,
+            ai_reason: r.reason,
+            ai_evidence_phrases: r.evidence_phrases || [],
+            ai_judged_at: new Date().toISOString(),
+            ai_model: MODEL,
+            mention_type: status === "accepted" && r.recommended_mention_type !== "none" ? r.recommended_mention_type : m.mention_type,
+          }).eq("id", m.id);
+          processed++;
+          return;
+        } catch (e) {
+          if (String(e).includes("rate_limit")) {
+            rateLimitHits++;
+            // backoff: 1.5s, 4s, 8s
+            await sleep([1500, 4000, 8000][attempt] || 8000);
+            continue;
+          }
+          errors++;
+          return;
+        }
       }
+      errors++; // exhausted retries
+    };
+
+    // worker pool
+    let idx = 0;
+    const workers = Array.from({ length: concurrency }, async () => {
+      while (true) {
+        const my = idx++;
+        if (my >= rows.length) return;
+        if (Date.now() - startedAt > TIME_BUDGET_MS - RESERVE_MS) return;
+        if (spendToday >= DAILY_BUDGET_USD) return;
+        await processOne(rows[my]);
+      }
+    });
+    await Promise.all(workers);
+
+    // if rate limit is sustained (many hits in this batch), slow down next batch
+    if (rateLimitHits >= Math.max(5, Math.floor(rows.length / 4))) {
+      await sleep(3000);
     }
   }
 
