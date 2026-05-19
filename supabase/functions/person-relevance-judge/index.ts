@@ -183,12 +183,12 @@ Deno.serve(async (req) => {
   const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), MAX_CONCURRENCY);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
-  // Reap stale 'in_progress' rows (workers that died) — reset to 'pending' if older than 5 min.
+  // Reap stale 'in_progress' rows (workers that died) — reset to 'pending' if older than 90s.
   try {
     await supabase.from("person_episode_mentions")
-      .update({ relevance_status: "pending" })
+      .update({ relevance_status: "pending", ai_judged_at: null })
       .eq("relevance_status", "in_progress")
-      .lt("ai_judged_at", new Date(Date.now() - 5 * 60_000).toISOString());
+      .lt("ai_judged_at", new Date(Date.now() - 90_000).toISOString());
   } catch { /* ignore */ }
 
   // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
