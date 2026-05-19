@@ -17,7 +17,7 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
     return {
       budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
       batchLimit: Number(v.batch_limit ?? 30),
-      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), 48),
+      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), MAX_CONCURRENCY),
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
       raw: v,
