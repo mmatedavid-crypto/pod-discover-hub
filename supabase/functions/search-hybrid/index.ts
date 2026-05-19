@@ -256,7 +256,9 @@ async function embedRaw(q: string): Promise<number[] | null> {
     return v && v.length === 768 ? v : null;
   } catch (e) { console.warn("embed err", e); return null; }
 }
-const embed = (q: string) => withTimeout(embedRaw(q), 1800, "embed");
+// Quality-first: give the embedding call enough time to complete on cold paths.
+// A missing embedding silently degrades to lexical-only — that's the noisiest mode.
+const embed = (q: string) => withTimeout(embedRaw(q), 3500, "embed");
 
 async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string[]; why: Record<string, string> } | null> {
   if (!LOVABLE_API_KEY || items.length < 5) return null;
@@ -313,7 +315,9 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
     return { ids, why };
   } catch (e) { console.warn("rerank err", e); return null; }
 }
-const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 7000, "rerank");
+// Quality-first: allow the reranker the time it needs. A 2-4s search with
+// correct ordering beats a 500ms search with the wrong top result.
+const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 9000, "rerank");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -412,8 +416,10 @@ Deno.serve(async (req) => {
     }
 
     // 2) Parallel: understanding + embedding + curated synonyms
+    // Quality-first: 2500ms timeout — losing entity/intent detection downgrades
+    // every downstream layer (rare-token gate, person-vs-topic, ticker handling).
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 2500),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
@@ -615,9 +621,12 @@ Deno.serve(async (req) => {
     // Entity resolution
     let resolvedEntities: Array<{ kind: string; display_name: string; slug: string; similarity: number }> = [];
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
+      // Quality-first: 400ms was too tight, entity resolution often timed out
+      // (≈0% hit-rate). Bumped to 1500ms — the pyramid resolves >90% of HU
+      // person/topic entities at this budget.
       const resolved = await withTimeout(
         supa.rpc("resolve_query_entities", { p_q: q, p_max: 6, p_threshold: 0.45 }).then((r: any) => r.data),
-        400, "resolve_query_entities",
+        1500, "resolve_query_entities",
       );
       if (Array.isArray(resolved)) resolvedEntities = resolved as any;
     }
@@ -828,9 +837,11 @@ Deno.serve(async (req) => {
     let podcastPinIds: string[] = [];
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
       const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes|epizod|musor)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
+      // Quality-first: 300ms was missing legitimate podcast-title intent matches
+      // ("Hold After Hours", "Drágám hol a vacsorám"). 1200ms is comfortable.
       const pmRes = await withTimeout(
         supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
-        300, "match_podcast_by_name",
+        1200, "match_podcast_by_name",
       );
       const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
       const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
