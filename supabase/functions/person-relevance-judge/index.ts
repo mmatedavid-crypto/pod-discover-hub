@@ -75,7 +75,7 @@ const TOOL = {
       evidence_phrases: { type: "array", items: { type: "string" }, maxItems: 5 },
       should_show_publicly: { type: "boolean" },
       is_false_positive: { type: "boolean" },
-      false_positive_reason: { type: ["string", "null"] },
+      false_positive_reason: { type: "string", nullable: true },
     },
     required: ["is_relevant", "relevance_score", "recommended_mention_type", "identity_match", "reason", "evidence_phrases", "should_show_publicly", "is_false_positive"],
   },
