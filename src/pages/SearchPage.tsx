@@ -9,6 +9,7 @@ import { setSeo } from "@/lib/seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
 import { pushRecentSearch } from "@/lib/recentSearches";
+import { SearchStagedLoader } from "@/components/SearchStagedLoader";
 
 type SortKey = "best" | "newest" | "rank";
 
@@ -67,6 +68,7 @@ export default function SearchPage() {
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
+  const [confidence, setConfidence] = useState<"high" | "medium" | "low" | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
 
@@ -121,6 +123,7 @@ export default function SearchPage() {
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
+    setConfidence(null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
@@ -159,6 +162,8 @@ export default function SearchPage() {
         semantic = r1.semantic;
         setEpisodes(mapped);
         setSemanticUsed(semantic || r1.reranked);
+        const cb = phase1.data?.confidence_band;
+        if (cb === "high" || cb === "medium" || cb === "low") setConfidence(cb);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -403,28 +408,15 @@ export default function SearchPage() {
           </div>
         )}
 
-        {initial && loading && (
-          <div className="mt-10 p-6 border border-border rounded-lg bg-card">
-            <div className="flex items-center gap-3">
-              <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-hidden />
-              <div className="text-sm">
-                <div className="font-medium">Keresés: „{initial}”…</div>
-                <div className="text-muted-foreground text-xs mt-0.5">
-                  Kulcsszavas és szemantikus keresés, MI által finomított rangsorral. Általában 2–4 másodperc.
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 space-y-2">
-              <div className="h-14 rounded-md bg-muted/60 animate-pulse" />
-              <div className="h-14 rounded-md bg-muted/40 animate-pulse" />
-              <div className="h-14 rounded-md bg-muted/30 animate-pulse" />
-            </div>
-          </div>
-        )}
+        {initial && loading && <SearchStagedLoader query={initial} />}
 
-        {initial && !loading && podcasts.length === 0 && episodes.length === 0 && !piFallback && (
+        {initial && !loading && podcasts.length === 0 && episodes.length === 0 && !piFallback && !heroPerson && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            Nincs találat erre a keresésre.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Esetleg erre gondoltál: <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Próbálkozz más szavakkal, vagy <Link to="/kategoriak" className="underline text-foreground">böngéssz a kategóriák között</Link>.
+            Nem találtunk elég erős egyezést. Próbálj meg más megfogalmazást vagy konkrétabb nevet/témát.
+            {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
+              <> Esetleg erre gondoltál: <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>
+            )}{" "}
+            Vagy <Link to="/kategoriak" className="underline text-foreground">böngéssz a kategóriák között</Link>.
           </div>
         )}
 
@@ -563,6 +555,12 @@ export default function SearchPage() {
                     </span>
                   )}
                 </h2>
+                {confidence === "medium" && (
+                  <p className="text-xs text-muted-foreground -mt-1 mb-3">A legvalószínűbb kapcsolódó találatok.</p>
+                )}
+                {confidence === "low" && (
+                  <p className="text-xs text-muted-foreground -mt-1 mb-3">Kevés erős egyezést találtunk — próbálj konkrétabb nevet vagy témát.</p>
+                )}
                 <EpisodeList items={episodes} terms={flatTerms} showEntities />
               </section>
             )}
