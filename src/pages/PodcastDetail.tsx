@@ -50,7 +50,7 @@ export default function PodcastDetail() {
             },
             breadcrumbJsonLd([
               { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-              ...(data.category ? [{ name: data.category, url: typeof window !== "undefined" ? `${window.location.origin}/category/${(data.category as string).toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : `/category/${data.category}` }] : []),
+              ...(data.category ? [{ name: data.category, url: typeof window !== "undefined" ? `${window.location.origin}/category/${slugify(data.category as string)}` : `/category/${data.category}` }] : []),
               { name: data.display_title || data.title, url: typeof window !== "undefined" ? window.location.href : "" },
             ]),
           ],
