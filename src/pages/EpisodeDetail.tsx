@@ -356,6 +356,11 @@ export default function EpisodeDetail() {
                   </div>
                 </div>
               )}
+              {!(p.apple_url || p.spotify_url || p.youtube_url) && (
+                <div className="mt-3">
+                  <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
+                </div>
+              )}
 
               {/* Smart Player card (or legacy inline fallback) */}
               {smartPlayerVisible ? (
