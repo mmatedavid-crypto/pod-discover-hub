@@ -273,7 +273,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             </div>
             <div className="flex flex-wrap gap-2">
               {related.map(({ kind: k, v }) => {
-                const s = k === "ticker" ? v.replace(/[^a-zA-Z0-9.]+/g,"").toUpperCase() : v.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+                const s = entitySlug(k as any, v);
                 return (
                   <Link
                     key={`${k}-${v}`}
