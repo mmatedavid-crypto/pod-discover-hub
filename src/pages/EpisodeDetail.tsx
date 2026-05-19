@@ -39,7 +39,7 @@ export default function EpisodeDetail() {
   const [related, setRelated] = useState<EpisodeLite[]>([]);
   const [moreFromPod, setMoreFromPod] = useState<EpisodeLite[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { playerVisible: smartPlayerVisible } = useSmartPlayer();
+  const { playerVisible: smartPlayerVisible, play, toggle, currentEpisode, isPlaying } = useSmartPlayer();
 
   useEffect(() => {
     if (!podcastSlug || !episodeSlug) return;
