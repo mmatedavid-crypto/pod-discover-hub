@@ -41,7 +41,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
 async function generateHydeText(q: string): Promise<string | null> {
   if (!LOVABLE_API_KEY || !cbAllow()) return null;
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 1500);
+  const t = setTimeout(() => ctrl.abort(), 2300);
   try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
