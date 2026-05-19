@@ -555,6 +555,12 @@ export default function SearchPage() {
                     </span>
                   )}
                 </h2>
+                {confidence === "medium" && (
+                  <p className="text-xs text-muted-foreground -mt-1 mb-3">A legvalószínűbb kapcsolódó találatok.</p>
+                )}
+                {confidence === "low" && (
+                  <p className="text-xs text-muted-foreground -mt-1 mb-3">Kevés erős egyezést találtunk — próbálj konkrétabb nevet vagy témát.</p>
+                )}
                 <EpisodeList items={episodes} terms={flatTerms} showEntities />
               </section>
             )}
