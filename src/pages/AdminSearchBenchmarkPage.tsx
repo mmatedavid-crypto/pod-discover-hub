@@ -166,13 +166,61 @@ export default function AdminSearchBenchmarkPage() {
     const runId = (runIns as any).id as string;
     setActiveRunId(runId);
 
-    const CONCURRENCY = 3;
+    // Quality-first: low concurrency to avoid edge-fn overload, direct fetch with long
+    // timeout + retries on network errors. Earlier runs recorded `FunctionsFetchError`
+    // as 0-result — that was a lie; those queries DO return results when called normally.
+    const CONCURRENCY = 2;
+    const PER_CALL_TIMEOUT_MS = 45_000;
+    const MAX_ATTEMPTS = 3;
     let cursor = 0;
     let doneCount = 0;
     const latencies: number[] = [];
-    let zeroCount = 0;
+    let zeroCount = 0;        // genuine 0 from search-hybrid
+    let fetchFailCount = 0;   // network/timeout failures — excluded from quality metrics
     let intentCorrect = 0;
     let intentTotal = 0;
+
+    const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL as string;
+    const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+
+    async function callSearchOnce(query: string): Promise<{ data: any; status: number }> {
+      const ctrl = new AbortController();
+      const tm = setTimeout(() => ctrl.abort(), PER_CALL_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/search-hybrid`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${authSession?.access_token || SUPABASE_KEY}`,
+          },
+          body: JSON.stringify({ q: query, limit: 10, rerank: true, lang: "hu" }),
+          signal: ctrl.signal,
+        });
+        const text = await res.text();
+        let data: any = null;
+        try { data = text ? JSON.parse(text) : null; } catch { /* ignore */ }
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+        return { data, status: res.status };
+      } finally {
+        clearTimeout(tm);
+      }
+    }
+
+    async function callWithRetry(query: string) {
+      let lastErr: any = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          return await callSearchOnce(query);
+        } catch (e) {
+          lastErr = e;
+          // exponential backoff: 1s, 2.5s
+          await new Promise((r) => setTimeout(r, attempt * 1500));
+        }
+      }
+      throw lastErr;
+    }
 
     async function worker() {
       while (true) {
@@ -181,12 +229,9 @@ export default function AdminSearchBenchmarkPage() {
         const g = goldens[i];
         const t0 = performance.now();
         try {
-          const { data, error } = await supabase.functions.invoke("search-hybrid", {
-            body: { q: g.query, limit: 10, rerank: true, lang: "hu" },
-          });
+          const { data } = await callWithRetry(g.query);
           const latency = Math.round(performance.now() - t0);
           latencies.push(latency);
-          if (error) throw error;
           const eps = (data?.episodes || []) as any[];
           const top = eps.slice(0, 10).map((e: any) => ({
             id: e.id,
@@ -208,6 +253,7 @@ export default function AdminSearchBenchmarkPage() {
             fallback_kind: data?.fallback_kind || null,
             timing: data?.timing || null,
             engine: data?.engine || null,
+            status: "ok",
           };
           let intent_correct: boolean | null = null;
           if (g.expected_intent) {
@@ -238,6 +284,7 @@ export default function AdminSearchBenchmarkPage() {
           });
         } catch (e) {
           const latency = Math.round(performance.now() - t0);
+          fetchFailCount++;
           await supabase.from("search_benchmark_results").insert({
             run_id: runId,
             golden_id: g.id,
@@ -245,7 +292,8 @@ export default function AdminSearchBenchmarkPage() {
             latency_ms: latency,
             result_count: 0,
             top_results: [],
-            raw_meta: { error: String(e) },
+            raw_meta: { status: "fetch_error", error: String(e) },
+            notes: "FETCH_FAILED — excluded from quality metrics",
           });
         }
         doneCount++;
@@ -258,14 +306,20 @@ export default function AdminSearchBenchmarkPage() {
     const sorted = [...latencies].sort((a, b) => a - b);
     const p50 = sorted[Math.floor(sorted.length * 0.5)] || 0;
     const p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+    const validCount = goldens.length - fetchFailCount;
     await supabase.from("search_benchmark_runs").update({
-      zero_result_rate: goldens.length ? zeroCount / goldens.length : 0,
+      // zero_result_rate now reflects ONLY successful calls
+      zero_result_rate: validCount > 0 ? zeroCount / validCount : 0,
       intent_accuracy: intentTotal ? intentCorrect / intentTotal : null,
       latency_p50: p50,
       latency_p95: p95,
     }).eq("id", runId);
 
-    toast.success(`Benchmark done — ${doneCount} queries, p50 ${p50}ms, p95 ${p95}ms`);
+    if (fetchFailCount > 0) {
+      toast.warning(`Benchmark done — ${doneCount} queries · ${fetchFailCount} fetch-fail (excluded) · p50 ${p50}ms, p95 ${p95}ms`);
+    } else {
+      toast.success(`Benchmark done — ${doneCount} queries, p50 ${p50}ms, p95 ${p95}ms`);
+    }
     setRunning(false);
     await refreshAll();
     await loadResults(runId);
