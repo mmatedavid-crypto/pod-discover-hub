@@ -3,6 +3,8 @@ import { PodcastCover } from "./PodcastCover";
 import { ExternalLink, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { slugify } from "@/lib/slug";
+import { entitySlug } from "@/lib/entity";
 
 export type EpisodeLite = {
   id: string;
