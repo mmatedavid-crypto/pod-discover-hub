@@ -17,7 +17,7 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
     return {
       budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
       batchLimit: Number(v.batch_limit ?? 30),
-      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), 16),
+      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), 48),
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
       raw: v,
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
   }
   const DAILY_BUDGET_USD = settings.budget;
   const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 200);
-  const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), 16);
+  const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), MAX_CONCURRENCY);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
   // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
