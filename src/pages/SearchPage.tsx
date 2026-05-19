@@ -162,6 +162,8 @@ export default function SearchPage() {
         semantic = r1.semantic;
         setEpisodes(mapped);
         setSemanticUsed(semantic || r1.reranked);
+        const cb = phase1.data?.confidence_band;
+        if (cb === "high" || cb === "medium" || cb === "low") setConfidence(cb);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
