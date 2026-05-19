@@ -13,6 +13,7 @@ import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
+import { slugify } from "@/lib/slug";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
