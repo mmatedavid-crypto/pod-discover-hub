@@ -134,37 +134,10 @@ async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result
   return { result: fc.args, cost };
 }
 
-async function callAIGateway(prompt: string, apiKey: string): Promise<{ result: any; cost: number } | null> {
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: "user", content: prompt }],
-      tools: [{ type: "function", function: TOOL }],
-      tool_choice: { type: "function", function: { name: TOOL.name } },
-    }),
-  });
-  if (!r.ok) {
-    if (r.status === 429 || r.status === 402) throw new Error(`rate_limit:${r.status}`);
-    return null;
-  }
-  const j = await r.json();
-  const args = j.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (!args) return null;
-  let parsed: any;
-  try { parsed = JSON.parse(args); } catch { return null; }
-  const usage = j.usage || {};
-  const cost = ((usage.prompt_tokens || 0) * 0.075 + (usage.completion_tokens || 0) * 0.30) / 1_000_000;
-  return { result: parsed, cost };
-}
-
 async function callAI(prompt: string): Promise<{ result: any; cost: number } | null> {
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  if (geminiKey) return await callAIDirect(prompt, geminiKey);
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) return null;
-  return await callAIGateway(prompt, apiKey);
+  if (!geminiKey) throw new Error("GEMINI_API_KEY missing — direct API required");
+  return await callAIDirect(prompt, geminiKey);
 }
 
 async function logSpend(supabase: any, cost: number) {
