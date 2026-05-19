@@ -331,11 +331,21 @@ Deno.serve(async (req) => {
     // Engine version flags. Default comes from app_settings.search_engine when caller
     // does not pin it explicitly. quality_guard re-runs with fallback engine if v13 returns 0.
     const supaPre = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-    let engineCfg: any = { default_engine: "v13", fallback_engine: "v12", chunk_aug_enabled: false, quality_guard_enabled: true };
+    let engineCfg: any = {
+      default_engine: "v13",
+      fallback_engine: "v12",
+      chunk_aug_enabled: false,
+      quality_guard_enabled: true,
+      // Bumped whenever ranking logic changes — invalidates cached understanding / rerank rows.
+      ranking_version: 2,
+      understanding_version: 2,
+    };
     try {
       const { data: cfgRow } = await supaPre.from("app_settings").select("value").eq("key", "search_engine").maybeSingle();
       if (cfgRow?.value && typeof cfgRow.value === "object") engineCfg = { ...engineCfg, ...cfgRow.value };
     } catch (_) { /* keep defaults */ }
+    const RANKING_VERSION = Number(engineCfg.ranking_version || 1);
+    const UNDERSTANDING_VERSION = Number(engineCfg.understanding_version || 1);
     const engineRaw = String(body.engine || engineCfg.default_engine || "v13").toLowerCase();
     const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 13; })();
     // Chunk-aug is a soft flag; v13 only uses it when both engN>=13 AND config allows.
