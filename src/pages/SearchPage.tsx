@@ -125,6 +125,7 @@ export default function SearchPage() {
     setAiAnswer("");
     setPiFallback(null);
     setConfidence(null);
+    setPinnedPodcast(null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
