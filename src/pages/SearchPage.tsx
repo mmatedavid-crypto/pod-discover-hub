@@ -145,10 +145,12 @@ export default function SearchPage() {
         return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked };
       };
 
-      // Search v2: hybrid lexical + semantic. Two-phase for fast first paint.
+      // Quality-first: one hybrid call with rerank enabled. The previous 2-phase
+      // pattern (rerank:false → rerank:true) caused result flicker and surfaced
+      // weak results above better final ones — explicitly disallowed by policy.
       try {
         const phase1 = await supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: false, lang: "hu" },
+          body: { q: initial, limit: 80, rerank: true, lang: "hu" },
         });
         if (phase1.error) throw phase1.error;
         if (cancelled) return;
@@ -156,18 +158,8 @@ export default function SearchPage() {
         mapped = r1.mapped;
         semantic = r1.semantic;
         setEpisodes(mapped);
-        setSemanticUsed(semantic);
+        setSemanticUsed(semantic || r1.reranked);
         setLoading(false);
-
-        supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: true, lang: "hu" },
-        }).then(({ data: data2, error: err2 }) => {
-          if (cancelled || err2 || !data2) return;
-          const r2 = applyHybridResponse(data2);
-          mapped = r2.mapped;
-          setEpisodes(mapped);
-          setSemanticUsed(r2.semantic || r2.reranked);
-        }, () => { /* ignore */ });
       } catch (err) {
         if (cancelled) return;
         console.warn("search-hybrid failed, falling back to legacy", err);

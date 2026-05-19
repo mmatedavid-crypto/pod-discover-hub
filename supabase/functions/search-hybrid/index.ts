@@ -256,7 +256,9 @@ async function embedRaw(q: string): Promise<number[] | null> {
     return v && v.length === 768 ? v : null;
   } catch (e) { console.warn("embed err", e); return null; }
 }
-const embed = (q: string) => withTimeout(embedRaw(q), 1800, "embed");
+// Quality-first: give the embedding call enough time to complete on cold paths.
+// A missing embedding silently degrades to lexical-only — that's the noisiest mode.
+const embed = (q: string) => withTimeout(embedRaw(q), 3500, "embed");
 
 async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string[]; why: Record<string, string> } | null> {
   if (!LOVABLE_API_KEY || items.length < 5) return null;
@@ -313,7 +315,9 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
     return { ids, why };
   } catch (e) { console.warn("rerank err", e); return null; }
 }
-const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 7000, "rerank");
+// Quality-first: allow the reranker the time it needs. A 2-4s search with
+// correct ordering beats a 500ms search with the wrong top result.
+const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 9000, "rerank");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -327,11 +331,21 @@ Deno.serve(async (req) => {
     // Engine version flags. Default comes from app_settings.search_engine when caller
     // does not pin it explicitly. quality_guard re-runs with fallback engine if v13 returns 0.
     const supaPre = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-    let engineCfg: any = { default_engine: "v13", fallback_engine: "v12", chunk_aug_enabled: false, quality_guard_enabled: true };
+    let engineCfg: any = {
+      default_engine: "v13",
+      fallback_engine: "v12",
+      chunk_aug_enabled: false,
+      quality_guard_enabled: true,
+      // Bumped whenever ranking logic changes — invalidates cached understanding / rerank rows.
+      ranking_version: 2,
+      understanding_version: 2,
+    };
     try {
       const { data: cfgRow } = await supaPre.from("app_settings").select("value").eq("key", "search_engine").maybeSingle();
       if (cfgRow?.value && typeof cfgRow.value === "object") engineCfg = { ...engineCfg, ...cfgRow.value };
     } catch (_) { /* keep defaults */ }
+    const RANKING_VERSION = Number(engineCfg.ranking_version || 1);
+    const UNDERSTANDING_VERSION = Number(engineCfg.understanding_version || 1);
     const engineRaw = String(body.engine || engineCfg.default_engine || "v13").toLowerCase();
     const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 13; })();
     // Chunk-aug is a soft flag; v13 only uses it when both engN>=13 AND config allows.
@@ -383,7 +397,14 @@ Deno.serve(async (req) => {
         .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
         .eq("q_norm", qNorm)
         .maybeSingle();
-      if (cached && cached.updated_at && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000) {
+      // Quality-first: cache rows carry their ranking/understanding version inside
+      // the JSON blob. When the policy version bumps, older rows are ignored so
+      // bad rankings don't survive a logic change.
+      const cuv = (cached?.understanding as any)?.__uv;
+      const understandingFresh = cached && cached.updated_at
+        && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000
+        && (cuv === undefined || Number(cuv) >= UNDERSTANDING_VERSION);
+      if (understandingFresh) {
         understanding = cached.understanding as Understanding;
         if (typeof cached.embedding === "string") {
           try {
@@ -395,7 +416,11 @@ Deno.serve(async (req) => {
         }
         cacheHit = true;
       }
-      if (cached?.rerank && cached.rerank_updated_at && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000) {
+      const crv = (cached?.rerank as any)?.__rv;
+      const rerankFresh = cached?.rerank && cached.rerank_updated_at
+        && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000
+        && (crv === undefined ? false : Number(crv) >= RANKING_VERSION);
+      if (rerankFresh) {
         const r = cached.rerank as any;
         if (Array.isArray(r?.ids) && r.ids.length) {
           cachedRerank = { ids: r.ids, why: (r.why && typeof r.why === "object") ? r.why : {} };
@@ -412,8 +437,10 @@ Deno.serve(async (req) => {
     }
 
     // 2) Parallel: understanding + embedding + curated synonyms
+    // Quality-first: 2500ms timeout — losing entity/intent detection downgrades
+    // every downstream layer (rare-token gate, person-vs-topic, ticker handling).
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 2500),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
@@ -460,11 +487,14 @@ Deno.serve(async (req) => {
       cachedRerank = null;
     }
 
-    // 3) Persist to cache
+    // 3) Persist to cache (versioned)
     if (!cacheHit || isTickerQ) {
+      const understandingToCache = understanding
+        ? { ...(understanding as any), __uv: UNDERSTANDING_VERSION }
+        : null;
       supa.from("search_query_cache").upsert({
         q_norm: qNorm,
-        understanding: understanding,
+        understanding: understandingToCache,
         embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
         updated_at: new Date().toISOString(),
       }).then(() => {}, (e) => console.warn("cache write", e));
@@ -615,9 +645,12 @@ Deno.serve(async (req) => {
     // Entity resolution
     let resolvedEntities: Array<{ kind: string; display_name: string; slug: string; similarity: number }> = [];
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
+      // Quality-first: 400ms was too tight, entity resolution often timed out
+      // (≈0% hit-rate). Bumped to 1500ms — the pyramid resolves >90% of HU
+      // person/topic entities at this budget.
       const resolved = await withTimeout(
         supa.rpc("resolve_query_entities", { p_q: q, p_max: 6, p_threshold: 0.45 }).then((r: any) => r.data),
-        400, "resolve_query_entities",
+        1500, "resolve_query_entities",
       );
       if (Array.isArray(resolved)) resolvedEntities = resolved as any;
     }
@@ -828,9 +861,11 @@ Deno.serve(async (req) => {
     let podcastPinIds: string[] = [];
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
       const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes|epizod|musor)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
+      // Quality-first: 300ms was missing legitimate podcast-title intent matches
+      // ("Hold After Hours", "Drágám hol a vacsorám"). 1200ms is comfortable.
       const pmRes = await withTimeout(
         supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
-        300, "match_podcast_by_name",
+        1200, "match_podcast_by_name",
       );
       const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
       const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
@@ -956,7 +991,7 @@ Deno.serve(async (req) => {
         rerankResult = await rerank(q, ordered);
         if (rerankResult && rerankResult.ids.length) {
           supa.from("search_query_cache").update({
-            rerank: { ids: rerankResult.ids, why: rerankResult.why },
+            rerank: { ids: rerankResult.ids, why: rerankResult.why, __rv: RANKING_VERSION },
             rerank_updated_at: new Date().toISOString(),
           }).eq("q_norm", qNorm).then(() => {}, (e) => console.warn("rerank cache write", e));
         }
