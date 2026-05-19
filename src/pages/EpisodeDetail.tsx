@@ -13,6 +13,7 @@ import { compareByScore } from "@/lib/episodeRank";
 import { SimilarEpisodes } from "@/components/SimilarEpisodes";
 import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { slugify } from "@/lib/slug";
 import { recordVisit } from "@/lib/recentlyPlayed";
 import { extractKeyMoments } from "@/lib/keyMoments";
 import { KeyMoments } from "@/components/KeyMoments";
@@ -201,7 +202,7 @@ export default function EpisodeDetail() {
         <h1 className="text-3xl font-semibold mt-2">{e.display_title || e.title}</h1>
         <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
           <Link to={`/podcast/${p.slug}`} className="hover:text-foreground">{p.display_title || p.title}</Link>
-          {p.category && <Link to={`/category/${p.category.toLowerCase().replace(/[^a-z0-9]+/g,"-")}`} className="hover:text-foreground">· {p.category}</Link>}
+          {p.category && <Link to={`/category/${slugify(p.category)}`} className="hover:text-foreground">· {p.category}</Link>}
           {e.published_at && (
             <span title={new Date(e.published_at).toLocaleString()}>· {relativeTime(e.published_at)}</span>
           )}

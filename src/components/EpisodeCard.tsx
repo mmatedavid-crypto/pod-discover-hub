@@ -3,6 +3,8 @@ import { PodcastCover } from "./PodcastCover";
 import { ExternalLink, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { slugify } from "@/lib/slug";
+import { entitySlug } from "@/lib/entity";
 
 export type EpisodeLite = {
   id: string;
@@ -121,7 +123,7 @@ export function EpisodeCard({
         {(showTopics && e.topics && e.topics.length > 0) && (
           <div className="flex flex-wrap gap-1 mt-2.5">
             {e.topics.slice(0, 5).map((t) => (
-              <Link key={t} to={`/topic/${encodeURIComponent(t.toLowerCase().replace(/[^a-z0-9]+/g,"-"))}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
+              <Link key={t} to={`/topic/${encodeURIComponent(slugify(t))}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                 {t}
               </Link>
             ))}
@@ -130,7 +132,7 @@ export function EpisodeCard({
         {showEntities && allEnts.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2.5">
             {allEnts.map(({ kind, v }) => {
-              const slug = kind === "ticker" ? v.replace(/[^a-zA-Z0-9.]+/g,"").toUpperCase() : v.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+              const slug = entitySlug(kind as any, v);
               return (
                 <Link key={`${kind}-${v}`} to={`/${kind}/${encodeURIComponent(slug)}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                   {v}

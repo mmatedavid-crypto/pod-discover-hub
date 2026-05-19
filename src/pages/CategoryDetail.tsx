@@ -18,6 +18,7 @@ import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
+import { slugify } from "@/lib/slug";
 import { compareByScore } from "@/lib/episodeRank";
 
 export default function CategoryDetail() {
@@ -315,7 +316,7 @@ export default function CategoryDetail() {
                 <h2 className="text-xl font-semibold mt-10 mb-3">Népszerű témák</h2>
                 <div className="flex flex-wrap gap-2">
                   {topics.map((t) => (
-                    <Link key={t} to={`/topic/${encodeURIComponent(t.toLowerCase().replace(/[^a-z0-9]+/g,"-"))}`} className="px-3 py-1 rounded-full bg-secondary text-sm hover:bg-accent hover:text-accent-foreground">
+                    <Link key={t} to={`/topic/${encodeURIComponent(slugify(t))}`} className="px-3 py-1 rounded-full bg-secondary text-sm hover:bg-accent hover:text-accent-foreground">
                       {t}
                     </Link>
                   ))}

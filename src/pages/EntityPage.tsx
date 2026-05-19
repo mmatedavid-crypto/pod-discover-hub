@@ -6,7 +6,7 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
-import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug } from "@/lib/entity";
+import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entitySlug, matchesEntitySlug } from "@/lib/entity";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
 
 const NOINDEX_BELOW = 5;
@@ -45,7 +45,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           .from("entity_profiles")
           .select("slug, display_name, bio, episodes_summary, featured_episode_ids, appearance_stats")
           .eq("kind", "person")
-          .eq("slug", decoded.toLowerCase().replace(/[^a-z0-9]+/g, "-"))
+          .eq("slug", entitySlug("person", decoded))
           .maybeSingle();
         if (pr) prof = pr as any;
         setProfile(prof);
@@ -273,7 +273,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             </div>
             <div className="flex flex-wrap gap-2">
               {related.map(({ kind: k, v }) => {
-                const s = k === "ticker" ? v.replace(/[^a-zA-Z0-9.]+/g,"").toUpperCase() : v.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+                const s = entitySlug(k as any, v);
                 return (
                   <Link
                     key={`${k}-${v}`}
