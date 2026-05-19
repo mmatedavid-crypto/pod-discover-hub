@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
   }
   const DAILY_BUDGET_USD = settings.budget;
   const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 200);
+  const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), 16);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
   // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
