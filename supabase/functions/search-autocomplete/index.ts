@@ -119,8 +119,16 @@ Deno.serve(async (req) => {
     const podSlugsSeen = new Set<string>();
 
     // Podcast aliases first — high-confidence brand-intent matches sit just
-    // below true exact-title matches (1.0).
-    for (const row of (podAliasRes.data || []) as any[]) {
+    // below true exact-title matches (1.0). Sort so EXACT alias rows win the
+    // dedupe race over weaker prefix-alias rows for the same podcast.
+    const aliasRows = ((podAliasRes.data || []) as any[]).slice().sort((a, b) => {
+      const an = norm(String(a.alias || ""));
+      const bn = norm(String(b.alias || ""));
+      const ax = an === q || an === qNoSpace ? 0 : 1;
+      const bx = bn === q || bn === qNoSpace ? 0 : 1;
+      return ax - bx;
+    });
+    for (const row of aliasRows) {
       const p = row.podcasts;
       if (!p) continue;
       if (!p.is_hungarian || p.language_decision !== "accept_hungarian") continue;
@@ -131,7 +139,10 @@ Deno.serve(async (req) => {
       const aliasNorm = norm(String(row.alias || ""));
       const exactAlias = aliasNorm === q || aliasNorm === qNoSpace;
       const aliasConf = Number(row.confidence) || 0.9;
-      const conf = Math.min(0.99, (exactAlias ? 0.97 : 0.88) * aliasConf + rankLabelBonus(p.rank_label));
+      // Exact alias with strong confidence wins decisively; weaker matches
+      // (prefix-on-alias) get a modest boost only.
+      const base = exactAlias && aliasConf >= 0.85 ? 0.96 : 0.86 * aliasConf;
+      const conf = Math.min(0.99, base + rankLabelBonus(p.rank_label));
       out.push({
         type: "podcast",
         label: String(p.title || ""),
@@ -141,6 +152,7 @@ Deno.serve(async (req) => {
         confidence: conf,
       });
     }
+
 
     // Podcasts — title-based matches.
     for (const p of (podRes.data || [])) {
