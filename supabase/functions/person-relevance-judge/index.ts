@@ -139,18 +139,24 @@ async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result
   return { result: fc.args, cost };
 }
 
-// Key pool: prefer FREE tier first to save paid budget; fall back to paid on 429.
-function getKeyPool(): { key: string; isFree: boolean }[] {
+// Key pool: by default FREE first (save paid budget), fall back to paid on 429.
+// When preferPaid=true (drain mode), paid first, free as fallback.
+function getKeyPool(preferPaid = false): { key: string; isFree: boolean }[] {
   const pool: { key: string; isFree: boolean }[] = [];
   const free = Deno.env.get("GEMINI_API_KEY_FREE");
   const paid = Deno.env.get("GEMINI_API_KEY");
-  if (free) pool.push({ key: free, isFree: true });
-  if (paid) pool.push({ key: paid, isFree: false });
+  if (preferPaid) {
+    if (paid) pool.push({ key: paid, isFree: false });
+    if (free) pool.push({ key: free, isFree: true });
+  } else {
+    if (free) pool.push({ key: free, isFree: true });
+    if (paid) pool.push({ key: paid, isFree: false });
+  }
   return pool;
 }
 
-async function callAI(prompt: string): Promise<{ result: any; cost: number; isFree: boolean } | null> {
-  const pool = getKeyPool();
+async function callAI(prompt: string, preferPaid = false): Promise<{ result: any; cost: number; isFree: boolean } | null> {
+  const pool = getKeyPool(preferPaid);
   if (pool.length === 0) throw new Error("No GEMINI_API_KEY available");
   let lastErr: any = null;
   for (const { key, isFree } of pool) {
