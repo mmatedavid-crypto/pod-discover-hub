@@ -5,6 +5,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { callGeminiOpenAI, checkBudget, validateAiInput, auditSkip } from "../_shared/google-gemini-direct.ts";
+
+const TIER1_MODEL = "gemini-2.5-flash-lite";
+const JOB_TYPE = "entity_profile";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -42,17 +46,7 @@ function slugify(s: string): string {
     .slice(0, 80);
 }
 
-async function callAI(model: string, messages: any[]) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, tools: [BIO_TOOL], tool_choice: { type: "function", function: { name: "person_bio" } } }),
-  });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) throw new Error(`ai_${res.status}`);
-  return res.json();
-}
+// callAI removed — direct Tier 1 Gemini via callGeminiOpenAI
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -69,7 +63,7 @@ Deno.serve(async (req) => {
     const ctrl = (ctrlRow?.value || {}) as any;
     if (ctrl.enabled === false) return json({ ok: true, paused: true });
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 3);
-    const model = String(ctrl.model || "google/gemini-3.1-flash-lite-preview");
+    const model = TIER1_MODEL; // forced tier1 gemini-2.5-flash-lite (ctrl.model ignored if Pro/Gemini3)
     const minEpisodes = Math.max(2, Number(ctrl.min_episodes ?? 8));
     const maxPerRun = Math.max(1, Math.min(50, Number(ctrl.max_per_run ?? 15)));
     const refreshDays = Math.max(1, Number(ctrl.refresh_days ?? 30));
@@ -189,17 +183,43 @@ Deno.serve(async (req) => {
           `Recent episodes:\n${sample}\n\n` +
           `Write a Hungarian person profile. Use ONLY what these titles/summaries reveal.`;
 
-        const ai = await callAI(model, [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: userPrompt },
-        ]);
-        const usage = ai.usage || {};
-        const inTok = Number(usage.prompt_tokens || 0);
-        const outTok = Number(usage.completion_tokens || 0);
-        const cost = chatTokenCostUsd(model, inTok, outTok);
-        const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        // Input validation
+        const skipReason = validateAiInput(userPrompt, { minChars: 80 });
+        if (skipReason) {
+          await auditSkip({ job_type: JOB_TYPE, reason: skipReason, model, target_type: "person_slug", target_id: cand.slug });
+          failed++; continue;
+        }
+        // Budget guard per-call (cheap; reads cached app_settings)
+        const bg = await checkBudget(JOB_TYPE);
+        if (!bg.allowed) {
+          await auditSkip({ job_type: JOB_TYPE, reason: bg.reason || "budget_blocked", model, target_type: "person_slug", target_id: cand.slug });
+          stop = true; break;
+        }
+
+        const result = await callGeminiOpenAI({
+          model,
+          messages: [
+            { role: "system", content: SYSTEM },
+            { role: "user", content: userPrompt },
+          ],
+          tools: [BIO_TOOL],
+          tool_choice: { type: "function", function: { name: "person_bio" } },
+          job_type: JOB_TYPE,
+          target_type: "person_slug",
+          target_id: cand.slug,
+        });
+        if (!result.ok) {
+          failed++;
+          if (result.status === 429 || /rate/i.test(result.error || "")) { rate_limited++; stop = true; }
+          continue;
+        }
+        const ai = result.data;
+        const inTok = result.input_tokens;
+        const outTok = result.output_tokens;
+        const cost = result.cost_usd ?? chatTokenCostUsd(model, inTok, outTok);
+        const args = ai?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
         const parsed = args ? JSON.parse(args) : null;
-        if (!parsed) throw new Error("no_tool_call");
+        if (!parsed) { failed++; continue; }
 
         const display_name = String(parsed.display_name || cand.display_name).trim().slice(0, 120);
         const bio = String(parsed.bio || "").replace(/\s+/g, " ").trim().slice(0, 1400);
