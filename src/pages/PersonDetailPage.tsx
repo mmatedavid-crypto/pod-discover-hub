@@ -51,7 +51,7 @@ export default function PersonDetailPage() {
       setLoading(true);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status")
+        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
