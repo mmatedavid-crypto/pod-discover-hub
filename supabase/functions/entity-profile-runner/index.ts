@@ -156,7 +156,16 @@ Deno.serve(async (req) => {
         if (r.updated_at && r.updated_at > cutoff) recent.add(r.slug);
       }
     }
-    const candidates = allCandidates.filter((c) => !recent.has(c.slug)).slice(0, maxPerRun);
+    const candidates = allCandidates.filter((c) => !recent.has(c.slug)).slice(0, batchLimit);
+
+    if (!allCandidates.length) {
+      await auditSkip({ job_type: JOB_TYPE, reason: "no_candidates", model, meta: { latency_ms: Date.now() - startedAt, min_episodes: minEpisodes, aggregated_people: counts.size } });
+      return json({ ok: true, total_candidates: 0, eligible_after_recent_filter: 0, processed: 0 });
+    }
+    if (!candidates.length) {
+      await auditSkip({ job_type: JOB_TYPE, reason: "refresh_filter_no_match", model, meta: { latency_ms: Date.now() - startedAt, refresh_days: refreshDays, all_candidates: allCandidates.length, filtered_out_recent: recent.size } });
+      return json({ ok: true, total_candidates: allCandidates.length, eligible_after_recent_filter: 0, processed: 0 });
+    }
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
     let stop = false;
