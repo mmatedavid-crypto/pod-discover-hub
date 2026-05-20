@@ -5064,6 +5064,26 @@ export type Database = {
         Args: { p_id: string }
         Returns: boolean
       }
+      list_people_alpha: {
+        Args: { p_letter?: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          ai_bio: string
+          disambiguation_label: string
+          episode_count: number
+          gated_episode_count: number
+          gated_podcast_count: number
+          guest_count: number
+          host_count: number
+          id: string
+          latest_accepted_relevant_episode_at: string
+          name: string
+          podcast_count: number
+          short_bio: string
+          slug: string
+          strong_mention_count: number
+          total_count: number
+        }[]
+      }
       list_people_hub: {
         Args: { p_limit?: number; p_offset?: number; p_search?: string }
         Returns: {
@@ -5152,6 +5172,13 @@ export type Database = {
       }
       normalize_podcast_title: { Args: { s: string }; Returns: string }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
+      people_alpha_letter_counts: {
+        Args: never
+        Returns: {
+          count: number
+          letter: string
+        }[]
+      }
       purge_search_query_cache: {
         Args: { older_than_days?: number }
         Returns: number
