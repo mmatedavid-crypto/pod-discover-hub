@@ -38,7 +38,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 export default function PersonDetailPage() {
   const { slug = "" } = useParams();
   const [person, setPerson] = useState<Person | null>(null);
-  const [eps, setEps] = useState<(EpisodeLite & { mention_type?: string })[]>([]);
+  const [eps, setEps] = useState<(EpisodeLite & { mention_type?: string; role_type?: string })[]>([]);
   const [pods, setPods] = useState<PodcastLite[]>([]);
   const [related, setRelated] = useState<{ slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
