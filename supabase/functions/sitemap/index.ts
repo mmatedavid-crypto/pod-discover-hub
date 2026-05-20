@@ -25,9 +25,10 @@ function urlTag(loc: string, lastmod?: string | null, changefreq = "daily", prio
   return `<url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 }
 function esc(s: string) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+import { slugify as sharedSlugify } from "../_shared/slug.ts";
 function entSlug(kind: string, v: string) {
   if (kind === "ticker") return v.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();
-  return v.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80);
+  return sharedSlugify(v, "");
 }
 const maxDate = (a?: string | null, b?: string | null) => {
   if (!a) return b || null;

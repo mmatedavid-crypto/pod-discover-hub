@@ -11,11 +11,15 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+import { slugify as sharedSlugify } from "../_shared/slug.ts";
+// normalize() is kept as the comparison key for existing `people.normalized_name`
+// rows — changing it would re-bucket the entire people table. The slugify path
+// now uses the central HU-safe helper so new person slugs match site-wide rules.
 function normalize(s: string): string {
   return s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 function slugify(s: string): string {
-  return normalize(s).replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80);
+  return sharedSlugify(s, "person");
 }
 function isLikelyFullName(name: string): boolean {
   const parts = name.trim().split(/\s+/);
