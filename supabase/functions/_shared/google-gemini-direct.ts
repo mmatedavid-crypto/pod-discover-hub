@@ -10,6 +10,8 @@
 //   - Key pool order: GEMINI_API_KEY_TIER1 > GEMINI_API_KEY (paid) > GEMINI_API_KEY_FREE.
 //     On 429/503 we hop to the next key in the pool (still NOT a model upgrade).
 
+import { chatTokenCostUsd, embeddingTokenCostUsd } from "./ai-pricing.ts";
+
 const OPENAI_COMPAT_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const NATIVE_URL = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
@@ -17,9 +19,18 @@ const NATIVE_URL = (model: string) =>
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
+// Default cost function used when caller does not pass one.
+// Embeddings are detected by model name; everything else is chat-style.
+function defaultCostFn(model: string, inTok: number, outTok: number): number {
+  const m = model.toLowerCase();
+  if (m.includes("embedding")) return embeddingTokenCostUsd(model, inTok);
+  return chatTokenCostUsd(model, inTok, outTok);
+}
+
+// Hard blocklist (case-insensitive substring match). No Pro, no Gemini 3.x.
 const HARD_BLOCKLIST = [
   "-pro",
-  "gemini-3",
+  "gemini-3",         // gemini-3, gemini-3.1, gemini-3.5 etc.
   "gemini-2.5-pro",
 ];
 
