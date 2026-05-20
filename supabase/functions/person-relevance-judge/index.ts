@@ -11,7 +11,7 @@ const MODEL = "gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 const MAX_CONCURRENCY = 250;
 
-async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
+async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; preferPaid: boolean; raw: any }> {
   try {
     const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
     const v = data?.value || {};
@@ -21,10 +21,11 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
       concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), MAX_CONCURRENCY),
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
+      preferPaid: v.prefer_paid === true,
       raw: v,
     };
   } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, raw: {} };
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, preferPaid: false, raw: {} };
   }
 }
 
@@ -138,18 +139,24 @@ async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result
   return { result: fc.args, cost };
 }
 
-// Key pool: prefer FREE tier first to save paid budget; fall back to paid on 429.
-function getKeyPool(): { key: string; isFree: boolean }[] {
+// Key pool: by default FREE first (save paid budget), fall back to paid on 429.
+// When preferPaid=true (drain mode), paid first, free as fallback.
+function getKeyPool(preferPaid = false): { key: string; isFree: boolean }[] {
   const pool: { key: string; isFree: boolean }[] = [];
   const free = Deno.env.get("GEMINI_API_KEY_FREE");
   const paid = Deno.env.get("GEMINI_API_KEY");
-  if (free) pool.push({ key: free, isFree: true });
-  if (paid) pool.push({ key: paid, isFree: false });
+  if (preferPaid) {
+    if (paid) pool.push({ key: paid, isFree: false });
+    if (free) pool.push({ key: free, isFree: true });
+  } else {
+    if (free) pool.push({ key: free, isFree: true });
+    if (paid) pool.push({ key: paid, isFree: false });
+  }
   return pool;
 }
 
-async function callAI(prompt: string): Promise<{ result: any; cost: number; isFree: boolean } | null> {
-  const pool = getKeyPool();
+async function callAI(prompt: string, preferPaid = false): Promise<{ result: any; cost: number; isFree: boolean } | null> {
+  const pool = getKeyPool(preferPaid);
   if (pool.length === 0) throw new Error("No GEMINI_API_KEY available");
   let lastErr: any = null;
   for (const { key, isFree } of pool) {
@@ -295,7 +302,7 @@ Deno.serve(async (req) => {
 
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            const out = await callAI(buildPrompt(pending));
+            const out = await callAI(buildPrompt(pending), settings.preferPaid);
             if (!out) { errors++; return; }
             // Free-tier key: no $ charge, don't count against daily budget.
             const billedCost = out.isFree ? 0 : out.cost;
