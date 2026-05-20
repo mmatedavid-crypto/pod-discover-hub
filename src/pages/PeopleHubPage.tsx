@@ -254,14 +254,84 @@ export default function PeopleHubPage() {
                   {totalAll.toLocaleString("hu-HU")} találat a(z) „{debouncedQ}” keresésre.
                 </p>
               )}
+              {isAlpha && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {letter
+                    ? `${totalAll.toLocaleString("hu-HU")} személy „${letter}” betűvel`
+                    : `${totalAll.toLocaleString("hu-HU")} személy ABC sorrendben`}
+                </p>
+              )}
             </div>
+            {!isSearching && (
+              <div className="inline-flex rounded-md border border-border bg-card overflow-hidden text-xs">
+                <button
+                  type="button"
+                  onClick={() => { setSortMode("relevance"); setLetter(null); }}
+                  className={`px-3 py-1.5 transition-colors ${sortMode === "relevance" ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Relevancia
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortMode("alpha")}
+                  className={`px-3 py-1.5 border-l border-border transition-colors ${sortMode === "alpha" ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  ABC
+                </button>
+              </div>
+            )}
           </div>
+
+          {isAlpha && (
+            <div className="mb-6 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setLetter(null)}
+                className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${letter === null ? "border-primary/60 bg-primary/15 text-primary font-medium" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40"}`}
+              >
+                Mind
+              </button>
+              {ALPHABET.map((L) => {
+                const c = letterCounts[L] || 0;
+                const disabled = c === 0;
+                const active = letter === L;
+                return (
+                  <button
+                    key={L}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setLetter(L)}
+                    title={disabled ? "Nincs ilyen kezdőbetűs személy" : `${c} személy`}
+                    className={`w-8 h-8 text-xs rounded-md border transition-colors ${
+                      active
+                        ? "border-primary/60 bg-primary/15 text-primary font-semibold"
+                        : disabled
+                          ? "border-border/40 bg-card/40 text-muted-foreground/40 cursor-not-allowed"
+                          : "border-border bg-card text-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {L}
+                  </button>
+                );
+              })}
+              {(letterCounts["#"] || 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setLetter("#")}
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${letter === "#" ? "border-primary/60 bg-primary/15 text-primary font-medium" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40"}`}
+                  title={`${letterCounts["#"]} egyéb`}
+                >
+                  #
+                </button>
+              )}
+            </div>
+          )}
 
           {loadingList ? (
             <div className="text-muted-foreground text-sm">Betöltés…</div>
           ) : list.length === 0 ? (
             <div className="text-muted-foreground text-sm">
-              {isSearching ? "Nincs találat." : "Nincs több személy."}
+              {isSearching ? "Nincs találat." : isAlpha && letter ? `Nincs „${letter}” kezdőbetűs személy.` : "Nincs több személy."}
             </div>
           ) : (
             <>
