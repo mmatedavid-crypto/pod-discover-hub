@@ -38,7 +38,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 export default function PersonDetailPage() {
   const { slug = "" } = useParams();
   const [person, setPerson] = useState<Person | null>(null);
-  const [eps, setEps] = useState<(EpisodeLite & { mention_type?: string })[]>([]);
+  const [eps, setEps] = useState<(EpisodeLite & { mention_type?: string; role_type?: string })[]>([]);
   const [pods, setPods] = useState<PodcastLite[]>([]);
   const [related, setRelated] = useState<{ slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +64,7 @@ export default function PersonDetailPage() {
 
       const { data: mentions } = await supabase
         .from("person_episode_mentions")
-        .select("episode_id, podcast_id, mention_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
+        .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
         .eq("person_id", (p as any).id)
         .eq("episodes.podcasts.is_hungarian", true)
         .eq("episodes.podcasts.language_decision", "accept_hungarian")
@@ -78,11 +78,18 @@ export default function PersonDetailPage() {
         const strongAi = Number(m.final_relevance_score || 0) >= 0.75;
         const manual = m.validation_source === "manual";
         const legacyOk = (!m.relevance_status || m.relevance_status === "pending")
-          && ["host","guest","subject","archival_source"].includes(m.mention_type)
+          && ["host","guest","subject","archival_source","interviewee","speaker"].includes(m.mention_type)
           && Number(m.confidence || 0) >= 0.80;
         if (m.relevance_status === "rejected" || m.relevance_status === "needs_review") return;
         if (!(accepted || strongAi || manual || legacyOk)) return;
-        epList.push({ ...m.episodes, mention_type: m.mention_type });
+        // Derive role_type if missing (defensive — backfilled in DB but new rows might not have it yet)
+        let roleType = m.role_type as string | null;
+        if (!roleType) {
+          if (["host","guest","interviewee","speaker","archival_source"].includes(m.mention_type)) roleType = "participant";
+          else if (m.mention_type === "subject") roleType = "subject";
+          else roleType = "mention";
+        }
+        epList.push({ ...m.episodes, mention_type: m.mention_type, role_type: roleType });
         if (m.episodes.podcasts) podMap.set(m.episodes.podcast_id, m.episodes.podcasts);
       });
       setEps(epList.sort(compareByScore) as any);
@@ -161,22 +168,24 @@ export default function PersonDetailPage() {
   const hasArchival = Boolean((person as any)?.has_archival_evidence);
 
   const segments = useMemo(() => {
+    // Three canonical role groups per episode, sourced from role_type.
     const archival = eps.filter(e => e.mention_type === "archival_source");
-    // For deceased/historical people, never treat host/guest as live participation
-    // unless there is explicit archival_source evidence at episode level.
-    const interviews = isHistorical
-      ? [] // demote — these get reclassified as subject/mention via UI wording
-      : eps.filter(e => e.mention_type === "host" || e.mention_type === "guest");
-    const subjectsBase = eps.filter(e => e.mention_type === "subject");
-    // For historical people, fold any host/guest rows into "subject" wording
+    // Historical rule: a deceased/historical person is NEVER labelled "vendég/interjúalany"
+    // unless the episode has explicit archival_source evidence. Fold non-archival
+    // participant rows into the subject bucket.
+    const rawParticipants = eps.filter(e => e.role_type === "participant");
+    const participants = isHistorical
+      ? rawParticipants.filter(e => e.mention_type === "archival_source")
+      : rawParticipants;
+    const subjectsBase = eps.filter(e => e.role_type === "subject");
     const subjects = isHistorical
       ? [
           ...subjectsBase,
-          ...eps.filter(e => e.mention_type === "host" || e.mention_type === "guest"),
+          ...rawParticipants.filter(e => e.mention_type !== "archival_source"),
         ]
       : subjectsBase;
-    const mentioned = eps.filter(e => e.mention_type === "mentioned");
-    return { interviews, subjects, mentioned, archival };
+    const mentions = eps.filter(e => e.role_type === "mention");
+    return { participants, subjects, mentions, archival };
   }, [eps, isHistorical]);
 
   const last30 = useMemo(() => {
@@ -187,13 +196,31 @@ export default function PersonDetailPage() {
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
   if (notFound || !person) return <NotFoundState title="Nincs ilyen személy" message="A keresett személy nem található vagy még nem nyilvános." />;
 
-  const hasInterviews = segments.interviews.length > 0;
+  const hasParticipants = segments.participants.length > 0;
   const hasSubjects = segments.subjects.length > 0;
-  const hasMentioned = segments.mentioned.length > 0;
+  const hasMentions = segments.mentions.length > 0;
   const hasArchivalSection = segments.archival.length > 0;
-  const distinctSections = [hasInterviews, hasSubjects, hasMentioned, hasArchivalSection].filter(Boolean).length;
+  const distinctSections = [hasParticipants, hasSubjects, hasMentions, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
   const bioText = (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim()) || (eps.length > 0 ? huFallbackBio(person.name) : null);
+
+  // Persona summary for the page banner — derived from role counts (not from author claims).
+  const pCount = segments.participants.length;
+  const sCount = segments.subjects.length;
+  const mCount = segments.mentions.length;
+  const dominantRole: "participant" | "subject" | "mention" | null =
+    pCount === 0 && sCount === 0 && mCount === 0
+      ? null
+      : pCount >= Math.max(sCount, mCount)
+        ? "participant"
+        : sCount >= mCount
+          ? "subject"
+          : "mention";
+  const personaLabel =
+    dominantRole === "participant" ? null
+    : dominantRole === "subject" ? "Gyakran tárgyalt téma magyar podcastekben"
+    : dominantRole === "mention" ? "Gyakran említett személy"
+    : null;
 
   return (
     <Layout>
@@ -246,32 +273,51 @@ export default function PersonDetailPage() {
           </div>
         )}
 
+        {!isHistorical && personaLabel && (
+          <div className="text-xs text-muted-foreground -mt-6">
+            {personaLabel} — a lenti epizódok többségében nem ő szerepel, hanem róla beszélnek vagy említik.
+          </div>
+        )}
+
         {useDistinct ? (
           <>
-            {/* Live participation — only for non-historical people */}
-            {!isHistorical && hasInterviews && (
+            {/* Sorted by ranking priority: participant > subject > mention */}
+            {hasParticipants && (
               <section>
-                <h2 className="text-xl font-semibold mb-3">Interjúk és szereplések</h2>
-                <EpisodeList items={segments.interviews.slice(0, 20)} showEntities />
+                <h2 className="text-xl font-semibold mb-3">
+                  {isHistorical ? "Archív megszólalások" : "Szereplései és megszólalásai"}
+                </h2>
+                {!isHistorical && (
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Epizódok, ahol vendég, házigazda, interjúalany vagy szereplő.
+                  </p>
+                )}
+                <EpisodeList items={segments.participants.slice(0, 20)} showEntities />
               </section>
             )}
             {hasSubjects && (
               <section>
                 <h2 className="text-xl font-semibold mb-3">
-                  {isHistorical ? `${person.name} életművéről szóló adások` : `Epizódok ${person.name} témájában`}
+                  {isHistorical
+                    ? `${person.name} életművéről szóló adások`
+                    : `Róla szóló adások`}
                 </h2>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Adások, amelyekben {person.name} témaként szerepel — elemzések, beszélgetések a munkájáról, szerepéről, hatásáról.
+                </p>
                 <EpisodeList items={segments.subjects.slice(0, 20)} showEntities />
               </section>
             )}
-            {hasMentioned && (
+            {hasMentions && (
               <section>
-                <h2 className="text-xl font-semibold mb-3">
-                  {isHistorical ? `${person.name} említései` : "Említések"}
-                </h2>
-                <EpisodeList items={segments.mentioned.slice(0, 20)} showEntities />
+                <h2 className="text-xl font-semibold mb-3">Említések</h2>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Epizódok, amelyek kontextusként említik {person.name} nevét.
+                </p>
+                <EpisodeList items={segments.mentions.slice(0, 20)} showEntities />
               </section>
             )}
-            {hasArchivalSection && hasArchival && (
+            {hasArchivalSection && hasArchival && !isHistorical && (
               <section>
                 <h2 className="text-xl font-semibold mb-3">Archív megszólalások</h2>
                 <p className="text-xs text-muted-foreground mb-3">Eredeti felvétel vagy archív hanganyag az epizódban.</p>
@@ -283,7 +329,11 @@ export default function PersonDetailPage() {
           eps.length > 0 && (
             <section>
               <h2 className="text-xl font-semibold mb-3">
-                {isHistorical ? `${person.name} témaként` : "Kapcsolódó epizódok"}
+                {isHistorical
+                  ? `${person.name} témaként`
+                  : dominantRole === "participant" ? "Szereplései és megszólalásai"
+                  : dominantRole === "subject" ? "Róla szóló adások"
+                  : "Említések"}
               </h2>
               <EpisodeList items={eps.slice(0, 30)} showEntities />
             </section>
