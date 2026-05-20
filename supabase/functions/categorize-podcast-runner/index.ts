@@ -86,21 +86,25 @@ const TOOL = {
   },
 };
 
-async function callAI(model: string, prompt: string) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "system", content: SYSTEM }, { role: "user", content: prompt }],
-      tools: [TOOL],
-      tool_choice: { type: "function", function: { name: "categorize_podcast" } },
-    }),
+import { callGeminiOpenAI } from "../_shared/google-gemini-direct.ts";
+
+async function callAI(model: string, prompt: string, targetId?: string) {
+  const r = await callGeminiOpenAI({
+    model,
+    messages: [{ role: "system", content: SYSTEM }, { role: "user", content: prompt }],
+    tools: [TOOL],
+    tool_choice: { type: "function", function: { name: "categorize_podcast" } },
+    job_type: "categorize_podcast",
+    target_type: "podcast",
+    target_id: targetId,
+    prompt_version: "v1",
   });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) throw new Error(`ai_${res.status}`);
-  return res.json();
+  if (!r.ok) {
+    if (r.status === 429) throw new Error("rate_limited");
+    if (r.status === 402) throw new Error("budget_exhausted_provider");
+    throw new Error(`ai_${r.status || "err"}`);
+  }
+  return r.data;
 }
 
 Deno.serve(async (req) => {
@@ -160,7 +164,7 @@ Deno.serve(async (req) => {
       if (spend >= dailyBudget) { stop = true; return; }
       processed++;
       try {
-        const ai = await callAI(model, buildPrompt(p));
+        const ai = await callAI(model, buildPrompt(p), p.id);
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);

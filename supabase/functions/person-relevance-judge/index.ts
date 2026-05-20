@@ -4,10 +4,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { callGeminiNative } from "../_shared/google-gemini-direct.ts";
 
 const TIME_BUDGET_MS = 20_000;
 const RESERVE_MS = 4_000;
-const MODEL = "gemini-2.5-flash";
+// Policy v2 (2026-05-20 Tier 1): default flash-lite for batch judgment.
+const MODEL = "gemini-2.5-flash-lite";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 const MAX_CONCURRENCY = 250;
 
@@ -115,62 +117,37 @@ Jelenlegi szabályalapú besorolás: mention_type=${r.mention_type}, confidence=
 Hívd meg a judge_person_episode_relevance tool-t.`;
 }
 
-async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result: any; cost: number } | null> {
-  // Direct Google Generative Language API — bypasses Lovable Gateway RPM limits.
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      tools: [{ functionDeclarations: [TOOL] }],
-      toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [TOOL.name] } },
-    }),
+// All routing + audit + key-pool logic lives in _shared/google-gemini-direct.ts.
+// Tier 1 (GEMINI_API_KEY_TIER1) > paid (GEMINI_API_KEY) > free (GEMINI_API_KEY_FREE).
+async function callAI(
+  prompt: string,
+  preferPaid = false,
+  personId?: string,
+  episodeId?: string,
+): Promise<{ result: any; cost: number; isFree: boolean; keySource: string } | null> {
+  const out = await callGeminiNative({
+    model: MODEL,
+    prompt,
+    tool: TOOL as any,
+    job_type: "person_relevance_judge",
+    target_type: "person_episode_mention",
+    target_id: personId,
+    // preferTier1 default true; legacy preferPaid kept as a hint when no tier1 key present.
+    preferTier1: true,
+    costFn: (m, i, o) => chatTokenCostUsd(m, i, o),
   });
-  if (!r.ok) {
-    if (r.status === 429 || r.status === 503) throw new Error(`rate_limit:${r.status}`);
+  if (!out.ok) {
+    if (out.status === 429 || out.status === 503) throw new Error(`rate_limit:${out.status}`);
     return null;
   }
-  const j = await r.json();
-  const fc = j.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
-  if (!fc?.args) return null;
-  const usage = j.usageMetadata || {};
-  const cost = chatTokenCostUsd(MODEL, Number(usage.promptTokenCount || 0), Number(usage.candidatesTokenCount || 0));
-  return { result: fc.args, cost };
-}
-
-// Key pool: by default FREE first (save paid budget), fall back to paid on 429.
-// When preferPaid=true (drain mode), paid first, free as fallback.
-function getKeyPool(preferPaid = false): { key: string; isFree: boolean }[] {
-  const pool: { key: string; isFree: boolean }[] = [];
-  const free = Deno.env.get("GEMINI_API_KEY_FREE");
-  const paid = Deno.env.get("GEMINI_API_KEY");
-  if (preferPaid) {
-    if (paid) pool.push({ key: paid, isFree: false });
-    if (free) pool.push({ key: free, isFree: true });
-  } else {
-    if (free) pool.push({ key: free, isFree: true });
-    if (paid) pool.push({ key: paid, isFree: false });
-  }
-  return pool;
-}
-
-async function callAI(prompt: string, preferPaid = false): Promise<{ result: any; cost: number; isFree: boolean } | null> {
-  const pool = getKeyPool(preferPaid);
-  if (pool.length === 0) throw new Error("No GEMINI_API_KEY available");
-  let lastErr: any = null;
-  for (const { key, isFree } of pool) {
-    try {
-      const out = await callAIDirect(prompt, key);
-      if (out) return { ...out, isFree };
-    } catch (e) {
-      lastErr = e;
-      if (String(e).includes("rate_limit")) continue; // try next key
-      throw e;
-    }
-  }
-  if (lastErr) throw lastErr;
-  return null;
+  if (!out.args) return null;
+  const keySource = (out.key_source || "tier1") as string;
+  return {
+    result: out.args,
+    cost: out.cost_usd ?? 0,
+    isFree: keySource === "free",
+    keySource,
+  };
 }
 
 async function logSpend(supabase: any, cost: number) {
@@ -302,7 +279,7 @@ Deno.serve(async (req) => {
 
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            const out = await callAI(buildPrompt(pending), settings.preferPaid);
+            const out = await callAI(buildPrompt(pending), settings.preferPaid, m.person_id, m.episode_id);
             if (!out) { errors++; return; }
             // Free-tier key: no $ charge, don't count against daily budget.
             const billedCost = out.isFree ? 0 : out.cost;
