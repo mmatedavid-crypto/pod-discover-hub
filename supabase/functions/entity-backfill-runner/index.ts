@@ -6,7 +6,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { filterHosts } from "../_shared/seo-prompt.ts";
-import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import {
+  callGeminiOpenAI,
+  assertModelAllowed,
+  validateAiInput,
+  auditSkip,
+  checkBudget,
+} from "../_shared/google-gemini-direct.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -37,17 +43,6 @@ const ENTITY_TOOL = {
 
 const SYSTEM = "You extract structured entities from podcast episode metadata. You ONLY include entities literally present in the input. Distinguish `people` (speakers) from `mentioned` (talked about but absent). Never include show hosts in either list. If unsure, return empty arrays. No invention.";
 
-async function callAI(model: string, messages: any[]) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, tools: [ENTITY_TOOL], tool_choice: { type: "function", function: { name: "extract_entities" } } }),
-  });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) throw new Error(`ai_${res.status}`);
-  return res.json();
-}
 
 const cleanArr = (a: any, max = 6): string[] => {
   if (!Array.isArray(a)) return [];
