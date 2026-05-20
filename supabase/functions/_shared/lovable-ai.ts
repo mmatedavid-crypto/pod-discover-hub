@@ -8,17 +8,19 @@
 //
 // All callers should go through callLovableAI() so audit + blocklist apply.
 
+import { chatTokenCostUsd, normalizeAiModel } from "./ai-pricing.ts";
+
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 // Hard blocklist (case-insensitive substring match).
+// 2026-05-20: block ALL Pro variants and ALL Gemini 3.x on Gateway batch usage.
 const HARD_BLOCKLIST = [
-  "-pro",         // gemini-*-pro, gpt-5-pro, gpt-5.4-pro, gpt-5.5-pro
+  "-pro",            // gemini-*-pro, gpt-5-pro, gpt-5.4-pro, gpt-5.5-pro
   "gpt-5-pro",
-  "gemini-3-pro",
-  "gemini-3.1-pro",
+  "gemini-3",        // gemini-3-flash-preview, gemini-3.1-*, gemini-3.5-*, etc.
   "gemini-2.5-pro",
 ];
 
@@ -32,9 +34,10 @@ export function assertModelAllowed(model: string) {
     throw new Error(`Lovable AI: empty model not allowed`);
   }
   if (isModelBlocked(model)) {
-    throw new Error(`Lovable AI: model "${model}" is blocked by batch policy (no Pro on backlog).`);
+    throw new Error(`Lovable AI: model "${model}" is blocked by batch policy (no Pro / no Gemini 3 on backlog).`);
   }
 }
+
 
 export interface AuditRow {
   job_type: string;
