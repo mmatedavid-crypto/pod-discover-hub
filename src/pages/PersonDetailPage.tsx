@@ -168,22 +168,24 @@ export default function PersonDetailPage() {
   const hasArchival = Boolean((person as any)?.has_archival_evidence);
 
   const segments = useMemo(() => {
+    // Three canonical role groups per episode, sourced from role_type.
     const archival = eps.filter(e => e.mention_type === "archival_source");
-    // For deceased/historical people, never treat host/guest as live participation
-    // unless there is explicit archival_source evidence at episode level.
-    const interviews = isHistorical
-      ? [] // demote — these get reclassified as subject/mention via UI wording
-      : eps.filter(e => e.mention_type === "host" || e.mention_type === "guest");
-    const subjectsBase = eps.filter(e => e.mention_type === "subject");
-    // For historical people, fold any host/guest rows into "subject" wording
+    // Historical rule: a deceased/historical person is NEVER labelled "vendég/interjúalany"
+    // unless the episode has explicit archival_source evidence. Fold non-archival
+    // participant rows into the subject bucket.
+    const rawParticipants = eps.filter(e => e.role_type === "participant");
+    const participants = isHistorical
+      ? rawParticipants.filter(e => e.mention_type === "archival_source")
+      : rawParticipants;
+    const subjectsBase = eps.filter(e => e.role_type === "subject");
     const subjects = isHistorical
       ? [
           ...subjectsBase,
-          ...eps.filter(e => e.mention_type === "host" || e.mention_type === "guest"),
+          ...rawParticipants.filter(e => e.mention_type !== "archival_source"),
         ]
       : subjectsBase;
-    const mentioned = eps.filter(e => e.mention_type === "mentioned");
-    return { interviews, subjects, mentioned, archival };
+    const mentions = eps.filter(e => e.role_type === "mention");
+    return { participants, subjects, mentions, archival };
   }, [eps, isHistorical]);
 
   const last30 = useMemo(() => {
@@ -194,13 +196,31 @@ export default function PersonDetailPage() {
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
   if (notFound || !person) return <NotFoundState title="Nincs ilyen személy" message="A keresett személy nem található vagy még nem nyilvános." />;
 
-  const hasInterviews = segments.interviews.length > 0;
+  const hasParticipants = segments.participants.length > 0;
   const hasSubjects = segments.subjects.length > 0;
-  const hasMentioned = segments.mentioned.length > 0;
+  const hasMentions = segments.mentions.length > 0;
   const hasArchivalSection = segments.archival.length > 0;
-  const distinctSections = [hasInterviews, hasSubjects, hasMentioned, hasArchivalSection].filter(Boolean).length;
+  const distinctSections = [hasParticipants, hasSubjects, hasMentions, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
   const bioText = (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim()) || (eps.length > 0 ? huFallbackBio(person.name) : null);
+
+  // Persona summary for the page banner — derived from role counts (not from author claims).
+  const pCount = segments.participants.length;
+  const sCount = segments.subjects.length;
+  const mCount = segments.mentions.length;
+  const dominantRole: "participant" | "subject" | "mention" | null =
+    pCount === 0 && sCount === 0 && mCount === 0
+      ? null
+      : pCount >= Math.max(sCount, mCount)
+        ? "participant"
+        : sCount >= mCount
+          ? "subject"
+          : "mention";
+  const personaLabel =
+    dominantRole === "participant" ? null
+    : dominantRole === "subject" ? "Gyakran tárgyalt téma magyar podcastekben"
+    : dominantRole === "mention" ? "Gyakran említett személy"
+    : null;
 
   return (
     <Layout>
