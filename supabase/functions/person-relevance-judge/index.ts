@@ -297,8 +297,10 @@ Deno.serve(async (req) => {
           try {
             const out = await callAI(buildPrompt(pending));
             if (!out) { errors++; return; }
-            spendToday += out.cost;
-            await logSpend(supabase, out.cost);
+            // Free-tier key: no $ charge, don't count against daily budget.
+            const billedCost = out.isFree ? 0 : out.cost;
+            spendToday += billedCost;
+            if (billedCost > 0) await logSpend(supabase, billedCost);
             const r = out.result;
             let status: string;
             if (r.is_false_positive || r.identity_match === "substring_false_positive" || r.identity_match === "different_person_same_name") status = "rejected";
