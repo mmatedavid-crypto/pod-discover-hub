@@ -49,17 +49,33 @@ export interface AuditRow {
   prompt_version?: string | null;
   source_hash?: string | null;
   confidence?: number | null;
-  status?: "ok" | "error" | "low_conf_retry" | "blocked";
+  status?: "ok" | "error" | "low_conf_retry" | "blocked" | "skipped";
   error_message?: string | null;
   target_type?: string | null;
   target_id?: string | null;
+  latency_ms?: number | null;
+  key_source?: string | null;
   meta?: Record<string, unknown>;
 }
 
-// Fire-and-forget audit insert. Never throws.
+// Fire-and-forget audit insert. Never throws. Auto-fills estimated_cost_usd if missing.
 export async function recordAiCall(row: AuditRow): Promise<void> {
   if (!SUPABASE_URL || !SERVICE_KEY) return;
   try {
+    const payload: Record<string, unknown> = {
+      provider: "lovable_ai",
+      status: "ok",
+      meta: {},
+      key_source: "gateway",
+      ...row,
+    };
+    if (payload.estimated_cost_usd == null && payload.input_tokens != null && payload.output_tokens != null) {
+      payload.estimated_cost_usd = chatTokenCostUsd(
+        normalizeAiModel(String(payload.model_used || "")),
+        Number(payload.input_tokens || 0),
+        Number(payload.output_tokens || 0),
+      );
+    }
     await fetch(`${SUPABASE_URL}/rest/v1/ai_call_audit`, {
       method: "POST",
       headers: {
@@ -68,17 +84,13 @@ export async function recordAiCall(row: AuditRow): Promise<void> {
         Authorization: `Bearer ${SERVICE_KEY}`,
         Prefer: "return=minimal",
       },
-      body: JSON.stringify({
-        provider: "lovable_ai",
-        status: "ok",
-        meta: {},
-        ...row,
-      }),
+      body: JSON.stringify(payload),
     });
   } catch {
     // swallow
   }
 }
+
 
 export interface CallOpts {
   model: string;
