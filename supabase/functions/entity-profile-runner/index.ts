@@ -5,6 +5,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { callGeminiOpenAI, checkBudget, validateAiInput, auditSkip } from "../_shared/google-gemini-direct.ts";
+
+const TIER1_MODEL = "gemini-2.5-flash-lite";
+const JOB_TYPE = "entity_profile";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
