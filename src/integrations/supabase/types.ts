@@ -23,6 +23,8 @@ export type Database = {
           id: string
           input_tokens: number | null
           job_type: string
+          key_source: string | null
+          latency_ms: number | null
           meta: Json
           model_used: string
           output_tokens: number | null
@@ -41,6 +43,8 @@ export type Database = {
           id?: string
           input_tokens?: number | null
           job_type: string
+          key_source?: string | null
+          latency_ms?: number | null
           meta?: Json
           model_used: string
           output_tokens?: number | null
@@ -59,6 +63,8 @@ export type Database = {
           id?: string
           input_tokens?: number | null
           job_type?: string
+          key_source?: string | null
+          latency_ms?: number | null
           meta?: Json
           model_used?: string
           output_tokens?: number | null
