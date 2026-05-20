@@ -34,10 +34,13 @@ async function setControls(supabase: any, patch: Record<string, any>, prev: any)
 }
 
 async function countPendingHU(supabase: any, personIds?: string[] | null): Promise<number> {
+  // Count BOTH 'pending' AND 'in_progress' so a wave of stuck claims (workers killed
+  // by edge timeout / 429s) doesn't trick the runner into auto-disabling prematurely.
+  // The reaper resets stale in_progress → pending on the next invocation.
   let q = supabase
     .from("person_episode_mentions")
     .select("id, podcasts!person_episode_mentions_podcast_id_fkey!inner(is_hungarian, language_decision)", { count: "exact", head: true })
-    .eq("relevance_status", "pending")
+    .in("relevance_status", ["pending", "in_progress"])
     .eq("podcasts.is_hungarian", true)
     .eq("podcasts.language_decision", "accept_hungarian");
   if (personIds && personIds.length) q = q.in("person_id", personIds);
