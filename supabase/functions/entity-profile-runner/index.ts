@@ -57,6 +57,17 @@ Deno.serve(async (req) => {
   try {
     const bodyOverride = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    if ((bodyOverride as any).audit_only_slug_guard_test === true || (bodyOverride as any).dry_run === "audit_slug_guard") {
+      await auditSkip({
+        job_type: JOB_TYPE,
+        reason: "audit_helper_slug_guard_test",
+        model: TIER1_MODEL,
+        target_type: "person",
+        target_id: String((bodyOverride as any).target_slug || "ruff-balint"),
+        meta: { latency_ms: Date.now() - startedAt, parsed_body: bodyOverride },
+      });
+      return json({ ok: true, dry_run: true, reason: "audit_helper_slug_guard_test", target_slug: String((bodyOverride as any).target_slug || "ruff-balint") });
+    }
     const guard = await checkBackgroundJobsAllowed(admin, "entity-profile-runner");
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
@@ -72,7 +83,11 @@ Deno.serve(async (req) => {
     const minEpisodes = Math.max(2, Number(ctrl.min_episodes ?? 8));
     const maxPerRun = Math.max(1, Math.min(50, Number(ctrl.max_per_run ?? 15)));
     const refreshDays = Math.max(1, Number(ctrl.refresh_days ?? 30));
-    const batchLimit = Math.max(1, Math.min(maxPerRun, Number((bodyOverride as any).batch_limit ?? (ctrl as any).batch_limit ?? maxPerRun)));
+    const requestedBatchRaw = (bodyOverride as any).batch_limit;
+    const requestedBatchLimit = requestedBatchRaw == null ? null : Math.max(1, Math.floor(Number(requestedBatchRaw)));
+    const batchLimit = Math.max(1, Math.min(maxPerRun, Number.isFinite(Number(requestedBatchLimit)) && requestedBatchLimit != null ? requestedBatchLimit : maxPerRun));
+    const effectiveControls = { requested_batch_limit_raw: requestedBatchRaw ?? null, parsed_body: bodyOverride, effective_batch_limit: batchLimit, effective_max_per_run: maxPerRun };
+    console.log("[entity-profile-runner] effective-controls", JSON.stringify(effectiveControls));
 
 
     // Today's spend
@@ -205,13 +220,13 @@ Deno.serve(async (req) => {
         // Input validation
         const skipReason = validateAiInput(userPrompt, { minChars: 80 });
         if (skipReason) {
-          await auditSkip({ job_type: JOB_TYPE, reason: skipReason, model, target_type: "person_slug", target_id: cand.slug });
+          await auditSkip({ job_type: JOB_TYPE, reason: skipReason, model, target_type: "person", target_id: cand.slug });
           failed++; continue;
         }
         // Budget guard per-call (cheap; reads cached app_settings)
         const bg = await checkBudget(JOB_TYPE);
         if (!bg.allowed) {
-          await auditSkip({ job_type: JOB_TYPE, reason: bg.reason || "budget_blocked", model, target_type: "person_slug", target_id: cand.slug });
+          await auditSkip({ job_type: JOB_TYPE, reason: bg.reason || "budget_blocked", model, target_type: "person", target_id: cand.slug });
           stop = true; break;
         }
 
@@ -224,7 +239,7 @@ Deno.serve(async (req) => {
           tools: [BIO_TOOL],
           tool_choice: { type: "function", function: { name: "person_bio" } },
           job_type: JOB_TYPE,
-          target_type: "person_slug",
+          target_type: "person",
           target_id: cand.slug,
         });
         if (!result.ok) {
@@ -246,7 +261,7 @@ Deno.serve(async (req) => {
 
         const featured_episode_ids = epList.slice(0, 5).map((e) => e.id);
 
-        await admin.from("entity_profiles").upsert({
+        const { error: upsertError } = await admin.from("entity_profiles").upsert({
           kind: "person",
           slug: cand.slug,
           display_name,
@@ -260,12 +275,14 @@ Deno.serve(async (req) => {
           generated_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }, { onConflict: "slug" });
+        if (upsertError) throw upsertError;
 
         succeeded++;
         mySpend += cost; totalSpend += cost; calls++;
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
+        if (String(msg).includes("audit_insert_failed")) throw new Error(`audit_fail_closed: ${msg}`);
         if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
       }
     }
@@ -289,6 +306,7 @@ Deno.serve(async (req) => {
       eligible_after_recent_filter: candidates.length,
       processed, succeeded, failed, rate_limited,
       spend_usd: mySpend,
+      controls_effective: effectiveControls,
       elapsed_ms: Date.now() - startedAt,
     });
   } catch (e: any) {
