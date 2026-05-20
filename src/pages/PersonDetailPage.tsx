@@ -216,8 +216,25 @@ export default function PersonDetailPage() {
         : sCount >= mCount
           ? "subject"
           : "mention";
+  const isTopicFigure =
+    (person as any)?.persona === "topic_figure" ||
+    Boolean((person as any)?.topic_figure_seeded) ||
+    (Boolean((person as any)?.is_topic_only) && !isHistorical);
+  const topicOriginLabel: Record<string, string> = {
+    us_politics: "amerikai közélet",
+    world_leader: "nemzetközi politika",
+    tech: "tech / üzlet",
+    finance: "pénzügy",
+    sports: "sport",
+    culture: "kultúra",
+    activist: "közélet / aktivizmus",
+    intellectual: "tudomány / gondolkodók",
+    media: "média",
+  };
+  const topicOrigin = topicOriginLabel[(person as any)?.topic_figure_origin || ""] || null;
   const personaLabel =
-    dominantRole === "participant" ? null
+    isTopicFigure ? null // separate dedicated banner below
+    : dominantRole === "participant" ? null
     : dominantRole === "subject" ? "Gyakran tárgyalt téma magyar podcastekben"
     : dominantRole === "mention" ? "Gyakran említett személy"
     : null;
