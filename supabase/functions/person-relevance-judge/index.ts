@@ -4,10 +4,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { callGeminiNative } from "../_shared/google-gemini-direct.ts";
 
 const TIME_BUDGET_MS = 20_000;
 const RESERVE_MS = 4_000;
-const MODEL = "gemini-2.5-flash";
+// Policy v2 (2026-05-20 Tier 1): default flash-lite for batch judgment.
+const MODEL = "gemini-2.5-flash-lite";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 const MAX_CONCURRENCY = 250;
 
