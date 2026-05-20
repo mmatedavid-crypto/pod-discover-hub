@@ -61,12 +61,17 @@ Deno.serve(async (req) => {
 
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "entity_profile_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
-    if (ctrl.enabled === false) return json({ ok: true, paused: true });
+    if (ctrl.enabled === false) {
+      const reason = ctrl.auto_paused_reason ? `auto_paused:${ctrl.auto_paused_reason}` : "disabled";
+      await auditSkip({ job_type: JOB_TYPE, reason, model: TIER1_MODEL, meta: { latency_ms: Date.now() - startedAt, controls: ctrl } });
+      return json({ ok: true, paused: true, reason });
+    }
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 3);
     const model = TIER1_MODEL; // forced tier1 gemini-2.5-flash-lite (ctrl.model ignored if Pro/Gemini3)
     const minEpisodes = Math.max(2, Number(ctrl.min_episodes ?? 8));
     const maxPerRun = Math.max(1, Math.min(50, Number(ctrl.max_per_run ?? 15)));
     const refreshDays = Math.max(1, Number(ctrl.refresh_days ?? 30));
+    const batchLimit = Math.max(1, Math.min(maxPerRun, Number((ctrl as any).batch_limit ?? maxPerRun)));
 
     // Today's spend
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
@@ -76,7 +81,10 @@ Deno.serve(async (req) => {
     let mySpend = Number(byKind.entity_profile || 0);
     let totalSpend = Number(spendRow?.spend_usd || 0);
     let calls = Number(spendRow?.calls || 0);
-    if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend: mySpend });
+    if (mySpend >= dailyBudget) {
+      await auditSkip({ job_type: JOB_TYPE, reason: "budget_exceeded", model, meta: { latency_ms: Date.now() - startedAt, my_spend: mySpend, daily_budget: dailyBudget } });
+      return json({ ok: true, budget_reached: true, spend: mySpend });
+    }
 
     // Aggregate person counts from HU episodes (last 2 years) via SQL.
     const counts = new Map<string, { display: string; episode_ids: string[]; podcasts: Set<string>; latestPublishedAt: number }>();
