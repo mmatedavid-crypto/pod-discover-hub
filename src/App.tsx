@@ -34,6 +34,7 @@ import AdminLanguageGatePage from "./pages/AdminLanguageGatePage.tsx";
 import AdminPersonQualityReviewPage from "./pages/AdminPersonQualityReviewPage.tsx";
 import AdminVectorSearchPage from "./pages/AdminVectorSearchPage.tsx";
 import AdminSearchBenchmarkPage from "./pages/AdminSearchBenchmarkPage.tsx";
+import AdminDataCoveragePage from "./pages/AdminDataCoveragePage.tsx";
 import PeopleHubPage from "./pages/PeopleHubPage.tsx";
 import PersonDetailPage from "./pages/PersonDetailPage.tsx";
 import TopicsHubPage from "./pages/TopicsHubPage.tsx";
@@ -98,6 +99,7 @@ const App = () => (
           <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
           <Route path="/admin/vector-search" element={<AdminVectorSearchPage />} />
           <Route path="/admin/search-benchmark" element={<AdminSearchBenchmarkPage />} />
+          <Route path="/admin/data-coverage" element={<AdminDataCoveragePage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />

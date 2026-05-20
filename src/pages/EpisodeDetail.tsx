@@ -6,6 +6,7 @@ import { Apple, Music, Youtube, ExternalLink, Play, Pause, Globe } from "lucide-
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
+import { pickEpisodeDescription } from "@/lib/episodeText";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { ENTITY_COLUMN, EntityKind, ENTITY_LABEL, entityHref } from "@/lib/entity";
 import { EpisodeDetailSkeleton } from "@/components/Skeletons";
@@ -63,8 +64,9 @@ export default function EpisodeDetail() {
 
       const summary = stripHtml(e.summary);
       const desc = stripHtml(e.description);
-      const aiSum = stripHtml(e.ai_summary);
-      const metaDesc = (e.seo_description || aiSum || summary || desc || `Epizód a(z) ${p.display_title || p.title} podcastből — Podiverzum.`).slice(0, 160);
+      // Unified resolver: ai_summary → clean_text → RSS summary/description
+      const bestDesc = pickEpisodeDescription(e, 320);
+      const metaDesc = (e.seo_description || bestDesc || `Epizód a(z) ${p.display_title || p.title} podcastből — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
@@ -84,7 +86,7 @@ export default function EpisodeDetail() {
             "@context": "https://schema.org",
             "@type": "PodcastEpisode",
             name: e.title,
-            description: e.seo_description || aiSum || summary || desc || undefined,
+            description: e.seo_description || bestDesc || undefined,
             datePublished: e.published_at || undefined,
             url: typeof window !== "undefined" ? window.location.href : undefined,
             image: e.image_url || p.image_url || undefined,
@@ -399,7 +401,7 @@ export default function EpisodeDetail() {
         {moreFromPod.length > 0 && (
           <section className="mt-10">
             <h2 className="font-semibold mb-3">További epizódok — {p.display_title || p.title}</h2>
-            <EpisodeList items={moreFromPod} />
+            <EpisodeList items={moreFromPod} showEntities />
           </section>
         )}
 
