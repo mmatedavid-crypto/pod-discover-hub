@@ -169,9 +169,9 @@ export default function PeopleHubPage() {
           <section>
             <div className="flex items-end justify-between mb-4 gap-3 flex-wrap">
               <div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Nemzetközi téma-személyek</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold">Témává vált személyek</h2>
                 <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-                  Vendégként (egyelőre) nem szerepelnek magyar podcastekben, de gyakran téma vagy hivatkozási pont — politikusok, tech-vezetők, alkotók, sportolók.
+                  Közéleti, történelmi, vallási, kulturális vagy nemzetközi szereplők, akik nem vendégként, hanem témaként, hivatkozási pontként vagy beszélgetések főszereplőiként jelennek meg a magyar podcastokban.
                 </p>
               </div>
             </div>
@@ -188,7 +188,7 @@ export default function PeopleHubPage() {
                     latest_accepted_relevant_episode_at: p.latest_accepted_relevant_episode_at ?? null,
                     short_bio: p.short_bio ?? null,
                     ai_bio: p.ai_bio ?? null,
-                    context_line: "Téma-személy",
+                    context_line: "Témává vált személy",
                   }}
                 />
               ))}
