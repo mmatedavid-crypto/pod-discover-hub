@@ -183,17 +183,43 @@ Deno.serve(async (req) => {
           `Recent episodes:\n${sample}\n\n` +
           `Write a Hungarian person profile. Use ONLY what these titles/summaries reveal.`;
 
-        const ai = await callAI(model, [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: userPrompt },
-        ]);
-        const usage = ai.usage || {};
-        const inTok = Number(usage.prompt_tokens || 0);
-        const outTok = Number(usage.completion_tokens || 0);
-        const cost = chatTokenCostUsd(model, inTok, outTok);
-        const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        // Input validation
+        const skipReason = validateAiInput(userPrompt, { minChars: 80 });
+        if (skipReason) {
+          await auditSkip({ job_type: JOB_TYPE, reason: skipReason, model, target_type: "person_slug", target_id: cand.slug });
+          failed++; continue;
+        }
+        // Budget guard per-call (cheap; reads cached app_settings)
+        const bg = await checkBudget(JOB_TYPE);
+        if (!bg.allowed) {
+          await auditSkip({ job_type: JOB_TYPE, reason: bg.reason || "budget_blocked", model, target_type: "person_slug", target_id: cand.slug });
+          stop = true; break;
+        }
+
+        const result = await callGeminiOpenAI({
+          model,
+          messages: [
+            { role: "system", content: SYSTEM },
+            { role: "user", content: userPrompt },
+          ],
+          tools: [BIO_TOOL],
+          tool_choice: { type: "function", function: { name: "person_bio" } },
+          job_type: JOB_TYPE,
+          target_type: "person_slug",
+          target_id: cand.slug,
+        });
+        if (!result.ok) {
+          failed++;
+          if (result.status === 429 || /rate/i.test(result.error || "")) { rate_limited++; stop = true; }
+          continue;
+        }
+        const ai = result.data;
+        const inTok = result.input_tokens;
+        const outTok = result.output_tokens;
+        const cost = result.cost_usd ?? chatTokenCostUsd(model, inTok, outTok);
+        const args = ai?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
         const parsed = args ? JSON.parse(args) : null;
-        if (!parsed) throw new Error("no_tool_call");
+        if (!parsed) { failed++; continue; }
 
         const display_name = String(parsed.display_name || cand.display_name).trim().slice(0, 120);
         const bio = String(parsed.bio || "").replace(/\s+/g, " ").trim().slice(0, 1400);
