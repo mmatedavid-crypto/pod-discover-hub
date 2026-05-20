@@ -1652,6 +1652,8 @@ export type Database = {
           collision_signals: Json
           confidence: number
           created_at: string
+          date_of_birth: string | null
+          date_of_death: string | null
           disambiguation_context: string | null
           disambiguation_label: string | null
           distinct_podcast_count: number
@@ -1659,6 +1661,7 @@ export type Database = {
           editorial_notes: string | null
           editorial_priority: boolean
           editorial_priority_level: number
+          entity_type: string
           episode_count: number
           gated_episode_count: number
           gated_podcast_count: number
@@ -1683,6 +1686,7 @@ export type Database = {
           is_deceased: boolean
           is_historical: boolean
           is_indexable: boolean
+          is_living: boolean | null
           is_public: boolean
           is_topic_only: boolean
           latest_accepted_relevant_episode_at: string | null
@@ -1695,6 +1699,7 @@ export type Database = {
           name: string
           needs_human_review_identity: boolean
           normalized_name: string
+          occupation_labels: string[]
           one_show_host: boolean
           overview_generated_at: string | null
           overview_sources: Json
@@ -1705,12 +1710,15 @@ export type Database = {
           podcast_count: number
           recent_relevant_episode_count_30d: number
           short_bio: string | null
+          short_description_hu: string | null
           slug: string
           strong_mention_count: number
           subject_count: number
           topic_figure_origin: string | null
           topic_figure_seeded: boolean
           updated_at: string
+          wiki_match_reason: string | null
+          wiki_match_run_at: string | null
           wikidata_id: string | null
           wikipedia_description: string | null
           wikipedia_extract: string | null
@@ -1749,6 +1757,8 @@ export type Database = {
           collision_signals?: Json
           confidence?: number
           created_at?: string
+          date_of_birth?: string | null
+          date_of_death?: string | null
           disambiguation_context?: string | null
           disambiguation_label?: string | null
           distinct_podcast_count?: number
@@ -1756,6 +1766,7 @@ export type Database = {
           editorial_notes?: string | null
           editorial_priority?: boolean
           editorial_priority_level?: number
+          entity_type?: string
           episode_count?: number
           gated_episode_count?: number
           gated_podcast_count?: number
@@ -1780,6 +1791,7 @@ export type Database = {
           is_deceased?: boolean
           is_historical?: boolean
           is_indexable?: boolean
+          is_living?: boolean | null
           is_public?: boolean
           is_topic_only?: boolean
           latest_accepted_relevant_episode_at?: string | null
@@ -1792,6 +1804,7 @@ export type Database = {
           name: string
           needs_human_review_identity?: boolean
           normalized_name: string
+          occupation_labels?: string[]
           one_show_host?: boolean
           overview_generated_at?: string | null
           overview_sources?: Json
@@ -1802,12 +1815,15 @@ export type Database = {
           podcast_count?: number
           recent_relevant_episode_count_30d?: number
           short_bio?: string | null
+          short_description_hu?: string | null
           slug: string
           strong_mention_count?: number
           subject_count?: number
           topic_figure_origin?: string | null
           topic_figure_seeded?: boolean
           updated_at?: string
+          wiki_match_reason?: string | null
+          wiki_match_run_at?: string | null
           wikidata_id?: string | null
           wikipedia_description?: string | null
           wikipedia_extract?: string | null
@@ -1846,6 +1862,8 @@ export type Database = {
           collision_signals?: Json
           confidence?: number
           created_at?: string
+          date_of_birth?: string | null
+          date_of_death?: string | null
           disambiguation_context?: string | null
           disambiguation_label?: string | null
           distinct_podcast_count?: number
@@ -1853,6 +1871,7 @@ export type Database = {
           editorial_notes?: string | null
           editorial_priority?: boolean
           editorial_priority_level?: number
+          entity_type?: string
           episode_count?: number
           gated_episode_count?: number
           gated_podcast_count?: number
@@ -1877,6 +1896,7 @@ export type Database = {
           is_deceased?: boolean
           is_historical?: boolean
           is_indexable?: boolean
+          is_living?: boolean | null
           is_public?: boolean
           is_topic_only?: boolean
           latest_accepted_relevant_episode_at?: string | null
@@ -1889,6 +1909,7 @@ export type Database = {
           name?: string
           needs_human_review_identity?: boolean
           normalized_name?: string
+          occupation_labels?: string[]
           one_show_host?: boolean
           overview_generated_at?: string | null
           overview_sources?: Json
@@ -1899,12 +1920,15 @@ export type Database = {
           podcast_count?: number
           recent_relevant_episode_count_30d?: number
           short_bio?: string | null
+          short_description_hu?: string | null
           slug?: string
           strong_mention_count?: number
           subject_count?: number
           topic_figure_origin?: string | null
           topic_figure_seeded?: boolean
           updated_at?: string
+          wiki_match_reason?: string | null
+          wiki_match_run_at?: string | null
           wikidata_id?: string | null
           wikipedia_description?: string | null
           wikipedia_extract?: string | null
