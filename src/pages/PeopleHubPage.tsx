@@ -37,6 +37,7 @@ async function fetchPeople(limit: number, offset: number, search: string | null)
 
 export default function PeopleHubPage() {
   const [top, setTop] = useState<PersonRow[]>([]);
+  const [topicFigures, setTopicFigures] = useState<any[]>([]);
   const [list, setList] = useState<PersonRow[]>([]);
   const [totalAll, setTotalAll] = useState(0);
   const [page, setPage] = useState(0);
