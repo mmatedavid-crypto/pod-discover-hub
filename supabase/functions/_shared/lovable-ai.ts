@@ -101,7 +101,7 @@ export async function recordAiCall(row: AuditRow): Promise<void> {
         Number(payload.output_tokens || 0),
       );
     }
-    await fetch(`${SUPABASE_URL}/rest/v1/ai_call_audit`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ai_call_audit`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
