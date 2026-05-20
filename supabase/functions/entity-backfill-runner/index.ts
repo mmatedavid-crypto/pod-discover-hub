@@ -79,7 +79,14 @@ Deno.serve(async (req) => {
     const ctrl = (ctrlRow?.value || {}) as any;
     if (ctrl.enabled === false) return json({ ok: true, paused: true });
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 5);
-    const model = String(ctrl.model || "google/gemini-3.1-flash-lite-preview");
+    const model = String(ctrl.model || "google/gemini-2.5-flash-lite");
+    assertModelAllowed(model);
+
+    // Global budget guard (reads app_settings.ai_budget + ai_spend_daily)
+    const budgetCheck = await checkBudget("entity_backfill");
+    if (!budgetCheck.allowed) {
+      return json({ ok: true, budget_blocked: true, reason: budgetCheck.reason, spend_today_usd: budgetCheck.spend_today_usd });
+    }
 
     // Today's spend (shared ai_spend_daily; per-key merged atomically via merge_ai_spend RPC)
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
@@ -90,6 +97,7 @@ Deno.serve(async (req) => {
     let runIncrement = 0;
     let runCalls = 0;
     if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend: mySpend });
+
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
     let stop = false;
