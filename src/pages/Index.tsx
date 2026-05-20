@@ -291,13 +291,13 @@ const Index = () => {
             Podcast felfedezés
           </div>
           <h1 className="text-5xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
-            Találd meg. <span className="text-brand-gradient">Hallgasd meg.</span>
+            Find it. <span className="text-brand-gradient">Hear it.</span>
           </h1>
           <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Indulj abból, ami érdekel — ne a műsor nevéből.
+            Keress úgy, ahogy gondolkodsz: téma, személy, cég, piac, technológia, hangulat vagy gondolat alapján.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Keress téma, személy, cég, piac, technológia vagy gondolat alapján.
+            A Podiverzum az epizódok tartalma alapján mutatja meg, mit érdemes meghallgatni.
           </p>
           <div ref={heroWrapRef} className="mt-6 sm:mt-10 max-w-2xl relative animate-fade-up">
           <form
