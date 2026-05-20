@@ -5,7 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
-const TIME_BUDGET_MS = 35_000;
+const TIME_BUDGET_MS = 20_000;
 const RESERVE_MS = 4_000;
 const MODEL = "gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
@@ -138,10 +138,32 @@ async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result
   return { result: fc.args, cost };
 }
 
-async function callAI(prompt: string): Promise<{ result: any; cost: number } | null> {
-  const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!geminiKey) throw new Error("GEMINI_API_KEY missing — direct API required");
-  return await callAIDirect(prompt, geminiKey);
+// Key pool: prefer FREE tier first to save paid budget; fall back to paid on 429.
+function getKeyPool(): { key: string; isFree: boolean }[] {
+  const pool: { key: string; isFree: boolean }[] = [];
+  const free = Deno.env.get("GEMINI_API_KEY_FREE");
+  const paid = Deno.env.get("GEMINI_API_KEY");
+  if (free) pool.push({ key: free, isFree: true });
+  if (paid) pool.push({ key: paid, isFree: false });
+  return pool;
+}
+
+async function callAI(prompt: string): Promise<{ result: any; cost: number; isFree: boolean } | null> {
+  const pool = getKeyPool();
+  if (pool.length === 0) throw new Error("No GEMINI_API_KEY available");
+  let lastErr: any = null;
+  for (const { key, isFree } of pool) {
+    try {
+      const out = await callAIDirect(prompt, key);
+      if (out) return { ...out, isFree };
+    } catch (e) {
+      lastErr = e;
+      if (String(e).includes("rate_limit")) continue; // try next key
+      throw e;
+    }
+  }
+  if (lastErr) throw lastErr;
+  return null;
 }
 
 async function logSpend(supabase: any, cost: number) {
@@ -275,8 +297,10 @@ Deno.serve(async (req) => {
           try {
             const out = await callAI(buildPrompt(pending));
             if (!out) { errors++; return; }
-            spendToday += out.cost;
-            await logSpend(supabase, out.cost);
+            // Free-tier key: no $ charge, don't count against daily budget.
+            const billedCost = out.isFree ? 0 : out.cost;
+            spendToday += billedCost;
+            if (billedCost > 0) await logSpend(supabase, billedCost);
             const r = out.result;
             let status: string;
             if (r.is_false_positive || r.identity_match === "substring_false_positive" || r.identity_match === "different_person_same_name") status = "rejected";
