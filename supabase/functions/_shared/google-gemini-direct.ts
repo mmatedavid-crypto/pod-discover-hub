@@ -288,6 +288,8 @@ export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCall
 
   let lastStatus = 0;
   let lastErr = "";
+  let lastKeySource: KeySource | null = null;
+  const t0 = Date.now();
 
   for (const entry of pool) {
     let res: Response;
@@ -301,20 +303,25 @@ export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCall
       try { json = await res.json(); } catch { /* */ }
     } catch (e) {
       lastErr = `network: ${String(e).slice(0, 200)}`;
+      lastKeySource = entry.source;
       continue;
     }
 
+    lastKeySource = entry.source;
     if (res.ok) {
       const fc = json?.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
       const usage = json?.usageMetadata || {};
       const inTok = Number(usage.promptTokenCount || 0);
       const outTok = Number(usage.candidatesTokenCount || 0);
-      const cost = opts.costFn ? opts.costFn(model, inTok, outTok) : undefined;
+      const cost = (opts.costFn ?? defaultCostFn)(model, inTok, outTok);
+      const latency_ms = Date.now() - t0;
       await writeAudit({
         job_type: opts.job_type, provider: "google_generative_language",
         model_used: model, status: "ok",
         input_tokens: inTok, output_tokens: outTok,
-        estimated_cost_usd: cost ?? null,
+        estimated_cost_usd: cost,
+        latency_ms,
+        key_source: entry.source,
         confidence: opts.confidence ?? null,
         target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
         meta: { key_source: entry.source },
@@ -331,12 +338,122 @@ export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCall
     break;
   }
 
+  const latency_ms = Date.now() - t0;
   await writeAudit({
     job_type: opts.job_type, provider: "google_generative_language",
     model_used: model, status: "error",
     error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
+    latency_ms,
+    key_source: lastKeySource ?? pool[0]?.source ?? null,
     target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-    meta: { key_source: pool[0]?.source ?? null },
+    meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
   });
   return { ok: false, model_used: model, input_tokens: 0, output_tokens: 0, status: lastStatus, error: lastErr };
+}
+
+// ============================================================================
+// Budget guard + input validation + skip auditing
+// ============================================================================
+
+export interface BudgetCheckResult {
+  allowed: boolean;
+  reason?: string;
+  spend_today_usd: number;
+  daily_cap_usd: number;
+  job_spend_today_usd: number;
+  job_cap_usd: number | null;
+}
+
+/**
+ * Check global + per-job daily spend caps from app_settings.ai_budget and
+ * ai_spend_daily. Returns allowed=false with reason when budget exceeded.
+ * Safe to call before each AI request (cache result for short runs).
+ */
+export async function checkBudget(jobType: string): Promise<BudgetCheckResult> {
+  const fail: BudgetCheckResult = {
+    allowed: true, spend_today_usd: 0, daily_cap_usd: 15,
+    job_spend_today_usd: 0, job_cap_usd: null,
+  };
+  if (!SUPABASE_URL || !SERVICE_KEY) return fail;
+  try {
+    const settingsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/app_settings?key=eq.ai_budget&select=value`,
+      { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } },
+    );
+    const settings = await settingsRes.json();
+    const budget = settings?.[0]?.value || {};
+    const dailyCap = Number(budget?.daily_cap_usd ?? 15);
+    const perJobCaps = budget?.per_job_caps_usd || {};
+    const jobCap = perJobCaps[jobType] != null ? Number(perJobCaps[jobType]) : null;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const spendRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/ai_spend_daily?day=eq.${today}&select=spend_usd,by_kind`,
+      { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } },
+    );
+    const spendRows = await spendRes.json();
+    const row = spendRows?.[0] || { spend_usd: 0, by_kind: {} };
+    const spendToday = Number(row.spend_usd || 0);
+    const byKind = row.by_kind || {};
+    const jobSpend = Number(byKind[jobType] || 0);
+
+    if (spendToday >= dailyCap) {
+      return { allowed: false, reason: `global_daily_cap_exceeded ($${spendToday.toFixed(2)}/$${dailyCap})`,
+        spend_today_usd: spendToday, daily_cap_usd: dailyCap,
+        job_spend_today_usd: jobSpend, job_cap_usd: jobCap };
+    }
+    if (jobCap != null && jobSpend >= jobCap) {
+      return { allowed: false, reason: `job_daily_cap_exceeded (${jobType}: $${jobSpend.toFixed(2)}/$${jobCap})`,
+        spend_today_usd: spendToday, daily_cap_usd: dailyCap,
+        job_spend_today_usd: jobSpend, job_cap_usd: jobCap };
+    }
+    return { allowed: true, spend_today_usd: spendToday, daily_cap_usd: dailyCap,
+      job_spend_today_usd: jobSpend, job_cap_usd: jobCap };
+  } catch (e) {
+    return { ...fail, reason: `budget_check_error: ${String(e).slice(0, 200)}` };
+  }
+}
+
+/**
+ * Validate input text. Returns null if valid, or a skip reason string.
+ */
+export function validateAiInput(text: unknown, opts?: { minChars?: number }): string | null {
+  const minChars = opts?.minChars ?? 40;
+  if (text == null) return "input_null";
+  if (typeof text !== "string") return "input_not_string";
+  const t = text.trim();
+  if (!t) return "input_empty";
+  if (t.length < minChars) return "input_too_short";
+  if (/\b(undefined|null|\[object Object\])\b/i.test(t)) return "input_contains_placeholder";
+  const stripped = t.replace(/https?:\/\/\S+/g, "").replace(/@[\w.-]+/g, "").replace(/\s+/g, " ").trim();
+  if (stripped.length < minChars * 0.4) return "input_boilerplate_only";
+  return null;
+}
+
+/**
+ * Write a 'skipped' audit row (no AI call made).
+ */
+export async function auditSkip(args: {
+  job_type: string;
+  reason: string;
+  model?: string;
+  target_type?: string;
+  target_id?: string;
+  source_hash?: string;
+  meta?: Record<string, unknown>;
+}): Promise<void> {
+  await writeAudit({
+    job_type: args.job_type,
+    provider: "google_generative_language",
+    model_used: args.model || "gemini-2.5-flash-lite",
+    status: "skipped",
+    error_message: args.reason,
+    estimated_cost_usd: 0,
+    latency_ms: 0,
+    key_source: "skipped",
+    target_type: args.target_type ?? null,
+    target_id: args.target_id ?? null,
+    source_hash: args.source_hash ?? null,
+    meta: { skipped_reason: args.reason, ...(args.meta || {}) },
+  });
 }
