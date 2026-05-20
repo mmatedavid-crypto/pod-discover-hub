@@ -273,32 +273,51 @@ export default function PersonDetailPage() {
           </div>
         )}
 
+        {!isHistorical && personaLabel && (
+          <div className="text-xs text-muted-foreground -mt-6">
+            {personaLabel} — a lenti epizódok többségében nem ő szerepel, hanem róla beszélnek vagy említik.
+          </div>
+        )}
+
         {useDistinct ? (
           <>
-            {/* Live participation — only for non-historical people */}
-            {!isHistorical && hasInterviews && (
+            {/* Sorted by ranking priority: participant > subject > mention */}
+            {hasParticipants && (
               <section>
-                <h2 className="text-xl font-semibold mb-3">Interjúk és szereplések</h2>
-                <EpisodeList items={segments.interviews.slice(0, 20)} showEntities />
+                <h2 className="text-xl font-semibold mb-3">
+                  {isHistorical ? "Archív megszólalások" : "Szereplései és megszólalásai"}
+                </h2>
+                {!isHistorical && (
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Epizódok, ahol vendég, házigazda, interjúalany vagy szereplő.
+                  </p>
+                )}
+                <EpisodeList items={segments.participants.slice(0, 20)} showEntities />
               </section>
             )}
             {hasSubjects && (
               <section>
                 <h2 className="text-xl font-semibold mb-3">
-                  {isHistorical ? `${person.name} életművéről szóló adások` : `Epizódok ${person.name} témájában`}
+                  {isHistorical
+                    ? `${person.name} életművéről szóló adások`
+                    : `Róla szóló adások`}
                 </h2>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Adások, amelyekben {person.name} témaként szerepel — elemzések, beszélgetések a munkájáról, szerepéről, hatásáról.
+                </p>
                 <EpisodeList items={segments.subjects.slice(0, 20)} showEntities />
               </section>
             )}
-            {hasMentioned && (
+            {hasMentions && (
               <section>
-                <h2 className="text-xl font-semibold mb-3">
-                  {isHistorical ? `${person.name} említései` : "Említések"}
-                </h2>
-                <EpisodeList items={segments.mentioned.slice(0, 20)} showEntities />
+                <h2 className="text-xl font-semibold mb-3">Említések</h2>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Epizódok, amelyek kontextusként említik {person.name} nevét.
+                </p>
+                <EpisodeList items={segments.mentions.slice(0, 20)} showEntities />
               </section>
             )}
-            {hasArchivalSection && hasArchival && (
+            {hasArchivalSection && hasArchival && !isHistorical && (
               <section>
                 <h2 className="text-xl font-semibold mb-3">Archív megszólalások</h2>
                 <p className="text-xs text-muted-foreground mb-3">Eredeti felvétel vagy archív hanganyag az epizódban.</p>
@@ -310,7 +329,11 @@ export default function PersonDetailPage() {
           eps.length > 0 && (
             <section>
               <h2 className="text-xl font-semibold mb-3">
-                {isHistorical ? `${person.name} témaként` : "Kapcsolódó epizódok"}
+                {isHistorical
+                  ? `${person.name} témaként`
+                  : dominantRole === "participant" ? "Szereplései és megszólalásai"
+                  : dominantRole === "subject" ? "Róla szóló adások"
+                  : "Említések"}
               </h2>
               <EpisodeList items={eps.slice(0, 30)} showEntities />
             </section>
