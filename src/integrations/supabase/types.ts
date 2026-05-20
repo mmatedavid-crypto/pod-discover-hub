@@ -1648,11 +1648,14 @@ export type Database = {
           avg_source_podcast_rank: number
           browsable_reason: string | null
           canonical_identity_key: string | null
+          collision_risk_score: number
+          collision_signals: Json
           confidence: number
           created_at: string
           disambiguation_context: string | null
           disambiguation_label: string | null
           distinct_podcast_count: number
+          duplicate_candidate: boolean
           editorial_notes: string | null
           editorial_priority: boolean
           editorial_priority_level: number
@@ -1662,6 +1665,7 @@ export type Database = {
           guest_count: number
           host_count: number
           id: string
+          identity_ambiguous: boolean
           identity_confidence: number
           identity_status: string
           image_attribution: string | null
@@ -1684,6 +1688,7 @@ export type Database = {
           manually_seeded: boolean
           mentioned_count: number
           name: string
+          needs_human_review_identity: boolean
           normalized_name: string
           one_show_host: boolean
           overview_generated_at: string | null
@@ -1731,11 +1736,14 @@ export type Database = {
           avg_source_podcast_rank?: number
           browsable_reason?: string | null
           canonical_identity_key?: string | null
+          collision_risk_score?: number
+          collision_signals?: Json
           confidence?: number
           created_at?: string
           disambiguation_context?: string | null
           disambiguation_label?: string | null
           distinct_podcast_count?: number
+          duplicate_candidate?: boolean
           editorial_notes?: string | null
           editorial_priority?: boolean
           editorial_priority_level?: number
@@ -1745,6 +1753,7 @@ export type Database = {
           guest_count?: number
           host_count?: number
           id?: string
+          identity_ambiguous?: boolean
           identity_confidence?: number
           identity_status?: string
           image_attribution?: string | null
@@ -1767,6 +1776,7 @@ export type Database = {
           manually_seeded?: boolean
           mentioned_count?: number
           name: string
+          needs_human_review_identity?: boolean
           normalized_name: string
           one_show_host?: boolean
           overview_generated_at?: string | null
@@ -1814,11 +1824,14 @@ export type Database = {
           avg_source_podcast_rank?: number
           browsable_reason?: string | null
           canonical_identity_key?: string | null
+          collision_risk_score?: number
+          collision_signals?: Json
           confidence?: number
           created_at?: string
           disambiguation_context?: string | null
           disambiguation_label?: string | null
           distinct_podcast_count?: number
+          duplicate_candidate?: boolean
           editorial_notes?: string | null
           editorial_priority?: boolean
           editorial_priority_level?: number
@@ -1828,6 +1841,7 @@ export type Database = {
           guest_count?: number
           host_count?: number
           id?: string
+          identity_ambiguous?: boolean
           identity_confidence?: number
           identity_status?: string
           image_attribution?: string | null
@@ -1850,6 +1864,7 @@ export type Database = {
           manually_seeded?: boolean
           mentioned_count?: number
           name?: string
+          needs_human_review_identity?: boolean
           normalized_name?: string
           one_show_host?: boolean
           overview_generated_at?: string | null
@@ -4476,6 +4491,21 @@ export type Database = {
         }
         Relationships: []
       }
+      v_person_collision_buckets: {
+        Row: {
+          any_ambiguous: boolean | null
+          any_duplicate: boolean | null
+          avg_risk: number | null
+          existing_labels: string[] | null
+          max_risk: number | null
+          normalized_name: string | null
+          person_ids: string[] | null
+          row_count: number | null
+          total_eps: number | null
+          total_pods: number | null
+        }
+        Relationships: []
+      }
       v_person_diag_alias_review_queue: {
         Row: {
           alias: string | null
@@ -5054,6 +5084,15 @@ export type Database = {
           weak: boolean
         }[]
       }
+      recompute_person_collision_flags: {
+        Args: never
+        Returns: {
+          flagged_ambiguous: number
+          flagged_duplicate: number
+          flagged_review: number
+          total_scanned: number
+        }[]
+      }
       recompute_person_gated_counts: {
         Args: never
         Returns: {
@@ -5279,6 +5318,15 @@ export type Database = {
       update_page_event_dwell: {
         Args: { _dwell_ms: number; _id: string }
         Returns: undefined
+      }
+      upsert_scoped_person_alias: {
+        Args: {
+          p_alias_person_id: string
+          p_canonical_person_id: string
+          p_podcast_id: string
+          p_reason?: string
+        }
+        Returns: Json
       }
     }
     Enums: {
