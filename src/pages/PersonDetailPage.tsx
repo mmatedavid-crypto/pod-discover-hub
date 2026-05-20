@@ -240,9 +240,16 @@ export default function PersonDetailPage() {
 
         {eps.length === 0 && <div className="text-muted-foreground">Még nincs releváns epizód.</div>}
 
+        {isHistorical && (
+          <div className="text-xs text-muted-foreground -mt-6">
+            Történelmi / már nem élő személy — az epizódok róla szólnak, illetve megemlítik. A „vendég” vagy „interjúalany” jelölést szándékosan nem használjuk archív forrásbizonyíték nélkül.
+          </div>
+        )}
+
         {useDistinct ? (
           <>
-            {hasInterviews && (
+            {/* Live participation — only for non-historical people */}
+            {!isHistorical && hasInterviews && (
               <section>
                 <h2 className="text-xl font-semibold mb-3">Interjúk és szereplések</h2>
                 <EpisodeList items={segments.interviews.slice(0, 20)} showEntities />
@@ -250,21 +257,34 @@ export default function PersonDetailPage() {
             )}
             {hasSubjects && (
               <section>
-                <h2 className="text-xl font-semibold mb-3">Epizódok {person.name} témájában</h2>
+                <h2 className="text-xl font-semibold mb-3">
+                  {isHistorical ? `${person.name} életművéről szóló adások` : `Epizódok ${person.name} témájában`}
+                </h2>
                 <EpisodeList items={segments.subjects.slice(0, 20)} showEntities />
               </section>
             )}
             {hasMentioned && (
               <section>
-                <h2 className="text-xl font-semibold mb-3">Említések</h2>
+                <h2 className="text-xl font-semibold mb-3">
+                  {isHistorical ? `${person.name} említései` : "Említések"}
+                </h2>
                 <EpisodeList items={segments.mentioned.slice(0, 20)} showEntities />
+              </section>
+            )}
+            {hasArchivalSection && hasArchival && (
+              <section>
+                <h2 className="text-xl font-semibold mb-3">Archív megszólalások</h2>
+                <p className="text-xs text-muted-foreground mb-3">Eredeti felvétel vagy archív hanganyag az epizódban.</p>
+                <EpisodeList items={segments.archival.slice(0, 20)} showEntities />
               </section>
             )}
           </>
         ) : (
           eps.length > 0 && (
             <section>
-              <h2 className="text-xl font-semibold mb-3">Kapcsolódó epizódok</h2>
+              <h2 className="text-xl font-semibold mb-3">
+                {isHistorical ? `${person.name} témaként` : "Kapcsolódó epizódok"}
+              </h2>
               <EpisodeList items={eps.slice(0, 30)} showEntities />
             </section>
           )
