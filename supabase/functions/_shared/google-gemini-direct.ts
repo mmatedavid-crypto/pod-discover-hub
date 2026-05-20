@@ -162,6 +162,8 @@ export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICall
   let lastStatus = 0;
   let lastJson: any = null;
   let lastErr = "";
+  let lastKeySource: KeySource | null = null;
+  const t0 = Date.now();
 
   for (const entry of pool) {
     let res: Response;
@@ -178,20 +180,25 @@ export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICall
       try { json = await res.json(); } catch { /* */ }
     } catch (e) {
       lastErr = `network: ${String(e).slice(0, 200)}`;
+      lastKeySource = entry.source;
       continue;
     }
 
     const usage = json?.usage || {};
     const inTok = Number(usage.prompt_tokens ?? 0);
     const outTok = Number(usage.completion_tokens ?? 0);
+    lastKeySource = entry.source;
 
     if (res.ok) {
-      const cost = opts.costFn ? opts.costFn(rawModel, inTok, outTok) : undefined;
+      const cost = (opts.costFn ?? defaultCostFn)(rawModel, inTok, outTok);
+      const latency_ms = Date.now() - t0;
       await writeAudit({
         job_type: opts.job_type, provider: "google_generative_language",
         model_used: rawModel, status: "ok",
         input_tokens: inTok, output_tokens: outTok,
-        estimated_cost_usd: cost ?? null,
+        estimated_cost_usd: cost,
+        latency_ms,
+        key_source: entry.source,
         target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
         source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
         meta: { key_source: entry.source },
@@ -206,27 +213,29 @@ export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICall
     lastJson = json;
     lastErr = json?.error?.message || `HTTP ${res.status}`;
 
-    // Hop to next key on rate limit / temporary failure.
     if (res.status === 429 || res.status === 503 || res.status === 500) {
       continue;
     }
-    // Other errors: don't try other keys (likely model/request issue).
     break;
   }
 
+  const latency_ms = Date.now() - t0;
   await writeAudit({
     job_type: opts.job_type, provider: "google_generative_language",
     model_used: rawModel, status: "error",
     error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
+    latency_ms,
+    key_source: lastKeySource ?? pool[0]?.source ?? null,
     target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
     source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
-    meta: { key_source: pool[0]?.source ?? null },
+    meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
   });
   return {
     ok: false, status: lastStatus, data: lastJson, model_used: rawModel,
     input_tokens: 0, output_tokens: 0, error: lastErr,
   };
 }
+
 
 /**
  * Native Gemini generateContent call (used by person-relevance-judge which
