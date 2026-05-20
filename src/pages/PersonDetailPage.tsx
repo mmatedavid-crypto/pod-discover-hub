@@ -157,12 +157,30 @@ export default function PersonDetailPage() {
     })();
   }, [slug]);
 
+  const isHistorical = Boolean((person as any)?.is_deceased || (person as any)?.is_historical);
+  const hasArchival = Boolean((person as any)?.has_archival_evidence);
+
   const segments = useMemo(() => {
-    const interviews = eps.filter(e => e.mention_type === "host" || e.mention_type === "guest");
-    const subjects = eps.filter(e => e.mention_type === "subject");
+    const archival = eps.filter(e => e.mention_type === "archival_source");
+    // For deceased/historical people, never treat host/guest as live participation
+    // unless there is explicit archival_source evidence at episode level.
+    const interviews = isHistorical
+      ? [] // demote — these get reclassified as subject/mention via UI wording
+      : eps.filter(e => e.mention_type === "host" || e.mention_type === "guest");
+    const subjectsBase = eps.filter(e => e.mention_type === "subject");
+    // For historical people, fold any host/guest rows without archival evidence into "subject"
+    const subjects = isHistorical
+      ? [
+          ...subjectsBase,
+          ...eps.filter(e =>
+            (e.mention_type === "host" || e.mention_type === "guest") &&
+            e.mention_type !== "archival_source"
+          ),
+        ]
+      : subjectsBase;
     const mentioned = eps.filter(e => e.mention_type === "mentioned");
-    return { interviews, subjects, mentioned };
-  }, [eps]);
+    return { interviews, subjects, mentioned, archival };
+  }, [eps, isHistorical]);
 
   const last30 = useMemo(() => {
     const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
@@ -175,7 +193,8 @@ export default function PersonDetailPage() {
   const hasInterviews = segments.interviews.length > 0;
   const hasSubjects = segments.subjects.length > 0;
   const hasMentioned = segments.mentioned.length > 0;
-  const distinctSections = [hasInterviews, hasSubjects, hasMentioned].filter(Boolean).length;
+  const hasArchivalSection = segments.archival.length > 0;
+  const distinctSections = [hasInterviews, hasSubjects, hasMentioned, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
   const bioText = (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim()) || (eps.length > 0 ? huFallbackBio(person.name) : null);
 
