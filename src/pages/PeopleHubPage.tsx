@@ -75,6 +75,21 @@ export default function PeopleHubPage() {
     })();
   }, []);
 
+  // International topic figures (Musk, Trump, …) — never participate, only discussed
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("people")
+        .select("id, slug, name, disambiguation_label, short_bio, ai_bio, gated_episode_count, gated_podcast_count, episode_count, podcast_count, latest_accepted_relevant_episode_at, topic_figure_origin, people_hub_score")
+        .eq("persona", "topic_figure")
+        .eq("is_public", true)
+        .gte("gated_episode_count", 1)
+        .order("people_hub_score", { ascending: false })
+        .limit(18);
+      setTopicFigures((data || []) as any[]);
+    })();
+  }, []);
+
   // Reset page when search changes
   useEffect(() => {
     setPage(0);
