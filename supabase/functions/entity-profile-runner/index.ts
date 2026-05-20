@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
   const TAIL_RESERVE_MS = 5_000;
 
   try {
+    const bodyOverride = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const guard = await checkBackgroundJobsAllowed(admin, "entity-profile-runner");
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
@@ -71,7 +72,8 @@ Deno.serve(async (req) => {
     const minEpisodes = Math.max(2, Number(ctrl.min_episodes ?? 8));
     const maxPerRun = Math.max(1, Math.min(50, Number(ctrl.max_per_run ?? 15)));
     const refreshDays = Math.max(1, Number(ctrl.refresh_days ?? 30));
-    const batchLimit = Math.max(1, Math.min(maxPerRun, Number((ctrl as any).batch_limit ?? maxPerRun)));
+    const batchLimit = Math.max(1, Math.min(maxPerRun, Number((bodyOverride as any).batch_limit ?? (ctrl as any).batch_limit ?? maxPerRun)));
+
 
     // Today's spend
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
