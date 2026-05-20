@@ -79,8 +79,54 @@ export interface AuditInput {
   confidence?: number | null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(v: unknown): v is string {
+  return typeof v === "string" && UUID_RE.test(v.trim());
+}
+
+function looksLikeSlug(v: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(v);
+}
+
+function normalizeAuditRow(row: Record<string, unknown>): Record<string, unknown> {
+  const payload = { ...row };
+  const meta = { ...((row.meta && typeof row.meta === "object" && !Array.isArray(row.meta)) ? row.meta as Record<string, unknown> : {}) };
+  const rawTargetId = typeof row.target_id === "string" ? row.target_id.trim() : row.target_id;
+  if (rawTargetId == null || rawTargetId === "") {
+    payload.target_id = null;
+  } else if (isUuid(rawTargetId)) {
+    payload.target_id = rawTargetId;
+  } else {
+    payload.target_id = null;
+    const raw = String(rawTargetId);
+    if (String(row.target_type || "").includes("slug") || looksLikeSlug(raw)) {
+      meta.target_slug = raw;
+    } else {
+      meta.target_ref = raw;
+    }
+  }
+  payload.target_type = row.target_type ?? null;
+  payload.meta = meta;
+  return payload;
+}
+
+function auditPayloadShape(payload: Record<string, unknown>) {
+  return {
+    keys: Object.keys(payload).sort(),
+    job_type: payload.job_type,
+    provider: payload.provider,
+    model_used: payload.model_used,
+    status: payload.status,
+    target_type: payload.target_type,
+    target_id_type: payload.target_id == null ? "null" : typeof payload.target_id,
+    meta_keys: Object.keys((payload.meta as Record<string, unknown>) || {}).sort(),
+  };
+}
+
 async function writeAudit(row: Record<string, unknown>) {
-  if (!SUPABASE_URL || !SERVICE_KEY) { console.error("[audit] missing env"); return; }
+  if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("audit_insert_failed: missing_env");
+  const payload = normalizeAuditRow(row);
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/ai_call_audit`, {
       method: "POST",
@@ -90,14 +136,18 @@ async function writeAudit(row: Record<string, unknown>) {
         Authorization: `Bearer ${SERVICE_KEY}`,
         Prefer: "return=minimal",
       },
-      body: JSON.stringify(row),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.error(`[audit] HTTP ${res.status}: ${text.slice(0, 300)}`);
+      console.error("[audit] insert failed", JSON.stringify({ status: res.status, body: text.slice(0, 300), payload_shape: auditPayloadShape(payload) }));
+      throw new Error(`audit_insert_failed: HTTP ${res.status}`);
     }
   } catch (e) {
-    console.error(`[audit] threw: ${String(e).slice(0, 200)}`);
+    if (!String(e).includes("audit_insert_failed")) {
+      console.error("[audit] insert threw", JSON.stringify({ error: String(e).slice(0, 200), payload_shape: auditPayloadShape(payload) }));
+    }
+    throw e;
   }
 }
 
