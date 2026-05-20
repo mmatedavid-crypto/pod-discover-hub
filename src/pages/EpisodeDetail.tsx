@@ -6,6 +6,7 @@ import { Apple, Music, Youtube, ExternalLink, Play, Pause, Globe } from "lucide-
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
+import { pickEpisodeDescription } from "@/lib/episodeText";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { ENTITY_COLUMN, EntityKind, ENTITY_LABEL, entityHref } from "@/lib/entity";
 import { EpisodeDetailSkeleton } from "@/components/Skeletons";
@@ -85,7 +86,7 @@ export default function EpisodeDetail() {
             "@context": "https://schema.org",
             "@type": "PodcastEpisode",
             name: e.title,
-            description: e.seo_description || aiSum || summary || desc || undefined,
+            description: e.seo_description || bestDesc || undefined,
             datePublished: e.published_at || undefined,
             url: typeof window !== "undefined" ? window.location.href : undefined,
             image: e.image_url || p.image_url || undefined,
