@@ -1,6 +1,6 @@
 // episode-clean-text-runner: deterministic-only pass over episodes.description.
 // Writes to episode_clean_text and flips episodes.clean_text_status to 'done'.
-// NO Lovable AI call here. AI cleanup will only be added if heuristic quality is insufficient.
+// NO Lovable AI / Gemini calls here. AI cleanup will only be added if heuristic quality is insufficient.
 // Gates downstream chunk embeddings: chunkers should only run for clean_text_status='done'.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
@@ -31,60 +31,115 @@ Deno.serve(async (req) => {
     if (ctrl.enabled === false) return json({ ok: true, paused: true });
 
     const body = await req.json().catch(() => ({}));
-    const batchLimit = Math.max(10, Math.min(500, Number(body.batch ?? ctrl.batch_limit ?? 200)));
-    const timeBudgetMs = Math.max(5_000, Math.min(80_000, (Number(ctrl.time_budget_seconds ?? 40)) * 1000));
+    const batchLimit = Math.max(50, Math.min(1000, Number(body.batch ?? ctrl.batch_limit ?? 500)));
+    // Cap at 75s to stay under 120s edge fn limit with buffer.
+    const timeBudgetMs = Math.max(5_000, Math.min(75_000, (Number(ctrl.time_budget_seconds ?? 60)) * 1000));
     const minChars = Number(ctrl.min_description_chars ?? 40);
     const method = String(ctrl.method_version ?? "deterministic_v1");
 
-    // Pick pending episodes that have a non-trivial description.
-    const { data: eps, error: selErr } = await admin
-      .from("episodes")
-      .select("id, podcast_id, description, summary")
-      .eq("clean_text_status", "pending")
-      .limit(batchLimit);
-    if (selErr) return json({ ok: false, error: selErr.message }, 500);
+    let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, passes = 0;
 
-    let processed = 0, written = 0, skipped = 0, errors = 0;
+    // Drain loop: keep claiming batches until time budget exhausted or queue empty.
+    while (Date.now() - startedAt < timeBudgetMs) {
+      const remaining = timeBudgetMs - (Date.now() - startedAt);
+      if (remaining < 4_000) break; // need at least ~4s for a batch
 
-    for (const ep of (eps || [])) {
-      if (Date.now() - startedAt > timeBudgetMs) break;
-      processed++;
-      const raw = String((ep as any).description || (ep as any).summary || "");
-      if (!raw || raw.trim().length < minChars) {
-        await admin.from("episodes").update({ clean_text_status: "skipped" }).eq("id", (ep as any).id);
-        skipped++;
-        continue;
-      }
-      try {
-        const { text, removed } = heuristicClean(raw);
-        const source_hash = await sha256Hex(`${method}::${raw}`);
-        const cleaned = text.trim();
-        // Upsert into episode_clean_text
-        const { error: upErr } = await admin.from("episode_clean_text").upsert({
-          episode_id: (ep as any).id,
-          source_hash,
-          cleaned_text: cleaned,
-          removed_categories: removed,
-          cleaner_method: method,
-        }, { onConflict: "episode_id" });
-        if (upErr) {
-          errors++;
-          await admin.from("episodes").update({ clean_text_status: "error" }).eq("id", (ep as any).id);
+      const { data: eps, error: selErr } = await admin
+        .from("episodes")
+        .select("id, description, summary")
+        .eq("clean_text_status", "pending")
+        .limit(batchLimit);
+      if (selErr) return json({ ok: false, error: selErr.message }, 500);
+      if (!eps || eps.length === 0) break;
+
+      passes++;
+      const upsertRows: any[] = [];
+      const doneIds: string[] = [];
+      const skipIds: string[] = [];
+
+      for (const ep of eps) {
+        totalProcessed++;
+        const raw = String((ep as any).description || (ep as any).summary || "");
+        if (!raw || raw.trim().length < minChars) {
+          skipIds.push((ep as any).id);
+          totalSkipped++;
           continue;
         }
-        await admin.from("episodes").update({ clean_text_status: "done" }).eq("id", (ep as any).id);
-        written++;
-      } catch (e) {
-        errors++;
-        await admin.from("episodes").update({ clean_text_status: "error" }).eq("id", (ep as any).id);
-        console.warn("clean-text error", (ep as any).id, e);
+        try {
+          const { text, removed } = heuristicClean(raw);
+          const source_hash = await sha256Hex(`${method}::${raw}`);
+          upsertRows.push({
+            episode_id: (ep as any).id,
+            source_hash,
+            cleaned_text: text.trim(),
+            removed_categories: removed,
+            cleaner_method: method,
+          });
+          doneIds.push((ep as any).id);
+        } catch (e) {
+          totalErrors++;
+          console.warn("clean-text heuristic error", (ep as any).id, e);
+          // Mark as error individually (rare path).
+          await admin.from("episodes").update({ clean_text_status: "error" }).eq("id", (ep as any).id);
+        }
       }
+
+      // Bulk upsert all cleaned rows, then bulk flip status. Massively cheaper than per-row.
+      if (upsertRows.length > 0) {
+        const { error: upErr } = await admin.from("episode_clean_text").upsert(upsertRows, { onConflict: "episode_id" });
+        if (upErr) {
+          totalErrors += upsertRows.length;
+          console.warn("clean-text bulk upsert error", upErr.message);
+          // Don't flip status on failure — they remain pending and will be retried.
+        } else {
+          totalWritten += upsertRows.length;
+          // Chunk the IN list to avoid PostgREST URL length limits (~150 ids per call).
+          for (let i = 0; i < doneIds.length; i += 150) {
+            const slice = doneIds.slice(i, i + 150);
+            await admin.from("episodes").update({ clean_text_status: "done" }).in("id", slice);
+          }
+        }
+      }
+      if (skipIds.length > 0) {
+        for (let i = 0; i < skipIds.length; i += 150) {
+          const slice = skipIds.slice(i, i + 150);
+          await admin.from("episodes").update({ clean_text_status: "skipped" }).in("id", slice);
+        }
+      }
+
+      // If the batch came back smaller than the limit, queue is drained.
+      if (eps.length < batchLimit) break;
     }
+
+    const runtimeMs = Date.now() - startedAt;
+
+    // Persist a lightweight progress snapshot for observability.
+    try {
+      await admin.from("app_settings").upsert({
+        key: "episode_clean_text_progress",
+        value: {
+          last_run_at: new Date().toISOString(),
+          runtime_ms: runtimeMs,
+          passes,
+          processed: totalProcessed,
+          written: totalWritten,
+          skipped: totalSkipped,
+          errors: totalErrors,
+          batch_limit: batchLimit,
+          time_budget_seconds: Math.round(timeBudgetMs / 1000),
+          method_version: method,
+        },
+      }, { onConflict: "key" });
+    } catch (_) { /* non-fatal */ }
 
     return json({
       ok: true,
-      processed, written, skipped, errors,
-      runtime_ms: Date.now() - startedAt,
+      passes,
+      processed: totalProcessed,
+      written: totalWritten,
+      skipped: totalSkipped,
+      errors: totalErrors,
+      runtime_ms: runtimeMs,
       method_version: method,
     });
   } catch (e) {
