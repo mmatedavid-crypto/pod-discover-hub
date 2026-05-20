@@ -35,6 +35,25 @@ async function fetchPeople(limit: number, offset: number, search: string | null)
   return { rows, total };
 }
 
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+type SortMode = "relevance" | "alpha";
+
+async function fetchPeopleAlpha(letter: string | null, limit: number, offset: number) {
+  const { data, error } = await supabase.rpc("list_people_alpha", {
+    p_letter: letter,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) {
+    console.error("list_people_alpha error", error);
+    return { rows: [] as PersonRow[], total: 0 };
+  }
+  const rows = (data || []) as PersonRow[];
+  const total = rows[0]?.total_count ? Number(rows[0].total_count) : 0;
+  return { rows, total };
+}
+
 export default function PeopleHubPage() {
   const [top, setTop] = useState<PersonRow[]>([]);
   const [topicFigures, setTopicFigures] = useState<any[]>([]);
@@ -45,6 +64,9 @@ export default function PeopleHubPage() {
   const [debouncedQ, setDebouncedQ] = useState("");
   const [loadingTop, setLoadingTop] = useState(true);
   const [loadingList, setLoadingList] = useState(true);
+  const [sortMode, setSortMode] = useState<SortMode>("relevance");
+  const [letter, setLetter] = useState<string | null>(null);
+  const [letterCounts, setLetterCounts] = useState<Record<string, number>>({});
 
   // Debounce search
   useEffect(() => {
@@ -90,32 +112,55 @@ export default function PeopleHubPage() {
     })();
   }, []);
 
-  // Reset page when search changes
+  // Letter counts — load once (used in alpha mode)
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.rpc("people_alpha_letter_counts");
+      if (error) {
+        console.error("people_alpha_letter_counts error", error);
+        return;
+      }
+      const map: Record<string, number> = {};
+      (data || []).forEach((r: any) => { map[r.letter] = Number(r.count); });
+      setLetterCounts(map);
+    })();
+  }, []);
+
+  // Reset page when search / sort / letter changes
   useEffect(() => {
     setPage(0);
-  }, [debouncedQ]);
+  }, [debouncedQ, sortMode, letter]);
 
   // Paginated/searchable "Összes" list
   useEffect(() => {
     (async () => {
       setLoadingList(true);
       const search = debouncedQ.length >= 2 ? debouncedQ : null;
-      // When unfiltered, skip the first TOP_LIMIT on page 0 so the lists don't fully overlap
+
+      if (sortMode === "alpha" && !search) {
+        const { rows, total } = await fetchPeopleAlpha(letter, PAGE_SIZE, page * PAGE_SIZE);
+        setList(rows);
+        setTotalAll(total);
+        setLoadingList(false);
+        return;
+      }
+
       const offset = search ? page * PAGE_SIZE : page * PAGE_SIZE + (page === 0 ? TOP_LIMIT : TOP_LIMIT);
       const { rows, total } = await fetchPeople(PAGE_SIZE, offset, search);
       setList(rows);
       setTotalAll(total);
       setLoadingList(false);
     })();
-  }, [page, debouncedQ]);
+  }, [page, debouncedQ, sortMode, letter]);
 
   const isSearching = debouncedQ.length >= 2;
+  const isAlpha = sortMode === "alpha" && !isSearching;
   const totalPages = useMemo(() => {
+    if (isAlpha) return Math.ceil(totalAll / PAGE_SIZE);
     if (isSearching) return Math.ceil(totalAll / PAGE_SIZE);
-    // Subtract top 60 from listing pages when not searching
     const remaining = Math.max(0, totalAll - TOP_LIMIT);
     return Math.ceil(remaining / PAGE_SIZE);
-  }, [totalAll, isSearching]);
+  }, [totalAll, isSearching, isAlpha]);
 
   return (
     <Layout>
@@ -209,14 +254,84 @@ export default function PeopleHubPage() {
                   {totalAll.toLocaleString("hu-HU")} találat a(z) „{debouncedQ}” keresésre.
                 </p>
               )}
+              {isAlpha && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {letter
+                    ? `${totalAll.toLocaleString("hu-HU")} személy „${letter}” betűvel`
+                    : `${totalAll.toLocaleString("hu-HU")} személy ABC sorrendben`}
+                </p>
+              )}
             </div>
+            {!isSearching && (
+              <div className="inline-flex rounded-md border border-border bg-card overflow-hidden text-xs">
+                <button
+                  type="button"
+                  onClick={() => { setSortMode("relevance"); setLetter(null); }}
+                  className={`px-3 py-1.5 transition-colors ${sortMode === "relevance" ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Relevancia
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortMode("alpha")}
+                  className={`px-3 py-1.5 border-l border-border transition-colors ${sortMode === "alpha" ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  ABC
+                </button>
+              </div>
+            )}
           </div>
+
+          {isAlpha && (
+            <div className="mb-6 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setLetter(null)}
+                className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${letter === null ? "border-primary/60 bg-primary/15 text-primary font-medium" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40"}`}
+              >
+                Mind
+              </button>
+              {ALPHABET.map((L) => {
+                const c = letterCounts[L] || 0;
+                const disabled = c === 0;
+                const active = letter === L;
+                return (
+                  <button
+                    key={L}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setLetter(L)}
+                    title={disabled ? "Nincs ilyen kezdőbetűs személy" : `${c} személy`}
+                    className={`w-8 h-8 text-xs rounded-md border transition-colors ${
+                      active
+                        ? "border-primary/60 bg-primary/15 text-primary font-semibold"
+                        : disabled
+                          ? "border-border/40 bg-card/40 text-muted-foreground/40 cursor-not-allowed"
+                          : "border-border bg-card text-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {L}
+                  </button>
+                );
+              })}
+              {(letterCounts["#"] || 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setLetter("#")}
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${letter === "#" ? "border-primary/60 bg-primary/15 text-primary font-medium" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40"}`}
+                  title={`${letterCounts["#"]} egyéb`}
+                >
+                  #
+                </button>
+              )}
+            </div>
+          )}
 
           {loadingList ? (
             <div className="text-muted-foreground text-sm">Betöltés…</div>
           ) : list.length === 0 ? (
             <div className="text-muted-foreground text-sm">
-              {isSearching ? "Nincs találat." : "Nincs több személy."}
+              {isSearching ? "Nincs találat." : isAlpha && letter ? `Nincs „${letter}” kezdőbetűs személy.` : "Nincs több személy."}
             </div>
           ) : (
             <>
