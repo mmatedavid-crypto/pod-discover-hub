@@ -302,7 +302,7 @@ Deno.serve(async (req) => {
 
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            const out = await callAI(buildPrompt(pending));
+            const out = await callAI(buildPrompt(pending), settings.preferPaid);
             if (!out) { errors++; return; }
             // Free-tier key: no $ charge, don't count against daily budget.
             const billedCost = out.isFree ? 0 : out.cost;
