@@ -138,10 +138,32 @@ async function callAIDirect(prompt: string, geminiKey: string): Promise<{ result
   return { result: fc.args, cost };
 }
 
-async function callAI(prompt: string): Promise<{ result: any; cost: number } | null> {
-  const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!geminiKey) throw new Error("GEMINI_API_KEY missing — direct API required");
-  return await callAIDirect(prompt, geminiKey);
+// Key pool: prefer FREE tier first to save paid budget; fall back to paid on 429.
+function getKeyPool(): { key: string; isFree: boolean }[] {
+  const pool: { key: string; isFree: boolean }[] = [];
+  const free = Deno.env.get("GEMINI_API_KEY_FREE");
+  const paid = Deno.env.get("GEMINI_API_KEY");
+  if (free) pool.push({ key: free, isFree: true });
+  if (paid) pool.push({ key: paid, isFree: false });
+  return pool;
+}
+
+async function callAI(prompt: string): Promise<{ result: any; cost: number; isFree: boolean } | null> {
+  const pool = getKeyPool();
+  if (pool.length === 0) throw new Error("No GEMINI_API_KEY available");
+  let lastErr: any = null;
+  for (const { key, isFree } of pool) {
+    try {
+      const out = await callAIDirect(prompt, key);
+      if (out) return { ...out, isFree };
+    } catch (e) {
+      lastErr = e;
+      if (String(e).includes("rate_limit")) continue; // try next key
+      throw e;
+    }
+  }
+  if (lastErr) throw lastErr;
+  return null;
 }
 
 async function logSpend(supabase: any, cost: number) {
