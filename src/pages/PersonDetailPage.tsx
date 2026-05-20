@@ -286,11 +286,20 @@ export default function PersonDetailPage() {
 
         {isHistorical && (
           <div className="text-xs text-muted-foreground -mt-6">
-            Történelmi / már nem élő személy — az epizódok róla szólnak, illetve megemlítik. A „vendég” vagy „interjúalany” jelölést szándékosan nem használjuk archív forrásbizonyíték nélkül.
+            Történelmi / már nem élő személy — az epizódok róla szólnak, illetve megemlítik. A „vendég" vagy „interjúalany" jelölést szándékosan nem használjuk archív forrásbizonyíték nélkül.
           </div>
         )}
 
-        {!isHistorical && personaLabel && (
+        {!isHistorical && isTopicFigure && (
+          <div className="-mt-6 rounded-lg border border-border bg-card/60 px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-primary">Nemzetközi téma-személy{topicOrigin ? ` · ${topicOrigin}` : ""}</div>
+            <p className="text-sm text-foreground/85 mt-1.5 leading-relaxed">
+              {person.name} magyar podcastekben (egyelőre) nem szerepel vendégként, de gyakran téma vagy hivatkozási pont. Az alábbi epizódok róla beszélnek vagy említik.
+            </p>
+          </div>
+        )}
+
+        {!isHistorical && !isTopicFigure && personaLabel && (
           <div className="text-xs text-muted-foreground -mt-6">
             {personaLabel} — a lenti epizódok többségében nem ő szerepel, hanem róla beszélnek vagy említik.
           </div>
