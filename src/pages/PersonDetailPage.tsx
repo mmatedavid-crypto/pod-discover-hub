@@ -64,7 +64,7 @@ export default function PersonDetailPage() {
 
       const { data: mentions } = await supabase
         .from("person_episode_mentions")
-        .select("episode_id, podcast_id, mention_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
+        .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
         .eq("person_id", (p as any).id)
         .eq("episodes.podcasts.is_hungarian", true)
         .eq("episodes.podcasts.language_decision", "accept_hungarian")
@@ -78,11 +78,18 @@ export default function PersonDetailPage() {
         const strongAi = Number(m.final_relevance_score || 0) >= 0.75;
         const manual = m.validation_source === "manual";
         const legacyOk = (!m.relevance_status || m.relevance_status === "pending")
-          && ["host","guest","subject","archival_source"].includes(m.mention_type)
+          && ["host","guest","subject","archival_source","interviewee","speaker"].includes(m.mention_type)
           && Number(m.confidence || 0) >= 0.80;
         if (m.relevance_status === "rejected" || m.relevance_status === "needs_review") return;
         if (!(accepted || strongAi || manual || legacyOk)) return;
-        epList.push({ ...m.episodes, mention_type: m.mention_type });
+        // Derive role_type if missing (defensive — backfilled in DB but new rows might not have it yet)
+        let roleType = m.role_type as string | null;
+        if (!roleType) {
+          if (["host","guest","interviewee","speaker","archival_source"].includes(m.mention_type)) roleType = "participant";
+          else if (m.mention_type === "subject") roleType = "subject";
+          else roleType = "mention";
+        }
+        epList.push({ ...m.episodes, mention_type: m.mention_type, role_type: roleType });
         if (m.episodes.podcasts) podMap.set(m.episodes.podcast_id, m.episodes.podcasts);
       });
       setEps(epList.sort(compareByScore) as any);
