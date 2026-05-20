@@ -165,6 +165,39 @@ export default function PeopleHubPage() {
           </section>
         )}
 
+        {!isSearching && topicFigures.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between mb-4 gap-3 flex-wrap">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-semibold">Nemzetközi téma-személyek</h2>
+                <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                  Vendégként (egyelőre) nem szerepelnek magyar podcastekben, de gyakran téma vagy hivatkozási pont — politikusok, tech-vezetők, alkotók, sportolók.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {topicFigures.map((p) => (
+                <PersonCard
+                  key={p.id}
+                  p={{
+                    slug: p.slug,
+                    name: p.name,
+                    disambiguation_label: p.disambiguation_label ?? null,
+                    episode_count: p.gated_episode_count || p.episode_count || 0,
+                    podcast_count: p.gated_podcast_count || p.podcast_count || 0,
+                    latest_accepted_relevant_episode_at: p.latest_accepted_relevant_episode_at ?? null,
+                    short_bio: p.short_bio ?? null,
+                    ai_bio: p.ai_bio ?? null,
+                    context_line: "Téma-személy",
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+
+
         <section>
           <div className="flex items-end justify-between mb-4 gap-3 flex-wrap">
             <div>
