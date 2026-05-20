@@ -15,16 +15,25 @@ const cors = {
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-async function callAI(model: string, messages: any[], tools: any[], toolName: string) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, tools, tool_choice: { type: "function", function: { name: toolName } } }),
+import { callGeminiOpenAI } from "../_shared/google-gemini-direct.ts";
+
+async function callAI(model: string, messages: any[], tools: any[], toolName: string, targetId?: string, kind?: string) {
+  const r = await callGeminiOpenAI({
+    model,
+    messages,
+    tools,
+    tool_choice: { type: "function", function: { name: toolName } },
+    job_type: kind === "seo_podcast" ? "seo_podcast" : "seo_episode",
+    target_type: kind === "seo_podcast" ? "podcast" : "episode",
+    target_id: targetId,
+    prompt_version: "seo_v2",
   });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) throw new Error(`ai_${res.status}`);
-  return res.json();
+  if (!r.ok) {
+    if (r.status === 429) throw new Error("rate_limited");
+    if (r.status === 402) throw new Error("budget_exhausted_provider");
+    throw new Error(`ai_${r.status || "err"}`);
+  }
+  return r.data;
 }
 
 Deno.serve(async (req) => {
@@ -58,11 +67,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, paused: true });
     }
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 1);
-    // Model policy v1: seo_enrich -> gemini-2.5-flash. Hard-block Pro / Gemini 3 from batch.
-    let model = String(ctrl.model || "google/gemini-2.5-flash");
+    // Model policy v2 (2026-05-20 Tier 1 routing): default flash-lite for batch.
+    // Hard-block Pro / Gemini 3 from batch.
+    let model = String(ctrl.model || "gemini-2.5-flash-lite");
     if (/(-pro|\bpro\b|gemini-3)/i.test(model)) {
-      console.warn("seo-enrich: blocked model from controls, falling back to flash", { blocked: model });
-      model = "google/gemini-2.5-flash";
+      console.warn("seo-enrich: blocked model from controls, falling back to lite", { blocked: model });
+      model = "gemini-2.5-flash-lite";
     }
     const maxAttempts = Number(ctrl.max_attempts || 3);
 
@@ -126,7 +136,7 @@ Deno.serve(async (req) => {
         const ai = await callAI(model, [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: prompt },
-        ], [tool], toolName);
+        ], [tool], toolName, job.target_id, job.kind);
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);
