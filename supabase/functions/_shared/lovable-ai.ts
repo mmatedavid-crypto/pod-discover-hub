@@ -58,17 +58,42 @@ export interface AuditRow {
   meta?: Record<string, unknown>;
 }
 
-// Fire-and-forget audit insert. Never throws. Auto-fills estimated_cost_usd if missing.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function normalizeAuditPayload(row: AuditRow): Record<string, unknown> {
+  const payload: Record<string, unknown> = { provider: "lovable_ai", status: "ok", meta: {}, key_source: "gateway", ...row };
+  const meta = { ...((payload.meta && typeof payload.meta === "object" && !Array.isArray(payload.meta)) ? payload.meta as Record<string, unknown> : {}) };
+  const rawTargetId = typeof payload.target_id === "string" ? payload.target_id.trim() : payload.target_id;
+  if (rawTargetId == null || rawTargetId === "") payload.target_id = null;
+  else if (typeof rawTargetId === "string" && UUID_RE.test(rawTargetId)) payload.target_id = rawTargetId;
+  else {
+    payload.target_id = null;
+    const raw = String(rawTargetId);
+    if (String(payload.target_type || "").includes("slug") || /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(raw)) meta.target_slug = raw;
+    else meta.target_ref = raw;
+  }
+  payload.target_type = payload.target_type ?? null;
+  payload.meta = meta;
+  return payload;
+}
+
+function auditPayloadShape(payload: Record<string, unknown>) {
+  return {
+    keys: Object.keys(payload).sort(),
+    job_type: payload.job_type,
+    provider: payload.provider,
+    model_used: payload.model_used,
+    status: payload.status,
+    target_type: payload.target_type,
+    target_id_type: payload.target_id == null ? "null" : typeof payload.target_id,
+    meta_keys: Object.keys((payload.meta as Record<string, unknown>) || {}).sort(),
+  };
+}
+
+// Fail-closed audit insert. Throws on failure so runners stop after a paid call.
 export async function recordAiCall(row: AuditRow): Promise<void> {
-  if (!SUPABASE_URL || !SERVICE_KEY) return;
+  if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("audit_insert_failed: missing_env");
+  const payload = normalizeAuditPayload(row);
   try {
-    const payload: Record<string, unknown> = {
-      provider: "lovable_ai",
-      status: "ok",
-      meta: {},
-      key_source: "gateway",
-      ...row,
-    };
     if (payload.estimated_cost_usd == null && payload.input_tokens != null && payload.output_tokens != null) {
       payload.estimated_cost_usd = chatTokenCostUsd(
         normalizeAiModel(String(payload.model_used || "")),
@@ -86,8 +111,16 @@ export async function recordAiCall(row: AuditRow): Promise<void> {
       },
       body: JSON.stringify(payload),
     });
-  } catch {
-    // swallow
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("[lovable-ai audit] insert failed", JSON.stringify({ status: res.status, body: text.slice(0, 300), payload_shape: auditPayloadShape(payload) }));
+      throw new Error(`audit_insert_failed: HTTP ${res.status}`);
+    }
+  } catch (e) {
+    if (!String(e).includes("audit_insert_failed")) {
+      console.error("[lovable-ai audit] insert threw", JSON.stringify({ error: String(e).slice(0, 200), payload_shape: auditPayloadShape(payload) }));
+    }
+    throw e;
   }
 }
 
