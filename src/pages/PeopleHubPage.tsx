@@ -35,6 +35,25 @@ async function fetchPeople(limit: number, offset: number, search: string | null)
   return { rows, total };
 }
 
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+type SortMode = "relevance" | "alpha";
+
+async function fetchPeopleAlpha(letter: string | null, limit: number, offset: number) {
+  const { data, error } = await supabase.rpc("list_people_alpha", {
+    p_letter: letter,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) {
+    console.error("list_people_alpha error", error);
+    return { rows: [] as PersonRow[], total: 0 };
+  }
+  const rows = (data || []) as PersonRow[];
+  const total = rows[0]?.total_count ? Number(rows[0].total_count) : 0;
+  return { rows, total };
+}
+
 export default function PeopleHubPage() {
   const [top, setTop] = useState<PersonRow[]>([]);
   const [topicFigures, setTopicFigures] = useState<any[]>([]);
@@ -45,6 +64,9 @@ export default function PeopleHubPage() {
   const [debouncedQ, setDebouncedQ] = useState("");
   const [loadingTop, setLoadingTop] = useState(true);
   const [loadingList, setLoadingList] = useState(true);
+  const [sortMode, setSortMode] = useState<SortMode>("relevance");
+  const [letter, setLetter] = useState<string | null>(null);
+  const [letterCounts, setLetterCounts] = useState<Record<string, number>>({});
 
   // Debounce search
   useEffect(() => {
@@ -90,32 +112,55 @@ export default function PeopleHubPage() {
     })();
   }, []);
 
-  // Reset page when search changes
+  // Letter counts — load once (used in alpha mode)
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.rpc("people_alpha_letter_counts");
+      if (error) {
+        console.error("people_alpha_letter_counts error", error);
+        return;
+      }
+      const map: Record<string, number> = {};
+      (data || []).forEach((r: any) => { map[r.letter] = Number(r.count); });
+      setLetterCounts(map);
+    })();
+  }, []);
+
+  // Reset page when search / sort / letter changes
   useEffect(() => {
     setPage(0);
-  }, [debouncedQ]);
+  }, [debouncedQ, sortMode, letter]);
 
   // Paginated/searchable "Összes" list
   useEffect(() => {
     (async () => {
       setLoadingList(true);
       const search = debouncedQ.length >= 2 ? debouncedQ : null;
-      // When unfiltered, skip the first TOP_LIMIT on page 0 so the lists don't fully overlap
+
+      if (sortMode === "alpha" && !search) {
+        const { rows, total } = await fetchPeopleAlpha(letter, PAGE_SIZE, page * PAGE_SIZE);
+        setList(rows);
+        setTotalAll(total);
+        setLoadingList(false);
+        return;
+      }
+
       const offset = search ? page * PAGE_SIZE : page * PAGE_SIZE + (page === 0 ? TOP_LIMIT : TOP_LIMIT);
       const { rows, total } = await fetchPeople(PAGE_SIZE, offset, search);
       setList(rows);
       setTotalAll(total);
       setLoadingList(false);
     })();
-  }, [page, debouncedQ]);
+  }, [page, debouncedQ, sortMode, letter]);
 
   const isSearching = debouncedQ.length >= 2;
+  const isAlpha = sortMode === "alpha" && !isSearching;
   const totalPages = useMemo(() => {
+    if (isAlpha) return Math.ceil(totalAll / PAGE_SIZE);
     if (isSearching) return Math.ceil(totalAll / PAGE_SIZE);
-    // Subtract top 60 from listing pages when not searching
     const remaining = Math.max(0, totalAll - TOP_LIMIT);
     return Math.ceil(remaining / PAGE_SIZE);
-  }, [totalAll, isSearching]);
+  }, [totalAll, isSearching, isAlpha]);
 
   return (
     <Layout>
