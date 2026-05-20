@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
         const outTok = result.output_tokens;
         const cost = result.cost_usd ?? chatTokenCostUsd(model, inTok, outTok);
         const args = ai?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-        const parsed = args ? JSON.parse(args) : null;
+        const parsed = args ? (typeof args === "string" ? JSON.parse(args) : args) : null;
         if (!parsed) { failed++; continue; }
 
         const display_name = String(parsed.display_name || cand.display_name).trim().slice(0, 120);
@@ -282,6 +282,7 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
+        console.error("[entity-profile-runner] candidate failed", JSON.stringify({ target_slug: cand.slug, error: String(msg).slice(0, 200) }));
         if (String(msg).includes("audit_insert_failed")) throw new Error(`audit_fail_closed: ${msg}`);
         if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
       }
