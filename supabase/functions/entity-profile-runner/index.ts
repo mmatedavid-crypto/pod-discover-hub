@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
           cost_usd: cost,
           generated_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }, { onConflict: "slug" });
+        }, { onConflict: "kind,slug" });
         if (upsertError) throw upsertError;
 
         succeeded++;
