@@ -147,6 +147,7 @@ export default function AdminHubPage() {
     {
       title: "System",
       tools: [
+        { to: "/admin/data-coverage", title: "Data Coverage", desc: "Melyik publikus modul melyik adat-rétegre épül és mennyi a lefedettsége.", icon: Database, badge: "new", badgeTone: "warn" },
         { to: "/admin/cron-status", title: "Cron Status", desc: "Active jobs, recent runs, durations, failures.", icon: Activity },
         { to: "/admin/pi-backfill", title: "PI Backfill", desc: "Podcast Index bulk backfill controls.", icon: Globe },
         { to: "/admin/archive-backfill", title: "HU Archive Backfill", desc: "Deep HU archive ingestion: RSS exhaustion + PI sweep, budget-aware.", icon: Database, badge: "new", badgeTone: "warn" },
