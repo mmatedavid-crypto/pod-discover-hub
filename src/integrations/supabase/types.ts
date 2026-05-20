@@ -1645,6 +1645,7 @@ export type Database = {
           ai_review_status: string
           ai_review_summary: string | null
           ai_reviewed_at: string | null
+          avg_source_podcast_rank: number
           browsable_reason: string | null
           canonical_identity_key: string | null
           confidence: number
@@ -1727,6 +1728,7 @@ export type Database = {
           ai_review_status?: string
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
+          avg_source_podcast_rank?: number
           browsable_reason?: string | null
           canonical_identity_key?: string | null
           confidence?: number
@@ -1809,6 +1811,7 @@ export type Database = {
           ai_review_status?: string
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
+          avg_source_podcast_rank?: number
           browsable_reason?: string | null
           canonical_identity_key?: string | null
           confidence?: number
@@ -4934,6 +4937,29 @@ export type Database = {
       is_publicly_visible_hu_podcast: {
         Args: { p_id: string }
         Returns: boolean
+      }
+      list_people_hub: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: {
+          ai_bio: string
+          disambiguation_label: string
+          distinct_podcast_count: number
+          episode_count: number
+          gated_episode_count: number
+          gated_podcast_count: number
+          guest_count: number
+          host_count: number
+          id: string
+          latest_accepted_relevant_episode_at: string
+          name: string
+          people_hub_score: number
+          podcast_count: number
+          recent_relevant_episode_count_30d: number
+          short_bio: string
+          slug: string
+          strong_mention_count: number
+          total_count: number
+        }[]
       }
       match_hu_episodes_by_embedding: {
         Args: {
