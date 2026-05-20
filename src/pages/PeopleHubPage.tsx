@@ -188,7 +188,7 @@ export default function PeopleHubPage() {
                     latest_accepted_relevant_episode_at: p.latest_accepted_relevant_episode_at ?? null,
                     short_bio: p.short_bio ?? null,
                     ai_bio: p.ai_bio ?? null,
-                    context_line: "Téma-személy",
+                    context_line: "Témává vált személy",
                   }}
                 />
               ))}
