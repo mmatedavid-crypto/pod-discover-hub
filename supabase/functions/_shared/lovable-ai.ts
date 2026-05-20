@@ -156,7 +156,9 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
   if (typeof opts.temperature === "number") body.temperature = opts.temperature;
   if (opts.response_format) body.response_format = opts.response_format;
 
+  const t0 = Date.now();
   const { res, json } = await rawCall(opts.model, body);
+  const latency_ms = Date.now() - t0;
   const usage = json?.usage || {};
   const inTok = usage.prompt_tokens ?? usage.input_tokens ?? 0;
   const outTok = usage.completion_tokens ?? usage.output_tokens ?? 0;
@@ -165,7 +167,7 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
     // 429 or 402 etc — DO NOT silently fall back to a more expensive model.
     await recordAiCall({
       job_type: opts.job_type, model_used: opts.model, status: "error",
-      input_tokens: inTok, output_tokens: outTok,
+      input_tokens: inTok, output_tokens: outTok, latency_ms,
       error_message: `HTTP ${res.status}: ${JSON.stringify(json).slice(0, 300)}`,
       target_type: opts.target_type, target_id: opts.target_id,
       source_hash: opts.source_hash, prompt_version: opts.prompt_version,
@@ -179,10 +181,11 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
 
   await recordAiCall({
     job_type: opts.job_type, model_used: opts.model, status: "ok",
-    input_tokens: inTok, output_tokens: outTok,
+    input_tokens: inTok, output_tokens: outTok, latency_ms,
     target_type: opts.target_type, target_id: opts.target_id,
     source_hash: opts.source_hash, prompt_version: opts.prompt_version,
   });
+
 
   return {
     ok: true, status: res.status, data: json,
