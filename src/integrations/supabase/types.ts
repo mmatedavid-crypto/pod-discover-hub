@@ -1663,6 +1663,7 @@ export type Database = {
           gated_episode_count: number
           gated_podcast_count: number
           guest_count: number
+          has_archival_evidence: boolean
           host_count: number
           id: string
           identity_ambiguous: boolean
@@ -1679,6 +1680,8 @@ export type Database = {
           image_storage_path: string | null
           image_url: string | null
           is_browsable_in_people_hub: boolean
+          is_deceased: boolean
+          is_historical: boolean
           is_indexable: boolean
           is_public: boolean
           latest_accepted_relevant_episode_at: string | null
@@ -1751,6 +1754,7 @@ export type Database = {
           gated_episode_count?: number
           gated_podcast_count?: number
           guest_count?: number
+          has_archival_evidence?: boolean
           host_count?: number
           id?: string
           identity_ambiguous?: boolean
@@ -1767,6 +1771,8 @@ export type Database = {
           image_storage_path?: string | null
           image_url?: string | null
           is_browsable_in_people_hub?: boolean
+          is_deceased?: boolean
+          is_historical?: boolean
           is_indexable?: boolean
           is_public?: boolean
           latest_accepted_relevant_episode_at?: string | null
@@ -1839,6 +1845,7 @@ export type Database = {
           gated_episode_count?: number
           gated_podcast_count?: number
           guest_count?: number
+          has_archival_evidence?: boolean
           host_count?: number
           id?: string
           identity_ambiguous?: boolean
@@ -1855,6 +1862,8 @@ export type Database = {
           image_storage_path?: string | null
           image_url?: string | null
           is_browsable_in_people_hub?: boolean
+          is_deceased?: boolean
+          is_historical?: boolean
           is_indexable?: boolean
           is_public?: boolean
           latest_accepted_relevant_episode_at?: string | null
@@ -5084,6 +5093,7 @@ export type Database = {
           weak: boolean
         }[]
       }
+      recompute_person_archival_evidence: { Args: never; Returns: number }
       recompute_person_collision_flags: {
         Args: never
         Returns: {
