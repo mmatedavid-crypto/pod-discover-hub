@@ -507,10 +507,10 @@ export async function auditSkip(args: {
     error_message: args.reason,
     estimated_cost_usd: 0,
     latency_ms: 0,
-    key_source: "skipped",
+    key_source: "none",
     target_type: args.target_type ?? null,
     target_id: args.target_id ?? null,
     source_hash: args.source_hash ?? null,
-    meta: { skipped_reason: args.reason, ...(args.meta || {}) },
+    meta: { skipped_reason: args.reason, key_source: "none", ...(args.meta || {}) },
   });
 }
