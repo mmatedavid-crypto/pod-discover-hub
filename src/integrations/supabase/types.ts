@@ -1684,6 +1684,7 @@ export type Database = {
           is_historical: boolean
           is_indexable: boolean
           is_public: boolean
+          is_topic_only: boolean
           latest_accepted_relevant_episode_at: string | null
           latest_episode_at: string | null
           manual_approval_status: string
@@ -1700,12 +1701,15 @@ export type Database = {
           overview_text: string | null
           participant_count: number
           people_hub_score: number
+          persona: string
           podcast_count: number
           recent_relevant_episode_count_30d: number
           short_bio: string | null
           slug: string
           strong_mention_count: number
           subject_count: number
+          topic_figure_origin: string | null
+          topic_figure_seeded: boolean
           updated_at: string
           wikidata_id: string | null
           wikipedia_description: string | null
@@ -1777,6 +1781,7 @@ export type Database = {
           is_historical?: boolean
           is_indexable?: boolean
           is_public?: boolean
+          is_topic_only?: boolean
           latest_accepted_relevant_episode_at?: string | null
           latest_episode_at?: string | null
           manual_approval_status?: string
@@ -1793,12 +1798,15 @@ export type Database = {
           overview_text?: string | null
           participant_count?: number
           people_hub_score?: number
+          persona?: string
           podcast_count?: number
           recent_relevant_episode_count_30d?: number
           short_bio?: string | null
           slug: string
           strong_mention_count?: number
           subject_count?: number
+          topic_figure_origin?: string | null
+          topic_figure_seeded?: boolean
           updated_at?: string
           wikidata_id?: string | null
           wikipedia_description?: string | null
@@ -1870,6 +1878,7 @@ export type Database = {
           is_historical?: boolean
           is_indexable?: boolean
           is_public?: boolean
+          is_topic_only?: boolean
           latest_accepted_relevant_episode_at?: string | null
           latest_episode_at?: string | null
           manual_approval_status?: string
@@ -1886,12 +1895,15 @@ export type Database = {
           overview_text?: string | null
           participant_count?: number
           people_hub_score?: number
+          persona?: string
           podcast_count?: number
           recent_relevant_episode_count_30d?: number
           short_bio?: string | null
           slug?: string
           strong_mention_count?: number
           subject_count?: number
+          topic_figure_origin?: string | null
+          topic_figure_seeded?: boolean
           updated_at?: string
           wikidata_id?: string | null
           wikipedia_description?: string | null
@@ -4032,6 +4044,39 @@ export type Database = {
           },
         ]
       }
+      topic_figure_seed: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          id: string
+          name: string
+          normalized_name: string
+          notes: string | null
+          origin: string | null
+          short_label_hu: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          id?: string
+          name: string
+          normalized_name: string
+          notes?: string | null
+          origin?: string | null
+          short_label_hu?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          id?: string
+          name?: string
+          normalized_name?: string
+          notes?: string | null
+          origin?: string | null
+          short_label_hu?: string | null
+        }
+        Relationships: []
+      }
       topic_hubs: {
         Row: {
           accent_hsl: string | null
@@ -5127,6 +5172,14 @@ export type Database = {
           single_ep_count: number
           updated_count: number
           zero_ep_count: number
+        }[]
+      }
+      recompute_person_persona_flags: {
+        Args: never
+        Returns: {
+          topic_figure_count: number
+          topic_only_count: number
+          updated_count: number
         }[]
       }
       recompute_person_role_counts: { Args: never; Returns: number }

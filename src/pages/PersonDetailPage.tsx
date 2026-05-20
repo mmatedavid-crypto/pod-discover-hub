@@ -51,7 +51,7 @@ export default function PersonDetailPage() {
       setLoading(true);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status")
+        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
@@ -216,8 +216,25 @@ export default function PersonDetailPage() {
         : sCount >= mCount
           ? "subject"
           : "mention";
+  const isTopicFigure =
+    (person as any)?.persona === "topic_figure" ||
+    Boolean((person as any)?.topic_figure_seeded) ||
+    (Boolean((person as any)?.is_topic_only) && !isHistorical);
+  const topicOriginLabel: Record<string, string> = {
+    us_politics: "amerikai közélet",
+    world_leader: "nemzetközi politika",
+    tech: "tech / üzlet",
+    finance: "pénzügy",
+    sports: "sport",
+    culture: "kultúra",
+    activist: "közélet / aktivizmus",
+    intellectual: "tudomány / gondolkodók",
+    media: "média",
+  };
+  const topicOrigin = topicOriginLabel[(person as any)?.topic_figure_origin || ""] || null;
   const personaLabel =
-    dominantRole === "participant" ? null
+    isTopicFigure ? null // separate dedicated banner below
+    : dominantRole === "participant" ? null
     : dominantRole === "subject" ? "Gyakran tárgyalt téma magyar podcastekben"
     : dominantRole === "mention" ? "Gyakran említett személy"
     : null;
@@ -269,11 +286,20 @@ export default function PersonDetailPage() {
 
         {isHistorical && (
           <div className="text-xs text-muted-foreground -mt-6">
-            Történelmi / már nem élő személy — az epizódok róla szólnak, illetve megemlítik. A „vendég” vagy „interjúalany” jelölést szándékosan nem használjuk archív forrásbizonyíték nélkül.
+            Történelmi / már nem élő személy — az epizódok róla szólnak, illetve megemlítik. A „vendég" vagy „interjúalany" jelölést szándékosan nem használjuk archív forrásbizonyíték nélkül.
           </div>
         )}
 
-        {!isHistorical && personaLabel && (
+        {!isHistorical && isTopicFigure && (
+          <div className="-mt-6 rounded-lg border border-border bg-card/60 px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-primary">Nemzetközi téma-személy{topicOrigin ? ` · ${topicOrigin}` : ""}</div>
+            <p className="text-sm text-foreground/85 mt-1.5 leading-relaxed">
+              {person.name} magyar podcastekben (egyelőre) nem szerepel vendégként, de gyakran téma vagy hivatkozási pont. Az alábbi epizódok róla beszélnek vagy említik.
+            </p>
+          </div>
+        )}
+
+        {!isHistorical && !isTopicFigure && personaLabel && (
           <div className="text-xs text-muted-foreground -mt-6">
             {personaLabel} — a lenti epizódok többségében nem ő szerepel, hanem róla beszélnek vagy említik.
           </div>
