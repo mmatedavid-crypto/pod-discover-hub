@@ -33,7 +33,9 @@ async function callOnce(q: string, compact: any[], extra?: string): Promise<stri
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
+        // Model policy v1: search_answer -> gemini-2.5-flash (HU user-facing answer).
         model: "google/gemini-2.5-flash",
+        max_tokens: 900,
         messages: [
           { role: "system", content: SYS + (extra ? `\n${extra}` : "") },
           { role: "user", content: user },
