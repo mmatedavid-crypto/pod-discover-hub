@@ -499,6 +499,7 @@ export async function auditSkip(args: {
   source_hash?: string;
   meta?: Record<string, unknown>;
 }): Promise<void> {
+  const latencyMs = typeof args.meta?.latency_ms === "number" ? Math.max(0, Math.round(args.meta.latency_ms)) : 0;
   await writeAudit({
     job_type: args.job_type,
     provider: "google_generative_language",
@@ -506,7 +507,7 @@ export async function auditSkip(args: {
     status: "skipped",
     error_message: args.reason,
     estimated_cost_usd: 0,
-    latency_ms: 0,
+    latency_ms: latencyMs,
     key_source: "none",
     target_type: args.target_type ?? null,
     target_id: args.target_id ?? null,
