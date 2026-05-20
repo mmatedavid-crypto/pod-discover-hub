@@ -63,8 +63,9 @@ export default function EpisodeDetail() {
 
       const summary = stripHtml(e.summary);
       const desc = stripHtml(e.description);
-      const aiSum = stripHtml(e.ai_summary);
-      const metaDesc = (e.seo_description || aiSum || summary || desc || `Epizód a(z) ${p.display_title || p.title} podcastből — Podiverzum.`).slice(0, 160);
+      // Unified resolver: ai_summary → clean_text → RSS summary/description
+      const bestDesc = pickEpisodeDescription(e, 320);
+      const metaDesc = (e.seo_description || bestDesc || `Epizód a(z) ${p.display_title || p.title} podcastből — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
@@ -399,7 +400,7 @@ export default function EpisodeDetail() {
         {moreFromPod.length > 0 && (
           <section className="mt-10">
             <h2 className="font-semibold mb-3">További epizódok — {p.display_title || p.title}</h2>
-            <EpisodeList items={moreFromPod} />
+            <EpisodeList items={moreFromPod} showEntities />
           </section>
         )}
 
