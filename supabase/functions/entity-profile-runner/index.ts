@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     const ctrl = (ctrlRow?.value || {}) as any;
     if (ctrl.enabled === false) return json({ ok: true, paused: true });
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 3);
-    const model = String(ctrl.model || "google/gemini-3.1-flash-lite-preview");
+    const model = TIER1_MODEL; // forced tier1 gemini-2.5-flash-lite (ctrl.model ignored if Pro/Gemini3)
     const minEpisodes = Math.max(2, Number(ctrl.min_episodes ?? 8));
     const maxPerRun = Math.max(1, Math.min(50, Number(ctrl.max_per_run ?? 15)));
     const refreshDays = Math.max(1, Number(ctrl.refresh_days ?? 30));
