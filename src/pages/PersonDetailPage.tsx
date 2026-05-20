@@ -78,7 +78,7 @@ export default function PersonDetailPage() {
         const strongAi = Number(m.final_relevance_score || 0) >= 0.75;
         const manual = m.validation_source === "manual";
         const legacyOk = (!m.relevance_status || m.relevance_status === "pending")
-          && ["host","guest","subject"].includes(m.mention_type)
+          && ["host","guest","subject","archival_source"].includes(m.mention_type)
           && Number(m.confidence || 0) >= 0.80;
         if (m.relevance_status === "rejected" || m.relevance_status === "needs_review") return;
         if (!(accepted || strongAi || manual || legacyOk)) return;
