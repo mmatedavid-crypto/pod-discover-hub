@@ -46,17 +46,7 @@ function slugify(s: string): string {
     .slice(0, 80);
 }
 
-async function callAI(model: string, messages: any[]) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, tools: [BIO_TOOL], tool_choice: { type: "function", function: { name: "person_bio" } } }),
-  });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) throw new Error(`ai_${res.status}`);
-  return res.json();
-}
+// callAI removed — direct Tier 1 Gemini via callGeminiOpenAI
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
