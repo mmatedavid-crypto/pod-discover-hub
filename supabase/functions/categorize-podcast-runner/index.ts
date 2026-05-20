@@ -121,7 +121,14 @@ Deno.serve(async (req) => {
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 5);
     const batch = Math.max(1, Math.min(100, Number(body.batch ?? ctrl.batch ?? 30)));
     const concurrency = Math.max(1, Math.min(12, Number(body.concurrency ?? ctrl.concurrency ?? 6)));
-    const model = String(ctrl.model || "google/gemini-2.5-flash");
+    // Model policy v1: categorize_podcast -> gemini-2.5-flash-lite primary, gemini-2.5-flash retry on low-conf.
+    // Block any Pro model regardless of controls override.
+    let model = String(ctrl.model || "google/gemini-2.5-flash-lite");
+    if (/(-pro|\bpro\b|gemini-3)/i.test(model)) {
+      console.warn("categorize-podcast: blocked model from controls, falling back to lite", { blocked: model });
+      model = "google/gemini-2.5-flash-lite";
+    }
+    const retryModel = "google/gemini-2.5-flash";
     const lowConf = Number(ctrl.low_confidence_threshold ?? 0.75);
     // Recategorize mode: re-run on already-categorized podcasts (HU re-review pass).
     // recategorize=true → pick all S/A/B/C, ordered by rank, ignoring `category IS NULL`.

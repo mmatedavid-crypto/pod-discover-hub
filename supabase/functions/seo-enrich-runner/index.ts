@@ -58,7 +58,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, paused: true });
     }
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 1);
-    const model = String(ctrl.model || "google/gemini-2.5-flash");
+    // Model policy v1: seo_enrich -> gemini-2.5-flash. Hard-block Pro / Gemini 3 from batch.
+    let model = String(ctrl.model || "google/gemini-2.5-flash");
+    if (/(-pro|\bpro\b|gemini-3)/i.test(model)) {
+      console.warn("seo-enrich: blocked model from controls, falling back to flash", { blocked: model });
+      model = "google/gemini-2.5-flash";
+    }
     const maxAttempts = Number(ctrl.max_attempts || 3);
 
     // Today's spend (read-only snapshot for the budget check; writes go through merge_ai_spend RPC)

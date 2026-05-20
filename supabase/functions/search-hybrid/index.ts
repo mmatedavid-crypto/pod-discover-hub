@@ -386,6 +386,73 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === PERSON-NAME STRICT GATE (2026-05-20) ===
+    // Multi-token title-cased queries must exact-match a person via
+    // person_aliases / person_episode_mentions. NO single-token fallback,
+    // NO stemming, NO vector fallback. Prevents "Burján Szilárd" -> Pap/Demeter
+    // Szilárd or "szilárdult" word matches.
+    {
+      const origTokens = q.split(/\s+/).filter((t) => t.length > 0);
+      const titleTokens = origTokens.filter((t) => /^[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű'-]+/.test(t));
+      const isPersonNameQuery = origTokens.length >= 2 && titleTokens.length >= 2 && origTokens.length <= 4;
+      if (isPersonNameQuery) {
+        const phrase = qNorm; // already lowercased + diacritics-stripped + trimmed
+        try {
+          // 1) Resolve person via aliases (accepted scope=global) — exact normalized match.
+          const { data: aliasRows } = await supa
+            .from("person_aliases")
+            .select("person_id")
+            .eq("normalized_alias", phrase)
+            .eq("status", "accepted")
+            .limit(50);
+          const personIds = Array.from(new Set((aliasRows || []).map((r: any) => r.person_id).filter(Boolean)));
+
+          let epIds: string[] = [];
+          if (personIds.length > 0) {
+            const { data: mentionRows } = await supa
+              .from("person_episode_mentions")
+              .select("episode_id, confidence, mention_type, relevance_status")
+              .in("person_id", personIds)
+              .order("confidence", { ascending: false })
+              .limit(200);
+            epIds = Array.from(new Set((mentionRows || [])
+              .filter((r: any) => r.relevance_status !== "rejected")
+              .map((r: any) => r.episode_id).filter(Boolean)));
+          }
+
+          // Fetch episodes (HU-only via podcasts.language)
+          let episodes: any[] = [];
+          if (epIds.length > 0) {
+            const { data: eps } = await supa
+              .from("episodes")
+              .select(EPISODE_SELECT)
+              .in("id", epIds.slice(0, 80))
+              .order("published_at", { ascending: false })
+              .limit(limit);
+            episodes = (eps || []).filter((e: any) => {
+              const plang = e?.podcasts?.language || "";
+              return typeof plang === "string" && plang.toLowerCase().startsWith("hu");
+            });
+          }
+
+          return new Response(JSON.stringify({
+            episodes,
+            timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
+            confidence_band: episodes.length > 0 ? "high" : "low",
+            person_name_strict: true,
+            person_query: phrase,
+            matched_person_ids: personIds,
+            no_exact_person_match: episodes.length === 0,
+            reason: episodes.length === 0 ? "person_strict_no_match" : "person_strict_match",
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        } catch (e) {
+          console.warn("person-strict gate err, falling through", e);
+          // fall through to normal flow on unexpected error
+        }
+      }
+    }
+
+
     // 1) Cache lookup
     let understanding: Understanding | null = null;
     let q_embedding: number[] | null = null;
