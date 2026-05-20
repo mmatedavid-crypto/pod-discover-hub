@@ -168,14 +168,11 @@ export default function PersonDetailPage() {
       ? [] // demote — these get reclassified as subject/mention via UI wording
       : eps.filter(e => e.mention_type === "host" || e.mention_type === "guest");
     const subjectsBase = eps.filter(e => e.mention_type === "subject");
-    // For historical people, fold any host/guest rows without archival evidence into "subject"
+    // For historical people, fold any host/guest rows into "subject" wording
     const subjects = isHistorical
       ? [
           ...subjectsBase,
-          ...eps.filter(e =>
-            (e.mention_type === "host" || e.mention_type === "guest") &&
-            e.mention_type !== "archival_source"
-          ),
+          ...eps.filter(e => e.mention_type === "host" || e.mention_type === "guest"),
         ]
       : subjectsBase;
     const mentioned = eps.filter(e => e.mention_type === "mentioned");
