@@ -80,9 +80,9 @@ export interface AuditInput {
 }
 
 async function writeAudit(row: Record<string, unknown>) {
-  if (!SUPABASE_URL || !SERVICE_KEY) return;
+  if (!SUPABASE_URL || !SERVICE_KEY) { console.error("[audit] missing env"); return; }
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/ai_call_audit`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ai_call_audit`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -92,8 +92,15 @@ async function writeAudit(row: Record<string, unknown>) {
       },
       body: JSON.stringify(row),
     });
-  } catch { /* swallow */ }
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[audit] HTTP ${res.status}: ${text.slice(0, 300)}`);
+    }
+  } catch (e) {
+    console.error(`[audit] threw: ${String(e).slice(0, 200)}`);
+  }
 }
+
 
 export interface OpenAICallOpts {
   model: string;
