@@ -11,7 +11,7 @@ const MODEL = "gemini-2.5-flash";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 const MAX_CONCURRENCY = 250;
 
-async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; raw: any }> {
+async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; preferPaid: boolean; raw: any }> {
   try {
     const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
     const v = data?.value || {};
@@ -21,10 +21,11 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
       concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), MAX_CONCURRENCY),
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
+      preferPaid: v.prefer_paid === true,
       raw: v,
     };
   } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, raw: {} };
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, preferPaid: false, raw: {} };
   }
 }
 
