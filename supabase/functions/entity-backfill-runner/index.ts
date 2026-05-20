@@ -6,7 +6,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { filterHosts } from "../_shared/seo-prompt.ts";
-import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import {
+  callGeminiOpenAI,
+  assertModelAllowed,
+  validateAiInput,
+  auditSkip,
+  checkBudget,
+} from "../_shared/google-gemini-direct.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -37,17 +43,6 @@ const ENTITY_TOOL = {
 
 const SYSTEM = "You extract structured entities from podcast episode metadata. You ONLY include entities literally present in the input. Distinguish `people` (speakers) from `mentioned` (talked about but absent). Never include show hosts in either list. If unsure, return empty arrays. No invention.";
 
-async function callAI(model: string, messages: any[]) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, tools: [ENTITY_TOOL], tool_choice: { type: "function", function: { name: "extract_entities" } } }),
-  });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) throw new Error(`ai_${res.status}`);
-  return res.json();
-}
 
 const cleanArr = (a: any, max = 6): string[] => {
   if (!Array.isArray(a)) return [];
@@ -84,7 +79,14 @@ Deno.serve(async (req) => {
     const ctrl = (ctrlRow?.value || {}) as any;
     if (ctrl.enabled === false) return json({ ok: true, paused: true });
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 5);
-    const model = String(ctrl.model || "google/gemini-3.1-flash-lite-preview");
+    const model = String(ctrl.model || "google/gemini-2.5-flash-lite");
+    assertModelAllowed(model);
+
+    // Global budget guard (reads app_settings.ai_budget + ai_spend_daily)
+    const budgetCheck = await checkBudget("entity_backfill");
+    if (!budgetCheck.allowed) {
+      return json({ ok: true, budget_blocked: true, reason: budgetCheck.reason, spend_today_usd: budgetCheck.spend_today_usd });
+    }
 
     // Today's spend (shared ai_spend_daily; per-key merged atomically via merge_ai_spend RPC)
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
@@ -95,6 +97,7 @@ Deno.serve(async (req) => {
     let runIncrement = 0;
     let runCalls = 0;
     if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend: mySpend });
+
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
     let stop = false;
@@ -110,19 +113,43 @@ Deno.serve(async (req) => {
         const desc = String(ep.description || ep.ai_summary || "").replace(/\s+/g, " ").trim().slice(0, 2500);
         const podName = ep.podcasts?.display_title || ep.podcasts?.title || "";
         const podHosts: string[] = Array.isArray(ep.podcasts?.hosts) ? ep.podcasts.hosts : [];
+
+        // Input validation gate — skip + audit instead of calling Gemini.
+        const skipReason = validateAiInput(desc, { minChars: 60 });
+        if (skipReason) {
+          await auditSkip({
+            job_type: "entity_backfill", reason: skipReason, model,
+            target_type: "episode", target_id: ep.id,
+          });
+          // Mark as v2 so we don't keep retrying garbage descriptions.
+          await admin.from("episodes").update({ ai_entities_version: 2 }).eq("id", ep.id);
+          succeeded++;
+          return;
+        }
+
         const hostLine = podHosts.length
           ? `Show hosts (DO NOT include any of these names in 'people' or 'mentioned'): ${podHosts.join(", ")}\n`
           : "";
         const userPrompt = `${hostLine}Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract entities. people = speakers only; mentioned = talked-about but absent.`;
-        const ai = await callAI(model, [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: userPrompt },
-        ]);
-        const usage = ai.usage || {};
-        const inTok = Number(usage.prompt_tokens || 0);
-        const outTok = Number(usage.completion_tokens || 0);
-        const cost = chatTokenCostUsd(model, inTok, outTok);
-        const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        const aiRes = await callGeminiOpenAI({
+          model,
+          messages: [
+            { role: "system", content: SYSTEM },
+            { role: "user", content: userPrompt },
+          ],
+          tools: [ENTITY_TOOL],
+          tool_choice: { type: "function", function: { name: "extract_entities" } },
+          job_type: "entity_backfill",
+          target_type: "episode",
+          target_id: ep.id,
+          preferTier1: true,
+        });
+        if (!aiRes.ok) {
+          if (aiRes.status === 429) { rate_limited++; stop = true; }
+          throw new Error(aiRes.error || `ai_${aiRes.status}`);
+        }
+        const cost = aiRes.cost_usd ?? 0;
+        const args = aiRes.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
         const parsed = args ? JSON.parse(args) : null;
         if (!parsed) throw new Error("no_tool_call");
 
@@ -146,6 +173,7 @@ Deno.serve(async (req) => {
         // Mark unchanged so it gets retried on next run.
       }
     };
+
 
     while (!stop) {
       if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) break;
