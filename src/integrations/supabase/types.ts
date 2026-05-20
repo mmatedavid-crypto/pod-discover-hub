@@ -1689,6 +1689,7 @@ export type Database = {
           manual_approval_status: string
           manual_approved: boolean
           manually_seeded: boolean
+          mention_count: number
           mentioned_count: number
           name: string
           needs_human_review_identity: boolean
@@ -1697,6 +1698,7 @@ export type Database = {
           overview_generated_at: string | null
           overview_sources: Json
           overview_text: string | null
+          participant_count: number
           people_hub_score: number
           podcast_count: number
           recent_relevant_episode_count_30d: number
@@ -1780,6 +1782,7 @@ export type Database = {
           manual_approval_status?: string
           manual_approved?: boolean
           manually_seeded?: boolean
+          mention_count?: number
           mentioned_count?: number
           name: string
           needs_human_review_identity?: boolean
@@ -1788,6 +1791,7 @@ export type Database = {
           overview_generated_at?: string | null
           overview_sources?: Json
           overview_text?: string | null
+          participant_count?: number
           people_hub_score?: number
           podcast_count?: number
           recent_relevant_episode_count_30d?: number
@@ -1871,6 +1875,7 @@ export type Database = {
           manual_approval_status?: string
           manual_approved?: boolean
           manually_seeded?: boolean
+          mention_count?: number
           mentioned_count?: number
           name?: string
           needs_human_review_identity?: boolean
@@ -1879,6 +1884,7 @@ export type Database = {
           overview_generated_at?: string | null
           overview_sources?: Json
           overview_text?: string | null
+          participant_count?: number
           people_hub_score?: number
           podcast_count?: number
           recent_relevant_episode_count_30d?: number
@@ -2221,7 +2227,11 @@ export type Database = {
           person_id: string
           podcast_id: string
           relevance_status: string
+          role_confidence: number | null
+          role_reason: string | null
+          role_type: string | null
           source: string | null
+          source_evidence: Json
           validation_source: string | null
         }
         Insert: {
@@ -2240,7 +2250,11 @@ export type Database = {
           person_id: string
           podcast_id: string
           relevance_status?: string
+          role_confidence?: number | null
+          role_reason?: string | null
+          role_type?: string | null
           source?: string | null
+          source_evidence?: Json
           validation_source?: string | null
         }
         Update: {
@@ -2259,7 +2273,11 @@ export type Database = {
           person_id?: string
           podcast_id?: string
           relevance_status?: string
+          role_confidence?: number | null
+          role_reason?: string | null
+          role_type?: string | null
           source?: string | null
+          source_evidence?: Json
           validation_source?: string | null
         }
         Relationships: [
@@ -5111,6 +5129,7 @@ export type Database = {
           zero_ep_count: number
         }[]
       }
+      recompute_person_role_counts: { Args: never; Returns: number }
       refresh_episodes_search_text_batch: {
         Args: { _limit?: number }
         Returns: Json
