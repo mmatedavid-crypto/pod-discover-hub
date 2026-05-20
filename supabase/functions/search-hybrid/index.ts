@@ -939,13 +939,12 @@ Deno.serve(async (req) => {
       const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
       const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
       const mtype = top?.match_type as string | undefined;
-      // Pin when the match is exact, full-token, or prefix (high-confidence
-      // podcast-title intent). Substring matches (sim 0.78) only pin when the
-      // query is at least 5 chars to avoid noise on short queries.
+      // Pin ONLY on word-boundary matches (alias/exact/token/prefix).
+      // Never on `substr` (in-word match like "irodalom" ⊂ "birodalom") or
+      // `trgm` (fuzzy) — those produced false positives where a query word
+      // appeared as a substring inside an unrelated podcast title.
       const pinAllowed = top && (
-        mtype === "exact" || mtype === "token" || mtype === "prefix" ||
-        (mtype === "substr" && cleanedQ.length >= 5) ||
-        sim >= 0.78
+        mtype === "alias" || mtype === "exact" || mtype === "token" || mtype === "prefix"
       );
       if (pinAllowed) {
         podcastPinSlug = top.slug;
