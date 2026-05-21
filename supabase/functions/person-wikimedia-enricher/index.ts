@@ -13,7 +13,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const REUSABLE_LICENSES = [
-  "cc0", "publicdomain", "pd-", "cc-by", "cc by", "cc-by-sa", "cc by-sa", "cc-by 4", "cc-by-2", "cc-by-3",
+  "cc0", "publicdomain", "public domain", "pd-", "pd ", "pdm", "no known copyright",
+  "cc-by", "cc by", "cc-by-sa", "cc by-sa", "cc-by 4", "cc-by-2", "cc-by-3", "attribution",
 ];
 const FAIR_USE_HINTS = ["fair use", "fairuse", "non-free", "nonfree", "all rights reserved"];
 
