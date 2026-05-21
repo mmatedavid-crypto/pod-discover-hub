@@ -73,7 +73,7 @@ export function SiteHeader() {
     <header className="border-b border-border/70 bg-background/80 backdrop-blur-xl sticky top-0 z-30 supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
         <BrandMark />
-        <nav className="hidden sm:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
+        <nav className="hidden lg:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
           <NavLink to="/napi" className={linkCls}>Napi</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/kategoriak" className={linkCls}>Kategóriák</NavLink>
@@ -87,7 +87,7 @@ export function SiteHeader() {
         {isHome && (
           <NavLink
             to="/kategoriak"
-            className="ml-auto sm:hidden inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="ml-auto lg:hidden inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <LayoutGrid className="h-4 w-4" />
             Kategóriák
@@ -99,7 +99,7 @@ export function SiteHeader() {
             <button
               type="button"
               aria-label="Menü"
-              className={`sm:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${isHome ? "" : "ml-auto"}`}
+              className={`lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${isHome ? "" : "ml-auto"}`}
             >
               <Menu className="h-4 w-4" />
             </button>
@@ -137,7 +137,7 @@ export function SiteHeader() {
             </nav>
           </SheetContent>
         </Sheet>
-        <div ref={wrapRef} className={`sm:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden sm:block"}`}>
+        <div ref={wrapRef} className={`lg:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden lg:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submitQuery(q); }}
             className="relative focus-brand rounded-md transition-shadow bg-card border border-border focus-within:border-primary/60"
