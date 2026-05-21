@@ -157,7 +157,7 @@ export async function cleanEpisodeText(
     return { cleaned_text: h.text, removed_categories: h.removed, cleaner_method: "heuristic" };
   }
   const inTok = Number(ai.usage?.prompt_tokens || Math.ceil(h.text.length / 4));
-  const outTok = Number(ai.usage?.completion_tokens || Math.ceil(ai.cleaned_text.length / 4));
+  const outTok = Number(ai.usage?.completion_tokens || Math.ceil(ai.cleaned_text.length / 4)) + Number(ai.usage?.completion_tokens_details?.reasoning_tokens || 0);
   const cost = chatTokenCostUsd(model, inTok, outTok);
   return {
     cleaned_text: ai.cleaned_text,
