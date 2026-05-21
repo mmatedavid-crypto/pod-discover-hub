@@ -20,28 +20,57 @@ const cors = {
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
+const ORG_TYPES = ["company","party","institution","media","ngo","sport_team","sport_league","church","university","research","radio_station","other"] as const;
+
 const ENTITY_TOOL = {
   type: "function",
   function: {
     name: "extract_entities",
     description:
-      "Extract structured entities from a podcast episode based ONLY on title + description. Do NOT invent entities.\n\nCRITICAL: distinguish between people who SPEAK in the episode (`people`: guests, interviewees) and people only TALKED ABOUT (`mentioned`: politicians, public figures referenced in discussion). Politicians like Orbán Viktor or Magyar Péter default to `mentioned` UNLESS the metadata clearly states they are guests / interviewees / speakers.\n\nNEVER include the show's own host names (provided in the user message) in either `people` or `mentioned`.",
+      "Extract structured entities from a podcast episode based ONLY on title + description. Do NOT invent entities.\n\n" +
+      "PEOPLE vs MENTIONED: people who SPEAK (`people`: guests, interviewees) vs people TALKED ABOUT but absent (`mentioned`). Politicians like Orbán Viktor or Magyar Péter default to `mentioned` UNLESS metadata clearly marks them as guest/speaker. NEVER include show hosts.\n\n" +
+      "ORGANIZATIONS: extract ALL named organizations and classify each with a precise `type`:\n" +
+      "- company: for-profit business (MOL, OTP, Apple, OpenAI, Tesla)\n" +
+      "- party: political party (Fidesz, Tisza Párt, DK, Momentum)\n" +
+      "- institution: government body, ministry, agency, court (MNB, NAV, Kúria, Magyar Honvédség, NASA)\n" +
+      "- media: newspaper, TV channel, news site (HVG, Telex, ATV, Partizán, CNN)\n" +
+      "- ngo: non-profit, foundation (Greenpeace, Amnesty)\n" +
+      "- sport_team: club or national team (Ferencváros, Lakers, Real Madrid)\n" +
+      "- sport_league: league, federation, competition (NBA, Premier League, MLSZ, FIFA)\n" +
+      "- church: religious organization (Magyarországi Református Egyház, Vatikán)\n" +
+      "- university: higher-ed institution (ELTE, BME, Harvard, CEU)\n" +
+      "- research: research institute, think tank (MTA, RAND)\n" +
+      "- radio_station: radio broadcaster (Klubrádió, Spirit FM, Tilos Rádió)\n" +
+      "- other: only if none fits\n" +
+      "Do NOT include podcast names, podcast networks, hosting platforms (Spotify, Apple Podcasts), or sponsors only mentioned in credits.",
     parameters: {
       type: "object",
       properties: {
-        people: { type: "array", items: { type: "string" }, description: "Up to 6 named people who SPEAK in the episode (guests, interviewees). NOT hosts. NOT people only mentioned. Original-language full names." },
-        mentioned: { type: "array", items: { type: "string" }, description: "Up to 6 named people TALKED ABOUT but NOT PRESENT in the episode. Politicians, public figures default here." },
-        companies: { type: "array", items: { type: "string" }, description: "Up to 6 named organizations or companies." },
-        tickers: { type: "array", items: { type: "string" }, description: "Up to 6 stock ticker symbols (uppercase like AAPL, OTP)." },
+        people: { type: "array", items: { type: "string" }, description: "Up to 6 speakers (guests/interviewees). NOT hosts. Original-language full names." },
+        mentioned: { type: "array", items: { type: "string" }, description: "Up to 6 people talked about but absent. Politicians default here." },
+        organizations: {
+          type: "array",
+          description: "Up to 10 typed organizations.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Canonical original-language name (e.g. 'Tisza Párt', 'Ferencváros', 'OTP Bank')." },
+              type: { type: "string", enum: [...ORG_TYPES] as any, description: "Precise type from enum." },
+            },
+            required: ["name", "type"],
+            additionalProperties: false,
+          },
+        },
+        tickers: { type: "array", items: { type: "string" }, description: "Up to 6 stock tickers (uppercase like AAPL, OTP)." },
         topics: { type: "array", items: { type: "string" }, description: "Up to 6 short topic tags (1-3 words, lowercase, source language)." },
       },
-      required: ["people", "mentioned", "companies", "tickers", "topics"],
+      required: ["people", "mentioned", "organizations", "tickers", "topics"],
       additionalProperties: false,
     },
   },
 };
 
-const SYSTEM = "You extract structured entities from podcast episode metadata. You ONLY include entities literally present in the input. Distinguish `people` (speakers) from `mentioned` (talked about but absent). Never include show hosts in either list. If unsure, return empty arrays. No invention.";
+const SYSTEM = "You extract structured entities from podcast episode metadata. You ONLY include entities literally present in the input. Distinguish `people` (speakers) from `mentioned` (absent). Classify every organization with a precise `type`. Never include show hosts. Never include podcast/network/platform names. If unsure, return empty arrays. No invention.";
 
 
 const cleanArr = (a: any, max = 6): string[] => {
