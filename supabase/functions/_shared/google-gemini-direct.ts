@@ -242,8 +242,8 @@ export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICall
     }
 
     const usage = json?.usage || {};
-    const inTok = Number(usage.prompt_tokens ?? 0);
-    const outTok = Number(usage.completion_tokens ?? 0);
+    const inTok = geminiInputTokens(usage);
+    const outTok = geminiOutputTokens(usage);
     lastKeySource = entry.source;
 
     if (res.ok) {
