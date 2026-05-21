@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
         .from("episodes")
         .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, language, hosts)")
         .not("ai_summary", "is", null)
-        .lt("ai_entities_version", 2)
+        .lt("ai_entities_version", 3)
         .eq("podcasts.is_hungarian", true)
         .limit(batch);
       if (error) throw error;
