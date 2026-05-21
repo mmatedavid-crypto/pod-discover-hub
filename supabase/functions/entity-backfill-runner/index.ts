@@ -150,8 +150,8 @@ Deno.serve(async (req) => {
             job_type: "entity_backfill", reason: skipReason, model,
             target_type: "episode", target_id: ep.id,
           });
-          // Mark as v2 so we don't keep retrying garbage descriptions.
-          await admin.from("episodes").update({ ai_entities_version: 2 }).eq("id", ep.id);
+          // Mark as v3 so we don't keep retrying garbage descriptions.
+          await admin.from("episodes").update({ ai_entities_version: 3 }).eq("id", ep.id);
           succeeded++;
           return;
         }
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
         const hostLine = podHosts.length
           ? `Show hosts (DO NOT include any of these names in 'people' or 'mentioned'): ${podHosts.join(", ")}\n`
           : "";
-        const userPrompt = `${hostLine}Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract entities. people = speakers only; mentioned = talked-about but absent.`;
+        const userPrompt = `${hostLine}Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract entities. people = speakers only; mentioned = talked-about but absent. organizations = ALL named orgs with precise type.`;
         const aiRes = await callGeminiOpenAI({
           model,
           messages: [
@@ -184,13 +184,30 @@ Deno.serve(async (req) => {
 
         const people = filterHosts(cleanArr(parsed.people), podHosts);
         const mentioned = filterHosts(cleanArr(parsed.mentioned), podHosts);
-        const companies = cleanArr(parsed.companies);
+
+        // Typed organizations (new in v3). Normalize + dedupe by lowercase name.
+        const rawOrgs = Array.isArray(parsed.organizations) ? parsed.organizations : [];
+        const seenOrg = new Set<string>();
+        const organizations: { name: string; type: string }[] = [];
+        for (const o of rawOrgs) {
+          const name = String(o?.name || "").replace(/\s+/g, " ").trim().slice(0, 120);
+          if (!name) continue;
+          const k = name.toLowerCase();
+          if (seenOrg.has(k)) continue;
+          const type = ORG_TYPES.includes(o?.type) ? o.type : "other";
+          seenOrg.add(k);
+          organizations.push({ name, type });
+          if (organizations.length >= 10) break;
+        }
+        // Backwards-compat: keep legacy flat `companies` array populated from org names.
+        const companies = organizations.map((o) => o.name).slice(0, 6);
+
         const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
         const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
 
         await admin.from("episodes").update({
-          people, mentioned, companies, tickers, topics,
-          ai_entities_version: 2,
+          people, mentioned, companies, organizations, tickers, topics,
+          ai_entities_version: 3,
         }).eq("id", ep.id);
 
         succeeded++;
