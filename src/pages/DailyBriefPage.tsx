@@ -39,9 +39,6 @@ function mapRow(r: Row): EpisodeLite {
   };
 }
 
-const PRETTY_DATE = new Intl.DateTimeFormat("hu-HU", {
-  weekday: "long", month: "long", day: "numeric",
-});
 
 export default function DailyBriefPage() {
   const [eps, setEps] = useState<EpisodeLite[]>([]);
@@ -109,7 +106,6 @@ export default function DailyBriefPage() {
       .sort((a, b) => b.list.length - a.list.length);
   }, [ranked, top5]);
 
-  void today;
   const topTopics = useMemo(() => topEntitiesFrom(eps, "topics", "topic", 8), [eps]);
   const topPeople = useMemo(() => topEntitiesFrom(eps, "people", "person", 8), [eps]);
 
