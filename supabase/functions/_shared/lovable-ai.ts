@@ -193,8 +193,8 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
   const { res, json } = await rawCall(opts.model, body);
   const latency_ms = Date.now() - t0;
   const usage = json?.usage || {};
-  const inTok = usage.prompt_tokens ?? usage.input_tokens ?? 0;
-  const outTok = usage.completion_tokens ?? usage.output_tokens ?? 0;
+  const inTok = geminiInputTokens(usage);
+  const outTok = geminiOutputTokens(usage);
 
   if (!res.ok) {
     // 429 or 402 etc — DO NOT silently fall back to a more expensive model.
