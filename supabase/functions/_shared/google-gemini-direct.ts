@@ -368,8 +368,8 @@ export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCall
     if (res.ok) {
       const fc = json?.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
       const usage = json?.usageMetadata || {};
-      const inTok = Number(usage.promptTokenCount || 0);
-      const outTok = Number(usage.candidatesTokenCount || 0);
+      const inTok = geminiInputTokens(usage);
+      const outTok = geminiOutputTokens(usage);
       const cost = (opts.costFn ?? defaultCostFn)(model, inTok, outTok);
       const latency_ms = Date.now() - t0;
       await writeAudit({
