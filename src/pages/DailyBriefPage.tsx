@@ -148,6 +148,12 @@ export default function DailyBriefPage() {
       </section>
 
       <div className="container mx-auto py-10 space-y-12">
+        {/* Napi szerkesztőségi rovat: Ezen a napon + idézet */}
+        <DailyEditorials />
+
+        {/* Stats strip */}
+        <DailyStatsStrip />
+
         {loading && <div className="text-muted-foreground py-10 text-center">A mai válogatás betöltése…</div>}
 
         {!loading && top5.length === 0 && (
