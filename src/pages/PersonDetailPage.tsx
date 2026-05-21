@@ -209,7 +209,19 @@ export default function PersonDetailPage() {
   const hasArchivalSection = segments.archival.length > 0;
   const distinctSections = [hasParticipants, hasSubjects, hasMentions, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
-  const bioText = (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim()) || (eps.length > 0 ? huFallbackBio(person.name) : null);
+  const bioText =
+    (person.ai_bio && person.ai_bio.trim()) ||
+    (person.short_bio && person.short_bio.trim()) ||
+    (person.wikipedia_extract && person.wikipedia_extract.trim()) ||
+    (person.short_description_hu && person.short_description_hu.trim()) ||
+    (eps.length > 0 ? huFallbackBio(person.name) : null);
+  const bioSource: "ai" | "wikipedia" | "fallback" =
+    (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim())
+      ? "ai"
+      : (person.wikipedia_extract && person.wikipedia_extract.trim()) || (person.short_description_hu && person.short_description_hu.trim())
+      ? "wikipedia"
+      : "fallback";
+  const avatarUrl = person.image_url || person.image_original_url || null;
 
   // Persona summary for the page banner — derived from role counts (not from author claims).
   const pCount = segments.participants.length;
