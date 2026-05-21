@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const startedAt = Date.now();
 
     const staleCutoff = new Date(Date.now() - stale_hours * 3600_000).toISOString();
-    const candidateWindow = Math.min(9, limit * 3);
+    const candidateWindow = Math.min(150, limit * 3);
 
     const cq = admin
       .from("podcasts")
