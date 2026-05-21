@@ -327,7 +327,16 @@ Deno.serve(async (req) => {
     let q = String(body.q || "").trim();
     const limit = Math.min(80, Math.max(5, Number(body.limit) || 50));
     const lang = body.lang === null ? null : (typeof body.lang === "string" ? body.lang : "hu");
-    const wantRerank = body.rerank !== false;
+
+    // Bot gate — crawlers, scrapers, AI training bots, link previewers and
+    // monitoring agents get a lexical-only path. No LLM understanding, no
+    // embedding call, no HyDE expansion, no Cohere rerank, no AI rerank.
+    // Real users keep the full v13 quality-first pipeline.
+    const botCheck = detectBot(req);
+    const isBot = botCheck.isBot;
+    if (isBot) console.log("search-hybrid bot path", { reason: botCheck.reason, ua: botCheck.ua.slice(0, 80) });
+
+    const wantRerank = !isBot && body.rerank !== false;
 
     // Engine version flags. Default comes from app_settings.search_engine when caller
     // does not pin it explicitly. quality_guard re-runs with fallback engine if v13 returns 0.
