@@ -215,7 +215,8 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
-        if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
+        if (msg === "budget_exhausted_provider") { stop = true; }
+        // rate_limited handled with backoff above; just retry-on-next-run.
         // Mark unchanged so it gets retried on next run.
       }
     };
