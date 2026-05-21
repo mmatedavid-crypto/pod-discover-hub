@@ -71,17 +71,18 @@ export default function MethodologyPage() {
           forrásokat szűrjük, hogy a találatok valóban a magyar podcastkínálatból származzanak.
         </p>
 
-        <h2 className="mt-10 text-xl font-semibold">AI, de kontrollal</h2>
+        <h2 className="mt-10 text-xl font-semibold">MI, de kontrollal</h2>
         <p>
-          AI-t használunk arra, hogy az epizódok könnyebben kereshetők, összefoglalhatók és
-          összekapcsolhatók legyenek. De a cél nem az, hogy az AI helyettünk döntsön mindenről.
+          MI-t használunk arra, hogy az epizódok könnyebben kereshetők, összefoglalhatók és
+          összekapcsolhatók legyenek. De a cél nem az, hogy az MI helyettünk döntsön mindenről.
           A személyeknél, témáknál és ajánlóknál külön minőségi szabályokat és ellenőrzéseket
           használunk.
         </p>
         <p>
-          Az AI segít a rendszerezésben és a rendszer skálázhatóságában. A végső élmény azonban
+          Az MI segít a rendszerezésben és a rendszer skálázhatóságában. A végső élmény azonban
           emberi értékelésre és folyamatos finomhangolásra épül.
         </p>
+
 
         <h2 className="mt-10 text-xl font-semibold">Honnan származnak az adatok?</h2>
         <p>

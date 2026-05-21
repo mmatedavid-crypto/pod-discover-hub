@@ -102,12 +102,13 @@ export default function CompaniesHubPage() {
         <div className="container mx-auto py-10 sm:py-14 max-w-5xl px-4">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Cégek és intézmények</div>
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">
-            Cégek, intézmények, média és civil szervezetek
+            Cégek és intézmények
           </h1>
           <p className="text-foreground/80 mt-4 max-w-2xl">
             A magyar és nemzetközi szervezetek, amik a podcastokban szóba kerülnek — gazdasági, állami,
             média- és civil szereplők egy helyen.
           </p>
+
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}

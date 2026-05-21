@@ -90,6 +90,7 @@ export default function TopicsHubPage() {
             Fedezz fel magyar podcast epizódokat konkrét ügyek, fogalmak,
             trendek és érdeklődési körök alapján.
           </p>
+
           {topics.length > 0 && (
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
               <span>

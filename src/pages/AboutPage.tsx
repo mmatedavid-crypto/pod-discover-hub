@@ -25,7 +25,7 @@ export default function AboutPage() {
     <Layout>
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Rólunk</div>
-        <h1 className="text-3xl font-semibold mb-2">Találd meg. Hallgasd meg.</h1>
+        <h1 className="text-3xl font-semibold mb-2">Find it. Hear it.</h1>
         <p className="text-muted-foreground !mt-2">
           A Podiverzum egy MI-alapú kereső, amellyel a magyar podcastok világa kereshetővé,
           érthetővé és könnyen áttekinthetővé válik.
@@ -123,8 +123,9 @@ export default function AboutPage() {
             to="/modszertan"
             className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            Hogyan rangsorolunk →
+            Módszertan →
           </Link>
+
           <Link
             to="/adatvedelem"
             className="px-4 py-2 rounded-md bg-secondary text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"

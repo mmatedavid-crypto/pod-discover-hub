@@ -8,9 +8,9 @@ const EXPLORE = [
   { to: "/szemelyek", label: "Személyek" },
   { to: "/szervezetek", label: "Szervezetek" },
   { to: "/uj-podcastok", label: "Új podcastok" },
-  { to: "/kereses?q=legjobb+magyar+podcastok", label: "Legjobb magyar podcastok" },
   { to: "/modszertan", label: "Módszertan" },
 ];
+
 
 const COMPANY = [
   { to: "/rolunk", label: "Rólunk" },

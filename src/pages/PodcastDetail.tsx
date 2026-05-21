@@ -90,20 +90,23 @@ export default function PodcastDetail() {
 
             <div className="flex flex-wrap gap-2 mt-2 items-center text-xs">
               {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
-                <span
-                  className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-muted-foreground"
-                  title="A Podiverzum forrásminőség-jelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján."
+                <Link
+                  to="/modszertan"
+                  className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors inline-flex items-center gap-1"
+                  title="A Podiverzum minőségjelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján."
+                  aria-label={`Minőségjelzés ${Number(p.podiverzum_rank).toFixed(1)} — mit jelent ez?`}
                 >
-                  Forrás {Number(p.podiverzum_rank).toFixed(1)}
-                </span>
+                  Minőségjelzés {Number(p.podiverzum_rank).toFixed(1)}
+                  <span className="opacity-60">· Mit jelent ez?</span>
+                </Link>
               )}
               {isHealthy ? (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-green-500/30 bg-green-500/10 text-[10px] font-medium text-green-400">
-                  <Activity className="h-3 w-3" /> Aktív feed
+                  <Activity className="h-3 w-3" /> Frissül
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-[10px] font-medium text-amber-400">
-                  <AlertTriangle className="h-3 w-3" /> Hibás feed
+                  <AlertTriangle className="h-3 w-3" /> Frissítési hiba
                 </span>
               )}
               {lastFresh && (
@@ -112,6 +115,7 @@ export default function PodcastDetail() {
                 </span>
               )}
             </div>
+
 
             {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{stripHtml(p.summary)}</p>}
             {p.description && stripHtml(p.description) !== stripHtml(p.summary) && (
@@ -135,9 +139,10 @@ export default function PodcastDetail() {
           const topics = topEntitiesFrom(epsLite, "topics", "topic", 8);
           const all = [
             people.length ? { eyebrow: "Személyek", title: "Az adásokban említett személyek", items: people, icon: "person" as const } : null,
-            companies.length ? { eyebrow: "Cégek", title: "Visszatérő cégek és márkák", items: companies, icon: "company" as const } : null,
+            companies.length ? { eyebrow: "Szervezetek", title: "Visszatérő szervezetek és márkák", items: companies, icon: "company" as const } : null,
             topics.length ? { eyebrow: "Témák", title: "Visszatérő témák", items: topics, icon: "topic" as const } : null,
           ].filter(Boolean) as Array<{ eyebrow: string; title: string; items: any[]; icon: "person" | "company" | "topic" }>;
+
           if (!all.length) return null;
           return (
             <div className="mt-10 grid gap-6">

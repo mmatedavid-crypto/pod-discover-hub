@@ -82,9 +82,10 @@ export default function OrganizationsIndexPage() {
             icon={Building2}
             eyebrow="Cégek és intézmények"
             count={stats.companies}
-            title="Cégek, intézmények, média, civil szervezetek"
+            title="Minden szervezet, típus szerint"
             description="Gazdasági, állami, média- és civil szervezetek — típus szerint csoportosítva."
           />
+
           <HubLink
             to="/partok"
             icon={Vote}
