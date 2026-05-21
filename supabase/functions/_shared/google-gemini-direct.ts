@@ -10,7 +10,7 @@
 //   - Key pool order: GEMINI_API_KEY_TIER1 > GEMINI_API_KEY (paid) > GEMINI_API_KEY_FREE.
 //     On 429/503 we hop to the next key in the pool (still NOT a model upgrade).
 
-import { chatTokenCostUsd, embeddingTokenCostUsd } from "./ai-pricing.ts";
+import { chatTokenCostUsd, embeddingTokenCostUsd, geminiOutputTokens, geminiInputTokens } from "./ai-pricing.ts";
 
 const OPENAI_COMPAT_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const NATIVE_URL = (model: string) =>
