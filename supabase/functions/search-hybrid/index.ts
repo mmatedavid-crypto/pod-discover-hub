@@ -515,13 +515,14 @@ Deno.serve(async (req) => {
     }
 
     // 2) Parallel: understanding + embedding + curated synonyms
-    // Quality-first: 2500ms timeout — losing entity/intent detection downgrades
-    // every downstream layer (rare-token gate, person-vs-topic, ticker handling).
+    // Bot path: skip LLM understanding and embedding entirely. Pure lexical search.
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 2500),
-      q_embedding ? Promise.resolve(q_embedding) : embed(q),
+      understanding ? Promise.resolve(understanding) : (isBot ? Promise.resolve(null) : understandQuery(q, 2500)),
+      q_embedding ? Promise.resolve(q_embedding) : (isBot ? Promise.resolve(null) : embed(q)),
       loadCuratedSynonyms(supa, qNorm),
     ]);
+    understanding = u as Understanding;
+    if (!q_embedding) q_embedding = embVal;
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
     const tEmb = Date.now() - t0;
