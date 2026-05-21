@@ -10,9 +10,10 @@ export default function NewPodcastsPage() {
 
   useEffect(() => {
     setSeo({
-      title: "Új podcastek — Podiverzum",
+      title: "Új podcastok — Podiverzum",
       description: "A Podiverzum legfrissebben indexelt magyar podcastjai. A listát a minőség és a technikai megbízhatóság alapján állítjuk össze.",
     });
+
     supabase
       .from("podcasts")
       .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at,language")
@@ -32,7 +33,7 @@ export default function NewPodcastsPage() {
     <Layout>
       <div className="container mx-auto py-12 max-w-5xl">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Frissen felfedezve</div>
-        <h1 className="text-3xl font-semibold mt-2">Új podcastek</h1>
+        <h1 className="text-3xl font-semibold mt-2">Új podcastok</h1>
         <p className="text-muted-foreground mt-2 text-sm max-w-xl">
           A Podiverzum által nemrégiben felfedezett műsorok. A lista folyamatosan frissül.
         </p>
@@ -40,8 +41,9 @@ export default function NewPodcastsPage() {
           {items.map((p) => <PodcastCard key={p.id} p={p} />)}
         </div>
         {!loading && !items.length && (
-          <p className="text-muted-foreground mt-8">Jelenleg nincsenek új műsorok a listában. Látogass vissza később.</p>
+          <p className="text-muted-foreground mt-8">Jelenleg nincs új műsor. Nézz vissza később.</p>
         )}
+
       </div>
     </Layout>
   );

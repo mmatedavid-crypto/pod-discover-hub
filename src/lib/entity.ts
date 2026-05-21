@@ -11,12 +11,13 @@ export const ENTITY_COLUMN: Record<EntityKind, "topics" | "people" | "companies"
 };
 
 export const ENTITY_LABEL: Record<EntityKind, string> = {
-  topic: "Topic",
-  person: "Person",
-  company: "Company",
-  ticker: "Ticker",
-  ingredient: "Ingredient",
+  topic: "Téma",
+  person: "Személy",
+  company: "Szervezet",
+  ticker: "Részvény",
+  ingredient: "Hozzávaló",
 };
+
 
 export function entitySlug(kind: EntityKind, value: string): string {
   if (kind === "ticker") return value.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();

@@ -245,7 +245,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           <section>
             <div className="mb-3">
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Források</div>
-              <h2 className="text-xl font-semibold">Műsorok, ahol téma: {displayName}</h2>
+              <h2 className="text-xl font-semibold">Műsorok, amelyek témaként foglalkoznak vele</h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {pods.map((p) => <PodcastCard key={p.id} p={p} />)}
@@ -257,7 +257,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           <section>
             <div className="mb-3">
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Említve</div>
-              <h2 className="text-xl font-semibold">Epizódok, ahol szó esik {displayName}-ról</h2>
+              <h2 className="text-xl font-semibold">Epizódok, ahol szó esik róla</h2>
               <p className="text-xs text-muted-foreground mt-1">{displayName} nincs jelen ezekben az epizódokban, de említik vagy szó esik róla.</p>
             </div>
             <EpisodeList items={mentionedEps} showEntities />
@@ -269,7 +269,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             <div className="mb-3">
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Kapcsolódó</div>
               <h2 className="text-xl font-semibold">Gyakran együtt említve</h2>
-              <p className="text-xs text-muted-foreground mt-1">Személyek, cégek és témák, amik gyakran felbukkannak {displayName} mellett.</p>
+              <p className="text-xs text-muted-foreground mt-1">Személyek, szervezetek és témák, amik gyakran felbukkannak {displayName} mellett.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {related.map(({ kind: k, v }) => {
@@ -280,7 +280,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
                     to={`/${k}/${encodeURIComponent(s)}`}
                     className="px-3 py-1.5 rounded-full border border-border bg-card text-sm hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{k}</span>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{ENTITY_LABEL[k]}</span>
                     <span>{v}</span>
                   </Link>
                 );
@@ -288,6 +288,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             </div>
           </section>
         )}
+
 
         <p className="text-xs text-muted-foreground pt-4 border-t border-border/60">
           Nyilvános RSS-forrásokból indexelve. A rangsor frissesség, relevancia és a műsorok minősége alapján készül.

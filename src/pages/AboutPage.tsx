@@ -123,8 +123,9 @@ export default function AboutPage() {
             to="/modszertan"
             className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            Hogyan rangsorolunk →
+            Módszertan →
           </Link>
+
           <Link
             to="/adatvedelem"
             className="px-4 py-2 rounded-md bg-secondary text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"

@@ -28,10 +28,11 @@ import { logPlayerEvent } from "@/lib/playerEvents";
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
   { kind: "person", label: "Személyek" },
-  { kind: "company", label: "Cégek" },
+  { kind: "company", label: "Szervezetek" },
   { kind: "ticker", label: "Részvények" },
   { kind: "ingredient", label: "Hozzávalók" },
 ];
+
 
 export default function EpisodeDetail() {
   const { podcastSlug, episodeSlug } = useParams();
@@ -217,13 +218,15 @@ export default function EpisodeDetail() {
             </span>
           )}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
-            <span
-              className="text-[10px] text-muted-foreground"
-              title="A Podiverzum forrásminőség-jelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján."
+            <Link
+              to="/modszertan"
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+              title="A Podiverzum minőségjelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján. Kattints a részletekért."
             >
-              · Forrás {Number(p.podiverzum_rank).toFixed(1)}
-            </span>
+              · Minőségjelzés {Number(p.podiverzum_rank).toFixed(1)}
+            </Link>
           )}
+
         </div>
 
         {(() => {

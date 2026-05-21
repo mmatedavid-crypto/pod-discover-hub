@@ -30,7 +30,7 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
             <Plus className="h-3 w-3" /> Nemrég hozzáadva
           </div>
-          <h2 className="text-xl sm:text-2xl font-semibold">Új podcastek</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold">Új podcastok</h2>
         </div>
         {showLink && (
           <Link to="/uj-podcastok" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
