@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = jsonb_set(jsonb_set(jsonb_set(jsonb_set(value, '{batch_size}', '80'::jsonb), '{concurrency}', '16'::jsonb), '{daily_budget_usd}', '30'::jsonb), '{note}', '"2026-05-21 bumped: batch 30->80, concurrency 6->16, budget 20->30 for faster drain"'::jsonb) WHERE key='embed_episode_chunks_controls';
