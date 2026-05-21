@@ -268,18 +268,27 @@ export default function PersonDetailPage() {
             <span className="text-foreground">{person.name}</span>
           </nav>
           <div className="flex flex-col sm:flex-row items-start gap-6">
-            <PersonAvatar name={person.name} size="xl" />
+            <PersonAvatar name={person.name} size="xl" imageUrl={avatarUrl} />
             <div className="min-w-0 flex-1">
               <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személy</div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{person.name}</h1>
               {person.disambiguation_label && (
                 <div className="text-sm text-muted-foreground mt-1">{person.disambiguation_label}</div>
               )}
+              {person.wikipedia_description && (
+                <div className="text-sm text-muted-foreground mt-1 italic">{person.wikipedia_description}</div>
+              )}
               {bioText && (
                 <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{bioText}</p>
               )}
               {person.wikipedia_url && person.wikipedia_match_status === "verified" && (
-                <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-3 inline-block">Wikipedia: {person.wikipedia_title} →</a>
+                <div className="text-xs text-muted-foreground mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                  <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Wikipedia: {person.wikipedia_title} →</a>
+                  {bioSource === "wikipedia" && <span>Forrás: Wikipedia (CC BY-SA)</span>}
+                  {avatarUrl && person.image_license && (
+                    <span>Fotó: {person.image_attribution || "Wikimedia Commons"} · {person.image_license}</span>
+                  )}
+                </div>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5 max-w-xl">
                 <StatCard label="Indexelt epizódok" value={eps.length} />
