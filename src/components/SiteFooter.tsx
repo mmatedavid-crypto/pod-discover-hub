@@ -2,10 +2,11 @@ import { Link } from "react-router-dom";
 import { BrandMark } from "./Brand";
 
 const EXPLORE = [
+  { to: "/napi", label: "Mai válogatás" },
+  { to: "/kategoriak", label: "Podcast kategóriák" },
   { to: "/temak", label: "Témák" },
   { to: "/szemelyek", label: "Személyek" },
-  { to: "/kategoriak", label: "Podcast kategóriák" },
-  { to: "/napi", label: "Friss epizódok" },
+  { to: "/szervezetek", label: "Szervezetek" },
   { to: "/uj-podcastok", label: "Új podcastok" },
   { to: "/kereses?q=legjobb+magyar+podcastok", label: "Legjobb magyar podcastok" },
   { to: "/modszertan", label: "Módszertan" },

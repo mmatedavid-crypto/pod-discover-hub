@@ -15,9 +15,9 @@ export default function OrganizationsIndexPage() {
 
   useEffect(() => {
     setSeo({
-      title: "Szervezetek — cégek, intézmények, média, pártok | Podiverzum",
+      title: "Szervezetek a magyar podcastokban — Podiverzum",
       description:
-        "Böngészd a magyar podcastvilágban szóba kerülő szervezeteket: cégek, intézmények, média, NGO-k és politikai pártok.",
+        "Cégek, intézmények, médiumok, civil szervezetek, politikai pártok, egyetemek, egyházak és sportklubok, amelyek magyar podcastokban szóba kerülnek vagy résztvevőként jelennek meg.",
     });
     (async () => {
       const cols =
@@ -65,11 +65,11 @@ export default function OrganizationsIndexPage() {
         <div className="container mx-auto py-10 sm:py-14 max-w-5xl px-4">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Szervezetek</div>
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">
-            Szervezetek a magyar podcastvilágban
+            Szervezetek a magyar podcastokban
           </h1>
           <p className="text-foreground/80 mt-4 max-w-2xl">
-            Cégek, intézmények, média, NGO-k és politikai pártok — minden szervezet, amely a magyar podcastokban
-            szóba kerül vagy résztvevőként jelenik meg.
+            Cégek, intézmények, médiumok, civil szervezetek, politikai pártok, egyetemek, egyházak és
+            sportklubok, amelyek magyar podcastokban szóba kerülnek vagy résztvevőként jelennek meg.
           </p>
         </div>
       </section>
@@ -82,7 +82,7 @@ export default function OrganizationsIndexPage() {
             icon={Building2}
             eyebrow="Cégek és intézmények"
             count={stats.companies}
-            title="Cégek, intézmények, média, NGO"
+            title="Cégek, intézmények, média, civil szervezetek"
             description="Gazdasági, állami, média- és civil szervezetek — típus szerint csoportosítva."
           />
           <HubLink
@@ -131,8 +131,8 @@ export default function OrganizationsIndexPage() {
 
         {topCompanies.length === 0 && topParties.length === 0 && (
           <div className="rounded-xl border border-dashed border-border bg-card/40 p-6 text-sm text-muted-foreground">
-            Még gyűjtjük a szervezeteket az epizódokból. Az AI ~16 ezer epizódból már kinyerte a említett cégeket,
-            intézményeket és pártokat; ezek hamarosan itt jelennek meg.
+            Még gyűjtjük a szervezeteket az epizódokból. Az AI ~16 ezer epizódból már kinyerte az említett cégeket,
+            intézményeket, civil szervezeteket és pártokat; ezek hamarosan itt jelennek meg.
           </div>
         )}
       </div>

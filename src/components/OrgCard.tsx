@@ -49,7 +49,7 @@ const TYPE_LABEL: Record<OrgType, string> = {
   party: "Párt",
   institution: "Intézmény",
   media: "Média",
-  ngo: "NGO",
+  ngo: "Civil szervezet",
   sport_team: "Sportklub",
   sport_league: "Liga",
   church: "Egyház",

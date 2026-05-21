@@ -11,7 +11,7 @@ const TABS: { key: TabKey; label: string; types: string[] }[] = [
   { key: "company", label: ORG_TYPE_LABEL.company + "ek", types: ["company"] },
   { key: "media", label: "Média", types: ["media", "radio_station"] },
   { key: "institution", label: "Intézmények", types: ["institution"] },
-  { key: "ngo", label: "NGO-k", types: ["ngo"] },
+  { key: "ngo", label: "Civil szervezetek", types: ["ngo"] },
 ];
 
 const TOP_LIMIT = 30;
@@ -52,7 +52,7 @@ export default function CompaniesHubPage() {
     setSeo({
       title: "Cégek és intézmények magyar podcastokban — Podiverzum",
       description:
-        "Cégek, intézmények, média és NGO-k, amik a magyar podcastokban szóba kerülnek. Böngészd típus szerint vagy keress rá.",
+        "Cégek, intézmények, médiumok és civil szervezetek, amik a magyar podcastokban szóba kerülnek. Böngészd típus szerint vagy keress rá.",
     });
   }, []);
 
@@ -102,7 +102,7 @@ export default function CompaniesHubPage() {
         <div className="container mx-auto py-10 sm:py-14 max-w-5xl px-4">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Cégek és intézmények</div>
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">
-            Cégek, intézmények, média és NGO-k
+            Cégek, intézmények, média és civil szervezetek
           </h1>
           <p className="text-foreground/80 mt-4 max-w-2xl">
             A magyar és nemzetközi szervezetek, amik a podcastokban szóba kerülnek — gazdasági, állami,
