@@ -4,7 +4,6 @@ import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder } from "lucide-react"
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
-import HeaderDailyBar from "./HeaderDailyBar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
@@ -75,7 +74,6 @@ export function SiteHeader() {
     <header className="border-b border-border/70 bg-background/80 backdrop-blur-xl sticky top-0 z-30 supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
         <BrandMark />
-        <HeaderDailyBar />
         <nav className="hidden lg:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
           <NavLink to="/napi" className={linkCls}>Mai válogatás</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />

@@ -133,9 +133,7 @@ export default function DailyBriefPage() {
             Új epizódok, témák és szereplők — minőség, aktualitás és relevancia alapján.
           </p>
         </div>
-        <div className="xl:hidden">
-          <NewspaperMasthead />
-        </div>
+        <NewspaperMasthead />
         <div className="container mx-auto py-3 flex justify-end">
           <div className="inline-flex rounded-md border border-border bg-card overflow-hidden text-xs">
             {([24, 48, 72] as const).map((h) => (
