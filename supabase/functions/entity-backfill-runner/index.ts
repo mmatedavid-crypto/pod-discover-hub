@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
           preferTier1: true,
         });
         if (!aiRes.ok) {
-          if (aiRes.status === 429) { rate_limited++; stop = true; }
+          if (aiRes.status === 429) { rate_limited++; await new Promise(r => setTimeout(r, 1500 + Math.random()*1500)); }
           throw new Error(aiRes.error || `ai_${aiRes.status}`);
         }
         const cost = aiRes.cost_usd ?? 0;
