@@ -15,6 +15,13 @@ interface Person {
   overview_text: string | null;
   wikipedia_url: string | null; wikipedia_title: string | null;
   wikipedia_match_status: string | null;
+  wikipedia_extract: string | null;
+  wikipedia_description: string | null;
+  short_description_hu: string | null;
+  image_url: string | null;
+  image_original_url: string | null;
+  image_attribution: string | null;
+  image_license: string | null;
   episode_count: number; podcast_count: number;
   is_indexable: boolean;
   latest_episode_at: string | null;
