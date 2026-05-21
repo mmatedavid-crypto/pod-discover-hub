@@ -113,6 +113,13 @@ export default function DailyBriefPage() {
 
   return (
     <Layout>
+      {/* A nap idézete — legfelül, kiemelve */}
+      <section className="bg-card/30 border-b border-border">
+        <div className="container mx-auto py-6">
+          <DailyEditorials />
+        </div>
+      </section>
+
       {/* Hero — internetes híroldal stílus */}
       <section className="bg-background border-b border-border">
         <div className="container mx-auto pt-8 sm:pt-10 pb-3">
@@ -147,11 +154,9 @@ export default function DailyBriefPage() {
       </section>
 
       <div className="container mx-auto py-10 space-y-12">
-        {/* Napi szerkesztőségi rovat: Ezen a napon + idézet */}
-        <DailyEditorials />
-
         {/* Stats strip */}
         <DailyStatsStrip />
+
 
         {loading && <div className="text-muted-foreground py-10 text-center">A mai válogatás betöltése…</div>}
 
