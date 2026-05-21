@@ -9,6 +9,8 @@ import { Sparkles, Clock } from "lucide-react";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import NewspaperMasthead from "@/components/NewspaperMasthead";
+import DailyEditorials from "@/components/DailyEditorials";
+import DailyStatsStrip from "@/components/DailyStatsStrip";
 
 type Row = any;
 
@@ -146,6 +148,12 @@ export default function DailyBriefPage() {
       </section>
 
       <div className="container mx-auto py-10 space-y-12">
+        {/* Napi szerkesztőségi rovat: Ezen a napon + idézet */}
+        <DailyEditorials />
+
+        {/* Stats strip */}
+        <DailyStatsStrip />
+
         {loading && <div className="text-muted-foreground py-10 text-center">A mai válogatás betöltése…</div>}
 
         {!loading && top5.length === 0 && (
