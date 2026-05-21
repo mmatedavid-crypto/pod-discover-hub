@@ -74,6 +74,14 @@ Deno.serve(async (req) => {
     if (!q || episodes.length === 0 || !LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "missing input" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // Bot gate: crawlers, scrapers and AI training bots get a deterministic
+    // Hungarian fallback. No LLM tokens spent on non-human traffic.
+    const bot = detectBot(req);
+    if (bot.isBot) {
+      console.log("search-answer bot gated", { reason: bot.reason, ua: bot.ua.slice(0, 80) });
+      return emitSse(huFallback(q));
+    }
     const compact = episodes.map((e: any, i: number) => ({
       i: i + 1,
       title: String(e.title || "").slice(0, 140),
