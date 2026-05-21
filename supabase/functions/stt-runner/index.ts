@@ -75,7 +75,8 @@ async function callGeminiSTT(model: string, audioBase64: string, mime: string) {
     choices: [{ message: { content: text } }],
     usage: {
       prompt_tokens: Number(um.promptTokenCount || 0),
-      completion_tokens: Number(um.candidatesTokenCount || 0),
+      // Gemini 2.5+ bills "thinking" tokens as output but returns them separately.
+      completion_tokens: Number(um.candidatesTokenCount || 0) + Number(um.thoughtsTokenCount || 0),
     },
   };
 }

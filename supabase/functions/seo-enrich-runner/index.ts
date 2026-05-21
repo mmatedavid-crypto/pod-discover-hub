@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
         ], [tool], toolName, job.target_id, job.kind);
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
-        const outTok = Number(usage.completion_tokens || 0);
+        const outTok = Number(usage.completion_tokens || 0) + Number(usage.completion_tokens_details?.reasoning_tokens || 0);
         const cost = chatTokenCostUsd(model, inTok, outTok);
 
         const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;

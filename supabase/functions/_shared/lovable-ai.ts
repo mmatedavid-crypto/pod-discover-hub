@@ -8,7 +8,7 @@
 //
 // All callers should go through callLovableAI() so audit + blocklist apply.
 
-import { chatTokenCostUsd, normalizeAiModel } from "./ai-pricing.ts";
+import { chatTokenCostUsd, normalizeAiModel, geminiOutputTokens, geminiInputTokens } from "./ai-pricing.ts";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
@@ -193,8 +193,8 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
   const { res, json } = await rawCall(opts.model, body);
   const latency_ms = Date.now() - t0;
   const usage = json?.usage || {};
-  const inTok = usage.prompt_tokens ?? usage.input_tokens ?? 0;
-  const outTok = usage.completion_tokens ?? usage.output_tokens ?? 0;
+  const inTok = geminiInputTokens(usage);
+  const outTok = geminiOutputTokens(usage);
 
   if (!res.ok) {
     // 429 or 402 etc — DO NOT silently fall back to a more expensive model.

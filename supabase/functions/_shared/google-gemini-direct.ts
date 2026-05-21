@@ -10,7 +10,7 @@
 //   - Key pool order: GEMINI_API_KEY_TIER1 > GEMINI_API_KEY (paid) > GEMINI_API_KEY_FREE.
 //     On 429/503 we hop to the next key in the pool (still NOT a model upgrade).
 
-import { chatTokenCostUsd, embeddingTokenCostUsd } from "./ai-pricing.ts";
+import { chatTokenCostUsd, embeddingTokenCostUsd, geminiOutputTokens, geminiInputTokens } from "./ai-pricing.ts";
 
 const OPENAI_COMPAT_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const NATIVE_URL = (model: string) =>
@@ -242,8 +242,8 @@ export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICall
     }
 
     const usage = json?.usage || {};
-    const inTok = Number(usage.prompt_tokens ?? 0);
-    const outTok = Number(usage.completion_tokens ?? 0);
+    const inTok = geminiInputTokens(usage);
+    const outTok = geminiOutputTokens(usage);
     lastKeySource = entry.source;
 
     if (res.ok) {
@@ -368,8 +368,8 @@ export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCall
     if (res.ok) {
       const fc = json?.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
       const usage = json?.usageMetadata || {};
-      const inTok = Number(usage.promptTokenCount || 0);
-      const outTok = Number(usage.candidatesTokenCount || 0);
+      const inTok = geminiInputTokens(usage);
+      const outTok = geminiOutputTokens(usage);
       const cost = (opts.costFn ?? defaultCostFn)(model, inTok, outTok);
       const latency_ms = Date.now() - t0;
       await writeAudit({

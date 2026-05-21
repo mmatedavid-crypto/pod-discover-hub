@@ -33,7 +33,7 @@ async function callAI(system: string, user: string): Promise<{ text: string; cos
   const j = await r.json();
   const text = j?.choices?.[0]?.message?.content || "";
   const inTok = j?.usage?.prompt_tokens || 0;
-  const outTok = j?.usage?.completion_tokens || 0;
+  const outTok = (j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0);
   const cost = chatTokenCostUsd(MODEL, Number(inTok || 0), Number(outTok || 0));
   return { text: text.trim(), cost, ok: true };
 }

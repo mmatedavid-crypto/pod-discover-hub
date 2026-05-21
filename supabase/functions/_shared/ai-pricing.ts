@@ -44,3 +44,25 @@ export function embeddingTokenCostUsd(model: string, inputTokens: number): numbe
   const inputPer1M = EMBEDDING_INPUT_PER_1M[key] ?? EMBEDDING_INPUT_PER_1M["gemini-embedding-001"];
   return (Math.max(0, inputTokens) * inputPer1M) / 1_000_000;
 }
+
+// Gemini 2.5+ bills "thinking" tokens as OUTPUT but returns them separately.
+// OpenAI-compat: usage.completion_tokens_details.reasoning_tokens
+// Native Generative Language API: usageMetadata.thoughtsTokenCount
+// Also handles cached input tokens (subtracted to avoid double-billing on cache hits).
+export function geminiOutputTokens(usage: any): number {
+  if (!usage) return 0;
+  const compat = Number(usage.completion_tokens ?? usage.output_tokens ?? 0);
+  const reasoningCompat = Number(usage.completion_tokens_details?.reasoning_tokens ?? 0);
+  const candidates = Number(usage.candidatesTokenCount ?? 0);
+  const thoughts = Number(usage.thoughtsTokenCount ?? 0);
+  // OpenAI-compat path: completion_tokens already includes reasoning in some providers, not in Gemini.
+  // Sum both defensively — reasoning_tokens is 0 when not applicable.
+  return Math.max(compat + reasoningCompat, candidates + thoughts);
+}
+
+export function geminiInputTokens(usage: any): number {
+  if (!usage) return 0;
+  const compat = Number(usage.prompt_tokens ?? usage.input_tokens ?? 0);
+  const native = Number(usage.promptTokenCount ?? 0);
+  return Math.max(compat, native);
+}
