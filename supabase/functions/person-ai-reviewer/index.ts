@@ -156,7 +156,7 @@ async function callAI(payload: any): Promise<{ args: any; cost: number; error?: 
   let parsed: any = null;
   try { parsed = JSON.parse(call.function.arguments); } catch { return { args: null, cost: 0, error: "parse_fail" }; }
   const inTok = j?.usage?.prompt_tokens || 0;
-  const outTok = j?.usage?.completion_tokens || 0;
+  const outTok = (j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0);
   const cost = chatTokenCostUsd(MODEL, Number(inTok || 0), Number(outTok || 0));
   return { args: parsed, cost };
 }
