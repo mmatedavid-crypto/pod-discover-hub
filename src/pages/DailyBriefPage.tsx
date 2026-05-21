@@ -113,23 +113,22 @@ export default function DailyBriefPage() {
 
   return (
     <Layout>
-      {/* Hero — újság-címlap stílus */}
-      <section className="bg-background relative overflow-hidden">
-        <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-40" />
-        <div className="container mx-auto pt-10 sm:pt-14 pb-4 relative text-center">
-          <div className="text-[10px] uppercase tracking-[0.32em] text-muted-foreground">
-            Magyar podcast napilap
+      {/* Hero — internetes híroldal stílus */}
+      <section className="bg-background border-b border-border">
+        <div className="container mx-auto pt-8 sm:pt-10 pb-3">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-semibold">
+            Mai válogatás
           </div>
-          <h1 className="font-serif text-5xl sm:text-7xl font-bold tracking-tight mt-2 leading-[0.95]">
-            Mai <span className="text-brand-gradient italic">válogatás</span>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1.5">
+            Friss magyar podcast epizódok
           </h1>
-          <p className="text-muted-foreground mt-3 max-w-2xl mx-auto italic font-serif">
-            Friss podcast epizódok, témák és szereplők — minőség, aktualitás és relevancia alapján.
+          <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl">
+            Új epizódok, témák és szereplők — minőség, aktualitás és relevancia alapján.
           </p>
         </div>
         <NewspaperMasthead />
-        <div className="container mx-auto py-5 flex justify-center">
-          <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden text-sm">
+        <div className="container mx-auto py-3 flex justify-end">
+          <div className="inline-flex rounded-md border border-border bg-card overflow-hidden text-xs">
             {([24, 48, 72] as const).map((h) => (
               <button
                 key={h}

@@ -19,8 +19,7 @@ function describeWeather(code: number): { Icon: typeof Cloud; label: string } {
   return { Icon: Cloud, label: "Felhős" };
 }
 
-const HU_WEEKDAY = new Intl.DateTimeFormat("hu-HU", { weekday: "long" });
-const HU_LONG = new Intl.DateTimeFormat("hu-HU", { year: "numeric", month: "long", day: "numeric" });
+const HU_LONG = new Intl.DateTimeFormat("hu-HU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 const HU_TIME = new Intl.DateTimeFormat("hu-HU", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Budapest" });
 
 function fmtTime(iso?: string): string {
@@ -31,14 +30,10 @@ function fmtTime(iso?: string): string {
 export default function NewspaperMasthead() {
   const [weather, setWeather] = useState<Weather | null>(null);
   const now = new Date();
-  const weekday = HU_WEEKDAY.format(now);
   const longDate = HU_LONG.format(now);
   const nameDay = getNameDay(now);
   const moon = getMoonPhase(now);
   const nextHoliday = findNextHoliday(now);
-
-  const start = new Date(now.getFullYear(), 0, 0);
-  const issueNo = Math.floor((now.getTime() - start.getTime()) / 86400_000);
 
   useEffect(() => {
     const cached = sessionStorage.getItem("podi:weather:bp:v2");
@@ -68,61 +63,42 @@ export default function NewspaperMasthead() {
 
   const W = weather ? describeWeather(weather.code) : null;
 
+  // Egysoros híroldal-szalag — minden infó egy sorban, kis betűs, homogén tipográfia
   return (
-    <div className="border-y-2 border-foreground/80 bg-card/40">
-      {/* Felső sor */}
-      <div className="container mx-auto flex items-center justify-between gap-4 py-1.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground border-b border-border/60">
-        <span>Podiverzum&nbsp;·&nbsp;{issueNo}. szám</span>
-        <span className="hidden sm:inline">{longDate}</span>
-        <span>Budapest</span>
-      </div>
+    <div className="border-y border-border bg-card/30">
+      <div className="container mx-auto flex flex-wrap items-center gap-x-5 gap-y-1.5 py-2 text-xs text-muted-foreground">
+        <span className="text-foreground font-medium">{longDate}</span>
 
-      {/* Címlap-fejléc — 3 oszlop */}
-      <div className="container mx-auto grid grid-cols-1 sm:grid-cols-3 items-center gap-4 py-5">
-        {/* Bal: névnap */}
-        <div className="text-center sm:text-left">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Névnap</div>
-          <div className="font-serif text-xl sm:text-2xl leading-tight mt-1">{nameDay || "—"}</div>
-        </div>
+        {nameDay && (
+          <span><span className="text-muted-foreground/70">Névnap:</span> <span className="text-foreground">{nameDay}</span></span>
+        )}
 
-        {/* Közép: nagy dátum */}
-        <div className="text-center">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{weekday}</div>
-          <div className="font-serif text-3xl sm:text-4xl font-semibold leading-tight mt-1 tracking-tight">
-            {longDate}
-          </div>
-        </div>
-
-        {/* Jobb: időjárás */}
-        <div className="text-center sm:text-right">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Időjárás · Budapest</div>
-          <div className="mt-1 inline-flex items-center gap-2 font-serif text-xl sm:text-2xl leading-tight">
-            {W ? <W.Icon className="h-6 w-6 text-primary" aria-hidden /> : <Cloud className="h-6 w-6 text-muted-foreground/40" aria-hidden />}
-            <span>{weather ? `${weather.temp}°C` : "—"}</span>
-            {weather && <span className="text-sm text-muted-foreground font-sans">· {weather.label}</span>}
-          </div>
-        </div>
-      </div>
-
-      {/* Alsó sor: hold, napkelte/nyugta, következő ünnep */}
-      <div className="container mx-auto flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-2.5 text-xs text-muted-foreground border-t border-border/60">
-        <span className="inline-flex items-center gap-1.5" title={`Hold világítás: ${moon.illumination}%`}>
-          <span className="text-base leading-none" aria-hidden>{moon.emoji}</span>
-          <span>{moon.name}</span>
-        </span>
         <span className="inline-flex items-center gap-1.5">
+          {W ? <W.Icon className="h-3.5 w-3.5 text-primary" aria-hidden /> : <Cloud className="h-3.5 w-3.5 opacity-40" aria-hidden />}
+          {weather ? <span className="text-foreground">{weather.temp}°C</span> : <span>—</span>}
+          {weather && <span className="text-muted-foreground/80">· {weather.label}</span>}
+          <span className="text-muted-foreground/70">· Budapest</span>
+        </span>
+
+        <span className="inline-flex items-center gap-1">
           <Sunrise className="h-3.5 w-3.5 text-amber-500" aria-hidden />
           {fmtTime(weather?.sunrise)}
         </span>
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1">
           <Sunset className="h-3.5 w-3.5 text-orange-500" aria-hidden />
           {fmtTime(weather?.sunset)}
         </span>
+
+        <span className="inline-flex items-center gap-1.5" title={`Hold világítás: ${moon.illumination}%`}>
+          <span className="text-sm leading-none" aria-hidden>{moon.emoji}</span>
+          <span>{moon.name}</span>
+        </span>
+
         {nextHoliday && (
-          <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 ml-auto">
             <Gift className="h-3.5 w-3.5 text-primary" aria-hidden />
             {nextHoliday.daysUntil === 0
-              ? <span>Ma: <span className="text-foreground font-medium">{nextHoliday.name}</span></span>
+              ? <span className="text-foreground">Ma: {nextHoliday.name}</span>
               : <span><span className="text-foreground font-medium">{nextHoliday.daysUntil}</span> nap a következő ünnepig: <span className="text-foreground">{nextHoliday.name}</span></span>}
           </span>
         )}
