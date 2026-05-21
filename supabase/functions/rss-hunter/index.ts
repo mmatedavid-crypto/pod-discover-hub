@@ -310,7 +310,8 @@ Deno.serve(async (req) => {
     if (errors > 0) recommended = "0 */6 * * *";
     else if (due_count > 500) recommended = "*/30 * * * *";
     else if (due_count >= 100) recommended = "0 */2 * * *";
-    else recommended = "0 */6 * * *"; // baseline self-probe (max 6h to detect new backlog)
+    else if (due_count > 0) recommended = "0 6 * * *"; // small backlog: daily 6am
+    else recommended = "0 6 * * 1,4"; // baseline: twice weekly (Mon+Thu 6am) — stable HU catalog
 
     let applied: string | null = null;
     try {
