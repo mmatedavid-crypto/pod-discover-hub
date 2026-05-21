@@ -7,6 +7,7 @@ import { understandQuery, buildExpandedQuery, detectAdjNounTopic, type Understan
 import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
 import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
+import { detectBot } from "../_shared/bot-detect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
