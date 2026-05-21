@@ -272,6 +272,33 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_brief_extras: {
+        Row: {
+          created_at: string
+          date: string
+          generated_at: string
+          on_this_day: Json
+          quote: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          generated_at?: string
+          on_this_day?: Json
+          quote?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          generated_at?: string
+          on_this_day?: Json
+          quote?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       discovery_queue: {
         Row: {
           author: string | null
