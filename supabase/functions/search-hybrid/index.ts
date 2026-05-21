@@ -567,7 +567,11 @@ Deno.serve(async (req) => {
     }
 
     // 3) Persist to cache (versioned)
-    if (!cacheHit || isTickerQ) {
+    // Bot path: NEVER write cache — would poison entries with null
+    // understanding/embedding and starve real users of AI rerank.
+    if (isBot) {
+      // skip cache write entirely
+    } else if (!cacheHit || isTickerQ) {
       const understandingToCache = understanding
         ? { ...(understanding as any), __uv: UNDERSTANDING_VERSION }
         : null;
