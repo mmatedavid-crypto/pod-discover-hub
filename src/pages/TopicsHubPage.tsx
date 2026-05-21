@@ -41,12 +41,12 @@ export default function TopicsHubPage() {
       setTopics((data || []) as any);
       setLoading(false);
       setSeo({
-        title: "Podcast témák szerint — Podiverzum",
-        description: "Fedezz fel magyar podcast epizódokat témák, személyek, ügyek és érdeklődési körök alapján.",
+        title: "Témák a magyar podcastokban — Podiverzum",
+        description: "Fedezz fel magyar podcast epizódokat konkrét ügyek, fogalmak, trendek és érdeklődési körök alapján.",
         jsonLd: [{
           "@context": "https://schema.org",
           "@type": "CollectionPage",
-          name: "Podcast témák",
+          name: "Témák a magyar podcastokban",
           url: typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined,
         }],
       });
@@ -83,12 +83,12 @@ export default function TopicsHubPage() {
             Témák
           </div>
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight mt-3 leading-[1.05]">
-            Podcast témák<br className="hidden sm:block" />
-            <span className="text-primary">szerint.</span>
+            Témák<br className="hidden sm:block" />
+            <span className="text-primary">a magyar podcastokban</span>
           </h1>
           <p className="text-foreground/80 mt-5 max-w-2xl text-base sm:text-lg leading-relaxed">
-            Fedezz fel magyar podcast epizódokat témák, személyek, ügyek és
-            érdeklődési körök alapján — egy helyen, kurátorolva.
+            Fedezz fel magyar podcast epizódokat konkrét ügyek, fogalmak,
+            trendek és érdeklődési körök alapján.
           </p>
           {topics.length > 0 && (
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">

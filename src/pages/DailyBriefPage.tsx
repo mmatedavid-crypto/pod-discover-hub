@@ -49,8 +49,8 @@ export default function DailyBriefPage() {
 
   useEffect(() => {
     setSeo({
-      title: "Napi válogatás — friss podcast epizódok | Podiverzum",
-      description: "Friss magyar podcast epizódok az elmúlt 24–72 órából, a Podiverzum napi válogatásában.",
+      title: "Mai válogatás – friss magyar podcast epizódok | Podiverzum",
+      description: "Friss podcast epizódok, témák és szereplők — minőség, aktualitás és relevancia alapján rendezve.",
     });
   }, []);
 
@@ -119,13 +119,13 @@ export default function DailyBriefPage() {
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-60" />
         <div className="container mx-auto py-12 sm:py-16 relative">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-[10px] uppercase tracking-[0.22em] text-primary">
-            <Calendar className="h-3 w-3" /> Napi válogatás
+            <Calendar className="h-3 w-3" /> Mai válogatás
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-4 leading-[1.05]">
-            Mit érdemes hallgatni <span className="text-brand-gradient">ma</span>
+            Mai <span className="text-brand-gradient">válogatás</span>
           </h1>
           <p className="text-muted-foreground mt-3 max-w-2xl">
-            {today} · A legelismertebb műsorok friss epizódjai. Folyamatosan frissítve.
+            {today} · Friss podcast epizódok, témák és szereplők — minőség, aktualitás és relevancia alapján rendezve.
           </p>
 
           <div className="mt-6 inline-flex rounded-lg border border-border bg-card overflow-hidden text-sm">
