@@ -8,7 +8,7 @@
 //
 // All callers should go through callLovableAI() so audit + blocklist apply.
 
-import { chatTokenCostUsd, normalizeAiModel } from "./ai-pricing.ts";
+import { chatTokenCostUsd, normalizeAiModel, geminiOutputTokens, geminiInputTokens } from "./ai-pricing.ts";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
