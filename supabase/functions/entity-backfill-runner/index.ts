@@ -100,8 +100,8 @@ Deno.serve(async (req) => {
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
     const body = await req.json().catch(() => ({}));
-    const batch = Math.max(1, Math.min(200, Number(body.batch) || 100));
-    const concurrency = Math.max(1, Math.min(20, Number(body.concurrency) || 12));
+    const batch = Math.max(1, Math.min(300, Number(body.batch) || 200));
+    const concurrency = Math.max(1, Math.min(24, Number(body.concurrency) || 20));
 
     // Controls (separate budget from main SEO runner)
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "entity_backfill_controls").maybeSingle();
