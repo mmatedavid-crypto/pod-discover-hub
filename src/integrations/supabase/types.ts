@@ -4545,6 +4545,51 @@ export type Database = {
         }
         Relationships: []
       }
+      watchdog_events: {
+        Row: {
+          auto_paused: boolean
+          created_at: string
+          detail: Json
+          dry_run: boolean
+          id: string
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          rule: string
+          runner: string
+          severity: string
+        }
+        Insert: {
+          auto_paused?: boolean
+          created_at?: string
+          detail?: Json
+          dry_run?: boolean
+          id?: string
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          rule: string
+          runner: string
+          severity: string
+        }
+        Update: {
+          auto_paused?: boolean
+          created_at?: string
+          detail?: Json
+          dry_run?: boolean
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          rule?: string
+          runner?: string
+          severity?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       mv_homepage_evergreen: {
