@@ -23,13 +23,26 @@ function isReusableLicense(licenseShort: string | null, licenseUrl: string | nul
   return REUSABLE_LICENSES.some(t => blob.includes(t));
 }
 
-async function searchWikidata(name: string): Promise<any[]> {
-  const u = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(name)}&language=hu&uselang=hu&type=item&limit=5&format=json&origin=*`;
+async function searchWikidata(name: string, lang = "hu"): Promise<any[]> {
+  const u = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(name)}&language=${lang}&uselang=${lang}&type=item&limit=5&format=json&origin=*`;
   try {
     const r = await fetch(u, { headers: { "User-Agent": "PodiverzumBot/1.0 (podiverzum.hu)" } });
     const j = await r.json();
     return j.search || [];
   } catch { return []; }
+}
+
+async function searchWikidataMulti(name: string): Promise<any[]> {
+  // HU first, then EN fallback. Dedupe by qid.
+  const hu = await searchWikidata(name, "hu");
+  const en = await searchWikidata(name, "en");
+  const seen = new Set<string>();
+  const out: any[] = [];
+  for (const c of [...hu, ...en]) {
+    if (!c?.id || seen.has(c.id)) continue;
+    seen.add(c.id); out.push(c);
+  }
+  return out;
 }
 
 async function getWikidataEntity(qid: string): Promise<any | null> {
@@ -140,14 +153,14 @@ async function processPerson(admin: any, personId: string): Promise<any> {
   const jobId = (jobInsert.data as any)?.id;
 
   try {
-    const candidates = await searchWikidata(p.name);
+    const candidates = await searchWikidataMulti(p.name);
     let best: any = null;
     let bestScore = 0;
     let bestEvidence: any = {};
     let bestEntity: any = null;
     let bestSummary: any = null;
 
-    for (const c of candidates.slice(0, 4)) {
+    for (const c of candidates.slice(0, 5)) {
       const ent = await getWikidataEntity(c.id);
       if (!ent) continue;
       const huTitle = ent?.sitelinks?.huwiki?.title || null;
@@ -159,7 +172,8 @@ async function processPerson(admin: any, personId: string): Promise<any> {
       }
     }
 
-    const matchStatus = bestScore >= 0.75 ? "verified" : bestScore >= 0.5 ? "needs_review" : "no_match";
+    // Relaxed thresholds (2026-05-21 Phase 2): verified 0.75→0.65, needs_review 0.5→0.4
+    const matchStatus = bestScore >= 0.65 ? "verified" : bestScore >= 0.4 ? "needs_review" : "no_match";
     const update: any = {
       wikipedia_match_status: matchStatus,
       wikipedia_match_confidence: bestScore,
