@@ -1669,6 +1669,7 @@ export type Database = {
           browsable_reason: string | null
           country: string | null
           created_at: string
+          distinct_podcast_count: number
           editorial_notes: string | null
           editorial_priority: boolean
           editorial_priority_level: number
@@ -1680,6 +1681,7 @@ export type Database = {
           id: string
           is_browsable_in_hub: boolean
           is_indexable: boolean
+          is_podcast_internal: boolean
           is_public: boolean
           latest_episode_at: string | null
           logo_attribution: string | null
@@ -1693,12 +1695,14 @@ export type Database = {
           normalized_name: string
           org_type: string
           podcast_count: number
+          podcast_internal_reason: string | null
           political_color: string | null
           political_orientation: string | null
           primary_count: number
           sector: string | null
           short_description_hu: string | null
           slug: string
+          source_podcast_ids: string[]
           ticker: string | null
           updated_at: string
           wiki_match_reason: string | null
@@ -1721,6 +1725,7 @@ export type Database = {
           browsable_reason?: string | null
           country?: string | null
           created_at?: string
+          distinct_podcast_count?: number
           editorial_notes?: string | null
           editorial_priority?: boolean
           editorial_priority_level?: number
@@ -1732,6 +1737,7 @@ export type Database = {
           id?: string
           is_browsable_in_hub?: boolean
           is_indexable?: boolean
+          is_podcast_internal?: boolean
           is_public?: boolean
           latest_episode_at?: string | null
           logo_attribution?: string | null
@@ -1745,12 +1751,14 @@ export type Database = {
           normalized_name: string
           org_type?: string
           podcast_count?: number
+          podcast_internal_reason?: string | null
           political_color?: string | null
           political_orientation?: string | null
           primary_count?: number
           sector?: string | null
           short_description_hu?: string | null
           slug: string
+          source_podcast_ids?: string[]
           ticker?: string | null
           updated_at?: string
           wiki_match_reason?: string | null
@@ -1773,6 +1781,7 @@ export type Database = {
           browsable_reason?: string | null
           country?: string | null
           created_at?: string
+          distinct_podcast_count?: number
           editorial_notes?: string | null
           editorial_priority?: boolean
           editorial_priority_level?: number
@@ -1784,6 +1793,7 @@ export type Database = {
           id?: string
           is_browsable_in_hub?: boolean
           is_indexable?: boolean
+          is_podcast_internal?: boolean
           is_public?: boolean
           latest_episode_at?: string | null
           logo_attribution?: string | null
@@ -1797,12 +1807,14 @@ export type Database = {
           normalized_name?: string
           org_type?: string
           podcast_count?: number
+          podcast_internal_reason?: string | null
           political_color?: string | null
           political_orientation?: string | null
           primary_count?: number
           sector?: string | null
           short_description_hu?: string | null
           slug?: string
+          source_podcast_ids?: string[]
           ticker?: string | null
           updated_at?: string
           wiki_match_reason?: string | null
