@@ -5,7 +5,7 @@ import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { setSeo } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
-import { Calendar, Sparkles, Clock } from "lucide-react";
+import { Sparkles, Clock } from "lucide-react";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import NewspaperMasthead from "@/components/NewspaperMasthead";
@@ -109,7 +109,7 @@ export default function DailyBriefPage() {
       .sort((a, b) => b.list.length - a.list.length);
   }, [ranked, top5]);
 
-  const today = PRETTY_DATE.format(new Date());
+  void today;
   const topTopics = useMemo(() => topEntitiesFrom(eps, "topics", "topic", 8), [eps]);
   const topPeople = useMemo(() => topEntitiesFrom(eps, "people", "person", 8), [eps]);
 
