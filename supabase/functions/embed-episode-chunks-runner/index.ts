@@ -34,7 +34,10 @@ function buildPrefix(e: any): string {
 
 async function embed(model: string, text: string): Promise<{ vec: number[]; tokens: number }> {
   const googleModel = model.replace(/^google\//, "");
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  // Prefer paid Tier-1 key for drain throughput; fall back to default/free key.
+  const apiKey = Deno.env.get("GEMINI_API_KEY_TIER1")
+    || Deno.env.get("GEMINI_API_KEY")
+    || Deno.env.get("GEMINI_API_KEY_FREE");
   if (!apiKey) throw new Error("missing_gemini_api_key");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:embedContent?key=${apiKey}`;
   const res = await fetch(url, {
