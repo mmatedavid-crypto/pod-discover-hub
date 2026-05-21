@@ -94,49 +94,8 @@ export function SiteHeader() {
             Kategóriák
           </NavLink>
         )}
-        {/* Mobile hamburger menu */}
-        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label="Menü"
-              className="lg:hidden ml-auto inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            sideOffset={8}
-            className="w-56 p-2 rounded-md border border-border bg-popover shadow-lg"
-          >
-            <nav className="flex flex-col gap-0.5">
-              {[
-                { to: "/napi", label: "Napi" },
-                { to: "/kategoriak", label: "Kategóriák" },
-                { to: "/temak", label: "Témák" },
-                { to: "/szemelyek", label: "Személyek" },
-                { to: "/szervezetek", label: "Szervezetek" },
-                { to: "/kereses", label: "Keresés" },
-              ].map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMenuOpen(false)}
-                  className={({ isActive }) =>
-                    `px-3 py-2 rounded-md text-sm transition-colors ${
-                      isActive
-                        ? "bg-secondary text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                    }`
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
-          </PopoverContent>
-        </Popover>
+
+
 
 
         <div ref={wrapRef} className={`lg:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden lg:block"}`}>
