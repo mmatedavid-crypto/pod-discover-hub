@@ -4,6 +4,7 @@
 // Hungarian fallback is used. The response is emitted as a single SSE chunk so the client renders
 // it identically to the old streamed path. This guarantees no English text ever reaches the user.
 import { isHungarianish } from "../_shared/hu-language-guard.ts";
+import { detectBot } from "../_shared/bot-detect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
