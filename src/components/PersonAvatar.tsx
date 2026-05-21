@@ -1,6 +1,4 @@
-// Unified monogram avatar — one global Podiverzum brand style.
-// Public images are intentionally disabled site-wide (app_settings.person_pages.images_enabled=false).
-// No random/per-person colors. No black/red variants. One subtle brand gradient everywhere.
+// Person avatar — Wikimedia image when available, monogram fallback.
 
 const SIZE_MAP: Record<string, { box: string; text: string }> = {
   sm: { box: "h-10 w-10", text: "text-xs" },
@@ -13,8 +11,28 @@ export function initialsOf(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() || "").join("") || "?";
 }
 
-export default function PersonAvatar({ name, size = "md", className = "" }: { name: string; size?: keyof typeof SIZE_MAP; className?: string }) {
+export default function PersonAvatar({
+  name,
+  size = "md",
+  className = "",
+  imageUrl,
+}: {
+  name: string;
+  size?: keyof typeof SIZE_MAP;
+  className?: string;
+  imageUrl?: string | null;
+}) {
   const { box, text } = SIZE_MAP[size] || SIZE_MAP.md;
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt={name}
+        loading="lazy"
+        className={`${box} ${className} rounded-full object-cover border border-border/80 shrink-0 bg-card`}
+      />
+    );
+  }
   return (
     <div
       aria-hidden
