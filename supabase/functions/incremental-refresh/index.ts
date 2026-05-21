@@ -43,8 +43,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const requestedLimit = Number(body.limit ?? body.batch);
-    const limit = Math.max(1, Math.min(3, Number.isFinite(requestedLimit) ? requestedLimit : 3));
-    const concurrency = 1;
+    // Bumped from 3 → 40. Backlog of 1300+ HU podcasts needs much higher throughput.
+    const limit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 40));
+    const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || 4));
     const stale_hours = Math.max(0, Math.min(168, Number(body.stale_hours ?? 6)));
     const episodeCap = Math.max(3, Math.min(10, Number(body.episode_cap) || 5));
     const TIME_BUDGET_MS = Math.max(20_000, Math.min(30_000, Number(body.time_budget_ms) || 25_000));
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
     const startedAt = Date.now();
 
     const staleCutoff = new Date(Date.now() - stale_hours * 3600_000).toISOString();
-    const candidateWindow = Math.min(9, limit * 3);
+    const candidateWindow = Math.min(150, limit * 3);
 
     const cq = admin
       .from("podcasts")
@@ -124,8 +125,12 @@ Deno.serve(async (req) => {
 
     let applied: string | null = null;
     try {
-      await admin.rpc("set_incremental_refresh_schedule", { _schedule: recommended });
-      applied = recommended;
+      const { error: rpcErr } = await admin.rpc("set_incremental_refresh_schedule", { _schedule: recommended });
+      if (rpcErr) {
+        console.warn("set_incremental_refresh_schedule rpc error:", rpcErr.message);
+      } else {
+        applied = recommended;
+      }
     } catch (e) {
       console.warn("set_incremental_refresh_schedule failed:", (e as any)?.message);
     }
