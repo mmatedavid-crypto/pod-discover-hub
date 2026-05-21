@@ -9,6 +9,8 @@ import { Sparkles, Clock } from "lucide-react";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import NewspaperMasthead from "@/components/NewspaperMasthead";
+import DailyEditorials from "@/components/DailyEditorials";
+import DailyStatsStrip from "@/components/DailyStatsStrip";
 
 type Row = any;
 
