@@ -87,7 +87,7 @@ export function SiteHeader() {
         {isHome && (
           <NavLink
             to="/kategoriak"
-            className="ml-auto lg:hidden inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="ml-auto hidden lg:inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <LayoutGrid className="h-4 w-4" />
             Kategóriák
@@ -99,23 +99,24 @@ export function SiteHeader() {
             <button
               type="button"
               aria-label="Menü"
-              className={`lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors ${isHome ? "" : "ml-auto"}`}
+              className="lg:hidden ml-auto inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors"
             >
               <Menu className="h-4 w-4" />
             </button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-72">
-            <SheetHeader>
+          <SheetContent
+            side="right"
+            className="w-64 h-auto inset-y-auto top-14 bottom-auto p-3 rounded-l-lg border-l border-y"
+          >
+            <SheetHeader className="sr-only">
               <SheetTitle>Menü</SheetTitle>
             </SheetHeader>
-            <nav className="mt-6 flex flex-col gap-1">
+            <nav className="flex flex-col gap-0.5">
               {[
                 { to: "/napi", label: "Napi" },
                 { to: "/kategoriak", label: "Kategóriák" },
                 { to: "/temak", label: "Témák" },
                 { to: "/szemelyek", label: "Személyek" },
-                { to: "/cegek", label: "Cégek" },
-                { to: "/partok", label: "Pártok" },
                 { to: "/szervezetek", label: "Szervezetek" },
                 { to: "/kereses", label: "Keresés" },
               ].map((item) => (
@@ -124,7 +125,7 @@ export function SiteHeader() {
                   to={item.to}
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
-                    `px-3 py-2.5 rounded-md text-base transition-colors ${
+                    `px-3 py-2 rounded-md text-sm transition-colors ${
                       isActive
                         ? "bg-secondary text-foreground font-medium"
                         : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
@@ -137,6 +138,7 @@ export function SiteHeader() {
             </nav>
           </SheetContent>
         </Sheet>
+
         <div ref={wrapRef} className={`lg:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden lg:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submitQuery(q); }}
