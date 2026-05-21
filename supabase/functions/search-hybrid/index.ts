@@ -368,8 +368,9 @@ Deno.serve(async (req) => {
       spell: engN >= 11,
       decay: engN >= 12,
       bigramMust: engN >= 12,
-      hyde: engN >= 12,
-      cohere: engN >= 12,
+      // AI-cost features force-disabled for bots regardless of engine version.
+      hyde: !isBot && engN >= 12,
+      cohere: !isBot && engN >= 12,
       chunkAugment: chunkAugAllowed,
     };
 
