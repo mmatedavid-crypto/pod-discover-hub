@@ -59,13 +59,17 @@ export interface KeyEntry { key: string; source: KeySource }
 
 export function getKeyPool(opts?: { preferTier1?: boolean }): KeyEntry[] {
   const preferTier1 = opts?.preferTier1 !== false; // default true
+  const tier2 = Deno.env.get("GEMINI_API_KEY_TIER2");
   const tier1 = Deno.env.get("GEMINI_API_KEY_TIER1");
   const paid = Deno.env.get("GEMINI_API_KEY");
   const free = Deno.env.get("GEMINI_API_KEY_FREE");
   const pool: KeyEntry[] = [];
+  // Tier 2 has highest quota → try first when preferring high-tier keys
+  if (preferTier1 && tier2) pool.push({ key: tier2, source: "tier1" });
   if (preferTier1 && tier1) pool.push({ key: tier1, source: "tier1" });
   if (paid) pool.push({ key: paid, source: "paid" });
   if (free) pool.push({ key: free, source: "free" });
+  if (!preferTier1 && tier2) pool.push({ key: tier2, source: "tier1" });
   if (!preferTier1 && tier1) pool.push({ key: tier1, source: "tier1" });
   return pool;
 }
