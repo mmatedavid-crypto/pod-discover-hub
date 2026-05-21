@@ -23,13 +23,26 @@ function isReusableLicense(licenseShort: string | null, licenseUrl: string | nul
   return REUSABLE_LICENSES.some(t => blob.includes(t));
 }
 
-async function searchWikidata(name: string): Promise<any[]> {
-  const u = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(name)}&language=hu&uselang=hu&type=item&limit=5&format=json&origin=*`;
+async function searchWikidata(name: string, lang = "hu"): Promise<any[]> {
+  const u = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(name)}&language=${lang}&uselang=${lang}&type=item&limit=5&format=json&origin=*`;
   try {
     const r = await fetch(u, { headers: { "User-Agent": "PodiverzumBot/1.0 (podiverzum.hu)" } });
     const j = await r.json();
     return j.search || [];
   } catch { return []; }
+}
+
+async function searchWikidataMulti(name: string): Promise<any[]> {
+  // HU first, then EN fallback. Dedupe by qid.
+  const hu = await searchWikidata(name, "hu");
+  const en = await searchWikidata(name, "en");
+  const seen = new Set<string>();
+  const out: any[] = [];
+  for (const c of [...hu, ...en]) {
+    if (!c?.id || seen.has(c.id)) continue;
+    seen.add(c.id); out.push(c);
+  }
+  return out;
 }
 
 async function getWikidataEntity(qid: string): Promise<any | null> {
