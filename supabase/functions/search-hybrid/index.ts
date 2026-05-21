@@ -7,6 +7,7 @@ import { understandQuery, buildExpandedQuery, detectAdjNounTopic, type Understan
 import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
 import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
+import { detectBot } from "../_shared/bot-detect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -326,7 +327,16 @@ Deno.serve(async (req) => {
     let q = String(body.q || "").trim();
     const limit = Math.min(80, Math.max(5, Number(body.limit) || 50));
     const lang = body.lang === null ? null : (typeof body.lang === "string" ? body.lang : "hu");
-    const wantRerank = body.rerank !== false;
+
+    // Bot gate — crawlers, scrapers, AI training bots, link previewers and
+    // monitoring agents get a lexical-only path. No LLM understanding, no
+    // embedding call, no HyDE expansion, no Cohere rerank, no AI rerank.
+    // Real users keep the full v13 quality-first pipeline.
+    const botCheck = detectBot(req);
+    const isBot = botCheck.isBot;
+    if (isBot) console.log("search-hybrid bot path", { reason: botCheck.reason, ua: botCheck.ua.slice(0, 80) });
+
+    const wantRerank = !isBot && body.rerank !== false;
 
     // Engine version flags. Default comes from app_settings.search_engine when caller
     // does not pin it explicitly. quality_guard re-runs with fallback engine if v13 returns 0.
@@ -358,8 +368,9 @@ Deno.serve(async (req) => {
       spell: engN >= 11,
       decay: engN >= 12,
       bigramMust: engN >= 12,
-      hyde: engN >= 12,
-      cohere: engN >= 12,
+      // AI-cost features force-disabled for bots regardless of engine version.
+      hyde: !isBot && engN >= 12,
+      cohere: !isBot && engN >= 12,
       chunkAugment: chunkAugAllowed,
     };
 
@@ -504,13 +515,14 @@ Deno.serve(async (req) => {
     }
 
     // 2) Parallel: understanding + embedding + curated synonyms
-    // Quality-first: 2500ms timeout — losing entity/intent detection downgrades
-    // every downstream layer (rare-token gate, person-vs-topic, ticker handling).
+    // Bot path: skip LLM understanding and embedding entirely. Pure lexical search.
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 2500),
-      q_embedding ? Promise.resolve(q_embedding) : embed(q),
+      understanding ? Promise.resolve(understanding) : (isBot ? Promise.resolve(null) : understandQuery(q, 2500)),
+      q_embedding ? Promise.resolve(q_embedding) : (isBot ? Promise.resolve(null) : embed(q)),
       loadCuratedSynonyms(supa, qNorm),
     ]);
+    understanding = u as Understanding;
+    if (!q_embedding) q_embedding = embVal;
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
     const tEmb = Date.now() - t0;
@@ -555,7 +567,11 @@ Deno.serve(async (req) => {
     }
 
     // 3) Persist to cache (versioned)
-    if (!cacheHit || isTickerQ) {
+    // Bot path: NEVER write cache — would poison entries with null
+    // understanding/embedding and starve real users of AI rerank.
+    if (isBot) {
+      // skip cache write entirely
+    } else if (!cacheHit || isTickerQ) {
       const understandingToCache = understanding
         ? { ...(understanding as any), __uv: UNDERSTANDING_VERSION }
         : null;

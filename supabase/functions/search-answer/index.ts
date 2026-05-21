@@ -4,6 +4,7 @@
 // Hungarian fallback is used. The response is emitted as a single SSE chunk so the client renders
 // it identically to the old streamed path. This guarantees no English text ever reaches the user.
 import { isHungarianish } from "../_shared/hu-language-guard.ts";
+import { detectBot } from "../_shared/bot-detect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,6 +73,14 @@ Deno.serve(async (req) => {
     const episodes = Array.isArray(body.episodes) ? body.episodes.slice(0, 6) : [];
     if (!q || episodes.length === 0 || !LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "missing input" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Bot gate: crawlers, scrapers and AI training bots get a deterministic
+    // Hungarian fallback. No LLM tokens spent on non-human traffic.
+    const bot = detectBot(req);
+    if (bot.isBot) {
+      console.log("search-answer bot gated", { reason: bot.reason, ua: bot.ua.slice(0, 80) });
+      return emitSse(huFallback(q));
     }
     const compact = episodes.map((e: any, i: number) => ({
       i: i + 1,
