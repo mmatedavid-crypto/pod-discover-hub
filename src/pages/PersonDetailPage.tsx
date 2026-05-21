@@ -15,6 +15,13 @@ interface Person {
   overview_text: string | null;
   wikipedia_url: string | null; wikipedia_title: string | null;
   wikipedia_match_status: string | null;
+  wikipedia_extract: string | null;
+  wikipedia_description: string | null;
+  short_description_hu: string | null;
+  image_url: string | null;
+  image_original_url: string | null;
+  image_attribution: string | null;
+  image_license: string | null;
   episode_count: number; podcast_count: number;
   is_indexable: boolean;
   latest_episode_at: string | null;
@@ -51,7 +58,7 @@ export default function PersonDetailPage() {
       setLoading(true);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin")
+        .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
@@ -202,7 +209,19 @@ export default function PersonDetailPage() {
   const hasArchivalSection = segments.archival.length > 0;
   const distinctSections = [hasParticipants, hasSubjects, hasMentions, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
-  const bioText = (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim()) || (eps.length > 0 ? huFallbackBio(person.name) : null);
+  const bioText =
+    (person.ai_bio && person.ai_bio.trim()) ||
+    (person.short_bio && person.short_bio.trim()) ||
+    (person.wikipedia_extract && person.wikipedia_extract.trim()) ||
+    (person.short_description_hu && person.short_description_hu.trim()) ||
+    (eps.length > 0 ? huFallbackBio(person.name) : null);
+  const bioSource: "ai" | "wikipedia" | "fallback" =
+    (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim())
+      ? "ai"
+      : (person.wikipedia_extract && person.wikipedia_extract.trim()) || (person.short_description_hu && person.short_description_hu.trim())
+      ? "wikipedia"
+      : "fallback";
+  const avatarUrl = person.image_url || person.image_original_url || null;
 
   // Persona summary for the page banner — derived from role counts (not from author claims).
   const pCount = segments.participants.length;
@@ -249,18 +268,27 @@ export default function PersonDetailPage() {
             <span className="text-foreground">{person.name}</span>
           </nav>
           <div className="flex flex-col sm:flex-row items-start gap-6">
-            <PersonAvatar name={person.name} size="xl" />
+            <PersonAvatar name={person.name} size="xl" imageUrl={avatarUrl} />
             <div className="min-w-0 flex-1">
               <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személy</div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{person.name}</h1>
               {person.disambiguation_label && (
                 <div className="text-sm text-muted-foreground mt-1">{person.disambiguation_label}</div>
               )}
+              {person.wikipedia_description && (
+                <div className="text-sm text-muted-foreground mt-1 italic">{person.wikipedia_description}</div>
+              )}
               {bioText && (
                 <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{bioText}</p>
               )}
               {person.wikipedia_url && person.wikipedia_match_status === "verified" && (
-                <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-3 inline-block">Wikipedia: {person.wikipedia_title} →</a>
+                <div className="text-xs text-muted-foreground mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                  <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Wikipedia: {person.wikipedia_title} →</a>
+                  {bioSource === "wikipedia" && <span>Forrás: Wikipedia (CC BY-SA)</span>}
+                  {avatarUrl && person.image_license && (
+                    <span>Fotó: {person.image_attribution || "Wikimedia Commons"} · {person.image_license}</span>
+                  )}
+                </div>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5 max-w-xl">
                 <StatCard label="Indexelt epizódok" value={eps.length} />
