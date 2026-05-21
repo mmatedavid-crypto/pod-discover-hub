@@ -40,7 +40,7 @@ import PeopleHubPage from "./pages/PeopleHubPage.tsx";
 import PersonDetailPage from "./pages/PersonDetailPage.tsx";
 import TopicsHubPage from "./pages/TopicsHubPage.tsx";
 import TopicDetailPage from "./pages/TopicDetailPage.tsx";
-import EntitiesIndexPage from "./pages/EntitiesIndexPage.tsx";
+import OrganizationsIndexPage from "./pages/OrganizationsIndexPage.tsx";
 import CompaniesHubPage from "./pages/CompaniesHubPage.tsx";
 import PartiesHubPage from "./pages/PartiesHubPage.tsx";
 
@@ -142,7 +142,8 @@ const App = () => (
           <Route path="/temak/:slug" element={<TopicDetailPage />} />
           <Route path="/szemelyek" element={<PeopleHubPage />} />
           <Route path="/szemelyek/:slug" element={<PersonDetailPage />} />
-          <Route path="/entitasok" element={<EntitiesIndexPage />} />
+          <Route path="/szervezetek" element={<OrganizationsIndexPage />} />
+          <Route path="/entitasok" element={<OrganizationsIndexPage />} />
           <Route path="/cegek" element={<CompaniesHubPage />} />
           <Route path="/partok" element={<PartiesHubPage />} />
           <Route path="*" element={<NotFound />} />

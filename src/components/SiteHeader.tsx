@@ -82,7 +82,7 @@ export function SiteHeader() {
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/szemelyek" className={linkCls}>Személyek</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
-          <NavLink to="/entitasok" className={linkCls}>Entitások</NavLink>
+          <NavLink to="/szervezetek" className={linkCls}>Szervezetek</NavLink>
         </nav>
         {isHome && (
           <NavLink
@@ -116,7 +116,7 @@ export function SiteHeader() {
                 { to: "/szemelyek", label: "Személyek" },
                 { to: "/cegek", label: "Cégek" },
                 { to: "/partok", label: "Pártok" },
-                { to: "/entitasok", label: "Entitások" },
+                { to: "/szervezetek", label: "Szervezetek" },
                 { to: "/kereses", label: "Keresés" },
               ].map((item) => (
                 <NavLink
