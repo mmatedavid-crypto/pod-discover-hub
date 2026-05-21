@@ -1277,6 +1277,7 @@ export type Database = {
           language_evidence: Json
           media_outlets: string[]
           mentioned: string[]
+          organizations: Json
           parties: string[]
           people: string[] | null
           podcast_id: string
@@ -1327,6 +1328,7 @@ export type Database = {
           language_evidence?: Json
           media_outlets?: string[]
           mentioned?: string[]
+          organizations?: Json
           parties?: string[]
           people?: string[] | null
           podcast_id: string
@@ -1377,6 +1379,7 @@ export type Database = {
           language_evidence?: Json
           media_outlets?: string[]
           mentioned?: string[]
+          organizations?: Json
           parties?: string[]
           people?: string[] | null
           podcast_id?: string
