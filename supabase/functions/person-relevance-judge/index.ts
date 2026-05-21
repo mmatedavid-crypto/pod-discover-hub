@@ -99,6 +99,7 @@ SZIGORÚ SZABÁLYOK:
 - Ha más, azonos nevű emberről van szó, identity_match = "different_person_same_name".
 - Ha a név egy szóba van ágyazva (pl. "Pólus" egy "többpólusú" szóban), identity_match = "substring_false_positive".
 - Csak akkor relevant=true, ha a személy host, vendég, központi téma vagy érdemi említés.
+- RÉSZTVEVŐ JELZŐK (recommended_mention_type = "guest", NEM "mentioned"): ha a leírásban / címben a név mellett ilyen kulcsszó áll: "Közreműködik:", "Közreműködnek:", "Szereplők:", "Fellép:", "Fellépnek:", "Vendég:", "Vendégünk:", "Beszélget:", "Beszélgetőtárs:", "Műsorvezető:", "Házigazda:", "Előadó:", "Felolvas:", "Olvassa:", "Énekel:", "Játssza:", "Rendező:", "Interjú:", "Riportalany:". Ezeknél is should_show_publicly = true és relevance_score ≥ 0.85.
 - Ha bizonytalan vagy, should_show_publicly = false.
 - A reason mező és minden szöveges válasz MAGYARUL.
 
