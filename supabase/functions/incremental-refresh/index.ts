@@ -125,8 +125,12 @@ Deno.serve(async (req) => {
 
     let applied: string | null = null;
     try {
-      await admin.rpc("set_incremental_refresh_schedule", { _schedule: recommended });
-      applied = recommended;
+      const { error: rpcErr } = await admin.rpc("set_incremental_refresh_schedule", { _schedule: recommended });
+      if (rpcErr) {
+        console.warn("set_incremental_refresh_schedule rpc error:", rpcErr.message);
+      } else {
+        applied = recommended;
+      }
     } catch (e) {
       console.warn("set_incremental_refresh_schedule failed:", (e as any)?.message);
     }
