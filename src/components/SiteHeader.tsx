@@ -77,7 +77,7 @@ export function SiteHeader() {
         <nav className="hidden lg:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
           <NavLink to="/napi" className={linkCls}>Mai válogatás</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
-          <NavLink to="/kategoriak" className={linkCls}>Kategóriák</NavLink>
+          <NavLink to="/kategoriak" className={linkCls}>Podcast kategóriák</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/temak" className={linkCls}>Témák</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
@@ -91,7 +91,7 @@ export function SiteHeader() {
             className="ml-auto hidden lg:inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <LayoutGrid className="h-4 w-4" />
-            Kategóriák
+            Podcast kategóriák
           </NavLink>
         )}
 
