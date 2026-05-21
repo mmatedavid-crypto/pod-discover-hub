@@ -5,6 +5,7 @@ import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
 type Suggestion = GhostSuggestion;
@@ -94,8 +95,8 @@ export function SiteHeader() {
           </NavLink>
         )}
         {/* Mobile hamburger menu */}
-        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-          <SheetTrigger asChild>
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger asChild>
             <button
               type="button"
               aria-label="Menü"
@@ -103,14 +104,12 @@ export function SiteHeader() {
             >
               <Menu className="h-4 w-4" />
             </button>
-          </SheetTrigger>
-          <SheetContent
-            side="right"
-            className="w-64 h-auto inset-y-auto top-14 bottom-auto p-3 rounded-l-lg border-l border-y"
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            sideOffset={8}
+            className="w-56 p-2 rounded-md border border-border bg-popover shadow-lg"
           >
-            <SheetHeader className="sr-only">
-              <SheetTitle>Menü</SheetTitle>
-            </SheetHeader>
             <nav className="flex flex-col gap-0.5">
               {[
                 { to: "/napi", label: "Napi" },
@@ -136,8 +135,9 @@ export function SiteHeader() {
                 </NavLink>
               ))}
             </nav>
-          </SheetContent>
-        </Sheet>
+          </PopoverContent>
+        </Popover>
+
 
         <div ref={wrapRef} className={`lg:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden lg:block"}`}>
           <form
