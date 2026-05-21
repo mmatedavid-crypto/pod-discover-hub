@@ -959,6 +959,47 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_organization_map: {
+        Row: {
+          confidence: number
+          created_at: string
+          episode_id: string
+          id: string
+          organization_id: string
+          podcast_id: string | null
+          role: string
+          source: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          episode_id: string
+          id?: string
+          organization_id: string
+          podcast_id?: string | null
+          role?: string
+          source?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          episode_id?: string
+          id?: string
+          organization_id?: string
+          podcast_id?: string | null
+          role?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_organization_map_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       episode_topic_map: {
         Row: {
           confidence: number
@@ -1231,9 +1272,12 @@ export type Database = {
           id: string
           image_url: string | null
           ingredients: string[] | null
+          institutions: string[]
           language_checked_at: string | null
           language_evidence: Json
+          media_outlets: string[]
           mentioned: string[]
+          parties: string[]
           people: string[] | null
           podcast_id: string
           published_at: string | null
@@ -1278,9 +1322,12 @@ export type Database = {
           id?: string
           image_url?: string | null
           ingredients?: string[] | null
+          institutions?: string[]
           language_checked_at?: string | null
           language_evidence?: Json
+          media_outlets?: string[]
           mentioned?: string[]
+          parties?: string[]
           people?: string[] | null
           podcast_id: string
           published_at?: string | null
@@ -1325,9 +1372,12 @@ export type Database = {
           id?: string
           image_url?: string | null
           ingredients?: string[] | null
+          institutions?: string[]
           language_checked_at?: string | null
           language_evidence?: Json
+          media_outlets?: string[]
           mentioned?: string[]
+          parties?: string[]
           people?: string[] | null
           podcast_id?: string
           published_at?: string | null
@@ -1565,6 +1615,206 @@ export type Database = {
           time_affinity?: Json
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      organization_aliases: {
+        Row: {
+          alias: string
+          confidence: number
+          created_at: string
+          id: string
+          normalized_alias: string
+          organization_id: string
+          source: string | null
+          status: string
+        }
+        Insert: {
+          alias: string
+          confidence?: number
+          created_at?: string
+          id?: string
+          normalized_alias: string
+          organization_id: string
+          source?: string | null
+          status?: string
+        }
+        Update: {
+          alias?: string
+          confidence?: number
+          created_at?: string
+          id?: string
+          normalized_alias?: string
+          organization_id?: string
+          source?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_aliases_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          ai_bio: string | null
+          ai_bio_confidence: number
+          ai_bio_generated_at: string | null
+          ai_bio_model: string | null
+          ai_bio_status: string
+          browsable_reason: string | null
+          country: string | null
+          created_at: string
+          editorial_notes: string | null
+          editorial_priority: boolean
+          editorial_priority_level: number
+          episode_count: number
+          founded: string | null
+          gated_episode_count: number
+          gated_podcast_count: number
+          headquarters: string | null
+          id: string
+          is_browsable_in_hub: boolean
+          is_indexable: boolean
+          is_public: boolean
+          latest_episode_at: string | null
+          logo_attribution: string | null
+          logo_license: string | null
+          logo_source: string | null
+          logo_storage_path: string | null
+          logo_url: string | null
+          manually_seeded: boolean
+          mention_count: number
+          name: string
+          normalized_name: string
+          org_type: string
+          podcast_count: number
+          political_color: string | null
+          political_orientation: string | null
+          primary_count: number
+          sector: string | null
+          short_description_hu: string | null
+          slug: string
+          ticker: string | null
+          updated_at: string
+          wiki_match_reason: string | null
+          wiki_match_run_at: string | null
+          wikidata_id: string | null
+          wikipedia_description: string | null
+          wikipedia_extract: string | null
+          wikipedia_match_confidence: number
+          wikipedia_match_evidence: Json
+          wikipedia_match_status: string
+          wikipedia_title: string | null
+          wikipedia_url: string | null
+        }
+        Insert: {
+          ai_bio?: string | null
+          ai_bio_confidence?: number
+          ai_bio_generated_at?: string | null
+          ai_bio_model?: string | null
+          ai_bio_status?: string
+          browsable_reason?: string | null
+          country?: string | null
+          created_at?: string
+          editorial_notes?: string | null
+          editorial_priority?: boolean
+          editorial_priority_level?: number
+          episode_count?: number
+          founded?: string | null
+          gated_episode_count?: number
+          gated_podcast_count?: number
+          headquarters?: string | null
+          id?: string
+          is_browsable_in_hub?: boolean
+          is_indexable?: boolean
+          is_public?: boolean
+          latest_episode_at?: string | null
+          logo_attribution?: string | null
+          logo_license?: string | null
+          logo_source?: string | null
+          logo_storage_path?: string | null
+          logo_url?: string | null
+          manually_seeded?: boolean
+          mention_count?: number
+          name: string
+          normalized_name: string
+          org_type?: string
+          podcast_count?: number
+          political_color?: string | null
+          political_orientation?: string | null
+          primary_count?: number
+          sector?: string | null
+          short_description_hu?: string | null
+          slug: string
+          ticker?: string | null
+          updated_at?: string
+          wiki_match_reason?: string | null
+          wiki_match_run_at?: string | null
+          wikidata_id?: string | null
+          wikipedia_description?: string | null
+          wikipedia_extract?: string | null
+          wikipedia_match_confidence?: number
+          wikipedia_match_evidence?: Json
+          wikipedia_match_status?: string
+          wikipedia_title?: string | null
+          wikipedia_url?: string | null
+        }
+        Update: {
+          ai_bio?: string | null
+          ai_bio_confidence?: number
+          ai_bio_generated_at?: string | null
+          ai_bio_model?: string | null
+          ai_bio_status?: string
+          browsable_reason?: string | null
+          country?: string | null
+          created_at?: string
+          editorial_notes?: string | null
+          editorial_priority?: boolean
+          editorial_priority_level?: number
+          episode_count?: number
+          founded?: string | null
+          gated_episode_count?: number
+          gated_podcast_count?: number
+          headquarters?: string | null
+          id?: string
+          is_browsable_in_hub?: boolean
+          is_indexable?: boolean
+          is_public?: boolean
+          latest_episode_at?: string | null
+          logo_attribution?: string | null
+          logo_license?: string | null
+          logo_source?: string | null
+          logo_storage_path?: string | null
+          logo_url?: string | null
+          manually_seeded?: boolean
+          mention_count?: number
+          name?: string
+          normalized_name?: string
+          org_type?: string
+          podcast_count?: number
+          political_color?: string | null
+          political_orientation?: string | null
+          primary_count?: number
+          sector?: string | null
+          short_description_hu?: string | null
+          slug?: string
+          ticker?: string | null
+          updated_at?: string
+          wiki_match_reason?: string | null
+          wiki_match_run_at?: string | null
+          wikidata_id?: string | null
+          wikipedia_description?: string | null
+          wikipedia_extract?: string | null
+          wikipedia_match_confidence?: number
+          wikipedia_match_evidence?: Json
+          wikipedia_match_status?: string
+          wikipedia_title?: string | null
+          wikipedia_url?: string | null
         }
         Relationships: []
       }
@@ -5213,6 +5463,7 @@ export type Database = {
           weak: boolean
         }[]
       }
+      recompute_org_gated_counts: { Args: never; Returns: undefined }
       recompute_person_archival_evidence: { Args: never; Returns: number }
       recompute_person_collision_flags: {
         Args: never
