@@ -153,14 +153,14 @@ async function processPerson(admin: any, personId: string): Promise<any> {
   const jobId = (jobInsert.data as any)?.id;
 
   try {
-    const candidates = await searchWikidata(p.name);
+    const candidates = await searchWikidataMulti(p.name);
     let best: any = null;
     let bestScore = 0;
     let bestEvidence: any = {};
     let bestEntity: any = null;
     let bestSummary: any = null;
 
-    for (const c of candidates.slice(0, 4)) {
+    for (const c of candidates.slice(0, 5)) {
       const ent = await getWikidataEntity(c.id);
       if (!ent) continue;
       const huTitle = ent?.sitelinks?.huwiki?.title || null;
@@ -172,7 +172,8 @@ async function processPerson(admin: any, personId: string): Promise<any> {
       }
     }
 
-    const matchStatus = bestScore >= 0.75 ? "verified" : bestScore >= 0.5 ? "needs_review" : "no_match";
+    // Relaxed thresholds (2026-05-21 Phase 2): verified 0.75→0.65, needs_review 0.5→0.4
+    const matchStatus = bestScore >= 0.65 ? "verified" : bestScore >= 0.4 ? "needs_review" : "no_match";
     const update: any = {
       wikipedia_match_status: matchStatus,
       wikipedia_match_confidence: bestScore,
