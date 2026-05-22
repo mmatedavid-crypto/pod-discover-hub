@@ -306,7 +306,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
-  const limit = Math.min(Math.max(Number(body.limit || 25), 1), 60);
+  const limit = Math.min(Math.max(Number(body.limit || 50), 1), 150);
+  const concurrency = Math.min(Math.max(Number(body.concurrency || 8), 1), 12);
   const orgIds: string[] = Array.isArray(body.organization_ids) ? body.organization_ids : [];
 
   const spent = await dailySpend(admin);
@@ -319,27 +320,38 @@ Deno.serve(async (req) => {
   const ids = orgIds.length > 0 ? orgIds.slice(0, limit) : await selectCandidates(admin, limit);
   const results: any[] = [];
   let totalCost = 0;
-  for (const id of ids) {
-    const r = await reviewOne(admin, id);
-    if (typeof r.cost_usd === "number") totalCost += r.cost_usd;
-    results.push(r);
-    if ((await dailySpend(admin)) >= DAILY_BUDGET_USD && !body.ignore_budget) {
-      results.push({ stopped: "budget_reached_mid_run" });
-      break;
+  let stopped = false;
+  let cursor = 0;
+
+  const workers = Array.from({ length: concurrency }, async () => {
+    while (true) {
+      if (stopped) return;
+      const idx = cursor++;
+      if (idx >= ids.length) return;
+      const r = await reviewOne(admin, ids[idx]);
+      if (typeof r.cost_usd === "number") totalCost += r.cost_usd;
+      results.push(r);
+      if (!body.ignore_budget && totalCost + spent >= DAILY_BUDGET_USD) {
+        stopped = true;
+        results.push({ stopped: "budget_reached_mid_run" });
+        return;
+      }
     }
-    await new Promise(res => setTimeout(res, 80));
-  }
+  });
+  await Promise.all(workers);
 
   // Recompute counts if any auto-actions applied
   const anyAuto = results.some((r: any) => r.auto && r.auto !== "none");
   if (anyAuto) {
     await admin.rpc("recompute_org_gated_counts").catch(() => {});
   }
+  if (totalCost > 0) await bumpSpend(admin, 0); // ensure spend row exists for visibility
 
   return new Response(JSON.stringify({
     reviewed: results.length,
+    concurrency,
     total_cost_usd: Number(totalCost.toFixed(6)),
     spent_today: await dailySpend(admin),
-    results,
+    results: results.slice(0, 80),
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
