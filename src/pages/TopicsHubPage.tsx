@@ -72,24 +72,19 @@ export default function TopicsHubPage() {
   return (
     <Layout>
       {/* Hero */}
-      <section className="relative border-b border-border bg-background overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-80"
-          style={{ background: "var(--gradient-spot)" }}
-        />
-        <div className="relative container mx-auto py-14 sm:py-20 max-w-5xl">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-semibold">
+      <section className="border-b border-border bg-background">
+        <div className="container mx-auto py-10 sm:py-14 max-w-5xl px-4">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-primary">
             Témák
           </div>
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight mt-3 leading-[1.05]">
-            Témák<br className="hidden sm:block" />
-            <span className="text-primary">a magyar podcastokban</span>
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">
+            Témák a magyar podcastokban
           </h1>
-          <p className="text-foreground/80 mt-5 max-w-2xl text-base sm:text-lg leading-relaxed">
+          <p className="text-foreground/80 mt-4 max-w-2xl">
             Fedezz fel magyar podcast epizódokat konkrét ügyek, fogalmak,
             trendek és érdeklődési körök alapján.
           </p>
+
 
           {topics.length > 0 && (
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
