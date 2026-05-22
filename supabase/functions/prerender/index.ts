@@ -467,7 +467,7 @@ async function buildTopic(
   slug: string,
   urlPrefix: string,
 ) {
-  const { data: topic } = await supabase
+  const { data: topic } = await (supabase as any)
     .from("topics")
     .select("id, name, slug, description, seo_title, seo_description, intro_text, is_public")
     .eq("slug", slug)
@@ -528,7 +528,7 @@ async function buildOrganization(
   slug: string,
   urlPrefix: string,
 ) {
-  const { data: org } = await supabase
+  const { data: org } = await (supabase as any)
     .from("organizations")
     .select("id, name, slug, logo_url, ai_bio, wikipedia_extract, short_description_hu")
     .eq("slug", slug)
@@ -587,7 +587,7 @@ async function buildMoodCollection(
   supabase: ReturnType<typeof createClient>,
   slug: string,
 ) {
-  const { data: coll } = await supabase
+  const { data: coll } = await (supabase as any)
     .from("mood_collections")
     .select("title, slug, description, short_description, episode_ids, podcast_ids, active")
     .eq("slug", slug)
