@@ -925,7 +925,7 @@ function ResultView({
       )}
 
       <div className="text-center text-xs text-muted-foreground">
-        {liked.length} ❤ · {disliked.length} ❌ — a profilod helyben tárolódik
+        {liked.length} ❤ {superLiked.length > 0 && <>· <span className="text-primary">{superLiked.length} ⭐</span> </>}· {disliked.length} ❌ — a profilod helyben tárolódik
       </div>
     </div>
   );
