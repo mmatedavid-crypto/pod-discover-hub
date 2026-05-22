@@ -1572,6 +1572,7 @@ export type Database = {
           id: string
           is_indexable: boolean
           mood: string
+          negative_title_patterns: string[] | null
           negative_topic_hints: string[]
           podcast_ids: string[]
           positive_topic_hints: string[]
@@ -1601,6 +1602,7 @@ export type Database = {
           id?: string
           is_indexable?: boolean
           mood: string
+          negative_title_patterns?: string[] | null
           negative_topic_hints?: string[]
           podcast_ids?: string[]
           positive_topic_hints?: string[]
@@ -1630,6 +1632,7 @@ export type Database = {
           id?: string
           is_indexable?: boolean
           mood?: string
+          negative_title_patterns?: string[] | null
           negative_topic_hints?: string[]
           podcast_ids?: string[]
           positive_topic_hints?: string[]
