@@ -403,7 +403,7 @@ Deno.serve(async (req) => {
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
       .limit(limit * 3);
     const filtered = (data || []).filter((r: any) =>
-      (force || r.ai_bio_status !== "completed") &&
+      (force || !["completed","audited_fail"].includes(r.ai_bio_status || "")) &&
       !["hide","reject","merge"].includes(r.ai_recommended_action || "") &&
       !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
     ).slice(0, limit);
