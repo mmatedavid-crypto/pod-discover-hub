@@ -39,15 +39,61 @@ export function RelatedEpisodes() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["smart-player-related", episodeId],
     enabled: !!episodeId,
-    staleTime: 1000 * 60 * 60, // 1h
+    staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 6,
     queryFn: async (): Promise<Row[]> => {
-      const { data, error } = await supabase.rpc("similar_episodes", {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc("similar_episodes", {
         p_episode_id: episodeId!,
         p_limit: 12,
       });
-      if (error) throw error;
-      return (data ?? []) as Row[];
+      if (!rpcErr && rpcData && (rpcData as any[]).length > 0) return rpcData as Row[];
+
+      // Fallback when no episode embedding: shared topics / people / category / same podcast
+      const { data: cur } = await supabase
+        .from("episodes")
+        .select("id,podcast_id,topics,persons,podcasts!inner(category)")
+        .eq("id", episodeId!)
+        .maybeSingle();
+
+      const topics: string[] = (cur as any)?.topics || [];
+      const persons: string[] = (cur as any)?.persons || [];
+      const category: string | null = (cur as any)?.podcasts?.category || null;
+      const curPodcastId: string | null = (cur as any)?.podcast_id || podcastId;
+
+      const sel =
+        "id,podcast_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,podcasts!inner(slug,title,display_title,image_url,category,rss_status)";
+
+      const probes: any[] = [];
+      if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
+      if (persons.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("persons", persons.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
+      if (category) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.category", category).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
+      if (curPodcastId) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcast_id", curPodcastId).order("published_at", { ascending: false, nullsFirst: false }).limit(6));
+
+      const results = await Promise.all(probes);
+      const candidates = new Map<string, any>();
+      results.forEach((r: any) => (r?.data || []).forEach((row: any) => {
+        if (!row.audio_url) return;
+        if (row.podcasts?.rss_status === "failed" || row.podcasts?.rss_status === "inactive") return;
+        if (!candidates.has(row.id)) candidates.set(row.id, row);
+      }));
+
+      return Array.from(candidates.values()).slice(0, 12).map((r) => ({
+        episode_id: r.id,
+        podcast_id: r.podcast_id,
+        similarity: 0,
+        title: r.title,
+        display_title: r.display_title,
+        slug: r.slug,
+        ai_summary: r.ai_summary,
+        summary: r.summary,
+        description: r.description,
+        published_at: r.published_at,
+        audio_url: r.audio_url,
+        podcast_slug: r.podcasts?.slug,
+        podcast_title: r.podcasts?.title,
+        podcast_display_title: r.podcasts?.display_title,
+        podcast_image_url: r.podcasts?.image_url,
+      })) as Row[];
     },
   });
 
@@ -122,7 +168,7 @@ export function RelatedEpisodes() {
                 </Link>
                 <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                   {r.podcast_display_title || r.podcast_title}
-                  <span className="ml-2 tabular-nums opacity-70">· {sim}% match</span>
+                  {sim > 0 && <span className="ml-2 tabular-nums opacity-70">· {sim}% match</span>}
                 </div>
                 {snippet(r) && (
                   <div className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">
