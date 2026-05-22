@@ -77,11 +77,13 @@ export default function StartSwipePage() {
     setLoading(true);
     const podcastIds = anchors.filter(a => a.kind === "podcast").map(a => a.id);
     const personIds = anchors.filter(a => a.kind === "person").map(a => a.id);
+    const keywords = anchors.filter(a => a.kind === "keyword").map(a => a.name);
     let data: SeedEp[] | null = null;
-    if (podcastIds.length || personIds.length) {
+    if (podcastIds.length || personIds.length || keywords.length) {
       const res = await supabase.rpc("get_swipe_seed_from_anchors", {
         p_podcast_ids: podcastIds,
         p_person_ids: personIds,
+        p_keywords: keywords,
         p_limit: 8,
       });
       if (!res.error && res.data) data = res.data as SeedEp[];
