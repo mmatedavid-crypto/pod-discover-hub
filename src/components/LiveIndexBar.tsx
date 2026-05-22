@@ -37,11 +37,13 @@ export default function LiveIndexBar() {
       try {
         const { data, error } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,rank_label)")
+          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,rank_label,language)")
           .in("podcasts.rank_label", ["S", "A", "B"])
+          .ilike("podcasts.language", "hu%")
           .not("title", "is", null)
           .order("created_at", { ascending: false })
           .limit(40);
+
 
         if (cancelled) return;
         if (error) {
