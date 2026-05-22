@@ -922,8 +922,22 @@ function ResultView({
           intensity: i === 0 ? "Domináns" : i < 2 ? "Erős" : i < 4 ? "Markáns" : "Színező",
           strength: 1 - i * 0.14,
         })),
+        element: { label: element.label, symbol: element.symbol },
+        auraColors: aura.colors,
       });
-      await shareOrDownload(blob);
+      const result = await shareOrDownload(blob);
+      if (result === "shared") {
+        toast.success("Megosztva — ne felejtsd belinkelni: podiverzum.hu");
+      } else if (result === "downloaded") {
+        toast.success("Kép letöltve", {
+          description: "Töltsd fel Instára / Facebookra. A képen rajta van: podiverzum.hu",
+        });
+      } else if (result === "error") {
+        toast.error("Nem sikerült a megosztás — próbáld újra.");
+      }
+    } catch (e) {
+      console.error("[share] error", e);
+      toast.error("Hoppá, valami félrement a kép készítésekor.");
     } finally {
       sharing.current = false;
     }
