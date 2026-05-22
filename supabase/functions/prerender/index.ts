@@ -75,6 +75,7 @@ ${opts.noindex ? '<meta name="robots" content="noindex" />' : ""}
 <meta property="og:title" content="${esc(opts.title)}" />
 <meta property="og:description" content="${esc(opts.description)}" />
 <meta property="og:image" content="${esc(ogImg)}" />
+<meta property="og:image:alt" content="${esc(opts.title)}" />
 <meta property="og:url" content="${esc(opts.canonical)}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${esc(opts.title)}" />
