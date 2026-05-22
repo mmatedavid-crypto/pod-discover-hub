@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
+import { RelatedEpisodes } from "./RelatedEpisodes";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 
 export function SmartPlayerBar() {
