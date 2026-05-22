@@ -492,15 +492,30 @@ function IntroLanding({
 /* ────────────────── Swipe ────────────────── */
 
 function SwipeView({
-  current, loading, totalSwipes, positiveSwipes, confidence, onAction,
+  current, upcoming, loading, totalSwipes, positiveSwipes, superSwipes, confidence, onAction,
 }: {
   current: Card | null;
+  upcoming: Card[];
   loading: boolean;
   totalSwipes: number;
   positiveSwipes: number;
+  superSwipes: number;
   confidence: number;
-  onAction: (a: "like" | "skip") => void;
+  onAction: (a: "like" | "skip" | "super") => void;
 }) {
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!current) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowRight") { e.preventDefault(); onAction("like"); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); onAction("skip"); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); onAction("super"); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [current, onAction]);
+
   if (loading) return <Skeleton className="aspect-[3/4] w-full rounded-3xl" />;
   if (!current) {
     return (
@@ -513,56 +528,154 @@ function SwipeView({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{totalSwipes} swipe · {positiveSwipes} ❤</span>
+        <span>
+          {totalSwipes} swipe · {positiveSwipes} ❤
+          {superSwipes > 0 && <> · <span className="text-primary">{superSwipes} ⭐</span></>}
+        </span>
         <span>magabiztosság: {Math.round(confidence * 100)}%</span>
       </div>
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full bg-primary transition-all"
-          style={{ width: `${Math.min(100, Math.round(confidence * 100))}%` }}
+        <motion.div
+          className="h-full bg-gradient-to-r from-primary to-primary/70"
+          initial={false}
+          animate={{ width: `${Math.min(100, Math.round(confidence * 100))}%` }}
+          transition={{ type: "spring", stiffness: 120, damping: 18 }}
         />
       </div>
 
       <div className="relative aspect-[3/4] w-full">
-        <AnimatePresence mode="popLayout">
+        {/* Background stack (next cards) */}
+        {upcoming.map((c, i) => {
+          const depth = i + 1; // 1, 2
+          return (
+            <motion.div
+              key={c.id}
+              className="absolute inset-0 pointer-events-none"
+              initial={false}
+              animate={{
+                scale: 1 - depth * 0.05,
+                y: depth * 12,
+                opacity: 1 - depth * 0.35,
+              }}
+              transition={{ type: "spring", stiffness: 200, damping: 22 }}
+              style={{ zIndex: 10 - depth }}
+            >
+              <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/20 via-card to-card shadow-lg">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.1),transparent_60%)]" />
+              </div>
+            </motion.div>
+          );
+        })}
+
+        {/* Active card */}
+        <AnimatePresence mode="popLayout" initial={false}>
           <SwipeCard key={current.id} card={current} onAction={onAction} />
         </AnimatePresence>
       </div>
 
-      <div className="mt-6 flex items-center justify-center gap-6">
+      <div className="mt-6 flex items-center justify-center gap-5">
         <ActionBtn label="Nem nekem való" onClick={() => onAction("skip")} variant="skip">
           <X className="h-7 w-7" />
+        </ActionBtn>
+        <ActionBtn label="Imádom" onClick={() => onAction("super")} variant="super">
+          <Star className="h-6 w-6 fill-current" />
         </ActionBtn>
         <ActionBtn label="Érdekel" onClick={() => onAction("like")} variant="like">
           <Heart className="h-7 w-7 fill-current" />
         </ActionBtn>
       </div>
+      <div className="mt-3 text-center text-[10px] uppercase tracking-wider text-muted-foreground">
+        ← skip · ↑ imádom · → like
+      </div>
     </div>
   );
 }
 
-function SwipeCard({ card, onAction }: { card: Card; onAction: (a: "like" | "skip") => void }) {
+function SwipeCard({ card, onAction }: { card: Card; onAction: (a: "like" | "skip" | "super") => void }) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  // Rotation follows horizontal drag, clamped
+  const rotate = useTransform(x, [-300, 0, 300], [-18, 0, 18]);
+
+  // Stamp opacities
+  const likeOpacity = useTransform(x, [40, 160], [0, 1]);
+  const nopeOpacity = useTransform(x, [-160, -40], [1, 0]);
+  const superOpacity = useTransform(y, [-160, -40], [1, 0]);
+
+  // Color overlay tints
+  const greenTint = useTransform(x, [40, 200], [0, 0.35]);
+  const redTint = useTransform(x, [-200, -40], [0.35, 0]);
+  const blueTint = useTransform(y, [-200, -40], [0.4, 0]);
+
   const handleDragEnd = (_: any, info: PanInfo) => {
     const { offset, velocity } = info;
+    // Super-like takes precedence when up-swipe dominates
+    if (offset.y < -140 || velocity.y < -700) return onAction("super");
     if (offset.x > 120 || velocity.x > 600) return onAction("like");
     if (offset.x < -120 || velocity.x < -600) return onAction("skip");
+  };
+
+  // Exit animation: fly off in the direction of the last drag (or current motion)
+  const exitFor = (cx: number, cy: number) => {
+    if (cy < -100) return { y: -800, opacity: 0, rotate: 0, transition: { duration: 0.35 } };
+    if (cx > 80) return { x: 800, rotate: 24, opacity: 0, transition: { duration: 0.35 } };
+    if (cx < -80) return { x: -800, rotate: -24, opacity: 0, transition: { duration: 0.35 } };
+    return { opacity: 0, scale: 0.9, transition: { duration: 0.2 } };
   };
 
   return (
     <motion.div
       className="absolute inset-0"
-      drag="x"
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.7}
+      drag
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      dragElastic={0.85}
       onDragEnd={handleDragEnd}
-      whileTap={{ scale: 0.98, cursor: "grabbing" }}
-      initial={{ scale: 0.95, opacity: 0, y: 20 }}
+      whileTap={{ cursor: "grabbing" }}
+      style={{ x, y, rotate, cursor: "grab", zIndex: 20 }}
+      initial={{ scale: 0.92, opacity: 0, y: 30 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
-      exit={{ x: 0, opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-      style={{ cursor: "grab" }}
+      exit={exitFor(x.get(), y.get())}
+      transition={{ type: "spring", stiffness: 260, damping: 24 }}
     >
-      <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/30 via-card to-card shadow-xl">
+      <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/30 via-card to-card shadow-2xl">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.15),transparent_60%)]" />
+
+        {/* Color overlays */}
+        <motion.div className="pointer-events-none absolute inset-0 bg-emerald-500" style={{ opacity: greenTint }} />
+        <motion.div className="pointer-events-none absolute inset-0 bg-rose-500" style={{ opacity: redTint }} />
+        <motion.div className="pointer-events-none absolute inset-0 bg-sky-400" style={{ opacity: blueTint }} />
+
+        {/* LIKE stamp */}
+        <motion.div
+          className="pointer-events-none absolute left-6 top-6 select-none"
+          style={{ opacity: likeOpacity, rotate: -12 }}
+        >
+          <div className="rounded-md border-4 border-emerald-400 px-3 py-1 text-2xl font-black uppercase tracking-widest text-emerald-400 shadow-lg">
+            Tetszik
+          </div>
+        </motion.div>
+
+        {/* NOPE stamp */}
+        <motion.div
+          className="pointer-events-none absolute right-6 top-6 select-none"
+          style={{ opacity: nopeOpacity, rotate: 12 }}
+        >
+          <div className="rounded-md border-4 border-rose-500 px-3 py-1 text-2xl font-black uppercase tracking-widest text-rose-500 shadow-lg">
+            Passz
+          </div>
+        </motion.div>
+
+        {/* SUPER stamp */}
+        <motion.div
+          className="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 select-none"
+          style={{ opacity: superOpacity }}
+        >
+          <div className="rounded-md border-4 border-sky-400 px-4 py-1 text-2xl font-black uppercase tracking-widest text-sky-400 shadow-lg">
+            ⭐ Imádom
+          </div>
+        </motion.div>
+
         <div className="relative flex h-full flex-col justify-end p-8">
           <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             {card.stage === "broad" ? "felfedezés" : card.stage === "refine" ? "finomítás" : card.stage === "style" ? "stílus" : "ellenőrzés"}
@@ -585,20 +698,25 @@ function ActionBtn({
   children: React.ReactNode;
   label: string;
   onClick: () => void;
-  variant: "like" | "skip";
+  variant: "like" | "skip" | "super";
 }) {
   const styles =
     variant === "like"
-      ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30"
-      : "bg-card border border-border hover:bg-muted text-foreground";
+      ? "h-16 w-16 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30"
+      : variant === "super"
+      ? "h-14 w-14 bg-sky-500 text-white hover:bg-sky-400 shadow-lg shadow-sky-500/30"
+      : "h-16 w-16 bg-card border border-border hover:bg-muted text-foreground";
   return (
-    <button
+    <motion.button
       onClick={onClick}
       aria-label={label}
-      className={`h-16 w-16 ${styles} rounded-full flex items-center justify-center transition-transform active:scale-95`}
+      className={`${styles} rounded-full flex items-center justify-center`}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.9 }}
+      transition={{ type: "spring", stiffness: 400, damping: 20 }}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
 
