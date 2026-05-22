@@ -41,12 +41,15 @@ export default function OrganizationsIndexPage() {
     });
 
     (async () => {
-      // Top mixed (12) — most-mentioned overall, excluding "other"
+      // Top mixed (12) — most-mentioned overall.
+      // Médiumok és rádiók kizárva amíg nincs clean_text alapú entitás-újrafeldolgozás
+      // (nyers description-ből túl sok zaj: podcast-kiadók szerepelnek témaként). Feloldható,
+      // ha az entity-backfill clean_text-ből fut és az org gating újraszámol.
       const topAllPromise = supabase
         .from("organizations")
         .select(COLS)
         .eq("is_indexable", true)
-        .not("org_type", "eq", "other")
+        .not("org_type", "in", "(other,media,radio_station)")
         .order("gated_episode_count", { ascending: false })
         .limit(12);
 
