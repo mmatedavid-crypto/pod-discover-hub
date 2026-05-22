@@ -257,8 +257,13 @@ export default function StartSwipePage() {
     [persisted.superLikedCardIds, byId]
   );
 
-  // Vector weighting: super-likes count 2x (we duplicate them in the positive set).
-  const effectiveLiked = useMemo(() => [...liked, ...superLiked], [liked, superLiked]);
+  // Vector weighting: super-likes count 3x (duplicated in the positive set).
+  // Stronger weighting = the user's strongest signals dominate the taste vector
+  // and the result feels "this is really me" instead of generic.
+  const effectiveLiked = useMemo(
+    () => [...liked, ...superLiked, ...superLiked],
+    [liked, superLiked],
+  );
 
   const totalSwipes = persisted.seenCardIds.length;
   const positiveSwipes = persisted.likedCardIds.length;
