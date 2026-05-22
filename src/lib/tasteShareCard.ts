@@ -4,7 +4,7 @@ import type { Archetype } from "./tasteArchetypes";
 export type ShareCardInput = {
   archetype: Archetype;
   interests: string[]; // 3-5 short labels
-  dna: Array<{ label: string; pct: number }>; // top 3-5 topics
+  dna: Array<{ label: string; intensity: string; strength: number }>; // top 3-5 topics, rank-based
 };
 
 export async function renderShareCard(input: ShareCardInput): Promise<Blob> {
@@ -64,14 +64,20 @@ export async function renderShareCard(input: ShareCardInput): Promise<Blob> {
   dnaY += 30;
   for (const row of input.dna.slice(0, 5)) {
     dnaY += 50;
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
     ctx.font = "400 22px Inter, system-ui, sans-serif";
     ctx.fillText(row.label, 70, dnaY);
+    // Right-aligned intensity label
+    ctx.fillStyle = "rgba(225,29,72,0.95)";
+    ctx.font = "500 20px Inter, system-ui, sans-serif";
+    const intensityW = ctx.measureText(row.intensity).width;
+    ctx.fillText(row.intensity, W - 70 - intensityW, dnaY);
+    // Bar
     ctx.fillStyle = "rgba(255,255,255,0.12)";
     roundRect(ctx, 70, dnaY + 10, W - 140, 12, 6);
     ctx.fill();
     ctx.fillStyle = "#e11d48";
-    roundRect(ctx, 70, dnaY + 10, Math.max(20, (W - 140) * Math.min(1, row.pct)), 12, 6);
+    roundRect(ctx, 70, dnaY + 10, Math.max(20, (W - 140) * Math.min(1, row.strength)), 12, 6);
     ctx.fill();
   }
 
