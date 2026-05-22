@@ -139,7 +139,10 @@ Deno.serve(async (req) => {
       if (mySpend >= dailyBudget) { stop = true; return; }
       processed++;
       try {
-        const desc = String(ep.description || ep.ai_summary || "").replace(/\s+/g, " ").trim().slice(0, 2500);
+        // Prefer cleaned text (footer/social/platform chrome stripped) over raw description.
+        // Avoids garbage entities like "Facebook"/"Instagram"/"Spotify" from "Kövess minket..." footers.
+        const cleanedText = ep.episode_clean_text?.[0]?.cleaned_text || null;
+        const desc = String(cleanedText || ep.ai_summary || ep.description || "").replace(/\s+/g, " ").trim().slice(0, 2500);
         const podName = ep.podcasts?.display_title || ep.podcasts?.title || "";
         const podHosts: string[] = Array.isArray(ep.podcasts?.hosts) ? ep.podcasts.hosts : [];
 
