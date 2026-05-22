@@ -4391,6 +4391,87 @@ export type Database = {
         }
         Relationships: []
       }
+      taste_cards: {
+        Row: {
+          active: boolean
+          archetype_tags: string[]
+          card_embedding: string | null
+          catalog_fit_score: number | null
+          created_at: string
+          format_tags: string[]
+          hidden_embedding_prompt: string
+          id: string
+          image_url: string | null
+          locale: string
+          mood_tags: string[]
+          primary_axis: string | null
+          priority: number
+          psych_tags: string[]
+          secondary_axis: string | null
+          sensitivity_level: string
+          stage: string
+          subtitle: string | null
+          title: string
+          top_episode_similarity: number | null
+          topic_tags: string[]
+          type: string
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          active?: boolean
+          archetype_tags?: string[]
+          card_embedding?: string | null
+          catalog_fit_score?: number | null
+          created_at?: string
+          format_tags?: string[]
+          hidden_embedding_prompt: string
+          id?: string
+          image_url?: string | null
+          locale?: string
+          mood_tags?: string[]
+          primary_axis?: string | null
+          priority?: number
+          psych_tags?: string[]
+          secondary_axis?: string | null
+          sensitivity_level?: string
+          stage?: string
+          subtitle?: string | null
+          title: string
+          top_episode_similarity?: number | null
+          topic_tags?: string[]
+          type: string
+          updated_at?: string
+          validation_status?: string
+        }
+        Update: {
+          active?: boolean
+          archetype_tags?: string[]
+          card_embedding?: string | null
+          catalog_fit_score?: number | null
+          created_at?: string
+          format_tags?: string[]
+          hidden_embedding_prompt?: string
+          id?: string
+          image_url?: string | null
+          locale?: string
+          mood_tags?: string[]
+          primary_axis?: string | null
+          priority?: number
+          psych_tags?: string[]
+          secondary_axis?: string | null
+          sensitivity_level?: string
+          stage?: string
+          subtitle?: string | null
+          title?: string
+          top_episode_similarity?: number | null
+          topic_tags?: string[]
+          type?: string
+          updated_at?: string
+          validation_status?: string
+        }
+        Relationships: []
+      }
       token_df_cache: {
         Row: {
           computed_at: string
@@ -5378,6 +5459,26 @@ export type Database = {
         }[]
       }
       formula_c_status: { Args: never; Returns: Json }
+      get_active_taste_cards: {
+        Args: { p_limit?: number }
+        Returns: {
+          archetype_tags: string[]
+          card_embedding: string
+          catalog_fit_score: number
+          format_tags: string[]
+          id: string
+          image_url: string
+          mood_tags: string[]
+          priority: number
+          psych_tags: string[]
+          sensitivity_level: string
+          stage: string
+          subtitle: string
+          title: string
+          top_episode_similarity: number
+          topic_tags: string[]
+        }[]
+      }
       get_cron_health: { Args: never; Returns: Json }
       get_mood_episode_recommendations: {
         Args: { p_exclude?: string[]; p_limit?: number; p_mood_slug: string }
@@ -5601,6 +5702,29 @@ export type Database = {
           podcast_image_url: string
           podcast_slug: string
           podcast_title: string
+          similarity: number
+          slug: string
+          title: string
+        }[]
+      }
+      match_episodes_by_taste_vector: {
+        Args: {
+          p_exclude_episode_ids?: string[]
+          p_limit?: number
+          p_negative_vector?: string
+          p_user_vector: string
+        }
+        Returns: {
+          ai_summary: string
+          display_title: string
+          episode_id: string
+          final_score: number
+          image_url: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
           similarity: number
           slug: string
           title: string
