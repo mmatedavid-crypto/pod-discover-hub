@@ -17,6 +17,12 @@ export function scale(a: Vec, k: number): Vec {
   return a.map(v => v * k);
 }
 
+export function sub(a: Vec, b: Vec): Vec {
+  const out = new Array(a.length);
+  for (let i = 0; i < a.length; i++) out[i] = a[i] - b[i];
+  return out;
+}
+
 export function norm(a: Vec): number {
   let s = 0;
   for (let i = 0; i < a.length; i++) s += a[i] * a[i];

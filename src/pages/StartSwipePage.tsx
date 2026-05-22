@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Vec, zero, mean, cosine, coherence, normalize, toPgVector, parsePgVector,
+  Vec, zero, mean, sub, scale, add, cosine, coherence, normalize, toPgVector, parsePgVector,
 } from "@/lib/tasteVector";
 import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
 import { renderShareCard, shareOrDownload } from "@/lib/tasteShareCard";
@@ -273,10 +273,26 @@ export default function StartSwipePage() {
   }, [phase]);
 
   const fetchRecs = async () => {
-    if (effectiveLiked.length === 0) return;
+    if (effectiveLiked.length === 0 || !pool) return;
     setRecsLoading(true);
-    const userVec = normalize(mean(effectiveLiked.map(c => c.card_embedding)));
-    const negVec = disliked.length ? normalize(mean(disliked.map(c => c.card_embedding))) : null;
+
+    // FIX: All taste-card prompts start with "Magyar [nyelvű] podcast…", so their
+    // embeddings share a strong common direction. A naive mean(liked) collapses to
+    // the catalog centroid → same recs regardless of choices. We mean-center against
+    // the pool centroid so the user's *deviation* dominates, then re-anchor.
+    const centroid = mean(pool.map(c => c.card_embedding));
+    const likedDev = mean(effectiveLiked.map(c => sub(c.card_embedding, centroid)));
+    const dislikedDev = disliked.length
+      ? mean(disliked.map(c => sub(c.card_embedding, centroid)))
+      : zero(centroid.length);
+    // direction = positives push, negatives pull
+    const direction = sub(likedDev, dislikedDev);
+    // re-anchor to the HU-podcast manifold, amplified along the user's axis
+    const userVec = normalize(add(centroid, scale(direction, 2.5)));
+    const negVec = disliked.length
+      ? normalize(add(centroid, scale(dislikedDev, 2.5)))
+      : null;
+
     const { data, error } = await supabase.rpc("match_episodes_by_taste_vector", {
       p_user_vector: toPgVector(userVec) as any,
       p_negative_vector: negVec ? (toPgVector(negVec) as any) : null,
