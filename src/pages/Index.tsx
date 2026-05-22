@@ -158,7 +158,8 @@ const Index = () => {
             .from("mv_homepage_evergreen" as any)
             .select("episode_id,title,display_title,slug,summary,description,ai_summary,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured")
             .order("podiverzum_rank", { ascending: false, nullsFirst: false })
-            .limit(40),
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(120),
           supabase
             .from("podcasts")
             .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
@@ -236,9 +237,17 @@ const Index = () => {
         setTrendingEps([...primary, ...overflow].slice(0, 8));
         setAllEps(eps);
 
-        // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
-        const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
-        setEvergreenEps(evergreen.slice(0, 6));
+        // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast (max 1 per show).
+        const evergreenAll: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
+        const seenPods = new Set<string>();
+        const evergreenDiverse: EpisodeLite[] = [];
+        const evergreenSpill: EpisodeLite[] = [];
+        for (const e of evergreenAll) {
+          const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
+          if (!seenPods.has(key)) { seenPods.add(key); evergreenDiverse.push(e); }
+          else evergreenSpill.push(e);
+        }
+        setEvergreenEps([...evergreenDiverse, ...evergreenSpill].slice(0, 6));
 
         // Trending entities source (last 14 days, EN-only, healthy podcasts)
         setTrendingEntityEps((entityRes.data || []) as any);
