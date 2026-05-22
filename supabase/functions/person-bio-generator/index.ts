@@ -151,6 +151,24 @@ function safeFallbackBio(name: string): string {
   return `${name} magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók.`;
 }
 
+function isSafeFallback(name: string, text?: string | null): boolean {
+  const value = (text || "").trim();
+  return !value || value === safeFallbackBio(name) || value.includes("magyar podcast epizódokban előforduló személy");
+}
+
+function wikipediaBio(p: any): string | null {
+  const extract = String(p.wikipedia_extract || "").trim();
+  const desc = String(p.wikipedia_description || "").trim();
+  if (!extract && !desc) return null;
+  const cleanExtract = /^ez a szócikk/i.test(extract) ? "" : extract;
+  const firstSentence = cleanExtract.match(/^(.{60,500}?[.!?])(?:\s|$)/)?.[1]?.trim() || cleanExtract.slice(0, 420).trim();
+  let bio = firstSentence || desc;
+  if (bio && !bio.toLocaleLowerCase("hu-HU").startsWith(String(p.name || "").toLocaleLowerCase("hu-HU"))) {
+    bio = `${p.name} ${bio.charAt(0).toLocaleLowerCase("hu-HU")}${bio.slice(1)}`;
+  }
+  return bio.length > 500 ? `${bio.slice(0, 497).trim()}…` : bio;
+}
+
 function pickOverviewStyleLine(host: number, guest: number, subject: number, mentioned: number): string {
   if (host > 0 && host >= guest && host >= subject) return "host";
   if (guest > 0 && guest >= subject) return "guest";
@@ -273,8 +291,14 @@ SZABÁLYOK:
       if (b.ok) { bio = b.text; bioCost = b.cost; } else { bio = safeFallbackBio(p.name); bioStatus = "needs_review"; }
       if (o.ok) { overview = o.text; overviewCost = o.cost; } else { overview = ""; }
 
+      if (useWiki && isSafeFallback(p.name, bio)) {
+        bio = wikipediaBio(p) || safeFallbackBio(p.name);
+        bioStatus = wikipediaBio(p) ? "completed" : "needs_review";
+        auditResult = { skipped: "wiki_verified_fallback_replaced" };
+      }
+
       // Self-audit only if we actually got a non-fallback bio
-      if (b.ok && bio && bio !== safeFallbackBio(p.name)) {
+      if (!auditResult && b.ok && bio && !isSafeFallback(p.name, bio)) {
         const audit = await auditBio(p.name, bio, {
           wiki_extract: p.wikipedia_extract,
           wiki_description: p.wikipedia_description,
@@ -293,7 +317,7 @@ SZABÁLYOK:
           bioStatus = "needs_review";
         }
       } else if (!useWiki) {
-        bioStatus = bio === safeFallbackBio(p.name) ? "needs_review" : (epList.length < 3 ? "needs_review" : "completed");
+        bioStatus = isSafeFallback(p.name, bio) ? "needs_review" : (epList.length < 3 ? "needs_review" : "completed");
       }
     }
 
@@ -327,13 +351,13 @@ SZABÁLYOK:
     // Audit trail entry
     try {
       await admin.from("ai_call_audit").insert({
-        job_type: "person_bio_audit",
-        model_used: AUDIT_MODEL,
+        job_type: auditResult?.skipped ? "person_bio_generator" : "person_bio_audit",
+        model_used: auditResult?.skipped ? BIO_MODEL : AUDIT_MODEL,
         provider: "lovable_ai",
         target_id: personId,
         target_type: "person",
-        status: auditResult?.pass ? "ok" : (auditResult?.skipped ? "skipped" : "rejected"),
-        confidence: Number(auditResult?.pass ? 1 : 0),
+        status: auditResult?.pass || bioStatus === "completed" ? "ok" : (auditResult?.skipped ? "skipped" : "rejected"),
+        confidence: Number(auditResult?.pass || bioStatus === "completed" ? 1 : 0),
         estimated_cost_usd: totalCost,
         meta: { bio_status: bioStatus, flags: auditResult?.flags || [], rationale: auditResult?.rationale, bio_preview: bio.slice(0, 160), wiki_status: p.wikipedia_match_status },
       });
@@ -395,7 +419,7 @@ Deno.serve(async (req) => {
       .from("people")
       .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, is_indexable, ai_bio_status, activation_status, ai_recommended_action, ai_review_status")
       .eq("is_public", true)
-      .in("activation_status", ["indexable","manual_approved"])
+      .in("activation_status", ["indexable","manual_approved","public_noindex"])
       .or("is_indexable.eq.true,episode_count.gte.3,strong_mention_count.gte.2")
       .order("episode_count", { ascending: false })
       .order("strong_mention_count", { ascending: false })
