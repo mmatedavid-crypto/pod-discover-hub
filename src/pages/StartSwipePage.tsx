@@ -723,10 +723,11 @@ function ActionBtn({
 /* ────────────────── Result ────────────────── */
 
 function ResultView({
-  liked, disliked, recs, recsLoading, onReset, onOpen,
+  liked, disliked, superLiked, recs, recsLoading, onReset, onOpen,
 }: {
   liked: Card[];
   disliked: Card[];
+  superLiked: Card[];
   recs: RecEp[] | null;
   recsLoading: boolean;
   onReset: () => void;
@@ -735,7 +736,9 @@ function ResultView({
   // TODO(ai-copy): behind a future feature flag, swap deterministic copy below with
   // a `personalize-profile` edge function call that uses Lovable AI Gateway.
 
-  const weights = useMemo(() => tagWeights(liked), [liked]);
+  // Weight super-likes 2x for taste signal: duplicate them in the positive set.
+  const effectiveLiked = useMemo(() => [...liked, ...superLiked], [liked, superLiked]);
+  const weights = useMemo(() => tagWeights(effectiveLiked), [effectiveLiked]);
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
 
