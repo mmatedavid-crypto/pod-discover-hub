@@ -45,6 +45,12 @@ type RecEp = {
   podcast_image_url: string | null;
   similarity: number;
   final_score: number;
+  topics: string[] | null;
+  category: string | null;
+  /** client-side re-rank score (vector + tag-overlap) */
+  taste_score?: number;
+  /** client-side: which of your top interests this episode matches */
+  reasons?: string[];
 };
 
 type Phase = "intro" | "swipe" | "result";
