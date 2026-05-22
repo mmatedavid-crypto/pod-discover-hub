@@ -10,7 +10,7 @@ import {
 } from "@/lib/tasteVector";
 import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
 import { renderShareCard, shareOrDownload } from "@/lib/tasteShareCard";
-import { buildAura, buildConstellation, buildVerdict, buildPdvCode } from "@/lib/podiverzumProfile";
+import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 
 /* ────────────────── Types ────────────────── */
 
@@ -803,7 +803,20 @@ function ResultView({
       .slice(0, 7);
   }, [liked, superLiked]);
   const constellation = useMemo(() => buildConstellation(topicStars, seedKey), [topicStars, seedKey]);
-  const verdict = useMemo(() => buildVerdict(seedKey), [seedKey]);
+  const element = useMemo(() => buildElement(moodWeights), [moodWeights]);
+  const topMoodKeys = useMemo(
+    () => Object.entries(moodWeights).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k.toLowerCase()),
+    [moodWeights],
+  );
+  const verdict = useMemo(
+    () => buildVerdict(seedKey, {
+      topMoods: topMoodKeys,
+      topTopics: topicStars.slice(0, 2).map(s => s.label),
+      archetypeName: archetype.name,
+      element: element.key,
+    }),
+    [seedKey, topMoodKeys, topicStars, archetype.name, element.key],
+  );
   const pdvCode = useMemo(() => buildPdvCode(seedKey), [seedKey]);
 
   // Recommended podcasts: dedupe from recs
@@ -859,12 +872,16 @@ function ResultView({
           {/* Vignette + content overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-white/70 md:text-xs">
-              A te aurád · {aura.essence}
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-white/70 md:text-xs">
+              <span>A te aurád · {aura.essence}</span>
+              <span className="rounded-full border border-white/30 px-2 py-0.5 text-white/90">
+                {element.symbol} {element.label}
+              </span>
             </div>
             <h2 className="mt-1 text-3xl font-semibold tracking-tight text-white drop-shadow-md md:text-5xl">
               {archetype.name}
             </h2>
+            <div className="mt-1 text-xs text-white/70 italic">{element.tagline}</div>
           </div>
         </div>
 
