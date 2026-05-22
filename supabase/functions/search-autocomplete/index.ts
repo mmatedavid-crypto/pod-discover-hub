@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     // Parallel reads — keep each one tight.
-    const [podRes, podAliasRes, persRes, aliasRes, topRes, catRes, qcacheRes] = await Promise.all([
+    const [podRes, podAliasRes, persRes, aliasRes, topRes, catRes, orgRes, orgAliasRes, qcacheRes] = await Promise.all([
       supa.from("podcasts")
         .select("title,slug,image_url,podiverzum_rank,rank_label,normalized_title")
         .eq("is_hungarian", true)
@@ -116,6 +116,19 @@ Deno.serve(async (req) => {
         .eq("active", true)
         .ilike("name", ilike)
         .limit(4),
+      // Organizations (cégek, médiumok, pártok, intézmények, egyetemek, sport stb.)
+      supa.from("organizations")
+        .select("name,slug,org_type,logo_url,gated_episode_count,normalized_name,is_indexable")
+        .eq("is_indexable", true)
+        .or(`normalized_name.ilike.${nPrefixStar},normalized_name.ilike.${nIlikeStar},name.ilike.${ilikeStar}`)
+        .order("gated_episode_count", { ascending: false })
+        .limit(8),
+      // Organization aliases (e.g. "MNB" → Magyar Nemzeti Bank, "Lakers" → Los Angeles Lakers)
+      supa.from("organization_aliases")
+        .select("alias,confidence,organizations!inner(name,slug,org_type,logo_url,gated_episode_count,is_indexable)")
+        .or(`normalized_alias.eq.${qNoSpace},normalized_alias.ilike.${nPrefixStar}`)
+        .gte("confidence", 0.5)
+        .limit(8),
       // Past popular search queries — Google-style "people also searched for"
       supa.from("search_query_cache")
         .select("q_norm,hits")
