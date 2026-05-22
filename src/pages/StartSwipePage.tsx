@@ -22,7 +22,7 @@ type SeedEp = {
 type MatchEp = SeedEp & { similarity: number };
 
 type Anchor = {
-  kind: "podcast" | "person";
+  kind: "podcast" | "person" | "keyword";
   id: string;
   name: string;
   slug: string;
