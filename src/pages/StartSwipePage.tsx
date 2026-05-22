@@ -786,11 +786,11 @@ function ResultView({
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
 
-  // ── Aura: mood-tag-weighted color palette
+  // ── Aura: mood-tag-weighted color palette (super-likes 3x)
   const moodWeights = useMemo(() => {
     const w: Record<string, number> = {};
     for (const c of liked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 1;
-    for (const c of superLiked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 2;
+    for (const c of superLiked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 3;
     return w;
   }, [liked, superLiked]);
   const aura = useMemo(() => buildAura(moodWeights), [moodWeights]);
