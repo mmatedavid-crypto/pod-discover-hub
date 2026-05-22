@@ -147,6 +147,17 @@ Végezd el az auditot.`;
   }
 }
 
+function safeFallbackBio(name: string): string {
+  return `${name} magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók.`;
+}
+
+function pickOverviewStyleLine(host: number, guest: number, subject: number, mentioned: number): string {
+  if (host > 0 && host >= guest && host >= subject) return "host";
+  if (guest > 0 && guest >= subject) return "guest";
+  if (subject > 0 && subject >= mentioned) return "subject";
+  return "mentioned";
+}
+
 async function processPerson(admin: any, personId: string, opts: { force?: boolean }): Promise<any> {
   const { data: p } = await admin.from("people").select("*").eq("id", personId).maybeSingle();
   if (!p) return { id: personId, skipped: "not_found" };
