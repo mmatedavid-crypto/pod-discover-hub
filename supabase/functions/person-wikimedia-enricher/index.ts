@@ -206,6 +206,8 @@ async function processPerson(admin: any, personId: string): Promise<any> {
       wikipedia_match_status: matchStatus,
       wikipedia_match_confidence: bestScore,
       wikipedia_match_evidence: { ...bestEvidence, qid: best?.id || null },
+      wiki_match_run_at: new Date().toISOString(),
+      wiki_match_reason: `wikimedia_matcher:${matchStatus}:${bestScore.toFixed(2)}:${(bestEvidence?.signals || []).join(",").slice(0, 180)}`,
       image_checked_at: new Date().toISOString(),
     };
 
