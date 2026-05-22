@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
+import { RelatedEpisodes } from "./RelatedEpisodes";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 
 export function SmartPlayerBar() {
@@ -136,6 +137,9 @@ export function SmartPlayerBar() {
                   <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("fwd30")}>+30s</button>
                 </div>
                 <SpeedSection />
+                <div className="w-full max-w-2xl mt-2 border-t border-border pt-5">
+                  <RelatedEpisodes />
+                </div>
               </>
             )}
           </div>
