@@ -1042,22 +1042,10 @@ function ResultView({
                   <div className="truncate text-xs uppercase tracking-wider text-muted-foreground">{r.podcast_title}</div>
                   <div className="line-clamp-2 font-medium">{r.display_title || r.title}</div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">
-                      {Math.round((r.taste_score ?? r.similarity) * 100)}% egyezés
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+                      <Sparkles className="h-3 w-3" />
+                      {mysticMatch(r.taste_score ?? r.similarity, recs!.indexOf(r))}
                     </span>
-                    {r.reasons && r.reasons.length > 0 && (
-                      <>
-                        <span className="text-xs text-muted-foreground">·</span>
-                        {r.reasons.map(t => (
-                          <span
-                            key={t}
-                            className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </>
-                    )}
                   </div>
                 </div>
                 <ArrowRight className="h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
