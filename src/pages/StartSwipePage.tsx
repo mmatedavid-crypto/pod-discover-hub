@@ -352,7 +352,7 @@ function IntroPicker({
                     <img src={a.image_url} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                      {a.kind === "podcast" ? <Mic className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                      {a.kind === "podcast" ? <Mic className="h-3 w-3" /> : a.kind === "person" ? <User className="h-3 w-3" /> : <Search className="h-3 w-3" />}
                     </div>
                   )}
                 </div>
