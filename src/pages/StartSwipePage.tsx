@@ -22,7 +22,7 @@ type SeedEp = {
 type MatchEp = SeedEp & { similarity: number };
 
 type Anchor = {
-  kind: "podcast" | "person";
+  kind: "podcast" | "person" | "keyword";
   id: string;
   name: string;
   slug: string;
@@ -77,11 +77,13 @@ export default function StartSwipePage() {
     setLoading(true);
     const podcastIds = anchors.filter(a => a.kind === "podcast").map(a => a.id);
     const personIds = anchors.filter(a => a.kind === "person").map(a => a.id);
+    const keywords = anchors.filter(a => a.kind === "keyword").map(a => a.name);
     let data: SeedEp[] | null = null;
-    if (podcastIds.length || personIds.length) {
+    if (podcastIds.length || personIds.length || keywords.length) {
       const res = await supabase.rpc("get_swipe_seed_from_anchors", {
         p_podcast_ids: podcastIds,
         p_person_ids: personIds,
+        p_keywords: keywords,
         p_limit: 8,
       });
       if (!res.error && res.data) data = res.data as SeedEp[];
@@ -306,7 +308,7 @@ function IntroPicker({
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{r.name}</div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {r.kind === "podcast" ? "Podcast" : "Személy"} {r.subtitle ? `· ${r.subtitle}` : ""}
+                  {r.kind === "podcast" ? "Podcast" : r.kind === "person" ? "Személy" : "Kulcsszó"} {r.subtitle ? `· ${r.subtitle}` : ""}
                 </div>
               </div>
               <Plus className="h-4 w-4 text-muted-foreground" />
@@ -318,8 +320,21 @@ function IntroPicker({
       {searching && query.length >= 2 && results.length === 0 && (
         <div className="mt-2 text-xs text-muted-foreground px-1">Keresés…</div>
       )}
-      {!searching && query.length >= 2 && results.length === 0 && (
-        <div className="mt-2 text-xs text-muted-foreground px-1">Nincs találat — próbálj más nevet.</div>
+      {!searching && query.trim().length >= 2 && results.length === 0 && (
+        <button
+          onClick={() => add({
+            kind: "keyword",
+            id: `kw:${query.trim().toLowerCase()}`,
+            name: query.trim(),
+            slug: "",
+            image_url: null,
+            subtitle: "Kulcsszó",
+          })}
+          className="mt-2 flex w-full items-center gap-2 rounded-2xl border border-dashed border-border bg-card px-3 py-3 text-left text-sm hover:border-primary hover:bg-muted"
+        >
+          <Plus className="h-4 w-4 text-muted-foreground" />
+          <span>Nincs találat — hozzáadom mint kulcsszó: <strong>„{query.trim()}"</strong></span>
+        </button>
       )}
 
       {picked.length > 0 && (
@@ -337,7 +352,7 @@ function IntroPicker({
                     <img src={a.image_url} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                      {a.kind === "podcast" ? <Mic className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                      {a.kind === "podcast" ? <Mic className="h-3 w-3" /> : a.kind === "person" ? <User className="h-3 w-3" /> : <Search className="h-3 w-3" />}
                     </div>
                   )}
                 </div>

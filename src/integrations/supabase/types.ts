@@ -5491,26 +5491,48 @@ export type Database = {
           title: string
         }[]
       }
-      get_swipe_seed_from_anchors: {
-        Args: {
-          p_limit?: number
-          p_person_ids?: string[]
-          p_podcast_ids?: string[]
-        }
-        Returns: {
-          ai_summary: string
-          anchor_kind: string
-          display_title: string
-          episode_id: string
-          image_url: string
-          podcast_id: string
-          podcast_image_url: string
-          podcast_slug: string
-          podcast_title: string
-          slug: string
-          title: string
-        }[]
-      }
+      get_swipe_seed_from_anchors:
+        | {
+            Args: {
+              p_keywords?: string[]
+              p_limit?: number
+              p_person_ids?: string[]
+              p_podcast_ids?: string[]
+            }
+            Returns: {
+              ai_summary: string
+              anchor_kind: string
+              display_title: string
+              episode_id: string
+              image_url: string
+              podcast_id: string
+              podcast_image_url: string
+              podcast_slug: string
+              podcast_title: string
+              slug: string
+              title: string
+            }[]
+          }
+        | {
+            Args: {
+              p_limit?: number
+              p_person_ids?: string[]
+              p_podcast_ids?: string[]
+            }
+            Returns: {
+              ai_summary: string
+              anchor_kind: string
+              display_title: string
+              episode_id: string
+              image_url: string
+              podcast_id: string
+              podcast_image_url: string
+              podcast_slug: string
+              podcast_title: string
+              slug: string
+              title: string
+            }[]
+          }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
