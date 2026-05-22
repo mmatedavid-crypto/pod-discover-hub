@@ -231,7 +231,7 @@ Deno.serve(async (req) => {
 
       const { data: rows, error } = await admin
         .from("episodes")
-        .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, language, hosts)")
+        .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, language, hosts), episode_clean_text(cleaned_text)")
         .not("ai_summary", "is", null)
         .lt("ai_entities_version", 3)
         .eq("podcasts.is_hungarian", true)
