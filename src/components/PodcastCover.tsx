@@ -1,13 +1,18 @@
 import { forwardRef, useState } from "react";
 
 function initials(title: string) {
-  return title
-    .replace(/[^A-Za-z0-9 ]/g, "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("") || "P";
+  const normalized = (title || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  return (
+    normalized
+      .replace(/[^A-Za-z0-9 ]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join("") || "P"
+  );
 }
 
 function bgFor(title: string) {
@@ -29,15 +34,23 @@ export const PodcastCover = forwardRef<HTMLDivElement, Props>(function PodcastCo
   ref,
 ) {
   const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const showImg = src && !broken;
   const sizeCls = size === "sm" ? "text-xs" : size === "lg" ? "text-3xl" : "text-base";
   return (
     <div
       ref={ref}
-      className={`aspect-square w-full overflow-hidden rounded-md border border-border ${className}`}
-      style={!showImg ? { background: bgFor(title) } : undefined}
+      className={`relative aspect-square w-full overflow-hidden rounded-md border border-border ${className}`}
+      style={{ background: bgFor(title) }}
     >
-      {showImg ? (
+      {/* Always-rendered initials fallback — visible until image loads, or if missing/broken */}
+      <div
+        aria-hidden={showImg && loaded}
+        className={`absolute inset-0 flex items-center justify-center font-semibold text-foreground/70 ${sizeCls}`}
+      >
+        {initials(title)}
+      </div>
+      {showImg && (
         <img
           src={src as string}
           alt={title}
@@ -45,13 +58,10 @@ export const PodcastCover = forwardRef<HTMLDivElement, Props>(function PodcastCo
           decoding="async"
           width={400}
           height={400}
+          onLoad={() => setLoaded(true)}
           onError={() => setBroken(true)}
-          className="w-full h-full object-cover"
+          className={`relative w-full h-full object-cover transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`}
         />
-      ) : (
-        <div className={`w-full h-full flex items-center justify-center font-semibold text-foreground/70 ${sizeCls}`}>
-          {initials(title)}
-        </div>
       )}
     </div>
   );
