@@ -25,7 +25,7 @@ const SECTIONS: { key: string; label: string; types: OrgType[]; href?: string; i
   { key: "sport",         label: "Sport (klubok és ligák)", types: ["sport_team", "sport_league"],     iconType: "sport_team" },
 ];
 
-const COLS = "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at";
+const COLS = "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, wikipedia_url, wikipedia_match_status, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at";
 
 export default function OrganizationsIndexPage() {
   const [stats, setStats] = useState<Stats>({ companies: 0, parties: 0, total: 0 });
@@ -45,8 +45,7 @@ export default function OrganizationsIndexPage() {
       const topAllPromise = supabase
         .from("organizations")
         .select(COLS)
-        .eq("is_public", true)
-        .gte("gated_episode_count", 1)
+        .eq("is_indexable", true)
         .not("org_type", "eq", "other")
         .order("gated_episode_count", { ascending: false })
         .limit(12);
@@ -55,20 +54,17 @@ export default function OrganizationsIndexPage() {
       const companyCountPromise = supabase
         .from("organizations")
         .select("id", { count: "exact", head: true })
-        .eq("is_public", true)
-        .in("org_type", ["company", "media", "ngo", "institution", "radio_station"])
-        .gte("gated_episode_count", 1);
+        .eq("is_indexable", true)
+        .in("org_type", ["company", "media", "ngo", "institution", "radio_station"]);
       const partyCountPromise = supabase
         .from("organizations")
         .select("id", { count: "exact", head: true })
-        .eq("is_public", true)
-        .eq("org_type", "party")
-        .gte("gated_episode_count", 1);
+        .eq("is_indexable", true)
+        .eq("org_type", "party");
       const totalCountPromise = supabase
         .from("organizations")
         .select("id", { count: "exact", head: true })
-        .eq("is_public", true)
-        .gte("gated_episode_count", 1)
+        .eq("is_indexable", true)
         .not("org_type", "eq", "other");
 
       const sectionPromises = SECTIONS.map((s) =>
@@ -76,17 +72,15 @@ export default function OrganizationsIndexPage() {
           supabase
             .from("organizations")
             .select(COLS)
-            .eq("is_public", true)
+            .eq("is_indexable", true)
             .in("org_type", s.types)
-            .gte("gated_episode_count", 1)
             .order("gated_episode_count", { ascending: false })
             .limit(6),
           supabase
             .from("organizations")
             .select("id", { count: "exact", head: true })
-            .eq("is_public", true)
-            .in("org_type", s.types)
-            .gte("gated_episode_count", 1),
+            .eq("is_indexable", true)
+            .in("org_type", s.types),
         ]),
       );
 

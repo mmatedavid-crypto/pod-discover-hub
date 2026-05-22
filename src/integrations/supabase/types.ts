@@ -5744,6 +5744,17 @@ export type Database = {
           similarity: number
         }[]
       }
+      match_org_by_name: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          gated_episode_count: number
+          id: string
+          name: string
+          org_type: string
+          slug: string
+          wikipedia_match_status: string
+        }[]
+      }
       match_podcast_by_name: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {

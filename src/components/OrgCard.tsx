@@ -22,6 +22,8 @@ export interface OrgCardData {
   short_description_hu?: string | null;
   ai_bio?: string | null;
   wikipedia_extract?: string | null;
+  wikipedia_url?: string | null;
+  wikipedia_match_status?: string | null;
   logo_url?: string | null;
   gated_episode_count: number;
   gated_podcast_count: number;
@@ -113,9 +115,17 @@ export default function OrgCard({ o }: { o: OrgCardData }) {
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="font-semibold truncate leading-tight">{o.name}</div>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mt-0.5 flex items-center gap-1.5">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
               <Icon className="h-3 w-3" />
               <span>{TYPE_LABEL[o.org_type]}</span>
+              {o.wikipedia_match_status === "verified" && o.wikipedia_url && (
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded bg-foreground/5 border border-border text-foreground/70 normal-case tracking-normal"
+                  title="Wikipedia bejegyzéssel párosítva"
+                >
+                  Wiki
+                </span>
+              )}
             </div>
 
           </div>

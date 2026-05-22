@@ -21,12 +21,11 @@ async function fetchOrgs(types: string[], search: string | null, limit: number, 
   let q = supabase
     .from("organizations")
     .select(
-      "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at",
+      "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, wikipedia_url, wikipedia_match_status, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at",
       { count: "exact" },
     )
-    .eq("is_public", true)
-    .in("org_type", types)
-    .gte("gated_episode_count", 1);
+    .eq("is_indexable", true)
+    .in("org_type", types);
   if (search && search.length >= 2) q = q.ilike("name", `%${search}%`);
   q = q.order("gated_episode_count", { ascending: false }).range(offset, offset + limit - 1);
   const { data, error, count } = await q;
