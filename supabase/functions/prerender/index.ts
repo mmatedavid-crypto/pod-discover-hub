@@ -407,7 +407,7 @@ async function buildPerson(
   slug: string,
   urlPrefix: string,
 ) {
-  const { data: person } = await supabase
+  const { data: person } = await (supabase as any)
     .from("people")
     .select("id, name, slug, image_url, ai_bio, wikipedia_extract, wikipedia_description, short_bio, is_public")
     .eq("slug", slug)
