@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence, PanInfo } from "framer-motion";
-import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play } from "lucide-react";
+import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from "framer-motion";
+import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,6 +55,7 @@ type Persisted = {
   seenCardIds: string[];
   likedCardIds: string[];
   dislikedCardIds: string[];
+  superLikedCardIds: string[];
   updatedAt: string;
 };
 
@@ -68,6 +69,7 @@ function loadPersisted(): Persisted {
         seenCardIds: p.seenCardIds || [],
         likedCardIds: p.likedCardIds || [],
         dislikedCardIds: p.dislikedCardIds || [],
+        superLikedCardIds: p.superLikedCardIds || [],
         updatedAt: p.updatedAt || new Date().toISOString(),
       };
     }
@@ -77,6 +79,7 @@ function loadPersisted(): Persisted {
     seenCardIds: [],
     likedCardIds: [],
     dislikedCardIds: [],
+    superLikedCardIds: [],
     updatedAt: new Date().toISOString(),
   };
 }
@@ -222,10 +225,21 @@ export default function StartSwipePage() {
     () => persisted.dislikedCardIds.map(id => byId.get(id)).filter((c): c is Card => !!c),
     [persisted.dislikedCardIds, byId]
   );
+  const superLiked = useMemo(
+    () => persisted.superLikedCardIds.map(id => byId.get(id)).filter((c): c is Card => !!c),
+    [persisted.superLikedCardIds, byId]
+  );
+
+  // Vector weighting: super-likes count 2x (we duplicate them in the positive set).
+  const effectiveLiked = useMemo(() => [...liked, ...superLiked], [liked, superLiked]);
 
   const totalSwipes = persisted.seenCardIds.length;
   const positiveSwipes = persisted.likedCardIds.length;
-  const confidence = useMemo(() => computeConfidence(liked, disliked), [liked, disliked]);
+  const superSwipes = persisted.superLikedCardIds.length;
+  const confidence = useMemo(
+    () => computeConfidence(effectiveLiked, disliked),
+    [effectiveLiked, disliked]
+  );
 
   // Load card pool once
   useEffect(() => {
@@ -247,9 +261,9 @@ export default function StartSwipePage() {
   useEffect(() => {
     if (phase !== "swipe" || !pool || current) return;
     const seen = new Set(persisted.seenCardIds);
-    const next = pickNextCard(pool, seen, liked, disliked, totalSwipes);
+    const next = pickNextCard(pool, seen, effectiveLiked, disliked, totalSwipes);
     setCurrent(next);
-  }, [phase, pool, current, persisted.seenCardIds, liked, disliked, totalSwipes]);
+  }, [phase, pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
 
   // Auto-fetch recs when entering result
   useEffect(() => {
@@ -259,9 +273,9 @@ export default function StartSwipePage() {
   }, [phase]);
 
   const fetchRecs = async () => {
-    if (liked.length === 0) return;
+    if (effectiveLiked.length === 0) return;
     setRecsLoading(true);
-    const userVec = normalize(mean(liked.map(c => c.card_embedding)));
+    const userVec = normalize(mean(effectiveLiked.map(c => c.card_embedding)));
     const negVec = disliked.length ? normalize(mean(disliked.map(c => c.card_embedding))) : null;
     const { data, error } = await supabase.rpc("match_episodes_by_taste_vector", {
       p_user_vector: toPgVector(userVec) as any,
@@ -273,28 +287,53 @@ export default function StartSwipePage() {
     setRecsLoading(false);
   };
 
+  // Preview of next 2 cards behind the active one (visual stack)
+  const upcoming = useMemo(() => {
+    if (!pool || !current) return [] as Card[];
+    const seen = new Set([...persisted.seenCardIds, current.id]);
+    const out: Card[] = [];
+    let tempLiked = effectiveLiked;
+    let tempDisliked = disliked;
+    let idx = totalSwipes + 1;
+    for (let i = 0; i < 2; i++) {
+      const c = pickNextCard(pool, seen, tempLiked, tempDisliked, idx);
+      if (!c) break;
+      out.push(c);
+      seen.add(c.id);
+      idx++;
+    }
+    return out;
+  }, [pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
+
   /* ─────── Actions ─────── */
 
   const handleStart = () => {
     setPhase("swipe");
   };
 
-  const handleSwipe = (action: "like" | "skip") => {
+  const handleSwipe = (action: "like" | "skip" | "super") => {
     if (!current || !pool) return;
+    const isPositive = action === "like" || action === "super";
     const next: Persisted = {
       ...persisted,
       seenCardIds: [...persisted.seenCardIds, current.id],
-      likedCardIds: action === "like" ? [...persisted.likedCardIds, current.id] : persisted.likedCardIds,
+      likedCardIds: isPositive ? [...persisted.likedCardIds, current.id] : persisted.likedCardIds,
       dislikedCardIds: action === "skip" ? [...persisted.dislikedCardIds, current.id] : persisted.dislikedCardIds,
+      superLikedCardIds: action === "super" ? [...persisted.superLikedCardIds, current.id] : persisted.superLikedCardIds,
       updatedAt: new Date().toISOString(),
     };
     setPersisted(next);
     savePersisted(next);
 
-    // Build updated liked/disliked arrays for stop check
-    const newLiked = action === "like" ? [...liked, current] : liked;
+    // Mild haptic feedback (mobile)
+    try { (navigator as any).vibrate?.(action === "super" ? [10, 40, 30] : 15); } catch { /* ignore */ }
+
+    // Build updated arrays for stop check (super counts 2x for vector signal)
+    const newLiked = isPositive ? [...liked, current] : liked;
+    const newSuper = action === "super" ? [...superLiked, current] : superLiked;
+    const newEffective = [...newLiked, ...newSuper];
     const newDisliked = action === "skip" ? [...disliked, current] : disliked;
-    const newConf = computeConfidence(newLiked, newDisliked);
+    const newConf = computeConfidence(newEffective, newDisliked);
     const total = next.seenCardIds.length;
     const positives = next.likedCardIds.length;
 
@@ -306,7 +345,7 @@ export default function StartSwipePage() {
 
     // Pick next card
     const seen = new Set(next.seenCardIds);
-    const nextCard = pickNextCard(pool, seen, newLiked, newDisliked, total);
+    const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total);
     if (!nextCard) {
       setPhase("result");
       setCurrent(null);
@@ -321,6 +360,7 @@ export default function StartSwipePage() {
       seenCardIds: [],
       likedCardIds: [],
       dislikedCardIds: [],
+      superLikedCardIds: [],
       updatedAt: new Date().toISOString(),
     };
     savePersisted(fresh);
@@ -367,9 +407,11 @@ export default function StartSwipePage() {
         {phase === "swipe" && (
           <SwipeView
             current={current}
+            upcoming={upcoming}
             loading={!pool}
             totalSwipes={totalSwipes}
             positiveSwipes={positiveSwipes}
+            superSwipes={superSwipes}
             confidence={confidence}
             onAction={handleSwipe}
           />
@@ -379,6 +421,7 @@ export default function StartSwipePage() {
           <ResultView
             liked={liked}
             disliked={disliked}
+            superLiked={superLiked}
             recs={recs}
             recsLoading={recsLoading}
             onReset={resetAll}
@@ -428,10 +471,14 @@ function IntroLanding({
         )}
       </div>
 
-      <div className="mt-10 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+      <div className="mt-10 grid grid-cols-3 gap-3 text-xs text-muted-foreground">
         <div className="rounded-2xl border border-border bg-card p-4">
           <div className="font-medium text-foreground">← Balra ❌</div>
           <div className="mt-1">Nem nekem való</div>
+        </div>
+        <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4">
+          <div className="font-medium text-primary">↑ Fel ⭐</div>
+          <div className="mt-1">Imádom — 2× súly</div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
           <div className="font-medium text-foreground">Jobbra ❤ →</div>
@@ -445,15 +492,30 @@ function IntroLanding({
 /* ────────────────── Swipe ────────────────── */
 
 function SwipeView({
-  current, loading, totalSwipes, positiveSwipes, confidence, onAction,
+  current, upcoming, loading, totalSwipes, positiveSwipes, superSwipes, confidence, onAction,
 }: {
   current: Card | null;
+  upcoming: Card[];
   loading: boolean;
   totalSwipes: number;
   positiveSwipes: number;
+  superSwipes: number;
   confidence: number;
-  onAction: (a: "like" | "skip") => void;
+  onAction: (a: "like" | "skip" | "super") => void;
 }) {
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!current) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowRight") { e.preventDefault(); onAction("like"); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); onAction("skip"); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); onAction("super"); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [current, onAction]);
+
   if (loading) return <Skeleton className="aspect-[3/4] w-full rounded-3xl" />;
   if (!current) {
     return (
@@ -466,56 +528,154 @@ function SwipeView({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{totalSwipes} swipe · {positiveSwipes} ❤</span>
+        <span>
+          {totalSwipes} swipe · {positiveSwipes} ❤
+          {superSwipes > 0 && <> · <span className="text-primary">{superSwipes} ⭐</span></>}
+        </span>
         <span>magabiztosság: {Math.round(confidence * 100)}%</span>
       </div>
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full bg-primary transition-all"
-          style={{ width: `${Math.min(100, Math.round(confidence * 100))}%` }}
+        <motion.div
+          className="h-full bg-gradient-to-r from-primary to-primary/70"
+          initial={false}
+          animate={{ width: `${Math.min(100, Math.round(confidence * 100))}%` }}
+          transition={{ type: "spring", stiffness: 120, damping: 18 }}
         />
       </div>
 
       <div className="relative aspect-[3/4] w-full">
-        <AnimatePresence mode="popLayout">
+        {/* Background stack (next cards) */}
+        {upcoming.map((c, i) => {
+          const depth = i + 1; // 1, 2
+          return (
+            <motion.div
+              key={c.id}
+              className="absolute inset-0 pointer-events-none"
+              initial={false}
+              animate={{
+                scale: 1 - depth * 0.05,
+                y: depth * 12,
+                opacity: 1 - depth * 0.35,
+              }}
+              transition={{ type: "spring", stiffness: 200, damping: 22 }}
+              style={{ zIndex: 10 - depth }}
+            >
+              <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/20 via-card to-card shadow-lg">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.1),transparent_60%)]" />
+              </div>
+            </motion.div>
+          );
+        })}
+
+        {/* Active card */}
+        <AnimatePresence mode="popLayout" initial={false}>
           <SwipeCard key={current.id} card={current} onAction={onAction} />
         </AnimatePresence>
       </div>
 
-      <div className="mt-6 flex items-center justify-center gap-6">
+      <div className="mt-6 flex items-center justify-center gap-5">
         <ActionBtn label="Nem nekem való" onClick={() => onAction("skip")} variant="skip">
           <X className="h-7 w-7" />
+        </ActionBtn>
+        <ActionBtn label="Imádom" onClick={() => onAction("super")} variant="super">
+          <Star className="h-6 w-6 fill-current" />
         </ActionBtn>
         <ActionBtn label="Érdekel" onClick={() => onAction("like")} variant="like">
           <Heart className="h-7 w-7 fill-current" />
         </ActionBtn>
       </div>
+      <div className="mt-3 text-center text-[10px] uppercase tracking-wider text-muted-foreground">
+        ← skip · ↑ imádom · → like
+      </div>
     </div>
   );
 }
 
-function SwipeCard({ card, onAction }: { card: Card; onAction: (a: "like" | "skip") => void }) {
+function SwipeCard({ card, onAction }: { card: Card; onAction: (a: "like" | "skip" | "super") => void }) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  // Rotation follows horizontal drag, clamped
+  const rotate = useTransform(x, [-300, 0, 300], [-18, 0, 18]);
+
+  // Stamp opacities
+  const likeOpacity = useTransform(x, [40, 160], [0, 1]);
+  const nopeOpacity = useTransform(x, [-160, -40], [1, 0]);
+  const superOpacity = useTransform(y, [-160, -40], [1, 0]);
+
+  // Color overlay tints
+  const greenTint = useTransform(x, [40, 200], [0, 0.35]);
+  const redTint = useTransform(x, [-200, -40], [0.35, 0]);
+  const blueTint = useTransform(y, [-200, -40], [0.4, 0]);
+
   const handleDragEnd = (_: any, info: PanInfo) => {
     const { offset, velocity } = info;
+    // Super-like takes precedence when up-swipe dominates
+    if (offset.y < -140 || velocity.y < -700) return onAction("super");
     if (offset.x > 120 || velocity.x > 600) return onAction("like");
     if (offset.x < -120 || velocity.x < -600) return onAction("skip");
+  };
+
+  // Exit animation: fly off in the direction of the last drag (or current motion)
+  const exitFor = (cx: number, cy: number) => {
+    if (cy < -100) return { y: -800, opacity: 0, rotate: 0, transition: { duration: 0.35 } };
+    if (cx > 80) return { x: 800, rotate: 24, opacity: 0, transition: { duration: 0.35 } };
+    if (cx < -80) return { x: -800, rotate: -24, opacity: 0, transition: { duration: 0.35 } };
+    return { opacity: 0, scale: 0.9, transition: { duration: 0.2 } };
   };
 
   return (
     <motion.div
       className="absolute inset-0"
-      drag="x"
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.7}
+      drag
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      dragElastic={0.85}
       onDragEnd={handleDragEnd}
-      whileTap={{ scale: 0.98, cursor: "grabbing" }}
-      initial={{ scale: 0.95, opacity: 0, y: 20 }}
+      whileTap={{ cursor: "grabbing" }}
+      style={{ x, y, rotate, cursor: "grab", zIndex: 20 }}
+      initial={{ scale: 0.92, opacity: 0, y: 30 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
-      exit={{ x: 0, opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-      style={{ cursor: "grab" }}
+      exit={exitFor(x.get(), y.get())}
+      transition={{ type: "spring", stiffness: 260, damping: 24 }}
     >
-      <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/30 via-card to-card shadow-xl">
+      <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/30 via-card to-card shadow-2xl">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.15),transparent_60%)]" />
+
+        {/* Color overlays */}
+        <motion.div className="pointer-events-none absolute inset-0 bg-emerald-500" style={{ opacity: greenTint }} />
+        <motion.div className="pointer-events-none absolute inset-0 bg-rose-500" style={{ opacity: redTint }} />
+        <motion.div className="pointer-events-none absolute inset-0 bg-sky-400" style={{ opacity: blueTint }} />
+
+        {/* LIKE stamp */}
+        <motion.div
+          className="pointer-events-none absolute left-6 top-6 select-none"
+          style={{ opacity: likeOpacity, rotate: -12 }}
+        >
+          <div className="rounded-md border-4 border-emerald-400 px-3 py-1 text-2xl font-black uppercase tracking-widest text-emerald-400 shadow-lg">
+            Tetszik
+          </div>
+        </motion.div>
+
+        {/* NOPE stamp */}
+        <motion.div
+          className="pointer-events-none absolute right-6 top-6 select-none"
+          style={{ opacity: nopeOpacity, rotate: 12 }}
+        >
+          <div className="rounded-md border-4 border-rose-500 px-3 py-1 text-2xl font-black uppercase tracking-widest text-rose-500 shadow-lg">
+            Passz
+          </div>
+        </motion.div>
+
+        {/* SUPER stamp */}
+        <motion.div
+          className="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 select-none"
+          style={{ opacity: superOpacity }}
+        >
+          <div className="rounded-md border-4 border-sky-400 px-4 py-1 text-2xl font-black uppercase tracking-widest text-sky-400 shadow-lg">
+            ⭐ Imádom
+          </div>
+        </motion.div>
+
         <div className="relative flex h-full flex-col justify-end p-8">
           <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             {card.stage === "broad" ? "felfedezés" : card.stage === "refine" ? "finomítás" : card.stage === "style" ? "stílus" : "ellenőrzés"}
@@ -538,30 +698,36 @@ function ActionBtn({
   children: React.ReactNode;
   label: string;
   onClick: () => void;
-  variant: "like" | "skip";
+  variant: "like" | "skip" | "super";
 }) {
   const styles =
     variant === "like"
-      ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30"
-      : "bg-card border border-border hover:bg-muted text-foreground";
+      ? "h-16 w-16 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30"
+      : variant === "super"
+      ? "h-14 w-14 bg-sky-500 text-white hover:bg-sky-400 shadow-lg shadow-sky-500/30"
+      : "h-16 w-16 bg-card border border-border hover:bg-muted text-foreground";
   return (
-    <button
+    <motion.button
       onClick={onClick}
       aria-label={label}
-      className={`h-16 w-16 ${styles} rounded-full flex items-center justify-center transition-transform active:scale-95`}
+      className={`${styles} rounded-full flex items-center justify-center`}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.9 }}
+      transition={{ type: "spring", stiffness: 400, damping: 20 }}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
 
 /* ────────────────── Result ────────────────── */
 
 function ResultView({
-  liked, disliked, recs, recsLoading, onReset, onOpen,
+  liked, disliked, superLiked, recs, recsLoading, onReset, onOpen,
 }: {
   liked: Card[];
   disliked: Card[];
+  superLiked: Card[];
   recs: RecEp[] | null;
   recsLoading: boolean;
   onReset: () => void;
@@ -570,7 +736,9 @@ function ResultView({
   // TODO(ai-copy): behind a future feature flag, swap deterministic copy below with
   // a `personalize-profile` edge function call that uses Lovable AI Gateway.
 
-  const weights = useMemo(() => tagWeights(liked), [liked]);
+  // Weight super-likes 2x for taste signal: duplicate them in the positive set.
+  const effectiveLiked = useMemo(() => [...liked, ...superLiked], [liked, superLiked]);
+  const weights = useMemo(() => tagWeights(effectiveLiked), [effectiveLiked]);
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
 
@@ -579,7 +747,7 @@ function ResultView({
   // topics by accumulated weight and assign a qualitative intensity label.
   const dna = useMemo(() => {
     const topicW: Record<string, number> = {};
-    for (const c of liked) {
+    for (const c of effectiveLiked) {
       for (const t of c.topic_tags) topicW[t] = (topicW[t] || 0) + 1.5;
       for (const t of c.mood_tags) topicW[t] = (topicW[t] || 0) + 0.6;
       for (const t of c.archetype_tags) topicW[t] = (topicW[t] || 0) + 0.4;
@@ -597,7 +765,7 @@ function ResultView({
       intensity: INTENSITY[Math.min(i, INTENSITY.length - 1)].label,
       strength: INTENSITY[Math.min(i, INTENSITY.length - 1)].strength,
     }));
-  }, [liked]);
+  }, [effectiveLiked]);
 
   // Recommended podcasts: dedupe from recs
   const recPodcasts = useMemo(() => {
@@ -757,7 +925,7 @@ function ResultView({
       )}
 
       <div className="text-center text-xs text-muted-foreground">
-        {liked.length} ❤ · {disliked.length} ❌ — a profilod helyben tárolódik
+        {liked.length} ❤ {superLiked.length > 0 && <>· <span className="text-primary">{superLiked.length} ⭐</span> </>}· {disliked.length} ❌ — a profilod helyben tárolódik
       </div>
     </div>
   );
