@@ -5351,6 +5351,12 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      demote_publisher_self_orgs: {
+        Args: never
+        Returns: {
+          demoted_count: number
+        }[]
+      }
       embed_candidate_stats: {
         Args: { _model: string; _tiers: string[] }
         Returns: Json
