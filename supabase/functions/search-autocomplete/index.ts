@@ -18,13 +18,33 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 type Suggestion = {
-  type: "podcast" | "person" | "topic" | "category" | "query";
+  type: "podcast" | "person" | "topic" | "category" | "organization" | "query";
   label: string;
   subtitle?: string;
   href: string;
   image_url?: string | null;
   confidence: number;
 };
+
+function orgTypeLabel(t: string): string {
+  switch (t) {
+    case "party": return "Párt";
+    case "media": return "Média";
+    case "radio_station": return "Rádió";
+    case "institution": return "Intézmény";
+    case "ngo": return "Civil szervezet";
+    case "university": return "Egyetem";
+    case "research": return "Kutatóintézet";
+    case "church": return "Egyház";
+    case "sport_team": return "Sportklub";
+    case "sport_league": return "Sportliga";
+    default: return "Szervezet";
+  }
+}
+
+function orgHref(t: string, slug: string): string {
+  return t === "party" ? `/part/${slug}` : `/ceg/${slug}`;
+}
 
 function norm(s: string): string {
   return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
