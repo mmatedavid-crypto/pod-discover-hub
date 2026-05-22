@@ -466,9 +466,6 @@ function IntroLanding({
         {poolError && (
           <p className="text-xs text-destructive">Hiba a betöltéskor: {poolError}</p>
         )}
-        {poolReady && (
-          <p className="text-xs text-muted-foreground text-center">{poolSize} kártya áll készen</p>
-        )}
       </div>
 
       <div className="mt-10 grid grid-cols-3 gap-3 text-xs text-muted-foreground">
@@ -478,7 +475,7 @@ function IntroLanding({
         </div>
         <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4">
           <div className="font-medium text-primary">↑ Fel ⭐</div>
-          <div className="mt-1">Imádom — 2× súly</div>
+          <div className="mt-1">Imádom</div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
           <div className="font-medium text-foreground">Jobbra ❤ →</div>
