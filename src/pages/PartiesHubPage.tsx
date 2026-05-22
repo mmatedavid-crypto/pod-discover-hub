@@ -13,9 +13,8 @@ async function fetchParties(search: string | null, limit: number, offset: number
       "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at, editorial_priority_level",
       { count: "exact" },
     )
-    .eq("is_public", true)
-    .eq("org_type", "party")
-    .gte("gated_episode_count", 1);
+    .eq("is_indexable", true)
+    .eq("org_type", "party");
   if (search && search.length >= 2) q = q.ilike("name", `%${search}%`);
   q = q
     .order("editorial_priority_level", { ascending: false })
