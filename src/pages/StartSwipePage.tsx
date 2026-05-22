@@ -747,7 +747,7 @@ function ResultView({
   // topics by accumulated weight and assign a qualitative intensity label.
   const dna = useMemo(() => {
     const topicW: Record<string, number> = {};
-    for (const c of liked) {
+    for (const c of effectiveLiked) {
       for (const t of c.topic_tags) topicW[t] = (topicW[t] || 0) + 1.5;
       for (const t of c.mood_tags) topicW[t] = (topicW[t] || 0) + 0.6;
       for (const t of c.archetype_tags) topicW[t] = (topicW[t] || 0) + 0.4;
@@ -765,7 +765,7 @@ function ResultView({
       intensity: INTENSITY[Math.min(i, INTENSITY.length - 1)].label,
       strength: INTENSITY[Math.min(i, INTENSITY.length - 1)].strength,
     }));
-  }, [liked]);
+  }, [effectiveLiked]);
 
   // Recommended podcasts: dedupe from recs
   const recPodcasts = useMemo(() => {
