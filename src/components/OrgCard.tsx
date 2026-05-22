@@ -95,26 +95,34 @@ export default function OrgCard({ o }: { o: OrgCardData }) {
       to={detailHref(o)}
       className="group flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/40 transition-colors"
     >
-      <div
-        className="shrink-0 h-12 w-12 rounded-lg bg-muted/60 flex items-center justify-center overflow-hidden border border-border/60"
-        style={
-          o.org_type === "party" && o.political_color
-            ? { borderColor: o.political_color, background: `${o.political_color}1a` }
-            : undefined
-        }
-      >
+      <div className="shrink-0 h-12 w-12 rounded-lg bg-muted/60 border border-border/60 flex items-center justify-center overflow-hidden">
         {o.logo_url ? (
-          <img src={o.logo_url} alt="" loading="lazy" className="h-full w-full object-contain" />
+          <img
+            src={o.logo_url}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-contain p-1.5"
+          />
         ) : (
-          <span className="text-xs font-semibold text-muted-foreground">{initials(o.name) || <Icon className="h-5 w-5" />}</span>
+          <span className="text-xs font-semibold text-muted-foreground">
+            {initials(o.name) || <Icon className="h-5 w-5" />}
+          </span>
         )}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="font-semibold truncate leading-tight">{o.name}</div>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mt-0.5 flex items-center gap-1">
-              <Icon className="h-3 w-3" /> {TYPE_LABEL[o.org_type]}
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mt-0.5 flex items-center gap-1.5">
+              <Icon className="h-3 w-3" />
+              <span>{TYPE_LABEL[o.org_type]}</span>
+              {o.org_type === "party" && o.political_color && (
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 rounded-full ring-1 ring-border"
+                  style={{ background: o.political_color }}
+                />
+              )}
             </div>
           </div>
           {isFresh && (
@@ -132,6 +140,7 @@ export default function OrgCard({ o }: { o: OrgCardData }) {
       </div>
     </Link>
   );
+
 }
 
 export { TYPE_LABEL as ORG_TYPE_LABEL, TYPE_ICON as ORG_TYPE_ICON };
