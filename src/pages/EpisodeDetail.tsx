@@ -400,6 +400,8 @@ export default function EpisodeDetail() {
           {ENT_KINDS.map(({ kind, label }) => <EntList key={kind} kind={kind} label={label} />)}
         </div>
 
+        <RelatedEpisodes episodeIdOverride={e.id} podcastIdOverride={p.id} variant="compact" />
+
         <SimilarEpisodes episodeId={e.id} />
 
         {moreFromPod.length > 0 && (
