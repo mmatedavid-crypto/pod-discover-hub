@@ -289,6 +289,49 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Organizations (cégek, médiumok, pártok, intézmények, sport stb.)
+    const orgSlugsSeen = new Set<string>();
+    // Alias matches first — short forms (MNB, Lakers) should win the dedupe.
+    for (const row of (orgAliasRes.data || []) as any[]) {
+      const o = row.organizations;
+      if (!o || !o.is_indexable) continue;
+      const slug = String(o.slug || "");
+      if (!slug || orgSlugsSeen.has(slug)) continue;
+      orgSlugsSeen.add(slug);
+      const aliasNorm = norm(String(row.alias || ""));
+      const exact = aliasNorm === q || aliasNorm === qNoSpace;
+      const aliasConf = Number(row.confidence) || 0.8;
+      const conf = Math.min(0.97, exact && aliasConf >= 0.8 ? 0.94 : 0.78 * aliasConf);
+      out.push({
+        type: "organization",
+        label: String(o.name || ""),
+        subtitle: orgTypeLabel(String(o.org_type || "")),
+        href: orgHref(String(o.org_type || ""), slug),
+        image_url: o.logo_url || null,
+        confidence: conf,
+      });
+    }
+    for (const o of (orgRes.data || []) as any[]) {
+      const slug = String(o.slug || "");
+      if (!slug || orgSlugsSeen.has(slug)) continue;
+      orgSlugsSeen.add(slug);
+      const name = String(o.name || "");
+      const nn = String(o.normalized_name || norm(name));
+      let base = 0.55;
+      if (nn === q || nn === qNoSpace) base = 0.96;
+      else if (nn.startsWith(qNoSpace)) base = 0.85;
+      else if ((` ${nn} `).includes(` ${qNoSpace} `)) base = 0.78;
+      else if (nn.includes(qNoSpace)) base = 0.65;
+      out.push({
+        type: "organization",
+        label: name,
+        subtitle: orgTypeLabel(String(o.org_type || "")),
+        href: orgHref(String(o.org_type || ""), slug),
+        image_url: o.logo_url || null,
+        confidence: base,
+      });
+    }
+
     // Past popular search queries from cache (Google-style query suggestions).
     for (const row of (qcacheRes.data || []) as any[]) {
       const qn = String(row.q_norm || "").trim();
