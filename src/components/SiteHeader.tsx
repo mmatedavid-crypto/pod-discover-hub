@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder } from "lucide-react";
+import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder, Sparkles } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
