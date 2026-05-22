@@ -777,8 +777,11 @@ function ResultView({
   // TODO(ai-copy): behind a future feature flag, swap deterministic copy below with
   // a `personalize-profile` edge function call that uses Lovable AI Gateway.
 
-  // Weight super-likes 2x for taste signal: duplicate them in the positive set.
-  const effectiveLiked = useMemo(() => [...liked, ...superLiked], [liked, superLiked]);
+  // Match the page-level weighting: super-likes 3x (stronger personalization).
+  const effectiveLiked = useMemo(
+    () => [...liked, ...superLiked, ...superLiked],
+    [liked, superLiked],
+  );
   const weights = useMemo(() => tagWeights(effectiveLiked), [effectiveLiked]);
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
