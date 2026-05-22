@@ -430,12 +430,12 @@ function IntroLanding({
 
       <div className="mt-10 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
         <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="font-medium text-foreground">Jobbra ❤</div>
-          <div className="mt-1">Érdekel</div>
+          <div className="font-medium text-foreground">← Balra ❌</div>
+          <div className="mt-1">Nem nekem való</div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="font-medium text-foreground">Balra ❌</div>
-          <div className="mt-1">Nem nekem való</div>
+          <div className="font-medium text-foreground">Jobbra ❤ →</div>
+          <div className="mt-1">Érdekel</div>
         </div>
       </div>
     </div>
