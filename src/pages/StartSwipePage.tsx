@@ -513,7 +513,7 @@ function SwipeView({
     return () => window.removeEventListener("keydown", onKey);
   }, [current, onAction]);
 
-  if (loading) return <Skeleton className="aspect-[3/4] w-full rounded-3xl" />;
+  if (loading) return <Skeleton className="mx-auto aspect-[3/4] h-[min(60svh,30rem)] rounded-3xl" />;
   if (!current) {
     return (
       <div className="rounded-3xl border border-border bg-card p-8 text-center text-muted-foreground">
@@ -540,7 +540,7 @@ function SwipeView({
         />
       </div>
 
-      <div className="relative aspect-[3/4] w-full">
+      <div className="relative mx-auto aspect-[3/4] h-[min(60svh,30rem)] max-w-full">
         {/* Background stack (next cards) */}
         {upcoming.map((c, i) => {
           const depth = i + 1; // 1, 2
@@ -673,15 +673,15 @@ function SwipeCard({ card, onAction }: { card: Card; onAction: (a: "like" | "ski
           </div>
         </motion.div>
 
-        <div className="relative flex h-full flex-col justify-end p-8">
-          <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        <div className="relative flex h-full flex-col justify-end p-5 sm:p-6">
+          <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             {card.stage === "broad" ? "felfedezés" : card.stage === "refine" ? "finomítás" : card.stage === "style" ? "stílus" : "ellenőrzés"}
           </div>
-          <h2 className="text-2xl font-semibold leading-snug text-foreground md:text-3xl">
+          <h2 className="text-xl font-semibold leading-snug text-foreground sm:text-2xl">
             {card.title}
           </h2>
           {card.subtitle && (
-            <p className="mt-3 text-sm text-muted-foreground">{card.subtitle}</p>
+            <p className="mt-2 text-sm text-muted-foreground line-clamp-3">{card.subtitle}</p>
           )}
         </div>
       </div>
