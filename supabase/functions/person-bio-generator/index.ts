@@ -355,12 +355,12 @@ SZABÁLYOK:
     } catch { /* ignore */ }
 
     if (jobId) await admin.from("person_enrichment_jobs").update({
-      status: bioStatus === "needs_review" ? "needs_review" : "completed",
+      status: bioStatus === "completed" ? "completed" : (bioStatus === "audited_fail" ? "audited_fail" : "needs_review"),
       finished_at: new Date().toISOString(),
       output_snapshot: { bio_len: bio.length, overview_len: overview.length, cost_usd: totalCost, sources },
     }).eq("id", jobId);
 
-    return { id: personId, status: bioStatus, cost_usd: totalCost };
+    return { id: personId, status: bioStatus, cost_usd: totalCost, audit: auditResult };
   } catch (e: any) {
     if (jobId) await admin.from("person_enrichment_jobs").update({
       status: "failed", error_message: String(e?.message || e), finished_at: new Date().toISOString(),
@@ -373,12 +373,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
-  const limit = Math.min(Number(body.limit || 30), 300);
+  const limit = Math.min(Number(body.limit || 20), 300);
   const force = !!body.force;
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
-  // Daily budget cap
-  const budget = Number(body.daily_budget_usd || 3);
+  // Daily budget cap — GPT-5.5 bio + GPT-5 audit is pricier than before.
+  const budget = Number(body.daily_budget_usd || 15);
   const today = new Date().toISOString().slice(0, 10);
   const { data: spend } = await admin.from("ai_spend_daily").select("by_kind").eq("day", today).maybeSingle();
   const spentToday = Number(((spend?.by_kind as any) || {}).person_bio || 0);
