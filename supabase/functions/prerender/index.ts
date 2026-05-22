@@ -58,7 +58,7 @@ function shell(opts: {
   bodyHtml: string;
   noindex?: boolean;
 }) {
-  const ogImg = opts.ogImage || `${SITE}/og-image.png`;
+  const ogImg = opts.ogImage || `${SITE}/og-image.jpg`;
   const ld = opts.jsonLd
     .map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</script>`)
     .join("\n");
