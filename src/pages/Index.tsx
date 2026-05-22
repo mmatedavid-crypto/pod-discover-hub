@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder } from "lucide-react";
+import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
 import { MoodCollections } from "@/components/MoodCollections";
@@ -21,6 +21,7 @@ const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
   person: User,
   topic: Hash,
   category: Folder,
+  organization: Building2,
   query: Search,
 };
 
