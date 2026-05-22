@@ -210,12 +210,24 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
     .eq("episodes.podcasts.language_decision", "accept_hungarian")
     .limit(50);
 
-  const epList = (mentions || []).map((m: any) => ({
-    id: m.episodes?.id,
-    title: m.episodes?.title,
-    summary: (m.episodes?.ai_summary || m.episodes?.summary || "").slice(0, 400),
-    mention_type: m.mention_type,
-  })).filter((e: any) => e.id);
+  const epList = (mentions || [])
+    .filter((m: any) => {
+      if (m.relevance_status === "rejected" || m.relevance_status === "needs_review") return false;
+      const accepted = m.relevance_status === "accepted";
+      const strongAi = Number(m.final_relevance_score || 0) >= 0.75;
+      const manual = m.validation_source === "manual";
+      const legacyOk = (!m.relevance_status || m.relevance_status === "pending")
+        && ["host","guest","subject","archival_source","interviewee","speaker"].includes(m.mention_type)
+        && Number(m.confidence || 0) >= 0.80;
+      return accepted || strongAi || manual || legacyOk;
+    })
+    .map((m: any) => ({
+      id: m.episodes?.id,
+      title: m.episodes?.title,
+      summary: (m.episodes?.ai_summary || m.episodes?.summary || "").slice(0, 400),
+      mention_type: m.mention_type,
+    }))
+    .filter((e: any) => e.id);
 
   const tally = { host: 0, guest: 0, subject: 0, mentioned: 0 } as any;
   epList.forEach((e: any) => { tally[e.mention_type] = (tally[e.mention_type] || 0) + 1; });
