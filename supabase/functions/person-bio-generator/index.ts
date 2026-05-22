@@ -204,7 +204,7 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
     .limit(15);
   const { data: mentions } = await admin
     .from("person_episode_mentions")
-    .select("mention_type, episodes!inner(id, title, ai_summary, summary, podcasts!inner(is_hungarian, language_decision))")
+    .select("mention_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, ai_summary, summary, podcasts!inner(is_hungarian, language_decision))")
     .eq("person_id", personId)
     .eq("episodes.podcasts.is_hungarian", true)
     .eq("episodes.podcasts.language_decision", "accept_hungarian")
