@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
+import StartSwipePage from "./pages/StartSwipePage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import CategoriesPage from "./pages/CategoriesPage.tsx";
 import CategoryDetail from "./pages/CategoryDetail.tsx";
@@ -72,6 +73,8 @@ const App = () => (
         <SearchHotkey />
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/start" element={<StartSwipePage />} />
+          <Route path="/vibe" element={<StartSwipePage />} />
           <Route path="/kategoriak" element={<CategoriesPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/kategoria/:slug" element={<CategoryDetail />} />

@@ -5476,6 +5476,21 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      get_swipe_seed_episodes: {
+        Args: { p_limit?: number }
+        Returns: {
+          ai_summary: string
+          display_title: string
+          episode_id: string
+          image_url: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          slug: string
+          title: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -5531,6 +5546,22 @@ export type Database = {
           slug: string
           strong_mention_count: number
           total_count: number
+        }[]
+      }
+      match_episodes_by_centroid: {
+        Args: { p_disliked?: string[]; p_liked: string[]; p_limit?: number }
+        Returns: {
+          ai_summary: string
+          display_title: string
+          episode_id: string
+          image_url: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          similarity: number
+          slug: string
+          title: string
         }[]
       }
       match_hu_episodes_by_embedding: {

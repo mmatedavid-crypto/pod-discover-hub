@@ -411,6 +411,16 @@ const Index = () => {
               </div>
             </div>
           )}
+          <div className="mt-4">
+            <Link
+              to="/start"
+              className="group inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/15 transition-colors"
+            >
+              <Sparkles className="h-4 w-4" />
+              Mi a vibed ma? Próbáld a swipe-os ajánlót
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
         </div>
         {/* bottom rule */}
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
