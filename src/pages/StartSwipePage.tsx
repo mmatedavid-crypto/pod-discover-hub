@@ -1,12 +1,37 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
-import { Heart, X, Bookmark, Sparkles, RotateCcw, ArrowRight, Play, Search, Plus, Mic, User } from "lucide-react";
+import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Vec, zero, mean, cosine, coherence, normalize, toPgVector, parsePgVector,
+} from "@/lib/tasteVector";
+import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
+import { renderShareCard, shareOrDownload } from "@/lib/tasteShareCard";
 
-type SeedEp = {
+/* ────────────────── Types ────────────────── */
+
+type Card = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  image_url: string | null;
+  stage: string;
+  sensitivity_level: string;
+  priority: number;
+  topic_tags: string[];
+  mood_tags: string[];
+  format_tags: string[];
+  psych_tags: string[];
+  archetype_tags: string[];
+  catalog_fit_score: number | null;
+  top_episode_similarity: number | null;
+  card_embedding: Vec;
+};
+
+type RecEp = {
   episode_id: string;
   podcast_id: string;
   title: string;
@@ -17,182 +42,302 @@ type SeedEp = {
   podcast_title: string;
   podcast_slug: string;
   podcast_image_url: string | null;
+  similarity: number;
+  final_score: number;
 };
 
-type MatchEp = SeedEp & { similarity: number };
+type Phase = "intro" | "swipe" | "result";
 
-type Anchor = {
-  kind: "podcast" | "person" | "keyword";
-  id: string;
-  name: string;
-  slug: string;
-  image_url: string | null;
-  subtitle: string | null;
-};
+const STORAGE_KEY = "podiverzum_taste_v1";
 
-const STORAGE_KEY = "podiverzum_vibe_v1";
-
-type VibeState = {
-  anchors: Anchor[];
-  liked: string[];
-  disliked: string[];
-  saved: string[];
+type Persisted = {
+  sessionId: string;
+  seenCardIds: string[];
+  likedCardIds: string[];
+  dislikedCardIds: string[];
   updatedAt: string;
 };
 
-function loadVibe(): VibeState {
+function loadPersisted(): Persisted {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
-      return { anchors: [], liked: [], disliked: [], saved: [], ...parsed };
+      const p = JSON.parse(raw);
+      return {
+        sessionId: p.sessionId || crypto.randomUUID(),
+        seenCardIds: p.seenCardIds || [],
+        likedCardIds: p.likedCardIds || [],
+        dislikedCardIds: p.dislikedCardIds || [],
+        updatedAt: p.updatedAt || new Date().toISOString(),
+      };
     }
-  } catch {}
-  return { anchors: [], liked: [], disliked: [], saved: [], updatedAt: new Date().toISOString() };
+  } catch { /* ignore */ }
+  return {
+    sessionId: crypto.randomUUID(),
+    seenCardIds: [],
+    likedCardIds: [],
+    dislikedCardIds: [],
+    updatedAt: new Date().toISOString(),
+  };
 }
 
-function saveVibe(v: VibeState) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...v, updatedAt: new Date().toISOString() }));
-  } catch {}
+function savePersisted(p: Persisted) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...p, updatedAt: new Date().toISOString() })); } catch { /* ignore */ }
 }
 
-type Phase = "intro" | "swipe" | "results";
+/* ────────────────── Stopping logic ────────────────── */
+
+function shouldStop(totalSwipes: number, positiveSwipes: number, confidence: number): boolean {
+  if (totalSwipes >= 10 && positiveSwipes >= 6 && confidence >= 0.72) return true;
+  if (totalSwipes >= 22 && positiveSwipes >= 5 && confidence >= 0.60) return true;
+  if (totalSwipes >= 30) return true;
+  return false;
+}
+
+/* ────────────────── Tag weights aggregation ────────────────── */
+
+function tagWeights(cards: Card[]): Record<string, number> {
+  const w: Record<string, number> = {};
+  for (const c of cards) {
+    const tags = [...c.topic_tags, ...c.mood_tags, ...c.archetype_tags, ...c.psych_tags, ...c.format_tags];
+    for (const t of tags) w[t] = (w[t] || 0) + 1;
+  }
+  return w;
+}
+
+function topTags(weights: Record<string, number>, n: number): string[] {
+  return Object.entries(weights).sort((a, b) => b[1] - a[1]).slice(0, n).map(([t]) => t);
+}
+
+/* ────────────────── Next-card selector ────────────────── */
+
+const BROAD_DOMAINS = [
+  "gazdaság", "közélet", "technológia", "pszichológia",
+  "kultúra", "tudomány", "hit", "humor",
+];
+
+function pickNextCard(
+  pool: Card[],
+  seen: Set<string>,
+  liked: Card[],
+  disliked: Card[],
+  swipeIdx: number,
+): Card | null {
+  const candidates = pool.filter(c => !seen.has(c.id));
+  if (candidates.length === 0) return null;
+
+  // First 8 swipes: ensure broad coverage, rotate domains
+  if (swipeIdx < 8) {
+    const wantedDomain = BROAD_DOMAINS[swipeIdx % BROAD_DOMAINS.length];
+    const broadMatches = candidates.filter(
+      c => c.stage === "broad" && (c.topic_tags.includes(wantedDomain) || c.archetype_tags.includes(wantedDomain))
+    );
+    if (broadMatches.length > 0) {
+      return broadMatches[Math.floor(Math.random() * Math.min(3, broadMatches.length))];
+    }
+    const anyBroad = candidates.filter(c => c.stage === "broad");
+    if (anyBroad.length > 0) return anyBroad[Math.floor(Math.random() * anyBroad.length)];
+  }
+
+  // Adaptive scoring
+  const posMean = liked.length ? mean(liked.map(c => c.card_embedding)) : null;
+  const negMean = disliked.length ? mean(disliked.map(c => c.card_embedding)) : null;
+  const likedTags = tagWeights(liked);
+
+  const scored = candidates.map(c => {
+    const relevance = posMean ? Math.max(0, cosine(c.card_embedding, posMean)) : 0;
+    // uncertainty: prefer cards near decision boundary (mid relevance), prefer fresh archetypes
+    const uncertainty = posMean ? 1 - Math.abs(relevance - 0.5) * 2 : 0.5;
+    // coverage_gap: low-weight topics
+    const cardTagWeight = [...c.topic_tags, ...c.archetype_tags]
+      .reduce((s, t) => s + (likedTags[t] || 0), 0);
+    const coverageGap = 1 / (1 + cardTagWeight);
+    // archetype_disambiguation: penalize cards already deeply covered by negatives too
+    const negSim = negMean ? Math.max(0, cosine(c.card_embedding, negMean)) : 0;
+    const disamb = 1 - negSim;
+    const rand = Math.random();
+    const score = 0.35 * uncertainty + 0.25 * relevance + 0.20 * coverageGap + 0.10 * disamb + 0.10 * rand;
+    return { c, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  // Pick from top 3 to keep some variety
+  const top = scored.slice(0, 3);
+  return top[Math.floor(Math.random() * top.length)].c;
+}
+
+/* ────────────────── Confidence ────────────────── */
+
+function computeConfidence(liked: Card[], disliked: Card[]): number {
+  if (liked.length === 0) return 0;
+  const posVecs = liked.map(c => c.card_embedding);
+  const negVecs = disliked.map(c => c.card_embedding);
+  const posMean = mean(posVecs);
+  const negMean = negVecs.length ? mean(negVecs) : null;
+
+  // positive signal: more likes = stronger (cap at 8)
+  const positiveSignal = Math.min(1, liked.length / 8);
+  // coherence: how consistent are the likes
+  const coh = Math.max(0, coherence(posVecs));
+  // separation: how distinct from negatives
+  const sep = negMean ? Math.max(0, 1 - Math.max(0, cosine(posMean, negMean))) : 0.5;
+  // catalog match strength: avg top_episode_similarity of liked cards
+  const fits = liked.map(c => Number(c.top_episode_similarity || c.catalog_fit_score || 0)).filter(v => v > 0);
+  const catalog = fits.length ? Math.min(1, fits.reduce((s, v) => s + v, 0) / fits.length / 0.7) : 0.4;
+  // archetype confidence
+  const archConf = archetypeConfidence(tagWeights(liked));
+
+  return Math.min(1,
+    0.25 * positiveSignal +
+    0.25 * coh +
+    0.20 * sep +
+    0.15 * catalog +
+    0.15 * archConf
+  );
+}
+
+/* ────────────────── Page ────────────────── */
 
 export default function StartSwipePage() {
-  const [phase, setPhase] = useState<Phase>(() => {
-    const v = loadVibe();
-    if (v.liked.length >= 3) return "results";
-    return "intro";
-  });
-  const [vibe, setVibe] = useState<VibeState>(() => loadVibe());
-  const [cards, setCards] = useState<SeedEp[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [idx, setIdx] = useState(0);
-  const [recs, setRecs] = useState<MatchEp[] | null>(null);
-  const [recsLoading, setRecsLoading] = useState(false);
   const navigate = useNavigate();
+  const [persisted, setPersisted] = useState<Persisted>(() => loadPersisted());
+  const [phase, setPhase] = useState<Phase>("intro");
+  const [pool, setPool] = useState<Card[] | null>(null);
+  const [poolError, setPoolError] = useState<string | null>(null);
+  const [current, setCurrent] = useState<Card | null>(null);
+  const [recs, setRecs] = useState<RecEp[] | null>(null);
+  const [recsLoading, setRecsLoading] = useState(false);
 
-  const loadSeedsFromAnchors = useCallback(async (anchors: Anchor[], append = false, excludeIds: string[] = []) => {
-    setLoading(true);
-    const podcastIds = anchors.filter(a => a.kind === "podcast").map(a => a.id);
-    const personIds = anchors.filter(a => a.kind === "person").map(a => a.id);
-    const keywords = anchors.filter(a => a.kind === "keyword").map(a => a.name);
-    let data: SeedEp[] | null = null;
-    if (podcastIds.length || personIds.length || keywords.length) {
-      const res = await supabase.rpc("get_swipe_seed_from_anchors", {
-        p_podcast_ids: podcastIds,
-        p_person_ids: personIds,
-        p_keywords: keywords,
-        p_limit: 16,
-      });
-      if (!res.error && res.data) data = res.data as SeedEp[];
-    }
-    // Fallback / top-up with random HU seeds if not enough
-    if (!data || data.length < 6) {
-      const res2 = await supabase.rpc("get_swipe_seed_episodes", { p_limit: 16 });
-      if (!res2.error && res2.data) {
-        const existing = new Set((data || []).map(e => e.episode_id));
-        const extras = (res2.data as SeedEp[]).filter(e => !existing.has(e.episode_id));
-        data = [...(data || []), ...extras];
-      }
-    }
-    // Exclude already-seen
-    const exclude = new Set(excludeIds);
-    let fresh = (data || []).filter(e => !exclude.has(e.episode_id));
-    // Shuffle
-    fresh = fresh.sort(() => Math.random() - 0.5).slice(0, 8);
-    if (append) {
-      setCards(prev => [...prev, ...fresh]);
-    } else {
-      setCards(fresh);
-      setIdx(0);
-    }
-    setLoading(false);
-    return fresh.length;
+  // Derived collections
+  const byId = useMemo(() => {
+    const m = new Map<string, Card>();
+    (pool || []).forEach(c => m.set(c.id, c));
+    return m;
+  }, [pool]);
+
+  const liked = useMemo(
+    () => persisted.likedCardIds.map(id => byId.get(id)).filter((c): c is Card => !!c),
+    [persisted.likedCardIds, byId]
+  );
+  const disliked = useMemo(
+    () => persisted.dislikedCardIds.map(id => byId.get(id)).filter((c): c is Card => !!c),
+    [persisted.dislikedCardIds, byId]
+  );
+
+  const totalSwipes = persisted.seenCardIds.length;
+  const positiveSwipes = persisted.likedCardIds.length;
+  const confidence = useMemo(() => computeConfidence(liked, disliked), [liked, disliked]);
+
+  // Load card pool once
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc("get_active_taste_cards", { p_limit: 500 });
+      if (cancelled) return;
+      if (error) { setPoolError(error.message); return; }
+      const cards: Card[] = (data || []).map((r: any) => ({
+        ...r,
+        card_embedding: parsePgVector(r.card_embedding) || [],
+      })).filter((c: Card) => c.card_embedding.length === 768);
+      setPool(cards);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
+  // Pick first card when entering swipe phase
   useEffect(() => {
-    if (phase === "results" && vibe.liked.length >= 1 && !recs) {
-      void fetchRecs(vibe);
-    }
+    if (phase !== "swipe" || !pool || current) return;
+    const seen = new Set(persisted.seenCardIds);
+    const next = pickNextCard(pool, seen, liked, disliked, totalSwipes);
+    setCurrent(next);
+  }, [phase, pool, current, persisted.seenCardIds, liked, disliked, totalSwipes]);
+
+  // Auto-fetch recs when entering result
+  useEffect(() => {
+    if (phase !== "result" || recs || liked.length === 0) return;
+    void fetchRecs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  const fetchRecs = async (v: VibeState) => {
-    if (v.liked.length === 0) return;
+  const fetchRecs = async () => {
+    if (liked.length === 0) return;
     setRecsLoading(true);
-    const { data, error } = await supabase.rpc("match_episodes_by_centroid", {
-      p_liked: v.liked,
-      p_disliked: v.disliked,
-      p_limit: 8,
+    const userVec = normalize(mean(liked.map(c => c.card_embedding)));
+    const negVec = disliked.length ? normalize(mean(disliked.map(c => c.card_embedding))) : null;
+    const { data, error } = await supabase.rpc("match_episodes_by_taste_vector", {
+      p_user_vector: toPgVector(userVec) as any,
+      p_negative_vector: negVec ? (toPgVector(negVec) as any) : null,
+      p_exclude_episode_ids: [],
+      p_limit: 16,
     });
-    if (!error && data) setRecs(data as MatchEp[]);
+    if (!error && data) setRecs(data as RecEp[]);
     setRecsLoading(false);
   };
 
-  const startSwipe = async (anchors: Anchor[]) => {
-    const v = { ...vibe, anchors };
-    setVibe(v);
-    saveVibe(v);
+  /* ─────── Actions ─────── */
+
+  const handleStart = () => {
     setPhase("swipe");
-    await loadSeedsFromAnchors(anchors);
   };
 
-  const current = cards[idx];
-  const next = cards[idx + 1];
+  const handleSwipe = (action: "like" | "skip") => {
+    if (!current || !pool) return;
+    const next: Persisted = {
+      ...persisted,
+      seenCardIds: [...persisted.seenCardIds, current.id],
+      likedCardIds: action === "like" ? [...persisted.likedCardIds, current.id] : persisted.likedCardIds,
+      dislikedCardIds: action === "skip" ? [...persisted.dislikedCardIds, current.id] : persisted.dislikedCardIds,
+      updatedAt: new Date().toISOString(),
+    };
+    setPersisted(next);
+    savePersisted(next);
 
-  const MIN_LIKES = 5;
+    // Build updated liked/disliked arrays for stop check
+    const newLiked = action === "like" ? [...liked, current] : liked;
+    const newDisliked = action === "skip" ? [...disliked, current] : disliked;
+    const newConf = computeConfidence(newLiked, newDisliked);
+    const total = next.seenCardIds.length;
+    const positives = next.likedCardIds.length;
 
-  const handleSwipe = async (action: "like" | "skip" | "save") => {
-    if (!current) return;
-    const v = { ...vibe };
-    if (action === "like") v.liked = [...v.liked, current.episode_id];
-    if (action === "skip") v.disliked = [...v.disliked, current.episode_id];
-    if (action === "save") v.saved = [...v.saved, current.episode_id];
-    setVibe(v);
-    saveVibe(v);
-    const newIdx = idx + 1;
-    setIdx(newIdx);
-    if (newIdx >= cards.length) {
-      // If profile is still thin, keep feeding cards instead of bailing to results.
-      if (v.liked.length < MIN_LIKES) {
-        const seen = [...v.liked, ...v.disliked, ...v.saved, ...cards.map(c => c.episode_id)];
-        const added = await loadSeedsFromAnchors(vibe.anchors, false, seen);
-        if (added === 0) {
-          // truly nothing left — go to results with what we have
-          setPhase("results");
-          void fetchRecs(v);
-        }
-      } else {
-        setPhase("results");
-        void fetchRecs(v);
-      }
+    if (shouldStop(total, positives, newConf)) {
+      setCurrent(null);
+      setPhase("result");
+      return;
     }
+
+    // Pick next card
+    const seen = new Set(next.seenCardIds);
+    const nextCard = pickNextCard(pool, seen, newLiked, newDisliked, total);
+    if (!nextCard) {
+      setPhase("result");
+      setCurrent(null);
+      return;
+    }
+    setCurrent(nextCard);
   };
 
   const resetAll = () => {
-    const empty: VibeState = { anchors: [], liked: [], disliked: [], saved: [], updatedAt: new Date().toISOString() };
-    saveVibe(empty);
-    setVibe(empty);
+    const fresh: Persisted = {
+      sessionId: crypto.randomUUID(),
+      seenCardIds: [],
+      likedCardIds: [],
+      dislikedCardIds: [],
+      updatedAt: new Date().toISOString(),
+    };
+    savePersisted(fresh);
+    setPersisted(fresh);
+    setCurrent(null);
     setRecs(null);
-    setIdx(0);
-    setCards([]);
     setPhase("intro");
   };
 
-  const moreCards = async () => {
-    setRecs(null);
-    setPhase("swipe");
-    await loadSeedsFromAnchors(vibe.anchors);
-  };
+  /* ─────── Render ─────── */
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-xl px-4 pt-6 pb-32 md:pt-10">
         <header className="mb-6 flex items-center justify-between">
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Vissza</Link>
-          {(vibe.liked.length > 0 || vibe.anchors.length > 0) && (
+          {totalSwipes > 0 && (
             <button
               onClick={resetAll}
               className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
@@ -206,53 +351,36 @@ export default function StartSwipePage() {
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5" /> A Te Podiverzumod
           </div>
-          {phase === "intro" && (
-            <>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-                Mondj egy-két nevet, amit szeretsz.
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Egy podcast, egy műsorvezető, egy közszereplő — bárki, akit szívesen hallgatsz. Innen építjük fel a Te Podiverzumodat.
-              </p>
-            </>
-          )}
-          {phase === "swipe" && (
-            <>
-              <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
-                Húzd jobbra, amit hallgatnál.
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Jobbra ❤ · Balra ❌ · Felfelé 🔖
-              </p>
-            </>
-          )}
         </div>
 
         {phase === "intro" && (
-          <IntroPicker
-            initial={vibe.anchors}
-            onContinue={startSwipe}
+          <IntroLanding
+            onStart={handleStart}
+            poolReady={!!pool && pool.length > 0}
+            poolError={poolError}
+            poolSize={pool?.length || 0}
+            hasProgress={totalSwipes > 0}
+            onContinue={() => setPhase(totalSwipes >= 10 ? "result" : "swipe")}
           />
         )}
 
         {phase === "swipe" && (
-          <SwipeDeck
+          <SwipeView
             current={current}
-            next={next}
-            loading={loading}
+            loading={!pool}
+            totalSwipes={totalSwipes}
+            positiveSwipes={positiveSwipes}
+            confidence={confidence}
             onAction={handleSwipe}
-            progress={{ done: idx, total: cards.length }}
           />
         )}
 
-        {phase === "results" && (
-          <ResultsView
+        {phase === "result" && (
+          <ResultView
+            liked={liked}
+            disliked={disliked}
             recs={recs}
-            loading={recsLoading}
-            likedCount={vibe.liked.length}
-            savedIds={vibe.saved}
-            anchors={vibe.anchors}
-            onMore={moreCards}
+            recsLoading={recsLoading}
             onReset={resetAll}
             onOpen={(p, e) => navigate(`/podcast/${p}/${e}`)}
           />
@@ -262,209 +390,145 @@ export default function StartSwipePage() {
   );
 }
 
-/* ──────────────── Intro: anchor picker ──────────────── */
+/* ────────────────── Intro ────────────────── */
 
-function IntroPicker({
-  initial, onContinue,
+function IntroLanding({
+  onStart, poolReady, poolError, poolSize, hasProgress, onContinue,
 }: {
-  initial: Anchor[];
-  onContinue: (anchors: Anchor[]) => void;
+  onStart: () => void;
+  poolReady: boolean;
+  poolError: string | null;
+  poolSize: number;
+  hasProgress: boolean;
+  onContinue: () => void;
 }) {
-  const [picked, setPicked] = useState<Anchor[]>(initial);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Anchor[]>([]);
-  const [searching, setSearching] = useState(false);
-  const tRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (tRef.current) window.clearTimeout(tRef.current);
-    if (query.trim().length < 2) { setResults([]); return; }
-    tRef.current = window.setTimeout(async () => {
-      setSearching(true);
-      const { data, error } = await supabase.rpc("search_swipe_anchors", { p_query: query.trim(), p_limit: 8 });
-      if (!error && data) setResults(data as Anchor[]);
-      setSearching(false);
-    }, 200);
-    return () => { if (tRef.current) window.clearTimeout(tRef.current); };
-  }, [query]);
-
-  const add = (a: Anchor) => {
-    if (picked.some(p => p.kind === a.kind && p.id === a.id)) return;
-    setPicked([...picked, a]);
-    setQuery("");
-    setResults([]);
-  };
-  const remove = (a: Anchor) => setPicked(picked.filter(p => !(p.kind === a.kind && p.id === a.id)));
-
-  const canContinue = picked.length >= 1;
-
   return (
     <div>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Pl. Partizán, Friderikusz, Magyar Péter…"
-          autoFocus
-          className="w-full rounded-2xl border border-border bg-card py-3 pl-10 pr-4 text-base outline-none focus:border-primary"
-        />
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
+        A Te Podiverzumod
+      </h1>
+      <p className="mt-3 text-base text-muted-foreground">
+        Mutatunk pár kártyát. Jobbra húzd, ami érdekel — balra, ami nem. Pár perc, és megépítjük a személyes hallgatási profilodat.
+      </p>
+
+      <div className="mt-8 space-y-3">
+        <Button onClick={onStart} disabled={!poolReady} size="lg" className="w-full">
+          {poolReady ? <>Kezdjük <ArrowRight className="ml-2 h-4 w-4" /></> : "Kártyák betöltése…"}
+        </Button>
+        {hasProgress && poolReady && (
+          <Button onClick={onContinue} variant="secondary" size="lg" className="w-full">
+            Folytatom, ahol abbahagytam
+          </Button>
+        )}
+        {poolError && (
+          <p className="text-xs text-destructive">Hiba a betöltéskor: {poolError}</p>
+        )}
+        {poolReady && (
+          <p className="text-xs text-muted-foreground text-center">{poolSize} kártya áll készen</p>
+        )}
       </div>
 
-      {results.length > 0 && (
-        <div className="mt-2 overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
-          {results.map(r => (
-            <button
-              key={`${r.kind}-${r.id}`}
-              onClick={() => add(r)}
-              className="flex w-full items-center gap-3 border-b border-border/50 px-3 py-2 text-left last:border-0 hover:bg-muted"
-            >
-              <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                {r.image_url ? (
-                  <img src={r.image_url} alt={r.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                    {r.kind === "podcast" ? <Mic className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{r.name}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {r.kind === "podcast" ? "Podcast" : r.kind === "person" ? "Személy" : "Kulcsszó"} {r.subtitle ? `· ${r.subtitle}` : ""}
-                </div>
-              </div>
-              <Plus className="h-4 w-4 text-muted-foreground" />
-            </button>
-          ))}
+      <div className="mt-10 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="font-medium text-foreground">Jobbra ❤</div>
+          <div className="mt-1">Érdekel</div>
         </div>
-      )}
-
-      {searching && query.length >= 2 && results.length === 0 && (
-        <div className="mt-2 text-xs text-muted-foreground px-1">Keresés…</div>
-      )}
-      {!searching && query.trim().length >= 2 && results.length === 0 && (
-        <button
-          onClick={() => add({
-            kind: "keyword",
-            id: `kw:${query.trim().toLowerCase()}`,
-            name: query.trim(),
-            slug: "",
-            image_url: null,
-            subtitle: "Kulcsszó",
-          })}
-          className="mt-2 flex w-full items-center gap-2 rounded-2xl border border-dashed border-border bg-card px-3 py-3 text-left text-sm hover:border-primary hover:bg-muted"
-        >
-          <Plus className="h-4 w-4 text-muted-foreground" />
-          <span>Nincs találat — hozzáadom mint kulcsszó: <strong>„{query.trim()}"</strong></span>
-        </button>
-      )}
-
-      {picked.length > 0 && (
-        <div className="mt-5">
-          <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">A te magjaid</div>
-          <div className="flex flex-wrap gap-2">
-            {picked.map(a => (
-              <button
-                key={`${a.kind}-${a.id}`}
-                onClick={() => remove(a)}
-                className="group inline-flex items-center gap-2 rounded-full border border-border bg-card pl-1 pr-3 py-1 text-sm hover:border-destructive/50"
-              >
-                <div className="h-6 w-6 overflow-hidden rounded-full bg-muted">
-                  {a.image_url ? (
-                    <img src={a.image_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                      {a.kind === "podcast" ? <Mic className="h-3 w-3" /> : a.kind === "person" ? <User className="h-3 w-3" /> : <Search className="h-3 w-3" />}
-                    </div>
-                  )}
-                </div>
-                <span className="max-w-[160px] truncate">{a.name}</span>
-                <X className="h-3 w-3 text-muted-foreground group-hover:text-destructive" />
-              </button>
-            ))}
-          </div>
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="font-medium text-foreground">Balra ❌</div>
+          <div className="mt-1">Nem nekem való</div>
         </div>
-      )}
-
-      <div className="mt-8">
-        <Button
-          onClick={() => onContinue(picked)}
-          disabled={!canContinue}
-          size="lg"
-          className="w-full"
-        >
-          {canContinue ? (
-            <>Mehet a swipe <ArrowRight className="ml-2 h-4 w-4" /></>
-          ) : (
-            <>Adj hozzá legalább egyet</>
-          )}
-        </Button>
-        <button
-          onClick={() => onContinue([])}
-          className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-foreground"
-        >
-          Kihagyom — találj ki valamit nekem
-        </button>
       </div>
     </div>
   );
 }
 
-/* ──────────────── Swipe deck ──────────────── */
+/* ────────────────── Swipe ────────────────── */
 
-function SwipeDeck({
-  current, next, loading, onAction, progress,
+function SwipeView({
+  current, loading, totalSwipes, positiveSwipes, confidence, onAction,
 }: {
-  current?: SeedEp;
-  next?: SeedEp;
+  current: Card | null;
   loading: boolean;
-  onAction: (a: "like" | "skip" | "save") => void;
-  progress: { done: number; total: number };
+  totalSwipes: number;
+  positiveSwipes: number;
+  confidence: number;
+  onAction: (a: "like" | "skip") => void;
 }) {
-  if (loading) {
-    return <Skeleton className="aspect-[3/4] w-full rounded-3xl" />;
-  }
+  if (loading) return <Skeleton className="aspect-[3/4] w-full rounded-3xl" />;
   if (!current) {
     return (
       <div className="rounded-3xl border border-border bg-card p-8 text-center text-muted-foreground">
-        Nincs több kártya — most már jönnek az ajánlások.
+        Nincs több kártya — most jönnek az ajánlások.
       </div>
     );
   }
 
   return (
     <div>
+      <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+        <span>{totalSwipes} swipe · {positiveSwipes} ❤</span>
+        <span>magabiztosság: {Math.round(confidence * 100)}%</span>
+      </div>
+      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full bg-primary transition-all"
+          style={{ width: `${Math.min(100, Math.round(confidence * 100))}%` }}
+        />
+      </div>
+
       <div className="relative aspect-[3/4] w-full">
-        {next && <Card key={next.episode_id} ep={next} stacked />}
         <AnimatePresence mode="popLayout">
-          <SwipeCard key={current.episode_id} ep={current} onAction={onAction} />
+          <SwipeCard key={current.id} card={current} onAction={onAction} />
         </AnimatePresence>
       </div>
 
-      <div className="mt-6 flex items-center justify-center gap-4">
-        <ActionBtn label="Kihagy" onClick={() => onAction("skip")} variant="skip">
-          <X className="h-6 w-6" />
+      <div className="mt-6 flex items-center justify-center gap-6">
+        <ActionBtn label="Nem nekem való" onClick={() => onAction("skip")} variant="skip">
+          <X className="h-7 w-7" />
         </ActionBtn>
-        <ActionBtn label="Később" onClick={() => onAction("save")} variant="save">
-          <Bookmark className="h-5 w-5" />
+        <ActionBtn label="Érdekel" onClick={() => onAction("like")} variant="like">
+          <Heart className="h-7 w-7 fill-current" />
         </ActionBtn>
-        <ActionBtn label="Hallgatnám" onClick={() => onAction("like")} variant="like">
-          <Heart className="h-6 w-6 fill-current" />
-        </ActionBtn>
-      </div>
-
-      <div className="mt-4 flex items-center justify-center gap-1">
-        {Array.from({ length: progress.total }).map((_, i) => (
-          <div
-            key={i}
-            className={`h-1 w-6 rounded-full transition-colors ${
-              i < progress.done ? "bg-primary" : "bg-muted"
-            }`}
-          />
-        ))}
       </div>
     </div>
+  );
+}
+
+function SwipeCard({ card, onAction }: { card: Card; onAction: (a: "like" | "skip") => void }) {
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    const { offset, velocity } = info;
+    if (offset.x > 120 || velocity.x > 600) return onAction("like");
+    if (offset.x < -120 || velocity.x < -600) return onAction("skip");
+  };
+
+  return (
+    <motion.div
+      className="absolute inset-0"
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.7}
+      onDragEnd={handleDragEnd}
+      whileTap={{ scale: 0.98, cursor: "grabbing" }}
+      initial={{ scale: 0.95, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ x: 0, opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+      style={{ cursor: "grab" }}
+    >
+      <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/30 via-card to-card shadow-xl">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.15),transparent_60%)]" />
+        <div className="relative flex h-full flex-col justify-end p-8">
+          <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            {card.stage === "broad" ? "felfedezés" : card.stage === "refine" ? "finomítás" : card.stage === "style" ? "stílus" : "ellenőrzés"}
+          </div>
+          <h2 className="text-2xl font-semibold leading-snug text-foreground md:text-3xl">
+            {card.title}
+          </h2>
+          {card.subtitle && (
+            <p className="mt-3 text-sm text-muted-foreground">{card.subtitle}</p>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -474,99 +538,82 @@ function ActionBtn({
   children: React.ReactNode;
   label: string;
   onClick: () => void;
-  variant: "like" | "skip" | "save";
+  variant: "like" | "skip";
 }) {
   const styles =
     variant === "like"
       ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30"
-      : variant === "skip"
-      ? "bg-card border border-border hover:bg-muted"
-      : "bg-card border border-border hover:bg-muted";
-  const size = variant === "save" ? "h-12 w-12" : "h-16 w-16";
+      : "bg-card border border-border hover:bg-muted text-foreground";
   return (
     <button
       onClick={onClick}
       aria-label={label}
-      className={`${size} ${styles} rounded-full flex items-center justify-center transition-transform active:scale-95`}
+      className={`h-16 w-16 ${styles} rounded-full flex items-center justify-center transition-transform active:scale-95`}
     >
       {children}
     </button>
   );
 }
 
-function SwipeCard({
-  ep, onAction,
+/* ────────────────── Result ────────────────── */
+
+function ResultView({
+  liked, disliked, recs, recsLoading, onReset, onOpen,
 }: {
-  ep: SeedEp;
-  onAction: (a: "like" | "skip" | "save") => void;
+  liked: Card[];
+  disliked: Card[];
+  recs: RecEp[] | null;
+  recsLoading: boolean;
+  onReset: () => void;
+  onOpen: (p: string, e: string) => void;
 }) {
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    const { offset, velocity } = info;
-    if (offset.x > 120 || velocity.x > 600) return onAction("like");
-    if (offset.x < -120 || velocity.x < -600) return onAction("skip");
-    if (offset.y < -120 || velocity.y < -600) return onAction("save");
+  // TODO(ai-copy): behind a future feature flag, swap deterministic copy below with
+  // a `personalize-profile` edge function call that uses Lovable AI Gateway.
+
+  const weights = useMemo(() => tagWeights(liked), [liked]);
+  const archetype = useMemo(() => pickArchetype(weights), [weights]);
+  const topInterests = useMemo(() => topTags(weights, 5), [weights]);
+
+  // Build "Podcast-DNS" — top topic_tags from liked, normalized
+  const dna = useMemo(() => {
+    const topicW: Record<string, number> = {};
+    for (const c of liked) for (const t of c.topic_tags) topicW[t] = (topicW[t] || 0) + 1;
+    const entries = Object.entries(topicW).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+    return entries.map(([label, v]) => ({ label, pct: v / total }));
+  }, [liked]);
+
+  // Recommended podcasts: dedupe from recs
+  const recPodcasts = useMemo(() => {
+    if (!recs) return [];
+    const seen = new Set<string>();
+    const out: Array<{ id: string; title: string; slug: string; image: string | null }> = [];
+    for (const r of recs) {
+      if (seen.has(r.podcast_id)) continue;
+      seen.add(r.podcast_id);
+      out.push({ id: r.podcast_id, title: r.podcast_title, slug: r.podcast_slug, image: r.podcast_image_url });
+      if (out.length >= 5) break;
+    }
+    return out;
+  }, [recs]);
+
+  const sharing = useRef(false);
+  const handleShare = async () => {
+    if (sharing.current) return;
+    sharing.current = true;
+    try {
+      const blob = await renderShareCard({
+        archetype,
+        interests: topInterests,
+        dna,
+      });
+      await shareOrDownload(blob);
+    } finally {
+      sharing.current = false;
+    }
   };
 
-  return (
-    <motion.div
-      className="absolute inset-0"
-      drag
-      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-      dragElastic={0.7}
-      onDragEnd={handleDragEnd}
-      whileTap={{ scale: 0.98, cursor: "grabbing" }}
-      initial={{ scale: 0.95, opacity: 0, y: 20 }}
-      animate={{ scale: 1, opacity: 1, y: 0 }}
-      exit={{ x: 0, opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-      style={{ cursor: "grab" }}
-    >
-      <Card ep={ep} />
-    </motion.div>
-  );
-}
-
-function Card({ ep, stacked = false }: { ep: SeedEp; stacked?: boolean }) {
-  const img = ep.image_url || ep.podcast_image_url || undefined;
-  return (
-    <div
-      className={`absolute inset-0 overflow-hidden rounded-3xl border border-border bg-card shadow-xl ${
-        stacked ? "scale-[0.96] opacity-60" : ""
-      }`}
-    >
-      {img ? (
-        <img src={img} alt={ep.title} className="absolute inset-0 h-full w-full object-cover" draggable={false} />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-muted" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-        <div className="mb-2 text-xs uppercase tracking-wider opacity-80">{ep.podcast_title}</div>
-        <h2 className="text-2xl font-semibold leading-tight">
-          {ep.display_title || ep.title}
-        </h2>
-        {ep.ai_summary && (
-          <p className="mt-3 line-clamp-3 text-sm opacity-90">{ep.ai_summary}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ──────────────── Results ──────────────── */
-
-function ResultsView({
-  recs, loading, likedCount, savedIds, anchors, onMore, onReset, onOpen,
-}: {
-  recs: MatchEp[] | null;
-  loading: boolean;
-  likedCount: number;
-  savedIds: string[];
-  anchors: Anchor[];
-  onMore: () => void;
-  onReset: () => void;
-  onOpen: (podcastSlug: string, episodeSlug: string) => void;
-}) {
-  if (likedCount === 0) {
+  if (liked.length === 0) {
     return (
       <div className="rounded-3xl border border-border bg-card p-8 text-center">
         <p className="text-muted-foreground">Egyetlen lájk sem érkezett — próbáljuk újra?</p>
@@ -574,77 +621,127 @@ function ResultsView({
       </div>
     );
   }
+
   return (
-    <div>
-      <div className="mb-6 rounded-2xl border border-border bg-card p-5">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">A te vibed</div>
-        <div className="mt-1 text-lg font-medium">
-          {likedCount} lájk · {savedIds.length} mentett későbbre
+    <div className="space-y-8">
+      {/* Hero profile */}
+      <div className="rounded-3xl border border-border bg-card p-6 md:p-8">
+        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          A Te Podiverzumod elkészült
         </div>
-        {anchors.length > 0 && (
-          <div className="mt-2 text-xs text-muted-foreground">
-            Magok: {anchors.map(a => a.name).join(" · ")}
+        <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">{archetype.name}</h2>
+        <p className="mt-3 text-sm text-muted-foreground md:text-base">{archetype.tagline}</p>
+
+        {topInterests.length > 0 && (
+          <div className="mt-5 flex flex-wrap gap-2">
+            {topInterests.map(t => (
+              <span key={t} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
+                {t}
+              </span>
+            ))}
           </div>
         )}
-        <p className="mt-2 text-sm text-muted-foreground">
-          Ezt a listát böngésződ helyben őrzi — bármikor visszajössz, ott folytatod, ahol abbahagytad.
-        </p>
+
+        {/* Podcast-DNS */}
+        {dna.length > 0 && (
+          <div className="mt-6">
+            <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Podcast-DNS</div>
+            <div className="space-y-2">
+              {dna.map(row => (
+                <div key={row.label}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="text-foreground">{row.label}</span>
+                    <span className="text-muted-foreground">{Math.round(row.pct * 100)}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div className="h-full bg-primary" style={{ width: `${Math.round(row.pct * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+          <Button onClick={handleShare} className="flex-1">
+            <Share2 className="mr-2 h-4 w-4" /> Megosztom
+          </Button>
+          <Button onClick={onReset} variant="ghost" className="flex-1">
+            Újrakezdem
+          </Button>
+        </div>
       </div>
 
-      <h2 className="mb-3 text-xl font-semibold">Ez illik a vibedhez</h2>
+      {/* Recommended episodes */}
+      <div>
+        <h3 className="mb-3 text-lg font-semibold">Ajánlott epizódok</h3>
+        {recsLoading && (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
+          </div>
+        )}
+        {!recsLoading && recs && recs.length > 0 && (
+          <div className="space-y-3">
+            {recs.map(r => (
+              <button
+                key={r.episode_id}
+                onClick={() => onOpen(r.podcast_slug, r.slug)}
+                className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted"
+              >
+                <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl">
+                  {(r.image_url || r.podcast_image_url) ? (
+                    <img src={r.image_url || r.podcast_image_url || ""} alt={r.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-muted" />
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Play className="h-6 w-6 fill-white text-white" />
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs uppercase tracking-wider text-muted-foreground">{r.podcast_title}</div>
+                  <div className="line-clamp-2 font-medium">{r.display_title || r.title}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {Math.round(r.similarity * 100)}% egyezés
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+              </button>
+            ))}
+          </div>
+        )}
+        {!recsLoading && (!recs || recs.length === 0) && (
+          <div className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">
+            Még tanuljuk az ízlésedet — swipe-olj párat újra.
+          </div>
+        )}
+      </div>
 
-      {loading && (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
+      {/* Recommended podcasts */}
+      {recPodcasts.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-lg font-semibold">Podcastok, amik passzolnak</h3>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {recPodcasts.map(p => (
+              <Link
+                key={p.id}
+                to={`/podcast/${p.slug}`}
+                className="group flex-shrink-0 w-32"
+              >
+                <div className="aspect-square overflow-hidden rounded-2xl border border-border bg-muted">
+                  {p.image ? (
+                    <img src={p.image} alt={p.title} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                  ) : null}
+                </div>
+                <div className="mt-2 line-clamp-2 text-xs">{p.title}</div>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
-      {!loading && recs && recs.length > 0 && (
-        <div className="space-y-3">
-          {recs.map((r) => (
-            <button
-              key={r.episode_id}
-              onClick={() => onOpen(r.podcast_slug, r.slug)}
-              className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted"
-            >
-              <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl">
-                {r.image_url ? (
-                  <img src={r.image_url} alt={r.title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full bg-muted" />
-                )}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Play className="h-6 w-6 fill-white text-white" />
-                </div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs uppercase tracking-wider text-muted-foreground">
-                  {r.podcast_title}
-                </div>
-                <div className="line-clamp-2 font-medium">{r.display_title || r.title}</div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {Math.round(r.similarity * 100)}% egyezés a vibeddel
-                </div>
-              </div>
-              <ArrowRight className="h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!loading && (!recs || recs.length === 0) && (
-        <div className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">
-          Nem találtam elég hasonlót — swipe-olj még párat, és pontosabb lesz.
-        </div>
-      )}
-
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <Button onClick={onMore} variant="secondary" className="flex-1">
-          Még kártyák
-        </Button>
-        <Button onClick={onReset} variant="ghost" className="flex-1">
-          Új vibe nulláról
-        </Button>
+      <div className="text-center text-xs text-muted-foreground">
+        {liked.length} ❤ · {disliked.length} ❌ — a profilod helyben tárolódik
       </div>
     </div>
   );
