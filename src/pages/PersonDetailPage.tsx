@@ -33,6 +33,11 @@ function huFallbackBio(name: string): string {
   return `${name} magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók.`;
 }
 
+function isFallbackBio(name: string, text?: string | null): boolean {
+  const value = (text || "").trim();
+  return !value || value === huFallbackBio(name) || value.includes("magyar podcast epizódokban előforduló személy");
+}
+
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
@@ -128,7 +133,11 @@ export default function PersonDetailPage() {
       setLoading(false);
 
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
-      const bio = (p as any).ai_bio || (p as any).short_bio;
+      const bio = !isFallbackBio((p as any).name, (p as any).ai_bio)
+        ? (p as any).ai_bio
+        : !isFallbackBio((p as any).name, (p as any).short_bio)
+        ? (p as any).short_bio
+        : (p as any).wikipedia_extract || (p as any).wikipedia_description || null;
       const verifiedWiki = (p as any).wikipedia_match_status === "verified";
       const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
       const thinPage = epList.length < 2;
@@ -210,13 +219,13 @@ export default function PersonDetailPage() {
   const distinctSections = [hasParticipants, hasSubjects, hasMentions, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
   const bioText =
-    (person.ai_bio && person.ai_bio.trim()) ||
-    (person.short_bio && person.short_bio.trim()) ||
+    (!isFallbackBio(person.name, person.ai_bio) && person.ai_bio?.trim()) ||
+    (!isFallbackBio(person.name, person.short_bio) && person.short_bio?.trim()) ||
     (person.wikipedia_extract && person.wikipedia_extract.trim()) ||
     (person.short_description_hu && person.short_description_hu.trim()) ||
     (eps.length > 0 ? huFallbackBio(person.name) : null);
   const bioSource: "ai" | "wikipedia" | "fallback" =
-    (person.ai_bio && person.ai_bio.trim()) || (person.short_bio && person.short_bio.trim())
+    !isFallbackBio(person.name, person.ai_bio) || !isFallbackBio(person.name, person.short_bio)
       ? "ai"
       : (person.wikipedia_extract && person.wikipedia_extract.trim()) || (person.short_description_hu && person.short_description_hu.trim())
       ? "wikipedia"
