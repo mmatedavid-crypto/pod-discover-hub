@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
@@ -74,9 +75,10 @@ export function SmartPlayerBar() {
           )}
           <button
             onClick={stop}
-            className="text-muted-foreground hover:text-foreground text-xs px-1.5 hidden sm:inline-flex"
+            className="h-9 w-9 rounded-full border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center shrink-0 transition-colors"
             aria-label={t("close")}
-          >✕</button>
+            title={t("close")}
+          ><X className="h-4 w-4" /></button>
         </div>
         <div className="container mx-auto px-3 pb-2">
           <PlayerProgress compact />
