@@ -853,51 +853,59 @@ function ResultView({
     <div className="space-y-8">
       {/* Hero profile */}
       <div className="rounded-3xl border border-border bg-card p-6 md:p-8">
-        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          A Te Podiverzumod elkészült
-        </div>
-        <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">{archetype.name}</h2>
-        <p className="mt-3 text-sm text-muted-foreground md:text-base">{archetype.tagline}</p>
-
-        {topInterests.length > 0 && (
-          <div className="mt-5 flex flex-wrap gap-2">
-            {topInterests.map(t => (
-              <span key={t} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
-                {t}
-              </span>
-            ))}
+      {/* Hero: Aura visual */}
+      <div className="relative overflow-hidden rounded-3xl border border-border bg-card">
+        {/* Animated aura background */}
+        <div className="relative h-72 w-full overflow-hidden md:h-96">
+          <AuraVisual colors={aura.colors} />
+          {/* Vignette + content overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
+            <div className="text-[10px] uppercase tracking-[0.25em] text-white/70 md:text-xs">
+              A te aurád · {aura.essence}
+            </div>
+            <h2 className="mt-1 text-3xl font-semibold tracking-tight text-white drop-shadow-md md:text-5xl">
+              {archetype.name}
+            </h2>
           </div>
-        )}
+        </div>
 
-        {/* Podcast-DNS */}
-        {dna.length > 0 && (
-          <div className="mt-6">
-            <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Podcast-DNS</div>
-            <div className="space-y-2">
-              {dna.map(row => (
-                <div key={row.label}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-foreground">{row.label}</span>
-                    <span className="text-muted-foreground">{row.intensity}</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full bg-primary" style={{ width: `${Math.round(row.strength * 100)}%` }} />
-                  </div>
-                </div>
+        {/* Verdict + interests + code */}
+        <div className="space-y-5 p-6 md:p-8">
+          <p className="text-sm leading-relaxed text-foreground md:text-base">
+            {verdict}
+          </p>
+
+          {topInterests.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {topInterests.map(t => (
+                <span key={t} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
+                  {t}
+                </span>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-          <Button onClick={handleShare} className="flex-1">
-            <Share2 className="mr-2 h-4 w-4" /> Megosztom
-          </Button>
-          <Button onClick={onReset} variant="ghost" className="flex-1">
-            Újrakezdem
-          </Button>
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <div className="font-mono text-xs tracking-wider text-muted-foreground">
+              {pdvCode}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleShare} size="sm">
+                <Share2 className="mr-2 h-4 w-4" /> Megosztom
+              </Button>
+              <Button onClick={onReset} variant="ghost" size="sm">
+                <RotateCcw className="mr-2 h-4 w-4" /> Újra
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Constellation */}
+      {constellation.stars.length >= 3 && (
+        <ConstellationVisual constellation={constellation} accent={aura.primary} />
+      )}
 
       {/* Recommended episodes */}
       <div>
