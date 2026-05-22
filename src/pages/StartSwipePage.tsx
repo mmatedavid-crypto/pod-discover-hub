@@ -851,8 +851,6 @@ function ResultView({
 
   return (
     <div className="space-y-8">
-      {/* Hero profile */}
-      <div className="rounded-3xl border border-border bg-card p-6 md:p-8">
       {/* Hero: Aura visual */}
       <div className="relative overflow-hidden rounded-3xl border border-border bg-card">
         {/* Animated aura background */}
