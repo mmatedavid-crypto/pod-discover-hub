@@ -16,7 +16,9 @@ type Item = {
     category: string | null;
     rss_status: string;
     rank_label: string | null;
+    language?: string | null;
   } | null;
+
 };
 
 const HIDE_PREFIXES = ["/admin", "/auth", "/privacy", "/terms", "/admin-bootstrap", "/growth-status"];
