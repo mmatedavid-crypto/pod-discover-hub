@@ -160,8 +160,12 @@ function wikipediaBio(p: any): string | null {
   const extract = String(p.wikipedia_extract || "").trim();
   const desc = String(p.wikipedia_description || "").trim();
   if (!extract && !desc) return null;
-  const firstSentence = extract.match(/^(.+?[.!?])(?:\s|$)/)?.[1]?.trim() || extract.slice(0, 420).trim();
-  const bio = firstSentence || desc;
+  const cleanExtract = /^ez a szócikk/i.test(extract) ? "" : extract;
+  const firstSentence = cleanExtract.match(/^(.{60,500}?[.!?])(?:\s|$)/)?.[1]?.trim() || cleanExtract.slice(0, 420).trim();
+  let bio = firstSentence || desc;
+  if (bio && !bio.toLocaleLowerCase("hu-HU").startsWith(String(p.name || "").toLocaleLowerCase("hu-HU"))) {
+    bio = `${p.name} ${bio.charAt(0).toLocaleLowerCase("hu-HU")}${bio.slice(1)}`;
+  }
   return bio.length > 500 ? `${bio.slice(0, 497).trim()}…` : bio;
 }
 
