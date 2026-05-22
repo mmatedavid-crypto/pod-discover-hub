@@ -722,7 +722,11 @@ Deno.serve(async (req) => {
       return r ?? notFound(path);
     }
     if ((parts[0] === "category" || parts[0] === "kategoria") && parts.length === 2) {
-      const r = await buildCategory(supabase, parts[1]);
+      const r = await buildCategory(supabase, parts[1], parts[0]);
+      return r ?? notFound(path);
+    }
+    if (parts[0] === "hangulatok" && parts.length === 2) {
+      const r = await buildMoodCollection(supabase, parts[1]);
       return r ?? notFound(path);
     }
     if (parts.length === 2) {
@@ -730,7 +734,11 @@ Deno.serve(async (req) => {
         (["topic", "person", "company", "ticker", "ingredient"].includes(parts[0])
           ? (parts[0] as any) : null);
       if (enKind) {
-        const r = await buildEntity(supabase, enKind as any, parts[1], parts[0]);
+        let r: Response | null = null;
+        if (enKind === "person") r = await buildPerson(supabase, parts[1], parts[0]);
+        else if (enKind === "topic") r = await buildTopic(supabase, parts[1], parts[0]);
+        else if (enKind === "company") r = await buildOrganization(supabase, parts[1], parts[0]);
+        else r = await buildLegacyEntity(supabase, enKind as any, parts[1], parts[0]);
         return r ?? notFound(path);
       }
     }
