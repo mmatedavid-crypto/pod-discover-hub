@@ -25,7 +25,7 @@ const SECTIONS: { key: string; label: string; types: OrgType[]; href?: string; i
   { key: "sport",         label: "Sport (klubok és ligák)", types: ["sport_team", "sport_league"],     iconType: "sport_team" },
 ];
 
-const COLS = "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at";
+const COLS = "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, wikipedia_url, wikipedia_match_status, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at";
 
 export default function OrganizationsIndexPage() {
   const [stats, setStats] = useState<Stats>({ companies: 0, parties: 0, total: 0 });
