@@ -1,116 +1,76 @@
-# A Te Podiverzumod — Taste Vector Engine
+## Cél
 
-## Architecture
+A `szervezetek` oldalon ma 21 299 entitás van publikusként, **0 db wikipedia match**, **0 db AI bio**. Ezért egyik szervezet sem hoz SEO értéket, és a search-be sincsenek bekötve. A user kérése: ugyanúgy járjunk el, mint a `személyek`-kel — érdemes alapot építeni, párosítani Wikipediával, beemelni a query/search rétegbe — és közben **szűrjük ki a rádiókat**, amik csak azért vannak a katalógusban, mert nem clean text alapján zajlott a korai entity-extract.
 
-Taste cards are first-class semantic objects with their own 768D embeddings (same model as `episode_embeddings`: `google/gemini-embedding-001`). The user swipes cards (not episodes), their liked card embeddings are averaged into a **user taste vector**, then we cosine-match that vector to `episode_embeddings`.
+## 1) Radio_station tisztítás (azonnal, migration)
 
-## 1. Database (migration)
+194 `radio_station` van. Ezek többsége nem "podcastban említett" rádió, hanem csak a podcast forrása (publisher), mert a régi extract nem tisztított szövegen futott. Lépések:
 
-**Table `taste_cards`** — exactly as user spec'd:
-- 768D `card_embedding vector(768)` with HNSW cosine index
-- topic/mood/format/psych/archetype tag arrays
-- `stage`, `sensitivity_level`, `validation_status`, `active`, `priority`
-- `catalog_fit_score`, `top_episode_similarity` (validation outputs)
+- Minden `org_type='radio_station'` sor → `is_public=false, is_indexable=false, is_browsable_in_hub=false`, `browsable_reason='radio_publisher_noise'`.
+- Whitelist kivétel (manuálisan visszahozva, mert valós szereplők): `Tilos Rádió`, `Kossuth Rádió`, `Klubrádió`, `InfoRádió`, `Szabad Európa Rádió`, `Petőfi Rádió`, `Bartók Rádió`, `Katolikus Rádió`, `Magyar Rádió` → ezek maradnak publikusak, és Wikidata-matchre kerülnek.
+- A `Cégek / Média` fülön a `media` típus mellől levesszük a `radio_station` belistázást (`CompaniesHubPage.tsx`).
+- `OrganizationsIndexPage.tsx` típus-szekciókból eltávolítjuk az `radio_station`-t (a 9 whitelistelt rádió a `media` szekcióba kerül átsorolva — vagy maradnak `radio_station` típuson és csak a hub-listából vesszük ki őket).
 
-**RPC `match_episodes_by_taste_vector(user_vector, negative_vector, exclude_episode_ids, limit_count)`**:
-- cosine sim to user_vector on `episode_embeddings`
-- light penalty: `final = sim - 0.15 * neg_sim`
-- quality boost from `podcasts.episode_rank` tiers (S/A/B/C)
-- recency boost (last 90 days)
-- HU-only filter
-- diversity in SQL: window-rank per podcast, keep top-2 per podcast, ensure ≥5 distinct podcasts
+## 2) Wiki-párosító edge function (`organization-wikimedia-enricher`)
 
-**RPC `match_cards_for_seeding(...)`** — admin helper used by validator.
+`person-wikimedia-enricher` mintájára:
 
-**RLS:** public read on `taste_cards WHERE active`, admin write.
+- Wikidata search (HU → EN fallback), 5 jelölt.
+- Pontozás: label-egyezés (0.35), huwiki sitelink (0.2), `instance_of` ellenőrzés org-típushoz (party→Q7278, company→Q4830453, ngo→Q163740, university→Q3918, church→Q1530022, stb., +0.15 ha stimmel, -0.4 ha pl. human Q5), context-overlap az `episode_titles` + `podcast_titles` mezőkkel (0.1-0.25), single-word penalty (-0.2).
+- Threshold: `verified≥0.65`, `needs_review≥0.4`, `no_match` alatta — ugyanaz mint a people-nél (Phase 2).
+- Mentett mezők: `wikidata_id`, `wikipedia_url`, `wikipedia_title`, `wikipedia_extract` (≤1200 char), `wikipedia_description`, `wikipedia_match_status/confidence/evidence`, `wiki_match_run_at`, `wiki_match_reason`.
+- Logo: `verified` esetén Wikidata P154 (logo) vagy P18, Commons-licensz ellenőrzés (reusable-only), letöltés `entity-images` bucketbe `organizations/{id}/original.{ext}`, mezők: `logo_url`, `logo_source='wikimedia'`, `logo_license`, `logo_attribution`.
+- Job tracking: ha van `organization_enrichment_jobs` táblánk, beírjuk; ha nincs, csak az `organizations` mezőkre frissítünk és külön job-táblát most NEM hozok létre (kisebb scope).
+- Cron: `*/3 * * * *`, 25 org/run — ugyanúgy mint a people-nél. Csak `is_public=true` + `gated_episode_count>=3` (alacsony zaj küszöb).
 
-## 2. Edge functions
+## 3) Gated indexability újraszámítás
 
-**`taste-card-embedder`** (admin):
-- pulls cards where `card_embedding IS NULL`
-- calls Lovable AI Gateway `google/gemini-embedding-001` on `hidden_embedding_prompt`
-- writes vector back
-- batched, idempotent
+A jelenlegi 21 299 publikus szervezet túl sok. A people-mintát követve:
 
-**`taste-card-validator`** (admin):
-- for each card: nearest 20 episodes via embeddings
-- compute avg similarity, distinct podcast count
-- write `top_episode_similarity`, `catalog_fit_score`, `validation_status` (ok if avg≥0.55 & distinct≥6, weak if mid, broken if avg<0.35)
+- `0 ep` → nem publikus
+- `1–2 ep` → publikus, **nem** indexable, nem browsable
+- `3+ ep` → publikus + indexable + browsable
+- Minden `party` (politikai relevancia) + minden `wikipedia_match_status='verified'` → felülíró: indexable+browsable még ha `<3 ep` is
+- `radio_station` → mindig hidden, kivéve a 9 whitelist
 
-**`taste-card-seed`** (admin one-shot): inserts the initial 120–180 card bank as SQL upsert (idempotent on `title`).
+`recompute_org_gated_counts()` RPC frissítése (vagy új `recompute_org_indexability()` RPC) és egyszeri lefuttatás migrationben.
 
-## 3. Card bank seed (120+ cards)
+## 4) Search integráció
 
-Coverage across all 16 domains the spec lists. Each card has visible `title` in HU preference-language ("Érdekelnek a …"), `hidden_embedding_prompt` rich HU description for embedding, and tag arrays. Sensitive domains (religion/politics/health/mental_health/finance) get `sensitivity_level` set and never use identity claims.
+A search-hybrid most nem hoz organizations találatokat. Hozzáadunk egy egyszerű lépést:
 
-Stages distributed: ~40% `broad` (first 6–8 cards), ~35% `refine`, ~15% `style` (format/mood), ~10% `validate` (archetype disambiguation).
+- A query-understanding `entity_candidates` mezőbe felvesszük az `organizations` táblát is (név + alias ILIKE match), csak `is_indexable=true` szűrővel.
+- Search-result-ben "Szervezet" típusú kártya, link `/ceg/{slug}` vagy `/part/{slug}`.
+- Részletek: külön technikai szekció a search-hybrid-en belül `match_org_by_name()` RPC hívással, threshold mention_count alapján.
 
-Seed inserted via migration so it ships with the feature.
+## 5) AI bio (későbbi sprint, nem most)
 
-## 4. Frontend — rewrite `src/pages/StartSwipePage.tsx`
+A `person-bio-generator` analógiájára `organization-bio-generator` kell, de ez külön sprint. **Most NEM** építjük meg — előbb Wikipedia legyen lefedve, és csak a top 200 szervezetre futtatunk AI bio-t (költségkímélés).
 
-Phases:
-1. **Landing**: "A Te Podiverzumod" + "Kezdjük" CTA (no anchor picker anymore — that whole flow is removed).
-2. **Swipe**: full-screen card, swipe left/right only (no up). Touch + button fallback (❌ / ❤).
-3. **Result**: personal listening profile.
+## Technikai részletek
 
-**localStorage `podiverzum_taste_v1`** state shape exactly per spec (sessionId, seenCardIds, liked/disliked, vectors stored as Float32 arrays serialized to base64, weight maps, totalSwipes, confidence).
+- Új edge function: `supabase/functions/organization-wikimedia-enricher/index.ts`
+- Új cron job (jobid 44 körül): `*/3 * * * *` → hívja a fenti edge functiont, body `{ limit: 25 }`
+- Migration:
+  - Radio whitelist + hide minden más radio_station
+  - `recompute_org_indexability()` RPC + egyszeri futtatás
+  - (opcionálisan) `match_org_by_name(query text)` RPC search-hez
+- Frontend:
+  - `OrganizationsIndexPage.tsx`: `radio_station` szekció törlése (vagy whitelistre szűkítés)
+  - `CompaniesHubPage.tsx`: `Media` tab típuslistából `radio_station` levétel (vagy hagyni, mert a query úgyis csak indexable-eket hoz)
+  - `OrgCard`: ha van `wikipedia_url`, mutassunk egy apró Wiki badge-et
+  - `OrganizationsIndexPage` query-iba: `is_indexable=true` szűrő (ne csak `is_public`)
 
-**Vector math (client-side, in `src/lib/tasteVector.ts`):**
-- `addToPositive(cardEmb)` / `addToNegative(cardEmb)` — incremental weighted mean
-- weights: liked cards weighted by `priority` (default 1), with recency decay 0.95^n optional
-- never subtract negative from positive
-- coherence = avg pairwise cosine within positive set
-- separation = 1 − cos(posMean, negMean)
-- archetype confidence = softmax max over archetype tag weights
-- catalog match strength = cached avg `top_episode_similarity` of liked cards
-- confidence = weighted sum per spec
+## Becsült futásidő a wiki enricherre
 
-**Stopping rule** evaluated after every swipe:
-- primary: swipes≥10 && positives≥6 && confidence≥0.72
-- fallback A: swipes≥22 && positives≥5 && confidence≥0.60
-- fallback B: swipes≥30
+21k publikus → 3+ ep után ~5-6k indexable → ~2 nap futás `*/3` cron mellett, 25/run sebességgel.
 
-**Next-card selector** (`pickNextCard`):
-- candidates = active cards not in seen
-- score each: 0.35 uncertainty + 0.25 relevance + 0.20 coverage_gap + 0.10 disambiguation + 0.10 random
-- first 6 swipes: force `stage='broad'` and rotate domains to ensure coverage
-- batch-load card pool (id + embedding + tags + meta) up-front via paginated RPC `get_active_taste_cards()`
+## Mit NEM csinálunk most
 
-**Recommendation fetch** on result phase: call `match_episodes_by_taste_vector` with the computed vectors (passed as JSON arrays converted to pgvector via `::vector` cast in RPC).
+- Nem építünk AI bio-t (külön sprint)
+- Nem nyúlunk a backfill runner-hez (az fut tovább, csak ez utána fut)
+- Nem írunk át search ranking formulákat — csak hozzáadjuk a szervezeteket a candidate set-be
 
-## 5. Result page
+---
 
-`<TasteProfileResult/>` shows:
-- archetype name (rule-based mapping from top archetype_tags weight)
-- 1–2 sentence deterministic explanation template per archetype
-- "Podcast-DNS" bars: top topic/mood weights normalized to %
-- top 3–5 interest labels (chips)
-- 8–16 recommended episodes grid
-- 3–5 recommended podcasts strip
-- share card preview + "Megosztom" (uses Web Share API + canvas-rendered 1080x1350 PNG)
-- "Újrakezdem" → reset localStorage, back to landing
-
-`/* TODO(ai-copy): behind feature flag, swap deterministic copy with `personalize-profile` edge fn */`
-
-## 6. Share card
-
-`src/lib/tasteShareCard.ts` — renders 1080x1350 canvas: black bg, red accent, white text, Podiverzum logo, archetype name large, 3–5 interest chips, Podcast-DNS bar block, "Find it. Hear it." footer, podiverzum.hu. Download as PNG + Web Share API when available.
-
-## 7. Archetype mapping (deterministic)
-
-`src/lib/tasteArchetypes.ts` — 12 archetypes with `tagAffinity: Record<string, number>`. Score = Σ(weight × affinity), highest wins. Includes copy templates.
-
-## Technical details
-
-- Embedding model: `google/gemini-embedding-001` 768D via Lovable AI Gateway (`LOVABLE_API_KEY` already configured).
-- pgvector cosine ops on `card_embedding` and `episode_embeddings`.
-- Card pool size for client: limit to ~500 cards with embeddings — fetched once on swipe start (cached in `sessionStorage`).
-- No per-user AI calls in MVP.
-
-## Out of scope (later)
-
-- AI-generated personalized profile copy (flagged TODOs)
-- Subtract-negative vector experiments
-- Cross-session sync (currently localStorage only)
-- Card auto-generation pipeline
+Kérlek hagyd jóvá, vagy mondd, ha valamit szűkítenénk / bővítenénk (pl. ha az AI bio is kéne most, vagy ha a search integrációt későbbre tolnánk).
