@@ -1648,6 +1648,42 @@ export type Database = {
         }
         Relationships: []
       }
+      org_ai_review_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          input_snapshot: Json
+          organization_id: string
+          output_snapshot: Json
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          input_snapshot?: Json
+          organization_id: string
+          output_snapshot?: Json
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          input_snapshot?: Json
+          organization_id?: string
+          output_snapshot?: Json
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       organization_aliases: {
         Row: {
           alias: string
@@ -1696,6 +1732,18 @@ export type Database = {
           ai_bio_generated_at: string | null
           ai_bio_model: string | null
           ai_bio_status: string
+          ai_duplicate_of_organization_id: string | null
+          ai_recommended_action: string | null
+          ai_recommended_canonical_name: string | null
+          ai_recommended_org_type: string | null
+          ai_review_confidence: number
+          ai_review_flags: string[]
+          ai_review_model: string | null
+          ai_review_score: number
+          ai_review_sources: Json
+          ai_review_status: string
+          ai_review_summary: string | null
+          ai_reviewed_at: string | null
           browsable_reason: string | null
           country: string | null
           created_at: string
@@ -1752,6 +1800,18 @@ export type Database = {
           ai_bio_generated_at?: string | null
           ai_bio_model?: string | null
           ai_bio_status?: string
+          ai_duplicate_of_organization_id?: string | null
+          ai_recommended_action?: string | null
+          ai_recommended_canonical_name?: string | null
+          ai_recommended_org_type?: string | null
+          ai_review_confidence?: number
+          ai_review_flags?: string[]
+          ai_review_model?: string | null
+          ai_review_score?: number
+          ai_review_sources?: Json
+          ai_review_status?: string
+          ai_review_summary?: string | null
+          ai_reviewed_at?: string | null
           browsable_reason?: string | null
           country?: string | null
           created_at?: string
@@ -1808,6 +1868,18 @@ export type Database = {
           ai_bio_generated_at?: string | null
           ai_bio_model?: string | null
           ai_bio_status?: string
+          ai_duplicate_of_organization_id?: string | null
+          ai_recommended_action?: string | null
+          ai_recommended_canonical_name?: string | null
+          ai_recommended_org_type?: string | null
+          ai_review_confidence?: number
+          ai_review_flags?: string[]
+          ai_review_model?: string | null
+          ai_review_score?: number
+          ai_review_sources?: Json
+          ai_review_status?: string
+          ai_review_summary?: string | null
+          ai_reviewed_at?: string | null
           browsable_reason?: string | null
           country?: string | null
           created_at?: string
