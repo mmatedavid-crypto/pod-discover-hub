@@ -667,10 +667,10 @@ function ResultView({
                 <div key={row.label}>
                   <div className="mb-1 flex items-center justify-between text-xs">
                     <span className="text-foreground">{row.label}</span>
-                    <span className="text-muted-foreground">{Math.round(row.pct * 100)}%</span>
+                    <span className="text-muted-foreground">{row.intensity}</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full bg-primary" style={{ width: `${Math.round(row.pct * 100)}%` }} />
+                    <div className="h-full bg-primary" style={{ width: `${Math.round(row.strength * 100)}%` }} />
                   </div>
                 </div>
               ))}
