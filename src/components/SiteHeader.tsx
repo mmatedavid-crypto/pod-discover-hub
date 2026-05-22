@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder } from "lucide-react";
+import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder, Sparkles } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
@@ -193,7 +193,15 @@ export function SiteHeader() {
             </div>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          {/* Mobile-only "Te Podiverzumod" link */}
+          <NavLink
+            to="/start"
+            className="lg:hidden inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-red-500 hover:text-red-600 transition-colors whitespace-nowrap"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Te Podiverzumod
+          </NavLink>
           {/* Mobile hamburger menu — left of theme toggle */}
           <Popover open={menuOpen} onOpenChange={setMenuOpen}>
             <PopoverTrigger asChild>
