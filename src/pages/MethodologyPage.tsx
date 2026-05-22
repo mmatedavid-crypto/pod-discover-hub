@@ -6,7 +6,7 @@ import { setSeo } from "@/lib/seo";
 export default function MethodologyPage() {
   useEffect(() => {
     setSeo({
-      title: "Módszertan | Hogyan működik a Podiverzum?",
+      title: "Módszertan — Hogyan működik a Podiverzum?",
       description:
         "Ismerd meg, hogyan segít a Podiverzum megtalálni a magyar podcastok közül azokat az epizódokat, amelyek valóban érdekelnek — jelentésalapú kereséssel, témák és kapcsolódó tartalmak mentén.",
     });
