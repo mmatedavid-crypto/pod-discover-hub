@@ -55,6 +55,7 @@ type Persisted = {
   seenCardIds: string[];
   likedCardIds: string[];
   dislikedCardIds: string[];
+  superLikedCardIds: string[];
   updatedAt: string;
 };
 
@@ -68,6 +69,7 @@ function loadPersisted(): Persisted {
         seenCardIds: p.seenCardIds || [],
         likedCardIds: p.likedCardIds || [],
         dislikedCardIds: p.dislikedCardIds || [],
+        superLikedCardIds: p.superLikedCardIds || [],
         updatedAt: p.updatedAt || new Date().toISOString(),
       };
     }
@@ -77,6 +79,7 @@ function loadPersisted(): Persisted {
     seenCardIds: [],
     likedCardIds: [],
     dislikedCardIds: [],
+    superLikedCardIds: [],
     updatedAt: new Date().toISOString(),
   };
 }
