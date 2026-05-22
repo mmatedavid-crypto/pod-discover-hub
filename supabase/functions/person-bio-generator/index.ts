@@ -1,5 +1,6 @@
 // Hungarian AI bio + overview generator for People
-// Uses Lovable AI Gateway (google/gemini-2.5-flash). Strict no-hallucination prompts.
+// Bio: openai/gpt-5.5. Audit pass: openai/gpt-5 (medium reasoning) — only audit-pass bios are published.
+// Overview: google/gemini-2.5-flash (cheap, evidence-bound).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
@@ -12,41 +13,138 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const MODEL = "google/gemini-2.5-flash";
+const BIO_MODEL = "openai/gpt-5.5";
+const AUDIT_MODEL = "openai/gpt-5";
+const OVERVIEW_MODEL = "google/gemini-2.5-flash";
+const MODEL = BIO_MODEL; // backwards-compat reference
 
-async function callAI(system: string, user: string): Promise<{ text: string; cost: number; ok: boolean; error?: string }> {
+type AICallResult = { text: string; cost: number; ok: boolean; error?: string; toolCall?: any };
+
+async function callAI(
+  model: string,
+  system: string,
+  user: string,
+  opts: { reasoning?: "low" | "medium" | "high"; temperature?: number; tools?: any[]; toolChoice?: any } = {},
+): Promise<AICallResult> {
+  const body: any = {
+    model,
+    messages: [{ role: "system", content: system }, { role: "user", content: user }],
+  };
+  // GPT-5 reasoning models do not accept temperature.
+  if (!/^openai\/gpt-5/.test(model) && typeof opts.temperature === "number") body.temperature = opts.temperature;
+  if (opts.reasoning && /^openai\/gpt-5/.test(model)) body.reasoning = { effort: opts.reasoning };
+  if (opts.tools) body.tools = opts.tools;
+  if (opts.toolChoice) body.tool_choice = opts.toolChoice;
+
   const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      temperature: 0.3,
-    }),
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOVABLE_API_KEY}` },
+    body: JSON.stringify(body),
   });
   if (!r.ok) {
-    return { text: "", cost: 0, ok: false, error: `ai_${r.status}` };
+    const errText = await r.text().catch(() => "");
+    return { text: "", cost: 0, ok: false, error: `ai_${r.status}:${errText.slice(0, 200)}` };
   }
   const j = await r.json();
-  const text = j?.choices?.[0]?.message?.content || "";
+  const msg = j?.choices?.[0]?.message || {};
+  const text = (msg.content || "").trim();
+  const toolCall = msg.tool_calls?.[0];
   const inTok = j?.usage?.prompt_tokens || 0;
   const outTok = (j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0);
-  const cost = chatTokenCostUsd(MODEL, Number(inTok || 0), Number(outTok || 0));
-  return { text: text.trim(), cost, ok: true };
+  const cost = chatTokenCostUsd(model, Number(inTok || 0), Number(outTok || 0));
+  return { text, cost, ok: true, toolCall };
 }
 
-function safeFallbackBio(name: string): string {
-  return `${name} magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók.`;
-}
+const AUDIT_TOOL = {
+  type: "function",
+  function: {
+    name: "submit_bio_audit",
+    description: "Independent audit of an AI-generated Hungarian biography. Reject any claim not supported by sources.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        pass: { type: "boolean", description: "true only if every factual claim is supported by sources" },
+        hallucination_flags: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "unsupported_occupation",
+              "unsupported_birth_or_death",
+              "unsupported_nationality",
+              "unsupported_organization",
+              "unsupported_role_claim",
+              "unsupported_age_or_year",
+              "speculative_political_stance",
+              "marketing_language",
+              "wrong_person_confusion",
+              "non_hungarian_text",
+              "too_long",
+              "too_short",
+              "echoes_safe_fallback",
+              "other_unsupported_claim",
+            ],
+          },
+        },
+        rationale_hu: { type: "string", description: "Rövid magyar indoklás miért pass/fail." },
+      },
+      required: ["pass", "hallucination_flags", "rationale_hu"],
+    },
+  },
+};
 
-function pickOverviewStyleLine(host: number, guest: number, subject: number, mentioned: number): string {
-  if (host > 0 && host >= guest && host >= subject) return "host";
-  if (guest > 0 && guest >= subject) return "guest";
-  if (subject > 0 && subject >= mentioned) return "subject";
-  return "mentioned";
+async function auditBio(
+  personName: string,
+  bioText: string,
+  evidence: { wiki_extract?: string | null; wiki_description?: string | null; wiki_status: string; wiki_confidence: number; episode_titles: string[]; tally: any },
+): Promise<{ pass: boolean; flags: string[]; rationale: string; cost: number; ok: boolean; error?: string }> {
+  const sys = `Független auditor vagy. Egy AI által generált rövid magyar életrajzot kell ellenőrizned egy podcast-katalógus számára.
+Szabályok:
+- A bio MINDEN tényállítását össze kell vetni a megadott forrásokkal (Wikipedia extract + epizód kontextus).
+- Ha bármely tényállításra (foglalkozás, születés/halál, nemzetiség, szervezet, korszak, szerep) NINCS forrás-fedezet a megadott bizonyítékban, az hallucináció → pass=false.
+- A nevezett személyt rövid kapcsolódó jelzők (pl. "magyar", "újságíró") csak akkor lehet a bio-ban, ha a Wikipedia extract vagy az episode kontextus explicit módon alátámasztja.
+- Ha a bio túl rövid (<20 karakter), túl hosszú (>500 karakter), nem magyar, vagy a biztonságos sablon visszhangja → pass=false.
+- Hipotetikus, "valószínűleg", reklámszerű kifejezések → pass=false.
+- Politikai vélemény, becslés, korhatározás forrás nélkül → pass=false.
+- Légy szigorú: ha bizonytalan vagy, jelöld fail-nek.
+- A submit_bio_audit eszközzel válaszolj.`;
+  const epList = evidence.episode_titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join("\n") || "(nincs)";
+  const user = `SZEMÉLY: ${personName}
+
+GENERÁLT BIO (auditálandó):
+"""
+${bioText}
+"""
+
+BIZONYÍTÉK — Wikipedia státusz: ${evidence.wiki_status} (konfidencia ${evidence.wiki_confidence}).
+Wikipedia leírás: ${evidence.wiki_description || "—"}
+Wikipedia kivonat (max 800 char): ${(evidence.wiki_extract || "").slice(0, 800) || "—"}
+
+Epizód kontextus (host=${evidence.tally?.host || 0} guest=${evidence.tally?.guest || 0} subject=${evidence.tally?.subject || 0} mentioned=${evidence.tally?.mentioned || 0}):
+${epList}
+
+Végezd el az auditot.`;
+  const r = await callAI(AUDIT_MODEL, sys, user, {
+    reasoning: "medium",
+    tools: [AUDIT_TOOL],
+    toolChoice: { type: "function", function: { name: "submit_bio_audit" } },
+  });
+  if (!r.ok || !r.toolCall) {
+    return { pass: false, flags: ["other_unsupported_claim"], rationale: r.error || "audit_no_tool_call", cost: r.cost, ok: false, error: r.error };
+  }
+  try {
+    const args = JSON.parse(r.toolCall.function?.arguments || "{}");
+    return {
+      pass: !!args.pass,
+      flags: Array.isArray(args.hallucination_flags) ? args.hallucination_flags : [],
+      rationale: String(args.rationale_hu || ""),
+      cost: r.cost,
+      ok: true,
+    };
+  } catch (e: any) {
+    return { pass: false, flags: ["other_unsupported_claim"], rationale: `parse_error:${e?.message || e}`, cost: r.cost, ok: false, error: "parse_error" };
+  }
 }
 
 async function processPerson(admin: any, personId: string, opts: { force?: boolean }): Promise<any> {
