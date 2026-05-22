@@ -94,8 +94,8 @@ export default function NewspaperMasthead() {
           <span>{moon.name}</span>
         </span>
 
-        {nextHoliday && (
-          <span className="inline-flex items-center gap-1.5 ml-auto">
+        {nextHoliday && nextHoliday.daysUntil <= 30 && (
+          <span className="inline-flex items-center gap-1.5 sm:ml-auto">
             <Gift className="h-3.5 w-3.5 text-primary" aria-hidden />
             {nextHoliday.daysUntil === 0
               ? <span className="text-foreground">Ma: {nextHoliday.name}</span>
