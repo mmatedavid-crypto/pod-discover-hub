@@ -107,7 +107,7 @@ function notFound(path: string) {
 // ---------- builders ----------
 
 async function buildHome(supabase: ReturnType<typeof createClient>) {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from("mv_homepage_feed")
     .select("episode_id, title, display_title, slug, summary, description, published_at, podcast_title, podcast_display_title, podcast_slug")
     .order("published_at", { ascending: false })
@@ -414,7 +414,7 @@ async function buildPerson(
     .maybeSingle();
   if (!person || person.is_public === false) return null;
 
-  const { data: rows } = await supabase
+  const { data: rows } = await (supabase as any)
     .from("person_episode_mentions")
     .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, language))`)
     .eq("person_id", person.id)
@@ -474,7 +474,7 @@ async function buildTopic(
     .maybeSingle();
   if (!topic || topic.is_public === false) return null;
 
-  const { data: rows } = await supabase
+  const { data: rows } = await (supabase as any)
     .from("episode_topic_map")
     .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
     .eq("topic_id", topic.id)
@@ -535,7 +535,7 @@ async function buildOrganization(
     .maybeSingle();
   if (!org) return null;
 
-  const { data: rows } = await supabase
+  const { data: rows } = await (supabase as any)
     .from("episode_organization_map")
     .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
     .eq("organization_id", org.id)
@@ -597,7 +597,7 @@ async function buildMoodCollection(
   const episodeIds = (coll.episode_ids ?? []) as string[];
   let eps: Array<any> = [];
   if (episodeIds.length) {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("episodes")
       .select(`title, display_title, slug, ai_summary, published_at, image_url, podcast:podcasts!inner(title, display_title, slug, image_url, language)`)
       .in("id", episodeIds.slice(0, 60));
@@ -655,7 +655,7 @@ async function buildLegacyEntity(
   const arrayCol = kind === "ticker" ? "tickers" : "ingredients";
   const matchValue = kind === "ticker" ? slug.toUpperCase() : slug;
 
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from("episodes")
     .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
     .contains(arrayCol, [matchValue])
