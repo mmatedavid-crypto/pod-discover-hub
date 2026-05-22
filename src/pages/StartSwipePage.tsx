@@ -225,10 +225,21 @@ export default function StartSwipePage() {
     () => persisted.dislikedCardIds.map(id => byId.get(id)).filter((c): c is Card => !!c),
     [persisted.dislikedCardIds, byId]
   );
+  const superLiked = useMemo(
+    () => persisted.superLikedCardIds.map(id => byId.get(id)).filter((c): c is Card => !!c),
+    [persisted.superLikedCardIds, byId]
+  );
+
+  // Vector weighting: super-likes count 2x (we duplicate them in the positive set).
+  const effectiveLiked = useMemo(() => [...liked, ...superLiked], [liked, superLiked]);
 
   const totalSwipes = persisted.seenCardIds.length;
   const positiveSwipes = persisted.likedCardIds.length;
-  const confidence = useMemo(() => computeConfidence(liked, disliked), [liked, disliked]);
+  const superSwipes = persisted.superLikedCardIds.length;
+  const confidence = useMemo(
+    () => computeConfidence(effectiveLiked, disliked),
+    [effectiveLiked, disliked]
+  );
 
   // Load card pool once
   useEffect(() => {
@@ -250,9 +261,9 @@ export default function StartSwipePage() {
   useEffect(() => {
     if (phase !== "swipe" || !pool || current) return;
     const seen = new Set(persisted.seenCardIds);
-    const next = pickNextCard(pool, seen, liked, disliked, totalSwipes);
+    const next = pickNextCard(pool, seen, effectiveLiked, disliked, totalSwipes);
     setCurrent(next);
-  }, [phase, pool, current, persisted.seenCardIds, liked, disliked, totalSwipes]);
+  }, [phase, pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
 
   // Auto-fetch recs when entering result
   useEffect(() => {
@@ -262,9 +273,9 @@ export default function StartSwipePage() {
   }, [phase]);
 
   const fetchRecs = async () => {
-    if (liked.length === 0) return;
+    if (effectiveLiked.length === 0) return;
     setRecsLoading(true);
-    const userVec = normalize(mean(liked.map(c => c.card_embedding)));
+    const userVec = normalize(mean(effectiveLiked.map(c => c.card_embedding)));
     const negVec = disliked.length ? normalize(mean(disliked.map(c => c.card_embedding))) : null;
     const { data, error } = await supabase.rpc("match_episodes_by_taste_vector", {
       p_user_vector: toPgVector(userVec) as any,
@@ -276,28 +287,53 @@ export default function StartSwipePage() {
     setRecsLoading(false);
   };
 
+  // Preview of next 2 cards behind the active one (visual stack)
+  const upcoming = useMemo(() => {
+    if (!pool || !current) return [] as Card[];
+    const seen = new Set([...persisted.seenCardIds, current.id]);
+    const out: Card[] = [];
+    let tempLiked = effectiveLiked;
+    let tempDisliked = disliked;
+    let idx = totalSwipes + 1;
+    for (let i = 0; i < 2; i++) {
+      const c = pickNextCard(pool, seen, tempLiked, tempDisliked, idx);
+      if (!c) break;
+      out.push(c);
+      seen.add(c.id);
+      idx++;
+    }
+    return out;
+  }, [pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
+
   /* ─────── Actions ─────── */
 
   const handleStart = () => {
     setPhase("swipe");
   };
 
-  const handleSwipe = (action: "like" | "skip") => {
+  const handleSwipe = (action: "like" | "skip" | "super") => {
     if (!current || !pool) return;
+    const isPositive = action === "like" || action === "super";
     const next: Persisted = {
       ...persisted,
       seenCardIds: [...persisted.seenCardIds, current.id],
-      likedCardIds: action === "like" ? [...persisted.likedCardIds, current.id] : persisted.likedCardIds,
+      likedCardIds: isPositive ? [...persisted.likedCardIds, current.id] : persisted.likedCardIds,
       dislikedCardIds: action === "skip" ? [...persisted.dislikedCardIds, current.id] : persisted.dislikedCardIds,
+      superLikedCardIds: action === "super" ? [...persisted.superLikedCardIds, current.id] : persisted.superLikedCardIds,
       updatedAt: new Date().toISOString(),
     };
     setPersisted(next);
     savePersisted(next);
 
-    // Build updated liked/disliked arrays for stop check
-    const newLiked = action === "like" ? [...liked, current] : liked;
+    // Mild haptic feedback (mobile)
+    try { (navigator as any).vibrate?.(action === "super" ? [10, 40, 30] : 15); } catch { /* ignore */ }
+
+    // Build updated arrays for stop check (super counts 2x for vector signal)
+    const newLiked = isPositive ? [...liked, current] : liked;
+    const newSuper = action === "super" ? [...superLiked, current] : superLiked;
+    const newEffective = [...newLiked, ...newSuper];
     const newDisliked = action === "skip" ? [...disliked, current] : disliked;
-    const newConf = computeConfidence(newLiked, newDisliked);
+    const newConf = computeConfidence(newEffective, newDisliked);
     const total = next.seenCardIds.length;
     const positives = next.likedCardIds.length;
 
@@ -309,7 +345,7 @@ export default function StartSwipePage() {
 
     // Pick next card
     const seen = new Set(next.seenCardIds);
-    const nextCard = pickNextCard(pool, seen, newLiked, newDisliked, total);
+    const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total);
     if (!nextCard) {
       setPhase("result");
       setCurrent(null);
@@ -324,6 +360,7 @@ export default function StartSwipePage() {
       seenCardIds: [],
       likedCardIds: [],
       dislikedCardIds: [],
+      superLikedCardIds: [],
       updatedAt: new Date().toISOString(),
     };
     savePersisted(fresh);
