@@ -560,11 +560,7 @@ function SwipeView({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {totalSwipes} swipe · {positiveSwipes} ❤
-          {superSwipes > 0 && <> · <span className="text-primary">{superSwipes} ⭐</span></>}
-        </span>
+      <div className="mb-3 flex items-center justify-end text-xs text-muted-foreground">
         <span>magabiztosság: {Math.round(confidence * 100)}%</span>
       </div>
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
