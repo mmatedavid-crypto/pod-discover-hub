@@ -168,7 +168,7 @@ export function RelatedEpisodes() {
                 </Link>
                 <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                   {r.podcast_display_title || r.podcast_title}
-                  <span className="ml-2 tabular-nums opacity-70">· {sim}% match</span>
+                  {sim > 0 && <span className="ml-2 tabular-nums opacity-70">· {sim}% match</span>}
                 </div>
                 {snippet(r) && (
                   <div className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">
