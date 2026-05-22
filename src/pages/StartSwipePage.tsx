@@ -142,7 +142,9 @@ export default function StartSwipePage() {
   const current = cards[idx];
   const next = cards[idx + 1];
 
-  const handleSwipe = (action: "like" | "skip" | "save") => {
+  const MIN_LIKES = 5;
+
+  const handleSwipe = async (action: "like" | "skip" | "save") => {
     if (!current) return;
     const v = { ...vibe };
     if (action === "like") v.liked = [...v.liked, current.episode_id];
@@ -153,8 +155,19 @@ export default function StartSwipePage() {
     const newIdx = idx + 1;
     setIdx(newIdx);
     if (newIdx >= cards.length) {
-      setPhase("results");
-      void fetchRecs(v);
+      // If profile is still thin, keep feeding cards instead of bailing to results.
+      if (v.liked.length < MIN_LIKES) {
+        const seen = [...v.liked, ...v.disliked, ...v.saved, ...cards.map(c => c.episode_id)];
+        const added = await loadSeedsFromAnchors(vibe.anchors, false, seen);
+        if (added === 0) {
+          // truly nothing left — go to results with what we have
+          setPhase("results");
+          void fetchRecs(v);
+        }
+      } else {
+        setPhase("results");
+        void fetchRecs(v);
+      }
     }
   };
 
