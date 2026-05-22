@@ -175,7 +175,10 @@ async function processPerson(admin: any, personId: string): Promise<any> {
   const jobId = (jobInsert.data as any)?.id;
 
   try {
-    const candidates = await searchWikidataMulti(p.name);
+    const searchedCandidates = await searchWikidataMulti(p.name);
+    const candidates = p.wikidata_id
+      ? [{ id: p.wikidata_id }, ...searchedCandidates.filter((c: any) => c?.id !== p.wikidata_id)]
+      : searchedCandidates;
     let best: any = null;
     let bestScore = 0;
     let bestEvidence: any = {};
@@ -194,8 +197,10 @@ async function processPerson(admin: any, personId: string): Promise<any> {
       }
     }
 
-    // Relaxed thresholds (2026-05-21 Phase 2): verified 0.75→0.65, needs_review 0.5→0.4
-    const matchStatus = bestScore >= 0.65 ? "verified" : bestScore >= 0.4 ? "needs_review" : "no_match";
+    // Relaxed thresholds (2026-05-21 Phase 2): verified 0.75→0.65, needs_review 0.5→0.4.
+    // If this row was already manually/previously verified with a Wikidata id, image refreshes must not downgrade it.
+    const wasVerifiedSameEntity = p.wikipedia_match_status === "verified" && p.wikidata_id && best?.id === p.wikidata_id;
+    const matchStatus = wasVerifiedSameEntity ? "verified" : bestScore >= 0.65 ? "verified" : bestScore >= 0.4 ? "needs_review" : "no_match";
     const update: any = {
       wikipedia_match_status: matchStatus,
       wikipedia_match_confidence: bestScore,
