@@ -872,12 +872,16 @@ function ResultView({
           {/* Vignette + content overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-white/70 md:text-xs">
-              A te aurád · {aura.essence}
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-white/70 md:text-xs">
+              <span>A te aurád · {aura.essence}</span>
+              <span className="rounded-full border border-white/30 px-2 py-0.5 text-white/90">
+                {element.symbol} {element.label}
+              </span>
             </div>
             <h2 className="mt-1 text-3xl font-semibold tracking-tight text-white drop-shadow-md md:text-5xl">
               {archetype.name}
             </h2>
+            <div className="mt-1 text-xs text-white/70 italic">{element.tagline}</div>
           </div>
         </div>
 
