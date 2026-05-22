@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
       .from("people")
       .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, is_indexable, ai_bio_status, activation_status, ai_recommended_action, ai_review_status")
       .eq("is_public", true)
-      .in("activation_status", ["indexable","manual_approved"])
+      .in("activation_status", ["indexable","manual_approved","public_noindex"])
       .or("is_indexable.eq.true,episode_count.gte.3,strong_mention_count.gte.2")
       .order("episode_count", { ascending: false })
       .order("strong_mention_count", { ascending: false })
