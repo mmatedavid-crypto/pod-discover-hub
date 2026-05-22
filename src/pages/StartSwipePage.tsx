@@ -308,7 +308,7 @@ function IntroPicker({
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{r.name}</div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {r.kind === "podcast" ? "Podcast" : "Személy"} {r.subtitle ? `· ${r.subtitle}` : ""}
+                  {r.kind === "podcast" ? "Podcast" : r.kind === "person" ? "Személy" : "Kulcsszó"} {r.subtitle ? `· ${r.subtitle}` : ""}
                 </div>
               </div>
               <Plus className="h-4 w-4 text-muted-foreground" />
@@ -320,8 +320,21 @@ function IntroPicker({
       {searching && query.length >= 2 && results.length === 0 && (
         <div className="mt-2 text-xs text-muted-foreground px-1">Keresés…</div>
       )}
-      {!searching && query.length >= 2 && results.length === 0 && (
-        <div className="mt-2 text-xs text-muted-foreground px-1">Nincs találat — próbálj más nevet.</div>
+      {!searching && query.trim().length >= 2 && results.length === 0 && (
+        <button
+          onClick={() => add({
+            kind: "keyword",
+            id: `kw:${query.trim().toLowerCase()}`,
+            name: query.trim(),
+            slug: "",
+            image_url: null,
+            subtitle: "Kulcsszó",
+          })}
+          className="mt-2 flex w-full items-center gap-2 rounded-2xl border border-dashed border-border bg-card px-3 py-3 text-left text-sm hover:border-primary hover:bg-muted"
+        >
+          <Plus className="h-4 w-4 text-muted-foreground" />
+          <span>Nincs találat — hozzáadom mint kulcsszó: <strong>„{query.trim()}"</strong></span>
+        </button>
       )}
 
       {picked.length > 0 && (
