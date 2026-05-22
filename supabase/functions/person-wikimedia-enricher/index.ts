@@ -74,6 +74,27 @@ async function getWikipediaSummary(title: string, lang = "hu"): Promise<any | nu
   } catch { return null; }
 }
 
+async function getWikipediaPageImage(title: string, lang = "hu"): Promise<{ filename: string | null; original: string | null } | null> {
+  try {
+    const u = new URL(`https://${lang}.wikipedia.org/w/api.php`);
+    u.searchParams.set("action", "query");
+    u.searchParams.set("format", "json");
+    u.searchParams.set("origin", "*");
+    u.searchParams.set("titles", title);
+    u.searchParams.set("prop", "pageimages");
+    u.searchParams.set("piprop", "name|original|thumbnail");
+    u.searchParams.set("pithumbsize", "640");
+    const r = await fetch(u.toString(), { headers: { "User-Agent": "PodiverzumBot/1.0" } });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const page: any = Object.values(j.query?.pages || {})[0];
+    return {
+      filename: page?.pageimage || null,
+      original: page?.original?.source || page?.thumbnail?.source || null,
+    };
+  } catch { return null; }
+}
+
 function tokenize(s: string): Set<string> {
   return new Set(
     s.toLowerCase()
@@ -197,9 +218,13 @@ async function processPerson(admin: any, personId: string): Promise<any> {
     // Image: only for verified
     let imageInfo: any = null;
     if (matchStatus === "verified" && bestEntity) {
+      const huTitle = bestEntity?.sitelinks?.huwiki?.title || null;
+      const enTitle = bestEntity?.sitelinks?.enwiki?.title || null;
+      const summaryLang = huTitle ? "hu" : "en";
+      const pageImage = (huTitle || enTitle) ? await getWikipediaPageImage(huTitle || enTitle, summaryLang) : null;
       const p18 = bestEntity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
       const summaryThumb = bestSummary?.originalimage?.source || bestSummary?.thumbnail?.source;
-      const filename = p18 || (summaryThumb ? decodeURIComponent(summaryThumb.split("/").slice(-1)[0]).replace(/^\d+px-/, "") : null);
+      const filename = p18 || pageImage?.filename || (summaryThumb || pageImage?.original ? decodeURIComponent((summaryThumb || pageImage?.original).split("/").slice(-1)[0]).replace(/^\d+px-/, "") : null);
       if (filename) {
         imageInfo = await getCommonsImageInfo(filename);
         const meta = imageInfo?.extmetadata || {};
@@ -282,7 +307,7 @@ Deno.serve(async (req) => {
       .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status, wiki_match_run_at, activation_status, ai_recommended_action, ai_review_status")
       .eq("is_public", true)
       .in("activation_status", ["indexable","manual_approved","public_noindex"])
-      .or(`wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null,and(wikipedia_match_status.eq.no_match,wiki_match_run_at.lt.${staleCutoff})`)
+      .or(`wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null,and(wikipedia_match_status.eq.no_match,wiki_match_run_at.lt.${staleCutoff}),and(wikipedia_match_status.eq.verified,image_url.is.null,image_status.in.(none,failed,unchecked))`)
       .order("episode_count", { ascending: false })
       .order("podcast_count", { ascending: false })
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
