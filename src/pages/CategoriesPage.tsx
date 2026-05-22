@@ -15,9 +15,20 @@ export default function CategoriesPage() {
   }, []);
   return (
     <Layout>
-      <div className="container mx-auto py-10">
-        <h1 className="text-3xl font-semibold mb-2">Podcast kategóriák</h1>
-        <p className="text-muted-foreground mb-8">Böngészd a magyar podcastokat nagy műfaji és tartalmi területek szerint.</p>
+      <section className="border-b border-border bg-background">
+        <div className="container mx-auto py-10 sm:py-14 max-w-5xl px-4">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Kategóriák</div>
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">
+            Podcast kategóriák
+          </h1>
+          <p className="text-foreground/80 mt-4 max-w-2xl">
+            Böngészd a magyar podcastokat nagy műfaji és tartalmi területek szerint —
+            hírek, üzlet, tech, tudomány, sport, kultúra és sok más.
+          </p>
+        </div>
+      </section>
+
+      <div className="container mx-auto py-10 max-w-5xl px-4">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {cats.map((c) => (
             <Link
