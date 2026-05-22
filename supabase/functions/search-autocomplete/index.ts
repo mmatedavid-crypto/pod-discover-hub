@@ -18,13 +18,33 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 type Suggestion = {
-  type: "podcast" | "person" | "topic" | "category" | "query";
+  type: "podcast" | "person" | "topic" | "category" | "organization" | "query";
   label: string;
   subtitle?: string;
   href: string;
   image_url?: string | null;
   confidence: number;
 };
+
+function orgTypeLabel(t: string): string {
+  switch (t) {
+    case "party": return "Párt";
+    case "media": return "Média";
+    case "radio_station": return "Rádió";
+    case "institution": return "Intézmény";
+    case "ngo": return "Civil szervezet";
+    case "university": return "Egyetem";
+    case "research": return "Kutatóintézet";
+    case "church": return "Egyház";
+    case "sport_team": return "Sportklub";
+    case "sport_league": return "Sportliga";
+    default: return "Szervezet";
+  }
+}
+
+function orgHref(t: string, slug: string): string {
+  return t === "party" ? `/part/${slug}` : `/ceg/${slug}`;
+}
 
 function norm(s: string): string {
   return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
@@ -58,7 +78,7 @@ Deno.serve(async (req) => {
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     // Parallel reads — keep each one tight.
-    const [podRes, podAliasRes, persRes, aliasRes, topRes, catRes, qcacheRes] = await Promise.all([
+    const [podRes, podAliasRes, persRes, aliasRes, topRes, catRes, orgRes, orgAliasRes, qcacheRes] = await Promise.all([
       supa.from("podcasts")
         .select("title,slug,image_url,podiverzum_rank,rank_label,normalized_title")
         .eq("is_hungarian", true)
@@ -96,6 +116,19 @@ Deno.serve(async (req) => {
         .eq("active", true)
         .ilike("name", ilike)
         .limit(4),
+      // Organizations (cégek, médiumok, pártok, intézmények, egyetemek, sport stb.)
+      supa.from("organizations")
+        .select("name,slug,org_type,logo_url,gated_episode_count,normalized_name,is_indexable")
+        .eq("is_indexable", true)
+        .or(`normalized_name.ilike.${nPrefixStar},normalized_name.ilike.${nIlikeStar},name.ilike.${ilikeStar}`)
+        .order("gated_episode_count", { ascending: false })
+        .limit(8),
+      // Organization aliases (e.g. "MNB" → Magyar Nemzeti Bank, "Lakers" → Los Angeles Lakers)
+      supa.from("organization_aliases")
+        .select("alias,confidence,organizations!inner(name,slug,org_type,logo_url,gated_episode_count,is_indexable)")
+        .or(`normalized_alias.eq.${qNoSpace},normalized_alias.ilike.${nPrefixStar}`)
+        .gte("confidence", 0.5)
+        .limit(8),
       // Past popular search queries — Google-style "people also searched for"
       supa.from("search_query_cache")
         .select("q_norm,hits")
@@ -253,6 +286,49 @@ Deno.serve(async (req) => {
         subtitle: "Kategória",
         href: `/category/${(c as any).slug}`,
         confidence: norm(name).startsWith(q) ? 0.7 : 0.5,
+      });
+    }
+
+    // Organizations (cégek, médiumok, pártok, intézmények, sport stb.)
+    const orgSlugsSeen = new Set<string>();
+    // Alias matches first — short forms (MNB, Lakers) should win the dedupe.
+    for (const row of (orgAliasRes.data || []) as any[]) {
+      const o = row.organizations;
+      if (!o || !o.is_indexable) continue;
+      const slug = String(o.slug || "");
+      if (!slug || orgSlugsSeen.has(slug)) continue;
+      orgSlugsSeen.add(slug);
+      const aliasNorm = norm(String(row.alias || ""));
+      const exact = aliasNorm === q || aliasNorm === qNoSpace;
+      const aliasConf = Number(row.confidence) || 0.8;
+      const conf = Math.min(0.97, exact && aliasConf >= 0.8 ? 0.94 : 0.78 * aliasConf);
+      out.push({
+        type: "organization",
+        label: String(o.name || ""),
+        subtitle: orgTypeLabel(String(o.org_type || "")),
+        href: orgHref(String(o.org_type || ""), slug),
+        image_url: o.logo_url || null,
+        confidence: conf,
+      });
+    }
+    for (const o of (orgRes.data || []) as any[]) {
+      const slug = String(o.slug || "");
+      if (!slug || orgSlugsSeen.has(slug)) continue;
+      orgSlugsSeen.add(slug);
+      const name = String(o.name || "");
+      const nn = String(o.normalized_name || norm(name));
+      let base = 0.55;
+      if (nn === q || nn === qNoSpace) base = 0.96;
+      else if (nn.startsWith(qNoSpace)) base = 0.85;
+      else if ((` ${nn} `).includes(` ${qNoSpace} `)) base = 0.78;
+      else if (nn.includes(qNoSpace)) base = 0.65;
+      out.push({
+        type: "organization",
+        label: name,
+        subtitle: orgTypeLabel(String(o.org_type || "")),
+        href: orgHref(String(o.org_type || ""), slug),
+        image_url: o.logo_url || null,
+        confidence: base,
       });
     }
 

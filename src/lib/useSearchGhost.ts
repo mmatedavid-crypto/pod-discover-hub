@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type GhostSuggestion = {
-  type: "podcast" | "person" | "topic" | "category" | "query";
+  type: "podcast" | "person" | "topic" | "category" | "organization" | "query";
   label: string;
   subtitle?: string;
   href: string;
