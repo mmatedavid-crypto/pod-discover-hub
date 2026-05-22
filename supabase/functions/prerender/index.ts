@@ -477,6 +477,16 @@ async function buildEntity(
 
 // ---------- router ----------
 
+// HU ↔ EN route aliases. The Cloudflare worker forwards the original (likely
+// HU) path; we normalize the entity kind here so all builders share one enum,
+// but pass the original prefix through so canonical/og:url stays HU.
+const HU_TO_EN: Record<string, "topic" | "person" | "company" | "ingredient"> = {
+  tema: "topic",
+  szemely: "person",
+  ceg: "company",
+  hozzavalo: "ingredient",
+};
+
 Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
@@ -499,16 +509,18 @@ Deno.serve(async (req) => {
       const r = await buildEpisode(supabase, parts[1], parts[2]);
       return r ?? notFound(path);
     }
-    if (parts[0] === "category" && parts.length === 2) {
+    if ((parts[0] === "category" || parts[0] === "kategoria") && parts.length === 2) {
       const r = await buildCategory(supabase, parts[1]);
       return r ?? notFound(path);
     }
-    if (
-      parts.length === 2 &&
-      ["topic", "person", "company", "ticker", "ingredient"].includes(parts[0])
-    ) {
-      const r = await buildEntity(supabase, parts[0] as any, parts[1]);
-      return r ?? notFound(path);
+    if (parts.length === 2) {
+      const enKind = HU_TO_EN[parts[0]] ??
+        (["topic", "person", "company", "ticker", "ingredient"].includes(parts[0])
+          ? (parts[0] as any) : null);
+      if (enKind) {
+        const r = await buildEntity(supabase, enKind as any, parts[1], parts[0]);
+        return r ?? notFound(path);
+      }
     }
 
     return notFound(path);
