@@ -31,10 +31,17 @@ function snippet(r: Row): string {
   return raw.length > 140 ? raw.slice(0, 137) + "…" : raw;
 }
 
-export function RelatedEpisodes() {
+type Props = {
+  episodeIdOverride?: string;
+  podcastIdOverride?: string | null;
+  variant?: "panel" | "compact";
+};
+
+export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant = "panel" }: Props = {}) {
   const { currentEpisode, play, setExpanded } = useSmartPlayer();
-  const episodeId = currentEpisode?.id;
-  const podcastId = currentEpisode?.podcastId ?? null;
+  const episodeId = episodeIdOverride ?? currentEpisode?.id;
+  const podcastId = podcastIdOverride ?? currentEpisode?.podcastId ?? null;
+  const isCompact = variant === "compact";
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["smart-player-related", episodeId],
@@ -106,9 +113,10 @@ export function RelatedEpisodes() {
   }, [data, podcastId]);
 
   if (!episodeId) return null;
+  if (isCompact && !isLoading && items.length === 0) return null;
 
   return (
-    <div className="w-full max-w-2xl">
+    <div className={isCompact ? "w-full mt-8" : "w-full max-w-2xl"}>
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-4 w-4 text-accent" />
         <h3 className="text-sm font-semibold tracking-wide">
@@ -122,71 +130,120 @@ export function RelatedEpisodes() {
       {isLoading && (
         <div className="text-xs text-muted-foreground">Keresés a vektor-indexben…</div>
       )}
-      {error && (
+      {error && !isCompact && (
         <div className="text-xs text-amber-500">Most nem tudtuk lekérni az ajánlásokat.</div>
       )}
-      {!isLoading && !error && items.length === 0 && (
+      {!isLoading && !error && !isCompact && items.length === 0 && (
         <div className="text-xs text-muted-foreground">
           Még nincs elég adat ehhez az epizódhoz a hasonlóság-számoláshoz.
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {items.map((r) => {
-          const epHref = `/podcast/${r.podcast_slug}/${r.slug}`;
-          const sim = Math.round(r.similarity * 100);
-          const ep: SmartPlayerEpisode = {
-            id: r.episode_id,
-            title: r.display_title || r.title,
-            podcastId: r.podcast_id,
-            podcastTitle: r.podcast_display_title || r.podcast_title,
-            podcastSlug: r.podcast_slug,
-            episodeSlug: r.slug,
-            imageUrl: r.podcast_image_url,
-            audioUrl: r.audio_url!,
-          };
-          return (
-            <li
-              key={r.episode_id}
-              className="group flex items-start gap-3 rounded-lg border border-border bg-card/60 hover:bg-card transition-colors p-2.5"
-            >
-              {r.podcast_image_url && (
-                <img
-                  src={r.podcast_image_url}
-                  alt=""
-                  className="h-12 w-12 rounded-md object-cover shrink-0 border border-border"
-                  loading="lazy"
-                />
-              )}
-              <div className="min-w-0 flex-1">
+      {isCompact ? (
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x scrollbar-thin">
+          {items.map((r) => {
+            const epHref = `/podcast/${r.podcast_slug}/${r.slug}`;
+            const ep: SmartPlayerEpisode = {
+              id: r.episode_id,
+              title: r.display_title || r.title,
+              podcastId: r.podcast_id,
+              podcastTitle: r.podcast_display_title || r.podcast_title,
+              podcastSlug: r.podcast_slug,
+              episodeSlug: r.slug,
+              imageUrl: r.podcast_image_url,
+              audioUrl: r.audio_url!,
+            };
+            return (
+              <div
+                key={r.episode_id}
+                className="snap-start shrink-0 w-[220px] rounded-xl border border-border bg-card/60 hover:bg-card transition-colors p-3 flex flex-col gap-2"
+              >
+                {r.podcast_image_url && (
+                  <img
+                    src={r.podcast_image_url}
+                    alt=""
+                    className="h-24 w-full rounded-md object-cover border border-border"
+                    loading="lazy"
+                  />
+                )}
                 <Link
                   to={epHref}
-                  onClick={() => setExpanded(false)}
-                  className="block text-sm font-medium leading-snug line-clamp-2 hover:text-accent"
+                  className="text-[13px] font-medium leading-snug line-clamp-2 hover:text-accent"
                 >
                   {r.display_title || r.title}
                 </Link>
-                <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                <div className="text-[10.5px] text-muted-foreground truncate">
                   {r.podcast_display_title || r.podcast_title}
-                  {sim > 0 && <span className="ml-2 tabular-nums opacity-70">· {sim}% match</span>}
                 </div>
-                {snippet(r) && (
-                  <div className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">
-                    {snippet(r)}
-                  </div>
-                )}
+                <button
+                  onClick={() => play(ep)}
+                  className="mt-auto text-[11px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 self-start"
+                  aria-label={`Lejátszás: ${r.title}`}
+                >
+                  ▶ Lejátszás
+                </button>
               </div>
-              <button
-                onClick={() => play(ep)}
-                className="shrink-0 text-[11px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
-                aria-label={`Lejátszás: ${r.title}`}
+            );
+          })}
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {items.map((r) => {
+            const epHref = `/podcast/${r.podcast_slug}/${r.slug}`;
+            const sim = Math.round(r.similarity * 100);
+            const ep: SmartPlayerEpisode = {
+              id: r.episode_id,
+              title: r.display_title || r.title,
+              podcastId: r.podcast_id,
+              podcastTitle: r.podcast_display_title || r.podcast_title,
+              podcastSlug: r.podcast_slug,
+              episodeSlug: r.slug,
+              imageUrl: r.podcast_image_url,
+              audioUrl: r.audio_url!,
+            };
+            return (
+              <li
+                key={r.episode_id}
+                className="group flex items-start gap-3 rounded-lg border border-border bg-card/60 hover:bg-card transition-colors p-2.5"
               >
-                ▶ Play
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                {r.podcast_image_url && (
+                  <img
+                    src={r.podcast_image_url}
+                    alt=""
+                    className="h-12 w-12 rounded-md object-cover shrink-0 border border-border"
+                    loading="lazy"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={epHref}
+                    onClick={() => setExpanded(false)}
+                    className="block text-sm font-medium leading-snug line-clamp-2 hover:text-accent"
+                  >
+                    {r.display_title || r.title}
+                  </Link>
+                  <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                    {r.podcast_display_title || r.podcast_title}
+                    {sim > 0 && <span className="ml-2 tabular-nums opacity-70">· {sim}% match</span>}
+                  </div>
+                  {snippet(r) && (
+                    <div className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">
+                      {snippet(r)}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => play(ep)}
+                  className="shrink-0 text-[11px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
+                  aria-label={`Lejátszás: ${r.title}`}
+                >
+                  ▶ Play
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

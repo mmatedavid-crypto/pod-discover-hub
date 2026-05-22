@@ -24,6 +24,7 @@ import { useSmartPlayer, type SmartPlayerEpisode } from "@/components/smart-play
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getProgress } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
+import { RelatedEpisodes } from "@/components/smart-player/RelatedEpisodes";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
@@ -398,6 +399,8 @@ export default function EpisodeDetail() {
         <div className="grid gap-4 mt-8">
           {ENT_KINDS.map(({ kind, label }) => <EntList key={kind} kind={kind} label={label} />)}
         </div>
+
+        <RelatedEpisodes episodeIdOverride={e.id} podcastIdOverride={p.id} variant="compact" />
 
         <SimilarEpisodes episodeId={e.id} />
 
