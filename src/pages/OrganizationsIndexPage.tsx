@@ -4,58 +4,116 @@ import { Building2, Vote, ArrowRight } from "lucide-react";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { supabase } from "@/integrations/supabase/client";
-import OrgCard, { OrgCardData } from "@/components/OrgCard";
+import OrgCard, { OrgCardData, ORG_TYPE_ICON } from "@/components/OrgCard";
 
-type Stats = { companies: number; parties: number };
+type OrgType =
+  | "company" | "party" | "media" | "radio_station"
+  | "institution" | "ngo" | "university" | "church"
+  | "sport_team" | "sport_league" | "research";
+
+type Stats = { companies: number; parties: number; total: number };
+
+// Sections shown on the hub page (in display order)
+const SECTIONS: { key: string; label: string; types: OrgType[]; href?: string; iconType: OrgType }[] = [
+  { key: "party",         label: "Pártok",                types: ["party"],                            href: "/partok", iconType: "party" },
+  { key: "media",         label: "Médiumok és rádiók",    types: ["media", "radio_station"],           href: "/cegek",  iconType: "media" },
+  { key: "company",       label: "Cégek",                 types: ["company"],                          href: "/cegek",  iconType: "company" },
+  { key: "institution",   label: "Intézmények",           types: ["institution"],                      href: "/cegek",  iconType: "institution" },
+  { key: "ngo",           label: "Civil szervezetek",     types: ["ngo"],                              href: "/cegek",  iconType: "ngo" },
+  { key: "university",    label: "Egyetemek és kutatás",  types: ["university", "research"],           iconType: "university" },
+  { key: "church",        label: "Egyházak",              types: ["church"],                           iconType: "church" },
+  { key: "sport",         label: "Sport (klubok és ligák)", types: ["sport_team", "sport_league"],     iconType: "sport_team" },
+];
+
+const COLS = "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at";
 
 export default function OrganizationsIndexPage() {
-  const [stats, setStats] = useState<Stats>({ companies: 0, parties: 0 });
-  const [topCompanies, setTopCompanies] = useState<OrgCardData[]>([]);
-  const [topParties, setTopParties] = useState<OrgCardData[]>([]);
+  const [stats, setStats] = useState<Stats>({ companies: 0, parties: 0, total: 0 });
+  const [topAll, setTopAll] = useState<OrgCardData[]>([]);
+  const [bySection, setBySection] = useState<Record<string, OrgCardData[]>>({});
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setSeo({
       title: "Szervezetek a magyar podcastokban — Podiverzum",
       description:
-        "Cégek, intézmények, médiumok, civil szervezetek, politikai pártok, egyetemek, egyházak és sportklubok, amelyek magyar podcastokban szóba kerülnek vagy résztvevőként jelennek meg.",
+        "Cégek, intézmények, médiumok, rádiók, civil szervezetek, politikai pártok, egyetemek, egyházak, sportklubok és ligák, amelyek magyar podcastokban szóba kerülnek vagy résztvevőként jelennek meg.",
     });
+
     (async () => {
-      const cols =
-        "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at";
-      const [cCount, pCount, cTop, pTop] = await Promise.all([
-        supabase
-          .from("organizations")
-          .select("id", { count: "exact", head: true })
-          .eq("is_public", true)
-          .in("org_type", ["company", "media", "ngo", "institution", "radio_station"])
-          .gte("gated_episode_count", 1),
-        supabase
-          .from("organizations")
-          .select("id", { count: "exact", head: true })
-          .eq("is_public", true)
-          .eq("org_type", "party")
-          .gte("gated_episode_count", 1),
-        supabase
-          .from("organizations")
-          .select(cols)
-          .eq("is_public", true)
-          .in("org_type", ["company", "media", "ngo", "institution", "radio_station"])
-          .gte("gated_episode_count", 1)
-          .order("gated_episode_count", { ascending: false })
-          .limit(6),
-        supabase
-          .from("organizations")
-          .select(cols)
-          .eq("is_public", true)
-          .eq("org_type", "party")
-          .gte("gated_episode_count", 1)
-          .order("editorial_priority_level", { ascending: false })
-          .order("gated_episode_count", { ascending: false })
-          .limit(6),
+      // Top mixed (12) — most-mentioned overall, excluding "other"
+      const topAllPromise = supabase
+        .from("organizations")
+        .select(COLS)
+        .eq("is_public", true)
+        .gte("gated_episode_count", 1)
+        .not("org_type", "eq", "other")
+        .order("gated_episode_count", { ascending: false })
+        .limit(12);
+
+      // Aggregate counts
+      const companyCountPromise = supabase
+        .from("organizations")
+        .select("id", { count: "exact", head: true })
+        .eq("is_public", true)
+        .in("org_type", ["company", "media", "ngo", "institution", "radio_station"])
+        .gte("gated_episode_count", 1);
+      const partyCountPromise = supabase
+        .from("organizations")
+        .select("id", { count: "exact", head: true })
+        .eq("is_public", true)
+        .eq("org_type", "party")
+        .gte("gated_episode_count", 1);
+      const totalCountPromise = supabase
+        .from("organizations")
+        .select("id", { count: "exact", head: true })
+        .eq("is_public", true)
+        .gte("gated_episode_count", 1)
+        .not("org_type", "eq", "other");
+
+      const sectionPromises = SECTIONS.map((s) =>
+        Promise.all([
+          supabase
+            .from("organizations")
+            .select(COLS)
+            .eq("is_public", true)
+            .in("org_type", s.types)
+            .gte("gated_episode_count", 1)
+            .order("gated_episode_count", { ascending: false })
+            .limit(6),
+          supabase
+            .from("organizations")
+            .select("id", { count: "exact", head: true })
+            .eq("is_public", true)
+            .in("org_type", s.types)
+            .gte("gated_episode_count", 1),
+        ]),
+      );
+
+      const [tAll, cCount, pCount, totCount, ...sectionResults] = await Promise.all([
+        topAllPromise,
+        companyCountPromise,
+        partyCountPromise,
+        totalCountPromise,
+        ...sectionPromises,
       ]);
-      setStats({ companies: cCount.count || 0, parties: pCount.count || 0 });
-      setTopCompanies((cTop.data || []) as any);
-      setTopParties((pTop.data || []) as any);
+
+      setTopAll((tAll.data || []) as any);
+      setStats({
+        companies: cCount.count || 0,
+        parties: pCount.count || 0,
+        total: totCount.count || 0,
+      });
+
+      const sec: Record<string, OrgCardData[]> = {};
+      const cnt: Record<string, number> = {};
+      sectionResults.forEach((res, i) => {
+        const [rowsRes, countRes] = res as any;
+        sec[SECTIONS[i].key] = (rowsRes.data || []) as OrgCardData[];
+        cnt[SECTIONS[i].key] = countRes.count || 0;
+      });
+      setBySection(sec);
+      setCounts(cnt);
     })();
   }, []);
 
@@ -68,72 +126,100 @@ export default function OrganizationsIndexPage() {
             Szervezetek a magyar podcastokban
           </h1>
           <p className="text-foreground/80 mt-4 max-w-2xl">
-            Cégek, intézmények, médiumok, civil szervezetek, politikai pártok, egyetemek, egyházak és
-            sportklubok, amelyek magyar podcastokban szóba kerülnek vagy résztvevőként jelennek meg.
+            Cégek, médiumok, rádiók, intézmények, civil szervezetek, politikai pártok, egyetemek, egyházak,
+            sportklubok és ligák — minden olyan szervezet, amely magyar podcastokban szóba kerül vagy
+            résztvevőként megjelenik.
           </p>
+          {stats.total > 0 && (
+            <div className="mt-4 text-xs text-muted-foreground tabular-nums">
+              {stats.total.toLocaleString("hu-HU")} szervezet · {stats.parties.toLocaleString("hu-HU")} párt ·{" "}
+              {stats.companies.toLocaleString("hu-HU")} cég és intézmény
+            </div>
+          )}
         </div>
       </section>
 
-      <div className="container mx-auto py-10 max-w-5xl px-4 space-y-10">
-        {/* Hub links */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <HubLink
-            to="/cegek"
-            icon={Building2}
-            eyebrow="Cégek és intézmények"
-            count={stats.companies}
-            title="Minden szervezet, típus szerint"
-            description="Gazdasági, állami, média- és civil szervezetek — típus szerint csoportosítva."
-          />
-
-          <HubLink
-            to="/partok"
-            icon={Vote}
-            eyebrow="Pártok"
-            count={stats.parties}
-            title="Politikai pártok"
-            description="Magyar pártok és frakciók, politikai szín és aktivitás szerint."
-          />
-        </div>
-
-        {topCompanies.length > 0 && (
+      <div className="container mx-auto py-10 max-w-5xl px-4 space-y-12">
+        {/* Top mixed — most-mentioned overall */}
+        {topAll.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4 gap-3 flex-wrap">
               <div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Top cégek és intézmények</h2>
-                <p className="text-xs text-muted-foreground mt-1">A legtöbb epizódban szereplő szervezetek.</p>
+                <h2 className="text-xl sm:text-2xl font-semibold">A legtöbbet emlegetett szervezetek</h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Top 12 — az összes típus együtt, epizódszám szerint.
+                </p>
               </div>
-              <Link to="/cegek" className="text-xs text-primary hover:underline">Mind →</Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {topCompanies.map((o) => (
+              {topAll.map((o) => (
                 <OrgCard key={o.slug} o={o} />
               ))}
             </div>
           </section>
         )}
 
-        {topParties.length > 0 && (
-          <section>
-            <div className="flex items-end justify-between mb-4 gap-3 flex-wrap">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Top pártok</h2>
-                <p className="text-xs text-muted-foreground mt-1">Politikai pártok aktivitás szerint.</p>
+        {/* Per-type sections */}
+        {SECTIONS.map((s) => {
+          const rows = bySection[s.key] || [];
+          if (!rows.length) return null;
+          const Icon = ORG_TYPE_ICON[s.iconType];
+          const count = counts[s.key] || 0;
+          return (
+            <section key={s.key}>
+              <div className="flex items-end justify-between mb-4 gap-3 flex-wrap">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="shrink-0 h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center mt-0.5">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-semibold">{s.label}</h2>
+                    <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                      {count.toLocaleString("hu-HU")} szervezet
+                    </p>
+                  </div>
+                </div>
+                {s.href && (
+                  <Link to={s.href} className="text-xs text-primary hover:underline whitespace-nowrap">
+                    Mind →
+                  </Link>
+                )}
               </div>
-              <Link to="/partok" className="text-xs text-primary hover:underline">Mind →</Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {topParties.map((o) => (
-                <OrgCard key={o.slug} o={o} />
-              ))}
-            </div>
-          </section>
-        )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {rows.map((o) => (
+                  <OrgCard key={o.slug} o={o} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
 
-        {topCompanies.length === 0 && topParties.length === 0 && (
+        {/* Hub links at bottom — deeper browsing */}
+        <section className="pt-2">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-3">Tovább böngészés</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <HubLink
+              to="/cegek"
+              icon={Building2}
+              eyebrow="Cégek és intézmények"
+              count={stats.companies}
+              title="Böngészés típus szerint"
+              description="Cég · Média · Intézmény · Civil — kereshető lista, lapozható."
+            />
+            <HubLink
+              to="/partok"
+              icon={Vote}
+              eyebrow="Pártok"
+              count={stats.parties}
+              title="Magyar pártok"
+              description="Politikai szín és aktivitás szerint, kereshető."
+            />
+          </div>
+        </section>
+
+        {topAll.length === 0 && (
           <div className="rounded-xl border border-dashed border-border bg-card/40 p-6 text-sm text-muted-foreground">
-            Még gyűjtjük a szervezeteket az epizódokból. Az AI ~16 ezer epizódból már kinyerte az említett cégeket,
-            intézményeket, civil szervezeteket és pártokat; ezek hamarosan itt jelennek meg.
+            Még gyűjtjük a szervezeteket az epizódokból. Hamarosan itt jelennek meg.
           </div>
         )}
       </div>
