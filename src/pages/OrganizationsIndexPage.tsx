@@ -21,7 +21,7 @@ const SECTIONS: { key: string; label: string; types: OrgType[]; href?: string; i
   { key: "institution",   label: "Intézmények",           types: ["institution"],                      href: "/cegek",  iconType: "institution" },
   { key: "ngo",           label: "Civil szervezetek",     types: ["ngo"],                              href: "/cegek",  iconType: "ngo" },
   { key: "university",    label: "Egyetemek és kutatás",  types: ["university", "research"],           iconType: "university" },
-  { key: "church",        label: "Egyházak",              types: ["church"],                           iconType: "church" },
+  { key: "church",        label: "Egyházak és vallási szervezetek", types: ["church"],                  iconType: "church" },
   { key: "sport",         label: "Sport (klubok és ligák)", types: ["sport_team", "sport_league"],     iconType: "sport_team" },
 ];
 
