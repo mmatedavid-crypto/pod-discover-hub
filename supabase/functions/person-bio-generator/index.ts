@@ -169,6 +169,12 @@ function wikipediaBio(p: any): string | null {
   return bio.length > 500 ? `${bio.slice(0, 497).trim()}…` : bio;
 }
 
+function hasVerifiedWikiSource(p: any): boolean {
+  return p.wikipedia_match_status === "verified"
+    && Number(p.wikipedia_match_confidence || 0) >= 0.65
+    && Boolean(p.wikipedia_extract || p.wikipedia_description);
+}
+
 function pickOverviewStyleLine(host: number, guest: number, subject: number, mentioned: number): string {
   if (host > 0 && host >= guest && host >= subject) return "host";
   if (guest > 0 && guest >= subject) return "guest";
@@ -198,18 +204,30 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
     .limit(15);
   const { data: mentions } = await admin
     .from("person_episode_mentions")
-    .select("mention_type, episodes!inner(id, title, ai_summary, summary, podcasts!inner(is_hungarian, language_decision))")
+    .select("mention_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, ai_summary, summary, podcasts!inner(is_hungarian, language_decision))")
     .eq("person_id", personId)
     .eq("episodes.podcasts.is_hungarian", true)
     .eq("episodes.podcasts.language_decision", "accept_hungarian")
     .limit(50);
 
-  const epList = (mentions || []).map((m: any) => ({
-    id: m.episodes?.id,
-    title: m.episodes?.title,
-    summary: (m.episodes?.ai_summary || m.episodes?.summary || "").slice(0, 400),
-    mention_type: m.mention_type,
-  })).filter((e: any) => e.id);
+  const epList = (mentions || [])
+    .filter((m: any) => {
+      if (m.relevance_status === "rejected" || m.relevance_status === "needs_review") return false;
+      const accepted = m.relevance_status === "accepted";
+      const strongAi = Number(m.final_relevance_score || 0) >= 0.75;
+      const manual = m.validation_source === "manual";
+      const legacyOk = (!m.relevance_status || m.relevance_status === "pending")
+        && ["host","guest","subject","archival_source","interviewee","speaker"].includes(m.mention_type)
+        && Number(m.confidence || 0) >= 0.80;
+      return accepted || strongAi || manual || legacyOk;
+    })
+    .map((m: any) => ({
+      id: m.episodes?.id,
+      title: m.episodes?.title,
+      summary: (m.episodes?.ai_summary || m.episodes?.summary || "").slice(0, 400),
+      mention_type: m.mention_type,
+    }))
+    .filter((e: any) => e.id);
 
   const tally = { host: 0, guest: 0, subject: 0, mentioned: 0 } as any;
   epList.forEach((e: any) => { tally[e.mention_type] = (tally[e.mention_type] || 0) + 1; });
@@ -223,7 +241,8 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
   const jobId = (jobInsert.data as any)?.id;
 
   try {
-    const useWiki = p.wikipedia_match_status === "verified" && p.wikipedia_match_confidence >= 0.75 && (p.wikipedia_extract || p.wikipedia_description);
+    const useWiki = hasVerifiedWikiSource(p);
+    const wikiDerivedBio = useWiki ? wikipediaBio(p) : null;
     const wikiBlob = useWiki
       ? `Wikipedia leírás: ${p.wikipedia_description || ""}\nWikipedia kivonat: ${(p.wikipedia_extract || "").slice(0, 800)}`
       : "Nincs ellenőrzött Wikipedia-forrás.";
@@ -288,13 +307,19 @@ SZABÁLYOK:
         callAI(BIO_MODEL, bioSys, bioUser, { reasoning: "low" }),
         callAI(OVERVIEW_MODEL, overviewSys, overviewUser, { temperature: 0.3 }),
       ]);
-      if (b.ok) { bio = b.text; bioCost = b.cost; } else { bio = safeFallbackBio(p.name); bioStatus = "needs_review"; }
+      if (b.ok) { bio = b.text; bioCost = b.cost; } else { bio = wikiDerivedBio || safeFallbackBio(p.name); bioStatus = wikiDerivedBio ? "completed" : "needs_review"; }
       if (o.ok) { overview = o.text; overviewCost = o.cost; } else { overview = ""; }
 
       if (useWiki && isSafeFallback(p.name, bio)) {
-        bio = wikipediaBio(p) || safeFallbackBio(p.name);
-        bioStatus = wikipediaBio(p) ? "completed" : "needs_review";
+        bio = wikiDerivedBio || safeFallbackBio(p.name);
+        bioStatus = wikiDerivedBio ? "completed" : "needs_review";
         auditResult = { skipped: "wiki_verified_fallback_replaced" };
+      }
+
+      if (useWiki && bioStatus !== "completed" && wikiDerivedBio) {
+        bio = wikiDerivedBio;
+        bioStatus = "completed";
+        auditResult = { skipped: "wiki_verified_recovery" };
       }
 
       // Self-audit only if we actually got a non-fallback bio
@@ -310,9 +335,15 @@ SZABÁLYOK:
         auditCost = audit.cost;
         auditResult = { model: AUDIT_MODEL, pass: audit.pass, flags: audit.flags, rationale: audit.rationale, ok: audit.ok };
         if (!audit.pass) {
-          // Reject the generated bio — fall back to safe template, mark audited_fail.
-          bio = safeFallbackBio(p.name);
-          bioStatus = "audited_fail";
+          // Reject unsupported AI text. If Wikipedia is verified, publish the source-derived sentence instead of a generic template.
+          if (wikiDerivedBio) {
+            bio = wikiDerivedBio;
+            bioStatus = "completed";
+            auditResult.recovered_with_wikipedia = true;
+          } else {
+            bio = safeFallbackBio(p.name);
+            bioStatus = "audited_fail";
+          }
         } else if (!useWiki && epList.length < 3) {
           bioStatus = "needs_review";
         }
