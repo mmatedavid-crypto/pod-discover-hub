@@ -75,6 +75,15 @@ export function SiteHeader() {
       <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
         <BrandMark />
         <nav className="hidden lg:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
+          <NavLink to="/start" className={({ isActive }) =>
+            `relative text-sm font-medium inline-flex items-center gap-1.5 transition-colors text-red-500 hover:text-red-600 after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-px after:bg-red-500 after:transition-all ${
+              isActive ? "after:w-full" : "after:w-0 hover:after:w-full"
+            }`
+          }>
+            <Sparkles className="h-3.5 w-3.5" />
+            Te Podiverzumod
+          </NavLink>
+          <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/napi" className={linkCls}>Mai válogatás</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/kategoriak" className={linkCls}>Podcast kategóriák</NavLink>
@@ -197,7 +206,7 @@ export function SiteHeader() {
           {/* Mobile-only "Te Podiverzumod" link */}
           <NavLink
             to="/start"
-            className="lg:hidden inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-red-500 hover:text-red-600 transition-colors whitespace-nowrap"
+            className="lg:hidden inline-flex items-center gap-1.5 text-sm font-medium text-red-500 hover:text-red-600 transition-colors whitespace-nowrap"
           >
             <Sparkles className="h-3.5 w-3.5" />
             Te Podiverzumod
