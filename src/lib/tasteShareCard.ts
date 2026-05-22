@@ -4,7 +4,7 @@ import type { Archetype } from "./tasteArchetypes";
 export type ShareCardInput = {
   archetype: Archetype;
   interests: string[]; // 3-5 short labels
-  dna: Array<{ label: string; pct: number }>; // top 3-5 topics
+  dna: Array<{ label: string; intensity: string; strength: number }>; // top 3-5 topics, rank-based
 };
 
 export async function renderShareCard(input: ShareCardInput): Promise<Blob> {
