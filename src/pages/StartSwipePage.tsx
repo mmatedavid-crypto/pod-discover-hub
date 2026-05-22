@@ -119,27 +119,51 @@ const BROAD_DOMAINS = [
   "kultúra", "tudomány", "hit", "humor",
 ];
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function pickWeighted<T>(items: { item: T; score: number }[]): T {
+  // Softmax-like weighted random — favors top items but never deterministic
+  const max = Math.max(...items.map(i => i.score));
+  const weights = items.map(i => Math.exp((i.score - max) * 6));
+  const total = weights.reduce((s, w) => s + w, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i].item;
+  }
+  return items[items.length - 1].item;
+}
+
 function pickNextCard(
   pool: Card[],
   seen: Set<string>,
   liked: Card[],
   disliked: Card[],
   swipeIdx: number,
+  domainOrder: string[] = BROAD_DOMAINS,
 ): Card | null {
   const candidates = pool.filter(c => !seen.has(c.id));
   if (candidates.length === 0) return null;
 
-  // First 8 swipes: ensure broad coverage, rotate domains
+  // First 8 swipes: ensure broad coverage, rotate domains (order shuffled per session)
   if (swipeIdx < 8) {
-    const wantedDomain = BROAD_DOMAINS[swipeIdx % BROAD_DOMAINS.length];
+    const wantedDomain = domainOrder[swipeIdx % domainOrder.length];
     const broadMatches = candidates.filter(
       c => c.stage === "broad" && (c.topic_tags.includes(wantedDomain) || c.archetype_tags.includes(wantedDomain))
     );
     if (broadMatches.length > 0) {
-      return broadMatches[Math.floor(Math.random() * Math.min(3, broadMatches.length))];
+      const shuffled = shuffle(broadMatches);
+      return shuffled[Math.floor(Math.random() * Math.min(5, shuffled.length))];
     }
-    const anyBroad = candidates.filter(c => c.stage === "broad");
-    if (anyBroad.length > 0) return anyBroad[Math.floor(Math.random() * anyBroad.length)];
+    const anyBroad = shuffle(candidates.filter(c => c.stage === "broad"));
+    if (anyBroad.length > 0) return anyBroad[0];
   }
 
   // Adaptive scoring
@@ -149,23 +173,19 @@ function pickNextCard(
 
   const scored = candidates.map(c => {
     const relevance = posMean ? Math.max(0, cosine(c.card_embedding, posMean)) : 0;
-    // uncertainty: prefer cards near decision boundary (mid relevance), prefer fresh archetypes
     const uncertainty = posMean ? 1 - Math.abs(relevance - 0.5) * 2 : 0.5;
-    // coverage_gap: low-weight topics
     const cardTagWeight = [...c.topic_tags, ...c.archetype_tags]
       .reduce((s, t) => s + (likedTags[t] || 0), 0);
     const coverageGap = 1 / (1 + cardTagWeight);
-    // archetype_disambiguation: penalize cards already deeply covered by negatives too
     const negSim = negMean ? Math.max(0, cosine(c.card_embedding, negMean)) : 0;
     const disamb = 1 - negSim;
     const rand = Math.random();
-    const score = 0.35 * uncertainty + 0.25 * relevance + 0.20 * coverageGap + 0.10 * disamb + 0.10 * rand;
-    return { c, score };
+    const score = 0.30 * uncertainty + 0.22 * relevance + 0.20 * coverageGap + 0.10 * disamb + 0.18 * rand;
+    return { item: c, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  // Pick from top 3 to keep some variety
-  const top = scored.slice(0, 3);
-  return top[Math.floor(Math.random() * top.length)].c;
+  // Weighted-random sample from the top 8 → keeps quality high but kills repeat sessions
+  return pickWeighted(scored.slice(0, 8));
 }
 
 /* ────────────────── Confidence ────────────────── */
