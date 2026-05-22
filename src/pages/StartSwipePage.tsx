@@ -772,30 +772,39 @@ function ResultView({
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
 
-  // Build "Podcast-DNS" — rank-based intensity (no percentages, since topic_tags
-  // rarely repeat across cards and counts collapse to equal %). We rank the top
-  // topics by accumulated weight and assign a qualitative intensity label.
-  const dna = useMemo(() => {
-    const topicW: Record<string, number> = {};
-    for (const c of effectiveLiked) {
-      for (const t of c.topic_tags) topicW[t] = (topicW[t] || 0) + 1.5;
-      for (const t of c.mood_tags) topicW[t] = (topicW[t] || 0) + 0.6;
-      for (const t of c.archetype_tags) topicW[t] = (topicW[t] || 0) + 0.4;
+  // ── Aura: mood-tag-weighted color palette
+  const moodWeights = useMemo(() => {
+    const w: Record<string, number> = {};
+    for (const c of liked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 1;
+    for (const c of superLiked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 2;
+    return w;
+  }, [liked, superLiked]);
+  const aura = useMemo(() => buildAura(moodWeights), [moodWeights]);
+
+  // ── Constellation: top topic_tags as stars, super-likes brighter
+  const seedKey = useMemo(() => {
+    const ids = [...liked, ...superLiked].map(c => c.id).sort().join("|");
+    return ids || "empty";
+  }, [liked, superLiked]);
+  const topicStars = useMemo(() => {
+    const w: Record<string, { weight: number; superCount: number }> = {};
+    for (const c of liked) for (const t of c.topic_tags) {
+      w[t] = w[t] || { weight: 0, superCount: 0 };
+      w[t].weight += 1;
     }
-    const entries = Object.entries(topicW).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const INTENSITY = [
-      { label: "Domináns", strength: 1.0 },
-      { label: "Erős", strength: 0.82 },
-      { label: "Markáns", strength: 0.66 },
-      { label: "Színező", strength: 0.5 },
-      { label: "Háttér", strength: 0.38 },
-    ];
-    return entries.map(([label], i) => ({
-      label,
-      intensity: INTENSITY[Math.min(i, INTENSITY.length - 1)].label,
-      strength: INTENSITY[Math.min(i, INTENSITY.length - 1)].strength,
-    }));
-  }, [effectiveLiked]);
+    for (const c of superLiked) for (const t of c.topic_tags) {
+      w[t] = w[t] || { weight: 0, superCount: 0 };
+      w[t].weight += 2;
+      w[t].superCount += 1;
+    }
+    return Object.entries(w)
+      .map(([label, v]) => ({ label, weight: v.weight, superCount: v.superCount }))
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 7);
+  }, [liked, superLiked]);
+  const constellation = useMemo(() => buildConstellation(topicStars, seedKey), [topicStars, seedKey]);
+  const verdict = useMemo(() => buildVerdict(seedKey), [seedKey]);
+  const pdvCode = useMemo(() => buildPdvCode(seedKey), [seedKey]);
 
   // Recommended podcasts: dedupe from recs
   const recPodcasts = useMemo(() => {
