@@ -11,6 +11,16 @@ import {
 import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
 import { renderShareCard, shareOrDownload } from "@/lib/tasteShareCard";
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
+import { toast } from "sonner";
+
+// Mystical match label — never expose the score, only a feeling.
+function mysticMatch(score: number, idx: number): string {
+  if (idx === 0) return "Sorsszerű találat";
+  if (score >= 0.78) return "Mély visszhang";
+  if (score >= 0.7) return "Erős rezonancia";
+  if (score >= 0.62) return "Halk hívás";
+  return "Sejtetett kapocs";
+}
 
 /* ────────────────── Types ────────────────── */
 
