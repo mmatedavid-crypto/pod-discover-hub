@@ -237,9 +237,17 @@ const Index = () => {
         setTrendingEps([...primary, ...overflow].slice(0, 8));
         setAllEps(eps);
 
-        // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
-        const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
-        setEvergreenEps(evergreen.slice(0, 6));
+        // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast (max 1 per show).
+        const evergreenAll: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
+        const seenPods = new Set<string>();
+        const evergreenDiverse: EpisodeLite[] = [];
+        const evergreenSpill: EpisodeLite[] = [];
+        for (const e of evergreenAll) {
+          const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
+          if (!seenPods.has(key)) { seenPods.add(key); evergreenDiverse.push(e); }
+          else evergreenSpill.push(e);
+        }
+        setEvergreenEps([...evergreenDiverse, ...evergreenSpill].slice(0, 6));
 
         // Trending entities source (last 14 days, EN-only, healthy podcasts)
         setTrendingEntityEps((entityRes.data || []) as any);
