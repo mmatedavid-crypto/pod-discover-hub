@@ -256,20 +256,45 @@ SZABÁLYOK:
     let bioCost = 0;
     let overview = "";
     let overviewCost = 0;
+    let auditCost = 0;
     let bioStatus = "completed";
+    let auditResult: any = null;
 
     if (epList.length === 0 && !useWiki) {
       bio = safeFallbackBio(p.name);
       overview = `A ${p.name} kapcsán jelenleg nincs elegendő indexelt magyar podcast epizód.`;
       bioStatus = "needs_review";
+      auditResult = { skipped: "insufficient_evidence" };
     } else {
       const [b, o] = await Promise.all([
-        callAI(bioSys, bioUser),
-        callAI(overviewSys, overviewUser),
+        callAI(BIO_MODEL, bioSys, bioUser, { reasoning: "low" }),
+        callAI(OVERVIEW_MODEL, overviewSys, overviewUser, { temperature: 0.3 }),
       ]);
       if (b.ok) { bio = b.text; bioCost = b.cost; } else { bio = safeFallbackBio(p.name); bioStatus = "needs_review"; }
       if (o.ok) { overview = o.text; overviewCost = o.cost; } else { overview = ""; }
-      if (!useWiki) bioStatus = bio === safeFallbackBio(p.name) ? "needs_review" : (epList.length < 3 ? "needs_review" : "completed");
+
+      // Self-audit only if we actually got a non-fallback bio
+      if (b.ok && bio && bio !== safeFallbackBio(p.name)) {
+        const audit = await auditBio(p.name, bio, {
+          wiki_extract: p.wikipedia_extract,
+          wiki_description: p.wikipedia_description,
+          wiki_status: p.wikipedia_match_status,
+          wiki_confidence: Number(p.wikipedia_match_confidence || 0),
+          episode_titles: epList.map((e: any) => e.title),
+          tally,
+        });
+        auditCost = audit.cost;
+        auditResult = { model: AUDIT_MODEL, pass: audit.pass, flags: audit.flags, rationale: audit.rationale, ok: audit.ok };
+        if (!audit.pass) {
+          // Reject the generated bio — fall back to safe template, mark audited_fail.
+          bio = safeFallbackBio(p.name);
+          bioStatus = "audited_fail";
+        } else if (!useWiki && epList.length < 3) {
+          bioStatus = "needs_review";
+        }
+      } else if (!useWiki) {
+        bioStatus = bio === safeFallbackBio(p.name) ? "needs_review" : (epList.length < 3 ? "needs_review" : "completed");
+      }
     }
 
     const sources = {
@@ -278,22 +303,41 @@ SZABÁLYOK:
       podcast_ids: (ppm || []).map((r: any) => r.podcasts?.id).filter(Boolean),
       confidence: useWiki ? 0.9 : (epList.length >= 5 ? 0.6 : 0.4),
       mention_tally: tally,
+      audit: auditResult,
+      generator_model: BIO_MODEL,
     };
 
-    const totalCost = bioCost + overviewCost;
-    const update = {
+    const totalCost = bioCost + overviewCost + auditCost;
+    // Only publish short_bio when audit passed (or no audit needed because of safe fallback)
+    const publish = bioStatus === "completed";
+    const update: any = {
       ai_bio: bio,
-      short_bio: bio,
       ai_bio_status: bioStatus,
       ai_bio_generated_at: new Date().toISOString(),
-      ai_bio_model: MODEL,
+      ai_bio_model: BIO_MODEL,
       ai_bio_sources: sources,
       ai_bio_confidence: sources.confidence,
       overview_text: overview || null,
       overview_generated_at: overview ? new Date().toISOString() : null,
       overview_sources: sources,
     };
+    if (publish) update.short_bio = bio;
     await admin.from("people").update(update).eq("id", personId);
+
+    // Audit trail entry
+    try {
+      await admin.from("ai_call_audit").insert({
+        job_type: "person_bio_audit",
+        model_used: AUDIT_MODEL,
+        provider: "lovable_ai",
+        target_id: personId,
+        target_type: "person",
+        status: auditResult?.pass ? "ok" : (auditResult?.skipped ? "skipped" : "rejected"),
+        confidence: Number(auditResult?.pass ? 1 : 0),
+        estimated_cost_usd: totalCost,
+        meta: { bio_status: bioStatus, flags: auditResult?.flags || [], rationale: auditResult?.rationale, bio_preview: bio.slice(0, 160), wiki_status: p.wikipedia_match_status },
+      });
+    } catch { /* ignore */ }
 
     // Spend tracking
     try {
