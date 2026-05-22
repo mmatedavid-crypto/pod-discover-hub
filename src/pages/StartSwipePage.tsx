@@ -574,13 +574,29 @@ function ResultView({
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
 
-  // Build "Podcast-DNS" — top topic_tags from liked, normalized
+  // Build "Podcast-DNS" — rank-based intensity (no percentages, since topic_tags
+  // rarely repeat across cards and counts collapse to equal %). We rank the top
+  // topics by accumulated weight and assign a qualitative intensity label.
   const dna = useMemo(() => {
     const topicW: Record<string, number> = {};
-    for (const c of liked) for (const t of c.topic_tags) topicW[t] = (topicW[t] || 0) + 1;
+    for (const c of liked) {
+      for (const t of c.topic_tags) topicW[t] = (topicW[t] || 0) + 1.5;
+      for (const t of c.mood_tags) topicW[t] = (topicW[t] || 0) + 0.6;
+      for (const t of c.archetype_tags) topicW[t] = (topicW[t] || 0) + 0.4;
+    }
     const entries = Object.entries(topicW).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
-    return entries.map(([label, v]) => ({ label, pct: v / total }));
+    const INTENSITY = [
+      { label: "Domináns", strength: 1.0 },
+      { label: "Erős", strength: 0.82 },
+      { label: "Markáns", strength: 0.66 },
+      { label: "Színező", strength: 0.5 },
+      { label: "Háttér", strength: 0.38 },
+    ];
+    return entries.map(([label], i) => ({
+      label,
+      intensity: INTENSITY[Math.min(i, INTENSITY.length - 1)].label,
+      strength: INTENSITY[Math.min(i, INTENSITY.length - 1)].strength,
+    }));
   }, [liked]);
 
   // Recommended podcasts: dedupe from recs
