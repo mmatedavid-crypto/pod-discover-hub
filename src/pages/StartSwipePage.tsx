@@ -45,6 +45,12 @@ type RecEp = {
   podcast_image_url: string | null;
   similarity: number;
   final_score: number;
+  topics: string[] | null;
+  category: string | null;
+  /** client-side re-rank score (vector + tag-overlap) */
+  taste_score?: number;
+  /** client-side: which of your top interests this episode matches */
+  reasons?: string[];
 };
 
 type Phase = "intro" | "swipe" | "result";
@@ -251,8 +257,13 @@ export default function StartSwipePage() {
     [persisted.superLikedCardIds, byId]
   );
 
-  // Vector weighting: super-likes count 2x (we duplicate them in the positive set).
-  const effectiveLiked = useMemo(() => [...liked, ...superLiked], [liked, superLiked]);
+  // Vector weighting: super-likes count 3x (duplicated in the positive set).
+  // Stronger weighting = the user's strongest signals dominate the taste vector
+  // and the result feels "this is really me" instead of generic.
+  const effectiveLiked = useMemo(
+    () => [...liked, ...superLiked, ...superLiked],
+    [liked, superLiked],
+  );
 
   const totalSwipes = persisted.seenCardIds.length;
   const positiveSwipes = persisted.likedCardIds.length;
@@ -297,30 +308,82 @@ export default function StartSwipePage() {
     if (effectiveLiked.length === 0 || !pool) return;
     setRecsLoading(true);
 
-    // FIX: All taste-card prompts start with "Magyar [nyelvű] podcast…", so their
-    // embeddings share a strong common direction. A naive mean(liked) collapses to
-    // the catalog centroid → same recs regardless of choices. We mean-center against
-    // the pool centroid so the user's *deviation* dominates, then re-anchor.
+    // Mean-center against the pool centroid so the user's *deviation* dominates.
     const centroid = mean(pool.map(c => c.card_embedding));
     const likedDev = mean(effectiveLiked.map(c => sub(c.card_embedding, centroid)));
     const dislikedDev = disliked.length
       ? mean(disliked.map(c => sub(c.card_embedding, centroid)))
       : zero(centroid.length);
-    // direction = positives push, negatives pull
     const direction = sub(likedDev, dislikedDev);
-    // re-anchor to the HU-podcast manifold, amplified along the user's axis
     const userVec = normalize(add(centroid, scale(direction, 2.5)));
     const negVec = disliked.length
       ? normalize(add(centroid, scale(dislikedDev, 2.5)))
       : null;
 
+    // Over-fetch (40) so we have headroom for tag-overlap re-rank below.
     const { data, error } = await supabase.rpc("match_episodes_by_taste_vector", {
       p_user_vector: toPgVector(userVec) as any,
       p_negative_vector: negVec ? (toPgVector(negVec) as any) : null,
       p_exclude_episode_ids: [],
-      p_limit: 16,
+      p_limit: 40,
     });
-    if (!error && data) setRecs(data as RecEp[]);
+    if (error || !data) { setRecsLoading(false); return; }
+
+    // ── Build the user's "taste fingerprint" from their swipes:
+    // top topic / mood / archetype tags weighted (super-likes 3x).
+    const tagW: Record<string, number> = {};
+    const bump = (arr: string[] | undefined, k: number) => {
+      if (!arr) return;
+      for (const t of arr) {
+        const key = t.toLowerCase();
+        tagW[key] = (tagW[key] || 0) + k;
+      }
+    };
+    for (const c of liked) {
+      bump(c.topic_tags, 1); bump(c.mood_tags, 1); bump(c.archetype_tags, 1);
+    }
+    for (const c of superLiked) {
+      bump(c.topic_tags, 3); bump(c.mood_tags, 3); bump(c.archetype_tags, 3);
+    }
+    const maxW = Math.max(1, ...Object.values(tagW));
+
+    // Re-rank: combine vector similarity with tag overlap.
+    // 0.65 vector + 0.35 tag overlap → user sees their own interests reflected.
+    const rows = (data as RecEp[]).map(r => {
+      const epTags = new Set<string>([
+        ...(r.topics || []).map(t => t.toLowerCase()),
+        ...(r.category ? [r.category.toLowerCase()] : []),
+      ]);
+      let overlap = 0;
+      const matched: Array<{ tag: string; w: number }> = [];
+      for (const t of epTags) {
+        const w = tagW[t];
+        if (!w) continue;
+        overlap += w;
+        matched.push({ tag: t, w });
+      }
+      const normOverlap = Math.min(1, overlap / (maxW * 2));
+      const normSim = Math.max(0, Math.min(1, Number(r.final_score) || 0));
+      const taste_score = 0.65 * normSim + 0.35 * normOverlap;
+      const reasons = matched
+        .sort((a, b) => b.w - a.w)
+        .slice(0, 2)
+        .map(m => m.tag);
+      return { ...r, taste_score, reasons };
+    });
+
+    // Sort by blended taste score, then diversify (≤2 per podcast in final 16).
+    rows.sort((a, b) => (b.taste_score! - a.taste_score!));
+    const perPod = new Map<string, number>();
+    const finalRows: RecEp[] = [];
+    for (const r of rows) {
+      const n = perPod.get(r.podcast_id) || 0;
+      if (n >= 2) continue;
+      perPod.set(r.podcast_id, n + 1);
+      finalRows.push(r);
+      if (finalRows.length >= 16) break;
+    }
+    setRecs(finalRows);
     setRecsLoading(false);
   };
 
@@ -766,17 +829,20 @@ function ResultView({
   // TODO(ai-copy): behind a future feature flag, swap deterministic copy below with
   // a `personalize-profile` edge function call that uses Lovable AI Gateway.
 
-  // Weight super-likes 2x for taste signal: duplicate them in the positive set.
-  const effectiveLiked = useMemo(() => [...liked, ...superLiked], [liked, superLiked]);
+  // Match the page-level weighting: super-likes 3x (stronger personalization).
+  const effectiveLiked = useMemo(
+    () => [...liked, ...superLiked, ...superLiked],
+    [liked, superLiked],
+  );
   const weights = useMemo(() => tagWeights(effectiveLiked), [effectiveLiked]);
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
 
-  // ── Aura: mood-tag-weighted color palette
+  // ── Aura: mood-tag-weighted color palette (super-likes 3x)
   const moodWeights = useMemo(() => {
     const w: Record<string, number> = {};
     for (const c of liked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 1;
-    for (const c of superLiked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 2;
+    for (const c of superLiked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 3;
     return w;
   }, [liked, superLiked]);
   const aura = useMemo(() => buildAura(moodWeights), [moodWeights]);
@@ -794,7 +860,7 @@ function ResultView({
     }
     for (const c of superLiked) for (const t of c.topic_tags) {
       w[t] = w[t] || { weight: 0, superCount: 0 };
-      w[t].weight += 2;
+      w[t].weight += 3;
       w[t].superCount += 1;
     }
     return Object.entries(w)
@@ -951,8 +1017,23 @@ function ResultView({
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs uppercase tracking-wider text-muted-foreground">{r.podcast_title}</div>
                   <div className="line-clamp-2 font-medium">{r.display_title || r.title}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {Math.round(r.similarity * 100)}% egyezés
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">
+                      {Math.round((r.taste_score ?? r.similarity) * 100)}% egyezés
+                    </span>
+                    {r.reasons && r.reasons.length > 0 && (
+                      <>
+                        <span className="text-xs text-muted-foreground">·</span>
+                        {r.reasons.map(t => (
+                          <span
+                            key={t}
+                            className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
                 <ArrowRight className="h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />

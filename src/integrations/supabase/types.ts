@@ -5716,6 +5716,7 @@ export type Database = {
         }
         Returns: {
           ai_summary: string
+          category: string
           display_title: string
           episode_id: string
           final_score: number
@@ -5728,6 +5729,7 @@ export type Database = {
           similarity: number
           slug: string
           title: string
+          topics: string[]
         }[]
       }
       match_hu_episodes_by_embedding: {
