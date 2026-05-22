@@ -400,6 +400,7 @@ async function buildEntity(
   supabase: ReturnType<typeof createClient>,
   kind: "topic" | "person" | "company" | "ticker" | "ingredient",
   slug: string,
+  urlPrefix?: string,
 ) {
   const arrayCol =
     kind === "topic" ? "topics" :
@@ -441,7 +442,8 @@ async function buildEntity(
   const human = slug.replace(/-/g, " ");
   const title = `${human} — epizódok a Podiverzumon`;
   const desc = `Magyar podcast epizódok, amelyek a következőről szólnak: ${human}. Válogatva és AI-összefoglalóval a Podiverzumon.`;
-  const canonical = `${SITE}/${kind}/${slug}`;
+  const canonical = `${SITE}/${urlPrefix || kind}/${slug}`;
+
 
   const list = rows.slice(0, 40);
   const html = list
