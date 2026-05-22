@@ -15,6 +15,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const REUSABLE_LICENSES = [
   "cc0", "publicdomain", "public domain", "pd-", "pd ", "pdm", "no known copyright",
   "cc-by", "cc by", "cc-by-sa", "cc by-sa", "cc-by 4", "cc-by-2", "cc-by-3", "attribution",
+  "european parliament", "european union",
 ];
 const FAIR_USE_HINTS = ["fair use", "fairuse", "non-free", "nonfree", "all rights reserved"];
 
@@ -71,6 +72,27 @@ async function getWikipediaSummary(title: string, lang = "hu"): Promise<any | nu
     const r = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
     if (!r.ok) return null;
     return await r.json();
+  } catch { return null; }
+}
+
+async function getWikipediaPageImage(title: string, lang = "hu"): Promise<{ filename: string | null; original: string | null } | null> {
+  try {
+    const u = new URL(`https://${lang}.wikipedia.org/w/api.php`);
+    u.searchParams.set("action", "query");
+    u.searchParams.set("format", "json");
+    u.searchParams.set("origin", "*");
+    u.searchParams.set("titles", title);
+    u.searchParams.set("prop", "pageimages");
+    u.searchParams.set("piprop", "name|original|thumbnail");
+    u.searchParams.set("pithumbsize", "640");
+    const r = await fetch(u.toString(), { headers: { "User-Agent": "PodiverzumBot/1.0" } });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const page: any = Object.values(j.query?.pages || {})[0];
+    return {
+      filename: page?.pageimage || null,
+      original: page?.original?.source || page?.thumbnail?.source || null,
+    };
   } catch { return null; }
 }
 
@@ -154,7 +176,10 @@ async function processPerson(admin: any, personId: string): Promise<any> {
   const jobId = (jobInsert.data as any)?.id;
 
   try {
-    const candidates = await searchWikidataMulti(p.name);
+    const searchedCandidates = await searchWikidataMulti(p.name);
+    const candidates = p.wikidata_id
+      ? [{ id: p.wikidata_id }, ...searchedCandidates.filter((c: any) => c?.id !== p.wikidata_id)]
+      : searchedCandidates;
     let best: any = null;
     let bestScore = 0;
     let bestEvidence: any = {};
@@ -173,8 +198,10 @@ async function processPerson(admin: any, personId: string): Promise<any> {
       }
     }
 
-    // Relaxed thresholds (2026-05-21 Phase 2): verified 0.75→0.65, needs_review 0.5→0.4
-    const matchStatus = bestScore >= 0.65 ? "verified" : bestScore >= 0.4 ? "needs_review" : "no_match";
+    // Relaxed thresholds (2026-05-21 Phase 2): verified 0.75→0.65, needs_review 0.5→0.4.
+    // If this row was already manually/previously verified with a Wikidata id, image refreshes must not downgrade it.
+    const wasVerifiedSameEntity = p.wikipedia_match_status === "verified" && p.wikidata_id && best?.id === p.wikidata_id;
+    const matchStatus = wasVerifiedSameEntity ? "verified" : bestScore >= 0.65 ? "verified" : bestScore >= 0.4 ? "needs_review" : "no_match";
     const update: any = {
       wikipedia_match_status: matchStatus,
       wikipedia_match_confidence: bestScore,
@@ -197,9 +224,13 @@ async function processPerson(admin: any, personId: string): Promise<any> {
     // Image: only for verified
     let imageInfo: any = null;
     if (matchStatus === "verified" && bestEntity) {
+      const huTitle = bestEntity?.sitelinks?.huwiki?.title || null;
+      const enTitle = bestEntity?.sitelinks?.enwiki?.title || null;
+      const summaryLang = huTitle ? "hu" : "en";
+      const pageImage = (huTitle || enTitle) ? await getWikipediaPageImage(huTitle || enTitle, summaryLang) : null;
       const p18 = bestEntity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
       const summaryThumb = bestSummary?.originalimage?.source || bestSummary?.thumbnail?.source;
-      const filename = p18 || (summaryThumb ? decodeURIComponent(summaryThumb.split("/").slice(-1)[0]).replace(/^\d+px-/, "") : null);
+      const filename = p18 || pageImage?.filename || (summaryThumb || pageImage?.original ? decodeURIComponent((summaryThumb || pageImage?.original).split("/").slice(-1)[0]).replace(/^\d+px-/, "") : null);
       if (filename) {
         imageInfo = await getCommonsImageInfo(filename);
         const meta = imageInfo?.extmetadata || {};
@@ -244,10 +275,10 @@ async function processPerson(admin: any, personId: string): Promise<any> {
           update.image_original_url = imageInfo.url;
           update.image_license = licenseShort;
         } else {
-          update.image_status = "none";
+          update.image_status = p.image_url ? "cached" : "none";
         }
       } else {
-        update.image_status = "none";
+        update.image_status = p.image_url ? "cached" : "none";
       }
     }
 
@@ -282,7 +313,7 @@ Deno.serve(async (req) => {
       .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status, wiki_match_run_at, activation_status, ai_recommended_action, ai_review_status")
       .eq("is_public", true)
       .in("activation_status", ["indexable","manual_approved","public_noindex"])
-      .or(`wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null,and(wikipedia_match_status.eq.no_match,wiki_match_run_at.lt.${staleCutoff})`)
+      .or(`wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null,and(wikipedia_match_status.eq.no_match,wiki_match_run_at.lt.${staleCutoff}),and(wikipedia_match_status.eq.verified,image_url.is.null,image_status.in.(none,failed,unchecked))`)
       .order("episode_count", { ascending: false })
       .order("podcast_count", { ascending: false })
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
