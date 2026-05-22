@@ -163,11 +163,22 @@ function wikipediaBio(p: any): string | null {
   const cleanExtract = /^ez a szócikk/i.test(extract) ? "" : extract;
   const firstSentence = cleanExtract.match(/^(.{60,500}?[.!?])(?:\s|$)/)?.[1]?.trim() || cleanExtract.slice(0, 420).trim();
   let bio = firstSentence || desc;
-  if (bio && !bio.toLocaleLowerCase("hu-HU").startsWith(String(p.name || "").toLocaleLowerCase("hu-HU"))) {
+  const nameLower = String(p.name || "").toLocaleLowerCase("hu-HU");
+  const bioLower = bio.toLocaleLowerCase("hu-HU");
+  const firstNameLower = nameLower.split(/\s+/)[0] || "";
+  const lastNameLower = nameLower.split(/\s+/).slice(-1)[0] || "";
+  // Skip prefix if the bio already starts with the canonical name OR with the first/last name
+  // (avoids duplications like "Vlagyimir Putyin vlagyimir Vlagyimirovics Putyin…")
+  const startsWithName = bioLower.startsWith(nameLower);
+  const startsWithFirst = firstNameLower.length >= 3 && bioLower.startsWith(firstNameLower);
+  const startsWithLast = lastNameLower.length >= 3 && bioLower.startsWith(lastNameLower);
+  const containsLastNameEarly = lastNameLower.length >= 3 && bioLower.slice(0, 80).includes(lastNameLower);
+  if (bio && !startsWithName && !startsWithFirst && !startsWithLast && !containsLastNameEarly) {
     bio = `${p.name} ${bio.charAt(0).toLocaleLowerCase("hu-HU")}${bio.slice(1)}`;
   }
   return bio.length > 500 ? `${bio.slice(0, 497).trim()}…` : bio;
 }
+
 
 function hasVerifiedWikiSource(p: any): boolean {
   return p.wikipedia_match_status === "verified"
