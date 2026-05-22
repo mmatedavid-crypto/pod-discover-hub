@@ -16,7 +16,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const MODEL = "google/gemini-2.5-flash";
-const DAILY_BUDGET_USD = 3;
+const DAILY_BUDGET_USD = 15;
 
 const ALLOWED_ACTIONS = new Set([
   "keep_indexable", "keep_public_noindex", "hide", "merge", "needs_review", "reject", "mark_internal",
