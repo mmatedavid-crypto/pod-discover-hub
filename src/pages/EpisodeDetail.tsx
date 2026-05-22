@@ -24,6 +24,7 @@ import { useSmartPlayer, type SmartPlayerEpisode } from "@/components/smart-play
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getProgress } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
+import { RelatedEpisodes } from "@/components/smart-player/RelatedEpisodes";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
