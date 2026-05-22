@@ -116,14 +116,8 @@ export default function OrgCard({ o }: { o: OrgCardData }) {
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground mt-0.5 flex items-center gap-1.5">
               <Icon className="h-3 w-3" />
               <span>{TYPE_LABEL[o.org_type]}</span>
-              {o.org_type === "party" && o.political_color && (
-                <span
-                  aria-hidden
-                  className="inline-block h-2 w-2 rounded-full ring-1 ring-border"
-                  style={{ background: o.political_color }}
-                />
-              )}
             </div>
+
           </div>
           {isFresh && (
             <span className="shrink-0 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
