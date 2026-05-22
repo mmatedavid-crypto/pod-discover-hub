@@ -73,7 +73,7 @@ export default function StartSwipePage() {
   const [recsLoading, setRecsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const loadSeedsFromAnchors = useCallback(async (anchors: Anchor[]) => {
+  const loadSeedsFromAnchors = useCallback(async (anchors: Anchor[], append = false, excludeIds: string[] = []) => {
     setLoading(true);
     const podcastIds = anchors.filter(a => a.kind === "podcast").map(a => a.id);
     const personIds = anchors.filter(a => a.kind === "person").map(a => a.id);
@@ -84,22 +84,32 @@ export default function StartSwipePage() {
         p_podcast_ids: podcastIds,
         p_person_ids: personIds,
         p_keywords: keywords,
-        p_limit: 8,
+        p_limit: 16,
       });
       if (!res.error && res.data) data = res.data as SeedEp[];
     }
     // Fallback / top-up with random HU seeds if not enough
-    if (!data || data.length < 4) {
-      const res2 = await supabase.rpc("get_swipe_seed_episodes", { p_limit: 8 });
+    if (!data || data.length < 6) {
+      const res2 = await supabase.rpc("get_swipe_seed_episodes", { p_limit: 16 });
       if (!res2.error && res2.data) {
         const existing = new Set((data || []).map(e => e.episode_id));
         const extras = (res2.data as SeedEp[]).filter(e => !existing.has(e.episode_id));
-        data = [...(data || []), ...extras].slice(0, 8);
+        data = [...(data || []), ...extras];
       }
     }
-    setCards(data || []);
-    setIdx(0);
+    // Exclude already-seen
+    const exclude = new Set(excludeIds);
+    let fresh = (data || []).filter(e => !exclude.has(e.episode_id));
+    // Shuffle
+    fresh = fresh.sort(() => Math.random() - 0.5).slice(0, 8);
+    if (append) {
+      setCards(prev => [...prev, ...fresh]);
+    } else {
+      setCards(fresh);
+      setIdx(0);
+    }
     setLoading(false);
+    return fresh.length;
   }, []);
 
   useEffect(() => {
