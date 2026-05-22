@@ -828,7 +828,11 @@ function ResultView({
       const blob = await renderShareCard({
         archetype,
         interests: topInterests,
-        dna,
+        dna: topicStars.map((s, i) => ({
+          label: s.label,
+          intensity: i === 0 ? "Domináns" : i < 2 ? "Erős" : i < 4 ? "Markáns" : "Színező",
+          strength: 1 - i * 0.14,
+        })),
       });
       await shareOrDownload(blob);
     } finally {
