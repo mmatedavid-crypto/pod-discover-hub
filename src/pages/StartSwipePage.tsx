@@ -979,3 +979,155 @@ function ResultView({
     </div>
   );
 }
+
+/* ────────────────── Aura visual ────────────────── */
+
+function AuraVisual({ colors }: { colors: string[] }) {
+  // Up to 4 morphing radial gradients overlaid on a dark canvas.
+  // Each blob slowly drifts with framer-motion for an organic feel.
+  const pad = (arr: string[]) => (arr.length >= 3 ? arr : [...arr, ...arr, ...arr]).slice(0, 4);
+  const palette = pad(colors);
+  const blobs = [
+    { from: { x: "10%", y: "20%" }, to: { x: "30%", y: "40%" }, size: 70 },
+    { from: { x: "75%", y: "30%" }, to: { x: "60%", y: "55%" }, size: 60 },
+    { from: { x: "30%", y: "75%" }, to: { x: "45%", y: "60%" }, size: 65 },
+    { from: { x: "80%", y: "80%" }, to: { x: "70%", y: "65%" }, size: 55 },
+  ];
+  return (
+    <div className="absolute inset-0" style={{ backgroundColor: "#0a0a0f" }}>
+      {blobs.map((b, i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full"
+          initial={{ left: b.from.x, top: b.from.y, opacity: 0 }}
+          animate={{
+            left: [b.from.x, b.to.x, b.from.x],
+            top: [b.from.y, b.to.y, b.from.y],
+            opacity: 0.85,
+          }}
+          transition={{
+            left: { duration: 14 + i * 2, repeat: Infinity, ease: "easeInOut" },
+            top: { duration: 16 + i * 2, repeat: Infinity, ease: "easeInOut" },
+            opacity: { duration: 1.2, delay: i * 0.15 },
+          }}
+          style={{
+            width: `${b.size}%`,
+            height: `${b.size}%`,
+            transform: "translate(-50%, -50%)",
+            background: `radial-gradient(circle, ${palette[i]} 0%, transparent 65%)`,
+            filter: "blur(40px)",
+            mixBlendMode: "screen",
+          }}
+        />
+      ))}
+      {/* Subtle grain for premium feel */}
+      <div
+        className="absolute inset-0 opacity-[0.08] mix-blend-overlay pointer-events-none"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='0.9'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ────────────────── Constellation visual ────────────────── */
+
+function ConstellationVisual({
+  constellation,
+  accent,
+}: {
+  constellation: ReturnType<typeof import("@/lib/podiverzumProfile").buildConstellation>;
+  accent: string;
+}) {
+  const W = 600;
+  const H = 320;
+  return (
+    <div className="rounded-3xl border border-border bg-[#0a0a0f] p-5 md:p-6">
+      <div className="mb-3 flex items-baseline justify-between">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+            A te konstellációd
+          </div>
+          <div className="mt-0.5 font-serif text-xl text-white md:text-2xl">
+            {constellation.name}
+          </div>
+        </div>
+        <div className="text-xs text-white/40">
+          {constellation.stars.length} csillag
+        </div>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="block h-auto w-full"
+        style={{ filter: `drop-shadow(0 0 12px ${accent})` }}
+      >
+        {/* Background micro-stars */}
+        {Array.from({ length: 50 }).map((_, i) => {
+          const x = ((i * 137) % W);
+          const y = ((i * 53) % H);
+          const r = 0.4 + ((i * 13) % 10) / 18;
+          return <circle key={`bg-${i}`} cx={x} cy={y} r={r} fill="white" opacity={0.25} />;
+        })}
+
+        {/* Edges */}
+        {constellation.edges.map(([a, b], i) => {
+          const sa = constellation.stars[a];
+          const sb = constellation.stars[b];
+          return (
+            <motion.line
+              key={`e-${i}`}
+              x1={sa.x * W}
+              y1={sa.y * H}
+              x2={sb.x * W}
+              y2={sb.y * H}
+              stroke={accent}
+              strokeWidth={0.7}
+              strokeOpacity={0.6}
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 0.6 }}
+              transition={{ duration: 1.2, delay: 0.6 + i * 0.15, ease: "easeOut" }}
+            />
+          );
+        })}
+
+        {/* Stars */}
+        {constellation.stars.map((s, i) => (
+          <g key={`s-${i}`}>
+            <motion.circle
+              cx={s.x * W}
+              cy={s.y * H}
+              r={s.radius}
+              fill="white"
+              initial={{ opacity: 0, scale: 0.3 }}
+              animate={{
+                opacity: [s.brightness * 0.7, s.brightness, s.brightness * 0.7],
+                scale: 1,
+              }}
+              transition={{
+                opacity: { duration: 3 + (i % 3), repeat: Infinity, ease: "easeInOut" },
+                scale: { duration: 0.5, delay: i * 0.12 },
+              }}
+              style={{ filter: `drop-shadow(0 0 ${s.radius * 1.4}px white)` }}
+            />
+            <motion.text
+              x={s.x * W}
+              y={s.y * H + s.radius + 11}
+              textAnchor="middle"
+              fill="white"
+              fillOpacity={0.7}
+              fontSize={9}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 }}
+              transition={{ duration: 0.6, delay: 1.4 + i * 0.1 }}
+            >
+              {s.label}
+            </motion.text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
