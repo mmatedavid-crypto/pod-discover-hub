@@ -31,10 +31,17 @@ function snippet(r: Row): string {
   return raw.length > 140 ? raw.slice(0, 137) + "…" : raw;
 }
 
-export function RelatedEpisodes() {
+type Props = {
+  episodeIdOverride?: string;
+  podcastIdOverride?: string | null;
+  variant?: "panel" | "compact";
+};
+
+export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant = "panel" }: Props = {}) {
   const { currentEpisode, play, setExpanded } = useSmartPlayer();
-  const episodeId = currentEpisode?.id;
-  const podcastId = currentEpisode?.podcastId ?? null;
+  const episodeId = episodeIdOverride ?? currentEpisode?.id;
+  const podcastId = podcastIdOverride ?? currentEpisode?.podcastId ?? null;
+  const isCompact = variant === "compact";
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["smart-player-related", episodeId],
