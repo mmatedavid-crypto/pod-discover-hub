@@ -407,9 +407,11 @@ export default function StartSwipePage() {
         {phase === "swipe" && (
           <SwipeView
             current={current}
+            upcoming={upcoming}
             loading={!pool}
             totalSwipes={totalSwipes}
             positiveSwipes={positiveSwipes}
+            superSwipes={superSwipes}
             confidence={confidence}
             onAction={handleSwipe}
           />
@@ -419,6 +421,7 @@ export default function StartSwipePage() {
           <ResultView
             liked={liked}
             disliked={disliked}
+            superLiked={superLiked}
             recs={recs}
             recsLoading={recsLoading}
             onReset={resetAll}
