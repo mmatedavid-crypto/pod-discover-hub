@@ -10,6 +10,7 @@ import {
 } from "@/lib/tasteVector";
 import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
 import { renderShareCard, shareOrDownload } from "@/lib/tasteShareCard";
+import { buildAura, buildConstellation, buildVerdict, buildPdvCode } from "@/lib/podiverzumProfile";
 
 /* ────────────────── Types ────────────────── */
 
@@ -771,30 +772,39 @@ function ResultView({
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
 
-  // Build "Podcast-DNS" — rank-based intensity (no percentages, since topic_tags
-  // rarely repeat across cards and counts collapse to equal %). We rank the top
-  // topics by accumulated weight and assign a qualitative intensity label.
-  const dna = useMemo(() => {
-    const topicW: Record<string, number> = {};
-    for (const c of effectiveLiked) {
-      for (const t of c.topic_tags) topicW[t] = (topicW[t] || 0) + 1.5;
-      for (const t of c.mood_tags) topicW[t] = (topicW[t] || 0) + 0.6;
-      for (const t of c.archetype_tags) topicW[t] = (topicW[t] || 0) + 0.4;
+  // ── Aura: mood-tag-weighted color palette
+  const moodWeights = useMemo(() => {
+    const w: Record<string, number> = {};
+    for (const c of liked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 1;
+    for (const c of superLiked) for (const t of c.mood_tags) w[t] = (w[t] || 0) + 2;
+    return w;
+  }, [liked, superLiked]);
+  const aura = useMemo(() => buildAura(moodWeights), [moodWeights]);
+
+  // ── Constellation: top topic_tags as stars, super-likes brighter
+  const seedKey = useMemo(() => {
+    const ids = [...liked, ...superLiked].map(c => c.id).sort().join("|");
+    return ids || "empty";
+  }, [liked, superLiked]);
+  const topicStars = useMemo(() => {
+    const w: Record<string, { weight: number; superCount: number }> = {};
+    for (const c of liked) for (const t of c.topic_tags) {
+      w[t] = w[t] || { weight: 0, superCount: 0 };
+      w[t].weight += 1;
     }
-    const entries = Object.entries(topicW).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const INTENSITY = [
-      { label: "Domináns", strength: 1.0 },
-      { label: "Erős", strength: 0.82 },
-      { label: "Markáns", strength: 0.66 },
-      { label: "Színező", strength: 0.5 },
-      { label: "Háttér", strength: 0.38 },
-    ];
-    return entries.map(([label], i) => ({
-      label,
-      intensity: INTENSITY[Math.min(i, INTENSITY.length - 1)].label,
-      strength: INTENSITY[Math.min(i, INTENSITY.length - 1)].strength,
-    }));
-  }, [effectiveLiked]);
+    for (const c of superLiked) for (const t of c.topic_tags) {
+      w[t] = w[t] || { weight: 0, superCount: 0 };
+      w[t].weight += 2;
+      w[t].superCount += 1;
+    }
+    return Object.entries(w)
+      .map(([label, v]) => ({ label, weight: v.weight, superCount: v.superCount }))
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 7);
+  }, [liked, superLiked]);
+  const constellation = useMemo(() => buildConstellation(topicStars, seedKey), [topicStars, seedKey]);
+  const verdict = useMemo(() => buildVerdict(seedKey), [seedKey]);
+  const pdvCode = useMemo(() => buildPdvCode(seedKey), [seedKey]);
 
   // Recommended podcasts: dedupe from recs
   const recPodcasts = useMemo(() => {
@@ -818,7 +828,11 @@ function ResultView({
       const blob = await renderShareCard({
         archetype,
         interests: topInterests,
-        dna,
+        dna: topicStars.map((s, i) => ({
+          label: s.label,
+          intensity: i === 0 ? "Domináns" : i < 2 ? "Erős" : i < 4 ? "Markáns" : "Színező",
+          strength: 1 - i * 0.14,
+        })),
       });
       await shareOrDownload(blob);
     } finally {
@@ -837,53 +851,59 @@ function ResultView({
 
   return (
     <div className="space-y-8">
-      {/* Hero profile */}
-      <div className="rounded-3xl border border-border bg-card p-6 md:p-8">
-        <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          A Te Podiverzumod elkészült
-        </div>
-        <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">{archetype.name}</h2>
-        <p className="mt-3 text-sm text-muted-foreground md:text-base">{archetype.tagline}</p>
-
-        {topInterests.length > 0 && (
-          <div className="mt-5 flex flex-wrap gap-2">
-            {topInterests.map(t => (
-              <span key={t} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
-                {t}
-              </span>
-            ))}
+      {/* Hero: Aura visual */}
+      <div className="relative overflow-hidden rounded-3xl border border-border bg-card">
+        {/* Animated aura background */}
+        <div className="relative h-72 w-full overflow-hidden md:h-96">
+          <AuraVisual colors={aura.colors} />
+          {/* Vignette + content overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
+            <div className="text-[10px] uppercase tracking-[0.25em] text-white/70 md:text-xs">
+              A te aurád · {aura.essence}
+            </div>
+            <h2 className="mt-1 text-3xl font-semibold tracking-tight text-white drop-shadow-md md:text-5xl">
+              {archetype.name}
+            </h2>
           </div>
-        )}
+        </div>
 
-        {/* Podcast-DNS */}
-        {dna.length > 0 && (
-          <div className="mt-6">
-            <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Podcast-DNS</div>
-            <div className="space-y-2">
-              {dna.map(row => (
-                <div key={row.label}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-foreground">{row.label}</span>
-                    <span className="text-muted-foreground">{row.intensity}</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full bg-primary" style={{ width: `${Math.round(row.strength * 100)}%` }} />
-                  </div>
-                </div>
+        {/* Verdict + interests + code */}
+        <div className="space-y-5 p-6 md:p-8">
+          <p className="text-sm leading-relaxed text-foreground md:text-base">
+            {verdict}
+          </p>
+
+          {topInterests.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {topInterests.map(t => (
+                <span key={t} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
+                  {t}
+                </span>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-          <Button onClick={handleShare} className="flex-1">
-            <Share2 className="mr-2 h-4 w-4" /> Megosztom
-          </Button>
-          <Button onClick={onReset} variant="ghost" className="flex-1">
-            Újrakezdem
-          </Button>
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <div className="font-mono text-xs tracking-wider text-muted-foreground">
+              {pdvCode}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleShare} size="sm">
+                <Share2 className="mr-2 h-4 w-4" /> Megosztom
+              </Button>
+              <Button onClick={onReset} variant="ghost" size="sm">
+                <RotateCcw className="mr-2 h-4 w-4" /> Újra
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Constellation */}
+      {constellation.stars.length >= 3 && (
+        <ConstellationVisual constellation={constellation} accent={aura.primary} />
+      )}
 
       {/* Recommended episodes */}
       <div>
@@ -956,6 +976,158 @@ function ResultView({
       <div className="text-center text-xs text-muted-foreground">
         {liked.length} ❤ {superLiked.length > 0 && <>· <span className="text-primary">{superLiked.length} ⭐</span> </>}· {disliked.length} ❌ — a profilod helyben tárolódik
       </div>
+    </div>
+  );
+}
+
+/* ────────────────── Aura visual ────────────────── */
+
+function AuraVisual({ colors }: { colors: string[] }) {
+  // Up to 4 morphing radial gradients overlaid on a dark canvas.
+  // Each blob slowly drifts with framer-motion for an organic feel.
+  const pad = (arr: string[]) => (arr.length >= 3 ? arr : [...arr, ...arr, ...arr]).slice(0, 4);
+  const palette = pad(colors);
+  const blobs = [
+    { from: { x: "10%", y: "20%" }, to: { x: "30%", y: "40%" }, size: 70 },
+    { from: { x: "75%", y: "30%" }, to: { x: "60%", y: "55%" }, size: 60 },
+    { from: { x: "30%", y: "75%" }, to: { x: "45%", y: "60%" }, size: 65 },
+    { from: { x: "80%", y: "80%" }, to: { x: "70%", y: "65%" }, size: 55 },
+  ];
+  return (
+    <div className="absolute inset-0" style={{ backgroundColor: "#0a0a0f" }}>
+      {blobs.map((b, i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full"
+          initial={{ left: b.from.x, top: b.from.y, opacity: 0 }}
+          animate={{
+            left: [b.from.x, b.to.x, b.from.x],
+            top: [b.from.y, b.to.y, b.from.y],
+            opacity: 0.85,
+          }}
+          transition={{
+            left: { duration: 14 + i * 2, repeat: Infinity, ease: "easeInOut" },
+            top: { duration: 16 + i * 2, repeat: Infinity, ease: "easeInOut" },
+            opacity: { duration: 1.2, delay: i * 0.15 },
+          }}
+          style={{
+            width: `${b.size}%`,
+            height: `${b.size}%`,
+            transform: "translate(-50%, -50%)",
+            background: `radial-gradient(circle, ${palette[i]} 0%, transparent 65%)`,
+            filter: "blur(40px)",
+            mixBlendMode: "screen",
+          }}
+        />
+      ))}
+      {/* Subtle grain for premium feel */}
+      <div
+        className="absolute inset-0 opacity-[0.08] mix-blend-overlay pointer-events-none"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='0.9'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ────────────────── Constellation visual ────────────────── */
+
+function ConstellationVisual({
+  constellation,
+  accent,
+}: {
+  constellation: ReturnType<typeof import("@/lib/podiverzumProfile").buildConstellation>;
+  accent: string;
+}) {
+  const W = 600;
+  const H = 320;
+  return (
+    <div className="rounded-3xl border border-border bg-[#0a0a0f] p-5 md:p-6">
+      <div className="mb-3 flex items-baseline justify-between">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+            A te konstellációd
+          </div>
+          <div className="mt-0.5 font-serif text-xl text-white md:text-2xl">
+            {constellation.name}
+          </div>
+        </div>
+        <div className="text-xs text-white/40">
+          {constellation.stars.length} csillag
+        </div>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="block h-auto w-full"
+        style={{ filter: `drop-shadow(0 0 12px ${accent})` }}
+      >
+        {/* Background micro-stars */}
+        {Array.from({ length: 50 }).map((_, i) => {
+          const x = ((i * 137) % W);
+          const y = ((i * 53) % H);
+          const r = 0.4 + ((i * 13) % 10) / 18;
+          return <circle key={`bg-${i}`} cx={x} cy={y} r={r} fill="white" opacity={0.25} />;
+        })}
+
+        {/* Edges */}
+        {constellation.edges.map(([a, b], i) => {
+          const sa = constellation.stars[a];
+          const sb = constellation.stars[b];
+          return (
+            <motion.line
+              key={`e-${i}`}
+              x1={sa.x * W}
+              y1={sa.y * H}
+              x2={sb.x * W}
+              y2={sb.y * H}
+              stroke={accent}
+              strokeWidth={0.7}
+              strokeOpacity={0.6}
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 0.6 }}
+              transition={{ duration: 1.2, delay: 0.6 + i * 0.15, ease: "easeOut" }}
+            />
+          );
+        })}
+
+        {/* Stars */}
+        {constellation.stars.map((s, i) => (
+          <g key={`s-${i}`}>
+            <motion.circle
+              cx={s.x * W}
+              cy={s.y * H}
+              r={s.radius}
+              fill="white"
+              initial={{ opacity: 0, scale: 0.3 }}
+              animate={{
+                opacity: [s.brightness * 0.7, s.brightness, s.brightness * 0.7],
+                scale: 1,
+              }}
+              transition={{
+                opacity: { duration: 3 + (i % 3), repeat: Infinity, ease: "easeInOut" },
+                scale: { duration: 0.5, delay: i * 0.12 },
+              }}
+              style={{ filter: `drop-shadow(0 0 ${s.radius * 1.4}px white)` }}
+            />
+            <motion.text
+              x={s.x * W}
+              y={s.y * H + s.radius + 11}
+              textAnchor="middle"
+              fill="white"
+              fillOpacity={0.7}
+              fontSize={9}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 }}
+              transition={{ duration: 0.6, delay: 1.4 + i * 0.1 }}
+            >
+              {s.label}
+            </motion.text>
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }
