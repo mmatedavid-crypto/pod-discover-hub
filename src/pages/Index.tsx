@@ -291,7 +291,7 @@ const Index = () => {
             Podcast felfedezés
           </div>
           <h1 className="text-5xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
-            Találd meg. <span className="text-brand-gradient">Hallgasd meg.</span>
+            Find it. <span className="text-brand-gradient">Hear it.</span>
           </h1>
 
           <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
