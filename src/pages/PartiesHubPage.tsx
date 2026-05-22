@@ -10,7 +10,7 @@ async function fetchParties(search: string | null, limit: number, offset: number
   let q = supabase
     .from("organizations")
     .select(
-      "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at, editorial_priority_level",
+      "id, slug, name, org_type, short_description_hu, ai_bio, wikipedia_extract, wikipedia_url, wikipedia_match_status, logo_url, gated_episode_count, gated_podcast_count, political_color, latest_episode_at, editorial_priority_level",
       { count: "exact" },
     )
     .eq("is_indexable", true)
