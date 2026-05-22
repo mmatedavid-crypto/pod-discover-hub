@@ -17,6 +17,15 @@ const CHAT_PRICES: Record<string, ChatPrice> = {
   "gemini-3.1-flash-lite": { inputTextPer1M: 0.25, inputAudioPer1M: 0.50, outputPer1M: 1.50 },
   "gemini-3.1-flash-lite-preview": { inputTextPer1M: 0.25, inputAudioPer1M: 0.50, outputPer1M: 1.50 },
   "gemini-3.1-pro-preview": { inputTextPer1M: 2.00, outputPer1M: 12.00 },
+  // OpenAI GPT-5 family (estimated USD/1M, updated 2026-05-22).
+  "gpt-5": { inputTextPer1M: 1.25, outputPer1M: 10.00 },
+  "gpt-5-mini": { inputTextPer1M: 0.25, outputPer1M: 2.00 },
+  "gpt-5-nano": { inputTextPer1M: 0.05, outputPer1M: 0.40 },
+  "gpt-5.4": { inputTextPer1M: 1.50, outputPer1M: 12.00 },
+  "gpt-5.4-mini": { inputTextPer1M: 0.40, outputPer1M: 3.00 },
+  "gpt-5.4-nano": { inputTextPer1M: 0.10, outputPer1M: 0.80 },
+  "gpt-5.5": { inputTextPer1M: 2.00, outputPer1M: 15.00 },
+  "gpt-5.5-pro": { inputTextPer1M: 5.00, outputPer1M: 30.00 },
 };
 
 const EMBEDDING_INPUT_PER_1M: Record<string, number> = {
@@ -28,6 +37,7 @@ const EMBEDDING_INPUT_PER_1M: Record<string, number> = {
 export function normalizeAiModel(model: string): string {
   return String(model || "")
     .replace(/^google\//, "")
+    .replace(/^openai\//, "")
     .replace(/^models\//, "")
     .trim();
 }

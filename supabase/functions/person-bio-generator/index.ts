@@ -1,5 +1,6 @@
 // Hungarian AI bio + overview generator for People
-// Uses Lovable AI Gateway (google/gemini-2.5-flash). Strict no-hallucination prompts.
+// Bio: openai/gpt-5.5. Audit pass: openai/gpt-5 (medium reasoning) — only audit-pass bios are published.
+// Overview: google/gemini-2.5-flash (cheap, evidence-bound).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
@@ -12,30 +13,138 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const MODEL = "google/gemini-2.5-flash";
+const BIO_MODEL = "openai/gpt-5.5";
+const AUDIT_MODEL = "openai/gpt-5";
+const OVERVIEW_MODEL = "google/gemini-2.5-flash";
+const MODEL = BIO_MODEL; // backwards-compat reference
 
-async function callAI(system: string, user: string): Promise<{ text: string; cost: number; ok: boolean; error?: string }> {
+type AICallResult = { text: string; cost: number; ok: boolean; error?: string; toolCall?: any };
+
+async function callAI(
+  model: string,
+  system: string,
+  user: string,
+  opts: { reasoning?: "low" | "medium" | "high"; temperature?: number; tools?: any[]; toolChoice?: any } = {},
+): Promise<AICallResult> {
+  const body: any = {
+    model,
+    messages: [{ role: "system", content: system }, { role: "user", content: user }],
+  };
+  // GPT-5 reasoning models do not accept temperature.
+  if (!/^openai\/gpt-5/.test(model) && typeof opts.temperature === "number") body.temperature = opts.temperature;
+  if (opts.reasoning && /^openai\/gpt-5/.test(model)) body.reasoning = { effort: opts.reasoning };
+  if (opts.tools) body.tools = opts.tools;
+  if (opts.toolChoice) body.tool_choice = opts.toolChoice;
+
   const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      temperature: 0.3,
-    }),
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOVABLE_API_KEY}` },
+    body: JSON.stringify(body),
   });
   if (!r.ok) {
-    return { text: "", cost: 0, ok: false, error: `ai_${r.status}` };
+    const errText = await r.text().catch(() => "");
+    return { text: "", cost: 0, ok: false, error: `ai_${r.status}:${errText.slice(0, 200)}` };
   }
   const j = await r.json();
-  const text = j?.choices?.[0]?.message?.content || "";
+  const msg = j?.choices?.[0]?.message || {};
+  const text = (msg.content || "").trim();
+  const toolCall = msg.tool_calls?.[0];
   const inTok = j?.usage?.prompt_tokens || 0;
   const outTok = (j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0);
-  const cost = chatTokenCostUsd(MODEL, Number(inTok || 0), Number(outTok || 0));
-  return { text: text.trim(), cost, ok: true };
+  const cost = chatTokenCostUsd(model, Number(inTok || 0), Number(outTok || 0));
+  return { text, cost, ok: true, toolCall };
+}
+
+const AUDIT_TOOL = {
+  type: "function",
+  function: {
+    name: "submit_bio_audit",
+    description: "Independent audit of an AI-generated Hungarian biography. Reject any claim not supported by sources.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        pass: { type: "boolean", description: "true only if every factual claim is supported by sources" },
+        hallucination_flags: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "unsupported_occupation",
+              "unsupported_birth_or_death",
+              "unsupported_nationality",
+              "unsupported_organization",
+              "unsupported_role_claim",
+              "unsupported_age_or_year",
+              "speculative_political_stance",
+              "marketing_language",
+              "wrong_person_confusion",
+              "non_hungarian_text",
+              "too_long",
+              "too_short",
+              "echoes_safe_fallback",
+              "other_unsupported_claim",
+            ],
+          },
+        },
+        rationale_hu: { type: "string", description: "Rövid magyar indoklás miért pass/fail." },
+      },
+      required: ["pass", "hallucination_flags", "rationale_hu"],
+    },
+  },
+};
+
+async function auditBio(
+  personName: string,
+  bioText: string,
+  evidence: { wiki_extract?: string | null; wiki_description?: string | null; wiki_status: string; wiki_confidence: number; episode_titles: string[]; tally: any },
+): Promise<{ pass: boolean; flags: string[]; rationale: string; cost: number; ok: boolean; error?: string }> {
+  const sys = `Független auditor vagy. Egy AI által generált rövid magyar életrajzot kell ellenőrizned egy podcast-katalógus számára.
+Szabályok:
+- A bio MINDEN tényállítását össze kell vetni a megadott forrásokkal (Wikipedia extract + epizód kontextus).
+- Ha bármely tényállításra (foglalkozás, születés/halál, nemzetiség, szervezet, korszak, szerep) NINCS forrás-fedezet a megadott bizonyítékban, az hallucináció → pass=false.
+- A nevezett személyt rövid kapcsolódó jelzők (pl. "magyar", "újságíró") csak akkor lehet a bio-ban, ha a Wikipedia extract vagy az episode kontextus explicit módon alátámasztja.
+- Ha a bio túl rövid (<20 karakter), túl hosszú (>500 karakter), nem magyar, vagy a biztonságos sablon visszhangja → pass=false.
+- Hipotetikus, "valószínűleg", reklámszerű kifejezések → pass=false.
+- Politikai vélemény, becslés, korhatározás forrás nélkül → pass=false.
+- Légy szigorú: ha bizonytalan vagy, jelöld fail-nek.
+- A submit_bio_audit eszközzel válaszolj.`;
+  const epList = evidence.episode_titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join("\n") || "(nincs)";
+  const user = `SZEMÉLY: ${personName}
+
+GENERÁLT BIO (auditálandó):
+"""
+${bioText}
+"""
+
+BIZONYÍTÉK — Wikipedia státusz: ${evidence.wiki_status} (konfidencia ${evidence.wiki_confidence}).
+Wikipedia leírás: ${evidence.wiki_description || "—"}
+Wikipedia kivonat (max 800 char): ${(evidence.wiki_extract || "").slice(0, 800) || "—"}
+
+Epizód kontextus (host=${evidence.tally?.host || 0} guest=${evidence.tally?.guest || 0} subject=${evidence.tally?.subject || 0} mentioned=${evidence.tally?.mentioned || 0}):
+${epList}
+
+Végezd el az auditot.`;
+  const r = await callAI(AUDIT_MODEL, sys, user, {
+    reasoning: "medium",
+    tools: [AUDIT_TOOL],
+    toolChoice: { type: "function", function: { name: "submit_bio_audit" } },
+  });
+  if (!r.ok || !r.toolCall) {
+    return { pass: false, flags: ["other_unsupported_claim"], rationale: r.error || "audit_no_tool_call", cost: r.cost, ok: false, error: r.error };
+  }
+  try {
+    const args = JSON.parse(r.toolCall.function?.arguments || "{}");
+    return {
+      pass: !!args.pass,
+      flags: Array.isArray(args.hallucination_flags) ? args.hallucination_flags : [],
+      rationale: String(args.rationale_hu || ""),
+      cost: r.cost,
+      ok: true,
+    };
+  } catch (e: any) {
+    return { pass: false, flags: ["other_unsupported_claim"], rationale: `parse_error:${e?.message || e}`, cost: r.cost, ok: false, error: "parse_error" };
+  }
 }
 
 function safeFallbackBio(name: string): string {
@@ -147,20 +256,45 @@ SZABÁLYOK:
     let bioCost = 0;
     let overview = "";
     let overviewCost = 0;
+    let auditCost = 0;
     let bioStatus = "completed";
+    let auditResult: any = null;
 
     if (epList.length === 0 && !useWiki) {
       bio = safeFallbackBio(p.name);
       overview = `A ${p.name} kapcsán jelenleg nincs elegendő indexelt magyar podcast epizód.`;
       bioStatus = "needs_review";
+      auditResult = { skipped: "insufficient_evidence" };
     } else {
       const [b, o] = await Promise.all([
-        callAI(bioSys, bioUser),
-        callAI(overviewSys, overviewUser),
+        callAI(BIO_MODEL, bioSys, bioUser, { reasoning: "low" }),
+        callAI(OVERVIEW_MODEL, overviewSys, overviewUser, { temperature: 0.3 }),
       ]);
       if (b.ok) { bio = b.text; bioCost = b.cost; } else { bio = safeFallbackBio(p.name); bioStatus = "needs_review"; }
       if (o.ok) { overview = o.text; overviewCost = o.cost; } else { overview = ""; }
-      if (!useWiki) bioStatus = bio === safeFallbackBio(p.name) ? "needs_review" : (epList.length < 3 ? "needs_review" : "completed");
+
+      // Self-audit only if we actually got a non-fallback bio
+      if (b.ok && bio && bio !== safeFallbackBio(p.name)) {
+        const audit = await auditBio(p.name, bio, {
+          wiki_extract: p.wikipedia_extract,
+          wiki_description: p.wikipedia_description,
+          wiki_status: p.wikipedia_match_status,
+          wiki_confidence: Number(p.wikipedia_match_confidence || 0),
+          episode_titles: epList.map((e: any) => e.title),
+          tally,
+        });
+        auditCost = audit.cost;
+        auditResult = { model: AUDIT_MODEL, pass: audit.pass, flags: audit.flags, rationale: audit.rationale, ok: audit.ok };
+        if (!audit.pass) {
+          // Reject the generated bio — fall back to safe template, mark audited_fail.
+          bio = safeFallbackBio(p.name);
+          bioStatus = "audited_fail";
+        } else if (!useWiki && epList.length < 3) {
+          bioStatus = "needs_review";
+        }
+      } else if (!useWiki) {
+        bioStatus = bio === safeFallbackBio(p.name) ? "needs_review" : (epList.length < 3 ? "needs_review" : "completed");
+      }
     }
 
     const sources = {
@@ -169,22 +303,41 @@ SZABÁLYOK:
       podcast_ids: (ppm || []).map((r: any) => r.podcasts?.id).filter(Boolean),
       confidence: useWiki ? 0.9 : (epList.length >= 5 ? 0.6 : 0.4),
       mention_tally: tally,
+      audit: auditResult,
+      generator_model: BIO_MODEL,
     };
 
-    const totalCost = bioCost + overviewCost;
-    const update = {
+    const totalCost = bioCost + overviewCost + auditCost;
+    // Only publish short_bio when audit passed (or no audit needed because of safe fallback)
+    const publish = bioStatus === "completed";
+    const update: any = {
       ai_bio: bio,
-      short_bio: bio,
       ai_bio_status: bioStatus,
       ai_bio_generated_at: new Date().toISOString(),
-      ai_bio_model: MODEL,
+      ai_bio_model: BIO_MODEL,
       ai_bio_sources: sources,
       ai_bio_confidence: sources.confidence,
       overview_text: overview || null,
       overview_generated_at: overview ? new Date().toISOString() : null,
       overview_sources: sources,
     };
+    if (publish) update.short_bio = bio;
     await admin.from("people").update(update).eq("id", personId);
+
+    // Audit trail entry
+    try {
+      await admin.from("ai_call_audit").insert({
+        job_type: "person_bio_audit",
+        model_used: AUDIT_MODEL,
+        provider: "lovable_ai",
+        target_id: personId,
+        target_type: "person",
+        status: auditResult?.pass ? "ok" : (auditResult?.skipped ? "skipped" : "rejected"),
+        confidence: Number(auditResult?.pass ? 1 : 0),
+        estimated_cost_usd: totalCost,
+        meta: { bio_status: bioStatus, flags: auditResult?.flags || [], rationale: auditResult?.rationale, bio_preview: bio.slice(0, 160), wiki_status: p.wikipedia_match_status },
+      });
+    } catch { /* ignore */ }
 
     // Spend tracking
     try {
@@ -202,12 +355,12 @@ SZABÁLYOK:
     } catch { /* ignore */ }
 
     if (jobId) await admin.from("person_enrichment_jobs").update({
-      status: bioStatus === "needs_review" ? "needs_review" : "completed",
+      status: bioStatus === "completed" ? "completed" : (bioStatus === "audited_fail" ? "audited_fail" : "needs_review"),
       finished_at: new Date().toISOString(),
       output_snapshot: { bio_len: bio.length, overview_len: overview.length, cost_usd: totalCost, sources },
     }).eq("id", jobId);
 
-    return { id: personId, status: bioStatus, cost_usd: totalCost };
+    return { id: personId, status: bioStatus, cost_usd: totalCost, audit: auditResult };
   } catch (e: any) {
     if (jobId) await admin.from("person_enrichment_jobs").update({
       status: "failed", error_message: String(e?.message || e), finished_at: new Date().toISOString(),
@@ -220,12 +373,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
-  const limit = Math.min(Number(body.limit || 30), 300);
+  const limit = Math.min(Number(body.limit || 20), 300);
   const force = !!body.force;
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
-  // Daily budget cap
-  const budget = Number(body.daily_budget_usd || 3);
+  // Daily budget cap — GPT-5.5 bio + GPT-5 audit is pricier than before.
+  const budget = Number(body.daily_budget_usd || 15);
   const today = new Date().toISOString().slice(0, 10);
   const { data: spend } = await admin.from("ai_spend_daily").select("by_kind").eq("day", today).maybeSingle();
   const spentToday = Number(((spend?.by_kind as any) || {}).person_bio || 0);
@@ -250,7 +403,7 @@ Deno.serve(async (req) => {
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
       .limit(limit * 3);
     const filtered = (data || []).filter((r: any) =>
-      (force || r.ai_bio_status !== "completed") &&
+      (force || !["completed","audited_fail"].includes(r.ai_bio_status || "")) &&
       !["hide","reject","merge"].includes(r.ai_recommended_action || "") &&
       !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
     ).slice(0, limit);
