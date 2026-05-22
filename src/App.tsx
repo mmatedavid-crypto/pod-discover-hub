@@ -72,6 +72,8 @@ const App = () => (
         <SearchHotkey />
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/start" element={<StartSwipePage />} />
+          <Route path="/vibe" element={<StartSwipePage />} />
           <Route path="/kategoriak" element={<CategoriesPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/kategoria/:slug" element={<CategoryDetail />} />
