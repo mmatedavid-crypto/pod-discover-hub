@@ -22,6 +22,8 @@ export interface OrgCardData {
   short_description_hu?: string | null;
   ai_bio?: string | null;
   wikipedia_extract?: string | null;
+  wikipedia_url?: string | null;
+  wikipedia_match_status?: string | null;
   logo_url?: string | null;
   gated_episode_count: number;
   gated_podcast_count: number;
