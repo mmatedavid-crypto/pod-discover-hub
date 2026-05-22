@@ -66,10 +66,13 @@ function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
   // /podcast/:slug  or  /podcast/:slug/:episode
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
-  if (/^\/category\/[^/]+\/?$/.test(pathname)) return true;
-  if (/^\/(topic|person|company|ticker|ingredient)\/[^/]+\/?$/.test(pathname)) return true;
+  if (/^\/(category|kategoria)\/[^/]+\/?$/.test(pathname)) return true;
+  // Entity routes — EN + HU aliases (topic/tema, person/szemely, company/ceg,
+  // ticker, ingredient/hozzavalo). Critical for FB/Twitter share previews.
+  if (/^\/(topic|tema|person|szemely|company|ceg|ticker|ingredient|hozzavalo)\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
+
 
 // Hard-404 these scanner paths regardless of UA. Conservative — no app routes match.
 const SCANNER_PATH_REGEX =
