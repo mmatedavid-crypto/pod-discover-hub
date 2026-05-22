@@ -808,7 +808,7 @@ function ResultView({
     }
     for (const c of superLiked) for (const t of c.topic_tags) {
       w[t] = w[t] || { weight: 0, superCount: 0 };
-      w[t].weight += 2;
+      w[t].weight += 3;
       w[t].superCount += 1;
     }
     return Object.entries(w)
