@@ -80,11 +80,11 @@ export default function NewspaperMasthead() {
           <span className="text-muted-foreground/70">· Budapest</span>
         </span>
 
-        <span className="inline-flex items-center gap-1">
+        <span className="hidden sm:inline-flex items-center gap-1">
           <Sunrise className="h-3.5 w-3.5 text-amber-500" aria-hidden />
           {fmtTime(weather?.sunrise)}
         </span>
-        <span className="inline-flex items-center gap-1">
+        <span className="hidden sm:inline-flex items-center gap-1">
           <Sunset className="h-3.5 w-3.5 text-orange-500" aria-hidden />
           {fmtTime(weather?.sunset)}
         </span>
