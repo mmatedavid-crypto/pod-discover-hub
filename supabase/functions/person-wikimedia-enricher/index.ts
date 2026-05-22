@@ -275,12 +275,14 @@ Deno.serve(async (req) => {
 
   let ids: string[] = personIds;
   if (ids.length === 0) {
+    // Priority 1: unchecked / null. Priority 2: stale no_match (>7d) for periodic revisit.
+    const staleCutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
     const { data } = await admin
       .from("people")
-      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status, activation_status, ai_recommended_action, ai_review_status")
+      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status, wiki_match_run_at, activation_status, ai_recommended_action, ai_review_status")
       .eq("is_public", true)
       .in("activation_status", ["indexable","manual_approved","public_noindex"])
-      .or("wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null")
+      .or(`wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null,and(wikipedia_match_status.eq.no_match,wiki_match_run_at.lt.${staleCutoff})`)
       .order("episode_count", { ascending: false })
       .order("podcast_count", { ascending: false })
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
