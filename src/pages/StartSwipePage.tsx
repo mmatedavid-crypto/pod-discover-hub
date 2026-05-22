@@ -803,7 +803,20 @@ function ResultView({
       .slice(0, 7);
   }, [liked, superLiked]);
   const constellation = useMemo(() => buildConstellation(topicStars, seedKey), [topicStars, seedKey]);
-  const verdict = useMemo(() => buildVerdict(seedKey), [seedKey]);
+  const element = useMemo(() => buildElement(moodWeights), [moodWeights]);
+  const topMoodKeys = useMemo(
+    () => Object.entries(moodWeights).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k.toLowerCase()),
+    [moodWeights],
+  );
+  const verdict = useMemo(
+    () => buildVerdict(seedKey, {
+      topMoods: topMoodKeys,
+      topTopics: topicStars.slice(0, 2).map(s => s.label),
+      archetypeName: archetype.name,
+      element: element.key,
+    }),
+    [seedKey, topMoodKeys, topicStars, archetype.name, element.key],
+  );
   const pdvCode = useMemo(() => buildPdvCode(seedKey), [seedKey]);
 
   // Recommended podcasts: dedupe from recs
