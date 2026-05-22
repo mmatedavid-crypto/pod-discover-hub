@@ -37,6 +37,7 @@ const EMBEDDING_INPUT_PER_1M: Record<string, number> = {
 export function normalizeAiModel(model: string): string {
   return String(model || "")
     .replace(/^google\//, "")
+    .replace(/^openai\//, "")
     .replace(/^models\//, "")
     .trim();
 }
