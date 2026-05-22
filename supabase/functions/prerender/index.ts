@@ -58,7 +58,7 @@ function shell(opts: {
   bodyHtml: string;
   noindex?: boolean;
 }) {
-  const ogImg = opts.ogImage || `${SITE}/og-image.png`;
+  const ogImg = opts.ogImage || `${SITE}/og-image.jpg`;
   const ld = opts.jsonLd
     .map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</script>`)
     .join("\n");
@@ -75,6 +75,7 @@ ${opts.noindex ? '<meta name="robots" content="noindex" />' : ""}
 <meta property="og:title" content="${esc(opts.title)}" />
 <meta property="og:description" content="${esc(opts.description)}" />
 <meta property="og:image" content="${esc(ogImg)}" />
+<meta property="og:image:alt" content="${esc(opts.title)}" />
 <meta property="og:url" content="${esc(opts.canonical)}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${esc(opts.title)}" />
@@ -106,7 +107,7 @@ function notFound(path: string) {
 // ---------- builders ----------
 
 async function buildHome(supabase: ReturnType<typeof createClient>) {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from("mv_homepage_feed")
     .select("episode_id, title, display_title, slug, summary, description, published_at, podcast_title, podcast_display_title, podcast_slug")
     .order("published_at", { ascending: false })
@@ -340,6 +341,7 @@ function slugify(v: string, kind: string) {
 async function buildCategory(
   supabase: ReturnType<typeof createClient>,
   slug: string,
+  urlPrefix: string = "category",
 ) {
   const { data: cat } = await supabase
     .from("categories")
@@ -363,7 +365,8 @@ async function buildCategory(
   const desc =
     cat.seo_description ||
     truncate(stripHtml(cat.description) || `A legjobb ${cat.name} podcastek a Podiverzumon.`, 160);
-  const canonical = `${SITE}/category/${cat.slug}`;
+  const canonical = `${SITE}/${urlPrefix}/${cat.slug}`;
+  const ogImage = list[0]?.image_url ?? null;
 
   const html = list
     .map((p) => {
@@ -388,6 +391,7 @@ async function buildCategory(
       title,
       description: desc,
       canonical,
+      ogImage,
       jsonLd: [itemList],
       bodyHtml: `<header><h1>${esc(cat.name)}</h1>${cat.description ? `<p>${esc(stripHtml(cat.description))}</p>` : ""}</header>
 <main><h2>Podcastek</h2><ul>${html}</ul></main>`,
@@ -396,72 +400,112 @@ async function buildCategory(
   );
 }
 
-async function buildEntity(
+// --- Canonical-table entity builders -------------------------------------
+// People → public.people + public.person_episode_mentions
+async function buildPerson(
   supabase: ReturnType<typeof createClient>,
-  kind: "topic" | "person" | "company" | "ticker" | "ingredient",
   slug: string,
-  urlPrefix?: string,
+  urlPrefix: string,
 ) {
-  const arrayCol =
-    kind === "topic" ? "topics" :
-    kind === "person" ? "people" :
-    kind === "company" ? "companies" :
-    kind === "ticker" ? "tickers" : "ingredients";
+  const { data: person } = await (supabase as any)
+    .from("people")
+    .select("id, name, slug, image_url, ai_bio, wikipedia_extract, wikipedia_description, short_bio, is_public")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!person || person.is_public === false) return null;
 
-  // Match by slugified comparison: fetch a generous batch then filter in JS.
-  // For tickers we can match exact uppercase value.
-  const matchValue = kind === "ticker" ? slug.toUpperCase() : slug;
+  const { data: rows } = await (supabase as any)
+    .from("person_episode_mentions")
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, language))`)
+    .eq("person_id", person.id)
+    .order("created_at", { ascending: false })
+    .limit(80);
 
-  const { data } = await supabase
-    .from("episodes")
-    .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
-    .contains(arrayCol, [matchValue])
-    .order("published_at", { ascending: false })
-    .limit(60);
+  const eps = ((rows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .slice(0, 40);
 
-  let rows = (data ?? []) as Array<Record<string, any>>;
-  // Fallback: if no exact match, scan a wider batch and slugify-compare.
-  if (!rows.length) {
-    const { data: wide } = await supabase
-      .from("episodes")
-      .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
-      .not(arrayCol, "is", null)
-      .order("published_at", { ascending: false })
-      .limit(500);
-    rows = ((wide ?? []) as Array<Record<string, any>>).filter((r) =>
-      ((r as any)[arrayCol] as string[] | null)?.some((v) => slugify(v, kind) === slug),
-    );
-  }
-  // HU-only filter
-  rows = rows.filter((r: any) => {
-    const lang = r.podcast?.language;
-    return lang && /^hu/i.test(lang);
-  });
-  if (!rows.length) return null;
+  const canonical = `${SITE}/${urlPrefix}/${slug}`;
+  const bio = stripHtml(person.ai_bio || person.wikipedia_extract || person.wikipedia_description || person.short_bio || "");
+  const desc = bio
+    ? truncate(bio, 160)
+    : truncate(`${person.name} — epizódok és említések a Podiverzumon. Magyar podcastek, AI-összefoglalóval.`, 160);
+  const title = `${person.name} — epizódok a Podiverzumon`;
 
-  const human = slug.replace(/-/g, " ");
-  const title = `${human} — epizódok a Podiverzumon`;
-  const desc = `Magyar podcast epizódok, amelyek a következőről szólnak: ${human}. Válogatva és AI-összefoglalóval a Podiverzumon.`;
-  const canonical = `${SITE}/${urlPrefix || kind}/${slug}`;
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary), 220);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
 
+  const personLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: person.name,
+    url: canonical,
+  };
+  if (person.image_url) personLd.image = person.image_url;
+  if (bio) personLd.description = truncate(bio, 500);
 
-  const list = rows.slice(0, 40);
-  const html = list
-    .map((r) => {
-      const u = `${SITE}/podcast/${r.podcast.slug}/${r.slug}`;
-      const s = truncate(stripHtml(r.ai_summary), 240);
-      return `<li><a href="${u}"><strong>${esc(r.title)}</strong></a> — <em>${esc(r.podcast.display_title || r.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
-    })
-    .join("");
+  return new Response(new TextEncoder().encode(shell({
+      title,
+      description: desc,
+      canonical,
+      ogImage: person.image_url,
+      jsonLd: [personLd],
+      bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
+<main><h2>Epizódok</h2><ul>${html}</ul></main>`,
+    })),
+    { headers: new Headers(baseHeaders) },
+  );
+}
+
+// Topics → public.topics + public.episode_topic_map
+async function buildTopic(
+  supabase: ReturnType<typeof createClient>,
+  slug: string,
+  urlPrefix: string,
+) {
+  const { data: topic } = await (supabase as any)
+    .from("topics")
+    .select("id, name, slug, description, seo_title, seo_description, intro_text, is_public")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!topic || topic.is_public === false) return null;
+
+  const { data: rows } = await (supabase as any)
+    .from("episode_topic_map")
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .eq("topic_id", topic.id)
+    .order("confidence", { ascending: false })
+    .limit(120);
+
+  const eps = ((rows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .slice(0, 40);
+
+  const canonical = `${SITE}/${urlPrefix}/${slug}`;
+  const title = topic.seo_title || `${topic.name} — epizódok a Podiverzumon`;
+  const desc = topic.seo_description
+    || truncate(stripHtml(topic.intro_text || topic.description) || `Magyar podcast epizódok ${topic.name} témakörben.`, 160);
+  const ogImage = eps[0]?.podcast?.image_url ?? null;
+
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary), 220);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
 
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    itemListElement: list.map((r, i) => ({
+    itemListElement: eps.map((e, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `${SITE}/podcast/${r.podcast.slug}/${r.slug}`,
-      name: r.title,
+      url: `${SITE}/podcast/${e.podcast.slug}/${e.slug}`,
+      name: e.display_title || e.title,
     })),
   };
 
@@ -469,9 +513,176 @@ async function buildEntity(
       title,
       description: desc,
       canonical,
+      ogImage,
       jsonLd: [itemList],
-      bodyHtml: `<header><h1>${esc(human)}</h1><p>Magyar podcast epizódok, amelyek ezt említik: ${esc(human)}.</p></header>
-<main><ul>${html}</ul></main>`,
+      bodyHtml: `<header><h1>${esc(topic.name)}</h1>${topic.intro_text ? `<p>${esc(stripHtml(topic.intro_text))}</p>` : ""}</header>
+<main><h2>Epizódok</h2><ul>${html}</ul></main>`,
+    })),
+    { headers: new Headers(baseHeaders) },
+  );
+}
+
+// Organizations (company/ceg) → public.organizations + episode_organization_map
+async function buildOrganization(
+  supabase: ReturnType<typeof createClient>,
+  slug: string,
+  urlPrefix: string,
+) {
+  const { data: org } = await (supabase as any)
+    .from("organizations")
+    .select("id, name, slug, logo_url, ai_bio, wikipedia_extract, short_description_hu")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!org) return null;
+
+  const { data: rows } = await (supabase as any)
+    .from("episode_organization_map")
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .eq("organization_id", org.id)
+    .order("confidence", { ascending: false })
+    .limit(120);
+
+  const eps = ((rows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .slice(0, 40);
+
+  const canonical = `${SITE}/${urlPrefix}/${slug}`;
+  const bio = stripHtml(org.ai_bio || org.wikipedia_extract || org.short_description_hu || "");
+  const title = `${org.name} — epizódok a Podiverzumon`;
+  const desc = bio
+    ? truncate(bio, 160)
+    : truncate(`Magyar podcast epizódok, amelyek a(z) ${org.name} szervezetet említik.`, 160);
+
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary), 220);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
+
+  const orgLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: org.name,
+    url: canonical,
+  };
+  if (org.logo_url) orgLd.logo = org.logo_url;
+  if (bio) orgLd.description = truncate(bio, 500);
+
+  return new Response(new TextEncoder().encode(shell({
+      title,
+      description: desc,
+      canonical,
+      ogImage: org.logo_url,
+      jsonLd: [orgLd],
+      bodyHtml: `<header><h1>${esc(org.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
+<main><h2>Epizódok</h2><ul>${html}</ul></main>`,
+    })),
+    { headers: new Headers(baseHeaders) },
+  );
+}
+
+// Mood collections → public.mood_collections + episode_ids
+async function buildMoodCollection(
+  supabase: ReturnType<typeof createClient>,
+  slug: string,
+) {
+  const { data: coll } = await (supabase as any)
+    .from("mood_collections")
+    .select("title, slug, description, short_description, episode_ids, podcast_ids, active")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!coll || coll.active === false) return null;
+
+  const episodeIds = (coll.episode_ids ?? []) as string[];
+  let eps: Array<any> = [];
+  if (episodeIds.length) {
+    const { data } = await (supabase as any)
+      .from("episodes")
+      .select(`title, display_title, slug, ai_summary, published_at, image_url, podcast:podcasts!inner(title, display_title, slug, image_url, language)`)
+      .in("id", episodeIds.slice(0, 60));
+    eps = ((data ?? []) as Array<any>)
+      .filter((e) => /^hu/i.test(e.podcast?.language || ""))
+      .slice(0, 40);
+  }
+
+  const canonical = `${SITE}/hangulatok/${slug}`;
+  const title = `${coll.title} — hangulati podcast ajánló | Podiverzum`;
+  const desc = truncate(
+    stripHtml(coll.short_description || coll.description || `${coll.title} — válogatott magyar podcast epizódok hangulat szerint.`),
+    160,
+  );
+  const ogImage = eps[0]?.image_url || eps[0]?.podcast?.image_url || null;
+
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary), 220);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: coll.title,
+    itemListElement: eps.map((e, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE}/podcast/${e.podcast.slug}/${e.slug}`,
+      name: e.display_title || e.title,
+    })),
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+      title,
+      description: desc,
+      canonical,
+      ogImage,
+      jsonLd: [itemList],
+      bodyHtml: `<header><h1>${esc(coll.title)}</h1>${coll.description ? `<p>${esc(stripHtml(coll.description))}</p>` : ""}</header>
+<main><h2>Epizódok</h2><ul>${html}</ul></main>`,
+    })),
+    { headers: new Headers(baseHeaders) },
+  );
+}
+
+// Legacy fallback for ticker/ingredient (still use array columns on episodes).
+async function buildLegacyEntity(
+  supabase: ReturnType<typeof createClient>,
+  kind: "ticker" | "ingredient",
+  slug: string,
+  urlPrefix: string,
+) {
+  const arrayCol = kind === "ticker" ? "tickers" : "ingredients";
+  const matchValue = kind === "ticker" ? slug.toUpperCase() : slug;
+
+  const { data } = await (supabase as any)
+    .from("episodes")
+    .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
+    .contains(arrayCol, [matchValue])
+    .order("published_at", { ascending: false })
+    .limit(60);
+
+  let rows = (data ?? []) as Array<Record<string, any>>;
+  rows = rows.filter((r: any) => /^hu/i.test(r.podcast?.language || ""));
+  if (!rows.length) return null;
+
+  const human = slug.replace(/-/g, " ");
+  const title = `${human} — epizódok a Podiverzumon`;
+  const desc = `Magyar podcast epizódok ${human} témakörben.`;
+  const canonical = `${SITE}/${urlPrefix}/${slug}`;
+
+  const html = rows.slice(0, 40).map((r: any) => {
+    const u = `${SITE}/podcast/${r.podcast.slug}/${r.slug}`;
+    const s = truncate(stripHtml(r.ai_summary), 220);
+    return `<li><a href="${u}"><strong>${esc(r.title)}</strong></a> — <em>${esc(r.podcast.display_title || r.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
+
+  return new Response(new TextEncoder().encode(shell({
+      title,
+      description: desc,
+      canonical,
+      jsonLd: [],
+      bodyHtml: `<header><h1>${esc(human)}</h1></header><main><ul>${html}</ul></main>`,
     })),
     { headers: new Headers(baseHeaders) },
   );
@@ -512,7 +723,11 @@ Deno.serve(async (req) => {
       return r ?? notFound(path);
     }
     if ((parts[0] === "category" || parts[0] === "kategoria") && parts.length === 2) {
-      const r = await buildCategory(supabase, parts[1]);
+      const r = await buildCategory(supabase, parts[1], parts[0]);
+      return r ?? notFound(path);
+    }
+    if (parts[0] === "hangulatok" && parts.length === 2) {
+      const r = await buildMoodCollection(supabase, parts[1]);
       return r ?? notFound(path);
     }
     if (parts.length === 2) {
@@ -520,7 +735,11 @@ Deno.serve(async (req) => {
         (["topic", "person", "company", "ticker", "ingredient"].includes(parts[0])
           ? (parts[0] as any) : null);
       if (enKind) {
-        const r = await buildEntity(supabase, enKind as any, parts[1], parts[0]);
+        let r: Response | null = null;
+        if (enKind === "person") r = await buildPerson(supabase, parts[1], parts[0]);
+        else if (enKind === "topic") r = await buildTopic(supabase, parts[1], parts[0]);
+        else if (enKind === "company") r = await buildOrganization(supabase, parts[1], parts[0]);
+        else r = await buildLegacyEntity(supabase, enKind as any, parts[1], parts[0]);
         return r ?? notFound(path);
       }
     }

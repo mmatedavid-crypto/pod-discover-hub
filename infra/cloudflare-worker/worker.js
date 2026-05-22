@@ -70,6 +70,8 @@ function shouldPrerender(pathname) {
   // Entity routes — EN + HU aliases (topic/tema, person/szemely, company/ceg,
   // ticker, ingredient/hozzavalo). Critical for FB/Twitter share previews.
   if (/^\/(topic|tema|person|szemely|company|ceg|ticker|ingredient|hozzavalo)\/[^/]+\/?$/.test(pathname)) return true;
+  // Mood collections (HU-only route)
+  if (/^\/hangulatok\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
 
