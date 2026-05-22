@@ -73,7 +73,7 @@ export default function StartSwipePage() {
   const [recsLoading, setRecsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const loadSeedsFromAnchors = useCallback(async (anchors: Anchor[]) => {
+  const loadSeedsFromAnchors = useCallback(async (anchors: Anchor[], append = false, excludeIds: string[] = []) => {
     setLoading(true);
     const podcastIds = anchors.filter(a => a.kind === "podcast").map(a => a.id);
     const personIds = anchors.filter(a => a.kind === "person").map(a => a.id);
@@ -84,22 +84,32 @@ export default function StartSwipePage() {
         p_podcast_ids: podcastIds,
         p_person_ids: personIds,
         p_keywords: keywords,
-        p_limit: 8,
+        p_limit: 16,
       });
       if (!res.error && res.data) data = res.data as SeedEp[];
     }
     // Fallback / top-up with random HU seeds if not enough
-    if (!data || data.length < 4) {
-      const res2 = await supabase.rpc("get_swipe_seed_episodes", { p_limit: 8 });
+    if (!data || data.length < 6) {
+      const res2 = await supabase.rpc("get_swipe_seed_episodes", { p_limit: 16 });
       if (!res2.error && res2.data) {
         const existing = new Set((data || []).map(e => e.episode_id));
         const extras = (res2.data as SeedEp[]).filter(e => !existing.has(e.episode_id));
-        data = [...(data || []), ...extras].slice(0, 8);
+        data = [...(data || []), ...extras];
       }
     }
-    setCards(data || []);
-    setIdx(0);
+    // Exclude already-seen
+    const exclude = new Set(excludeIds);
+    let fresh = (data || []).filter(e => !exclude.has(e.episode_id));
+    // Shuffle
+    fresh = fresh.sort(() => Math.random() - 0.5).slice(0, 8);
+    if (append) {
+      setCards(prev => [...prev, ...fresh]);
+    } else {
+      setCards(fresh);
+      setIdx(0);
+    }
     setLoading(false);
+    return fresh.length;
   }, []);
 
   useEffect(() => {
@@ -132,7 +142,9 @@ export default function StartSwipePage() {
   const current = cards[idx];
   const next = cards[idx + 1];
 
-  const handleSwipe = (action: "like" | "skip" | "save") => {
+  const MIN_LIKES = 5;
+
+  const handleSwipe = async (action: "like" | "skip" | "save") => {
     if (!current) return;
     const v = { ...vibe };
     if (action === "like") v.liked = [...v.liked, current.episode_id];
@@ -143,8 +155,19 @@ export default function StartSwipePage() {
     const newIdx = idx + 1;
     setIdx(newIdx);
     if (newIdx >= cards.length) {
-      setPhase("results");
-      void fetchRecs(v);
+      // If profile is still thin, keep feeding cards instead of bailing to results.
+      if (v.liked.length < MIN_LIKES) {
+        const seen = [...v.liked, ...v.disliked, ...v.saved, ...cards.map(c => c.episode_id)];
+        const added = await loadSeedsFromAnchors(vibe.anchors, false, seen);
+        if (added === 0) {
+          // truly nothing left — go to results with what we have
+          setPhase("results");
+          void fetchRecs(v);
+        }
+      } else {
+        setPhase("results");
+        void fetchRecs(v);
+      }
     }
   };
 
