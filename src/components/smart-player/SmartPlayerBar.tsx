@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
