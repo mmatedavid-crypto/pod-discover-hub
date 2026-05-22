@@ -10,7 +10,7 @@ import {
 } from "@/lib/tasteVector";
 import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
 import { renderShareCard, shareOrDownload } from "@/lib/tasteShareCard";
-import { buildAura, buildConstellation, buildVerdict, buildPdvCode } from "@/lib/podiverzumProfile";
+import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 
 /* ────────────────── Types ────────────────── */
 
