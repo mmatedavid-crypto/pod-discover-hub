@@ -45,8 +45,7 @@ export default function OrganizationsIndexPage() {
       const topAllPromise = supabase
         .from("organizations")
         .select(COLS)
-        .eq("is_public", true)
-        .gte("gated_episode_count", 1)
+        .eq("is_indexable", true)
         .not("org_type", "eq", "other")
         .order("gated_episode_count", { ascending: false })
         .limit(12);
@@ -67,8 +66,7 @@ export default function OrganizationsIndexPage() {
       const totalCountPromise = supabase
         .from("organizations")
         .select("id", { count: "exact", head: true })
-        .eq("is_public", true)
-        .gte("gated_episode_count", 1)
+        .eq("is_indexable", true)
         .not("org_type", "eq", "other");
 
       const sectionPromises = SECTIONS.map((s) =>
