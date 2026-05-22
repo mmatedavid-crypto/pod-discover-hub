@@ -6,6 +6,7 @@ import PersonCard, { PersonCardData } from "@/components/PersonCard";
 
 interface PersonRow extends PersonCardData {
   id: string;
+  image_url?: string | null;
   people_hub_score: number;
   gated_episode_count: number;
   gated_podcast_count: number;
@@ -30,7 +31,7 @@ async function fetchPeople(limit: number, offset: number, search: string | null)
     console.error("list_people_hub error", error);
     return { rows: [] as PersonRow[], total: 0 };
   }
-  const rows = (data || []) as PersonRow[];
+  const rows = (data || []) as unknown as PersonRow[];
   const total = rows[0]?.total_count ? Number(rows[0].total_count) : 0;
   return { rows, total };
 }
@@ -49,7 +50,7 @@ async function fetchPeopleAlpha(letter: string | null, limit: number, offset: nu
     console.error("list_people_alpha error", error);
     return { rows: [] as PersonRow[], total: 0 };
   }
-  const rows = (data || []) as PersonRow[];
+  const rows = (data || []) as unknown as PersonRow[];
   const total = rows[0]?.total_count ? Number(rows[0].total_count) : 0;
   return { rows, total };
 }
@@ -102,7 +103,7 @@ export default function PeopleHubPage() {
     (async () => {
       const { data } = await supabase
         .from("people")
-        .select("id, slug, name, disambiguation_label, short_bio, ai_bio, gated_episode_count, gated_podcast_count, episode_count, podcast_count, latest_accepted_relevant_episode_at, topic_figure_origin, people_hub_score")
+        .select("id, slug, name, image_url, disambiguation_label, short_bio, ai_bio, gated_episode_count, gated_podcast_count, episode_count, podcast_count, latest_accepted_relevant_episode_at, topic_figure_origin, people_hub_score")
         .eq("persona", "topic_figure")
         .eq("is_public", true)
         .gte("gated_episode_count", 1)
@@ -227,6 +228,7 @@ export default function PeopleHubPage() {
                   p={{
                     slug: p.slug,
                     name: p.name,
+                    image_url: p.image_url ?? null,
                     disambiguation_label: p.disambiguation_label ?? null,
                     episode_count: p.gated_episode_count || p.episode_count || 0,
                     podcast_count: p.gated_podcast_count || p.podcast_count || 0,
@@ -383,6 +385,7 @@ function enrich(p: PersonRow): PersonCardData {
   return {
     slug: p.slug,
     name: p.name,
+    image_url: p.image_url ?? null,
     disambiguation_label: p.disambiguation_label ?? null,
     episode_count: p.gated_episode_count || p.episode_count || 0,
     podcast_count: p.gated_podcast_count || p.podcast_count || 0,

@@ -5418,6 +5418,7 @@ export type Database = {
           guest_count: number
           host_count: number
           id: string
+          image_url: string
           latest_accepted_relevant_episode_at: string
           name: string
           podcast_count: number
@@ -5439,6 +5440,7 @@ export type Database = {
           guest_count: number
           host_count: number
           id: string
+          image_url: string
           latest_accepted_relevant_episode_at: string
           name: string
           people_hub_score: number

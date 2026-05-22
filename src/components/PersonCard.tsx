@@ -4,6 +4,7 @@ import PersonAvatar from "./PersonAvatar";
 export interface PersonCardData {
   slug: string;
   name: string;
+  image_url?: string | null;
   disambiguation_label?: string | null;
   episode_count: number;
   podcast_count: number;
@@ -43,7 +44,7 @@ export default function PersonCard({ p }: { p: PersonCardData }) {
       to={`/szemelyek/${p.slug}`}
       className="group flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/40 transition-colors"
     >
-      <PersonAvatar name={p.name} size="md" />
+      <PersonAvatar name={p.name} size="md" imageUrl={p.image_url} />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
