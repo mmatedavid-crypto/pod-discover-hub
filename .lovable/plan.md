@@ -1,99 +1,116 @@
-# Organizations ernyő (cég/párt/intézmény/média/NGO)
+# A Te Podiverzumod — Taste Vector Engine
 
-A `people` és `topics` mintát követjük: egy közös `organizations` tábla `org_type` mezővel, közös pipeline (extract → normalize → Wikidata enrich → gated counts), de **két különálló hub** SEO szempontból (`/cegek` és `/partok`), és típusonkénti detail útvonal.
+## Architecture
 
-## 1. Schema (migration)
+Taste cards are first-class semantic objects with their own 768D embeddings (same model as `episode_embeddings`: `google/gemini-embedding-001`). The user swipes cards (not episodes), their liked card embeddings are averaged into a **user taste vector**, then we cosine-match that vector to `episode_embeddings`.
 
-**`organizations`** — kanonikus tábla, a `people`-höz hasonló struktúrával:
-- alap: `id`, `slug`, `name`, `normalized_name`, `org_type` (`company` | `party` | `institution` | `media` | `ngo`)
-- enrichment: `wikidata_id`, `wikipedia_url`, `wikipedia_extract`, `logo_url`, `logo_source`, `short_description_hu`, `ai_bio`, `country`, `founded`, `headquarters`
-- típus-specifikus: `ticker` (company), `political_color` (party), `sector` (company/media)
-- gated counts: `episode_count`, `gated_episode_count`, `podcast_count`, `gated_podcast_count`, `latest_episode_at`
-- gating flags: `is_public`, `is_indexable`, `is_browsable_in_hub`, `browsable_reason`
-- enricher state: `wikipedia_match_status`, `wikipedia_match_confidence`, `wikipedia_match_evidence`, `wiki_match_run_at`
-- editorial: `manually_seeded`, `editorial_priority`, `editorial_notes`
-- standard: `created_at`, `updated_at`
+## 1. Database (migration)
 
-**`organization_aliases`** — alias dedup (pl. "MOL" = "MOL Nyrt." = "Mol Magyar Olaj-")
-- `id`, `organization_id`, `alias`, `normalized_alias`, `source`, `confidence`, `status`
+**Table `taste_cards`** — exactly as user spec'd:
+- 768D `card_embedding vector(768)` with HNSW cosine index
+- topic/mood/format/psych/archetype tag arrays
+- `stage`, `sensitivity_level`, `validation_status`, `active`, `priority`
+- `catalog_fit_score`, `top_episode_similarity` (validation outputs)
 
-**`episode_organization_map`** — epizód ↔ szervezet relation table
-- `episode_id`, `organization_id`, `role` (`primary` | `mentioned`), `confidence`, `source` (`ai` | `editorial`)
+**RPC `match_episodes_by_taste_vector(user_vector, negative_vector, exclude_episode_ids, limit_count)`**:
+- cosine sim to user_vector on `episode_embeddings`
+- light penalty: `final = sim - 0.15 * neg_sim`
+- quality boost from `podcasts.episode_rank` tiers (S/A/B/C)
+- recency boost (last 90 days)
+- HU-only filter
+- diversity in SQL: window-rank per podcast, keep top-2 per podcast, ensure ≥5 distinct podcasts
 
-**Seed lista (manuálisan):** ~30 ismert HU párt + nagy cégek + intézmények bekerülnek `manually_seeded=true` flag-gel, így a 0-epizódos állapotban is létezik a kanonikus rekord.
+**RPC `match_cards_for_seeding(...)`** — admin helper used by validator.
 
-**RPC:** `recompute_org_gated_counts()` — a person mintára, 1+ ep → public + indexable + browsable.
+**RLS:** public read on `taste_cards WHERE active`, admin write.
 
-## 2. AI extraction bővítés
+## 2. Edge functions
 
-`entity-backfill-runner` `extract_entities` tool kibővítése:
-- jelenleg: `people`, `mentioned`, `companies`, `tickers`, `topics`
-- új: `parties` (HU pártok külön tömb), `institutions` (állami/EU szervek), `media_outlets` (újságok, tévék)
-- `companies` marad a privát cégeknek
+**`taste-card-embedder`** (admin):
+- pulls cards where `card_embedding IS NULL`
+- calls Lovable AI Gateway `google/gemini-embedding-001` on `hidden_embedding_prompt`
+- writes vector back
+- batched, idempotent
 
-Token-növekedés ~+15%, bekalkulálva a $50/nap budgetbe. `ai_entities_version` 2 → 3, hogy a már feldolgozott epizódokat újra végigfussa egyszer.
+**`taste-card-validator`** (admin):
+- for each card: nearest 20 episodes via embeddings
+- compute avg similarity, distinct podcast count
+- write `top_episode_similarity`, `catalog_fit_score`, `validation_status` (ok if avg≥0.55 & distinct≥6, weak if mid, broken if avg<0.35)
 
-## 3. Organizations backfill runner
+**`taste-card-seed`** (admin one-shot): inserts the initial 120–180 card bank as SQL upsert (idempotent on `title`).
 
-Új edge function: `organizations-backfill-runner`
-- végigmegy az `episodes.companies`, `parties`, `institutions`, `media_outlets` arrayeken
-- normalizál (lowercase, ékezet-eltávolítás, jogi forma törlése: "Nyrt.", "Kft.", "Zrt.")
-- alias matching → ha létezik kanonikus org, kapcsolódik; ha nem, létrehoz új rekordot
-- **párt-whitelist:** Fidesz, KDNP, Tisza, DK, MSZP, Momentum, Jobbik, Mi Hazánk, LMP, Párbeszéd, Kutyapárt, Mü, MKKP → mindenképp `party` típus
-- ír az `episode_organization_map`-be
-- `recompute_org_gated_counts()`-ot trigger-eli
+## 3. Card bank seed (120+ cards)
 
-Cron: `*/15 * * * *` drain alatt, utána `0 * * * *`.
+Coverage across all 16 domains the spec lists. Each card has visible `title` in HU preference-language ("Érdekelnek a …"), `hidden_embedding_prompt` rich HU description for embedding, and tag arrays. Sensitive domains (religion/politics/health/mental_health/finance) get `sensitivity_level` set and never use identity claims.
 
-## 4. Wikidata/Wikipedia enricher
+Stages distributed: ~40% `broad` (first 6–8 cards), ~35% `refine`, ~15% `style` (format/mood), ~10% `validate` (archetype disambiguation).
 
-Új edge function: `organization-wikimedia-enricher` (a `person-wikimedia-enricher` klónja, org-specifikus mezőkkel)
-- HU + EN search fallback
-- típus-detektálás Wikidata P31 alapján (Q4830453 → company, Q7278 → political party, Q31855 → research institute, stb.)
-- logó: Wikipedia leadimage vagy Wikidata P154
-- threshold: verified 0.65, needs_review 0.4
-- Cron: `*/3 * * * *` drain alatt, ~25 org/run
-- külön budget bucket: `org_enrich` $5/nap (people-vel párhuzamosan elfér a $50 globálisban)
+Seed inserted via migration so it ships with the feature.
 
-## 5. Frontend
+## 4. Frontend — rewrite `src/pages/StartSwipePage.tsx`
 
-**Két hub oldal:**
-- `/cegek` (CompaniesHubPage) — `org_type IN (company, media, ngo, institution)`, csoportosítva típus szerinti tabokkal vagy szekciókkal
-- `/partok` (PartiesHubPage) — `org_type = party`, politikai szín szerinti vizuális rendezéssel, választási idővonal
+Phases:
+1. **Landing**: "A Te Podiverzumod" + "Kezdjük" CTA (no anchor picker anymore — that whole flow is removed).
+2. **Swipe**: full-screen card, swipe left/right only (no up). Touch + button fallback (❌ / ❤).
+3. **Result**: personal listening profile.
 
-**Két detail útvonal:**
-- `/ceg/:slug` (CompanyDetailPage) — logó, bio, ticker (ha van), epizódok, kapcsolódó személyek (CEO-k, vezetők), kapcsolódó témák
-- `/part/:slug` (PartyDetailPage) — logó/zászló, bio, vezetők (party president, frakcióvezető), epizódok, kapcsolódó témák, választási eredmények (jövőbeli)
+**localStorage `podiverzum_taste_v1`** state shape exactly per spec (sessionId, seenCardIds, liked/disliked, vectors stored as Float32 arrays serialized to base64, weight maps, totalSwipes, confidence).
 
-`EntityPage.tsx` átirányítása: ha létezik kanonikus `organizations` rekord a slug-ra, redirect a tipizált útvonalra. Visszafelé kompatibilitás megmarad a régi `/company/:slug` URL-eknek 301-gyel.
+**Vector math (client-side, in `src/lib/tasteVector.ts`):**
+- `addToPositive(cardEmb)` / `addToNegative(cardEmb)` — incremental weighted mean
+- weights: liked cards weighted by `priority` (default 1), with recency decay 0.95^n optional
+- never subtract negative from positive
+- coherence = avg pairwise cosine within positive set
+- separation = 1 − cos(posMean, negMean)
+- archetype confidence = softmax max over archetype tag weights
+- catalog match strength = cached avg `top_episode_similarity` of liked cards
+- confidence = weighted sum per spec
 
-**SEO:**
-- külön sitemap szegmens: `sitemap-cegek.xml`, `sitemap-partok.xml`
-- JSON-LD: `Organization` (cégekre), `PoliticalParty` (pártokra), `NewsMediaOrganization` (médiára)
-- H1, meta description AI-generálva (`generate-org-seo` runner későbbi fázisban)
-- `TrendingEntities` komponens új `party` és `media` ikonokkal
+**Stopping rule** evaluated after every swipe:
+- primary: swipes≥10 && positives≥6 && confidence≥0.72
+- fallback A: swipes≥22 && positives≥5 && confidence≥0.60
+- fallback B: swipes≥30
 
-**Komponensek:**
-- `OrgCard` — logó + név + epizód count + típus badge
-- `OrgAvatar` (logó fallback inicialékra)
-- `TopicDetailPage`-en új szekció: kapcsolódó cégek/pártok
+**Next-card selector** (`pickNextCard`):
+- candidates = active cards not in seen
+- score each: 0.35 uncertainty + 0.25 relevance + 0.20 coverage_gap + 0.10 disambiguation + 0.10 random
+- first 6 swipes: force `stage='broad'` and rotate domains to ensure coverage
+- batch-load card pool (id + embedding + tags + meta) up-front via paginated RPC `get_active_taste_cards()`
 
-## 6. Roll-out sorrend
+**Recommendation fetch** on result phase: call `match_episodes_by_taste_vector` with the computed vectors (passed as JSON arrays converted to pgvector via `::vector` cast in RPC).
 
-1. **Schema migration** + seed (~30 párt + 50 nagy cég/intézmény manuálisan)
-2. **AI extractor bővítés** + `ai_entities_version` bump → background reprocess indul
-3. **Backfill runner** + cron jobid 38
-4. **Wikidata enricher** + cron jobid 39 (a person-enricher után indul, nem előtte, hogy ne fojtsa meg a budgetet)
-5. **Detail oldalak** (`/ceg/:slug`, `/part/:slug`) + redirect a régi `EntityPage`-ről
-6. **Hub oldalak** (`/cegek`, `/partok`) + SiteHeader nav
-7. **Sitemap + JSON-LD**
+## 5. Result page
 
-Becslés: schema + backfill 1 ülés, frontend 1-2 ülés, enrichment drain 4-6 óra.
+`<TasteProfileResult/>` shows:
+- archetype name (rule-based mapping from top archetype_tags weight)
+- 1–2 sentence deterministic explanation template per archetype
+- "Podcast-DNS" bars: top topic/mood weights normalized to %
+- top 3–5 interest labels (chips)
+- 8–16 recommended episodes grid
+- 3–5 recommended podcasts strip
+- share card preview + "Megosztom" (uses Web Share API + canvas-rendered 1080x1350 PNG)
+- "Újrakezdem" → reset localStorage, back to landing
 
-## 7. Megjegyzések
+`/* TODO(ai-copy): behind feature flag, swap deterministic copy with `personalize-profile` edge fn */`
 
-- Globális AI budget marad $50/nap — az org-enricher és az AI extractor bővítés belefér, mert a person-enricher drain a hét végére befejeződik
-- A `topics` és `people` rendszerrel együtt 3 erős entity-tengely → minden TopicDetailPage / PersonDetailPage / EpisodeDetail-en kereszthivatkozni tudunk
-- Pártok esetén külön kezelni a frakciókat (Fidesz vs Fidesz-KDNP frakció) — `aliases` táblával oldható meg
+## 6. Share card
 
-**Memória frissítés:** új mem fájl `mem://features/organizations-umbrella.md` és index.md core bejegyzés a launch után.
+`src/lib/tasteShareCard.ts` — renders 1080x1350 canvas: black bg, red accent, white text, Podiverzum logo, archetype name large, 3–5 interest chips, Podcast-DNS bar block, "Find it. Hear it." footer, podiverzum.hu. Download as PNG + Web Share API when available.
+
+## 7. Archetype mapping (deterministic)
+
+`src/lib/tasteArchetypes.ts` — 12 archetypes with `tagAffinity: Record<string, number>`. Score = Σ(weight × affinity), highest wins. Includes copy templates.
+
+## Technical details
+
+- Embedding model: `google/gemini-embedding-001` 768D via Lovable AI Gateway (`LOVABLE_API_KEY` already configured).
+- pgvector cosine ops on `card_embedding` and `episode_embeddings`.
+- Card pool size for client: limit to ~500 cards with embeddings — fetched once on swipe start (cached in `sessionStorage`).
+- No per-user AI calls in MVP.
+
+## Out of scope (later)
+
+- AI-generated personalized profile copy (flagged TODOs)
+- Subtract-negative vector experiments
+- Cross-session sync (currently localStorage only)
+- Card auto-generation pipeline
