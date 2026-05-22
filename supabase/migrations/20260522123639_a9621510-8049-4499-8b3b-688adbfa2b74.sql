@@ -1,0 +1,1 @@
+UPDATE people SET wikipedia_match_status='unchecked', wiki_match_run_at=NULL WHERE is_public=true AND wikipedia_match_status='no_match' AND activation_status IN ('indexable','manual_approved','public_noindex');
