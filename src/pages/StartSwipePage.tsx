@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
-import { Heart, X, Bookmark, Sparkles, RotateCcw, ArrowRight, Play } from "lucide-react";
+import { Heart, X, Bookmark, Sparkles, RotateCcw, ArrowRight, Play, Search, Plus, Mic, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,9 +21,19 @@ type SeedEp = {
 
 type MatchEp = SeedEp & { similarity: number };
 
+type Anchor = {
+  kind: "podcast" | "person";
+  id: string;
+  name: string;
+  slug: string;
+  image_url: string | null;
+  subtitle: string | null;
+};
+
 const STORAGE_KEY = "podiverzum_vibe_v1";
 
 type VibeState = {
+  anchors: Anchor[];
   liked: string[];
   disliked: string[];
   saved: string[];
@@ -33,9 +43,12 @@ type VibeState = {
 function loadVibe(): VibeState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { anchors: [], liked: [], disliked: [], saved: [], ...parsed };
+    }
   } catch {}
-  return { liked: [], disliked: [], saved: [], updatedAt: new Date().toISOString() };
+  return { anchors: [], liked: [], disliked: [], saved: [], updatedAt: new Date().toISOString() };
 }
 
 function saveVibe(v: VibeState) {
@@ -44,37 +57,55 @@ function saveVibe(v: VibeState) {
   } catch {}
 }
 
+type Phase = "intro" | "swipe" | "results";
+
 export default function StartSwipePage() {
-  const [cards, setCards] = useState<SeedEp[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [idx, setIdx] = useState(0);
+  const [phase, setPhase] = useState<Phase>(() => {
+    const v = loadVibe();
+    if (v.liked.length >= 3) return "results";
+    return "intro";
+  });
   const [vibe, setVibe] = useState<VibeState>(() => loadVibe());
-  const [done, setDone] = useState(false);
+  const [cards, setCards] = useState<SeedEp[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [idx, setIdx] = useState(0);
   const [recs, setRecs] = useState<MatchEp[] | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const loadSeeds = useCallback(async () => {
+  const loadSeedsFromAnchors = useCallback(async (anchors: Anchor[]) => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("get_swipe_seed_episodes", { p_limit: 8 });
-    if (!error && data) setCards(data as SeedEp[]);
+    const podcastIds = anchors.filter(a => a.kind === "podcast").map(a => a.id);
+    const personIds = anchors.filter(a => a.kind === "person").map(a => a.id);
+    let data: SeedEp[] | null = null;
+    if (podcastIds.length || personIds.length) {
+      const res = await supabase.rpc("get_swipe_seed_from_anchors", {
+        p_podcast_ids: podcastIds,
+        p_person_ids: personIds,
+        p_limit: 8,
+      });
+      if (!res.error && res.data) data = res.data as SeedEp[];
+    }
+    // Fallback / top-up with random HU seeds if not enough
+    if (!data || data.length < 4) {
+      const res2 = await supabase.rpc("get_swipe_seed_episodes", { p_limit: 8 });
+      if (!res2.error && res2.data) {
+        const existing = new Set((data || []).map(e => e.episode_id));
+        const extras = (res2.data as SeedEp[]).filter(e => !existing.has(e.episode_id));
+        data = [...(data || []), ...extras].slice(0, 8);
+      }
+    }
+    setCards(data || []);
+    setIdx(0);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadSeeds();
-  }, [loadSeeds]);
-
-  useEffect(() => {
-    // Returning user shortcut
-    const v = loadVibe();
-    if (v.liked.length >= 3) {
-      // Show their recs immediately without forcing re-swipe; user can still scroll down to swipe more
-      void fetchRecs(v);
-      setDone(true);
+    if (phase === "results" && vibe.liked.length >= 1 && !recs) {
+      void fetchRecs(vibe);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [phase]);
 
   const fetchRecs = async (v: VibeState) => {
     if (v.liked.length === 0) return;
@@ -86,6 +117,14 @@ export default function StartSwipePage() {
     });
     if (!error && data) setRecs(data as MatchEp[]);
     setRecsLoading(false);
+  };
+
+  const startSwipe = async (anchors: Anchor[]) => {
+    const v = { ...vibe, anchors };
+    setVibe(v);
+    saveVibe(v);
+    setPhase("swipe");
+    await loadSeedsFromAnchors(anchors);
   };
 
   const current = cards[idx];
@@ -102,34 +141,33 @@ export default function StartSwipePage() {
     const newIdx = idx + 1;
     setIdx(newIdx);
     if (newIdx >= cards.length) {
-      setDone(true);
+      setPhase("results");
       void fetchRecs(v);
     }
   };
 
   const resetAll = () => {
-    const empty: VibeState = { liked: [], disliked: [], saved: [], updatedAt: new Date().toISOString() };
+    const empty: VibeState = { anchors: [], liked: [], disliked: [], saved: [], updatedAt: new Date().toISOString() };
     saveVibe(empty);
     setVibe(empty);
     setRecs(null);
     setIdx(0);
-    setDone(false);
-    void loadSeeds();
+    setCards([]);
+    setPhase("intro");
   };
 
   const moreCards = async () => {
     setRecs(null);
-    setDone(false);
-    setIdx(0);
-    await loadSeeds();
+    setPhase("swipe");
+    await loadSeedsFromAnchors(vibe.anchors);
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-2xl px-4 pt-10 pb-24">
+      <div className="mx-auto max-w-xl px-4 pt-6 pb-32 md:pt-10">
         <header className="mb-6 flex items-center justify-between">
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Vissza</Link>
-          {vibe.liked.length > 0 && (
+          {(vibe.liked.length > 0 || vibe.anchors.length > 0) && (
             <button
               onClick={resetAll}
               className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
@@ -141,17 +179,38 @@ export default function StartSwipePage() {
 
         <div className="mb-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5" /> Mi a vibed ma?
+            <Sparkles className="h-3.5 w-3.5" /> A Te Podiverzumod
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-            Húzd jobbra, amit hallgatnál.
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Néhány swipe és összerakjuk a magyar podcastvilág neked illő szeletét. Nincs regisztráció.
-          </p>
+          {phase === "intro" && (
+            <>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+                Mondj egy-két nevet, amit szeretsz.
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Egy podcast, egy műsorvezető, egy közszereplő — bárki, akit szívesen hallgatsz. Innen építjük fel a Te Podiverzumodat.
+              </p>
+            </>
+          )}
+          {phase === "swipe" && (
+            <>
+              <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
+                Húzd jobbra, amit hallgatnál.
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Jobbra ❤ · Balra ❌ · Felfelé 🔖
+              </p>
+            </>
+          )}
         </div>
 
-        {!done && (
+        {phase === "intro" && (
+          <IntroPicker
+            initial={vibe.anchors}
+            onContinue={startSwipe}
+          />
+        )}
+
+        {phase === "swipe" && (
           <SwipeDeck
             current={current}
             next={next}
@@ -161,17 +220,154 @@ export default function StartSwipePage() {
           />
         )}
 
-        {done && (
+        {phase === "results" && (
           <ResultsView
             recs={recs}
             loading={recsLoading}
             likedCount={vibe.liked.length}
             savedIds={vibe.saved}
+            anchors={vibe.anchors}
             onMore={moreCards}
             onReset={resetAll}
             onOpen={(p, e) => navigate(`/podcast/${p}/${e}`)}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────── Intro: anchor picker ──────────────── */
+
+function IntroPicker({
+  initial, onContinue,
+}: {
+  initial: Anchor[];
+  onContinue: (anchors: Anchor[]) => void;
+}) {
+  const [picked, setPicked] = useState<Anchor[]>(initial);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Anchor[]>([]);
+  const [searching, setSearching] = useState(false);
+  const tRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (tRef.current) window.clearTimeout(tRef.current);
+    if (query.trim().length < 2) { setResults([]); return; }
+    tRef.current = window.setTimeout(async () => {
+      setSearching(true);
+      const { data, error } = await supabase.rpc("search_swipe_anchors", { p_query: query.trim(), p_limit: 8 });
+      if (!error && data) setResults(data as Anchor[]);
+      setSearching(false);
+    }, 200);
+    return () => { if (tRef.current) window.clearTimeout(tRef.current); };
+  }, [query]);
+
+  const add = (a: Anchor) => {
+    if (picked.some(p => p.kind === a.kind && p.id === a.id)) return;
+    setPicked([...picked, a]);
+    setQuery("");
+    setResults([]);
+  };
+  const remove = (a: Anchor) => setPicked(picked.filter(p => !(p.kind === a.kind && p.id === a.id)));
+
+  const canContinue = picked.length >= 1;
+
+  return (
+    <div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Pl. Partizán, Friderikusz, Magyar Péter…"
+          autoFocus
+          className="w-full rounded-2xl border border-border bg-card py-3 pl-10 pr-4 text-base outline-none focus:border-primary"
+        />
+      </div>
+
+      {results.length > 0 && (
+        <div className="mt-2 overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+          {results.map(r => (
+            <button
+              key={`${r.kind}-${r.id}`}
+              onClick={() => add(r)}
+              className="flex w-full items-center gap-3 border-b border-border/50 px-3 py-2 text-left last:border-0 hover:bg-muted"
+            >
+              <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
+                {r.image_url ? (
+                  <img src={r.image_url} alt={r.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                    {r.kind === "podcast" ? <Mic className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{r.name}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {r.kind === "podcast" ? "Podcast" : "Személy"} {r.subtitle ? `· ${r.subtitle}` : ""}
+                </div>
+              </div>
+              <Plus className="h-4 w-4 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {searching && query.length >= 2 && results.length === 0 && (
+        <div className="mt-2 text-xs text-muted-foreground px-1">Keresés…</div>
+      )}
+      {!searching && query.length >= 2 && results.length === 0 && (
+        <div className="mt-2 text-xs text-muted-foreground px-1">Nincs találat — próbálj más nevet.</div>
+      )}
+
+      {picked.length > 0 && (
+        <div className="mt-5">
+          <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">A te magjaid</div>
+          <div className="flex flex-wrap gap-2">
+            {picked.map(a => (
+              <button
+                key={`${a.kind}-${a.id}`}
+                onClick={() => remove(a)}
+                className="group inline-flex items-center gap-2 rounded-full border border-border bg-card pl-1 pr-3 py-1 text-sm hover:border-destructive/50"
+              >
+                <div className="h-6 w-6 overflow-hidden rounded-full bg-muted">
+                  {a.image_url ? (
+                    <img src={a.image_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      {a.kind === "podcast" ? <Mic className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                    </div>
+                  )}
+                </div>
+                <span className="max-w-[160px] truncate">{a.name}</span>
+                <X className="h-3 w-3 text-muted-foreground group-hover:text-destructive" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-8">
+        <Button
+          onClick={() => onContinue(picked)}
+          disabled={!canContinue}
+          size="lg"
+          className="w-full"
+        >
+          {canContinue ? (
+            <>Mehet a swipe <ArrowRight className="ml-2 h-4 w-4" /></>
+          ) : (
+            <>Adj hozzá legalább egyet</>
+          )}
+        </Button>
+        <button
+          onClick={() => onContinue([])}
+          className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+        >
+          Kihagyom — találj ki valamit nekem
+        </button>
       </div>
     </div>
   );
@@ -268,7 +464,6 @@ function SwipeCard({
 }) {
   const handleDragEnd = (_: any, info: PanInfo) => {
     const { offset, velocity } = info;
-    const swipe = Math.abs(offset.x) * 0.5 + Math.abs(velocity.x);
     if (offset.x > 120 || velocity.x > 600) return onAction("like");
     if (offset.x < -120 || velocity.x < -600) return onAction("skip");
     if (offset.y < -120 || velocity.y < -600) return onAction("save");
@@ -301,7 +496,7 @@ function Card({ ep, stacked = false }: { ep: SeedEp; stacked?: boolean }) {
       }`}
     >
       {img ? (
-        <img src={img} alt={ep.title} className="absolute inset-0 h-full w-full object-cover" />
+        <img src={img} alt={ep.title} className="absolute inset-0 h-full w-full object-cover" draggable={false} />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-muted" />
       )}
@@ -322,12 +517,13 @@ function Card({ ep, stacked = false }: { ep: SeedEp; stacked?: boolean }) {
 /* ──────────────── Results ──────────────── */
 
 function ResultsView({
-  recs, loading, likedCount, savedIds, onMore, onReset, onOpen,
+  recs, loading, likedCount, savedIds, anchors, onMore, onReset, onOpen,
 }: {
   recs: MatchEp[] | null;
   loading: boolean;
   likedCount: number;
   savedIds: string[];
+  anchors: Anchor[];
   onMore: () => void;
   onReset: () => void;
   onOpen: (podcastSlug: string, episodeSlug: string) => void;
@@ -347,6 +543,11 @@ function ResultsView({
         <div className="mt-1 text-lg font-medium">
           {likedCount} lájk · {savedIds.length} mentett későbbre
         </div>
+        {anchors.length > 0 && (
+          <div className="mt-2 text-xs text-muted-foreground">
+            Magok: {anchors.map(a => a.name).join(" · ")}
+          </div>
+        )}
         <p className="mt-2 text-sm text-muted-foreground">
           Ezt a listát böngésződ helyben őrzi — bármikor visszajössz, ott folytatod, ahol abbahagytad.
         </p>
