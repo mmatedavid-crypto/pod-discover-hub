@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/Brand";
 import { setSeo } from "@/lib/seo";
 import { snapshotUtmFromUrl, trackLandingEvent } from "@/lib/landingEvents";
 
