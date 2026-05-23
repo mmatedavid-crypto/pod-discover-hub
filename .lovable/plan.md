@@ -1,143 +1,127 @@
-# Felhasználói fiókok — V1 terv
+# "Neked válogatva" + folyamatos profil-fejlesztés
 
 ## Cél
-Diszkrét, GDPR-tiszta Google-only bejelentkezés a Podiverzumon. A regisztráló felhasználók extra funkciókat kapnak: archetípus mentés, kedvenc/meghallgatandó jelölés, podcast-követés email-értesítéssel, hallgatási történet (jövőbeli Netflix-szerű ajánlóhoz), hangulat-preferenciák, megosztható publikus profil.
 
-## Scope (jóváhagyott)
-- ✅ Google-only auth (0 jelszó-felelősség, GDPR-minimum)
-- ✅ Header bal oldalon diszkrét `User` ikon (kék/aktív szín ha belépve, avatar ha van)
-- ✅ Soft regisztráció-felajánlás a `/start` végén (elegáns kártya, nem felugró)
-- ✅ Archetípus mentés a fiókba a `/start` végén
-- ✅ Kedvenc (❤️) + Meghallgatandó (🔖) jelölés minden `EpisodeCard`-on
-- ✅ Podcast-követés (🔔) + **email-értesítés új epizódról** (heti összevont digest, nem azonnal)
-- ✅ Hallgatási történet (csak jelölt + lejátszott epizódok, alapja a jövőbeli ajánlónak)
-- ✅ Hangulat-preferenciák (max 3, homepage személyre szabás)
-- ✅ Publikus, megosztható profil-oldal: `/p/<username>` — archetípus + nyilvános kedvencek
-- ✅ Fiók törlése = teljes adattörlés (GDPR cikk 17)
+A bejelentkezett user az `/en-podiverzumom` oldalon kap egy **„Neked válogatva"** szekciót: friss magyar epizódok, amik az ízléséhez illenek. A profilja folyamatosan élesedik a lejátszásból + like/dislike-okból — minden interakció után pár perc múlva új ajánlások jönnek.
 
-## Scope-ból kihagyva
-- ❌ A. Folytatás-emlékeztető (flow elég rövid)
-- ❌ F. Napi +1 swipe (későbbi v2)
-- ❌ Email/jelszó auth (nem szükséges Google mellett)
+## User flow
 
----
+1. Swipe végén login → profilba bekerül archetype + a swipe pozitívokból seedelt taste-vektor.
+2. `/en-podiverzumom` „Profil" tabján legfelül: **„Neked válogatva"** szekció — 12 epizód kártya, mindegyiken ❤︎ / ✕ gomb + play.
+3. Lejátszás → SmartPlayer csendben rögzíti: `play_start`, `play_30s`, `play_complete`.
+4. Like / dislike / play eseményekből cron 5 percenként újraszámolja a taste-vektort → frissebb találatok.
+5. Mindig kizárjuk azokat, amiket a user már látott (interakció vagy dislike).
 
-## UI változások
+## Adatmodell (új)
 
-### 1. Header (`SiteHeader.tsx`)
-- Bal oldalon, a `BrandMark` és a nav között: `User` ikon button
-- **Nincs belépve** → halvány szürke `User` ikon → kattintásra `/belepes`
-- **Belépve** → avatar (Google profilkép) vagy primary színű `User` ikon → kattintásra dropdown:
-  - "Az én Podiverzumom" → `/en-podiverzumom`
-  - "Beállítások" → `/en-podiverzumom?tab=beallitasok`
-  - "Kijelentkezés"
+### `profiles` (kiegészítés)
+- `taste_vec vector(768)` — élő taste-vektor (átlag a pozitív epizód-embeddingekből, downweight a negatívokra)
+- `taste_vec_updated_at timestamptz`
+- `taste_signal_count int default 0` — hány interakcióból épült (UI bizalmi jelzőhöz)
 
-### 2. `/start` flow vége
-A swipe befejezése után az eredmény-kártya alá **soft CTA**:
-```
-┌─────────────────────────────────────┐
-│  💾 Mentsd el a fiókodba is        │
-│                                     │
-│  Google-fiókkal 5 mp alatt:        │
-│  • A Podiverzumod örökre megmarad  │
-│  • Kedvencek + meghallgatandó      │
-│  • Értesítés ha új rész jön        │
-│                                     │
-│  [Belépés Google-lal]  Most nem    │
-└─────────────────────────────────────┘
-```
-- Nem blokkoló, scrollozható tovább
-- Sessionben elmenti hogy mutattuk → nem zavarjuk újra
-
-### 3. `/en-podiverzumom` (új oldal, csak belépve)
-Tabs:
-- **Profilom** — archetípus kártya, avatar, megjelenítendő név
-- **Kedvencek** (❤️) — lista
-- **Meghallgatandó** (🔖) — lista
-- **Követett podcastok** (🔔) — lista
-- **Hangulatok** — 3 hangulat-chip kiválasztása (Reggel fókusz / Este lazítás / Edzés alatt energikus / Munka közben / Utazás közben / Lefekvés előtt)
-- **Történet** — utolsó 50 hallgatott/jelölt epizód
-- **Publikus profil** — `/p/<username>` link + másolás gomb + nyilvános/privát kapcsoló
-- **Beállítások** — email értesítések on/off, fiók törlése
-
-### 4. `EpisodeCard` kiegészítés
-2 új ikon-gomb (csak belépve): ❤️ Kedvenc, 🔖 Meghallgatandó. Toggle, optimisztikus UI.
-
-### 5. `PodcastCard` / `PodcastDetail` kiegészítés
-🔔 "Követem" / "Követed" gomb (csak belépve).
-
-### 6. `/p/<username>` publikus profil
-- Archetípus + szöveg
-- Publikus kedvencek (max 12)
-- "Készítsd el a saját Podiverzumod" CTA → `/start`
-
----
-
-## Adatbázis (új táblák)
-
-### `profiles`
-- `user_id` (auth.users FK, PK)
-- `display_name`, `avatar_url`, `username` (unique, slug)
-- `archetype_slug`, `archetype_result` (jsonb)
-- `mood_preferences` (text[] max 3)
-- `is_public_profile` (bool, default false)
-- `email_notifications_enabled` (bool, default true)
-
-### `user_episode_marks`
-- `user_id`, `episode_id`, `mark_type` ('favorite' | 'listen_later'), `created_at`
-- UNIQUE(user_id, episode_id, mark_type)
-
-### `user_podcast_follows`
-- `user_id`, `podcast_id`, `created_at`, `last_notified_at`
-- UNIQUE(user_id, podcast_id)
-
-### `user_listen_history`
-- `user_id`, `episode_id`, `played_at`, `progress_seconds`
-- alapja a jövőbeli ajánló-rendszernek
+### `user_episode_interactions` (új)
+- `id uuid pk`, `user_id uuid not null`, `episode_id uuid not null`
+- `kind text` enum: `like`, `dislike`, `play_start`, `play_30s`, `play_complete`, `skip`, `dismiss`
+- `weight real not null` — like=+1.0, play_complete=+0.8, play_30s=+0.4, play_start=+0.1, skip=-0.2, dislike=-1.0
+- `source text` — `recommended_feed` / `episode_page` / `player`
+- `created_at timestamptz default now()`
+- Unique `(user_id, episode_id, kind)` — egy adott kind csak egyszer számít
+- Indexek: `(user_id, created_at desc)`, `(episode_id)`
 
 ### RLS
-- `profiles`: SELECT public ha `is_public_profile=true`, egyébként csak own; UPDATE/DELETE csak own
-- `user_episode_marks`, `user_podcast_follows`, `user_listen_history`: minden csak own
+- `user_episode_interactions`: user csak a saját sorait látja/inserteli.
+- `profiles.taste_vec` olvasás csak saját + service role.
 
-### Trigger
-- `handle_new_user()` → új signupkor automatikusan létrehoz `profiles` rekordot Google-adatokból
+### RPC-k
+- `record_episode_interaction(p_episode_id uuid, p_kind text, p_source text)` — auth.uid()-ra, upsert + súly táblából, fail-safe.
+- `match_user_episodes(p_user uuid, p_limit int, p_exclude_seen bool)` — taste_vec → episode_embeddings cosine, csak HU + Formula C tier ≥ B + freshness ≤ 90 nap, kizárja az érintett epizódokat, max 2 epizód/podcast (DISTINCT ON podcast_id partition).
 
-### GDPR
-- `delete_my_account()` SECURITY DEFINER RPC: töröl minden user-adatot + `auth.users` rekordot
+## Edge functions
 
----
+### `taste-recommend` (új, public, RLS-mögött JWT)
+- Auth header → user id.
+- Lehívja `match_user_episodes`-t, hidratálja epizód+podcast meta-t, visszaad 12-24 elemet.
+- Ha `taste_signal_count < 3` → fallback: archetype.liked_topics + freshness rangsor (a meglévő `episodes.topics` mezőre).
+- Cache: per-user 2 perc memory cache az edge fn-ben.
 
-## Email értesítés új epizódról (B)
+### `taste-vector-refresh` (új, service-only)
+- Inputs: user_id vagy `stale` (mind, ahol új interakció van `taste_vec_updated_at` óta).
+- Lépések user-enként:
+  1. Pozitív epizód-embeddingek lekérése (kind ∈ like/play_complete/play_30s, weight > 0, max 50 legfrissebb).
+  2. Súlyozott mean → kandidát vektor.
+  3. Dislike epizódok átlagát kivonjuk 0.3 súllyal.
+  4. Ha van archetype seed (kezdeti `taste_vec`), 0.2 súllyal beleblendelünk amíg `signal_count < 10`.
+  5. L2-normalizálás → írás `profiles.taste_vec`.
+- Cron jobid új, `*/5 * * * *`.
 
-### Mechanizmus
-- **Heti digest** (nem azonnal — spam-mentes, batching)
-- Új edge function: `weekly-follow-digest` → vasárnap 10:00 cron
-- Logika: minden követő user-re lekérdezi az utolsó 7 napban megjelent epizódokat a követett podcastokból → 1 email/user az összes új résszel
-- Lovable Email-en keresztül (nem 3rd-party)
-- "Leiratkozás" link minden emailben
+### `taste-seed-from-archetype` (egyszer, archetype mentés után hívva)
+- Az archetype JSON-ből kiszedi a like-olt topic slug-okat → tölt 8-16 reprezentatív epizód-embedding átlagát → `profiles.taste_vec` kezdőértéke + `taste_signal_count = 0`.
 
-### Prereq
-- Email-infrastruktúra setup (`setup_email_infra`) — domain már van? Ellenőrzöm. Ha nincs, setup dialógus.
+## Frontend
 
----
+### `SmartPlayerProvider` (player event hook)
+- `play` esemény: invoke `record_episode_interaction(id, "play_start", "player")` egyszer.
+- 30 mp folyamatos lejátszás után (`timeupdate` watcher): `play_30s`.
+- `ended` / 90% pozíció: `play_complete`.
+- Csak ha bejelentkezett user. Mindent fire-and-forget, nincs UI blokk.
 
-## Megvalósítási lépések (sorrendben)
+### `EpisodeCard` (új like/dislike)
+- ❤︎ / ✕ kis ikongombok a kártya jobb alsó sarkán (csak auth user-nek).
+- Klikk → `record_episode_interaction(id, "like"|"dislike", source)` + helyi optimisztikus UI (kiszürkül a dislike-olt).
 
-1. **Migráció** — `profiles`, `user_episode_marks`, `user_podcast_follows`, `user_listen_history` táblák + RLS + `handle_new_user` trigger + `delete_my_account` RPC
-2. **Google OAuth bekapcsolása** — `configure_social_auth(["google"])`
-3. **`AuthPage.tsx`** átírása — csak Google gomb (jelenleg ami van, leegyszerűsítve)
-4. **`useAuth` hook** — session state, profile fetch, mutate helpers
-5. **`SiteHeader.tsx`** — User ikon + dropdown
-6. **`/start` vége** — soft CTA kártya + archetípus auto-mentés ha belépve
-7. **`EpisodeCard`** — ❤️/🔖 gombok
-8. **`PodcastCard`/`PodcastDetail`** — 🔔 követés gomb
-9. **`EnPodiverzumomPage`** — új oldal tabokkal
-10. **`/p/:username`** — publikus profil oldal
-11. **Email-infra check** + `weekly-follow-digest` edge function + cron
-12. **GDPR — fiók törlés** flow
+### `EnPodiverzumomPage` „Profil" tab
+- Új komponens `RecommendedForYou` legfelül a tab tartalmában.
+- Hívja a `taste-recommend` edge fn-t React Query-vel, 60 mp staleTime.
+- 12 epizód grid, csak HU, mindegyiken ❤︎/✕/▶.
+- Empty state: ha 0 talált → CTA „Még pár swipe és élesedik az ízlésed" a `/te-podiverzumod` flow-ra.
+- Bizalmi jelző: „A profilod {N} interakcióból épül — minél többet hallgatsz, annál pontosabb."
 
-## Megerősítendő
-- Email-értesítés **heti digest** (nem azonnal), vasárnap reggel — ez OK? Vagy inkább azonnali?
-- Felhasználónév auto-generálás Google-névből (slug), vagy hagyjuk a usert beállítani később?
+## SEO & privacy
 
-Ha jóváhagyod, kezdek az 1. lépéssel (migráció).
+- A „Neked válogatva" szekció bejelentkezett user-nek, `noindex` (már beállítva az oldalon).
+- Interakciókat soha nem küldjük 3rd party tracker-nek (nincs is).
+
+## Technikai részletek
+
+- **Vektor mező**: `vector(768)` — kompatibilis a meglévő `episode_embeddings` HNSW indexszel (`google/gemini-embedding-001` 768d, ami már a project default).
+- **Match RPC**:
+  ```sql
+  -- order by taste_vec <=> embedding, DISTINCT ON (podcast_id)
+  -- where podcast.language ilike 'hu%' and tier_rank in ('S','A','B')
+  -- and published_at > now() - interval '90 days'
+  -- and episode_id not in (interactions of this user last 60 days)
+  ```
+- **Súlyok táblázata** RPC-ben hardcoded, hogy egy helyen módosítható legyen.
+- **Cost**: nincs új AI hívás user-enként — csak pgvector match. A `taste-vector-refresh` cron csak DB-számítás, ingyenes.
+- **Throughput**: cron `*/5`, max 500 user/run, így 100 aktív user-ig nincs torlódás.
+
+## Fázisok
+
+**1. fázis (most, 1 menet):**
+- DB migráció (profiles oszlopok + új tábla + RLS + 2 RPC)
+- `taste-recommend` edge fn + cron-mentes refresh on-write (most még nem cron, csak ha user megnyitja az oldalt — ha `taste_vec_updated_at` > 5 perc régi, sync refresh)
+- `EpisodeCard` ❤︎/✕ gombok
+- `SmartPlayerProvider` play tracking
+- `EnPodiverzumomPage` „Neked válogatva" szekció
+- Archetype seedelés a meglévő `/en-podiverzumom` redirect után
+
+**2. fázis (külön kör, ha ez beválik):**
+- Külön `taste-vector-refresh` cron + jobid bejegyzés
+- „Hasonló hallgatók kedvelték" szekció
+- Topic/mood bontás a Profil tabon (top_topics, top_moods JSONB cache)
+- Watchdog runner az új cronra
+
+## Mit NEM csinálok meg most
+
+- Nem nyúlok a swipe flow algoritmusához.
+- Nem cserélem le a meglévő `EnPodiverzumomPage` többi szekcióját.
+- Nem indítok új batch-et a 134k embeddingre — minden már megvan.
+- Nem építek külön /neked route-ot.
+
+## Jóváhagyás után
+
+Lépésrend (egy menetben):
+1. `supabase--migration` → schema + RLS + RPC-k (külön kérek jóváhagyást).
+2. Edge fn `taste-recommend` + deploy.
+3. Frontend: SmartPlayer hook, EpisodeCard gombok, EnPodiverzumomPage szekció.
+4. Smoke test: konzol + 1 valódi swipe → login → ajánlás megjelenik → like → 2 perc múlva új ajánlás.
