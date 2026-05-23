@@ -78,18 +78,6 @@ export default function StartLandingPage() {
   );
 }
 
-function fmt(n: number): string {
-  return new Intl.NumberFormat("hu-HU").format(n);
-}
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="text-center">
-      <div className="text-lg md:text-xl font-semibold tabular-nums">{value}</div>
-      <div className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide mt-0.5">{label}</div>
-    </div>
-  );
-}
 
 function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
