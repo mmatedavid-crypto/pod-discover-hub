@@ -3795,6 +3795,48 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          archetype_result: Json | null
+          archetype_slug: string | null
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          email_notifications_enabled: boolean
+          is_public_profile: boolean
+          mood_preferences: string[]
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          archetype_result?: Json | null
+          archetype_slug?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email_notifications_enabled?: boolean
+          is_public_profile?: boolean
+          mood_preferences?: string[]
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          archetype_result?: Json | null
+          archetype_slug?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email_notifications_enabled?: boolean
+          is_public_profile?: boolean
+          mood_preferences?: string[]
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       rss_url_history: {
         Row: {
           changed_at: string
@@ -4752,6 +4794,78 @@ export type Database = {
           },
         ]
       }
+      user_episode_marks: {
+        Row: {
+          created_at: string
+          episode_id: string
+          id: string
+          mark_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          id?: string
+          mark_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          id?: string
+          mark_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_listen_history: {
+        Row: {
+          episode_id: string
+          id: string
+          played_at: string
+          progress_seconds: number
+          user_id: string
+        }
+        Insert: {
+          episode_id: string
+          id?: string
+          played_at?: string
+          progress_seconds?: number
+          user_id: string
+        }
+        Update: {
+          episode_id?: string
+          id?: string
+          played_at?: string
+          progress_seconds?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_podcast_follows: {
+        Row: {
+          created_at: string
+          id: string
+          last_notified_at: string | null
+          podcast_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_notified_at?: string | null
+          podcast_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_notified_at?: string | null
+          podcast_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -5516,6 +5630,7 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      delete_my_account: { Args: never; Returns: undefined }
       demote_publisher_self_orgs: {
         Args: never
         Returns: {
