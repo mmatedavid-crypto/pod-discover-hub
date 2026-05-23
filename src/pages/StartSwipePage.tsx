@@ -13,6 +13,7 @@ import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArche
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 import { toast } from "sonner";
 import { SoftAuthCTA } from "@/components/SoftAuthCTA";
+import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -435,6 +436,8 @@ export default function StartSwipePage() {
   /* ─────── Actions ─────── */
 
   const handleStart = () => {
+    snapshotUtmFromUrl();
+    trackLandingEvent("SwipeStarted");
     setPhase("swipe");
   };
 
@@ -466,6 +469,7 @@ export default function StartSwipePage() {
 
     if (shouldStop(total, positives, newConf)) {
       setCurrent(null);
+      trackLandingEvent("SwipeCompleted", { total, positives });
       setPhase("result");
       return;
     }
@@ -474,6 +478,7 @@ export default function StartSwipePage() {
     const seen = new Set(next.seenCardIds);
     const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total);
     if (!nextCard) {
+      trackLandingEvent("SwipeCompleted", { total, positives, reason: "pool_exhausted" });
       setPhase("result");
       setCurrent(null);
       return;
