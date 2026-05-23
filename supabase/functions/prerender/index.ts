@@ -688,6 +688,45 @@ async function buildLegacyEntity(
   );
 }
 
+// ---------- share builder ----------
+
+async function buildShare(
+  supabase: ReturnType<typeof createClient>,
+  slug: string,
+) {
+  const { data } = await (supabase as any)
+    .from("te_podiverzumod_shares_public")
+    .select("share_id, result_title, result_subtitle, result_description, tags")
+    .eq("share_id", slug)
+    .maybeSingle();
+  if (!data) return null;
+
+  const canonical = `${SITE}/te-podiverzumod/eredmeny/${slug}`;
+  const title = `Én ${data.result_title} lettem — Podiverzum`;
+  const desc = truncate(
+    stripHtml(data.result_subtitle || data.result_description || "Nézd meg, te milyen hallgató vagy a Podiverzumon."),
+    160,
+  );
+  const ogImage = `${SITE}/te-podiverzumod-og.jpg`;
+  const tagsHtml = (data.tags ?? []).slice(0, 6).map((t: string) => `<li>${esc(t)}</li>`).join("");
+
+  return new Response(new TextEncoder().encode(shell({
+      title,
+      description: desc,
+      canonical,
+      ogImage,
+      jsonLd: [],
+      bodyHtml: `<article>
+<header><h1>Én ${esc(data.result_title)} lettem</h1>${data.result_subtitle ? `<p><em>${esc(data.result_subtitle)}</em></p>` : ""}</header>
+${data.result_description ? `<section><p>${esc(stripHtml(data.result_description))}</p></section>` : ""}
+${tagsHtml ? `<section><h2>Címkék</h2><ul>${tagsHtml}</ul></section>` : ""}
+<section><a href="${SITE}/te-podiverzumod">Nézd meg, te milyen hallgató vagy</a></section>
+</article>`,
+    })),
+    { headers: new Headers(baseHeaders) },
+  );
+}
+
 // ---------- router ----------
 
 // HU ↔ EN route aliases. The Cloudflare worker forwards the original (likely
@@ -728,6 +767,10 @@ Deno.serve(async (req) => {
     }
     if (parts[0] === "hangulatok" && parts.length === 2) {
       const r = await buildMoodCollection(supabase, parts[1]);
+      return r ?? notFound(path);
+    }
+    if (parts[0] === "te-podiverzumod" && parts[1] === "eredmeny" && parts.length === 3) {
+      const r = await buildShare(supabase, parts[2]);
       return r ?? notFound(path);
     }
     if (parts.length === 2) {
