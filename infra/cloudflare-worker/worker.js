@@ -72,6 +72,8 @@ function shouldPrerender(pathname) {
   if (/^\/(topic|tema|person|szemely|company|ceg|ticker|ingredient|hozzavalo)\/[^/]+\/?$/.test(pathname)) return true;
   // Mood collections (HU-only route)
   if (/^\/hangulatok\/[^/]+\/?$/.test(pathname)) return true;
+  // Te Podiverzumod megosztott eredmény — FB/IG/X share preview-hoz
+  if (/^\/te-podiverzumod\/eredmeny\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
 

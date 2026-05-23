@@ -31,8 +31,9 @@ export default function StartLandingPage() {
 
         <p className="text-lg text-muted-foreground mb-7 max-w-md">
           Pár swipe alatt felépítjük a Podiverzumod — személyre szabott
-          epizódokkal, minden héten frissítve. Regisztráció nélkül.
+          epizódokkal, megosztható eredménnyel.
         </p>
+
 
 
         <Button asChild size="lg" className="h-14 px-7 text-base font-medium w-full md:w-auto">
