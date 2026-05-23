@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Sparkles, Heart, Bookmark, Bell, Settings, Trash2, Copy, ExternalLink, Wind, Loader2 } from "lucide-react";
+import { Sparkles, Heart, Bookmark, Bell, Settings, Trash2, Copy, ExternalLink, Wind, Loader2, Pencil, Check, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -71,14 +71,18 @@ export default function EnPodiverzumomPage() {
               {(profile?.display_name || user.email || "?").charAt(0).toUpperCase()}
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Az én Podiverzumom</div>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight truncate">
-              {profile?.display_name || user.email}
-            </h1>
-            {profile?.username && (
-              <div className="text-sm text-muted-foreground mt-0.5">@{profile.username}</div>
-            )}
+            <EditableDisplayName
+              userId={user.id}
+              displayName={profile?.display_name || null}
+              fallbackEmail={user.email || ""}
+              onSaved={refreshProfile}
+            />
+            <div className="text-sm text-muted-foreground mt-0.5 truncate">
+              {user.email}
+              {profile?.username && <span className="ml-2">· @{profile.username}</span>}
+            </div>
           </div>
         </header>
 
@@ -401,6 +405,109 @@ function SettingRow({
         <div className="shrink-0">{right}</div>
       </div>
       {children}
+    </div>
+  );
+}
+
+function EditableDisplayName({
+  userId, displayName, fallbackEmail, onSaved,
+}: {
+  userId: string;
+  displayName: string | null;
+  fallbackEmail: string;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(displayName || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(displayName || "");
+  }, [displayName]);
+
+  const start = () => {
+    setValue(displayName || "");
+    setEditing(true);
+  };
+
+  const cancel = () => {
+    setValue(displayName || "");
+    setEditing(false);
+  };
+
+  const save = async () => {
+    const trimmed = value.trim().slice(0, 80);
+    if (trimmed === (displayName || "")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ display_name: trimmed || null })
+      .eq("user_id", userId);
+    setSaving(false);
+    if (error) {
+      toast.error("Nem sikerült menteni a nevet.");
+      return;
+    }
+    toast.success("Név frissítve.");
+    setEditing(false);
+    await onSaved();
+  };
+
+  if (editing) {
+    return (
+      <div className="mt-0.5 flex items-center gap-2">
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") cancel();
+          }}
+          maxLength={80}
+          placeholder="Pl. Anna"
+          className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-2xl sm:text-3xl font-semibold tracking-tight outline-none focus:border-primary"
+        />
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          aria-label="Mentés"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+        </button>
+        <button
+          type="button"
+          onClick={cancel}
+          disabled={saving}
+          aria-label="Mégse"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  const shown = displayName || fallbackEmail;
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight truncate">
+        {shown}
+      </h1>
+      <button
+        type="button"
+        onClick={start}
+        aria-label="Név szerkesztése"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+        title={displayName ? "Név szerkesztése" : "Adj meg egy nevet"}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
