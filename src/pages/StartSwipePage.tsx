@@ -138,8 +138,9 @@ function topTags(weights: Record<string, number>, n: number): string[] {
 const BROAD_DOMAINS = [
   "gazdaság", "közélet", "technológia", "pszichológia",
   "kultúra", "tudomány", "hit", "humor",
-  "irodalom", "gasztronómia",
+  "irodalom", "gasztronómia", "utazás", "bűnügy",
 ];
+
 
 function shuffle<T>(arr: T[]): T[] {
   const a = arr.slice();
