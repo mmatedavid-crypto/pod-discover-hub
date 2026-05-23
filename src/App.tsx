@@ -64,16 +64,19 @@ import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvid
 import { SmartPlayerBar } from "./components/smart-player/SmartPlayerBar";
 import EnPodiverzumomPage from "./pages/EnPodiverzumomPage.tsx";
 import PublicProfilePage from "./pages/PublicProfilePage.tsx";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
 
 const queryClient = new QueryClient();
 
 const App = () => (
+  <AppErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
         <SmartPlayerProvider>
+
         <PageViewTracker />
         <SearchHotkey />
         <Routes>
