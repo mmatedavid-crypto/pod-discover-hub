@@ -6221,6 +6221,7 @@ export type Database = {
       refresh_homepage_feed: { Args: never; Returns: undefined }
       refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
+      refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
