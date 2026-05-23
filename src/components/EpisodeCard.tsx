@@ -5,6 +5,7 @@ import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { slugify } from "@/lib/slug";
 import { entitySlug } from "@/lib/entity";
+import { EpisodeMarks } from "./EpisodeMarks";
 
 export type EpisodeLite = {
   id: string;
@@ -169,6 +170,7 @@ export function EpisodeCard({
               <ExternalLink className="h-3 w-3" /> Hallgatás
             </a>
           )}
+          <div className="ml-auto"><EpisodeMarks episodeId={e.id} compact /></div>
         </div>
       </div>
     </article>

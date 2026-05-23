@@ -1,76 +1,143 @@
+# Felhasználói fiókok — V1 terv
+
 ## Cél
+Diszkrét, GDPR-tiszta Google-only bejelentkezés a Podiverzumon. A regisztráló felhasználók extra funkciókat kapnak: archetípus mentés, kedvenc/meghallgatandó jelölés, podcast-követés email-értesítéssel, hallgatási történet (jövőbeli Netflix-szerű ajánlóhoz), hangulat-preferenciák, megosztható publikus profil.
 
-A `szervezetek` oldalon ma 21 299 entitás van publikusként, **0 db wikipedia match**, **0 db AI bio**. Ezért egyik szervezet sem hoz SEO értéket, és a search-be sincsenek bekötve. A user kérése: ugyanúgy járjunk el, mint a `személyek`-kel — érdemes alapot építeni, párosítani Wikipediával, beemelni a query/search rétegbe — és közben **szűrjük ki a rádiókat**, amik csak azért vannak a katalógusban, mert nem clean text alapján zajlott a korai entity-extract.
+## Scope (jóváhagyott)
+- ✅ Google-only auth (0 jelszó-felelősség, GDPR-minimum)
+- ✅ Header bal oldalon diszkrét `User` ikon (kék/aktív szín ha belépve, avatar ha van)
+- ✅ Soft regisztráció-felajánlás a `/start` végén (elegáns kártya, nem felugró)
+- ✅ Archetípus mentés a fiókba a `/start` végén
+- ✅ Kedvenc (❤️) + Meghallgatandó (🔖) jelölés minden `EpisodeCard`-on
+- ✅ Podcast-követés (🔔) + **email-értesítés új epizódról** (heti összevont digest, nem azonnal)
+- ✅ Hallgatási történet (csak jelölt + lejátszott epizódok, alapja a jövőbeli ajánlónak)
+- ✅ Hangulat-preferenciák (max 3, homepage személyre szabás)
+- ✅ Publikus, megosztható profil-oldal: `/p/<username>` — archetípus + nyilvános kedvencek
+- ✅ Fiók törlése = teljes adattörlés (GDPR cikk 17)
 
-## 1) Radio_station tisztítás (azonnal, migration)
-
-194 `radio_station` van. Ezek többsége nem "podcastban említett" rádió, hanem csak a podcast forrása (publisher), mert a régi extract nem tisztított szövegen futott. Lépések:
-
-- Minden `org_type='radio_station'` sor → `is_public=false, is_indexable=false, is_browsable_in_hub=false`, `browsable_reason='radio_publisher_noise'`.
-- Whitelist kivétel (manuálisan visszahozva, mert valós szereplők): `Tilos Rádió`, `Kossuth Rádió`, `Klubrádió`, `InfoRádió`, `Szabad Európa Rádió`, `Petőfi Rádió`, `Bartók Rádió`, `Katolikus Rádió`, `Magyar Rádió` → ezek maradnak publikusak, és Wikidata-matchre kerülnek.
-- A `Cégek / Média` fülön a `media` típus mellől levesszük a `radio_station` belistázást (`CompaniesHubPage.tsx`).
-- `OrganizationsIndexPage.tsx` típus-szekciókból eltávolítjuk az `radio_station`-t (a 9 whitelistelt rádió a `media` szekcióba kerül átsorolva — vagy maradnak `radio_station` típuson és csak a hub-listából vesszük ki őket).
-
-## 2) Wiki-párosító edge function (`organization-wikimedia-enricher`)
-
-`person-wikimedia-enricher` mintájára:
-
-- Wikidata search (HU → EN fallback), 5 jelölt.
-- Pontozás: label-egyezés (0.35), huwiki sitelink (0.2), `instance_of` ellenőrzés org-típushoz (party→Q7278, company→Q4830453, ngo→Q163740, university→Q3918, church→Q1530022, stb., +0.15 ha stimmel, -0.4 ha pl. human Q5), context-overlap az `episode_titles` + `podcast_titles` mezőkkel (0.1-0.25), single-word penalty (-0.2).
-- Threshold: `verified≥0.65`, `needs_review≥0.4`, `no_match` alatta — ugyanaz mint a people-nél (Phase 2).
-- Mentett mezők: `wikidata_id`, `wikipedia_url`, `wikipedia_title`, `wikipedia_extract` (≤1200 char), `wikipedia_description`, `wikipedia_match_status/confidence/evidence`, `wiki_match_run_at`, `wiki_match_reason`.
-- Logo: `verified` esetén Wikidata P154 (logo) vagy P18, Commons-licensz ellenőrzés (reusable-only), letöltés `entity-images` bucketbe `organizations/{id}/original.{ext}`, mezők: `logo_url`, `logo_source='wikimedia'`, `logo_license`, `logo_attribution`.
-- Job tracking: ha van `organization_enrichment_jobs` táblánk, beírjuk; ha nincs, csak az `organizations` mezőkre frissítünk és külön job-táblát most NEM hozok létre (kisebb scope).
-- Cron: `*/3 * * * *`, 25 org/run — ugyanúgy mint a people-nél. Csak `is_public=true` + `gated_episode_count>=3` (alacsony zaj küszöb).
-
-## 3) Gated indexability újraszámítás
-
-A jelenlegi 21 299 publikus szervezet túl sok. A people-mintát követve:
-
-- `0 ep` → nem publikus
-- `1–2 ep` → publikus, **nem** indexable, nem browsable
-- `3+ ep` → publikus + indexable + browsable
-- Minden `party` (politikai relevancia) + minden `wikipedia_match_status='verified'` → felülíró: indexable+browsable még ha `<3 ep` is
-- `radio_station` → mindig hidden, kivéve a 9 whitelist
-
-`recompute_org_gated_counts()` RPC frissítése (vagy új `recompute_org_indexability()` RPC) és egyszeri lefuttatás migrationben.
-
-## 4) Search integráció
-
-A search-hybrid most nem hoz organizations találatokat. Hozzáadunk egy egyszerű lépést:
-
-- A query-understanding `entity_candidates` mezőbe felvesszük az `organizations` táblát is (név + alias ILIKE match), csak `is_indexable=true` szűrővel.
-- Search-result-ben "Szervezet" típusú kártya, link `/ceg/{slug}` vagy `/part/{slug}`.
-- Részletek: külön technikai szekció a search-hybrid-en belül `match_org_by_name()` RPC hívással, threshold mention_count alapján.
-
-## 5) AI bio (későbbi sprint, nem most)
-
-A `person-bio-generator` analógiájára `organization-bio-generator` kell, de ez külön sprint. **Most NEM** építjük meg — előbb Wikipedia legyen lefedve, és csak a top 200 szervezetre futtatunk AI bio-t (költségkímélés).
-
-## Technikai részletek
-
-- Új edge function: `supabase/functions/organization-wikimedia-enricher/index.ts`
-- Új cron job (jobid 44 körül): `*/3 * * * *` → hívja a fenti edge functiont, body `{ limit: 25 }`
-- Migration:
-  - Radio whitelist + hide minden más radio_station
-  - `recompute_org_indexability()` RPC + egyszeri futtatás
-  - (opcionálisan) `match_org_by_name(query text)` RPC search-hez
-- Frontend:
-  - `OrganizationsIndexPage.tsx`: `radio_station` szekció törlése (vagy whitelistre szűkítés)
-  - `CompaniesHubPage.tsx`: `Media` tab típuslistából `radio_station` levétel (vagy hagyni, mert a query úgyis csak indexable-eket hoz)
-  - `OrgCard`: ha van `wikipedia_url`, mutassunk egy apró Wiki badge-et
-  - `OrganizationsIndexPage` query-iba: `is_indexable=true` szűrő (ne csak `is_public`)
-
-## Becsült futásidő a wiki enricherre
-
-21k publikus → 3+ ep után ~5-6k indexable → ~2 nap futás `*/3` cron mellett, 25/run sebességgel.
-
-## Mit NEM csinálunk most
-
-- Nem építünk AI bio-t (külön sprint)
-- Nem nyúlunk a backfill runner-hez (az fut tovább, csak ez utána fut)
-- Nem írunk át search ranking formulákat — csak hozzáadjuk a szervezeteket a candidate set-be
+## Scope-ból kihagyva
+- ❌ A. Folytatás-emlékeztető (flow elég rövid)
+- ❌ F. Napi +1 swipe (későbbi v2)
+- ❌ Email/jelszó auth (nem szükséges Google mellett)
 
 ---
 
-Kérlek hagyd jóvá, vagy mondd, ha valamit szűkítenénk / bővítenénk (pl. ha az AI bio is kéne most, vagy ha a search integrációt későbbre tolnánk).
+## UI változások
+
+### 1. Header (`SiteHeader.tsx`)
+- Bal oldalon, a `BrandMark` és a nav között: `User` ikon button
+- **Nincs belépve** → halvány szürke `User` ikon → kattintásra `/belepes`
+- **Belépve** → avatar (Google profilkép) vagy primary színű `User` ikon → kattintásra dropdown:
+  - "Az én Podiverzumom" → `/en-podiverzumom`
+  - "Beállítások" → `/en-podiverzumom?tab=beallitasok`
+  - "Kijelentkezés"
+
+### 2. `/start` flow vége
+A swipe befejezése után az eredmény-kártya alá **soft CTA**:
+```
+┌─────────────────────────────────────┐
+│  💾 Mentsd el a fiókodba is        │
+│                                     │
+│  Google-fiókkal 5 mp alatt:        │
+│  • A Podiverzumod örökre megmarad  │
+│  • Kedvencek + meghallgatandó      │
+│  • Értesítés ha új rész jön        │
+│                                     │
+│  [Belépés Google-lal]  Most nem    │
+└─────────────────────────────────────┘
+```
+- Nem blokkoló, scrollozható tovább
+- Sessionben elmenti hogy mutattuk → nem zavarjuk újra
+
+### 3. `/en-podiverzumom` (új oldal, csak belépve)
+Tabs:
+- **Profilom** — archetípus kártya, avatar, megjelenítendő név
+- **Kedvencek** (❤️) — lista
+- **Meghallgatandó** (🔖) — lista
+- **Követett podcastok** (🔔) — lista
+- **Hangulatok** — 3 hangulat-chip kiválasztása (Reggel fókusz / Este lazítás / Edzés alatt energikus / Munka közben / Utazás közben / Lefekvés előtt)
+- **Történet** — utolsó 50 hallgatott/jelölt epizód
+- **Publikus profil** — `/p/<username>` link + másolás gomb + nyilvános/privát kapcsoló
+- **Beállítások** — email értesítések on/off, fiók törlése
+
+### 4. `EpisodeCard` kiegészítés
+2 új ikon-gomb (csak belépve): ❤️ Kedvenc, 🔖 Meghallgatandó. Toggle, optimisztikus UI.
+
+### 5. `PodcastCard` / `PodcastDetail` kiegészítés
+🔔 "Követem" / "Követed" gomb (csak belépve).
+
+### 6. `/p/<username>` publikus profil
+- Archetípus + szöveg
+- Publikus kedvencek (max 12)
+- "Készítsd el a saját Podiverzumod" CTA → `/start`
+
+---
+
+## Adatbázis (új táblák)
+
+### `profiles`
+- `user_id` (auth.users FK, PK)
+- `display_name`, `avatar_url`, `username` (unique, slug)
+- `archetype_slug`, `archetype_result` (jsonb)
+- `mood_preferences` (text[] max 3)
+- `is_public_profile` (bool, default false)
+- `email_notifications_enabled` (bool, default true)
+
+### `user_episode_marks`
+- `user_id`, `episode_id`, `mark_type` ('favorite' | 'listen_later'), `created_at`
+- UNIQUE(user_id, episode_id, mark_type)
+
+### `user_podcast_follows`
+- `user_id`, `podcast_id`, `created_at`, `last_notified_at`
+- UNIQUE(user_id, podcast_id)
+
+### `user_listen_history`
+- `user_id`, `episode_id`, `played_at`, `progress_seconds`
+- alapja a jövőbeli ajánló-rendszernek
+
+### RLS
+- `profiles`: SELECT public ha `is_public_profile=true`, egyébként csak own; UPDATE/DELETE csak own
+- `user_episode_marks`, `user_podcast_follows`, `user_listen_history`: minden csak own
+
+### Trigger
+- `handle_new_user()` → új signupkor automatikusan létrehoz `profiles` rekordot Google-adatokból
+
+### GDPR
+- `delete_my_account()` SECURITY DEFINER RPC: töröl minden user-adatot + `auth.users` rekordot
+
+---
+
+## Email értesítés új epizódról (B)
+
+### Mechanizmus
+- **Heti digest** (nem azonnal — spam-mentes, batching)
+- Új edge function: `weekly-follow-digest` → vasárnap 10:00 cron
+- Logika: minden követő user-re lekérdezi az utolsó 7 napban megjelent epizódokat a követett podcastokból → 1 email/user az összes új résszel
+- Lovable Email-en keresztül (nem 3rd-party)
+- "Leiratkozás" link minden emailben
+
+### Prereq
+- Email-infrastruktúra setup (`setup_email_infra`) — domain már van? Ellenőrzöm. Ha nincs, setup dialógus.
+
+---
+
+## Megvalósítási lépések (sorrendben)
+
+1. **Migráció** — `profiles`, `user_episode_marks`, `user_podcast_follows`, `user_listen_history` táblák + RLS + `handle_new_user` trigger + `delete_my_account` RPC
+2. **Google OAuth bekapcsolása** — `configure_social_auth(["google"])`
+3. **`AuthPage.tsx`** átírása — csak Google gomb (jelenleg ami van, leegyszerűsítve)
+4. **`useAuth` hook** — session state, profile fetch, mutate helpers
+5. **`SiteHeader.tsx`** — User ikon + dropdown
+6. **`/start` vége** — soft CTA kártya + archetípus auto-mentés ha belépve
+7. **`EpisodeCard`** — ❤️/🔖 gombok
+8. **`PodcastCard`/`PodcastDetail`** — 🔔 követés gomb
+9. **`EnPodiverzumomPage`** — új oldal tabokkal
+10. **`/p/:username`** — publikus profil oldal
+11. **Email-infra check** + `weekly-follow-digest` edge function + cron
+12. **GDPR — fiók törlés** flow
+
+## Megerősítendő
+- Email-értesítés **heti digest** (nem azonnal), vasárnap reggel — ez OK? Vagy inkább azonnali?
+- Felhasználónév auto-generálás Google-névből (slug), vagy hagyjuk a usert beállítani később?
+
+Ha jóváhagyod, kezdek az 1. lépéssel (migráció).

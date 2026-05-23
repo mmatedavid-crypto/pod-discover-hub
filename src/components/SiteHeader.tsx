@@ -6,6 +6,7 @@ import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { UserMenu } from "./UserMenu";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
 type Suggestion = GhostSuggestion;
@@ -256,6 +257,7 @@ export function SiteHeader() {
             </PopoverContent>
           </Popover>
           <ThemeToggle />
+          <UserMenu />
         </div>
       </div>
     </header>
