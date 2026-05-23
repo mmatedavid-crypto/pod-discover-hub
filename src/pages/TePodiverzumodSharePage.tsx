@@ -21,7 +21,8 @@ type PublicShare = {
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
-const SHARE_FN_URL = `https://${PROJECT_ID}.supabase.co/functions/v1/te-podiverzumod-share`;
+const SHARE_FN_URL = `${SUPABASE_URL}/functions/v1/te-podiverzumod-share`;
+const SHARE_LOAD_TIMEOUT_MS = 8000;
 
 const SITE = "https://podiverzum.hu";
 const OG_FALLBACK_ABS = `${SITE}${ogFallback}`;
@@ -45,13 +46,13 @@ export default function TePodiverzumodSharePage() {
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), SHARE_LOAD_TIMEOUT_MS);
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${SHARE_FN_URL}?id=${encodeURIComponent(slug)}`, {
-          headers: { "Content-Type": "application/json" },
-        });
+        const res = await fetch(`${SHARE_FN_URL}?id=${encodeURIComponent(slug)}`, { signal: controller.signal });
         if (cancelled) return;
         if (res.status === 404) {
           setError("Ez a megosztott eredmény már nem elérhető.");
@@ -62,12 +63,17 @@ export default function TePodiverzumodSharePage() {
           setShare(data);
         }
       } catch {
-        if (!cancelled) setError("Hálózati hiba.");
+        if (!cancelled) setError("Nem sikerült betölteni mobil böngészőben. Nyisd meg Safari vagy Chrome böngészőben, vagy próbáld újra.");
       } finally {
+        window.clearTimeout(timeoutId);
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
   }, [slug]);
 
   const pageUrl = `${SITE}/te-podiverzumod/eredmeny/${slug ?? ""}`;
@@ -108,10 +114,11 @@ export default function TePodiverzumodSharePage() {
         </header>
 
         {loading && (
-          <div className="space-y-6">
+          <div className="space-y-6" role="status" aria-live="polite">
             <Skeleton className="h-72 w-full rounded-3xl" />
             <Skeleton className="h-24 w-full rounded-2xl" />
             <Skeleton className="h-12 w-full rounded-2xl" />
+            <p className="text-center text-sm text-muted-foreground">Eredmény betöltése…</p>
           </div>
         )}
 
