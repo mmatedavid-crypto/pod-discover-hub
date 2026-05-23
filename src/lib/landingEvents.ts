@@ -60,21 +60,31 @@ function deviceType(): "mobile" | "tablet" | "desktop" {
   return "desktop";
 }
 
-/** Snapshot UTM params once per session. Call on first landing. */
+/** Snapshot UTM params once per session. Call on first landing.
+ *  Supports short aliases: ?c=campaign, ?s=source, ?m=medium, ?ct=content, ?v=variant.
+ *  Full utm_* params still work and take precedence.
+ */
 export function snapshotUtmFromUrl(): UtmSnapshot {
   const ss = safeSession();
   const params = new URLSearchParams(window.location.search);
-  const has = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].some((k) => params.get(k));
+  const get = (long: string, short: string) => params.get(long) ?? params.get(short);
+
+  const utm_source = get("utm_source", "s");
+  const utm_medium = get("utm_medium", "m");
+  const utm_campaign = get("utm_campaign", "c");
+  const utm_content = get("utm_content", "ct");
+  const utm_term = params.get("utm_term");
   const variantParam = params.get("v") || params.get("variant");
+  const has = utm_source || utm_medium || utm_campaign || utm_content || utm_term;
 
   let snap: UtmSnapshot;
   if (has || variantParam || !ss?.getItem(UTM_KEY)) {
     snap = {
-      utm_source: params.get("utm_source"),
-      utm_medium: params.get("utm_medium"),
-      utm_campaign: params.get("utm_campaign"),
-      utm_content: params.get("utm_content"),
-      utm_term: params.get("utm_term"),
+      utm_source,
+      utm_medium: utm_medium ?? (utm_source ? "social" : null),
+      utm_campaign,
+      utm_content,
+      utm_term,
       landing_variant: variantParam,
       referrer_domain: referrerDomain(),
     };
@@ -86,6 +96,7 @@ export function snapshotUtmFromUrl(): UtmSnapshot {
   }
   return snap;
 }
+
 
 function getUtm(): UtmSnapshot {
   const ss = safeSession();
