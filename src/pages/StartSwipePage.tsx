@@ -58,6 +58,7 @@ type RecEp = {
   final_score: number;
   topics: string[] | null;
   category: string | null;
+  published_at?: string | null;
   /** client-side re-rank score (vector + tag-overlap) */
   taste_score?: number;
   /** client-side: which of your top interests this episode matches */
