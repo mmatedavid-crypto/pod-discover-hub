@@ -14,6 +14,7 @@ import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { slugify } from "@/lib/slug";
+import { PodcastFollow } from "@/components/PodcastFollow";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
