@@ -59,7 +59,7 @@ export default function StartLandingPage() {
 
         {/* How it works */}
         <ol className="mt-10 space-y-4 text-sm text-muted-foreground">
-          <Step n={1} title="Swipe-olj" body="Mutatunk podcastokat — jobbra ❤︎, balra ✕." />
+          <Step n={1} title="Swipe-olj" body="Témákat, hangulatokat, epizódokat villantunk fel — jobbra ❤︎, balra ✕." />
           <Step n={2} title="AI összerakja a profilod" body="Pár swipe után tudjuk, milyen hallgató vagy." />
           <Step n={3} title="Megkapod a Podiverzumod" body="Személyre szabott epizód-ajánlókkal." />
         </ol>
