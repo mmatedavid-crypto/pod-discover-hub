@@ -52,6 +52,7 @@ export function SoftAuthCTA({ archetypeSlug, archetypeResult }: Props) {
         result: archetypeResult,
       }));
     } catch { /* ignore */ }
+    import("@/lib/landingEvents").then(({ trackLandingEvent }) => trackLandingEvent("RegistrationStarted")).catch(() => {});
     nav(`/belepes?redirect=${encodeURIComponent("/en-podiverzumom")}`);
   };
 
