@@ -134,10 +134,11 @@ export function SoftAuthCTA({ archetypeSlug, archetypeResult }: Props) {
       <div className="mt-5 flex items-center gap-3">
         <button
           onClick={handleSignIn}
-          className="inline-flex items-center gap-2.5 px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors"
+          disabled={loading}
+          className="inline-flex items-center gap-2.5 px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-60"
         >
           <GoogleGlyph />
-          Belépés Google-lal
+          {loading ? "Átirányítás…" : "Belépés Google-lal"}
         </button>
         <button
           onClick={handleDismiss}
