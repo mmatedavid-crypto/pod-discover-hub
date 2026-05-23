@@ -24,7 +24,17 @@ const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
 const SHARE_FN_URL = `https://${PROJECT_ID}.supabase.co/functions/v1/te-podiverzumod-share`;
 
 const SITE = "https://podiverzum.hu";
-const OG_IMAGE_ABS = `${SITE}${ogImage}`;
+const OG_FALLBACK_ABS = `${SITE}${ogFallback}`;
+
+function buildDynamicOg(share: PublicShare | null): string {
+  if (!share) return OG_FALLBACK_ABS;
+  const params = new URLSearchParams({
+    kind: "share",
+    title: share.result_title || "A Te Podiverzumod",
+    subtitle: share.result_subtitle ? `A TE PODIVERZUMOD · ${share.result_subtitle}` : "A TE PODIVERZUMOD",
+  });
+  return `https://${PROJECT_ID}.supabase.co/functions/v1/og-image?${params.toString()}`;
+}
 
 export default function TePodiverzumodSharePage() {
   const { slug } = useParams<{ slug: string }>();
