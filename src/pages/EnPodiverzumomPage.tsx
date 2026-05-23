@@ -79,10 +79,12 @@ export default function EnPodiverzumomPage() {
               fallbackEmail={user.email || ""}
               onSaved={refreshProfile}
             />
-            <div className="text-sm text-muted-foreground mt-0.5 truncate">
-              {user.email}
-              {profile?.username && <span className="ml-2">· @{profile.username}</span>}
-            </div>
+            {(!profile?.display_name || profile?.username) && (
+              <div className="text-sm text-muted-foreground mt-0.5 truncate">
+                {!profile?.display_name && user.email}
+                {profile?.username && <span className={!profile?.display_name ? "ml-2" : ""}>@{profile.username}</span>}
+              </div>
+            )}
           </div>
         </header>
 
