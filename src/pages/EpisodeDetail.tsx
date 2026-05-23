@@ -358,13 +358,15 @@ export default function EpisodeDetail() {
                       <span className="hidden sm:inline">Eredeti</span>
                     </a>
                   )}
-                  <div className="ml-auto">
+                  <div className="ml-auto flex items-center gap-2">
+                    <EpisodeMarks episodeId={e.id} />
                     <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
                   </div>
                 </div>
               )}
               {!(p.apple_url || p.spotify_url || p.youtube_url) && (
-                <div className="mt-3">
+                <div className="mt-3 flex items-center gap-2">
+                  <EpisodeMarks episodeId={e.id} />
                   <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
                 </div>
               )}
