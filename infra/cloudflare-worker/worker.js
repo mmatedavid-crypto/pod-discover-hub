@@ -77,9 +77,10 @@ function shouldPrerender(pathname) {
   // /podcast/:slug  or  /podcast/:slug/:episode
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
   if (/^\/(category|kategoria)\/[^/]+\/?$/.test(pathname)) return true;
-  // Entity routes — EN + HU aliases (topic/tema, person/szemely, company/ceg,
-  // ticker, ingredient/hozzavalo). Critical for FB/Twitter share previews.
-  if (/^\/(topic|tema|person|szemely|company|ceg|ticker|ingredient|hozzavalo)\/[^/]+\/?$/.test(pathname)) return true;
+  // Entity routes — EN + HU aliases (topic/tema/temak, person/szemely/szemelyek,
+  // company/ceg/cegek, szervezetek, partok, ticker, ingredient/hozzavalo).
+  // Critical for FB/IG/X share previews.
+  if (/^\/(topic|tema|temak|person|szemely|szemelyek|company|ceg|cegek|szervezetek|partok|ticker|ingredient|hozzavalo)\/[^/]+\/?$/.test(pathname)) return true;
   // Mood collections (HU-only route)
   if (/^\/hangulatok\/[^/]+\/?$/.test(pathname)) return true;
   // Te Podiverzumod megosztott eredmény — FB/IG/X share preview-hoz
