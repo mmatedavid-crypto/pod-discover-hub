@@ -4472,6 +4472,51 @@ export type Database = {
         }
         Relationships: []
       }
+      te_podiverzumod_shares: {
+        Row: {
+          aura_colors: string[]
+          created_at: string
+          expires_at: string | null
+          id: string
+          result_description: string
+          result_subtitle: string | null
+          result_title: string
+          result_type: string
+          share_id: string
+          source_session_id: string | null
+          tags: string[]
+          view_count: number
+        }
+        Insert: {
+          aura_colors?: string[]
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          result_description: string
+          result_subtitle?: string | null
+          result_title: string
+          result_type: string
+          share_id: string
+          source_session_id?: string | null
+          tags?: string[]
+          view_count?: number
+        }
+        Update: {
+          aura_colors?: string[]
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          result_description?: string
+          result_subtitle?: string | null
+          result_title?: string
+          result_type?: string
+          share_id?: string
+          source_session_id?: string | null
+          tags?: string[]
+          view_count?: number
+        }
+        Relationships: []
+      }
       token_df_cache: {
         Row: {
           computed_at: string
@@ -5060,6 +5105,42 @@ export type Database = {
           strong_mention_count?: number | null
           subject_count?: number | null
           wikipedia_match_status?: string | null
+        }
+        Relationships: []
+      }
+      te_podiverzumod_shares_public: {
+        Row: {
+          aura_colors: string[] | null
+          created_at: string | null
+          expires_at: string | null
+          result_description: string | null
+          result_subtitle: string | null
+          result_title: string | null
+          result_type: string | null
+          share_id: string | null
+          tags: string[] | null
+        }
+        Insert: {
+          aura_colors?: string[] | null
+          created_at?: string | null
+          expires_at?: string | null
+          result_description?: string | null
+          result_subtitle?: string | null
+          result_title?: string | null
+          result_type?: string | null
+          share_id?: string | null
+          tags?: string[] | null
+        }
+        Update: {
+          aura_colors?: string[] | null
+          created_at?: string | null
+          expires_at?: string | null
+          result_description?: string | null
+          result_subtitle?: string | null
+          result_title?: string | null
+          result_type?: string | null
+          share_id?: string | null
+          tags?: string[] | null
         }
         Relationships: []
       }
