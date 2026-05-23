@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { recordTasteInteraction } from "@/lib/tasteInteractions";
 
 export type PlayerEventType =
   | "play_start" | "play_pause" | "play_resume" | "play_seek"
@@ -42,6 +43,17 @@ export function logPlayerEvent(opts: {
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
       meta: (opts.meta ?? {}) as never,
     });
+  } catch {
+    /* fail-safe */
+  }
+
+  // Mirror to taste-vector pipeline for select event types.
+  try {
+    if (opts.eventType === "play_start") {
+      void recordTasteInteraction(opts.episodeId ?? null, "play_start", "player");
+    } else if (opts.eventType === "play_complete") {
+      void recordTasteInteraction(opts.episodeId ?? null, "play_complete", "player");
+    }
   } catch {
     /* fail-safe */
   }

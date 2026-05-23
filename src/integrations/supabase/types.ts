@@ -3901,6 +3901,9 @@ export type Database = {
           email_notifications_enabled: boolean
           is_public_profile: boolean
           mood_preferences: string[]
+          taste_signal_count: number
+          taste_vec: string | null
+          taste_vec_updated_at: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -3914,6 +3917,9 @@ export type Database = {
           email_notifications_enabled?: boolean
           is_public_profile?: boolean
           mood_preferences?: string[]
+          taste_signal_count?: number
+          taste_vec?: string | null
+          taste_vec_updated_at?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -3927,6 +3933,9 @@ export type Database = {
           email_notifications_enabled?: boolean
           is_public_profile?: boolean
           mood_preferences?: string[]
+          taste_signal_count?: number
+          taste_vec?: string | null
+          taste_vec_updated_at?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
@@ -4889,6 +4898,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_episode_interactions: {
+        Row: {
+          created_at: string
+          episode_id: string
+          id: string
+          kind: string
+          source: string | null
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          id?: string
+          kind: string
+          source?: string | null
+          user_id: string
+          weight: number
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          id?: string
+          kind?: string
+          source?: string | null
+          user_id?: string
+          weight?: number
+        }
+        Relationships: []
       }
       user_episode_marks: {
         Row: {
@@ -6076,6 +6115,14 @@ export type Database = {
           title: string
         }[]
       }
+      match_user_episodes: {
+        Args: { p_freshness_days?: number; p_limit?: number; p_user: string }
+        Returns: {
+          episode_id: string
+          podcast_id: string
+          similarity: number
+        }[]
+      }
       merge_ai_spend: {
         Args: {
           p_calls?: number
@@ -6163,6 +6210,10 @@ export type Database = {
         }[]
       }
       recompute_person_role_counts: { Args: never; Returns: number }
+      record_episode_interaction: {
+        Args: { p_episode_id: string; p_kind: string; p_source?: string }
+        Returns: undefined
+      }
       refresh_episodes_search_text_batch: {
         Args: { _limit?: number }
         Returns: Json
@@ -6170,6 +6221,7 @@ export type Database = {
       refresh_homepage_feed: { Args: never; Returns: undefined }
       refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
+      refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
