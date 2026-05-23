@@ -118,8 +118,13 @@ Deno.serve(async (req) => {
       const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", r.controls_key).maybeSingle();
       const ctrl = (ctrlRow?.value || {}) as any;
       const prev = history[r.name] || {};
-      const p1 = prev.p1;
-      const p2 = prev.p2;
+      const samplesPrev: number[] = Array.isArray((prev as any).samples) ? (prev as any).samples : [];
+      // Backward-compat: ha még nincs samples, hozzuk a régi p1/p2-ből.
+      if (!samplesPrev.length && prev.p1 != null) samplesPrev.push(prev.p1);
+      if (samplesPrev.length < 2 && prev.p2 != null) samplesPrev.push(prev.p2);
+      const samples = [pending, ...samplesPrev].slice(0, Math.max(stallRuns + 1, 3));
+      const p1 = samplesPrev[0];
+      const p2 = samplesPrev[1];
 
       let action: "noop" | "pause_empty" | "resume" | "pause_stall" = "noop";
       let reason = "";
@@ -138,11 +143,11 @@ Deno.serve(async (req) => {
       } else if (
         ctrl.enabled !== false &&
         pending > 0 &&
-        p1 != null && p2 != null &&
-        pending === p1 && p1 === p2
+        samples.length >= stallRuns + 1 &&
+        samples.every((v) => v === pending)
       ) {
         action = "pause_stall";
-        reason = `stall: pending stuck at ${pending} for ${stallRuns + 1} runs`;
+        reason = `stall: pending stuck at ${pending} for ${samples.length} runs (~${(samples.length - 1) * 2} min)`;
       }
 
       if (action !== "noop" && !dryRun) {
