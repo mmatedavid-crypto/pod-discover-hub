@@ -18,7 +18,10 @@ export default function AuthPage() {
     if (!robots) { robots = document.createElement("meta"); robots.name = "robots"; document.head.appendChild(robots); }
     robots.content = "noindex, nofollow";
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) nav(redirectTo, { replace: true });
+      if (data.session) {
+        import("@/lib/landingEvents").then(({ trackLandingEvent }) => trackLandingEvent("RegistrationCompleted")).catch(() => {});
+        nav(redirectTo, { replace: true });
+      }
     });
   }, [nav, redirectTo]);
 
