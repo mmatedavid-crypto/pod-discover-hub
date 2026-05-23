@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Sparkles, Heart, Bookmark, Bell, Settings, Trash2, Copy, ExternalLink, Wind, Loader2 } from "lucide-react";
+import { Sparkles, Heart, Bookmark, Bell, Settings, Trash2, Copy, ExternalLink, Wind, Loader2, Pencil, Check, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
