@@ -1558,6 +1558,57 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_events: {
+        Row: {
+          anonymous_session_id: string
+          created_at: string
+          device_type: string | null
+          event_name: string
+          id: string
+          landing_variant: string | null
+          meta: Json
+          path: string | null
+          referrer_domain: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          anonymous_session_id: string
+          created_at?: string
+          device_type?: string | null
+          event_name: string
+          id?: string
+          landing_variant?: string | null
+          meta?: Json
+          path?: string | null
+          referrer_domain?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          anonymous_session_id?: string
+          created_at?: string
+          device_type?: string | null
+          event_name?: string
+          id?: string
+          landing_variant?: string | null
+          meta?: Json
+          path?: string | null
+          referrer_domain?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
       mood_collections: {
         Row: {
           accent_hsl: string | null
