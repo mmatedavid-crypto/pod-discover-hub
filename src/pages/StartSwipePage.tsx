@@ -138,8 +138,9 @@ function topTags(weights: Record<string, number>, n: number): string[] {
 const BROAD_DOMAINS = [
   "gazdaság", "közélet", "technológia", "pszichológia",
   "kultúra", "tudomány", "hit", "humor",
-  "irodalom", "gasztronómia",
+  "irodalom", "gasztronómia", "utazás", "bűnügy",
 ];
+
 
 function shuffle<T>(arr: T[]): T[] {
   const a = arr.slice();
@@ -915,10 +916,12 @@ function ResultView({
       topMoods: topMoodKeys,
       topTopics: topicStars.slice(0, 2).map(s => s.label),
       archetypeName: archetype.name,
+      archetypeId: archetype.id,
       element: element.key,
     }),
-    [seedKey, topMoodKeys, topicStars, archetype.name, element.key],
+    [seedKey, topMoodKeys, topicStars, archetype.name, archetype.id, element.key],
   );
+
   const pdvCode = useMemo(() => buildPdvCode(seedKey), [seedKey]);
 
   // Recommended podcasts: dedupe from recs

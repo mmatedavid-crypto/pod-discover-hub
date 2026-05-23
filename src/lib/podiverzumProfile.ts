@@ -308,18 +308,26 @@ const OPENERS_BY_ELEMENT: Record<Element["key"], string[]> = {
   fire: [
     "Tűz vagy: te az a hallgató vagy, aki",
     "Az energiád lobog — olyan ember, aki",
+    "Forrópontokon élsz: téged azok az adások viszik el, amelyek",
+    "Te az a hallgató vagy, akit a tét húz be — olyan, aki",
   ],
   water: [
     "Mély víz vagy: olyan hallgató, aki",
     "Befelé figyelsz — téged azok a hangok vonzanak, amelyek",
+    "Lassan és sűrűn hallgatsz: olyan ember vagy, aki",
+    "A te ízlésed a csendben mutatja meg magát — olyan, aki",
   ],
   earth: [
     "Földön állsz: olyan ember vagy, aki",
     "A te ízlésed szilárd — azokat a beszélgetéseket szereted, amelyek",
+    "Te a rendszerekben hiszel — olyan hallgató, aki",
+    "Megbízható alap vagy: téged az érdekel, ha valaki",
   ],
   air: [
     "Levegő vagy: kíváncsi hallgató, aki",
     "Az elméd mozgásban — olyan ember, aki",
+    "Te az a hallgató vagy, aki sosem csak egy témán ül — olyan, aki",
+    "Könnyű a lépted a műfajok között: olyan vagy, aki",
   ],
 };
 
@@ -328,43 +336,140 @@ const MIDS_BY_ELEMENT: Record<Element["key"], string[]> = {
     "nem fél a kemény kérdésektől, és a vitában is otthon érzi magát",
     "felpörög egy jó történettől, és továbbadná, mielőtt véget ér",
     "az indulatos témákat is bevállalja, ha érzi, hogy van bennük tét",
+    "akkor kapcsol be, ha valaki kimondja, amit más nem mer",
+    "egy adás közben már fél tucat embernek küldené tovább",
   ],
   water: [
     "csendben hallgatja végig azt is, ami másoknak hosszú lenne",
     "a részleteket is észreveszi, de sosem téveszti szem elől a nagy képet",
     "olyan beszélgetéseket keres, amelyek után még napokig gondolkodik",
+    "nem siet a véleményével — előbb ülteti, csak utána mondja",
+    "azt szereti, ha egy interjú alatt valami megmozdul benne",
   ],
   earth: [
     "nem szereti a felszínes hype-ot, és inkább a tényeket forgatja",
     "a komoly dolgokat is el tudja viselni, ha van bennük rendszer",
     "ott marad a hangnál, ahol valami valódit mondanak",
+    "kiszúrja, amikor egy interjúalany csak pózol",
+    "akkor pihen meg, ha végre valaki strukturáltan magyaráz",
   ],
   air: [
     "egyszerre keresi a mélységet és a könnyű nevetést",
     "szereti, ha egy beszélgetés gondolkodásra kényszerít, de nem akar tőle kimerülni",
     "a sokféle témát szereti — egy nap politikát, másnap pszichológiát",
+    "képes egy adást félbehagyni, ha jobb téma jön szembe",
+    "egyszerre három podcastot követ, és mindegyikből szivárog valami",
   ],
 };
 
-const CLOSERS = [
-  "A héten egy váratlan beszélgetés átrendezi a fejedben a sorrendet.",
-  "A következő epizód, amit befejezel, eszedbe fog jutni hetekig.",
-  "Valaki, akit régen hallgattál, hamarosan újra megszólal.",
-  "Egy téma, amit eddig kerültél, most furcsán vonzani fog.",
-  "A te ízlésed pont a kettő között van — és ez most az erősséged.",
-  "A héten egy interjú meg fog lepni, mert nem onnan jön, ahonnan vártad.",
-];
+/** Archetype-specific nuance lines — a single sentence that names a quirk. */
+const ARCHETYPE_NUANCE: Record<string, string[]> = {
+  strategic_curious: [
+    "Az érdekel igazán, amikor valaki rendszerbe rakja a káoszt.",
+    "Egy jó keretrendszer nálad többet ér, mint tíz anekdota.",
+  ],
+  deep_dive: [
+    "A 2 órás adás nem ijeszt meg — inkább megnyugtat.",
+    "Nem szereted, ha egy témát félbehagynak; te a végéig akarsz menni.",
+  ],
+  future_watcher: [
+    "Már most azon gondolkodsz, mit fognak hallgatni az emberek két év múlva.",
+    "Egy új technológiát előbb akarsz érteni, mint használni.",
+  ],
+  public_radar: [
+    "Reggelente azt nézed meg először, mi történt — utána mindent.",
+    "Egy közéleti interjút végighallgatsz akkor is, ha bosszant.",
+  ],
+  story_collector: [
+    "Egy életutat akkor is végighallgatsz, ha sosem hallottál az illetőről.",
+    "A személyes részletekért még a témát is megbocsátod.",
+  ],
+  market_realist: [
+    "A számok nálad nem unalmasak — onnan kezdődik a beszélgetés.",
+    "A hype-ot lehántod, és a valódi mozgásra figyelsz.",
+  ],
+  culture_hunter: [
+    "Egy jó esszé annyira betölt, mint másokat egy thriller.",
+    "Egy könyv- vagy filmajánlóért képes vagy új csatornát felvenni.",
+  ],
+  science_explorer: [
+    "A „mert így működik” mondat nálad sosem elég — te a mechanizmust akarod.",
+    "Egy tudóst akkor is végighallgatsz, ha a téma távoli.",
+  ],
+  meaning_seeker: [
+    "A nagy kérdések nem ijesztenek meg — keresed, kik mernek velük leülni.",
+    "Nem a válaszért hallgatsz, hanem a tisztességes kérdésért.",
+  ],
+  calm_observer: [
+    "A halk hangok többet mondanak neked, mint a kiabálás.",
+    "Egy adás végén a csendet is meghallgatod.",
+  ],
+  performance_watcher: [
+    "Az érdekel, kik hogyan tartják magukat formában — fejben és testben.",
+    "Egy jó protokollért képes vagy átszervezni a reggeled.",
+  ],
+  discovery_listener: [
+    "Sosem tudni, mit fogsz holnap hallgatni — és pont ez tetszik benne.",
+    "A „mi van ott, ahova még nem néztem” érzés a hajtóerőd.",
+  ],
+};
 
-export function buildVerdict(seedKey: string, ctx: VerdictCtx = {}): string {
+/** Secondary mood flavor — a half-sentence that colors the verdict. */
+const SECONDARY_MOOD_FLAVOR: Record<string, string> = {
+  ironikus: "A iróniát is bírod, ha mögötte van valami.",
+  vicces: "Egy jól időzített poén nálad ugyanannyit ér, mint egy mély gondolat.",
+  humoros: "A humor neked nem dekoráció, hanem hangnem.",
+  kritikus: "Nem nyeled le simán azt, amit hallasz — forgatod.",
+  őszinte: "Az őszintétlent fél perc alatt kiszúrod.",
+  személyes: "Az olyan adásokat szereted, ahol a vendég nem szerepet játszik.",
+  mély: "A mélyebb réteg miatt is maradsz végig.",
+  nosztalgikus: "Egy régi emlékre felkapod a fejed.",
+  feszült: "A feszültséget jól bírod, ha érted, miért van ott.",
+  inspiráló: "Egy jó mondat napokra el tud kísérni.",
+  motiváló: "Amit hallasz, hajlamos vagy átültetni a saját napodba.",
+  kíváncsi: "A kérdéseid hosszabbak, mint a válaszaid.",
+  felfedező: "Ha valami új, te máris benne vagy.",
+  meditatív: "Nem zavar, ha lassan indul egy beszélgetés.",
+  csendes: "A csendet is hallgatni tudod.",
+  játékos: "Egy jó beszélgetésben szereted, ha játszanak is.",
+  energikus: "Az energia nálad átragad a napodra.",
+  kemény: "Nem ijednek meg a kemény hangtól.",
+};
+
+const CLOSERS_BY_ELEMENT: Record<Element["key"], string[]> = {
+  fire: [
+    "A héten egy adás úgy fog feltüzelni, hogy másnap te kezdesz beszélni róla.",
+    "A következő epizód, amit befejezel, vitatkozni akar majd benned valakivel.",
+    "Egy interjúban valaki kimond valamit, amit te is régóta érzel — és onnantól nem hagy nyugodni.",
+  ],
+  water: [
+    "A héten egy hosszabb beszélgetés átrendez benned valamit, csendben.",
+    "A következő epizód, amit befejezel, eszedbe fog jutni hetekig.",
+    "Egy mondat lassan érik majd benned, és csak napok múlva érted meg, miért fontos.",
+  ],
+  earth: [
+    "A héten valaki tisztán elmagyaráz neked valamit, és hirtelen helyére kerül egy egész téma.",
+    "Egy adás után úgy érzed majd, hogy végre rend van a fejedben — legalább egy területen.",
+    "A héten egy interjúban valami olyan adat hangzik el, amit elkezdesz mindenkinek mesélni.",
+  ],
+  air: [
+    "A héten egy váratlan beszélgetés átrendezi a fejedben a sorrendet.",
+    "Egy témáról, amit eddig kerültél, hamarosan furcsán vonzani fog egy adás.",
+    "A héten véletlenül találsz egy podcastot, és három epizódot hallgatsz meg egymás után.",
+  ],
+};
+
+export function buildVerdict(seedKey: string, ctx: VerdictCtx & { archetypeId?: string } = {}): string {
   const rng = mulberry32(hashSeed(seedKey + "verdict"));
   const el = ctx.element ?? "air";
   const openers = OPENERS_BY_ELEMENT[el];
   const mids = MIDS_BY_ELEMENT[el];
+  const closers = CLOSERS_BY_ELEMENT[el];
   const open = openers[Math.floor(rng() * openers.length)];
   const mid = mids[Math.floor(rng() * mids.length)];
-  const close = CLOSERS[Math.floor(rng() * CLOSERS.length)];
+  const close = closers[Math.floor(rng() * closers.length)];
 
-  // Optional topic injection: weave top topic into close if available
+  // Topic line
   let topicLine = "";
   if (ctx.topTopics && ctx.topTopics.length > 0) {
     const t1 = ctx.topTopics[0];
@@ -374,8 +479,28 @@ export function buildVerdict(seedKey: string, ctx: VerdictCtx = {}): string {
       : ` A fő iránytűd most a(z) ${t1.toLowerCase()}.`;
   }
 
-  return `${open} ${mid}.${topicLine} ${close}`;
+  // Archetype nuance — adds a quirk that's hard to argue with
+  let nuanceLine = "";
+  if (ctx.archetypeId && ARCHETYPE_NUANCE[ctx.archetypeId]) {
+    const pool = ARCHETYPE_NUANCE[ctx.archetypeId];
+    nuanceLine = ` ${pool[Math.floor(rng() * pool.length)]}`;
+  }
+
+  // Secondary mood flavor — picks a SECONDARY mood (not the dominant one) for color
+  let flavorLine = "";
+  if (ctx.topMoods && ctx.topMoods.length > 1) {
+    for (let i = 1; i < ctx.topMoods.length; i++) {
+      const m = ctx.topMoods[i];
+      if (SECONDARY_MOOD_FLAVOR[m]) {
+        flavorLine = ` ${SECONDARY_MOOD_FLAVOR[m]}`;
+        break;
+      }
+    }
+  }
+
+  return `${open} ${mid}.${nuanceLine}${flavorLine}${topicLine} ${close}`;
 }
+
 
 /* =====================================================================
  * Unique code
