@@ -24,15 +24,16 @@ export default function StartLandingPage() {
         </div>
 
         <h1 className="text-[2.25rem] md:text-5xl font-semibold leading-[1.05] tracking-tight mb-5">
-          60 másodperc alatt
+          A te ízlésed.
           <br />
-          <span className="text-primary">találd meg, mit hallgass.</span>
+          <span className="text-primary">Egy magyar podcast-univerzum.</span>
         </h1>
 
         <p className="text-lg text-muted-foreground mb-7 max-w-md">
-          Swipe-old végig pár magyar podcastet. Cserébe személyre szabott ajánlót kapsz —
-          regisztráció nélkül, cookie-mentesen.
+          Pár swipe alatt felépítjük a Podiverzumod — személyre szabott
+          epizódokkal, minden héten frissítve. Regisztráció nélkül.
         </p>
+
 
         <Button asChild size="lg" className="h-14 px-7 text-base font-medium w-full md:w-auto">
           <Link
