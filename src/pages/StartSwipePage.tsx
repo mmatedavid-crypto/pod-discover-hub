@@ -12,6 +12,7 @@ import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArche
 // (image share-card no longer used here; switched to public share-link flow)
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 import { toast } from "sonner";
+import { SoftAuthCTA } from "@/components/SoftAuthCTA";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
