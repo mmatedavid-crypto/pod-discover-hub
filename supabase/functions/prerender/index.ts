@@ -707,7 +707,13 @@ async function buildShare(
     stripHtml(data.result_subtitle || data.result_description || "Nézd meg, te milyen hallgató vagy a Podiverzumon."),
     160,
   );
-  const ogImage = `${SITE}/te-podiverzumod-og.jpg`;
+  // Dynamic per-share OG card via og-image edge fn.
+  const ogParams = new URLSearchParams({
+    kind: "share",
+    title: String(data.result_title || "A Te Podiverzumod"),
+    subtitle: data.result_subtitle ? `A TE PODIVERZUMOD · ${String(data.result_subtitle)}` : "A TE PODIVERZUMOD",
+  });
+  const ogImage = `${SUPABASE_URL}/functions/v1/og-image?${ogParams.toString()}`;
   const tagsHtml = (data.tags ?? []).slice(0, 6).map((t: string) => `<li>${esc(t)}</li>`).join("");
 
   return new Response(new TextEncoder().encode(shell({
