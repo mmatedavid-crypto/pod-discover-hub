@@ -3,6 +3,8 @@ import { Sparkles, X, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
+import { toast } from "sonner";
 
 const DISMISS_KEY = "podiverzum_auth_cta_dismissed_v1";
 
@@ -44,8 +46,12 @@ export function SoftAuthCTA({ archetypeSlug, archetypeResult }: Props) {
     })();
   }, [user, profile?.archetype_slug, archetypeSlug, archetypeResult, refreshProfile]);
 
-  const handleSignIn = () => {
-    // Stash archetype so /belepes can hand it back after redirect
+  const [loading, setLoading] = useState(false);
+
+  const handleSignIn = async () => {
+    if (loading) return;
+    setLoading(true);
+    // Stash archetype so the post-redirect page can persist it to the new profile
     try {
       sessionStorage.setItem("podiverzum_pending_archetype", JSON.stringify({
         slug: archetypeSlug,
@@ -53,7 +59,17 @@ export function SoftAuthCTA({ archetypeSlug, archetypeResult }: Props) {
       }));
     } catch { /* ignore */ }
     import("@/lib/landingEvents").then(({ trackLandingEvent }) => trackLandingEvent("RegistrationStarted")).catch(() => {});
-    nav(`/belepes?redirect=${encodeURIComponent("/en-podiverzumom")}`);
+
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin + "/en-podiverzumom",
+    });
+    if (result.error) {
+      toast.error("Bejelentkezés sikertelen. Próbáld újra.");
+      setLoading(false);
+      return;
+    }
+    if (result.redirected) return; // browser handles redirect
+    nav("/en-podiverzumom", { replace: true });
   };
 
   const handleDismiss = () => {
@@ -118,10 +134,11 @@ export function SoftAuthCTA({ archetypeSlug, archetypeResult }: Props) {
       <div className="mt-5 flex items-center gap-3">
         <button
           onClick={handleSignIn}
-          className="inline-flex items-center gap-2.5 px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors"
+          disabled={loading}
+          className="inline-flex items-center gap-2.5 px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-60"
         >
           <GoogleGlyph />
-          Belépés Google-lal
+          {loading ? "Átirányítás…" : "Belépés Google-lal"}
         </button>
         <button
           onClick={handleDismiss}

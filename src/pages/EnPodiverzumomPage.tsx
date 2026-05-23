@@ -50,6 +50,36 @@ export default function EnPodiverzumomPage() {
     if (!authLoading && !user) nav("/belepes?redirect=/en-podiverzumom", { replace: true });
   }, [authLoading, user, nav]);
 
+  // Persist pending archetype from /te-podiverzumod after Google sign-in redirect
+  useEffect(() => {
+    if (!user) return;
+    if (profile?.archetype_slug) {
+      try { sessionStorage.removeItem("podiverzum_pending_archetype"); } catch { /* ignore */ }
+      return;
+    }
+    let pending: { slug?: string; result?: any } | null = null;
+    try {
+      const raw = sessionStorage.getItem("podiverzum_pending_archetype");
+      if (raw) pending = JSON.parse(raw);
+    } catch { /* ignore */ }
+    if (!pending?.slug) return;
+    (async () => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ archetype_slug: pending!.slug, archetype_result: pending!.result ?? null })
+        .eq("user_id", user.id);
+      if (!error) {
+        try { sessionStorage.removeItem("podiverzum_pending_archetype"); } catch { /* ignore */ }
+        try {
+          const { trackLandingEvent } = await import("@/lib/landingEvents");
+          trackLandingEvent("RegistrationCompleted");
+        } catch { /* ignore */ }
+        refreshProfile();
+        toast.success("Podiverzumod elmentve");
+      }
+    })();
+  }, [user, profile?.archetype_slug, refreshProfile]);
+
   if (authLoading || !user) {
     return (
       <Layout>
