@@ -343,39 +343,54 @@ export default function StartSwipePage() {
     // ── Build the user's "taste fingerprint" from their swipes:
     // top topic / mood / archetype tags weighted (super-likes 3x).
     const tagW: Record<string, number> = {};
-    const bump = (arr: string[] | undefined, k: number) => {
+    const antiW: Record<string, number> = {};
+    const bump = (target: Record<string, number>, arr: string[] | undefined, k: number) => {
       if (!arr) return;
       for (const t of arr) {
         const key = t.toLowerCase();
-        tagW[key] = (tagW[key] || 0) + k;
+        target[key] = (target[key] || 0) + k;
       }
     };
     for (const c of liked) {
-      bump(c.topic_tags, 1); bump(c.mood_tags, 1); bump(c.archetype_tags, 1);
+      bump(tagW, c.topic_tags, 1); bump(tagW, c.mood_tags, 1); bump(tagW, c.archetype_tags, 1);
     }
     for (const c of superLiked) {
-      bump(c.topic_tags, 3); bump(c.mood_tags, 3); bump(c.archetype_tags, 3);
+      bump(tagW, c.topic_tags, 3); bump(tagW, c.mood_tags, 3); bump(tagW, c.archetype_tags, 3);
+    }
+    // Anti-tags: what the user explicitly skipped — but ONLY if not also liked.
+    for (const c of disliked) {
+      bump(antiW, c.topic_tags, 1); bump(antiW, c.mood_tags, 1); bump(antiW, c.archetype_tags, 1);
+    }
+    for (const k of Object.keys(antiW)) {
+      if (tagW[k]) delete antiW[k]; // tag is loved AND skipped → ambiguous, ignore as anti
     }
     const maxW = Math.max(1, ...Object.values(tagW));
+    const maxAntiW = Math.max(1, ...Object.values(antiW));
 
-    // Re-rank: combine vector similarity with tag overlap.
-    // 0.65 vector + 0.35 tag overlap → user sees their own interests reflected.
+    // Re-rank: vector + positive tag overlap − anti-tag penalty + small freshness nudge.
+    const now = Date.now();
     const rows = (data as RecEp[]).map(r => {
       const epTags = new Set<string>([
         ...(r.topics || []).map(t => t.toLowerCase()),
         ...(r.category ? [r.category.toLowerCase()] : []),
       ]);
       let overlap = 0;
+      let antiOverlap = 0;
       const matched: Array<{ tag: string; w: number }> = [];
       for (const t of epTags) {
         const w = tagW[t];
-        if (!w) continue;
-        overlap += w;
-        matched.push({ tag: t, w });
+        if (w) { overlap += w; matched.push({ tag: t, w }); }
+        const aw = antiW[t];
+        if (aw) antiOverlap += aw;
       }
       const normOverlap = Math.min(1, overlap / (maxW * 2));
-      const normSim = Math.max(0, Math.min(1, Number(r.final_score) || 0));
-      const taste_score = 0.65 * normSim + 0.35 * normOverlap;
+      const normAnti = Math.min(1, antiOverlap / (maxAntiW * 2));
+      const normSim = Math.max(0, Math.min(1, Number((r as any).final_score) || 0));
+      // Small extra freshness bump client-side (RPC already gives some).
+      const publishedAt = (r as any).published_at ? new Date((r as any).published_at).getTime() : 0;
+      const ageDays = publishedAt ? (now - publishedAt) / 86_400_000 : 9999;
+      const freshBonus = ageDays < 7 ? 0.05 : ageDays < 30 ? 0.025 : 0;
+      const taste_score = 0.58 * normSim + 0.32 * normOverlap - 0.15 * normAnti + freshBonus;
       const reasons = matched
         .sort((a, b) => b.w - a.w)
         .slice(0, 2)
