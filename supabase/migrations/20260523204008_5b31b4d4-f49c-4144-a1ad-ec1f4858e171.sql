@@ -1,0 +1,1 @@
+REVOKE SELECT (hidden_embedding_prompt) ON public.taste_cards FROM anon, authenticated;
