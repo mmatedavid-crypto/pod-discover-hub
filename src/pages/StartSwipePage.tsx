@@ -13,6 +13,7 @@ import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArche
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 import { toast } from "sonner";
 import { SoftAuthCTA } from "@/components/SoftAuthCTA";
+import { EmailCaptureCard } from "@/components/EmailCaptureCard";
 import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
 
 // Mystical match label — never expose the score, only a feeling.
@@ -1134,6 +1135,8 @@ function ResultView({
           </div>
         </div>
       )}
+
+      <EmailCaptureCard archetypeSlug={archetype.id} />
 
       <SoftAuthCTA
         archetypeSlug={archetype.id}

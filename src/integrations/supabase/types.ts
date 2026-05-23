@@ -1558,6 +1558,51 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_email_signups: {
+        Row: {
+          anonymous_session_id: string | null
+          archetype_slug: string | null
+          confirmed: boolean
+          created_at: string
+          email: string
+          id: string
+          source: string
+          unsubscribed_at: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          anonymous_session_id?: string | null
+          archetype_slug?: string | null
+          confirmed?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          source?: string
+          unsubscribed_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          anonymous_session_id?: string | null
+          archetype_slug?: string | null
+          confirmed?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          source?: string
+          unsubscribed_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: []
+      }
       landing_events: {
         Row: {
           anonymous_session_id: string
