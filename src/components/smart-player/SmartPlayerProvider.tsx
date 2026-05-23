@@ -170,6 +170,14 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         });
       }
     });
+    // Absolute-time 30s marker → taste signal (independent of episode length).
+    const key30 = `${id}:taste_30s`;
+    if (currentTime >= 30 && !markedRef.current.has(key30)) {
+      markedRef.current.add(key30);
+      void import("@/lib/tasteInteractions").then(({ recordTasteInteraction }) =>
+        recordTasteInteraction(id, "play_30s", "player"),
+      );
+    }
   }, [currentTime, duration, currentEpisode]);
 
   useEffect(() => {
