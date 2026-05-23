@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import StartSwipePage from "./pages/StartSwipePage.tsx";
+import TePodiverzumodSharePage from "./pages/TePodiverzumodSharePage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import CategoriesPage from "./pages/CategoriesPage.tsx";
 import CategoryDetail from "./pages/CategoryDetail.tsx";
@@ -75,6 +76,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/start" element={<StartSwipePage />} />
           <Route path="/vibe" element={<StartSwipePage />} />
+          <Route path="/te-podiverzumod" element={<StartSwipePage />} />
+          <Route path="/te-podiverzumod/eredmeny/:slug" element={<TePodiverzumodSharePage />} />
           <Route path="/kategoriak" element={<CategoriesPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/kategoria/:slug" element={<CategoryDetail />} />
