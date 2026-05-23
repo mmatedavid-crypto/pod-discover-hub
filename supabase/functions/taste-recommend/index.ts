@@ -55,19 +55,35 @@ Deno.serve(async (req) => {
     const admin = createClient(url, service);
 
     // Load profile (taste vector status + archetype)
+    const { data: profileBefore } = await admin
+      .from("profiles")
+      .select("taste_vec, taste_vec_updated_at, taste_signal_count, archetype_slug, archetype_result")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const signalCount = profileBefore?.taste_signal_count ?? 0;
+    const vecAge = profileBefore?.taste_vec_updated_at
+      ? Date.now() - new Date(profileBefore.taste_vec_updated_at as string).getTime()
+      : Number.POSITIVE_INFINITY;
+    const needsRefresh = signalCount > 0 && (!profileBefore?.taste_vec || vecAge > 5 * 60_000);
+    if (needsRefresh) {
+      const { error: refErr } = await admin.rpc("refresh_user_taste_vec", { p_user: userId });
+      if (refErr) console.error("refresh_user_taste_vec error", refErr);
+    }
+
+    // Re-read taste_vec presence after potential refresh.
     const { data: profile } = await admin
       .from("profiles")
       .select("taste_vec, taste_signal_count, archetype_slug, archetype_result")
       .eq("user_id", userId)
       .maybeSingle();
 
-    const signalCount = profile?.taste_signal_count ?? 0;
     const hasVector = !!profile?.taste_vec;
 
     let episodeIds: string[] = [];
     let mode: "personalized" | "archetype" | "fresh" = "fresh";
 
-    if (hasVector && signalCount >= 0) {
+    if (hasVector) {
       const { data: matches, error: matchErr } = await admin.rpc("match_user_episodes", {
         p_user: userId,
         p_limit: 24,
