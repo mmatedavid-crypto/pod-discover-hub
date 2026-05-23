@@ -13,6 +13,7 @@ import { EpisodeDetailSkeleton } from "@/components/Skeletons";
 import { compareByScore } from "@/lib/episodeRank";
 import { SimilarEpisodes } from "@/components/SimilarEpisodes";
 import { SharePanel } from "@/components/SharePanel";
+import { EpisodeMarks } from "@/components/EpisodeMarks";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { slugify } from "@/lib/slug";
 import { recordVisit } from "@/lib/recentlyPlayed";
