@@ -916,10 +916,12 @@ function ResultView({
       topMoods: topMoodKeys,
       topTopics: topicStars.slice(0, 2).map(s => s.label),
       archetypeName: archetype.name,
+      archetypeId: archetype.id,
       element: element.key,
     }),
-    [seedKey, topMoodKeys, topicStars, archetype.name, element.key],
+    [seedKey, topMoodKeys, topicStars, archetype.name, archetype.id, element.key],
   );
+
   const pdvCode = useMemo(() => buildPdvCode(seedKey), [seedKey]);
 
   // Recommended podcasts: dedupe from recs
