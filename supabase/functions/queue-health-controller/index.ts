@@ -198,8 +198,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      history[r.name] = { p1: pending, p2: p1, updated_at: new Date().toISOString() };
-      results.push({ runner: r.name, pending, p1, p2, wake, stallRuns, action, reason });
+      history[r.name] = { p1: pending, p2: p1, samples, updated_at: new Date().toISOString() } as any;
+      results.push({ runner: r.name, pending, p1, p2, samples, wake, stallRuns, action, reason, suppressed });
     }
 
     await admin.from("app_settings").upsert({
