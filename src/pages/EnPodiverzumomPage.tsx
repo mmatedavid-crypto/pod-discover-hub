@@ -71,14 +71,18 @@ export default function EnPodiverzumomPage() {
               {(profile?.display_name || user.email || "?").charAt(0).toUpperCase()}
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Az én Podiverzumom</div>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight truncate">
-              {profile?.display_name || user.email}
-            </h1>
-            {profile?.username && (
-              <div className="text-sm text-muted-foreground mt-0.5">@{profile.username}</div>
-            )}
+            <EditableDisplayName
+              userId={user.id}
+              displayName={profile?.display_name || null}
+              fallbackEmail={user.email || ""}
+              onSaved={refreshProfile}
+            />
+            <div className="text-sm text-muted-foreground mt-0.5 truncate">
+              {user.email}
+              {profile?.username && <span className="ml-2">· @{profile.username}</span>}
+            </div>
           </div>
         </header>
 
