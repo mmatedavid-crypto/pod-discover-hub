@@ -6,11 +6,6 @@ import { setSeo } from "@/lib/seo";
 import { snapshotUtmFromUrl, trackLandingEvent } from "@/lib/landingEvents";
 
 export default function StartLandingPage() {
-  const [stats, setStats] = useState<{ podcasts: number; episodes: number }>({
-    podcasts: FALLBACK_PODCASTS,
-    episodes: FALLBACK_EPISODES,
-  });
-
   useEffect(() => {
     setSeo({
       title: "Te Podiverzumod — 60 másodperc alatt találd meg, mit hallgass",
@@ -19,17 +14,6 @@ export default function StartLandingPage() {
     });
     snapshotUtmFromUrl();
     trackLandingEvent("LandingViewed");
-
-    // Live, lightweight stats (with cached fallback for instant LCP).
-    (async () => {
-      try {
-        const [{ count: pCount }, { count: eCount }] = await Promise.all([
-          supabase.from("podcasts").select("id", { count: "exact", head: true }).ilike("language", "hu%"),
-          supabase.from("episodes").select("id", { count: "exact", head: true }),
-        ]);
-        if (pCount && eCount) setStats({ podcasts: pCount, episodes: eCount });
-      } catch { /* keep fallback */ }
-    })();
   }, []);
 
   return (
