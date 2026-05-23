@@ -9,7 +9,7 @@ import {
   Vec, zero, mean, sub, scale, add, cosine, coherence, normalize, toPgVector, parsePgVector,
 } from "@/lib/tasteVector";
 import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
-import { renderShareCard, shareOrDownload } from "@/lib/tasteShareCard";
+// (image share-card no longer used here; switched to public share-link flow)
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 import { toast } from "sonner";
 
@@ -914,34 +914,61 @@ function ResultView({
     if (sharing.current) return;
     sharing.current = true;
     try {
-      const blob = await renderShareCard({
-        archetype,
-        interests: topInterests,
-        dna: topicStars.map((s, i) => ({
-          label: s.label,
-          intensity: i === 0 ? "Domináns" : i < 2 ? "Erős" : i < 4 ? "Markáns" : "Színező",
-          strength: 1 - i * 0.14,
-        })),
-        element: { label: element.label, symbol: element.symbol },
-        auraColors: aura.colors,
-      });
-      const result = await shareOrDownload(blob);
-      if (result === "shared") {
-        toast.success("Megosztva — ne felejtsd belinkelni: podiverzum.hu");
-      } else if (result === "downloaded") {
-        toast.success("Kép letöltve", {
-          description: "Töltsd fel Instára / Facebookra. A képen rajta van: podiverzum.hu",
-        });
-      } else if (result === "error") {
-        toast.error("Nem sikerült a megosztás — próbáld újra.");
+      // 1) Create a privacy-safe public share via edge function.
+      //    NO user_id, NO answers, NO confidence — only the public result face.
+      const payload = {
+        result_type: archetype.id,
+        result_title: archetype.name,
+        result_subtitle: `${element.symbol} ${element.label} · ${element.tagline}`,
+        result_description: verdict,
+        tags: topInterests.slice(0, 5),
+        aura_colors: aura.colors.slice(0, 4),
+      };
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/te-podiverzumod-share`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!res.ok) {
+        toast.error("Nem sikerült létrehozni a megosztható linket.");
+        return;
+      }
+      const { url } = (await res.json()) as { url: string; share_id: string };
+
+      const shareTitle = `Én ${archetype.name} lettem a Podiverzumon`;
+      const shareText = "Nézd meg, te milyen hallgató vagy.";
+
+      // 2) Web Share API (mobile-first), with clipboard fallback.
+      const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+      if (typeof nav.share === "function") {
+        try {
+          await nav.share({ title: shareTitle, text: shareText, url });
+          toast.success("Megosztva");
+          return;
+        } catch (err) {
+          // User cancelled — silently ignore
+          if ((err as DOMException)?.name === "AbortError") return;
+          // Fall through to clipboard
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link másolva");
+      } catch {
+        toast.error("Nem sikerült a vágólapra másolás.", { description: url });
       }
     } catch (e) {
       console.error("[share] error", e);
-      toast.error("Hoppá, valami félrement a kép készítésekor.");
+      toast.error("Hoppá, valami félrement.");
     } finally {
       sharing.current = false;
     }
   };
+
 
   if (liked.length === 0) {
     return (
