@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { setSeo } from "@/lib/seo";
+import RecommendedForYou from "@/components/taste/RecommendedForYou";
 
 const MOOD_OPTIONS = [
   "Reggel fókusz",
