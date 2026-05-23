@@ -47,28 +47,13 @@ export default function StartLandingPage() {
           Nincs Meta Pixel · Nincs cookie · Nincs külső tracking
         </p>
 
-        {/* Social proof — live stats */}
-        <div className="mt-10 grid grid-cols-3 gap-3 rounded-2xl border border-border bg-card/60 p-4">
-          <Stat value={fmt(stats.podcasts)} label="magyar podcast" />
-          <Stat value={fmt(stats.episodes)} label="indexelt epizód" />
-          <Stat value="~60s" label="átlagos kvíz" />
-        </div>
-
         {/* Features */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Feature icon={<Zap className="h-5 w-5" />} title="Gyors" body="max. 15 swipe." />
           <Feature icon={<Headphones className="h-5 w-5" />} title="Magyar" body="Csak hazai podcastek." />
           <Feature icon={<Heart className="h-5 w-5" />} title="Személyre szabott" body="A te ízlésed alapján." />
         </div>
 
-        {/* Quote / testimonial */}
-        <figure className="mt-10 rounded-2xl border border-border bg-card p-5">
-          <Quote className="h-5 w-5 text-primary mb-2" />
-          <blockquote className="text-base leading-relaxed">
-            „Végre nem kell 20 percig görgetnem reggel a Spotify-on. Bedobta pont azt, amit hallgatni akartam."
-          </blockquote>
-          <figcaption className="mt-3 text-xs text-muted-foreground">— korai beta-felhasználó</figcaption>
-        </figure>
 
         {/* How it works */}
         <ol className="mt-10 space-y-4 text-sm text-muted-foreground">
