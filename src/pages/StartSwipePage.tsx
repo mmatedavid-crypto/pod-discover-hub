@@ -9,7 +9,7 @@ import {
   Vec, zero, mean, sub, scale, add, cosine, coherence, normalize, toPgVector, parsePgVector,
 } from "@/lib/tasteVector";
 import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
-import { renderShareCard, shareOrDownload } from "@/lib/tasteShareCard";
+// (image share-card no longer used here; switched to public share-link flow)
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 import { toast } from "sonner";
 
