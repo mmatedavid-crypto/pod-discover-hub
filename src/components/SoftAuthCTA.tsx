@@ -3,6 +3,8 @@ import { Sparkles, X, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
+import { toast } from "sonner";
 
 const DISMISS_KEY = "podiverzum_auth_cta_dismissed_v1";
 
