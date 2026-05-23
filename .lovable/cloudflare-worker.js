@@ -17,16 +17,17 @@ const SCANNER_PATH_REGEX =
 
 // Bot UAs that don't execute JS (or benefit from instant HTML)
 const BOT_UA_REGEX =
-  /(GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity-User|Google-Extended|Applebot-Extended|Applebot|Bytespider|Meta-ExternalAgent|Meta-ExternalFetcher|facebookexternalhit|Facebot|DuckAssistBot|CCBot|YouBot|Diffbot|Googlebot|Bingbot|DuckDuckBot|YandexBot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|TelegramBot|Discordbot|SemrushBot|AhrefsBot|MJ12bot|iMessage|LinkPreview|Snapchat|Pinterest|redditbot|Viber|Skype)/i;
+  /(GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity-User|Google-Extended|Applebot-Extended|Applebot|Bytespider|Meta-ExternalAgent|Meta-ExternalFetcher|facebookexternalhit|Facebot|DuckAssistBot|CCBot|YouBot|Diffbot|Googlebot|Bingbot|DuckDuckBot|YandexBot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|TelegramBot|Discordbot|SemrushBot|AhrefsBot|MJ12bot|iMessage|LinkPreview|LinkPreviewBot|Snapchat|Pinterest|redditbot|Viber|Skype|SkypeUriPreview|Instagram|Iframely|Embedly|Tumblr|vkShare|MicroMessenger|Line\/|Yahoo|Mastodon|Threads|Bluesky)/i;
 
 // Only prerender these path patterns (anything else passes through even for bots)
 function isPrerenderablePath(pathname) {
   if (pathname === "/" || pathname === "") return true;
   if (/^\/podcast\/[^\/]+\/?$/.test(pathname)) return true;
   if (/^\/podcast\/[^\/]+\/[^\/]+\/?$/.test(pathname)) return true;
-  if (/^\/category\/[^\/]+\/?$/.test(pathname)) return true;
-  if (/^\/(topic|person|company|ticker|ingredient)\/[^\/]+\/?$/.test(pathname))
+  if (/^\/(category|kategoria)\/[^\/]+\/?$/.test(pathname)) return true;
+  if (/^\/(topic|tema|temak|person|szemely|szemelyek|company|ceg|cegek|szervezetek|partok|ticker|ingredient|hozzavalo)\/[^\/]+\/?$/.test(pathname))
     return true;
+  if (/^\/hangulatok\/[^\/]+\/?$/.test(pathname)) return true;
   if (/^\/te-podiverzumod\/eredmeny\/[^\/]+\/?$/.test(pathname)) return true;
   return false;
 }

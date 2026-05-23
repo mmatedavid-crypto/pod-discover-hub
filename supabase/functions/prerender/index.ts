@@ -740,8 +740,13 @@ ${tagsHtml ? `<section><h2>Címkék</h2><ul>${tagsHtml}</ul></section>` : ""}
 // but pass the original prefix through so canonical/og:url stays HU.
 const HU_TO_EN: Record<string, "topic" | "person" | "company" | "ingredient"> = {
   tema: "topic",
+  temak: "topic",
   szemely: "person",
+  szemelyek: "person",
   ceg: "company",
+  cegek: "company",
+  szervezetek: "company",
+  partok: "company",
   hozzavalo: "ingredient",
 };
 
