@@ -858,6 +858,8 @@ function ResultView({
   onReset: () => void;
   onOpen: (p: string, e: string) => void;
 }) {
+  useEffect(() => { trackLandingEvent("ResultViewed"); }, []);
+  useEffect(() => { trackLandingEvent("RegistrationOffered"); }, []);
   // TODO(ai-copy): behind a future feature flag, swap deterministic copy below with
   // a `personalize-profile` edge function call that uses Lovable AI Gateway.
 
