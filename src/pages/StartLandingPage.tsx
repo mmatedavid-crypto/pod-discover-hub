@@ -1,13 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, Headphones, Zap, Heart, Quote } from "lucide-react";
+import { Sparkles, Headphones, Zap, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { setSeo } from "@/lib/seo";
 import { snapshotUtmFromUrl, trackLandingEvent } from "@/lib/landingEvents";
-import { supabase } from "@/integrations/supabase/client";
-
-const FALLBACK_PODCASTS = 1440;
-const FALLBACK_EPISODES = 135_667;
 
 export default function StartLandingPage() {
   const [stats, setStats] = useState<{ podcasts: number; episodes: number }>({
