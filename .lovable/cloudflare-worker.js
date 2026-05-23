@@ -24,9 +24,10 @@ function isPrerenderablePath(pathname) {
   if (pathname === "/" || pathname === "") return true;
   if (/^\/podcast\/[^\/]+\/?$/.test(pathname)) return true;
   if (/^\/podcast\/[^\/]+\/[^\/]+\/?$/.test(pathname)) return true;
-  if (/^\/category\/[^\/]+\/?$/.test(pathname)) return true;
-  if (/^\/(topic|person|company|ticker|ingredient)\/[^\/]+\/?$/.test(pathname))
+  if (/^\/(category|kategoria)\/[^\/]+\/?$/.test(pathname)) return true;
+  if (/^\/(topic|tema|temak|person|szemely|szemelyek|company|ceg|cegek|szervezetek|partok|ticker|ingredient|hozzavalo)\/[^\/]+\/?$/.test(pathname))
     return true;
+  if (/^\/hangulatok\/[^\/]+\/?$/.test(pathname)) return true;
   if (/^\/te-podiverzumod\/eredmeny\/[^\/]+\/?$/.test(pathname)) return true;
   return false;
 }
