@@ -173,6 +173,7 @@ function ProfilTab({ profile }: { profile: any }) {
   }
   return (
     <div className="space-y-4">
+      <RecommendedForYou />
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">A te archetípusod</div>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight">{archetype.result_title || profile.archetype_slug}</h2>
