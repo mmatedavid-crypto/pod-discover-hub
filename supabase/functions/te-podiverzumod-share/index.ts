@@ -120,8 +120,9 @@ Deno.serve(async (req) => {
       }
       if (!inserted) return json(500, { error: lastErr || "insert failed" });
 
-      const origin = req.headers.get("origin") || "https://podiverzum.hu";
-      const url = `${origin.replace(/\/+$/, "")}/te-podiverzumod/eredmeny/${inserted.share_id}`;
+      // Always use the canonical production domain so shared links work cross-device
+      // and bot prerender (Cloudflare worker) can resolve them. Never use request origin.
+      const url = `https://podiverzum.hu/te-podiverzumod/eredmeny/${inserted.share_id}`;
       return json(200, { share_id: inserted.share_id, url });
     }
 
