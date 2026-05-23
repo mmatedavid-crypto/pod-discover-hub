@@ -10,7 +10,7 @@ export default function StartLandingPage() {
     setSeo({
       title: "Te Podiverzumod — 60 másodperc alatt találd meg, mit hallgass",
       description:
-        "Swipe-old végig a magyar podcasteket, és kapj személyre szabott ajánlót. Cookie-mentes. Regisztráció nem kell.",
+        "Pár swipe alatt felépítjük a te magyar podcast-univerzumod — személyre szabott epizódokkal, megosztható eredménnyel.",
     });
     snapshotUtmFromUrl();
     trackLandingEvent("LandingViewed");
