@@ -27,6 +27,7 @@ function isPrerenderablePath(pathname) {
   if (/^\/category\/[^\/]+\/?$/.test(pathname)) return true;
   if (/^\/(topic|person|company|ticker|ingredient)\/[^\/]+\/?$/.test(pathname))
     return true;
+  if (/^\/te-podiverzumod\/eredmeny\/[^\/]+\/?$/.test(pathname)) return true;
   return false;
 }
 
