@@ -256,7 +256,7 @@ export function SiteHeader() {
               </nav>
             </PopoverContent>
           </Popover>
-          <ThemeToggle />
+          <div className="hidden md:block"><ThemeToggle /></div>
           <UserMenu />
         </div>
       </div>
