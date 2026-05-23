@@ -53,6 +53,16 @@ const BOT_UAS = [
   "embedly",
   "pinterest",
   "redditbot",
+  "instagram",          // Instagram DM / in-app link preview fetcher
+  "iframely",           // Used by several DM/preview services
+  "skypeuripreview",
+  "viber",
+  "snapchat",
+  "tumblr",
+  "vkshare",
+  "applebot",           // iMessage link previews
+  "google-pagerenderer",
+
 ];
 
 function isBot(ua) {
