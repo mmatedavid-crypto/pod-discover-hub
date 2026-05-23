@@ -769,6 +769,10 @@ Deno.serve(async (req) => {
       const r = await buildMoodCollection(supabase, parts[1]);
       return r ?? notFound(path);
     }
+    if (parts[0] === "te-podiverzumod" && parts[1] === "eredmeny" && parts.length === 3) {
+      const r = await buildShare(supabase, parts[2]);
+      return r ?? notFound(path);
+    }
     if (parts.length === 2) {
       const enKind = HU_TO_EN[parts[0]] ??
         (["topic", "person", "company", "ticker", "ingredient"].includes(parts[0])
