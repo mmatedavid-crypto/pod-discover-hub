@@ -4,7 +4,8 @@ import { Helmet } from "react-helmet-async";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import ogImage from "@/assets/te-podiverzumod-og.jpg";
+// Static fallback only — real OG comes from prerender (bots) or dynamic og-image (below).
+import ogFallback from "@/assets/te-podiverzumod-og.jpg";
 
 type PublicShare = {
   share_id: string;
@@ -23,7 +24,17 @@ const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
 const SHARE_FN_URL = `https://${PROJECT_ID}.supabase.co/functions/v1/te-podiverzumod-share`;
 
 const SITE = "https://podiverzum.hu";
-const OG_IMAGE_ABS = `${SITE}${ogImage}`;
+const OG_FALLBACK_ABS = `${SITE}${ogFallback}`;
+
+function buildDynamicOg(share: PublicShare | null): string {
+  if (!share) return OG_FALLBACK_ABS;
+  const params = new URLSearchParams({
+    kind: "share",
+    title: share.result_title || "A Te Podiverzumod",
+    subtitle: share.result_subtitle ? `A TE PODIVERZUMOD · ${share.result_subtitle}` : "A TE PODIVERZUMOD",
+  });
+  return `https://${PROJECT_ID}.supabase.co/functions/v1/og-image?${params.toString()}`;
+}
 
 export default function TePodiverzumodSharePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -60,6 +71,7 @@ export default function TePodiverzumodSharePage() {
   }, [slug]);
 
   const pageUrl = `${SITE}/te-podiverzumod/eredmeny/${slug ?? ""}`;
+  const ogImageUrl = buildDynamicOg(share);
   const ogTitle = share
     ? `Én ${share.result_title} lettem a Podiverzumon`
     : "A Te Podiverzumod — milyen hallgató vagy?";
@@ -77,14 +89,14 @@ export default function TePodiverzumodSharePage() {
         <meta property="og:url" content={pageUrl} />
         <meta property="og:title" content={ogTitle} />
         <meta property="og:description" content={ogDesc} />
-        <meta property="og:image" content={OG_IMAGE_ABS} />
+        <meta property="og:image" content={ogImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:site_name" content="Podiverzum" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={ogTitle} />
         <meta name="twitter:description" content={ogDesc} />
-        <meta name="twitter:image" content={OG_IMAGE_ABS} />
+        <meta name="twitter:image" content={ogImageUrl} />
       </Helmet>
 
       <div className="mx-auto max-w-xl px-4 pt-6 pb-32 md:pt-10">
