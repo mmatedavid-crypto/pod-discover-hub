@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
         const p = podById.get(e.podcast_id);
         return {
           id: e.id,
-          slug: e.episode_slug ?? e.slug,
+          slug: e.slug,
           title: e.display_title || e.title,
           published_at: e.published_at,
           podcast: p
