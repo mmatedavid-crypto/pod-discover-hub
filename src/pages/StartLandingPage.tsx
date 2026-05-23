@@ -1,20 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, Headphones, Zap, Heart, Quote } from "lucide-react";
+import { Sparkles, Headphones, Zap, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { setSeo } from "@/lib/seo";
 import { snapshotUtmFromUrl, trackLandingEvent } from "@/lib/landingEvents";
-import { supabase } from "@/integrations/supabase/client";
-
-const FALLBACK_PODCASTS = 1440;
-const FALLBACK_EPISODES = 135_667;
 
 export default function StartLandingPage() {
-  const [stats, setStats] = useState<{ podcasts: number; episodes: number }>({
-    podcasts: FALLBACK_PODCASTS,
-    episodes: FALLBACK_EPISODES,
-  });
-
   useEffect(() => {
     setSeo({
       title: "Te Podiverzumod — 60 másodperc alatt találd meg, mit hallgass",
@@ -23,17 +14,6 @@ export default function StartLandingPage() {
     });
     snapshotUtmFromUrl();
     trackLandingEvent("LandingViewed");
-
-    // Live, lightweight stats (with cached fallback for instant LCP).
-    (async () => {
-      try {
-        const [{ count: pCount }, { count: eCount }] = await Promise.all([
-          supabase.from("podcasts").select("id", { count: "exact", head: true }).ilike("language", "hu%"),
-          supabase.from("episodes").select("id", { count: "exact", head: true }),
-        ]);
-        if (pCount && eCount) setStats({ podcasts: pCount, episodes: eCount });
-      } catch { /* keep fallback */ }
-    })();
   }, []);
 
   return (
@@ -67,28 +47,13 @@ export default function StartLandingPage() {
           Nincs Meta Pixel · Nincs cookie · Nincs külső tracking
         </p>
 
-        {/* Social proof — live stats */}
-        <div className="mt-10 grid grid-cols-3 gap-3 rounded-2xl border border-border bg-card/60 p-4">
-          <Stat value={fmt(stats.podcasts)} label="magyar podcast" />
-          <Stat value={fmt(stats.episodes)} label="indexelt epizód" />
-          <Stat value="~60s" label="átlagos kvíz" />
-        </div>
-
         {/* Features */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Feature icon={<Zap className="h-5 w-5" />} title="Gyors" body="max. 15 swipe." />
           <Feature icon={<Headphones className="h-5 w-5" />} title="Magyar" body="Csak hazai podcastek." />
           <Feature icon={<Heart className="h-5 w-5" />} title="Személyre szabott" body="A te ízlésed alapján." />
         </div>
 
-        {/* Quote / testimonial */}
-        <figure className="mt-10 rounded-2xl border border-border bg-card p-5">
-          <Quote className="h-5 w-5 text-primary mb-2" />
-          <blockquote className="text-base leading-relaxed">
-            „Végre nem kell 20 percig görgetnem reggel a Spotify-on. Bedobta pont azt, amit hallgatni akartam."
-          </blockquote>
-          <figcaption className="mt-3 text-xs text-muted-foreground">— korai beta-felhasználó</figcaption>
-        </figure>
 
         {/* How it works */}
         <ol className="mt-10 space-y-4 text-sm text-muted-foreground">
@@ -113,18 +78,6 @@ export default function StartLandingPage() {
   );
 }
 
-function fmt(n: number): string {
-  return new Intl.NumberFormat("hu-HU").format(n);
-}
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="text-center">
-      <div className="text-lg md:text-xl font-semibold tabular-nums">{value}</div>
-      <div className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide mt-0.5">{label}</div>
-    </div>
-  );
-}
 
 function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
