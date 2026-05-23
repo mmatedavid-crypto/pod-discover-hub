@@ -12,6 +12,7 @@ import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArche
 // (image share-card no longer used here; switched to public share-link flow)
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 import { toast } from "sonner";
+import { SoftAuthCTA } from "@/components/SoftAuthCTA";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -1109,6 +1110,17 @@ function ResultView({
           </div>
         </div>
       )}
+
+      <SoftAuthCTA
+        archetypeSlug={archetype.id}
+        archetypeResult={{
+          name: archetype.name,
+          element: element.key,
+          aura: aura.essence,
+          topInterests,
+          pdvCode,
+        }}
+      />
 
       <div className="text-center text-xs text-muted-foreground">
         {liked.length} ❤ {superLiked.length > 0 && <>· <span className="text-primary">{superLiked.length} ⭐</span> </>}· {disliked.length} ❌ — a profilod helyben tárolódik
