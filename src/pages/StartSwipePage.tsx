@@ -937,6 +937,7 @@ function ResultView({
   const handleShare = async () => {
     if (sharing.current) return;
     sharing.current = true;
+    trackLandingEvent("ResultShared");
     try {
       // 1) Create a privacy-safe public share via edge function.
       //    NO user_id, NO answers, NO confidence — only the public result face.
