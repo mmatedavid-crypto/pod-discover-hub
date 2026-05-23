@@ -157,23 +157,38 @@ Deno.serve(async (req) => {
         await admin.from("app_settings").upsert({ key: r.controls_key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" });
       }
 
+      // Dedupe: ha az utolsó event ugyanaz az action ÉS < 30 perce, ne logoljunk újra (és ne alertáljunk).
+      let suppressed = false;
       if (action === "pause_stall" || action === "resume" || action === "pause_empty") {
-        await admin.from("queue_health_events").insert({
-          runner: r.name,
-          action,
-          reason,
-          pending_now: pending,
-          pending_prev: p1 ?? null,
-          pending_prev_prev: p2 ?? null,
-          detail: { dry_run: dryRun, wake_threshold: wake, stall_runs: stallRuns, controls_key: r.controls_key },
-        });
+        const { data: lastEv } = await admin
+          .from("queue_health_events")
+          .select("action, created_at")
+          .eq("runner", r.name)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastEv && lastEv.action === action) {
+          const ageMs = Date.now() - new Date(lastEv.created_at).getTime();
+          if (ageMs < 30 * 60 * 1000) suppressed = true;
+        }
+        if (!suppressed) {
+          await admin.from("queue_health_events").insert({
+            runner: r.name,
+            action,
+            reason,
+            pending_now: pending,
+            pending_prev: p1 ?? null,
+            pending_prev_prev: p2 ?? null,
+            detail: { dry_run: dryRun, wake_threshold: wake, stall_runs: stallRuns, controls_key: r.controls_key },
+          });
+        }
       }
 
-      if (action === "pause_stall" || action === "resume") {
+      // Telegram alert csak ÉLES módban + dedup után.
+      if (!dryRun && !suppressed && (action === "pause_stall" || action === "resume")) {
         const icon = action === "pause_stall" ? "🛑" : "▶️";
-        const tag = dryRun ? "[DRY]" : "[LIVE]";
         alerts.push(
-          `${icon} <b>${tag} queue-health: ${r.name}</b>\n<b>Action:</b> ${action}\n${reason}\n` +
+          `${icon} <b>queue-health: ${r.name}</b>\n<b>Action:</b> ${action}\n${reason}\n` +
           `<a href="https://podiverzum.hu/admin/queue-health">Open admin</a>`
         );
       }
