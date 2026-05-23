@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
 
     for (const r of runners) {
       const wake = r.wake_threshold ?? 5;
-      const stallRuns = r.stall_runs ?? 2;
+      const stallRuns = r.stall_runs ?? 5;
 
       const pending = await countPending(admin, r.pending_kind);
       if (pending == null) {
@@ -118,8 +118,13 @@ Deno.serve(async (req) => {
       const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", r.controls_key).maybeSingle();
       const ctrl = (ctrlRow?.value || {}) as any;
       const prev = history[r.name] || {};
-      const p1 = prev.p1;
-      const p2 = prev.p2;
+      const samplesPrev: number[] = Array.isArray((prev as any).samples) ? (prev as any).samples : [];
+      // Backward-compat: ha még nincs samples, hozzuk a régi p1/p2-ből.
+      if (!samplesPrev.length && prev.p1 != null) samplesPrev.push(prev.p1);
+      if (samplesPrev.length < 2 && prev.p2 != null) samplesPrev.push(prev.p2);
+      const samples = [pending, ...samplesPrev].slice(0, Math.max(stallRuns + 1, 3));
+      const p1 = samplesPrev[0];
+      const p2 = samplesPrev[1];
 
       let action: "noop" | "pause_empty" | "resume" | "pause_stall" = "noop";
       let reason = "";
@@ -138,11 +143,11 @@ Deno.serve(async (req) => {
       } else if (
         ctrl.enabled !== false &&
         pending > 0 &&
-        p1 != null && p2 != null &&
-        pending === p1 && p1 === p2
+        samples.length >= stallRuns + 1 &&
+        samples.every((v) => v === pending)
       ) {
         action = "pause_stall";
-        reason = `stall: pending stuck at ${pending} for ${stallRuns + 1} runs`;
+        reason = `stall: pending stuck at ${pending} for ${samples.length} runs (~${(samples.length - 1) * 2} min)`;
       }
 
       if (action !== "noop" && !dryRun) {
@@ -157,29 +162,44 @@ Deno.serve(async (req) => {
         await admin.from("app_settings").upsert({ key: r.controls_key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" });
       }
 
+      // Dedupe: ha az utolsó event ugyanaz az action ÉS < 30 perce, ne logoljunk újra (és ne alertáljunk).
+      let suppressed = false;
       if (action === "pause_stall" || action === "resume" || action === "pause_empty") {
-        await admin.from("queue_health_events").insert({
-          runner: r.name,
-          action,
-          reason,
-          pending_now: pending,
-          pending_prev: p1 ?? null,
-          pending_prev_prev: p2 ?? null,
-          detail: { dry_run: dryRun, wake_threshold: wake, stall_runs: stallRuns, controls_key: r.controls_key },
-        });
+        const { data: lastEv } = await admin
+          .from("queue_health_events")
+          .select("action, created_at")
+          .eq("runner", r.name)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastEv && lastEv.action === action) {
+          const ageMs = Date.now() - new Date(lastEv.created_at).getTime();
+          if (ageMs < 30 * 60 * 1000) suppressed = true;
+        }
+        if (!suppressed) {
+          await admin.from("queue_health_events").insert({
+            runner: r.name,
+            action,
+            reason,
+            pending_now: pending,
+            pending_prev: p1 ?? null,
+            pending_prev_prev: p2 ?? null,
+            detail: { dry_run: dryRun, wake_threshold: wake, stall_runs: stallRuns, controls_key: r.controls_key },
+          });
+        }
       }
 
-      if (action === "pause_stall" || action === "resume") {
+      // Telegram alert csak ÉLES módban + dedup után.
+      if (!dryRun && !suppressed && (action === "pause_stall" || action === "resume")) {
         const icon = action === "pause_stall" ? "🛑" : "▶️";
-        const tag = dryRun ? "[DRY]" : "[LIVE]";
         alerts.push(
-          `${icon} <b>${tag} queue-health: ${r.name}</b>\n<b>Action:</b> ${action}\n${reason}\n` +
+          `${icon} <b>queue-health: ${r.name}</b>\n<b>Action:</b> ${action}\n${reason}\n` +
           `<a href="https://podiverzum.hu/admin/queue-health">Open admin</a>`
         );
       }
 
-      history[r.name] = { p1: pending, p2: p1, updated_at: new Date().toISOString() };
-      results.push({ runner: r.name, pending, p1, p2, wake, stallRuns, action, reason });
+      history[r.name] = { p1: pending, p2: p1, samples, updated_at: new Date().toISOString() } as any;
+      results.push({ runner: r.name, pending, p1, p2, samples, wake, stallRuns, action, reason, suppressed });
     }
 
     await admin.from("app_settings").upsert({
