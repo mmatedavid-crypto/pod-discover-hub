@@ -1111,6 +1111,17 @@ function ResultView({
         </div>
       )}
 
+      <SoftAuthCTA
+        archetypeSlug={archetype.id}
+        archetypeResult={{
+          name: archetype.name,
+          element: element.key,
+          aura: aura.essence,
+          topInterests,
+          pdvCode,
+        }}
+      />
+
       <div className="text-center text-xs text-muted-foreground">
         {liked.length} ❤ {superLiked.length > 0 && <>· <span className="text-primary">{superLiked.length} ⭐</span> </>}· {disliked.length} ❌ — a profilod helyben tárolódik
       </div>
