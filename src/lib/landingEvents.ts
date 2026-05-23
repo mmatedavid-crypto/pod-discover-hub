@@ -108,24 +108,38 @@ function getUtm(): UtmSnapshot {
   return snapshotUtmFromUrl();
 }
 
-/** Track a privacy-safe funnel event. Fire-and-forget. */
+/** Track a privacy-safe funnel event. Fire-and-forget but ACTUALLY executes. */
 export function trackLandingEvent(eventName: LandingEventName, meta: Record<string, unknown> = {}) {
   try {
     const utm = getUtm();
-    void supabase.from("landing_events").insert({
-      anonymous_session_id: getAnonSessionId(),
-      event_name: eventName,
-      utm_source: utm.utm_source,
-      utm_medium: utm.utm_medium,
-      utm_campaign: utm.utm_campaign,
-      utm_content: utm.utm_content,
-      utm_term: utm.utm_term,
-      landing_variant: utm.landing_variant,
-      path: window.location.pathname,
-      referrer_domain: utm.referrer_domain,
-      device_type: deviceType(),
-      meta: meta as never,
-    });
+    // supabase-js PostgrestBuilder is lazy — must call .then() (or await) for
+    // the request to fire. Plain `void builder` previously did NOT execute,
+    // which is why landing_events stayed empty.
+    supabase
+      .from("landing_events")
+      .insert({
+        anonymous_session_id: getAnonSessionId(),
+        event_name: eventName,
+        utm_source: utm.utm_source,
+        utm_medium: utm.utm_medium,
+        utm_campaign: utm.utm_campaign,
+        utm_content: utm.utm_content,
+        utm_term: utm.utm_term,
+        landing_variant: utm.landing_variant,
+        path: window.location.pathname,
+        referrer_domain: utm.referrer_domain,
+        device_type: deviceType(),
+        meta: meta as never,
+      })
+      .then(
+        ({ error }) => {
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.warn("[landingEvents] insert failed", eventName, error.message);
+          }
+        },
+        () => { /* swallow network errors */ },
+      );
   } catch {
     /* analytics must never break the app */
   }
