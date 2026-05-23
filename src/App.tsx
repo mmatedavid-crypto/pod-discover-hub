@@ -60,6 +60,8 @@ import MoodsPage from "./pages/MoodsPage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
 import { SmartPlayerBar } from "./components/smart-player/SmartPlayerBar";
+import EnPodiverzumomPage from "./pages/EnPodiverzumomPage.tsx";
+import PublicProfilePage from "./pages/PublicProfilePage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -152,6 +154,8 @@ const App = () => (
           <Route path="/entitasok" element={<Navigate to="/szervezetek" replace />} />
           <Route path="/cegek" element={<CompaniesHubPage />} />
           <Route path="/partok" element={<PartiesHubPage />} />
+          <Route path="/en-podiverzumom" element={<EnPodiverzumomPage />} />
+          <Route path="/p/:username" element={<PublicProfilePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <SmartPlayerBar />

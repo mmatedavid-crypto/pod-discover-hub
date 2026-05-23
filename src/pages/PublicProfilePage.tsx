@@ -42,7 +42,7 @@ export default function PublicProfilePage() {
       setProfile(data as Profile);
       setSeo({
         title: `${data.display_name || data.username} Podiverzuma`,
-        description: data.archetype_result?.result_description?.slice(0, 160) || "Egy hallgató személyes podcast-profilja a Podiverzumon.",
+        description: (data.archetype_result as any)?.result_description?.slice(0, 160) || "Egy hallgató személyes podcast-profilja a Podiverzumon.",
       });
       const { data: marks } = await supabase
         .from("user_episode_marks")
