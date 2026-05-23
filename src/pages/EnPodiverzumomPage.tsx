@@ -446,8 +446,7 @@ function EditableDisplayName({
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ display_name: trimmed || null })
-      .eq("user_id", userId);
+      .upsert({ user_id: userId, display_name: trimmed || null }, { onConflict: "user_id" });
     setSaving(false);
     if (error) {
       toast.error("Nem sikerült menteni a nevet.");
