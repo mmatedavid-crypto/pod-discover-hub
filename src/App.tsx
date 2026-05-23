@@ -29,6 +29,7 @@ import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
 import AdminAiEnrichmentPage from "./pages/AdminAiEnrichmentPage.tsx";
 import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
 import AdminPipelineWatchdogPage from "./pages/AdminPipelineWatchdogPage.tsx";
+import AdminQueueHealthPage from "./pages/AdminQueueHealthPage.tsx";
 import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
 import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
