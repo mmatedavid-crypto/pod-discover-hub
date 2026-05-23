@@ -105,6 +105,7 @@ const App = () => (
           <Route path="/admin/ai-enrichment" element={<AdminAiEnrichmentPage />} />
           <Route path="/admin/cron-status" element={<AdminCronStatusPage />} />
           <Route path="/admin/pipeline-watchdog" element={<AdminPipelineWatchdogPage />} />
+          <Route path="/admin/queue-health" element={<AdminQueueHealthPage />} />
           <Route path="/admin/social" element={<AdminSocialPostsPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
           <Route path="/admin/pi-backfill" element={<AdminPiBackfillPage />} />
