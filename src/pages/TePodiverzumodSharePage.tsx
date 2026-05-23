@@ -89,14 +89,14 @@ export default function TePodiverzumodSharePage() {
         <meta property="og:url" content={pageUrl} />
         <meta property="og:title" content={ogTitle} />
         <meta property="og:description" content={ogDesc} />
-        <meta property="og:image" content={OG_IMAGE_ABS} />
+        <meta property="og:image" content={ogImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:site_name" content="Podiverzum" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={ogTitle} />
         <meta name="twitter:description" content={ogDesc} />
-        <meta name="twitter:image" content={OG_IMAGE_ABS} />
+        <meta name="twitter:image" content={ogImageUrl} />
       </Helmet>
 
       <div className="mx-auto max-w-xl px-4 pt-6 pb-32 md:pt-10">
