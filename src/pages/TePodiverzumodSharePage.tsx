@@ -4,7 +4,8 @@ import { Helmet } from "react-helmet-async";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import ogImage from "@/assets/te-podiverzumod-og.jpg";
+// Static fallback only — real OG comes from prerender (bots) or dynamic og-image (below).
+import ogFallback from "@/assets/te-podiverzumod-og.jpg";
 
 type PublicShare = {
   share_id: string;
