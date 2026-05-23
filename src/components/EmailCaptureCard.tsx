@@ -10,6 +10,7 @@ const KEY = "pv_email_capture_done";
 
 export function EmailCaptureCard({ archetypeSlug }: { archetypeSlug?: string }) {
   const [email, setEmail] = useState("");
+  const [open, setOpen] = useState(false);
   const [done, setDone] = useState<boolean>(() => {
     try { return sessionStorage.getItem(KEY) === "1"; } catch { return false; }
   });
@@ -17,15 +18,23 @@ export function EmailCaptureCard({ archetypeSlug }: { archetypeSlug?: string }) 
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-5 flex items-start gap-3">
-        <div className="h-8 w-8 rounded-full bg-primary/10 text-primary inline-flex items-center justify-center flex-none">
-          <Check className="h-4 w-4" />
-        </div>
-        <div>
-          <div className="font-medium">Köszi! Bekerültél a heti listára.</div>
-          <div className="text-sm text-muted-foreground mt-1">Heti 3 epizód-ajánlót küldünk, leiratkozás 1 kattintás.</div>
-        </div>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Check className="h-4 w-4 text-primary" />
+        Köszi! Bekerültél a heti listára.
       </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
+      >
+        <Mail className="h-3.5 w-3.5" />
+        Kérek heti ajánlót emailben
+      </button>
     );
   }
 
@@ -53,7 +62,6 @@ export function EmailCaptureCard({ archetypeSlug }: { archetypeSlug?: string }) 
         utm_content: utm.utm_content ?? null,
         archetype_slug: archetypeSlug ?? null,
       });
-      // 23505 = duplicate (already signed up) — treat as success silently
       if (error && error.code !== "23505") {
         toast.error("Nem sikerült feliratkozni. Próbáld újra.");
         setSubmitting(false);
@@ -71,18 +79,7 @@ export function EmailCaptureCard({ archetypeSlug }: { archetypeSlug?: string }) 
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-2xl border border-border bg-card p-5"
-      aria-label="Heti epizód-ajánló feliratkozás"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <Mail className="h-4 w-4 text-primary" />
-        <h3 className="font-medium">Mentsd el a Podiverzumodat</h3>
-      </div>
-      <p className="text-sm text-muted-foreground mb-4">
-        Heti 3 epizód-ajánlót küldünk, pont a te ízlésedhez igazítva. Spam nincs, leiratkozás 1 kattintás.
-      </p>
+    <form onSubmit={handleSubmit} className="space-y-2" aria-label="Heti epizód-ajánló feliratkozás">
       <div className="flex flex-col sm:flex-row gap-2">
         <Input
           type="email"
@@ -93,13 +90,14 @@ export function EmailCaptureCard({ archetypeSlug }: { archetypeSlug?: string }) 
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="flex-1"
+          autoFocus
         />
         <Button type="submit" disabled={submitting}>
           {submitting ? "Küldés…" : "Feliratkozom"}
         </Button>
       </div>
-      <p className="text-[11px] text-muted-foreground mt-3">
-        Az e-mail címedet kizárólag a heti ajánló küldésére használjuk. Cookie-t nem teszünk.
+      <p className="text-[11px] text-muted-foreground">
+        Heti 3 ajánló. Spam nincs, leiratkozás 1 kattintás. Cookie-t nem teszünk.
       </p>
     </form>
   );
