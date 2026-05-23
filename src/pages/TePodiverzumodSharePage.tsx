@@ -70,6 +70,7 @@ export default function TePodiverzumodSharePage() {
     return () => { cancelled = true; };
   }, [slug]);
 
+  const pageUrl = `${SITE}/te-podiverzumod/eredmeny/${slug ?? ""}`;
   const ogImageUrl = buildDynamicOg(share);
   const ogTitle = share
     ? `Én ${share.result_title} lettem a Podiverzumon`
