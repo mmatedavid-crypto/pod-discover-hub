@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/Brand";
 import { setSeo } from "@/lib/seo";
 import { snapshotUtmFromUrl, trackLandingEvent } from "@/lib/landingEvents";
 
@@ -18,8 +19,11 @@ export default function StartLandingPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <header className="mx-auto max-w-xl px-5 pt-5">
+        <BrandMark size={28} />
+      </header>
       {/* ABOVE THE FOLD — mobile-first */}
-      <section className="mx-auto max-w-xl px-5 pt-8 pb-10 md:pt-14">
+      <section className="mx-auto max-w-xl px-5 pt-6 pb-10 md:pt-10">
         <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground mb-5">
           <Sparkles className="h-3.5 w-3.5" /> A Te Podiverzumod
         </div>
