@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
 
     for (const r of runners) {
       const wake = r.wake_threshold ?? 5;
-      const stallRuns = r.stall_runs ?? 2;
+      const stallRuns = r.stall_runs ?? 5;
 
       const pending = await countPending(admin, r.pending_kind);
       if (pending == null) {
