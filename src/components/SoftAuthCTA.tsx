@@ -46,8 +46,12 @@ export function SoftAuthCTA({ archetypeSlug, archetypeResult }: Props) {
     })();
   }, [user, profile?.archetype_slug, archetypeSlug, archetypeResult, refreshProfile]);
 
-  const handleSignIn = () => {
-    // Stash archetype so /belepes can hand it back after redirect
+  const [loading, setLoading] = useState(false);
+
+  const handleSignIn = async () => {
+    if (loading) return;
+    setLoading(true);
+    // Stash archetype so the post-redirect page can persist it to the new profile
     try {
       sessionStorage.setItem("podiverzum_pending_archetype", JSON.stringify({
         slug: archetypeSlug,
@@ -55,7 +59,17 @@ export function SoftAuthCTA({ archetypeSlug, archetypeResult }: Props) {
       }));
     } catch { /* ignore */ }
     import("@/lib/landingEvents").then(({ trackLandingEvent }) => trackLandingEvent("RegistrationStarted")).catch(() => {});
-    nav(`/belepes?redirect=${encodeURIComponent("/en-podiverzumom")}`);
+
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin + "/en-podiverzumom",
+    });
+    if (result.error) {
+      toast.error("Bejelentkezés sikertelen. Próbáld újra.");
+      setLoading(false);
+      return;
+    }
+    if (result.redirected) return; // browser handles redirect
+    nav("/en-podiverzumom", { replace: true });
   };
 
   const handleDismiss = () => {
