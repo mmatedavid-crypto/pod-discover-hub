@@ -31,6 +31,7 @@ import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
 import AdminPipelineWatchdogPage from "./pages/AdminPipelineWatchdogPage.tsx";
 import AdminQueueHealthPage from "./pages/AdminQueueHealthPage.tsx";
 import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
+import AdminEditorialPage from "./pages/AdminEditorialPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
 import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
 import AdminArchiveBackfillPage from "./pages/AdminArchiveBackfillPage.tsx";
@@ -110,6 +111,7 @@ const App = () => (
           <Route path="/admin/pipeline-watchdog" element={<AdminPipelineWatchdogPage />} />
           <Route path="/admin/queue-health" element={<AdminQueueHealthPage />} />
           <Route path="/admin/social" element={<AdminSocialPostsPage />} />
+          <Route path="/admin/editorial" element={<AdminEditorialPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
           <Route path="/admin/pi-backfill" element={<AdminPiBackfillPage />} />
           <Route path="/admin/archive-backfill" element={<AdminArchiveBackfillPage />} />
