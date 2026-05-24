@@ -11,6 +11,7 @@ import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import NewspaperMasthead from "@/components/NewspaperMasthead";
 import DailyEditorials from "@/components/DailyEditorials";
 import DailyStatsStrip from "@/components/DailyStatsStrip";
+import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
 
 type Row = any;
 
@@ -154,8 +155,12 @@ export default function DailyBriefPage() {
       </section>
 
       <div className="container mx-auto py-10 space-y-12">
+        {/* Heti válogatás csík — egy hétig kiemelve */}
+        <WeeklyEditorialStrip />
+
         {/* Stats strip */}
         <DailyStatsStrip />
+
 
 
         {loading && <div className="text-muted-foreground py-10 text-center">A mai válogatás betöltése…</div>}
