@@ -246,7 +246,16 @@ function computeConfidence(liked: Card[], disliked: Card[]): number {
 export default function StartSwipePage() {
   const navigate = useNavigate();
   const [persisted, setPersisted] = useState<Persisted>(() => loadPersisted());
-  const [phase, setPhase] = useState<Phase>("intro");
+  // Skip the redundant intro screen — /start landing already explains the experience.
+  // If the user already has a result (>= confidence threshold reached), jump to result.
+  const initialPhase: Phase = (() => {
+    try {
+      const p = loadPersisted();
+      if (p.likedCardIds.length >= 6 || p.seenCardIds.length >= 10) return "result";
+    } catch { /* ignore */ }
+    return "swipe";
+  })();
+  const [phase, setPhase] = useState<Phase>(initialPhase);
   const [pool, setPool] = useState<Card[] | null>(null);
   const [poolError, setPoolError] = useState<string | null>(null);
   const [current, setCurrent] = useState<Card | null>(null);
