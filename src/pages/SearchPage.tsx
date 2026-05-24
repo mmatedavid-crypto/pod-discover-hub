@@ -87,29 +87,30 @@ export default function SearchPage() {
     }, () => {});
   }, []);
 
-  // Hero person: best person match for the query
+  // Hero person: best person match for the query (accent-insensitive via normalized_name)
   useEffect(() => {
     setHeroPerson(null);
     const phrase = initial.trim();
     if (phrase.length < 3) return;
+    const phraseNorm = phrase.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("people")
-        .select("name,slug,image_url,short_bio,gated_episode_count,is_public")
-        .ilike("name", `%${phrase.replace(/[%_]/g, " ")}%`)
+        .select("name,slug,image_url,short_bio,gated_episode_count,is_public,normalized_name")
+        .ilike("normalized_name", `%${phraseNorm.replace(/[%_]/g, " ")}%`)
         .eq("is_public", true)
         .order("gated_episode_count", { ascending: false, nullsFirst: false })
         .limit(5);
       if (cancelled || !data?.length) return;
-      const pn = phrase.toLowerCase();
-      const best = (data as any[]).find((p) => (p.name || "").toLowerCase() === pn)
-        || (data as any[]).find((p) => (p.name || "").toLowerCase().includes(pn))
+      const best = (data as any[]).find((p) => (p.normalized_name || "") === phraseNorm)
+        || (data as any[]).find((p) => (p.normalized_name || "").includes(phraseNorm))
         || data[0];
       if (best && (best.gated_episode_count ?? 0) >= 1) setHeroPerson(best as any);
     })();
     return () => { cancelled = true; };
   }, [initial]);
+
 
   useEffect(() => {
     setSeo({

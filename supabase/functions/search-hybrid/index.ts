@@ -446,22 +446,30 @@ Deno.serve(async (req) => {
             });
           }
 
-          return new Response(JSON.stringify({
-            episodes,
-            timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
-            confidence_band: episodes.length > 0 ? "high" : "low",
-            person_name_strict: true,
-            person_query: phrase,
-            matched_person_ids: personIds,
-            no_exact_person_match: episodes.length === 0,
-            reason: episodes.length === 0 ? "person_strict_no_match" : "person_strict_match",
-          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          // Only short-circuit when the person has enough directly linked
+          // episodes. Otherwise fall through to the normal FTS/semantic flow
+          // so text-mention episodes (not yet linked via
+          // person_episode_mentions) still surface. Fixes "Szabó Magda"
+          // returning only 2 episodes while FTS has 50+ matches.
+          if (episodes.length >= 10) {
+            return new Response(JSON.stringify({
+              episodes,
+              timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
+              confidence_band: "high",
+              person_name_strict: true,
+              person_query: phrase,
+              matched_person_ids: personIds,
+              reason: "person_strict_match",
+            }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          // else: keep going through normal hybrid flow below.
         } catch (e) {
           console.warn("person-strict gate err, falling through", e);
           // fall through to normal flow on unexpected error
         }
       }
     }
+
 
 
     // 1) Cache lookup
