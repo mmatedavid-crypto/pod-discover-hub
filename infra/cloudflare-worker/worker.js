@@ -98,19 +98,24 @@ export default {
     const url = new URL(request.url);
     const ua = request.headers.get("user-agent") || "";
 
-    // Permanent www -> apex redirect (preserves path + query).
-    // Runs first so no other logic (passthrough, prerender) can downgrade it to 302.
-    if (url.hostname === "www.podiverzum.hu") {
+    // Canonical domain: 301 podiverzum.com / www.podiverzum.com / www.podiverzum.hu → podiverzum.hu
+    // Runs first so duplicate hosts never serve 200 (Google "Alternative page" issue).
+    if (
+      url.hostname === "www.podiverzum.hu" ||
+      url.hostname === "podiverzum.com" ||
+      url.hostname === "www.podiverzum.com"
+    ) {
       const target = `https://podiverzum.hu${url.pathname}${url.search}`;
       return new Response(null, {
         status: 301,
         headers: {
           Location: target,
           "Cache-Control": "public, max-age=86400",
-          "X-Redirect": "www-to-apex-301",
+          "X-Redirect": "canonical-host-301",
         },
       });
     }
+
 
     if (SCANNER_PATH_REGEX.test(url.pathname)) {
       return new Response("Not Found", {
