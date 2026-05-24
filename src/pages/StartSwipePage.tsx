@@ -246,7 +246,16 @@ function computeConfidence(liked: Card[], disliked: Card[]): number {
 export default function StartSwipePage() {
   const navigate = useNavigate();
   const [persisted, setPersisted] = useState<Persisted>(() => loadPersisted());
-  const [phase, setPhase] = useState<Phase>("intro");
+  // Skip the redundant intro screen — /start landing already explains the experience.
+  // If the user already has a result (>= confidence threshold reached), jump to result.
+  const initialPhase: Phase = (() => {
+    try {
+      const p = loadPersisted();
+      if (p.likedCardIds.length >= 6 || p.seenCardIds.length >= 10) return "result";
+    } catch { /* ignore */ }
+    return "swipe";
+  })();
+  const [phase, setPhase] = useState<Phase>(initialPhase);
   const [pool, setPool] = useState<Card[] | null>(null);
   const [poolError, setPoolError] = useState<string | null>(null);
   const [current, setCurrent] = useState<Card | null>(null);
@@ -303,6 +312,15 @@ export default function StartSwipePage() {
       setPool(cards);
     })();
     return () => { cancelled = true; };
+  }, []);
+
+  // Fire SwipeStarted on first mount when starting directly in swipe phase
+  useEffect(() => {
+    if (initialPhase === "swipe") {
+      snapshotUtmFromUrl();
+      trackLandingEvent("SwipeStarted");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Pick first card when entering swipe phase
