@@ -443,6 +443,17 @@ Deno.serve(async (req) => {
   const force = !!body.force;
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
+  // queue-health-controller pause respect.
+  if (!force && personIds.length === 0) {
+    const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "person_bio_generator_controls").maybeSingle();
+    if (ctrlRow?.value && (ctrlRow.value as any).enabled === false) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled_by_controls", auto_paused_reason: (ctrlRow.value as any).auto_paused_reason || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+
   // Daily budget cap — GPT-5.5 bio + GPT-5 audit is pricier than before.
   const budget = Number(body.daily_budget_usd || 15);
   const today = new Date().toISOString().slice(0, 10);

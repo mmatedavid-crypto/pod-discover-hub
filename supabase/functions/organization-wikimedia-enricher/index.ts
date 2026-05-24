@@ -292,6 +292,17 @@ Deno.serve(async (req) => {
   const limit = Math.min(Number(body.limit || 25), 200);
   const orgIds: string[] = Array.isArray(body.organization_ids) ? body.organization_ids : [];
 
+  // queue-health-controller pause respect.
+  if (!body.force && orgIds.length === 0) {
+    const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "organization_wikimedia_enricher_controls").maybeSingle();
+    if (ctrlRow?.value && (ctrlRow.value as any).enabled === false) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled_by_controls", auto_paused_reason: (ctrlRow.value as any).auto_paused_reason || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+
   let ids: string[] = orgIds;
   if (ids.length === 0) {
     const staleCutoff = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
