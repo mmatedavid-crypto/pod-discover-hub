@@ -512,6 +512,75 @@ export type Database = {
           },
         ]
       }
+      editorial_posts: {
+        Row: {
+          ai_model: string | null
+          approved_at: string | null
+          approved_by: string | null
+          card_image_urls: Json | null
+          cover_image_url: string | null
+          created_at: string
+          created_by: string | null
+          fb_caption: string | null
+          generation_meta: Json | null
+          id: string
+          ig_caption: string | null
+          intro: string | null
+          items: Json
+          published_at: string | null
+          status: string
+          title: string | null
+          trigger: string | null
+          updated_at: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          ai_model?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          card_image_urls?: Json | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          fb_caption?: string | null
+          generation_meta?: Json | null
+          id?: string
+          ig_caption?: string | null
+          intro?: string | null
+          items?: Json
+          published_at?: string | null
+          status?: string
+          title?: string | null
+          trigger?: string | null
+          updated_at?: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          ai_model?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          card_image_urls?: Json | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          fb_caption?: string | null
+          generation_meta?: Json | null
+          id?: string
+          ig_caption?: string | null
+          intro?: string | null
+          items?: Json
+          published_at?: string | null
+          status?: string
+          title?: string | null
+          trigger?: string | null
+          updated_at?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
