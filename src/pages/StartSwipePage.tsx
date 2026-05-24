@@ -529,7 +529,18 @@ export default function StartSwipePage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-xl px-4 pt-6 pb-32 md:pt-10">
         <header className="mb-6 flex items-center justify-between">
-          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Vissza</Link>
+          <Link
+            to="/"
+            aria-label="Podiverzum – főoldal"
+            className="group inline-flex items-center gap-2"
+          >
+            <span className="relative inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-md bg-black ring-1 ring-white/10">
+              <img src="/icon-512.png" alt="" width={28} height={28} className="object-contain" />
+            </span>
+            <span className="text-sm font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors">
+              Podiverzum
+            </span>
+          </Link>
           {totalSwipes > 0 && (
             <button
               onClick={resetAll}
