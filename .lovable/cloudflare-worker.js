@@ -58,6 +58,22 @@ export default {
     const ua = request.headers.get("User-Agent") || "";
     const isBot = BOT_UA_REGEX.test(ua);
 
+    // Canonical domain: 301 podiverzum.com / www.podiverzum.com / www.podiverzum.hu → podiverzum.hu
+    // Must run FIRST so duplicate hosts never serve 200 (Google "Alternative page" issue).
+    const host = url.hostname.toLowerCase();
+    if (host === "podiverzum.com" || host === "www.podiverzum.com" || host === "www.podiverzum.hu") {
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: `https://podiverzum.hu${url.pathname}${url.search}`,
+          "Cache-Control": "public, max-age=86400",
+          "X-Worker": "podiverzum-bot-prerender",
+          "X-Redirect": "canonical-host-301",
+        },
+      });
+    }
+
+
     // Hard-404 known scanner paths BEFORE anything else (cheap, no origin hit).
     // Regex is conservative — verified no real app route matches.
     if (SCANNER_PATH_REGEX.test(url.pathname)) {
