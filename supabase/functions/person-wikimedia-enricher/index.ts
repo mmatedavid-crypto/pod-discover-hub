@@ -306,6 +306,18 @@ Deno.serve(async (req) => {
   const limit = Math.min(Number(body.limit || 50), 300);
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
+  // queue-health-controller pause respect (skip when explicitly disabled,
+  // unless caller forces via { force: true } or targets specific IDs).
+  if (!body.force && personIds.length === 0) {
+    const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "person_wikimedia_enricher_controls").maybeSingle();
+    if (ctrlRow?.value && (ctrlRow.value as any).enabled === false) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled_by_controls", auto_paused_reason: (ctrlRow.value as any).auto_paused_reason || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+
   let ids: string[] = personIds;
   if (ids.length === 0) {
     // Priority 1: unchecked / null. Priority 2: stale no_match (>7d) for periodic revisit.
