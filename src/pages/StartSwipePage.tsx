@@ -314,6 +314,15 @@ export default function StartSwipePage() {
     return () => { cancelled = true; };
   }, []);
 
+  // Fire SwipeStarted on first mount when starting directly in swipe phase
+  useEffect(() => {
+    if (initialPhase === "swipe") {
+      snapshotUtmFromUrl();
+      trackLandingEvent("SwipeStarted");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Pick first card when entering swipe phase
   useEffect(() => {
     if (phase !== "swipe" || !pool || current) return;
