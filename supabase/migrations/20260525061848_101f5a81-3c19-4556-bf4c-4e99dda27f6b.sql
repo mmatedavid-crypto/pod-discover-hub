@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = value || jsonb_build_object('enabled', true, 'resumed_at', now()::text) - 'auto_paused_at' - 'auto_paused_by' - 'auto_paused_detail' - 'auto_paused_reason' WHERE key IN ('person_wikimedia_enricher_controls','organization_wikimedia_enricher_controls','person_bio_generator_controls');
