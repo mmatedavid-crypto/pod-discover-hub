@@ -34,7 +34,7 @@ const PREVIEW_SECONDS = 25;
  * Goal: convert FB-driven swipe-share traffic into real listens BEFORE they bounce.
  * Picks top-ranked fresh HU episodes; if `tags` provided, re-ranks by topic overlap.
  */
-export function ShareRecommendedEpisodes({ tags, shareId }: Props) {
+export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }: Props) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
