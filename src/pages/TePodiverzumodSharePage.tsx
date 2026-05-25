@@ -136,9 +136,13 @@ export default function TePodiverzumodSharePage() {
           <ResultCard share={share} />
         )}
 
+        {!loading && !error && (
+          <ShareRecommendedEpisodes tags={share?.tags} shareId={share?.share_id ?? slug ?? null} />
+        )}
+
         {!loading && (
           <div className="mt-10 rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-6 text-center md:p-8">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-primary">CTA</div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-primary">Te is</div>
             <h2 className="mt-2 text-2xl font-semibold md:text-3xl">
               Nézd meg, te milyen hallgató vagy
             </h2>
