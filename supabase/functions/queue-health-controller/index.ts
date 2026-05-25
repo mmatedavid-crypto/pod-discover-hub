@@ -136,10 +136,15 @@ Deno.serve(async (req) => {
         pending >= wake &&
         ctrl.enabled === false &&
         ctrl.auto_paused_by === "queue-health-controller" &&
-        ctrl.auto_paused_reason === "queue_empty"
+        (ctrl.auto_paused_reason === "queue_empty" ||
+          // Resume-from-stall: csak akkor, ha a pending már mozog (nem ragad ugyanazon az értéken),
+          // így nem ragad be véglegesen egy false-positive stall miatt.
+          (ctrl.auto_paused_reason === "stall_detected" &&
+            samplesPrev.length > 0 &&
+            !samplesPrev.every((v) => v === pending)))
       ) {
         action = "resume";
-        reason = `pending=${pending} ≥ wake_threshold=${wake} → resume`;
+        reason = `pending=${pending} ≥ wake_threshold=${wake} (prev_reason=${ctrl.auto_paused_reason}) → resume`;
       } else if (
         ctrl.enabled !== false &&
         pending > 0 &&
