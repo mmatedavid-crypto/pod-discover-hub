@@ -136,18 +136,54 @@ Deno.serve(async (req) => {
         }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
         const toolName = isPodcast ? "podcast_seo" : "episode_seo";
-        const ai = await callAI(model, [
+        let ai = await callAI(model, [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: prompt },
         ], [tool], toolName, job.target_id, job.kind);
-        const usage = ai.usage || {};
-        const inTok = Number(usage.prompt_tokens || 0);
-        const outTok = Number(usage.completion_tokens || 0) + Number(usage.completion_tokens_details?.reasoning_tokens || 0);
-        const cost = chatTokenCostUsd(model, inTok, outTok);
+        let usage = ai.usage || {};
+        let inTok = Number(usage.prompt_tokens || 0);
+        let outTok = Number(usage.completion_tokens || 0) + Number(usage.completion_tokens_details?.reasoning_tokens || 0);
+        let cost = chatTokenCostUsd(model, inTok, outTok);
 
-        const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-        const parsed = args ? JSON.parse(args) : null;
+        let args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        let parsed = args ? JSON.parse(args) : null;
         if (!parsed) throw new Error("no_tool_call");
+
+        // HU language guard: when the source is Hungarian but the model leaked English
+        // (sometimes happens with flash-lite), retry once with explicit Hungarian reinforcement.
+        // Looks at podcast.language (episodes inherit). If still not Hungarian after retry,
+        // we fail the job (don't write English output to the DB).
+        {
+          const srcLang = String(
+            isPodcast
+              ? ((await admin.from("podcasts").select("language").eq("id", job.target_id).maybeSingle()).data?.language || "")
+              : ((await admin.from("episodes").select("podcasts!inner(language)").eq("id", job.target_id).maybeSingle()).data as any)?.podcasts?.language || "",
+          ).toLowerCase();
+          if (srcLang.startsWith("hu")) {
+            const sample = `${parsed.seo_title || ""} ${parsed.seo_description || ""} ${parsed.ai_summary || ""}`.trim();
+            if (sample.length >= 20 && !isHungarianish(sample)) {
+              console.warn("seo-enrich: non-HU output on HU source, retrying", { target_id: job.target_id, kind: job.kind, sample: sample.slice(0, 100) });
+              ai = await callAI(model, [
+                { role: "system", content: SYSTEM_PROMPT + "\n" + HU_REINFORCE },
+                { role: "user", content: prompt },
+                { role: "assistant", content: `Korábbi (rossz) válaszom angolul készült: "${sample.slice(0, 200)}". Bocsánat, most magyarul írom.` },
+                { role: "user", content: HU_REINFORCE },
+              ], [tool], toolName, job.target_id, job.kind);
+              usage = ai.usage || {};
+              inTok += Number(usage.prompt_tokens || 0);
+              outTok += Number(usage.completion_tokens || 0) + Number(usage.completion_tokens_details?.reasoning_tokens || 0);
+              cost = chatTokenCostUsd(model, inTok, outTok);
+              args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+              const reparsed = args ? JSON.parse(args) : null;
+              if (!reparsed) throw new Error("hu_retry_no_tool_call");
+              const sample2 = `${reparsed.seo_title || ""} ${reparsed.seo_description || ""} ${reparsed.ai_summary || ""}`.trim();
+              if (!isHungarianish(sample2)) {
+                throw new Error("hu_language_guard_failed");
+              }
+              parsed = reparsed;
+            }
+          }
+        }
 
         const trim = (s: string, max: number) => {
           s = s.replace(/\s+/g, " ").trim();
