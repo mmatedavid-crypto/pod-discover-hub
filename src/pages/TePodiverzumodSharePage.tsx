@@ -132,12 +132,14 @@ export default function TePodiverzumodSharePage() {
           </div>
         )}
 
-        {!loading && share && (
-          <ResultCard share={share} />
+        {!loading && !error && (
+          <ShareRecommendedEpisodes tags={share?.tags} shareId={share?.share_id ?? slug ?? null} autoplayTop />
         )}
 
-        {!loading && !error && (
-          <ShareRecommendedEpisodes tags={share?.tags} shareId={share?.share_id ?? slug ?? null} />
+        {!loading && share && (
+          <div className="mt-10">
+            <ResultCard share={share} />
+          </div>
         )}
 
         {!loading && (

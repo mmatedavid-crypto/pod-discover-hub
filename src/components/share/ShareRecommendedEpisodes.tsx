@@ -23,16 +23,18 @@ type Row = {
 type Props = {
   tags?: string[];
   shareId?: string | null;
+  autoplayTop?: boolean;
 };
 
 const LIMIT = 3;
+const PREVIEW_SECONDS = 25;
 
 /**
  * Recommended episodes shown on the public share page.
  * Goal: convert FB-driven swipe-share traffic into real listens BEFORE they bounce.
  * Picks top-ranked fresh HU episodes; if `tags` provided, re-ranks by topic overlap.
  */
-export function ShareRecommendedEpisodes({ tags, shareId }: Props) {
+export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }: Props) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -81,6 +83,50 @@ export function ShareRecommendedEpisodes({ tags, shareId }: Props) {
     };
   }, []);
 
+  const startPlayback = (ep: Row) => {
+    if (!ep.audio_url) return;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    const a = new Audio(ep.audio_url);
+    a.preload = "none";
+    audioRef.current = a;
+    const stopAsComplete = () => {
+      a.pause();
+      setPlayingId(null);
+      logPlayerEvent({
+        eventType: "play_complete",
+        episodeId: ep.episode_id,
+        podcastId: ep.podcast_id,
+        meta: { source: "share_recommendations", share_id: shareId ?? null, preview_capped: true },
+      });
+    };
+    a.ontimeupdate = () => {
+      if (a.currentTime >= PREVIEW_SECONDS) stopAsComplete();
+    };
+    a.onended = () => {
+      setPlayingId(null);
+      logPlayerEvent({
+        eventType: "play_complete",
+        episodeId: ep.episode_id,
+        podcastId: ep.podcast_id,
+        meta: { source: "share_recommendations", share_id: shareId ?? null },
+      });
+    };
+    a.play().then(() => {
+      setPlayingId(ep.episode_id);
+      logPlayerEvent({
+        eventType: "play_start",
+        episodeId: ep.episode_id,
+        podcastId: ep.podcast_id,
+        meta: { source: "share_recommendations", share_id: shareId ?? null },
+      });
+    }).catch(() => {
+      setPlayingId(null);
+    });
+  };
+
   const togglePlay = (ep: Row) => {
     if (!ep.audio_url) return;
     if (playingId === ep.episode_id && audioRef.current) {
@@ -94,34 +140,18 @@ export function ShareRecommendedEpisodes({ tags, shareId }: Props) {
       setPlayingId(null);
       return;
     }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    const a = new Audio(ep.audio_url);
-    a.preload = "none";
-    audioRef.current = a;
-    a.play().then(() => {
-      setPlayingId(ep.episode_id);
-      logPlayerEvent({
-        eventType: "play_start",
-        episodeId: ep.episode_id,
-        podcastId: ep.podcast_id,
-        meta: { source: "share_recommendations", share_id: shareId ?? null },
-      });
-    }).catch(() => {
-      setPlayingId(null);
-    });
-    a.onended = () => {
-      setPlayingId(null);
-      logPlayerEvent({
-        eventType: "play_complete",
-        episodeId: ep.episode_id,
-        podcastId: ep.podcast_id,
-        meta: { source: "share_recommendations", share_id: shareId ?? null },
-      });
-    };
+    startPlayback(ep);
   };
+
+  // Autoplay top recommendation as an audio reward (best-effort; mobile may block).
+  useEffect(() => {
+    if (!autoplayTop || !rows || rows.length === 0) return;
+    const top = rows[0];
+    if (!top.audio_url) return;
+    const t = window.setTimeout(() => startPlayback(top), 400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoplayTop, rows?.[0]?.episode_id]);
 
   const heading = useMemo(() => {
     return tags && tags.length > 0
@@ -152,15 +182,18 @@ export function ShareRecommendedEpisodes({ tags, shareId }: Props) {
         {heading}
       </h2>
       <ul className="space-y-3">
-        {rows.map((ep) => {
+        {rows.map((ep, idx) => {
           const epHref = `/podcast/${ep.podcast_slug}/${ep.slug}`;
           const isPlaying = playingId === ep.episode_id;
           const title = ep.display_title || ep.title;
           const podcastTitle = ep.podcast_display_title || ep.podcast_title;
+          const isTop = idx === 0;
           return (
             <li
               key={ep.episode_id}
-              className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-primary/40 hover:shadow-sm"
+              className={`group flex items-center gap-3 rounded-2xl border bg-card p-3 transition hover:shadow-sm ${
+                isTop ? "border-primary/50 ring-1 ring-primary/20" : "border-border hover:border-primary/40"
+              }`}
             >
               <button
                 onClick={() => togglePlay(ep)}
@@ -178,6 +211,11 @@ export function ShareRecommendedEpisodes({ tags, shareId }: Props) {
                 </span>
               </button>
               <Link to={epHref} className="min-w-0 flex-1">
+                {isTop && (
+                  <div className="mb-0.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-primary">
+                    {isPlaying ? `Előnézet · ${PREVIEW_SECONDS}s` : "Ízlésed alapján"}
+                  </div>
+                )}
                 <div className="truncate text-[11px] uppercase tracking-wider text-muted-foreground">
                   {podcastTitle}
                 </div>
