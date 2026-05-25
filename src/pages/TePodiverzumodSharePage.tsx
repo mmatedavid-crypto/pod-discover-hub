@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 // Static fallback only — real OG comes from prerender (bots) or dynamic og-image (below).
 import ogFallback from "@/assets/te-podiverzumod-og.jpg";
+import { ShareRecommendedEpisodes } from "@/components/share/ShareRecommendedEpisodes";
 
 type PublicShare = {
   share_id: string;
