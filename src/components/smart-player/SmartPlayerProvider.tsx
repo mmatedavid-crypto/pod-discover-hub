@@ -224,6 +224,12 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         podcastId: ep.podcastId,
         positionSec: a.currentTime,
       });
+      notifyLiveEvent("play_start", {
+        episode_id: ep.id,
+        episode_title: ep.title,
+        podcast_title: ep.podcastTitle,
+        episode_url: typeof window !== "undefined" ? window.location.href : undefined,
+      });
     } else {
       logPlayerEvent({
         eventType: "play_resume",
