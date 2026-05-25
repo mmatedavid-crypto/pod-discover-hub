@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = (value - 'auto_paused_reason') WHERE key IN ('person_wikimedia_enricher_controls','organization_wikimedia_enricher_controls','person_bio_generator_controls') AND value ? 'auto_paused_reason';
