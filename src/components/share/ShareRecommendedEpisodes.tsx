@@ -23,9 +23,11 @@ type Row = {
 type Props = {
   tags?: string[];
   shareId?: string | null;
+  autoplayTop?: boolean;
 };
 
 const LIMIT = 3;
+const PREVIEW_SECONDS = 25;
 
 /**
  * Recommended episodes shown on the public share page.
