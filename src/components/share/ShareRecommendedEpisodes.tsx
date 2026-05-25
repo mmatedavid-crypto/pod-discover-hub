@@ -170,8 +170,8 @@ export function ShareRecommendedEpisodes({ tags, shareId }: Props) {
               >
                 <PodcastCover
                   src={ep.podcast_image_url}
-                  alt={podcastTitle}
-                  className="absolute inset-0 h-full w-full object-cover"
+                  title={podcastTitle}
+                  className="absolute inset-0 h-full w-full"
                 />
                 <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-sm">
                   {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-[1px]" />}
