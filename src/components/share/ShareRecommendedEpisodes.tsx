@@ -182,15 +182,18 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
         {heading}
       </h2>
       <ul className="space-y-3">
-        {rows.map((ep) => {
+        {rows.map((ep, idx) => {
           const epHref = `/podcast/${ep.podcast_slug}/${ep.slug}`;
           const isPlaying = playingId === ep.episode_id;
           const title = ep.display_title || ep.title;
           const podcastTitle = ep.podcast_display_title || ep.podcast_title;
+          const isTop = idx === 0;
           return (
             <li
               key={ep.episode_id}
-              className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-primary/40 hover:shadow-sm"
+              className={`group flex items-center gap-3 rounded-2xl border bg-card p-3 transition hover:shadow-sm ${
+                isTop ? "border-primary/50 ring-1 ring-primary/20" : "border-border hover:border-primary/40"
+              }`}
             >
               <button
                 onClick={() => togglePlay(ep)}
@@ -208,6 +211,11 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
                 </span>
               </button>
               <Link to={epHref} className="min-w-0 flex-1">
+                {isTop && (
+                  <div className="mb-0.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-primary">
+                    {isPlaying ? `Előnézet · ${PREVIEW_SECONDS}s` : "Ízlésed alapján"}
+                  </div>
+                )}
                 <div className="truncate text-[11px] uppercase tracking-wider text-muted-foreground">
                   {podcastTitle}
                 </div>
