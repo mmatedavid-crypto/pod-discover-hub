@@ -323,6 +323,27 @@ export default function StartSwipePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Drop-off telemetry: fire SwipeAbandoned if the user leaves while still in the swipe.
+  const completedRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "swipe") return;
+    const fire = () => {
+      if (completedRef.current) return;
+      const total = persisted.seenCardIds.length;
+      const positives = persisted.likedCardIds.length;
+      if (total === 0) return; // never started swiping
+      trackLandingEvent("SwipeAbandoned", { total, positives });
+      completedRef.current = true; // only fire once
+    };
+    const onVis = () => { if (document.visibilityState === "hidden") fire(); };
+    window.addEventListener("pagehide", fire);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", fire);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [phase, persisted.seenCardIds.length, persisted.likedCardIds.length]);
+
   // Pick first card when entering swipe phase
   useEffect(() => {
     if (phase !== "swipe" || !pool || current) return;
