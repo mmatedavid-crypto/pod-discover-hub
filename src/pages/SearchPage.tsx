@@ -131,6 +131,7 @@ export default function SearchPage() {
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
+    notifyLiveEvent("search_submit", { q: initial });
 
     setLoading(true);
     let cancelled = false;
