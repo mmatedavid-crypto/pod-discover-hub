@@ -323,6 +323,27 @@ export default function StartSwipePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Drop-off telemetry: fire SwipeAbandoned if the user leaves while still in the swipe.
+  const completedRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "swipe") return;
+    const fire = () => {
+      if (completedRef.current) return;
+      const total = persisted.seenCardIds.length;
+      const positives = persisted.likedCardIds.length;
+      if (total === 0) return; // never started swiping
+      trackLandingEvent("SwipeAbandoned", { total, positives });
+      completedRef.current = true; // only fire once
+    };
+    const onVis = () => { if (document.visibilityState === "hidden") fire(); };
+    window.addEventListener("pagehide", fire);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", fire);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [phase, persisted.seenCardIds.length, persisted.likedCardIds.length]);
+
   // Pick first card when entering swipe phase
   useEffect(() => {
     if (phase !== "swipe" || !pool || current) return;
@@ -488,8 +509,14 @@ export default function StartSwipePage() {
     const total = next.seenCardIds.length;
     const positives = next.likedCardIds.length;
 
+    // Drop-off telemetry — fire at fixed milestones so we can see WHERE users quit.
+    if ([3, 5, 8, 10, 15, 20].includes(total)) {
+      trackLandingEvent("SwipeProgress", { total, positives, action });
+    }
+
     if (shouldStop(total, positives, newConf)) {
       setCurrent(null);
+      completedRef.current = true;
       trackLandingEvent("SwipeCompleted", { total, positives });
       setPhase("result");
       return;
@@ -499,6 +526,7 @@ export default function StartSwipePage() {
     const seen = new Set(next.seenCardIds);
     const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total);
     if (!nextCard) {
+      completedRef.current = true;
       trackLandingEvent("SwipeCompleted", { total, positives, reason: "pool_exhausted" });
       setPhase("result");
       setCurrent(null);
