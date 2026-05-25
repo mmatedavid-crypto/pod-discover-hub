@@ -1026,6 +1026,11 @@ function ResultView({
         return;
       }
       const { url } = (await res.json()) as { url: string; share_id: string };
+      notifyLiveEvent("swipe_complete", {
+        archetype: archetype.name,
+        result_title: archetype.name,
+        share_url: url,
+      });
 
       const shareTitle = `Én ${archetype.name} lettem a Podiverzumon`;
       const shareText = "Nézd meg, te milyen hallgató vagy.";
