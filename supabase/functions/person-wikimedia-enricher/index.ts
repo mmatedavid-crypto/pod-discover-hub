@@ -320,23 +320,59 @@ Deno.serve(async (req) => {
 
   let ids: string[] = personIds;
   if (ids.length === 0) {
-    // Priority 1: unchecked / null. Priority 2: stale no_match (>7d) for periodic revisit.
+    // Bug fix: az .or() nested and() + ISO timestamp + nested .in() kombináció némán
+    // hibázik a Supabase JS-ben (URL parser :/+ karakterekkel). Bontsuk fel külön query-kre.
     const staleCutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-    const { data } = await admin
-      .from("people")
-      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status, wiki_match_run_at, activation_status, ai_recommended_action, ai_review_status")
-      .eq("is_public", true)
-      .in("activation_status", ["indexable","manual_approved","public_noindex"])
-      .or(`wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null,and(wikipedia_match_status.eq.no_match,wiki_match_run_at.lt.${staleCutoff}),and(wikipedia_match_status.eq.verified,image_url.is.null,image_status.in.(none,failed,unchecked))`)
+    const baseSelect = "id, episode_count, podcast_count, strong_mention_count, latest_episode_at, wikipedia_match_status, wiki_match_run_at, activation_status, ai_recommended_action, ai_review_status, image_url, image_status";
+    const applyOrder = (q: any) => q
       .order("episode_count", { ascending: false })
       .order("podcast_count", { ascending: false })
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
       .limit(limit * 2);
-    const filtered = (data || []).filter((r: any) =>
+
+    const { data: uncheckedRows, error: uncheckedErr } = await applyOrder(
+      admin.from("people").select(baseSelect)
+        .eq("is_public", true)
+        .in("activation_status", ["indexable","manual_approved","public_noindex"])
+        .or("wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null")
+    );
+    if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
+
+    let combined: any[] = uncheckedRows || [];
+
+    if (combined.length < limit) {
+      const { data: staleRows } = await applyOrder(
+        admin.from("people").select(baseSelect)
+          .eq("is_public", true)
+          .in("activation_status", ["indexable","manual_approved","public_noindex"])
+          .eq("wikipedia_match_status", "no_match")
+          .lt("wiki_match_run_at", staleCutoff)
+      );
+      combined = combined.concat(staleRows || []);
+    }
+
+    if (combined.length < limit) {
+      const { data: imageRows } = await applyOrder(
+        admin.from("people").select(baseSelect)
+          .eq("is_public", true)
+          .in("activation_status", ["indexable","manual_approved","public_noindex"])
+          .eq("wikipedia_match_status", "verified")
+          .is("image_url", null)
+          .in("image_status", ["none","failed","unchecked"])
+      );
+      combined = combined.concat(imageRows || []);
+    }
+
+    // Dedupe by id (preserve priority order)
+    const seen = new Set<string>();
+    const deduped = combined.filter((r: any) => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+
+    const filtered = deduped.filter((r: any) =>
       !["hide","reject","merge"].includes(r.ai_recommended_action || "") &&
       !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
     ).slice(0, limit);
     ids = filtered.map((r: any) => r.id);
+    console.log(`[person-wiki] candidates: unchecked=${uncheckedRows?.length || 0} combined=${combined.length} processing=${ids.length}`);
   }
 
   const results: any[] = [];
