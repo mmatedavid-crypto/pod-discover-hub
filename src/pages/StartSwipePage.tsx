@@ -488,8 +488,14 @@ export default function StartSwipePage() {
     const total = next.seenCardIds.length;
     const positives = next.likedCardIds.length;
 
+    // Drop-off telemetry — fire at fixed milestones so we can see WHERE users quit.
+    if ([3, 5, 8, 10, 15, 20].includes(total)) {
+      trackLandingEvent("SwipeProgress", { total, positives, action });
+    }
+
     if (shouldStop(total, positives, newConf)) {
       setCurrent(null);
+      completedRef.current = true;
       trackLandingEvent("SwipeCompleted", { total, positives });
       setPhase("result");
       return;
@@ -499,6 +505,7 @@ export default function StartSwipePage() {
     const seen = new Set(next.seenCardIds);
     const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total);
     if (!nextCard) {
+      completedRef.current = true;
       trackLandingEvent("SwipeCompleted", { total, positives, reason: "pool_exhausted" });
       setPhase("result");
       setCurrent(null);
