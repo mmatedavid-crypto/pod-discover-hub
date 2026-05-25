@@ -83,6 +83,50 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
     };
   }, []);
 
+  const startPlayback = (ep: Row) => {
+    if (!ep.audio_url) return;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    const a = new Audio(ep.audio_url);
+    a.preload = "none";
+    audioRef.current = a;
+    const stopAsComplete = () => {
+      a.pause();
+      setPlayingId(null);
+      logPlayerEvent({
+        eventType: "play_complete",
+        episodeId: ep.episode_id,
+        podcastId: ep.podcast_id,
+        meta: { source: "share_recommendations", share_id: shareId ?? null, preview_capped: true },
+      });
+    };
+    a.ontimeupdate = () => {
+      if (a.currentTime >= PREVIEW_SECONDS) stopAsComplete();
+    };
+    a.onended = () => {
+      setPlayingId(null);
+      logPlayerEvent({
+        eventType: "play_complete",
+        episodeId: ep.episode_id,
+        podcastId: ep.podcast_id,
+        meta: { source: "share_recommendations", share_id: shareId ?? null },
+      });
+    };
+    a.play().then(() => {
+      setPlayingId(ep.episode_id);
+      logPlayerEvent({
+        eventType: "play_start",
+        episodeId: ep.episode_id,
+        podcastId: ep.podcast_id,
+        meta: { source: "share_recommendations", share_id: shareId ?? null },
+      });
+    }).catch(() => {
+      setPlayingId(null);
+    });
+  };
+
   const togglePlay = (ep: Row) => {
     if (!ep.audio_url) return;
     if (playingId === ep.episode_id && audioRef.current) {
@@ -96,34 +140,18 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
       setPlayingId(null);
       return;
     }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    const a = new Audio(ep.audio_url);
-    a.preload = "none";
-    audioRef.current = a;
-    a.play().then(() => {
-      setPlayingId(ep.episode_id);
-      logPlayerEvent({
-        eventType: "play_start",
-        episodeId: ep.episode_id,
-        podcastId: ep.podcast_id,
-        meta: { source: "share_recommendations", share_id: shareId ?? null },
-      });
-    }).catch(() => {
-      setPlayingId(null);
-    });
-    a.onended = () => {
-      setPlayingId(null);
-      logPlayerEvent({
-        eventType: "play_complete",
-        episodeId: ep.episode_id,
-        podcastId: ep.podcast_id,
-        meta: { source: "share_recommendations", share_id: shareId ?? null },
-      });
-    };
+    startPlayback(ep);
   };
+
+  // Autoplay top recommendation as an audio reward (best-effort; mobile may block).
+  useEffect(() => {
+    if (!autoplayTop || !rows || rows.length === 0) return;
+    const top = rows[0];
+    if (!top.audio_url) return;
+    const t = window.setTimeout(() => startPlayback(top), 400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoplayTop, rows?.[0]?.episode_id]);
 
   const heading = useMemo(() => {
     return tags && tags.length > 0
