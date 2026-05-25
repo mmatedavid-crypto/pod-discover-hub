@@ -53,33 +53,90 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         setProfile(null);
       }
 
-      // Pull recent candidates: select both `people` and `mentioned` arrays so we
-      // can distinguish speakers from talked-about persons.
       const selectCols = `id,title,slug,published_at,summary,description,audio_url,topics,people,mentioned,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured)`;
-      const { data: cand } = await supabase
-        .from("episodes")
-        .select(selectCols)
-        .or(kind === "person" ? `${col}.not.is.null,mentioned.not.is.null` : `${col}.not.is.null`)
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .limit(800);
 
-      const speakerMatches: any[] = [];
-      const mentionedMatches: any[] = [];
+      let speakerMatches: any[] = [];
+      let mentionedMatches: any[] = [];
       let exemplar = prof?.display_name || decoded;
-      (cand || []).forEach((e: any) => {
-        const peopleArr: string[] = e[col] || [];
-        const hitPeople = peopleArr.find((v) => matchesEntitySlug(kind, v, decoded));
-        const mentionedArr: string[] = kind === "person" ? (e.mentioned || []) : [];
-        const hitMentioned = mentionedArr.find((v) => matchesEntitySlug(kind, v, decoded));
-        if (hitPeople) {
-          speakerMatches.push(e);
-          if (exemplar === decoded) exemplar = hitPeople;
-        } else if (hitMentioned) {
-          // Only push to mentioned bucket if NOT already a speaker — speaker wins.
-          mentionedMatches.push(e);
-          if (exemplar === decoded) exemplar = hitMentioned;
+
+      if (kind === "company") {
+        // NEW PATH: resolve organization by slug, then fetch episodes via the
+        // canonical episode_organization_map join. The legacy flat `companies`
+        // array only covers the most-recent ~800 episodes, which silently hid
+        // every older mention (e.g. NASA → 137 episodes but all old).
+        const { data: org } = await supabase
+          .from("organizations")
+          .select("id, name, ai_bio, wikipedia_extract, short_description_hu")
+          .eq("slug", decoded)
+          .maybeSingle();
+
+        if (org?.id) {
+          exemplar = org.name || exemplar;
+          const orgBio =
+            (org.ai_bio && String(org.ai_bio).trim()) ||
+            (org.short_description_hu && String(org.short_description_hu).trim()) ||
+            (org.wikipedia_extract && String(org.wikipedia_extract).trim()) ||
+            null;
+          if (orgBio) {
+            prof = { slug: decoded, display_name: org.name, bio: orgBio };
+            setProfile(prof);
+          }
+
+          const { data: mapRows } = await supabase
+            .from("episode_organization_map")
+            .select("episode_id")
+            .eq("organization_id", org.id)
+            .limit(800);
+          const epIds = Array.from(new Set((mapRows || []).map((r: any) => r.episode_id))).filter(Boolean);
+          if (epIds.length) {
+            const { data: epRows } = await supabase
+              .from("episodes")
+              .select(selectCols)
+              .in("id", epIds);
+            speakerMatches = epRows || [];
+          }
+        } else {
+          // Fallback: no canonical org row — fall back to legacy slug match across
+          // the recent companies array so we still try to show something.
+          const { data: cand } = await supabase
+            .from("episodes")
+            .select(selectCols)
+            .not(col, "is", null)
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(800);
+          (cand || []).forEach((e: any) => {
+            const arr: string[] = e[col] || [];
+            const hit = arr.find((v) => matchesEntitySlug(kind, v, decoded));
+            if (hit) {
+              speakerMatches.push(e);
+              if (exemplar === decoded) exemplar = hit;
+            }
+          });
         }
-      });
+      } else {
+        // Legacy path for person / ticker / ingredient — pulls recent candidates
+        // and matches by slug across the relevant text arrays.
+        const { data: cand } = await supabase
+          .from("episodes")
+          .select(selectCols)
+          .or(kind === "person" ? `${col}.not.is.null,mentioned.not.is.null` : `${col}.not.is.null`)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(800);
+        (cand || []).forEach((e: any) => {
+          const peopleArr: string[] = e[col] || [];
+          const hitPeople = peopleArr.find((v) => matchesEntitySlug(kind, v, decoded));
+          const mentionedArr: string[] = kind === "person" ? (e.mentioned || []) : [];
+          const hitMentioned = mentionedArr.find((v) => matchesEntitySlug(kind, v, decoded));
+          if (hitPeople) {
+            speakerMatches.push(e);
+            if (exemplar === decoded) exemplar = hitPeople;
+          } else if (hitMentioned) {
+            mentionedMatches.push(e);
+            if (exemplar === decoded) exemplar = hitMentioned;
+          }
+        });
+      }
+
       const filterVisible = (e: any) => {
         const ps = e.podcasts;
         return ps && ps.rss_status !== "failed" && ps.rss_status !== "inactive";
