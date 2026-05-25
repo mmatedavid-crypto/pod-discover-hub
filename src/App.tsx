@@ -133,39 +133,40 @@ const App = () => (
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />
-          <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />
+          <Route path="/topic/:slug" element={<RedirectWithSlug to="/tema" />} />
           <Route path="/szemely/:slug" element={<RedirectWithSlug to="/szemelyek" />} />
           <Route path="/person/:slug" element={<RedirectWithSlug to="/szemelyek" />} />
           <Route path="/ceg/:slug" element={<EntityPage kind="company" />} />
-          <Route path="/company/:slug" element={<EntityPage kind="company" />} />
+          <Route path="/company/:slug" element={<RedirectWithSlug to="/ceg" />} />
           <Route path="/ticker/:slug" element={<EntityPage kind="ticker" />} />
           <Route path="/hozzavalo/:slug" element={<EntityPage kind="ingredient" />} />
-          <Route path="/ingredient/:slug" element={<EntityPage kind="ingredient" />} />
+          <Route path="/ingredient/:slug" element={<RedirectWithSlug to="/hozzavalo" />} />
           <Route path="/adatvedelem" element={<PrivacyPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/privacy" element={<Navigate to="/adatvedelem" replace />} />
           <Route path="/feltetelek" element={<TermsPage />} />
-          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/terms" element={<Navigate to="/feltetelek" replace />} />
           <Route path="/hangulatok/:slug" element={<MoodCollectionPage />} />
-          <Route path="/moods/:slug" element={<MoodCollectionPage />} />
-          <Route path="/hangulat/:slug" element={<MoodCollectionPage />} />
-          <Route path="/mood/:slug" element={<MoodCollectionPage />} />
+          <Route path="/moods/:slug" element={<RedirectWithSlug to="/hangulatok" />} />
+          <Route path="/hangulat/:slug" element={<RedirectWithSlug to="/hangulatok" />} />
+          <Route path="/mood/:slug" element={<RedirectWithSlug to="/hangulatok" />} />
           
           <Route path="/rolunk" element={<AboutPage />} />
-          <Route path="/about" element={<AboutPage />} />
+          <Route path="/about" element={<Navigate to="/rolunk" replace />} />
           <Route path="/modszertan" element={<MethodologyPage />} />
-          <Route path="/methodology" element={<MethodologyPage />} />
+          <Route path="/methodology" element={<Navigate to="/modszertan" replace />} />
           <Route path="/uj-podcastok" element={<NewPodcastsPage />} />
-          <Route path="/uj" element={<NewPodcastsPage />} />
-          <Route path="/new" element={<NewPodcastsPage />} />
+          <Route path="/uj" element={<Navigate to="/uj-podcastok" replace />} />
+          <Route path="/new" element={<Navigate to="/uj-podcastok" replace />} />
           <Route path="/napi" element={<DailyBriefPage />} />
-          <Route path="/mai-valogatas" element={<DailyBriefPage />} />
-          <Route path="/daily" element={<DailyBriefPage />} />
+          <Route path="/mai-valogatas" element={<Navigate to="/napi" replace />} />
+          <Route path="/daily" element={<Navigate to="/napi" replace />} />
           <Route path="/heti-valogatas" element={<HetiValogatasPage />} />
           <Route path="/heti-valogatas/:weekId" element={<HetiValogatasPage />} />
           <Route path="/kapcsolat" element={<ContactPage />} />
-          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/contact" element={<Navigate to="/kapcsolat" replace />} />
           <Route path="/hangulatok" element={<MoodsPage />} />
-          <Route path="/moods" element={<MoodsPage />} />
+          <Route path="/moods" element={<Navigate to="/hangulatok" replace />} />
+
           <Route path="/temak" element={<TopicsHubPage />} />
           <Route path="/temak/:slug" element={<TopicDetailPage />} />
           <Route path="/szemelyek" element={<PeopleHubPage />} />
