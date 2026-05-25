@@ -9,6 +9,7 @@ import { setSeo } from "@/lib/seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
 import { pushRecentSearch } from "@/lib/recentSearches";
+import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 import { SearchStagedLoader } from "@/components/SearchStagedLoader";
 
 type SortKey = "best" | "newest" | "rank";
@@ -130,6 +131,7 @@ export default function SearchPage() {
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
+    notifyLiveEvent("search_submit", { q: initial });
 
     setLoading(true);
     let cancelled = false;

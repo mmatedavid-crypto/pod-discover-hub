@@ -4,6 +4,7 @@ import { isPlayerPreviewActive } from "@/lib/playerPreview";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getProgress, saveProgress, markPlayCount } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
+import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 
 export type SmartPlayerEpisode = {
   id: string;
@@ -222,6 +223,12 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         episodeId: ep.id,
         podcastId: ep.podcastId,
         positionSec: a.currentTime,
+      });
+      notifyLiveEvent("play_start", {
+        episode_id: ep.id,
+        episode_title: ep.title,
+        podcast_title: ep.podcastTitle,
+        episode_url: typeof window !== "undefined" ? window.location.href : undefined,
       });
     } else {
       logPlayerEvent({

@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { SoftAuthCTA } from "@/components/SoftAuthCTA";
 import { EmailCaptureCard } from "@/components/EmailCaptureCard";
 import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
+import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -1025,6 +1026,11 @@ function ResultView({
         return;
       }
       const { url } = (await res.json()) as { url: string; share_id: string };
+      notifyLiveEvent("swipe_complete", {
+        archetype: archetype.name,
+        result_title: archetype.name,
+        share_url: url,
+      });
 
       const shareTitle = `Én ${archetype.name} lettem a Podiverzumon`;
       const shareText = "Nézd meg, te milyen hallgató vagy.";
