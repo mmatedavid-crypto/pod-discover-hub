@@ -306,19 +306,43 @@ Deno.serve(async (req) => {
   let ids: string[] = orgIds;
   if (ids.length === 0) {
     const staleCutoff = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
-    const { data } = await admin
+    // Bug fix: az .or() nested and() + ISO timestamp kombináció némán hibázik a Supabase JS-ben
+    // (`:` és `+` karakterek). Bontsuk fel két query-re, aztán mergeljünk.
+    const base = admin
       .from("organizations")
       .select("id, gated_episode_count, wikipedia_match_status, wiki_match_run_at, ai_recommended_action, is_podcast_internal")
       .eq("is_public", true)
       .eq("is_podcast_internal", false)
       .gte("gated_episode_count", 1)
-      .or(`wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null,and(wikipedia_match_status.eq.no_match,wiki_match_run_at.lt.${staleCutoff})`)
       .order("gated_episode_count", { ascending: false })
       .limit(limit * 2);
-    const filtered = (data || []).filter((r: any) =>
+
+    const { data: uncheckedRows, error: uncheckedErr } = await base.or(
+      "wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null"
+    );
+    if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
+
+    let combined: any[] = uncheckedRows || [];
+    if (combined.length < limit) {
+      const { data: staleRows, error: staleErr } = await admin
+        .from("organizations")
+        .select("id, gated_episode_count, wikipedia_match_status, wiki_match_run_at, ai_recommended_action, is_podcast_internal")
+        .eq("is_public", true)
+        .eq("is_podcast_internal", false)
+        .gte("gated_episode_count", 1)
+        .eq("wikipedia_match_status", "no_match")
+        .lt("wiki_match_run_at", staleCutoff)
+        .order("gated_episode_count", { ascending: false })
+        .limit(limit * 2);
+      if (staleErr) console.error("stale query error", staleErr);
+      combined = combined.concat(staleRows || []);
+    }
+
+    const filtered = combined.filter((r: any) =>
       !["hide", "reject", "merge"].includes(r.ai_recommended_action || "")
     ).slice(0, limit);
     ids = filtered.map((r: any) => r.id);
+    console.log(`[org-wiki] candidates: unchecked=${uncheckedRows?.length || 0} combined=${combined.length} processing=${ids.length}`);
   }
 
   const results: any[] = [];
