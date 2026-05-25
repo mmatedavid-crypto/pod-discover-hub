@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { SoftAuthCTA } from "@/components/SoftAuthCTA";
 import { EmailCaptureCard } from "@/components/EmailCaptureCard";
 import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
+import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
