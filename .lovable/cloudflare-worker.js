@@ -1,243 +1,226 @@
-// Podiverzum bot prerender Worker
-// - Bot UA detection → fetch from Supabase prerender edge function
-// - Human UA → passthrough to Lovable origin
-// - Cloudflare Cache API: 1h TTL on prerendered responses
-// - Fail-safe: any prerender error or non-2xx → passthrough (never break the site)
+/**
+ * Podiverzum bot prerender Worker
+ * ---------------------------------
+ * - Detects AI/SEO crawler User-Agents
+ * - For matched routes: serves prerendered HTML from Supabase edge fn
+ *   (cached 24h via Cache API)
+ * - Everything else: passthrough to Lovable origin
+ *
+ * Bind this Worker to:  podiverzum.hu/*  and  www.podiverzum.hu/*
+ *
+ * No environment variables required — origin and prerender URL are constants.
+ */
 
 const PRERENDER_ENDPOINT =
   "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/prerender";
-const SUPABASE_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlveGV3a2xheWJvdWd6cG16dmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODAxNDAsImV4cCI6MjA5NDE1NjE0MH0.R5tBT9VgFqWPvd5AYPIb16vJXmB7c116MSMfAuogwv8";
 
-// Known malicious-scanner paths. We return a hard 404 (no body, no SPA shell)
-// so analytics/scanners stop seeing 200s for /wp-admin etc.
-// IMPORTANT: tested against real routes — none of these collide with app routes.
-const SCANNER_PATH_REGEX =
-  /^\/(wp-admin|wp-login|wp-content|wp-includes|wp-json|xmlrpc\.php|\.env|\.git|\.aws|\.ssh|\.docker|\.vscode|\.idea|phpmyadmin|pma|mysql|adminer|config\.php|configuration\.php|\.well-known\/security\.txt$|backup|backups|dump|dumps|\.bak|\.sql|\.zip|\.tar|\.tgz|cgi-bin|cgi|owa|autodiscover|ecp|exchange|boaform|HNAP1|hudson|jenkins|solr|jmx-console|manager\/html|actuator|console|telescope|debug|server-status|server-info|api\/login|api\/v1\/login)(\/|$|\.)/i;
+// Lovable origin host (proxied via Cloudflare). Workers route runs BEFORE
+// the proxy returns, so we just `fetch(request)` to passthrough.
+//
+// Bot UA detection — must be lowercased before matching.
+const BOT_UAS = [
+  // AI crawlers (this is the main reason we're doing this)
+  "gptbot",
+  "oai-searchbot",
+  "chatgpt-user",
+  "claude-web",
+  "claudebot",
+  "anthropic-ai",
+  "perplexitybot",
+  "perplexity-user",
+  "google-extended",
+  "youbot",
+  "ccbot", // Common Crawl, used as training data
+  "cohere-ai",
+  "diffbot",
+  "bytespider",
+  "amazonbot",
+  "applebot-extended",
+  // Classic SEO + social previews (helps when JS isn't executed)
+  "googlebot",
+  "bingbot",
+  "duckduckbot",
+  "yandexbot",
+  "baiduspider",
+  "facebookexternalhit",
+  "facebookbot",
+  "twitterbot",
+  "linkedinbot",
+  "slackbot",
+  "discordbot",
+  "telegrambot",
+  "whatsapp",
+  "embedly",
+  "pinterest",
+  "redditbot",
+  "instagram",          // Instagram DM / in-app link preview fetcher
+  "iframely",           // Used by several DM/preview services
+  "skypeuripreview",
+  "viber",
+  "snapchat",
+  "tumblr",
+  "vkshare",
+  "applebot",           // iMessage link previews
+  "google-pagerenderer",
 
-// Bot UAs that don't execute JS (or benefit from instant HTML)
-const BOT_UA_REGEX =
-  /(GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity-User|Google-Extended|Applebot-Extended|Applebot|Bytespider|Meta-ExternalAgent|Meta-ExternalFetcher|facebookexternalhit|Facebot|DuckAssistBot|CCBot|YouBot|Diffbot|Googlebot|Bingbot|DuckDuckBot|YandexBot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|TelegramBot|Discordbot|SemrushBot|AhrefsBot|MJ12bot|iMessage|LinkPreview|LinkPreviewBot|Snapchat|Pinterest|redditbot|Viber|Skype|SkypeUriPreview|Instagram|Iframely|Embedly|Tumblr|vkShare|MicroMessenger|Line\/|Yahoo|Mastodon|Threads|Bluesky)/i;
+];
 
-// Only prerender these path patterns (anything else passes through even for bots)
-function isPrerenderablePath(pathname) {
+function isBot(ua) {
+  if (!ua) return false;
+  const s = ua.toLowerCase();
+  return BOT_UAS.some((b) => s.includes(b));
+}
+
+// Routes we know how to prerender. Anything else falls back to origin.
+function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
-  if (/^\/podcast\/[^\/]+\/?$/.test(pathname)) return true;
-  if (/^\/podcast\/[^\/]+\/[^\/]+\/?$/.test(pathname)) return true;
-  if (/^\/(category|kategoria)\/[^\/]+\/?$/.test(pathname)) return true;
-  if (/^\/(topic|tema|temak|person|szemely|szemelyek|company|ceg|cegek|szervezetek|partok|ticker|ingredient|hozzavalo)\/[^\/]+\/?$/.test(pathname))
-    return true;
-  if (/^\/hangulatok\/[^\/]+\/?$/.test(pathname)) return true;
-  if (/^\/te-podiverzumod\/eredmeny\/[^\/]+\/?$/.test(pathname)) return true;
+  // /podcast/:slug  or  /podcast/:slug/:episode
+  if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
+  if (/^\/(category|kategoria)\/[^/]+\/?$/.test(pathname)) return true;
+  // Entity routes — EN + HU aliases (topic/tema/temak, person/szemely/szemelyek,
+  // company/ceg/cegek, szervezetek, partok, ticker, ingredient/hozzavalo).
+  // Critical for FB/IG/X share previews.
+  if (/^\/(topic|tema|temak|person|szemely|szemelyek|company|ceg|cegek|szervezetek|partok|ticker|ingredient|hozzavalo)\/[^/]+\/?$/.test(pathname)) return true;
+  // Mood collections (HU-only route)
+  if (/^\/hangulatok\/[^/]+\/?$/.test(pathname)) return true;
+  // Te Podiverzumod megosztott eredmény — FB/IG/X share preview-hoz
+  if (/^\/te-podiverzumod\/eredmeny\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
 
-async function passthrough(request) {
-  const res = await fetch(request);
-  const headers = new Headers(res.headers);
-  headers.set("X-Worker", "podiverzum-bot-prerender");
-  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
-}
 
-async function fetchPrerender(pathname, controller) {
-  const url = `${PRERENDER_ENDPOINT}?path=${encodeURIComponent(pathname)}`;
-  const res = await fetch(url, {
-    headers: {
-      apikey: SUPABASE_ANON,
-      Authorization: `Bearer ${SUPABASE_ANON}`,
-    },
-    signal: controller.signal,
-    cf: { cacheTtl: 0 }, // we manage cache ourselves
-  });
-  return res;
-}
+// Hard-404 these scanner paths regardless of UA. Conservative — no app routes match.
+const SCANNER_PATH_REGEX =
+  /^\/(wp-admin|wp-login|wp-content|wp-includes|wp-json|xmlrpc\.php|\.env|\.git|\.aws|\.ssh|\.docker|\.vscode|\.idea|phpmyadmin|pma|mysql|adminer|config\.php|configuration\.php|backup|backups|dump|dumps|\.bak|\.sql|\.zip|\.tar|\.tgz|cgi-bin|cgi|owa|autodiscover|ecp|exchange|boaform|HNAP1|hudson|jenkins|solr|jmx-console|manager\/html|actuator|console|telescope|debug|server-status|server-info|api\/login|api\/v1\/login)(\/|$|\.)/i;
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const ua = request.headers.get("User-Agent") || "";
-    const isBot = BOT_UA_REGEX.test(ua);
+    const ua = request.headers.get("user-agent") || "";
+
+    // Permanent www -> apex redirect (preserves path + query).
+    // Runs first so no other logic (passthrough, prerender) can downgrade it to 302.
+    // NOTE: podiverzum.com is a SEPARATE English site with its own DB — do NOT redirect it here.
+    if (url.hostname === "www.podiverzum.hu") {
+      const target = `https://podiverzum.hu${url.pathname}${url.search}`;
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: target,
+          "Cache-Control": "public, max-age=86400",
+          "X-Redirect": "www-to-apex-301",
+        },
+      });
+    }
+
+    // Permanent 301 redirects: legacy/EN aliases → canonical HU URL.
+    // Eliminates "duplicate page, Google chose different canonical" in GSC.
+    // NOTE: handles both bots and humans at edge so Google sees real 301s.
+    const ALIAS_REDIRECTS = [
+      [/^\/topic\/([^/]+)\/?$/, "/tema/$1"],
+      [/^\/person\/([^/]+)\/?$/, "/szemelyek/$1"],
+      [/^\/szemely\/([^/]+)\/?$/, "/szemelyek/$1"],
+      [/^\/company\/([^/]+)\/?$/, "/ceg/$1"],
+      [/^\/ingredient\/([^/]+)\/?$/, "/hozzavalo/$1"],
+      [/^\/moods\/([^/]+)\/?$/, "/hangulatok/$1"],
+      [/^\/mood\/([^/]+)\/?$/, "/hangulatok/$1"],
+      [/^\/hangulat\/([^/]+)\/?$/, "/hangulatok/$1"],
+      [/^\/entitasok\/?$/, "/szervezetek"],
+      [/^\/privacy\/?$/, "/adatvedelem"],
+      [/^\/terms\/?$/, "/feltetelek"],
+      [/^\/about\/?$/, "/rolunk"],
+      [/^\/methodology\/?$/, "/modszertan"],
+      [/^\/uj\/?$/, "/uj-podcastok"],
+      [/^\/new\/?$/, "/uj-podcastok"],
+      [/^\/mai-valogatas\/?$/, "/napi"],
+      [/^\/daily\/?$/, "/napi"],
+      [/^\/contact\/?$/, "/kapcsolat"],
+      [/^\/moods\/?$/, "/hangulatok"],
+    ];
+    for (const [re, target] of ALIAS_REDIRECTS) {
+      const m = url.pathname.match(re);
+      if (m) {
+        const dest = target.replace("$1", m[1] || "");
+        return new Response(null, {
+          status: 301,
+          headers: {
+            Location: `https://podiverzum.hu${dest}${url.search}`,
+            "Cache-Control": "public, max-age=86400",
+            "X-Redirect": "alias-to-canonical-301",
+          },
+        });
+      }
+    }
 
 
-
-    // Hard-404 known scanner paths BEFORE anything else (cheap, no origin hit).
-    // Regex is conservative — verified no real app route matches.
     if (SCANNER_PATH_REGEX.test(url.pathname)) {
       return new Response("Not Found", {
         status: 404,
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
           "Cache-Control": "public, max-age=86400",
-          "X-Worker": "podiverzum-bot-prerender",
           "X-Blocked": "scanner-path",
         },
       });
     }
 
-    // Non-GET / non-HEAD: never prerender
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      return passthrough(request);
+    // Only handle GETs from bots on prerenderable paths.
+    if (
+      request.method !== "GET" ||
+      !isBot(ua) ||
+      !shouldPrerender(url.pathname)
+    ) {
+      return fetch(request);
     }
 
-    // Serve our own /robots.txt directly from the Worker so that Cloudflare's
-    // "Managed robots.txt / AI Scrapers and Crawlers" feature cannot inject a
-    // contradictory Disallow block ahead of our policy.
-    if (url.pathname === "/robots.txt") {
-      const body = [
-        "# Podiverzum robots policy (served by edge worker; overrides any CF managed injection)",
-        "",
-        "User-agent: *",
-        "Allow: /",
-        "Disallow: /admin",
-        "Disallow: /admin/",
-        "Disallow: /admin-bootstrap",
-        "Disallow: /growth-status",
-        "Disallow: /auth",
-        "Disallow: /belepes",
-        "",
-        "User-agent: Googlebot",
-        "Allow: /",
-        "",
-        "User-agent: Bingbot",
-        "Allow: /",
-        "",
-        "User-agent: OAI-SearchBot",
-        "Allow: /",
-        "",
-        "User-agent: ChatGPT-User",
-        "Allow: /",
-        "",
-        "User-agent: GPTBot",
-        "Allow: /",
-        "",
-        "User-agent: PerplexityBot",
-        "Allow: /",
-        "",
-        "User-agent: ClaudeBot",
-        "Allow: /",
-        "",
-        "User-agent: Google-Extended",
-        "Allow: /",
-        "",
-        "User-agent: Applebot-Extended",
-        "Allow: /",
-        "",
-        "Sitemap: https://podiverzum.hu/sitemap.xml",
-        "",
-      ].join("\n");
-      return new Response(body, {
-        status: 200,
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "public, max-age=3600",
-          "X-Worker": "podiverzum-bot-prerender",
-          "X-Robots-Source": "worker-inline",
-        },
-      });
-    }
-
-    // Proxy /sitemap.xml and /feed.xml to Supabase edge functions.
-    // /sitemap.xml → dynamic sitemap-index (core + podcasts + per-month episodes)
-    // /feed.xml    → recent-episodes RSS
-    // Both are cached at the edge (1h sitemap, 15m feed) so origin hits are minimal.
-    if (url.pathname === "/sitemap.xml" || url.pathname === "/feed.xml") {
-      const isSitemap = url.pathname === "/sitemap.xml";
-      const upstreamBase = isSitemap
-        ? "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/sitemap"
-        : "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/feed-xml";
-      // Forward query string (sitemap-index child URLs use ?type=...&ym=...&part=...).
-      const upstream = url.search ? `${upstreamBase}${url.search}` : upstreamBase;
-      // v4: bumped after sitemap canonicalization (podiverzum.hu child URLs + HU gate).
-      const cacheKey = new Request(
-        `https://proxy-cache-v4.podiverzum.hu${url.pathname}${url.search}`,
-        { method: "GET" },
-      );
-      const cache = caches.default;
-      const hit = await cache.match(cacheKey);
-      if (hit) {
-        const h = new Headers(hit.headers);
-        h.set("X-Worker", "podiverzum-bot-prerender");
-        h.set("X-Proxy-Cache", "HIT");
-        return new Response(hit.body, { status: hit.status, headers: h });
-      }
-      try {
-        const res = await fetch(upstream, {
-          headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
-          cf: { cacheTtl: 0 },
-        });
-        if (!res.ok) return passthrough(request);
-        const body = await res.text();
-        const ttl = isSitemap ? 3600 : 900;
-        const ct = isSitemap
-          ? "application/xml; charset=utf-8"
-          : "application/rss+xml; charset=utf-8";
-        const headers = new Headers({
-          "Content-Type": ct,
-          "Cache-Control": `public, max-age=${ttl}`,
-          "X-Worker": "podiverzum-bot-prerender",
-          "X-Proxy-Cache": "MISS",
-        });
-        const response = new Response(body, { status: 200, headers });
-        ctx.waitUntil(cache.put(cacheKey, response.clone()));
-        return response;
-      } catch {
-        return passthrough(request);
-      }
-    }
-
-    // Not a bot, or path not prerenderable → straight to origin
-    if (!isBot || !isPrerenderablePath(url.pathname)) {
-      return passthrough(request);
-    }
-
-    // Bot + prerenderable path: try cache → prerender → fallback origin
+    // Cache key: scheme + host + path (ignore query for stability;
+    // we don't prerender per-query variants).
     const cacheKey = new Request(
-      `https://prerender-cache-v3.podiverzum.hu${url.pathname}`,
+      `${url.origin}${url.pathname}`,
       { method: "GET" },
     );
     const cache = caches.default;
 
-    let cached = await cache.match(cacheKey);
-    if (cached) {
-      const headers = new Headers(cached.headers);
-      headers.set("X-Prerender-Cache", "HIT");
-      return new Response(cached.body, {
-        status: cached.status,
-        headers,
+    let resp = await cache.match(cacheKey);
+    if (resp) {
+      return new Response(resp.body, {
+        status: resp.status,
+        headers: new Headers([
+          ...resp.headers,
+          ["X-Prerender-Cache", "HIT"],
+        ]),
       });
     }
 
-    // Cache miss → call prerender with 4s timeout
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-
+    // Fetch from Supabase prerender edge fn.
+    const prerenderUrl = `${PRERENDER_ENDPOINT}?path=${encodeURIComponent(url.pathname)}`;
+    let upstream;
     try {
-      const res = await fetchPrerender(url.pathname, controller);
-      clearTimeout(timeout);
-
-      if (!res.ok) {
-        // 404 / 5xx from prerender → passthrough origin
-        return passthrough(request);
-      }
-
-      const body = await res.text();
-      const headers = new Headers({
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=3600",
-        Vary: "User-Agent",
-        "X-Prerendered": "1",
-        "X-Prerender-Cache": "MISS",
+      upstream = await fetch(prerenderUrl, {
+        cf: { cacheTtl: 0, cacheEverything: false },
+        headers: { "User-Agent": "podiverzum-cf-worker" },
       });
-
-      const response = new Response(body, { status: 200, headers });
-
-      // Cache for 1h (clone before returning)
-      ctx.waitUntil(cache.put(cacheKey, response.clone()));
-      return response;
     } catch (err) {
-      clearTimeout(timeout);
-      // Timeout / network error → passthrough
-      return passthrough(request);
+      // On failure, fall back to origin so the bot still gets *something*.
+      return fetch(request);
     }
+
+    if (!upstream.ok) {
+      // 4xx/5xx from prerender — fall back to origin.
+      return fetch(request);
+    }
+
+    const body = await upstream.text();
+    const headers = new Headers({
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=86400",
+      "X-Prerender-Cache": "MISS",
+      "X-Prerender-UA": ua.slice(0, 80),
+    });
+    resp = new Response(body, { status: upstream.status, headers });
+
+    // Stash in edge cache for next bot hit (24h).
+    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    return resp;
   },
 };

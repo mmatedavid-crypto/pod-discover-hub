@@ -113,6 +113,44 @@ export default {
       });
     }
 
+    // Permanent 301 redirects: legacy/EN aliases → canonical HU URL.
+    // Eliminates "duplicate page, Google chose different canonical" in GSC.
+    // NOTE: handles both bots and humans at edge so Google sees real 301s.
+    const ALIAS_REDIRECTS = [
+      [/^\/topic\/([^/]+)\/?$/, "/tema/$1"],
+      [/^\/person\/([^/]+)\/?$/, "/szemelyek/$1"],
+      [/^\/szemely\/([^/]+)\/?$/, "/szemelyek/$1"],
+      [/^\/company\/([^/]+)\/?$/, "/ceg/$1"],
+      [/^\/ingredient\/([^/]+)\/?$/, "/hozzavalo/$1"],
+      [/^\/moods\/([^/]+)\/?$/, "/hangulatok/$1"],
+      [/^\/mood\/([^/]+)\/?$/, "/hangulatok/$1"],
+      [/^\/hangulat\/([^/]+)\/?$/, "/hangulatok/$1"],
+      [/^\/entitasok\/?$/, "/szervezetek"],
+      [/^\/privacy\/?$/, "/adatvedelem"],
+      [/^\/terms\/?$/, "/feltetelek"],
+      [/^\/about\/?$/, "/rolunk"],
+      [/^\/methodology\/?$/, "/modszertan"],
+      [/^\/uj\/?$/, "/uj-podcastok"],
+      [/^\/new\/?$/, "/uj-podcastok"],
+      [/^\/mai-valogatas\/?$/, "/napi"],
+      [/^\/daily\/?$/, "/napi"],
+      [/^\/contact\/?$/, "/kapcsolat"],
+      [/^\/moods\/?$/, "/hangulatok"],
+    ];
+    for (const [re, target] of ALIAS_REDIRECTS) {
+      const m = url.pathname.match(re);
+      if (m) {
+        const dest = target.replace("$1", m[1] || "");
+        return new Response(null, {
+          status: 301,
+          headers: {
+            Location: `https://podiverzum.hu${dest}${url.search}`,
+            "Cache-Control": "public, max-age=86400",
+            "X-Redirect": "alias-to-canonical-301",
+          },
+        });
+      }
+    }
 
 
     if (SCANNER_PATH_REGEX.test(url.pathname)) {
