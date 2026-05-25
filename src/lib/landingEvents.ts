@@ -8,7 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 export type LandingEventName =
   | "LandingViewed"
   | "SwipeStarted"
+  | "SwipeProgress"
   | "SwipeCompleted"
+  | "SwipeAbandoned"
   | "ResultViewed"
   | "ResultShared"
   | "RegistrationOffered"
