@@ -4,6 +4,7 @@ import { isPlayerPreviewActive } from "@/lib/playerPreview";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getProgress, saveProgress, markPlayCount } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
+import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 
 export type SmartPlayerEpisode = {
   id: string;
