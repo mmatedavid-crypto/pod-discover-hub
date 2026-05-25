@@ -314,12 +314,12 @@ Deno.serve(async (req) => {
       .eq("is_public", true)
       .eq("is_podcast_internal", false)
       .gte("gated_episode_count", 1)
+      // Push ai_recommended_action filter into SQL so we don't waste the limit prefix on hide/reject rows.
+      .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)")
       .order("gated_episode_count", { ascending: false })
       .limit(limit * 2);
 
-    const { data: uncheckedRows, error: uncheckedErr } = await base.or(
-      "wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null"
-    );
+    const { data: uncheckedRows, error: uncheckedErr } = await base.eq("wikipedia_match_status", "unchecked");
     if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
 
     let combined: any[] = uncheckedRows || [];
@@ -330,6 +330,7 @@ Deno.serve(async (req) => {
         .eq("is_public", true)
         .eq("is_podcast_internal", false)
         .gte("gated_episode_count", 1)
+        .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)")
         .eq("wikipedia_match_status", "no_match")
         .lt("wiki_match_run_at", staleCutoff)
         .order("gated_episode_count", { ascending: false })
@@ -343,6 +344,7 @@ Deno.serve(async (req) => {
     ).slice(0, limit);
     ids = filtered.map((r: any) => r.id);
     console.log(`[org-wiki] candidates: unchecked=${uncheckedRows?.length || 0} combined=${combined.length} processing=${ids.length}`);
+
   }
 
   const results: any[] = [];

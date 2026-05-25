@@ -38,18 +38,31 @@ async function countPending(admin: any, kind: string): Promise<number | null> {
         return count ?? 0;
       }
       case "person_wiki_unchecked": {
+        // Align with person-wikimedia-enricher: only actionable rows.
         const { count } = await admin.from("people").select("*", { count: "exact", head: true })
-          .eq("wikipedia_match_status", "unchecked");
+          .eq("wikipedia_match_status", "unchecked")
+          .eq("is_public", true)
+          .gte("gated_episode_count", 1)
+          .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)");
         return count ?? 0;
       }
       case "org_wiki_unchecked": {
+        // Align with organization-wikimedia-enricher: only actionable rows.
         const { count } = await admin.from("organizations").select("*", { count: "exact", head: true })
-          .eq("wikipedia_match_status", "unchecked");
+          .eq("wikipedia_match_status", "unchecked")
+          .eq("is_public", true)
+          .eq("is_podcast_internal", false)
+          .gte("gated_episode_count", 1)
+          .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)");
         return count ?? 0;
       }
       case "person_bio_pending": {
+        // Align with person-bio-generator: only public, gated, non-blocked rows.
         const { count } = await admin.from("people").select("*", { count: "exact", head: true })
-          .eq("ai_bio_status", "pending");
+          .eq("ai_bio_status", "pending")
+          .eq("is_public", true)
+          .gte("gated_episode_count", 1)
+          .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)");
         return count ?? 0;
       }
       case "ai_jobs_pending": {
@@ -66,6 +79,7 @@ async function countPending(admin: any, kind: string): Promise<number | null> {
     return null;
   }
 }
+
 
 async function sendTelegram(text: string): Promise<{ ok: boolean; error?: string }> {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
