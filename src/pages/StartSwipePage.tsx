@@ -1001,71 +1001,154 @@ function ResultView({
     return out;
   }, [recs]);
 
-  const sharing = useRef(false);
+  // Új listener profile (a régi archetype id-ből mappingelve), ez kerül a receiptre.
+  const listenerProfile = useMemo(() => profileForArchetypeId(archetype.id), [archetype.id]);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const receiptNumber = useMemo(
+    () => buildReceiptNumber(shareId || pdvCode || listenerProfile.id),
+    [shareId, pdvCode, listenerProfile.id],
+  );
+  const [busy, setBusy] = useState<null | "share" | "download" | "copy">(null);
+  const [showShareHint, setShowShareHint] = useState(false);
+
+  // Fire `profile_generated` once when the result mounts.
+  useEffect(() => {
+    trackProfileEvent("profile_generated", {
+      archetype_id: listenerProfile.id,
+      source_profile_id: getSourceProfileId(),
+    });
+    // If user came via ?ref=... ez a "second generation" event.
+    if (getSourceProfileId()) {
+      trackProfileEvent("second_generation_from_shared_profile", {
+        archetype_id: listenerProfile.id,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Egyszer hoz létre egy share rekordot — utána cache-elve használjuk. */
+  const ensureShare = async (): Promise<{ url: string; share_id: string } | null> => {
+    if (shareUrl && shareId) return { url: shareUrl, share_id: shareId };
+    const payload = {
+      result_type: listenerProfile.id,
+      result_title: listenerProfile.name,
+      result_subtitle: listenerProfile.recommendedDirection,
+      result_description: `${listenerProfile.name} — ${listenerProfile.traits.join(" · ")}`,
+      tags: listenerProfile.traits,
+      aura_colors: aura.colors.slice(0, 4),
+    };
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/te-podiverzumod-share`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!res.ok) return null;
+    const { url, share_id } = (await res.json()) as { url: string; share_id: string };
+    // Új kanonikus share URL: /hallgatoi-profil/:shareId
+    const canonical = `https://podiverzum.hu/hallgatoi-profil/${share_id}`;
+    setShareUrl(canonical);
+    setShareId(share_id);
+    notifyLiveEvent("swipe_complete", {
+      archetype: listenerProfile.name,
+      result_title: listenerProfile.name,
+      share_url: canonical,
+    });
+    return { url: canonical, share_id };
+  };
+
   const handleShare = async () => {
-    if (sharing.current) return;
-    sharing.current = true;
+    if (busy) return;
+    setBusy("share");
     trackLandingEvent("ResultShared");
+    trackProfileEvent("profile_share_clicked", { archetype_id: listenerProfile.id });
     try {
-      // 1) Create a privacy-safe public share via edge function.
-      //    NO user_id, NO answers, NO confidence — only the public result face.
-      const payload = {
-        result_type: archetype.id,
-        result_title: archetype.name,
-        result_subtitle: `${element.symbol} ${element.label} · ${element.tagline}`,
-        result_description: verdict,
-        tags: topInterests.slice(0, 5),
-        aura_colors: aura.colors.slice(0, 4),
-      };
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/te-podiverzumod-share`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
-      if (!res.ok) {
+      const created = await ensureShare();
+      if (!created) {
         toast.error("Nem sikerült létrehozni a megosztható linket.");
         return;
       }
-      const { url } = (await res.json()) as { url: string; share_id: string };
-      notifyLiveEvent("swipe_complete", {
-        archetype: archetype.name,
-        result_title: archetype.name,
-        share_url: url,
-      });
-
-      const shareTitle = `Én ${archetype.name} lettem a Podiverzumon`;
-      const shareText = "Nézd meg, te milyen hallgató vagy.";
-
-      // 2) Web Share API (mobile-first), with clipboard fallback.
-      const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
-      if (typeof nav.share === "function") {
-        try {
-          await nav.share({ title: shareTitle, text: shareText, url });
-          toast.success("Megosztva");
-          return;
-        } catch (err) {
-          // User cancelled — silently ignore
-          if ((err as DOMException)?.name === "AbortError") return;
-          // Fall through to clipboard
-        }
+      const { url, share_id } = created;
+      if (!receiptRef.current) {
+        toast.error("A profil még tölt, próbáld újra egy másodperc múlva.");
+        return;
       }
-      try {
-        await navigator.clipboard.writeText(url);
+      const blob = await renderReceiptPng(receiptRef.current, "story");
+      const outcome = await shareReceipt({
+        blob,
+        title: `${listenerProfile.name} lettem a Podiverzumon`,
+        text: "Pár döntésből kiderül, milyen podcast-hallgató vagy. Neked mi jön ki?",
+        url,
+      });
+      if (outcome === "shared") {
+        toast.success("Megosztva");
+        setShowShareHint(true);
+      } else if (outcome === "copied") {
         toast.success("Link másolva");
-      } catch {
-        toast.error("Nem sikerült a vágólapra másolás.", { description: url });
+        trackProfileEvent("profile_link_copied", {
+          share_id,
+          archetype_id: listenerProfile.id,
+        });
+        setShowShareHint(true);
+      } else if (outcome === "error") {
+        toast.error("Hoppá, valami félrement.");
       }
     } catch (e) {
       console.error("[share] error", e);
       toast.error("Hoppá, valami félrement.");
     } finally {
-      sharing.current = false;
+      setBusy(null);
     }
   };
+
+  const handleDownload = async () => {
+    if (busy) return;
+    setBusy("download");
+    try {
+      const created = await ensureShare();
+      if (!receiptRef.current) return;
+      const blob = await renderReceiptPng(receiptRef.current, "story");
+      downloadReceipt(blob, `podiverzum-${listenerProfile.id}.png`);
+      trackProfileEvent("profile_image_downloaded", {
+        share_id: created?.share_id ?? null,
+        archetype_id: listenerProfile.id,
+      });
+      toast.success("Kép mentve");
+    } catch {
+      toast.error("Nem sikerült a mentés.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (busy) return;
+    setBusy("copy");
+    try {
+      const created = await ensureShare();
+      if (!created) {
+        toast.error("Nem sikerült létrehozni a linket.");
+        return;
+      }
+      await navigator.clipboard.writeText(created.url);
+      trackProfileEvent("profile_link_copied", {
+        share_id: created.share_id,
+        archetype_id: listenerProfile.id,
+      });
+      toast.success("Link másolva");
+      setShowShareHint(true);
+    } catch {
+      toast.error("Nem sikerült a vágólapra másolás.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
 
 
   if (liked.length === 0) {
