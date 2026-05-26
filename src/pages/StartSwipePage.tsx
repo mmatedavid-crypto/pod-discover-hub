@@ -1263,7 +1263,7 @@ function ResultView({
             {busy === "share" ? "Készítem…" : "Megosztás"}
           </Button>
           <p className="text-center text-[11px] text-muted-foreground">
-            A telefon megosztó ablakából 1 koppintással mehet Instagram Storyba, Facebookra, Messengerbe vagy bárhova.
+            iPhone: koppints a <strong>Megosztás</strong>ra → válaszd az <strong>Instagram</strong>ot vagy a <strong>Mentés képként</strong> opciót. A "Kép" gomb új fülön nyitja meg a képet — ott hosszan nyomd, majd <strong>Hozzáadás a Fotókhoz</strong>.
           </p>
 
           <div className="grid grid-cols-3 gap-2 pt-1">
