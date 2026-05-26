@@ -27,8 +27,12 @@ export default function AuthPage() {
 
   const signInGoogle = async () => {
     setLoading(true);
+    // FONTOS: a Lovable OAuth broker csak a sima origin redirect_uri-t engedi.
+    // A belső célt localStorage-ben adjuk át, és a session listener
+    // route-olja a usert ide a sikeres callback után.
+    try { localStorage.setItem("pv_auth_redirect", redirectTo); } catch { /* ignore */ }
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + redirectTo,
+      redirect_uri: window.location.origin,
     });
     if (result.error) {
       toast.error("Bejelentkezés sikertelen. Próbáld újra.");
