@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from "framer-motion";
-import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star } from "lucide-react";
+import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star, Instagram, Facebook } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
