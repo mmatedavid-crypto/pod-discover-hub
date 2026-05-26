@@ -1260,30 +1260,13 @@ function ResultView({
         <div className="mt-6 space-y-3">
           <Button onClick={handleShare} size="lg" className="w-full" disabled={busy !== null}>
             <Share2 className="mr-2 h-4 w-4" />
-            {busy === "share" ? "Készítem…" : "Megosztom a profilom"}
+            {busy === "share" ? "Készítem…" : "Megosztás"}
           </Button>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              onClick={() => handleStoryShare("ig")}
-              size="default"
-              disabled={busy !== null}
-              className="bg-gradient-to-br from-[#feda75] via-[#d62976] to-[#4f5bd5] text-white hover:opacity-90"
-            >
-              <Instagram className="mr-1.5 h-4 w-4" />
-              {busy === "ig" ? "Nyitom…" : "Instagram Story"}
-            </Button>
-            <Button
-              onClick={() => handleStoryShare("fb")}
-              size="default"
-              disabled={busy !== null}
-              className="bg-[#1877F2] text-white hover:bg-[#1877F2]/90"
-            >
-              <Facebook className="mr-1.5 h-4 w-4" />
-              {busy === "fb" ? "Nyitom…" : "Facebook Story"}
-            </Button>
-          </div>
+          <p className="text-center text-[11px] text-muted-foreground">
+            A telefon megosztó ablakából 1 koppintással mehet Instagram Storyba, Facebookra, Messengerbe vagy bárhova.
+          </p>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 pt-1">
             <Button onClick={handleDownload} variant="secondary" size="sm" disabled={busy !== null}>
               <Download className="mr-1.5 h-4 w-4" /> Kép
             </Button>
@@ -1300,6 +1283,7 @@ function ResultView({
             </p>
           )}
         </div>
+
       </div>
 
 
