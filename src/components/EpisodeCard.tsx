@@ -6,6 +6,8 @@ import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { slugify } from "@/lib/slug";
 import { entitySlug } from "@/lib/entity";
 import { EpisodeMarks } from "./EpisodeMarks";
+import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
+import { detectAudioSource } from "@/lib/playerAudio";
 
 export type EpisodeLite = {
   id: string;
