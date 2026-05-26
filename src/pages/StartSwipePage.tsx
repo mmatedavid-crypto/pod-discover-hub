@@ -1013,7 +1013,7 @@ function ResultView({
     () => buildReceiptNumber(shareId || pdvCode || listenerProfile.id),
     [shareId, pdvCode, listenerProfile.id],
   );
-  const [busy, setBusy] = useState<null | "share" | "download" | "copy">(null);
+  const [busy, setBusy] = useState<null | "share" | "download" | "copy" | "ig" | "fb">(null);
   const [showShareHint, setShowShareHint] = useState(false);
 
   // Fire `profile_generated` once when the result mounts.
