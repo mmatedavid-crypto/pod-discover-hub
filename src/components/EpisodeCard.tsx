@@ -6,6 +6,8 @@ import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { slugify } from "@/lib/slug";
 import { entitySlug } from "@/lib/entity";
 import { EpisodeMarks } from "./EpisodeMarks";
+import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
+import { detectAudioSource } from "@/lib/playerAudio";
 
 export type EpisodeLite = {
   id: string;
@@ -56,6 +58,24 @@ export function EpisodeCard({
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
   const desc = snippet(e.ai_summary || e.summary || e.description, 220, terms);
+  const { play } = useSmartPlayer();
+  const playable = detectAudioSource({ audio_url: e.audio_url });
+  const handlePlay = (ev: React.MouseEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!playable) return;
+    play({
+      id: e.id,
+      title: epTitle,
+      podcastId: undefined,
+      podcastTitle: podTitle,
+      podcastSlug: p.slug,
+      episodeSlug: e.slug,
+      imageUrl: p.image_url || null,
+      audioUrl: playable.url,
+      externalUrl: e.audio_url || null,
+    }, { resume: true });
+  };
   const allEnts = showEntities
     ? [
         ...(e.topics || []).map((v) => ({ kind: "topic" as const, v })),
@@ -152,24 +172,41 @@ export function EpisodeCard({
           >
             <Info className="h-3.5 w-3.5" />
           </Link>
-          {e.audio_url && (
+          {e.audio_url && (playable ? (
+            <button
+              type="button"
+              onClick={handlePlay}
+              aria-label="Lejátszás"
+              className="sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+            >
+              <Play className="h-3.5 w-3.5" />
+            </button>
+          ) : (
             <a
               href={e.audio_url}
               target="_blank"
               rel="noreferrer"
-              aria-label="Hallgatás"
+              aria-label="Hallgatás külső lejátszóban"
               className="sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
             >
-              <Play className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3.5 w-3.5" />
             </a>
-          )}
+          ))}
           {/* Tablet/desktop: text links */}
           <Link to={`/podcast/${p.slug}/${e.slug}`} className="hidden sm:inline text-muted-foreground hover:text-foreground">Részletek</Link>
-          {e.audio_url && (
+          {e.audio_url && (playable ? (
+            <button
+              type="button"
+              onClick={handlePlay}
+              className="hidden sm:inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            >
+              <Play className="h-3 w-3" /> Lejátszás
+            </button>
+          ) : (
             <a href={e.audio_url} target="_blank" rel="noreferrer" className="hidden sm:inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
               <ExternalLink className="h-3 w-3" /> Hallgatás
             </a>
-          )}
+          ))}
           <div className="ml-auto"><EpisodeMarks episodeId={e.id} compact /></div>
         </div>
       </div>
