@@ -99,9 +99,27 @@ export async function shareReceipt(opts: {
   }
 }
 
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (ua.includes("Mac") && "ontouchend" in document);
+}
+
 export function downloadReceipt(blob: Blob, filename = "podiverzum-receipt.png") {
   try {
     const url = URL.createObjectURL(blob);
+    // iOS Safari: az `<a download>` mindig a Files-ba ment, nem a Photos-ba.
+    // Helyette új fülön megnyitjuk a képet — a user long-press → "Hozzáadás
+    // a Fotókhoz" 1 mozdulattal a Photos appba kerül.
+    if (isIOS()) {
+      const win = window.open(url, "_blank", "noopener");
+      if (!win) {
+        // Pop-up blokkolva — fallback ugyanaz a tabra.
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      return true;
+    }
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
