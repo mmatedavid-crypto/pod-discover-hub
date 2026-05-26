@@ -131,6 +131,13 @@ Deno.serve(async (req) => {
               .maybeSingle();
             const transcript = (tr as any)?.transcript || null;
             (job as any).__has_transcript = !!(transcript && String(transcript).trim().length > 200);
+            // Prefer cleaned RSS text (sponsor/CTA noise removed) over raw description.
+            const { data: ct } = await admin
+              .from("episode_clean_text")
+              .select("cleaned_text")
+              .eq("episode_id", job.target_id)
+              .maybeSingle();
+            (e as any).clean_text = (ct as any)?.cleaned_text || null;
             prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts, transcript);
           }
         }
