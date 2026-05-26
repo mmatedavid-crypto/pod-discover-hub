@@ -16,6 +16,11 @@ import { SoftAuthCTA } from "@/components/SoftAuthCTA";
 import { EmailCaptureCard } from "@/components/EmailCaptureCard";
 import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
+import { ListenerReceipt } from "@/components/receipt/ListenerReceipt";
+import { profileForArchetypeId, buildReceiptNumber } from "@/lib/listenerProfiles";
+import { renderReceiptPng, shareReceipt, downloadReceipt } from "@/lib/receiptImage";
+import { trackProfileEvent, captureSourceProfileFromUrl, getSourceProfileId } from "@/lib/profileEvents";
+import { Download, Link2 } from "lucide-react";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
