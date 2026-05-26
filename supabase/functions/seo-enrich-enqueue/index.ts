@@ -135,6 +135,22 @@ Deno.serve(async (req) => {
       }
       collectedCount = collected.length;
 
+      // Batch-fetch cleaned RSS text for all collected episodes (sponsor/CTA noise removed).
+      // Used in the prompt instead of the raw description when length is sufficient.
+      const cleanById = new Map<string, string>();
+      const collectedIds = collected.map((e) => e.id);
+      for (let i = 0; i < collectedIds.length; i += 500) {
+        const slice = collectedIds.slice(i, i + 500);
+        const { data: cts } = await admin
+          .from("episode_clean_text")
+          .select("episode_id, cleaned_text")
+          .in("episode_id", slice);
+        for (const r of cts || []) {
+          const t = String((r as any).cleaned_text || "");
+          if (t.length >= 80) cleanById.set((r as any).episode_id, t);
+        }
+      }
+
       const rows: any[] = [];
       // Strip control chars (Postgres JSONB rejects \u0000) and lone surrogates.
       const sanitize = (s: string) => s
@@ -143,6 +159,7 @@ Deno.serve(async (req) => {
         .replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "$1");
       for (const e of collected) {
         const podName = sanitize(podNameById.get(e.podcast_id) || "");
+        (e as any).clean_text = cleanById.get(e.id) || null;
         const prompt = sanitize(episodeUserPrompt(e as any, podName));
         const hash = await inputHash(prompt);
         rows.push({
