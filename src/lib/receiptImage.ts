@@ -71,22 +71,26 @@ export async function shareReceipt(opts: {
   text: string;
   url: string;
 }): Promise<ShareOutcome> {
-  const { blob, filename = "podiverzum-receipt.png", title, text, url } = opts;
-  const file = new File([blob], filename, { type: "image/png" });
+  const { blob, filename = "podiverzum-receipt.png", title, url } = opts;
+  const file = new File([blob], filename, { type: "image/png", lastModified: Date.now() });
   const nav = navigator as Navigator & {
     canShare?: (d: ShareData) => boolean;
     share?: (d: ShareData) => Promise<void>;
   };
+  // iOS Safari bug: ha `files` ÉS `url`/`text` is megy, a share sheet sokszor
+  // csak a linket osztja meg, a képet eldobja. Ezért FÁJL-only payload —
+  // így iOS képként kezeli, és megjelenik a "Stories", "Save Image" (Photos)
+  // és "Instagram" target a sheet-ben.
   if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
     try {
-      await nav.share({ files: [file], title, text, url });
+      await nav.share({ files: [file], title });
       return "shared";
     } catch (e: any) {
       if (e?.name === "AbortError") return "cancelled";
       // continue to fallback
     }
   }
-  // Fallback 1: link copy (a kép letöltést a "Kép mentése" gomb fedi).
+  // Fallback: link másolás (asztali Safari / régi böngészők).
   try {
     await navigator.clipboard.writeText(url);
     return "copied";
@@ -95,9 +99,27 @@ export async function shareReceipt(opts: {
   }
 }
 
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (ua.includes("Mac") && "ontouchend" in document);
+}
+
 export function downloadReceipt(blob: Blob, filename = "podiverzum-receipt.png") {
   try {
     const url = URL.createObjectURL(blob);
+    // iOS Safari: az `<a download>` mindig a Files-ba ment, nem a Photos-ba.
+    // Helyette új fülön megnyitjuk a képet — a user long-press → "Hozzáadás
+    // a Fotókhoz" 1 mozdulattal a Photos appba kerül.
+    if (isIOS()) {
+      const win = window.open(url, "_blank", "noopener");
+      if (!win) {
+        // Pop-up blokkolva — fallback ugyanaz a tabra.
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      return true;
+    }
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
