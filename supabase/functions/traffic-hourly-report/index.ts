@@ -128,17 +128,32 @@ async function sendTelegram(text: string) {
   if (!lovableKey || !tgKey || !chatId) {
     return { ok: false, error: "missing_telegram_env" };
   }
-  const r = await fetch(`${GATEWAY}/sendMessage`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${lovableKey}`,
-      "X-Connection-Api-Key": tgKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true }),
-  });
-  if (!r.ok) return { ok: false, error: `tg_${r.status}: ${(await r.text()).slice(0, 200)}` };
-  return { ok: true };
+  // Retry on transient gateway errors (502/503/504) — connector gateway occasionally flakes.
+  let lastErr = "";
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const r = await fetch(`${GATEWAY}/sendMessage`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableKey}`,
+          "X-Connection-Api-Key": tgKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true }),
+      });
+      if (r.ok) return { ok: true, attempts: attempt };
+      const bodyText = (await r.text()).slice(0, 200);
+      lastErr = `tg_${r.status}: ${bodyText}`;
+      // Retry only on transient upstream errors
+      if (r.status !== 502 && r.status !== 503 && r.status !== 504 && r.status !== 429) {
+        return { ok: false, error: lastErr };
+      }
+    } catch (e: any) {
+      lastErr = `fetch_failed: ${e?.message || e}`;
+    }
+    if (attempt < 4) await new Promise((res) => setTimeout(res, 500 * attempt * attempt));
+  }
+  return { ok: false, error: lastErr, attempts: 4 };
 }
 
 Deno.serve(async (req) => {
