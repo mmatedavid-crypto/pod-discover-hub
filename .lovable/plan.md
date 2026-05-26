@@ -1,127 +1,101 @@
-# "Neked válogatva" + folyamatos profil-fejlesztés
-
 ## Cél
 
-A bejelentkezett user az `/en-podiverzumom` oldalon kap egy **„Neked válogatva"** szekciót: friss magyar epizódok, amik az ízléséhez illenek. A profilja folyamatosan élesedik a lejátszásból + like/dislike-okból — minden interakció után pár perc múlva új ajánlások jönnek.
+A swipe flow eredménye átáll a generikus „aura kártyáról” egy nyugta-stílusú (thermal receipt) megosztható „Hallgatói profilra”. Ez lesz az új viral motor: könnyű képernyőképet csinálni róla, felismerhető Podiverzum-tárgy, mobil-first 9:16 (+1:1 OG).
 
-## User flow
+## Scope — mit építünk
 
-1. Swipe végén login → profilba bekerül archetype + a swipe pozitívokból seedelt taste-vektor.
-2. `/en-podiverzumom` „Profil" tabján legfelül: **„Neked válogatva"** szekció — 12 epizód kártya, mindegyiken ❤︎ / ✕ gomb + play.
-3. Lejátszás → SmartPlayer csendben rögzíti: `play_start`, `play_30s`, `play_complete`.
-4. Like / dislike / play eseményekből cron 5 percenként újraszámolja a taste-vektort → frissebb találatok.
-5. Mindig kizárjuk azokat, amiket a user már látott (interakció vagy dislike).
+### 1. Archetype set (`src/lib/listenerProfiles.ts`)
+8 indító profil, mindegyik:
+- `id`, `name` (pl. „A Fókuszált Elemző"), `traits: [3]`, `recommendedDirection`, `rareBadge?`
+- Lista: Fókuszált Elemző, Mélyinterjú-vadász, Stratégiai Figyelő, Közéleti Radar, Üzleti Navigátor, Tech Kíváncsi, Kultúrflâneur, Történetkereső.
+- Nincs vallás/egészség/párt/szexualitás dimenzió.
+- Mapping a meglévő `tasteVector` topic-súlyaiból → profil-id (heurisztika: legmagasabb 3 topik → legközelebbi profil).
 
-## Adatmodell (új)
+### 2. Receipt komponens (`src/components/receipt/ListenerReceipt.tsx`)
+- DOM-alapú render (nem canvas — élesben snapshotolható, a11y barát, jól szerkeszthető).
+- Mobil-first, fix 360px szélesség sablon, monospace (`JetBrains Mono`), fekete-fehér, papír textúra (subtle SVG noise), perforált fel/le él, szaggatott divider, pontozott leader sorok pipával, barcode SVG (random 40 vonalból a `share_id`-ből deterministically).
+- Struktúra:
+  - Fejléc: `PODIVERZUM RECEIPT` · dátum
+  - `RECEIPT NO: PZ-YYYY-MMDD-XXXX`
+  - `HALLGATÓI PROFIL:` + nagy név
+  - 3 trait sor pontozott leaderrel + ✓
+  - `AJÁNLOTT IRÁNY:` 1 sor
+  - opcionális `RITKA PROFIL` / `TOP 12% FIGYELŐ` (csak ha statisztikailag védhető — most kihagyjuk, flag mögött)
+  - `TOTAL: 1 ÚJ HALLGATÓ`
+  - barcode + `podiverzum.hu/start`
+  - `NEKED MI JÖN KI?` · „Find it. Hear it."
 
-### `profiles` (kiegészítés)
-- `taste_vec vector(768)` — élő taste-vektor (átlag a pozitív epizód-embeddingekből, downweight a negatívokra)
-- `taste_vec_updated_at timestamptz`
-- `taste_signal_count int default 0` — hány interakcióból épült (UI bizalmi jelzőhöz)
+### 3. Kép-export (`src/lib/receiptImage.ts`)
+- `html-to-image` (vagy `dom-to-image-more`) lib hozzáadása.
+- Két export méret: **9:16 (1080×1920)** story default + **1:1 (1080×1080)** OG/feed.
+- Háttér: meleg fehér (#f7f4ee), enyhe folds/noise SVG, nyugta középre, alja levegős.
+- `shareOrDownload(blob)`: Web Share API `files` → fallback download → fallback link copy.
 
-### `user_episode_interactions` (új)
-- `id uuid pk`, `user_id uuid not null`, `episode_id uuid not null`
-- `kind text` enum: `like`, `dislike`, `play_start`, `play_30s`, `play_complete`, `skip`, `dismiss`
-- `weight real not null` — like=+1.0, play_complete=+0.8, play_30s=+0.4, play_start=+0.1, skip=-0.2, dislike=-1.0
-- `source text` — `recommended_feed` / `episode_page` / `player`
-- `created_at timestamptz default now()`
-- Unique `(user_id, episode_id, kind)` — egy adott kind csak egyszer számít
-- Indexek: `(user_id, created_at desc)`, `(episode_id)`
+### 4. Result screen UX (`StartSwipePage` eredmény fázis)
+- Nagy receipt felül.
+- Primary: „Megosztom a profilom" (9:16 PNG → native share).
+- Secondary: „Kép mentése" (1:1 letöltés), „Link másolása", „Újrapróbálom".
+- Share után microcopy: „Most jön a jó rész: nézd meg, a barátaidnak milyen hallgatói profil jön ki."
 
-### RLS
-- `user_episode_interactions`: user csak a saját sorait látja/inserteli.
-- `profiles.taste_vec` olvasás csak saját + service role.
+### 5. Public share oldal
+- Új route: `/hallgatoi-profil/:shareId` → `ListenerProfilePage`.
+- A régi `/te-podiverzumod/eredmeny/:slug` 301-szerű kliens redirect az újra (backward compat).
+- Above the fold: a barátja receiptje, alatta **erős CTA blokk**: „Neked mi jön ki? Készítsd el a saját hallgatói profilod." → `/start?ref={shareId}`.
+- `noindex,nofollow` minden egyedi share oldalon.
 
-### RPC-k
-- `record_episode_interaction(p_episode_id uuid, p_kind text, p_source text)` — auth.uid()-ra, upsert + súly táblából, fail-safe.
-- `match_user_episodes(p_user uuid, p_limit int, p_exclude_seen bool)` — taste_vec → episode_embeddings cosine, csak HU + Formula C tier ≥ B + freshness ≤ 90 nap, kizárja az érintett epizódokat, max 2 epizód/podcast (DISTINCT ON podcast_id partition).
+### 6. Share backend
+Újrahasznosítjuk a meglévő `te_podiverzumod_shares` táblát + edge functiont (`te-podiverzumod-share`):
+- `result_type='listener_profile_receipt'`
+- `result_title` = archetype name, `result_subtitle` = recommended direction, `tags` = traits.
+- Új oszlop **nem kell**, a meglévő séma fedi. Egy migráció: index a `created_at`-re ha hiányzik (ellenőrzöm).
+- Új edge function nem szükséges — body shape kompatibilis.
 
-## Edge functions
+### 7. OG image
+- A meglévő `og-image` edge function kap egy `kind=receipt` ágat: 1200×630 receipt-szerű render (SVG → PNG), `[Archetype] lettem a Podiverzumon` címmel.
+- Per-share dinamikus URL a `ListenerProfilePage` Helmetjében.
 
-### `taste-recommend` (új, public, RLS-mögött JWT)
-- Auth header → user id.
-- Lehívja `match_user_episodes`-t, hidratálja epizód+podcast meta-t, visszaad 12-24 elemet.
-- Ha `taste_signal_count < 3` → fallback: archetype.liked_topics + freshness rangsor (a meglévő `episodes.topics` mezőre).
-- Cache: per-user 2 perc memory cache az edge fn-ben.
+### 8. Analytics
+- Új helper `src/lib/profileEvents.ts` → írás `analytics_events` táblába (meglévő `page_view`/event sablon mintán).
+- Eventek: `swipe_started`, `swipe_completed`, `profile_generated`, `profile_share_clicked`, `profile_image_downloaded`, `profile_link_copied`, `shared_profile_viewed`, `shared_profile_cta_clicked`, `second_generation_from_shared_profile`, `episode_click_after_profile`.
+- Mezők: `share_id`, `source_profile_id` (URL `?ref=`), `archetype_id`, `utm_*`, `referrer`, anonim `session_id` (sessionStorage uuid, nem cookie).
+- Nincs Meta Pixel, nincs cookie.
 
-### `taste-vector-refresh` (új, service-only)
-- Inputs: user_id vagy `stale` (mind, ahol új interakció van `taste_vec_updated_at` óta).
-- Lépések user-enként:
-  1. Pozitív epizód-embeddingek lekérése (kind ∈ like/play_complete/play_30s, weight > 0, max 50 legfrissebb).
-  2. Súlyozott mean → kandidát vektor.
-  3. Dislike epizódok átlagát kivonjuk 0.3 súllyal.
-  4. Ha van archetype seed (kezdeti `taste_vec`), 0.2 súllyal beleblendelünk amíg `signal_count < 10`.
-  5. L2-normalizálás → írás `profiles.taste_vec`.
-- Cron jobid új, `*/5 * * * *`.
-
-### `taste-seed-from-archetype` (egyszer, archetype mentés után hívva)
-- Az archetype JSON-ből kiszedi a like-olt topic slug-okat → tölt 8-16 reprezentatív epizód-embedding átlagát → `profiles.taste_vec` kezdőértéke + `taste_signal_count = 0`.
-
-## Frontend
-
-### `SmartPlayerProvider` (player event hook)
-- `play` esemény: invoke `record_episode_interaction(id, "play_start", "player")` egyszer.
-- 30 mp folyamatos lejátszás után (`timeupdate` watcher): `play_30s`.
-- `ended` / 90% pozíció: `play_complete`.
-- Csak ha bejelentkezett user. Mindent fire-and-forget, nincs UI blokk.
-
-### `EpisodeCard` (új like/dislike)
-- ❤︎ / ✕ kis ikongombok a kártya jobb alsó sarkán (csak auth user-nek).
-- Klikk → `record_episode_interaction(id, "like"|"dislike", source)` + helyi optimisztikus UI (kiszürkül a dislike-olt).
-
-### `EnPodiverzumomPage` „Profil" tab
-- Új komponens `RecommendedForYou` legfelül a tab tartalmában.
-- Hívja a `taste-recommend` edge fn-t React Query-vel, 60 mp staleTime.
-- 12 epizód grid, csak HU, mindegyiken ❤︎/✕/▶.
-- Empty state: ha 0 talált → CTA „Még pár swipe és élesedik az ízlésed" a `/te-podiverzumod` flow-ra.
-- Bizalmi jelző: „A profilod {N} interakcióból épül — minél többet hallgatsz, annál pontosabb."
-
-## SEO & privacy
-
-- A „Neked válogatva" szekció bejelentkezett user-nek, `noindex` (már beállítva az oldalon).
-- Interakciókat soha nem küldjük 3rd party tracker-nek (nincs is).
+### 9. Cleanup
+- A régi `tasteShareCard.ts` (aura canvas) megmarad fallbackként, de a result screen alapból a receipt-et hívja.
+- Marketing copy a `/start` landing oldalon: H1 → „Milyen podcast-hallgató vagy?", CTA „Indítom".
 
 ## Technikai részletek
 
-- **Vektor mező**: `vector(768)` — kompatibilis a meglévő `episode_embeddings` HNSW indexszel (`google/gemini-embedding-001` 768d, ami már a project default).
-- **Match RPC**:
-  ```sql
-  -- order by taste_vec <=> embedding, DISTINCT ON (podcast_id)
-  -- where podcast.language ilike 'hu%' and tier_rank in ('S','A','B')
-  -- and published_at > now() - interval '90 days'
-  -- and episode_id not in (interactions of this user last 60 days)
-  ```
-- **Súlyok táblázata** RPC-ben hardcoded, hogy egy helyen módosítható legyen.
-- **Cost**: nincs új AI hívás user-enként — csak pgvector match. A `taste-vector-refresh` cron csak DB-számítás, ingyenes.
-- **Throughput**: cron `*/5`, max 500 user/run, így 100 aktív user-ig nincs torlódás.
+- Új dep: `html-to-image` (~30 KB gzip, nincs canvas drawingfont gond).
+- Fontok: `JetBrains Mono` (már a projektben? ha nem, Google Fonts `<link>` az `index.html`-be).
+- Barcode: determinisztikus, `hash(share_id) → 40 oszlop {1,2,3} szélességgel`. Pure SVG.
+- Mobile-first: receipt natív DOM scale-up nélkül, export pillanatban 3× pixel-ratio.
+- Privacy: nincs cookie, sessionStorage csak `anon_session_id` UUID.
+- SEO: shared oldal `<meta name="robots" content="noindex,nofollow">`.
 
-## Fázisok
+## Fájl-térkép
 
-**1. fázis (most, 1 menet):**
-- DB migráció (profiles oszlopok + új tábla + RLS + 2 RPC)
-- `taste-recommend` edge fn + cron-mentes refresh on-write (most még nem cron, csak ha user megnyitja az oldalt — ha `taste_vec_updated_at` > 5 perc régi, sync refresh)
-- `EpisodeCard` ❤︎/✕ gombok
-- `SmartPlayerProvider` play tracking
-- `EnPodiverzumomPage` „Neked válogatva" szekció
-- Archetype seedelés a meglévő `/en-podiverzumom` redirect után
+```
+src/lib/listenerProfiles.ts          [új]   archetype lista + mapping
+src/lib/receiptImage.ts              [új]   html-to-image export + share/download
+src/lib/profileEvents.ts             [új]   first-party analytics
+src/components/receipt/
+  ListenerReceipt.tsx                [új]   DOM receipt komponens
+  Barcode.tsx                        [új]   SVG barcode
+src/pages/StartSwipePage.tsx         [edit] eredmény fázis új UX
+src/pages/StartLandingPage.tsx       [edit] H1 + CTA copy
+src/pages/ListenerProfilePage.tsx    [új]   /hallgatoi-profil/:shareId
+src/App.tsx                          [edit] új route + 301 a régi /te-podiverzumod/eredmeny/:slug-ra
+src/pages/TePodiverzumodSharePage.tsx [edit] redirect az új route-ra
+supabase/functions/og-image/index.ts [edit] kind=receipt ág
+package.json                         [edit] +html-to-image
+```
 
-**2. fázis (külön kör, ha ez beválik):**
-- Külön `taste-vector-refresh` cron + jobid bejegyzés
-- „Hasonló hallgatók kedvelték" szekció
-- Topic/mood bontás a Profil tabon (top_topics, top_moods JSONB cache)
-- Watchdog runner az új cronra
+## Out of scope (most)
+- „RITKA PROFIL" tényleges százalék-számolás (csak ha lesz elég adat).
+- Piros pecsét variant.
+- Több mint 8 archetype.
+- A/B test 9:16 vs 1:1 között.
+- Régi `tasteShareCard.ts` törlése (drain-after refactor).
 
-## Mit NEM csinálok meg most
-
-- Nem nyúlok a swipe flow algoritmusához.
-- Nem cserélem le a meglévő `EnPodiverzumomPage` többi szekcióját.
-- Nem indítok új batch-et a 134k embeddingre — minden már megvan.
-- Nem építek külön /neked route-ot.
-
-## Jóváhagyás után
-
-Lépésrend (egy menetben):
-1. `supabase--migration` → schema + RLS + RPC-k (külön kérek jóváhagyást).
-2. Edge fn `taste-recommend` + deploy.
-3. Frontend: SmartPlayer hook, EpisodeCard gombok, EnPodiverzumomPage szekció.
-4. Smoke test: konzol + 1 valódi swipe → login → ajánlás megjelenik → like → 2 perc múlva új ajánlás.
+Megerősíted, hogy mehet így? Ha igen, kezdem az implementációt.
