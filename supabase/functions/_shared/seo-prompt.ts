@@ -83,7 +83,7 @@ export function podcastUserPrompt(p: { display_title?: string|null; title: strin
 }
 
 export function episodeUserPrompt(
-  e: { display_title?: string|null; title: string; description?: string|null; language?: string|null },
+  e: { display_title?: string|null; title: string; description?: string|null; language?: string|null; clean_text?: string|null },
   podName: string,
   podLanguage?: string | null,
   hosts?: string[] | null,
@@ -91,9 +91,17 @@ export function episodeUserPrompt(
 ) {
   const name = e.display_title || e.title;
   const hasTranscript = typeof transcript === "string" && transcript.trim().length > 200;
-  // When transcript is present, shrink the description (it's only secondary context) to save tokens.
+  // Prefer `episode_clean_text.cleaned_text` (sponsor/CTA/promo noise stripped) over the
+  // raw RSS description when available — fixes garbage like "NYEREMÉNYJÁTÉK… Three Lines
+  // póló…" leaking into the AI summary. Falls back to description if no clean text.
+  const cleanSrc = (e.clean_text || "").trim();
+  const rawDesc = (e.description || "").replace(/\s+/g, " ").trim();
   const descCap = hasTranscript ? 800 : 2500;
-  const desc = (e.description || "").replace(/\s+/g, " ").trim().slice(0, descCap);
+  const descRaw = cleanSrc.length >= 80 ? cleanSrc.replace(/\s+/g, " ").trim() : rawDesc;
+  const desc = descRaw.slice(0, descCap);
+  const descLabel = cleanSrc.length >= 80 && !hasTranscript
+    ? "Description (cleaned, sponsor/CTA noise removed)"
+    : "Description";
   const code = langCode(e.language) || langCode(podLanguage);
   const langLine = code ? `Output language: ${langName(code)} (${code}). Write seo_title, seo_description, and ai_summary in this language only.\n` : "";
   const hostList = Array.isArray(hosts) && hosts.length > 0
@@ -102,7 +110,7 @@ export function episodeUserPrompt(
   const transcriptBlock = hasTranscript
     ? `\nTranscript excerpt (PRIMARY SOURCE — use this for ai_summary, topics and entities):\n"""\n${transcript!.replace(/\s+/g, " ").trim().slice(0, 4000)}\n"""\n`
     : "";
-  return `${langLine}${hostList}Show: ${podName}\nEpisode: ${name}\nDescription: ${desc || "(none)"}\n${transcriptBlock}\nWrite SEO title, SEO description, ai_summary, and extract entities. Remember: people = speakers, mentioned = talked-about-but-absent.`;
+  return `${langLine}${hostList}Show: ${podName}\nEpisode: ${name}\n${descLabel}: ${desc || "(none)"}\n${transcriptBlock}\nWrite SEO title, SEO description, ai_summary, and extract entities. Remember: people = speakers, mentioned = talked-about-but-absent.`;
 }
 
 // Case-insensitive, accent-insensitive host filter helper.
