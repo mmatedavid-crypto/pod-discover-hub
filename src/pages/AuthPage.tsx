@@ -19,8 +19,13 @@ export default function AuthPage() {
     robots.content = "noindex, nofollow";
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
+        let target = redirectTo;
+        try {
+          const saved = localStorage.getItem("pv_auth_redirect");
+          if (saved) { target = saved; localStorage.removeItem("pv_auth_redirect"); }
+        } catch { /* ignore */ }
         import("@/lib/landingEvents").then(({ trackLandingEvent }) => trackLandingEvent("RegistrationCompleted")).catch(() => {});
-        nav(redirectTo, { replace: true });
+        nav(target, { replace: true });
       }
     });
   }, [nav, redirectTo]);
