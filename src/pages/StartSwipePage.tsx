@@ -1162,58 +1162,50 @@ function ResultView({
 
   return (
     <div className="space-y-8">
-      {/* Hero: Aura visual */}
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-card">
-        {/* Animated aura background */}
-        <div className="relative h-72 w-full overflow-hidden md:h-96">
-          <AuraVisual colors={aura.colors} />
-          {/* Vignette + content overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-white/70 md:text-xs">
-              <span>A te aurád · {aura.essence}</span>
-              <span className="rounded-full border border-white/30 px-2 py-0.5 text-white/90">
-                {element.symbol} {element.label}
-              </span>
-            </div>
-            <h2 className="mt-1 text-3xl font-semibold tracking-tight text-white drop-shadow-md md:text-5xl">
-              {archetype.name}
-            </h2>
-            <div className="mt-1 text-xs text-white/70 italic">{element.tagline}</div>
+      {/* Hero: Hallgatói profil nyugta — a viral megosztó tárgy */}
+      <div className="rounded-3xl border border-border bg-card p-5 md:p-8">
+        <div className="text-center">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            A hallgatói profilod
           </div>
+          <h2 className="mt-1 text-2xl font-semibold md:text-3xl">
+            {listenerProfile.name}
+          </h2>
         </div>
 
-        {/* Verdict + interests + code */}
-        <div className="space-y-5 p-6 md:p-8">
-          <p className="text-sm leading-relaxed text-foreground md:text-base">
-            {verdict}
-          </p>
+        <div className="mt-6 flex justify-center">
+          <ListenerReceipt
+            ref={receiptRef}
+            profile={listenerProfile}
+            receiptNumber={receiptNumber}
+            seed={shareId || pdvCode}
+          />
+        </div>
 
-          {topInterests.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {topInterests.map(t => (
-                <span key={t} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between border-t border-border pt-4">
-            <div className="font-mono text-xs tracking-wider text-muted-foreground">
-              {pdvCode}
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleShare} size="sm">
-                <Share2 className="mr-2 h-4 w-4" /> Megosztom
-              </Button>
-              <Button onClick={onReset} variant="ghost" size="sm">
-                <RotateCcw className="mr-2 h-4 w-4" /> Újra
-              </Button>
-            </div>
+        <div className="mt-6 space-y-3">
+          <Button onClick={handleShare} size="lg" className="w-full" disabled={busy !== null}>
+            <Share2 className="mr-2 h-4 w-4" />
+            {busy === "share" ? "Készítem…" : "Megosztom a profilom"}
+          </Button>
+          <div className="grid grid-cols-3 gap-2">
+            <Button onClick={handleDownload} variant="secondary" size="sm" disabled={busy !== null}>
+              <Download className="mr-1.5 h-4 w-4" /> Kép
+            </Button>
+            <Button onClick={handleCopyLink} variant="secondary" size="sm" disabled={busy !== null}>
+              <Link2 className="mr-1.5 h-4 w-4" /> Link
+            </Button>
+            <Button onClick={onReset} variant="ghost" size="sm">
+              <RotateCcw className="mr-1.5 h-4 w-4" /> Újra
+            </Button>
           </div>
+          {showShareHint && (
+            <p className="text-center text-xs text-muted-foreground">
+              Most jön a jó rész: nézd meg, a barátaidnak milyen hallgatói profil jön ki.
+            </p>
+          )}
         </div>
       </div>
+
 
       {/* Constellation */}
       {constellation.stars.length >= 3 && (
