@@ -16,6 +16,11 @@ import { SoftAuthCTA } from "@/components/SoftAuthCTA";
 import { EmailCaptureCard } from "@/components/EmailCaptureCard";
 import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
+import { ListenerReceipt } from "@/components/receipt/ListenerReceipt";
+import { profileForArchetypeId, buildReceiptNumber } from "@/lib/listenerProfiles";
+import { renderReceiptPng, shareReceipt, downloadReceipt } from "@/lib/receiptImage";
+import { trackProfileEvent, captureSourceProfileFromUrl, getSourceProfileId } from "@/lib/profileEvents";
+import { Download, Link2 } from "lucide-react";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -319,7 +324,9 @@ export default function StartSwipePage() {
   useEffect(() => {
     if (initialPhase === "swipe") {
       snapshotUtmFromUrl();
+      captureSourceProfileFromUrl();
       trackLandingEvent("SwipeStarted");
+      trackProfileEvent("swipe_started");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -519,6 +526,7 @@ export default function StartSwipePage() {
       setCurrent(null);
       completedRef.current = true;
       trackLandingEvent("SwipeCompleted", { total, positives });
+      trackProfileEvent("swipe_completed", { total, positives });
       setPhase("result");
       return;
     }
@@ -996,71 +1004,154 @@ function ResultView({
     return out;
   }, [recs]);
 
-  const sharing = useRef(false);
+  // Új listener profile (a régi archetype id-ből mappingelve), ez kerül a receiptre.
+  const listenerProfile = useMemo(() => profileForArchetypeId(archetype.id), [archetype.id]);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const receiptNumber = useMemo(
+    () => buildReceiptNumber(shareId || pdvCode || listenerProfile.id),
+    [shareId, pdvCode, listenerProfile.id],
+  );
+  const [busy, setBusy] = useState<null | "share" | "download" | "copy">(null);
+  const [showShareHint, setShowShareHint] = useState(false);
+
+  // Fire `profile_generated` once when the result mounts.
+  useEffect(() => {
+    trackProfileEvent("profile_generated", {
+      archetype_id: listenerProfile.id,
+      source_profile_id: getSourceProfileId(),
+    });
+    // If user came via ?ref=... ez a "second generation" event.
+    if (getSourceProfileId()) {
+      trackProfileEvent("second_generation_from_shared_profile", {
+        archetype_id: listenerProfile.id,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Egyszer hoz létre egy share rekordot — utána cache-elve használjuk. */
+  const ensureShare = async (): Promise<{ url: string; share_id: string } | null> => {
+    if (shareUrl && shareId) return { url: shareUrl, share_id: shareId };
+    const payload = {
+      result_type: listenerProfile.id,
+      result_title: listenerProfile.name,
+      result_subtitle: listenerProfile.recommendedDirection,
+      result_description: `${listenerProfile.name} — ${listenerProfile.traits.join(" · ")}`,
+      tags: listenerProfile.traits,
+      aura_colors: aura.colors.slice(0, 4),
+    };
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/te-podiverzumod-share`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!res.ok) return null;
+    const { url, share_id } = (await res.json()) as { url: string; share_id: string };
+    // Új kanonikus share URL: /hallgatoi-profil/:shareId
+    const canonical = `https://podiverzum.hu/hallgatoi-profil/${share_id}`;
+    setShareUrl(canonical);
+    setShareId(share_id);
+    notifyLiveEvent("swipe_complete", {
+      archetype: listenerProfile.name,
+      result_title: listenerProfile.name,
+      share_url: canonical,
+    });
+    return { url: canonical, share_id };
+  };
+
   const handleShare = async () => {
-    if (sharing.current) return;
-    sharing.current = true;
+    if (busy) return;
+    setBusy("share");
     trackLandingEvent("ResultShared");
+    trackProfileEvent("profile_share_clicked", { archetype_id: listenerProfile.id });
     try {
-      // 1) Create a privacy-safe public share via edge function.
-      //    NO user_id, NO answers, NO confidence — only the public result face.
-      const payload = {
-        result_type: archetype.id,
-        result_title: archetype.name,
-        result_subtitle: `${element.symbol} ${element.label} · ${element.tagline}`,
-        result_description: verdict,
-        tags: topInterests.slice(0, 5),
-        aura_colors: aura.colors.slice(0, 4),
-      };
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/te-podiverzumod-share`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
-      if (!res.ok) {
+      const created = await ensureShare();
+      if (!created) {
         toast.error("Nem sikerült létrehozni a megosztható linket.");
         return;
       }
-      const { url } = (await res.json()) as { url: string; share_id: string };
-      notifyLiveEvent("swipe_complete", {
-        archetype: archetype.name,
-        result_title: archetype.name,
-        share_url: url,
-      });
-
-      const shareTitle = `Én ${archetype.name} lettem a Podiverzumon`;
-      const shareText = "Nézd meg, te milyen hallgató vagy.";
-
-      // 2) Web Share API (mobile-first), with clipboard fallback.
-      const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
-      if (typeof nav.share === "function") {
-        try {
-          await nav.share({ title: shareTitle, text: shareText, url });
-          toast.success("Megosztva");
-          return;
-        } catch (err) {
-          // User cancelled — silently ignore
-          if ((err as DOMException)?.name === "AbortError") return;
-          // Fall through to clipboard
-        }
+      const { url, share_id } = created;
+      if (!receiptRef.current) {
+        toast.error("A profil még tölt, próbáld újra egy másodperc múlva.");
+        return;
       }
-      try {
-        await navigator.clipboard.writeText(url);
+      const blob = await renderReceiptPng(receiptRef.current, "story");
+      const outcome = await shareReceipt({
+        blob,
+        title: `${listenerProfile.name} lettem a Podiverzumon`,
+        text: "Pár döntésből kiderül, milyen podcast-hallgató vagy. Neked mi jön ki?",
+        url,
+      });
+      if (outcome === "shared") {
+        toast.success("Megosztva");
+        setShowShareHint(true);
+      } else if (outcome === "copied") {
         toast.success("Link másolva");
-      } catch {
-        toast.error("Nem sikerült a vágólapra másolás.", { description: url });
+        trackProfileEvent("profile_link_copied", {
+          share_id,
+          archetype_id: listenerProfile.id,
+        });
+        setShowShareHint(true);
+      } else if (outcome === "error") {
+        toast.error("Hoppá, valami félrement.");
       }
     } catch (e) {
       console.error("[share] error", e);
       toast.error("Hoppá, valami félrement.");
     } finally {
-      sharing.current = false;
+      setBusy(null);
     }
   };
+
+  const handleDownload = async () => {
+    if (busy) return;
+    setBusy("download");
+    try {
+      const created = await ensureShare();
+      if (!receiptRef.current) return;
+      const blob = await renderReceiptPng(receiptRef.current, "story");
+      downloadReceipt(blob, `podiverzum-${listenerProfile.id}.png`);
+      trackProfileEvent("profile_image_downloaded", {
+        share_id: created?.share_id ?? null,
+        archetype_id: listenerProfile.id,
+      });
+      toast.success("Kép mentve");
+    } catch {
+      toast.error("Nem sikerült a mentés.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (busy) return;
+    setBusy("copy");
+    try {
+      const created = await ensureShare();
+      if (!created) {
+        toast.error("Nem sikerült létrehozni a linket.");
+        return;
+      }
+      await navigator.clipboard.writeText(created.url);
+      trackProfileEvent("profile_link_copied", {
+        share_id: created.share_id,
+        archetype_id: listenerProfile.id,
+      });
+      toast.success("Link másolva");
+      setShowShareHint(true);
+    } catch {
+      toast.error("Nem sikerült a vágólapra másolás.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
 
 
   if (liked.length === 0) {
@@ -1074,58 +1165,50 @@ function ResultView({
 
   return (
     <div className="space-y-8">
-      {/* Hero: Aura visual */}
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-card">
-        {/* Animated aura background */}
-        <div className="relative h-72 w-full overflow-hidden md:h-96">
-          <AuraVisual colors={aura.colors} />
-          {/* Vignette + content overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-white/70 md:text-xs">
-              <span>A te aurád · {aura.essence}</span>
-              <span className="rounded-full border border-white/30 px-2 py-0.5 text-white/90">
-                {element.symbol} {element.label}
-              </span>
-            </div>
-            <h2 className="mt-1 text-3xl font-semibold tracking-tight text-white drop-shadow-md md:text-5xl">
-              {archetype.name}
-            </h2>
-            <div className="mt-1 text-xs text-white/70 italic">{element.tagline}</div>
+      {/* Hero: Hallgatói profil nyugta — a viral megosztó tárgy */}
+      <div className="rounded-3xl border border-border bg-card p-5 md:p-8">
+        <div className="text-center">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            A hallgatói profilod
           </div>
+          <h2 className="mt-1 text-2xl font-semibold md:text-3xl">
+            {listenerProfile.name}
+          </h2>
         </div>
 
-        {/* Verdict + interests + code */}
-        <div className="space-y-5 p-6 md:p-8">
-          <p className="text-sm leading-relaxed text-foreground md:text-base">
-            {verdict}
-          </p>
+        <div className="mt-6 flex justify-center">
+          <ListenerReceipt
+            ref={receiptRef}
+            profile={listenerProfile}
+            receiptNumber={receiptNumber}
+            seed={shareId || pdvCode}
+          />
+        </div>
 
-          {topInterests.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {topInterests.map(t => (
-                <span key={t} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between border-t border-border pt-4">
-            <div className="font-mono text-xs tracking-wider text-muted-foreground">
-              {pdvCode}
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleShare} size="sm">
-                <Share2 className="mr-2 h-4 w-4" /> Megosztom
-              </Button>
-              <Button onClick={onReset} variant="ghost" size="sm">
-                <RotateCcw className="mr-2 h-4 w-4" /> Újra
-              </Button>
-            </div>
+        <div className="mt-6 space-y-3">
+          <Button onClick={handleShare} size="lg" className="w-full" disabled={busy !== null}>
+            <Share2 className="mr-2 h-4 w-4" />
+            {busy === "share" ? "Készítem…" : "Megosztom a profilom"}
+          </Button>
+          <div className="grid grid-cols-3 gap-2">
+            <Button onClick={handleDownload} variant="secondary" size="sm" disabled={busy !== null}>
+              <Download className="mr-1.5 h-4 w-4" /> Kép
+            </Button>
+            <Button onClick={handleCopyLink} variant="secondary" size="sm" disabled={busy !== null}>
+              <Link2 className="mr-1.5 h-4 w-4" /> Link
+            </Button>
+            <Button onClick={onReset} variant="ghost" size="sm">
+              <RotateCcw className="mr-1.5 h-4 w-4" /> Újra
+            </Button>
           </div>
+          {showShareHint && (
+            <p className="text-center text-xs text-muted-foreground">
+              Most jön a jó rész: nézd meg, a barátaidnak milyen hallgatói profil jön ki.
+            </p>
+          )}
         </div>
       </div>
+
 
       {/* Constellation */}
       {constellation.stars.length >= 3 && (

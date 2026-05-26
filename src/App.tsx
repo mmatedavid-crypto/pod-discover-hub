@@ -15,6 +15,7 @@ import Index from "./pages/Index.tsx";
 import StartSwipePage from "./pages/StartSwipePage.tsx";
 import StartLandingPage from "./pages/StartLandingPage.tsx";
 import TePodiverzumodSharePage from "./pages/TePodiverzumodSharePage.tsx";
+import ListenerProfilePage from "./pages/ListenerProfilePage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import CategoriesPage from "./pages/CategoriesPage.tsx";
 import CategoryDetail from "./pages/CategoryDetail.tsx";
@@ -95,6 +96,7 @@ const App = () => (
           <Route path="/vibe" element={<StartSwipePage />} />
           <Route path="/te-podiverzumod" element={<StartSwipePage />} />
           <Route path="/te-podiverzumod/eredmeny/:slug" element={<TePodiverzumodSharePage />} />
+          <Route path="/hallgatoi-profil/:shareId" element={<ListenerProfilePage />} />
           <Route path="/kategoriak" element={<CategoriesPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/kategoria/:slug" element={<CategoryDetail />} />
