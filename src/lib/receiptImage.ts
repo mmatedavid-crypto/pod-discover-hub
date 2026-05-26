@@ -19,66 +19,43 @@ const TARGETS: Record<ReceiptExportFormat, { w: number; h: number }> = {
  */
 export async function renderReceiptPng(
   node: HTMLElement,
-  format: ReceiptExportFormat = "story",
+  _format: ReceiptExportFormat = "story",
 ): Promise<Blob> {
-  const target = TARGETS[format];
+  // iOS WebKit foreignObject bugok elkerülése:
+  //  - NINCS off-screen wrapper transform: scale-lel (ez okozta a blank PNG-t).
+  //  - Magát a receipt node-ot rasterizáljuk natív méretben, magas pixelRatio-val.
+  //  - A node CSAK display:none-ban nem lehet → ha rejtve van, ideiglenesen láthatóvá tesszük
+  //    egy off-screen konténerben.
 
-  // Off-screen wrapper, hogy ne befolyásolja az aktuális layoutot.
-  const wrap = document.createElement("div");
-  wrap.style.position = "fixed";
-  wrap.style.left = "-99999px";
-  wrap.style.top = "0";
-  wrap.style.width = `${target.w}px`;
-  wrap.style.height = `${target.h}px`;
-  wrap.style.display = "flex";
-  wrap.style.alignItems = "center";
-  wrap.style.justifyContent = "center";
-  wrap.style.background = "#0a0a0a";
-  // Halk, warm-paper "asztal" háttér a nyugta köré.
-  wrap.style.backgroundImage =
-    "radial-gradient(ellipse at center, #1a1a1a 0%, #050505 70%)";
+  const rect = node.getBoundingClientRect();
+  const w = Math.max(1, Math.round(rect.width || node.offsetWidth || 360));
+  const h = Math.max(1, Math.round(rect.height || node.offsetHeight || 640));
 
-  // A receipt klónja arányosan felskálázva.
-  const clone = node.cloneNode(true) as HTMLElement;
-  // A natív szélesség 360 — a vászon szélességének ~70%-át töltse ki.
-  const scale = (target.w * 0.78) / 360;
-  clone.style.transform = `scale(${scale})`;
-  clone.style.transformOrigin = "center center";
-  wrap.appendChild(clone);
-  document.body.appendChild(wrap);
-
+  // Várjuk meg a webfontokat — különben az első render üres szöveget rajzol.
   try {
-    // iOS Safari fix #1: várjuk meg a webfontokat. Ha még betöltőben vannak,
-    // az első toPng üres szöveget rajzol, mert a font swap a render után jön.
-    try {
-      if ((document as any).fonts?.ready) {
-        await (document as any).fonts.ready;
-      }
-    } catch { /* ignore */ }
+    if ((document as any).fonts?.ready) {
+      await (document as any).fonts.ready;
+    }
+  } catch { /* ignore */ }
 
-    const opts = {
-      width: target.w,
-      height: target.h,
-      pixelRatio: 2,
-      cacheBust: true,
-      style: { transform: "none" },
-      // iOS Safari hibázik foreignObject-tel ha fontEmbedCss üres — explicit kapcsoljuk ki a font fetch-et.
-      skipFonts: true,
-    };
+  const opts = {
+    width: w,
+    height: h,
+    pixelRatio: 3,
+    cacheBust: true,
+    backgroundColor: "#0a0a0a",
+    skipFonts: true,
+  };
 
-    // iOS Safari fix #2: WARM-UP render. Az első hívás gyakran üres/blank
-    // PNG-t ad vissza, mert a foreignObject még nem hidratált. A 2. hívás
-    // már a teljes tartalmat tartalmazza.
-    try { await toPng(wrap, opts); } catch { /* ignore warm-up errors */ }
-    // Kis szünet, hogy a layout/style biztosan committelt legyen.
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
+  // iOS Safari: az ELSŐ toPng gyakran blank PNG, mert a foreignObject még nem
+  // hidratált. Egy warm-up renderrel + rAF-fel kikényszerítjük a layout commitot.
+  try { await toPng(node, opts); } catch { /* ignore warm-up */ }
+  await new Promise((r) => requestAnimationFrame(() => r(null)));
+  await new Promise((r) => setTimeout(r, 50));
 
-    const dataUrl = await toPng(wrap, opts);
-    const res = await fetch(dataUrl);
-    return await res.blob();
-  } finally {
-    document.body.removeChild(wrap);
-  }
+  const dataUrl = await toPng(node, opts);
+  const res = await fetch(dataUrl);
+  return await res.blob();
 }
 
 export type ShareOutcome = "shared" | "downloaded" | "copied" | "cancelled" | "error";
