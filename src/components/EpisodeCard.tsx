@@ -58,6 +58,24 @@ export function EpisodeCard({
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
   const desc = snippet(e.ai_summary || e.summary || e.description, 220, terms);
+  const { play } = useSmartPlayer();
+  const playable = detectAudioSource({ audio_url: e.audio_url });
+  const handlePlay = (ev: React.MouseEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!playable) return;
+    play({
+      id: e.id,
+      title: epTitle,
+      podcastId: undefined,
+      podcastTitle: podTitle,
+      podcastSlug: p.slug,
+      episodeSlug: e.slug,
+      imageUrl: p.image_url || null,
+      audioUrl: playable.url,
+      externalUrl: e.audio_url || null,
+    }, { resume: true });
+  };
   const allEnts = showEntities
     ? [
         ...(e.topics || []).map((v) => ({ kind: "topic" as const, v })),
