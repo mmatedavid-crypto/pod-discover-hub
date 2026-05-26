@@ -324,7 +324,9 @@ export default function StartSwipePage() {
   useEffect(() => {
     if (initialPhase === "swipe") {
       snapshotUtmFromUrl();
+      captureSourceProfileFromUrl();
       trackLandingEvent("SwipeStarted");
+      trackProfileEvent("swipe_started");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
