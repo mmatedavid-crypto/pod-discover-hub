@@ -15,6 +15,7 @@ import Index from "./pages/Index.tsx";
 import StartSwipePage from "./pages/StartSwipePage.tsx";
 import StartLandingPage from "./pages/StartLandingPage.tsx";
 import TePodiverzumodSharePage from "./pages/TePodiverzumodSharePage.tsx";
+import ListenerProfilePage from "./pages/ListenerProfilePage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import CategoriesPage from "./pages/CategoriesPage.tsx";
 import CategoryDetail from "./pages/CategoryDetail.tsx";
