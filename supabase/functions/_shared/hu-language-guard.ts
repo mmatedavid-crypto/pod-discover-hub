@@ -24,9 +24,13 @@ export function huScore(text: string): { ok: boolean; huRatio: number; enRatio: 
   const diaPer100 = (dia / Math.max(t.length, 1)) * 100;
   const huRatio = hu / total;
   const enRatio = en / total;
-  // Heuristic: clearly Hungarian if HU stopwords > 4% OR diacritic density > 1.5/100ch.
-  // Clearly NOT Hungarian if EN stopwords > 8% AND HU stopwords < 1% AND diacritics < 0.3/100ch.
-  const notHu = enRatio > 0.08 && huRatio < 0.01 && diaPer100 < 0.3;
+  // Heuristic v2 (2026-05-26): a single accented char in a proper noun (e.g. "Ábris")
+  // is NOT enough proof of Hungarian. Require either real HU stopwords OR genuine
+  // diacritic density. Otherwise, if EN signal dominates, mark as non-HU.
+  // - Clearly NOT Hungarian: EN stopwords > 6% AND HU stopwords < 1% AND diacritic
+  //   density < 1.0/100ch (was 0.3 — too lenient, missed English text with 1 Hungarian name).
+  // - Also NOT Hungarian: EN stopwords > 12% regardless of diacritics (very strong EN signal).
+  const notHu = (enRatio > 0.06 && huRatio < 0.01 && diaPer100 < 1.0) || enRatio > 0.12;
   const ok = !notHu;
   return { ok, huRatio, enRatio, diaPer100, totalWords: total };
 }
