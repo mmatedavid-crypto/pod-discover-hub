@@ -526,6 +526,7 @@ export default function StartSwipePage() {
       setCurrent(null);
       completedRef.current = true;
       trackLandingEvent("SwipeCompleted", { total, positives });
+      trackProfileEvent("swipe_completed", { total, positives });
       setPhase("result");
       return;
     }
