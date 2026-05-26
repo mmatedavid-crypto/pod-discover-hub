@@ -172,24 +172,41 @@ export function EpisodeCard({
           >
             <Info className="h-3.5 w-3.5" />
           </Link>
-          {e.audio_url && (
+          {e.audio_url && (playable ? (
+            <button
+              type="button"
+              onClick={handlePlay}
+              aria-label="Lejátszás"
+              className="sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+            >
+              <Play className="h-3.5 w-3.5" />
+            </button>
+          ) : (
             <a
               href={e.audio_url}
               target="_blank"
               rel="noreferrer"
-              aria-label="Hallgatás"
+              aria-label="Hallgatás külső lejátszóban"
               className="sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
             >
-              <Play className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3.5 w-3.5" />
             </a>
-          )}
+          ))}
           {/* Tablet/desktop: text links */}
           <Link to={`/podcast/${p.slug}/${e.slug}`} className="hidden sm:inline text-muted-foreground hover:text-foreground">Részletek</Link>
-          {e.audio_url && (
+          {e.audio_url && (playable ? (
+            <button
+              type="button"
+              onClick={handlePlay}
+              className="hidden sm:inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            >
+              <Play className="h-3 w-3" /> Lejátszás
+            </button>
+          ) : (
             <a href={e.audio_url} target="_blank" rel="noreferrer" className="hidden sm:inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
               <ExternalLink className="h-3 w-3" /> Hallgatás
             </a>
-          )}
+          ))}
           <div className="ml-auto"><EpisodeMarks episodeId={e.id} compact /></div>
         </div>
       </div>
