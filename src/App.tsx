@@ -95,6 +95,7 @@ const App = () => (
           <Route path="/vibe" element={<StartSwipePage />} />
           <Route path="/te-podiverzumod" element={<StartSwipePage />} />
           <Route path="/te-podiverzumod/eredmeny/:slug" element={<TePodiverzumodSharePage />} />
+          <Route path="/hallgatoi-profil/:shareId" element={<ListenerProfilePage />} />
           <Route path="/kategoriak" element={<CategoriesPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/kategoria/:slug" element={<CategoryDetail />} />
