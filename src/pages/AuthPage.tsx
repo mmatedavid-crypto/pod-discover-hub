@@ -19,16 +19,25 @@ export default function AuthPage() {
     robots.content = "noindex, nofollow";
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
+        let target = redirectTo;
+        try {
+          const saved = localStorage.getItem("pv_auth_redirect");
+          if (saved) { target = saved; localStorage.removeItem("pv_auth_redirect"); }
+        } catch { /* ignore */ }
         import("@/lib/landingEvents").then(({ trackLandingEvent }) => trackLandingEvent("RegistrationCompleted")).catch(() => {});
-        nav(redirectTo, { replace: true });
+        nav(target, { replace: true });
       }
     });
   }, [nav, redirectTo]);
 
   const signInGoogle = async () => {
     setLoading(true);
+    // FONTOS: a Lovable OAuth broker csak a sima origin redirect_uri-t engedi.
+    // A belső célt localStorage-ben adjuk át, és a session listener
+    // route-olja a usert ide a sikeres callback után.
+    try { localStorage.setItem("pv_auth_redirect", redirectTo); } catch { /* ignore */ }
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + redirectTo,
+      redirect_uri: window.location.origin,
     });
     if (result.error) {
       toast.error("Bejelentkezés sikertelen. Próbáld újra.");
