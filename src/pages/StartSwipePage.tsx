@@ -557,7 +557,12 @@ export default function StartSwipePage() {
     setPersisted(fresh);
     setCurrent(null);
     setRecs(null);
-    setPhase("intro");
+    completedRef.current = false;
+    // Skip the intro screen entirely — no extra "Kezdjük" click, cards start immediately.
+    snapshotUtmFromUrl();
+    trackLandingEvent("SwipeStarted", { source: "reset" });
+    trackProfileEvent("swipe_started", { source: "reset" });
+    setPhase("swipe");
   };
 
   /* ─────── Render ─────── */
