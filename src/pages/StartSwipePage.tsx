@@ -360,12 +360,29 @@ export default function StartSwipePage() {
     setCurrent(next);
   }, [phase, pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
 
-  // Auto-fetch recs when entering result
+  // Auto-fetch recs when entering result (wait for pool + derived liked to be ready).
+  // If saved card-ids no longer exist in the current pool (catalog rotated out),
+  // fall back to the swipe phase so the user isn't stuck on an empty result screen.
   useEffect(() => {
-    if (phase !== "result" || recs || liked.length === 0) return;
+    if (phase !== "result" || recs || recsLoading) return;
+    if (!pool) return;
+    if (effectiveLiked.length === 0) {
+      if (persisted.likedCardIds.length > 0 || persisted.seenCardIds.length > 0) {
+        // Saved progress is stale → reset and send back to swipe
+        const fresh: Persisted = {
+          sessionId: crypto.randomUUID(),
+          seenCardIds: [], likedCardIds: [], dislikedCardIds: [], superLikedCardIds: [],
+          updatedAt: new Date().toISOString(),
+        };
+        savePersisted(fresh);
+        setPersisted(fresh);
+        setPhase("swipe");
+      }
+      return;
+    }
     void fetchRecs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [phase, pool, effectiveLiked.length, recs, recsLoading]);
 
   const fetchRecs = async () => {
     if (effectiveLiked.length === 0 || !pool) return;
