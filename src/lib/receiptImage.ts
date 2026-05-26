@@ -1,61 +1,63 @@
 // Receipt → PNG export + share/download helper.
 // Mobil-first Web Share API `files`-szel, fallback letöltés és link másolás.
+//
+// iOS WebKit `foreignObject` bug — a html-to-image gyakran üres / fekete
+// képet rajzol Safari/Chrome iOS alatt. A `modern-screenshot` lib pont erre
+// készült (pre-warm + retry + safer SVG serialization).
 
-import { toPng } from "html-to-image";
+import { domToBlob } from "modern-screenshot";
 
 export type ReceiptExportFormat = "story" | "square";
 
-const TARGETS: Record<ReceiptExportFormat, { w: number; h: number }> = {
-  story: { w: 1080, h: 1920 },
-  square: { w: 1080, h: 1080 },
-};
+const RECEIPT_BG = "#f7f4ee"; // megegyezik a ListenerReceipt belső háttérével
 
 /**
- * A megadott DOM node-ot (receipt komponens gyökere) PNG-vé alakítja egy
- * fix méretű "vászonra" középre rendezve, 2× pixel ratio-val.
- *
- * A receipt belső szélessége 360px — a vászonra arányosan skálázzuk fel,
- * hogy mobil-share méretben éles legyen.
+ * A megadott DOM node-ot (receipt komponens gyökere) PNG Blob-ká alakítja.
+ * Capture közben ideiglenesen lekapcsoljuk az iOS-en problémás CSS-eket
+ * (SVG noise háttér, box-shadow), majd visszaállítjuk őket.
  */
 export async function renderReceiptPng(
   node: HTMLElement,
   _format: ReceiptExportFormat = "story",
 ): Promise<Blob> {
-  // iOS WebKit foreignObject bugok elkerülése:
-  //  - NINCS off-screen wrapper transform: scale-lel (ez okozta a blank PNG-t).
-  //  - Magát a receipt node-ot rasterizáljuk natív méretben, magas pixelRatio-val.
-  //  - A node CSAK display:none-ban nem lehet → ha rejtve van, ideiglenesen láthatóvá tesszük
-  //    egy off-screen konténerben.
-
   const rect = node.getBoundingClientRect();
   const w = Math.max(1, Math.round(rect.width || node.offsetWidth || 360));
   const h = Math.max(1, Math.round(rect.height || node.offsetHeight || 640));
 
-  // Várjuk meg a webfontokat — különben az első render üres szöveget rajzol.
+  // Webfontok betöltésére várunk — különben az első render üres szöveget rajzol.
   try {
     if ((document as any).fonts?.ready) {
       await (document as any).fonts.ready;
     }
   } catch { /* ignore */ }
 
-  const opts = {
-    width: w,
-    height: h,
-    pixelRatio: 3,
-    cacheBust: true,
-    backgroundColor: "#0a0a0a",
-    skipFonts: true,
-  };
+  // iOS WebKit-en a feTurbulence SVG háttér + box-shadow gyakran kinyírja a
+  // foreignObject rasterizációt → fekete/üres PNG. Capture idejére kivesszük.
+  const prevBgImage = node.style.backgroundImage;
+  const prevBoxShadow = node.style.boxShadow;
+  node.style.backgroundImage = "none";
+  node.style.boxShadow = "none";
 
-  // iOS Safari: az ELSŐ toPng gyakran blank PNG, mert a foreignObject még nem
-  // hidratált. Egy warm-up renderrel + rAF-fel kikényszerítjük a layout commitot.
-  try { await toPng(node, opts); } catch { /* ignore warm-up */ }
+  // Egy layout-commit, mielőtt rasterizálunk.
   await new Promise((r) => requestAnimationFrame(() => r(null)));
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => setTimeout(r, 30));
 
-  const dataUrl = await toPng(node, opts);
-  const res = await fetch(dataUrl);
-  return await res.blob();
+  try {
+    const blob = await domToBlob(node, {
+      width: w,
+      height: h,
+      scale: 3,
+      backgroundColor: RECEIPT_BG,
+      type: "image/png",
+      // iOS: néha az első próbálkozás üres — a lib belső retry-ja segít.
+      features: { removeControlCharacter: false },
+    });
+    if (!blob) throw new Error("domToBlob returned null");
+    return blob;
+  } finally {
+    node.style.backgroundImage = prevBgImage;
+    node.style.boxShadow = prevBoxShadow;
+  }
 }
 
 export type ShareOutcome = "shared" | "downloaded" | "copied" | "cancelled" | "error";
@@ -74,9 +76,7 @@ export async function shareReceipt(opts: {
     share?: (d: ShareData) => Promise<void>;
   };
   // iOS Safari bug: ha `files` ÉS `url`/`text` is megy, a share sheet sokszor
-  // csak a linket osztja meg, a képet eldobja. Ezért FÁJL-only payload —
-  // így iOS képként kezeli, és megjelenik a "Stories", "Save Image" (Photos)
-  // és "Instagram" target a sheet-ben.
+  // csak a linket osztja meg, a képet eldobja. Ezért FÁJL-only payload.
   if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
     try {
       await nav.share({ files: [file], title });
@@ -110,7 +110,6 @@ export function downloadReceipt(blob: Blob, filename = "podiverzum-receipt.png")
     if (isIOS()) {
       const win = window.open(url, "_blank", "noopener");
       if (!win) {
-        // Pop-up blokkolva — fallback ugyanaz a tabra.
         window.location.href = url;
       }
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
