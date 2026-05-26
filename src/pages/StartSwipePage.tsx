@@ -360,12 +360,13 @@ export default function StartSwipePage() {
     setCurrent(next);
   }, [phase, pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
 
-  // Auto-fetch recs when entering result
+  // Auto-fetch recs when entering result (wait for pool + derived liked to be ready)
   useEffect(() => {
-    if (phase !== "result" || recs || liked.length === 0) return;
+    if (phase !== "result" || recs || recsLoading) return;
+    if (!pool || effectiveLiked.length === 0) return;
     void fetchRecs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [phase, pool, effectiveLiked.length, recs, recsLoading]);
 
   const fetchRecs = async () => {
     if (effectiveLiked.length === 0 || !pool) return;
