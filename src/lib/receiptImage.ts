@@ -48,13 +48,32 @@ export async function renderReceiptPng(
   document.body.appendChild(wrap);
 
   try {
-    const dataUrl = await toPng(wrap, {
+    // iOS Safari fix #1: várjuk meg a webfontokat. Ha még betöltőben vannak,
+    // az első toPng üres szöveget rajzol, mert a font swap a render után jön.
+    try {
+      if ((document as any).fonts?.ready) {
+        await (document as any).fonts.ready;
+      }
+    } catch { /* ignore */ }
+
+    const opts = {
       width: target.w,
       height: target.h,
       pixelRatio: 2,
       cacheBust: true,
       style: { transform: "none" },
-    });
+      // iOS Safari hibázik foreignObject-tel ha fontEmbedCss üres — explicit kapcsoljuk ki a font fetch-et.
+      skipFonts: true,
+    };
+
+    // iOS Safari fix #2: WARM-UP render. Az első hívás gyakran üres/blank
+    // PNG-t ad vissza, mert a foreignObject még nem hidratált. A 2. hívás
+    // már a teljes tartalmat tartalmazza.
+    try { await toPng(wrap, opts); } catch { /* ignore warm-up errors */ }
+    // Kis szünet, hogy a layout/style biztosan committelt legyen.
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+    const dataUrl = await toPng(wrap, opts);
     const res = await fetch(dataUrl);
     return await res.blob();
   } finally {
