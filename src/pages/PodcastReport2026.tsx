@@ -768,9 +768,8 @@ export default function PodcastReport2026() {
             </div>
           </div>
 
-          </div>
-
           {/* Institutions */}
+
           <div className="mt-6 rounded-lg border border-border bg-card p-5">
             <h3 className="font-serif text-lg font-bold text-foreground mb-1">Mely állami és nemzetközi intézmények jönnek elő legtöbbet?</h3>
             <p className="text-xs text-muted-foreground mb-4">Epizódszám, amelyikben az intézmény neve elhangzik vagy szóba kerül (2025. jún. – 2026. máj., HU podcastek). Az országokat és általános fogalmakat („kormány") kihagytuk, csak konkrét intézményeket jelenítünk meg.</p>
