@@ -554,8 +554,9 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-szervezetek-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
-            A leggyakrabban emlegetett vállalati, intézményi és sportszereplők. Kihagytuk a médiumokat és rádiókat (ott jelent meg maga a podcast — ATV, Tilos, Kossuth, Klubrádió, HVG), valamint azokat a szervezeteket, amelyek főleg saját podcastben vagy szponzori reklámban jelennek meg (OTP, ELTE, Donably, Barion). A pártokat külön bontjuk, mert a 2026-os kampányidőszakban kiemelten relevánsak.
+            A leggyakrabban emlegetett vállalati és intézményi szereplők a magyar podcast-térben. Kihagytuk a médiumokat és rádiókat (ott jelent meg maga a podcast — ATV, Tilos, Kossuth, Klubrádió, HVG), a sportligákat és -klubokat (egy-két sportpodcast minden epizódban végigveszi ugyanazt a 8-10 csapatot, ezért aránytalanul felülreprezentálná őket — NBA, Premier League stb. külön sport-bontásban néznénk meg), valamint azokat a szervezeteket, amelyek főleg saját podcasttal vagy szponzori felirattal jelennek meg (Donably, Barion, Patreon, ATV Alapítvány). A pártokat külön bontjuk, mert a 2026-os kampányidőszakban kiemelten relevánsak.
           </p>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Szervezetek</div>
