@@ -245,7 +245,7 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Tíz év alatt {growth10y}-szeres növekedés</h2>
           <p className="mb-6 text-muted-foreground">
-            A magyar podcast termelés 2015 óta minden évben nőtt. 2025-ben{" "}
+            A magyar podcasttermelés 2015 óta minden évben nőtt. 2025-ben{" "}
             <strong className="text-foreground">+{yoy2025}%</strong> volt az éves növekedés, 2026-ban a jelenlegi ütem alapján{" "}
             <strong className="text-foreground">~{projected2026.toLocaleString("hu-HU")} új epizód</strong> várható.
           </p>
