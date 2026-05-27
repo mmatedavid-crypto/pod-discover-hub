@@ -473,12 +473,12 @@ export default function PodcastReport2026() {
           </DownloadableFigure>
         </section>
 
-        {/* Top közéleti vendégek (műsorvezetők kiszűrve) */}
+        {/* Top szóba kerülő közéleti nevek (műsorvezetők kiszűrve) */}
         <section className="mb-12">
-          <DownloadableFigure filename="top-kozeleti-vendegek">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top közéleti vendégek a magyar podcastekben</h2>
+          <DownloadableFigure filename="top-emlegetett-nevek">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Legtöbbet emlegetett közéleti szereplők</h2>
           <p className="mb-6 text-muted-foreground">
-            A leggyakrabban szóba kerülő közéleti szereplők, politikusok és szakértők — vagyis akikről beszélnek, nem akik beszélnek. A műsorvezetőket szándékosan kihagytuk (pl. Bochkor Gábor, Puzsér Róbert, Rónai Egon, Horváth Oszkár), mert ők főleg saját adásaikban jelennek meg, így az „aki a legtöbbet publikál” kérdés nem informatív.
+            A leggyakrabban <strong className="text-foreground">szóba kerülő</strong> politikusok, közéleti szereplők és szakértők — vagyis akikről beszélnek a magyar podcastekben. Nem feltétlenül vendégek: sok esetben csak említés szintjén kerülnek elő. A műsorvezetőket szándékosan kihagytuk (pl. Bochkor Gábor, Puzsér Róbert, Rónai Egon, Horváth Oszkár), mert ők főleg saját adásaikban jelennek meg, így az „aki a legtöbbet publikál” kérdés nem informatív.
           </p>
           <div className="space-y-2">
             {STATS.topVoices.map((v, i) => (
