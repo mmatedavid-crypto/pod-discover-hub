@@ -1118,27 +1118,27 @@ async function buildPersonTopic(
     .eq("slug", topicSlug).maybeSingle();
   if (!topic || topic.is_public === false) return null;
 
-  // Get person mention episode ids, then intersect with topic ids in JS to keep it portable.
+  // Fetch topic episodes (with podcast join) first — bounded by topic relevance.
+  const { data: tRows } = await (supabase as any)
+    .from("episode_topic_map")
+    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .eq("topic_id", topic.id)
+    .order("confidence", { ascending: false })
+    .limit(500);
+  const topicEps = ((tRows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""));
+  if (topicEps.length === 0) return null;
+  const topicEpIds = topicEps.map((e) => e.id);
+
+  // Intersect with person mentions: query person_episode_mentions restricted to those ids.
   const { data: mRows } = await (supabase as any)
     .from("person_episode_mentions")
     .select("episode_id")
     .eq("person_id", person.id)
-    .limit(2000);
-  const personEpIds = new Set(((mRows ?? []) as Array<any>).map((r) => r.episode_id));
-  if (personEpIds.size === 0) return null;
-
-  const { data: tRows } = await (supabase as any)
-    .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
-    .eq("topic_id", topic.id)
-    .in("episode_id", Array.from(personEpIds).slice(0, 1000))
-    .order("confidence", { ascending: false })
-    .limit(100);
-
-  const eps = ((tRows ?? []) as Array<any>)
-    .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
-    .slice(0, 40);
+    .in("episode_id", topicEpIds.slice(0, 500));
+  const matchedSet = new Set(((mRows ?? []) as Array<any>).map((r) => r.episode_id));
+  const eps = topicEps.filter((e) => matchedSet.has(e.id)).slice(0, 40);
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
   const canonical = `${SITE}/szemelyek/${personSlug}/temak/${topicSlug}`;
