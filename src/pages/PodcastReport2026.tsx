@@ -477,72 +477,10 @@ export default function PodcastReport2026() {
           </DownloadableFigure>
         </section>
 
-        {/* Top szóba kerülő közéleti nevek (műsorvezetők kiszűrve) */}
-        <section className="mb-12">
-          <DownloadableFigure filename="top-emlegetett-nevek">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Legtöbbet emlegetett közéleti szereplők</h2>
-          <p className="mb-6 text-muted-foreground">
-            <strong className="text-foreground">2025. június – 2026. május</strong> között a leggyakrabban <strong className="text-foreground">szóba kerülő</strong> politikusok, közéleti szereplők és szakértők — vagyis akikről beszélnek a magyar podcastekben. Nem feltétlenül vendégek: sok esetben csak említés szintjén kerülnek elő. A műsorvezetőket szándékosan kihagytuk (pl. Bochkor Gábor, Puzsér Róbert, Rónai Egon, Horváth Oszkár, Ceglédi Zoltán), mert ők főleg saját adásaikban jelennek meg, így az „aki a legtöbbet publikál” kérdés nem informatív. A homonim találatokat (pl. Kovács Gergely érsek vs MKKP-elnök, Borbély Imre futballedző vs vegyészmérnök) szintén kiszűrtük.
-          </p>
-          <div className="space-y-2">
-            {STATS.topVoices.map((v, i) => (
-              <Link key={v.slug} to={`/person/${v.slug}`} className="flex items-center gap-2 group">
-                <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground group-hover:text-primary truncate">{v.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{(v as any).role} · {v.pods} műsorban</div>
-                </div>
-                <div className="relative w-32 sm:w-48 h-5 rounded bg-muted overflow-hidden">
-                  <div className="h-full bg-primary/70" style={{ width: `${(v.eps / maxVoice) * 100}%` }} />
-                  <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
-                    {v.eps.toLocaleString("hu-HU")} ep
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            „Ep” = olyan magyar epizód, amelyben a személy az AI-alapú entitásfelismerés szerint szóba került vagy megszólalt (forrás: <code>person_episode_mentions</code> tábla, leiratokból és epizódleírásokból generálva). Több műsorban való szereplés (pods) azt jelzi, hogy nem egyetlen csatorna saját szereplőjéről van szó. A korábbi verziókban szereplő nyers szövegtalálatos számokat (Frei Tamás 44, Schiffer András 60, Sz. Bíró Zoltán 33, Schwab Richárd 25) lecseréltük a verifikált, személy-azonosított mentionökre — az új számok kisebbek, de homonimektől tisztábbak.
-          </p>
-          </DownloadableFigure>
+        {/* Személy-mention szakasz eltávolítva — az entitásfelismerés még nem különíti el
+            megbízhatóan a műsorvezetőket (pl. Gubik Petra, Pogátsa Zoltán saját podcasterek)
+            a vendégektől és a csak szóba kerülő szereplőktől. Visszahozzuk, ha pontosabb. */}
 
-          {/* Konklúzió: mit mond ez a hallgatóról */}
-          <div className="mt-8 rounded-lg border border-border bg-card p-5">
-            <h3 className="mb-3 font-serif text-lg font-bold text-foreground">Mit mond ez a magyar podcasthallgatóról?</h3>
-            <p className="mb-3 text-sm text-muted-foreground leading-relaxed">
-              A top 10 nem csak nevek listája — <strong className="text-foreground">érdeklődési térkép</strong>. Mivel ezek a szereplők főként a saját szakterületükön szólalnak meg vagy ott kerülnek szóba, abból, hogy kit emlegetnek a legtöbbet, kiolvasható, <em>mi érdekli</em> a magyar podcasthallgatót az elmúlt 12 hónapban.
-            </p>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" />
-                <p className="text-muted-foreground"><strong className="text-foreground">Belpolitika dominanciája.</strong> Orbán (278) + Magyar Péter (199) + Szijjártó (38) → a top 10 mention 60%-a a kormánypárt-ellenzék tengely körül forog. A 2026-os választási év hatása egyértelmű: nincs olyan kulturális vagy sportszereplő, aki a két vezető politikushoz közelítene.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" />
-                <p className="text-muted-foreground"><strong className="text-foreground">Gazdasági szorongás.</strong> Pogátsa Zoltán (39, közgazdász) és Zsiday Viktor (25, befektető) a top 10-ben — <em>Zsiday gyakorlatilag csak gazdasági/tőkepiaci kontextusban szólal meg</em>. A hallgatók a magas infláció és lakhatási válság miatt aktívan keresik a független közgazdász hangokat.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" />
-                <p className="text-muted-foreground"><strong className="text-foreground">Kampány-mechanika iránti igény.</strong> Balásy Zsolt (33, kommunikációs szakértő) és Kéri László (31, politológus) jelenléte a top 10-ben azt mutatja, hogy a hallgatók nem csak a politika tartalma, hanem a <em>működése</em> iránt is érdeklődnek — ki hogyan kommunikál, mit jelentenek a felmérések.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" />
-                <p className="text-muted-foreground"><strong className="text-foreground">Geopolitika USA-Oroszország tengelyen.</strong> Donald Trump (102) a 3. legtöbbet emlegetett ember — egy külföldi politikus a magyar belpolitika közvetlen közelében. Az ukrán háború és a vámháború minden közéleti műsorban jelen van.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" />
-                <p className="text-muted-foreground"><strong className="text-foreground">Kultúra szűk csatornán.</strong> Gubik Petra (51, színésznő) az egyetlen nem közéleti szereplő a top 10-ben — és ő is csak 4 podcastben szerepel, vagyis néhány színházi/kulturális műsor építi a számát. A magyar podcastpiac közéleti-gazdasági erősen torzított, a kultúra <em>vékony</em>.</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" />
-                <p className="text-muted-foreground"><strong className="text-foreground">Niche szakértők a top 10 alatt.</strong> A „long tail”-ben olyan szakértők dolgoznak, akik mindig csak egy adott témában szólalnak meg: <em>Sz. Bíró Zoltán</em> (6 ep, Oroszország), <em>Schwab Richárd</em> (6 ep, táplálkozás-immunológia), <em>Schiffer András</em> (15 ep, közjog). Kis mention-szám, de a podcast-formátum éppen az ilyen monotematikus szakértőknek ad helyet — a rádióban erre nincs idő.</p>
-              </div>
-            </div>
-            <p className="mt-4 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-              Tanulság: a magyar podcast 2025–2026-ban <strong className="text-foreground">a politika és a gazdaság hosszú lélegzetű terepévé vált</strong> — mert egyik témánál sem elég a rádiós 8 perces interjú. Aki Zsidayt vagy Sz. Bírót akar hallgatni 90 percig, az podcastet indít, nem rádiót.
-            </p>
-          </div>
-        </section>
 
 
 
