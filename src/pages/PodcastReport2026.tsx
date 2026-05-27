@@ -481,16 +481,17 @@ export default function PodcastReport2026() {
           </p>
           {(() => {
             const series = [
-              { slug: "alvas",        name: "Alvás",        color: "hsl(var(--primary))",
+              { slug: "alvas",        name: "Alvás",        color: "hsl(220 70% 50%)",
                 data: [6, 3, 7, 13, 12, 7, 19, 44, 46, 37, 37, 40] },
-              { slug: "meditacio",    name: "Meditáció",    color: "hsl(var(--accent))",
+              { slug: "meditacio",    name: "Meditáció",    color: "hsl(160 65% 40%)",
                 data: [12, 9, 16, 13, 22, 21, 13, 47, 44, 37, 39, 38] },
-              { slug: "szorongas",    name: "Szorongás",    color: "hsl(var(--muted-foreground))",
+              { slug: "szorongas",    name: "Szorongás",    color: "hsl(35 90% 50%)",
                 data: [14, 16, 17, 16, 18, 23, 24, 23, 34, 24, 26, 22] },
-              { slug: "onismeret",    name: "Önismeret",    color: "hsl(var(--primary) / 0.5)",
+              { slug: "onismeret",    name: "Önismeret",    color: "hsl(330 70% 50%)",
                 data: [44, 47, 47, 38, 67, 59, 54, 51, 50, 51, 44, 34] },
-              { slug: "parkapcsolat", name: "Párkapcsolat", color: "hsl(var(--accent) / 0.55)",
+              { slug: "parkapcsolat", name: "Párkapcsolat", color: "hsl(265 60% 55%)",
                 data: [18, 15, 12, 13, 16, 21, 20, 23, 32, 30, 22, 16] },
+
             ];
             const months = ["2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"];
             const labelMap: Record<string, string> = { "01": "Jan", "02": "Feb", "03": "Már", "04": "Ápr", "05": "Máj", "06": "Jún", "07": "Júl", "08": "Aug", "09": "Szep", "10": "Okt", "11": "Nov", "12": "Dec" };
