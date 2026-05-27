@@ -150,9 +150,10 @@ const STATS = {
   ],
 };
 
-// derived
-const growth10y = (STATS.episodesYear["2025"] / STATS.episodesYear["2015"]).toFixed(1);
-const yoy2025 = (((STATS.episodesYear["2025"] - STATS.episodesYear["2024"]) / STATS.episodesYear["2024"]) * 100).toFixed(1);
+// derived — magyar tizedesvessző formátumban
+const huNum = (n: number, digits = 1) => n.toFixed(digits).replace(".", ",");
+const growth10y = huNum(STATS.episodesYear["2025"] / STATS.episodesYear["2015"]);
+const yoy2025 = huNum(((STATS.episodesYear["2025"] - STATS.episodesYear["2024"]) / STATS.episodesYear["2024"]) * 100);
 const projected2026 = Math.round((STATS.episodesYear["2026 (eddig, 5 hó)"] / 147) * 365);
 const top4CategoryShare = (((265 + 126 + 124 + 103) / STATS.podcastCount) * 100).toFixed(0);
 
@@ -172,8 +173,6 @@ const minMonth = Math.min(...STATS.newPodsByMonth.map((p) => p.c));
 const monthBaseline = Math.max(0, minMonth - 3);
 const monthRange = maxMonth - monthBaseline;
 const newPodsTotal24mo = STATS.newPodsByMonth.reduce((s, p) => s + p.c, 0);
-const deadPct = ((STATS.tiers.dead / STATS.podcastCount) * 100).toFixed(1);
-const alivePct = (100 - parseFloat(deadPct)).toFixed(1);
 
 // Dinamikus dátum-bélyeg, hogy a letölthető PNG-k és bélyegzők mindig az aktuális napot mutassák.
 const TODAY_LABEL = new Date().toLocaleDateString("hu-HU", {
