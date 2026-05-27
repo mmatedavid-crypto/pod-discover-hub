@@ -869,56 +869,41 @@ export default function PodcastReport2026() {
         </section>
 
         {/* What it means */}
-        <section className="mb-12 rounded-lg bg-muted/40 p-6">
+        <section className="mb-12 rounded-lg bg-muted/40 p-6 print:break-inside-avoid">
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi közel 90 új epizód, évi több mint 25 ezer adás, közel másfél ezer aktív műsor. A nyilvánosság jelentős része — különösen a 25–45 éves korosztály — már nem a televízióból, hanem a fülhallgatóból tájékozódik.
+              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi közel 90 új epizód, évi több mint 25 ezer adás, több mint ezernégyszáz indexelt műsor. A nyilvánosság egyre nagyobb része — különösen a fiatalabb, urbánus korosztály — hosszú formátumú beszélgetésekből is tájékozódik.
             </p>
             <p>
-              Eközben a podcastok tartalma jórészt <strong>strukturálatlan, nehezen kereshető, és a hagyományos médiában láthatatlan marad</strong>: nem kerül be a hírügynökségi archívumokba, a Google érdemben nem indexeli, és a közéleti viták jelentős része kontroll nélkül zajlik a hallgatók fülében.
+              Eközben a podcastok tartalma jórészt <strong>strukturálatlan és nehezen kereshető</strong>: a keresőmotorok és hírarchívumok számára gyakran csak részlegesen látható, és a közéleti viták egy része olyan hosszú formátumú beszélgetésekben zajlik, amelyek eddig nehezen voltak visszakereshetők.
             </p>
             <p>
-              A Podiverzum ezt az átláthatatlanságot bontja le: <strong>minden epizód szövegét AI elemzi</strong>, kinyeri a szereplőket, témákat és állításokat, majd kereshetővé teszi őket.
+              A Podiverzum ezt az átláthatatlanságot bontja le: <strong>az indexelt epizódok szöveges adatait és elérhető átiratait automatizált rendszer elemzi</strong>, kinyeri a szereplőket, témákat és összefüggéseket, majd kereshetővé teszi őket.
             </p>
           </div>
         </section>
 
-        {/* B2B capability hype */}
-        <section className="mb-12 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-accent/5 p-6">
+        {/* B2B capability — what does Podiverzum see */}
+        <section className="mb-12 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-accent/5 p-6 print:break-inside-avoid">
           <div className="text-xs uppercase tracking-widest text-primary mb-2">A motor a háttérben</div>
           <h2 className="font-serif text-2xl font-bold text-foreground mb-3">Mit lát a Podiverzum, amit más nem?</h2>
           <p className="text-foreground mb-4">
-            Ez a jelentés csak a felszín. A Podiverzum mögött Magyarország legnagyobb gépi olvasású podcast-adatbázisa fut: <strong>~135 ezer magyar epizód</strong>, közel <strong>1 500 aktív műsor</strong>, teljes szövegű átiratokkal, kinyert szereplőkkel, szervezetekkel, témákkal és időbélyegekkel — folyamatosan, naponta frissülve.
+            Ez a jelentés csak egy nyilvános pillanatkép. A Podiverzum mögött folyamatosan frissülő magyar podcast-adatbázis fut: epizódokkal, témákkal, személyekkel, szervezetekkel és időbeli említésgörbékkel. Ez lehetővé teszi, hogy egy közszereplő, márka, intézmény vagy téma podcastbeli jelenléte visszakereshető és elemezhető legyen.
           </p>
-          <div className="grid gap-3 md:grid-cols-3 mb-4">
+          <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded border border-border bg-card p-4">
               <div className="text-xs font-mono text-primary mb-1">KI</div>
-              <div className="text-sm text-foreground leading-snug">Bármely <strong>közszereplő, márka vagy párt</strong> — mely epizódokban, milyen szövegkörnyezetben hangzik el a neve.</div>
+              <div className="text-sm text-foreground leading-snug">Kik és milyen epizódokban kerülnek szóba?</div>
             </div>
             <div className="rounded border border-border bg-card p-4">
               <div className="text-xs font-mono text-primary mb-1">MIKOR</div>
-              <div className="text-sm text-foreground leading-snug">Időbeli ívek: egy név, téma vagy szlogen <strong>említésgörbéje</strong> hetekre, hónapokra lebontva.</div>
+              <div className="text-sm text-foreground leading-snug">Hogyan változik egy téma vagy szereplő említése hónapról hónapra?</div>
             </div>
             <div className="rounded border border-border bg-card p-4">
-              <div className="text-xs font-mono text-primary mb-1">HOGYAN</div>
-              <div className="text-sm text-foreground leading-snug">Kontextus és tónus: <strong>milyen állítások</strong> hangzanak el, kik beszélgetnek róla, milyen témák köré szerveződik.</div>
+              <div className="text-xs font-mono text-primary mb-1">MILYEN KONTEXTUSBAN</div>
+              <div className="text-sm text-foreground leading-snug">Milyen témák, műsorok és szervezetek kapcsolódnak hozzá?</div>
             </div>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Ami a hagyományos médiamonitoringnak láthatatlan — hiszen a podcastek nincsenek a hírügynökségi archívumokban és a Google sem indexeli őket érdemben —, az itt percre pontosan kereshető, exportálható és idézhető.
-          </p>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {[
-              "Márkamonitorozás",
-              "Politikai elemzés",
-              "PR és kríziskommunikáció",
-              "Kutatás és akadémia",
-              "Versenytárs-figyelés",
-              "Szerkesztőségi háttéranyag",
-            ].map((tag) => (
-              <span key={tag} className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground">{tag}</span>
-            ))}
           </div>
         </section>
 
