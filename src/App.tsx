@@ -103,6 +103,8 @@ const App = () => (
           <Route path="/category/:slug" element={<CategoryDetail />} />
           <Route path="/podcast/:podcastSlug" element={<PodcastDetail />} />
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
+          {/* Wave 3 long-tail: /podcast/:slug/epizodok/:year — humans get the podcast page */}
+          <Route path="/podcast/:podcastSlug/epizodok/:year" element={<PodcastDetail />} />
           <Route path="/kereses" element={<SearchPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/belepes" element={<AuthPage />} />
