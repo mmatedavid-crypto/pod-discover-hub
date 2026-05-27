@@ -28,9 +28,13 @@ const { data: moods = [] } = await sb
 
 const pages = [
   tag(`${SITE}/`, now, 'daily', '1.0'),
+  // SEO hub landing pages (prerendered) — bumped priority, daily freshness.
+  tag(`${SITE}/podcastok`, now, 'daily', '0.9'),
+  tag(`${SITE}/szemelyek`, now, 'daily', '0.9'),
+  tag(`${SITE}/szervezetek`, now, 'daily', '0.9'),
+  tag(`${SITE}/partok`, now, 'daily', '0.9'),
+  tag(`${SITE}/temak`, now, 'daily', '0.9'),
   tag(`${SITE}/kategoriak`, now, 'daily', '0.7'),
-  tag(`${SITE}/temak`, now, 'weekly', '0.6'),
-  tag(`${SITE}/szemelyek`, now, 'daily', '0.7'),
   tag(`${SITE}/hangulatok`, now, 'weekly', '0.7'),
   tag(`${SITE}/uj`, now, 'daily', '0.6'),
   tag(`${SITE}/napi`, now, 'daily', '0.6'),
