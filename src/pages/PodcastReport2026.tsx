@@ -493,6 +493,7 @@ export default function PodcastReport2026() {
 
         {/* Top organizations + parties */}
         <section className="mb-12">
+          <DownloadableFigure filename="top-szervezetek-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
             A leggyakrabban emlegetett média-, vállalati és politikai szereplők. A pártokat külön bontjuk, mert kampányidőszakban (2026-os választás) különösen relevánsak.
