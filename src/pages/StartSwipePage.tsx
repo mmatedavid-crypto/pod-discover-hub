@@ -332,15 +332,27 @@ export default function StartSwipePage() {
   }, []);
 
   // Drop-off telemetry: fire SwipeAbandoned if the user leaves while still in the swipe.
+  // Fires even when total=0 so we can see how many users bail before swiping a single card
+  // (the "97% drop-off" we observed comes from this silent group).
   const completedRef = useRef(false);
+  const cardShownRef = useRef(false);
+  const firstActionRef = useRef(false);
   useEffect(() => {
     if (phase !== "swipe") return;
     const fire = () => {
       if (completedRef.current) return;
       const total = persisted.seenCardIds.length;
       const positives = persisted.likedCardIds.length;
-      if (total === 0) return; // never started swiping
-      trackLandingEvent("SwipeAbandoned", { total, positives });
+      trackLandingEvent("SwipeAbandoned", {
+        total,
+        positives,
+        card_shown: cardShownRef.current,
+        pool_loaded: !!pool,
+        pool_error: !!poolError,
+        stage: total === 0
+          ? (cardShownRef.current ? "before_first_swipe" : (poolError ? "pool_error" : "before_card_shown"))
+          : "mid_swipe",
+      });
       completedRef.current = true; // only fire once
     };
     const onVis = () => { if (document.visibilityState === "hidden") fire(); };
@@ -350,7 +362,23 @@ export default function StartSwipePage() {
       window.removeEventListener("pagehide", fire);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [phase, persisted.seenCardIds.length, persisted.likedCardIds.length]);
+  }, [phase, persisted.seenCardIds.length, persisted.likedCardIds.length, pool, poolError]);
+
+  // Fire SwipeCardShown the first time a real card is rendered (filters loading errors).
+  useEffect(() => {
+    if (phase !== "swipe" || !current || cardShownRef.current) return;
+    cardShownRef.current = true;
+    trackLandingEvent("SwipeCardShown", { card_id: current.id });
+  }, [phase, current]);
+
+  // Fire SwipePoolError if the card pool fails to load.
+  const poolErrorReportedRef = useRef(false);
+  useEffect(() => {
+    if (!poolError || poolErrorReportedRef.current) return;
+    poolErrorReportedRef.current = true;
+    trackLandingEvent("SwipePoolError", { error: poolError });
+  }, [poolError]);
+
 
   // Pick first card when entering swipe phase
   useEffect(() => {
@@ -510,6 +538,10 @@ export default function StartSwipePage() {
 
   const handleSwipe = (action: "like" | "skip" | "super") => {
     if (!current || !pool) return;
+    if (!firstActionRef.current) {
+      firstActionRef.current = true;
+      trackLandingEvent("SwipeFirstAction", { action });
+    }
     const isPositive = action === "like" || action === "super";
     const next: Persisted = {
       ...persisted,
