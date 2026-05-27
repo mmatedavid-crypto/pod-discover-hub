@@ -89,17 +89,19 @@ const STATS = {
     { slug: "spiro-gyorgy", name: "Spiró György", eps: 171, pods: 12, wiki: false },
     { slug: "magyar-peter", name: "Magyar Péter", eps: 141, pods: 27, wiki: true },
   ],
+  // A médiumokat és rádiókat szándékosan kihagyjuk: a leiratokban főleg azért szerepelnek,
+  // mert ott jelent meg maga a podcast (kiadó/műsorszolgáltató), nem pedig témaként.
   topOrgs: [
-    { slug: "tilos-radio", name: "Tilos Rádió", type: "Rádió", eps: 1607 },
-    { slug: "inforadio", name: "InfoRádió", type: "Rádió", eps: 999 },
-    { slug: "atv", name: "ATV", type: "Média", eps: 831 },
-    { slug: "infostart-hu", name: "Infostart.hu", type: "Média", eps: 779 },
     { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 745 },
     { slug: "nba", name: "NBA", type: "Sport liga", eps: 690 },
     { slug: "otp-bank", name: "OTP Bank", type: "Vállalat", eps: 606 },
-    { slug: "kossuth-radio", name: "Kossuth Rádió", type: "Rádió", eps: 480 },
-    { slug: "hvg", name: "HVG", type: "Média", eps: 468 },
-    { slug: "klubradio", name: "Klubrádió", type: "Rádió", eps: 449 },
+    { slug: "elte", name: "Eötvös Loránd Tudományegyetem (ELTE)", type: "Egyetem", eps: 436 },
+    { slug: "netflix", name: "Netflix", type: "Vállalat", eps: 419 },
+    { slug: "google", name: "Google", type: "Vállalat", eps: 385 },
+    { slug: "los-angeles-lakers", name: "Los Angeles Lakers", type: "Sportklub", eps: 341 },
+    { slug: "liverpool", name: "Liverpool", type: "Sportklub", eps: 293 },
+    { slug: "mta", name: "Magyar Tudományos Akadémia (MTA)", type: "Kutatóintézet", eps: 256 },
+    { slug: "magyar-nemzeti-bank", name: "Magyar Nemzeti Bank (MNB)", type: "Intézmény", eps: 249 },
   ],
   topParties: [
     { slug: "fidesz", name: "Fidesz", eps: 1126 },
@@ -475,7 +477,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-szervezetek-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
-            A leggyakrabban emlegetett média-, vállalati és politikai szereplők. A pártokat külön bontjuk, mert kampányidőszakban (2026-os választás) különösen relevánsak.
+            A leggyakrabban emlegetett vállalati, intézményi és politikai szereplők. A médiumokat és rádiókat kihagytuk a listából, mert ezek többnyire azért szerepelnek a leiratokban, mert ott jelent meg maga a podcast (pl. ATV, Tilos Rádió, Kossuth Rádió), nem pedig téma- vagy szereplőként. A pártokat külön bontjuk, mert a 2026-os kampányidőszakban különösen relevánsak.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -520,7 +522,7 @@ export default function PodcastReport2026() {
             </div>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            „Ep” = olyan magyar epizód, amelyben a szervezetet az AI extraktor azonosította a leiratban. A számok kínálati, nem hallgatottsági adatok.
+            „Ep” = olyan magyar epizód, amelyben a szervezet az indexelt leiratok alapján szóba került. A számok kínálati, nem hallgatottsági adatok.
           </p>
           </DownloadableFigure>
         </section>
