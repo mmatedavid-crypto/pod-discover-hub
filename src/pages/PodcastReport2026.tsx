@@ -1187,7 +1187,7 @@ function DownloadableFigure({ filename, children }: { filename: string; children
     }
   };
   return (
-    <div>
+    <div className="print:break-inside-avoid">
       <div className="flex justify-end mb-2 print:hidden">
         <button
           type="button"
