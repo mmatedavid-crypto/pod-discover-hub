@@ -97,21 +97,27 @@ const STATS = {
     { slug: "keri-laszlo",     name: "Kéri László",     role: "politológus",               eps: 31, pods: 8  },
     { slug: "zsiday-viktor",   name: "Zsiday Viktor",   role: "közgazdász, befektető",     eps: 25, pods: 11 },
   ],
-  // Kiszűrve: médiumok és rádiók (saját podcast-csatorna), illetve azok a szervezetek,
-  // amelyek saját podcasttal vagy podcast-szponzorként jelennek meg az epizódokban
-  // (OTP, ELTE, Donably, Barion, A Tan Kapuja Buddhista Egyház — 1%-os felajánlások).
+  // Top szervezetek a magyar podcastekben (2025. jún. – 2026. máj.).
+  // Kiszűrve: médiumok, rádiók, sportklubok és -ligák (külön világ, ott
+  // egy-két sportpodcast minden epizódban ismétli ugyanazt a 8-10 csapatot,
+  // ezért torzít), egyházak, pártok (saját bontás lejjebb), valamint azok
+  // a szervezetek, amelyek főleg saját podcasttal vagy szponzori felirattal
+  // jelennek meg (Donably, Barion, Patreon, ATV-Gondolat Jel Alapítvány,
+  // XXI. Század Intézet, Partizán Alapítvány). Az „EU" és „Európai Unió"
+  // bejegyzéseket összevontuk.
   topOrgs: [
-    { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 745 },
-    { slug: "nba", name: "NBA", type: "Sport liga", eps: 690 },
-    { slug: "netflix", name: "Netflix", type: "Vállalat", eps: 419 },
-    { slug: "google", name: "Google", type: "Vállalat", eps: 385 },
-    { slug: "los-angeles-lakers", name: "Los Angeles Lakers", type: "Sportklub", eps: 341 },
-    { slug: "liverpool", name: "Liverpool", type: "Sportklub", eps: 293 },
-    { slug: "mta", name: "Magyar Tudományos Akadémia (MTA)", type: "Kutatóintézet", eps: 256 },
+    { slug: "facebook", name: "Facebook", type: "Vállalat", eps: 1841 },
+    { slug: "instagram", name: "Instagram", type: "Vállalat", eps: 923 },
+    { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 738 },
+    { slug: "youtube", name: "YouTube", type: "Vállalat", eps: 675 },
+    { slug: "otp-bank", name: "OTP Bank", type: "Vállalat", eps: 599 },
+    { slug: "apple", name: "Apple", type: "Vállalat", eps: 493 },
+    { slug: "netflix", name: "Netflix", type: "Vállalat", eps: 403 },
+    { slug: "google", name: "Google", type: "Vállalat", eps: 380 },
+    { slug: "tiktok", name: "TikTok", type: "Vállalat", eps: 363 },
     { slug: "magyar-nemzeti-bank", name: "Magyar Nemzeti Bank (MNB)", type: "Intézmény", eps: 249 },
-    { slug: "boston-celtics", name: "Boston Celtics", type: "Sportklub", eps: 243 },
-    { slug: "bajnokok-ligaja", name: "Bajnokok Ligája", type: "Sport liga", eps: 233 },
   ],
+
   topParties: [
     { slug: "fidesz", name: "Fidesz", eps: 1126 },
     { slug: "tisza-part", name: "Tisza Párt", eps: 718 },
