@@ -158,6 +158,13 @@ const newPodsTotal24mo = STATS.newPodsByMonth.reduce((s, p) => s + p.c, 0);
 const deadPct = ((STATS.tiers.dead / STATS.podcastCount) * 100).toFixed(1);
 const alivePct = (100 - parseFloat(deadPct)).toFixed(1);
 
+// Dinamikus dátum-bélyeg, hogy a letölthető PNG-k és bélyegzők mindig az aktuális napot mutassák.
+const TODAY_LABEL = new Date().toLocaleDateString("hu-HU", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+
 export default function PodcastReport2026() {
   useEffect(() => {
     setSeo({
