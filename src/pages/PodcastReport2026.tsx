@@ -303,7 +303,7 @@ export default function PodcastReport2026() {
           </p>
           <PyramidRow label="Heti+ műsorok" count={STATS.tiers.weekly} total={STATS.podcastCount} note="Heti vagy gyakoribb publikálás" emphasis />
           <PyramidRow label="Aktív havi műsorok" count={STATS.tiers.monthlyActive} total={STATS.podcastCount} note="Havi 2–4 epizód" />
-          <PyramidRow label="Havi körüli műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 körüli ritmus" />
+          <PyramidRow label="Havi műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 epizód körüli ritmus" />
           <PyramidRow label="Ritkán frissülők" count={STATS.tiers.rare} total={STATS.podcastCount} note="Negyedéves vagy ritkább" />
           <PyramidRow label="Elnémult műsorok" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja nem publikáltak" muted />
           </DownloadableFigure>
