@@ -705,7 +705,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Összesen <strong className="text-foreground">{total.toLocaleString("hu-HU")}</strong> indexelt magyar műsor, amelyhez ismert utolsó epizód-dátum tartozik (a {STATS.podcastCount.toLocaleString("hu-HU")} feedes katalógusból). A „frissen aktív" sáv az elmúlt 30 napban publikált műsorokat jelöli.
+                  Összesen <strong className="text-foreground">{total.toLocaleString("hu-HU")}</strong> indexelt magyar műsor, amelyhez ismert utolsó epizód-dátum tartozik (a {STATS.podcastCount.toLocaleString("hu-HU")} feedes katalógusból). A „rendszeresen frissülő" sáv az elmúlt 30 napban publikált műsorokat jelöli.
                 </p>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
                   A magyar podcastpiac egyszerre bővül és lemorzsolódik: sok új műsor indul, de a rendszeres publikálási ritmust csak egy szűkebb réteg tartja fenn.
