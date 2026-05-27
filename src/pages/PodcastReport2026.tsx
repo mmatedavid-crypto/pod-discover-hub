@@ -293,8 +293,11 @@ export default function PodcastReport2026() {
         {/* Topics — what we talk about */}
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
-          <p className="mb-6 text-muted-foreground">
-            Az AI által azonosított top 10 beszélgetési téma az elmúlt 12 hónap epizódjaiban.
+          <p className="mb-2 text-muted-foreground">
+            Az AI által azonosított top 10 beszélgetési téma az elmúlt 12 hónap magyar epizódjaiban.
+          </p>
+          <p className="mb-6 text-xs text-muted-foreground italic">
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — tehát kínálati oldal. Nem hallgatottsági, nem letöltési adat.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
@@ -320,8 +323,11 @@ export default function PodcastReport2026() {
               );
             })}
           </div>
-          <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+          <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
             2026-ban a Biblia (130) és a választás (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
+          </p>
+          <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
+            Választási év hatása: a négyévente tartott országgyűlési választás — idén április 12-én — a háborút (Ukrajna / Közel-Kelet, 73 epizód) is az év egyik visszatérő top témájává tette a magyar podcastekben, a kampányidőszak biztonságpolitikai vitáin keresztül.
           </p>
         </section>
 
