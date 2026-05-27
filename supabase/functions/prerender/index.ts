@@ -693,6 +693,68 @@ async function buildLegacyEntity(
 
 type HubKind = "podcastok" | "szemelyek" | "szervezetek" | "cegek" | "partok" | "temak";
 
+// ---------- hub SEO helpers (Wave 2) ----------
+
+function hubCrossLinks(current: HubKind): string {
+  const all: Array<{ kind: HubKind; href: string; label: string; blurb: string }> = [
+    { kind: "podcastok", href: "/podcastok", label: "Magyar podcastek", blurb: "Aktív műsorok, friss epizódok kategóriákba szervezve." },
+    { kind: "szemelyek", href: "/szemelyek", label: "Személyek", blurb: "Vendégek és említett közéleti szereplők profiljai." },
+    { kind: "szervezetek", href: "/szervezetek", label: "Szervezetek", blurb: "Cégek, médiumok, intézmények említései." },
+    { kind: "partok", href: "/partok", label: "Pártok", blurb: "Magyar politikai pártok a podcastekben." },
+    { kind: "temak", href: "/temak", label: "Témák", blurb: "Politika, gazdaság, AI, kultúra és további témakörök." },
+  ];
+  const others = all.filter((x) => x.kind !== current && !(current === "cegek" && x.kind === "szervezetek"));
+  const items = others.map((o) => `<li><a href="${esc(o.href)}"><strong>${esc(o.label)}</strong></a> — ${esc(o.blurb)}</li>`).join("");
+  return `<aside aria-label="További felfedezés"><h2>Tovább a Podiverzumban</h2><ul>${items}</ul></aside>`;
+}
+
+function hubFaq(kind: HubKind): Record<string, unknown> {
+  const faqMap: Record<string, Array<{ q: string; a: string }>> = {
+    podcastok: [
+      { q: "Mi az a Podiverzum?", a: "A Podiverzum a teljes magyar podcast-világot indexelő kereső és felfedező felület. Minden epizódhoz AI-összefoglalót, említett személyeket, szervezeteket és témákat társítunk, hogy gyorsan megtaláld, amit keresel." },
+      { q: "Hány magyar podcast van a Podiverzumban?", a: "Több mint 1 400 aktív magyar podcastet és 130 000+ epizódot indexelünk. Az aktív műsorokat rang szerint rendezzük, így a legjobbak előre kerülnek." },
+      { q: "Ingyenes a Podiverzum?", a: "Igen, a Podiverzum teljesen ingyenes és regisztráció nélkül használható. Csak nyisd meg, keress vagy böngéssz." },
+    ],
+    szemelyek: [
+      { q: "Kik szerepelnek a Személyek listán?", a: "Magyar közéleti szereplők, vendégek, vállalkozók, művészek, sportolók, szakértők — mindenki, akit a magyar podcastek vendégül látnak vagy említenek. Minden személynél megtalálod, mely epizódokban szerepel." },
+      { q: "Honnan tudjátok, kit említenek?", a: "AI-modellek elemzik az epizódok címét, leírását és transkriptjét, majd kanonikus személyprofilokhoz kötik az említéseket. A nagyobb közéleti szereplőknél Wikipedia-megerősítéssel is dolgozunk." },
+    ],
+    szervezetek: [
+      { q: "Milyen szervezetek vannak indexelve?", a: "Cégek, médiumok, intézmények, sportcsapatok, egyetemek, civil szervezetek és NGO-k — minden olyan szervezet, amelyet legalább három magyar podcast epizód említ." },
+      { q: "Mit látok egy szervezet oldalán?", a: "A szervezet rövid bemutatóját (gyakran Wikipedia-forrásból), a kapcsolódó epizódokat és a műsorokat, amelyek a leggyakrabban beszélnek róla." },
+    ],
+    cegek: [
+      { q: "Milyen szervezetek vannak indexelve?", a: "Cégek, médiumok, intézmények, sportcsapatok, egyetemek, civil szervezetek és NGO-k — minden olyan szervezet, amelyet legalább három magyar podcast epizód említ." },
+    ],
+    partok: [
+      { q: "Mely pártok szerepelnek?", a: "Minden parlamenti és parlamenten kívüli releváns magyar párt — Fidesz, Tisza, KDNP, DK, MSZP, Momentum, Jobbik, Mi Hazánk, LMP, Párbeszéd, Kutyapárt, Munkáspárt és továbbiak." },
+      { q: "Milyen kontextusban mutatjátok a pártokat?", a: "Pártonként megtalálod a friss említéseket a magyar podcast-világból, az epizódok kontextusát és azokat a műsorokat, amelyek a legtöbbet foglalkoznak az adott párttal." },
+    ],
+    temak: [
+      { q: "Hogyan készülnek a témák?", a: "AI-elemzés bontja az epizódokat témákra: politika, gazdaság, AI, sport, kultúra, egészség és sok más. Minden téma külön oldalán a legrelevánsabb epizódok, vendégek és műsorok jelennek meg." },
+      { q: "Találok-e új témákat?", a: "Igen — a rendszer folyamatosan tanul az új epizódokból, és új témajelölteket emelünk be, amint elég epizód kapcsolódik hozzájuk." },
+    ],
+  };
+  const faqs = faqMap[kind] ?? [];
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f) => ({
+      "@type": "Question", name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+}
+
+function hubFaqHtml(kind: HubKind): string {
+  const faqMap: Record<string, Array<{ q: string; a: string }>> = (hubFaq as any)._cache ?? {};
+  // Re-derive from hubFaq for HTML rendering
+  const json = hubFaq(kind) as { mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }> };
+  const items = (json.mainEntity ?? []).map((f) => `<details><summary><strong>${esc(f.name)}</strong></summary><p>${esc(f.acceptedAnswer.text)}</p></details>`).join("");
+  if (!items) return "";
+  return `<section aria-label="Gyakori kérdések"><h2>Gyakori kérdések</h2>${items}</section>`;
+}
+
 async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind) {
   const canonical = `${SITE}/${kind === "cegek" ? "szervezetek" : kind}`;
 
@@ -709,7 +771,9 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
     const rows = (data ?? []) as Array<Record<string, any>>;
     const title = "Magyar podcastek listája — Podiverzum";
     const desc = "Fedezd fel a legjobb magyar podcasteket. Aktív műsorok, friss epizódok, AI-összefoglalókkal.";
-    const intro = `<p>A Podiverzum a teljes magyar podcast-világot indexeli. Itt a legaktívabb ${rows.length} műsor — minden epizódhoz AI-összefoglalót, említett személyeket, szervezeteket és témákat is mutatunk. Találd meg, hallgasd meg.</p>`;
+    const intro = `<p>A <strong>Podiverzum</strong> a teljes magyar podcast-világot egy helyre gyűjti — több mint <strong>1 400 aktív magyar podcastet</strong> és <strong>130 000+ epizódot</strong> indexelünk folyamatosan. Az alábbi listán a legaktívabb ${rows.length} műsor szerepel, minőségi rangsor szerint.</p>
+<p>Minden epizódhoz <strong>AI-összefoglalót</strong> készítünk magyarul, kiemeljük az említett <a href="/szemelyek">személyeket</a> és <a href="/szervezetek">szervezeteket</a>, és témakörökbe rendezzük a tartalmat — politika, gazdaság, AI, sport, kultúra, egészség. Lásd a teljes <a href="/temak">témalistát</a>.</p>
+<p>A magyar podcastek között megtalálod a legnagyobb hírműsorokat, beszélgetős és interjú-podcasteket, üzleti és tech-műsorokat, kulturális és lifestyle-tartalmakat. A keresőnk nem csak címekre keres — a teljes epizód-tartalomban, az említett személyek és témák szintjén is megtalálja, amit szeretnél hallani.</p>`;
     const listHtml = rows.map((p) => {
       const u = `${SITE}/podcast/${p.slug}`;
       const s = truncate(stripHtml(p.summary || p.description), 200);
@@ -725,9 +789,11 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
       })),
     };
     return new Response(new TextEncoder().encode(shell({
-      title, description: desc, canonical, jsonLd: [itemList],
+      title, description: desc, canonical, jsonLd: [itemList, hubFaq(kind)],
       bodyHtml: `<header><h1>Magyar podcastek</h1>${intro}</header>
-<main><h2>Aktív magyar podcastek (${rows.length})</h2><ul>${listHtml}</ul></main>`,
+<main><h2>Aktív magyar podcastek (${rows.length})</h2><ul>${listHtml}</ul></main>
+${hubFaqHtml(kind)}
+${hubCrossLinks(kind)}`,
     })), { headers: new Headers(baseHeaders) });
   }
 
@@ -742,7 +808,9 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
     const rows = (data ?? []) as Array<Record<string, any>>;
     const title = "Személyek és podcast vendégek — Podiverzum";
     const desc = "Magyar közélet, üzlet, kultúra szereplői és podcast vendégek. Kiket említenek a leggyakrabban a magyar podcastek?";
-    const intro = `<p>A Podiverzum több mint ${rows.length}+ személyt indexel a magyar podcastekből — vendégek, említett közéleti szereplők, vállalkozók, művészek, szakértők. Mindenkinél megtalálod, mely epizódokban szerepel vagy említik.</p>`;
+    const intro = `<p>A <strong>Podiverzum</strong> több mint <strong>${rows.length}+ személyt</strong> indexel a magyar podcast-világból: vendégeket, említett közéleti szereplőket, vállalkozókat, művészeket, sportolókat, tudósokat és szakértőket. Minden személynél megtalálod, mely epizódokban szerepelt vagy említették — kontextussal és AI-összefoglalókkal.</p>
+<p>A személyek mögött <strong>Wikipedia-megerősítés</strong> és AI-elemzés áll: egyértelműen azonosítjuk a közéleti szereplőket, így nem keverednek össze a hasonló nevű személyek. Politikusoknál külön jelöljük a parlamenti szerepet és párthovatartozást — lásd a <a href="/partok">Pártok</a> hubot. Üzletembereknél a kapcsolódó <a href="/szervezetek">cégeket és intézményeket</a> is feltüntetjük.</p>
+<p>Ha kíváncsi vagy, hány podcastben szerepelt valaki az elmúlt időszakban, mely műsorok hívják vissza rendszeresen, vagy milyen <a href="/temak">témákban</a> nyilatkozott — itt egy kattintással mindezt megtalálod. A lista az említések száma szerint csökkenő sorrendben mutatja a legaktívabb szereplőket.</p>`;
     const listHtml = rows.map((p) => {
       const u = `${SITE}/szemelyek/${p.slug}`;
       const bio = truncate(stripHtml(p.short_description_hu || p.short_bio), 160);
@@ -758,9 +826,11 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
       })),
     };
     return new Response(new TextEncoder().encode(shell({
-      title, description: desc, canonical, jsonLd: [itemList],
+      title, description: desc, canonical, jsonLd: [itemList, hubFaq(kind)],
       bodyHtml: `<header><h1>Személyek a magyar podcastekben</h1>${intro}</header>
-<main><h2>Top ${rows.length} említett személy</h2><ul>${listHtml}</ul></main>`,
+<main><h2>Top ${rows.length} említett személy</h2><ul>${listHtml}</ul></main>
+${hubFaqHtml(kind)}
+${hubCrossLinks(kind)}`,
     })), { headers: new Headers(baseHeaders) });
   }
 
@@ -776,7 +846,9 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
     const rows = (data ?? []) as Array<Record<string, any>>;
     const title = "Szervezetek és cégek — Podiverzum";
     const desc = "Cégek, intézmények, médiumok, sportcsapatok, egyetemek, NGO-k — mind, amelyeket a magyar podcastek említenek.";
-    const intro = `<p>A Podiverzum ${rows.length}+ szervezetet indexel a magyar podcast-világból. Cégek, médiumok, intézmények, sportcsapatok, egyetemek, civil szervezetek — minden szervezethez megtalálod, mely epizódokban beszéltek róla.</p>`;
+    const intro = `<p>A <strong>Podiverzum</strong> ${rows.length}+ szervezetet indexel a magyar podcast-világból: vállalatokat, médiumokat, állami és önkormányzati intézményeket, sportcsapatokat, egyetemeket, civil szervezeteket és NGO-kat. Minden szervezethez megtalálod a friss említéseket, a kapcsolódó <a href="/szemelyek">személyeket</a> és a leginkább érintett <a href="/podcastok">műsorokat</a>.</p>
+<p>A szervezetek nagy részénél <strong>Wikipedia-megerősítéssel</strong> és típus-besorolással dolgozunk (cég, média, sportcsapat, oktatási intézmény, NGO stb.), így gyorsan szűrhetsz arra, ami valóban érdekel. Ha egy adott szektor — magyar fintech, hazai egyetemek, sportklubok vagy közmédia — érdekel, néhány kattintással átfogó képet kapsz arról, mit beszélnek róluk a magyar podcastek.</p>
+<p>A politikai pártokat külön oldalon mutatjuk: lásd a <a href="/partok">Pártok</a> hubot a teljes listához. Témánkénti bontásért látogasd meg a <a href="/temak">Témák</a> hubot.</p>`;
     const listHtml = rows.map((o) => {
       const u = `${SITE}/szervezetek/${o.slug}`;
       const bio = truncate(stripHtml(o.wikipedia_extract), 160);
@@ -792,9 +864,11 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
       })),
     };
     return new Response(new TextEncoder().encode(shell({
-      title, description: desc, canonical, jsonLd: [itemList],
+      title, description: desc, canonical, jsonLd: [itemList, hubFaq(kind)],
       bodyHtml: `<header><h1>Szervezetek a magyar podcastekben</h1>${intro}</header>
-<main><h2>Top ${rows.length} említett szervezet</h2><ul>${listHtml}</ul></main>`,
+<main><h2>Top ${rows.length} említett szervezet</h2><ul>${listHtml}</ul></main>
+${hubFaqHtml(kind)}
+${hubCrossLinks(kind)}`,
     })), { headers: new Headers(baseHeaders) });
   }
 
@@ -809,7 +883,9 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
     const rows = (data ?? []) as Array<Record<string, any>>;
     const title = "Magyar pártok podcastekben — Podiverzum";
     const desc = "Magyar politikai pártok említései és szereplései a magyar podcastekben — Fidesz, Tisza, DK, Momentum, és társaik.";
-    const intro = `<p>A magyar közélet pártjai a podcastek tükrében. ${rows.length} pártot indexel a Podiverzum — minden egyes pártnál megtalálod, mely epizódokban, milyen kontextusban beszéltek róla.</p>`;
+    const intro = `<p>A magyar közélet pártjai a podcastek tükrében. A <strong>Podiverzum</strong> ${rows.length} pártot indexel — minden parlamenti és parlamenten kívüli releváns magyar pártot. Pártonként megtalálod, mely epizódokban, milyen kontextusban beszéltek róluk az elmúlt időszakban.</p>
+<p>A párt-oldalakon nem csak a friss említéseket látod, hanem azt is, mely <a href="/podcastok">műsorok</a> foglalkoznak vele rendszeresen, mely <a href="/szemelyek">közéleti szereplők</a> jelennek meg pártképviselőként vagy elemzőként, és milyen <a href="/temak">témák</a> kapcsolódnak hozzá — például választási kampány, gazdaságpolitika, EU-ügyek vagy belpolitikai konfliktusok.</p>
+<p>Ha egy adott politikai téma — gazdaságpolitika, jogállamiság, választás, EU-tagság, energiapolitika — érdekel, érdemes a <a href="/temak">Témák</a> hubon is körülnézned. A pártokon túl a kapcsolódó <a href="/szervezetek">intézményeket és médiumokat</a> külön szekcióban gyűjtjük.</p>`;
     const listHtml = rows.map((o) => {
       const u = `${SITE}/szervezetek/${o.slug}`;
       const bio = truncate(stripHtml(o.wikipedia_extract), 200);
@@ -825,9 +901,11 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
       })),
     };
     return new Response(new TextEncoder().encode(shell({
-      title, description: desc, canonical, jsonLd: [itemList],
+      title, description: desc, canonical, jsonLd: [itemList, hubFaq(kind)],
       bodyHtml: `<header><h1>Magyar pártok a podcastekben</h1>${intro}</header>
-<main><h2>Pártok (${rows.length})</h2><ul>${listHtml}</ul></main>`,
+<main><h2>Pártok (${rows.length})</h2><ul>${listHtml}</ul></main>
+${hubFaqHtml(kind)}
+${hubCrossLinks(kind)}`,
     })), { headers: new Headers(baseHeaders) });
   }
 
@@ -842,7 +920,9 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
     const rows = (data ?? []) as Array<Record<string, any>>;
     const title = "Témák — Podiverzum";
     const desc = "Magyar podcast témák és kategóriák — politika, gazdaság, AI, sport, kultúra, egészség és minden más, amiről a magyar podcastek beszélnek.";
-    const intro = `<p>A Podiverzum ${rows.length} témát indexel a magyar podcast-világból. Mindegyik témánál megtalálod a legrelevánsabb epizódokat, vendégeket és műsorokat.</p>`;
+    const intro = `<p>A <strong>Podiverzum</strong> ${rows.length} témát indexel a magyar podcast-világból — politika, gazdaság, technológia, AI, sport, kultúra, egészség, oktatás, tudomány, lifestyle és minden más, ami foglalkoztatja a hazai hallgatókat. Minden témánál megtalálod a legrelevánsabb epizódokat, a leggyakrabban szereplő <a href="/szemelyek">vendégeket</a> és a téma köré szerveződő <a href="/podcastok">műsorokat</a>.</p>
+<p>A témákat <strong>AI-elemzés</strong> azonosítja az epizódok tartalmából: nem csak címszavakat keresünk, hanem a teljes szövegkörnyezetet figyelembe vesszük. Így pontosan megtalálod például az "infláció", "mesterséges intelligencia", "magyar foci", "klímaváltozás" vagy "vállalkozói történetek" témákat — még akkor is, ha az epizód címe nem említi szó szerint.</p>
+<p>Politikai vagy közéleti témák érdekelnek? Nézd meg a <a href="/partok">Pártok</a> hubot a párt-szintű bontásért, vagy a <a href="/szervezetek">Szervezetek</a> hubot az intézmények és médiumok említéseiért.</p>`;
     const listHtml = rows.map((t) => {
       const u = `${SITE}/temak/${t.slug}`;
       const intro2 = truncate(stripHtml(t.intro_text || t.description), 180);
@@ -858,9 +938,11 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
       })),
     };
     return new Response(new TextEncoder().encode(shell({
-      title, description: desc, canonical, jsonLd: [itemList],
+      title, description: desc, canonical, jsonLd: [itemList, hubFaq(kind)],
       bodyHtml: `<header><h1>Témák a magyar podcastekben</h1>${intro}</header>
-<main><h2>Top ${rows.length} téma</h2><ul>${listHtml}</ul></main>`,
+<main><h2>Top ${rows.length} téma</h2><ul>${listHtml}</ul></main>
+${hubFaqHtml(kind)}
+${hubCrossLinks(kind)}`,
     })), { headers: new Headers(baseHeaders) });
   }
 
