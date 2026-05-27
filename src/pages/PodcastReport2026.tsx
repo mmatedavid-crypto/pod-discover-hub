@@ -752,9 +752,9 @@ export default function PodcastReport2026() {
             jönnek, nincsenek a kinyerő torzítás-forrásnak kitéve. */}
         <section className="mb-12">
           <DownloadableFigure filename="top-partok">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top pártok a podcastekben</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Közéleti említések: pártok a magyar podcastokban</h2>
           <p className="mb-6 text-muted-foreground">
-            A 2026-os kampányidőszakban a pártok említései adják a legtisztább képet a közéleti podcast-térről. A számok azokat a magyar epizódokat jelölik, amelyekben az adott pártot a kanonikus szervezet-adatbázisunk azonosította (2025. jún. – 2026. máj.).
+            A számok azt mutatják, hány indexelt magyar epizódban azonosította a rendszer az adott pártot (2025. jún. – 2026. máj.). Ez egy <strong className="text-foreground">külön metszetet ad a közéleti podcast-térről</strong> — <strong className="text-foreground">nem támogatottsági, nem szimpátia- és nem hallgatottsági adat</strong>.
           </p>
 
           <div className="max-w-xl">
