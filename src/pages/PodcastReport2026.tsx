@@ -248,7 +248,7 @@ export default function PodcastReport2026() {
             />
             <InsightCard
               n={2}
-              title="Gyorsan nő, de nem egyenletesen professzionalizált"
+              title="Gyorsan nő, de kevés műsor frissül legalább hetente"
               body={`${STATS.podcastCount.toLocaleString("hu-HU")} indexelt műsorból mindössze ${STATS.tiers.weekly} jelenik meg heti vagy gyakoribb ritmusban — a piac széles, a szerkesztett mag szűkebb.`}
             />
             <InsightCard
