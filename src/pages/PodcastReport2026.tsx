@@ -688,8 +688,8 @@ function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; v
             <div key={c} className="text-center text-muted-foreground font-mono pb-1">{c}</div>
           ))}
           {data.rows.map((r) => (
-            <>
-              <div key={`d-${r.day}`} className="flex items-center text-muted-foreground pr-1">{r.day}</div>
+            <React.Fragment key={r.day}>
+              <div className="flex items-center text-muted-foreground pr-1">{r.day}</div>
               {r.vals.map((v, i) => {
                 const alpha = 0.08 + (v / max) * 0.92;
                 const isPeak = v / max > 0.85;
@@ -704,7 +704,7 @@ function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; v
                   </div>
                 );
               })}
-            </>
+            </React.Fragment>
           ))}
         </div>
         <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
