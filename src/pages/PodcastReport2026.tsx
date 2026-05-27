@@ -219,22 +219,22 @@ export default function PodcastReport2026() {
             />
             <InsightCard
               n={2}
-              title="A piac nő, de kevés műsor működik heti ritmusban"
+              title="Nő a piac, kevés a heti műsor"
               body={`${STATS.podcastCount.toLocaleString("hu-HU")} aktív podcastből ${STATS.tiers.weekly} jelenik meg heti vagy gyakoribb rendszerességgel.`}
             />
             <InsightCard
               n={3}
-              title="A magyar podcast közéleti és kulturális fókuszú"
-              body="A top témák között Biblia, választás, zene, mesterséges intelligencia és háború szerepel."
+              title="Közélet és kultúra uralja a mezőnyt"
+              body="A vezető témák között a Biblia, a választás, a zene, a mesterséges intelligencia és a háború szerepel."
             />
             <InsightCard
               n={4}
               title="A podcast a hagyományos média vakfoltja"
-              body="Sok fontos beszélgetés eddig nehezen kereshető és nehezen elemezhető volt a magyar nyilvánosságban."
+              body="Sok fontos beszélgetés eddig nehezen volt kereshető és elemezhető a magyar nyilvánosságban."
             />
             <InsightCard
               n={5}
-              title="A Podiverzum ezt a vakfoltot teszi kereshetővé"
+              title="A Podiverzum kereshetővé teszi a vakfoltot"
               body="Epizódok, témák, közszereplők és szervezetek összekapcsolva — strukturált térkép a magyar podcastnyilvánosságról."
               wide
             />
@@ -270,8 +270,8 @@ export default function PodcastReport2026() {
             })}
           </div>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <Callout title="2020–2021: áttörési pont">Járvány + Spotify HU launch — a termelés három év alatt megnégyszereződik.</Callout>
-            <Callout title={`2026 várható: ~${projected2026.toLocaleString("hu-HU")} új epizód`}>Ha az első öt hónap üteme tartható, idén minden korábbi évet meghalad a magyar piac.</Callout>
+            <Callout title="2020–2021: áttörési pont">Járvány + Spotify HU launch — három év alatt megnégyszereződik a termelés.</Callout>
+            <Callout title={`2026 várható: ~${projected2026.toLocaleString("hu-HU")} új epizód`}>Ha az első öt hónap üteme tartható, a magyar piac idén minden korábbi évet meghaladhat.</Callout>
           </div>
         </section>
 
@@ -294,7 +294,7 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
-            Az AI által azonosított top 10 beszélgetési téma az elmúlt 12 hónap magyar epizódjaiban.
+            Az elmúlt 12 hónap magyar epizódjaiban ez volt az AI által azonosított top 10 beszélgetési téma.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
             Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — tehát kínálati oldal. Nem hallgatottsági, nem letöltési adat.
@@ -327,7 +327,7 @@ export default function PodcastReport2026() {
             2026-ban a Biblia (130) és a választás (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
-            Választási év hatása: a négyévente tartott országgyűlési választás — idén április 12-én — a háborút (Ukrajna / Közel-Kelet, 73 epizód) is az év egyik visszatérő top témájává tette a magyar podcastekben, a kampányidőszak biztonságpolitikai vitáin keresztül.
+            A választási év hatása is látszik: a négyévente tartott országgyűlési választás — idén április 12-én — a háborút (Ukrajna / Közel-Kelet, 73 epizód) is az év egyik visszatérő top témájává tette a magyar podcastekben, a kampányidőszak biztonságpolitikai vitáin keresztül.
           </p>
         </section>
 
@@ -365,7 +365,7 @@ export default function PodcastReport2026() {
             })}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Epizódszám szerinti súlyozás (csak top 12 kategória, az indexelt magyar podcastek 2026. május 27-i állapota alapján).
+            Epizódszám szerinti súlyozás, csak a top 12 kategória alapján, az indexelt magyar podcastek 2026. május 27-i állapota szerint.
           </p>
         </section>
 
@@ -429,7 +429,7 @@ export default function PodcastReport2026() {
             A függőleges tengely {monthBaseline}-tól indul, hogy a havi különbségek láthatók legyenek.
           </p>
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            2026 első három hónapjában havi 29 új magyar podcast indult — minden korábbi év átlagát felülmúlja.
+            2026 első három hónapjában havi 29 új magyar podcast indult — ez minden korábbi év átlagát felülmúlja.
           </p>
         </section>
 
@@ -442,7 +442,7 @@ export default function PodcastReport2026() {
           </p>
           <Heatmap data={STATS.heatmap} max={maxHeat} />
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — ez gyakorlatilag a magyar podcast „prime time".
+            A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — gyakorlatilag ez a magyar podcast „prime time”.
           </p>
         </section>
 
@@ -450,7 +450,7 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top 10 magyar hang</h2>
           <p className="mb-6 text-muted-foreground">
-            A magyar podcastekben leggyakrabban szereplő emberek — hostok és visszatérő vendégek együtt — az indexelt epizódok alapján. A „hangok" a hostokat és a többször visszatérő vendégeket egyaránt számolják.
+            A magyar podcastekben leggyakrabban szereplő emberek — hostok és visszatérő vendégek együtt — az indexelt epizódok alapján. A „hangok” a hostokat és a többször visszatérő vendégeket egyaránt számolják.
           </p>
           <div className="space-y-2">
             {STATS.topVoices.map((v, i) => (
@@ -470,14 +470,14 @@ export default function PodcastReport2026() {
             ))}
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Forrás: az epizódok átirataiból AI által kinyert résztvevők, dedupolva és emberi-felülvizsgálati ciklus után. „Ep" = olyan indexelt magyar epizód, amelyben a személy résztvevőként vagy említettként szerepel.
+            Forrás: az epizódok átirataiból AI által kinyert résztvevők, deduplikálva és emberi felülvizsgálati ciklus után. „Ep” = olyan indexelt magyar epizód, amelyben a személy résztvevőként vagy említettként szerepel.
             {" "}<Link to="/szemelyek" className="underline">Teljes lista →</Link>
           </p>
         </section>
 
         {/* Top organizations + parties */}
         <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a magyar podcastekben</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
             A leggyakrabban emlegetett média-, vállalati és politikai szereplők. A pártokat külön bontjuk, mert kampányidőszakban (2026-os választás) különösen relevánsak.
           </p>
@@ -524,7 +524,7 @@ export default function PodcastReport2026() {
             </div>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            „Ep" = olyan magyar epizód, amelyben a szervezetet az AI extraktor azonosította a leiratban. A számok kínálati, nem hallgatottsági adatok.
+            „Ep” = olyan magyar epizód, amelyben a szervezetet az AI extraktor azonosította a leiratban. A számok kínálati, nem hallgatottsági adatok.
           </p>
         </section>
 
@@ -570,7 +570,7 @@ export default function PodcastReport2026() {
         {/* Pullquote */}
         <section className="mb-12">
           <blockquote className="border-l-4 border-primary pl-6 py-4 font-serif text-xl md:text-2xl italic text-foreground leading-relaxed">
-            „A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, de eddig alig mérhető nyilvánossági tér."
+            „A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, eddig alig mérhető nyilvánossági tér."
           </blockquote>
         </section>
 
