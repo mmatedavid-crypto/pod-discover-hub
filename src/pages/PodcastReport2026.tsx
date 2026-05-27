@@ -244,6 +244,7 @@ export default function PodcastReport2026() {
 
         {/* Growth chart */}
         <section className="mb-12">
+          <DownloadableFigure filename="evi-novekedes-2015-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Tíz év alatt {growth10y}-szeres növekedés</h2>
           <p className="mb-6 text-muted-foreground">
             A magyar podcasttermelés 2015 óta minden évben nőtt. 2025-ben{" "}
@@ -274,6 +275,7 @@ export default function PodcastReport2026() {
             <Callout title="2020–2021: áttörési pont">Járvány + Spotify HU launch — három év alatt megnégyszereződik a termelés.</Callout>
             <Callout title={`2026 várható: ~${projected2026.toLocaleString("hu-HU")} új epizód`}>Ha az első öt hónap üteme tartható, a magyar piac idén minden korábbi évet meghaladhat.</Callout>
           </div>
+          </DownloadableFigure>
         </section>
 
         {/* Market pyramid */}
