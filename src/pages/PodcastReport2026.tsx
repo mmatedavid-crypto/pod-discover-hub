@@ -590,8 +590,71 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-xs text-muted-foreground">
             „Ep” = olyan magyar epizód, amelyben a párt szóba került az indexelt leiratok alapján. Kínálati, nem hallgatottsági adat.
           </p>
+
+          {/* Fidesz vs Tisza monthly — line chart */}
+          {(() => {
+            const partyMonthly = [
+              { m: "2025-06", fidesz: 35, tisza: 20 },
+              { m: "2025-07", fidesz: 24, tisza: 20 },
+              { m: "2025-08", fidesz: 13, tisza: 7 },
+              { m: "2025-09", fidesz: 40, tisza: 36 },
+              { m: "2025-10", fidesz: 47, tisza: 58 },
+              { m: "2025-11", fidesz: 49, tisza: 61 },
+              { m: "2025-12", fidesz: 49, tisza: 40 },
+              { m: "2026-01", fidesz: 46, tisza: 45 },
+              { m: "2026-02", fidesz: 73, tisza: 71 },
+              { m: "2026-03", fidesz: 79, tisza: 69 },
+              { m: "2026-04", fidesz: 93, tisza: 104 },
+              { m: "2026-05", fidesz: 32, tisza: 34 },
+            ];
+            const labelMap: Record<string, string> = { "01": "Jan", "02": "Feb", "03": "Már", "04": "Ápr", "05": "Máj", "06": "Jún", "07": "Júl", "08": "Aug", "09": "Szep", "10": "Okt", "11": "Nov", "12": "Dec" };
+            const W = 760, H = 260, PL = 36, PR = 12, PT = 16, PB = 44;
+            const innerW = W - PL - PR;
+            const innerH = H - PT - PB;
+            const rawMax = Math.max(...partyMonthly.flatMap((r) => [r.fidesz, r.tisza]));
+            const yMax = Math.ceil(rawMax / 25) * 25;
+            const yTicks = Array.from({ length: yMax / 25 + 1 }, (_, i) => i * 25);
+            const xAt = (i: number) => PL + (i * innerW) / (partyMonthly.length - 1);
+            const yAt = (v: number) => PT + innerH - (v / yMax) * innerH;
+            const path = (key: "fidesz" | "tisza") =>
+              partyMonthly.map((r, i) => `${i === 0 ? "M" : "L"}${xAt(i)},${yAt(r[key])}`).join(" ");
+            return (
+              <div className="mt-8 rounded-lg border border-border bg-card p-5">
+                <h3 className="font-serif text-lg font-bold text-foreground mb-1">Fidesz vs Tisza Párt — havi említések az elmúlt 1 évben</h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Olyan magyar podcast-epizódok száma havonta, amelyekben az adott pártot a kanonikus szervezet-adatbázisunk azonosítja (2025. jún. – 2026. máj.).
+                </p>
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+                  {yTicks.map((t) => (
+                    <g key={t}>
+                      <line x1={PL} x2={W - PR} y1={yAt(t)} y2={yAt(t)} stroke="hsl(var(--border))" strokeWidth="1" />
+                      <text x={PL - 6} y={yAt(t) + 3} textAnchor="end" fontSize="10" fontFamily="ui-monospace, monospace" fill="hsl(var(--muted-foreground))">{t}</text>
+                    </g>
+                  ))}
+                  <path d={path("fidesz")} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                  <path d={path("tisza")} fill="none" stroke="hsl(var(--accent))" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                  {partyMonthly.map((r, i) => (
+                    <g key={r.m}>
+                      <circle cx={xAt(i)} cy={yAt(r.fidesz)} r="3.5" fill="hsl(var(--primary))" />
+                      <circle cx={xAt(i)} cy={yAt(r.tisza)} r="3.5" fill="hsl(var(--accent))" />
+                      <text x={xAt(i)} y={H - 24} textAnchor="middle" fontSize="10" fill="hsl(var(--muted-foreground))">{labelMap[r.m.slice(5)]}</text>
+                      <text x={xAt(i)} y={H - 10} textAnchor="middle" fontSize="9" fill="hsl(var(--muted-foreground))" opacity="0.65">'{r.m.slice(2, 4)}</text>
+                    </g>
+                  ))}
+                </svg>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                  <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-primary" /> Fidesz</div>
+                  <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-accent" /> Tisza Párt</div>
+                </div>
+                <p className="mt-4 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
+                  A két párt mention-pályája 2025 októberétől összeér, februárra már gyakorlatilag egyenrangúak a magyar podcast-térben, <strong className="text-foreground">2026 áprilisában (közvetlenül a választás előtt) pedig a Tisza Párt 104 epizóddal először előzte meg a Fideszt</strong> (93). A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.).
+                </p>
+              </div>
+            );
+          })()}
           </DownloadableFigure>
         </section>
+
 
 
         {/* Media map */}
