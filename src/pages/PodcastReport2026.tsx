@@ -836,7 +836,7 @@ export default function PodcastReport2026() {
                   <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "hsl(345 55% 32%)" }} /> Tisza Párt</div>
                 </div>
                 <p className="mt-4 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-                  A két párt mention-pályája 2025 októberétől összeér, februárra már gyakorlatilag egyenrangúak a magyar podcast-térben, <strong className="text-foreground">2026 áprilisában (közvetlenül a választás előtt) pedig a Tisza Párt 104 epizóddal először előzte meg a Fideszt</strong> (93). A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.).
+                  2025 őszétől a két párt említési görbéje közelít egymáshoz, 2026 tavaszán pedig több hónapban hasonló nagyságrendben szerepelnek a magyar podcastokban. A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.). <span className="not-italic">Ez említésszám, nem támogatottsági adat.</span>
                 </p>
               </div>
             );
