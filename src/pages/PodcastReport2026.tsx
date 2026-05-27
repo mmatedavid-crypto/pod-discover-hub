@@ -667,6 +667,82 @@ export default function PodcastReport2026() {
           </a>
         </section>
 
+        {/* Capability demo — example queries */}
+        <section className="mb-12">
+          <DownloadableFigure filename="podiverzum-pelda-lekerdezesek">
+          <div className="text-xs uppercase tracking-widest text-primary mb-2">Példa lekérdezések</div>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Néhány gyors példa arra, mit lehet az adatbázisból kihúzni</h2>
+          <p className="mb-6 text-muted-foreground">
+            Ezek a számok pár perces ad-hoc lekérdezések eredményei a 2025. június óta megjelent magyar podcast-epizódokon, a tisztított átiratokban kereső szöveges illesztéssel. A teljes katalógusra futtatva, finomabb szűrésekkel a sajtó saját kérdéseire is le tudjuk gyártani a riport-grafikákat.
+          </p>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Cities */}
+            <div className="rounded-lg border border-border bg-card p-5">
+              <h3 className="font-serif text-lg font-bold text-foreground mb-1">Melyik magyar városok kerülnek szóba a leggyakrabban?</h3>
+              <p className="text-xs text-muted-foreground mb-4">Epizódszám, amelyikben a városnév elhangzik (2025. jún. – 2026. máj., HU podcastek, tisztított átiratok).</p>
+              <div className="space-y-1.5">
+                {[
+                  { name: "Budapest", eps: 808 },
+                  { name: "Győr", eps: 40 },
+                  { name: "Veszprém", eps: 33 },
+                  { name: "Debrecen", eps: 30 },
+                  { name: "Siófok", eps: 28 },
+                  { name: "Békéscsaba", eps: 23 },
+                  { name: "Szeged", eps: 18 },
+                  { name: "Pécs", eps: 14 },
+                  { name: "Sopron", eps: 13 },
+                  { name: "Miskolc", eps: 12 },
+                ].map((c, i, arr) => (
+                  <div key={c.name} className="flex items-center gap-2">
+                    <div className="w-4 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
+                    <div className="w-28 shrink-0 text-sm text-foreground truncate">{c.name}</div>
+                    <div className="flex-1 relative h-5 rounded bg-muted overflow-hidden">
+                      <div className="h-full bg-primary/70" style={{ width: `${(c.eps / arr[0].eps) * 100}%` }} />
+                      <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">{c.eps}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs italic text-muted-foreground">Budapest értelemszerűen messze vezet — érdekesebb a vidéki sorrend, ahol Győr, Veszprém és a Balaton-parti Siófok kerül előre az ország-elsőszámú nagyvárosok (Debrecen, Szeged, Pécs) elé.</p>
+            </div>
+
+            {/* Films / series */}
+            <div className="rounded-lg border border-border bg-card p-5">
+              <h3 className="font-serif text-lg font-bold text-foreground mb-1">Melyik filmek és sorozatok jönnek elő legtöbbet?</h3>
+              <p className="text-xs text-muted-foreground mb-4">Epizódszám említés alapján, válogatott magyar és nemzetközi címek, ugyanaz az időszak.</p>
+              <div className="space-y-1.5">
+                {[
+                  { name: "Semmelweis (2023)", eps: 28 },
+                  { name: "Harry Potter", eps: 25 },
+                  { name: "Star Wars", eps: 23 },
+                  { name: "Stranger Things", eps: 15 },
+                  { name: "A Tanár", eps: 14 },
+                  { name: "A Gyűrűk Ura", eps: 14 },
+                  { name: "Mátrix", eps: 10 },
+                  { name: "Dűne", eps: 10 },
+                  { name: "Joker", eps: 6 },
+                  { name: "Trónok harca", eps: 5 },
+                ].map((f, i, arr) => (
+                  <div key={f.name} className="flex items-center gap-2">
+                    <div className="w-4 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
+                    <div className="w-36 shrink-0 text-sm text-foreground truncate">{f.name}</div>
+                    <div className="flex-1 relative h-5 rounded bg-muted overflow-hidden">
+                      <div className="h-full bg-accent/70" style={{ width: `${(f.eps / arr[0].eps) * 100}%` }} />
+                      <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">{f.eps}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs italic text-muted-foreground">A magyar Semmelweis-életrajzi film vezet, mögötte a globális franchise-ok (Harry Potter, Star Wars, Stranger Things). Hasonló módon le tudunk kérni bármely márkát, terméket, közéleti szereplőt vagy szlogent.</p>
+            </div>
+          </div>
+
+          <p className="mt-6 text-sm text-muted-foreground border-l-2 border-primary pl-3">
+            Sajtós használati ötletek: „melyik politikus neve hangzik el legtöbbet egy adott hónapban", „milyen szövegkörnyezetben kerül szóba egy márka", „mely podcastekben beszélnek X témáról". Egyedi adatkérésért: <a href="mailto:hello@podiverzum.hu" className="text-primary underline">hello@podiverzum.hu</a>.
+          </p>
+          </DownloadableFigure>
+        </section>
 
         <section className="mb-12 rounded-lg border-2 border-primary/40 bg-card p-6">
           <div className="text-xs uppercase tracking-widest text-primary mb-2">Sajtó / kutatás</div>
