@@ -915,12 +915,6 @@ export default function PodcastReport2026() {
               <span key={tag} className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground">{tag}</span>
             ))}
           </div>
-          <a
-            href="mailto:hello@podiverzum.hu?subject=B2B%20%C3%A9rdekl%C5%91d%C3%A9s%20%E2%80%94%20Podiverzum%20adatb%C3%A1zis"
-            className="inline-flex items-center gap-2 rounded-md border border-primary px-5 py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition"
-          >
-            B2B hozzáférés és egyedi lekérdezés →
-          </a>
         </section>
 
         {/* Capability demo — example queries */}
