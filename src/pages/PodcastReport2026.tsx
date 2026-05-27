@@ -647,7 +647,7 @@ export default function PodcastReport2026() {
         {/* Pullquote */}
         <section className="mb-12">
           <blockquote className="border-l-4 border-primary pl-6 py-4 font-serif text-xl md:text-2xl italic text-foreground leading-relaxed">
-            „A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, eddig alig mérhető nyilvánossági tér."
+            „A magyar podcastpiac kinőtte a régi keresési és mérési logikát: ma már nem elég műsorokat listázni, az epizódok tartalmát kell érthetővé és kereshetővé tenni."
           </blockquote>
         </section>
 
