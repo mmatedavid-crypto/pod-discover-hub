@@ -677,3 +677,46 @@ function MapNode({ value, label, link }: { value: string; label: string; link?: 
   );
   return link ? <Link to={link}>{inner}</Link> : inner;
 }
+
+function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; vals: number[] }[] }; max: number }) {
+  return (
+    <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="min-w-[520px]">
+        <div className="grid gap-1 text-[10px] md:text-xs" style={{ gridTemplateColumns: `48px repeat(${data.cols.length}, minmax(0,1fr))` }}>
+          <div />
+          {data.cols.map((c) => (
+            <div key={c} className="text-center text-muted-foreground font-mono pb-1">{c}</div>
+          ))}
+          {data.rows.map((r) => (
+            <>
+              <div key={`d-${r.day}`} className="flex items-center text-muted-foreground pr-1">{r.day}</div>
+              {r.vals.map((v, i) => {
+                const alpha = 0.08 + (v / max) * 0.92;
+                const isPeak = v / max > 0.85;
+                return (
+                  <div
+                    key={`${r.day}-${i}`}
+                    className="aspect-[3/2] rounded flex items-center justify-center font-semibold tabular-nums"
+                    style={{ backgroundColor: `hsl(var(--primary) / ${alpha.toFixed(2)})`, color: alpha > 0.55 ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))" }}
+                    title={`${r.day} ${data.cols[i]}h — ${v} epizód / év`}
+                  >
+                    {isPeak ? v : ""}
+                  </div>
+                );
+              })}
+            </>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
+          <span>kevesebb</span>
+          <div className="flex gap-0.5">
+            {[0.1, 0.3, 0.5, 0.7, 0.95].map((a) => (
+              <div key={a} className="w-4 h-3 rounded-sm" style={{ backgroundColor: `hsl(var(--primary) / ${a})` }} />
+            ))}
+          </div>
+          <span>több publikálás</span>
+        </div>
+      </div>
+    </div>
+  );
+}
