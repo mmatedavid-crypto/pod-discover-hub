@@ -147,6 +147,43 @@ for (let i = 0; i < epUrls.length; i += CHUNK) {
   console.log(fname + ':', Math.min(CHUNK, epUrls.length - i), 'urls');
 }
 
+// ---- Wave 3: long-tail aggregation pages ----
+const longtail = [];
+const nowYear = new Date().getUTCFullYear();
+const yearList = [nowYear, nowYear - 1, nowYear - 2];
+
+// topic/year: top 60 public topics × 3 years (gated client-side by min episode count via prerender; sitemap is permissive)
+const { data: topTopics = [] } = await sb
+  .from('topics').select('slug, episode_count')
+  .eq('is_public', true).gt('episode_count', 20)
+  .order('episode_count', { ascending: false }).limit(60);
+for (const t of topTopics) {
+  for (const y of yearList) {
+    longtail.push(tag(`${SITE}/temak/${esc(t.slug)}/${y}`, now, 'monthly', '0.5'));
+  }
+}
+
+// podcast/year: top S/A/B podcasts × 3 years
+const { data: topPods = [] } = await sb
+  .from('podcasts').select('slug, rank_label, rss_status, language')
+  .ilike('language', 'hu%').in('rank_label', ['S', 'A', 'B'])
+  .eq('rss_status', 'active').limit(800);
+for (const p of topPods) {
+  if (!p.slug) continue;
+  for (const y of yearList) {
+    longtail.push(tag(`${SITE}/podcast/${esc(p.slug)}/epizodok/${y}`, now, 'monthly', '0.5'));
+  }
+}
+
+const longtailFiles = [];
+for (let i = 0; i < longtail.length; i += CHUNK) {
+  const idx = Math.floor(i / CHUNK) + 1;
+  const fname = `longtail-${idx}.xml`;
+  fs.writeFileSync(`public/sitemaps/${fname}`, wrap(longtail.slice(i, i + CHUNK)));
+  longtailFiles.push(fname);
+  console.log(fname + ':', Math.min(CHUNK, longtail.length - i), 'urls');
+}
+
 // ---- sitemap.xml (index) ----
 const lastmod = new Date().toISOString();
 const entries = [
@@ -154,6 +191,7 @@ const entries = [
   ...podFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
   ...peopleFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
   ...epFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
+  ...longtailFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
 ];
 const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</sitemapindex>\n`;
 fs.writeFileSync('public/sitemap.xml', indexXml);

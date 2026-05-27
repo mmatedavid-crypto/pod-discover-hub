@@ -76,9 +76,13 @@ function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
   // Hub landing pages (single-segment SEO surfaces)
   if (/^\/(podcastok|szemelyek|szervezetek|cegek|partok|temak)\/?$/.test(pathname)) return true;
-  // /podcast/:slug  or  /podcast/:slug/:episode
+  // /podcast/:slug  or  /podcast/:slug/:episode  or  /podcast/:slug/epizodok/:year (Wave 3)
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
+  if (/^\/podcast\/[^/]+\/epizodok\/\d{4}\/?$/.test(pathname)) return true;
   if (/^\/(category|kategoria)\/[^/]+\/?$/.test(pathname)) return true;
+  // Wave 3 long-tail: topic/year, topic-cross, person/topic, org/topic
+  if (/^\/temak\/[^/]+\/\d{4}\/?$/.test(pathname)) return true;
+  if (/^\/(szemelyek|szervezetek)\/[^/]+\/temak\/[^/]+\/?$/.test(pathname)) return true;
   // Entity routes — EN + HU aliases (topic/tema/temak, person/szemely/szemelyek,
   // company/ceg/cegek, szervezetek, partok, ticker, ingredient/hozzavalo).
   // Critical for FB/IG/X share previews.

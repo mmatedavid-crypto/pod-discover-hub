@@ -103,6 +103,8 @@ const App = () => (
           <Route path="/category/:slug" element={<CategoryDetail />} />
           <Route path="/podcast/:podcastSlug" element={<PodcastDetail />} />
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
+          {/* Wave 3 long-tail: /podcast/:slug/epizodok/:year — humans get the podcast page */}
+          <Route path="/podcast/:podcastSlug/epizodok/:year" element={<PodcastDetail />} />
           <Route path="/kereses" element={<SearchPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/belepes" element={<AuthPage />} />
@@ -171,9 +173,13 @@ const App = () => (
 
           <Route path="/temak" element={<TopicsHubPage />} />
           <Route path="/temak/:slug" element={<TopicDetailPage />} />
+          {/* Wave 3 long-tail: humans get parent topic page; bots get prerendered filtered view */}
+          <Route path="/temak/:slug/:year" element={<TopicDetailPage />} />
           <Route path="/szemelyek" element={<PeopleHubPage />} />
           <Route path="/szemelyek/:slug" element={<PersonDetailPage />} />
+          <Route path="/szemelyek/:slug/temak/:topicSlug" element={<PersonDetailPage />} />
           <Route path="/szervezetek" element={<OrganizationsIndexPage />} />
+          <Route path="/szervezetek/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />
           <Route path="/entitasok" element={<Navigate to="/szervezetek" replace />} />
           <Route path="/cegek" element={<CompaniesHubPage />} />
           <Route path="/partok" element={<PartiesHubPage />} />
