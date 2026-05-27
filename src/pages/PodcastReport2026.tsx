@@ -268,9 +268,12 @@ export default function PodcastReport2026() {
         {/* Tier distribution */}
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">A piac koncentrált — kevés profi, sok hobbi</h2>
-          <p className="mb-6 text-muted-foreground">
+          <p className="mb-4 text-muted-foreground">
             A Podiverzum belső minőségi besorolása (Formula C) szerint a {STATS.podcastCount} aktív magyar podcastből mindössze{" "}
             <strong className="text-foreground">{STATS.tiers.S} műsor publikál heti vagy gyakoribb rendszerességgel</strong>. Ez a réteg viszi az iparág hallgatottságát és médiavisszhangját.
+          </p>
+          <p className="mb-6 text-xs text-muted-foreground italic">
+            Megjegyzés: az S–E besorolás a Podiverzum saját, nyilvános adatokon (publikálási gyakoriság, frissesség, epizódszám, konzisztencia) alapuló minőségi rendszere — nem hivatalos iparági szabvány, és nem hallgatottsági adat. Részletek: <Link to="/modszertan" className="underline hover:text-foreground">módszertan</Link>.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <TierCard tier="S" label="Heti+, profi" count={STATS.tiers.S} note="Napi vagy heti rendszeresség" />
