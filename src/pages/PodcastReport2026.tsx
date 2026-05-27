@@ -1053,12 +1053,24 @@ export default function PodcastReport2026() {
           </div>
         </section>
 
+        {/* Press / research box */}
+        <section className="mb-8 rounded-lg border border-primary/30 bg-primary/5 p-6 print:break-inside-avoid">
+          <div className="text-xs uppercase tracking-widest text-primary mb-2">Sajtó / kutatás</div>
+          <h2 className="font-serif text-xl font-bold text-foreground mb-2">Adatkérések és háttérbeszélgetés</h2>
+          <p className="text-sm text-foreground mb-3">
+            Sajtómegkeresések, egyedi lekérdezések, kutatási együttműködés és háttérbeszélgetés: <a href="mailto:hello@podiverzum.hu" className="font-semibold underline">hello@podiverzum.hu</a>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            A jelentésben szereplő grafikák szabadon átvehetők forrásmegjelöléssel: Podiverzum.hu.
+          </p>
+        </section>
+
         {/* Footer CTA */}
-        <section className="rounded-lg border border-border bg-card p-6 text-center">
+        <section className="rounded-lg border border-border bg-card p-6 text-center print:break-inside-avoid">
           <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Próbáld ki</div>
           <div className="font-serif text-2xl font-bold text-foreground mb-3">Keress rá bármire a magyar podcast univerzumban</div>
           <p className="mb-4 text-muted-foreground">
-            133 ezer epizódban AI-alapú szemantikus keresés, magyar nyelven, idézhető válaszokkal.
+            133 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
           </p>
           <Link
             to="/kereses"
@@ -1069,23 +1081,17 @@ export default function PodcastReport2026() {
         </section>
 
         {/* Legal disclaimer */}
-        <section className="mt-10 pt-6 border-t border-border">
+        <section className="mt-10 pt-6 border-t border-border print:break-inside-avoid">
           <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">Felelősségkizárás</h2>
           <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
             <p>
-              Ez a jelentés <strong className="text-foreground">tájékoztató és sajtó-háttéranyag jelleggel</strong> készült a Podiverzum.hu nyilvánosan elérhető magyar podcast-katalógusa alapján. A közölt számok, arányok és trendek a {TODAY_LABEL}-i adatbázis-állapot pillanatképei; az alapadatok (RSS feedek, epizód-leírások, átiratok) folyamatosan változnak, így későbbi lekérdezés eltérő eredményt adhat.
+              <strong className="text-foreground">Adatok jellege:</strong> a jelentés tájékoztató és sajtó-háttéranyag jelleggel készült a Podiverzum.hu nyilvánosan elérhető magyar podcast-katalógusa alapján. A közölt számok a {TODAY_LABEL}-i állapot pillanatképei; az alapadatok (RSS feedek, leírások, átiratok) folyamatosan változnak, így későbbi lekérdezés eltérő eredményt adhat. A jelentés <em>kínálati</em> oldalt mér, nem tartalmaz hallgatottsági, letöltési vagy bevételi adatot. Az „említés" azt jelenti, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy elérhető átiratában — ez nem tartalmi értékelés vagy állásfoglalás az érintettekről.
             </p>
             <p>
-              <strong className="text-foreground">Mérési oldal:</strong> a jelentés <em>kínálati</em> oldalt mér (mennyi epizód jelenik meg, miről beszélnek), nem <em>keresleti</em> oldalt — letöltés-, hallgatottság- vagy bevétel-adatokat nem tartalmaz. Az „említés" mint metrika azt jelenti, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában; ez nem jelent tartalmi értékelést, állásfoglalást vagy minősítést az érintett személyekkel, szervezetekkel vagy témákkal kapcsolatban.
+              <strong className="text-foreground">Automatizált feldolgozás korlátai:</strong> az entitás-kinyerés, a nyelvazonosítás és a kategorizálás részben nyelvi modellekkel és heurisztikus ellenőrzésekkel történik, ezért elszórt téves találatok, névegyezések vagy kontextus-tévesztések előfordulhatnak. A Podiverzum törekszik az adatok pontosságára, de az automatizált feldolgozás és a folyamatosan változó forrásadatok miatt elszórt eltérések előfordulhatnak; korrekciós jelzéseket a <a href="mailto:hello@podiverzum.hu" className="underline">hello@podiverzum.hu</a> címen fogadunk.
             </p>
             <p>
-              <strong className="text-foreground">Automatizált feldolgozás:</strong> az entitás-kinyerés (személyek, szervezetek, témák), a nyelvazonosítás és a kategorizálás részben nyelvi modellekkel és heurisztikákkal történik, ezért elszórt téves találatok, névegyezések vagy kontextus-tévesztések előfordulhatnak. A Podiverzum a publikált adatok pontosságáért felelősséget nem vállal, és az adatokra alapozott üzleti, befektetési, jogi vagy szerkesztőségi döntésekért semmilyen formában nem felelős.
-            </p>
-            <p>
-              <strong className="text-foreground">Szerzői jog és felhasználás:</strong> a jelentésben szereplő grafikák szabadon felhasználhatók a forrás (Podiverzum.hu) feltüntetésével. A nyers adatbázis, az átiratok és a származtatott adatok a Podiverzum tulajdonát képezik; bulk-letöltésük, scrapelésük vagy újrahasznosításuk előzetes írásos engedély nélkül nem megengedett. Harmadik felek nevei és védjegyei tulajdonosaik tulajdonát képezik, említésük kizárólag azonosítás célját szolgálja.
-            </p>
-            <p>
-              Eltérés vagy korrekciós igény esetén az érintett az adatkezelő rendes csatornáin jelezheti észrevételét; a Podiverzum a megalapozott korrekciókat észszerű időn belül átvezeti.
+              <strong className="text-foreground">Felhasználás és forrásmegjelölés:</strong> a jelentésben szereplő grafikák szabadon felhasználhatók a forrás (Podiverzum.hu) feltüntetésével. A nyers adatbázis, az átiratok és a származtatott adatok a Podiverzum tulajdonát képezik; bulk-letöltésük vagy újrahasznosításuk előzetes írásos engedély nélkül nem megengedett. Harmadik felek nevei és védjegyei tulajdonosaik tulajdonát képezik.
             </p>
           </div>
         </section>
