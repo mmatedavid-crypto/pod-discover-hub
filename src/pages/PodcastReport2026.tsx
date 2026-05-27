@@ -76,48 +76,6 @@ const STATS = {
     { slug: "egeszseg", name: "Egészség", eps: 43 },
     { slug: "tortenelem", name: "Történelem", eps: 40 },
   ],
-  // Top recurring voices — hostok + visszatérő vendégek együtt.
-  // Kiszűrve: műsorvezetők, akik főleg saját műsorukban szerepelnek (Bochkor, Puzsér,
-  // Horváth Oszkár, Rónai Egon, Fábry Kornél stb.). A listán csak olyan közéleti
-  // szereplők, szakértők, politikusok maradnak, akik vendégként/témaként szerepelnek
-  // több műsorban is — vagyis akikről beszélnek, nem akik beszélnek.
-  // Forrás: person_episode_mentions (AI entity-resolution), 2025.06.01–2026.05.27, HU feedek.
-  // Műsorvezetők kiszűrve (Puzsér, Rónai, Ceglédi, Pető, Csepelyi, Bochkor, Horváth).
-  // Homonim találatok (Kovács Gergely érsek vs MKKP, Borbély Imre, Tóth Csaba, Szabó László,
-  // Varga Zoltán, Németh Dávid stb.) is kihagyva — ahol a wiki-leírás nem egyezik a podcast-kontextussal.
-  topVoices: [
-    { slug: "orban-viktor",    name: "Orbán Viktor",    role: "miniszterelnök",            eps: 278, pods: 30 },
-    { slug: "magyar-peter",    name: "Magyar Péter",    role: "politikus (Tisza)",         eps: 199, pods: 26 },
-    { slug: "donald-trump",    name: "Donald Trump",    role: "USA elnöke",                eps: 102, pods: 31 },
-    { slug: "ruff-balint",     name: "Ruff Bálint",     role: "jogász, politikai tanácsadó", eps: 52, pods: 11 },
-    { slug: "gubik-petra",     name: "Gubik Petra",     role: "színésznő",                 eps: 51, pods: 4  },
-    { slug: "pogatsa-zoltan",  name: "Pogátsa Zoltán",  role: "közgazdász, szociológus",   eps: 39, pods: 19 },
-    { slug: "szijjarto-peter", name: "Szijjártó Péter", role: "külügyminiszter",           eps: 38, pods: 16 },
-    { slug: "balasy-zsolt",    name: "Balásy Zsolt",    role: "kommunikációs szakértő",    eps: 33, pods: 16 },
-    { slug: "keri-laszlo",     name: "Kéri László",     role: "politológus",               eps: 31, pods: 8  },
-    { slug: "zsiday-viktor",   name: "Zsiday Viktor",   role: "közgazdász, befektető",     eps: 25, pods: 11 },
-  ],
-  // Top szervezetek a magyar podcastekben (2025. jún. – 2026. máj.).
-  // Kiszűrve: médiumok, rádiók, sportklubok és -ligák (külön világ, ott
-  // egy-két sportpodcast minden epizódban ismétli ugyanazt a 8-10 csapatot,
-  // ezért torzít), egyházak, pártok (saját bontás lejjebb), valamint azok
-  // a szervezetek, amelyek főleg saját podcasttal vagy szponzori felirattal
-  // jelennek meg (Donably, Barion, Patreon, ATV-Gondolat Jel Alapítvány,
-  // XXI. Század Intézet, Partizán Alapítvány). Az „EU" és „Európai Unió"
-  // bejegyzéseket összevontuk.
-  topOrgs: [
-    { slug: "facebook", name: "Facebook", type: "Vállalat", eps: 1841 },
-    { slug: "instagram", name: "Instagram", type: "Vállalat", eps: 923 },
-    { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 738 },
-    { slug: "youtube", name: "YouTube", type: "Vállalat", eps: 675 },
-    { slug: "otp-bank", name: "OTP Bank", type: "Vállalat", eps: 599 },
-    { slug: "apple", name: "Apple", type: "Vállalat", eps: 493 },
-    { slug: "netflix", name: "Netflix", type: "Vállalat", eps: 403 },
-    { slug: "google", name: "Google", type: "Vállalat", eps: 380 },
-    { slug: "tiktok", name: "TikTok", type: "Vállalat", eps: 363 },
-    { slug: "magyar-nemzeti-bank", name: "Magyar Nemzeti Bank (MNB)", type: "Intézmény", eps: 249 },
-  ],
-
   topParties: [
     { slug: "fidesz", name: "Fidesz", eps: 1126 },
     { slug: "tisza-part", name: "Tisza Párt", eps: 718 },
