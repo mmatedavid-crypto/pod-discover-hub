@@ -9,6 +9,7 @@
 //   /podcast/:slug/:episode        → PodcastEpisode
 //   /category/:slug                → CollectionPage + podcast list
 //   /topic|person|company|ticker|ingredient/:slug → CollectionPage + episode list
+//   /podcastok|szemelyek|szervezetek|cegek|partok|temak → Hub landing pages
 //   anything else                  → 404 (Worker will fall back to origin)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
