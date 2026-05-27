@@ -1423,6 +1423,40 @@ Deno.serve(async (req) => {
       const r = await buildEpisode(supabase, parts[1], parts[2]);
       return r ?? notFound(path);
     }
+    // Wave 3: /podcast/:slug/epizodok/:year
+    if (parts[0] === "podcast" && parts.length === 4 && parts[2] === "epizodok") {
+      const year = looksLikeYear(parts[3]);
+      if (year) {
+        const r = await buildPodcastYear(supabase, parts[1], year);
+        return r ?? notFound(path);
+      }
+    }
+    // Wave 3: /temak/:topic/:year
+    if (parts[0] === "temak" && parts.length === 3) {
+      const year = looksLikeYear(parts[2]);
+      if (year) {
+        const r = await buildTopicYear(supabase, parts[1], year);
+        return r ?? notFound(path);
+      }
+    }
+    // Wave 3: /temak/:a-es-:b cross-topic (single segment with "-es-" separator)
+    if (parts[0] === "temak" && parts.length === 2 && parts[1].includes("-es-")) {
+      const [a, b] = parts[1].split("-es-");
+      if (a && b && a !== b) {
+        const r = await buildTopicCross(supabase, a, b);
+        return r ?? notFound(path);
+      }
+    }
+    // Wave 3: /szemelyek/:slug/temak/:topic
+    if (parts[0] === "szemelyek" && parts.length === 4 && parts[2] === "temak") {
+      const r = await buildPersonTopic(supabase, parts[1], parts[3]);
+      return r ?? notFound(path);
+    }
+    // Wave 3: /szervezetek/:slug/temak/:topic
+    if (parts[0] === "szervezetek" && parts.length === 4 && parts[2] === "temak") {
+      const r = await buildOrgTopic(supabase, parts[1], parts[3]);
+      return r ?? notFound(path);
+    }
     if ((parts[0] === "category" || parts[0] === "kategoria") && parts.length === 2) {
       const r = await buildCategory(supabase, parts[1], parts[0]);
       return r ?? notFound(path);
