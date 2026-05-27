@@ -281,7 +281,7 @@ export default function PodcastReport2026() {
           <p className="mb-6 text-muted-foreground">
             A {STATS.podcastCount.toLocaleString("hu-HU")} aktív magyar podcastből mindössze{" "}
             <strong className="text-foreground">{STATS.tiers.weekly} jelenik meg heti vagy gyakoribb rendszerességgel</strong>.
-            Ez a réteg adja a magyar podcastpiac rendszeresen frissülő, szerkesztett magját. Alattuk széles hobbi- és niche-réteg húzódik — a ritkábban publikáló többség, havi vagy annál is ritkább ritmusban.
+            Ez a réteg adja a magyar podcastpiac rendszeresen frissülő, szerkesztett magját. Alatta széles hobbi- és niche-réteg húzódik: a ritkábban publikáló többség havi vagy annál is ritkább ritmusban jelentkezik.
           </p>
           <PyramidRow label="Heti+ műsorok" count={STATS.tiers.weekly} total={STATS.podcastCount} note="Heti vagy gyakoribb publikálás" emphasis />
           <PyramidRow label="Aktív havi műsorok" count={STATS.tiers.monthlyActive} total={STATS.podcastCount} note="Havi 2–4 epizód" />
