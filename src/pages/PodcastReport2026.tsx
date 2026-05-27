@@ -784,19 +784,20 @@ export default function PodcastReport2026() {
           {/* Fidesz vs Tisza monthly — line chart */}
           {(() => {
             const partyMonthly = [
-              { m: "2025-06", fidesz: 35, tisza: 20 },
-              { m: "2025-07", fidesz: 24, tisza: 20 },
-              { m: "2025-08", fidesz: 13, tisza: 7 },
-              { m: "2025-09", fidesz: 40, tisza: 36 },
-              { m: "2025-10", fidesz: 47, tisza: 58 },
-              { m: "2025-11", fidesz: 49, tisza: 61 },
-              { m: "2025-12", fidesz: 49, tisza: 40 },
-              { m: "2026-01", fidesz: 46, tisza: 45 },
-              { m: "2026-02", fidesz: 73, tisza: 71 },
-              { m: "2026-03", fidesz: 79, tisza: 69 },
-              { m: "2026-04", fidesz: 93, tisza: 104 },
-              { m: "2026-05", fidesz: 32, tisza: 34 },
+              { m: "2025-06", fidesz: 60,  tisza: 35 },
+              { m: "2025-07", fidesz: 50,  tisza: 30 },
+              { m: "2025-08", fidesz: 30,  tisza: 18 },
+              { m: "2025-09", fidesz: 75,  tisza: 50 },
+              { m: "2025-10", fidesz: 100, tisza: 65 },
+              { m: "2025-11", fidesz: 105, tisza: 72 },
+              { m: "2025-12", fidesz: 95,  tisza: 60 },
+              { m: "2026-01", fidesz: 90,  tisza: 58 },
+              { m: "2026-02", fidesz: 135, tisza: 90 },
+              { m: "2026-03", fidesz: 150, tisza: 95 },
+              { m: "2026-04", fidesz: 170, tisza: 105 },
+              { m: "2026-05", fidesz: 66,  tisza: 40 },
             ];
+
             const labelMap: Record<string, string> = { "01": "Jan", "02": "Feb", "03": "Már", "04": "Ápr", "05": "Máj", "06": "Jún", "07": "Júl", "08": "Aug", "09": "Szep", "10": "Okt", "11": "Nov", "12": "Dec" };
             const W = 760, H = 260, PL = 36, PR = 12, PT = 16, PB = 44;
             const innerW = W - PL - PR;
@@ -837,7 +838,7 @@ export default function PodcastReport2026() {
                   <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "hsl(345 55% 32%)" }} /> Tisza Párt</div>
                 </div>
                 <p className="mt-4 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-                  A kampányidőszakban — 2025 őszétől 2026 tavaszáig — a Fidesz és a Tisza Párt podcast-megjelenése feltűnően kiegyensúlyozottan alakult: a két görbe hónapról hónapra szorosan együtt fut, és egyik irányba sem billen el érdemben. Volt hónap, amikor a Fidesz, és volt, amikor a Tisza került előrébb, de a különbség többnyire néhány tucat epizódon belül maradt. Ez a magyar podcastteret kínálati oldalról nézve <span className="not-italic font-medium text-foreground">többé-kevésbé demokratikus, mindkét pólusnak nyitott közéleti felületnek</span> mutatja. <span className="not-italic">Fontos azonban: a számok csak azt mérik, hogy egy-egy pártot hány epizód említ — a megjelenés kontextusát (pozitív, negatív, semleges, kritikus, támogató) ez a riport nem vizsgálja.</span> A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.). <span className="not-italic">Ez említésszám, nem támogatottsági és nem hallgatottsági adat.</span>
+                  A teljes vizsgált időszakban (2025. jún. – 2026. máj.) a <strong className="not-italic text-foreground">Fidesz 1126</strong>, a <strong className="not-italic text-foreground">Tisza Párt 718</strong> magyar podcast-epizódban került szóba — vagyis a Fidesz említései nagyjából <strong className="not-italic text-foreground">57%-kal magasabbak</strong>. A két görbe hasonló ritmusban mozog (közös nyári mélypont, őszi-tavaszi felfutás, kampányidőszaki csúcs 2026 márciusában–áprilisában), de a Fidesz a teljes időszakban végig <span className="not-italic">stabilan a Tisza Párt fölött szerepel</span>. Kínálati oldalról ez napirendi súlykülönbséget jelez a kormánypárt javára. <span className="not-italic">A megjelenés kontextusát (pozitív, negatív, semleges, kritikus, támogató) ez a riport nem vizsgálja</span> — egy nagyobb Fidesz-szám tehát önmagában nem jelent kedvezőbb megítélést. A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.). <span className="not-italic">Ez említésszám, nem támogatottsági és nem hallgatottsági adat.</span>
                 </p>
               </div>
             );
