@@ -677,7 +677,7 @@ export default function PodcastReport2026() {
           </p>
           {(() => {
             const buckets = [
-              { label: "Frissen aktív (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
+              { label: "Rendszeresen frissülő (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
               { label: "Lassuló (30–90 nap)", n: 214, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
               { label: "Szunnyadó (3–6 hó)", n: 218, color: "bg-muted-foreground/50", note: "lassan kihagy" },
               { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
