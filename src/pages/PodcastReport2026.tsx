@@ -393,6 +393,10 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-xs text-muted-foreground">
             Epizódszám szerinti súlyozás, csak a top 12 kategória alapján, az indexelt magyar podcastek {TODAY_LABEL}-i állapota szerint.
           </p>
+          <p className="mt-3 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            Erős koncentráció: a <strong className="text-foreground">top 4 kategória</strong> (Társadalom &amp; kultúra, Hit &amp; spiritualitás, Hírek &amp; politika, Üzlet &amp; pénzügy) adja a magyar podcast-katalógus felét. A „long tail" létezik, de a beszélgetés súlypontja egyértelműen ezekben a sávokban van.
+          </p>
+
           </DownloadableFigure>
         </section>
 
@@ -461,6 +465,53 @@ export default function PodcastReport2026() {
           </p>
           </DownloadableFigure>
         </section>
+
+        {/* Podcast activity / death rate */}
+        <section className="mb-12">
+          <DownloadableFigure filename="podcast-aktivitas">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány magyar podcast él még valójában?</h2>
+          <p className="mb-6 text-muted-foreground">
+            Az indexelt <strong className="text-foreground">1 352 magyar podcastből</strong> csak egy szűk réteg publikál ténylegesen rendszeresen — a többség lassan kihal, vagy már évek óta nem jelentkezett új epizóddal. Az alábbi bontás az utolsó megjelent epizód dátuma szerint.
+          </p>
+          {(() => {
+            const buckets = [
+              { label: "Aktív (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
+              { label: "Lassuló (30–90 nap)", n: 214, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
+              { label: "Szunnyadó (3–6 hó)", n: 218, color: "bg-muted-foreground/50", note: "lassan kihagy" },
+              { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél-egy éve nem jelent meg új ep." },
+              { label: "Halott (>1 év)", n: 345, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
+            ];
+            const total = buckets.reduce((s, b) => s + b.n, 0);
+            return (
+              <>
+                <div className="flex h-8 w-full overflow-hidden rounded-md border border-border mb-3">
+                  {buckets.map((b) => (
+                    <div key={b.label} className={`${b.color} relative group`} style={{ width: `${(b.n / total) * 100}%` }} title={`${b.label}: ${b.n} műsor`}>
+                      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-background opacity-90">{Math.round((b.n / total) * 100)}%</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 text-sm">
+                  {buckets.map((b) => (
+                    <div key={b.label} className="flex items-baseline gap-2">
+                      <span className={`inline-block h-3 w-3 rounded-sm ${b.color} mt-1 shrink-0`} />
+                      <div>
+                        <div className="text-foreground font-semibold">{b.label} — <span className="tabular-nums">{b.n}</span></div>
+                        <div className="text-xs text-muted-foreground">{b.note}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+                  Konklúzió: a magyar podcastek <strong className="text-foreground">~43%-a aktív</strong>, viszont <strong className="text-foreground">minden negyedik valószínűleg végleg leállt</strong> (több mint egy éve nincs új epizód). A „születési ráta" magas (havi ~29 új indulás 2026-ban), de a túlélés alacsony — a műfaj él, de folyamatos lemorzsolódáson dolgozik át magát.
+                </p>
+              </>
+            );
+          })()}
+          </DownloadableFigure>
+        </section>
+
+
 
 
         {/* Publishing heatmap */}
@@ -717,9 +768,47 @@ export default function PodcastReport2026() {
             </div>
           </div>
 
+          {/* Institutions */}
+
+          <div className="mt-6 rounded-lg border border-border bg-card p-5">
+            <h3 className="font-serif text-lg font-bold text-foreground mb-1">Mely állami és nemzetközi intézmények jönnek elő legtöbbet?</h3>
+            <p className="text-xs text-muted-foreground mb-4">Epizódszám, amelyikben az intézmény neve elhangzik vagy szóba kerül (2025. jún. – 2026. máj., HU podcastek). Az országokat és általános fogalmakat („kormány") kihagytuk, csak konkrét intézményeket jelenítünk meg.</p>
+            {(() => {
+              const insts = [
+                { name: "Európai Bizottság", eps: 34 },
+                { name: "Magyar Nemzeti Bank (MNB)", eps: 72 },
+                { name: "NATO", eps: 24 },
+                { name: "Magyar Honvédség", eps: 21 },
+                { name: "Országgyűlés", eps: 20 },
+                { name: "NAV", eps: 19 },
+                { name: "Kúria", eps: 18 },
+                { name: "Szuverenitásvédelmi Hivatal", eps: 18 },
+                { name: "Rendőrség", eps: 19 },
+                { name: "Országos Széchényi Könyvtár", eps: 31 },
+              ].sort((a, b) => b.eps - a.eps);
+              const max = insts[0].eps;
+              return (
+                <div className="space-y-1.5">
+                  {insts.map((x, i) => (
+                    <div key={x.name} className="flex items-center gap-2">
+                      <div className="w-4 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
+                      <div className="w-56 shrink-0 text-sm text-foreground truncate">{x.name}</div>
+                      <div className="flex-1 relative h-5 rounded bg-muted overflow-hidden">
+                        <div className="h-full bg-primary/70" style={{ width: `${(x.eps / max) * 100}%` }} />
+                        <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">{x.eps}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            <p className="mt-3 text-xs italic text-muted-foreground">A magyar közbeszéd intézményi térképét két erő rajzolja: a <strong className="text-foreground">gazdaság</strong> (MNB messze a legtöbbet emlegetett hazai intézmény) és a <strong className="text-foreground">honvédelem/biztonság</strong> (Honvédség, NATO, rendőrség, Szuverenitásvédelmi Hivatal). A Kúria és a NAV jelenléte mutatja, hogy a jogállam-vita és az adózás is folyamatosan napirenden van — viszont olyan klasszikus intézmények, mint az Alkotmánybíróság vagy az ÁSZ, alig kerülnek elő.</p>
+          </div>
+
           {/* Fidesz vs Tisza monthly */}
           {(() => {
             const partyMonthly = [
+
               { m: "2025-06", fidesz: 35, tisza: 20 },
               { m: "2025-07", fidesz: 24, tisza: 20 },
               { m: "2025-08", fidesz: 13, tisza: 7 },
