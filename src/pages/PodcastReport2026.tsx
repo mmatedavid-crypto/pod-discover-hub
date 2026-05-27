@@ -772,8 +772,8 @@ function DownloadableFigure({ filename, children }: { filename: string; children
 function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; vals: number[] }[] }; max: number }) {
   return (
     <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-      <div className="min-w-[520px]">
-        <div className="grid gap-1 text-[10px] md:text-xs" style={{ gridTemplateColumns: `48px repeat(${data.cols.length}, minmax(0,1fr))` }}>
+      <div className="min-w-[560px]">
+        <div className="grid gap-1 text-[10px] md:text-xs" style={{ gridTemplateColumns: `80px repeat(${data.cols.length}, minmax(0,1fr))` }}>
           <div />
           {data.cols.map((c) => (
             <div key={c} className="text-center text-muted-foreground font-mono pb-1">{c}</div>
