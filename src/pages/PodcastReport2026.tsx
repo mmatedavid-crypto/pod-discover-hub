@@ -161,7 +161,7 @@ export default function PodcastReport2026() {
   useEffect(() => {
     setSeo({
       title: "Magyar podcast piac 2026 — Podiverzum jelentés",
-      description: `Az első részletes adat-elemzés a magyar podcast piacról: ${STATS.podcastCount} aktív műsor, ${STATS.episodeCount.toLocaleString("hu-HU")} epizód, 10 év alatt ${growth10y}-szeres növekedés. Toplista, kategóriák, témák, közszereplők.`,
+      description: `Az első részletes adatelemzés a magyar podcast piacról: ${STATS.podcastCount} aktív műsor, ${STATS.episodeCount.toLocaleString("hu-HU")} epizód, 10 év alatt ${growth10y}-szeres növekedés. Toplista, kategóriák, témák, közszereplők.`,
       jsonLd: [
         {
           "@context": "https://schema.org",
