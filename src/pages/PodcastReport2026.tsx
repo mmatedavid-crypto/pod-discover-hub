@@ -150,9 +150,10 @@ const STATS = {
   ],
 };
 
-// derived
-const growth10y = (STATS.episodesYear["2025"] / STATS.episodesYear["2015"]).toFixed(1);
-const yoy2025 = (((STATS.episodesYear["2025"] - STATS.episodesYear["2024"]) / STATS.episodesYear["2024"]) * 100).toFixed(1);
+// derived — magyar tizedesvessző formátumban
+const huNum = (n: number, digits = 1) => n.toFixed(digits).replace(".", ",");
+const growth10y = huNum(STATS.episodesYear["2025"] / STATS.episodesYear["2015"]);
+const yoy2025 = huNum(((STATS.episodesYear["2025"] - STATS.episodesYear["2024"]) / STATS.episodesYear["2024"]) * 100);
 const projected2026 = Math.round((STATS.episodesYear["2026 (eddig, 5 hó)"] / 147) * 365);
 const top4CategoryShare = (((265 + 126 + 124 + 103) / STATS.podcastCount) * 100).toFixed(0);
 
@@ -172,8 +173,6 @@ const minMonth = Math.min(...STATS.newPodsByMonth.map((p) => p.c));
 const monthBaseline = Math.max(0, minMonth - 3);
 const monthRange = maxMonth - monthBaseline;
 const newPodsTotal24mo = STATS.newPodsByMonth.reduce((s, p) => s + p.c, 0);
-const deadPct = ((STATS.tiers.dead / STATS.podcastCount) * 100).toFixed(1);
-const alivePct = (100 - parseFloat(deadPct)).toFixed(1);
 
 // Dinamikus dátum-bélyeg, hogy a letölthető PNG-k és bélyegzők mindig az aktuális napot mutassák.
 const TODAY_LABEL = new Date().toLocaleDateString("hu-HU", {
@@ -186,7 +185,7 @@ export default function PodcastReport2026() {
   useEffect(() => {
     setSeo({
       title: "Magyar podcast piac 2026 — Podiverzum jelentés",
-      description: `Az első részletes adatelemzés a magyar podcast piacról: ${STATS.podcastCount} aktív műsor, ${STATS.episodeCount.toLocaleString("hu-HU")} epizód, 10 év alatt ${growth10y}-szeres növekedés. Toplista, kategóriák, témák, közszereplők.`,
+      description: `${STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar podcast, ${STATS.episodeCount.toLocaleString("hu-HU")} epizód, napi közel 90 új adás: a Podiverzum.hu első részletes adatelemzése a magyar podcast piacról.`,
       jsonLd: [
         {
           "@context": "https://schema.org",
@@ -196,7 +195,7 @@ export default function PodcastReport2026() {
           inLanguage: "hu-HU",
           author: { "@type": "Organization", name: "Podiverzum", url: "https://podiverzum.hu" },
           publisher: { "@type": "Organization", name: "Podiverzum", url: "https://podiverzum.hu" },
-          about: "Magyar podcast piac mérete, növekedése, kategóriái és témái",
+          about: "Magyar podcast piac mérete, növekedése, kategóriái és témái — kínálati oldali adatok",
           url: "https://podiverzum.hu/jelentes/magyar-podcast-piac-2026",
         },
       ],
@@ -215,22 +214,27 @@ export default function PodcastReport2026() {
             Magyar podcast piac 2026
           </h1>
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            Az első részletes adatelemzés a magyar nyelvű podcast iparágról:
-            {" "}<strong className="text-foreground">{STATS.podcastCount.toLocaleString("hu-HU")} aktív műsor</strong>,
-            {" "}<strong className="text-foreground">{STATS.episodeCount.toLocaleString("hu-HU")} epizód</strong>,
-            tíz év alatt <strong className="text-foreground">{growth10y}-szeres növekedés</strong>.
+            Az első részletes adatelemzés a magyar podcastpiacról:{" "}
+            <strong className="text-foreground">{STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsor</strong>,{" "}
+            <strong className="text-foreground">{STATS.episodeCount.toLocaleString("hu-HU")} epizód</strong>, tíz év alatt{" "}
+            <strong className="text-foreground">{growth10y}-szeres növekedés</strong>, napi közel 90 új epizód.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
-            Adatforrás: Podiverzum.hu belső katalógus · Módszertan a cikk alján
+            Adatforrás: Podiverzum.hu belső katalógus · Kínálati oldali adatok (nem hallgatottság) · Módszertan a cikk alján
           </div>
 
           {/* Hero metric cards */}
           <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <HeroMetric value={STATS.podcastCount.toLocaleString("hu-HU")} label="aktív műsor" />
+            <HeroMetric value={STATS.podcastCount.toLocaleString("hu-HU")} label="indexelt műsor" />
             <HeroMetric value={STATS.episodeCount.toLocaleString("hu-HU")} label="epizód" />
             <HeroMetric value={`${growth10y}×`} label="növekedés 2015 óta" />
             <HeroMetric value="~90" label="napi új epizód" />
           </div>
+
+          {/* Press thesis */}
+          <p className="mt-8 font-serif text-lg md:text-xl italic text-foreground leading-relaxed border-l-2 border-primary pl-4">
+            A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, de eddig alig mérhető nyilvánossági tér.
+          </p>
         </header>
 
         {/* NEW: Mit mutatnak az adatok? */}
@@ -240,27 +244,27 @@ export default function PodcastReport2026() {
             <InsightCard
               n={1}
               title="A magyar podcast már médiapiaci tényező"
-              body={`Naponta közel 90 új magyar epizód, összesen ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
+              body={`Napi közel 90 új magyar epizód, több mint ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
             />
             <InsightCard
               n={2}
-              title="Nő a piac, kevés a heti műsor"
-              body={`${STATS.podcastCount.toLocaleString("hu-HU")} aktív podcastből ${STATS.tiers.weekly} jelenik meg heti vagy gyakoribb rendszerességgel.`}
+              title="Gyorsan nő, de nem egyenletesen professzionalizált"
+              body={`${STATS.podcastCount.toLocaleString("hu-HU")} indexelt műsorból mindössze ${STATS.tiers.weekly} jelenik meg heti vagy gyakoribb ritmusban — a piac széles, a szerkesztett mag szűkebb.`}
             />
             <InsightCard
               n={3}
-              title="Közélet és kultúra uralja a mezőnyt"
-              body="A vezető témák között a Biblia, a választás, a zene, a mesterséges intelligencia és a háború szerepel."
+              title="Közélet, kultúra és hit dominál"
+              body="A vezető témák között Biblia, választás, zene, mesterséges intelligencia és háború szerepel."
             />
             <InsightCard
               n={4}
-              title="A podcast a hagyományos média vakfoltja"
-              body="Sok fontos beszélgetés eddig nehezen volt kereshető és elemezhető a magyar nyilvánosságban."
+              title="A podcast a hagyományos médiamérés vakfoltja"
+              body="Fontos beszélgetések hangzanak el hosszú formátumban, de ezek eddig nehezen voltak kereshetők és elemezhetők."
             />
             <InsightCard
               n={5}
-              title="A Podiverzum kereshetővé teszi a vakfoltot"
-              body="Epizódok, témák, közszereplők és szervezetek összekapcsolva — strukturált térkép a magyar podcastnyilvánosságról."
+              title="A Podiverzum ezt teszi kereshetővé"
+              body="Epizódok, témák, közszereplők és szervezetek kapcsolódnak össze egy strukturált magyar podcast-adatbázisban."
               wide
             />
           </div>
@@ -368,10 +372,10 @@ export default function PodcastReport2026() {
             })}
           </div>
           <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
-            2026-ban a Biblia (130) és a választás (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
+            2026-ban a Biblia (130) és a Választás 2026 (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
-            A választási év nyoma is ott van a listán: a négyévente tartott országgyűlési választás — idén április 12-én — a <strong className="text-foreground not-italic">választás</strong> témáját egyenesen a top 10 második helyére tolta (123 epizód), közvetlenül a Biblia mögé.
+            A választási év nyoma is ott van a listán: a kampányidőszakban a <strong className="text-foreground not-italic">választás</strong> témája a top 10 második helyére került (123 epizód), közvetlenül a Biblia mögé.
           </p>
           </DownloadableFigure>
         </section>
@@ -380,8 +384,11 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <DownloadableFigure filename="kategoriak-megoszlas">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
-          <p className="mb-6 text-muted-foreground">
-            A magyar podcast piac négy meghatározó pilléren áll: társadalom és kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. Alább az epizódszám-megoszlás (terület = elérhető epizódok aránya).
+          <p className="mb-2 text-muted-foreground">
+            Az epizódok alapján a magyar podcastkínálat legerősebb pillérei: társadalom és kultúra, hírek és politika, vallás és spiritualitás, valamint üzlet és pénzügy. Alább az <strong className="text-foreground">epizódszám szerinti megoszlás</strong> (terület = elérhető epizódok aránya).
+          </p>
+          <p className="mb-6 text-xs text-muted-foreground italic">
+            Megjegyzés: ez epizódszám-alapú megoszlás (nem műsorszám, nem hallgatottság).
           </p>
           <div className="grid grid-cols-6 gap-1.5 min-h-[420px] [grid-auto-rows:80px]">
             {STATS.topCategories.map((cat, i) => {
@@ -414,7 +421,7 @@ export default function PodcastReport2026() {
             Epizódszám szerinti súlyozás, csak a top 12 kategória alapján, az indexelt magyar podcastek {TODAY_LABEL}-i állapota szerint.
           </p>
           <p className="mt-3 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            Erős koncentráció: a <strong className="text-foreground">top 4 kategória</strong> (Társadalom &amp; kultúra, Hit &amp; spiritualitás, Hírek &amp; politika, Üzlet &amp; pénzügy) adja a magyar podcast-katalógus felét. A „long tail" létezik, de a beszélgetés súlypontja egyértelműen ezekben a sávokban van.
+            Erős koncentráció az epizódok szintjén: a négy legnagyobb kategória — Társadalom &amp; kultúra, Hírek &amp; politika, Vallás &amp; spiritualitás, Üzlet &amp; pénzügy — adja a top 12 kategória epizódjainak közel felét.
           </p>
 
           </DownloadableFigure>
@@ -483,7 +490,7 @@ export default function PodcastReport2026() {
             );
           })()}
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A magyar podcastpiac két legnagyobb növekedési motorja 2025-ben az <strong className="text-foreground">egészség / életmód (+113%)</strong> és a <strong className="text-foreground">gasztronómia (+79%)</strong> volt — utánuk a gyerek & család (+55%), zene (+39%) és önfejlesztés (+30%) tartja a lendületet. Eközben a <strong className="text-foreground">humor (−44%)</strong>, az <strong className="text-foreground">oktatás (−31%)</strong> és a <strong className="text-foreground">film/popkultúra (−28%)</strong> visszaesett: a hallgatói figyelem a wellness, a praktikus tudás és a családi tartalom felé fordult.
+            A magyar podcastpiac kínálati oldalán 2025-ben az <strong className="text-foreground">egészség / életmód (+113%)</strong> és a <strong className="text-foreground">gasztronómia (+79%)</strong> nőtt a legnagyobbat — utánuk a gyerek &amp; család (+55%), zene (+39%) és önfejlesztés (+30%) tartja a lendületet. Eközben a <strong className="text-foreground">humor (−44%)</strong>, az <strong className="text-foreground">oktatás (−31%)</strong> és a <strong className="text-foreground">film / popkultúra (−28%)</strong> kevesebb új epizódot adott ki, mint 2024-ben. <span className="not-italic">Ez epizódszám-változás, nem hallgatottsági változás.</span>
           </p>
           </DownloadableFigure>
         </section>
@@ -556,7 +563,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Januárban robban a wellness-podcast: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re ugranak (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%). Az <strong className="text-foreground">önismeret</strong> év közben végig magas, a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> februárban csúcsosodik. Tipikus újévi fogadalom-mintázat — a hallgatók a januári „új én" időszakban keresnek a legaktívabban mentális wellness tartalmat.
+                  Az önismereti és mentális wellness témák januárban látványosan megugranak a magyar podcastok cím- és leírásszövegeiben: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re ugranak (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%). Az <strong className="text-foreground">önismeret</strong> év közben végig magas, a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> februárban csúcsosodik — klasszikus újévi tartalmi mintázat a kínálati oldalon.
                 </p>
               </div>
             );
@@ -655,7 +662,7 @@ export default function PodcastReport2026() {
             A függőleges tengely {monthBaseline}-tól indul, hogy a havi különbségek láthatók legyenek.
           </p>
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            2026 első három hónapjában havi 29 új magyar podcast indult — ez minden korábbi év átlagát felülmúlja.
+            2026 első három hónapjában havi 29 új magyar podcast indult — ez minden korábbi év átlagát felülmúlja. <span className="not-italic">Új indulás = az első ismert epizód megjelenése az indexelt katalógusban.</span>
           </p>
           </DownloadableFigure>
         </section>
@@ -663,17 +670,17 @@ export default function PodcastReport2026() {
         {/* Podcast activity / death rate */}
         <section className="mb-12">
           <DownloadableFigure filename="podcast-aktivitas">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány magyar podcast él még valójában?</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány magyar podcast frissül még valójában?</h2>
           <p className="mb-6 text-muted-foreground">
-            Az indexelt <strong className="text-foreground">1 352 magyar podcastből</strong> csak egy szűk réteg publikál ténylegesen rendszeresen — a többség lassan kihal, vagy már évek óta nem jelentkezett új epizóddal. Az alábbi bontás az utolsó megjelent epizód dátuma szerint.
+            Az indexelt magyar podcastek bontása az utolsó megjelent epizód dátuma szerint. A számok mutatják, hogy a katalógus egyszerre <strong className="text-foreground">bővül és lemorzsolódik</strong>: sok új műsor indul, de a rendszeres publikálási ritmust csak egy szűkebb réteg tartja fenn.
           </p>
           {(() => {
             const buckets = [
-              { label: "Aktív (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
+              { label: "Frissen aktív (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
               { label: "Lassuló (30–90 nap)", n: 214, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
               { label: "Szunnyadó (3–6 hó)", n: 218, color: "bg-muted-foreground/50", note: "lassan kihagy" },
-              { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél-egy éve nem jelent meg új ep." },
-              { label: "Halott (>1 év)", n: 345, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
+              { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
+              { label: "Elcsendesedett (12+ hó)", n: 345, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
             ];
             const total = buckets.reduce((s, b) => s + b.n, 0);
             return (
@@ -696,8 +703,11 @@ export default function PodcastReport2026() {
                     </div>
                   ))}
                 </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Összesen <strong className="text-foreground">{total.toLocaleString("hu-HU")}</strong> indexelt magyar műsor, amelyhez ismert utolsó epizód-dátum tartozik (a {STATS.podcastCount.toLocaleString("hu-HU")} feedes katalógusból). A „frissen aktív" sáv az elmúlt 30 napban publikált műsorokat jelöli.
+                </p>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Konklúzió: a magyar podcastek <strong className="text-foreground">~43%-a aktív</strong>, viszont <strong className="text-foreground">minden negyedik valószínűleg végleg leállt</strong> (több mint egy éve nincs új epizód). A „születési ráta" magas (havi ~29 új indulás 2026-ban), de a túlélés alacsony — a műfaj él, de folyamatos lemorzsolódáson dolgozik át magát.
+                  A magyar podcastpiac egyszerre bővül és lemorzsolódik: sok új műsor indul, de a rendszeres publikálási ritmust csak egy szűkebb réteg tartja fenn.
                 </p>
               </>
             );
@@ -712,12 +722,15 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <DownloadableFigure filename="publikalasi-heatmap">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
-          <p className="mb-6 text-muted-foreground">
-            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28530).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát rajzolja ki. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
+          <p className="mb-2 text-muted-foreground">
+            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28530).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar podcastoknak felismerhető heti ritmusa van: a legerősebb sáv a csütörtöki munkanap, különösen a délelőtti és kora délutáni órákban.
+          </p>
+          <p className="mb-6 text-xs text-muted-foreground italic">
+            Időzóna: Europe/Budapest. A publikálási dátum az RSS / publikációs metaadatok alapján.
           </p>
           <Heatmap data={STATS.heatmap} max={maxHeat} />
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — gyakorlatilag ez a magyar podcast „prime time”.
+            A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — gyakorlatilag ez a magyar podcast „prime time".
           </p>
           </DownloadableFigure>
         </section>
@@ -739,9 +752,9 @@ export default function PodcastReport2026() {
             jönnek, nincsenek a kinyerő torzítás-forrásnak kitéve. */}
         <section className="mb-12">
           <DownloadableFigure filename="top-partok">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top pártok a podcastekben</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Közéleti említések: pártok a magyar podcastokban</h2>
           <p className="mb-6 text-muted-foreground">
-            A 2026-os kampányidőszakban a pártok említései adják a legtisztább képet a közéleti podcast-térről. A számok azokat a magyar epizódokat jelölik, amelyekben az adott pártot a kanonikus szervezet-adatbázisunk azonosította (2025. jún. – 2026. máj.).
+            A számok azt mutatják, hány indexelt magyar epizódban azonosította a rendszer az adott pártot (2025. jún. – 2026. máj.). Ez egy <strong className="text-foreground">külön metszetet ad a közéleti podcast-térről</strong> — <strong className="text-foreground">nem támogatottsági, nem szimpátia- és nem hallgatottsági adat</strong>.
           </p>
 
           <div className="max-w-xl">
@@ -823,7 +836,7 @@ export default function PodcastReport2026() {
                   <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "hsl(345 55% 32%)" }} /> Tisza Párt</div>
                 </div>
                 <p className="mt-4 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-                  A két párt mention-pályája 2025 októberétől összeér, februárra már gyakorlatilag egyenrangúak a magyar podcast-térben, <strong className="text-foreground">2026 áprilisában (közvetlenül a választás előtt) pedig a Tisza Párt 104 epizóddal először előzte meg a Fideszt</strong> (93). A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.).
+                  2025 őszétől a két párt említési görbéje közelít egymáshoz, 2026 tavaszán pedig több hónapban hasonló nagyságrendben szerepelnek a magyar podcastokban. A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.). <span className="not-italic">Ez említésszám, nem támogatottsági adat.</span>
                 </p>
               </div>
             );
@@ -845,30 +858,6 @@ export default function PodcastReport2026() {
             <MapNode value={STATS.organizationsIndexed.toLocaleString("hu-HU")} label="szervezet" link="/szervezetek" />
             <MapNode value={`${top10Topics.length}+`} label="top témák" link="/temak" />
           </div>
-          {/* Alive vs dead feed mini-donut */}
-          <div className="mt-6 rounded-lg border border-border bg-card p-5 flex flex-col md:flex-row items-center gap-5">
-            <div className="relative w-28 h-28 shrink-0">
-              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="hsl(var(--muted))" strokeWidth="3.5" />
-                <circle
-                  cx="18" cy="18" r="15.9155" fill="none"
-                  stroke="hsl(var(--primary))" strokeWidth="3.5"
-                  strokeDasharray={`${alivePct} ${deadPct}`}
-                  strokeDashoffset="0"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <div className="text-lg font-bold text-foreground tabular-nums">{alivePct}%</div>
-                <div className="text-[9px] uppercase text-muted-foreground">aktív</div>
-              </div>
-            </div>
-            <div className="text-sm text-foreground">
-              <div className="font-semibold mb-1">A magyar podcastpiac stabil — csak {deadPct}% elnémult műsor</div>
-              <div className="text-muted-foreground">
-                A {STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsorból {STATS.tiers.dead} nem publikált 12+ hónapja. A többi {(STATS.podcastCount - STATS.tiers.dead).toLocaleString("hu-HU")} műsor aktívnak tekinthető — ez a nemzetközi átlagnál jelentősen jobb arány, a globális podcast-katalógusok 40–60%-a inaktív.
-              </div>
-            </div>
-          </div>
         </section>
 
 
@@ -880,56 +869,41 @@ export default function PodcastReport2026() {
         </section>
 
         {/* What it means */}
-        <section className="mb-12 rounded-lg bg-muted/40 p-6">
+        <section className="mb-12 rounded-lg bg-muted/40 p-6 print:break-inside-avoid">
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi közel 90 új epizód, évi több mint 25 ezer adás, közel másfél ezer aktív műsor. A nyilvánosság jelentős része — különösen a 25–45 éves korosztály — már nem a televízióból, hanem a fülhallgatóból tájékozódik.
+              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi közel 90 új epizód, évi több mint 25 ezer adás, több mint ezernégyszáz indexelt műsor. A nyilvánosság egyre nagyobb része — különösen a fiatalabb, urbánus korosztály — hosszú formátumú beszélgetésekből is tájékozódik.
             </p>
             <p>
-              Eközben a podcastok tartalma jórészt <strong>strukturálatlan, nehezen kereshető, és a hagyományos médiában láthatatlan marad</strong>: nem kerül be a hírügynökségi archívumokba, a Google érdemben nem indexeli, és a közéleti viták jelentős része kontroll nélkül zajlik a hallgatók fülében.
+              Eközben a podcastok tartalma jórészt <strong>strukturálatlan és nehezen kereshető</strong>: a keresőmotorok és hírarchívumok számára gyakran csak részlegesen látható, és a közéleti viták egy része olyan hosszú formátumú beszélgetésekben zajlik, amelyek eddig nehezen voltak visszakereshetők.
             </p>
             <p>
-              A Podiverzum ezt az átláthatatlanságot bontja le: <strong>minden epizód szövegét AI elemzi</strong>, kinyeri a szereplőket, témákat és állításokat, majd kereshetővé teszi őket.
+              A Podiverzum ezt az átláthatatlanságot bontja le: <strong>az indexelt epizódok szöveges adatait és elérhető átiratait automatizált rendszer elemzi</strong>, kinyeri a szereplőket, témákat és összefüggéseket, majd kereshetővé teszi őket.
             </p>
           </div>
         </section>
 
-        {/* B2B capability hype */}
-        <section className="mb-12 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-accent/5 p-6">
+        {/* B2B capability — what does Podiverzum see */}
+        <section className="mb-12 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-accent/5 p-6 print:break-inside-avoid">
           <div className="text-xs uppercase tracking-widest text-primary mb-2">A motor a háttérben</div>
           <h2 className="font-serif text-2xl font-bold text-foreground mb-3">Mit lát a Podiverzum, amit más nem?</h2>
           <p className="text-foreground mb-4">
-            Ez a jelentés csak a felszín. A Podiverzum mögött Magyarország legnagyobb gépi olvasású podcast-adatbázisa fut: <strong>~135 ezer magyar epizód</strong>, közel <strong>1 500 aktív műsor</strong>, teljes szövegű átiratokkal, kinyert szereplőkkel, szervezetekkel, témákkal és időbélyegekkel — folyamatosan, naponta frissülve.
+            Ez a jelentés csak egy nyilvános pillanatkép. A Podiverzum mögött folyamatosan frissülő magyar podcast-adatbázis fut: epizódokkal, témákkal, személyekkel, szervezetekkel és időbeli említésgörbékkel. Ez lehetővé teszi, hogy egy közszereplő, márka, intézmény vagy téma podcastbeli jelenléte visszakereshető és elemezhető legyen.
           </p>
-          <div className="grid gap-3 md:grid-cols-3 mb-4">
+          <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded border border-border bg-card p-4">
               <div className="text-xs font-mono text-primary mb-1">KI</div>
-              <div className="text-sm text-foreground leading-snug">Bármely <strong>közszereplő, márka vagy párt</strong> — mely epizódokban, milyen szövegkörnyezetben hangzik el a neve.</div>
+              <div className="text-sm text-foreground leading-snug">Kik és milyen epizódokban kerülnek szóba?</div>
             </div>
             <div className="rounded border border-border bg-card p-4">
               <div className="text-xs font-mono text-primary mb-1">MIKOR</div>
-              <div className="text-sm text-foreground leading-snug">Időbeli ívek: egy név, téma vagy szlogen <strong>említésgörbéje</strong> hetekre, hónapokra lebontva.</div>
+              <div className="text-sm text-foreground leading-snug">Hogyan változik egy téma vagy szereplő említése hónapról hónapra?</div>
             </div>
             <div className="rounded border border-border bg-card p-4">
-              <div className="text-xs font-mono text-primary mb-1">HOGYAN</div>
-              <div className="text-sm text-foreground leading-snug">Kontextus és tónus: <strong>milyen állítások</strong> hangzanak el, kik beszélgetnek róla, milyen témák köré szerveződik.</div>
+              <div className="text-xs font-mono text-primary mb-1">MILYEN KONTEXTUSBAN</div>
+              <div className="text-sm text-foreground leading-snug">Milyen témák, műsorok és szervezetek kapcsolódnak hozzá?</div>
             </div>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Ami a hagyományos médiamonitoringnak láthatatlan — hiszen a podcastek nincsenek a hírügynökségi archívumokban és a Google sem indexeli őket érdemben —, az itt percre pontosan kereshető, exportálható és idézhető.
-          </p>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {[
-              "Márkamonitorozás",
-              "Politikai elemzés",
-              "PR és kríziskommunikáció",
-              "Kutatás és akadémia",
-              "Versenytárs-figyelés",
-              "Szerkesztőségi háttéranyag",
-            ].map((tag) => (
-              <span key={tag} className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground">{tag}</span>
-            ))}
           </div>
         </section>
 
@@ -1038,9 +1012,9 @@ export default function PodcastReport2026() {
                 </div>
               );
             })()}
-            <p className="mt-3 text-xs italic text-muted-foreground">A magyar közbeszéd intézményi térképét két erő rajzolja: a <strong className="text-foreground">gazdaság</strong> (MNB messze a legtöbbet emlegetett hazai intézmény) és a <strong className="text-foreground">honvédelem/biztonság</strong> (Honvédség, NATO, rendőrség, Szuverenitásvédelmi Hivatal). A Kúria és a NAV jelenléte mutatja, hogy a jogállam-vita és az adózás is folyamatosan napirenden van — viszont olyan klasszikus intézmények, mint az Alkotmánybíróság vagy az ÁSZ, alig kerülnek elő.</p>
+            <p className="mt-3 text-xs italic text-muted-foreground">A magyar közbeszéd intézményi térképét két erő rajzolja: a <strong className="text-foreground">gazdaság</strong> (MNB messze a legtöbbet emlegetett hazai intézmény) és a <strong className="text-foreground">honvédelem / biztonság</strong> (Honvédség, NATO, rendőrség, Szuverenitásvédelmi Hivatal). A Kúria és a NAV jelenléte mutatja, hogy a jogállam-vita és az adózás is folyamatosan napirenden van.</p>
             <p className="mt-2 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-              <strong className="text-foreground">Miért az MNB az első?</strong> Az MNB-t emlegető 104 magyar epizódból <strong className="text-foreground">42 (40%)</strong> együtt említi a <em>botrány / MNB-alapítvány / Matolcsy / korrupció</em> kifejezések valamelyikét — ebből 36 epizód kifejezetten az „alapítvány" szót is tartalmazza. Vagyis az MNB jelenléte nagyrészt az MNB-alapítványok körüli ügy diskurzusából táplálkozik, nem a klasszikus monetáris politikai tartalomból.
+              <strong className="text-foreground">Miért az MNB a hazai listán az első?</strong> Az MNB említéseinek jelentős része az MNB-alapítványok körüli közéleti diskurzushoz kapcsolódik: az intézményt tartalmazó magyar epizódok közel <strong className="text-foreground">40%-ában</strong> a „botrány", „alapítvány", „Matolcsy" vagy „korrupció" kifejezések közül legalább egy szintén megjelenik a leiratban. Ez kontextusszámítás az említések szövegkörnyezetéből — <span className="not-italic">nem tartalmi értékelés vagy jogi következtetés</span> az érintettekről.
             </p>
           </div>
 
@@ -1079,12 +1053,24 @@ export default function PodcastReport2026() {
           </div>
         </section>
 
+        {/* Press / research box */}
+        <section className="mb-8 rounded-lg border border-primary/30 bg-primary/5 p-6 print:break-inside-avoid">
+          <div className="text-xs uppercase tracking-widest text-primary mb-2">Sajtó / kutatás</div>
+          <h2 className="font-serif text-xl font-bold text-foreground mb-2">Adatkérések és háttérbeszélgetés</h2>
+          <p className="text-sm text-foreground mb-3">
+            Sajtómegkeresések, egyedi lekérdezések, kutatási együttműködés és háttérbeszélgetés: <a href="mailto:hello@podiverzum.hu" className="font-semibold underline">hello@podiverzum.hu</a>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            A jelentésben szereplő grafikák szabadon átvehetők forrásmegjelöléssel: Podiverzum.hu.
+          </p>
+        </section>
+
         {/* Footer CTA */}
-        <section className="rounded-lg border border-border bg-card p-6 text-center">
+        <section className="rounded-lg border border-border bg-card p-6 text-center print:break-inside-avoid">
           <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Próbáld ki</div>
           <div className="font-serif text-2xl font-bold text-foreground mb-3">Keress rá bármire a magyar podcast univerzumban</div>
           <p className="mb-4 text-muted-foreground">
-            133 ezer epizódban AI-alapú szemantikus keresés, magyar nyelven, idézhető válaszokkal.
+            133 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
           </p>
           <Link
             to="/kereses"
@@ -1095,23 +1081,17 @@ export default function PodcastReport2026() {
         </section>
 
         {/* Legal disclaimer */}
-        <section className="mt-10 pt-6 border-t border-border">
+        <section className="mt-10 pt-6 border-t border-border print:break-inside-avoid">
           <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">Felelősségkizárás</h2>
           <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
             <p>
-              Ez a jelentés <strong className="text-foreground">tájékoztató és sajtó-háttéranyag jelleggel</strong> készült a Podiverzum.hu nyilvánosan elérhető magyar podcast-katalógusa alapján. A közölt számok, arányok és trendek a {TODAY_LABEL}-i adatbázis-állapot pillanatképei; az alapadatok (RSS feedek, epizód-leírások, átiratok) folyamatosan változnak, így későbbi lekérdezés eltérő eredményt adhat.
+              <strong className="text-foreground">Adatok jellege:</strong> a jelentés tájékoztató és sajtó-háttéranyag jelleggel készült a Podiverzum.hu nyilvánosan elérhető magyar podcast-katalógusa alapján. A közölt számok a {TODAY_LABEL}-i állapot pillanatképei; az alapadatok (RSS feedek, leírások, átiratok) folyamatosan változnak, így későbbi lekérdezés eltérő eredményt adhat. A jelentés <em>kínálati</em> oldalt mér, nem tartalmaz hallgatottsági, letöltési vagy bevételi adatot. Az „említés" azt jelenti, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy elérhető átiratában — ez nem tartalmi értékelés vagy állásfoglalás az érintettekről.
             </p>
             <p>
-              <strong className="text-foreground">Mérési oldal:</strong> a jelentés <em>kínálati</em> oldalt mér (mennyi epizód jelenik meg, miről beszélnek), nem <em>keresleti</em> oldalt — letöltés-, hallgatottság- vagy bevétel-adatokat nem tartalmaz. Az „említés" mint metrika azt jelenti, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában; ez nem jelent tartalmi értékelést, állásfoglalást vagy minősítést az érintett személyekkel, szervezetekkel vagy témákkal kapcsolatban.
+              <strong className="text-foreground">Automatizált feldolgozás korlátai:</strong> az entitás-kinyerés, a nyelvazonosítás és a kategorizálás részben nyelvi modellekkel és heurisztikus ellenőrzésekkel történik, ezért elszórt téves találatok, névegyezések vagy kontextus-tévesztések előfordulhatnak. A Podiverzum törekszik az adatok pontosságára, de az automatizált feldolgozás és a folyamatosan változó forrásadatok miatt elszórt eltérések előfordulhatnak; korrekciós jelzéseket a <a href="mailto:hello@podiverzum.hu" className="underline">hello@podiverzum.hu</a> címen fogadunk.
             </p>
             <p>
-              <strong className="text-foreground">Automatizált feldolgozás:</strong> az entitás-kinyerés (személyek, szervezetek, témák), a nyelvazonosítás és a kategorizálás részben nyelvi modellekkel és heurisztikákkal történik, ezért elszórt téves találatok, névegyezések vagy kontextus-tévesztések előfordulhatnak. A Podiverzum a publikált adatok pontosságáért felelősséget nem vállal, és az adatokra alapozott üzleti, befektetési, jogi vagy szerkesztőségi döntésekért semmilyen formában nem felelős.
-            </p>
-            <p>
-              <strong className="text-foreground">Szerzői jog és felhasználás:</strong> a jelentésben szereplő grafikák szabadon felhasználhatók a forrás (Podiverzum.hu) feltüntetésével. A nyers adatbázis, az átiratok és a származtatott adatok a Podiverzum tulajdonát képezik; bulk-letöltésük, scrapelésük vagy újrahasznosításuk előzetes írásos engedély nélkül nem megengedett. Harmadik felek nevei és védjegyei tulajdonosaik tulajdonát képezik, említésük kizárólag azonosítás célját szolgálja.
-            </p>
-            <p>
-              Eltérés vagy korrekciós igény esetén az érintett az adatkezelő rendes csatornáin jelezheti észrevételét; a Podiverzum a megalapozott korrekciókat észszerű időn belül átvezeti.
+              <strong className="text-foreground">Felhasználás és forrásmegjelölés:</strong> a jelentésben szereplő grafikák szabadon felhasználhatók a forrás (Podiverzum.hu) feltüntetésével. A nyers adatbázis, az átiratok és a származtatott adatok a Podiverzum tulajdonát képezik; bulk-letöltésük vagy újrahasznosításuk előzetes írásos engedély nélkül nem megengedett. Harmadik felek nevei és védjegyei tulajdonosaik tulajdonát képezik.
             </p>
           </div>
         </section>
@@ -1207,7 +1187,7 @@ function DownloadableFigure({ filename, children }: { filename: string; children
     }
   };
   return (
-    <div>
+    <div className="print:break-inside-avoid">
       <div className="flex justify-end mb-2 print:hidden">
         <button
           type="button"
