@@ -498,10 +498,11 @@ export default function PodcastReport2026() {
         {/* Self-help / mental wellness — monthly seasonality */}
         <section className="mb-12">
           <DownloadableFigure filename="onsegito-temak-szezonalitas">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Januári fogadalmak a fülhallgatóban</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Alvás és meditáció: januárban két téma ugrik ki élesen</h2>
           <p className="mb-6 text-muted-foreground">
-            Öt önismereti / mentális wellness téma havi említései magyar podcast-epizódokban (cím + leírás szöveges illesztés, 2025. jún. – 2026. máj.). A grafikon a klasszikus újévi self-help csúcsot rajzolja ki.
+            Öt önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás szöveges illesztés, 2025. jún. – 2026. máj.). Az öt vizsgált téma közül januárban csak kettő — az alvás és a meditáció — emelkedik kiugró csúcsra.
           </p>
+
           {(() => {
             const series = [
               { slug: "alvas",        name: "Alvás",        color: "hsl(220 70% 50%)",
