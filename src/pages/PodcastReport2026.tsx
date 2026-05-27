@@ -462,6 +462,53 @@ export default function PodcastReport2026() {
           </DownloadableFigure>
         </section>
 
+        {/* Podcast activity / death rate */}
+        <section className="mb-12">
+          <DownloadableFigure filename="podcast-aktivitas">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány magyar podcast él még valójában?</h2>
+          <p className="mb-6 text-muted-foreground">
+            Az indexelt <strong className="text-foreground">1 352 magyar podcastből</strong> csak egy szűk réteg publikál ténylegesen rendszeresen — a többség lassan kihal, vagy már évek óta nem jelentkezett új epizóddal. Az alábbi bontás az utolsó megjelent epizód dátuma szerint.
+          </p>
+          {(() => {
+            const buckets = [
+              { label: "Aktív (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
+              { label: "Lassuló (30–90 nap)", n: 214, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
+              { label: "Szunnyadó (3–6 hó)", n: 218, color: "bg-muted-foreground/50", note: "lassan kihagy" },
+              { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél-egy éve nem jelent meg új ep." },
+              { label: "Halott (>1 év)", n: 345, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
+            ];
+            const total = buckets.reduce((s, b) => s + b.n, 0);
+            return (
+              <>
+                <div className="flex h-8 w-full overflow-hidden rounded-md border border-border mb-3">
+                  {buckets.map((b) => (
+                    <div key={b.label} className={`${b.color} relative group`} style={{ width: `${(b.n / total) * 100}%` }} title={`${b.label}: ${b.n} műsor`}>
+                      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-background opacity-90">{Math.round((b.n / total) * 100)}%</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 text-sm">
+                  {buckets.map((b) => (
+                    <div key={b.label} className="flex items-baseline gap-2">
+                      <span className={`inline-block h-3 w-3 rounded-sm ${b.color} mt-1 shrink-0`} />
+                      <div>
+                        <div className="text-foreground font-semibold">{b.label} — <span className="tabular-nums">{b.n}</span></div>
+                        <div className="text-xs text-muted-foreground">{b.note}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+                  Konklúzió: a magyar podcastek <strong className="text-foreground">~43%-a aktív</strong>, viszont <strong className="text-foreground">minden negyedik valószínűleg végleg leállt</strong> (több mint egy éve nincs új epizód). A „születési ráta" magas (havi ~29 új indulás 2026-ban), de a túlélés alacsony — a műfaj él, de folyamatos lemorzsolódáson dolgozik át magát.
+                </p>
+              </>
+            );
+          })()}
+          </DownloadableFigure>
+        </section>
+
+
+
 
         {/* Publishing heatmap */}
         <section className="mb-12">
