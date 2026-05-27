@@ -538,6 +538,10 @@ export default function StartSwipePage() {
 
   const handleSwipe = (action: "like" | "skip" | "super") => {
     if (!current || !pool) return;
+    if (!firstActionRef.current) {
+      firstActionRef.current = true;
+      trackLandingEvent("SwipeFirstAction", { action });
+    }
     const isPositive = action === "like" || action === "super";
     const next: Persisted = {
       ...persisted,
