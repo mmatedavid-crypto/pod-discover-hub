@@ -718,6 +718,61 @@ function MapNode({ value, label, link }: { value: string; label: string; link?: 
   return link ? <Link to={link}>{inner}</Link> : inner;
 }
 
+function DownloadableFigure({ filename, children }: { filename: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState(false);
+  const handle = async () => {
+    if (!ref.current) return;
+    setBusy(true);
+    try {
+      const bg = getComputedStyle(document.body).backgroundColor || "#ffffff";
+      const dataUrl = await toPng(ref.current, {
+        pixelRatio: 2,
+        backgroundColor: bg,
+        cacheBust: true,
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `podiverzum-${filename}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      console.error("PNG export failed", e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div>
+      <div className="flex justify-end mb-2 print:hidden">
+        <button
+          type="button"
+          onClick={handle}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-primary transition disabled:opacity-50"
+          title="Mentsd le PNG-ként sajtóhasználatra (cikkbe illesztéshez)"
+          aria-label="Grafika letöltése PNG-ként"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+          {busy ? "Mentés…" : "PNG letöltése"}
+        </button>
+      </div>
+      <div ref={ref} className="bg-background">
+        {children}
+        <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
+          <span>Forrás: Podiverzum.hu adatbázis — 2026. május 27.</span>
+          <span className="font-semibold text-foreground">podiverzum.hu</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; vals: number[] }[] }; max: number }) {
   return (
     <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
