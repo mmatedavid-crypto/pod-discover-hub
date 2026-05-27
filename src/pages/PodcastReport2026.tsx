@@ -464,7 +464,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="publikalasi-heatmap">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-6 text-muted-foreground">
-            A nap és óra szerinti megjelenések a magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát rajzolják ki. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
+            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28530).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát rajzolja ki. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
           </p>
           <Heatmap data={STATS.heatmap} max={maxHeat} />
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
