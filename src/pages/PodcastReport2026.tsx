@@ -37,7 +37,8 @@ const STATS = {
     { name: "Szombat", eps: 3524 },
     { name: "Vasárnap", eps: 4027 },
   ],
-  tiers: { S: 242, A: 456, B: 626, C: 39, E: 64 },
+  // Internal tier names retained for data accuracy; public labels used in UI.
+  tiers: { weekly: 242, monthlyActive: 456, monthly: 626, rare: 39, dead: 64 },
   topCategories: [
     { name: "Társadalom és kultúra", count: 265 },
     { name: "Vallás és spiritualitás", count: 126 },
@@ -77,17 +78,16 @@ const STATS = {
 };
 
 // derived
-const dailyEpisodes2026 = Math.round((STATS.episodesYear["2026 (eddig, 5 hó)"] / 147)); // ~Jan 1 – May 27
 const growth10y = (STATS.episodesYear["2025"] / STATS.episodesYear["2015"]).toFixed(1);
 const yoy2025 = (((STATS.episodesYear["2025"] - STATS.episodesYear["2024"]) / STATS.episodesYear["2024"]) * 100).toFixed(1);
 const projected2026 = Math.round((STATS.episodesYear["2026 (eddig, 5 hó)"] / 147) * 365);
-const eliteSharePct = ((STATS.tiers.S / STATS.podcastCount) * 100).toFixed(1);
 const top4CategoryShare = (((265 + 126 + 124 + 103) / STATS.podcastCount) * 100).toFixed(0);
 
 const maxYear = Math.max(...Object.values(STATS.episodesYear));
 const maxWeek = Math.max(...STATS.weekday.map((d) => d.eps));
 const maxCat = STATS.topCategories[0].count;
-const maxTopic = STATS.topTopics[0].eps;
+const top10Topics = STATS.topTopics.slice(0, 10);
+const maxTop10Topic = top10Topics[0].eps;
 
 export default function PodcastReport2026() {
   useEffect(() => {
@@ -130,81 +130,143 @@ export default function PodcastReport2026() {
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: Podiverzum.hu belső katalógus · Módszertan a cikk alján
           </div>
+
+          {/* Hero metric cards */}
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <HeroMetric value={STATS.podcastCount.toLocaleString("hu-HU")} label="aktív műsor" />
+            <HeroMetric value={STATS.episodeCount.toLocaleString("hu-HU")} label="epizód" />
+            <HeroMetric value={`${growth10y}×`} label="növekedés 2015 óta" />
+            <HeroMetric value="~90" label="napi új epizód" />
+          </div>
         </header>
 
-        {/* Key Findings — quotable */}
-        <section className="mb-12 rounded-lg border border-border bg-card p-6">
-          <h2 className="mb-4 font-serif text-xl font-bold text-foreground">A legfontosabb állítások</h2>
-          <ul className="space-y-3 text-foreground">
-            <li className="flex gap-3">
-              <span className="font-bold text-primary">1.</span>
-              <span>
-                Magyarországon <strong>2026-ban naponta átlagosan {dailyEpisodes2026} új magyar nyelvű podcast epizód</strong> készül — 2015-höz képest több mint <strong>{growth10y}-szeres</strong> növekedés.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="font-bold text-primary">2.</span>
-              <span>
-                A {STATS.podcastCount.toLocaleString("hu-HU")} aktív magyar podcast közül csupán <strong>{STATS.tiers.S} készül professzionális, heti rendszerességgel</strong> ({eliteSharePct}%) — ez az „S-tier" (a Podiverzum saját minőségi besorolása, lásd lent), ők adják a hallgatottság túlnyomó részét.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="font-bold text-primary">3.</span>
-              <span>
-                Négy kategória — <strong>társadalom, vallás, közélet, üzlet</strong> — adja a műsorok {top4CategoryShare}%-át. A kínálat erősen koncentrált.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="font-bold text-primary">4.</span>
-              <span>
-                A <strong>választás (123 epizód)</strong> és a <strong>Biblia (130)</strong> 2026-ban együtt több podcast-tartalmat termelt, mint a mesterséges intelligencia (92) — a magyar podcast piacot a közélet és a hit dominálja, nem a technológia.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="font-bold text-primary">5.</span>
-              <span>
-                <strong>{STATS.peopleIndexed.toLocaleString("hu-HU")} azonosított közszereplő</strong> és <strong>{STATS.organizationsIndexed.toLocaleString("hu-HU")} szervezet</strong> szerepel rendszeresen a magyar podcastokban — soha nem látott mennyiségű strukturált adat egy korábban átláthatatlan médiumról.
-              </span>
-            </li>
-          </ul>
+        {/* NEW: Mit mutatnak az adatok? */}
+        <section className="mb-12">
+          <h2 className="mb-6 font-serif text-2xl md:text-3xl font-bold text-foreground">Mit mutatnak az adatok?</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InsightCard
+              n={1}
+              title="A magyar podcast már médiapiaci tényező"
+              body={`Napi közel 90 új magyar epizód, ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
+            />
+            <InsightCard
+              n={2}
+              title="A piac nő, de kevés műsor működik heti ritmusban"
+              body={`${STATS.podcastCount.toLocaleString("hu-HU")} aktív podcastből ${STATS.tiers.weekly} jelenik meg heti vagy gyakoribb rendszerességgel.`}
+            />
+            <InsightCard
+              n={3}
+              title="A magyar podcast közéleti és kulturális fókuszú"
+              body="A top témák között Biblia, választás, zene, mesterséges intelligencia és háború szerepel."
+            />
+            <InsightCard
+              n={4}
+              title="A podcast a hagyományos média vakfoltja"
+              body="Sok fontos beszélgetés eddig nehezen kereshető és nehezen elemezhető volt a magyar nyilvánosságban."
+            />
+            <InsightCard
+              n={5}
+              title="A Podiverzum ezt a vakfoltot teszi kereshetővé"
+              body="Epizódok, témák, közszereplők és szervezetek összekapcsolva — strukturált térkép a magyar podcastnyilvánosságról."
+              wide
+            />
+          </div>
         </section>
 
         {/* Growth chart */}
         <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Évtizedes berobbanás</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Tíz év alatt {growth10y}-szeres növekedés</h2>
           <p className="mb-6 text-muted-foreground">
-            A magyar podcast termelés 2015 óta minden évben nőtt. Az igazi áttörés 2020–2021-ben jött (járvány + Spotify HU launch), és az ütem azóta sem lassul: 2025-ben{" "}
+            A magyar podcast termelés 2015 óta minden évben nőtt. 2025-ben{" "}
             <strong className="text-foreground">+{yoy2025}%</strong> volt az éves növekedés, 2026-ban a jelenlegi ütem alapján{" "}
             <strong className="text-foreground">~{projected2026.toLocaleString("hu-HU")} új epizód</strong> várható.
           </p>
           <div className="space-y-2">
-            {Object.entries(STATS.episodesYear).map(([year, eps]) => (
-              <div key={year} className="flex items-center gap-3">
-                <div className="w-32 shrink-0 text-sm text-muted-foreground">{year}</div>
-                <div className="flex-1 relative h-7 rounded bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-primary/80 transition-all"
-                    style={{ width: `${(eps / maxYear) * 100}%` }}
-                  />
-                  <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
-                    {eps.toLocaleString("hu-HU")}
+            {Object.entries(STATS.episodesYear).map(([year, eps]) => {
+              const isBreak = year === "2020" || year === "2021";
+              const is2026 = year.startsWith("2026");
+              return (
+                <div key={year} className="flex items-center gap-3">
+                  <div className="w-32 shrink-0 text-sm text-muted-foreground">{year}</div>
+                  <div className="flex-1 relative h-7 rounded bg-muted overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${isBreak ? "bg-accent" : is2026 ? "bg-primary/50" : "bg-primary/80"}`}
+                      style={{ width: `${(eps / maxYear) * 100}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
+                      {eps.toLocaleString("hu-HU")}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <Callout title="2020–2021: áttörési pont">Járvány + Spotify HU launch — a termelés három év alatt megnégyszereződik.</Callout>
+            <Callout title={`2026 várható: ~${projected2026.toLocaleString("hu-HU")} új epizód`}>Ha az első öt hónap üteme tartható, idén minden korábbi évet meghalad a magyar piac.</Callout>
+          </div>
+        </section>
+
+        {/* Market pyramid */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Kevés heti műsor, nagy hosszú farok</h2>
+          <p className="mb-6 text-muted-foreground">
+            A {STATS.podcastCount.toLocaleString("hu-HU")} aktív magyar podcastből mindössze{" "}
+            <strong className="text-foreground">{STATS.tiers.weekly} jelenik meg heti vagy gyakoribb rendszerességgel</strong>.
+            Ez a réteg adja a magyar podcastpiac rendszeresen frissülő, szerkesztett magját. Alattuk széles, havi és ritkább ritmusú „hosszú farok" húzódik.
+          </p>
+          <PyramidRow label="Heti+ műsorok" count={STATS.tiers.weekly} total={STATS.podcastCount} note="Heti vagy gyakoribb publikálás" emphasis />
+          <PyramidRow label="Aktív havi műsorok" count={STATS.tiers.monthlyActive} total={STATS.podcastCount} note="Havi 2–4 epizód" />
+          <PyramidRow label="Havi körüli műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 körüli ritmus" />
+          <PyramidRow label="Ritkán frissülők" count={STATS.tiers.rare} total={STATS.podcastCount} note="Negyedéves vagy ritkább" />
+          <PyramidRow label="Elhalt feedek" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja néma" muted />
+        </section>
+
+        {/* Topics — what we talk about */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
+          <p className="mb-6 text-muted-foreground">
+            Az AI által azonosított top 10 beszélgetési téma az elmúlt 12 hónap epizódjaiban.
+          </p>
+          <div className="space-y-2 mb-4">
+            {top10Topics.map((t, i) => {
+              const highlight = ["biblia", "valasztas", "mesterseges-intelligencia"].includes(t.slug);
+              return (
+                <Link
+                  key={t.slug}
+                  to={`/temak/${t.slug}`}
+                  className="flex items-center gap-3 group"
+                >
+                  <div className="w-6 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
+                  <div className="w-40 md:w-56 shrink-0 text-sm font-medium text-foreground group-hover:text-primary truncate">{t.name}</div>
+                  <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
+                    <div
+                      className={`h-full ${highlight ? "bg-primary/80" : "bg-accent/60"}`}
+                      style={{ width: `${(t.eps / maxTop10Topic) * 100}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
+                      {t.eps} ep
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+          <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            2026-ban a Biblia (130) és a választás (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
+          </p>
         </section>
 
         {/* Categories */}
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
           <p className="mb-6 text-muted-foreground">
-            A magyar podcast piac négy meghatározó pilléren áll: társadalom-kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. A tech, az egészség és a sport meglepően alulreprezentált a tartalmi spektrumon.
+            A magyar podcast piac négy meghatározó pilléren áll: társadalom-kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>.
           </p>
           <div className="space-y-2">
             {STATS.topCategories.map((cat) => (
               <div key={cat.name} className="flex items-center gap-3">
-                <div className="w-48 shrink-0 text-sm text-foreground">{cat.name}</div>
+                <div className="w-40 md:w-48 shrink-0 text-sm text-foreground">{cat.name}</div>
                 <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
                   <div
                     className="h-full bg-accent/70"
@@ -219,93 +281,55 @@ export default function PodcastReport2026() {
           </div>
         </section>
 
-        {/* Topics — what we talk about */}
+        {/* Publishing week */}
         <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszélünk? — top 20 téma</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor jelennek meg az új epizódok?</h2>
           <p className="mb-6 text-muted-foreground">
-            Az AI által azonosított konkrét beszélgetési témák száma az elmúlt 12 hónapban. A magyar podcast nyilvánosság fókusza:
-            <strong className="text-foreground"> hit, közélet, mentális egészség, kultúra</strong>. A MI csak a 4. helyen — a magyar piacon a társadalmi téma még mindig erősebb a technológiánál.
+            A magyar podcast szerkesztőségek jellemzően <strong className="text-foreground">csütörtökön és hétfőn publikálnak</strong>. Hétvégén a frissítés visszaesik a felére.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {STATS.topTopics.map((t, i) => (
-              <Link
-                key={t.slug}
-                to={`/temak/${t.slug}`}
-                className="group flex items-center gap-3 rounded border border-border bg-card px-3 py-2 hover:border-primary transition"
-              >
-                <span className="w-6 text-xs font-mono text-muted-foreground">{i + 1}.</span>
-                <span className="flex-1 text-sm font-medium text-foreground group-hover:text-primary">{t.name}</span>
-                <span className="text-xs text-muted-foreground">{t.eps} ep</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* When are episodes published */}
-        <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor jelenik meg a tartalom?</h2>
-          <p className="mb-6 text-muted-foreground">
-            A magyar podcast szerkesztőségek jellemzően <strong className="text-foreground">csütörtökön és hétfőn publikálnak</strong> — ez a két nap adja az új tartalom közel harmadát. Hétvégén a frissítés visszaesik a felére.
-          </p>
-          <div className="space-y-2">
-            {STATS.weekday.map((d) => (
-              <div key={d.name} className="flex items-center gap-3">
-                <div className="w-24 shrink-0 text-sm text-foreground">{d.name}</div>
-                <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-primary/60"
-                    style={{ width: `${(d.eps / maxWeek) * 100}%` }}
-                  />
-                  <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
-                    {d.eps.toLocaleString("hu-HU")} ep (2025)
+          <div className="space-y-2 mb-4">
+            {STATS.weekday.map((d) => {
+              const highlight = d.name === "Csütörtök" || d.name === "Hétfő";
+              return (
+                <div key={d.name} className="flex items-center gap-3">
+                  <div className="w-24 shrink-0 text-sm text-foreground">{d.name}</div>
+                  <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
+                    <div
+                      className={`h-full ${highlight ? "bg-primary/80" : "bg-primary/40"}`}
+                      style={{ width: `${(d.eps / maxWeek) * 100}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
+                      {d.eps.toLocaleString("hu-HU")} ep (2025)
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            A magyar podcastoknak már felismerhető heti szerkesztési ritmusa van.
+          </p>
         </section>
 
-        {/* Tier distribution */}
+        {/* Media map */}
         <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">A piac koncentrált — kevés profi, sok hobbi</h2>
-          <p className="mb-4 text-muted-foreground">
-            A Podiverzum belső minőségi besorolása (Formula C) szerint a {STATS.podcastCount} aktív magyar podcastből mindössze{" "}
-            <strong className="text-foreground">{STATS.tiers.S} műsor publikál heti vagy gyakoribb rendszerességgel</strong>. Ez a réteg viszi az iparág hallgatottságát és médiavisszhangját.
-          </p>
-          <p className="mb-6 text-xs text-muted-foreground italic">
-            Megjegyzés: az S–E besorolás a Podiverzum saját, nyilvános adatokon (publikálási gyakoriság, frissesség, epizódszám, konzisztencia) alapuló minőségi rendszere — nem hivatalos iparági szabvány, és nem hallgatottsági adat. Részletek: <Link to="/modszertan" className="underline hover:text-foreground">módszertan</Link>.
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <TierCard tier="S" label="Heti+, profi" count={STATS.tiers.S} note="Napi vagy heti rendszeresség" />
-            <TierCard tier="A" label="Aktív" count={STATS.tiers.A} note="Havi 2–4 epizód" />
-            <TierCard tier="B" label="Élő" count={STATS.tiers.B} note="Havi 1 körüli" />
-            <TierCard tier="C" label="Ritka" count={STATS.tiers.C} note="Negyedéves" />
-            <TierCard tier="E" label="Elhalt" count={STATS.tiers.E} note=">12 hó néma" />
-          </div>
-        </section>
-
-        {/* People & Orgs */}
-        <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Ki és mi szerepel a magyar podcastokban?</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">A magyar podcastok rejtett médiatérképe</h2>
           <p className="mb-6 text-muted-foreground">
-            A Podiverzum AI rendszere a teljes epizód-szövegből azonosítja a szereplő embereket, szervezeteket, pártokat és cégeket. Ez a magyar nyilvánosság egy korábban nem létező térképe.
+            A Podiverzum nemcsak epizódokat listáz, hanem kereshetővé teszi, kikről, miről és milyen összefüggésben beszélnek a magyar podcastok.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Link to="/szemelyek" className="rounded-lg border border-border bg-card p-6 hover:border-primary transition">
-              <div className="text-4xl font-bold text-foreground">{STATS.peopleIndexed.toLocaleString("hu-HU")}</div>
-              <div className="mt-2 text-sm uppercase tracking-wide text-muted-foreground">azonosított közszereplő</div>
-              <div className="mt-3 text-sm text-muted-foreground">
-                Politikusok, művészek, tudósok, vállalkozók — mindenki, aki legalább egy magyar podcast epizódban szerepelt vendégként, vagy akiről beszéltek.
-              </div>
-            </Link>
-            <Link to="/szervezetek" className="rounded-lg border border-border bg-card p-6 hover:border-primary transition">
-              <div className="text-4xl font-bold text-foreground">{STATS.organizationsIndexed.toLocaleString("hu-HU")}</div>
-              <div className="mt-2 text-sm uppercase tracking-wide text-muted-foreground">szervezet és cég</div>
-              <div className="mt-3 text-sm text-muted-foreground">
-                Pártok, vállalatok, állami intézmények, civil szervezetek, médiák. Mindegyikről nyomon követhető, hány epizódban szerepelt és milyen összefüggésben.
-              </div>
-            </Link>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MapNode value={STATS.episodeCount.toLocaleString("hu-HU")} label="epizód" />
+            <MapNode value={STATS.peopleIndexed.toLocaleString("hu-HU")} label="közszereplő" link="/szemelyek" />
+            <MapNode value={STATS.organizationsIndexed.toLocaleString("hu-HU")} label="szervezet" link="/szervezetek" />
+            <MapNode value={`${top10Topics.length}+`} label="top témák" link="/temak" />
           </div>
+        </section>
+
+        {/* Pullquote */}
+        <section className="mb-12">
+          <blockquote className="border-l-4 border-primary pl-6 py-4 font-serif text-xl md:text-2xl italic text-foreground leading-relaxed">
+            „A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, de eddig alig mérhető nyilvánossági tér."
+          </blockquote>
         </section>
 
         {/* What it means */}
@@ -313,15 +337,30 @@ export default function PodcastReport2026() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi 87 új epizód, évi több mint 25 ezer adás, közel másfél ezer aktív műsor. A nyilvánosság jelentős része — különösen a 25–45 éves korosztály — már nem a televízióból, hanem a fülhallgatóból tájékozódik.
+              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi közel 90 új epizód, évi több mint 25 ezer adás, közel másfél ezer aktív műsor. A nyilvánosság jelentős része — különösen a 25–45 éves korosztály — már nem a televízióból, hanem a fülhallgatóból tájékozódik.
             </p>
             <p>
-              Eközben a podcastok tartalma <strong>strukturálatlan, kereshetetlen, és láthatatlan a hagyományos médiában</strong>: nem kerülnek be az MTI-archívumba, nem indexeli őket a Google érdemben, és a politikai-közéleti viták egy nagy része kontroll nélkül zajlik a hallgatók fülében.
+              Eközben a podcastok tartalma <strong>strukturálatlan, kereshetetlen, és láthatatlan a hagyományos médiában</strong>: nem kerülnek be a hírügynökségi archívumokba, nem indexeli őket a Google érdemben, és a közéleti viták egy nagy része kontroll nélkül zajlik a hallgatók fülében.
             </p>
             <p>
-              A Podiverzum ezt az átláthatatlanságot bontja le: <strong>minden epizód szövegét AI elemzi</strong>, kinyeri a szereplőket, témákat, állításokat, és kereshetővé teszi. Bárki rákeresési arra, mit mondott egy adott politikus, vállalat vagy szakértő bármelyik podcastban az elmúlt évek során.
+              A Podiverzum ezt az átláthatatlanságot bontja le: <strong>minden epizód szövegét AI elemzi</strong>, kinyeri a szereplőket, témákat, állításokat, és kereshetővé teszi.
             </p>
           </div>
+        </section>
+
+        {/* Press box */}
+        <section className="mb-12 rounded-lg border-2 border-primary/40 bg-card p-6">
+          <div className="text-xs uppercase tracking-widest text-primary mb-2">Sajtó / kutatás</div>
+          <h2 className="font-serif text-xl font-bold text-foreground mb-3">Adatkérések és sajtómegkeresések</h2>
+          <p className="text-muted-foreground mb-4">
+            Adatkérések, interaktív elemzések és sajtómegkeresések: <a href="mailto:hello@podiverzum.hu" className="text-primary underline">hello@podiverzum.hu</a>
+          </p>
+          <a
+            href="mailto:hello@podiverzum.hu?subject=Sajt%C3%B3megkeres%C3%A9s%20%E2%80%94%20Podiverzum%20jelent%C3%A9s%202026"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
+          >
+            Kapcsolatfelvétel →
+          </a>
         </section>
 
         {/* Methodology */}
@@ -330,7 +369,7 @@ export default function PodcastReport2026() {
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
               <strong className="text-foreground">Adatforrás:</strong> A Podiverzum.hu folyamatosan figyeli a Podcast Index és az Apple Podcasts katalógusokat,
-              valamint a YouTube magyar podcast csatornáit. A „magyar podcast" definíciója: a feed metaadataiban magyar nyelv jelölve (`language=hu*`), vagy AI nyelvazonosítás szerint dominánsan magyar tartalom.
+              valamint a YouTube magyar podcast csatornáit. „Magyar podcast" = a feed metaadataiban magyar nyelv jelölve (`language=hu*`), vagy AI nyelvazonosítás szerint dominánsan magyar tartalom.
             </p>
             <p>
               <strong className="text-foreground">Aktív műsor:</strong> {STATS.podcastCount} aktív magyar podcast = legalább 1 publikált epizóddal rendelkező, nyilvánosan elérhető RSS feed, 2026. május 27-i állapot szerint.
@@ -339,19 +378,19 @@ export default function PodcastReport2026() {
               <strong className="text-foreground">Kategorizálás:</strong> Az iTunes/Apple taxonómiát követjük, megerősítve egy belső AI besorolóval (Google Gemini 2.5 modell, 21-kategóriás magyar taxonómia).
             </p>
             <p>
-              <strong className="text-foreground">Téma-azonosítás:</strong> Minden epizód transcript-ből kinyert beszélgetési témák, dedupolva és normalizálva (`topics` tábla, 2026-05-27 állapot). „Téma" ≠ kategória: egy „Társadalom" kategóriás műsor adott epizódjának témája lehet „MI" vagy „Választás".
+              <strong className="text-foreground">Téma-azonosítás:</strong> Minden epizód transcript-ből kinyert beszélgetési témák, dedupolva és normalizálva. „Téma" ≠ kategória.
             </p>
             <p>
-              <strong className="text-foreground">Tier besorolás (Formula C):</strong> Egy belső pontrendszer, ami az adott podcast átlagos havi epizód-számát súlyozza a frissesség és aktivitás függvényében. S = heti+ profi, E = 12+ hónapja néma feed.
+              <strong className="text-foreground">Publikálási ritmus szerinti csoportosítás:</strong> Belső pontrendszer, ami az adott podcast átlagos havi epizód-számát súlyozza a frissesség és aktivitás függvényében. A jelentésben szereplő nyilvános címkék (Heti+, Aktív havi, Havi körüli, Ritkán frissülő, Elhalt) ezen alapulnak. Részletek: <Link to="/modszertan" className="underline hover:text-foreground">módszertan</Link>.
             </p>
             <p>
-              <strong className="text-foreground">Közszereplők és szervezetek:</strong> Az AI extraktor (Gemini 2.5) minden epizód clean-text átiratából kinyeri az említett embereket és szervezeteket. Wikipédia/Wikidata alapú azonosítás. Az „indexable" jelző = a szereplő/szervezet legalább 1 epizódban szerepelt és wiki-verifikált, VAGY 3+ epizódban szerepelt.
+              <strong className="text-foreground">Közszereplők és szervezetek:</strong> Az AI extraktor (Gemini 2.5) minden epizód clean-text átiratából kinyeri az említett embereket és szervezeteket. Wikipédia/Wikidata alapú azonosítás.
             </p>
             <p>
-              <strong className="text-foreground">Korlátok:</strong> A katalógus nem teljes — kis kalózpodcastok, magán Discord-szerverek, YouTube-csak-streamek nem kerülnek be. Az aktív műsorok aránya valószínűleg 90%+ a teljes magyar piacból.
+              <strong className="text-foreground">Korlátok:</strong> A katalógus nem teljes — kis kalózpodcastok, magán Discord-szerverek, YouTube-csak-streamek nem kerülnek be. Hallgatottsági (letöltés- / play-) adatokat ez a jelentés nem tartalmaz: a számok kínálati, nem keresleti oldalt mérnek.
             </p>
             <p className="pt-2 text-xs">
-              Sajtó / kutatás kérések: <a href="mailto:hello@podiverzum.hu" className="text-primary underline">hello@podiverzum.hu</a> — adatlekérések és interaktív elemzések elérhetők.
+              Sajtó / kutatás kérések: <a href="mailto:hello@podiverzum.hu" className="text-primary underline">hello@podiverzum.hu</a>
             </p>
           </div>
         </section>
@@ -375,13 +414,63 @@ export default function PodcastReport2026() {
   );
 }
 
-function TierCard({ tier, label, count, note }: { tier: string; label: string; count: number; note: string }) {
+function HeroMetric({ value, label }: { value: string; label: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4 text-center">
-      <div className="text-3xl font-bold text-primary">{tier}</div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
-      <div className="text-2xl font-bold text-foreground mt-2">{count}</div>
-      <div className="text-[11px] text-muted-foreground mt-1">{note}</div>
+      <div className="text-2xl md:text-3xl font-bold text-foreground leading-tight">{value}</div>
+      <div className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
     </div>
   );
+}
+
+function InsightCard({ n, title, body, wide }: { n: number; title: string; body: string; wide?: boolean }) {
+  return (
+    <div className={`rounded-lg border border-border bg-card p-5 ${wide ? "md:col-span-2" : ""}`}>
+      <div className="text-xs font-mono text-primary mb-2">#{n.toString().padStart(2, "0")}</div>
+      <h3 className="font-serif text-lg font-bold text-foreground mb-2 leading-snug">{title}</h3>
+      <p className="text-sm text-muted-foreground leading-relaxed">{body}</p>
+    </div>
+  );
+}
+
+function Callout({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded border-l-2 border-accent bg-muted/40 px-3 py-2">
+      <div className="text-xs font-semibold text-foreground">{title}</div>
+      <div className="text-xs text-muted-foreground mt-1">{children}</div>
+    </div>
+  );
+}
+
+function PyramidRow({ label, count, total, note, emphasis, muted }: { label: string; count: number; total: number; note: string; emphasis?: boolean; muted?: boolean }) {
+  const widthPct = Math.max(8, (count / total) * 100 * 2.2); // visual amplification for pyramid feel
+  return (
+    <div className="mb-2 flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
+      <div className="md:w-48 shrink-0 text-sm font-medium text-foreground">
+        {label}
+        <span className="ml-2 text-xs text-muted-foreground font-normal">{note}</span>
+      </div>
+      <div className="flex-1 flex items-center gap-2">
+        <div className="flex-1 relative h-8 rounded bg-muted overflow-hidden">
+          <div
+            className={`h-full mx-auto ${emphasis ? "bg-primary" : muted ? "bg-muted-foreground/30" : "bg-primary/50"}`}
+            style={{ width: `${Math.min(100, widthPct)}%`, marginLeft: "auto", marginRight: "auto" }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-foreground">
+            {count.toLocaleString("hu-HU")} műsor
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MapNode({ value, label, link }: { value: string; label: string; link?: string }) {
+  const inner = (
+    <div className="rounded-lg border border-border bg-card p-5 text-center h-full hover:border-primary transition">
+      <div className="text-2xl md:text-3xl font-bold text-foreground">{value}</div>
+      <div className="mt-2 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+    </div>
+  );
+  return link ? <Link to={link}>{inner}</Link> : inner;
 }
