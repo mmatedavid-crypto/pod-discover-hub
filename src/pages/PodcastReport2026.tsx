@@ -444,7 +444,14 @@ export default function PodcastReport2026() {
                               {p.c}
                             </div>
                           )}
+                          <div
+                            className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-mono tabular-nums text-primary-foreground/90 whitespace-nowrap pointer-events-none"
+                            style={{ writingMode: "vertical-rl", transform: "translateX(-50%) rotate(180deg)" }}
+                          >
+                            {p.m}
+                          </div>
                         </div>
+
                       </div>
                     );
                   })}
