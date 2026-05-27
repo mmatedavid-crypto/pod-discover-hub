@@ -1,5 +1,6 @@
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { toPng } from "html-to-image";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 
