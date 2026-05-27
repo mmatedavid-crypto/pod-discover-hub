@@ -949,6 +949,379 @@ ${hubCrossLinks(kind)}`,
   return null;
 }
 
+// ---------- Wave 3: long-tail aggregation builders ----------
+// Each route requires a minimum episode count to qualify as a real landing page;
+// otherwise we return null so the worker can fall back to origin (avoids thin content).
+
+const LONGTAIL_MIN_EPISODES = 3;
+
+function yearBounds(year: number): { from: string; to: string } {
+  return {
+    from: `${year}-01-01T00:00:00Z`,
+    to: `${year + 1}-01-01T00:00:00Z`,
+  };
+}
+
+function looksLikeYear(s: string): number | null {
+  if (!/^\d{4}$/.test(s)) return null;
+  const y = Number(s);
+  const now = new Date().getUTCFullYear();
+  if (y < 2010 || y > now + 1) return null;
+  return y;
+}
+
+// /temak/:topic/:year — topic episodes filtered to a year.
+async function buildTopicYear(
+  supabase: ReturnType<typeof createClient>,
+  topicSlug: string,
+  year: number,
+) {
+  const { data: topic } = await (supabase as any)
+    .from("topics")
+    .select("id, name, slug, description, intro_text, is_public")
+    .eq("slug", topicSlug).maybeSingle();
+  if (!topic || topic.is_public === false) return null;
+
+  const { from, to } = yearBounds(year);
+  const { data: rows } = await (supabase as any)
+    .from("episode_topic_map")
+    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .eq("topic_id", topic.id)
+    .gte("episodes.published_at", from)
+    .lt("episodes.published_at", to)
+    .order("confidence", { ascending: false })
+    .limit(200);
+
+  const eps = ((rows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .slice(0, 50);
+  if (eps.length < LONGTAIL_MIN_EPISODES) return null;
+
+  const canonical = `${SITE}/temak/${topicSlug}/${year}`;
+  const title = `${topic.name} ${year} — epizódok a Podiverzumon`;
+  const desc = truncate(`Magyar podcast epizódok ${year}-ban ${topic.name} témakörben. ${eps.length} releváns epizód AI-összefoglalókkal.`, 160);
+  const ogImage = eps[0]?.podcast?.image_url ?? null;
+
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary), 200);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${e.published_at ? ` <time datetime="${esc(e.published_at)}">${esc(e.published_at.slice(0,10))}</time>` : ""}${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
+
+  const itemList = {
+    "@context": "https://schema.org", "@type": "ItemList", name: title,
+    itemListElement: eps.map((e, i) => ({
+      "@type": "ListItem", position: i + 1,
+      url: `${SITE}/podcast/${e.podcast.slug}/${e.slug}`,
+      name: e.display_title || e.title,
+    })),
+  };
+  const breadcrumbs = {
+    "@context": "https://schema.org", "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Témák", item: `${SITE}/temak` },
+      { "@type": "ListItem", position: 2, name: topic.name, item: `${SITE}/temak/${topicSlug}` },
+      { "@type": "ListItem", position: 3, name: String(year), item: canonical },
+    ],
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+    title, description: desc, canonical, ogImage, jsonLd: [itemList, breadcrumbs],
+    bodyHtml: `<header><h1>${esc(topic.name)} — ${year}</h1>
+<p>${eps.length} magyar podcast epizód <strong>${year}</strong>-ban a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témakörben. A lista relevancia szerint van rendezve, minden epizódhoz AI-összefoglalót talál.</p></header>
+<main><h2>Epizódok</h2><ul>${html}</ul></main>
+<aside><h2>Tovább</h2><ul>
+<li><a href="/temak/${esc(topicSlug)}">${esc(topic.name)} — összes epizód</a></li>
+<li><a href="/temak">Témák hub</a></li>
+</ul></aside>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
+// /podcast/:slug/epizodok/:year — podcast episodes in a year.
+async function buildPodcastYear(
+  supabase: ReturnType<typeof createClient>,
+  podcastSlug: string,
+  year: number,
+) {
+  const { data: pod } = await supabase
+    .from("podcasts")
+    .select("id, title, display_title, slug, description, summary, image_url, language")
+    .eq("slug", podcastSlug).maybeSingle();
+  if (!pod) return null;
+
+  const { from, to } = yearBounds(year);
+  const { data } = await supabase
+    .from("episodes")
+    .select("title, display_title, slug, published_at, ai_summary, summary, description")
+    .eq("podcast_id", pod.id)
+    .gte("published_at", from)
+    .lt("published_at", to)
+    .order("published_at", { ascending: false })
+    .limit(200);
+  const eps = (data ?? []) as Array<Record<string, any>>;
+  if (eps.length < LONGTAIL_MIN_EPISODES) return null;
+
+  const canonical = `${SITE}/podcast/${podcastSlug}/epizodok/${year}`;
+  const podTitle = pod.display_title || pod.title;
+  const title = `${podTitle} epizódok ${year} — Podiverzum`;
+  const desc = truncate(`${podTitle} ${year}-ben megjelent ${eps.length} epizódja kronologikusan, AI-összefoglalókkal.`, 160);
+
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${podcastSlug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary || e.summary || e.description), 220);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a>${e.published_at ? ` <time datetime="${esc(e.published_at)}">${esc(e.published_at.slice(0,10))}</time>` : ""}${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
+
+  const itemList = {
+    "@context": "https://schema.org", "@type": "ItemList", name: title,
+    itemListElement: eps.slice(0, 50).map((e, i) => ({
+      "@type": "ListItem", position: i + 1,
+      url: `${SITE}/podcast/${podcastSlug}/${e.slug}`, name: e.display_title || e.title,
+    })),
+  };
+  const breadcrumbs = {
+    "@context": "https://schema.org", "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podcastek", item: `${SITE}/podcastok` },
+      { "@type": "ListItem", position: 2, name: podTitle, item: `${SITE}/podcast/${podcastSlug}` },
+      { "@type": "ListItem", position: 3, name: `Epizódok ${year}`, item: canonical },
+    ],
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+    title, description: desc, canonical, ogImage: pod.image_url, jsonLd: [itemList, breadcrumbs],
+    bodyHtml: `<header><h1>${esc(podTitle)} — ${year}-es epizódok</h1>
+<p>A <a href="/podcast/${esc(podcastSlug)}">${esc(podTitle)}</a> ${year}-ben ${eps.length} epizódot tett közzé. Az alábbi lista kronologikus sorrendben tartalmazza mind az epizódot, AI-összefoglalóval.</p></header>
+<main><h2>Epizódok</h2><ul>${html}</ul></main>
+<aside><h2>Tovább</h2><ul>
+<li><a href="/podcast/${esc(podcastSlug)}">${esc(podTitle)} — főoldal</a></li>
+<li><a href="/podcastok">Podcastek hub</a></li>
+</ul></aside>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
+// /szemelyek/:slug/temak/:topic — episodes mentioning a person within a topic.
+async function buildPersonTopic(
+  supabase: ReturnType<typeof createClient>,
+  personSlug: string,
+  topicSlug: string,
+) {
+  const { data: person } = await (supabase as any)
+    .from("people")
+    .select("id, name, slug, image_url, ai_bio, short_bio, is_public")
+    .eq("slug", personSlug).maybeSingle();
+  if (!person || person.is_public === false) return null;
+  const { data: topic } = await (supabase as any)
+    .from("topics")
+    .select("id, name, slug, is_public")
+    .eq("slug", topicSlug).maybeSingle();
+  if (!topic || topic.is_public === false) return null;
+
+  // Get person mention episode ids, then intersect with topic ids in JS to keep it portable.
+  const { data: mRows } = await (supabase as any)
+    .from("person_episode_mentions")
+    .select("episode_id")
+    .eq("person_id", person.id)
+    .limit(2000);
+  const personEpIds = new Set(((mRows ?? []) as Array<any>).map((r) => r.episode_id));
+  if (personEpIds.size === 0) return null;
+
+  const { data: tRows } = await (supabase as any)
+    .from("episode_topic_map")
+    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .eq("topic_id", topic.id)
+    .in("episode_id", Array.from(personEpIds).slice(0, 1000))
+    .order("confidence", { ascending: false })
+    .limit(100);
+
+  const eps = ((tRows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .slice(0, 40);
+  if (eps.length < LONGTAIL_MIN_EPISODES) return null;
+
+  const canonical = `${SITE}/szemelyek/${personSlug}/temak/${topicSlug}`;
+  const title = `${person.name} a ${topic.name} témában — Podiverzum`;
+  const desc = truncate(`${eps.length} magyar podcast epizód, amelyben ${person.name} a ${topic.name} témáról beszél vagy említik. AI-összefoglalókkal.`, 160);
+
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary), 220);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
+
+  const breadcrumbs = {
+    "@context": "https://schema.org", "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Személyek", item: `${SITE}/szemelyek` },
+      { "@type": "ListItem", position: 2, name: person.name, item: `${SITE}/szemelyek/${personSlug}` },
+      { "@type": "ListItem", position: 3, name: topic.name, item: canonical },
+    ],
+  };
+  const itemList = {
+    "@context": "https://schema.org", "@type": "ItemList", name: title,
+    itemListElement: eps.map((e, i) => ({
+      "@type": "ListItem", position: i + 1,
+      url: `${SITE}/podcast/${e.podcast.slug}/${e.slug}`, name: e.display_title || e.title,
+    })),
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+    title, description: desc, canonical, ogImage: person.image_url, jsonLd: [itemList, breadcrumbs],
+    bodyHtml: `<header><h1>${esc(person.name)} — ${esc(topic.name)}</h1>
+<p>${eps.length} epizód, amelyben <a href="/szemelyek/${esc(personSlug)}">${esc(person.name)}</a> a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témáról beszél vagy említik. Magyar podcastek, AI-összefoglalókkal, relevancia szerint rendezve.</p></header>
+<main><h2>Epizódok</h2><ul>${html}</ul></main>
+<aside><h2>Tovább</h2><ul>
+<li><a href="/szemelyek/${esc(personSlug)}">${esc(person.name)} — minden epizód</a></li>
+<li><a href="/temak/${esc(topicSlug)}">${esc(topic.name)} — téma oldal</a></li>
+</ul></aside>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
+// /szervezetek/:slug/temak/:topic — episodes mentioning an organization within a topic.
+async function buildOrgTopic(
+  supabase: ReturnType<typeof createClient>,
+  orgSlug: string,
+  topicSlug: string,
+) {
+  const { data: org } = await (supabase as any)
+    .from("organizations")
+    .select("id, name, slug, logo_url, ai_bio, wikipedia_extract, is_public")
+    .eq("slug", orgSlug).maybeSingle();
+  if (!org || org.is_public === false) return null;
+  const { data: topic } = await (supabase as any)
+    .from("topics")
+    .select("id, name, slug, is_public")
+    .eq("slug", topicSlug).maybeSingle();
+  if (!topic || topic.is_public === false) return null;
+
+  const { data: mRows } = await (supabase as any)
+    .from("episode_organization_map")
+    .select("episode_id")
+    .eq("organization_id", org.id)
+    .limit(2000);
+  const orgEpIds = new Set(((mRows ?? []) as Array<any>).map((r) => r.episode_id));
+  if (orgEpIds.size === 0) return null;
+
+  const { data: tRows } = await (supabase as any)
+    .from("episode_topic_map")
+    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .eq("topic_id", topic.id)
+    .in("episode_id", Array.from(orgEpIds).slice(0, 1000))
+    .order("confidence", { ascending: false })
+    .limit(100);
+
+  const eps = ((tRows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .slice(0, 40);
+  if (eps.length < LONGTAIL_MIN_EPISODES) return null;
+
+  const canonical = `${SITE}/szervezetek/${orgSlug}/temak/${topicSlug}`;
+  const title = `${org.name} és a ${topic.name} — Podiverzum`;
+  const desc = truncate(`${eps.length} magyar podcast epizód, amely a(z) ${org.name} szervezetet a ${topic.name} témakörben említi.`, 160);
+
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary), 220);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
+
+  const breadcrumbs = {
+    "@context": "https://schema.org", "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Szervezetek", item: `${SITE}/szervezetek` },
+      { "@type": "ListItem", position: 2, name: org.name, item: `${SITE}/szervezetek/${orgSlug}` },
+      { "@type": "ListItem", position: 3, name: topic.name, item: canonical },
+    ],
+  };
+  const itemList = {
+    "@context": "https://schema.org", "@type": "ItemList", name: title,
+    itemListElement: eps.map((e, i) => ({
+      "@type": "ListItem", position: i + 1,
+      url: `${SITE}/podcast/${e.podcast.slug}/${e.slug}`, name: e.display_title || e.title,
+    })),
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+    title, description: desc, canonical, ogImage: org.logo_url, jsonLd: [itemList, breadcrumbs],
+    bodyHtml: `<header><h1>${esc(org.name)} — ${esc(topic.name)}</h1>
+<p>${eps.length} epizód a(z) <a href="/szervezetek/${esc(orgSlug)}">${esc(org.name)}</a> szervezetről a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témakörben. Magyar podcastek, AI-összefoglalókkal.</p></header>
+<main><h2>Epizódok</h2><ul>${html}</ul></main>
+<aside><h2>Tovább</h2><ul>
+<li><a href="/szervezetek/${esc(orgSlug)}">${esc(org.name)} — főoldal</a></li>
+<li><a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a></li>
+</ul></aside>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
+// /temak/:a-es-:b cross-topic — episodes tagged with BOTH topics.
+async function buildTopicCross(
+  supabase: ReturnType<typeof createClient>,
+  slugA: string,
+  slugB: string,
+) {
+  const { data: topics } = await (supabase as any)
+    .from("topics")
+    .select("id, name, slug, is_public")
+    .in("slug", [slugA, slugB]);
+  const list = (topics ?? []) as Array<any>;
+  if (list.length !== 2 || list.some((t) => t.is_public === false)) return null;
+  const a = list.find((t) => t.slug === slugA);
+  const b = list.find((t) => t.slug === slugB);
+  if (!a || !b) return null;
+
+  const { data: aRows } = await (supabase as any)
+    .from("episode_topic_map").select("episode_id").eq("topic_id", a.id).limit(3000);
+  const aSet = new Set(((aRows ?? []) as Array<any>).map((r) => r.episode_id));
+  if (aSet.size === 0) return null;
+
+  const { data: bRows } = await (supabase as any)
+    .from("episode_topic_map")
+    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .eq("topic_id", b.id)
+    .in("episode_id", Array.from(aSet).slice(0, 1500))
+    .order("confidence", { ascending: false })
+    .limit(120);
+
+  const eps = ((bRows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .slice(0, 40);
+  if (eps.length < LONGTAIL_MIN_EPISODES) return null;
+
+  const canonical = `${SITE}/temak/${slugA}-es-${slugB}`;
+  const title = `${a.name} és ${b.name} — közös epizódok | Podiverzum`;
+  const desc = truncate(`${eps.length} magyar podcast epizód, amely egyszerre érinti a(z) ${a.name} és ${b.name} témákat.`, 160);
+
+  const html = eps.map((e) => {
+    const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.ai_summary), 220);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+  }).join("");
+
+  const itemList = {
+    "@context": "https://schema.org", "@type": "ItemList", name: title,
+    itemListElement: eps.map((e, i) => ({
+      "@type": "ListItem", position: i + 1,
+      url: `${SITE}/podcast/${e.podcast.slug}/${e.slug}`, name: e.display_title || e.title,
+    })),
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+    title, description: desc, canonical, jsonLd: [itemList],
+    bodyHtml: `<header><h1>${esc(a.name)} és ${esc(b.name)}</h1>
+<p>Magyar podcast epizódok, amelyek egyszerre foglalkoznak a <a href="/temak/${esc(slugA)}">${esc(a.name)}</a> és <a href="/temak/${esc(slugB)}">${esc(b.name)}</a> témákkal. Találd meg, hol találkozik a két világ.</p></header>
+<main><h2>Közös epizódok (${eps.length})</h2><ul>${html}</ul></main>
+<aside><h2>Tovább</h2><ul>
+<li><a href="/temak/${esc(slugA)}">${esc(a.name)}</a></li>
+<li><a href="/temak/${esc(slugB)}">${esc(b.name)}</a></li>
+<li><a href="/temak">Összes téma</a></li>
+</ul></aside>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
 // ---------- share builder ----------
 
 async function buildShare(
