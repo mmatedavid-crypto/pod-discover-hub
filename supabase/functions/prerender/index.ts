@@ -943,6 +943,23 @@ Deno.serve(async (req) => {
 
     const parts = path.split("/").filter(Boolean);
 
+    // Single-segment SEO hubs.
+    if (parts.length === 1) {
+      const hubs: Record<string, HubKind> = {
+        podcastok: "podcastok",
+        szemelyek: "szemelyek",
+        szervezetek: "szervezetek",
+        cegek: "cegek",
+        partok: "partok",
+        temak: "temak",
+      };
+      const hubKind = hubs[parts[0]];
+      if (hubKind) {
+        const r = await buildHub(supabase, hubKind);
+        return r ?? notFound(path);
+      }
+    }
+
     if (parts[0] === "podcast" && parts.length === 2) {
       const r = await buildPodcast(supabase, parts[1]);
       return r ?? notFound(path);
