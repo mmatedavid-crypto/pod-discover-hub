@@ -477,7 +477,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-szervezetek-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
-            A leggyakrabban emlegetett média-, vállalati és politikai szereplők. A pártokat külön bontjuk, mert kampányidőszakban (2026-os választás) különösen relevánsak.
+            A leggyakrabban emlegetett vállalati, intézményi és politikai szereplők. A médiumokat és rádiókat kihagytuk a listából, mert ezek többnyire azért szerepelnek a leiratokban, mert ott jelent meg maga a podcast (pl. ATV, Tilos Rádió, Kossuth Rádió), nem pedig téma- vagy szereplőként. A pártokat külön bontjuk, mert a 2026-os kampányidőszakban különösen relevánsak.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
