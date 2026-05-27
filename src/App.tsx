@@ -185,6 +185,7 @@ const App = () => (
           <Route path="/partok" element={<PartiesHubPage />} />
           <Route path="/en-podiverzumom" element={<EnPodiverzumomPage />} />
           <Route path="/p/:username" element={<PublicProfilePage />} />
+          <Route path="/jelentes/magyar-podcast-piac-2026" element={<PodcastReport2026 />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <SmartPlayerBar />
