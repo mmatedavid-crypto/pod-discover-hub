@@ -564,7 +564,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Az önismereti és mentális wellness témák januárban látványosan megugranak a magyar podcastok cím- és leírásszövegeiben: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re ugranak (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%). Az <strong className="text-foreground">önismeret</strong> év közben végig magas, a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> februárban csúcsosodik — klasszikus újévi tartalmi mintázat a kínálati oldalon.
+                  A vizsgált öt téma közül januárban csak kettő mutat éles kiugrást: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%) ugranak. Az <strong className="text-foreground">önismeret</strong> egész évben magas szinten ingadozik, érdemi januári csúcs nélkül; a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> nem januárban, hanem februárban éri el a maximumát. A magyar podcastkínálatban tehát nem egy általános „újévi self-help hullám" látszik, hanem két konkrét téma — az alvás és a meditáció — szezonális felfutása.
                 </p>
               </div>
             );
