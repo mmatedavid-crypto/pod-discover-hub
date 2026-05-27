@@ -215,7 +215,7 @@ export default function PodcastReport2026() {
             <InsightCard
               n={1}
               title="A magyar podcast már médiapiaci tényező"
-              body={`Napi közel 90 új magyar epizód, ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
+              body={`Naponta közel 90 új magyar epizód, összesen ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
             />
             <InsightCard
               n={2}
