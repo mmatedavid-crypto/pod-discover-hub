@@ -708,7 +708,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Közéleti említések: pártok a magyar podcastokban</h2>
           <p className="mb-6 text-muted-foreground">
-            A számok azt mutatják, hány indexelt magyar epizódban azonosította a rendszer az adott pártot (2025. jún. – 2026. máj.). Ez egy <strong className="text-foreground">külön metszetet ad a közéleti podcast-térről</strong> — <strong className="text-foreground">nem támogatottsági, nem szimpátia- és nem hallgatottsági adat</strong>.
+            A számok azt mutatják, hány indexelt magyar epizódban azonosította a rendszer az adott pártot a <strong className="text-foreground">teljes indexelt katalógusban</strong> (az alábbi havi grafikon ezen belül az elmúlt 12 hónapot — 2025. jún. – 2026. máj. — bontja ki). Ez egy <strong className="text-foreground">külön metszetet ad a közéleti podcast-térről</strong> — <strong className="text-foreground">nem támogatottsági, nem szimpátia- és nem hallgatottsági adat</strong>.
           </p>
 
           <div className="max-w-xl">
