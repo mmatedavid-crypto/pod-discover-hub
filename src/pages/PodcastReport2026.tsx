@@ -436,19 +436,19 @@ export default function PodcastReport2026() {
           </p>
           {(() => {
             const yoy = [
-              { name: "Egészség & életmód",   y24: 261,  y25: 557 },
-              { name: "Étel & ital",          y24: 287,  y25: 514 },
-              { name: "Gyerek & család",      y24: 714,  y25: 1106 },
-              { name: "Zene",                 y24: 1043, y25: 1448 },
-              { name: "Önfejlesztés",         y24: 604,  y25: 786 },
-              { name: "Üzlet & pénzügy",      y24: 1090, y25: 1372 },
-              { name: "Technológia",          y24: 680,  y25: 822 },
+              { name: "Egészség & életmód",     y24: 261,  y25: 557 },
+              { name: "Étel & ital",            y24: 287,  y25: 514 },
+              { name: "Gyerek & család",        y24: 714,  y25: 1106 },
+              { name: "Zene",                   y24: 1043, y25: 1448 },
+              { name: "Önfejlesztés",           y24: 604,  y25: 786 },
+              { name: "Üzlet & pénzügy",        y24: 1090, y25: 1372 },
+              { name: "Technológia",            y24: 680,  y25: 822 },
               { name: "Vallás & spiritualitás", y24: 2171, y25: 2353 },
-              { name: "Társadalom & kultúra", y24: 5163, y25: 5295 },
-              { name: "Sport",                y24: 1463, y25: 1435 },
-              { name: "Film, TV & popkultúra", y24: 1849, y25: 1328 },
-              { name: "Oktatás",              y24: 476,  y25: 329 },
-              { name: "Humor",                y24: 580,  y25: 323 },
+              { name: "Társadalom & kultúra",   y24: 5163, y25: 5295 },
+              { name: "Sport",                  y24: 1463, y25: 1435 },
+              { name: "Film, TV & popkultúra",  y24: 1849, y25: 1328 },
+              { name: "Oktatás",                y24: 476,  y25: 329 },
+              { name: "Humor",                  y24: 580,  y25: 323 },
             ].map((c) => ({ ...c, pct: Math.round(((c.y25 - c.y24) / c.y24) * 100) }))
              .sort((a, b) => b.pct - a.pct);
             const maxAbs = Math.max(...yoy.map((c) => Math.abs(c.pct)));
