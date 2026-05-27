@@ -844,30 +844,6 @@ export default function PodcastReport2026() {
             <MapNode value={STATS.organizationsIndexed.toLocaleString("hu-HU")} label="szervezet" link="/szervezetek" />
             <MapNode value={`${top10Topics.length}+`} label="top témák" link="/temak" />
           </div>
-          {/* Alive vs dead feed mini-donut */}
-          <div className="mt-6 rounded-lg border border-border bg-card p-5 flex flex-col md:flex-row items-center gap-5">
-            <div className="relative w-28 h-28 shrink-0">
-              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="hsl(var(--muted))" strokeWidth="3.5" />
-                <circle
-                  cx="18" cy="18" r="15.9155" fill="none"
-                  stroke="hsl(var(--primary))" strokeWidth="3.5"
-                  strokeDasharray={`${alivePct} ${deadPct}`}
-                  strokeDashoffset="0"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <div className="text-lg font-bold text-foreground tabular-nums">{alivePct}%</div>
-                <div className="text-[9px] uppercase text-muted-foreground">aktív</div>
-              </div>
-            </div>
-            <div className="text-sm text-foreground">
-              <div className="font-semibold mb-1">A magyar podcastpiac stabil — csak {deadPct}% elnémult műsor</div>
-              <div className="text-muted-foreground">
-                A {STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsorból {STATS.tiers.dead} nem publikált 12+ hónapja. A többi {(STATS.podcastCount - STATS.tiers.dead).toLocaleString("hu-HU")} műsor aktívnak tekinthető — ez a nemzetközi átlagnál jelentősen jobb arány, a globális podcast-katalógusok 40–60%-a inaktív.
-              </div>
-            </div>
-          </div>
         </section>
 
 
