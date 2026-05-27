@@ -89,19 +89,20 @@ const STATS = {
     { slug: "spiro-gyorgy", name: "Spiró György", eps: 171, pods: 12, wiki: false },
     { slug: "magyar-peter", name: "Magyar Péter", eps: 141, pods: 27, wiki: true },
   ],
-  // A médiumokat és rádiókat szándékosan kihagyjuk: a leiratokban főleg azért szerepelnek,
-  // mert ott jelent meg maga a podcast (kiadó/műsorszolgáltató), nem pedig témaként.
+  // Kiszűrve: médiumok és rádiók (saját podcast-csatorna), illetve azok a szervezetek,
+  // amelyek saját podcasttal vagy podcast-szponzorként jelennek meg az epizódokban
+  // (OTP, ELTE, Donably, Barion, A Tan Kapuja Buddhista Egyház — 1%-os felajánlások).
   topOrgs: [
     { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 745 },
     { slug: "nba", name: "NBA", type: "Sport liga", eps: 690 },
-    { slug: "otp-bank", name: "OTP Bank", type: "Vállalat", eps: 606 },
-    { slug: "elte", name: "Eötvös Loránd Tudományegyetem (ELTE)", type: "Egyetem", eps: 436 },
     { slug: "netflix", name: "Netflix", type: "Vállalat", eps: 419 },
     { slug: "google", name: "Google", type: "Vállalat", eps: 385 },
     { slug: "los-angeles-lakers", name: "Los Angeles Lakers", type: "Sportklub", eps: 341 },
     { slug: "liverpool", name: "Liverpool", type: "Sportklub", eps: 293 },
     { slug: "mta", name: "Magyar Tudományos Akadémia (MTA)", type: "Kutatóintézet", eps: 256 },
     { slug: "magyar-nemzeti-bank", name: "Magyar Nemzeti Bank (MNB)", type: "Intézmény", eps: 249 },
+    { slug: "boston-celtics", name: "Boston Celtics", type: "Sportklub", eps: 243 },
+    { slug: "bajnokok-ligaja", name: "Bajnokok Ligája", type: "Sport liga", eps: 233 },
   ],
   topParties: [
     { slug: "fidesz", name: "Fidesz", eps: 1126 },
@@ -477,7 +478,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-szervezetek-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
-            A leggyakrabban emlegetett vállalati, intézményi és politikai szereplők. A médiumokat és rádiókat kihagytuk a listából, mert ezek többnyire azért szerepelnek a leiratokban, mert ott jelent meg maga a podcast (pl. ATV, Tilos Rádió, Kossuth Rádió), nem pedig téma- vagy szereplőként. A pártokat külön bontjuk, mert a 2026-os kampányidőszakban különösen relevánsak.
+            A leggyakrabban emlegetett vállalati, intézményi és sportszereplők. Kihagytuk a médiumokat és rádiókat (ott jelent meg maga a podcast — ATV, Tilos, Kossuth, Klubrádió, HVG), valamint azokat a szervezeteket, amelyek főleg saját podcastben vagy szponzori reklámban jelennek meg (OTP, ELTE, Donably, Barion). A pártokat külön bontjuk, mert a 2026-os kampányidőszakban kiemelten relevánsak.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
