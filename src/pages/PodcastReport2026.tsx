@@ -297,6 +297,7 @@ export default function PodcastReport2026() {
 
         {/* Topics — what we talk about */}
         <section className="mb-12">
+          <DownloadableFigure filename="top-temak-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
             Az elmúlt 12 hónap magyar epizódjaiban ez volt az AI által azonosított top 10 beszélgetési téma.
@@ -334,10 +335,12 @@ export default function PodcastReport2026() {
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
             A választási év hatása is látszik: a négyévente tartott országgyűlési választás — idén április 12-én — a háborút (Ukrajna / Közel-Kelet, 73 epizód) is az év egyik visszatérő top témájává tette a magyar podcastekben, a kampányidőszak biztonságpolitikai vitáin keresztül.
           </p>
+          </DownloadableFigure>
         </section>
 
         {/* Categories */}
         <section className="mb-12">
+          <DownloadableFigure filename="kategoriak-megoszlas">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
           <p className="mb-6 text-muted-foreground">
             A magyar podcast piac négy meghatározó pilléren áll: társadalom és kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. Alább az epizódszám-megoszlás (terület = elérhető epizódok aránya).
