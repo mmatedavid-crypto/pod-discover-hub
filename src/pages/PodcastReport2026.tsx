@@ -297,7 +297,7 @@ export default function PodcastReport2026() {
             Az elmúlt 12 hónap magyar epizódjaiban ez volt az AI által azonosított top 10 beszélgetési téma.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
-            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — tehát kínálati oldal. Nem hallgatottsági, nem letöltési adat.
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — vagyis kínálati oldal. Nem hallgatottsági és nem letöltési adat.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
