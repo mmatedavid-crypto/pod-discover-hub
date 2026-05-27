@@ -190,7 +190,7 @@ export default function PodcastReport2026() {
             Magyar podcast piac 2026
           </h1>
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            Első részletes adat-elemzés a magyar nyelvű podcast iparágról.
+            Az első részletes adatelemzés a magyar nyelvű podcast iparágról:
             {" "}<strong className="text-foreground">{STATS.podcastCount.toLocaleString("hu-HU")} aktív műsor</strong>,
             {" "}<strong className="text-foreground">{STATS.episodeCount.toLocaleString("hu-HU")} epizód</strong>,
             tíz év alatt <strong className="text-foreground">{growth10y}-szeres növekedés</strong>.
