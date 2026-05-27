@@ -473,8 +473,37 @@ export default function PodcastReport2026() {
           </DownloadableFigure>
         </section>
 
-        {/* Top voices section removed: napi rádiós hostok dominálták a listát,
-            a „ki publikál a legtöbbet” kérdés nem informatív a podcastnyilvánosságról. */}
+        {/* Top közéleti vendégek (műsorvezetők kiszűrve) */}
+        <section className="mb-12">
+          <DownloadableFigure filename="top-kozeleti-vendegek">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top közéleti vendégek a magyar podcastekben</h2>
+          <p className="mb-6 text-muted-foreground">
+            A leggyakrabban szóba kerülő közéleti szereplők, politikusok és szakértők — vagyis akikről beszélnek, nem akik beszélnek. A műsorvezetőket szándékosan kihagytuk (pl. Bochkor Gábor, Puzsér Róbert, Rónai Egon, Horváth Oszkár), mert ők főleg saját adásaikban jelennek meg, így az „aki a legtöbbet publikál” kérdés nem informatív.
+          </p>
+          <div className="space-y-2">
+            {STATS.topVoices.map((v, i) => (
+              <Link key={v.slug} to={`/person/${v.slug}`} className="flex items-center gap-2 group">
+                <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground group-hover:text-primary truncate">{v.name}</div>
+                  <div className="text-[10px] text-muted-foreground">{(v as any).role} · {v.pods} műsorban</div>
+                </div>
+                <div className="relative w-32 sm:w-48 h-5 rounded bg-muted overflow-hidden">
+                  <div className="h-full bg-primary/70" style={{ width: `${(v.eps / maxVoice) * 100}%` }} />
+                  <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
+                    {v.eps.toLocaleString("hu-HU")} ep
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            „Ep” = olyan magyar epizód, amelyben a személy az indexelt leiratok alapján szóba került vagy megszólalt. Több műsorban való szereplés (pods) azt jelzi, hogy nem egyetlen csatorna saját szereplőjéről van szó.
+          </p>
+          </DownloadableFigure>
+        </section>
+
+
 
 
         {/* Top organizations + parties */}
