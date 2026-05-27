@@ -149,6 +149,10 @@ const maxOrg = STATS.topOrgs[0].eps;
 const maxParty = STATS.topParties[0].eps;
 const maxHeat = Math.max(...STATS.heatmap.rows.flatMap((r) => r.vals));
 const maxMonth = Math.max(...STATS.newPodsByMonth.map((p) => p.c));
+const minMonth = Math.min(...STATS.newPodsByMonth.map((p) => p.c));
+// Non-zero baseline so differences pop: 5 alá ne menjen a tengely.
+const monthBaseline = Math.max(0, minMonth - 3);
+const monthRange = maxMonth - monthBaseline;
 const newPodsTotal24mo = STATS.newPodsByMonth.reduce((s, p) => s + p.c, 0);
 const deadPct = ((STATS.tiers.dead / STATS.podcastCount) * 100).toFixed(1);
 const alivePct = (100 - parseFloat(deadPct)).toFixed(1);
@@ -283,14 +287,17 @@ export default function PodcastReport2026() {
           <PyramidRow label="Aktív havi műsorok" count={STATS.tiers.monthlyActive} total={STATS.podcastCount} note="Havi 2–4 epizód" />
           <PyramidRow label="Havi körüli műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 körüli ritmus" />
           <PyramidRow label="Ritkán frissülők" count={STATS.tiers.rare} total={STATS.podcastCount} note="Negyedéves vagy ritkább" />
-          <PyramidRow label="Elhalt feedek" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja néma" muted />
+          <PyramidRow label="Elnémult műsorok" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja nem publikáltak" muted />
         </section>
 
         {/* Topics — what we talk about */}
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
-          <p className="mb-6 text-muted-foreground">
-            Az AI által azonosított top 10 beszélgetési téma az elmúlt 12 hónap epizódjaiban.
+          <p className="mb-2 text-muted-foreground">
+            Az AI által azonosított top 10 beszélgetési téma az elmúlt 12 hónap magyar epizódjaiban.
+          </p>
+          <p className="mb-6 text-xs text-muted-foreground italic">
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — tehát kínálati oldal. Nem hallgatottsági, nem letöltési adat.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
@@ -316,8 +323,11 @@ export default function PodcastReport2026() {
               );
             })}
           </div>
-          <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+          <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
             2026-ban a Biblia (130) és a választás (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
+          </p>
+          <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
+            Választási év hatása: a négyévente tartott országgyűlési választás — idén április 12-én — a háborút (Ukrajna / Közel-Kelet, 73 epizód) is az év egyik visszatérő top témájává tette a magyar podcastekben, a kampányidőszak biztonságpolitikai vitáin keresztül.
           </p>
         </section>
 
@@ -325,7 +335,7 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
           <p className="mb-6 text-muted-foreground">
-            A magyar podcast piac négy meghatározó pilléren áll: társadalom-kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. Alább az epizódszám-megoszlás (terület = elérhető epizódok aránya).
+            A magyar podcast piac négy meghatározó pilléren áll: társadalom és kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. Alább az epizódszám-megoszlás (terület = elérhető epizódok aránya).
           </p>
           <div className="grid grid-cols-6 gap-1.5 h-[420px] auto-rows-fr">
             {STATS.topCategories.map((cat, i) => {
@@ -366,29 +376,58 @@ export default function PodcastReport2026() {
             Az elmúlt 24 hónapban <strong className="text-foreground">{newPodsTotal24mo}</strong> új magyar podcast indult — átlagosan{" "}
             <strong className="text-foreground">~{Math.round(newPodsTotal24mo / 24)} műsor havonta</strong>, a 2025. október óta tartó hullámmal együtt.
           </p>
-          <div className="flex items-end gap-[3px] h-32 mb-2">
-            {STATS.newPodsByMonth.map((p) => {
-              const h = (p.c / maxMonth) * 100;
-              const isPeak = p.c >= 25;
-              return (
-                <div
-                  key={p.m}
-                  className="flex-1 relative group"
-                  title={`${p.m}: ${p.c} új podcast`}
-                >
-                  <div
-                    className={`w-full rounded-sm ${isPeak ? "bg-primary" : "bg-primary/50"} transition-all hover:bg-primary`}
-                    style={{ height: `${h}%`, minHeight: 2 }}
-                  />
+          <div className="flex gap-2">
+            {/* Y axis */}
+            <div className="flex flex-col justify-between text-[10px] text-muted-foreground font-mono w-6 text-right py-0.5 h-56">
+              <span>{maxMonth}</span>
+              <span>{Math.round(monthBaseline + monthRange * 0.66)}</span>
+              <span>{Math.round(monthBaseline + monthRange * 0.33)}</span>
+              <span>{monthBaseline}</span>
+            </div>
+            <div className="flex-1">
+              <div className="relative h-56 border-l border-b border-border">
+                {/* Gridlines */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                  <div className="border-t border-border/40" />
+                  <div className="border-t border-border/40" />
+                  <div className="border-t border-border/40" />
+                  <div className="border-t border-border/40" />
                 </div>
-              );
-            })}
+                <div className="absolute inset-0 flex items-end gap-[3px] px-0.5">
+                  {STATS.newPodsByMonth.map((p) => {
+                    const h = ((p.c - monthBaseline) / monthRange) * 100;
+                    const isPeak = p.c >= 25;
+                    return (
+                      <div
+                        key={p.m}
+                        className="flex-1 relative group h-full flex items-end"
+                        title={`${p.m}: ${p.c} új podcast`}
+                      >
+                        <div
+                          className={`w-full rounded-t-sm ${isPeak ? "bg-primary" : "bg-primary/55"} transition-all hover:bg-primary relative`}
+                          style={{ height: `${Math.max(h, 2)}%` }}
+                        >
+                          {isPeak && (
+                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] font-semibold text-primary tabular-nums">
+                              {p.c}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground font-mono mt-1">
+                <span>{STATS.newPodsByMonth[0].m}</span>
+                <span>{STATS.newPodsByMonth[Math.floor(STATS.newPodsByMonth.length / 2)].m}</span>
+                <span>{STATS.newPodsByMonth[STATS.newPodsByMonth.length - 1].m}</span>
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-            <span>{STATS.newPodsByMonth[0].m}</span>
-            <span>{STATS.newPodsByMonth[Math.floor(STATS.newPodsByMonth.length / 2)].m}</span>
-            <span>{STATS.newPodsByMonth[STATS.newPodsByMonth.length - 1].m}</span>
-          </div>
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            A függőleges tengely {monthBaseline}-tól indul, hogy a havi különbségek láthatók legyenek.
+          </p>
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
             2026 első három hónapjában havi 29 új magyar podcast indult — minden korábbi év átlagát felülmúlja.
           </p>
@@ -519,9 +558,9 @@ export default function PodcastReport2026() {
               </div>
             </div>
             <div className="text-sm text-foreground">
-              <div className="font-semibold mb-1">A magyar podcastpiac stabil — csak {deadPct}% „elhalt feed"</div>
+              <div className="font-semibold mb-1">A magyar podcastpiac stabil — csak {deadPct}% az elnémult műsorok aránya</div>
               <div className="text-muted-foreground">
-                A {STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsorból {STATS.tiers.dead} feed nem publikált 12+ hónapja. A többi {(STATS.podcastCount - STATS.tiers.dead).toLocaleString("hu-HU")} műsor aktívnak tekinthető — ez a nemzetközi átlagnál jelentősen jobb arány (a globális podcast-katalógusok 40–60%-a inaktív).
+                A {STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsorból {STATS.tiers.dead} nem publikált 12+ hónapja. A többi {(STATS.podcastCount - STATS.tiers.dead).toLocaleString("hu-HU")} műsor aktívnak tekinthető — ez a nemzetközi átlagnál jelentősen jobb arány (a globális podcast-katalógusok 40–60%-a inaktív).
               </div>
             </div>
           </div>
@@ -584,7 +623,7 @@ export default function PodcastReport2026() {
               <strong className="text-foreground">Téma-azonosítás:</strong> Minden epizód transcript-ből kinyert beszélgetési témák, dedupolva és normalizálva. „Téma" ≠ kategória.
             </p>
             <p>
-              <strong className="text-foreground">Publikálási ritmus szerinti csoportosítás:</strong> Belső pontrendszer, ami az adott podcast átlagos havi epizód-számát súlyozza a frissesség és aktivitás függvényében. A jelentésben szereplő nyilvános címkék (Heti+, Aktív havi, Havi körüli, Ritkán frissülő, Elhalt) ezen alapulnak. Részletek: <Link to="/modszertan" className="underline hover:text-foreground">módszertan</Link>.
+              <strong className="text-foreground">Publikálási ritmus szerinti csoportosítás:</strong> Belső pontrendszer, ami az adott podcast átlagos havi epizód-számát súlyozza a frissesség és aktivitás függvényében. A jelentésben szereplő nyilvános címkék (Heti+, Aktív havi, Havi körüli, Ritkán frissülő, Elnémult) ezen alapulnak. Részletek: <Link to="/modszertan" className="underline hover:text-foreground">módszertan</Link>.
             </p>
             <p>
               <strong className="text-foreground">Közszereplők és szervezetek:</strong> Az AI extraktor (Gemini 2.5) minden epizód clean-text átiratából kinyeri az említett embereket és szervezeteket. Wikipédia/Wikidata alapú azonosítás.
