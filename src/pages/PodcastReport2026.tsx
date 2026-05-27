@@ -338,7 +338,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="kategoriak-megoszlas">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
           <p className="mb-2 text-muted-foreground">
-            Az epizódok alapján a magyar podcastkínálat legerősebb pillérei: társadalom és kultúra, hírek és politika, vallás és spiritualitás, valamint üzlet és pénzügy. Alább az <strong className="text-foreground">epizódszám szerinti megoszlás</strong> (terület = elérhető epizódok aránya).
+            Az epizódok alapján a magyar podcastkínálat legerősebb pillérei: társadalom és kultúra, hírek és politika, vallás és spiritualitás, valamint film, TV és popkultúra. Alább az <strong className="text-foreground">epizódszám szerinti megoszlás</strong> (terület = elérhető epizódok aránya).
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
             Megjegyzés: ez epizódszám-alapú megoszlás (nem műsorszám, nem hallgatottság).
@@ -374,7 +374,7 @@ export default function PodcastReport2026() {
             Epizódszám szerinti súlyozás, csak a top 12 kategória alapján, az indexelt magyar podcastek {TODAY_LABEL}-i állapota szerint.
           </p>
           <p className="mt-3 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            Erős koncentráció az epizódok szintjén: a négy legnagyobb kategória — Társadalom &amp; kultúra, Hírek &amp; politika, Vallás &amp; spiritualitás, Üzlet &amp; pénzügy — adja a top 12 kategória epizódjainak közel felét.
+            Erős koncentráció az epizódok szintjén: a négy legnagyobb kategória — Társadalom &amp; kultúra, Hírek &amp; politika, Vallás &amp; spiritualitás, Film/TV &amp; popkultúra — adja a top 12 kategória epizódjainak közel felét.
           </p>
 
           </DownloadableFigure>
