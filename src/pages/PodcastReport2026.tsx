@@ -1023,6 +1023,9 @@ export default function PodcastReport2026() {
               );
             })()}
             <p className="mt-3 text-xs italic text-muted-foreground">A magyar közbeszéd intézményi térképét két erő rajzolja: a <strong className="text-foreground">gazdaság</strong> (MNB messze a legtöbbet emlegetett hazai intézmény) és a <strong className="text-foreground">honvédelem/biztonság</strong> (Honvédség, NATO, rendőrség, Szuverenitásvédelmi Hivatal). A Kúria és a NAV jelenléte mutatja, hogy a jogállam-vita és az adózás is folyamatosan napirenden van — viszont olyan klasszikus intézmények, mint az Alkotmánybíróság vagy az ÁSZ, alig kerülnek elő.</p>
+            <p className="mt-2 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
+              <strong className="text-foreground">Miért az MNB az első?</strong> Az MNB-t emlegető 104 magyar epizódból <strong className="text-foreground">42 (40%)</strong> együtt említi a <em>botrány / MNB-alapítvány / Matolcsy / korrupció</em> kifejezések valamelyikét — ebből 36 epizód kifejezetten az „alapítvány" szót is tartalmazza. Vagyis az MNB jelenléte nagyrészt az MNB-alapítványok körüli ügy diskurzusából táplálkozik, nem a klasszikus monetáris politikai tartalomból.
+            </p>
           </div>
 
 
