@@ -56,6 +56,7 @@ import TopicsHubPage from "./pages/TopicsHubPage.tsx";
 import TopicDetailPage from "./pages/TopicDetailPage.tsx";
 import OrganizationsIndexPage from "./pages/OrganizationsIndexPage.tsx";
 import CompaniesHubPage from "./pages/CompaniesHubPage.tsx";
+import PodcastReport2026 from "./pages/PodcastReport2026.tsx";
 import PartiesHubPage from "./pages/PartiesHubPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
@@ -185,6 +186,7 @@ const App = () => (
           <Route path="/partok" element={<PartiesHubPage />} />
           <Route path="/en-podiverzumom" element={<EnPodiverzumomPage />} />
           <Route path="/p/:username" element={<PublicProfilePage />} />
+          <Route path="/jelentes/magyar-podcast-piac-2026" element={<PodcastReport2026 />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <SmartPlayerBar />
