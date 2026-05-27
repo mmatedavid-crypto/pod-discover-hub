@@ -872,7 +872,7 @@ export default function PodcastReport2026() {
               „Magyar podcast" = a feed metaadataiban magyar nyelv jelölve (`language=hu*`), vagy nyelvazonosítás alapján dominánsan magyar tartalom.
             </p>
             <p>
-              <strong className="text-foreground">Aktív műsor:</strong> {STATS.podcastCount} aktív magyar podcast = legalább 1 publikált epizóddal rendelkező, nyilvánosan elérhető RSS feed, {TODAY_LABEL}-i állapot szerint.
+              <strong className="text-foreground">Indexelt műsor:</strong> {STATS.podcastCount} magyar nyelvű RSS feed, ebből {STATS.podcastsWithEpisodes} műsorhoz tartozik legalább egy ismert, publikált epizód, {TODAY_LABEL}-i állapot szerint.
             </p>
             <p>
               <strong className="text-foreground">Kategorizálás:</strong> Az iTunes/Apple taxonómiát követjük, megerősítve egy belső, 21-kategóriás magyar taxonómiával.
@@ -909,7 +909,7 @@ export default function PodcastReport2026() {
           <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Próbáld ki</div>
           <div className="font-serif text-2xl font-bold text-foreground mb-3">Keress rá bármire a magyar podcast univerzumban</div>
           <p className="mb-4 text-muted-foreground">
-            133 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
+            134 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
           </p>
           <Link
             to="/kereses"
