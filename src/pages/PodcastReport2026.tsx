@@ -10,49 +10,49 @@ import { setSeo } from "@/lib/seo";
 // ============================================================
 
 const STATS = {
-  podcastCount: 1427,
-  episodeCount: 133649,
-  podcastsWithEpisodes: 1351,
+  podcastCount: 1428,
+  episodeCount: 134613,
+  podcastsWithEpisodes: 1352,
   peopleIndexed: 2623,
   organizationsIndexed: 4137,
   episodesYear: {
     "2015": 880,
     "2016": 1893,
-    "2017": 1516,
-    "2018": 1645,
-    "2019": 3172,
-    "2020": 7738,
-    "2021": 12681,
-    "2022": 16865,
-    "2023": 20230,
-    "2024": 23819,
-    "2025": 25732,
-    "2026 (eddig, 5 hó)": 13261,
+    "2017": 1595,
+    "2018": 1768,
+    "2019": 3284,
+    "2020": 7837,
+    "2021": 12783,
+    "2022": 16964,
+    "2023": 20327,
+    "2024": 23916,
+    "2025": 25824,
+    "2026 (eddig, 5 hó)": 13325,
   } as Record<string, number>,
   weekday: [
-    { name: "Hétfő", eps: 6470 },
-    { name: "Kedd", eps: 6351 },
-    { name: "Szerda", eps: 5766 },
-    { name: "Csütörtök", eps: 6781 },
-    { name: "Péntek", eps: 6074 },
-    { name: "Szombat", eps: 3524 },
-    { name: "Vasárnap", eps: 4027 },
+    { name: "Hétfő", eps: 4867 },
+    { name: "Kedd", eps: 4807 },
+    { name: "Szerda", eps: 4255 },
+    { name: "Csütörtök", eps: 4916 },
+    { name: "Péntek", eps: 4500 },
+    { name: "Szombat", eps: 2436 },
+    { name: "Vasárnap", eps: 2761 },
   ],
   // Internal tier names retained for data accuracy; public labels used in UI.
-  tiers: { weekly: 242, monthlyActive: 456, monthly: 626, rare: 39, dead: 64 },
+  tiers: { weekly: 242, monthlyActive: 457, monthly: 626, rare: 39, dead: 64 },
   topCategories: [
-    { name: "Társadalom és kultúra", pods: 265, eps: 28630 },
-    { name: "Hírek és politika", pods: 124, eps: 14140 },
-    { name: "Vallás és spiritualitás", pods: 126, eps: 12919 },
+    { name: "Társadalom és kultúra", pods: 265, eps: 28632 },
+    { name: "Hírek és politika", pods: 124, eps: 14148 },
+    { name: "Vallás és spiritualitás", pods: 126, eps: 12921 },
     { name: "Film, TV és popkultúra", pods: 102, eps: 11581 },
-    { name: "Sport", pods: 67, eps: 8002 },
+    { name: "Sport", pods: 68, eps: 8937 },
     { name: "Zene", pods: 78, eps: 7598 },
-    { name: "Üzlet és pénzügy", pods: 103, eps: 6240 },
+    { name: "Pénzügy", pods: 41, eps: 6725 },
+    { name: "Üzlet és pénzügy", pods: 103, eps: 6242 },
     { name: "Technológia", pods: 50, eps: 4819 },
-    { name: "Könyvek és irodalom", pods: 41, eps: 4620 },
-    { name: "Önfejlesztés", pods: 57, eps: 3300 },
-    { name: "Oktatás", pods: 51, eps: 2424 },
-    { name: "Egészség és életmód", pods: 49, eps: 1989 },
+    { name: "Könyvek és irodalom", pods: 41, eps: 4621 },
+    { name: "Humor", pods: 23, eps: 3783 },
+    { name: "Önfejlesztés", pods: 57, eps: 3301 },
   ],
   topTopics: [
     { slug: "biblia", name: "Biblia", eps: 130 },
@@ -76,48 +76,6 @@ const STATS = {
     { slug: "egeszseg", name: "Egészség", eps: 43 },
     { slug: "tortenelem", name: "Történelem", eps: 40 },
   ],
-  // Top recurring voices — hostok + visszatérő vendégek együtt.
-  // Kiszűrve: műsorvezetők, akik főleg saját műsorukban szerepelnek (Bochkor, Puzsér,
-  // Horváth Oszkár, Rónai Egon, Fábry Kornél stb.). A listán csak olyan közéleti
-  // szereplők, szakértők, politikusok maradnak, akik vendégként/témaként szerepelnek
-  // több műsorban is — vagyis akikről beszélnek, nem akik beszélnek.
-  // Forrás: person_episode_mentions (AI entity-resolution), 2025.06.01–2026.05.27, HU feedek.
-  // Műsorvezetők kiszűrve (Puzsér, Rónai, Ceglédi, Pető, Csepelyi, Bochkor, Horváth).
-  // Homonim találatok (Kovács Gergely érsek vs MKKP, Borbély Imre, Tóth Csaba, Szabó László,
-  // Varga Zoltán, Németh Dávid stb.) is kihagyva — ahol a wiki-leírás nem egyezik a podcast-kontextussal.
-  topVoices: [
-    { slug: "orban-viktor",    name: "Orbán Viktor",    role: "miniszterelnök",            eps: 278, pods: 30 },
-    { slug: "magyar-peter",    name: "Magyar Péter",    role: "politikus (Tisza)",         eps: 199, pods: 26 },
-    { slug: "donald-trump",    name: "Donald Trump",    role: "USA elnöke",                eps: 102, pods: 31 },
-    { slug: "ruff-balint",     name: "Ruff Bálint",     role: "jogász, politikai tanácsadó", eps: 52, pods: 11 },
-    { slug: "gubik-petra",     name: "Gubik Petra",     role: "színésznő",                 eps: 51, pods: 4  },
-    { slug: "pogatsa-zoltan",  name: "Pogátsa Zoltán",  role: "közgazdász, szociológus",   eps: 39, pods: 19 },
-    { slug: "szijjarto-peter", name: "Szijjártó Péter", role: "külügyminiszter",           eps: 38, pods: 16 },
-    { slug: "balasy-zsolt",    name: "Balásy Zsolt",    role: "kommunikációs szakértő",    eps: 33, pods: 16 },
-    { slug: "keri-laszlo",     name: "Kéri László",     role: "politológus",               eps: 31, pods: 8  },
-    { slug: "zsiday-viktor",   name: "Zsiday Viktor",   role: "közgazdász, befektető",     eps: 25, pods: 11 },
-  ],
-  // Top szervezetek a magyar podcastekben (2025. jún. – 2026. máj.).
-  // Kiszűrve: médiumok, rádiók, sportklubok és -ligák (külön világ, ott
-  // egy-két sportpodcast minden epizódban ismétli ugyanazt a 8-10 csapatot,
-  // ezért torzít), egyházak, pártok (saját bontás lejjebb), valamint azok
-  // a szervezetek, amelyek főleg saját podcasttal vagy szponzori felirattal
-  // jelennek meg (Donably, Barion, Patreon, ATV-Gondolat Jel Alapítvány,
-  // XXI. Század Intézet, Partizán Alapítvány). Az „EU" és „Európai Unió"
-  // bejegyzéseket összevontuk.
-  topOrgs: [
-    { slug: "facebook", name: "Facebook", type: "Vállalat", eps: 1841 },
-    { slug: "instagram", name: "Instagram", type: "Vállalat", eps: 923 },
-    { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 738 },
-    { slug: "youtube", name: "YouTube", type: "Vállalat", eps: 675 },
-    { slug: "otp-bank", name: "OTP Bank", type: "Vállalat", eps: 599 },
-    { slug: "apple", name: "Apple", type: "Vállalat", eps: 493 },
-    { slug: "netflix", name: "Netflix", type: "Vállalat", eps: 403 },
-    { slug: "google", name: "Google", type: "Vállalat", eps: 380 },
-    { slug: "tiktok", name: "TikTok", type: "Vállalat", eps: 363 },
-    { slug: "magyar-nemzeti-bank", name: "Magyar Nemzeti Bank (MNB)", type: "Intézmény", eps: 249 },
-  ],
-
   topParties: [
     { slug: "fidesz", name: "Fidesz", eps: 1126 },
     { slug: "tisza-part", name: "Tisza Párt", eps: 718 },
@@ -130,13 +88,13 @@ const STATS = {
   heatmap: {
     cols: ["0–5", "6–9", "10–13", "14–17", "18–21", "22–23"],
     rows: [
-      { day: "Hétfő",       vals: [673, 1277, 861, 1212, 643, 89] },
-      { day: "Kedd",        vals: [480, 1215, 1088, 1276, 660, 110] },
-      { day: "Szerda",      vals: [602, 1163, 840, 1134, 429, 123] },
-      { day: "Csütörtök",   vals: [620, 1361, 933, 1431, 566, 99] },
-      { day: "Péntek",      vals: [725, 1277, 884, 1041, 547, 45] },
-      { day: "Szombat",     vals: [361, 609, 539, 544, 354, 78] },
-      { day: "Vasárnap",    vals: [394, 729, 587, 507, 477, 178] },
+      { day: "Hétfő",       vals: [448, 1030, 1119, 1103, 1039, 128] },
+      { day: "Kedd",        vals: [258, 925, 1292, 1070, 1091, 171] },
+      { day: "Szerda",      vals: [287, 973, 1132, 919, 817, 127] },
+      { day: "Csütörtök",   vals: [297, 1082, 1205, 1063, 1178, 91] },
+      { day: "Péntek",      vals: [362, 1103, 1114, 909, 888, 124] },
+      { day: "Szombat",     vals: [182, 563, 585, 551, 467, 88] },
+      { day: "Vasárnap",    vals: [274, 521, 777, 431, 611, 147] },
     ],
   },
   // Új podcastok első epizódja szerinti hónap (utolsó 24 hónap, HU feedek).
@@ -155,16 +113,11 @@ const huNum = (n: number, digits = 1) => n.toFixed(digits).replace(".", ",");
 const growth10y = huNum(STATS.episodesYear["2025"] / STATS.episodesYear["2015"]);
 const yoy2025 = huNum(((STATS.episodesYear["2025"] - STATS.episodesYear["2024"]) / STATS.episodesYear["2024"]) * 100);
 const projected2026 = Math.round((STATS.episodesYear["2026 (eddig, 5 hó)"] / 147) * 365);
-const top4CategoryShare = (((265 + 126 + 124 + 103) / STATS.podcastCount) * 100).toFixed(0);
-
 const maxYear = Math.max(...Object.values(STATS.episodesYear));
-const maxWeek = Math.max(...STATS.weekday.map((d) => d.eps));
 const maxCatEps = Math.max(...STATS.topCategories.map((c) => c.eps));
 const totalCatEps = STATS.topCategories.reduce((s, c) => s + c.eps, 0);
 const top10Topics = STATS.topTopics.slice(0, 10);
 const maxTop10Topic = top10Topics[0].eps;
-const maxVoice = STATS.topVoices[0].eps;
-const maxOrg = STATS.topOrgs[0].eps;
 const maxParty = STATS.topParties[0].eps;
 const maxHeat = Math.max(...STATS.heatmap.rows.flatMap((r) => r.vals));
 const maxMonth = Math.max(...STATS.newPodsByMonth.map((p) => p.c));
@@ -385,7 +338,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="kategoriak-megoszlas">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
           <p className="mb-2 text-muted-foreground">
-            Az epizódok alapján a magyar podcastkínálat legerősebb pillérei: társadalom és kultúra, hírek és politika, vallás és spiritualitás, valamint üzlet és pénzügy. Alább az <strong className="text-foreground">epizódszám szerinti megoszlás</strong> (terület = elérhető epizódok aránya).
+            Az epizódok alapján a magyar podcastkínálat legerősebb pillérei: társadalom és kultúra, hírek és politika, vallás és spiritualitás, valamint film, TV és popkultúra. Alább az <strong className="text-foreground">epizódszám szerinti megoszlás</strong> (terület = elérhető epizódok aránya).
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
             Megjegyzés: ez epizódszám-alapú megoszlás (nem műsorszám, nem hallgatottság).
@@ -421,7 +374,7 @@ export default function PodcastReport2026() {
             Epizódszám szerinti súlyozás, csak a top 12 kategória alapján, az indexelt magyar podcastek {TODAY_LABEL}-i állapota szerint.
           </p>
           <p className="mt-3 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            Erős koncentráció az epizódok szintjén: a négy legnagyobb kategória — Társadalom &amp; kultúra, Hírek &amp; politika, Vallás &amp; spiritualitás, Üzlet &amp; pénzügy — adja a top 12 kategória epizódjainak közel felét.
+            Erős koncentráció az epizódok szintjén: a négy legnagyobb kategória — Társadalom &amp; kultúra, Hírek &amp; politika, Vallás &amp; spiritualitás, Film/TV &amp; popkultúra — adja a top 12 kategória epizódjainak közel felét.
           </p>
 
           </DownloadableFigure>
@@ -436,19 +389,19 @@ export default function PodcastReport2026() {
           </p>
           {(() => {
             const yoy = [
-              { name: "Egészség & életmód",   y24: 261,  y25: 557 },
-              { name: "Étel & ital",          y24: 287,  y25: 514 },
-              { name: "Gyerek & család",      y24: 714,  y25: 1106 },
-              { name: "Zene",                 y24: 1043, y25: 1448 },
-              { name: "Önfejlesztés",         y24: 604,  y25: 786 },
-              { name: "Üzlet & pénzügy",      y24: 1090, y25: 1372 },
-              { name: "Technológia",          y24: 680,  y25: 822 },
+              { name: "Egészség & életmód",     y24: 261,  y25: 557 },
+              { name: "Étel & ital",            y24: 287,  y25: 514 },
+              { name: "Gyerek & család",        y24: 714,  y25: 1106 },
+              { name: "Zene",                   y24: 1043, y25: 1448 },
+              { name: "Önfejlesztés",           y24: 604,  y25: 786 },
+              { name: "Üzlet & pénzügy",        y24: 1090, y25: 1372 },
+              { name: "Technológia",            y24: 680,  y25: 822 },
               { name: "Vallás & spiritualitás", y24: 2171, y25: 2353 },
-              { name: "Társadalom & kultúra", y24: 5163, y25: 5295 },
-              { name: "Sport",                y24: 1463, y25: 1435 },
-              { name: "Film, TV & popkultúra", y24: 1849, y25: 1328 },
-              { name: "Oktatás",              y24: 476,  y25: 329 },
-              { name: "Humor",                y24: 580,  y25: 323 },
+              { name: "Társadalom & kultúra",   y24: 5163, y25: 5295 },
+              { name: "Sport",                  y24: 1463, y25: 1435 },
+              { name: "Film, TV & popkultúra",  y24: 1849, y25: 1328 },
+              { name: "Oktatás",                y24: 476,  y25: 329 },
+              { name: "Humor",                  y24: 580,  y25: 323 },
             ].map((c) => ({ ...c, pct: Math.round(((c.y25 - c.y24) / c.y24) * 100) }))
              .sort((a, b) => b.pct - a.pct);
             const maxAbs = Math.max(...yoy.map((c) => Math.abs(c.pct)));
@@ -498,9 +451,9 @@ export default function PodcastReport2026() {
         {/* Self-help / mental wellness — monthly seasonality */}
         <section className="mb-12">
           <DownloadableFigure filename="onsegito-temak-szezonalitas">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Alvás és meditáció: januárban két téma ugrik ki élesen</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Alvás és meditáció: év eleji felfutás látszik</h2>
           <p className="mb-6 text-muted-foreground">
-            Öt önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás szöveges illesztés, 2025. jún. – 2026. máj.). Az öt vizsgált téma közül januárban csak kettő — az alvás és a meditáció — emelkedik kiugró csúcsra.
+            Öt önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás + összefoglaló szöveges illesztés, 2025. jún. – 2026. máj.). Az öt vizsgált téma közül decemberről januárra az alvás és a meditáció mozdul el a legerősebben.
           </p>
 
           {(() => {
@@ -508,13 +461,13 @@ export default function PodcastReport2026() {
               { slug: "alvas",        name: "Alvás",        color: "hsl(220 70% 50%)",
                 data: [6, 3, 7, 13, 12, 7, 19, 44, 46, 37, 37, 40] },
               { slug: "meditacio",    name: "Meditáció",    color: "hsl(160 65% 40%)",
-                data: [12, 9, 16, 13, 22, 21, 13, 47, 44, 37, 39, 38] },
+                data: [10, 10, 14, 12, 22, 19, 10, 45, 41, 36, 39, 38] },
               { slug: "szorongas",    name: "Szorongás",    color: "hsl(35 90% 50%)",
-                data: [14, 16, 17, 16, 18, 23, 24, 23, 34, 24, 26, 22] },
+                data: [20, 23, 23, 26, 30, 32, 36, 30, 38, 44, 38, 34] },
               { slug: "onismeret",    name: "Önismeret",    color: "hsl(330 70% 50%)",
-                data: [44, 47, 47, 38, 67, 59, 54, 51, 50, 51, 44, 34] },
+                data: [43, 44, 43, 38, 56, 55, 48, 44, 44, 50, 36, 32] },
               { slug: "parkapcsolat", name: "Párkapcsolat", color: "hsl(265 60% 55%)",
-                data: [18, 15, 12, 13, 16, 21, 20, 23, 32, 30, 22, 16] },
+                data: [21, 16, 15, 14, 16, 21, 20, 22, 32, 30, 22, 16] },
 
             ];
             const months = ["2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"];
@@ -538,7 +491,7 @@ export default function PodcastReport2026() {
                   ))}
                   {/* Highlight January band */}
                   <rect x={xAt(7) - 14} y={PT} width={28} height={innerH} fill="hsl(var(--primary) / 0.06)" />
-                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">januári kiugrás</text>
+                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">januári ugrás</text>
                   {series.map((s) => {
                     const d = s.data.map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i)},${yAt(v)}`).join(" ");
                     return <path key={s.slug} d={d} fill="none" stroke={s.color} strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" />;
@@ -564,7 +517,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  A vizsgált öt téma közül januárban csak kettő mutat éles kiugrást: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%) ugranak. Az <strong className="text-foreground">önismeret</strong> egész évben magas szinten ingadozik, érdemi januári csúcs nélkül; a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> nem januárban, hanem februárban éri el a maximumát. A magyar podcastkínálatban tehát nem egy általános „újévi self-help hullám" látszik, hanem két konkrét téma — az alvás és a meditáció — szezonális felfutása.
+                  A vizsgált öt téma közül decemberről januárra két vonal mozdul el igazán: az <strong className="text-foreground">alvás</strong> 19-ről 44 epizódra (+132%), a <strong className="text-foreground">meditáció</strong> 10-ről 45 epizódra (+350%) ugrik. Ez nem általános „újévi önfejlesztési hullám": az <strong className="text-foreground">önismeret</strong> januárban inkább visszaesik, a <strong className="text-foreground">szorongás</strong> és a <strong className="text-foreground">párkapcsolat</strong> csúcsa pedig nem januárra esik.
                 </p>
               </div>
             );
@@ -677,11 +630,11 @@ export default function PodcastReport2026() {
           </p>
           {(() => {
             const buckets = [
-              { label: "Rendszeresen frissülő (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
-              { label: "Lassuló (30–90 nap)", n: 214, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
-              { label: "Szunnyadó (3–6 hó)", n: 218, color: "bg-muted-foreground/50", note: "lassan kihagy" },
-              { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
-              { label: "Elcsendesedett (12+ hó)", n: 345, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
+              { label: "Rendszeresen frissülő (≤30 nap)", n: 587, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
+              { label: "Lassuló (30–90 nap)", n: 208, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
+              { label: "Szunnyadó (3–6 hó)", n: 125, color: "bg-muted-foreground/50", note: "lassan kihagy" },
+              { label: "Inaktív (6–12 hó)", n: 89, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
+              { label: "Elcsendesedett (12+ hó)", n: 343, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
             ];
             const total = buckets.reduce((s, b) => s + b.n, 0);
             return (
@@ -724,14 +677,14 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="publikalasi-heatmap">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-2 text-muted-foreground">
-            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28530).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar podcastoknak felismerhető heti ritmusa van: a legerősebb sáv a csütörtöki munkanap, különösen a délelőtti és kora délutáni órákban.
+            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28542).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar podcastoknak felismerhető heti ritmusa van: összesítésben a csütörtök a legerősebb publikálási nap, a hétköznapi délelőtti és kora délutáni sávokkal.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
             Időzóna: Europe/Budapest. A publikálási dátum az RSS / publikációs metaadatok alapján.
           </p>
           <Heatmap data={STATS.heatmap} max={maxHeat} />
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — gyakorlatilag ez a magyar podcast „prime time".
+            Összesítésben csütörtökön jelenik meg a legtöbb epizód; az egyes idősávokat nézve a hétköznap délelőtti blokkok adják a legsűrűbb publikálási ablakot.
           </p>
           </DownloadableFigure>
         </section>
@@ -910,123 +863,6 @@ export default function PodcastReport2026() {
           </div>
         </section>
 
-        {/* Capability demo — example queries */}
-        <section className="mb-12">
-          <DownloadableFigure filename="podiverzum-pelda-lekerdezesek">
-          <div className="text-xs uppercase tracking-widest text-primary mb-2">Példa lekérdezések</div>
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Néhány gyors példa arra, mit lehet az adatbázisból kihúzni</h2>
-          <p className="mb-6 text-muted-foreground">
-            Ezek a számok pár perces ad-hoc lekérdezések eredményei a 2025. június óta megjelent magyar podcast-epizódokon, a tisztított átiratokban kereső szöveges illesztéssel. A teljes katalógusra futtatva, finomabb szűrésekkel a sajtó saját kérdéseire is le tudjuk gyártani a riport-grafikákat.
-          </p>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Cities */}
-            <div className="rounded-lg border border-border bg-card p-5">
-              <h3 className="font-serif text-lg font-bold text-foreground mb-1">Melyik magyar városok kerülnek szóba a leggyakrabban?</h3>
-              <p className="text-xs text-muted-foreground mb-4">Epizódszám, amelyikben a városnév elhangzik (2025. jún. – 2026. máj., HU podcastek, tisztított átiratok).</p>
-              <div className="space-y-1.5">
-                {[
-                  { name: "Budapest", eps: 808 },
-                  { name: "Győr", eps: 40 },
-                  { name: "Veszprém", eps: 33 },
-                  { name: "Debrecen", eps: 30 },
-                  { name: "Siófok", eps: 28 },
-                  { name: "Békéscsaba", eps: 23 },
-                  { name: "Szeged", eps: 18 },
-                  { name: "Pécs", eps: 14 },
-                  { name: "Sopron", eps: 13 },
-                  { name: "Miskolc", eps: 12 },
-                ].map((c, i, arr) => (
-                  <div key={c.name} className="flex items-center gap-2">
-                    <div className="w-4 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
-                    <div className="w-28 shrink-0 text-sm text-foreground truncate">{c.name}</div>
-                    <div className="flex-1 relative h-5 rounded bg-muted overflow-hidden">
-                      <div className="h-full bg-primary/70" style={{ width: `${(c.eps / arr[0].eps) * 100}%` }} />
-                      <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">{c.eps}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-xs italic text-muted-foreground">Budapest értelemszerűen messze vezet — érdekesebb a vidéki sorrend, ahol Győr, Veszprém és a Balaton-parti Siófok kerül előre az ország-elsőszámú nagyvárosok (Debrecen, Szeged, Pécs) elé.</p>
-            </div>
-
-            {/* Films / series */}
-            <div className="rounded-lg border border-border bg-card p-5">
-              <h3 className="font-serif text-lg font-bold text-foreground mb-1">Melyik filmek és sorozatok jönnek elő legtöbbet?</h3>
-              <p className="text-xs text-muted-foreground mb-4">Epizódszám említés alapján, válogatott magyar és nemzetközi címek, ugyanaz az időszak. A több jelentésű címeket (pl. „Semmelweis" = film + egyetem + történelmi alak, „A Tanár" = sorozat + általános szó) kihagytuk.</p>
-              <div className="space-y-1.5">
-                {[
-                  { name: "Harry Potter", eps: 25 },
-                  { name: "Star Wars", eps: 23 },
-                  { name: "Stranger Things", eps: 15 },
-                  { name: "A Gyűrűk Ura", eps: 14 },
-                  { name: "Dűne", eps: 10 },
-                  { name: "Testről és lélekről", eps: 10 },
-                  { name: "Mátrix", eps: 10 },
-                  { name: "Joker", eps: 6 },
-                  { name: "Saul fia", eps: 6 },
-                  { name: "Trónok harca", eps: 5 },
-                ].map((f, i, arr) => (
-                  <div key={f.name} className="flex items-center gap-2">
-                    <div className="w-4 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
-                    <div className="w-36 shrink-0 text-sm text-foreground truncate">{f.name}</div>
-                    <div className="flex-1 relative h-5 rounded bg-muted overflow-hidden">
-                      <div className="h-full bg-accent/70" style={{ width: `${(f.eps / arr[0].eps) * 100}%` }} />
-                      <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">{f.eps}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-xs italic text-muted-foreground">A nemzetközi franchise-ok (Harry Potter, Star Wars, Stranger Things, A Gyűrűk Ura, Dűne) viszik a listát, de a magyar Oscar-jelölt/díjnyertes filmek — Enyedi Ildikó Testről és lélekről, Nemes Jeles László Saul fia — is rendszeresen visszatérnek a beszélgetésekbe.</p>
-            </div>
-          </div>
-
-          {/* Institutions */}
-
-          <div className="mt-6 rounded-lg border border-border bg-card p-5">
-            <h3 className="font-serif text-lg font-bold text-foreground mb-1">Mely állami és nemzetközi intézmények jönnek elő legtöbbet?</h3>
-            <p className="text-xs text-muted-foreground mb-4">Epizódszám, amelyikben az intézmény neve elhangzik vagy szóba kerül (2025. jún. – 2026. máj., HU podcastek). Az országokat és általános fogalmakat („kormány") kihagytuk, csak konkrét intézményeket jelenítünk meg.</p>
-            {(() => {
-              const insts = [
-                { name: "Európai Bizottság", eps: 34 },
-                { name: "Magyar Nemzeti Bank (MNB)", eps: 72 },
-                { name: "NATO", eps: 24 },
-                { name: "Magyar Honvédség", eps: 21 },
-                { name: "Országgyűlés", eps: 20 },
-                { name: "NAV", eps: 19 },
-                { name: "Kúria", eps: 18 },
-                { name: "Szuverenitásvédelmi Hivatal", eps: 18 },
-                { name: "Rendőrség", eps: 19 },
-                { name: "Országos Széchényi Könyvtár", eps: 31 },
-              ].sort((a, b) => b.eps - a.eps);
-              const max = insts[0].eps;
-              return (
-                <div className="space-y-1.5">
-                  {insts.map((x, i) => (
-                    <div key={x.name} className="flex items-center gap-2">
-                      <div className="w-4 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
-                      <div className="w-56 shrink-0 text-sm text-foreground truncate">{x.name}</div>
-                      <div className="flex-1 relative h-5 rounded bg-muted overflow-hidden">
-                        <div className="h-full bg-primary/70" style={{ width: `${(x.eps / max) * 100}%` }} />
-                        <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">{x.eps}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-            <p className="mt-3 text-xs italic text-muted-foreground">A magyar közbeszéd intézményi térképét két erő rajzolja: a <strong className="text-foreground">gazdaság</strong> (MNB messze a legtöbbet emlegetett hazai intézmény) és a <strong className="text-foreground">honvédelem / biztonság</strong> (Honvédség, NATO, rendőrség, Szuverenitásvédelmi Hivatal). A Kúria és a NAV jelenléte mutatja, hogy a jogállam-vita és az adózás is folyamatosan napirenden van.</p>
-            <p className="mt-2 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-              <strong className="text-foreground">Miért az MNB a hazai listán az első?</strong> Az MNB említéseinek jelentős része az MNB-alapítványok körüli közéleti diskurzushoz kapcsolódik: az intézményt tartalmazó magyar epizódok közel <strong className="text-foreground">40%-ában</strong> a „botrány", „alapítvány", „Matolcsy" vagy „korrupció" kifejezések közül legalább egy szintén megjelenik a leiratban. Ez kontextusszámítás az említések szövegkörnyezetéből — <span className="not-italic">nem tartalmi értékelés vagy jogi következtetés</span> az érintettekről.
-            </p>
-          </div>
-
-
-
-          </DownloadableFigure>
-        </section>
-
-
         {/* Methodology */}
         <section className="mb-12 border-t border-border pt-8">
           <h2 className="mb-3 font-serif text-xl font-bold text-foreground">Módszertan</h2>
@@ -1036,7 +872,7 @@ export default function PodcastReport2026() {
               „Magyar podcast" = a feed metaadataiban magyar nyelv jelölve (`language=hu*`), vagy nyelvazonosítás alapján dominánsan magyar tartalom.
             </p>
             <p>
-              <strong className="text-foreground">Aktív műsor:</strong> {STATS.podcastCount} aktív magyar podcast = legalább 1 publikált epizóddal rendelkező, nyilvánosan elérhető RSS feed, {TODAY_LABEL}-i állapot szerint.
+              <strong className="text-foreground">Indexelt műsor:</strong> {STATS.podcastCount} magyar nyelvű RSS feed, ebből {STATS.podcastsWithEpisodes} műsorhoz tartozik legalább egy ismert, publikált epizód, {TODAY_LABEL}-i állapot szerint.
             </p>
             <p>
               <strong className="text-foreground">Kategorizálás:</strong> Az iTunes/Apple taxonómiát követjük, megerősítve egy belső, 21-kategóriás magyar taxonómiával.
@@ -1073,7 +909,7 @@ export default function PodcastReport2026() {
           <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Próbáld ki</div>
           <div className="font-serif text-2xl font-bold text-foreground mb-3">Keress rá bármire a magyar podcast univerzumban</div>
           <p className="mb-4 text-muted-foreground">
-            133 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
+            134 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
           </p>
           <Link
             to="/kereses"
