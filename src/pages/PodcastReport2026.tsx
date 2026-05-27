@@ -149,6 +149,10 @@ const maxOrg = STATS.topOrgs[0].eps;
 const maxParty = STATS.topParties[0].eps;
 const maxHeat = Math.max(...STATS.heatmap.rows.flatMap((r) => r.vals));
 const maxMonth = Math.max(...STATS.newPodsByMonth.map((p) => p.c));
+const minMonth = Math.min(...STATS.newPodsByMonth.map((p) => p.c));
+// Non-zero baseline so differences pop: 5 alá ne menjen a tengely.
+const monthBaseline = Math.max(0, minMonth - 3);
+const monthRange = maxMonth - monthBaseline;
 const newPodsTotal24mo = STATS.newPodsByMonth.reduce((s, p) => s + p.c, 0);
 const deadPct = ((STATS.tiers.dead / STATS.podcastCount) * 100).toFixed(1);
 const alivePct = (100 - parseFloat(deadPct)).toFixed(1);
