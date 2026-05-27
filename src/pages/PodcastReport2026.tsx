@@ -1,5 +1,6 @@
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { toPng } from "html-to-image";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 
@@ -243,6 +244,7 @@ export default function PodcastReport2026() {
 
         {/* Growth chart */}
         <section className="mb-12">
+          <DownloadableFigure filename="evi-novekedes-2015-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Tíz év alatt {growth10y}-szeres növekedés</h2>
           <p className="mb-6 text-muted-foreground">
             A magyar podcasttermelés 2015 óta minden évben nőtt. 2025-ben{" "}
@@ -273,10 +275,12 @@ export default function PodcastReport2026() {
             <Callout title="2020–2021: áttörési pont">Járvány + Spotify HU launch — három év alatt megnégyszereződik a termelés.</Callout>
             <Callout title={`2026 várható: ~${projected2026.toLocaleString("hu-HU")} új epizód`}>Ha az első öt hónap üteme tartható, a magyar piac idén minden korábbi évet meghaladhat.</Callout>
           </div>
+          </DownloadableFigure>
         </section>
 
         {/* Market pyramid */}
         <section className="mb-12">
+          <DownloadableFigure filename="publikalasi-ritmus-piramis">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Kevés heti műsor, ritkábban publikáló többség</h2>
           <p className="mb-6 text-muted-foreground">
             A {STATS.podcastCount.toLocaleString("hu-HU")} aktív magyar podcastből mindössze{" "}
@@ -288,10 +292,12 @@ export default function PodcastReport2026() {
           <PyramidRow label="Havi körüli műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 körüli ritmus" />
           <PyramidRow label="Ritkán frissülők" count={STATS.tiers.rare} total={STATS.podcastCount} note="Negyedéves vagy ritkább" />
           <PyramidRow label="Elnémult műsorok" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja nem publikáltak" muted />
+          </DownloadableFigure>
         </section>
 
         {/* Topics — what we talk about */}
         <section className="mb-12">
+          <DownloadableFigure filename="top-temak-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
             Az elmúlt 12 hónap magyar epizódjaiban ez volt az AI által azonosított top 10 beszélgetési téma.
@@ -329,10 +335,12 @@ export default function PodcastReport2026() {
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
             A választási év hatása is látszik: a négyévente tartott országgyűlési választás — idén április 12-én — a háborút (Ukrajna / Közel-Kelet, 73 epizód) is az év egyik visszatérő top témájává tette a magyar podcastekben, a kampányidőszak biztonságpolitikai vitáin keresztül.
           </p>
+          </DownloadableFigure>
         </section>
 
         {/* Categories */}
         <section className="mb-12">
+          <DownloadableFigure filename="kategoriak-megoszlas">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
           <p className="mb-6 text-muted-foreground">
             A magyar podcast piac négy meghatározó pilléren áll: társadalom és kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. Alább az epizódszám-megoszlás (terület = elérhető epizódok aránya).
@@ -367,10 +375,12 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-xs text-muted-foreground">
             Epizódszám szerinti súlyozás, csak a top 12 kategória alapján, az indexelt magyar podcastek 2026. május 27-i állapota szerint.
           </p>
+          </DownloadableFigure>
         </section>
 
         {/* New podcasts per month — last 24 months */}
         <section className="mb-12">
+          <DownloadableFigure filename="uj-podcastek-havonta">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány új magyar podcast indul havonta?</h2>
           <p className="mb-6 text-muted-foreground">
             Az elmúlt 24 hónapban <strong className="text-foreground">{newPodsTotal24mo}</strong> új magyar podcast indult — átlagosan{" "}
@@ -431,11 +441,13 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
             2026 első három hónapjában havi 29 új magyar podcast indult — ez minden korábbi év átlagát felülmúlja.
           </p>
+          </DownloadableFigure>
         </section>
 
 
         {/* Publishing heatmap */}
         <section className="mb-12">
+          <DownloadableFigure filename="publikalasi-heatmap">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-6 text-muted-foreground">
             A nap és óra szerinti megjelenések a magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát rajzolják ki. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
@@ -444,10 +456,12 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
             A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — gyakorlatilag ez a magyar podcast „prime time”.
           </p>
+          </DownloadableFigure>
         </section>
 
         {/* Top voices */}
         <section className="mb-12">
+          <DownloadableFigure filename="top-magyar-hangok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top 10 magyar hang</h2>
           <p className="mb-6 text-muted-foreground">
             A magyar podcastekben leggyakrabban szereplő emberek — hostok és visszatérő vendégek együtt — az indexelt epizódok alapján. A „hangok” a hostokat és a többször visszatérő vendégeket egyaránt számolják.
@@ -473,10 +487,13 @@ export default function PodcastReport2026() {
             Forrás: az epizódok átirataiból AI által kinyert résztvevők, deduplikálva és emberi felülvizsgálati ciklus után. „Ep” = olyan indexelt magyar epizód, amelyben a személy résztvevőként vagy említettként szerepel.
             {" "}<Link to="/szemelyek" className="underline">Teljes lista →</Link>
           </p>
+          </DownloadableFigure>
         </section>
+
 
         {/* Top organizations + parties */}
         <section className="mb-12">
+          <DownloadableFigure filename="top-szervezetek-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
             A leggyakrabban emlegetett média-, vállalati és politikai szereplők. A pártokat külön bontjuk, mert kampányidőszakban (2026-os választás) különösen relevánsak.
@@ -526,6 +543,7 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-xs text-muted-foreground">
             „Ep” = olyan magyar epizód, amelyben a szervezetet az AI extraktor azonosította a leiratban. A számok kínálati, nem hallgatottsági adatok.
           </p>
+          </DownloadableFigure>
         </section>
 
         {/* Media map */}
@@ -715,6 +733,61 @@ function MapNode({ value, label, link }: { value: string; label: string; link?: 
     </div>
   );
   return link ? <Link to={link}>{inner}</Link> : inner;
+}
+
+function DownloadableFigure({ filename, children }: { filename: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState(false);
+  const handle = async () => {
+    if (!ref.current) return;
+    setBusy(true);
+    try {
+      const bg = getComputedStyle(document.body).backgroundColor || "#ffffff";
+      const dataUrl = await toPng(ref.current, {
+        pixelRatio: 2,
+        backgroundColor: bg,
+        cacheBust: true,
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `podiverzum-${filename}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      console.error("PNG export failed", e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div>
+      <div className="flex justify-end mb-2 print:hidden">
+        <button
+          type="button"
+          onClick={handle}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-primary transition disabled:opacity-50"
+          title="Mentsd le PNG-ként sajtóhasználatra (cikkbe illesztéshez)"
+          aria-label="Grafika letöltése PNG-ként"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+          {busy ? "Mentés…" : "PNG letöltése"}
+        </button>
+      </div>
+      <div ref={ref} className="bg-background">
+        {children}
+        <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
+          <span>Forrás: Podiverzum.hu adatbázis — 2026. május 27.</span>
+          <span className="font-semibold text-foreground">podiverzum.hu</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; vals: number[] }[] }; max: number }) {
