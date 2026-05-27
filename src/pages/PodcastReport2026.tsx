@@ -287,7 +287,7 @@ export default function PodcastReport2026() {
           <PyramidRow label="Aktív havi műsorok" count={STATS.tiers.monthlyActive} total={STATS.podcastCount} note="Havi 2–4 epizód" />
           <PyramidRow label="Havi körüli műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 körüli ritmus" />
           <PyramidRow label="Ritkán frissülők" count={STATS.tiers.rare} total={STATS.podcastCount} note="Negyedéves vagy ritkább" />
-          <PyramidRow label="Elhalt feedek" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja néma" muted />
+          <PyramidRow label="Elnémult műsorok" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja nem publikáltak" muted />
         </section>
 
         {/* Topics — what we talk about */}
