@@ -498,10 +498,11 @@ export default function PodcastReport2026() {
         {/* Self-help / mental wellness — monthly seasonality */}
         <section className="mb-12">
           <DownloadableFigure filename="onsegito-temak-szezonalitas">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Januári fogadalmak a fülhallgatóban</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Alvás és meditáció: januárban két téma ugrik ki élesen</h2>
           <p className="mb-6 text-muted-foreground">
-            Öt önismereti / mentális wellness téma havi említései magyar podcast-epizódokban (cím + leírás szöveges illesztés, 2025. jún. – 2026. máj.). A grafikon a klasszikus újévi self-help csúcsot rajzolja ki.
+            Öt önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás szöveges illesztés, 2025. jún. – 2026. máj.). Az öt vizsgált téma közül januárban csak kettő — az alvás és a meditáció — emelkedik kiugró csúcsra.
           </p>
+
           {(() => {
             const series = [
               { slug: "alvas",        name: "Alvás",        color: "hsl(220 70% 50%)",
@@ -537,7 +538,7 @@ export default function PodcastReport2026() {
                   ))}
                   {/* Highlight January band */}
                   <rect x={xAt(7) - 14} y={PT} width={28} height={innerH} fill="hsl(var(--primary) / 0.06)" />
-                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">újévi csúcs</text>
+                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">januári kiugrás</text>
                   {series.map((s) => {
                     const d = s.data.map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i)},${yAt(v)}`).join(" ");
                     return <path key={s.slug} d={d} fill="none" stroke={s.color} strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" />;
@@ -563,7 +564,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Az önismereti és mentális wellness témák januárban látványosan megugranak a magyar podcastok cím- és leírásszövegeiben: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re ugranak (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%). Az <strong className="text-foreground">önismeret</strong> év közben végig magas, a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> februárban csúcsosodik — klasszikus újévi tartalmi mintázat a kínálati oldalon.
+                  A vizsgált öt téma közül januárban csak kettő mutat éles kiugrást: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%) ugranak. Az <strong className="text-foreground">önismeret</strong> egész évben magas szinten ingadozik, érdemi januári csúcs nélkül; a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> nem januárban, hanem februárban éri el a maximumát. A magyar podcastkínálatban tehát nem egy általános „újévi self-help hullám" látszik, hanem két konkrét téma — az alvás és a meditáció — szezonális felfutása.
                 </p>
               </div>
             );
