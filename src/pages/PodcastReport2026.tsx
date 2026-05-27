@@ -383,7 +383,7 @@ export default function PodcastReport2026() {
           <p className="mb-6 text-muted-foreground">
             A magyar podcast piac négy meghatározó pilléren áll: társadalom és kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. Alább az epizódszám-megoszlás (terület = elérhető epizódok aránya).
           </p>
-          <div className="grid grid-cols-6 gap-1.5 h-[420px] auto-rows-fr">
+          <div className="grid grid-cols-6 gap-1.5 min-h-[420px] [grid-auto-rows:80px]">
             {STATS.topCategories.map((cat, i) => {
               const share = cat.eps / totalCatEps;
               // Treemap-ish layout: bigger categories span more cells.
