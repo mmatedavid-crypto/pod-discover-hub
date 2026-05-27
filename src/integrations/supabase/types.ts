@@ -3549,6 +3549,83 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_outreach_contacts: {
+        Row: {
+          created_at: string
+          extract_error: string | null
+          extract_status: string
+          extracted_at: string | null
+          extracted_from: string | null
+          id: string
+          last_contacted_at: string | null
+          notes: string | null
+          outreach_status: string
+          owner_email: string | null
+          owner_name: string | null
+          podcast_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          extract_error?: string | null
+          extract_status?: string
+          extracted_at?: string | null
+          extracted_from?: string | null
+          id?: string
+          last_contacted_at?: string | null
+          notes?: string | null
+          outreach_status?: string
+          owner_email?: string | null
+          owner_name?: string | null
+          podcast_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          extract_error?: string | null
+          extract_status?: string
+          extracted_at?: string | null
+          extracted_from?: string | null
+          id?: string
+          last_contacted_at?: string | null
+          notes?: string | null
+          outreach_status?: string
+          owner_email?: string | null
+          owner_name?: string | null
+          podcast_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_outreach_contacts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_outreach_contacts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_outreach_contacts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_outreach_contacts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       podcast_topic_map: {
         Row: {
           confidence: number
