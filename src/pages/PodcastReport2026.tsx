@@ -563,7 +563,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Januárban robban a wellness-podcast: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re ugranak (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%). Az <strong className="text-foreground">önismeret</strong> év közben végig magas, a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> februárban csúcsosodik. Tipikus újévi fogadalom-mintázat — a hallgatók a januári „új én" időszakban keresnek a legaktívabban mentális wellness tartalmat.
+                  Az önismereti és mentális wellness témák januárban látványosan megugranak a magyar podcastok cím- és leírásszövegeiben: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re ugranak (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%). Az <strong className="text-foreground">önismeret</strong> év közben végig magas, a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> februárban csúcsosodik — klasszikus újévi tartalmi mintázat a kínálati oldalon.
                 </p>
               </div>
             );
