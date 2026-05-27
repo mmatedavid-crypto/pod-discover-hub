@@ -784,19 +784,20 @@ export default function PodcastReport2026() {
           {/* Fidesz vs Tisza monthly — line chart */}
           {(() => {
             const partyMonthly = [
-              { m: "2025-06", fidesz: 60,  tisza: 35 },
-              { m: "2025-07", fidesz: 50,  tisza: 30 },
-              { m: "2025-08", fidesz: 30,  tisza: 18 },
-              { m: "2025-09", fidesz: 75,  tisza: 50 },
-              { m: "2025-10", fidesz: 100, tisza: 65 },
-              { m: "2025-11", fidesz: 105, tisza: 72 },
-              { m: "2025-12", fidesz: 95,  tisza: 60 },
-              { m: "2026-01", fidesz: 90,  tisza: 58 },
-              { m: "2026-02", fidesz: 135, tisza: 90 },
-              { m: "2026-03", fidesz: 150, tisza: 95 },
-              { m: "2026-04", fidesz: 170, tisza: 105 },
-              { m: "2026-05", fidesz: 66,  tisza: 40 },
+              { m: "2025-06", fidesz: 35, tisza: 20 },
+              { m: "2025-07", fidesz: 24, tisza: 20 },
+              { m: "2025-08", fidesz: 13, tisza: 7 },
+              { m: "2025-09", fidesz: 40, tisza: 36 },
+              { m: "2025-10", fidesz: 47, tisza: 58 },
+              { m: "2025-11", fidesz: 49, tisza: 61 },
+              { m: "2025-12", fidesz: 49, tisza: 40 },
+              { m: "2026-01", fidesz: 46, tisza: 45 },
+              { m: "2026-02", fidesz: 73, tisza: 71 },
+              { m: "2026-03", fidesz: 79, tisza: 69 },
+              { m: "2026-04", fidesz: 93, tisza: 104 },
+              { m: "2026-05", fidesz: 32, tisza: 34 },
             ];
+
 
             const labelMap: Record<string, string> = { "01": "Jan", "02": "Feb", "03": "Már", "04": "Ápr", "05": "Máj", "06": "Jún", "07": "Júl", "08": "Aug", "09": "Szep", "10": "Okt", "11": "Nov", "12": "Dec" };
             const W = 760, H = 260, PL = 36, PR = 12, PT = 16, PB = 44;
