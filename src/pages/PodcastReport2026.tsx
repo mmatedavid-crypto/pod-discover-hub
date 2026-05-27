@@ -558,9 +558,9 @@ export default function PodcastReport2026() {
               </div>
             </div>
             <div className="text-sm text-foreground">
-              <div className="font-semibold mb-1">A magyar podcastpiac stabil — csak {deadPct}% az elnémult műsorok aránya</div>
+              <div className="font-semibold mb-1">A magyar podcastpiac stabil — csak {deadPct}% elnémult műsor</div>
               <div className="text-muted-foreground">
-                A {STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsorból {STATS.tiers.dead} nem publikált 12+ hónapja. A többi {(STATS.podcastCount - STATS.tiers.dead).toLocaleString("hu-HU")} műsor aktívnak tekinthető — ez a nemzetközi átlagnál jelentősen jobb arány (a globális podcast-katalógusok 40–60%-a inaktív).
+                A {STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsorból {STATS.tiers.dead} nem publikált 12+ hónapja. A többi {(STATS.podcastCount - STATS.tiers.dead).toLocaleString("hu-HU")} műsor aktívnak tekinthető — ez a nemzetközi átlagnál jelentősen jobb arány, a globális podcast-katalógusok 40–60%-a inaktív.
               </div>
             </div>
           </div>
