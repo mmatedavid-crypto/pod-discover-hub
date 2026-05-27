@@ -791,20 +791,20 @@ export default function PodcastReport2026() {
                       <text x={PL - 6} y={yAt(t) + 3} textAnchor="end" fontSize="10" fontFamily="ui-monospace, monospace" fill="hsl(var(--muted-foreground))">{t}</text>
                     </g>
                   ))}
-                  <path d={path("fidesz")} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-                  <path d={path("tisza")} fill="none" stroke="hsl(var(--accent))" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                  <path d={path("fidesz")} fill="none" stroke="hsl(28 100% 50%)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                  <path d={path("tisza")} fill="none" stroke="hsl(345 55% 32%)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
                   {partyMonthly.map((r, i) => (
                     <g key={r.m}>
-                      <circle cx={xAt(i)} cy={yAt(r.fidesz)} r="3.5" fill="hsl(var(--primary))" />
-                      <circle cx={xAt(i)} cy={yAt(r.tisza)} r="3.5" fill="hsl(var(--accent))" />
+                      <circle cx={xAt(i)} cy={yAt(r.fidesz)} r="3.5" fill="hsl(28 100% 50%)" />
+                      <circle cx={xAt(i)} cy={yAt(r.tisza)} r="3.5" fill="hsl(345 55% 32%)" />
                       <text x={xAt(i)} y={H - 24} textAnchor="middle" fontSize="10" fill="hsl(var(--muted-foreground))">{labelMap[r.m.slice(5)]}</text>
                       <text x={xAt(i)} y={H - 10} textAnchor="middle" fontSize="9" fill="hsl(var(--muted-foreground))" opacity="0.65">'{r.m.slice(2, 4)}</text>
                     </g>
                   ))}
                 </svg>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                  <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-primary" /> Fidesz</div>
-                  <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-accent" /> Tisza Párt</div>
+                  <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "hsl(28 100% 50%)" }} /> Fidesz</div>
+                  <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "hsl(345 55% 32%)" }} /> Tisza Párt</div>
                 </div>
                 <p className="mt-4 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
                   A két párt mention-pályája 2025 októberétől összeér, februárra már gyakorlatilag egyenrangúak a magyar podcast-térben, <strong className="text-foreground">2026 áprilisában (közvetlenül a választás előtt) pedig a Tisza Párt 104 epizóddal először előzte meg a Fideszt</strong> (93). A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.).
