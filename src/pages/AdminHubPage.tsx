@@ -128,6 +128,7 @@ export default function AdminHubPage() {
       title: "Marketing",
       tools: [
         { to: "/admin/social", title: "Daily Social Posts", desc: "Auto-generated X posts about today's fresh episodes. Preview, post now, history.", icon: Send, badge: "new", badgeTone: "warn" },
+        { to: "/admin/outreach", title: "Podcaster Outreach", desc: "RSS-ből kinyert owner emailek S/A/B podcastokhoz. CSV export Instantly/Smartleadhez.", icon: Send, badge: "new", badgeTone: "warn" },
       ],
     },
     {
