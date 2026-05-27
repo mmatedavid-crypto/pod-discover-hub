@@ -273,11 +273,11 @@ export default function PodcastReport2026() {
 
         {/* Market pyramid */}
         <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Kevés heti műsor, nagy hosszú farok</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Kevés heti műsor, széles alapréteg</h2>
           <p className="mb-6 text-muted-foreground">
             A {STATS.podcastCount.toLocaleString("hu-HU")} aktív magyar podcastből mindössze{" "}
             <strong className="text-foreground">{STATS.tiers.weekly} jelenik meg heti vagy gyakoribb rendszerességgel</strong>.
-            Ez a réteg adja a magyar podcastpiac rendszeresen frissülő, szerkesztett magját. Alattuk széles, havi és ritkább ritmusú „hosszú farok" húzódik.
+            Ez a réteg adja a magyar podcastpiac rendszeresen frissülő, szerkesztett magját. Alattuk széles, havi és ritkább ritmusú alapréteg húzódik — sok kis műsor, ritkább publikálással.
           </p>
           <PyramidRow label="Heti+ műsorok" count={STATS.tiers.weekly} total={STATS.podcastCount} note="Heti vagy gyakoribb publikálás" emphasis />
           <PyramidRow label="Aktív havi műsorok" count={STATS.tiers.monthlyActive} total={STATS.podcastCount} note="Havi 2–4 epizód" />
