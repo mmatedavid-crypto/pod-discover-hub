@@ -97,21 +97,27 @@ const STATS = {
     { slug: "keri-laszlo",     name: "Kéri László",     role: "politológus",               eps: 31, pods: 8  },
     { slug: "zsiday-viktor",   name: "Zsiday Viktor",   role: "közgazdász, befektető",     eps: 25, pods: 11 },
   ],
-  // Kiszűrve: médiumok és rádiók (saját podcast-csatorna), illetve azok a szervezetek,
-  // amelyek saját podcasttal vagy podcast-szponzorként jelennek meg az epizódokban
-  // (OTP, ELTE, Donably, Barion, A Tan Kapuja Buddhista Egyház — 1%-os felajánlások).
+  // Top szervezetek a magyar podcastekben (2025. jún. – 2026. máj.).
+  // Kiszűrve: médiumok, rádiók, sportklubok és -ligák (külön világ, ott
+  // egy-két sportpodcast minden epizódban ismétli ugyanazt a 8-10 csapatot,
+  // ezért torzít), egyházak, pártok (saját bontás lejjebb), valamint azok
+  // a szervezetek, amelyek főleg saját podcasttal vagy szponzori felirattal
+  // jelennek meg (Donably, Barion, Patreon, ATV-Gondolat Jel Alapítvány,
+  // XXI. Század Intézet, Partizán Alapítvány). Az „EU" és „Európai Unió"
+  // bejegyzéseket összevontuk.
   topOrgs: [
-    { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 745 },
-    { slug: "nba", name: "NBA", type: "Sport liga", eps: 690 },
-    { slug: "netflix", name: "Netflix", type: "Vállalat", eps: 419 },
-    { slug: "google", name: "Google", type: "Vállalat", eps: 385 },
-    { slug: "los-angeles-lakers", name: "Los Angeles Lakers", type: "Sportklub", eps: 341 },
-    { slug: "liverpool", name: "Liverpool", type: "Sportklub", eps: 293 },
-    { slug: "mta", name: "Magyar Tudományos Akadémia (MTA)", type: "Kutatóintézet", eps: 256 },
+    { slug: "facebook", name: "Facebook", type: "Vállalat", eps: 1841 },
+    { slug: "instagram", name: "Instagram", type: "Vállalat", eps: 923 },
+    { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 738 },
+    { slug: "youtube", name: "YouTube", type: "Vállalat", eps: 675 },
+    { slug: "otp-bank", name: "OTP Bank", type: "Vállalat", eps: 599 },
+    { slug: "apple", name: "Apple", type: "Vállalat", eps: 493 },
+    { slug: "netflix", name: "Netflix", type: "Vállalat", eps: 403 },
+    { slug: "google", name: "Google", type: "Vállalat", eps: 380 },
+    { slug: "tiktok", name: "TikTok", type: "Vállalat", eps: 363 },
     { slug: "magyar-nemzeti-bank", name: "Magyar Nemzeti Bank (MNB)", type: "Intézmény", eps: 249 },
-    { slug: "boston-celtics", name: "Boston Celtics", type: "Sportklub", eps: 243 },
-    { slug: "bajnokok-ligaja", name: "Bajnokok Ligája", type: "Sport liga", eps: 233 },
   ],
+
   topParties: [
     { slug: "fidesz", name: "Fidesz", eps: 1126 },
     { slug: "tisza-part", name: "Tisza Párt", eps: 718 },
@@ -548,8 +554,9 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-szervezetek-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
-            A leggyakrabban emlegetett vállalati, intézményi és sportszereplők. Kihagytuk a médiumokat és rádiókat (ott jelent meg maga a podcast — ATV, Tilos, Kossuth, Klubrádió, HVG), valamint azokat a szervezeteket, amelyek főleg saját podcastben vagy szponzori reklámban jelennek meg (OTP, ELTE, Donably, Barion). A pártokat külön bontjuk, mert a 2026-os kampányidőszakban kiemelten relevánsak.
+            A leggyakrabban emlegetett vállalati és intézményi szereplők a magyar podcast-térben. Kihagytuk a médiumokat és rádiókat (ott jelent meg maga a podcast — ATV, Tilos, Kossuth, Klubrádió, HVG), a sportligákat és -klubokat (egy-két sportpodcast minden epizódban végigveszi ugyanazt a 8-10 csapatot, ezért aránytalanul felülreprezentálná őket — NBA, Premier League stb. külön sport-bontásban néznénk meg), valamint azokat a szervezeteket, amelyek főleg saját podcasttal vagy szponzori felirattal jelennek meg (Donably, Barion, Patreon, ATV Alapítvány). A pártokat külön bontjuk, mert a 2026-os kampányidőszakban kiemelten relevánsak.
           </p>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Szervezetek</div>
