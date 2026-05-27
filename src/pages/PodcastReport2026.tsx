@@ -538,7 +538,7 @@ export default function PodcastReport2026() {
                   ))}
                   {/* Highlight January band */}
                   <rect x={xAt(7) - 14} y={PT} width={28} height={innerH} fill="hsl(var(--primary) / 0.06)" />
-                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">újévi csúcs</text>
+                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">januári kiugrás</text>
                   {series.map((s) => {
                     const d = s.data.map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i)},${yAt(v)}`).join(" ");
                     return <path key={s.slug} d={d} fill="none" stroke={s.color} strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" />;
