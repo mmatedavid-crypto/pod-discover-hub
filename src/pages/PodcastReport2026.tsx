@@ -623,7 +623,51 @@ export default function PodcastReport2026() {
           </div>
         </section>
 
-        {/* Press box */}
+        {/* B2B capability hype */}
+        <section className="mb-12 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-accent/5 p-6">
+          <div className="text-xs uppercase tracking-widest text-primary mb-2">A motor a háttérben</div>
+          <h2 className="font-serif text-2xl font-bold text-foreground mb-3">Mit lát a Podiverzum, amit más nem?</h2>
+          <p className="text-foreground mb-4">
+            Ez a jelentés csak a felszín. A Podiverzum mögött Magyarország legnagyobb gépi olvasású podcast-adatbázisa fut: <strong>~135 ezer magyar epizód</strong>, közel <strong>1 500 aktív műsor</strong>, teljes szövegű átiratokkal, kinyert szereplőkkel, szervezetekkel, témákkal és időbélyegekkel — folyamatosan, naponta frissülve.
+          </p>
+          <div className="grid gap-3 md:grid-cols-3 mb-4">
+            <div className="rounded border border-border bg-card p-4">
+              <div className="text-xs font-mono text-primary mb-1">KI</div>
+              <div className="text-sm text-foreground leading-snug">Bármely <strong>közszereplő, márka vagy párt</strong> — mely epizódokban, milyen szövegkörnyezetben hangzik el a neve.</div>
+            </div>
+            <div className="rounded border border-border bg-card p-4">
+              <div className="text-xs font-mono text-primary mb-1">MIKOR</div>
+              <div className="text-sm text-foreground leading-snug">Időbeli ívek: egy név, téma vagy szlogen <strong>említésgörbéje</strong> hetekre, hónapokra lebontva.</div>
+            </div>
+            <div className="rounded border border-border bg-card p-4">
+              <div className="text-xs font-mono text-primary mb-1">HOGYAN</div>
+              <div className="text-sm text-foreground leading-snug">Kontextus és tónus: <strong>milyen állítások</strong> hangzanak el, kik beszélgetnek róla, milyen témák köré szerveződik.</div>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Ami a hagyományos médiamonitoringnak láthatatlan — hiszen a podcastek nincsenek a hírügynökségi archívumokban és a Google sem indexeli őket érdemben —, az itt percre pontosan kereshető, exportálható és idézhető.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {[
+              "Márkamonitorozás",
+              "Politikai elemzés",
+              "PR és kríziskommunikáció",
+              "Kutatás és akadémia",
+              "Versenytárs-figyelés",
+              "Szerkesztőségi háttéranyag",
+            ].map((tag) => (
+              <span key={tag} className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground">{tag}</span>
+            ))}
+          </div>
+          <a
+            href="mailto:hello@podiverzum.hu?subject=B2B%20%C3%A9rdekl%C5%91d%C3%A9s%20%E2%80%94%20Podiverzum%20adatb%C3%A1zis"
+            className="inline-flex items-center gap-2 rounded-md border border-primary px-5 py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition"
+          >
+            B2B hozzáférés és egyedi lekérdezés →
+          </a>
+        </section>
+
+
         <section className="mb-12 rounded-lg border-2 border-primary/40 bg-card p-6">
           <div className="text-xs uppercase tracking-widest text-primary mb-2">Sajtó / kutatás</div>
           <h2 className="font-serif text-xl font-bold text-foreground mb-3">Adatkérések és sajtómegkeresések</h2>
