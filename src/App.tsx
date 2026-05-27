@@ -56,6 +56,7 @@ import TopicsHubPage from "./pages/TopicsHubPage.tsx";
 import TopicDetailPage from "./pages/TopicDetailPage.tsx";
 import OrganizationsIndexPage from "./pages/OrganizationsIndexPage.tsx";
 import CompaniesHubPage from "./pages/CompaniesHubPage.tsx";
+import PodcastReport2026 from "./pages/PodcastReport2026.tsx";
 import PartiesHubPage from "./pages/PartiesHubPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
