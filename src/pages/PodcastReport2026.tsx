@@ -185,7 +185,7 @@ export default function PodcastReport2026() {
   useEffect(() => {
     setSeo({
       title: "Magyar podcast piac 2026 — Podiverzum jelentés",
-      description: `Az első részletes adatelemzés a magyar podcast piacról: ${STATS.podcastCount} aktív műsor, ${STATS.episodeCount.toLocaleString("hu-HU")} epizód, 10 év alatt ${growth10y}-szeres növekedés. Toplista, kategóriák, témák, közszereplők.`,
+      description: `${STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar podcast, ${STATS.episodeCount.toLocaleString("hu-HU")} epizód, napi közel 90 új adás: a Podiverzum.hu első részletes adatelemzése a magyar podcast piacról.`,
       jsonLd: [
         {
           "@context": "https://schema.org",
@@ -195,7 +195,7 @@ export default function PodcastReport2026() {
           inLanguage: "hu-HU",
           author: { "@type": "Organization", name: "Podiverzum", url: "https://podiverzum.hu" },
           publisher: { "@type": "Organization", name: "Podiverzum", url: "https://podiverzum.hu" },
-          about: "Magyar podcast piac mérete, növekedése, kategóriái és témái",
+          about: "Magyar podcast piac mérete, növekedése, kategóriái és témái — kínálati oldali adatok",
           url: "https://podiverzum.hu/jelentes/magyar-podcast-piac-2026",
         },
       ],
