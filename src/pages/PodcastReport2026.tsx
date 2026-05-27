@@ -376,29 +376,58 @@ export default function PodcastReport2026() {
             Az elmúlt 24 hónapban <strong className="text-foreground">{newPodsTotal24mo}</strong> új magyar podcast indult — átlagosan{" "}
             <strong className="text-foreground">~{Math.round(newPodsTotal24mo / 24)} műsor havonta</strong>, a 2025. október óta tartó hullámmal együtt.
           </p>
-          <div className="flex items-end gap-[3px] h-32 mb-2">
-            {STATS.newPodsByMonth.map((p) => {
-              const h = (p.c / maxMonth) * 100;
-              const isPeak = p.c >= 25;
-              return (
-                <div
-                  key={p.m}
-                  className="flex-1 relative group"
-                  title={`${p.m}: ${p.c} új podcast`}
-                >
-                  <div
-                    className={`w-full rounded-sm ${isPeak ? "bg-primary" : "bg-primary/50"} transition-all hover:bg-primary`}
-                    style={{ height: `${h}%`, minHeight: 2 }}
-                  />
+          <div className="flex gap-2">
+            {/* Y axis */}
+            <div className="flex flex-col justify-between text-[10px] text-muted-foreground font-mono w-6 text-right py-0.5 h-56">
+              <span>{maxMonth}</span>
+              <span>{Math.round(monthBaseline + monthRange * 0.66)}</span>
+              <span>{Math.round(monthBaseline + monthRange * 0.33)}</span>
+              <span>{monthBaseline}</span>
+            </div>
+            <div className="flex-1">
+              <div className="relative h-56 border-l border-b border-border">
+                {/* Gridlines */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                  <div className="border-t border-border/40" />
+                  <div className="border-t border-border/40" />
+                  <div className="border-t border-border/40" />
+                  <div className="border-t border-border/40" />
                 </div>
-              );
-            })}
+                <div className="absolute inset-0 flex items-end gap-[3px] px-0.5">
+                  {STATS.newPodsByMonth.map((p) => {
+                    const h = ((p.c - monthBaseline) / monthRange) * 100;
+                    const isPeak = p.c >= 25;
+                    return (
+                      <div
+                        key={p.m}
+                        className="flex-1 relative group h-full flex items-end"
+                        title={`${p.m}: ${p.c} új podcast`}
+                      >
+                        <div
+                          className={`w-full rounded-t-sm ${isPeak ? "bg-primary" : "bg-primary/55"} transition-all hover:bg-primary relative`}
+                          style={{ height: `${Math.max(h, 2)}%` }}
+                        >
+                          {isPeak && (
+                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] font-semibold text-primary tabular-nums">
+                              {p.c}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground font-mono mt-1">
+                <span>{STATS.newPodsByMonth[0].m}</span>
+                <span>{STATS.newPodsByMonth[Math.floor(STATS.newPodsByMonth.length / 2)].m}</span>
+                <span>{STATS.newPodsByMonth[STATS.newPodsByMonth.length - 1].m}</span>
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-            <span>{STATS.newPodsByMonth[0].m}</span>
-            <span>{STATS.newPodsByMonth[Math.floor(STATS.newPodsByMonth.length / 2)].m}</span>
-            <span>{STATS.newPodsByMonth[STATS.newPodsByMonth.length - 1].m}</span>
-          </div>
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            A függőleges tengely {monthBaseline}-tól indul, hogy a havi különbségek láthatók legyenek.
+          </p>
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
             2026 első három hónapjában havi 29 új magyar podcast indult — minden korábbi év átlagát felülmúlja.
           </p>
