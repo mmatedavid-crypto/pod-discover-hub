@@ -375,10 +375,12 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-xs text-muted-foreground">
             Epizódszám szerinti súlyozás, csak a top 12 kategória alapján, az indexelt magyar podcastek 2026. május 27-i állapota szerint.
           </p>
+          </DownloadableFigure>
         </section>
 
         {/* New podcasts per month — last 24 months */}
         <section className="mb-12">
+          <DownloadableFigure filename="uj-podcastek-havonta">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány új magyar podcast indul havonta?</h2>
           <p className="mb-6 text-muted-foreground">
             Az elmúlt 24 hónapban <strong className="text-foreground">{newPodsTotal24mo}</strong> új magyar podcast indult — átlagosan{" "}
@@ -439,11 +441,13 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
             2026 első három hónapjában havi 29 új magyar podcast indult — ez minden korábbi év átlagát felülmúlja.
           </p>
+          </DownloadableFigure>
         </section>
 
 
         {/* Publishing heatmap */}
         <section className="mb-12">
+          <DownloadableFigure filename="publikalasi-heatmap">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-6 text-muted-foreground">
             A nap és óra szerinti megjelenések a magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát rajzolják ki. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
@@ -452,10 +456,12 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
             A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — gyakorlatilag ez a magyar podcast „prime time”.
           </p>
+          </DownloadableFigure>
         </section>
 
         {/* Top voices */}
         <section className="mb-12">
+          <DownloadableFigure filename="top-magyar-hangok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top 10 magyar hang</h2>
           <p className="mb-6 text-muted-foreground">
             A magyar podcastekben leggyakrabban szereplő emberek — hostok és visszatérő vendégek együtt — az indexelt epizódok alapján. A „hangok” a hostokat és a többször visszatérő vendégeket egyaránt számolják.
@@ -481,7 +487,9 @@ export default function PodcastReport2026() {
             Forrás: az epizódok átirataiból AI által kinyert résztvevők, deduplikálva és emberi felülvizsgálati ciklus után. „Ep” = olyan indexelt magyar epizód, amelyben a személy résztvevőként vagy említettként szerepel.
             {" "}<Link to="/szemelyek" className="underline">Teljes lista →</Link>
           </p>
+          </DownloadableFigure>
         </section>
+
 
         {/* Top organizations + parties */}
         <section className="mb-12">
