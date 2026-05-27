@@ -303,7 +303,7 @@ export default function PodcastReport2026() {
           </p>
           <PyramidRow label="Heti+ műsorok" count={STATS.tiers.weekly} total={STATS.podcastCount} note="Heti vagy gyakoribb publikálás" emphasis />
           <PyramidRow label="Aktív havi műsorok" count={STATS.tiers.monthlyActive} total={STATS.podcastCount} note="Havi 2–4 epizód" />
-          <PyramidRow label="Havi körüli műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 körüli ritmus" />
+          <PyramidRow label="Havi műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 epizód körüli ritmus" />
           <PyramidRow label="Ritkán frissülők" count={STATS.tiers.rare} total={STATS.podcastCount} note="Negyedéves vagy ritkább" />
           <PyramidRow label="Elnémult műsorok" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja nem publikáltak" muted />
           </DownloadableFigure>
@@ -347,7 +347,7 @@ export default function PodcastReport2026() {
             2026-ban a Biblia (130) és a választás (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
-            A választási év nyoma is ott van a listán: a négyévente tartott országgyűlési választás — idén április 12-én — a <strong className="text-foreground not-italic">választás</strong> témáját idén egyenesen a top 10 második helyére tolta (123 epizód). Egy „normál" évben ez a téma meg sem közelíti a podcastnyilvánosság vezető beszélgetéseit.
+            A választási év nyoma is ott van a listán: a négyévente tartott országgyűlési választás — idén április 12-én — a <strong className="text-foreground not-italic">választás</strong> témáját egyenesen a top 10 második helyére tolta (123 epizód), közvetlenül a Biblia mögé.
           </p>
           </DownloadableFigure>
         </section>
@@ -623,7 +623,51 @@ export default function PodcastReport2026() {
           </div>
         </section>
 
-        {/* Press box */}
+        {/* B2B capability hype */}
+        <section className="mb-12 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-accent/5 p-6">
+          <div className="text-xs uppercase tracking-widest text-primary mb-2">A motor a háttérben</div>
+          <h2 className="font-serif text-2xl font-bold text-foreground mb-3">Mit lát a Podiverzum, amit más nem?</h2>
+          <p className="text-foreground mb-4">
+            Ez a jelentés csak a felszín. A Podiverzum mögött Magyarország legnagyobb gépi olvasású podcast-adatbázisa fut: <strong>~135 ezer magyar epizód</strong>, közel <strong>1 500 aktív műsor</strong>, teljes szövegű átiratokkal, kinyert szereplőkkel, szervezetekkel, témákkal és időbélyegekkel — folyamatosan, naponta frissülve.
+          </p>
+          <div className="grid gap-3 md:grid-cols-3 mb-4">
+            <div className="rounded border border-border bg-card p-4">
+              <div className="text-xs font-mono text-primary mb-1">KI</div>
+              <div className="text-sm text-foreground leading-snug">Bármely <strong>közszereplő, márka vagy párt</strong> — mely epizódokban, milyen szövegkörnyezetben hangzik el a neve.</div>
+            </div>
+            <div className="rounded border border-border bg-card p-4">
+              <div className="text-xs font-mono text-primary mb-1">MIKOR</div>
+              <div className="text-sm text-foreground leading-snug">Időbeli ívek: egy név, téma vagy szlogen <strong>említésgörbéje</strong> hetekre, hónapokra lebontva.</div>
+            </div>
+            <div className="rounded border border-border bg-card p-4">
+              <div className="text-xs font-mono text-primary mb-1">HOGYAN</div>
+              <div className="text-sm text-foreground leading-snug">Kontextus és tónus: <strong>milyen állítások</strong> hangzanak el, kik beszélgetnek róla, milyen témák köré szerveződik.</div>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Ami a hagyományos médiamonitoringnak láthatatlan — hiszen a podcastek nincsenek a hírügynökségi archívumokban és a Google sem indexeli őket érdemben —, az itt percre pontosan kereshető, exportálható és idézhető.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {[
+              "Márkamonitorozás",
+              "Politikai elemzés",
+              "PR és kríziskommunikáció",
+              "Kutatás és akadémia",
+              "Versenytárs-figyelés",
+              "Szerkesztőségi háttéranyag",
+            ].map((tag) => (
+              <span key={tag} className="rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground">{tag}</span>
+            ))}
+          </div>
+          <a
+            href="mailto:hello@podiverzum.hu?subject=B2B%20%C3%A9rdekl%C5%91d%C3%A9s%20%E2%80%94%20Podiverzum%20adatb%C3%A1zis"
+            className="inline-flex items-center gap-2 rounded-md border border-primary px-5 py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition"
+          >
+            B2B hozzáférés és egyedi lekérdezés →
+          </a>
+        </section>
+
+
         <section className="mb-12 rounded-lg border-2 border-primary/40 bg-card p-6">
           <div className="text-xs uppercase tracking-widest text-primary mb-2">Sajtó / kutatás</div>
           <h2 className="font-serif text-xl font-bold text-foreground mb-3">Adatkérések és sajtómegkeresések</h2>
@@ -656,7 +700,7 @@ export default function PodcastReport2026() {
               <strong className="text-foreground">Téma-azonosítás:</strong> Minden epizód transcript-ből kinyert beszélgetési témák, dedupolva és normalizálva. „Téma" ≠ kategória.
             </p>
             <p>
-              <strong className="text-foreground">Publikálási ritmus szerinti csoportosítás:</strong> Belső pontrendszer, ami az adott podcast átlagos havi epizód-számát súlyozza a frissesség és aktivitás függvényében. A jelentésben szereplő nyilvános címkék (Heti+, Aktív havi, Havi körüli, Ritkán frissülő, Elnémult) ezen alapulnak. Részletek: <Link to="/modszertan" className="underline hover:text-foreground">módszertan</Link>.
+              <strong className="text-foreground">Publikálási ritmus szerinti csoportosítás:</strong> Belső pontrendszer, ami az adott podcast átlagos havi epizód-számát súlyozza a frissesség és aktivitás függvényében. A jelentésben szereplő nyilvános címkék (Heti+, Aktív havi, Havi, Ritkán frissülő, Elnémult) ezen alapulnak. Részletek: <Link to="/modszertan" className="underline hover:text-foreground">módszertan</Link>.
             </p>
             <p>
               <strong className="text-foreground">Közszereplők és szervezetek:</strong> Minden epizód clean-text átiratából kinyerjük az említett embereket és szervezeteket, Wikipédia/Wikidata alapú azonosítással.
