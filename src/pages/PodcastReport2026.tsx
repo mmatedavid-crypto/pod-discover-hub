@@ -77,17 +77,21 @@ const STATS = {
     { slug: "tortenelem", name: "Történelem", eps: 40 },
   ],
   // Top recurring voices — hostok + visszatérő vendégek együtt.
+  // Kiszűrve: műsorvezetők, akik főleg saját műsorukban szerepelnek (Bochkor, Puzsér,
+  // Horváth Oszkár, Rónai Egon, Fábry Kornél stb.). A listán csak olyan közéleti
+  // szereplők, szakértők, politikusok maradnak, akik vendégként/témaként szerepelnek
+  // több műsorban is — vagyis akikről beszélnek, nem akik beszélnek.
   topVoices: [
-    { slug: "horvath-oszkar", name: "Horváth Oszkár", eps: 1400, pods: 10, wiki: false },
-    { slug: "puzser-robert", name: "Puzsér Róbert", eps: 1383, pods: 35, wiki: true },
-    { slug: "kovacs-gergely", name: "Kovács Gergely", eps: 585, pods: 18, wiki: true },
-    { slug: "bochkor-gabor", name: "Bochkor Gábor", eps: 491, pods: 1, wiki: true },
-    { slug: "magyar-david", name: "Magyar Dávid", eps: 393, pods: 6, wiki: false },
-    { slug: "csunderlik-peter", name: "Csunderlik Péter", eps: 366, pods: 13, wiki: false },
-    { slug: "orban-viktor", name: "Orbán Viktor", eps: 329, pods: 23, wiki: true },
-    { slug: "tarjanyi-peter", name: "Tarjányi Péter", eps: 199, pods: 8, wiki: false },
-    { slug: "spiro-gyorgy", name: "Spiró György", eps: 171, pods: 12, wiki: false },
-    { slug: "magyar-peter", name: "Magyar Péter", eps: 141, pods: 27, wiki: true },
+    { slug: "orban-viktor", name: "Orbán Viktor", role: "miniszterelnök", eps: 251, pods: 29, wiki: true },
+    { slug: "magyar-peter", name: "Magyar Péter", role: "politikus (Tisza)", eps: 191, pods: 23, wiki: true },
+    { slug: "donald-trump", name: "Donald Trump", role: "USA elnöke", eps: 102, pods: 31, wiki: true },
+    { slug: "zsiday-viktor", name: "Zsiday Viktor", role: "közgazdász", eps: 61, pods: 10, wiki: false },
+    { slug: "schiffer-andras", name: "Schiffer András", role: "jogász, ex-politikus", eps: 60, pods: 17, wiki: false },
+    { slug: "balasy-zsolt", name: "Balásy Zsolt", role: "kommunikációs szakértő", eps: 59, pods: 17, wiki: false },
+    { slug: "frei-tamas", name: "Frei Tamás", role: "író, újságíró", eps: 44, pods: 13, wiki: true },
+    { slug: "szijjarto-peter", name: "Szijjártó Péter", role: "külügyminiszter", eps: 33, pods: 13, wiki: true },
+    { slug: "sz-biro-zoltan", name: "Sz. Bíró Zoltán", role: "Oroszország-szakértő", eps: 33, pods: 14, wiki: false },
+    { slug: "schwab-richard", name: "Schwab Richárd", role: "orvos", eps: 25, pods: 12, wiki: false },
   ],
   // Kiszűrve: médiumok és rádiók (saját podcast-csatorna), illetve azok a szervezetek,
   // amelyek saját podcasttal vagy podcast-szponzorként jelennek meg az epizódokban
