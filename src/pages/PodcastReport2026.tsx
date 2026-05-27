@@ -768,9 +768,48 @@ export default function PodcastReport2026() {
             </div>
           </div>
 
+          </div>
+
+          {/* Institutions */}
+          <div className="mt-6 rounded-lg border border-border bg-card p-5">
+            <h3 className="font-serif text-lg font-bold text-foreground mb-1">Mely állami és nemzetközi intézmények jönnek elő legtöbbet?</h3>
+            <p className="text-xs text-muted-foreground mb-4">Epizódszám, amelyikben az intézmény neve elhangzik vagy szóba kerül (2025. jún. – 2026. máj., HU podcastek). Az országokat és általános fogalmakat („kormány") kihagytuk, csak konkrét intézményeket jelenítünk meg.</p>
+            {(() => {
+              const insts = [
+                { name: "Európai Bizottság", eps: 34 },
+                { name: "Magyar Nemzeti Bank (MNB)", eps: 72 },
+                { name: "NATO", eps: 24 },
+                { name: "Magyar Honvédség", eps: 21 },
+                { name: "Országgyűlés", eps: 20 },
+                { name: "NAV", eps: 19 },
+                { name: "Kúria", eps: 18 },
+                { name: "Szuverenitásvédelmi Hivatal", eps: 18 },
+                { name: "Rendőrség", eps: 19 },
+                { name: "Országos Széchényi Könyvtár", eps: 31 },
+              ].sort((a, b) => b.eps - a.eps);
+              const max = insts[0].eps;
+              return (
+                <div className="space-y-1.5">
+                  {insts.map((x, i) => (
+                    <div key={x.name} className="flex items-center gap-2">
+                      <div className="w-4 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
+                      <div className="w-56 shrink-0 text-sm text-foreground truncate">{x.name}</div>
+                      <div className="flex-1 relative h-5 rounded bg-muted overflow-hidden">
+                        <div className="h-full bg-primary/70" style={{ width: `${(x.eps / max) * 100}%` }} />
+                        <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">{x.eps}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            <p className="mt-3 text-xs italic text-muted-foreground">A magyar közbeszéd intézményi térképét két erő rajzolja: a <strong className="text-foreground">gazdaság</strong> (MNB messze a legtöbbet emlegetett hazai intézmény) és a <strong className="text-foreground">honvédelem/biztonság</strong> (Honvédség, NATO, rendőrség, Szuverenitásvédelmi Hivatal). A Kúria és a NAV jelenléte mutatja, hogy a jogállam-vita és az adózás is folyamatosan napirenden van — viszont olyan klasszikus intézmények, mint az Alkotmánybíróság vagy az ÁSZ, alig kerülnek elő.</p>
+          </div>
+
           {/* Fidesz vs Tisza monthly */}
           {(() => {
             const partyMonthly = [
+
               { m: "2025-06", fidesz: 35, tisza: 20 },
               { m: "2025-07", fidesz: 24, tisza: 20 },
               { m: "2025-08", fidesz: 13, tisza: 7 },
