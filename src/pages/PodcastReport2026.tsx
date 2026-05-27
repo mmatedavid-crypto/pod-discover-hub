@@ -113,16 +113,11 @@ const huNum = (n: number, digits = 1) => n.toFixed(digits).replace(".", ",");
 const growth10y = huNum(STATS.episodesYear["2025"] / STATS.episodesYear["2015"]);
 const yoy2025 = huNum(((STATS.episodesYear["2025"] - STATS.episodesYear["2024"]) / STATS.episodesYear["2024"]) * 100);
 const projected2026 = Math.round((STATS.episodesYear["2026 (eddig, 5 hó)"] / 147) * 365);
-const top4CategoryShare = (((265 + 126 + 124 + 103) / STATS.podcastCount) * 100).toFixed(0);
-
 const maxYear = Math.max(...Object.values(STATS.episodesYear));
-const maxWeek = Math.max(...STATS.weekday.map((d) => d.eps));
 const maxCatEps = Math.max(...STATS.topCategories.map((c) => c.eps));
 const totalCatEps = STATS.topCategories.reduce((s, c) => s + c.eps, 0);
 const top10Topics = STATS.topTopics.slice(0, 10);
 const maxTop10Topic = top10Topics[0].eps;
-const maxVoice = STATS.topVoices[0].eps;
-const maxOrg = STATS.topOrgs[0].eps;
 const maxParty = STATS.topParties[0].eps;
 const maxHeat = Math.max(...STATS.heatmap.rows.flatMap((r) => r.vals));
 const maxMonth = Math.max(...STATS.newPodsByMonth.map((p) => p.c));
