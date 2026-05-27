@@ -233,7 +233,7 @@ export default function PodcastReport2026() {
 
           {/* Press thesis */}
           <p className="mt-8 font-serif text-lg md:text-xl italic text-foreground leading-relaxed border-l-2 border-primary pl-4">
-            A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, de eddig alig mérhető nyilvánossági tér.
+            A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, de eddig alig mérhető tere a nyilvánosságnak.
           </p>
         </header>
 
