@@ -81,17 +81,21 @@ const STATS = {
   // Horváth Oszkár, Rónai Egon, Fábry Kornél stb.). A listán csak olyan közéleti
   // szereplők, szakértők, politikusok maradnak, akik vendégként/témaként szerepelnek
   // több műsorban is — vagyis akikről beszélnek, nem akik beszélnek.
+  // Forrás: person_episode_mentions (AI entity-resolution), 2025.06.01–2026.05.27, HU feedek.
+  // Műsorvezetők kiszűrve (Puzsér, Rónai, Ceglédi, Pető, Csepelyi, Bochkor, Horváth).
+  // Homonim találatok (Kovács Gergely érsek vs MKKP, Borbély Imre, Tóth Csaba, Szabó László,
+  // Varga Zoltán, Németh Dávid stb.) is kihagyva — ahol a wiki-leírás nem egyezik a podcast-kontextussal.
   topVoices: [
-    { slug: "orban-viktor", name: "Orbán Viktor", role: "miniszterelnök", eps: 251, pods: 29, wiki: true },
-    { slug: "magyar-peter", name: "Magyar Péter", role: "politikus (Tisza)", eps: 191, pods: 23, wiki: true },
-    { slug: "donald-trump", name: "Donald Trump", role: "USA elnöke", eps: 102, pods: 31, wiki: true },
-    { slug: "zsiday-viktor", name: "Zsiday Viktor", role: "közgazdász", eps: 61, pods: 10, wiki: false },
-    { slug: "schiffer-andras", name: "Schiffer András", role: "jogász, ex-politikus", eps: 60, pods: 17, wiki: false },
-    { slug: "balasy-zsolt", name: "Balásy Zsolt", role: "kommunikációs szakértő", eps: 59, pods: 17, wiki: false },
-    { slug: "frei-tamas", name: "Frei Tamás", role: "író, újságíró", eps: 44, pods: 13, wiki: true },
-    { slug: "szijjarto-peter", name: "Szijjártó Péter", role: "külügyminiszter", eps: 33, pods: 13, wiki: true },
-    { slug: "sz-biro-zoltan", name: "Sz. Bíró Zoltán", role: "Oroszország-szakértő", eps: 33, pods: 14, wiki: false },
-    { slug: "schwab-richard", name: "Schwab Richárd", role: "orvos", eps: 25, pods: 12, wiki: false },
+    { slug: "orban-viktor",    name: "Orbán Viktor",    role: "miniszterelnök",            eps: 278, pods: 30 },
+    { slug: "magyar-peter",    name: "Magyar Péter",    role: "politikus (Tisza)",         eps: 199, pods: 26 },
+    { slug: "donald-trump",    name: "Donald Trump",    role: "USA elnöke",                eps: 102, pods: 31 },
+    { slug: "ruff-balint",     name: "Ruff Bálint",     role: "jogász, politikai tanácsadó", eps: 52, pods: 11 },
+    { slug: "gubik-petra",     name: "Gubik Petra",     role: "színésznő",                 eps: 51, pods: 4  },
+    { slug: "pogatsa-zoltan",  name: "Pogátsa Zoltán",  role: "közgazdász, szociológus",   eps: 39, pods: 19 },
+    { slug: "szijjarto-peter", name: "Szijjártó Péter", role: "külügyminiszter",           eps: 38, pods: 16 },
+    { slug: "balasy-zsolt",    name: "Balásy Zsolt",    role: "kommunikációs szakértő",    eps: 33, pods: 16 },
+    { slug: "keri-laszlo",     name: "Kéri László",     role: "politológus",               eps: 31, pods: 8  },
+    { slug: "zsiday-viktor",   name: "Zsiday Viktor",   role: "közgazdász, befektető",     eps: 25, pods: 11 },
   ],
   // Kiszűrve: médiumok és rádiók (saját podcast-csatorna), illetve azok a szervezetek,
   // amelyek saját podcasttal vagy podcast-szponzorként jelennek meg az epizódokban
