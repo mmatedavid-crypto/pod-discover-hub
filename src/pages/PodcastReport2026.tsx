@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Fragment, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
@@ -40,18 +40,18 @@ const STATS = {
   // Internal tier names retained for data accuracy; public labels used in UI.
   tiers: { weekly: 242, monthlyActive: 456, monthly: 626, rare: 39, dead: 64 },
   topCategories: [
-    { name: "Társadalom és kultúra", count: 265 },
-    { name: "Vallás és spiritualitás", count: 126 },
-    { name: "Hírek és politika", count: 124 },
-    { name: "Üzlet és pénzügy", count: 103 },
-    { name: "Film, TV és popkultúra", count: 102 },
-    { name: "Zene", count: 78 },
-    { name: "Sport", count: 67 },
-    { name: "Önfejlesztés", count: 57 },
-    { name: "Oktatás", count: 51 },
-    { name: "Technológia", count: 50 },
-    { name: "Egészség és életmód", count: 49 },
-    { name: "Könyvek és irodalom", count: 41 },
+    { name: "Társadalom és kultúra", pods: 265, eps: 28630 },
+    { name: "Hírek és politika", pods: 124, eps: 14140 },
+    { name: "Vallás és spiritualitás", pods: 126, eps: 12919 },
+    { name: "Film, TV és popkultúra", pods: 102, eps: 11581 },
+    { name: "Sport", pods: 67, eps: 8002 },
+    { name: "Zene", pods: 78, eps: 7598 },
+    { name: "Üzlet és pénzügy", pods: 103, eps: 6240 },
+    { name: "Technológia", pods: 50, eps: 4819 },
+    { name: "Könyvek és irodalom", pods: 41, eps: 4620 },
+    { name: "Önfejlesztés", pods: 57, eps: 3300 },
+    { name: "Oktatás", pods: 51, eps: 2424 },
+    { name: "Egészség és életmód", pods: 49, eps: 1989 },
   ],
   topTopics: [
     { slug: "biblia", name: "Biblia", eps: 130 },
@@ -75,6 +75,61 @@ const STATS = {
     { slug: "egeszseg", name: "Egészség", eps: 43 },
     { slug: "tortenelem", name: "Történelem", eps: 40 },
   ],
+  // Top recurring voices — hostok + visszatérő vendégek együtt.
+  topVoices: [
+    { slug: "horvath-oszkar", name: "Horváth Oszkár", eps: 1400, pods: 10, wiki: false },
+    { slug: "puzser-robert", name: "Puzsér Róbert", eps: 1383, pods: 35, wiki: true },
+    { slug: "kovacs-gergely", name: "Kovács Gergely", eps: 585, pods: 18, wiki: true },
+    { slug: "bochkor-gabor", name: "Bochkor Gábor", eps: 491, pods: 1, wiki: true },
+    { slug: "magyar-david", name: "Magyar Dávid", eps: 393, pods: 6, wiki: false },
+    { slug: "csunderlik-peter", name: "Csunderlik Péter", eps: 366, pods: 13, wiki: false },
+    { slug: "orban-viktor", name: "Orbán Viktor", eps: 329, pods: 23, wiki: true },
+    { slug: "tarjanyi-peter", name: "Tarjányi Péter", eps: 199, pods: 8, wiki: false },
+    { slug: "spiro-gyorgy", name: "Spiró György", eps: 171, pods: 12, wiki: false },
+    { slug: "magyar-peter", name: "Magyar Péter", eps: 141, pods: 27, wiki: true },
+  ],
+  topOrgs: [
+    { slug: "tilos-radio", name: "Tilos Rádió", type: "Rádió", eps: 1607 },
+    { slug: "inforadio", name: "InfoRádió", type: "Rádió", eps: 999 },
+    { slug: "atv", name: "ATV", type: "Média", eps: 831 },
+    { slug: "infostart-hu", name: "Infostart.hu", type: "Média", eps: 779 },
+    { slug: "europai-unio", name: "Európai Unió", type: "Intézmény", eps: 745 },
+    { slug: "nba", name: "NBA", type: "Sport liga", eps: 690 },
+    { slug: "otp-bank", name: "OTP Bank", type: "Vállalat", eps: 606 },
+    { slug: "kossuth-radio", name: "Kossuth Rádió", type: "Rádió", eps: 480 },
+    { slug: "hvg", name: "HVG", type: "Média", eps: 468 },
+    { slug: "klubradio", name: "Klubrádió", type: "Rádió", eps: 449 },
+  ],
+  topParties: [
+    { slug: "fidesz", name: "Fidesz", eps: 1126 },
+    { slug: "tisza-part", name: "Tisza Párt", eps: 718 },
+    { slug: "dk", name: "DK", eps: 199 },
+    { slug: "momentum", name: "Momentum", eps: 135 },
+    { slug: "mszp", name: "MSZP", eps: 132 },
+    { slug: "mi-hazank", name: "Mi Hazánk", eps: 114 },
+  ],
+  // dow rows Mon..Sun, columns: éjszaka(0-5), reggel(6-9), délelőtt(10-13), délután(14-17), este(18-21), késő(22-23)
+  heatmap: {
+    cols: ["0–5", "6–9", "10–13", "14–17", "18–21", "22–23"],
+    rows: [
+      { day: "Hét",  vals: [673, 1277, 861, 1212, 643, 89] },
+      { day: "Kedd", vals: [480, 1215, 1088, 1276, 660, 110] },
+      { day: "Szer", vals: [602, 1163, 840, 1134, 429, 123] },
+      { day: "Csüt", vals: [620, 1361, 933, 1431, 566, 99] },
+      { day: "Pén",  vals: [725, 1277, 884, 1041, 547, 45] },
+      { day: "Szom", vals: [361, 609, 539, 544, 354, 78] },
+      { day: "Vas",  vals: [394, 729, 587, 507, 477, 178] },
+    ],
+  },
+  // Új podcastok első epizódja szerinti hónap (utolsó 24 hónap, HU feedek).
+  newPodsByMonth: [
+    { m: "2024-06", c: 11 }, { m: "2024-07", c: 7 }, { m: "2024-08", c: 6 }, { m: "2024-09", c: 15 },
+    { m: "2024-10", c: 10 }, { m: "2024-11", c: 16 }, { m: "2024-12", c: 13 }, { m: "2025-01", c: 13 },
+    { m: "2025-02", c: 17 }, { m: "2025-03", c: 20 }, { m: "2025-04", c: 17 }, { m: "2025-05", c: 16 },
+    { m: "2025-06", c: 11 }, { m: "2025-07", c: 18 }, { m: "2025-08", c: 15 }, { m: "2025-09", c: 19 },
+    { m: "2025-10", c: 30 }, { m: "2025-11", c: 18 }, { m: "2025-12", c: 18 }, { m: "2026-01", c: 17 },
+    { m: "2026-02", c: 29 }, { m: "2026-03", c: 29 }, { m: "2026-04", c: 14 }, { m: "2026-05", c: 8 },
+  ],
 };
 
 // derived
@@ -85,9 +140,18 @@ const top4CategoryShare = (((265 + 126 + 124 + 103) / STATS.podcastCount) * 100)
 
 const maxYear = Math.max(...Object.values(STATS.episodesYear));
 const maxWeek = Math.max(...STATS.weekday.map((d) => d.eps));
-const maxCat = STATS.topCategories[0].count;
+const maxCatEps = Math.max(...STATS.topCategories.map((c) => c.eps));
+const totalCatEps = STATS.topCategories.reduce((s, c) => s + c.eps, 0);
 const top10Topics = STATS.topTopics.slice(0, 10);
 const maxTop10Topic = top10Topics[0].eps;
+const maxVoice = STATS.topVoices[0].eps;
+const maxOrg = STATS.topOrgs[0].eps;
+const maxParty = STATS.topParties[0].eps;
+const maxHeat = Math.max(...STATS.heatmap.rows.flatMap((r) => r.vals));
+const maxMonth = Math.max(...STATS.newPodsByMonth.map((p) => p.c));
+const newPodsTotal24mo = STATS.newPodsByMonth.reduce((s, p) => s + p.c, 0);
+const deadPct = ((STATS.tiers.dead / STATS.podcastCount) * 100).toFixed(1);
+const alivePct = (100 - parseFloat(deadPct)).toFixed(1);
 
 export default function PodcastReport2026() {
   useEffect(() => {
@@ -261,53 +325,167 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
           <p className="mb-6 text-muted-foreground">
-            A magyar podcast piac négy meghatározó pilléren áll: társadalom-kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>.
+            A magyar podcast piac négy meghatározó pilléren áll: társadalom-kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. Alább az epizódszám-megoszlás (terület = elérhető epizódok aránya).
           </p>
-          <div className="space-y-2">
-            {STATS.topCategories.map((cat) => (
-              <div key={cat.name} className="flex items-center gap-3">
-                <div className="w-40 md:w-48 shrink-0 text-sm text-foreground">{cat.name}</div>
-                <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-accent/70"
-                    style={{ width: `${(cat.count / maxCat) * 100}%` }}
-                  />
-                  <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
-                    {cat.count} műsor
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Publishing week */}
-        <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor jelennek meg az új epizódok?</h2>
-          <p className="mb-6 text-muted-foreground">
-            A magyar podcast szerkesztőségek jellemzően <strong className="text-foreground">csütörtökön és hétfőn publikálnak</strong>. Hétvégén a frissítés visszaesik a felére.
-          </p>
-          <div className="space-y-2 mb-4">
-            {STATS.weekday.map((d) => {
-              const highlight = d.name === "Csütörtök" || d.name === "Hétfő";
+          <div className="grid grid-cols-6 gap-1.5 h-[420px] auto-rows-fr">
+            {STATS.topCategories.map((cat, i) => {
+              const share = cat.eps / totalCatEps;
+              // Treemap-ish layout: bigger categories span more cells.
+              const span = i === 0 ? "col-span-6 md:col-span-4 row-span-3" :
+                           i === 1 ? "col-span-3 md:col-span-2 row-span-2" :
+                           i === 2 ? "col-span-3 md:col-span-2 row-span-2" :
+                           i === 3 ? "col-span-3 md:col-span-2 row-span-2" :
+                           i < 7 ? "col-span-2 row-span-1" :
+                           "col-span-3 md:col-span-2 row-span-1";
+              const intensity = 0.25 + (cat.eps / maxCatEps) * 0.6;
               return (
-                <div key={d.name} className="flex items-center gap-3">
-                  <div className="w-24 shrink-0 text-sm text-foreground">{d.name}</div>
-                  <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
-                    <div
-                      className={`h-full ${highlight ? "bg-primary/80" : "bg-primary/40"}`}
-                      style={{ width: `${(d.eps / maxWeek) * 100}%` }}
-                    />
-                    <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
-                      {d.eps.toLocaleString("hu-HU")} ep (2025)
-                    </div>
+                <div
+                  key={cat.name}
+                  className={`${span} rounded p-3 flex flex-col justify-between bg-primary text-primary-foreground overflow-hidden`}
+                  style={{ opacity: intensity }}
+                  title={`${cat.eps.toLocaleString("hu-HU")} epizód, ${cat.pods} műsor`}
+                >
+                  <div className="text-xs md:text-sm font-semibold leading-tight">{cat.name}</div>
+                  <div>
+                    <div className="text-lg md:text-2xl font-bold tabular-nums">{(share * 100).toFixed(0)}%</div>
+                    <div className="text-[10px] md:text-xs opacity-80">{cat.eps.toLocaleString("hu-HU")} ep · {cat.pods} műsor</div>
                   </div>
                 </div>
               );
             })}
           </div>
-          <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A magyar podcastoknak már felismerhető heti szerkesztési ritmusa van.
+          <p className="mt-4 text-xs text-muted-foreground">
+            Epizódszám szerinti súlyozás (csak top 12 kategória, az indexelt magyar podcastek 2026. május 27-i állapota alapján).
+          </p>
+        </section>
+
+        {/* New podcasts per month — last 24 months */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány új magyar podcast indul havonta?</h2>
+          <p className="mb-6 text-muted-foreground">
+            Az elmúlt 24 hónapban <strong className="text-foreground">{newPodsTotal24mo}</strong> új magyar podcast indult — átlagosan{" "}
+            <strong className="text-foreground">~{Math.round(newPodsTotal24mo / 24)} műsor havonta</strong>, a 2025. október óta tartó hullámmal együtt.
+          </p>
+          <div className="flex items-end gap-[3px] h-32 mb-2">
+            {STATS.newPodsByMonth.map((p) => {
+              const h = (p.c / maxMonth) * 100;
+              const isPeak = p.c >= 25;
+              return (
+                <div
+                  key={p.m}
+                  className="flex-1 relative group"
+                  title={`${p.m}: ${p.c} új podcast`}
+                >
+                  <div
+                    className={`w-full rounded-sm ${isPeak ? "bg-primary" : "bg-primary/50"} transition-all hover:bg-primary`}
+                    style={{ height: `${h}%`, minHeight: 2 }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+            <span>{STATS.newPodsByMonth[0].m}</span>
+            <span>{STATS.newPodsByMonth[Math.floor(STATS.newPodsByMonth.length / 2)].m}</span>
+            <span>{STATS.newPodsByMonth[STATS.newPodsByMonth.length - 1].m}</span>
+          </div>
+          <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            2026 első három hónapjában havi 29 új magyar podcast indult — minden korábbi év átlagát felülmúlja.
+          </p>
+        </section>
+
+
+        {/* Publishing heatmap */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
+          <p className="mb-6 text-muted-foreground">
+            A nap és óra szerinti megjelenés a magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát mutatja. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
+          </p>
+          <Heatmap data={STATS.heatmap} max={maxHeat} />
+          <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — ez gyakorlatilag a magyar podcast „prime time".
+          </p>
+        </section>
+
+        {/* Top voices */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top 10 magyar hang</h2>
+          <p className="mb-6 text-muted-foreground">
+            A magyar podcastekben leggyakrabban szereplő emberek — hostok és visszatérő vendégek együtt — az indexelt epizódok alapján. A „hangok" a hostokat és a többször visszatérő vendégeket egyaránt számolják.
+          </p>
+          <div className="space-y-2">
+            {STATS.topVoices.map((v, i) => (
+              <Link key={v.slug} to={`/szemelyek/${v.slug}`} className="flex items-center gap-3 group">
+                <div className="w-6 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
+                <div className="w-40 md:w-56 shrink-0 text-sm font-medium text-foreground group-hover:text-primary truncate flex items-center gap-1.5">
+                  {v.name}
+                  {v.wiki && <span title="Wikipedia-igazolt" className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-mono">W</span>}
+                </div>
+                <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
+                  <div className="h-full bg-primary/70" style={{ width: `${(v.eps / maxVoice) * 100}%` }} />
+                  <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
+                    {v.eps.toLocaleString("hu-HU")} ep · {v.pods} podcast
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Forrás: az epizódok átirataiból AI által kinyert résztvevők, dedupolva és emberi-felülvizsgálati ciklus után. „Ep" = olyan indexelt magyar epizód, amelyben a személy résztvevőként vagy említettként szerepel.
+            {" "}<Link to="/szemelyek" className="underline">Teljes lista →</Link>
+          </p>
+        </section>
+
+        {/* Top organizations + parties */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a magyar podcastekben</h2>
+          <p className="mb-6 text-muted-foreground">
+            A leggyakrabban emlegetett média-, vállalati és politikai szereplők. A pártokat külön bontjuk, mert kampányidőszakban (2026-os választás) különösen relevánsak.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Szervezetek</div>
+              <div className="space-y-2">
+                {STATS.topOrgs.map((o, i) => (
+                  <Link key={o.slug} to={`/ceg/${o.slug}`} className="flex items-center gap-2 group">
+                    <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground group-hover:text-primary truncate">{o.name}</div>
+                      <div className="text-[10px] text-muted-foreground">{o.type}</div>
+                    </div>
+                    <div className="relative w-28 h-5 rounded bg-muted overflow-hidden">
+                      <div className="h-full bg-accent/70" style={{ width: `${(o.eps / maxOrg) * 100}%` }} />
+                      <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
+                        {o.eps.toLocaleString("hu-HU")}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Pártok</div>
+              <div className="space-y-2">
+                {STATS.topParties.map((p, i) => (
+                  <Link key={p.slug} to={`/part/${p.slug}`} className="flex items-center gap-2 group">
+                    <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
+                    <div className="flex-1 min-w-0 text-sm font-medium text-foreground group-hover:text-primary truncate">{p.name}</div>
+                    <div className="relative w-28 h-5 rounded bg-muted overflow-hidden">
+                      <div className="h-full bg-primary/70" style={{ width: `${(p.eps / maxParty) * 100}%` }} />
+                      <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
+                        {p.eps.toLocaleString("hu-HU")}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                <Link to="/partok" className="underline">Összes párt →</Link>
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            „Ep" = olyan magyar epizód, amelyben a szervezetet az AI extraktor azonosította a leiratban. A számok kínálati, nem hallgatottsági adatok.
           </p>
         </section>
 
@@ -323,7 +501,32 @@ export default function PodcastReport2026() {
             <MapNode value={STATS.organizationsIndexed.toLocaleString("hu-HU")} label="szervezet" link="/szervezetek" />
             <MapNode value={`${top10Topics.length}+`} label="top témák" link="/temak" />
           </div>
+          {/* Alive vs dead feed mini-donut */}
+          <div className="mt-6 rounded-lg border border-border bg-card p-5 flex flex-col md:flex-row items-center gap-5">
+            <div className="relative w-28 h-28 shrink-0">
+              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="hsl(var(--muted))" strokeWidth="3.5" />
+                <circle
+                  cx="18" cy="18" r="15.9155" fill="none"
+                  stroke="hsl(var(--primary))" strokeWidth="3.5"
+                  strokeDasharray={`${alivePct} ${deadPct}`}
+                  strokeDashoffset="0"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <div className="text-lg font-bold text-foreground tabular-nums">{alivePct}%</div>
+                <div className="text-[9px] uppercase text-muted-foreground">aktív</div>
+              </div>
+            </div>
+            <div className="text-sm text-foreground">
+              <div className="font-semibold mb-1">A magyar podcastpiac stabil — csak {deadPct}% „elhalt feed"</div>
+              <div className="text-muted-foreground">
+                A {STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsorból {STATS.tiers.dead} feed nem publikált 12+ hónapja. A többi {(STATS.podcastCount - STATS.tiers.dead).toLocaleString("hu-HU")} műsor aktívnak tekinthető — ez a nemzetközi átlagnál jelentősen jobb arány (a globális podcast-katalógusok 40–60%-a inaktív).
+              </div>
+            </div>
+          </div>
         </section>
+
 
         {/* Pullquote */}
         <section className="mb-12">
@@ -433,7 +636,7 @@ function InsightCard({ n, title, body, wide }: { n: number; title: string; body:
   );
 }
 
-function Callout({ title, children }: { title: string; children: React.ReactNode }) {
+function Callout({ title, children }: { title: string; children: import("react").ReactNode }) {
   return (
     <div className="rounded border-l-2 border-accent bg-muted/40 px-3 py-2">
       <div className="text-xs font-semibold text-foreground">{title}</div>
@@ -473,4 +676,47 @@ function MapNode({ value, label, link }: { value: string; label: string; link?: 
     </div>
   );
   return link ? <Link to={link}>{inner}</Link> : inner;
+}
+
+function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; vals: number[] }[] }; max: number }) {
+  return (
+    <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="min-w-[520px]">
+        <div className="grid gap-1 text-[10px] md:text-xs" style={{ gridTemplateColumns: `48px repeat(${data.cols.length}, minmax(0,1fr))` }}>
+          <div />
+          {data.cols.map((c) => (
+            <div key={c} className="text-center text-muted-foreground font-mono pb-1">{c}</div>
+          ))}
+          {data.rows.map((r) => (
+            <Fragment key={r.day}>
+              <div className="flex items-center text-muted-foreground pr-1">{r.day}</div>
+              {r.vals.map((v, i) => {
+                const alpha = 0.08 + (v / max) * 0.92;
+                const isPeak = v / max > 0.85;
+                return (
+                  <div
+                    key={`${r.day}-${i}`}
+                    className="aspect-[3/2] rounded flex items-center justify-center font-semibold tabular-nums"
+                    style={{ backgroundColor: `hsl(var(--primary) / ${alpha.toFixed(2)})`, color: alpha > 0.55 ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))" }}
+                    title={`${r.day} ${data.cols[i]}h — ${v} epizód / év`}
+                  >
+                    {isPeak ? v : ""}
+                  </div>
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
+          <span>kevesebb</span>
+          <div className="flex gap-0.5">
+            {[0.1, 0.3, 0.5, 0.7, 0.95].map((a) => (
+              <div key={a} className="w-4 h-3 rounded-sm" style={{ backgroundColor: `hsl(var(--primary) / ${a})` }} />
+            ))}
+          </div>
+          <span>több publikálás</span>
+        </div>
+      </div>
+    </div>
+  );
 }
