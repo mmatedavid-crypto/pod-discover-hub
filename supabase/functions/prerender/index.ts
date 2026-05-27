@@ -1196,26 +1196,26 @@ async function buildOrgTopic(
     .eq("slug", topicSlug).maybeSingle();
   if (!topic || topic.is_public === false) return null;
 
+  // Same inverted strategy as person/topic.
+  const { data: tRows } = await (supabase as any)
+    .from("episode_topic_map")
+    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .eq("topic_id", topic.id)
+    .order("confidence", { ascending: false })
+    .limit(500);
+  const topicEps = ((tRows ?? []) as Array<any>)
+    .map((r) => r.episodes)
+    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""));
+  if (topicEps.length === 0) return null;
+  const topicEpIds = topicEps.map((e) => e.id);
+
   const { data: mRows } = await (supabase as any)
     .from("episode_organization_map")
     .select("episode_id")
     .eq("organization_id", org.id)
-    .limit(2000);
-  const orgEpIds = new Set(((mRows ?? []) as Array<any>).map((r) => r.episode_id));
-  if (orgEpIds.size === 0) return null;
-
-  const { data: tRows } = await (supabase as any)
-    .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
-    .eq("topic_id", topic.id)
-    .in("episode_id", Array.from(orgEpIds).slice(0, 1000))
-    .order("confidence", { ascending: false })
-    .limit(100);
-
-  const eps = ((tRows ?? []) as Array<any>)
-    .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
-    .slice(0, 40);
+    .in("episode_id", topicEpIds.slice(0, 500));
+  const matchedSet = new Set(((mRows ?? []) as Array<any>).map((r) => r.episode_id));
+  const eps = topicEps.filter((e) => matchedSet.has(e.id)).slice(0, 40);
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
   const canonical = `${SITE}/szervezetek/${orgSlug}/temak/${topicSlug}`;
