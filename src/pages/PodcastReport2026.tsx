@@ -464,7 +464,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="publikalasi-heatmap">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-6 text-muted-foreground">
-            A nap és óra szerinti megjelenések a magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát rajzolják ki. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
+            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28530).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát rajzolja ki. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
           </p>
           <Heatmap data={STATS.heatmap} max={maxHeat} />
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
@@ -473,12 +473,12 @@ export default function PodcastReport2026() {
           </DownloadableFigure>
         </section>
 
-        {/* Top közéleti vendégek (műsorvezetők kiszűrve) */}
+        {/* Top szóba kerülő közéleti nevek (műsorvezetők kiszűrve) */}
         <section className="mb-12">
-          <DownloadableFigure filename="top-kozeleti-vendegek">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top közéleti vendégek a magyar podcastekben</h2>
+          <DownloadableFigure filename="top-emlegetett-nevek">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Legtöbbet emlegetett közéleti szereplők</h2>
           <p className="mb-6 text-muted-foreground">
-            A leggyakrabban szóba kerülő közéleti szereplők, politikusok és szakértők — vagyis akikről beszélnek, nem akik beszélnek. A műsorvezetőket szándékosan kihagytuk (pl. Bochkor Gábor, Puzsér Róbert, Rónai Egon, Horváth Oszkár), mert ők főleg saját adásaikban jelennek meg, így az „aki a legtöbbet publikál” kérdés nem informatív.
+            A leggyakrabban <strong className="text-foreground">szóba kerülő</strong> politikusok, közéleti szereplők és szakértők — vagyis akikről beszélnek a magyar podcastekben. Nem feltétlenül vendégek: sok esetben csak említés szintjén kerülnek elő. A műsorvezetőket szándékosan kihagytuk (pl. Bochkor Gábor, Puzsér Róbert, Rónai Egon, Horváth Oszkár), mert ők főleg saját adásaikban jelennek meg, így az „aki a legtöbbet publikál” kérdés nem informatív.
           </p>
           <div className="space-y-2">
             {STATS.topVoices.map((v, i) => (
