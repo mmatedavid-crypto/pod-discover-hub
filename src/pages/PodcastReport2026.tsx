@@ -390,6 +390,151 @@ export default function PodcastReport2026() {
           </DownloadableFigure>
         </section>
 
+        {/* Category YoY growth — 2024 vs 2025 */}
+        <section className="mb-12">
+          <DownloadableFigure filename="kategoria-novekedes-yoy">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mi nő, mi zsugorodik? — kategóriák 2024 vs 2025</h2>
+          <p className="mb-6 text-muted-foreground">
+            Évi epizódszám-változás kategóriánként, a magyar podcastpiacon. A számok az egész évre vetített új epizódok mennyiségét hasonlítják össze — ez mutatja, mely műfajok lendültek fel és melyek fáradtak el.
+          </p>
+          {(() => {
+            const yoy = [
+              { name: "Egészség & életmód",   y24: 261,  y25: 557 },
+              { name: "Étel & ital",          y24: 287,  y25: 514 },
+              { name: "Gyerek & család",      y24: 714,  y25: 1106 },
+              { name: "Zene",                 y24: 1043, y25: 1448 },
+              { name: "Önfejlesztés",         y24: 604,  y25: 786 },
+              { name: "Üzlet & pénzügy",      y24: 1090, y25: 1372 },
+              { name: "Technológia",          y24: 680,  y25: 822 },
+              { name: "Vallás & spiritualitás", y24: 2171, y25: 2353 },
+              { name: "Társadalom & kultúra", y24: 5163, y25: 5295 },
+              { name: "Sport",                y24: 1463, y25: 1435 },
+              { name: "Film, TV & popkultúra", y24: 1849, y25: 1328 },
+              { name: "Oktatás",              y24: 476,  y25: 329 },
+              { name: "Humor",                y24: 580,  y25: 323 },
+            ].map((c) => ({ ...c, pct: Math.round(((c.y25 - c.y24) / c.y24) * 100) }))
+             .sort((a, b) => b.pct - a.pct);
+            const maxAbs = Math.max(...yoy.map((c) => Math.abs(c.pct)));
+            return (
+              <div className="space-y-1.5">
+                {yoy.map((c) => {
+                  const w = (Math.abs(c.pct) / maxAbs) * 50; // max 50% of width each side
+                  const up = c.pct >= 0;
+                  return (
+                    <div key={c.name} className="flex items-center gap-2 text-sm">
+                      <div className="w-44 md:w-56 shrink-0 text-foreground truncate">{c.name}</div>
+                      <div className="flex-1 relative h-6 flex items-center">
+                        {/* center line */}
+                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border" />
+                        {/* bar */}
+                        <div
+                          className={`absolute top-1 bottom-1 rounded-sm ${up ? "bg-primary/70" : "bg-muted-foreground/40"}`}
+                          style={
+                            up
+                              ? { left: "50%", width: `${w}%` }
+                              : { right: "50%", width: `${w}%` }
+                          }
+                        />
+                        {/* label */}
+                        <div
+                          className={`absolute top-0 bottom-0 flex items-center text-xs font-semibold tabular-nums ${up ? "text-foreground" : "text-muted-foreground"}`}
+                          style={up ? { left: `calc(50% + ${w}% + 6px)` } : { right: `calc(50% + ${w}% + 6px)` }}
+                        >
+                          {up ? "+" : ""}{c.pct}%
+                        </div>
+                      </div>
+                      <div className="w-28 shrink-0 text-right text-[11px] font-mono text-muted-foreground tabular-nums">
+                        {c.y24.toLocaleString("hu-HU")} → {c.y25.toLocaleString("hu-HU")}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            A magyar podcastpiac két legnagyobb növekedési motorja 2025-ben az <strong className="text-foreground">egészség / életmód (+113%)</strong> és a <strong className="text-foreground">gasztronómia (+79%)</strong> volt — utánuk a gyerek & család (+55%), zene (+39%) és önfejlesztés (+30%) tartja a lendületet. Eközben a <strong className="text-foreground">humor (−44%)</strong>, az <strong className="text-foreground">oktatás (−31%)</strong> és a <strong className="text-foreground">film/popkultúra (−28%)</strong> visszaesett: a hallgatói figyelem a wellness, a praktikus tudás és a családi tartalom felé fordult.
+          </p>
+          </DownloadableFigure>
+        </section>
+
+        {/* Self-help / mental wellness — monthly seasonality */}
+        <section className="mb-12">
+          <DownloadableFigure filename="onsegito-temak-szezonalitas">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Januári fogadalmak a fülhallgatóban</h2>
+          <p className="mb-6 text-muted-foreground">
+            Öt önismereti / mentális wellness téma havi említései magyar podcast-epizódokban (cím + leírás szöveges illesztés, 2025. jún. – 2026. máj.). A grafikon a klasszikus újévi self-help csúcsot rajzolja ki.
+          </p>
+          {(() => {
+            const series = [
+              { slug: "alvas",        name: "Alvás",        color: "hsl(var(--primary))",
+                data: [6, 3, 7, 13, 12, 7, 19, 44, 46, 37, 37, 40] },
+              { slug: "meditacio",    name: "Meditáció",    color: "hsl(var(--accent))",
+                data: [12, 9, 16, 13, 22, 21, 13, 47, 44, 37, 39, 38] },
+              { slug: "szorongas",    name: "Szorongás",    color: "hsl(var(--muted-foreground))",
+                data: [14, 16, 17, 16, 18, 23, 24, 23, 34, 24, 26, 22] },
+              { slug: "onismeret",    name: "Önismeret",    color: "hsl(var(--primary) / 0.5)",
+                data: [44, 47, 47, 38, 67, 59, 54, 51, 50, 51, 44, 34] },
+              { slug: "parkapcsolat", name: "Párkapcsolat", color: "hsl(var(--accent) / 0.55)",
+                data: [18, 15, 12, 13, 16, 21, 20, 23, 32, 30, 22, 16] },
+            ];
+            const months = ["2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"];
+            const labelMap: Record<string, string> = { "01": "Jan", "02": "Feb", "03": "Már", "04": "Ápr", "05": "Máj", "06": "Jún", "07": "Júl", "08": "Aug", "09": "Szep", "10": "Okt", "11": "Nov", "12": "Dec" };
+            const W = 760, H = 280, PL = 36, PR = 12, PT = 16, PB = 44;
+            const innerW = W - PL - PR;
+            const innerH = H - PT - PB;
+            const rawMax = Math.max(...series.flatMap((s) => s.data));
+            const yMax = Math.ceil(rawMax / 20) * 20;
+            const yTicks = Array.from({ length: yMax / 20 + 1 }, (_, i) => i * 20);
+            const xAt = (i: number) => PL + (i * innerW) / (months.length - 1);
+            const yAt = (v: number) => PT + innerH - (v / yMax) * innerH;
+            return (
+              <div className="rounded-lg border border-border bg-card p-5">
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+                  {yTicks.map((t) => (
+                    <g key={t}>
+                      <line x1={PL} x2={W - PR} y1={yAt(t)} y2={yAt(t)} stroke="hsl(var(--border))" strokeWidth="1" />
+                      <text x={PL - 6} y={yAt(t) + 3} textAnchor="end" fontSize="10" fontFamily="ui-monospace, monospace" fill="hsl(var(--muted-foreground))">{t}</text>
+                    </g>
+                  ))}
+                  {/* Highlight January band */}
+                  <rect x={xAt(7) - 14} y={PT} width={28} height={innerH} fill="hsl(var(--primary) / 0.06)" />
+                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">újévi csúcs</text>
+                  {series.map((s) => {
+                    const d = s.data.map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i)},${yAt(v)}`).join(" ");
+                    return <path key={s.slug} d={d} fill="none" stroke={s.color} strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" />;
+                  })}
+                  {series.map((s) =>
+                    s.data.map((v, i) => (
+                      <circle key={`${s.slug}-${i}`} cx={xAt(i)} cy={yAt(v)} r="2.5" fill={s.color} />
+                    ))
+                  )}
+                  {months.map((m, i) => (
+                    <g key={m}>
+                      <text x={xAt(i)} y={H - 24} textAnchor="middle" fontSize="10" fill="hsl(var(--muted-foreground))">{labelMap[m.slice(5)]}</text>
+                      <text x={xAt(i)} y={H - 10} textAnchor="middle" fontSize="9" fill="hsl(var(--muted-foreground))" opacity="0.65">'{m.slice(2, 4)}</text>
+                    </g>
+                  ))}
+                </svg>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+                  {series.map((s) => (
+                    <div key={s.slug} className="flex items-center gap-1.5">
+                      <span className="inline-block h-3 w-3 rounded-sm" style={{ background: s.color }} />
+                      {s.name}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+                  Januárban robban a wellness-podcast: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re ugranak (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%). Az <strong className="text-foreground">önismeret</strong> év közben végig magas, a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> februárban csúcsosodik. Tipikus újévi fogadalom-mintázat — a hallgatók a januári „új én" időszakban keresnek a legaktívabban mentális wellness tartalmat.
+                </p>
+              </div>
+            );
+          })()}
+          </DownloadableFigure>
+        </section>
+
+
+
         {/* New podcasts per month — last 24 months */}
         <section className="mb-12">
           <DownloadableFigure filename="uj-podcastek-havonta">
