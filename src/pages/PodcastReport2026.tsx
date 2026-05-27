@@ -630,11 +630,11 @@ export default function PodcastReport2026() {
           </p>
           {(() => {
             const buckets = [
-              { label: "Rendszeresen frissülő (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
-              { label: "Lassuló (30–90 nap)", n: 214, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
-              { label: "Szunnyadó (3–6 hó)", n: 218, color: "bg-muted-foreground/50", note: "lassan kihagy" },
-              { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
-              { label: "Elcsendesedett (12+ hó)", n: 345, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
+              { label: "Rendszeresen frissülő (≤30 nap)", n: 587, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
+              { label: "Lassuló (30–90 nap)", n: 208, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
+              { label: "Szunnyadó (3–6 hó)", n: 125, color: "bg-muted-foreground/50", note: "lassan kihagy" },
+              { label: "Inaktív (6–12 hó)", n: 89, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
+              { label: "Elcsendesedett (12+ hó)", n: 343, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
             ];
             const total = buckets.reduce((s, b) => s + b.n, 0);
             return (
@@ -677,14 +677,14 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="publikalasi-heatmap">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-2 text-muted-foreground">
-            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28530).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar podcastoknak felismerhető heti ritmusa van: a legerősebb sáv a csütörtöki munkanap, különösen a délelőtti és kora délutáni órákban.
+            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28542).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar podcastoknak felismerhető heti ritmusa van: összesítésben a csütörtök a legerősebb publikálási nap, a hétköznapi délelőtti és kora délutáni sávokkal.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
             Időzóna: Europe/Budapest. A publikálási dátum az RSS / publikációs metaadatok alapján.
           </p>
           <Heatmap data={STATS.heatmap} max={maxHeat} />
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — gyakorlatilag ez a magyar podcast „prime time".
+            Összesítésben csütörtökön jelenik meg a legtöbb epizód; az egyes idősávokat nézve a hétköznap délelőtti blokkok adják a legsűrűbb publikálási ablakot.
           </p>
           </DownloadableFigure>
         </section>
