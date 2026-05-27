@@ -435,6 +435,9 @@ export default function PodcastReport2026() {
                   {STATS.newPodsByMonth.map((p) => {
                     const h = ((p.c - monthBaseline) / monthRange) * 100;
                     const isPeak = p.c >= 25;
+                    const HU_MONTHS = ["jan.", "febr.", "márc.", "ápr.", "máj.", "jún.", "júl.", "aug.", "szept.", "okt.", "nov.", "dec."];
+                    const mm = p.m.split("-")[1];
+                    const monthName = HU_MONTHS[parseInt(mm, 10) - 1] ?? p.m;
                     return (
                       <div
                         key={p.m}
@@ -451,10 +454,10 @@ export default function PodcastReport2026() {
                             </div>
                           )}
                           <div
-                            className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-mono tabular-nums text-primary-foreground/90 whitespace-nowrap pointer-events-none"
+                            className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-medium text-primary-foreground/90 whitespace-nowrap pointer-events-none"
                             style={{ writingMode: "vertical-rl", transform: "translateX(-50%) rotate(180deg)" }}
                           >
-                            {p.m}
+                            {monthName}
                           </div>
                         </div>
 
@@ -463,11 +466,29 @@ export default function PodcastReport2026() {
                   })}
                 </div>
               </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground font-mono mt-1">
-                <span>{STATS.newPodsByMonth[0].m}</span>
-                <span>{STATS.newPodsByMonth[Math.floor(STATS.newPodsByMonth.length / 2)].m}</span>
-                <span>{STATS.newPodsByMonth[STATS.newPodsByMonth.length - 1].m}</span>
-              </div>
+              {/* Év-tengely: egy címke évenként, a megfelelő hónapcsoport alá igazítva */}
+              {(() => {
+                const groups: { year: string; count: number }[] = [];
+                for (const p of STATS.newPodsByMonth) {
+                  const y = p.m.split("-")[0];
+                  const last = groups[groups.length - 1];
+                  if (last && last.year === y) last.count += 1;
+                  else groups.push({ year: y, count: 1 });
+                }
+                return (
+                  <div className="flex mt-1 text-[11px] text-muted-foreground font-mono">
+                    {groups.map((g) => (
+                      <div
+                        key={g.year}
+                        className="text-center border-t border-border/60 pt-0.5"
+                        style={{ flex: `${g.count} ${g.count} 0%` }}
+                      >
+                        {g.year}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <p className="mt-2 text-[10px] text-muted-foreground">
