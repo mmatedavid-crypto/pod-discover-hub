@@ -74,6 +74,8 @@ function isBot(ua) {
 // Routes we know how to prerender. Anything else falls back to origin.
 function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
+  // Hub landing pages (single-segment SEO surfaces)
+  if (/^\/(podcastok|szemelyek|szervezetek|cegek|partok|temak)\/?$/.test(pathname)) return true;
   // /podcast/:slug  or  /podcast/:slug/:episode
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
   if (/^\/(category|kategoria)\/[^/]+\/?$/.test(pathname)) return true;

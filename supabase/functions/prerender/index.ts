@@ -9,6 +9,7 @@
 //   /podcast/:slug/:episode        → PodcastEpisode
 //   /category/:slug                → CollectionPage + podcast list
 //   /topic|person|company|ticker|ingredient/:slug → CollectionPage + episode list
+//   /podcastok|szemelyek|szervezetek|cegek|partok|temak → Hub landing pages
 //   anything else                  → 404 (Worker will fall back to origin)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -688,6 +689,184 @@ async function buildLegacyEntity(
   );
 }
 
+// ---------- Hub landing pages (single-segment SEO surfaces) ----------
+
+type HubKind = "podcastok" | "szemelyek" | "szervezetek" | "cegek" | "partok" | "temak";
+
+async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind) {
+  const canonical = `${SITE}/${kind === "cegek" ? "szervezetek" : kind}`;
+
+  if (kind === "podcastok") {
+    const { data } = await (supabase as any)
+      .from("podcasts")
+      .select("title, display_title, slug, summary, description, image_url, category, podiverzum_rank")
+      .ilike("language", "hu%")
+      .eq("rss_status", "active")
+      .gte("podiverzum_rank", 7)
+      .order("podiverzum_rank", { ascending: false })
+      .order("title", { ascending: true })
+      .limit(80);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const title = "Magyar podcastek listája — Podiverzum";
+    const desc = "Fedezd fel a legjobb magyar podcasteket. Aktív műsorok, friss epizódok, AI-összefoglalókkal.";
+    const intro = `<p>A Podiverzum a teljes magyar podcast-világot indexeli. Itt a legaktívabb ${rows.length} műsor — minden epizódhoz AI-összefoglalót, említett személyeket, szervezeteket és témákat is mutatunk. Találd meg, hallgasd meg.</p>`;
+    const listHtml = rows.map((p) => {
+      const u = `${SITE}/podcast/${p.slug}`;
+      const s = truncate(stripHtml(p.summary || p.description), 200);
+      return `<li><a href="${esc(u)}"><strong>${esc(p.display_title || p.title)}</strong></a>${p.category ? ` <em>· ${esc(p.category)}</em>` : ""}${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+    }).join("");
+    const itemList = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: title,
+      itemListElement: rows.map((p, i) => ({
+        "@type": "ListItem", position: i + 1,
+        url: `${SITE}/podcast/${p.slug}`, name: p.display_title || p.title,
+      })),
+    };
+    return new Response(new TextEncoder().encode(shell({
+      title, description: desc, canonical, jsonLd: [itemList],
+      bodyHtml: `<header><h1>Magyar podcastek</h1>${intro}</header>
+<main><h2>Aktív magyar podcastek (${rows.length})</h2><ul>${listHtml}</ul></main>`,
+    })), { headers: new Headers(baseHeaders) });
+  }
+
+  if (kind === "szemelyek") {
+    const { data } = await (supabase as any)
+      .from("people")
+      .select("name, slug, short_bio, short_description_hu, image_url, gated_episode_count")
+      .eq("is_indexable", true)
+      .gt("gated_episode_count", 0)
+      .order("gated_episode_count", { ascending: false })
+      .limit(120);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const title = "Személyek és podcast vendégek — Podiverzum";
+    const desc = "Magyar közélet, üzlet, kultúra szereplői és podcast vendégek. Kiket említenek a leggyakrabban a magyar podcastek?";
+    const intro = `<p>A Podiverzum több mint ${rows.length}+ személyt indexel a magyar podcastekből — vendégek, említett közéleti szereplők, vállalkozók, művészek, szakértők. Mindenkinél megtalálod, mely epizódokban szerepel vagy említik.</p>`;
+    const listHtml = rows.map((p) => {
+      const u = `${SITE}/szemelyek/${p.slug}`;
+      const bio = truncate(stripHtml(p.short_description_hu || p.short_bio), 160);
+      return `<li><a href="${esc(u)}"><strong>${esc(p.name)}</strong></a>${p.gated_episode_count ? ` <em>· ${p.gated_episode_count} epizód</em>` : ""}${bio ? `<p>${esc(bio)}</p>` : ""}</li>`;
+    }).join("");
+    const itemList = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: title,
+      itemListElement: rows.map((p, i) => ({
+        "@type": "ListItem", position: i + 1,
+        url: `${SITE}/szemelyek/${p.slug}`, name: p.name,
+      })),
+    };
+    return new Response(new TextEncoder().encode(shell({
+      title, description: desc, canonical, jsonLd: [itemList],
+      bodyHtml: `<header><h1>Személyek a magyar podcastekben</h1>${intro}</header>
+<main><h2>Top ${rows.length} említett személy</h2><ul>${listHtml}</ul></main>`,
+    })), { headers: new Headers(baseHeaders) });
+  }
+
+  if (kind === "szervezetek" || kind === "cegek") {
+    const { data } = await (supabase as any)
+      .from("organizations")
+      .select("name, slug, org_type, logo_url, wikipedia_extract, gated_episode_count")
+      .eq("is_indexable", true)
+      .neq("org_type", "party")
+      .gt("gated_episode_count", 0)
+      .order("gated_episode_count", { ascending: false })
+      .limit(150);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const title = "Szervezetek és cégek — Podiverzum";
+    const desc = "Cégek, intézmények, médiumok, sportcsapatok, egyetemek, NGO-k — mind, amelyeket a magyar podcastek említenek.";
+    const intro = `<p>A Podiverzum ${rows.length}+ szervezetet indexel a magyar podcast-világból. Cégek, médiumok, intézmények, sportcsapatok, egyetemek, civil szervezetek — minden szervezethez megtalálod, mely epizódokban beszéltek róla.</p>`;
+    const listHtml = rows.map((o) => {
+      const u = `${SITE}/szervezetek/${o.slug}`;
+      const bio = truncate(stripHtml(o.wikipedia_extract), 160);
+      return `<li><a href="${esc(u)}"><strong>${esc(o.name)}</strong></a>${o.org_type ? ` <em>· ${esc(o.org_type)}</em>` : ""}${o.gated_episode_count ? ` <em>· ${o.gated_episode_count} epizód</em>` : ""}${bio ? `<p>${esc(bio)}</p>` : ""}</li>`;
+    }).join("");
+    const itemList = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: title,
+      itemListElement: rows.map((o, i) => ({
+        "@type": "ListItem", position: i + 1,
+        url: `${SITE}/szervezetek/${o.slug}`, name: o.name,
+      })),
+    };
+    return new Response(new TextEncoder().encode(shell({
+      title, description: desc, canonical, jsonLd: [itemList],
+      bodyHtml: `<header><h1>Szervezetek a magyar podcastekben</h1>${intro}</header>
+<main><h2>Top ${rows.length} említett szervezet</h2><ul>${listHtml}</ul></main>`,
+    })), { headers: new Headers(baseHeaders) });
+  }
+
+  if (kind === "partok") {
+    const { data } = await (supabase as any)
+      .from("organizations")
+      .select("name, slug, logo_url, political_color, wikipedia_extract, gated_episode_count")
+      .eq("is_indexable", true)
+      .eq("org_type", "party")
+      .order("gated_episode_count", { ascending: false })
+      .limit(50);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const title = "Magyar pártok podcastekben — Podiverzum";
+    const desc = "Magyar politikai pártok említései és szereplései a magyar podcastekben — Fidesz, Tisza, DK, Momentum, és társaik.";
+    const intro = `<p>A magyar közélet pártjai a podcastek tükrében. ${rows.length} pártot indexel a Podiverzum — minden egyes pártnál megtalálod, mely epizódokban, milyen kontextusban beszéltek róla.</p>`;
+    const listHtml = rows.map((o) => {
+      const u = `${SITE}/szervezetek/${o.slug}`;
+      const bio = truncate(stripHtml(o.wikipedia_extract), 200);
+      return `<li><a href="${esc(u)}"><strong>${esc(o.name)}</strong></a>${o.gated_episode_count ? ` <em>· ${o.gated_episode_count} epizód</em>` : ""}${bio ? `<p>${esc(bio)}</p>` : ""}</li>`;
+    }).join("");
+    const itemList = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: title,
+      itemListElement: rows.map((o, i) => ({
+        "@type": "ListItem", position: i + 1,
+        url: `${SITE}/szervezetek/${o.slug}`, name: o.name,
+      })),
+    };
+    return new Response(new TextEncoder().encode(shell({
+      title, description: desc, canonical, jsonLd: [itemList],
+      bodyHtml: `<header><h1>Magyar pártok a podcastekben</h1>${intro}</header>
+<main><h2>Pártok (${rows.length})</h2><ul>${listHtml}</ul></main>`,
+    })), { headers: new Headers(baseHeaders) });
+  }
+
+  if (kind === "temak") {
+    const { data } = await (supabase as any)
+      .from("topics")
+      .select("name, slug, short_name, description, intro_text, episode_count")
+      .eq("is_public", true)
+      .gt("episode_count", 0)
+      .order("episode_count", { ascending: false })
+      .limit(80);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const title = "Témák — Podiverzum";
+    const desc = "Magyar podcast témák és kategóriák — politika, gazdaság, AI, sport, kultúra, egészség és minden más, amiről a magyar podcastek beszélnek.";
+    const intro = `<p>A Podiverzum ${rows.length} témát indexel a magyar podcast-világból. Mindegyik témánál megtalálod a legrelevánsabb epizódokat, vendégeket és műsorokat.</p>`;
+    const listHtml = rows.map((t) => {
+      const u = `${SITE}/temak/${t.slug}`;
+      const intro2 = truncate(stripHtml(t.intro_text || t.description), 180);
+      return `<li><a href="${esc(u)}"><strong>${esc(t.name)}</strong></a>${t.episode_count ? ` <em>· ${t.episode_count} epizód</em>` : ""}${intro2 ? `<p>${esc(intro2)}</p>` : ""}</li>`;
+    }).join("");
+    const itemList = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: title,
+      itemListElement: rows.map((t, i) => ({
+        "@type": "ListItem", position: i + 1,
+        url: `${SITE}/temak/${t.slug}`, name: t.name,
+      })),
+    };
+    return new Response(new TextEncoder().encode(shell({
+      title, description: desc, canonical, jsonLd: [itemList],
+      bodyHtml: `<header><h1>Témák a magyar podcastekben</h1>${intro}</header>
+<main><h2>Top ${rows.length} téma</h2><ul>${listHtml}</ul></main>`,
+    })), { headers: new Headers(baseHeaders) });
+  }
+
+  return null;
+}
+
 // ---------- share builder ----------
 
 async function buildShare(
@@ -763,6 +942,23 @@ Deno.serve(async (req) => {
     if (path === "/") return await buildHome(supabase);
 
     const parts = path.split("/").filter(Boolean);
+
+    // Single-segment SEO hubs.
+    if (parts.length === 1) {
+      const hubs: Record<string, HubKind> = {
+        podcastok: "podcastok",
+        szemelyek: "szemelyek",
+        szervezetek: "szervezetek",
+        cegek: "cegek",
+        partok: "partok",
+        temak: "temak",
+      };
+      const hubKind = hubs[parts[0]];
+      if (hubKind) {
+        const r = await buildHub(supabase, hubKind);
+        return r ?? notFound(path);
+      }
+    }
 
     if (parts[0] === "podcast" && parts.length === 2) {
       const r = await buildPodcast(supabase, parts[1]);

@@ -1,101 +1,95 @@
-## Cél
+## Diagnózis (mért adatok, nem becslés)
 
-A swipe flow eredménye átáll a generikus „aura kártyáról” egy nyugta-stílusú (thermal receipt) megosztható „Hallgatói profilra”. Ez lesz az új viral motor: könnyű képernyőképet csinálni róla, felismerhető Podiverzum-tárgy, mobil-first 9:16 (+1:1 OG).
+- **Sitemap submitted: 10 284 URL → Google indexed: 0.** Nem ranking, hanem indexelési probléma.
+- **GSC top page-ek 90 napon:** az "élet jeleit mutató" oldalak `/company/*` és 1 podcast detail (sinoa). Episode-ok és hub-ok teljesen láthatatlanok.
+- **Konkrét lyukak prerenderben** (Googlebot UA-val curl-ölve):
+  - `/podcastok`, `/szemelyek`, `/szervezetek`, `/partok`, `/temak` → 2.7 KB shell, title "Find it. Hear it.", JSON-LD nincs. **Soft 404 a Google-nek.**
+  - `/cegek` → ugyanaz a 2.7 KB shell.
+  - Episode page (pl. AI hírek): 5.5 KB, van title+meta+JSON-LD, **de nincs body content**. Borderline thin-content.
+  - `/company/telex` és társai: 1.5 KB, csak fejléc, **nulla epizód-lista a HTML-ben** → ezért rangsorol pos 5-7 de **0 click**.
+  - `/podcast/sinoa-podcast` (15 KB) és `/person/feledy-botond` (20 KB) → ezek jól prerendereltek, ezért látszanak GSC-ben.
+- `www.podiverzum.hu` még külön property → duplikált indexelés.
 
-## Scope — mit építünk
+## A magyar piac kicsi — pontosan ezért nyerhető, de csak ha az alábbi 4 hullám élesen lefut
 
-### 1. Archetype set (`src/lib/listenerProfiles.ts`)
-8 indító profil, mindegyik:
-- `id`, `name` (pl. „A Fókuszált Elemző"), `traits: [3]`, `recommendedDirection`, `rareBadge?`
-- Lista: Fókuszált Elemző, Mélyinterjú-vadász, Stratégiai Figyelő, Közéleti Radar, Üzleti Navigátor, Tech Kíváncsi, Kultúrflâneur, Történetkereső.
-- Nincs vallás/egészség/párt/szexualitás dimenzió.
-- Mapping a meglévő `tasteVector` topic-súlyaiból → profil-id (heurisztika: legmagasabb 3 topik → legközelebbi profil).
+---
 
-### 2. Receipt komponens (`src/components/receipt/ListenerReceipt.tsx`)
-- DOM-alapú render (nem canvas — élesben snapshotolható, a11y barát, jól szerkeszthető).
-- Mobil-first, fix 360px szélesség sablon, monospace (`JetBrains Mono`), fekete-fehér, papír textúra (subtle SVG noise), perforált fel/le él, szaggatott divider, pontozott leader sorok pipával, barcode SVG (random 40 vonalból a `share_id`-ből deterministically).
-- Struktúra:
-  - Fejléc: `PODIVERZUM RECEIPT` · dátum
-  - `RECEIPT NO: PZ-YYYY-MMDD-XXXX`
-  - `HALLGATÓI PROFIL:` + nagy név
-  - 3 trait sor pontozott leaderrel + ✓
-  - `AJÁNLOTT IRÁNY:` 1 sor
-  - opcionális `RITKA PROFIL` / `TOP 12% FIGYELŐ` (csak ha statisztikailag védhető — most kihagyjuk, flag mögött)
-  - `TOTAL: 1 ÚJ HALLGATÓ`
-  - barcode + `podiverzum.hu/start`
-  - `NEKED MI JÖN KI?` · „Find it. Hear it."
+### 1. hullám — Prerender + indexelhetőség (ezen a héten, ez a 80% impact)
 
-### 3. Kép-export (`src/lib/receiptImage.ts`)
-- `html-to-image` (vagy `dom-to-image-more`) lib hozzáadása.
-- Két export méret: **9:16 (1080×1920)** story default + **1:1 (1080×1080)** OG/feed.
-- Háttér: meleg fehér (#f7f4ee), enyhe folds/noise SVG, nyugta középre, alja levegős.
-- `shareOrDownload(blob)`: Web Share API `files` → fallback download → fallback link copy.
+**A.** Hub/index oldalak prerendere. Cél: 5 darab landing page legyen Googlebot számára SSR/prerendered, mindegyik ~10 KB hasznos HTML-lel, 30-60 podcast/szervezet/személy listával, H1+H2 struktúrával, BreadcrumbList JSON-LD-vel.
+  - `/podcastok` → "Magyar podcastok listája" (top 60 podcast S/A tier)
+  - `/szemelyek` → "Magyar közélet és podcast vendégek" (top 60 person)
+  - `/szervezetek` → "Szervezetek és intézmények podcastokban"
+  - `/partok` → "Magyar pártok podcastokban" (12 párt + epizódszám)
+  - `/temak` → "Témák" (21-slug taxonomy + epizódszám)
+  - `/cegek` → ugyanaz mint `/szervezetek` (vagy 301-re átirányítva)
 
-### 4. Result screen UX (`StartSwipePage` eredmény fázis)
-- Nagy receipt felül.
-- Primary: „Megosztom a profilom" (9:16 PNG → native share).
-- Secondary: „Kép mentése" (1:1 letöltés), „Link másolása", „Újrapróbálom".
-- Share után microcopy: „Most jön a jó rész: nézd meg, a barátaidnak milyen hallgatói profil jön ki."
+**B.** Cég/person prerender content bump. Jelenleg 1.5 KB. Cél: minimum 5 epizód-lista a HTML body-ban (title, ai_summary első 200 char, dátum, link), plus a Wikipedia bio ha van.
 
-### 5. Public share oldal
-- Új route: `/hallgatoi-profil/:shareId` → `ListenerProfilePage`.
-- A régi `/te-podiverzumod/eredmeny/:slug` 301-szerű kliens redirect az újra (backward compat).
-- Above the fold: a barátja receiptje, alatta **erős CTA blokk**: „Neked mi jön ki? Készítsd el a saját hallgatói profilod." → `/start?ref={shareId}`.
-- `noindex,nofollow` minden egyedi share oldalon.
+**C.** Episode page content bump. 5.5 KB → 8-12 KB: ai_summary teljes hossza, top 3-5 említett személy, szervezet, téma chip-jei mind szerver-rendelt linkként + "Hasonló epizódok" 5 item lista. Minden link `<a href>` formában — JS-utáni hidratált link nem számít.
 
-### 6. Share backend
-Újrahasznosítjuk a meglévő `te_podiverzumod_shares` táblát + edge functiont (`te-podiverzumod-share`):
-- `result_type='listener_profile_receipt'`
-- `result_title` = archetype name, `result_subtitle` = recommended direction, `tags` = traits.
-- Új oszlop **nem kell**, a meglévő séma fedi. Egy migráció: index a `created_at`-re ha hiányzik (ellenőrzöm).
-- Új edge function nem szükséges — body shape kompatibilis.
+**D.** Sitemap finomítás:
+  - Hub-okat tegyük előre a `pages.xml`-be `priority=0.9 changefreq=daily` flag-gel.
+  - Episode sitemap `<lastmod>` legyen az `episodes.updated_at`.
+  - `www.podiverzum.hu` GSC property mellé tegyünk explicit 301-et (worker meglévő szabálya alapján már megvan, csak megerősíteni).
 
-### 7. OG image
-- A meglévő `og-image` edge function kap egy `kind=receipt` ágat: 1200×630 receipt-szerű render (SVG → PNG), `[Archetype] lettem a Podiverzumon` címmel.
-- Per-share dinamikus URL a `ListenerProfilePage` Helmetjében.
+**E.** Belső linkelés futószalag: header és footer kapja meg a "Podcastok / Személyek / Szervezetek / Pártok / Témák" linkeket (most a felhasználó látja, de Googlebot ne csak SPA-route-ként). Ha jelenleg `<Link to>` használjuk, prerendered HTML-ben legyen `<a href>`.
 
-### 8. Analytics
-- Új helper `src/lib/profileEvents.ts` → írás `analytics_events` táblába (meglévő `page_view`/event sablon mintán).
-- Eventek: `swipe_started`, `swipe_completed`, `profile_generated`, `profile_share_clicked`, `profile_image_downloaded`, `profile_link_copied`, `shared_profile_viewed`, `shared_profile_cta_clicked`, `second_generation_from_shared_profile`, `episode_click_after_profile`.
-- Mezők: `share_id`, `source_profile_id` (URL `?ref=`), `archetype_id`, `utm_*`, `referrer`, anonim `session_id` (sessionStorage uuid, nem cookie).
-- Nincs Meta Pixel, nincs cookie.
+---
 
-### 9. Cleanup
-- A régi `tasteShareCard.ts` (aura canvas) megmarad fallbackként, de a result screen alapból a receipt-et hívja.
-- Marketing copy a `/start` landing oldalon: H1 → „Milyen podcast-hallgató vagy?", CTA „Indítom".
+### 2. hullám — Content depth a meglévő oldalakon (jövő hét)
 
-## Technikai részletek
+**A.** Episode page valódi content blokkok (prerendered):
+  - Teljes `clean_text`-ből generált 600-800 szavas "Mi hangzik el az epizódban?" prózás összefoglaló (van AI pipeline-unk, csak nem render-eljük az SSR HTML-be).
+  - "Említett személyek" + bio-snippet (rangsorolt link)
+  - "Említett szervezetek" + 1 mondat
+  - "Témák" chip + 1-2 leíró mondat
+  - `PodcastEpisode` JSON-LD bővítése `transcript` + `actor` mezővel
 
-- Új dep: `html-to-image` (~30 KB gzip, nincs canvas drawingfont gond).
-- Fontok: `JetBrains Mono` (már a projektben? ha nem, Google Fonts `<link>` az `index.html`-be).
-- Barcode: determinisztikus, `hash(share_id) → 40 oszlop {1,2,3} szélességgel`. Pure SVG.
-- Mobile-first: receipt natív DOM scale-up nélkül, export pillanatban 3× pixel-ratio.
-- Privacy: nincs cookie, sessionStorage csak `anon_session_id` UUID.
-- SEO: shared oldal `<meta name="robots" content="noindex,nofollow">`.
+**B.** Person page bio teljes Wikipedia-szöveg first paragraph + saját AI-bio (mindkettő prerendered), Person JSON-LD `description` + `sameAs` (wikipedia/wikidata).
 
-## Fájl-térkép
+**C.** Hub-oldalak SEO copy: minden hub kapjon 200-300 szó intro szöveget (H2 + 2 bekezdés), pl. `/szervezetek` → "A magyar podcast-világban X szervezetet észlel a Podiverzum…". Ezek hozzák a kategória-mid-tail forgalmat.
 
-```
-src/lib/listenerProfiles.ts          [új]   archetype lista + mapping
-src/lib/receiptImage.ts              [új]   html-to-image export + share/download
-src/lib/profileEvents.ts             [új]   first-party analytics
-src/components/receipt/
-  ListenerReceipt.tsx                [új]   DOM receipt komponens
-  Barcode.tsx                        [új]   SVG barcode
-src/pages/StartSwipePage.tsx         [edit] eredmény fázis új UX
-src/pages/StartLandingPage.tsx       [edit] H1 + CTA copy
-src/pages/ListenerProfilePage.tsx    [új]   /hallgatoi-profil/:shareId
-src/App.tsx                          [edit] új route + 301 a régi /te-podiverzumod/eredmeny/:slug-ra
-src/pages/TePodiverzumodSharePage.tsx [edit] redirect az új route-ra
-supabase/functions/og-image/index.ts [edit] kind=receipt ág
-package.json                         [edit] +html-to-image
-```
+---
 
-## Out of scope (most)
-- „RITKA PROFIL" tényleges százalék-számolás (csak ha lesz elég adat).
-- Piros pecsét variant.
-- Több mint 8 archetype.
-- A/B test 9:16 vs 1:1 között.
-- Régi `tasteShareCard.ts` törlése (drain-after refactor).
+### 3. hullám — Long-tail content moat (2-3 hét)
 
-Megerősíted, hogy mehet így? Ha igen, kezdem az implementációt.
+**A.** Long-tail aggregációs oldalak generálása a meglévő adatból. Magyar nyelvű kereséseknek célozva:
+  - `/szemely/{slug}/epizodok` (chronological) — már van, ellenőrizni canonical-t
+  - `/szemely/{slug}/temak/{topic}` — Pl. "Mit mondott Orbán Viktor a NATO-ról?" 
+  - `/podcast/{slug}/epizodok/{ev}` — éves archívum, RSS-szerű
+  - `/temak/{topic}/{ev}` — "Mesterséges intelligencia podcastok 2026"
+
+**B.** Daily brief content publikus oldala. Van daily-brief cron, az output rendelhető `/napi-osszefoglalo/{datum}` slug-on. Friss, dátumos content = Google szereti.
+
+**C.** Új "Top" oldalak (programmatic, frissül naponta):
+  - `/top/podcastok-ezen-a-heten`
+  - `/top/szemelyek-ezen-a-heten`
+  - `/uj-podcastok`
+
+---
+
+### 4. hullám — Off-page + technical hygiene (folyamatos)
+
+**A.** Backlinks: regisztrálás magyar podcast/médiakatalógusokba (refresher.hu, Index Mediatár, RTL podcast oldal stb.) — Semrush backlink_analysis-szel monitorozva.
+
+**B.** Core Web Vitals audit mobile-on (Plausible szerint 86% mobile). LCP/CLS/INP mérés a fő templátokra.
+
+**C.** Open Graph image per-page generálás (cég/person/podcast). Most globális og-image.jpg → minden share ugyanaz.
+
+**D.** Hreflang nincs szükség (HU-only), `<html lang="hu">` már OK.
+
+---
+
+## Mérés
+
+- GSC Indexed/Submitted arány — cél: 14 napon belül 0 → minimum 2 000 indexed.
+- Impressions: 90 nap alatt jelenleg ~150 → 30 napon belül 5 000+.
+- Clicks: jelenleg 17 → 30 napon belül 300+.
+- Top 10-be jutó query-k: jelenleg ~5 (mindegyik 1 imp) → 30 napon belül 50+.
+
+## Most azonnal mit csináljak
+
+1. hullám A+B kódra menjen most. Konkrétan: 6 hub-route prerender pipeline-ba kötése (megnézem hogyan készül a meglévő `/topic/*` prerender, ami működik), plus a company/person prerender template-be epizód-lista beszúrása. Ez 1-2 ülés munka és ez hozza a 80% indexelést.
+
+Ha rábólintasz, megyek és csinálom az 1. hullám A-t és B-t (hub-prerender + company content bump).
