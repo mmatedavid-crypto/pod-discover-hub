@@ -582,10 +582,10 @@ export default function PodcastReport2026() {
               A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi közel 90 új epizód, évi több mint 25 ezer adás, közel másfél ezer aktív műsor. A nyilvánosság jelentős része — különösen a 25–45 éves korosztály — már nem a televízióból, hanem a fülhallgatóból tájékozódik.
             </p>
             <p>
-              Eközben a podcastok tartalma <strong>strukturálatlan, kereshetetlen, és láthatatlan a hagyományos médiában</strong>: nem kerülnek be a hírügynökségi archívumokba, nem indexeli őket a Google érdemben, és a közéleti viták egy nagy része kontroll nélkül zajlik a hallgatók fülében.
+              Eközben a podcastok tartalma jórészt <strong>strukturálatlan, nehezen kereshető, és a hagyományos médiában láthatatlan marad</strong>: nem kerül be a hírügynökségi archívumokba, a Google érdemben nem indexeli, és a közéleti viták jelentős része kontroll nélkül zajlik a hallgatók fülében.
             </p>
             <p>
-              A Podiverzum ezt az átláthatatlanságot bontja le: <strong>minden epizód szövegét AI elemzi</strong>, kinyeri a szereplőket, témákat, állításokat, és kereshetővé teszi.
+              A Podiverzum ezt az átláthatatlanságot bontja le: <strong>minden epizód szövegét AI elemzi</strong>, kinyeri a szereplőket, témákat és állításokat, majd kereshetővé teszi őket.
             </p>
           </div>
         </section>
