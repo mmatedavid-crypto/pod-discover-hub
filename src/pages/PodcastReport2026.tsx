@@ -490,7 +490,7 @@ export default function PodcastReport2026() {
             );
           })()}
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A magyar podcastpiac két legnagyobb növekedési motorja 2025-ben az <strong className="text-foreground">egészség / életmód (+113%)</strong> és a <strong className="text-foreground">gasztronómia (+79%)</strong> volt — utánuk a gyerek & család (+55%), zene (+39%) és önfejlesztés (+30%) tartja a lendületet. Eközben a <strong className="text-foreground">humor (−44%)</strong>, az <strong className="text-foreground">oktatás (−31%)</strong> és a <strong className="text-foreground">film/popkultúra (−28%)</strong> visszaesett: a hallgatói figyelem a wellness, a praktikus tudás és a családi tartalom felé fordult.
+            A magyar podcastpiac kínálati oldalán 2025-ben az <strong className="text-foreground">egészség / életmód (+113%)</strong> és a <strong className="text-foreground">gasztronómia (+79%)</strong> nőtt a legnagyobbat — utánuk a gyerek &amp; család (+55%), zene (+39%) és önfejlesztés (+30%) tartja a lendületet. Eközben a <strong className="text-foreground">humor (−44%)</strong>, az <strong className="text-foreground">oktatás (−31%)</strong> és a <strong className="text-foreground">film / popkultúra (−28%)</strong> kevesebb új epizódot adott ki, mint 2024-ben. <span className="not-italic">Ez epizódszám-változás, nem hallgatottsági változás.</span>
           </p>
           </DownloadableFigure>
         </section>
