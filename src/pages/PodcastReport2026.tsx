@@ -347,7 +347,7 @@ export default function PodcastReport2026() {
             2026-ban a Biblia (130) és a választás (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
-            A választási év nyoma is ott van a listán: a négyévente tartott országgyűlési választás — idén április 12-én — a <strong className="text-foreground not-italic">választás</strong> témáját idén egyenesen a top 10 második helyére tolta (123 epizód). Egy „normál" évben ez a téma meg sem közelíti a podcastnyilvánosság vezető beszélgetéseit.
+            A választási év nyoma is ott van a listán: a négyévente tartott országgyűlési választás — idén április 12-én — a <strong className="text-foreground not-italic">választás</strong> témáját egyenesen a top 10 második helyére tolta (123 epizód), közvetlenül a Biblia mögé.
           </p>
           </DownloadableFigure>
         </section>
