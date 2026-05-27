@@ -451,9 +451,9 @@ export default function PodcastReport2026() {
         {/* Self-help / mental wellness — monthly seasonality */}
         <section className="mb-12">
           <DownloadableFigure filename="onsegito-temak-szezonalitas">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Alvás és meditáció: januárban két téma ugrik ki élesen</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Alvás és meditáció: év eleji felfutás látszik</h2>
           <p className="mb-6 text-muted-foreground">
-            Öt önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás szöveges illesztés, 2025. jún. – 2026. máj.). Az öt vizsgált téma közül januárban csak kettő — az alvás és a meditáció — emelkedik kiugró csúcsra.
+            Öt önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás + összefoglaló szöveges illesztés, 2025. jún. – 2026. máj.). Az öt vizsgált téma közül decemberről januárra az alvás és a meditáció mozdul el a legerősebben.
           </p>
 
           {(() => {
@@ -461,13 +461,13 @@ export default function PodcastReport2026() {
               { slug: "alvas",        name: "Alvás",        color: "hsl(220 70% 50%)",
                 data: [6, 3, 7, 13, 12, 7, 19, 44, 46, 37, 37, 40] },
               { slug: "meditacio",    name: "Meditáció",    color: "hsl(160 65% 40%)",
-                data: [12, 9, 16, 13, 22, 21, 13, 47, 44, 37, 39, 38] },
+                data: [10, 10, 14, 12, 22, 19, 10, 45, 41, 36, 39, 38] },
               { slug: "szorongas",    name: "Szorongás",    color: "hsl(35 90% 50%)",
-                data: [14, 16, 17, 16, 18, 23, 24, 23, 34, 24, 26, 22] },
+                data: [20, 23, 23, 26, 30, 32, 36, 30, 38, 44, 38, 34] },
               { slug: "onismeret",    name: "Önismeret",    color: "hsl(330 70% 50%)",
-                data: [44, 47, 47, 38, 67, 59, 54, 51, 50, 51, 44, 34] },
+                data: [43, 44, 43, 38, 56, 55, 48, 44, 44, 50, 36, 32] },
               { slug: "parkapcsolat", name: "Párkapcsolat", color: "hsl(265 60% 55%)",
-                data: [18, 15, 12, 13, 16, 21, 20, 23, 32, 30, 22, 16] },
+                data: [21, 16, 15, 14, 16, 21, 20, 22, 32, 30, 22, 16] },
 
             ];
             const months = ["2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"];
@@ -491,7 +491,7 @@ export default function PodcastReport2026() {
                   ))}
                   {/* Highlight January band */}
                   <rect x={xAt(7) - 14} y={PT} width={28} height={innerH} fill="hsl(var(--primary) / 0.06)" />
-                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">januári kiugrás</text>
+                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">januári ugrás</text>
                   {series.map((s) => {
                     const d = s.data.map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i)},${yAt(v)}`).join(" ");
                     return <path key={s.slug} d={d} fill="none" stroke={s.color} strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" />;
@@ -517,7 +517,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  A vizsgált öt téma közül januárban csak kettő mutat éles kiugrást: az <strong className="text-foreground">alvás</strong> említései 19-ről 44-re (+131%), a <strong className="text-foreground">meditáció</strong> 13-ról 47-re (+262%) ugranak. Az <strong className="text-foreground">önismeret</strong> egész évben magas szinten ingadozik, érdemi januári csúcs nélkül; a <strong className="text-foreground">párkapcsolat</strong> és a <strong className="text-foreground">szorongás</strong> nem januárban, hanem februárban éri el a maximumát. A magyar podcastkínálatban tehát nem egy általános „újévi self-help hullám" látszik, hanem két konkrét téma — az alvás és a meditáció — szezonális felfutása.
+                  A vizsgált öt téma közül decemberről januárra két vonal mozdul el igazán: az <strong className="text-foreground">alvás</strong> 19-ről 44 epizódra (+132%), a <strong className="text-foreground">meditáció</strong> 10-ről 45 epizódra (+350%) ugrik. Ez nem általános „újévi önfejlesztési hullám": az <strong className="text-foreground">önismeret</strong> januárban inkább visszaesik, a <strong className="text-foreground">szorongás</strong> és a <strong className="text-foreground">párkapcsolat</strong> csúcsa pedig nem januárra esik.
                 </p>
               </div>
             );
