@@ -278,13 +278,13 @@ export default function PodcastReport2026() {
           <div className="space-y-2">
             {Object.entries(STATS.episodesYear).map(([year, eps]) => {
               const isBreak = year === "2020" || year === "2021";
-              const is2026 = year.startsWith("2026");
+              if (year.startsWith("2026")) return null;
               return (
                 <div key={year} className="flex items-center gap-3">
                   <div className="w-32 shrink-0 text-sm text-muted-foreground">{year}</div>
                   <div className="flex-1 relative h-7 rounded bg-muted overflow-hidden">
                     <div
-                      className={`h-full transition-all ${isBreak ? "bg-accent" : is2026 ? "bg-primary/50" : "bg-primary/80"}`}
+                      className={`h-full transition-all ${isBreak ? "bg-accent" : "bg-primary/80"}`}
                       style={{ width: `${(eps / Math.max(maxYear, projected2026)) * 100}%` }}
                     />
                     <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
@@ -294,20 +294,36 @@ export default function PodcastReport2026() {
                 </div>
               );
             })}
-            {/* Projected 2026 — distinct outlined style */}
-            <div className="flex items-center gap-3">
-              <div className="w-32 shrink-0 text-sm text-muted-foreground italic">2026 (várható)</div>
-              <div className="flex-1 relative h-7 rounded bg-muted overflow-hidden">
-                <div
-                  className="h-full border-2 border-dashed border-accent bg-accent/15 transition-all"
-                  style={{ width: `${(projected2026 / Math.max(maxYear, projected2026)) * 100}%` }}
-                />
-                <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
-                  ~{projected2026.toLocaleString("hu-HU")} <span className="ml-1 font-normal text-muted-foreground">előrejelzés</span>
+            {/* 2026 — actual so far overlaid inside projected envelope */}
+            {(() => {
+              const actual2026 = STATS.episodesYear["2026 (eddig, 5 hó)"];
+              const denom = Math.max(maxYear, projected2026);
+              const projectedPct = (projected2026 / denom) * 100;
+              const actualPct = (actual2026 / denom) * 100;
+              return (
+                <div className="flex items-center gap-3">
+                  <div className="w-32 shrink-0 text-sm text-muted-foreground">2026</div>
+                  <div className="flex-1 relative h-7 rounded bg-muted overflow-hidden">
+                    {/* Projected envelope (dashed) */}
+                    <div
+                      className="absolute inset-y-0 left-0 border-2 border-dashed border-accent bg-accent/15"
+                      style={{ width: `${projectedPct}%` }}
+                    />
+                    {/* Actual so far (solid, inside envelope) */}
+                    <div
+                      className="absolute inset-y-0 left-0 bg-primary/80"
+                      style={{ width: `${actualPct}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-between px-2 text-xs font-semibold text-foreground">
+                      <span>{actual2026.toLocaleString("hu-HU")} <span className="font-normal text-muted-foreground">eddig (5 hó)</span></span>
+                      <span className="italic text-muted-foreground">~{projected2026.toLocaleString("hu-HU")} várható</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
+
 
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <Callout title="2020–2021: áttörési pont">Járvány + Spotify HU launch — három év alatt megnégyszereződik a termelés.</Callout>
