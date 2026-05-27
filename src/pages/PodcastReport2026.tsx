@@ -214,22 +214,27 @@ export default function PodcastReport2026() {
             Magyar podcast piac 2026
           </h1>
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            Az első részletes adatelemzés a magyar nyelvű podcast iparágról:
-            {" "}<strong className="text-foreground">{STATS.podcastCount.toLocaleString("hu-HU")} aktív műsor</strong>,
-            {" "}<strong className="text-foreground">{STATS.episodeCount.toLocaleString("hu-HU")} epizód</strong>,
-            tíz év alatt <strong className="text-foreground">{growth10y}-szeres növekedés</strong>.
+            Az első részletes adatelemzés a magyar podcastpiacról:{" "}
+            <strong className="text-foreground">{STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsor</strong>,{" "}
+            <strong className="text-foreground">{STATS.episodeCount.toLocaleString("hu-HU")} epizód</strong>, tíz év alatt{" "}
+            <strong className="text-foreground">{growth10y}-szeres növekedés</strong>, napi közel 90 új epizód.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
-            Adatforrás: Podiverzum.hu belső katalógus · Módszertan a cikk alján
+            Adatforrás: Podiverzum.hu belső katalógus · Kínálati oldali adatok (nem hallgatottság) · Módszertan a cikk alján
           </div>
 
           {/* Hero metric cards */}
           <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <HeroMetric value={STATS.podcastCount.toLocaleString("hu-HU")} label="aktív műsor" />
+            <HeroMetric value={STATS.podcastCount.toLocaleString("hu-HU")} label="indexelt műsor" />
             <HeroMetric value={STATS.episodeCount.toLocaleString("hu-HU")} label="epizód" />
             <HeroMetric value={`${growth10y}×`} label="növekedés 2015 óta" />
             <HeroMetric value="~90" label="napi új epizód" />
           </div>
+
+          {/* Press thesis */}
+          <p className="mt-8 font-serif text-lg md:text-xl italic text-foreground leading-relaxed border-l-2 border-primary pl-4">
+            A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, de eddig alig mérhető nyilvánossági tér.
+          </p>
         </header>
 
         {/* NEW: Mit mutatnak az adatok? */}
@@ -239,27 +244,27 @@ export default function PodcastReport2026() {
             <InsightCard
               n={1}
               title="A magyar podcast már médiapiaci tényező"
-              body={`Naponta közel 90 új magyar epizód, összesen ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
+              body={`Napi közel 90 új magyar epizód, több mint ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
             />
             <InsightCard
               n={2}
-              title="Nő a piac, kevés a heti műsor"
-              body={`${STATS.podcastCount.toLocaleString("hu-HU")} aktív podcastből ${STATS.tiers.weekly} jelenik meg heti vagy gyakoribb rendszerességgel.`}
+              title="Gyorsan nő, de nem egyenletesen professzionalizált"
+              body={`${STATS.podcastCount.toLocaleString("hu-HU")} indexelt műsorból mindössze ${STATS.tiers.weekly} jelenik meg heti vagy gyakoribb ritmusban — a piac széles, a szerkesztett mag szűkebb.`}
             />
             <InsightCard
               n={3}
-              title="Közélet és kultúra uralja a mezőnyt"
-              body="A vezető témák között a Biblia, a választás, a zene, a mesterséges intelligencia és a háború szerepel."
+              title="Közélet, kultúra és hit dominál"
+              body="A vezető témák között Biblia, választás, zene, mesterséges intelligencia és háború szerepel."
             />
             <InsightCard
               n={4}
-              title="A podcast a hagyományos média vakfoltja"
-              body="Sok fontos beszélgetés eddig nehezen volt kereshető és elemezhető a magyar nyilvánosságban."
+              title="A podcast a hagyományos médiamérés vakfoltja"
+              body="Fontos beszélgetések hangzanak el hosszú formátumban, de ezek eddig nehezen voltak kereshetők és elemezhetők."
             />
             <InsightCard
               n={5}
-              title="A Podiverzum kereshetővé teszi a vakfoltot"
-              body="Epizódok, témák, közszereplők és szervezetek összekapcsolva — strukturált térkép a magyar podcastnyilvánosságról."
+              title="A Podiverzum ezt teszi kereshetővé"
+              body="Epizódok, témák, közszereplők és szervezetek kapcsolódnak össze egy strukturált magyar podcast-adatbázisban."
               wide
             />
           </div>
