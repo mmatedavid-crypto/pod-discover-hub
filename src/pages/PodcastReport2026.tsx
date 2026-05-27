@@ -395,33 +395,97 @@ export default function PodcastReport2026() {
         </section>
 
 
-        {/* Publishing week */}
+        {/* Publishing heatmap */}
         <section className="mb-12">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor jelennek meg az új epizódok?</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-6 text-muted-foreground">
-            A magyar podcast szerkesztőségek jellemzően <strong className="text-foreground">csütörtökön és hétfőn publikálnak</strong>. Hétvégén a frissítés visszaesik a felére.
+            A nap és óra szerinti megjelenés a magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát mutatja. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
           </p>
-          <div className="space-y-2 mb-4">
-            {STATS.weekday.map((d) => {
-              const highlight = d.name === "Csütörtök" || d.name === "Hétfő";
-              return (
-                <div key={d.name} className="flex items-center gap-3">
-                  <div className="w-24 shrink-0 text-sm text-foreground">{d.name}</div>
-                  <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
-                    <div
-                      className={`h-full ${highlight ? "bg-primary/80" : "bg-primary/40"}`}
-                      style={{ width: `${(d.eps / maxWeek) * 100}%` }}
-                    />
-                    <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
-                      {d.eps.toLocaleString("hu-HU")} ep (2025)
-                    </div>
+          <Heatmap data={STATS.heatmap} max={maxHeat} />
+          <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            A hét két publikálási csúcsa csütörtök kora délután és csütörtök reggel — ez gyakorlatilag a magyar podcast „prime time".
+          </p>
+        </section>
+
+        {/* Top voices */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top 10 magyar hang</h2>
+          <p className="mb-6 text-muted-foreground">
+            A magyar podcastekben leggyakrabban szereplő emberek — hostok és visszatérő vendégek együtt — az indexelt epizódok alapján. A „hangok" a hostokat és a többször visszatérő vendégeket egyaránt számolják.
+          </p>
+          <div className="space-y-2">
+            {STATS.topVoices.map((v, i) => (
+              <Link key={v.slug} to={`/szemelyek/${v.slug}`} className="flex items-center gap-3 group">
+                <div className="w-6 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
+                <div className="w-40 md:w-56 shrink-0 text-sm font-medium text-foreground group-hover:text-primary truncate flex items-center gap-1.5">
+                  {v.name}
+                  {v.wiki && <span title="Wikipedia-igazolt" className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-mono">W</span>}
+                </div>
+                <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
+                  <div className="h-full bg-primary/70" style={{ width: `${(v.eps / maxVoice) * 100}%` }} />
+                  <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
+                    {v.eps.toLocaleString("hu-HU")} ep · {v.pods} podcast
                   </div>
                 </div>
-              );
-            })}
+              </Link>
+            ))}
           </div>
-          <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A magyar podcastoknak már felismerhető heti szerkesztési ritmusa van.
+          <p className="mt-3 text-xs text-muted-foreground">
+            Forrás: az epizódok átirataiból AI által kinyert résztvevők, dedupolva és emberi-felülvizsgálati ciklus után. „Ep" = olyan indexelt magyar epizód, amelyben a személy résztvevőként vagy említettként szerepel.
+            {" "}<Link to="/szemelyek" className="underline">Teljes lista →</Link>
+          </p>
+        </section>
+
+        {/* Top organizations + parties */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a magyar podcastekben</h2>
+          <p className="mb-6 text-muted-foreground">
+            A leggyakrabban emlegetett média-, vállalati és politikai szereplők. A pártokat külön bontjuk, mert kampányidőszakban (2026-os választás) különösen relevánsak.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Szervezetek</div>
+              <div className="space-y-2">
+                {STATS.topOrgs.map((o, i) => (
+                  <Link key={o.slug} to={`/ceg/${o.slug}`} className="flex items-center gap-2 group">
+                    <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground group-hover:text-primary truncate">{o.name}</div>
+                      <div className="text-[10px] text-muted-foreground">{o.type}</div>
+                    </div>
+                    <div className="relative w-28 h-5 rounded bg-muted overflow-hidden">
+                      <div className="h-full bg-accent/70" style={{ width: `${(o.eps / maxOrg) * 100}%` }} />
+                      <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
+                        {o.eps.toLocaleString("hu-HU")}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Pártok</div>
+              <div className="space-y-2">
+                {STATS.topParties.map((p, i) => (
+                  <Link key={p.slug} to={`/part/${p.slug}`} className="flex items-center gap-2 group">
+                    <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
+                    <div className="flex-1 min-w-0 text-sm font-medium text-foreground group-hover:text-primary truncate">{p.name}</div>
+                    <div className="relative w-28 h-5 rounded bg-muted overflow-hidden">
+                      <div className="h-full bg-primary/70" style={{ width: `${(p.eps / maxParty) * 100}%` }} />
+                      <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
+                        {p.eps.toLocaleString("hu-HU")}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                <Link to="/partok" className="underline">Összes párt →</Link>
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            „Ep" = olyan magyar epizód, amelyben a szervezetet az AI extraktor azonosította a leiratban. A számok kínálati, nem hallgatottsági adatok.
           </p>
         </section>
 
@@ -437,7 +501,32 @@ export default function PodcastReport2026() {
             <MapNode value={STATS.organizationsIndexed.toLocaleString("hu-HU")} label="szervezet" link="/szervezetek" />
             <MapNode value={`${top10Topics.length}+`} label="top témák" link="/temak" />
           </div>
+          {/* Alive vs dead feed mini-donut */}
+          <div className="mt-6 rounded-lg border border-border bg-card p-5 flex flex-col md:flex-row items-center gap-5">
+            <div className="relative w-28 h-28 shrink-0">
+              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="hsl(var(--muted))" strokeWidth="3.5" />
+                <circle
+                  cx="18" cy="18" r="15.9155" fill="none"
+                  stroke="hsl(var(--primary))" strokeWidth="3.5"
+                  strokeDasharray={`${alivePct} ${deadPct}`}
+                  strokeDashoffset="0"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <div className="text-lg font-bold text-foreground tabular-nums">{alivePct}%</div>
+                <div className="text-[9px] uppercase text-muted-foreground">aktív</div>
+              </div>
+            </div>
+            <div className="text-sm text-foreground">
+              <div className="font-semibold mb-1">A magyar podcastpiac stabil — csak {deadPct}% „elhalt feed"</div>
+              <div className="text-muted-foreground">
+                A {STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsorból {STATS.tiers.dead} feed nem publikált 12+ hónapja. A többi {(STATS.podcastCount - STATS.tiers.dead).toLocaleString("hu-HU")} műsor aktívnak tekinthető — ez a nemzetközi átlagnál jelentősen jobb arány (a globális podcast-katalógusok 40–60%-a inaktív).
+              </div>
+            </div>
+          </div>
         </section>
+
 
         {/* Pullquote */}
         <section className="mb-12">
