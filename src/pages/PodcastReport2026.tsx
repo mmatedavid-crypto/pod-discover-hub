@@ -280,6 +280,7 @@ export default function PodcastReport2026() {
 
         {/* Market pyramid */}
         <section className="mb-12">
+          <DownloadableFigure filename="publikalasi-ritmus-piramis">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Kevés heti műsor, ritkábban publikáló többség</h2>
           <p className="mb-6 text-muted-foreground">
             A {STATS.podcastCount.toLocaleString("hu-HU")} aktív magyar podcastből mindössze{" "}
@@ -291,6 +292,7 @@ export default function PodcastReport2026() {
           <PyramidRow label="Havi körüli műsorok" count={STATS.tiers.monthly} total={STATS.podcastCount} note="Havi 1 körüli ritmus" />
           <PyramidRow label="Ritkán frissülők" count={STATS.tiers.rare} total={STATS.podcastCount} note="Negyedéves vagy ritkább" />
           <PyramidRow label="Elnémult műsorok" count={STATS.tiers.dead} total={STATS.podcastCount} note="12+ hónapja nem publikáltak" muted />
+          </DownloadableFigure>
         </section>
 
         {/* Topics — what we talk about */}
