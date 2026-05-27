@@ -1030,9 +1030,6 @@ export default function PodcastReport2026() {
 
 
 
-          <p className="mt-6 text-sm text-muted-foreground border-l-2 border-primary pl-3">
-            Sajtós használati ötletek: „melyik politikus neve hangzik el legtöbbet egy adott hónapban", „milyen szövegkörnyezetben kerül szóba egy márka", „mely podcastekben beszélnek X témáról". Egyedi adatkérésért: <a href="mailto:hello@podiverzum.hu" className="text-primary underline">hello@podiverzum.hu</a>.
-          </p>
           </DownloadableFigure>
         </section>
 
