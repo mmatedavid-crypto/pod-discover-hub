@@ -438,7 +438,7 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-6 text-muted-foreground">
-            A nap és óra szerinti megjelenés a magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát mutatja. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
+            A nap és óra szerinti megjelenések a magyar szerkesztőségek <strong className="text-foreground">9:00 és 16–17 óra körüli</strong> ritmusát rajzolják ki. A legnagyobb csúcs: <strong className="text-foreground">csütörtök délután</strong>.
           </p>
           <Heatmap data={STATS.heatmap} max={maxHeat} />
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
