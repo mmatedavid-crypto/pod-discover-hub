@@ -693,6 +693,68 @@ async function buildLegacyEntity(
 
 type HubKind = "podcastok" | "szemelyek" | "szervezetek" | "cegek" | "partok" | "temak";
 
+// ---------- hub SEO helpers (Wave 2) ----------
+
+function hubCrossLinks(current: HubKind): string {
+  const all: Array<{ kind: HubKind; href: string; label: string; blurb: string }> = [
+    { kind: "podcastok", href: "/podcastok", label: "Magyar podcastek", blurb: "Aktív műsorok, friss epizódok kategóriákba szervezve." },
+    { kind: "szemelyek", href: "/szemelyek", label: "Személyek", blurb: "Vendégek és említett közéleti szereplők profiljai." },
+    { kind: "szervezetek", href: "/szervezetek", label: "Szervezetek", blurb: "Cégek, médiumok, intézmények említései." },
+    { kind: "partok", href: "/partok", label: "Pártok", blurb: "Magyar politikai pártok a podcastekben." },
+    { kind: "temak", href: "/temak", label: "Témák", blurb: "Politika, gazdaság, AI, kultúra és további témakörök." },
+  ];
+  const others = all.filter((x) => x.kind !== current && !(current === "cegek" && x.kind === "szervezetek"));
+  const items = others.map((o) => `<li><a href="${esc(o.href)}"><strong>${esc(o.label)}</strong></a> — ${esc(o.blurb)}</li>`).join("");
+  return `<aside aria-label="További felfedezés"><h2>Tovább a Podiverzumban</h2><ul>${items}</ul></aside>`;
+}
+
+function hubFaq(kind: HubKind): Record<string, unknown> {
+  const faqMap: Record<string, Array<{ q: string; a: string }>> = {
+    podcastok: [
+      { q: "Mi az a Podiverzum?", a: "A Podiverzum a teljes magyar podcast-világot indexelő kereső és felfedező felület. Minden epizódhoz AI-összefoglalót, említett személyeket, szervezeteket és témákat társítunk, hogy gyorsan megtaláld, amit keresel." },
+      { q: "Hány magyar podcast van a Podiverzumban?", a: "Több mint 1 400 aktív magyar podcastet és 130 000+ epizódot indexelünk. Az aktív műsorokat rang szerint rendezzük, így a legjobbak előre kerülnek." },
+      { q: "Ingyenes a Podiverzum?", a: "Igen, a Podiverzum teljesen ingyenes és regisztráció nélkül használható. Csak nyisd meg, keress vagy böngéssz." },
+    ],
+    szemelyek: [
+      { q: "Kik szerepelnek a Személyek listán?", a: "Magyar közéleti szereplők, vendégek, vállalkozók, művészek, sportolók, szakértők — mindenki, akit a magyar podcastek vendégül látnak vagy említenek. Minden személynél megtalálod, mely epizódokban szerepel." },
+      { q: "Honnan tudjátok, kit említenek?", a: "AI-modellek elemzik az epizódok címét, leírását és transkriptjét, majd kanonikus személyprofilokhoz kötik az említéseket. A nagyobb közéleti szereplőknél Wikipedia-megerősítéssel is dolgozunk." },
+    ],
+    szervezetek: [
+      { q: "Milyen szervezetek vannak indexelve?", a: "Cégek, médiumok, intézmények, sportcsapatok, egyetemek, civil szervezetek és NGO-k — minden olyan szervezet, amelyet legalább három magyar podcast epizód említ." },
+      { q: "Mit látok egy szervezet oldalán?", a: "A szervezet rövid bemutatóját (gyakran Wikipedia-forrásból), a kapcsolódó epizódokat és a műsorokat, amelyek a leggyakrabban beszélnek róla." },
+    ],
+    cegek: [
+      { q: "Milyen szervezetek vannak indexelve?", a: "Cégek, médiumok, intézmények, sportcsapatok, egyetemek, civil szervezetek és NGO-k — minden olyan szervezet, amelyet legalább három magyar podcast epizód említ." },
+    ],
+    partok: [
+      { q: "Mely pártok szerepelnek?", a: "Minden parlamenti és parlamenten kívüli releváns magyar párt — Fidesz, Tisza, KDNP, DK, MSZP, Momentum, Jobbik, Mi Hazánk, LMP, Párbeszéd, Kutyapárt, Munkáspárt és továbbiak." },
+      { q: "Milyen kontextusban mutatjátok a pártokat?", a: "Pártonként megtalálod a friss említéseket a magyar podcast-világból, az epizódok kontextusát és azokat a műsorokat, amelyek a legtöbbet foglalkoznak az adott párttal." },
+    ],
+    temak: [
+      { q: "Hogyan készülnek a témák?", a: "AI-elemzés bontja az epizódokat témákra: politika, gazdaság, AI, sport, kultúra, egészség és sok más. Minden téma külön oldalán a legrelevánsabb epizódok, vendégek és műsorok jelennek meg." },
+      { q: "Találok-e új témákat?", a: "Igen — a rendszer folyamatosan tanul az új epizódokból, és új témajelölteket emelünk be, amint elég epizód kapcsolódik hozzájuk." },
+    ],
+  };
+  const faqs = faqMap[kind] ?? [];
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f) => ({
+      "@type": "Question", name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+}
+
+function hubFaqHtml(kind: HubKind): string {
+  const faqMap: Record<string, Array<{ q: string; a: string }>> = (hubFaq as any)._cache ?? {};
+  // Re-derive from hubFaq for HTML rendering
+  const json = hubFaq(kind) as { mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }> };
+  const items = (json.mainEntity ?? []).map((f) => `<details><summary><strong>${esc(f.name)}</strong></summary><p>${esc(f.acceptedAnswer.text)}</p></details>`).join("");
+  if (!items) return "";
+  return `<section aria-label="Gyakori kérdések"><h2>Gyakori kérdések</h2>${items}</section>`;
+}
+
 async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind) {
   const canonical = `${SITE}/${kind === "cegek" ? "szervezetek" : kind}`;
 
