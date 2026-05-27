@@ -662,7 +662,7 @@ export default function PodcastReport2026() {
             A függőleges tengely {monthBaseline}-tól indul, hogy a havi különbségek láthatók legyenek.
           </p>
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            2026 első három hónapjában havi 29 új magyar podcast indult — ez minden korábbi év átlagát felülmúlja.
+            2026 első három hónapjában havi 29 új magyar podcast indult — ez minden korábbi év átlagát felülmúlja. <span className="not-italic">Új indulás = az első ismert epizód megjelenése az indexelt katalógusban.</span>
           </p>
           </DownloadableFigure>
         </section>
