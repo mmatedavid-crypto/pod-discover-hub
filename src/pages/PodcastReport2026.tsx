@@ -809,8 +809,8 @@ export default function PodcastReport2026() {
           <h2 className="mb-3 font-serif text-xl font-bold text-foreground">Módszertan</h2>
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
-              <strong className="text-foreground">Adatforrás:</strong> A Podiverzum.hu folyamatosan figyeli a Podcast Index és az Apple Podcasts katalógusokat,
-              valamint a YouTube magyar podcast csatornáit. „Magyar podcast" = a feed metaadataiban magyar nyelv jelölve (`language=hu*`), vagy nyelvazonosítás alapján dominánsan magyar tartalom.
+              <strong className="text-foreground">Adatforrás:</strong> A Podiverzum.hu folyamatosan figyeli a nyilvánosan elérhető magyar podcast-csatornákat és azok publikus metaadatait.
+              „Magyar podcast" = a feed metaadataiban magyar nyelv jelölve (`language=hu*`), vagy nyelvazonosítás alapján dominánsan magyar tartalom.
             </p>
             <p>
               <strong className="text-foreground">Aktív műsor:</strong> {STATS.podcastCount} aktív magyar podcast = legalább 1 publikált epizóddal rendelkező, nyilvánosan elérhető RSS feed, {TODAY_LABEL}-i állapot szerint.
