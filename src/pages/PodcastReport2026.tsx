@@ -670,17 +670,17 @@ export default function PodcastReport2026() {
         {/* Podcast activity / death rate */}
         <section className="mb-12">
           <DownloadableFigure filename="podcast-aktivitas">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány magyar podcast él még valójában?</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány magyar podcast frissül még valójában?</h2>
           <p className="mb-6 text-muted-foreground">
-            Az indexelt <strong className="text-foreground">1 352 magyar podcastből</strong> csak egy szűk réteg publikál ténylegesen rendszeresen — a többség lassan kihal, vagy már évek óta nem jelentkezett új epizóddal. Az alábbi bontás az utolsó megjelent epizód dátuma szerint.
+            Az indexelt magyar podcastek bontása az utolsó megjelent epizód dátuma szerint. A számok mutatják, hogy a katalógus egyszerre <strong className="text-foreground">bővül és lemorzsolódik</strong>: sok új műsor indul, de a rendszeres publikálási ritmust csak egy szűkebb réteg tartja fenn.
           </p>
           {(() => {
             const buckets = [
-              { label: "Aktív (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
+              { label: "Frissen aktív (≤30 nap)", n: 575, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
               { label: "Lassuló (30–90 nap)", n: 214, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
               { label: "Szunnyadó (3–6 hó)", n: 218, color: "bg-muted-foreground/50", note: "lassan kihagy" },
-              { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél-egy éve nem jelent meg új ep." },
-              { label: "Halott (>1 év)", n: 345, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
+              { label: "Inaktív (6–12 hó)", n: 95, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
+              { label: "Elcsendesedett (12+ hó)", n: 345, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
             ];
             const total = buckets.reduce((s, b) => s + b.n, 0);
             return (
@@ -703,8 +703,11 @@ export default function PodcastReport2026() {
                     </div>
                   ))}
                 </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Összesen <strong className="text-foreground">{total.toLocaleString("hu-HU")}</strong> indexelt magyar műsor, amelyhez ismert utolsó epizód-dátum tartozik (a {STATS.podcastCount.toLocaleString("hu-HU")} feedes katalógusból). A „frissen aktív" sáv az elmúlt 30 napban publikált műsorokat jelöli.
+                </p>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Konklúzió: a magyar podcastek <strong className="text-foreground">~43%-a aktív</strong>, viszont <strong className="text-foreground">minden negyedik valószínűleg végleg leállt</strong> (több mint egy éve nincs új epizód). A „születési ráta" magas (havi ~29 új indulás 2026-ban), de a túlélés alacsony — a műfaj él, de folyamatos lemorzsolódáson dolgozik át magát.
+                  A magyar podcastpiac egyszerre bővül és lemorzsolódik: sok új műsor indul, de a rendszeres publikálási ritmust csak egy szűkebb réteg tartja fenn.
                 </p>
               </>
             );
