@@ -522,7 +522,7 @@ export default function PodcastReport2026() {
             </div>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            „Ep” = olyan magyar epizód, amelyben a szervezetet az AI extraktor azonosította a leiratban. A számok kínálati, nem hallgatottsági adatok.
+            „Ep” = olyan magyar epizód, amelyben a szervezet az indexelt leiratok alapján szóba került. A számok kínálati, nem hallgatottsági adatok.
           </p>
           </DownloadableFigure>
         </section>
