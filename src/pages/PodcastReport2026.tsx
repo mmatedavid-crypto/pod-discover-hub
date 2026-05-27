@@ -1093,6 +1093,28 @@ export default function PodcastReport2026() {
             Keresés indítása →
           </Link>
         </section>
+
+        {/* Legal disclaimer */}
+        <section className="mt-10 pt-6 border-t border-border">
+          <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">Felelősségkizárás</h2>
+          <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
+            <p>
+              Ez a jelentés <strong className="text-foreground">tájékoztató és sajtó-háttéranyag jelleggel</strong> készült a Podiverzum.hu nyilvánosan elérhető magyar podcast-katalógusa alapján. A közölt számok, arányok és trendek a {TODAY_LABEL}-i adatbázis-állapot pillanatképei; az alapadatok (RSS feedek, epizód-leírások, átiratok) folyamatosan változnak, így későbbi lekérdezés eltérő eredményt adhat.
+            </p>
+            <p>
+              <strong className="text-foreground">Mérési oldal:</strong> a jelentés <em>kínálati</em> oldalt mér (mennyi epizód jelenik meg, miről beszélnek), nem <em>keresleti</em> oldalt — letöltés-, hallgatottság- vagy bevétel-adatokat nem tartalmaz. Az „említés" mint metrika azt jelenti, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában; ez nem jelent tartalmi értékelést, állásfoglalást vagy minősítést az érintett személyekkel, szervezetekkel vagy témákkal kapcsolatban.
+            </p>
+            <p>
+              <strong className="text-foreground">Automatizált feldolgozás:</strong> az entitás-kinyerés (személyek, szervezetek, témák), a nyelvazonosítás és a kategorizálás részben nyelvi modellekkel és heurisztikákkal történik, ezért elszórt téves találatok, névegyezések vagy kontextus-tévesztések előfordulhatnak. A Podiverzum a publikált adatok pontosságáért felelősséget nem vállal, és az adatokra alapozott üzleti, befektetési, jogi vagy szerkesztőségi döntésekért semmilyen formában nem felelős.
+            </p>
+            <p>
+              <strong className="text-foreground">Szerzői jog és felhasználás:</strong> a jelentésben szereplő grafikák szabadon felhasználhatók a forrás (Podiverzum.hu) feltüntetésével. A nyers adatbázis, az átiratok és a származtatott adatok a Podiverzum tulajdonát képezik; bulk-letöltésük, scrapelésük vagy újrahasznosításuk előzetes írásos engedély nélkül nem megengedett. Harmadik felek nevei és védjegyei tulajdonosaik tulajdonát képezik, említésük kizárólag azonosítás célját szolgálja.
+            </p>
+            <p>
+              Eltérés vagy korrekciós igény esetén az érintett az adatkezelő rendes csatornáin jelezheti észrevételét; a Podiverzum a megalapozott korrekciókat észszerű időn belül átvezeti.
+            </p>
+          </div>
+        </section>
       </article>
     </Layout>
   );
