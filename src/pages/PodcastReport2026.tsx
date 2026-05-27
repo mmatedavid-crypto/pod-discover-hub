@@ -325,25 +325,75 @@ export default function PodcastReport2026() {
         <section className="mb-12">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mit hallgatunk? — kategóriák</h2>
           <p className="mb-6 text-muted-foreground">
-            A magyar podcast piac négy meghatározó pilléren áll: társadalom-kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>.
+            A magyar podcast piac négy meghatározó pilléren áll: társadalom-kultúra, vallás, közélet és üzlet. Ez a négy adja a kínálat <strong className="text-foreground">{top4CategoryShare}%-át</strong>. Alább az epizódszám-megoszlás (terület = elérhető epizódok aránya).
           </p>
-          <div className="space-y-2">
-            {STATS.topCategories.map((cat) => (
-              <div key={cat.name} className="flex items-center gap-3">
-                <div className="w-40 md:w-48 shrink-0 text-sm text-foreground">{cat.name}</div>
-                <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-accent/70"
-                    style={{ width: `${(cat.count / maxCat) * 100}%` }}
-                  />
-                  <div className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-foreground">
-                    {cat.count} műsor
+          <div className="grid grid-cols-6 gap-1.5 h-[420px] auto-rows-fr">
+            {STATS.topCategories.map((cat, i) => {
+              const share = cat.eps / totalCatEps;
+              // Treemap-ish layout: bigger categories span more cells.
+              const span = i === 0 ? "col-span-6 md:col-span-4 row-span-3" :
+                           i === 1 ? "col-span-3 md:col-span-2 row-span-2" :
+                           i === 2 ? "col-span-3 md:col-span-2 row-span-2" :
+                           i === 3 ? "col-span-3 md:col-span-2 row-span-2" :
+                           i < 7 ? "col-span-2 row-span-1" :
+                           "col-span-3 md:col-span-2 row-span-1";
+              const intensity = 0.25 + (cat.eps / maxCatEps) * 0.6;
+              return (
+                <div
+                  key={cat.name}
+                  className={`${span} rounded p-3 flex flex-col justify-between bg-primary text-primary-foreground overflow-hidden`}
+                  style={{ opacity: intensity }}
+                  title={`${cat.eps.toLocaleString("hu-HU")} epizód, ${cat.pods} műsor`}
+                >
+                  <div className="text-xs md:text-sm font-semibold leading-tight">{cat.name}</div>
+                  <div>
+                    <div className="text-lg md:text-2xl font-bold tabular-nums">{(share * 100).toFixed(0)}%</div>
+                    <div className="text-[10px] md:text-xs opacity-80">{cat.eps.toLocaleString("hu-HU")} ep · {cat.pods} műsor</div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Epizódszám szerinti súlyozás (csak top 12 kategória, az indexelt magyar podcastek 2026. május 27-i állapota alapján).
+          </p>
         </section>
+
+        {/* New podcasts per month — last 24 months */}
+        <section className="mb-12">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Hány új magyar podcast indul havonta?</h2>
+          <p className="mb-6 text-muted-foreground">
+            Az elmúlt 24 hónapban <strong className="text-foreground">{newPodsTotal24mo}</strong> új magyar podcast indult — átlagosan{" "}
+            <strong className="text-foreground">~{Math.round(newPodsTotal24mo / 24)} műsor havonta</strong>, a 2025. október óta tartó hullámmal együtt.
+          </p>
+          <div className="flex items-end gap-[3px] h-32 mb-2">
+            {STATS.newPodsByMonth.map((p) => {
+              const h = (p.c / maxMonth) * 100;
+              const isPeak = p.c >= 25;
+              return (
+                <div
+                  key={p.m}
+                  className="flex-1 relative group"
+                  title={`${p.m}: ${p.c} új podcast`}
+                >
+                  <div
+                    className={`w-full rounded-sm ${isPeak ? "bg-primary" : "bg-primary/50"} transition-all hover:bg-primary`}
+                    style={{ height: `${h}%`, minHeight: 2 }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+            <span>{STATS.newPodsByMonth[0].m}</span>
+            <span>{STATS.newPodsByMonth[Math.floor(STATS.newPodsByMonth.length / 2)].m}</span>
+            <span>{STATS.newPodsByMonth[STATS.newPodsByMonth.length - 1].m}</span>
+          </div>
+          <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            2026 első három hónapjában havi 29 új magyar podcast indult — minden korábbi év átlagát felülmúlja.
+          </p>
+        </section>
+
 
         {/* Publishing week */}
         <section className="mb-12">
