@@ -710,18 +710,18 @@ export default function PodcastReport2026() {
             {/* Films / series */}
             <div className="rounded-lg border border-border bg-card p-5">
               <h3 className="font-serif text-lg font-bold text-foreground mb-1">Melyik filmek és sorozatok jönnek elő legtöbbet?</h3>
-              <p className="text-xs text-muted-foreground mb-4">Epizódszám említés alapján, válogatott magyar és nemzetközi címek, ugyanaz az időszak.</p>
+              <p className="text-xs text-muted-foreground mb-4">Epizódszám említés alapján, válogatott magyar és nemzetközi címek, ugyanaz az időszak. A több jelentésű címeket (pl. „Semmelweis" = film + egyetem + történelmi alak, „A Tanár" = sorozat + általános szó) kihagytuk.</p>
               <div className="space-y-1.5">
                 {[
-                  { name: "Semmelweis (2023)", eps: 28 },
                   { name: "Harry Potter", eps: 25 },
                   { name: "Star Wars", eps: 23 },
                   { name: "Stranger Things", eps: 15 },
-                  { name: "A Tanár", eps: 14 },
                   { name: "A Gyűrűk Ura", eps: 14 },
-                  { name: "Mátrix", eps: 10 },
                   { name: "Dűne", eps: 10 },
+                  { name: "Testről és lélekről", eps: 10 },
+                  { name: "Mátrix", eps: 10 },
                   { name: "Joker", eps: 6 },
+                  { name: "Saul fia", eps: 6 },
                   { name: "Trónok harca", eps: 5 },
                 ].map((f, i, arr) => (
                   <div key={f.name} className="flex items-center gap-2">
@@ -734,7 +734,7 @@ export default function PodcastReport2026() {
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-xs italic text-muted-foreground">A magyar Semmelweis-életrajzi film vezet, mögötte a globális franchise-ok (Harry Potter, Star Wars, Stranger Things). Hasonló módon le tudunk kérni bármely márkát, terméket, közéleti szereplőt vagy szlogent.</p>
+              <p className="mt-3 text-xs italic text-muted-foreground">A nemzetközi franchise-ok (Harry Potter, Star Wars, Stranger Things, A Gyűrűk Ura, Dűne) viszik a listát, de a magyar Oscar-jelölt/díjnyertes filmek — Enyedi Ildikó Testről és lélekről, Nemes Jeles László Saul fia — is rendszeresen visszatérnek a beszélgetésekbe.</p>
             </div>
           </div>
 
