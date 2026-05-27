@@ -393,6 +393,10 @@ export default function PodcastReport2026() {
           <p className="mt-4 text-xs text-muted-foreground">
             Epizódszám szerinti súlyozás, csak a top 12 kategória alapján, az indexelt magyar podcastek {TODAY_LABEL}-i állapota szerint.
           </p>
+          <p className="mt-3 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
+            Erős koncentráció: a <strong className="text-foreground">top 4 kategória</strong> (Társadalom &amp; kultúra, Hit &amp; spiritualitás, Hírek &amp; politika, Üzlet &amp; pénzügy) adja a magyar podcast-katalógus felét. A „long tail" létezik, de a beszélgetés súlypontja egyértelműen ezekben a sávokban van.
+          </p>
+
           </DownloadableFigure>
         </section>
 
