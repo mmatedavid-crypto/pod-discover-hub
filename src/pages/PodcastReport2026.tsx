@@ -549,61 +549,45 @@ export default function PodcastReport2026() {
 
 
 
-        {/* Top organizations + parties */}
+        {/* Top organizations szakasz IDEIGLENESEN ELREJTVE — az entitás-kinyerő jelenleg
+            a raw description-ből dolgozik, nem a clean_text-ből, ezért tele van a top
+            önreklám-zajjal (Facebook/YouTube/Instagram/TikTok/Apple Podcasts/Patreon
+            "kövess minket / iratkozz fel" boilerplate). A pipeline újraépítése után
+            (clean_text-ből + bővített boilerplate-szűrés) visszahozzuk.
+            Pártokat viszont megtartjuk: azok a kanonikus 12-elemű párt-whitelistből
+            jönnek, nincsenek a kinyerő torzítás-forrásnak kitéve. */}
         <section className="mb-12">
-          <DownloadableFigure filename="top-szervezetek-partok">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top szervezetek és pártok a podcastekben</h2>
+          <DownloadableFigure filename="top-partok">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top pártok a podcastekben</h2>
           <p className="mb-6 text-muted-foreground">
-            A leggyakrabban emlegetett vállalati és intézményi szereplők a magyar podcast-térben. Kihagytuk a médiumokat és rádiókat (ott jelent meg maga a podcast — ATV, Tilos, Kossuth, Klubrádió, HVG), a sportligákat és -klubokat (egy-két sportpodcast minden epizódban végigveszi ugyanazt a 8-10 csapatot, ezért aránytalanul felülreprezentálná őket — NBA, Premier League stb. külön sport-bontásban néznénk meg), valamint azokat a szervezeteket, amelyek főleg saját podcasttal vagy szponzori felirattal jelennek meg (Donably, Barion, Patreon, ATV Alapítvány). A pártokat külön bontjuk, mert a 2026-os kampányidőszakban kiemelten relevánsak.
+            A 2026-os kampányidőszakban a pártok említései adják a legtisztább képet a közéleti podcast-térről. A számok azokat a magyar epizódokat jelölik, amelyekben az adott pártot a kanonikus szervezet-adatbázisunk azonosította (2025. jún. – 2026. máj.).
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Szervezetek</div>
-              <div className="space-y-2">
-                {STATS.topOrgs.map((o, i) => (
-                  <Link key={o.slug} to={`/ceg/${o.slug}`} className="flex items-center gap-2 group">
-                    <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground group-hover:text-primary truncate">{o.name}</div>
-                      <div className="text-[10px] text-muted-foreground">{o.type}</div>
+          <div className="max-w-xl">
+            <div className="space-y-2">
+              {STATS.topParties.map((p, i) => (
+                <Link key={p.slug} to={`/part/${p.slug}`} className="flex items-center gap-2 group">
+                  <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
+                  <div className="flex-1 min-w-0 text-sm font-medium text-foreground group-hover:text-primary truncate">{p.name}</div>
+                  <div className="relative w-28 h-5 rounded bg-muted overflow-hidden">
+                    <div className="h-full bg-primary/70" style={{ width: `${(p.eps / maxParty) * 100}%` }} />
+                    <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
+                      {p.eps.toLocaleString("hu-HU")}
                     </div>
-                    <div className="relative w-28 h-5 rounded bg-muted overflow-hidden">
-                      <div className="h-full bg-accent/70" style={{ width: `${(o.eps / maxOrg) * 100}%` }} />
-                      <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
-                        {o.eps.toLocaleString("hu-HU")}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                  </div>
+                </Link>
+              ))}
             </div>
-            <div>
-              <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Pártok</div>
-              <div className="space-y-2">
-                {STATS.topParties.map((p, i) => (
-                  <Link key={p.slug} to={`/part/${p.slug}`} className="flex items-center gap-2 group">
-                    <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
-                    <div className="flex-1 min-w-0 text-sm font-medium text-foreground group-hover:text-primary truncate">{p.name}</div>
-                    <div className="relative w-28 h-5 rounded bg-muted overflow-hidden">
-                      <div className="h-full bg-primary/70" style={{ width: `${(p.eps / maxParty) * 100}%` }} />
-                      <div className="absolute inset-0 flex items-center justify-end px-1.5 text-[10px] font-semibold text-foreground">
-                        {p.eps.toLocaleString("hu-HU")}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                <Link to="/partok" className="underline">Összes párt →</Link>
-              </p>
-            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              <Link to="/partok" className="underline">Összes párt →</Link>
+            </p>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            „Ep” = olyan magyar epizód, amelyben a szervezet az indexelt leiratok alapján szóba került. A számok kínálati, nem hallgatottsági adatok.
+            „Ep” = olyan magyar epizód, amelyben a párt szóba került az indexelt leiratok alapján. Kínálati, nem hallgatottsági adat.
           </p>
           </DownloadableFigure>
         </section>
+
 
         {/* Media map */}
         <section className="mb-12">
