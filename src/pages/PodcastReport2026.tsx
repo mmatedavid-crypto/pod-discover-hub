@@ -636,7 +636,7 @@ function InsightCard({ n, title, body, wide }: { n: number; title: string; body:
   );
 }
 
-function Callout({ title, children }: { title: string; children: React.ReactNode }) {
+function Callout({ title, children }: { title: string; children: import("react").ReactNode }) {
   return (
     <div className="rounded border-l-2 border-accent bg-muted/40 px-3 py-2">
       <div className="text-xs font-semibold text-foreground">{title}</div>
@@ -688,7 +688,7 @@ function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; v
             <div key={c} className="text-center text-muted-foreground font-mono pb-1">{c}</div>
           ))}
           {data.rows.map((r) => (
-            <React.Fragment key={r.day}>
+            <Fragment key={r.day}>
               <div className="flex items-center text-muted-foreground pr-1">{r.day}</div>
               {r.vals.map((v, i) => {
                 const alpha = 0.08 + (v / max) * 0.92;
@@ -704,7 +704,7 @@ function Heatmap({ data, max }: { data: { cols: string[]; rows: { day: string; v
                   </div>
                 );
               })}
-            </React.Fragment>
+            </Fragment>
           ))}
         </div>
         <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
