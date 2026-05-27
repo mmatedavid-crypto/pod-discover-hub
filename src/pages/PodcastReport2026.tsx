@@ -744,7 +744,7 @@ export default function PodcastReport2026() {
           </DownloadableFigure>
         </section>
 
-
+        <section className="mb-12 rounded-lg border-2 border-primary/40 bg-card p-6">
           <div className="text-xs uppercase tracking-widest text-primary mb-2">Sajtó / kutatás</div>
           <h2 className="font-serif text-xl font-bold text-foreground mb-3">Adatkérések és sajtómegkeresések</h2>
           <p className="text-muted-foreground mb-4">
