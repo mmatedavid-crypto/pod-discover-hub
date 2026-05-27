@@ -145,7 +145,7 @@ export default function PodcastReport2026() {
             <li className="flex gap-3">
               <span className="font-bold text-primary">2.</span>
               <span>
-                A {STATS.podcastCount.toLocaleString("hu-HU")} aktív magyar podcast közül csupán <strong>{STATS.tiers.S} készül professzionális, heti rendszerességgel</strong> ({eliteSharePct}%) — ez az „S-tier", ők adják a hallgatottság túlnyomó részét.
+                A {STATS.podcastCount.toLocaleString("hu-HU")} aktív magyar podcast közül csupán <strong>{STATS.tiers.S} készül professzionális, heti rendszerességgel</strong> ({eliteSharePct}%) — ez az „S-tier" (a Podiverzum saját minőségi besorolása, lásd lent), ők adják a hallgatottság túlnyomó részét.
               </span>
             </li>
             <li className="flex gap-3">
