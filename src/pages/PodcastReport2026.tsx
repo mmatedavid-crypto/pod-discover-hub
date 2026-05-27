@@ -1033,19 +1033,6 @@ export default function PodcastReport2026() {
           </DownloadableFigure>
         </section>
 
-        <section className="mb-12 rounded-lg border-2 border-primary/40 bg-card p-6">
-          <div className="text-xs uppercase tracking-widest text-primary mb-2">Sajtó / kutatás</div>
-          <h2 className="font-serif text-xl font-bold text-foreground mb-3">Adatkérések és sajtómegkeresések</h2>
-          <p className="text-muted-foreground mb-4">
-            Adatkérések, interaktív elemzések és sajtómegkeresések: <a href="mailto:hello@podiverzum.hu" className="text-primary underline">hello@podiverzum.hu</a>
-          </p>
-          <a
-            href="mailto:hello@podiverzum.hu?subject=Sajt%C3%B3megkeres%C3%A9s%20%E2%80%94%20Podiverzum%20jelent%C3%A9s%202026"
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
-          >
-            Kapcsolatfelvétel →
-          </a>
-        </section>
 
         {/* Methodology */}
         <section className="mb-12 border-t border-border pt-8">
