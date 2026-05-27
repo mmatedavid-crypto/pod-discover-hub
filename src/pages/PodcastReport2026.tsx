@@ -1012,9 +1012,9 @@ export default function PodcastReport2026() {
                 </div>
               );
             })()}
-            <p className="mt-3 text-xs italic text-muted-foreground">A magyar közbeszéd intézményi térképét két erő rajzolja: a <strong className="text-foreground">gazdaság</strong> (MNB messze a legtöbbet emlegetett hazai intézmény) és a <strong className="text-foreground">honvédelem/biztonság</strong> (Honvédség, NATO, rendőrség, Szuverenitásvédelmi Hivatal). A Kúria és a NAV jelenléte mutatja, hogy a jogállam-vita és az adózás is folyamatosan napirenden van — viszont olyan klasszikus intézmények, mint az Alkotmánybíróság vagy az ÁSZ, alig kerülnek elő.</p>
+            <p className="mt-3 text-xs italic text-muted-foreground">A magyar közbeszéd intézményi térképét két erő rajzolja: a <strong className="text-foreground">gazdaság</strong> (MNB messze a legtöbbet emlegetett hazai intézmény) és a <strong className="text-foreground">honvédelem / biztonság</strong> (Honvédség, NATO, rendőrség, Szuverenitásvédelmi Hivatal). A Kúria és a NAV jelenléte mutatja, hogy a jogállam-vita és az adózás is folyamatosan napirenden van.</p>
             <p className="mt-2 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-              <strong className="text-foreground">Miért az MNB az első?</strong> Az MNB-t emlegető 104 magyar epizódból <strong className="text-foreground">42 (40%)</strong> együtt említi a <em>botrány / MNB-alapítvány / Matolcsy / korrupció</em> kifejezések valamelyikét — ebből 36 epizód kifejezetten az „alapítvány" szót is tartalmazza. Vagyis az MNB jelenléte nagyrészt az MNB-alapítványok körüli ügy diskurzusából táplálkozik, nem a klasszikus monetáris politikai tartalomból.
+              <strong className="text-foreground">Miért az MNB a hazai listán az első?</strong> Az MNB említéseinek jelentős része az MNB-alapítványok körüli közéleti diskurzushoz kapcsolódik: az intézményt tartalmazó magyar epizódok közel <strong className="text-foreground">40%-ában</strong> a „botrány", „alapítvány", „Matolcsy" vagy „korrupció" kifejezések közül legalább egy szintén megjelenik a leiratban. Ez kontextusszámítás az említések szövegkörnyezetéből — <span className="not-italic">nem tartalmi értékelés vagy jogi következtetés</span> az érintettekről.
             </p>
           </div>
 
