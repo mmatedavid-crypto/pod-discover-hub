@@ -139,8 +139,14 @@ export function SmartPlayerBar() {
               Smart Player
             </div>
             {href ? (
-              <Link to={href} onClick={() => setExpanded(false)} className="text-xs text-accent">{t("open")}</Link>
-            ) : <span className="w-12" />}
+              <Link
+                to={href}
+                onClick={() => setExpanded(false)}
+                className="text-xs text-accent hover:underline"
+                title="Ugrás az epizód oldalára"
+              >Epizód oldal ↗</Link>
+            ) : <span className="w-20" />}
+
           </div>
           <div className="flex-1 overflow-auto p-6 flex flex-col items-center gap-5">
             {ep.imageUrl && (
