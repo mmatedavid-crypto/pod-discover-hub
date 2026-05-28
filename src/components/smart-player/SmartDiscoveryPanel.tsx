@@ -153,7 +153,6 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
                 <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x scrollbar-thin">
                   {items.map((r) => {
                     const epHref = `/podcast/${r.podcast_slug}/${r.slug}`;
-                    const ts = formatTimestamp(r.seek_seconds);
                     return (
                       <div
                         key={`${rail.kind}-${r.episode_id}`}
@@ -184,32 +183,18 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
                           </div>
                         )}
 
-                        {rail.kind === "chunk_moment" && r.snippet && (
-                          <div className="text-[10.5px] text-muted-foreground/80 italic line-clamp-2">
-                            „{r.snippet}…"
-                          </div>
-                        )}
-
                         <div className="mt-auto flex items-center gap-2">
                           <button
-                            onClick={() => launch(r, rail.kind === "chunk_moment" && !!r.seek_seconds)}
+                            onClick={() => launch(r)}
                             className="text-[11px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
                             aria-label={`Lejátszás: ${r.title}`}
                           >
-                            {rail.kind === "chunk_moment" && ts ? `▶ ${ts}-től` : "▶ Lejátszás"}
+                            ▶ Lejátszás
                           </button>
-                          {rail.kind === "chunk_moment" && r.seek_seconds && (
-                            <button
-                              onClick={() => launch(r, false)}
-                              className="text-[10.5px] text-muted-foreground hover:text-foreground"
-                              title="Elejétől"
-                            >
-                              elejétől
-                            </button>
-                          )}
                         </div>
                       </div>
                     );
+
                   })}
                 </div>
               )}
