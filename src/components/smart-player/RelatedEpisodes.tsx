@@ -99,16 +99,17 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         podcast_slug: r.podcasts?.slug,
         podcast_title: r.podcasts?.title,
         podcast_display_title: r.podcasts?.display_title,
+        podcast_image_url: r.podcasts?.image_url,
+      })) as Row[];
+    },
+  });
+
   const items = useMemo(() => {
     if (!data) return [];
     // Smart Player = CROSS-podcast discovery only. Same-podcast episodes are
-    // already shown on the episode page itself, so they would feel redundant here.
+    // already shown on the episode page, so they'd feel redundant here.
     const cross = data.filter((r) => r.podcast_id !== podcastId && !!r.audio_url);
     return cross.slice(0, MAX);
-  }, [data, podcastId]);
-    const same = data.filter((r) => r.podcast_id === podcastId);
-    const merged = [...cross, ...same].filter((r) => !!r.audio_url);
-    return merged.slice(0, MAX);
   }, [data, podcastId]);
 
   if (!episodeId) return null;
