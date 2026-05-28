@@ -1,124 +1,47 @@
-# Netflix-szintű podcast-élmény — egyben, ma
+## Cél
 
-Mind a 4 lépés egy körben kerül be. A funkciók egymásra épülnek: az auth + watchlist alapozza meg a személyre szabott főoldalt; az AI fejezet markerek és a megoszthatóság a már meglévő `episode_chunks` és vektor-infrastruktúrán futnak.
+Új „Felkapott műsorok" sáv a főoldalon a „Felkapott epizódok" alatt. Forrás: Apple HU + Spotify HU chart + YouTube view-delta proxy. Kumulált rangsor reciprokrang-fúzióval (`score = Σ 1/rank_source`), majd top 8–12 műsor.
 
-## 1) Auth + Watchlist + Progress sync (fundamentum)
+## Valóságcheck (most ellenőriztem)
 
-**Cél:** belépő felhasználó bármelyik eszközön ott folytathatja, ahol abbahagyta; menteni tud egy "Később meghallgatom" listára.
+- **Apple HU top 100** → `rss.marketingtools.apple.com/api/v2/hu/podcasts/top/100/podcasts.json` — működik, JSON-ban kapunk `id` (iTunes collection ID), `name`, `artistName`, `artworkUrl100`, `url`.
+- **Spotify HU top 50** → `podcastcharts.byspotify.com/hu` — nincs API, HTML scrape Firecrawllal. Show ID + cím kinyerhető.
+- **YouTube** → nincs hivatalos podcast chart. Proxy: a 279 paired YT-csatornánk közül a `youtube/v3/channels?id=...&part=statistics` napi `subscriberCount` + `viewCount` delta → 7-napos `view_delta` rangsor. (Új tábla kell a snapshothoz.)
+- **Matching probléma:** DB-ben jelenleg `apple_url = NULL` és `spotify_url = NULL` minden HU podcastnál. Tehát első körben **csak fuzzy title match** lesz (`normalized_title` + trigram + opcionálisan artist név). A v2-ben backfilleljük a hiányzó apple/spotify URL-eket (iTunes lookup ingyenes az ID-ből, Spotify Web API kell tokenhez).
 
-- `/auth` oldal már él (email+jelszó + Google), nem nyúlunk hozzá.
-- Új táblák:
-  - `watchlist (user_id, episode_id, added_at)` — RLS: csak saját.
-  - `playback_progress (user_id, episode_id, position_seconds, duration_seconds, completed, updated_at)` — RLS: csak saját.
-- `SmartPlayerProvider` 10 másodpercenként **belépett usernek** is upsertel a `playback_progress`-be (a localStorage marad fallbacknek vendégeknek).
-- Új gomb az `EpisodeAudioPlayer` és `SmartPlayerBar` jobb oldalán: **"Mentés"** (bookmark ikon) — toggle, vendégnek felugró: "Jelentkezz be a mentéshez".
-- Új főoldali sáv (csak belépve):
-  - **"Folytasd ott, ahol abbahagytad"** — top 6 nem-befejezett `playback_progress` sor join `episodes`.
-  - **"Mentett epizódok"** — utolsó 6 watchlist elem.
+## Lépések
 
-## 2) Személyre szabott főoldal — vektor-átlagból ajánlás
+### 1. DB séma
+- **`podcast_charts`** tábla:  
+  `id, source ('apple'|'spotify'|'youtube'), country ('hu'), rank int, podcast_id uuid NULL, raw_name text, raw_artist text, raw_external_id text, image_url text, snapshot_at timestamptz, matched_via text ('apple_id'|'spotify_id'|'youtube_channel'|'title_fuzzy'|null)`.
+- **`mv_trending_podcasts`** materialized view: legfrissebb snapshotok unionja → `podcast_id, sum(1/rank)::numeric AS trending_score, jsonb_agg(...) sources, max(snapshot_at)`. Csak `podcast_id IS NOT NULL` sorok.
+- RPC `get_trending_podcasts(p_limit int)` → join `podcasts`-ra, csak `is_hungarian=true`, healthy, `rank_label IN ('S','A','B')` korláttal.
 
-**Cél:** belépett user főoldala "Netflix" módban: "Mert hallgattad: X" sávok valódi szemantikai hasonlóság alapján.
+### 2. Edge function `chart-fetcher`
+- Apple ág: fetch JSON → minden chart entry-re `iTunes lookup` (`https://itunes.apple.com/lookup?id={collectionId}&country=hu`) → kinyer `feedUrl` (RSS!) → match a `podcasts.rss_url_norm`-ra (legmegbízhatóbb), ha nincs → `normalized_title` trigram. Match esetén az `apple_url`-t is backfilleli a `podcasts` táblán.
+- Spotify ág: Firecrawl scrape `podcastcharts.byspotify.com/hu` → top 50 → spotify show URL kinyer → ha későbbi Spotify Web API connection lesz, show metadata-ból `rss_url` is jöhet. Most: title fuzzy match.
+- YouTube ág: új `youtube_channel_stats` tábla (`channel_id, snapshot_at, subscriber_count, view_count, video_count`) — `chart-fetcher` napi snapshot a 279 paired csatornára (YouTube Data API v3, `YOUTUBE_API_KEY` titok). Ranking: utolsó 7 nap `view_count` deltája szerint. (Ha még nincs előző snapshot: `subscriber_count` rangsor.)
+- Output: `podcast_charts` rögzít minden entry-t, majd `REFRESH MATERIALIZED VIEW CONCURRENTLY mv_trending_podcasts`.
 
-- Új edge function: **`personalized-home-rails`**.
-  - Lekéri user utolsó ~20 `play_30s`+ taste interakcióját.
-  - Lehúzza ezek `episode_embeddings` vektorát, kiszámol egy **átlag-vektort**.
-  - Meghívja a meglévő `match_episodes_by_vector` RPC-t (vagy hasonló, ha nincs, létrehozzuk) → top 30, kiszűri amit már hallgatott.
-  - Plusz: 3 db "Mert hallgattad: {epizód-cím}" sáv — a 3 legfrissebb taste-interakció epizódjából egyenkénti hasonlóság.
-- Új komponens: `PersonalizedHomeRails.tsx` — belépett usernek **a `MoodCollections` és `TrendingEntities` HELYETT** jelenik meg az `Index.tsx`-en. Vendég továbbra is a régit látja.
-- Cache: 1h böngészőben + edge function `app_settings.personalized_home_cache` opcionális.
+### 3. Cron
+- Napi 1× `0 5 * * *` UTC → `chart-fetcher`. (Charts naponta frissülnek.)
 
-## 3) AI fejezet markerek `episode_chunks`-ból (a megvalósítható verzió)
+### 4. Frontend
+- `src/pages/Index.tsx`: új section a „Felkapott epizódok" után.
+  - Cím: „Felkapott műsorok"
+  - Alcím: „Az Apple, Spotify és YouTube top listái alapján — {dátum} szerint"
+  - Vízszintes scrolleres `PodcastCard` rail, top 8 műsor.
+  - Minden kártyán mini-badge: melyik forrás(ok)ban szerepel (ikonok: Apple/Spotify/YT) + összevont helyezés (pl. „#3 Apple · #7 Spotify").
+- Loading skeleton.
+- `useTrendingPodcasts()` hook az RPC-hez.
 
-A user jelezte: tudja, hogy nincs teljes epizód-szöveg embedelve. De `episode_chunks` van (135k chunk a 135k epizódon). Ezekből **chapter-szerű markerek generálhatók** — nem szöveg-pontosak, de kapaszkodót adnak.
+### 5. Admin
+- `/admin/charts` oldal: utolsó snapshot per forrás, matched vs unmatched arány, „Force refresh" gomb.
 
-- Új edge function: **`episode-chapters-generator`** — egy epizódra:
-  - Lekéri az adott epizód `episode_chunks` sorait `start_sec`/`end_sec`+`text` mezőkkel sorrendben.
-  - Lovable AI Gateway `google/gemini-2.5-flash` → kéri: 4-8 fejezet, mindegyikhez `start_sec` (a chunk határokból) + magyar cím + 1 mondat összegzés.
-  - Tárolás: új tábla `episode_chapters (episode_id, idx, start_sec, title, summary)` — RLS public read.
-  - Lazy, on-demand: a frontend ha nincs chapter, triggerel egy generálást (csak ha S/A tier vagy >100 ep podcast — költségvédelem).
-- Új komponens: `SmartPlayerChapters.tsx` — `SmartPlayerBar` expanded view-ban és `EpisodeAudioPlayer` alatt kattintható timeline ("Skip Intro" gomb az első chunk végéig + fejezetek lista timestamppel → kattintásra `seekTo`).
+## Mit kérek a titok-fronton
+- `YOUTUBE_API_KEY` — kell a YT proxyhoz. (Spotify token nem kell, mert csak scrape.) Ha még nincs, megkérdezem külön a kulcsot.
 
-## 4) Megosztható audio-card
-
-**Cél:** "Szabó Dávid azt mondta…" típusú megosztó képek a SmartPlayerből.
-
-- Új komponens: `ShareMomentCard.tsx`.
-  - SmartPlayerBar/EpisodeAudioPlayer-ben "Megosztás" ikon → modal.
-  - Aktuális timestamp + epizód kép + podcast cím + "Hallgasd meg X-nél" CTA.
-  - Egyszerű HTML/CSS card → `html-to-image` lib → PNG letöltés + Web Share API (mobilon natív share, desktopon link másolás).
-  - Share link: `https://podiverzum.hu/podcast/{slug}/{epslug}?t={sec}` — az `EpisodeDetail` már kezeli a `?t=` paramot (átadja a playernek `startAt`-tel).
-- Ha `?t=` még nincs kezelve: hozzáadjuk `EpisodeDetail`-hoz hogy az autoplay/play call kapja meg `startAt`-ként.
-
-## Technikai részletek
-
-**Új migrations (3 tábla):**
-
-```sql
--- watchlist
-CREATE TABLE public.watchlist (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  episode_id uuid NOT NULL,
-  added_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(user_id, episode_id)
-);
--- GRANT + RLS (csak saját)
-
--- playback_progress
-CREATE TABLE public.playback_progress (
-  user_id uuid NOT NULL,
-  episode_id uuid NOT NULL,
-  position_seconds int NOT NULL DEFAULT 0,
-  duration_seconds int,
-  completed boolean NOT NULL DEFAULT false,
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (user_id, episode_id)
-);
--- GRANT + RLS (csak saját)
-
--- episode_chapters
-CREATE TABLE public.episode_chapters (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  episode_id uuid NOT NULL,
-  idx int NOT NULL,
-  start_sec int NOT NULL,
-  title text NOT NULL,
-  summary text,
-  generated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(episode_id, idx)
-);
--- GRANT public read + service_role write
-```
-
-**Új edge functions:**
-- `personalized-home-rails` — JWT-vel, user-vektor átlag → similar episodes.
-- `episode-chapters-generator` — on-demand, public, dedup `episode_chapters` táblán.
-
-**Új komponensek:**
-- `src/components/ContinueListening.tsx` bővítve (auth-aware) vagy új `MyLibraryRails.tsx`.
-- `src/components/home/PersonalizedHomeRails.tsx`.
-- `src/components/smart-player/SmartPlayerChapters.tsx`.
-- `src/components/smart-player/SaveButton.tsx`.
-- `src/components/smart-player/ShareMomentCard.tsx`.
-
-**Index.tsx logika:** ha `user` → PersonalizedHomeRails + MyLibraryRails felülre, MoodCollections lejjebb. Vendég: változatlan.
-
-**SmartPlayerProvider bővítés:**
-- Új useEffect: ha `user`, a `saveProgress` mellett `supabase.from("playback_progress").upsert(...)` 10s-enként.
-
-**Költségbecslés:**
-- Chapter-generálás: ~$0.002/epizód × becslés ~5000 epizódra ami valaha lejátszásra kerül = ~$10 egyszeri.
-- Personalized rails: vektor-műveletek olcsók, LLM nem kell.
-
-## Sorrend (egy menet)
-
-1. Migration (3 tábla + RPC `match_episodes_by_user_vector`).
-2. SmartPlayerProvider: progress sync + Save button.
-3. Edge function `personalized-home-rails`.
-4. PersonalizedHomeRails + MyLibraryRails komponensek + Index.tsx integráció.
-5. Edge function `episode-chapters-generator` + SmartPlayerChapters komponens.
-6. ShareMomentCard + `?t=` kezelés EpisodeDetail-ben.
-7. Build check + gyors smoke (vendég + belépett route).
-
-Megerősíted, hogy mehet egyben?
+## Mi nincs benne (későbbi)
+- Spotify Web API alapú show metadata + RSS-back-link → pontosabb Spotify matching.
+- Apple URL bulk backfill az egész katalógusra (most csak chart-on belül történik).
+- v2 YT proxy: nem csak paired csatornák, hanem topic-discovery új HU podcast csatornákra is.

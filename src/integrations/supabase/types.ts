@@ -3580,6 +3580,83 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_charts: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          image_url: string | null
+          matched_via: string | null
+          podcast_id: string | null
+          rank: number
+          raw_artist: string | null
+          raw_external_id: string | null
+          raw_name: string
+          raw_url: string | null
+          snapshot_at: string
+          source: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          matched_via?: string | null
+          podcast_id?: string | null
+          rank: number
+          raw_artist?: string | null
+          raw_external_id?: string | null
+          raw_name: string
+          raw_url?: string | null
+          snapshot_at?: string
+          source: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          matched_via?: string | null
+          podcast_id?: string | null
+          rank?: number
+          raw_artist?: string | null
+          raw_external_id?: string | null
+          raw_name?: string
+          raw_url?: string | null
+          snapshot_at?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_charts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_charts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_charts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_charts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       podcast_embeddings: {
         Row: {
           content_hash: string
@@ -5403,6 +5480,36 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_channel_stats: {
+        Row: {
+          channel_id: string
+          created_at: string
+          id: string
+          snapshot_at: string
+          subscriber_count: number | null
+          video_count: number | null
+          view_count: number | null
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          id?: string
+          snapshot_at?: string
+          subscriber_count?: number | null
+          video_count?: number | null
+          view_count?: number | null
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          id?: string
+          snapshot_at?: string
+          subscriber_count?: number | null
+          video_count?: number | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       mv_homepage_evergreen: {
@@ -6305,6 +6412,28 @@ export type Database = {
               title: string
             }[]
           }
+      get_trending_podcasts: {
+        Args: { p_limit?: number }
+        Returns: {
+          apple_url: string
+          category: string
+          description: string
+          display_title: string
+          id: string
+          image_url: string
+          podiverzum_rank: number
+          rank_label: string
+          slug: string
+          snapshot_at: string
+          sources: Json
+          spotify_url: string
+          summary: string
+          title: string
+          trending_score: number
+          website_url: string
+          youtube_url: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

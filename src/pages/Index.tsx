@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { TrendingEntities } from "@/components/TrendingEntities";
+import { TrendingPodcasts } from "@/components/TrendingPodcasts";
 import { MyLibraryRails } from "@/components/home/MyLibraryRails";
 import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
 import { HomeTopicsSection } from "@/components/HomeTopicsSection";
@@ -463,6 +464,9 @@ const Index = () => {
             <EpisodeList items={trendingEps} scrollAlways />
           </section>
         )}
+
+        <TrendingPodcasts />
+
 
 
         <MoodCollections />
