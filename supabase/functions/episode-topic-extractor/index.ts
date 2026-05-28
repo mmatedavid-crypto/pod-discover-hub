@@ -1,8 +1,10 @@
 // episode-topic-extractor: bottom-up, taxonomy-free topic discovery.
 // For each pending episode (clean_text present), asks the LLM: "What is this episode about?"
 // Returns 3-7 free-form topic labels — NO predefined list, NO hints, NO taxonomy injection.
-// Output goes to public.episode_extracted_topics. Clustering / normalization happens later
-// in a separate pipeline once we have enough samples.
+// Output goes to public.episode_extracted_topics. Clustering / normalization happens later.
+//
+// 2026-05-28: parallelized (Promise.all, concurrency=8) + drain loop with time budget
+// so each invocation processes 60-150 episodes instead of 2-3.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
@@ -53,36 +55,47 @@ Rules:
 - Hungarian labels. Lowercase except proper nouns. No hashtags, no punctuation.
 - Do NOT map onto any predefined taxonomy. Invent the most natural label for what you actually see.`;
 
-async function extract(model: string, text: string, title: string): Promise<{ topics: any[]; usage: any } | null> {
+async function extract(model: string, text: string, title: string, timeoutMs = 25000): Promise<{ topics: any[]; usage: any } | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
   const body = `CÍM: ${title}\n\nSZÖVEG:\n${text.slice(0, 12000)}`;
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: body },
-      ],
-      tools: [TOOL],
-      tool_choice: { type: "function", function: { name: "describe_episode_topics" } },
-    }),
-  });
-  if (!res.ok) {
-    console.warn("ai error", res.status, await res.text().catch(() => ""));
-    return null;
-  }
-  const j = await res.json();
-  const call = j.choices?.[0]?.message?.tool_calls?.[0];
-  if (!call) return null;
+  const ctrl = new AbortController();
+  const tm = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const args = JSON.parse(call.function?.arguments || "{}");
-    if (!Array.isArray(args.topics)) return null;
-    return { topics: args.topics, usage: j.usage };
-  } catch {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: body },
+        ],
+        tools: [TOOL],
+        tool_choice: { type: "function", function: { name: "describe_episode_topics" } },
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.warn("ai error", res.status, txt.slice(0, 200));
+      return null;
+    }
+    const j = await res.json();
+    const call = j.choices?.[0]?.message?.tool_calls?.[0];
+    if (!call) return null;
+    try {
+      const args = JSON.parse(call.function?.arguments || "{}");
+      if (!Array.isArray(args.topics)) return null;
+      return { topics: args.topics, usage: j.usage };
+    } catch {
+      return null;
+    }
+  } catch (e) {
+    console.warn("ai fetch failed", e instanceof Error ? e.message : String(e));
     return null;
+  } finally {
+    clearTimeout(tm);
   }
 }
 
@@ -105,11 +118,13 @@ Deno.serve(async (req) => {
     if (ctrl.enabled === false && !body.force) return json({ ok: true, paused: true, reason: "disabled_by_controls" });
 
     const model = String(ctrl.model || "google/gemini-2.5-flash-lite");
-    const batchLimit = Math.max(1, Math.min(60, Number(body.batch ?? ctrl.batch_limit ?? 30)));
+    const batchSize = Math.max(1, Math.min(40, Number(body.batch ?? ctrl.batch_limit ?? 20)));
+    const concurrency = Math.max(1, Math.min(12, Number(ctrl.concurrency ?? 8)));
     const tierFilter: string[] = Array.isArray(ctrl.tier_filter) ? ctrl.tier_filter : ["S"];
     const minChars = Number(ctrl.min_clean_chars ?? 400);
     const version = Number(ctrl.extractor_version ?? 1);
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 10);
+    const maxRuntimeMs = Math.max(20000, Math.min(140000, Number(ctrl.max_runtime_ms ?? 120000)));
 
     // Budget check (today)
     const since = new Date(); since.setUTCHours(0, 0, 0, 0);
@@ -118,92 +133,121 @@ Deno.serve(async (req) => {
       .select("cost_usd")
       .eq("runner", "episode-topic-extractor")
       .gte("created_at", since.toISOString());
-    const spentToday = (spentRow || []).reduce((a: number, r: any) => a + Number(r.cost_usd || 0), 0);
+    let spentToday = (spentRow || []).reduce((a: number, r: any) => a + Number(r.cost_usd || 0), 0);
     if (spentToday >= dailyBudget) {
       return json({ ok: true, paused: true, reason: "daily_budget_exhausted", spent_today: spentToday });
     }
 
-    // Claim pending S-tier episodes with clean_text done
-    const { data: epsRaw, error: selErr } = await admin
-      .from("episodes")
-      .select("id, title, podcast_id, podcasts!inner(rank_label, language)")
-      .eq("topic_extraction_status", "pending")
-      .eq("clean_text_status", "done")
-      .in("podcasts.rank_label", tierFilter)
-      .ilike("podcasts.language", "hu%")
-      .limit(batchLimit);
-    if (selErr) return json({ ok: false, error: selErr.message }, 500);
-    if (!epsRaw || epsRaw.length === 0) return json({ ok: true, processed: 0, reason: "queue_empty" });
+    let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, runCost = 0, batches = 0;
 
-    // Fetch clean_text in a separate query
-    const ids = epsRaw.map((e: any) => e.id);
-    const { data: cts } = await admin.from("episode_clean_text").select("episode_id, cleaned_text").in("episode_id", ids);
-    const ctMap = new Map<string, string>((cts || []).map((r: any) => [r.episode_id, r.cleaned_text || ""]));
-    const eps = epsRaw.map((e: any) => ({ ...e, episode_clean_text: { cleaned_text: ctMap.get(e.id) || "" } }));
-
-    let processed = 0, written = 0, skipped = 0, errors = 0, runCost = 0;
-    const inserts: any[] = [];
-    const doneIds: string[] = [];
-    const skipIds: string[] = [];
-    const errIds: string[] = [];
-
-    for (const ep of eps as any[]) {
-      processed++;
-      const text = String(ep.episode_clean_text?.cleaned_text || "");
-      if (text.length < minChars) {
-        skipIds.push(ep.id); skipped++; continue;
-      }
-      const ai = await extract(model, text, String(ep.title || ""));
-      if (!ai || ai.topics.length === 0) {
-        errIds.push(ep.id); errors++; continue;
-      }
-      const inTok = Number(ai.usage?.prompt_tokens || Math.ceil(text.length / 4));
-      const outTok = Number(ai.usage?.completion_tokens || 200) + Number(ai.usage?.completion_tokens_details?.reasoning_tokens || 0);
-      runCost += chatTokenCostUsd(model, inTok, outTok);
-
-      for (const t of ai.topics) {
-        const rawLabel = String(t.label || "").trim();
-        if (!rawLabel) continue;
-        inserts.push({
-          episode_id: ep.id,
-          raw_label: rawLabel,
-          normalized_label: normalize(rawLabel),
-          kind: String(t.kind || "subject"),
-          confidence: Math.max(0, Math.min(1, Number(t.confidence || 0.7))),
-          rationale: String(t.evidence || "").slice(0, 500),
-          model,
-          extractor_version: version,
-        });
-      }
-      doneIds.push(ep.id);
-      written++;
-
+    // Drain loop: keep claiming batches until time budget exhausted, queue empty, or budget exhausted
+    while (Date.now() - startedAt < maxRuntimeMs) {
+      // Need at least ~25s headroom per batch (AI calls can take 20s+)
+      if (maxRuntimeMs - (Date.now() - startedAt) < 25000) break;
       if (spentToday + runCost >= dailyBudget) break;
-    }
 
-    if (inserts.length > 0) {
-      const { error: insErr } = await admin.from("episode_extracted_topics").insert(inserts);
-      if (insErr) console.warn("insert error", insErr.message);
-    }
-    if (doneIds.length > 0) {
-      for (let i = 0; i < doneIds.length; i += 150) {
-        const slice = doneIds.slice(i, i + 150);
-        await admin.from("episodes").update({
-          topic_extraction_status: "done",
-          topic_extraction_version: version,
-          topic_extracted_at: new Date().toISOString(),
-        }).in("id", slice);
+      // Claim pending S-tier episodes with clean_text done
+      const { data: epsRaw, error: selErr } = await admin
+        .from("episodes")
+        .select("id, title, podcast_id, podcasts!inner(rank_label, language)")
+        .eq("topic_extraction_status", "pending")
+        .eq("clean_text_status", "done")
+        .in("podcasts.rank_label", tierFilter)
+        .ilike("podcasts.language", "hu%")
+        .limit(batchSize);
+      if (selErr) return json({ ok: false, error: selErr.message }, 500);
+      if (!epsRaw || epsRaw.length === 0) break;
+
+      // Mark as in_progress immediately to prevent re-claim by next cron tick
+      const claimIds = epsRaw.map((e: any) => e.id);
+      await admin.from("episodes").update({ topic_extraction_status: "in_progress" }).in("id", claimIds);
+
+      // Fetch clean_text
+      const { data: cts } = await admin.from("episode_clean_text").select("episode_id, cleaned_text").in("episode_id", claimIds);
+      const ctMap = new Map<string, string>((cts || []).map((r: any) => [r.episode_id, r.cleaned_text || ""]));
+
+      // Pre-filter short ones
+      const skipIds: string[] = [];
+      const work: any[] = [];
+      for (const ep of epsRaw as any[]) {
+        const text = String(ctMap.get(ep.id) || "");
+        if (text.length < minChars) { skipIds.push(ep.id); continue; }
+        work.push({ ep, text });
       }
-    }
-    if (skipIds.length > 0) {
-      for (let i = 0; i < skipIds.length; i += 150) {
-        await admin.from("episodes").update({ topic_extraction_status: "skipped_short" }).in("id", skipIds.slice(i, i + 150));
+
+      const inserts: any[] = [];
+      const doneIds: string[] = [];
+      const errIds: string[] = [];
+
+      // Process in parallel chunks
+      for (let i = 0; i < work.length; i += concurrency) {
+        if (Date.now() - startedAt > maxRuntimeMs - 5000) {
+          // Out of time — release remaining as pending again
+          const remaining = work.slice(i).map((w) => w.ep.id);
+          if (remaining.length > 0) {
+            await admin.from("episodes").update({ topic_extraction_status: "pending" }).in("id", remaining);
+          }
+          break;
+        }
+        const slice = work.slice(i, i + concurrency);
+        const results = await Promise.all(
+          slice.map(({ ep, text }) => extract(model, text, String(ep.title || "")).then((ai) => ({ ep, text, ai })))
+        );
+        for (const { ep, text, ai } of results) {
+          if (!ai || ai.topics.length === 0) { errIds.push(ep.id); continue; }
+          const inTok = Number(ai.usage?.prompt_tokens || Math.ceil(text.length / 4));
+          const outTok = Number(ai.usage?.completion_tokens || 200) + Number(ai.usage?.completion_tokens_details?.reasoning_tokens || 0);
+          runCost += chatTokenCostUsd(model, inTok, outTok);
+          for (const t of ai.topics) {
+            const rawLabel = String(t.label || "").trim();
+            if (!rawLabel) continue;
+            inserts.push({
+              episode_id: ep.id,
+              raw_label: rawLabel,
+              normalized_label: normalize(rawLabel),
+              kind: String(t.kind || "subject"),
+              confidence: Math.max(0, Math.min(1, Number(t.confidence || 0.7))),
+              rationale: String(t.evidence || "").slice(0, 500),
+              model,
+              extractor_version: version,
+            });
+          }
+          doneIds.push(ep.id);
+        }
       }
-    }
-    if (errIds.length > 0) {
-      for (let i = 0; i < errIds.length; i += 150) {
-        await admin.from("episodes").update({ topic_extraction_status: "error" }).in("id", errIds.slice(i, i + 150));
+
+      // Persist this batch
+      if (inserts.length > 0) {
+        for (let i = 0; i < inserts.length; i += 500) {
+          const { error: insErr } = await admin.from("episode_extracted_topics").insert(inserts.slice(i, i + 500));
+          if (insErr) console.warn("insert error", insErr.message);
+        }
       }
+      if (doneIds.length > 0) {
+        for (let i = 0; i < doneIds.length; i += 150) {
+          await admin.from("episodes").update({
+            topic_extraction_status: "done",
+            topic_extraction_version: version,
+            topic_extracted_at: new Date().toISOString(),
+          }).in("id", doneIds.slice(i, i + 150));
+        }
+      }
+      if (skipIds.length > 0) {
+        for (let i = 0; i < skipIds.length; i += 150) {
+          await admin.from("episodes").update({ topic_extraction_status: "skipped_short" }).in("id", skipIds.slice(i, i + 150));
+        }
+      }
+      if (errIds.length > 0) {
+        for (let i = 0; i < errIds.length; i += 150) {
+          await admin.from("episodes").update({ topic_extraction_status: "error" }).in("id", errIds.slice(i, i + 150));
+        }
+      }
+
+      totalProcessed += epsRaw.length;
+      totalWritten += doneIds.length;
+      totalSkipped += skipIds.length;
+      totalErrors += errIds.length;
+      batches++;
     }
 
     // Log run cost
@@ -212,13 +256,17 @@ Deno.serve(async (req) => {
         runner: "episode-topic-extractor",
         model,
         cost_usd: runCost,
-        meta: { processed, written, skipped, errors, batch_limit: batchLimit },
+        meta: { processed: totalProcessed, written: totalWritten, skipped: totalSkipped, errors: totalErrors, batches },
       });
     } catch (_) { /* table optional */ }
 
     return json({
       ok: true,
-      processed, written, skipped, errors,
+      batches,
+      processed: totalProcessed,
+      written: totalWritten,
+      skipped: totalSkipped,
+      errors: totalErrors,
       cost_usd: Number(runCost.toFixed(5)),
       spent_today: Number((spentToday + runCost).toFixed(4)),
       daily_budget_usd: dailyBudget,
