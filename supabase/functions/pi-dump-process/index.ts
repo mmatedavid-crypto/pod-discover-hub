@@ -59,9 +59,10 @@ Deno.serve(async (req) => {
     const dailyMinRank = settings.min_rank_for_auto_add || 8;
     const minRankImport = foundation ? 1 : (settings.min_rank_for_auto_add_hu || 3);
     const maxAge = settings.max_episode_age_days || 90;
-    const HARD_MAX_AUTO_ADD = 5;
-    // Foundation mode lifts the per-call auto-add cap (technical batching only).
-    const maxAutoAdd = foundation ? batchSize : Math.min(HARD_MAX_AUTO_ADD, settings.max_auto_add_per_run || HARD_MAX_AUTO_ADD);
+    // HU-only mode (2026-05-28): no per-run auto-add cap.
+    // Small market, we want every non-spam HU feed in the catalog (the data IS the product).
+    // TIME_BUDGET below is the real safety brake against runaway runs.
+    const maxAutoAdd = batchSize;
 
     const nowIso = new Date().toISOString();
     let q = supabase.from("pi_feed_staging").select("*").eq("processed", false)
