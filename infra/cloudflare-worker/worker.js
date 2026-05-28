@@ -65,10 +65,14 @@ const BOT_UAS = [
 
 ];
 
+// Generic bot signal: substring "bot", "crawler", "spider", or non-browser fetch UAs.
+const GENERIC_BOT_RE = /(bot|crawler|spider|crawl|preview|fetch|httpclient|http-client|python-requests|libwww|wget|curl|go-http|java\/|okhttp|axios|node-fetch|undici|ruby|httpie|scrapy|headlesschrome|phantomjs|puppeteer|playwright)/i;
 function isBot(ua) {
-  if (!ua) return false;
+  if (!ua) return true; // empty UA → treat as bot for safety on /jelentes/
   const s = ua.toLowerCase();
-  return BOT_UAS.some((b) => s.includes(b));
+  if (BOT_UAS.some((b) => s.includes(b))) return true;
+  if (GENERIC_BOT_RE.test(s)) return true;
+  return false;
 }
 
 // Routes we know how to prerender. Anything else falls back to origin.
