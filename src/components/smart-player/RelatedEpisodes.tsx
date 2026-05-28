@@ -120,10 +120,10 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-4 w-4 text-accent" />
         <h3 className="text-sm font-semibold tracking-wide">
-          Hasonló epizódok
+          Más műsorokból, hasonló témában
         </h3>
         <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-          AI-ajánlás
+          AI vektor-egyezés
         </span>
       </div>
 
