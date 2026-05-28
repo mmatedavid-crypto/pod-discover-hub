@@ -129,12 +129,15 @@ Deno.serve(async (req) => {
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   let q = sb.from("podcasts")
-    .select("id, title, rss_url, hosts")
+    .select("id, title, rss_url, hosts, hosts_source")
     .ilike("language", "hu%")
     .not("rss_url", "is", null)
     .order("podiverzum_rank", { ascending: false, nullsFirst: false })
     .limit(limit);
-  if (onlyMissing) q = q.or("hosts.is.null,hosts.eq.{}");
+  if (onlyMissing) {
+    // skip rows we've already inspected via RSS (any rss_* source)
+    q = q.or("hosts.is.null,hosts.eq.{}").not("hosts_source", "like", "rss_%");
+  }
   const { data, error } = await q;
   if (error) return json({ ok: false, error: error.message }, 500);
 
@@ -160,41 +163,53 @@ Deno.serve(async (req) => {
       const to = setTimeout(() => ctl.abort(), 12_000);
       const xml = await fetchRss(row.rss_url, ctl.signal);
       clearTimeout(to);
-      if (!xml) { result.fetch_failed++; continue; }
-      const cands = extractCandidates(xml);
-      const titleNorm = row.title.toLowerCase().replace(/[^\p{L}\s]/gu, " ").replace(/\s+/g, " ").trim();
+      let marker: string | null = null;
       let names: string[] = [];
-      for (const c of cands) {
-        names = splitNames(c).filter((n) => {
-          const nn = n.toLowerCase().replace(/[^\p{L}\s]/gu, " ").replace(/\s+/g, " ").trim();
-          if (!nn) return false;
-          if (titleNorm.includes(nn) || nn.includes(titleNorm)) return false; // echoes show name
-          return true;
-        });
-        if (names.length) break;
-      }
-      if (!names.length) {
-        if (cands.length) {
-          result.skipped_publisher_only++;
-          if (result.examples_publisher.length < 8) {
-            result.examples_publisher.push({ title: row.title, raw: cands[0].slice(0, 80) });
-          }
-        } else {
-          result.no_candidate++;
+      if (!xml) {
+        result.fetch_failed++;
+        marker = "rss_fetch_failed";
+      } else {
+        const cands = extractCandidates(xml);
+        const titleNorm = row.title.toLowerCase().replace(/[^\p{L}\s]/gu, " ").replace(/\s+/g, " ").trim();
+        for (const c of cands) {
+          names = splitNames(c).filter((n) => {
+            const nn = n.toLowerCase().replace(/[^\p{L}\s]/gu, " ").replace(/\s+/g, " ").trim();
+            if (!nn) return false;
+            if (titleNorm.includes(nn) || nn.includes(titleNorm)) return false;
+            return true;
+          });
+          if (names.length) break;
         }
-        continue;
+        if (!names.length) {
+          if (cands.length) {
+            result.skipped_publisher_only++;
+            marker = "rss_publisher_only";
+            if (result.examples_publisher.length < 8) {
+              result.examples_publisher.push({ title: row.title, raw: cands[0].slice(0, 80) });
+            }
+          } else {
+            result.no_candidate++;
+            marker = "rss_no_match";
+          }
+        }
       }
       if (!dryRun) {
-        const { error: upErr } = await sb.from("podcasts").update({
-          hosts: names,
-          hosts_source: "rss_author",
+        const patch: Record<string, unknown> = {
           hosts_updated_at: new Date().toISOString(),
-        }).eq("id", row.id);
-        if (upErr) continue;
+        };
+        if (names.length) {
+          patch.hosts = names;
+          patch.hosts_source = "rss_author";
+        } else if (marker) {
+          patch.hosts_source = marker;
+        }
+        await sb.from("podcasts").update(patch).eq("id", row.id);
       }
-      result.updated++;
-      if (result.examples_updated.length < 8) {
-        result.examples_updated.push({ title: row.title, hosts: names, source: "rss_author" });
+      if (names.length) {
+        result.updated++;
+        if (result.examples_updated.length < 8) {
+          result.examples_updated.push({ title: row.title, hosts: names, source: "rss_author" });
+        }
       }
     }
   }
