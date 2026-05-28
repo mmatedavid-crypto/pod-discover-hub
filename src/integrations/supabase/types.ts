@@ -140,6 +140,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_runs: {
+        Row: {
+          cost_usd: number
+          created_at: string
+          id: string
+          meta: Json | null
+          model: string | null
+          runner: string
+        }
+        Insert: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          model?: string | null
+          runner: string
+        }
+        Update: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          model?: string | null
+          runner?: string
+        }
+        Relationships: []
+      }
       ai_spend_daily: {
         Row: {
           by_kind: Json
@@ -1055,6 +1082,67 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_extracted_topics: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          episode_id: string
+          extractor_version: number
+          id: string
+          kind: string | null
+          model: string
+          normalized_label: string
+          rationale: string | null
+          raw_label: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          episode_id: string
+          extractor_version?: number
+          id?: string
+          kind?: string | null
+          model: string
+          normalized_label: string
+          rationale?: string | null
+          raw_label: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          episode_id?: string
+          extractor_version?: number
+          id?: string
+          kind?: string | null
+          model?: string
+          normalized_label?: string
+          rationale?: string | null
+          raw_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_extracted_topics_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_extracted_topics_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_extracted_topics_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
       episode_organization_map: {
         Row: {
           confidence: number
@@ -1387,6 +1475,9 @@ export type Database = {
           summary: string | null
           tickers: string[] | null
           title: string
+          topic_extracted_at: string | null
+          topic_extraction_status: string
+          topic_extraction_version: number
           topics: string[] | null
           updated_at: string
           youtube_match_score: number | null
@@ -1438,6 +1529,9 @@ export type Database = {
           summary?: string | null
           tickers?: string[] | null
           title: string
+          topic_extracted_at?: string | null
+          topic_extraction_status?: string
+          topic_extraction_version?: number
           topics?: string[] | null
           updated_at?: string
           youtube_match_score?: number | null
@@ -1489,6 +1583,9 @@ export type Database = {
           summary?: string | null
           tickers?: string[] | null
           title?: string
+          topic_extracted_at?: string | null
+          topic_extraction_status?: string
+          topic_extraction_version?: number
           topics?: string[] | null
           updated_at?: string
           youtube_match_score?: number | null
