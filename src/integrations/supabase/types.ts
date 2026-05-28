@@ -3857,6 +3857,68 @@ export type Database = {
           },
         ]
       }
+      podcast_spotify_snapshots: {
+        Row: {
+          captured_at: string
+          followers: number | null
+          id: number
+          podcast_id: string
+          popularity: number | null
+          snapshot_date: string
+          spotify_id: string
+          total_episodes: number | null
+        }
+        Insert: {
+          captured_at?: string
+          followers?: number | null
+          id?: number
+          podcast_id: string
+          popularity?: number | null
+          snapshot_date?: string
+          spotify_id: string
+          total_episodes?: number | null
+        }
+        Update: {
+          captured_at?: string
+          followers?: number | null
+          id?: number
+          podcast_id?: string
+          popularity?: number | null
+          snapshot_date?: string
+          spotify_id?: string
+          total_episodes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_spotify_snapshots_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_spotify_snapshots_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_spotify_snapshots_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_spotify_snapshots_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       podcast_topic_map: {
         Row: {
           confidence: number
@@ -4058,6 +4120,17 @@ export type Database = {
           shadow_rank_tier: string | null
           slug: string
           source: string | null
+          spotify_followers: number | null
+          spotify_id: string | null
+          spotify_image_url: string | null
+          spotify_languages: string[] | null
+          spotify_last_synced_at: string | null
+          spotify_match_confidence: number | null
+          spotify_match_method: string | null
+          spotify_match_status: string | null
+          spotify_popularity: number | null
+          spotify_publisher: string | null
+          spotify_total_episodes: number | null
           spotify_url: string | null
           summary: string | null
           title: string
@@ -4155,6 +4228,17 @@ export type Database = {
           shadow_rank_tier?: string | null
           slug: string
           source?: string | null
+          spotify_followers?: number | null
+          spotify_id?: string | null
+          spotify_image_url?: string | null
+          spotify_languages?: string[] | null
+          spotify_last_synced_at?: string | null
+          spotify_match_confidence?: number | null
+          spotify_match_method?: string | null
+          spotify_match_status?: string | null
+          spotify_popularity?: number | null
+          spotify_publisher?: string | null
+          spotify_total_episodes?: number | null
           spotify_url?: string | null
           summary?: string | null
           title: string
@@ -4252,6 +4336,17 @@ export type Database = {
           shadow_rank_tier?: string | null
           slug?: string
           source?: string | null
+          spotify_followers?: number | null
+          spotify_id?: string | null
+          spotify_image_url?: string | null
+          spotify_languages?: string[] | null
+          spotify_last_synced_at?: string | null
+          spotify_match_confidence?: number | null
+          spotify_match_method?: string | null
+          spotify_match_status?: string | null
+          spotify_popularity?: number | null
+          spotify_publisher?: string | null
+          spotify_total_episodes?: number | null
           spotify_url?: string | null
           summary?: string | null
           title?: string
