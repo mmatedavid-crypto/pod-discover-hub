@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, ExternalLink, Play, Pause, Globe } from "lucide-react";
@@ -43,7 +43,40 @@ export default function EpisodeDetail() {
   const [related, setRelated] = useState<EpisodeLite[]>([]);
   const [moreFromPod, setMoreFromPod] = useState<EpisodeLite[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { playerVisible: smartPlayerVisible, play, toggle, currentEpisode, isPlaying } = useSmartPlayer();
+  const { playerVisible: smartPlayerVisible, play, toggle, currentEpisode, isPlaying, seekTo } = useSmartPlayer();
+  const location = useLocation();
+  const deepLinkAppliedRef = useRef<string | null>(null);
+
+  // ?t=<sec> deep-link → autoplay at that position once data is loaded.
+  useEffect(() => {
+    if (!data?.e || !data?.p) return;
+    const params = new URLSearchParams(location.search);
+    const tRaw = params.get("t");
+    if (!tRaw) return;
+    const t = Math.max(0, Math.floor(Number(tRaw)));
+    if (!isFinite(t) || t <= 0) return;
+    const key = `${data.e.id}:${t}`;
+    if (deepLinkAppliedRef.current === key) return;
+    deepLinkAppliedRef.current = key;
+    const audioSrc = detectAudioSource(data.e);
+    if (!audioSrc) return;
+    if (currentEpisode?.id === data.e.id) {
+      seekTo(t);
+      return;
+    }
+    const ep: SmartPlayerEpisode = {
+      id: data.e.id,
+      title: data.e.display_title || data.e.title,
+      podcastId: data.p.id,
+      podcastTitle: data.p.display_title || data.p.title,
+      podcastSlug: data.p.slug || null,
+      episodeSlug: data.e.slug || null,
+      imageUrl: data.e.image_url || data.p.image_url || null,
+      audioUrl: audioSrc.url,
+      externalUrl: data.e.episode_url || data.e.audio_url || null,
+    };
+    play(ep, { startAt: t });
+  }, [data, location.search, currentEpisode, play, seekTo]);
 
   useEffect(() => {
     if (!podcastSlug || !episodeSlug) return;
