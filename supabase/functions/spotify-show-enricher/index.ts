@@ -82,9 +82,10 @@ Deno.serve(async (req) => {
         .from("podcasts")
         .select("id, title, display_title, language, author, spotify_match_status")
         .ilike("language", "hu%")
-        .or("spotify_id.is.null,spotify_match_status.is.null")
-        .neq("spotify_match_status", "no_match")
+        .is("spotify_id", null)
+        .or("spotify_match_status.is.null,spotify_match_status.neq.no_match")
         .limit(limit);
+      if (error) throw error;
       if (error) throw error;
 
       for (const p of unmatched || []) {
