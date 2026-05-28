@@ -172,10 +172,15 @@ Deno.serve(async (req) => {
             spotify_total_episodes: show.total_episodes ?? null,
             spotify_show_enriched_at: new Date().toISOString(),
             spotify_last_synced_at: new Date().toISOString(),
-          }).eq("id", pod.id);
-          summary.refreshed++;
-        }
-        await new Promise((r) => setTimeout(r, 350));
+  } catch (e: any) {
+    const msg = e?.message || e?.error_description || JSON.stringify(e);
+    console.error("spotify-show-enricher error", msg, e);
+    return new Response(JSON.stringify({ ok: false, error: msg }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
       }
     }
 
