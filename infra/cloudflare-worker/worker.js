@@ -90,6 +90,8 @@ function shouldPrerender(pathname) {
   if (/^\/hangulatok\/[^/]+\/?$/.test(pathname)) return true;
   // Te Podiverzumod megosztott eredmény — FB/IG/X share preview-hoz
   if (/^\/te-podiverzumod\/eredmeny\/[^/]+\/?$/.test(pathname)) return true;
+  // Sajtó / kutatási jelentések — AI ügynökök is feldolgozhatják
+  if (/^\/jelentes\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
 
