@@ -140,6 +140,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_runs: {
+        Row: {
+          cost_usd: number
+          created_at: string
+          id: string
+          meta: Json | null
+          model: string | null
+          runner: string
+        }
+        Insert: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          model?: string | null
+          runner: string
+        }
+        Update: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          model?: string | null
+          runner?: string
+        }
+        Relationships: []
+      }
       ai_spend_daily: {
         Row: {
           by_kind: Json
