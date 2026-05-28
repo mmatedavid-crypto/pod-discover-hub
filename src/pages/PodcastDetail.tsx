@@ -39,7 +39,7 @@ async function fetchAllEpisodes(podcastId: string) {
 }
 
 async function fetchHosts(podcastId: string, manualNames: string[]): Promise<HostRow[]> {
-  const [aiRes, manualRes] = await Promise.all([
+  const [aiRes, manualRes, mentionsRes] = await Promise.all([
     supabase
       .from("person_podcast_map")
       .select("people:person_id(id, slug, name, image_url)")
@@ -48,32 +48,53 @@ async function fetchHosts(podcastId: string, manualNames: string[]): Promise<Hos
     manualNames.length
       ? supabase.from("people").select("id, slug, name, image_url").in("name", manualNames)
       : Promise.resolve({ data: [] as any[] }),
+    // AI per-episode host mentions — aggregate to find recurring hosts
+    supabase
+      .from("person_episode_mentions")
+      .select("person_id, people:person_id(id, slug, name, image_url)")
+      .eq("podcast_id", podcastId)
+      .eq("mention_type", "host")
+      .limit(2000),
   ]);
   const aiHosts = ((aiRes.data || []) as any[])
     .map((r) => r.people)
     .filter(Boolean) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
   const manualPeople = (manualRes.data || []) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
 
+  // Aggregate mentions: only keep people with 2+ host-episodes → clearly the host
+  const mentionTally = new Map<string, { count: number; person: any }>();
+  for (const row of ((mentionsRes.data || []) as any[])) {
+    if (!row.person_id || !row.people) continue;
+    const cur = mentionTally.get(row.person_id) || { count: 0, person: row.people };
+    cur.count++;
+    mentionTally.set(row.person_id, cur);
+  }
+  const mentionHosts = [...mentionTally.values()]
+    .filter((v) => v.count >= 2)
+    .sort((a, b) => b.count - a.count)
+    .map((v) => v.person) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
+
   const result: HostRow[] = [];
   const seen = new Set<string>();
+  const nameSeen = new Set<string>();
+  const pushPerson = (h: { id?: string; slug?: string; name: string; image_url?: string | null }) => {
+    if (h.id && seen.has(h.id)) return;
+    const nameKey = h.name.toLowerCase();
+    if (nameSeen.has(nameKey)) return;
+    if (h.id) seen.add(h.id);
+    nameSeen.add(nameKey);
+    result.push(h as HostRow);
+  };
   // Manual first (preserves admin-curated order)
   for (const name of manualNames) {
     const match = manualPeople.find((m) => m.name.toLowerCase() === name.toLowerCase());
-    if (match) {
-      if (seen.has(match.id)) continue;
-      seen.add(match.id);
-      result.push(match);
-    } else {
-      result.push({ name });
-    }
+    if (match) pushPerson(match);
+    else pushPerson({ name });
   }
-  // AI fallback for any host not already covered
-  for (const h of aiHosts) {
-    if (h.id && seen.has(h.id)) continue;
-    if (result.some((r) => r.name.toLowerCase() === h.name.toLowerCase())) continue;
-    seen.add(h.id);
-    result.push(h);
-  }
+  // AI host (person_podcast_map)
+  for (const h of aiHosts) pushPerson(h);
+  // AI per-episode mentions (recurring host)
+  for (const h of mentionHosts) pushPerson(h);
   return result;
 }
 
