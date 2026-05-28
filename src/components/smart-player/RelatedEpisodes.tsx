@@ -74,7 +74,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
       if (persons.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("persons", persons.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
       if (category) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.category", category).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
-      if (curPodcastId) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcast_id", curPodcastId).order("published_at", { ascending: false, nullsFirst: false }).limit(6));
+      // Intentionally NO same-podcast probe: Smart Player surfaces cross-podcast discovery only.
 
       const results = await Promise.all(probes);
       const candidates = new Map<string, any>();
