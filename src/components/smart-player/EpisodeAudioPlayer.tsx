@@ -105,8 +105,16 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
-            <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
+                <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <EpisodeMarks episodeId={episode.id} compact />
+                {isCurrent && <ShareMomentButton />}
+              </div>
+            </div>
             {canResume && !isCurrent && (
               <div className="mt-2">
                 <button
