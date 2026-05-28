@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, Globe, Activity, AlertTriangle } from "lucide-react";
+import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
+import PersonAvatar from "@/components/PersonAvatar";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml, snippet } from "@/lib/text";
@@ -16,10 +17,71 @@ import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { slugify } from "@/lib/slug";
 import { PodcastFollow } from "@/components/PodcastFollow";
 
+type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
+
+async function fetchAllEpisodes(podcastId: string) {
+  const PAGE = 1000;
+  let from = 0;
+  const all: any[] = [];
+  for (let i = 0; i < 20; i++) {
+    const { data, error } = await supabase
+      .from("episodes")
+      .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
+      .eq("podcast_id", podcastId)
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .range(from, from + PAGE - 1);
+    if (error || !data) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
+async function fetchHosts(podcastId: string, manualNames: string[]): Promise<HostRow[]> {
+  const [aiRes, manualRes] = await Promise.all([
+    supabase
+      .from("person_podcast_map")
+      .select("people:person_id(id, slug, name, image_url)")
+      .eq("podcast_id", podcastId)
+      .eq("role", "host"),
+    manualNames.length
+      ? supabase.from("people").select("id, slug, name, image_url").in("name", manualNames)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const aiHosts = ((aiRes.data || []) as any[])
+    .map((r) => r.people)
+    .filter(Boolean) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
+  const manualPeople = (manualRes.data || []) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
+
+  const result: HostRow[] = [];
+  const seen = new Set<string>();
+  // Manual first (preserves admin-curated order)
+  for (const name of manualNames) {
+    const match = manualPeople.find((m) => m.name.toLowerCase() === name.toLowerCase());
+    if (match) {
+      if (seen.has(match.id)) continue;
+      seen.add(match.id);
+      result.push(match);
+    } else {
+      result.push({ name });
+    }
+  }
+  // AI fallback for any host not already covered
+  for (const h of aiHosts) {
+    if (h.id && seen.has(h.id)) continue;
+    if (result.some((r) => r.name.toLowerCase() === h.name.toLowerCase())) continue;
+    seen.add(h.id);
+    result.push(h);
+  }
+  return result;
+}
+
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
   const [p, setP] = useState<any>(null);
   const [eps, setEps] = useState<any[]>([]);
+  const [hosts, setHosts] = useState<HostRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
