@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, Sparkles } from "lucide-react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
 import { RelatedEpisodes } from "./RelatedEpisodes";
+import { LikeDislikeButtons } from "@/components/taste/LikeDislikeButtons";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
+
 
 export function SmartPlayerBar() {
   const {
@@ -100,6 +102,15 @@ export function SmartPlayerBar() {
             </button>
           )}
           <button
+            onClick={() => setExpanded(true)}
+            className="hidden sm:inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 shrink-0"
+            aria-label="Smart ajánlások"
+            title="AI ajánlások és értékelés"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="font-medium tracking-wide">Smart</span>
+          </button>
+          <button
             onClick={stop}
             className="h-9 w-9 rounded-full border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center shrink-0 transition-colors"
             aria-label={t("close")}
@@ -111,6 +122,8 @@ export function SmartPlayerBar() {
         </div>
       </div>
 
+
+
       {expanded && (
         <div
           className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col overflow-hidden"
@@ -121,9 +134,13 @@ export function SmartPlayerBar() {
           <PlayerBrandMark className="-right-10 -bottom-20" size={360} opacity={0.035} />
           <div className="flex items-center justify-between p-3 border-b border-border">
             <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ {t("close")}</button>
-            {href && (
+            <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-accent">
+              <Sparkles className="h-3.5 w-3.5" />
+              Smart Player
+            </div>
+            {href ? (
               <Link to={href} onClick={() => setExpanded(false)} className="text-xs text-accent">{t("open")}</Link>
-            )}
+            ) : <span className="w-12" />}
           </div>
           <div className="flex-1 overflow-auto p-6 flex flex-col items-center gap-5">
             {ep.imageUrl && (
@@ -132,7 +149,14 @@ export function SmartPlayerBar() {
             <div className="text-center max-w-md">
               <div className="text-lg font-semibold">{ep.title}</div>
               <div className="text-sm text-muted-foreground mt-1">{ep.podcastTitle}</div>
+              <div className="mt-3 flex flex-col items-center gap-1.5">
+                <LikeDislikeButtons episodeId={ep.id} source="smart_player" />
+                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Tanítsd az ízlésed
+                </div>
+              </div>
             </div>
+
             {error ? (
               <div className="w-full max-w-md rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-center">
                 <div className="mb-3">{t("fallbackUnavailable")}</div>
