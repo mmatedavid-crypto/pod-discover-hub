@@ -204,17 +204,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2) Build synthetic Spotify chart by popularity DESC (only matched podcasts)
+    // 2) Build synthetic Spotify chart.
+    // NOTE: Spotify's Show API does NOT expose `popularity` (only tracks/artists have it),
+    // and follower counts require user-auth. We rank by `total_episodes DESC` as an
+    // activity proxy until we get a better signal (e.g. snapshotted follower deltas).
     let chartInserted = 0;
     if (writeChart && !dryRun) {
       const { data: ranked } = await supabase
         .from("podcasts")
-        .select("id, title, spotify_id, spotify_popularity, spotify_image_url, spotify_url")
+        .select("id, title, spotify_id, spotify_total_episodes, spotify_image_url, spotify_url")
         .in("id", candidateIds)
         .eq("spotify_match_status", "matched")
-        .not("spotify_popularity", "is", null)
-        .order("spotify_popularity", { ascending: false })
+        .not("spotify_total_episodes", "is", null)
+        .order("spotify_total_episodes", { ascending: false })
         .limit(50);
+
 
       const snapshotAt = new Date().toISOString();
       const rows = (ranked || []).map((r: any, idx: number) => ({
