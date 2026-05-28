@@ -129,17 +129,15 @@ Deno.serve(async (req) => {
     // ---- PASS B: refresh rich metadata (batch 50) ----
     if (!matchOnly) {
       const freshCutoff = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
-      const filter = force
-        ? "spotify_id.not.is.null"
-        : `spotify_id.not.is.null,or(spotify_show_enriched_at.is.null,spotify_show_enriched_at.lt.${freshCutoff})`;
-
-      const { data: pods, error } = await supabase
+      let q = supabase
         .from("podcasts")
         .select("id, spotify_id")
         .ilike("language", "hu%")
-        .not("spotify_id", "is", null)
-        .or(force ? "id.not.is.null" : `spotify_show_enriched_at.is.null,spotify_show_enriched_at.lt.${freshCutoff}`)
-        .limit(limit);
+        .not("spotify_id", "is", null);
+      if (!force) {
+        q = q.or(`spotify_show_enriched_at.is.null,spotify_show_enriched_at.lt.${freshCutoff}`);
+      }
+      const { data: pods, error } = await q.limit(limit);
       if (error) throw error;
 
       const chunks: any[][] = [];
