@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     if (!refreshOnly) {
       const { data: unmatched, error } = await supabase
         .from("podcasts")
-        .select("id, title, display_title, language, author, spotify_match_status")
+        .select("id, title, display_title, language, spotify_match_status")
         .ilike("language", "hu%")
         .is("spotify_id", null)
         .or("spotify_match_status.is.null,spotify_match_status.neq.no_match")
