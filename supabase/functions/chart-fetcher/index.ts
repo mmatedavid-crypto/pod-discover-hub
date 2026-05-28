@@ -59,17 +59,24 @@ async function fetchAppleHU(): Promise<any[]> {
 }
 
 // ---------- Spotify (Firecrawl scrape) ----------
-async function fetchSpotifyHU(): Promise<{ rank: number; name: string; show_id: string | null; image_url: string | null }[]> {
+// ---------- Spotify (Firecrawl scrape) ----------
+// NOTE: Spotify does NOT publish a Hungarian podcast chart on
+// podcastcharts.byspotify.com (HU returns 404). Supported markets include
+// se/gb/us/de/fr/nl/pl/at. We try the requested market and bail out gracefully
+// if it isn't supported. When that happens the trending score falls back to
+// Apple + YouTube only.
+async function fetchSpotifyMarket(market: string): Promise<{ rank: number; name: string; show_id: string | null; image_url: string | null }[]> {
   const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
   if (!apiKey) throw new Error("FIRECRAWL_API_KEY missing");
+  const target = `https://podcastcharts.byspotify.com/${market}/top-podcasts`;
   const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
     method: "POST",
     headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      url: "https://podcastcharts.byspotify.com/hu",
+      url: target,
       formats: ["html", "markdown"],
       onlyMainContent: false,
-      waitFor: 2500,
+      waitFor: 3500,
     }),
   });
   const j = await res.json();
@@ -77,8 +84,6 @@ async function fetchSpotifyHU(): Promise<{ rank: number; name: string; show_id: 
   const html: string = j?.data?.html || j?.html || "";
   const md: string = j?.data?.markdown || j?.markdown || "";
 
-  // Parse show links: /show/<id>
-  // Spotify chart pages usually render `<a href="https://open.spotify.com/show/...">Show name</a>`
   const out: { rank: number; name: string; show_id: string | null; image_url: string | null }[] = [];
   const seen = new Set<string>();
   const linkRe = /href="https:\/\/open\.spotify\.com\/show\/([A-Za-z0-9]+)[^"]*"[^>]*>([\s\S]*?)<\/a>/g;
@@ -92,8 +97,6 @@ async function fetchSpotifyHU(): Promise<{ rank: number; name: string; show_id: 
     out.push({ rank: out.length + 1, name: text, show_id: id, image_url: null });
     if (out.length >= SPOTIFY_LIMIT) break;
   }
-
-  // Fallback: parse markdown ordered list lines if HTML didn't yield rows
   if (out.length === 0 && md) {
     const lines = md.split(/\n+/);
     for (const ln of lines) {
@@ -105,6 +108,11 @@ async function fetchSpotifyHU(): Promise<{ rank: number; name: string; show_id: 
         out.push({ rank: out.length + 1, name: mm[1].trim(), show_id: id, image_url: null });
         if (out.length >= SPOTIFY_LIMIT) break;
       }
+    }
+  }
+  return out;
+}
+
     }
   }
   return out;
