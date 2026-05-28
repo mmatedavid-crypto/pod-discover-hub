@@ -134,9 +134,13 @@ export function SmartPlayerBar() {
           <PlayerBrandMark className="-right-10 -bottom-20" size={360} opacity={0.035} />
           <div className="flex items-center justify-between p-3 border-b border-border">
             <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ {t("close")}</button>
-            {href && (
+            <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-accent">
+              <Sparkles className="h-3.5 w-3.5" />
+              Smart Player
+            </div>
+            {href ? (
               <Link to={href} onClick={() => setExpanded(false)} className="text-xs text-accent">{t("open")}</Link>
-            )}
+            ) : <span className="w-12" />}
           </div>
           <div className="flex-1 overflow-auto p-6 flex flex-col items-center gap-5">
             {ep.imageUrl && (
@@ -145,7 +149,14 @@ export function SmartPlayerBar() {
             <div className="text-center max-w-md">
               <div className="text-lg font-semibold">{ep.title}</div>
               <div className="text-sm text-muted-foreground mt-1">{ep.podcastTitle}</div>
+              <div className="mt-3 flex flex-col items-center gap-1.5">
+                <LikeDislikeButtons episodeId={ep.id} source="smart_player" />
+                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Tanítsd az ízlésed
+                </div>
+              </div>
             </div>
+
             {error ? (
               <div className="w-full max-w-md rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-center">
                 <div className="mb-3">{t("fallbackUnavailable")}</div>
