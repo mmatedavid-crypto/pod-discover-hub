@@ -16,9 +16,16 @@ interface Topic {
   domain: string | null;
 }
 
+// Merged/renamed topics → canonical slugs (301-style client redirect)
+const SLUG_REDIRECTS: Record<string, string> = {
+  ai: "mesterseges-intelligencia",
+  futball: "foci",
+};
+
 export default function TopicDetailPage() {
-  const { slug = "" } = useParams();
+  const { slug: rawSlug = "" } = useParams();
   const nav = useNavigate();
+  const slug = SLUG_REDIRECTS[rawSlug] || rawSlug;
   const [topic, setTopic] = useState<Topic | null>(null);
   const [eps, setEps] = useState<EpisodeLite[]>([]);
   const [pods, setPods] = useState<PodcastLite[]>([]);
@@ -28,6 +35,10 @@ export default function TopicDetailPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (rawSlug && SLUG_REDIRECTS[rawSlug]) {
+      nav(`/temak/${SLUG_REDIRECTS[rawSlug]}`, { replace: true });
+      return;
+    }
     if (!slug) return;
     (async () => {
       setLoading(true);
