@@ -1,9 +1,12 @@
 import { useSmartPlayer, SmartPlayerEpisode, detectAudioSource } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
+import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
 import { getProgress } from "@/lib/playerProgress";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 import { PlayerBrandMark } from "./BrandMark";
+import { Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
 
 type Props = {
   episode: {
