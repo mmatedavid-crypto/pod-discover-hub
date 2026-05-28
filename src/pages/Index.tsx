@@ -461,8 +461,9 @@ const Index = () => {
               </div>
             </div>
             <EpisodeList items={trendingEps} scrollAlways />
-
+          </section>
         )}
+
 
         <MoodCollections />
 
