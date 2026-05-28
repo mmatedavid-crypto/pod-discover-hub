@@ -136,7 +136,9 @@ Deno.serve(async (req) => {
     .limit(limit);
   if (onlyMissing) {
     // skip rows we've already inspected via RSS (any rss_* source)
-    q = q.or("hosts.is.null,hosts.eq.{}").not("hosts_source", "like", "rss_%");
+    q = q
+      .or("hosts.is.null,hosts.eq.{}")
+      .or("hosts_source.is.null,hosts_source.not.like.rss_*");
   }
   const { data, error } = await q;
   if (error) return json({ ok: false, error: error.message }, 500);
