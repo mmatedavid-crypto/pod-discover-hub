@@ -1,0 +1,163 @@
+{
+  "$schema": "https://podiverzum.hu/schemas/podcast-report.json",
+  "title": "Magyar podcast piac 2026 — Podiverzum jelentés",
+  "publisher": "Podiverzum",
+  "publisher_url": "https://podiverzum.hu",
+  "date_published": "2026-05-27",
+  "data_snapshot_date": "2026-05-27",
+  "language": "hu-HU",
+  "canonical_url": "https://podiverzum.hu/jelentes/magyar-podcast-piac-2026",
+  "machine_readable_alternates": {
+    "markdown": "https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.md",
+    "json": "https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.json"
+  },
+  "data_type": "supply_side_only",
+  "data_type_note": "All numbers count published episodes / indexed shows. NOT listenership, downloads or revenue.",
+  "license": "Quotable and reproducible with attribution to Podiverzum.hu. Underlying database remains Podiverzum's property.",
+  "headline": {
+    "podcasts_indexed": 1428,
+    "episodes_indexed": 134613,
+    "podcasts_with_episodes": 1352,
+    "people_indexed": 2623,
+    "organizations_indexed": 4137,
+    "growth_2015_to_2025_multiplier": 29.3,
+    "yoy_2024_to_2025_pct": 7.9,
+    "projected_2026_episodes": 33080,
+    "avg_new_episodes_per_day_2025": 90
+  },
+  "episodes_by_year": {
+    "2015": 880, "2016": 1893, "2017": 1595, "2018": 1768, "2019": 3284,
+    "2020": 7837, "2021": 12783, "2022": 16964, "2023": 20327, "2024": 23916,
+    "2025": 25824, "2026_partial_5mo": 13325
+  },
+  "publishing_cadence_tiers": {
+    "weekly_plus": 242,
+    "active_monthly": 457,
+    "monthly": 626,
+    "rare": 39,
+    "silenced": 64,
+    "total": 1428
+  },
+  "show_activity_by_last_episode": [
+    { "label": "Rendszeresen frissülő (≤30 nap)", "shows": 587 },
+    { "label": "Lassuló (30–90 nap)", "shows": 208 },
+    { "label": "Szunnyadó (3–6 hó)", "shows": 125 },
+    { "label": "Inaktív (6–12 hó)", "shows": 89 },
+    { "label": "Elcsendesedett (12+ hó)", "shows": 343 }
+  ],
+  "top_categories_by_episodes": [
+    { "name": "Társadalom és kultúra", "podcasts": 265, "episodes": 28632 },
+    { "name": "Hírek és politika", "podcasts": 124, "episodes": 14148 },
+    { "name": "Vallás és spiritualitás", "podcasts": 126, "episodes": 12921 },
+    { "name": "Film, TV és popkultúra", "podcasts": 102, "episodes": 11581 },
+    { "name": "Sport", "podcasts": 68, "episodes": 8937 },
+    { "name": "Zene", "podcasts": 78, "episodes": 7598 },
+    { "name": "Pénzügy", "podcasts": 41, "episodes": 6725 },
+    { "name": "Üzlet és pénzügy", "podcasts": 103, "episodes": 6242 },
+    { "name": "Technológia", "podcasts": 50, "episodes": 4819 },
+    { "name": "Könyvek és irodalom", "podcasts": 41, "episodes": 4621 },
+    { "name": "Humor", "podcasts": 23, "episodes": 3783 },
+    { "name": "Önfejlesztés", "podcasts": 57, "episodes": 3301 }
+  ],
+  "category_yoy_2024_to_2025": [
+    { "name": "Egészség & életmód", "y2024": 261, "y2025": 557, "pct": 113 },
+    { "name": "Étel & ital", "y2024": 287, "y2025": 514, "pct": 79 },
+    { "name": "Gyerek & család", "y2024": 714, "y2025": 1106, "pct": 55 },
+    { "name": "Zene", "y2024": 1043, "y2025": 1448, "pct": 39 },
+    { "name": "Önfejlesztés", "y2024": 604, "y2025": 786, "pct": 30 },
+    { "name": "Üzlet & pénzügy", "y2024": 1090, "y2025": 1372, "pct": 26 },
+    { "name": "Technológia", "y2024": 680, "y2025": 822, "pct": 21 },
+    { "name": "Vallás & spiritualitás", "y2024": 2171, "y2025": 2353, "pct": 8 },
+    { "name": "Társadalom & kultúra", "y2024": 5163, "y2025": 5295, "pct": 3 },
+    { "name": "Sport", "y2024": 1463, "y2025": 1435, "pct": -2 },
+    { "name": "Film, TV & popkultúra", "y2024": 1849, "y2025": 1328, "pct": -28 },
+    { "name": "Oktatás", "y2024": 476, "y2025": 329, "pct": -31 },
+    { "name": "Humor", "y2024": 580, "y2025": 323, "pct": -44 }
+  ],
+  "top_topics_last_12_months": [
+    { "slug": "biblia", "name": "Biblia", "episodes": 130 },
+    { "slug": "valasztas", "name": "Választás 2026", "episodes": 123 },
+    { "slug": "zene", "name": "Zene", "episodes": 110 },
+    { "slug": "mesterseges-intelligencia", "name": "Mesterséges intelligencia", "episodes": 92 },
+    { "slug": "haboru", "name": "Háború (Ukrajna / Közel-Kelet)", "episodes": 73 },
+    { "slug": "keresztenyseg", "name": "Kereszténység", "episodes": 72 },
+    { "slug": "alvas", "name": "Alvás", "episodes": 68 },
+    { "slug": "film", "name": "Film", "episodes": 65 },
+    { "slug": "meditacio", "name": "Meditáció", "episodes": 64 },
+    { "slug": "gazdasag", "name": "Gazdaság", "episodes": 62 },
+    { "slug": "onismeret", "name": "Önismeret", "episodes": 61 },
+    { "slug": "kozelet", "name": "Közélet", "episodes": 54 },
+    { "slug": "kosarlabda", "name": "Kosárlabda", "episodes": 54 },
+    { "slug": "szinhaz", "name": "Színház", "episodes": 51 },
+    { "slug": "pszichologia", "name": "Pszichológia", "episodes": 51 },
+    { "slug": "csalad", "name": "Család", "episodes": 50 },
+    { "slug": "media", "name": "Média", "episodes": 50 },
+    { "slug": "sport", "name": "Sport", "episodes": 46 },
+    { "slug": "egeszseg", "name": "Egészség", "episodes": 43 },
+    { "slug": "tortenelem", "name": "Történelem", "episodes": 40 }
+  ],
+  "publishing_heatmap": {
+    "period": "2025-06 to 2026-05",
+    "episodes_in_period": 28542,
+    "timezone": "Europe/Budapest",
+    "hour_buckets": ["0-5", "6-9", "10-13", "14-17", "18-21", "22-23"],
+    "rows": [
+      { "day": "Mon", "values": [448, 1030, 1119, 1103, 1039, 128] },
+      { "day": "Tue", "values": [258, 925, 1292, 1070, 1091, 171] },
+      { "day": "Wed", "values": [287, 973, 1132, 919, 817, 127] },
+      { "day": "Thu", "values": [297, 1082, 1205, 1063, 1178, 91] },
+      { "day": "Fri", "values": [362, 1103, 1114, 909, 888, 124] },
+      { "day": "Sat", "values": [182, 563, 585, 551, 467, 88] },
+      { "day": "Sun", "values": [274, 521, 777, 431, 611, 147] }
+    ]
+  },
+  "new_podcasts_per_month_24mo": [
+    { "month": "2024-06", "new_shows": 11 }, { "month": "2024-07", "new_shows": 7 },
+    { "month": "2024-08", "new_shows": 6 }, { "month": "2024-09", "new_shows": 15 },
+    { "month": "2024-10", "new_shows": 10 }, { "month": "2024-11", "new_shows": 16 },
+    { "month": "2024-12", "new_shows": 13 }, { "month": "2025-01", "new_shows": 13 },
+    { "month": "2025-02", "new_shows": 17 }, { "month": "2025-03", "new_shows": 20 },
+    { "month": "2025-04", "new_shows": 17 }, { "month": "2025-05", "new_shows": 16 },
+    { "month": "2025-06", "new_shows": 11 }, { "month": "2025-07", "new_shows": 18 },
+    { "month": "2025-08", "new_shows": 15 }, { "month": "2025-09", "new_shows": 19 },
+    { "month": "2025-10", "new_shows": 30 }, { "month": "2025-11", "new_shows": 18 },
+    { "month": "2025-12", "new_shows": 18 }, { "month": "2026-01", "new_shows": 17 },
+    { "month": "2026-02", "new_shows": 29 }, { "month": "2026-03", "new_shows": 29 },
+    { "month": "2026-04", "new_shows": 14 }, { "month": "2026-05", "new_shows": 8 }
+  ],
+  "wellness_topic_monthly_2025_06_to_2026_05": {
+    "months": ["2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],
+    "series": {
+      "alvas":        [6, 3, 7, 13, 12, 7, 19, 44, 46, 37, 37, 40],
+      "meditacio":    [10, 10, 14, 12, 22, 19, 10, 45, 41, 36, 39, 38],
+      "szorongas":    [20, 23, 23, 26, 30, 32, 36, 30, 38, 44, 38, 34],
+      "onismeret":    [43, 44, 43, 38, 56, 55, 48, 44, 44, 50, 36, 32],
+      "parkapcsolat": [21, 16, 15, 14, 16, 21, 20, 22, 32, 30, 22, 16]
+    }
+  },
+  "party_mentions_last_12_months": [
+    { "slug": "fidesz", "name": "Fidesz", "episodes": 580 },
+    { "slug": "tisza-part", "name": "Tisza Párt", "episodes": 565 },
+    { "slug": "mi-hazank", "name": "Mi Hazánk", "episodes": 34 },
+    { "slug": "kutyapart", "name": "Kutyapárt", "episodes": 18 },
+    { "slug": "momentum", "name": "Momentum", "episodes": 17 },
+    { "slug": "parbeszed", "name": "Párbeszéd", "episodes": 6 }
+  ],
+  "party_mentions_monthly_fidesz_vs_tisza": [
+    { "month": "2025-06", "fidesz": 35, "tisza": 20 },
+    { "month": "2025-07", "fidesz": 24, "tisza": 20 },
+    { "month": "2025-08", "fidesz": 13, "tisza": 7 },
+    { "month": "2025-09", "fidesz": 40, "tisza": 36 },
+    { "month": "2025-10", "fidesz": 47, "tisza": 58 },
+    { "month": "2025-11", "fidesz": 49, "tisza": 61 },
+    { "month": "2025-12", "fidesz": 49, "tisza": 40 },
+    { "month": "2026-01", "fidesz": 46, "tisza": 45 },
+    { "month": "2026-02", "fidesz": 73, "tisza": 71 },
+    { "month": "2026-03", "fidesz": 79, "tisza": 69 },
+    { "month": "2026-04", "fidesz": 93, "tisza": 104 },
+    { "month": "2026-05", "fidesz": 32, "tisza": 34 }
+  ],
+  "party_mentions_caveat": "Mention counts only. Does NOT measure sentiment (positive/negative/neutral), support, or listenership.",
+  "methodology_url": "https://podiverzum.hu/modszertan",
+  "contact_email": "hello@podiverzum.hu"
+}
