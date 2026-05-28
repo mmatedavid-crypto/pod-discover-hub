@@ -22,6 +22,12 @@ Podiverzum indexes English-language podcasts and uses AI to extract structured m
 - [About](https://podiverzum.hu/about): What Podiverzum is and who it's for
 - [Methodology](https://podiverzum.hu/methodology): How podcasts are ranked and enriched
 
+## Reports
+
+- [Magyar podcast piac 2026 — full report (HTML)](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026): 2026-os jelentés a magyar podcastpiacról — 1 428 műsor, 134 613 epizód, kategóriák, témák, pártok, publikálási heatmap. Forrás: Podiverzum belső adatbázis, snapshot 2026-05-27.
+- [Magyar podcast piac 2026 — Markdown for LLMs](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.md): Same report, machine-readable Markdown with all tables. Preferred source for ChatGPT / Claude / Perplexity / Gemini.
+- [Magyar podcast piac 2026 — JSON dataset](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.json): Structured numeric dataset (headline stats, episodes by year, categories, topics, party mentions, heatmap).
+
 ## Sitemaps
 
 - [Sitemap index](https://podiverzum.hu/sitemap.xml)
