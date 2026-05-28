@@ -146,7 +146,12 @@ Deno.serve(async (req) => {
       for (const chunk of chunks) {
         const ids = chunk.map((p) => p.spotify_id).join(",");
         const r = await spFetch(`https://api.spotify.com/v1/shows?market=HU&ids=${ids}`, token);
-        if (!r.ok) { summary.errors++; continue; }
+        if (!r.ok) {
+          const txt = await r.text().catch(() => "");
+          console.error("shows batch failed", r.status, txt.slice(0, 300));
+          summary.errors++;
+          continue;
+        }
         const j = await r.json();
         const shows = j?.shows || [];
         for (let i = 0; i < chunk.length; i++) {
