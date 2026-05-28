@@ -6716,6 +6716,34 @@ export type Database = {
         }[]
       }
       slug_with_suffix: { Args: { base: string; n: number }; Returns: string }
+      smart_player_discover: {
+        Args: { p_episode_id: string; p_limit?: number }
+        Returns: {
+          audio_url: string
+          best_char_start: number
+          best_chunk_idx: number
+          display_title: string
+          episode_id: string
+          image_url: string
+          match_kind: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
+          seek_seconds: number
+          shared_orgs: string[]
+          shared_persons: string[]
+          shared_topics: string[]
+          similarity: number
+          slug: string
+          snippet: string
+          sort_score: number
+          title: string
+          why_label: string
+        }[]
+      }
       suggest_token_corrections: {
         Args: { p_tokens: string[] }
         Returns: {

@@ -1,95 +1,62 @@
-## Diagnózis (mért adatok, nem becslés)
+# Smart Player v2 — "pillanat-matching"
 
-- **Sitemap submitted: 10 284 URL → Google indexed: 0.** Nem ranking, hanem indexelési probléma.
-- **GSC top page-ek 90 napon:** az "élet jeleit mutató" oldalak `/company/*` és 1 podcast detail (sinoa). Episode-ok és hub-ok teljesen láthatatlanok.
-- **Konkrét lyukak prerenderben** (Googlebot UA-val curl-ölve):
-  - `/podcastok`, `/szemelyek`, `/szervezetek`, `/partok`, `/temak` → 2.7 KB shell, title "Find it. Hear it.", JSON-LD nincs. **Soft 404 a Google-nek.**
-  - `/cegek` → ugyanaz a 2.7 KB shell.
-  - Episode page (pl. AI hírek): 5.5 KB, van title+meta+JSON-LD, **de nincs body content**. Borderline thin-content.
-  - `/company/telex` és társai: 1.5 KB, csak fejléc, **nulla epizód-lista a HTML-ben** → ezért rangsorol pos 5-7 de **0 click**.
-  - `/podcast/sinoa-podcast` (15 KB) és `/person/feledy-botond` (20 KB) → ezek jól prerendereltek, ezért látszanak GSC-ben.
-- `www.podiverzum.hu` még külön property → duplikált indexelés.
+A jelenlegi panel egy unalmas similarity-listát ad ugyanazon RPC-ből. Van 134k chunk-embeddingünk (768d), amit eddig csak a kereső használ. Erre építünk.
 
-## A magyar piac kicsi — pontosan ezért nyerhető, de csak ha az alábbi 4 hullám élesen lefut
+## Mit fog érezni a user
 
----
+A lejátszó kinyitásakor 3 jól elkülönülő sáv jelenik meg, mindegyik mellett konkrét WHY-jal:
 
-### 1. hullám — Prerender + indexelhetőség (ezen a héten, ez a 80% impact)
+1. **„Más műsorban erről beszélnek"** — chunk-szintű pillanat-match
+   Pl. *Friderikusz Podcast · 23:14 — „…a Tisza párt választási stratégiája…" · 94% egyezés*
+   Kattintásra a Smart Player átvált arra az epizódra ÉS a matching időbélyegen indítja.
 
-**A.** Hub/index oldalak prerendere. Cél: 5 darab landing page legyen Googlebot számára SSR/prerendered, mindegyik ~10 KB hasznos HTML-lel, 30-60 podcast/szervezet/személy listával, H1+H2 struktúrával, BreadcrumbList JSON-LD-vel.
-  - `/podcastok` → "Magyar podcastok listája" (top 60 podcast S/A tier)
-  - `/szemelyek` → "Magyar közélet és podcast vendégek" (top 60 person)
-  - `/szervezetek` → "Szervezetek és intézmények podcastokban"
-  - `/partok` → "Magyar pártok podcastokban" (12 párt + epizódszám)
-  - `/temak` → "Témák" (21-slug taxonomy + epizódszám)
-  - `/cegek` → ugyanaz mint `/szervezetek` (vagy 301-re átirányítva)
+2. **„Közös szereplők és témák"** — entity-overlap rail
+   Pl. *Partizán epizód · közös: Magyar Péter, Tisza párt, választás 2026*
+   Magyarázható, „miért látom ezt" típusú ajánlás.
 
-**B.** Cég/person prerender content bump. Jelenleg 1.5 KB. Cél: minimum 5 epizód-lista a HTML body-ban (title, ai_summary első 200 char, dátum, link), plus a Wikipedia bio ha van.
+3. **„Hasonló hangulat"** — meglévő vektor-similarity, de diverzifikálva
+   Per-podcast max 1 epizód, hogy ne egy műsor uralja.
 
-**C.** Episode page content bump. 5.5 KB → 8-12 KB: ai_summary teljes hossza, top 3-5 említett személy, szervezet, téma chip-jei mind szerver-rendelt linkként + "Hasonló epizódok" 5 item lista. Minden link `<a href>` formában — JS-utáni hidratált link nem számít.
+Minden kártya WHY-chipet kap (nem egy puszta % szám). Ez teszi „smart"-tá, nem a darabszám.
 
-**D.** Sitemap finomítás:
-  - Hub-okat tegyük előre a `pages.xml`-be `priority=0.9 changefreq=daily` flag-gel.
-  - Episode sitemap `<lastmod>` legyen az `episodes.updated_at`.
-  - `www.podiverzum.hu` GSC property mellé tegyünk explicit 301-et (worker meglévő szabálya alapján már megvan, csak megerősíteni).
+## Hogyan épül
 
-**E.** Belső linkelés futószalag: header és footer kapja meg a "Podcastok / Személyek / Szervezetek / Pártok / Témák" linkeket (most a felhasználó látja, de Googlebot ne csak SPA-route-ként). Ha jelenleg `<Link to>` használjuk, prerendered HTML-ben legyen `<a href>`.
+### Backend — 1 új RPC
 
----
+`smart_player_discover(p_episode_id uuid, p_limit int)` SECURITY DEFINER, visszaad:
+- `episode_id, podcast_id, slug, podcast_slug, title, image_url, audio_url`
+- `match_kind` enum: `chunk_moment` | `entity_overlap` | `vector_neighbor`
+- `best_chunk_idx, best_char_start, best_char_end, snippet` (chunk-rail-nek)
+- `seek_seconds` (becsült: `char_start / chars_per_second`, klipikből kalibrálva ~15)
+- `similarity` (0..1)
+- `shared_persons text[], shared_orgs text[], shared_topics text[]`
+- `why_label text` (előre összerakott magyar címke a frontnak)
 
-### 2. hullám — Content depth a meglévő oldalakon (jövő hét)
+Logika:
+1. Source-epizód top-8 leghosszabb chunkja
+2. Mindegyikre HNSW kNN a `chunk_embeddings`-ben, **más podcastra szűrve**, limit 20
+3. Aggregáció episode_id-ra: legjobb chunk-match marad
+4. Párhuzamosan: shared persons/orgs/topics lekérése (overlaps), score-olás (közös elemek száma)
+5. Vector-neighbor rail a meglévő `similar_episodes`-ből, cross-podcast szűrve
+6. Diverzifikáció: per-podcast max 1 / rail
+7. Egyik rail sem üres? → vegyes top-12
 
-**A.** Episode page valódi content blokkok (prerendered):
-  - Teljes `clean_text`-ből generált 600-800 szavas "Mi hangzik el az epizódban?" prózás összefoglaló (van AI pipeline-unk, csak nem render-eljük az SSR HTML-be).
-  - "Említett személyek" + bio-snippet (rangsorolt link)
-  - "Említett szervezetek" + 1 mondat
-  - "Témák" chip + 1-2 leíró mondat
-  - `PodcastEpisode` JSON-LD bővítése `transcript` + `actor` mezővel
+### Frontend
 
-**B.** Person page bio teljes Wikipedia-szöveg first paragraph + saját AI-bio (mindkettő prerendered), Person JSON-LD `description` + `sameAs` (wikipedia/wikidata).
+`RelatedEpisodes.tsx` lecserélve `SmartDiscoveryPanel.tsx`-re:
+- 3 horizontális rail (header + scrollable cards)
+- Card: image · cím · podcast · WHY-chip · play-gomb
+- Chunk-rail kártyán „▶ 23:14-től" gomb — `play(ep, { startAt: seek_seconds })`
+- `SmartPlayerProvider.play()` kap egy opcionális `startAt` paramétert, ami az audio `currentTime`-ot beállítja onLoad
 
-**C.** Hub-oldalak SEO copy: minden hub kapjon 200-300 szó intro szöveget (H2 + 2 bekezdés), pl. `/szervezetek` → "A magyar podcast-világban X szervezetet észlel a Podiverzum…". Ezek hozzák a kategória-mid-tail forgalmat.
+`SmartPlayerBar` expanded view: a panel fölé egy mikro-statisztika: *„12 kapcsolódó pillanat 8 másik műsorban"* — ez ad valódi „smart" érzést.
 
----
+### Mit NEM csinálunk most
 
-### 3. hullám — Long-tail content moat (2-3 hét)
+- Personal taste-vector (nincs `taste_interactions` tábla, csak `taste_cards`; külön kör)
+- Re-rank Cohere-rel (a chunk-similarity már elég erős, és latency-kritikus a sáv)
+- Új embedding modell
 
-**A.** Long-tail aggregációs oldalak generálása a meglévő adatból. Magyar nyelvű kereséseknek célozva:
-  - `/szemely/{slug}/epizodok` (chronological) — már van, ellenőrizni canonical-t
-  - `/szemely/{slug}/temak/{topic}` — Pl. "Mit mondott Orbán Viktor a NATO-ról?" 
-  - `/podcast/{slug}/epizodok/{ev}` — éves archívum, RSS-szerű
-  - `/temak/{topic}/{ev}` — "Mesterséges intelligencia podcastok 2026"
+## Mit kérek
 
-**B.** Daily brief content publikus oldala. Van daily-brief cron, az output rendelhető `/napi-osszefoglalo/{datum}` slug-on. Friss, dátumos content = Google szereti.
-
-**C.** Új "Top" oldalak (programmatic, frissül naponta):
-  - `/top/podcastok-ezen-a-heten`
-  - `/top/szemelyek-ezen-a-heten`
-  - `/uj-podcastok`
-
----
-
-### 4. hullám — Off-page + technical hygiene (folyamatos)
-
-**A.** Backlinks: regisztrálás magyar podcast/médiakatalógusokba (refresher.hu, Index Mediatár, RTL podcast oldal stb.) — Semrush backlink_analysis-szel monitorozva.
-
-**B.** Core Web Vitals audit mobile-on (Plausible szerint 86% mobile). LCP/CLS/INP mérés a fő templátokra.
-
-**C.** Open Graph image per-page generálás (cég/person/podcast). Most globális og-image.jpg → minden share ugyanaz.
-
-**D.** Hreflang nincs szükség (HU-only), `<html lang="hu">` már OK.
-
----
-
-## Mérés
-
-- GSC Indexed/Submitted arány — cél: 14 napon belül 0 → minimum 2 000 indexed.
-- Impressions: 90 nap alatt jelenleg ~150 → 30 napon belül 5 000+.
-- Clicks: jelenleg 17 → 30 napon belül 300+.
-- Top 10-be jutó query-k: jelenleg ~5 (mindegyik 1 imp) → 30 napon belül 50+.
-
-## Most azonnal mit csináljak
-
-1. hullám A+B kódra menjen most. Konkrétan: 6 hub-route prerender pipeline-ba kötése (megnézem hogyan készül a meglévő `/topic/*` prerender, ami működik), plus a company/person prerender template-be epizód-lista beszúrása. Ez 1-2 ülés munka és ez hozza a 80% indexelést.
-
-Ha rábólintasz, megyek és csinálom az 1. hullám A-t és B-t (hub-prerender + company content bump).
+Mehet így? Ha igen, megírom a migrációt + frontend cserét egyben.
