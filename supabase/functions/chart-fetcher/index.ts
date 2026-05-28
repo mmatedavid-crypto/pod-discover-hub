@@ -244,9 +244,14 @@ Deno.serve(async (req) => {
     }
 
     // ===== SPOTIFY =====
-    if (sources.includes("spotify")) {
+    // Spotify doesn't publish a HU podcast chart (podcastcharts.byspotify.com/hu → 404).
+    // We skip it for HU and rely on Apple + YouTube. If country is a supported market
+    // (se/gb/us/de/fr/nl/pl/at), the scrape runs.
+    const SPOTIFY_SUPPORTED = new Set(["se","gb","us","de","fr","nl","pl","at"]);
+    if (sources.includes("spotify") && SPOTIFY_SUPPORTED.has(country)) {
       try {
-        const items = await fetchSpotifyHU();
+        const items = await fetchSpotifyMarket(country);
+
         let matched = 0, backfilled = 0;
         for (const it of items) {
           let matchedPod: any = null;
