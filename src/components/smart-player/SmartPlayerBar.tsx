@@ -98,14 +98,24 @@ export function SmartPlayerBar() {
               className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
               aria-label={isPlaying ? t("pause") : t("play")}
             >
-              {isPlaying ? "❚❚" : "▶"}
-            </button>
           )}
+          <button
+            onClick={() => setExpanded(true)}
+            className="hidden sm:inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 shrink-0"
+            aria-label="Smart ajánlások"
+            title="AI ajánlások és értékelés"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="font-medium tracking-wide">Smart</span>
+          </button>
           <button
             onClick={stop}
             className="h-9 w-9 rounded-full border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center shrink-0 transition-colors"
             aria-label={t("close")}
             title={t("close")}
+          ><X className="h-4 w-4" /></button>
+        </div>
+
           ><X className="h-4 w-4" /></button>
         </div>
         <div className="container mx-auto px-3 pb-2">
