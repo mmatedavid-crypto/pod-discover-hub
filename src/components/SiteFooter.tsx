@@ -11,6 +11,9 @@ const EXPLORE = [
   { to: "/modszertan", label: "Módszertan" },
 ];
 
+const RESEARCH = [
+  { to: "/jelentes/magyar-podcast-piac-2026", label: "Magyar podcast piac 2026" },
+];
 
 const COMPANY = [
   { to: "/rolunk", label: "Rólunk" },
