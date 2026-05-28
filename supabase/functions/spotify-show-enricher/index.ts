@@ -140,24 +140,18 @@ Deno.serve(async (req) => {
       const { data: pods, error } = await q.limit(limit);
       if (error) throw error;
 
-      const chunks: any[][] = [];
-      for (let i = 0; i < (pods?.length || 0); i += 50) chunks.push(pods!.slice(i, i + 50));
-
-      for (const chunk of chunks) {
-        const ids = chunk.map((p) => p.spotify_id).join(",");
-        const r = await spFetch(`https://api.spotify.com/v1/shows?market=HU&ids=${ids}`, token);
-        if (!r.ok) {
-          const txt = await r.text().catch(() => "");
-          console.error("shows batch failed", r.status, txt.slice(0, 300));
-          summary.errors++;
-          continue;
-        }
-        const j = await r.json();
-        const shows = j?.shows || [];
-        for (let i = 0; i < chunk.length; i++) {
-          const show = shows[i];
-          const pod = chunk[i];
-          if (!show) continue;
+      // NOTE: Spotify removed /v1/shows?ids= batch from client-credentials access (Nov 2024).
+      // Use per-show GET. ~3 req/s safe.
+      for (const pod of pods || []) {
+        try {
+          const r = await spFetch(`https://api.spotify.com/v1/shows/${pod.spotify_id}?market=HU`, token);
+          if (!r.ok) {
+            const txt = await r.text().catch(() => "");
+            console.error("show fetch failed", pod.spotify_id, r.status, txt.slice(0, 200));
+            summary.errors++;
+            continue;
+          }
+          const show = await r.json();
           const imgs = pickImages(show.images);
           await supabase.from("podcasts").update({
             spotify_publisher: show.publisher || null,
@@ -178,9 +172,12 @@ Deno.serve(async (req) => {
             spotify_last_synced_at: new Date().toISOString(),
           }).eq("id", pod.id);
           summary.refreshed++;
+          await new Promise((r) => setTimeout(r, 320));
+        } catch (e) {
+          summary.errors++;
         }
-        await new Promise((r) => setTimeout(r, 350));
       }
+    }
     }
 
     return new Response(JSON.stringify({ ok: true, ...summary }), {
