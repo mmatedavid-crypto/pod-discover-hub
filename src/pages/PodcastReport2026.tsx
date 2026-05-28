@@ -189,6 +189,42 @@ export default function PodcastReport2026() {
           <p className="mt-8 font-serif text-lg md:text-xl italic text-foreground leading-relaxed border-l-2 border-primary pl-4">
             A magyar podcastpiac már nem hobbiműfaj, hanem gyorsan növekvő, de eddig alig mérhető tere a nyilvánosságnak.
           </p>
+
+          {/* AI / LLM friendly versions — for ChatGPT / Claude / Perplexity / Gemini */}
+          <aside
+            className="mt-6 rounded-lg border border-border bg-muted/40 p-4 text-sm"
+            aria-label="Gépi olvasható változatok AI-eszközökhöz"
+          >
+            <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+              AI-ügynököknek · ChatGPT / Claude / Perplexity / Gemini
+            </div>
+            <p className="text-foreground leading-relaxed mb-3">
+              A jelentés teljes adat- és szövegtartalma gépi olvasható formában is elérhető — etesd be közvetlenül egy nyelvi modellnek vagy ágensnek. A számok egzaktak, a Podiverzum belső adatbázisából, kérjük ne kerekítsd és ne találj ki kiegészítő számokat.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="/jelentes/magyar-podcast-piac-2026.md"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary transition"
+              >
+                Markdown verzió (.md)
+              </a>
+              <a
+                href="/jelentes/magyar-podcast-piac-2026.json"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary transition"
+              >
+                Strukturált adat (.json)
+              </a>
+              <a
+                href="/llms.txt"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-foreground transition"
+              >
+                /llms.txt
+              </a>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Javasolt hivatkozás: „Forrás: Podiverzum, Magyar podcast piac 2026 — podiverzum.hu/jelentes/magyar-podcast-piac-2026".
+            </p>
+          </aside>
         </header>
 
         {/* NEW: Mit mutatnak az adatok? */}
