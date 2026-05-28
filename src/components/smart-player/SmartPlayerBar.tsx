@@ -98,6 +98,8 @@ export function SmartPlayerBar() {
               className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
               aria-label={isPlaying ? t("pause") : t("play")}
             >
+              {isPlaying ? "❚❚" : "▶"}
+            </button>
           )}
           <button
             onClick={() => setExpanded(true)}
@@ -115,13 +117,12 @@ export function SmartPlayerBar() {
             title={t("close")}
           ><X className="h-4 w-4" /></button>
         </div>
-
-          ><X className="h-4 w-4" /></button>
-        </div>
         <div className="container mx-auto px-3 pb-2">
           <PlayerProgress compact />
         </div>
       </div>
+
+
 
       {expanded && (
         <div
