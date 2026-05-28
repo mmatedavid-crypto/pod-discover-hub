@@ -102,7 +102,9 @@ function evaluateRunner(
       num(progress.processed) +
       num(progress.written) +
       num(progress.chunks_last_run);
-    if (errors > 0 && processed > 0) {
+    // Skip rate calc on tiny samples — 2/6 type noise is meaningless on a near-drained queue.
+    const minSample = Math.max(1, Number((runner as any).min_processed_for_error_rate ?? 10));
+    if (errors > 0 && processed > 0 && (errors + processed) >= minSample) {
       const rate = errors / (errors + processed);
       if (rate > 0.5) {
         results.push({
@@ -122,6 +124,7 @@ function evaluateRunner(
         });
       }
     }
+
   }
 
   // RULE 4: stale runner (warn only — runner hasn't reported in cadence × 6)
