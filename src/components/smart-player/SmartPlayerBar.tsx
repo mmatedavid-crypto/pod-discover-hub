@@ -103,12 +103,12 @@ export function SmartPlayerBar() {
           )}
           <button
             onClick={() => setExpanded(true)}
-            className="hidden sm:inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 shrink-0"
+            className="inline-flex h-9 w-9 sm:h-auto sm:w-auto items-center justify-center gap-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 shrink-0 sm:px-2.5 sm:py-1 text-xs"
             aria-label="Smart ajánlások"
             title="AI ajánlások és értékelés"
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span className="font-medium tracking-wide">Smart</span>
+            <Sparkles className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            <span className="hidden sm:inline font-medium tracking-wide">Smart</span>
           </button>
           <button
             onClick={stop}
