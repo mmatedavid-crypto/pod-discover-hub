@@ -5,6 +5,9 @@ import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
 import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
+import { SmartPlayerChapters } from "./SmartPlayerChapters";
+import { ShareMomentButton } from "./ShareMomentCard";
+import { EpisodeMarks } from "@/components/EpisodeMarks";
 import { LikeDislikeButtons } from "@/components/taste/LikeDislikeButtons";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 
