@@ -4,7 +4,7 @@ import { X, Sparkles } from "lucide-react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
-import { RelatedEpisodes } from "./RelatedEpisodes";
+import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
 import { LikeDislikeButtons } from "@/components/taste/LikeDislikeButtons";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 
