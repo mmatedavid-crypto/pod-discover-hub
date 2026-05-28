@@ -36,17 +36,11 @@ type Props = {
 };
 
 const RAILS: Array<{
-  kind: Row["match_kind"];
+  kind: Exclude<Row["match_kind"], "chunk_moment">;
   title: string;
   blurb: string;
   Icon: typeof Sparkles;
 }> = [
-  {
-    kind: "chunk_moment",
-    title: "Más műsorban erről beszélnek",
-    blurb: "Pillanat-szintű egyezés más podcastokból — ugorj a témára egy kattintással",
-    Icon: Zap,
-  },
   {
     kind: "entity_overlap",
     title: "Közös szereplők és témák",
@@ -61,12 +55,6 @@ const RAILS: Array<{
   },
 ];
 
-function formatTimestamp(sec: number | null): string {
-  if (sec == null || sec <= 0) return "";
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Props = {}) {
   const { currentEpisode, play, setExpanded } = useSmartPlayer();
@@ -89,27 +77,30 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
   });
 
   const byRail = useMemo(() => {
-    const map: Record<Row["match_kind"], Row[]> = {
-      chunk_moment: [],
+    const map: Record<"entity_overlap" | "vector_neighbor", Row[]> = {
       entity_overlap: [],
       vector_neighbor: [],
     };
     (data || []).forEach((r) => {
-      if (r.audio_url && map[r.match_kind]) map[r.match_kind].push(r);
+      if (!r.audio_url) return;
+      if (r.match_kind === "entity_overlap" || r.match_kind === "vector_neighbor") {
+        map[r.match_kind].push(r);
+      }
     });
     return map;
   }, [data]);
 
-  const totalMoments = byRail.chunk_moment.length;
   const totalPodcasts = useMemo(() => {
     const s = new Set<string>();
-    (data || []).forEach((r) => s.add(r.podcast_id));
+    (data || []).forEach((r) => {
+      if (r.match_kind !== "chunk_moment") s.add(r.podcast_id);
+    });
     return s.size;
   }, [data]);
 
   if (!episodeId) return null;
 
-  const launch = (r: Row, withSeek: boolean) => {
+  const launch = (r: Row) => {
     const ep: SmartPlayerEpisode = {
       id: r.episode_id,
       title: r.display_title || r.title,
@@ -120,8 +111,9 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
       imageUrl: r.image_url || r.podcast_image_url,
       audioUrl: r.audio_url!,
     };
-    play(ep, withSeek && r.seek_seconds ? { startAt: r.seek_seconds } : undefined);
+    play(ep);
   };
+
 
   return (
     <div className={isCompact ? "w-full mt-8" : "w-full max-w-3xl"}>
@@ -129,14 +121,11 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
         <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-accent" />
           {isLoading ? (
-            <span>Smart Player keresi a kapcsolódó pillanatokat…</span>
+            <span>Smart Player keresi a kapcsolódó műsorokat…</span>
           ) : (
-            <span>
-              {totalMoments > 0
-                ? `${totalMoments} kapcsolódó pillanat ${totalPodcasts} másik műsorban`
-                : `${totalPodcasts} kapcsolódó műsor megtalálva`}
-            </span>
+            <span>{totalPodcasts} kapcsolódó műsor megtalálva</span>
           )}
+
         </div>
       )}
 
@@ -164,7 +153,6 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
                 <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x scrollbar-thin">
                   {items.map((r) => {
                     const epHref = `/podcast/${r.podcast_slug}/${r.slug}`;
-                    const ts = formatTimestamp(r.seek_seconds);
                     return (
                       <div
                         key={`${rail.kind}-${r.episode_id}`}
@@ -195,32 +183,18 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
                           </div>
                         )}
 
-                        {rail.kind === "chunk_moment" && r.snippet && (
-                          <div className="text-[10.5px] text-muted-foreground/80 italic line-clamp-2">
-                            „{r.snippet}…"
-                          </div>
-                        )}
-
                         <div className="mt-auto flex items-center gap-2">
                           <button
-                            onClick={() => launch(r, rail.kind === "chunk_moment" && !!r.seek_seconds)}
+                            onClick={() => launch(r)}
                             className="text-[11px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
                             aria-label={`Lejátszás: ${r.title}`}
                           >
-                            {rail.kind === "chunk_moment" && ts ? `▶ ${ts}-től` : "▶ Lejátszás"}
+                            ▶ Lejátszás
                           </button>
-                          {rail.kind === "chunk_moment" && r.seek_seconds && (
-                            <button
-                              onClick={() => launch(r, false)}
-                              className="text-[10.5px] text-muted-foreground hover:text-foreground"
-                              title="Elejétől"
-                            >
-                              elejétől
-                            </button>
-                          )}
                         </div>
                       </div>
                     );
+
                   })}
                 </div>
               )}
