@@ -65,10 +65,14 @@ const BOT_UAS = [
 
 ];
 
+// Generic bot signal: substring "bot", "crawler", "spider", or non-browser fetch UAs.
+const GENERIC_BOT_RE = /(bot|crawler|spider|crawl|preview|fetch|httpclient|http-client|python-requests|libwww|wget|curl|go-http|java\/|okhttp|axios|node-fetch|undici|ruby|httpie|scrapy|headlesschrome|phantomjs|puppeteer|playwright)/i;
 function isBot(ua) {
-  if (!ua) return false;
+  if (!ua) return true; // empty UA → treat as bot for safety on /jelentes/
   const s = ua.toLowerCase();
-  return BOT_UAS.some((b) => s.includes(b));
+  if (BOT_UAS.some((b) => s.includes(b))) return true;
+  if (GENERIC_BOT_RE.test(s)) return true;
+  return false;
 }
 
 // Routes we know how to prerender. Anything else falls back to origin.
@@ -171,56 +175,109 @@ export default {
       });
     }
 
-    // AI-agent / LLM friendly static report files: .md and .json under /jelentes/
-    // Force correct Content-Type + permissive CORS so ChatGPT / Claude / Perplexity
-    // / Gemini agents (and any third-party script) can fetch them cross-origin.
-    // Bypasses bot-prerender entirely — these are already machine-readable.
-    if (request.method === "GET" && /^\/jelentes\/[^/]+\.(md|json|txt)$/.test(url.pathname)) {
-      const originResp = await fetch(request);
+    // AI-agent / LLM friendly static report files: .md / .json / .txt under /jelentes/
+    // GET + HEAD. UA-independent. CORS open. Static fallback if origin 5xx — NEVER 500.
+    if ((request.method === "GET" || request.method === "HEAD") &&
+        /^\/jelentes\/[^/]+\.(md|json|txt)$/.test(url.pathname)) {
       const ext = url.pathname.split(".").pop().toLowerCase();
       const ctype =
         ext === "json" ? "application/json; charset=utf-8"
         : ext === "md" ? "text/markdown; charset=utf-8"
         : "text/plain; charset=utf-8";
-      const headers = new Headers(originResp.headers);
-      headers.set("Content-Type", ctype);
-      headers.set("Access-Control-Allow-Origin", "*");
-      headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-      headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400");
-      headers.set("X-Robots-Tag", "all");
-      headers.set("X-AI-Agent-Friendly", "1");
-      return new Response(originResp.body, {
-        status: originResp.status,
-        headers,
+      const slug = url.pathname.replace(/^\/jelentes\//, "").replace(/\.(md|json|txt)$/, "");
+      let body = "";
+      let renderTag = "worker-static-file";
+      try {
+        const originResp = await fetch(`${url.origin}${url.pathname}`, {
+          headers: { "User-Agent": "podiverzum-cf-worker" },
+          cf: { cacheTtl: 300 },
+        });
+        if (originResp.ok) {
+          body = await originResp.text();
+        } else {
+          renderTag = "worker-static-file-fallback";
+          body = ext === "json"
+            ? JSON.stringify({ error: "report_unavailable", slug, canonical: `https://podiverzum.hu/jelentes/${slug}` })
+            : `# Podiverzum jelentés — ${slug}\n\nForrás: https://podiverzum.hu/jelentes/${slug}\n\nA jelentés ideiglenesen nem elérhető gépi formában. Hivatkozáskor a podiverzum.hu domaint tüntesse fel.`;
+        }
+      } catch (_err) {
+        renderTag = "worker-static-file-fallback";
+        body = ext === "json"
+          ? JSON.stringify({ error: "origin_unreachable", slug })
+          : `# Podiverzum jelentés — ${slug}\n\nForrás: https://podiverzum.hu/jelentes/${slug}\n`;
+      }
+      return new Response(request.method === "HEAD" ? null : body, {
+        status: 200,
+        headers: {
+          "Content-Type": ctype,
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+          "Cache-Control": "public, max-age=3600, s-maxage=86400",
+          "X-Robots-Tag": "all",
+          "X-AI-Agent-Friendly": "1",
+          "X-Podiverzum-Render": renderTag,
+          "X-Worker-Script-Name": "podiverzum-hu-bot-prerender",
+          "X-Report-Slug": slug,
+        },
       });
     }
 
-    // AI agent fast-path: for /jelentes/:slug HTML requests, if the caller is
-    // a bot OR explicitly asks via ?format=md, serve the .md content inline
-    // wrapped in minimal HTML. This bypasses the SPA + any origin/CF challenge
-    // that may block non-browser UAs from getting real content.
+    // AI agent fast-path: /jelentes/:slug HTML. Serves inline .md as HTML when
+    // caller is a bot OR ?format=md / ?format=json. Static fallback → never 500.
     {
       const jelentesMatch = url.pathname.match(/^\/jelentes\/([^/]+)\/?$/);
-      const wantsMd = url.searchParams.get("format") === "md";
-      if (
-        request.method === "GET" &&
-        jelentesMatch &&
-        (wantsMd || isBot(ua))
-      ) {
+      const fmt = url.searchParams.get("format");
+      const wantsMd = fmt === "md";
+      const wantsJson = fmt === "json";
+      const isGetOrHead = request.method === "GET" || request.method === "HEAD";
+      if (isGetOrHead && jelentesMatch && (wantsMd || wantsJson || isBot(ua))) {
         const slug = jelentesMatch[1];
-        const mdUrl = `${url.origin}/jelentes/${slug}.md`;
+        const canonical = `https://podiverzum.hu/jelentes/${slug}`;
+
+        // ?format=json branch
+        if (wantsJson) {
+          let jsonBody = `{"slug":"${slug}","canonical":"${canonical}","status":"fallback"}`;
+          let renderTag = "worker-json-inline-fallback";
+          try {
+            const j = await fetch(`${url.origin}/jelentes/${slug}.json`, {
+              headers: { "User-Agent": "podiverzum-cf-worker" },
+              cf: { cacheTtl: 300 },
+            });
+            if (j.ok) { jsonBody = await j.text(); renderTag = "worker-json-inline"; }
+          } catch (_e) {}
+          return new Response(request.method === "HEAD" ? null : jsonBody, {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json; charset=utf-8",
+              "Access-Control-Allow-Origin": "*",
+              "Cache-Control": "public, max-age=3600, s-maxage=86400",
+              "X-Robots-Tag": "all",
+              "X-Podiverzum-Render": renderTag,
+              "X-Worker-Script-Name": "podiverzum-hu-bot-prerender",
+              "X-Report-Slug": slug,
+            },
+          });
+        }
+
+        let md = "";
+        let renderTag = "worker-md-inline";
         try {
-          const mdResp = await fetch(mdUrl, {
+          const mdResp = await fetch(`${url.origin}/jelentes/${slug}.md`, {
             headers: { "User-Agent": "podiverzum-cf-worker" },
+            cf: { cacheTtl: 300 },
           });
           if (mdResp.ok) {
-            const md = await mdResp.text();
-            const safe = md
-              .replace(/&/g, "&amp;")
-              .replace(/</g, "&lt;")
-              .replace(/>/g, "&gt;");
-            const canonical = `https://podiverzum.hu/jelentes/${slug}`;
-            const html = `<!doctype html>
+            md = await mdResp.text();
+          } else {
+            renderTag = "worker-md-inline-fallback";
+            md = `# Podiverzum jelentés — ${slug}\n\nForrás: ${canonical}\n\nA jelentés gépi változata ideiglenesen nem elérhető. Hivatkozáskor a teljes podiverzum.hu domaint kötelező feltüntetni.`;
+          }
+        } catch (_err) {
+          renderTag = "worker-md-inline-fallback";
+          md = `# Podiverzum jelentés — ${slug}\n\nForrás: ${canonical}\n`;
+        }
+        const safe = md.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const html = `<!doctype html>
 <html lang="hu">
 <head>
 <meta charset="utf-8">
@@ -237,22 +294,21 @@ export default {
 <pre style="white-space:pre-wrap;font-family:ui-monospace,monospace">${safe}</pre>
 </body>
 </html>`;
-            return new Response(html, {
-              status: 200,
-              headers: {
-                "Content-Type": "text/html; charset=utf-8",
-                "Cache-Control": "public, max-age=3600, s-maxage=86400",
-                "Access-Control-Allow-Origin": "*",
-                "X-Robots-Tag": "all",
-                "X-AI-Agent-Friendly": "1",
-                "X-Served-By": "worker-md-inline",
-                "Link": `<${canonical}>; rel="canonical"`,
-              },
-            });
-          }
-        } catch (_err) {
-          // Fall through to normal prerender / passthrough.
-        }
+        return new Response(request.method === "HEAD" ? null : html, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "public, max-age=3600, s-maxage=86400",
+            "Access-Control-Allow-Origin": "*",
+            "X-Robots-Tag": "all",
+            "X-AI-Agent-Friendly": "1",
+            "X-Served-By": "worker-md-inline",
+            "X-Podiverzum-Render": renderTag,
+            "X-Worker-Script-Name": "podiverzum-hu-bot-prerender",
+            "X-Report-Slug": slug,
+            "Link": `<${canonical}>; rel="canonical"`,
+          },
+        });
       }
     }
 
