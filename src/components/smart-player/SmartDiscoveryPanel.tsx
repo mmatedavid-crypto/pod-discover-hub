@@ -121,14 +121,11 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
         <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-accent" />
           {isLoading ? (
-            <span>Smart Player keresi a kapcsolódó pillanatokat…</span>
+            <span>Smart Player keresi a kapcsolódó műsorokat…</span>
           ) : (
-            <span>
-              {totalMoments > 0
-                ? `${totalMoments} kapcsolódó pillanat ${totalPodcasts} másik műsorban`
-                : `${totalPodcasts} kapcsolódó műsor megtalálva`}
-            </span>
+            <span>{totalPodcasts} kapcsolódó műsor megtalálva</span>
           )}
+
         </div>
       )}
 
