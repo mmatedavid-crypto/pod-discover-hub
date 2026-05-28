@@ -4,7 +4,6 @@ import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
 import { getProgress } from "@/lib/playerProgress";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 import { PlayerBrandMark } from "./BrandMark";
-import { PlayerBrandMark } from "./BrandMark";
 import { Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { EpisodeMarks } from "@/components/EpisodeMarks";
