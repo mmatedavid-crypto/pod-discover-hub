@@ -123,17 +123,23 @@ Deno.serve(async (req) => {
       return json({ ok: true, paused: true, reason: "daily_budget_exhausted", spent_today: spentToday });
     }
 
-    // Claim pending episodes (S-tier only, clean_text done & long enough)
-    const { data: eps, error: selErr } = await admin
+    // Claim pending S-tier episodes with clean_text done
+    const { data: epsRaw, error: selErr } = await admin
       .from("episodes")
-      .select("id, title, podcast_id, podcasts!inner(rank_label, language), episode_clean_text(cleaned_text)")
+      .select("id, title, podcast_id, podcasts!inner(rank_label, language)")
       .eq("topic_extraction_status", "pending")
       .eq("clean_text_status", "done")
       .in("podcasts.rank_label", tierFilter)
       .ilike("podcasts.language", "hu%")
       .limit(batchLimit);
     if (selErr) return json({ ok: false, error: selErr.message }, 500);
-    if (!eps || eps.length === 0) return json({ ok: true, processed: 0, reason: "queue_empty" });
+    if (!epsRaw || epsRaw.length === 0) return json({ ok: true, processed: 0, reason: "queue_empty" });
+
+    // Fetch clean_text in a separate query
+    const ids = epsRaw.map((e: any) => e.id);
+    const { data: cts } = await admin.from("episode_clean_text").select("episode_id, cleaned_text").in("episode_id", ids);
+    const ctMap = new Map<string, string>((cts || []).map((r: any) => [r.episode_id, r.cleaned_text || ""]));
+    const eps = epsRaw.map((e: any) => ({ ...e, episode_clean_text: { cleaned_text: ctMap.get(e.id) || "" } }));
 
     let processed = 0, written = 0, skipped = 0, errors = 0, runCost = 0;
     const inserts: any[] = [];
