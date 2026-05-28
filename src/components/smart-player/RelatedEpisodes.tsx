@@ -74,7 +74,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
       if (persons.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("persons", persons.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
       if (category) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.category", category).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
-      if (curPodcastId) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcast_id", curPodcastId).order("published_at", { ascending: false, nullsFirst: false }).limit(6));
+      // Intentionally NO same-podcast probe: Smart Player surfaces cross-podcast discovery only.
 
       const results = await Promise.all(probes);
       const candidates = new Map<string, any>();
@@ -106,10 +106,10 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
 
   const items = useMemo(() => {
     if (!data) return [];
-    const cross = data.filter((r) => r.podcast_id !== podcastId);
-    const same = data.filter((r) => r.podcast_id === podcastId);
-    const merged = [...cross, ...same].filter((r) => !!r.audio_url);
-    return merged.slice(0, MAX);
+    // Smart Player = CROSS-podcast discovery only. Same-podcast episodes are
+    // already shown on the episode page, so they'd feel redundant here.
+    const cross = data.filter((r) => r.podcast_id !== podcastId && !!r.audio_url);
+    return cross.slice(0, MAX);
   }, [data, podcastId]);
 
   if (!episodeId) return null;
@@ -120,10 +120,10 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-4 w-4 text-accent" />
         <h3 className="text-sm font-semibold tracking-wide">
-          Hasonló epizódok
+          Más műsorokból, hasonló témában
         </h3>
         <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-          AI-ajánlás
+          AI vektor-egyezés
         </span>
       </div>
 
