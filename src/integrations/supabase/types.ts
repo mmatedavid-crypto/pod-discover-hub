@@ -1214,6 +1214,90 @@ export type Database = {
           },
         ]
       }
+      episode_spotify_meta: {
+        Row: {
+          audio_preview_url: string | null
+          created_at: string
+          duration_ms: number | null
+          episode_id: string
+          id: string
+          is_playable: boolean | null
+          last_synced_at: string
+          match_confidence: number | null
+          match_method: string | null
+          podcast_id: string
+          raw: Json | null
+          release_date: string | null
+          release_date_precision: string | null
+          restrictions: Json | null
+          spotify_description: string | null
+          spotify_episode_id: string
+          spotify_explicit: boolean | null
+          spotify_html_description: string | null
+          spotify_image_url_300: string | null
+          spotify_image_url_64: string | null
+          spotify_image_url_640: string | null
+          spotify_language: string | null
+          spotify_languages: string[] | null
+          spotify_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          audio_preview_url?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          episode_id: string
+          id?: string
+          is_playable?: boolean | null
+          last_synced_at?: string
+          match_confidence?: number | null
+          match_method?: string | null
+          podcast_id: string
+          raw?: Json | null
+          release_date?: string | null
+          release_date_precision?: string | null
+          restrictions?: Json | null
+          spotify_description?: string | null
+          spotify_episode_id: string
+          spotify_explicit?: boolean | null
+          spotify_html_description?: string | null
+          spotify_image_url_300?: string | null
+          spotify_image_url_64?: string | null
+          spotify_image_url_640?: string | null
+          spotify_language?: string | null
+          spotify_languages?: string[] | null
+          spotify_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audio_preview_url?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          episode_id?: string
+          id?: string
+          is_playable?: boolean | null
+          last_synced_at?: string
+          match_confidence?: number | null
+          match_method?: string | null
+          podcast_id?: string
+          raw?: Json | null
+          release_date?: string | null
+          release_date_precision?: string | null
+          restrictions?: Json | null
+          spotify_description?: string | null
+          spotify_episode_id?: string
+          spotify_explicit?: boolean | null
+          spotify_html_description?: string | null
+          spotify_image_url_300?: string | null
+          spotify_image_url_64?: string | null
+          spotify_image_url_640?: string | null
+          spotify_language?: string | null
+          spotify_languages?: string[] | null
+          spotify_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episode_topic_map: {
         Row: {
           confidence: number
@@ -4120,16 +4204,28 @@ export type Database = {
           shadow_rank_tier: string | null
           slug: string
           source: string | null
+          spotify_available_markets: string[] | null
+          spotify_copyrights: Json | null
+          spotify_description: string | null
+          spotify_episodes_last_synced_at: string | null
+          spotify_explicit: boolean | null
           spotify_followers: number | null
+          spotify_html_description: string | null
           spotify_id: string | null
           spotify_image_url: string | null
+          spotify_image_url_300: string | null
+          spotify_image_url_64: string | null
+          spotify_image_url_640: string | null
+          spotify_is_externally_hosted: boolean | null
           spotify_languages: string[] | null
           spotify_last_synced_at: string | null
           spotify_match_confidence: number | null
           spotify_match_method: string | null
           spotify_match_status: string | null
+          spotify_media_type: string | null
           spotify_popularity: number | null
           spotify_publisher: string | null
+          spotify_show_enriched_at: string | null
           spotify_total_episodes: number | null
           spotify_url: string | null
           summary: string | null
@@ -4228,16 +4324,28 @@ export type Database = {
           shadow_rank_tier?: string | null
           slug: string
           source?: string | null
+          spotify_available_markets?: string[] | null
+          spotify_copyrights?: Json | null
+          spotify_description?: string | null
+          spotify_episodes_last_synced_at?: string | null
+          spotify_explicit?: boolean | null
           spotify_followers?: number | null
+          spotify_html_description?: string | null
           spotify_id?: string | null
           spotify_image_url?: string | null
+          spotify_image_url_300?: string | null
+          spotify_image_url_64?: string | null
+          spotify_image_url_640?: string | null
+          spotify_is_externally_hosted?: boolean | null
           spotify_languages?: string[] | null
           spotify_last_synced_at?: string | null
           spotify_match_confidence?: number | null
           spotify_match_method?: string | null
           spotify_match_status?: string | null
+          spotify_media_type?: string | null
           spotify_popularity?: number | null
           spotify_publisher?: string | null
+          spotify_show_enriched_at?: string | null
           spotify_total_episodes?: number | null
           spotify_url?: string | null
           summary?: string | null
@@ -4336,16 +4444,28 @@ export type Database = {
           shadow_rank_tier?: string | null
           slug?: string
           source?: string | null
+          spotify_available_markets?: string[] | null
+          spotify_copyrights?: Json | null
+          spotify_description?: string | null
+          spotify_episodes_last_synced_at?: string | null
+          spotify_explicit?: boolean | null
           spotify_followers?: number | null
+          spotify_html_description?: string | null
           spotify_id?: string | null
           spotify_image_url?: string | null
+          spotify_image_url_300?: string | null
+          spotify_image_url_64?: string | null
+          spotify_image_url_640?: string | null
+          spotify_is_externally_hosted?: boolean | null
           spotify_languages?: string[] | null
           spotify_last_synced_at?: string | null
           spotify_match_confidence?: number | null
           spotify_match_method?: string | null
           spotify_match_status?: string | null
+          spotify_media_type?: string | null
           spotify_popularity?: number | null
           spotify_publisher?: string | null
+          spotify_show_enriched_at?: string | null
           spotify_total_episodes?: number | null
           spotify_url?: string | null
           summary?: string | null
