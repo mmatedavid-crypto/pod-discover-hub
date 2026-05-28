@@ -295,7 +295,10 @@ Deno.serve(async (req) => {
       } catch (e) {
         result.sources.spotify = { error: e instanceof Error ? e.message : String(e) };
       }
+    } else if (sources.includes("spotify")) {
+      result.sources.spotify = { skipped: `country '${country}' not supported by Spotify chart` };
     }
+
 
     // ===== YOUTUBE =====
     if (sources.includes("youtube")) {
