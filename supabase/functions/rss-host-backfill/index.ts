@@ -15,8 +15,8 @@ const TIME_BUDGET_MS = 110_000;
 
 // Tokens that disqualify a chunk from being a person name.
 const PUBLISHER_TOKENS = [
-  "rádió","radio","podcast","podcasts","network","media","studio","studios",
-  "tv","kft","zrt","bt","nyrt","kiadó","kiadó.","hírek","news","magazin",
+  "rádió","radio","podcast","podcasts","network","media","média","studio","studios",
+  "stúdió","tv","kft","zrt","bt","nyrt","kiadó","kiadó.","hírek","news","magazin",
   "csatorna","group","közösség","klub","production","productions","music",
   "ltd","inc","llc","co.","company","kiadója","szerkesztőség","official",
   "channel","fm","am","online","portál","portal","blog","show","sport",
@@ -25,6 +25,12 @@ const PUBLISHER_TOKENS = [
   "magyar","podiverzum","spotify","apple","youtube","mindset","mindset.",
   "infostart","telex","hvg","index","24.hu","mandiner","origó","origo",
   "blikk","ripost","atv","rtl","tv2","duna","mtva","kossuth","klubrádió",
+  "univerzum","világ","világa","centrum","baptista","katolikus","evangélikus",
+  "református","press","sajtó","jegyzetek","crew","team","iroda","hivatal",
+  "minisztérium","párt","egyesület","csapat","produkció","produkciós",
+  "vállalat","társaság","szövetség","közhasznú","podcastja","csatornája",
+  "fintech","filmnéző","veszprém","budapest","debrecen","szeged","pécs",
+  "miskolc","győr","kecskemét","sopron","esztergom","filmes","filmek",
 ];
 
 function looksLikePersonName(raw: string): string | null {
