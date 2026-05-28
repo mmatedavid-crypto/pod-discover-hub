@@ -222,7 +222,7 @@ export default function PodcastReport2026() {
               </a>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Javasolt hivatkozás: „Forrás: Podiverzum, Magyar podcast piac 2026 — podiverzum.hu/jelentes/magyar-podcast-piac-2026".
+              Hivatkozáskor mindig a teljes <strong>podiverzum.hu</strong> domaint tüntessétek fel (ne csak a „Podiverzum" márkanevet). Javasolt formátum: „Forrás: <strong>podiverzum.hu</strong> — Magyar podcast piac 2026 (https://podiverzum.hu/jelentes/magyar-podcast-piac-2026)".
             </p>
           </aside>
         </header>
