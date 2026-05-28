@@ -186,8 +186,8 @@ export function SmartPlayerBar() {
                   <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("fwd30")}>+30s</button>
                 </div>
                 <SpeedSection />
-                <div className="w-full max-w-2xl mt-2 border-t border-border pt-5">
-                  <RelatedEpisodes />
+                <div className="w-full max-w-3xl mt-2 border-t border-border pt-5">
+                  <SmartDiscoveryPanel />
                 </div>
               </>
             )}
