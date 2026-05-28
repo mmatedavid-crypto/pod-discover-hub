@@ -91,12 +91,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    const freshCutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const force = body.force === true;
     const { data: pods, error: podErr } = await supabase
       .from("podcasts")
-      .select("id, title, display_title, spotify_id, spotify_url, spotify_match_status, image_url")
+      .select("id, title, display_title, spotify_id, spotify_url, spotify_match_status, spotify_last_synced_at, image_url")
       .in("id", candidateIds)
+      .or(force ? "id.not.is.null" : `spotify_last_synced_at.is.null,spotify_last_synced_at.lt.${freshCutoff}`)
       .limit(limit);
     if (podErr) throw podErr;
+
 
     const results: any[] = [];
     let matched = 0;
