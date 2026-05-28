@@ -12,13 +12,19 @@ export function SmartPlayerBar() {
     playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
     toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
   } = useSmartPlayer();
+  const {
+    playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
+    toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
+    playbackRate, setPlaybackRate,
+  } = useSmartPlayer();
 
-  // Show whenever an episode is loaded (e.g., via list play buttons),
-  // not just when flag-gated. Without this, taps on Play would have no UI feedback.
-  if (!currentEpisode) return null;
-  void playerVisible;
+  const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
+  const cycleSpeed = () => {
+    const idx = SPEEDS.indexOf(playbackRate);
+    const next = SPEEDS[(idx + 1) % SPEEDS.length] ?? 1;
+    setPlaybackRate(next);
+  };
 
-  const ep = currentEpisode;
   const href = ep.podcastSlug && ep.episodeSlug ? `/podcast/${ep.podcastSlug}/${ep.episodeSlug}` : null;
   const hasDuration = isFinite(duration) && duration > 0;
   const showPreviewChip = previewActive && !(flags.enabled && flags.show_on_public_episode_pages);
