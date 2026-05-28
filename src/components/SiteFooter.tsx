@@ -32,6 +32,10 @@ export function SiteFooter() {
             <BrandMark size={28} />
             <p className="text-xs leading-relaxed text-muted-foreground">
               Epizódok. Témák. Gondolatok.
+            </p>
+          </div>
+
+
           {/* Mobile: tidy grid of links + research callout. */}
           <div className="sm:hidden space-y-5">
             <nav className="grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
