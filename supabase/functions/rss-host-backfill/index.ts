@@ -162,9 +162,15 @@ Deno.serve(async (req) => {
       clearTimeout(to);
       if (!xml) { result.fetch_failed++; continue; }
       const cands = extractCandidates(xml);
+      const titleNorm = row.title.toLowerCase().replace(/[^\p{L}\s]/gu, " ").replace(/\s+/g, " ").trim();
       let names: string[] = [];
       for (const c of cands) {
-        names = splitNames(c);
+        names = splitNames(c).filter((n) => {
+          const nn = n.toLowerCase().replace(/[^\p{L}\s]/gu, " ").replace(/\s+/g, " ").trim();
+          if (!nn) return false;
+          if (titleNorm.includes(nn) || nn.includes(titleNorm)) return false; // echoes show name
+          return true;
+        });
         if (names.length) break;
       }
       if (!names.length) {
