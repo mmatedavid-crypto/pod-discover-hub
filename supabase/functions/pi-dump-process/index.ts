@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     // Lightweight processor: cap episodes per podcast hard at 5 (was 30–75).
     // Deep hydration is deferred to deep-hydrate-runner via deep_hydration_status='not_started'.
     const LIGHT_EPISODE_CAP = Math.max(1, Math.min(10, Number(body.light_episode_cap) || 5));
-    const batchSize = Math.max(1, Math.min(foundation ? 250 : 200, Number(body.batch) || (foundation ? 250 : 100)));
+    const batchSize = Math.max(1, Math.min(foundation ? 500 : 500, Number(body.batch) || (foundation ? 500 : 300)));
     const importId: string | undefined = body.import_id;
 
     const { data: settingsRow } = await supabase.from("app_settings").select("value").eq("key", "growth").maybeSingle();
