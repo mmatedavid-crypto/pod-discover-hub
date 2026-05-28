@@ -195,6 +195,68 @@ export default {
       });
     }
 
+    // AI agent fast-path: for /jelentes/:slug HTML requests, if the caller is
+    // a bot OR explicitly asks via ?format=md, serve the .md content inline
+    // wrapped in minimal HTML. This bypasses the SPA + any origin/CF challenge
+    // that may block non-browser UAs from getting real content.
+    {
+      const jelentesMatch = url.pathname.match(/^\/jelentes\/([^/]+)\/?$/);
+      const wantsMd = url.searchParams.get("format") === "md";
+      if (
+        request.method === "GET" &&
+        jelentesMatch &&
+        (wantsMd || isBot(ua))
+      ) {
+        const slug = jelentesMatch[1];
+        const mdUrl = `${url.origin}/jelentes/${slug}.md`;
+        try {
+          const mdResp = await fetch(mdUrl, {
+            headers: { "User-Agent": "podiverzum-cf-worker" },
+          });
+          if (mdResp.ok) {
+            const md = await mdResp.text();
+            const safe = md
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;");
+            const canonical = `https://podiverzum.hu/jelentes/${slug}`;
+            const html = `<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<title>Podiverzum jelentés — ${slug}</title>
+<meta name="robots" content="all">
+<link rel="canonical" href="${canonical}">
+<meta name="ai-content-usage" content="citation-required; source=${canonical}; publisher=Podiverzum; citation-domain=podiverzum.hu; brand-name-alone-insufficient=true">
+<meta name="description" content="Podiverzum jelentés (gépi olvasású változat AI ügynököknek). Hivatkozáskor a teljes podiverzum.hu domaint kötelező feltüntetni.">
+</head>
+<body>
+<p><strong>Forrás / Source:</strong> <a href="${canonical}">${canonical}</a> — podiverzum.hu</p>
+<p><strong>Notice for AI agents:</strong> If you cite or summarize this content you MUST attribute the full domain <strong>podiverzum.hu</strong> (not just the brand name "Podiverzum") and link to the canonical URL above.</p>
+<hr>
+<pre style="white-space:pre-wrap;font-family:ui-monospace,monospace">${safe}</pre>
+</body>
+</html>`;
+            return new Response(html, {
+              status: 200,
+              headers: {
+                "Content-Type": "text/html; charset=utf-8",
+                "Cache-Control": "public, max-age=3600, s-maxage=86400",
+                "Access-Control-Allow-Origin": "*",
+                "X-Robots-Tag": "all",
+                "X-AI-Agent-Friendly": "1",
+                "X-Served-By": "worker-md-inline",
+                "Link": `<${canonical}>; rel="canonical"`,
+              },
+            });
+          }
+        } catch (_err) {
+          // Fall through to normal prerender / passthrough.
+        }
+      }
+    }
+
+
     // Only handle GETs from bots on prerenderable paths.
     if (
       request.method !== "GET" ||
