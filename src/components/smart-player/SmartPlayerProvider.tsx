@@ -157,6 +157,25 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     const id = currentEpisode.id;
     if (currentTime > 0 && Math.floor(currentTime) % 10 === 0) {
       saveProgress(id, currentTime, duration);
+      // Sync to server for logged-in users (fire-and-forget).
+      void (async () => {
+        try {
+          const { data: sess } = await supabase.auth.getSession();
+          const uid = sess.session?.user?.id;
+          if (!uid) return;
+          await supabase.from("playback_progress").upsert(
+            {
+              user_id: uid,
+              episode_id: id,
+              position_seconds: Math.floor(currentTime),
+              duration_seconds: Math.floor(duration) || null,
+              completed: duration > 0 && currentTime / duration > 0.95,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,episode_id" },
+          );
+        } catch { /* noop */ }
+      })();
     }
     PROGRESS_MARKERS.forEach((m) => {
       const key = `${id}:${m.type}`;
