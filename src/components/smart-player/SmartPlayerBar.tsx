@@ -65,11 +65,24 @@ export function SmartPlayerBar() {
             </div>
           </button>
           {!error && (
+            <button
+              onClick={cycleSpeed}
+              className={`text-xs px-2 py-1 rounded-md border tabular-nums shrink-0 min-w-[44px] ${
+                playbackRate !== 1
+                  ? "border-primary bg-primary/15 text-primary font-semibold"
+                  : "border-border bg-card hover:bg-secondary text-muted-foreground"
+              }`}
+              aria-label={`${t("playbackSpeed")}: ${formatSpeedLabel(playbackRate)}`}
+              title={t("playbackSpeed")}
+            >{formatSpeedLabel(playbackRate)}</button>
+          )}
+          {!error && (
             <div className="hidden sm:flex items-center gap-1">
               <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("back15")}>−15</button>
               <button onClick={() => seekBy(30)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("fwd30")}>+30</button>
             </div>
           )}
+
           {error && ep.externalUrl ? (
             <a
               href={ep.externalUrl}
