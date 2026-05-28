@@ -460,16 +460,8 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Friss epizódok a műsorok között.</p>
               </div>
             </div>
-            <div className="hidden md:grid md:grid-cols-2 gap-4">
-              <EpisodeList items={trendingEps.slice(0, 3)} />
-              {trendingEps.length > 3 && (
-                <EpisodeList items={trendingEps.slice(3, 6)} />
-              )}
-            </div>
-            <div className="md:hidden">
-              <EpisodeList items={trendingEps} scrollOnMobile />
-            </div>
-          </section>
+            <EpisodeList items={trendingEps} scrollAlways />
+
         )}
 
         <MoodCollections />
