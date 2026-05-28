@@ -47,16 +47,8 @@ Deno.serve(async (req) => {
       return json({ status: "insufficient_chunks", chapters: [] });
     }
 
-    // Estimate episode duration so we can map chunk_idx → start_sec.
-    const { data: epRow } = await admin
-      .from("episodes")
-      .select("duration_seconds, audio_duration_seconds")
-      .eq("id", episode_id)
-      .maybeSingle();
-    const dur =
-      (epRow as any)?.duration_seconds ||
-      (epRow as any)?.audio_duration_seconds ||
-      Math.max(900, chunks.length * 60); // fallback ~1 min/chunk
+    // No duration column on episodes — estimate from chunk count (~1 min/chunk, min 15 min).
+    const dur = Math.max(900, chunks.length * 60);
 
     // Build compact prompt — cap content per chunk to keep tokens sane.
     const lines = chunks.slice(0, 60).map((c: any) => {
