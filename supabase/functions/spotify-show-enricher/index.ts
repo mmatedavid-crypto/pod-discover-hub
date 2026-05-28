@@ -80,11 +80,12 @@ Deno.serve(async (req) => {
     if (!refreshOnly) {
       const { data: unmatched, error } = await supabase
         .from("podcasts")
-        .select("id, title, display_title, language, author, spotify_match_status")
+        .select("id, title, display_title, language, spotify_match_status")
         .ilike("language", "hu%")
-        .or("spotify_id.is.null,spotify_match_status.is.null")
-        .neq("spotify_match_status", "no_match")
+        .is("spotify_id", null)
+        .or("spotify_match_status.is.null,spotify_match_status.neq.no_match")
         .limit(limit);
+      if (error) throw error;
       if (error) throw error;
 
       for (const p of unmatched || []) {
@@ -128,32 +129,29 @@ Deno.serve(async (req) => {
     // ---- PASS B: refresh rich metadata (batch 50) ----
     if (!matchOnly) {
       const freshCutoff = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
-      const filter = force
-        ? "spotify_id.not.is.null"
-        : `spotify_id.not.is.null,or(spotify_show_enriched_at.is.null,spotify_show_enriched_at.lt.${freshCutoff})`;
-
-      const { data: pods, error } = await supabase
+      let q = supabase
         .from("podcasts")
         .select("id, spotify_id")
         .ilike("language", "hu%")
-        .not("spotify_id", "is", null)
-        .or(force ? "id.not.is.null" : `spotify_show_enriched_at.is.null,spotify_show_enriched_at.lt.${freshCutoff}`)
-        .limit(limit);
+        .not("spotify_id", "is", null);
+      if (!force) {
+        q = q.or(`spotify_show_enriched_at.is.null,spotify_show_enriched_at.lt.${freshCutoff}`);
+      }
+      const { data: pods, error } = await q.limit(limit);
       if (error) throw error;
 
-      const chunks: any[][] = [];
-      for (let i = 0; i < (pods?.length || 0); i += 50) chunks.push(pods!.slice(i, i + 50));
-
-      for (const chunk of chunks) {
-        const ids = chunk.map((p) => p.spotify_id).join(",");
-        const r = await spFetch(`https://api.spotify.com/v1/shows?market=HU&ids=${ids}`, token);
-        if (!r.ok) { summary.errors++; continue; }
-        const j = await r.json();
-        const shows = j?.shows || [];
-        for (let i = 0; i < chunk.length; i++) {
-          const show = shows[i];
-          const pod = chunk[i];
-          if (!show) continue;
+      // NOTE: Spotify removed /v1/shows?ids= batch from client-credentials access (Nov 2024).
+      // Use per-show GET. ~3 req/s safe.
+      for (const pod of pods || []) {
+        try {
+          const r = await spFetch(`https://api.spotify.com/v1/shows/${pod.spotify_id}?market=HU`, token);
+          if (!r.ok) {
+            const txt = await r.text().catch(() => "");
+            console.error("show fetch failed", pod.spotify_id, r.status, txt.slice(0, 200));
+            summary.errors++;
+            continue;
+          }
+          const show = await r.json();
           const imgs = pickImages(show.images);
           await supabase.from("podcasts").update({
             spotify_publisher: show.publisher || null,
@@ -174,16 +172,20 @@ Deno.serve(async (req) => {
             spotify_last_synced_at: new Date().toISOString(),
           }).eq("id", pod.id);
           summary.refreshed++;
+          await new Promise((r) => setTimeout(r, 320));
+        } catch (e) {
+          summary.errors++;
         }
-        await new Promise((r) => setTimeout(r, 350));
       }
     }
 
     return new Response(JSON.stringify({ ok: true, ...summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
+  } catch (e: any) {
+    const msg = e?.message || e?.error_description || JSON.stringify(e);
+    console.error("spotify-show-enricher error", msg, e);
+    return new Response(JSON.stringify({ ok: false, error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

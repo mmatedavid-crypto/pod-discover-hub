@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
         // Load all our episodes for this podcast (released within 30 years, indexed by release_date)
         const { data: ours } = await supabase
           .from("episodes")
-          .select("id, title, published_at, duration_seconds")
+          .select("id, title, published_at")
           .eq("podcast_id", pod.id);
         const oursByDate = new Map<string, any[]>();
         for (const e of ours || []) {
