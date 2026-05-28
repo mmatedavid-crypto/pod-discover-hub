@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, Sparkles } from "lucide-react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
 import { RelatedEpisodes } from "./RelatedEpisodes";
+import { LikeDislikeButtons } from "@/components/taste/LikeDislikeButtons";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
+
 
 export function SmartPlayerBar() {
   const {
