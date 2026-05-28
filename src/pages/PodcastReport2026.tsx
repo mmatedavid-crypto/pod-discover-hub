@@ -76,13 +76,14 @@ const STATS = {
     { slug: "egeszseg", name: "Egészség", eps: 43 },
     { slug: "tortenelem", name: "Történelem", eps: 40 },
   ],
+  // Elmúlt 12 hónap (2025. jún. – 2026. máj.) — ugyanaz az időszak, mint a havi chart alatta.
   topParties: [
-    { slug: "fidesz", name: "Fidesz", eps: 1126 },
-    { slug: "tisza-part", name: "Tisza Párt", eps: 718 },
-    { slug: "dk", name: "DK", eps: 199 },
-    { slug: "momentum", name: "Momentum", eps: 135 },
-    { slug: "mszp", name: "MSZP", eps: 132 },
-    { slug: "mi-hazank", name: "Mi Hazánk", eps: 114 },
+    { slug: "fidesz", name: "Fidesz", eps: 580 },
+    { slug: "tisza-part", name: "Tisza Párt", eps: 565 },
+    { slug: "mi-hazank", name: "Mi Hazánk", eps: 34 },
+    { slug: "kutyapart", name: "Kutyapárt", eps: 18 },
+    { slug: "momentum", name: "Momentum", eps: 17 },
+    { slug: "parbeszed", name: "Párbeszéd", eps: 6 },
   ],
   // dow rows Mon..Sun, columns: éjszaka(0-5), reggel(6-9), délelőtt(10-13), délután(14-17), este(18-21), késő(22-23)
   heatmap: {
@@ -708,7 +709,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Közéleti említések: pártok a magyar podcastokban</h2>
           <p className="mb-6 text-muted-foreground">
-            A számok azt mutatják, hány indexelt magyar epizódban azonosította a rendszer az adott pártot a <strong className="text-foreground">teljes indexelt katalógusban</strong> (az alábbi havi grafikon ezen belül az elmúlt 12 hónapot — 2025. jún. – 2026. máj. — bontja ki). Ez egy <strong className="text-foreground">külön metszetet ad a közéleti podcast-térről</strong> — <strong className="text-foreground">nem támogatottsági, nem szimpátia- és nem hallgatottsági adat</strong>.
+            A számok azt mutatják, hány indexelt magyar epizódban azonosította a rendszer az adott pártot az <strong className="text-foreground">elmúlt 12 hónapban (2025. jún. – 2026. máj.)</strong> — ugyanazon az időszakon, amelyet az alábbi havi grafikon is bont. Ez <strong className="text-foreground">nem támogatottsági, nem szimpátia- és nem hallgatottsági adat</strong>, hanem kínálati metszet a közéleti podcast-térről.
           </p>
 
           <div className="max-w-xl">
@@ -792,7 +793,7 @@ export default function PodcastReport2026() {
                   <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "hsl(345 55% 32%)" }} /> Tisza Párt</div>
                 </div>
                 <p className="mt-4 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Az elmúlt 12 hónapban (2025. jún. – 2026. máj.) a két párt podcast-megjelenése feltűnően kiegyensúlyozott: <strong className="not-italic text-foreground">Fidesz 580, Tisza Párt 565 epizód</strong> — gyakorlatilag holtverseny, hónapról hónapra hasonló nagyságrendben futnak a görbék. A fenti rangsorban látható nagyobb össz-szám (Fidesz 1126 vs. Tisza 718) a teljes katalógusra vonatkozik, és elsősorban azt tükrözi, hogy a Tisza Párt jóval fiatalabb szervezet, így a régebbi epizódokban kevésbé jelenik meg. A kampányidőszakot nézve viszont a magyar podcasttér kínálati oldalról <span className="not-italic font-medium text-foreground">mindkét nagy pólusnak nyitott, kiegyensúlyozott felület</span>. A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.). <span className="not-italic">Fontos: a számok csak azt mérik, hogy egy-egy pártot hány epizód említ — a megjelenés kontextusát (pozitív, negatív, semleges, kritikus, támogató) ez a riport nem vizsgálja. Ez említésszám, nem támogatottsági és nem hallgatottsági adat.</span>
+                  Az elmúlt 12 hónapban (2025. jún. – 2026. máj.) a két párt podcast-megjelenése feltűnően kiegyensúlyozott: <strong className="not-italic text-foreground">Fidesz 580, Tisza Párt 565 epizód</strong> — gyakorlatilag holtverseny, hónapról hónapra hasonló nagyságrendben futnak a görbék. A kampányidőszakot nézve a magyar podcasttér kínálati oldalról <span className="not-italic font-medium text-foreground">mindkét nagy pólusnak nyitott, kiegyensúlyozott felület</span>. A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.). <span className="not-italic">Fontos: a számok csak azt mérik, hogy egy-egy pártot hány epizód említ — a megjelenés kontextusát (pozitív, negatív, semleges, kritikus, támogató) ez a riport nem vizsgálja. Ez említésszám, nem támogatottsági és nem hallgatottsági adat.</span>
                 </p>
               </div>
             );
