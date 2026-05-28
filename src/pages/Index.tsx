@@ -502,7 +502,8 @@ const Index = () => {
                   </Link>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">Válogatás a kategória friss epizódjaiból.</p>
-                <EpisodeList items={items} scrollOnMobile />
+                <EpisodeList items={items} scrollAlways />
+
               </section>
             );
           });
@@ -530,7 +531,8 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Régebbi, de ma is releváns epizódok a legjobb műsorokból.</p>
               </div>
             </div>
-            <EpisodeList items={evergreenEps} scrollOnMobile />
+            <EpisodeList items={evergreenEps} scrollAlways />
+
           </section>
         )}
 
