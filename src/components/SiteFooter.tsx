@@ -11,6 +11,9 @@ const EXPLORE = [
   { to: "/modszertan", label: "Módszertan" },
 ];
 
+const RESEARCH = [
+  { to: "/jelentes/magyar-podcast-piac-2026", label: "Magyar podcast piac 2026" },
+];
 
 const COMPANY = [
   { to: "/rolunk", label: "Rólunk" },
@@ -32,24 +35,48 @@ export function SiteFooter() {
             </p>
           </div>
 
-          {/* Mobile: 2 tidy rows of 4 links each, evenly spaced. */}
-          <nav className="sm:hidden grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
-            {[...EXPLORE, ...COMPANY].map((l) => (
-              <Link
-                key={l.to}
-                to={l.to}
-                className="text-center hover:text-foreground transition-colors whitespace-nowrap"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </nav>
+
+          {/* Mobile: tidy grid of links + research callout. */}
+          <div className="sm:hidden space-y-5">
+            <nav className="grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
+              {[...EXPLORE, ...COMPANY].map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className="text-center hover:text-foreground transition-colors whitespace-nowrap"
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-wider text-foreground/70">Kutatásaink</p>
+              <nav className="flex flex-col gap-1.5 text-xs">
+                {RESEARCH.map((l) => (
+                  <Link key={l.to} to={l.to} className="hover:text-foreground transition-colors">
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+          </div>
 
           <nav className="hidden sm:flex sm:flex-wrap gap-x-6 gap-y-2 text-sm">
             {[...EXPLORE, ...COMPANY].map((l) => (
               <Link key={l.to} to={l.to} className="hover:text-foreground transition-colors">{l.label}</Link>
             ))}
           </nav>
+
+          <div className="hidden sm:block space-y-2 min-w-[12rem]">
+            <p className="text-xs uppercase tracking-wider text-foreground/70">Kutatásaink</p>
+            <nav className="flex flex-col gap-1.5 text-sm">
+              {RESEARCH.map((l) => (
+                <Link key={l.to} to={l.to} className="hover:text-foreground transition-colors">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         </div>
         <div className="mt-10 pt-6 border-t border-border/70 flex flex-col gap-2 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} Podiverzum</span>
