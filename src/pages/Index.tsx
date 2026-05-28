@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { TrendingEntities } from "@/components/TrendingEntities";
+import { MyLibraryRails } from "@/components/home/MyLibraryRails";
+import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
 import { HomeTopicsSection } from "@/components/HomeTopicsSection";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
@@ -429,6 +431,8 @@ const Index = () => {
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         
+        <MyLibraryRails />
+        <PersonalizedHomeRails />
         <ContinueListening />
         {!loaded && trendingEps.length === 0 && (
           <section>

@@ -5,6 +5,9 @@ import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
 import { PlayerBrandMark } from "./BrandMark";
 import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
+import { SmartPlayerChapters } from "./SmartPlayerChapters";
+import { ShareMomentButton } from "./ShareMomentCard";
+import { EpisodeMarks } from "@/components/EpisodeMarks";
 import { LikeDislikeButtons } from "@/components/taste/LikeDislikeButtons";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 
@@ -101,6 +104,10 @@ export function SmartPlayerBar() {
               {isPlaying ? "❚❚" : "▶"}
             </button>
           )}
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+            <EpisodeMarks episodeId={ep.id} compact />
+          </div>
+          <ShareMomentButton className="hidden sm:flex" />
           <button
             onClick={() => setExpanded(true)}
             className="inline-flex h-9 w-9 sm:h-auto sm:w-auto items-center justify-center gap-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 shrink-0 sm:px-2.5 sm:py-1 text-xs"
@@ -192,6 +199,9 @@ export function SmartPlayerBar() {
                   <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("fwd30")}>+30s</button>
                 </div>
                 <SpeedSection />
+                <div className="w-full max-w-2xl mt-2 border-t border-border pt-5">
+                  <SmartPlayerChapters episodeId={ep.id} />
+                </div>
                 <div className="w-full max-w-3xl mt-2 border-t border-border pt-5">
                   <SmartDiscoveryPanel />
                 </div>

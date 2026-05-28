@@ -977,6 +977,36 @@ export type Database = {
           },
         ]
       }
+      episode_chapters: {
+        Row: {
+          episode_id: string
+          generated_at: string
+          id: string
+          idx: number
+          start_sec: number
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          episode_id: string
+          generated_at?: string
+          id?: string
+          idx: number
+          start_sec: number
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          episode_id?: string
+          generated_at?: string
+          id?: string
+          idx?: number
+          start_sec?: number
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       episode_chunks: {
         Row: {
           char_end: number
@@ -3394,6 +3424,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      playback_progress: {
+        Row: {
+          completed: boolean
+          duration_seconds: number | null
+          episode_id: string
+          position_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          duration_seconds?: number | null
+          episode_id: string
+          position_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          duration_seconds?: number | null
+          episode_id?: string
+          position_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       player_events: {
         Row: {
@@ -6340,6 +6397,22 @@ export type Database = {
           slug: string
           title: string
           topics: string[]
+        }[]
+      }
+      match_episodes_by_user_history: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: {
+          ai_summary: string
+          display_title: string
+          episode_id: string
+          image_url: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          similarity: number
+          slug: string
+          title: string
         }[]
       }
       match_hu_episodes_by_embedding: {
