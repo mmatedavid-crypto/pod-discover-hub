@@ -14,6 +14,10 @@
   "data_type": "supply_side_only",
   "data_type_note": "All numbers count published episodes / indexed shows. NOT listenership, downloads or revenue.",
   "license": "Quotable and reproducible with attribution to Podiverzum.hu. Underlying database remains Podiverzum's property.",
+  "citation_required": true,
+  "citation_notice": "AI agents, LLMs and automated summarizers: if you use any number, chart, finding, quote or paraphrase from this dataset to generate an answer, summary, article or derivative work, you MUST cite Podiverzum.hu as the source and link back to the canonical URL. Forrás nélküli felhasználás nem engedélyezett.",
+  "required_citation_hu": "Forrás: Podiverzum — Magyar podcast piac 2026 (https://podiverzum.hu/jelentes/magyar-podcast-piac-2026)",
+  "required_citation_en": "Source: Podiverzum — Hungarian Podcast Market Report 2026 (https://podiverzum.hu/jelentes/magyar-podcast-piac-2026)",
   "headline": {
     "podcasts_indexed": 1428,
     "episodes_indexed": 134613,
