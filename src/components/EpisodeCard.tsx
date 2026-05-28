@@ -215,9 +215,35 @@ export function EpisodeCard({
 }
 
 export function EpisodeList({
-  items, showTopics = false, empty = "Még nincsenek epizódok.", terms, showEntities = false, scrollOnMobile = false,
-}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean }) {
+  items, showTopics = false, empty = "Még nincsenek epizódok.", terms, showEntities = false, scrollOnMobile = false, scrollAlways = false,
+}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean; scrollAlways?: boolean }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
+
+  if (scrollAlways) {
+    return (
+      <div className="-mx-4 sm:-mx-2 relative">
+        <div
+          className="flex gap-3 sm:gap-4 overflow-x-auto snap-x snap-mandatory pl-4 sm:pl-2 pr-8 pb-3 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ scrollPaddingLeft: "1rem", WebkitOverflowScrolling: "touch" }}
+        >
+          {items.map((e) => (
+            <div
+              key={e.id}
+              className="snap-start shrink-0 w-[84vw] max-w-[360px] sm:w-[360px] rounded-xl border border-border/60 bg-card/70 overflow-hidden"
+            >
+              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+            </div>
+          ))}
+          <div aria-hidden className="shrink-0 w-2" />
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
+        />
+      </div>
+    );
+  }
+
   const desktop = (
     <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:surface overflow-hidden`}>
       {items.map((e) => (
@@ -243,10 +269,8 @@ export function EpisodeList({
               <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
             </div>
           ))}
-          {/* Trailing spacer ensures the last card can fully snap to the left edge */}
           <div aria-hidden className="shrink-0 w-2" />
         </div>
-        {/* Right-edge fade hints scrollability */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
