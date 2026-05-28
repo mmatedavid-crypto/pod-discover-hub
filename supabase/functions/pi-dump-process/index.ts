@@ -120,7 +120,13 @@ Deno.serve(async (req) => {
           // dedup check (re-check podcasts in case it was added meanwhile)
           const { data: existing } = await supabase.from("podcasts").select("id").eq("rss_url", r.rss_url).maybeSingle();
           if (existing) { updates.decision = "rejected"; updates.reject_reason = "already imported"; counters.skipped_duplicates++; }
-          else if (score >= minRankImport && autoAddedThisRun < maxAutoAdd) {
+          else if (autoAddedThisRun < maxAutoAdd) {
+            // HU-only mode (2026-05-28): rank gate disabled.
+            // Reasoning: Podcast Index rank reflects global downloads, which
+            // systematically underweights the small HU market. The Apple HU
+            // toplist routinely scored ≤5 here and got silently hidden.
+            // Any feed that survives the dead/spam/HU language checks above
+            // gets auto-imported; rank only influences hydration target.
             // HU language gate — block foreign before any insert / hydration.
             const gate = runHuIngestionGate({
               title: r.title, description: r.description, rss_language: r.language,
