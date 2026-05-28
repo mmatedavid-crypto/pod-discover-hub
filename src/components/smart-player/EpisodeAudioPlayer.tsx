@@ -161,7 +161,7 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
   );
 }
 
-}
+
 
 function SpeedPicker({
   value, onChange, disabled,
