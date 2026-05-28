@@ -77,27 +77,30 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
   });
 
   const byRail = useMemo(() => {
-    const map: Record<Row["match_kind"], Row[]> = {
-      chunk_moment: [],
+    const map: Record<"entity_overlap" | "vector_neighbor", Row[]> = {
       entity_overlap: [],
       vector_neighbor: [],
     };
     (data || []).forEach((r) => {
-      if (r.audio_url && map[r.match_kind]) map[r.match_kind].push(r);
+      if (!r.audio_url) return;
+      if (r.match_kind === "entity_overlap" || r.match_kind === "vector_neighbor") {
+        map[r.match_kind].push(r);
+      }
     });
     return map;
   }, [data]);
 
-  const totalMoments = byRail.chunk_moment.length;
   const totalPodcasts = useMemo(() => {
     const s = new Set<string>();
-    (data || []).forEach((r) => s.add(r.podcast_id));
+    (data || []).forEach((r) => {
+      if (r.match_kind !== "chunk_moment") s.add(r.podcast_id);
+    });
     return s.size;
   }, [data]);
 
   if (!episodeId) return null;
 
-  const launch = (r: Row, withSeek: boolean) => {
+  const launch = (r: Row) => {
     const ep: SmartPlayerEpisode = {
       id: r.episode_id,
       title: r.display_title || r.title,
@@ -108,8 +111,9 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
       imageUrl: r.image_url || r.podcast_image_url,
       audioUrl: r.audio_url!,
     };
-    play(ep, withSeek && r.seek_seconds ? { startAt: r.seek_seconds } : undefined);
+    play(ep);
   };
+
 
   return (
     <div className={isCompact ? "w-full mt-8" : "w-full max-w-3xl"}>
