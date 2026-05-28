@@ -104,6 +104,10 @@ export function SmartPlayerBar() {
               {isPlaying ? "❚❚" : "▶"}
             </button>
           )}
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+            <EpisodeMarks episodeId={ep.id} compact />
+          </div>
+          <ShareMomentButton className="hidden sm:flex" />
           <button
             onClick={() => setExpanded(true)}
             className="inline-flex h-9 w-9 sm:h-auto sm:w-auto items-center justify-center gap-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 shrink-0 sm:px-2.5 sm:py-1 text-xs"
