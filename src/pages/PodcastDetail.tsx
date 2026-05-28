@@ -200,6 +200,46 @@ export default function PodcastDetail() {
               {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Music className="h-4 w-4" /> Spotify</a>}
               {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
               {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Globe className="h-4 w-4" /> Weboldal</a>}
+            {hosts.length > 0 && (
+              <div className="mt-4 max-w-2xl">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 inline-flex items-center gap-1">
+                  <Mic className="h-3 w-3" /> {hosts.length === 1 ? "Házigazda" : "Házigazdák"}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {hosts.map((h, i) => {
+                    const content = (
+                      <>
+                        <PersonAvatar name={h.name} imageUrl={h.image_url ?? null} size="sm" className="h-6 w-6" />
+                        <span className="font-medium">{h.name}</span>
+                      </>
+                    );
+                    return h.slug ? (
+                      <Link
+                        key={i}
+                        to={`/person/${h.slug}`}
+                        className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-card border border-border hover:border-primary/40 hover:text-accent text-sm transition-colors"
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <span key={i} className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-card border border-border text-sm">
+                        {content}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{stripHtml(p.summary)}</p>}
+            {p.description && stripHtml(p.description) !== stripHtml(p.summary) && (
+              <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{stripHtml(p.description)}</p>
+            )}
+            <div className="flex flex-wrap gap-3 mt-4 items-center text-muted-foreground">
+              {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Apple className="h-4 w-4" /> Apple Podcasts</a>}
+              {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Music className="h-4 w-4" /> Spotify</a>}
+              {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
+              {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Globe className="h-4 w-4" /> Weboldal</a>}
               <PodcastFollow podcastId={p.id} />
               <SharePanel title={p.display_title || p.title} />
             </div>
