@@ -183,7 +183,7 @@ export default function TopicDetailPage() {
         ],
       });
     })();
-  }, [slug]);
+  }, [slug, rawSlug]);
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
   if (notFound || !topic) return <NotFoundState title="Nincs ilyen téma" message="A keresett téma nem található." />;
