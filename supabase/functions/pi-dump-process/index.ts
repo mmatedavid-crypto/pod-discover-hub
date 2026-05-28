@@ -191,8 +191,9 @@ Deno.serve(async (req) => {
                 else counters.episodes_imported_light += (fr.new || 0);
               } catch { counters.failed_rss_tests++; }
             }
-          } else if (!foundation && score >= 6) {
-            // Daily mode: rank 6–7 goes to approval queue.
+          } else {
+            // Daily auto-add cap reached this run → park in discovery_queue.
+            // Next run picks it up; nothing is silently hidden anymore.
             await supabase.from("discovery_queue").upsert({
               pi_id: r.pi_id,
               title: r.title,
@@ -212,10 +213,6 @@ Deno.serve(async (req) => {
             }, { onConflict: "rss_url" });
             updates.decision = "queued";
             counters.queued++; counters.accepted++;
-          } else {
-            updates.decision = "hidden";
-            updates.reject_reason = foundation ? "rank ≤ 3" : "rank ≤ 5";
-            counters.hidden_low_rank++;
           }
         }
       }
