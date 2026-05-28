@@ -11,7 +11,15 @@ export function SmartPlayerBar() {
   const {
     playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
     toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
+    playbackRate, setPlaybackRate,
   } = useSmartPlayer();
+
+  const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
+  const cycleSpeed = () => {
+    const idx = SPEEDS.indexOf(playbackRate);
+    const next = SPEEDS[(idx + 1) % SPEEDS.length] ?? 1;
+    setPlaybackRate(next);
+  };
 
   // Show whenever an episode is loaded (e.g., via list play buttons),
   // not just when flag-gated. Without this, taps on Play would have no UI feedback.
@@ -19,6 +27,7 @@ export function SmartPlayerBar() {
   void playerVisible;
 
   const ep = currentEpisode;
+
   const href = ep.podcastSlug && ep.episodeSlug ? `/podcast/${ep.podcastSlug}/${ep.episodeSlug}` : null;
   const hasDuration = isFinite(duration) && duration > 0;
   const showPreviewChip = previewActive && !(flags.enabled && flags.show_on_public_episode_pages);
@@ -56,11 +65,24 @@ export function SmartPlayerBar() {
             </div>
           </button>
           {!error && (
+            <button
+              onClick={cycleSpeed}
+              className={`text-xs px-2 py-1 rounded-md border tabular-nums shrink-0 min-w-[44px] ${
+                playbackRate !== 1
+                  ? "border-primary bg-primary/15 text-primary font-semibold"
+                  : "border-border bg-card hover:bg-secondary text-muted-foreground"
+              }`}
+              aria-label={`${t("playbackSpeed")}: ${formatSpeedLabel(playbackRate)}`}
+              title={t("playbackSpeed")}
+            >{formatSpeedLabel(playbackRate)}</button>
+          )}
+          {!error && (
             <div className="hidden sm:flex items-center gap-1">
               <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("back15")}>−15</button>
               <button onClick={() => seekBy(30)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("fwd30")}>+30</button>
             </div>
           )}
+
           {error && ep.externalUrl ? (
             <a
               href={ep.externalUrl}
