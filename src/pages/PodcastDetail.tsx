@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, Globe, Activity, AlertTriangle } from "lucide-react";
+import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
+import PersonAvatar from "@/components/PersonAvatar";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml, snippet } from "@/lib/text";
@@ -16,10 +17,71 @@ import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { slugify } from "@/lib/slug";
 import { PodcastFollow } from "@/components/PodcastFollow";
 
+type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
+
+async function fetchAllEpisodes(podcastId: string) {
+  const PAGE = 1000;
+  let from = 0;
+  const all: any[] = [];
+  for (let i = 0; i < 20; i++) {
+    const { data, error } = await supabase
+      .from("episodes")
+      .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
+      .eq("podcast_id", podcastId)
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .range(from, from + PAGE - 1);
+    if (error || !data) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
+async function fetchHosts(podcastId: string, manualNames: string[]): Promise<HostRow[]> {
+  const [aiRes, manualRes] = await Promise.all([
+    supabase
+      .from("person_podcast_map")
+      .select("people:person_id(id, slug, name, image_url)")
+      .eq("podcast_id", podcastId)
+      .eq("role", "host"),
+    manualNames.length
+      ? supabase.from("people").select("id, slug, name, image_url").in("name", manualNames)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const aiHosts = ((aiRes.data || []) as any[])
+    .map((r) => r.people)
+    .filter(Boolean) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
+  const manualPeople = (manualRes.data || []) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
+
+  const result: HostRow[] = [];
+  const seen = new Set<string>();
+  // Manual first (preserves admin-curated order)
+  for (const name of manualNames) {
+    const match = manualPeople.find((m) => m.name.toLowerCase() === name.toLowerCase());
+    if (match) {
+      if (seen.has(match.id)) continue;
+      seen.add(match.id);
+      result.push(match);
+    } else {
+      result.push({ name });
+    }
+  }
+  // AI fallback for any host not already covered
+  for (const h of aiHosts) {
+    if (h.id && seen.has(h.id)) continue;
+    if (result.some((r) => r.name.toLowerCase() === h.name.toLowerCase())) continue;
+    seen.add(h.id);
+    result.push(h);
+  }
+  return result;
+}
+
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
   const [p, setP] = useState<any>(null);
   const [eps, setEps] = useState<any[]>([]);
+  const [hosts, setHosts] = useState<HostRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,12 +92,25 @@ export default function PodcastDetail() {
       setP(data);
       setLoading(false);
       if (data) {
+        const manualHostNames = (data.hosts || []) as string[];
+        const [resolvedHosts, allEps] = await Promise.all([
+          fetchHosts(data.id, manualHostNames),
+          fetchAllEpisodes(data.id),
+        ]);
+        setHosts(resolvedHosts);
+        setEps(allEps);
+
         const cleanSummary = stripHtml(data.summary);
         const cleanDesc = stripHtml(data.description);
         const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${data.slug}` : undefined;
+        const hostNamesForSeo = resolvedHosts.map((h) => h.name);
+        const hostPrefix = hostNamesForSeo.length
+          ? `Házigazda: ${hostNamesForSeo.slice(0, 3).join(", ")}${hostNamesForSeo.length > 3 ? "…" : ""}. `
+          : "";
+        const baseDesc = data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
         setSeo({
           title: data.seo_title || `${data.title} – Podiverzum`,
-          description: snippet(data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`, 160),
+          description: snippet(hostPrefix + baseDesc, 160),
           canonical,
           noindex: data.rss_status === "failed" || data.rss_status === "inactive",
           image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: data.category || "Podcast", image: data.image_url }),
@@ -44,10 +119,14 @@ export default function PodcastDetail() {
               "@context": "https://schema.org",
               "@type": "PodcastSeries",
               name: data.title,
-              description: data.seo_description || cleanSummary || cleanDesc || undefined,
+              description: baseDesc,
               image: data.image_url || undefined,
               url: typeof window !== "undefined" ? window.location.href : undefined,
               webFeed: data.rss_url || undefined,
+              numberOfEpisodes: allEps.length || undefined,
+              author: hostNamesForSeo.length
+                ? hostNamesForSeo.map((n) => ({ "@type": "Person", name: n }))
+                : undefined,
             },
             breadcrumbJsonLd([
               { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
@@ -56,16 +135,10 @@ export default function PodcastDetail() {
             ]),
           ],
         });
-        const { data: e } = await supabase
-          .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
-          .eq("podcast_id", data.id)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(60);
-        setEps(e || []);
       }
     })();
   }, [podcastSlug]);
+
 
   if (loading) return <Layout><PodcastDetailSkeleton /></Layout>;
   if (!p) return <NotFoundState title="Nincs ilyen podcast" message="A keresett podcast nem létezik, vagy már nem elérhető." />;
@@ -117,6 +190,37 @@ export default function PodcastDetail() {
               )}
             </div>
 
+
+            {hosts.length > 0 && (
+              <div className="mt-4 max-w-2xl">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 inline-flex items-center gap-1">
+                  <Mic className="h-3 w-3" /> {hosts.length === 1 ? "Házigazda" : "Házigazdák"}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {hosts.map((h, i) => {
+                    const content = (
+                      <>
+                        <PersonAvatar name={h.name} imageUrl={h.image_url ?? null} size="sm" className="h-6 w-6" />
+                        <span className="font-medium">{h.name}</span>
+                      </>
+                    );
+                    return h.slug ? (
+                      <Link
+                        key={i}
+                        to={`/person/${h.slug}`}
+                        className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-card border border-border hover:border-primary/40 hover:text-accent text-sm transition-colors"
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <span key={i} className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-card border border-border text-sm">
+                        {content}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{stripHtml(p.summary)}</p>}
             {p.description && stripHtml(p.description) !== stripHtml(p.summary) && (
