@@ -6119,6 +6119,10 @@ export type Database = {
         Returns: number
       }
       episode_classifier_stats: { Args: never; Returns: Json }
+      find_existing_podcast: {
+        Args: { p_rss_url: string; p_title: string }
+        Returns: string
+      }
       formula_c_candidates: {
         Args: { _limit?: number }
         Returns: {
