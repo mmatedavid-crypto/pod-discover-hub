@@ -47,7 +47,7 @@ type Ctx = {
   playbackRate: number;
   expanded: boolean;
   setExpanded: (v: boolean) => void;
-  play: (ep: SmartPlayerEpisode, opts?: { resume?: boolean }) => void;
+  play: (ep: SmartPlayerEpisode, opts?: { resume?: boolean; startAt?: number }) => void;
   toggle: () => void;
   pause: () => void;
   resume: () => void;
