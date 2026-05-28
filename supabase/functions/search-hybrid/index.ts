@@ -594,7 +594,7 @@ Deno.serve(async (req) => {
     }
 
     // 4) Hybrid RPC
-    const aiExpanded = buildExpandedQuery(q, understanding);
+    const aiExpanded = understanding ? buildExpandedQuery(q, understanding) : q;
     const expanded = curated.expansions.length
       ? `${aiExpanded} ${curated.expansions.join(" ")}`.slice(0, 700)
       : aiExpanded;
