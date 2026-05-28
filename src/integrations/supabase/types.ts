@@ -6514,6 +6514,19 @@ export type Database = {
         Args: { _batch?: number; _table: string }
         Returns: number
       }
+      search_episode_chunks: {
+        Args: {
+          candidate_pool?: number
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          best_source: string
+          chunk_idx: number
+          episode_id: string
+          similarity: number
+        }[]
+      }
       search_episodes_hybrid: {
         Args: {
           alpha_lex?: number
