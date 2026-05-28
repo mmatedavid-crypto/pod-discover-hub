@@ -36,17 +36,11 @@ type Props = {
 };
 
 const RAILS: Array<{
-  kind: Row["match_kind"];
+  kind: Exclude<Row["match_kind"], "chunk_moment">;
   title: string;
   blurb: string;
   Icon: typeof Sparkles;
 }> = [
-  {
-    kind: "chunk_moment",
-    title: "Más műsorban erről beszélnek",
-    blurb: "Pillanat-szintű egyezés más podcastokból — ugorj a témára egy kattintással",
-    Icon: Zap,
-  },
   {
     kind: "entity_overlap",
     title: "Közös szereplők és témák",
@@ -61,12 +55,6 @@ const RAILS: Array<{
   },
 ];
 
-function formatTimestamp(sec: number | null): string {
-  if (sec == null || sec <= 0) return "";
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Props = {}) {
   const { currentEpisode, play, setExpanded } = useSmartPlayer();
