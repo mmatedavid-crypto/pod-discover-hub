@@ -90,6 +90,8 @@ function shouldPrerender(pathname) {
   if (/^\/hangulatok\/[^/]+\/?$/.test(pathname)) return true;
   // Te Podiverzumod megosztott eredmény — FB/IG/X share preview-hoz
   if (/^\/te-podiverzumod\/eredmeny\/[^/]+\/?$/.test(pathname)) return true;
+  // Sajtó / kutatási jelentések — AI ügynökök is feldolgozhatják
+  if (/^\/jelentes\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
 
@@ -166,6 +168,30 @@ export default {
           "Cache-Control": "public, max-age=86400",
           "X-Blocked": "scanner-path",
         },
+      });
+    }
+
+    // AI-agent / LLM friendly static report files: .md and .json under /jelentes/
+    // Force correct Content-Type + permissive CORS so ChatGPT / Claude / Perplexity
+    // / Gemini agents (and any third-party script) can fetch them cross-origin.
+    // Bypasses bot-prerender entirely — these are already machine-readable.
+    if (request.method === "GET" && /^\/jelentes\/[^/]+\.(md|json|txt)$/.test(url.pathname)) {
+      const originResp = await fetch(request);
+      const ext = url.pathname.split(".").pop().toLowerCase();
+      const ctype =
+        ext === "json" ? "application/json; charset=utf-8"
+        : ext === "md" ? "text/markdown; charset=utf-8"
+        : "text/plain; charset=utf-8";
+      const headers = new Headers(originResp.headers);
+      headers.set("Content-Type", ctype);
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400");
+      headers.set("X-Robots-Tag", "all");
+      headers.set("X-AI-Agent-Friendly", "1");
+      return new Response(originResp.body, {
+        status: originResp.status,
+        headers,
       });
     }
 

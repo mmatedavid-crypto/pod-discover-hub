@@ -74,23 +74,24 @@ function isBot(ua) {
 // Routes we know how to prerender. Anything else falls back to origin.
 function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
-  // Hub landing pages (single-segment SEO surfaces)
-  if (/^\/(podcastok|szemelyek|szervezetek|cegek|partok|temak)\/?$/.test(pathname)) return true;
   // /podcast/:slug  or  /podcast/:slug/:episode  or  /podcast/:slug/epizodok/:year (Wave 3)
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
   if (/^\/podcast\/[^/]+\/epizodok\/\d{4}\/?$/.test(pathname)) return true;
   if (/^\/(category|kategoria)\/[^/]+\/?$/.test(pathname)) return true;
-  // Wave 3 long-tail: topic/year, topic-cross, person/topic, org/topic
-  if (/^\/temak\/[^/]+\/\d{4}\/?$/.test(pathname)) return true;
-  if (/^\/(szemelyek|szervezetek)\/[^/]+\/temak\/[^/]+\/?$/.test(pathname)) return true;
   // Entity routes — EN + HU aliases (topic/tema/temak, person/szemely/szemelyek,
   // company/ceg/cegek, szervezetek, partok, ticker, ingredient/hozzavalo).
   // Critical for FB/IG/X share previews.
   if (/^\/(topic|tema|temak|person|szemely|szemelyek|company|ceg|cegek|szervezetek|partok|ticker|ingredient|hozzavalo)\/[^/]+\/?$/.test(pathname)) return true;
+  // Wave 3: /temak/:slug/:year  AND  /temak/:a-es-:b is already matched above
+  if (/^\/temak\/[^/]+\/\d{4}\/?$/.test(pathname)) return true;
+  // Wave 3: /szemelyek/:slug/temak/:topic  AND  /szervezetek/:slug/temak/:topic
+  if (/^\/(szemelyek|szervezetek)\/[^/]+\/temak\/[^/]+\/?$/.test(pathname)) return true;
   // Mood collections (HU-only route)
   if (/^\/hangulatok\/[^/]+\/?$/.test(pathname)) return true;
   // Te Podiverzumod megosztott eredmény — FB/IG/X share preview-hoz
   if (/^\/te-podiverzumod\/eredmeny\/[^/]+\/?$/.test(pathname)) return true;
+  // Sajtó / kutatási jelentések — AI ügynökök is feldolgozhatják
+  if (/^\/jelentes\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
 
@@ -167,6 +168,30 @@ export default {
           "Cache-Control": "public, max-age=86400",
           "X-Blocked": "scanner-path",
         },
+      });
+    }
+
+    // AI-agent / LLM friendly static report files: .md and .json under /jelentes/
+    // Force correct Content-Type + permissive CORS so ChatGPT / Claude / Perplexity
+    // / Gemini agents (and any third-party script) can fetch them cross-origin.
+    // Bypasses bot-prerender entirely — these are already machine-readable.
+    if (request.method === "GET" && /^\/jelentes\/[^/]+\.(md|json|txt)$/.test(url.pathname)) {
+      const originResp = await fetch(request);
+      const ext = url.pathname.split(".").pop().toLowerCase();
+      const ctype =
+        ext === "json" ? "application/json; charset=utf-8"
+        : ext === "md" ? "text/markdown; charset=utf-8"
+        : "text/plain; charset=utf-8";
+      const headers = new Headers(originResp.headers);
+      headers.set("Content-Type", ctype);
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400");
+      headers.set("X-Robots-Tag", "all");
+      headers.set("X-AI-Agent-Friendly", "1");
+      return new Response(originResp.body, {
+        status: originResp.status,
+        headers,
       });
     }
 
