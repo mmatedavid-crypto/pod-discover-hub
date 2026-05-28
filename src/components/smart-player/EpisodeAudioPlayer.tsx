@@ -1,9 +1,12 @@
 import { useSmartPlayer, SmartPlayerEpisode, detectAudioSource } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
+import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
 import { getProgress } from "@/lib/playerProgress";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 import { PlayerBrandMark } from "./BrandMark";
+import { Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
 
 type Props = {
   episode: {
@@ -140,16 +143,25 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
             onChange={setPlaybackRate}
           />
         </div>
-
         {isCurrent && (
           <div className="mt-3">
             <PlayerProgress />
           </div>
         )}
       </div>
+
+      <div className="relative mt-6 border-t border-border pt-5">
+        <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-accent" />
+          <span>Smart Player ajánlások</span>
+        </div>
+        <SmartDiscoveryPanel episodeIdOverride={episode.id} variant="compact" />
+      </div>
     </div>
   );
 }
+
+
 
 function SpeedPicker({
   value, onChange, disabled,
