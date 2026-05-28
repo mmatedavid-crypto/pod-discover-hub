@@ -113,10 +113,7 @@ async function fetchSpotifyMarket(market: string): Promise<{ rank: number; name:
   return out;
 }
 
-    }
-  }
-  return out;
-}
+
 
 // ---------- YouTube proxy ----------
 async function fetchYouTubeStats(channelIds: string[]): Promise<Map<string, { sub: number; views: number; videos: number }>> {
