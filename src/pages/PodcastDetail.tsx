@@ -92,12 +92,25 @@ export default function PodcastDetail() {
       setP(data);
       setLoading(false);
       if (data) {
+        const manualHostNames = (data.hosts || []) as string[];
+        const [resolvedHosts, allEps] = await Promise.all([
+          fetchHosts(data.id, manualHostNames),
+          fetchAllEpisodes(data.id),
+        ]);
+        setHosts(resolvedHosts);
+        setEps(allEps);
+
         const cleanSummary = stripHtml(data.summary);
         const cleanDesc = stripHtml(data.description);
         const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${data.slug}` : undefined;
+        const hostNamesForSeo = resolvedHosts.map((h) => h.name);
+        const hostPrefix = hostNamesForSeo.length
+          ? `Házigazda: ${hostNamesForSeo.slice(0, 3).join(", ")}${hostNamesForSeo.length > 3 ? "…" : ""}. `
+          : "";
+        const baseDesc = data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
         setSeo({
           title: data.seo_title || `${data.title} – Podiverzum`,
-          description: snippet(data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`, 160),
+          description: snippet(hostPrefix + baseDesc, 160),
           canonical,
           noindex: data.rss_status === "failed" || data.rss_status === "inactive",
           image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: data.category || "Podcast", image: data.image_url }),
@@ -106,10 +119,14 @@ export default function PodcastDetail() {
               "@context": "https://schema.org",
               "@type": "PodcastSeries",
               name: data.title,
-              description: data.seo_description || cleanSummary || cleanDesc || undefined,
+              description: baseDesc,
               image: data.image_url || undefined,
               url: typeof window !== "undefined" ? window.location.href : undefined,
               webFeed: data.rss_url || undefined,
+              numberOfEpisodes: allEps.length || undefined,
+              author: hostNamesForSeo.length
+                ? hostNamesForSeo.map((n) => ({ "@type": "Person", name: n }))
+                : undefined,
             },
             breadcrumbJsonLd([
               { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
@@ -118,16 +135,10 @@ export default function PodcastDetail() {
             ]),
           ],
         });
-        const { data: e } = await supabase
-          .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
-          .eq("podcast_id", data.id)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(60);
-        setEps(e || []);
       }
     })();
   }, [podcastSlug]);
+
 
   if (loading) return <Layout><PodcastDetailSkeleton /></Layout>;
   if (!p) return <NotFoundState title="Nincs ilyen podcast" message="A keresett podcast nem létezik, vagy már nem elérhető." />;
