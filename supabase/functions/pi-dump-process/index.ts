@@ -118,9 +118,10 @@ Deno.serve(async (req) => {
         updates.score = score;
         // No stale rejection for HU — small market, keep everything that's not dead.
         {
-          // dedup check (re-check podcasts in case it was added meanwhile)
-          const { data: existing } = await supabase.from("podcasts").select("id").eq("rss_url", r.rss_url).maybeSingle();
-          if (existing) { updates.decision = "rejected"; updates.reject_reason = "already imported"; counters.skipped_duplicates++; }
+          // dedup check — match exact rss_url, normalized rss_url, or normalized title (HU catalog).
+          // Prevents duplicates when the same show ships under multiple feed URLs (CDN/host migrations).
+          const { data: existingId } = await supabase.rpc("find_existing_podcast", { p_rss_url: r.rss_url, p_title: r.title });
+          if (existingId) { updates.decision = "rejected"; updates.reject_reason = "already imported (dedup)"; counters.skipped_duplicates++; }
           else if (autoAddedThisRun < maxAutoAdd) {
             // HU-only mode (2026-05-28): rank gate disabled.
             // Reasoning: Podcast Index rank reflects global downloads, which
