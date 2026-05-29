@@ -33,7 +33,9 @@ async function callAI(
   // GPT-5 reasoning models do not accept temperature.
   if (!/^openai\/gpt-5/.test(model) && typeof opts.temperature === "number") body.temperature = opts.temperature;
   // Reasoning effort: only supported by base gpt-5 and gpt-5.4 family. gpt-5.5 / gpt-5.2 / mini/nano/pro variants reject it as unknown parameter.
-  if (opts.reasoning && /^openai\/(gpt-5|gpt-5\.4)(-(mini|nano|pro))?$/.test(model)) body.reasoning = { effort: opts.reasoning };
+  // Reasoning effort: Lovable Gateway rejects `reasoning` on gpt-5 / gpt-5.5 base models ("Unknown parameter").
+  // Only gpt-5.4 family currently accepts it reliably.
+  if (opts.reasoning && /^openai\/gpt-5\.4(-(mini|nano|pro))?$/.test(model)) body.reasoning = { effort: opts.reasoning };
   if (opts.tools) body.tools = opts.tools;
   if (opts.toolChoice) body.tool_choice = opts.toolChoice;
 
