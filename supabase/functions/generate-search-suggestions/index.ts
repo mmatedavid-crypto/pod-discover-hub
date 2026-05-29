@@ -1,6 +1,7 @@
 // Generates 6–8 trending search suggestion chips using Lovable AI Gateway,
 // then stores them in app_settings.search_suggestions for the homepage to read.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -22,8 +23,6 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("missing_lovable_api_key");
 
     // Pull a recent slice of context: trending titles + entities/topics seen recently.
     const { data: recentEps } = await admin
@@ -72,16 +71,18 @@ Deno.serve(async (req) => {
     const userPrompt =
       `RECENT EPISODE TITLES:\n${titleSample}\n\nTOP ENTITIES (last 14d):\n${topEntities}`;
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: sys },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [{
+    const ai = await callLovableAI({
+      model: "google/gemini-2.5-flash-lite",
+      job_type: "generate_search_suggestions",
+      target_type: "homepage",
+      prompt_version: "search-suggestions-v2",
+      input_text: userPrompt,
+      min_input_chars: 120,
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [{
           type: "function",
           function: {
             name: "publish_chips",
@@ -108,19 +109,17 @@ Deno.serve(async (req) => {
               additionalProperties: false,
             },
           },
-        }],
-        tool_choice: { type: "function", function: { name: "publish_chips" } },
-      }),
+      }],
+      tool_choice: { type: "function", function: { name: "publish_chips" } },
     });
 
-    if (!resp.ok) {
-      const txt = await resp.text();
-      if (resp.status === 429) return json({ ok: false, error: "rate_limited" }, 429);
-      if (resp.status === 402) return json({ ok: false, error: "payment_required" }, 402);
-      throw new Error(`gateway_${resp.status}: ${txt.slice(0, 200)}`);
+    if (!ai.ok) {
+      if (ai.status === 429) return json({ ok: false, error: "rate_limited" }, 429);
+      if (ai.status === 402) return json({ ok: false, error: "payment_required" }, 402);
+      throw new Error(ai.error || `gateway_${ai.status}`);
     }
 
-    const j = await resp.json();
+    const j = ai.data;
     const args = j.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     let chips: { label: string; query: string }[] = [];
     if (args) {
@@ -144,7 +143,7 @@ Deno.serve(async (req) => {
 
     if (chips.length < 5) chips = FALLBACK.map((q) => ({ label: q, query: q }));
 
-    const value = { items: chips, generated_at: new Date().toISOString(), model: "google/gemini-2.5-pro" };
+    const value = { items: chips, generated_at: new Date().toISOString(), model: "google/gemini-2.5-flash-lite" };
     await admin.from("app_settings").upsert({ key: "search_suggestions", value, updated_at: new Date().toISOString() });
 
     return json({ ok: true, count: chips.length, chips });

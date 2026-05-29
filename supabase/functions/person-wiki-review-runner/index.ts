@@ -7,6 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const MODEL = "google/gemini-2.5-flash-lite";
 
 const DECISION_TOOL = {
@@ -39,26 +39,25 @@ const DECISION_TOOL = {
 };
 
 async function callAI(system: string, user: string) {
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOVABLE_API_KEY}` },
-    body: JSON.stringify({
-      model: MODEL,
-      reasoning: { effort: "medium" },
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      tools: [DECISION_TOOL],
-      tool_choice: { type: "function", function: { name: "submit_wiki_decision" } },
-    }),
+  const ai = await callLovableAI({
+    model: MODEL,
+    job_type: "person_wiki_review",
+    target_type: "person",
+    prompt_version: "person-wiki-review-v2",
+    input_text: user,
+    min_input_chars: 160,
+    messages: [{ role: "system", content: system }, { role: "user", content: user }],
+    tools: [DECISION_TOOL],
+    tool_choice: { type: "function", function: { name: "submit_wiki_decision" } },
   });
-  if (!r.ok) {
-    const t = await r.text().catch(() => "");
-    return { ok: false, error: `ai_${r.status}:${t.slice(0, 200)}`, cost: 0 };
+  if (!ai.ok) {
+    return { ok: false, error: ai.error || `ai_${ai.status}`, cost: 0 };
   }
-  const j = await r.json();
+  const j = ai.data;
   const msg = j?.choices?.[0]?.message || {};
   const toolCall = msg.tool_calls?.[0];
-  const inTok = j?.usage?.prompt_tokens || 0;
-  const outTok = (j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0);
+  const inTok = ai.input_tokens || j?.usage?.prompt_tokens || 0;
+  const outTok = ai.output_tokens || ((j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0));
   const cost = chatTokenCostUsd(MODEL, Number(inTok), Number(outTok));
   if (!toolCall) return { ok: false, error: "no_tool_call", cost };
   try {

@@ -1,24 +1,13 @@
 // AI summary + entity extraction with daily cap & enable flag from app_settings.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MODEL = "google/gemini-2.5-flash";
-
-async function callAI(messages: any[], tools?: any[], tool_choice?: any) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, tools, tool_choice }),
-  });
-  if (res.status === 429) throw new Error("Rate limit exceeded, try again later");
-  if (res.status === 402) throw new Error("AI credits exhausted");
-  if (!res.ok) throw new Error(`AI gateway error ${res.status}`);
-  return res.json();
-}
+const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
 
 async function loadControls(supabase: any) {
   const { data } = await supabase.from("app_settings").select("value").eq("key", "ai_controls").maybeSingle();
@@ -27,6 +16,8 @@ async function loadControls(supabase: any) {
     enabled: v.enabled !== false,
     maxPerDay: typeof v.max_per_day === "number" ? v.max_per_day : 100,
     maxPerClick: typeof v.max_per_podcast_per_click === "number" ? v.max_per_podcast_per_click : 15,
+    model: typeof v.model === "string" && v.model.trim() ? v.model.trim() : DEFAULT_MODEL,
+    minInputChars: typeof v.min_input_chars === "number" ? v.min_input_chars : 80,
   };
 }
 
@@ -56,11 +47,25 @@ Deno.serve(async (req) => {
       if (!p) throw new Error("podcast not found");
       const langCode = (p.language || "").toLowerCase().split(/[-_]/)[0] || "en";
       const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
-      const j = await callAI([
+      const inputText = `${p.title || ""}\n${p.description || ""}`;
+      const ai = await callLovableAI({
+        model: ctrl.model,
+        job_type: "ai_enrich_podcast_summary",
+        target_type: "podcast",
+        target_id: id,
+        prompt_version: "ai-enrich-v2",
+        input_text: inputText,
+        min_input_chars: ctrl.minInputChars,
+        messages: [
         { role: "system", content: `You write concise 2-sentence podcast summaries (max 280 chars). No marketing fluff. Write the summary in ${langName} (${langCode}) — match the source language; never translate.` },
         { role: "user", content: `Podcast: ${p.title}\n\nDescription: ${p.description || "(none)"}\n\nWrite a clear neutral summary in ${langName}.` },
-      ]);
-      const summary = j.choices?.[0]?.message?.content?.trim() || "";
+        ],
+      });
+      if (!ai.ok) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: ai.error || "ai_skipped" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const summary = ai.data?.choices?.[0]?.message?.content?.trim() || "";
+      if (!summary) return new Response(JSON.stringify({ ok: true, skipped: true, reason: "empty_summary" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       await supabase.from("podcasts").update({ summary }).eq("id", id);
       return new Response(JSON.stringify({ ok: true, summary }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -91,15 +96,26 @@ Deno.serve(async (req) => {
           },
         },
       }];
-      const j = await callAI(
-        [
+      const inputText = `${ep.title || ""}\n${ep.description || ""}`;
+      const ai = await callLovableAI({
+        model: ctrl.model,
+        job_type: "ai_enrich_episode",
+        target_type: "episode",
+        target_id: id,
+        prompt_version: "ai-enrich-v2",
+        input_text: inputText,
+        min_input_chars: ctrl.minInputChars,
+        messages: [
           { role: "system", content: `You analyze podcast episode metadata and extract structured entities. Write the summary field in ${langName} (${langCode}) — match the source language; never translate. Entity names (people, companies, tickers) stay in their original form.` },
           { role: "user", content: `Podcast: ${(ep as any).podcasts?.title}\nEpisode: ${ep.title}\n\nDescription: ${ep.description || "(none)"}` },
         ],
         tools,
-        { type: "function", function: { name: "enrich_episode" } },
-      );
-      const args = j.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        tool_choice: { type: "function", function: { name: "enrich_episode" } },
+      });
+      if (!ai.ok) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: ai.error || "ai_skipped" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const args = ai.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       const parsed = args ? JSON.parse(args) : {};
       await supabase.from("episodes").update({
         summary: parsed.summary || null,

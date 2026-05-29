@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "audit:intelligence": "node scripts/audit-intelligence.mjs",
+    "audit:ai-models": "node scripts/audit-ai-models.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

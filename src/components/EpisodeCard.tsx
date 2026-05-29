@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { PodcastCover } from "./PodcastCover";
-import { ExternalLink, Info, Play } from "lucide-react";
+import { Brain, ExternalLink, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { slugify } from "@/lib/slug";
@@ -8,6 +8,7 @@ import { entitySlug } from "@/lib/entity";
 import { EpisodeMarks } from "./EpisodeMarks";
 import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
+import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 
 export type EpisodeLite = {
   id: string;
@@ -22,7 +23,9 @@ export type EpisodeLite = {
   // episode_rank intentionally removed (Formula C v3 cleanup; legacy frozen field)
   topics?: string[] | null;
   people?: string[] | null;
+  mentioned?: string[] | null;
   companies?: string[] | null;
+  organizations?: string[] | null;
   tickers?: string[] | null;
   ingredients?: string[] | null;
   /** Optional UI hint from search relevance scoring. */
@@ -58,6 +61,7 @@ export function EpisodeCard({
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
   const desc = snippet(e.ai_summary || e.summary || e.description, 220, terms);
+  const understanding = getEpisodeUnderstanding(e);
   const { play } = useSmartPlayer();
   const playable = detectAudioSource({ audio_url: e.audio_url });
   const handlePlay = (ev: React.MouseEvent) => {
@@ -130,11 +134,26 @@ export function EpisodeCard({
           {e.matchBadge && (
             <span className="px-1.5 py-0.5 rounded-md border border-border bg-secondary text-[10px] font-medium text-foreground/80">{e.matchBadge}</span>
           )}
+          {understanding && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-foreground/80"
+              title="RSS leírásból és feldolgozott epizód-metaadatból számolt tartalmi jelzés."
+            >
+              <Brain className="h-3 w-3 text-primary" />
+              Podiverzum szerint
+            </span>
+          )}
         </div>
         {e.why_matched && (
           <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/40 bg-primary/10 text-foreground leading-snug">
             <span className="font-semibold text-primary mr-1">Miért releváns:</span>
             {e.why_matched}
+          </p>
+        )}
+        {!e.why_matched && understanding && (
+          <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-foreground/85 leading-snug line-clamp-2">
+            <span className="font-semibold text-primary mr-1">A lényeg:</span>
+            {understanding.headline}
           </p>
         )}
         {desc && (

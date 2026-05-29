@@ -1,6 +1,6 @@
 // Weekly Editorial Post generator — HVG "Fülszöveg"-style curator's note.
 // Picks 4-5 of the strongest Hungarian episodes from the last 7 days,
-// asks GPT-5.5 to write a magazine-style intro + per-episode mini-blocks
+// asks a capped non-Pro model to write a magazine-style intro + per-episode mini-blocks
 // with one strong quote each, and saves it as a draft in `editorial_posts`.
 //
 // POST body:
@@ -19,7 +19,7 @@ const corsHeaders = {
 
 const SITE_URL = "https://podiverzum.hu";
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "openai/gpt-5.5";
+const MODEL = "google/gemini-2.5-flash";
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {

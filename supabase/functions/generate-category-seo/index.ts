@@ -1,6 +1,7 @@
 // Generates per-category SEO title + description using Lovable AI Gateway.
 // Stores results into public.categories.seo_title / seo_description.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -14,8 +15,6 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("missing_lovable_api_key");
 
     const body = await req.json().catch(() => ({}));
     const force = body.force === true;
@@ -55,16 +54,19 @@ Deno.serve(async (req) => {
       const userPrompt =
         `CATEGORY: ${c.name}\nSLUG: ${c.slug}\nEXISTING DESCRIPTION: ${c.description || "(none)"}\n\nTOP PODCASTS IN THIS CATEGORY:\n${grounding || "(no examples available)"}`;
 
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
-          messages: [
+      const ai = await callLovableAI({
+        model: "google/gemini-2.5-flash-lite",
+        job_type: "generate_category_seo",
+        target_type: "category",
+        target_id: c.id,
+        prompt_version: "category-seo-v2",
+        input_text: userPrompt,
+        min_input_chars: 60,
+        messages: [
             { role: "system", content: sys },
             { role: "user", content: userPrompt },
-          ],
-          tools: [{
+        ],
+        tools: [{
             type: "function",
             function: {
               name: "publish_seo",
@@ -79,19 +81,17 @@ Deno.serve(async (req) => {
                 additionalProperties: false,
               },
             },
-          }],
-          tool_choice: { type: "function", function: { name: "publish_seo" } },
-        }),
+        }],
+        tool_choice: { type: "function", function: { name: "publish_seo" } },
       });
 
-      if (!resp.ok) {
-        const txt = await resp.text();
-        results.push({ slug: c.slug, ok: false, error: `gateway_${resp.status}: ${txt.slice(0, 120)}` });
-        if (resp.status === 429 || resp.status === 402) break;
+      if (!ai.ok) {
+        results.push({ slug: c.slug, ok: false, error: ai.error || `gateway_${ai.status}` });
+        if (ai.status === 429 || ai.status === 402) break;
         continue;
       }
 
-      const j = await resp.json();
+      const j = ai.data;
       const args = j.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       if (!args) { results.push({ slug: c.slug, ok: false, error: "no_tool_call" }); continue; }
       let parsed: { title: string; description: string };

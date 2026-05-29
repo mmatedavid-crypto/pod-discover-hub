@@ -40,6 +40,7 @@ function rowToEpisode(r: Row): EpisodeLite {
     published_at: r.published_at,
     audio_url: r.audio_url,
     topics: r.topics,
+    why_matched: r.related_reason || relatedReasonFromSimilarity(r.similarity),
     podcasts: {
       slug: r.podcast_slug,
       title: r.podcast_title,
@@ -49,6 +50,12 @@ function rowToEpisode(r: Row): EpisodeLite {
       podiverzum_rank: r.podiverzum_rank ?? undefined,
     },
   };
+}
+
+function relatedReasonFromSimilarity(similarity: number): string {
+  if (similarity >= 0.72) return "Erős tartalmi hasonlóság az epizód metaadatai alapján.";
+  if (similarity >= 0.6) return "Hasonló témájú epizód más magyar műsorból.";
+  return "Tartalmilag rokon epizód.";
 }
 
 const MIN_RESULTS = 3;

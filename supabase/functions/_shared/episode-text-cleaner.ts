@@ -1,6 +1,7 @@
 // Episode description cleaner: deterministic heuristics + optional AI fallback.
 // Output is hash-cached in episode_clean_text. Never throws on AI failure; falls back to heuristic.
 import { chatTokenCostUsd } from "./ai-pricing.ts";
+import { callLovableAI } from "./lovable-ai.ts";
 
 export type CleanerCtrl = {
   enabled?: boolean;
@@ -142,7 +143,7 @@ export function heuristicClean(raw: string): { text: string; removed: string[] }
 
   // 1) Detect & cut footer
   const footerStart = detectFooterStart(lines);
-  let kept = footerStart >= 0 ? lines.slice(0, footerStart) : lines;
+  const kept = footerStart >= 0 ? lines.slice(0, footerStart) : lines;
   if (footerStart >= 0) removed.push("footer_cut");
 
   // 2) Strip dense timestamp lists (chapter markers) when 4+ total
@@ -166,6 +167,48 @@ export function heuristicClean(raw: string): { text: string; removed: string[] }
 
   // 5) Whitespace normalize
   body = body.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(MULTI_WHITESPACE, " ").trim();
+
+  // Guardrail: do not let a false-positive footer marker erase a substantive
+  // description. This happens in RSS feeds where the first line is a platform,
+  // sponsor, or production-credit-like phrase but the rest still contains the
+  // actual episode content. Keep URL/social stripping, but skip the footer cut.
+  if (String(raw).trim().length > 500 && body.length < 80) {
+    let fallback = String(raw);
+    const fallbackRemoved: string[] = [];
+
+    if (HTML_RX.test(fallback)) {
+      fallback = fallback.replace(HTML_RX, " ");
+      fallbackRemoved.push("html");
+    }
+    HTML_RX.lastIndex = 0;
+
+    fallback = fallback.replace(/\s*[|•·]\s+/g, "\n");
+
+    let boilerHit = false;
+    for (const rx of BOILERPLATE_RX) {
+      rx.lastIndex = 0;
+      if (rx.test(fallback)) {
+        boilerHit = true;
+        fallback = fallback.replace(rx, "");
+      }
+    }
+    if (boilerHit) fallbackRemoved.push("boilerplate_phrases");
+
+    if (URL_RX.test(fallback)) {
+      fallback = fallback.replace(URL_RX, "");
+      fallbackRemoved.push("inline_urls");
+    }
+    URL_RX.lastIndex = 0;
+
+    fallback = fallback.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(MULTI_WHITESPACE, " ").trim();
+
+    if (fallback.length >= 80) {
+      return {
+        text: fallback,
+        removed: Array.from(new Set([...removed, ...fallbackRemoved, "footer_cut_reverted"])),
+      };
+    }
+  }
 
   return { text: body, removed };
 }
@@ -193,25 +236,30 @@ Keep: topic discussion, guest bios, names, factual claims, key takeaways.
 Remove: sponsor reads, ad copy, recurring podcast intro/outro boilerplate, link lists, calls to action, "subscribe / follow / patreon" plugs, social media handles.
 Preserve original language. Do not translate. Do not paraphrase substantive content. If the entire input is boilerplate, return an empty string.`;
 
-async function callAICleaner(model: string, text: string): Promise<{ cleaned_text: string; removed_categories: string[]; usage?: any } | null> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) return null;
+type AiUsage = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  completion_tokens_details?: { reasoning_tokens?: number };
+};
+
+async function callAICleaner(model: string, text: string): Promise<{ cleaned_text: string; removed_categories: string[]; usage?: AiUsage } | null> {
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: CLEANER_SYSTEM },
-          { role: "user", content: text.slice(0, 14000) },
-        ],
-        tools: [AI_TOOL],
-        tool_choice: { type: "function", function: { name: "clean_episode_description" } },
-      }),
+    const ai = await callLovableAI({
+      model,
+      job_type: "episode_text_cleaner",
+      target_type: "episode",
+      prompt_version: "episode-cleaner-v2",
+      input_text: text,
+      min_input_chars: 250,
+      messages: [
+        { role: "system", content: CLEANER_SYSTEM },
+        { role: "user", content: text.slice(0, 14000) },
+      ],
+      tools: [AI_TOOL],
+      tool_choice: { type: "function", function: { name: "clean_episode_description" } },
     });
-    if (!res.ok) return null;
-    const j = await res.json();
+    if (!ai.ok) return null;
+    const j = ai.data;
     const call = j.choices?.[0]?.message?.tool_calls?.[0];
     if (!call) return null;
     const args = JSON.parse(call.function?.arguments || "{}");
@@ -219,7 +267,11 @@ async function callAICleaner(model: string, text: string): Promise<{ cleaned_tex
     return {
       cleaned_text: args.cleaned_text,
       removed_categories: Array.isArray(args.removed_categories) ? args.removed_categories : [],
-      usage: j.usage,
+      usage: {
+        prompt_tokens: ai.input_tokens || j.usage?.prompt_tokens || 0,
+        completion_tokens: ai.output_tokens || j.usage?.completion_tokens || 0,
+        completion_tokens_details: j.usage?.completion_tokens_details || {},
+      },
     };
   } catch {
     return null;
@@ -244,7 +296,7 @@ export async function cleanEpisodeText(
     return { cleaned_text: h.text, removed_categories: h.removed, cleaner_method: "heuristic" };
   }
 
-  const model = String(ctrl.ai_model || "google/gemini-3.1-flash-lite-preview");
+  const model = String(ctrl.ai_model || "google/gemini-2.5-flash-lite");
   const ai = await callAICleaner(model, h.text);
   if (!ai) {
     return { cleaned_text: h.text, removed_categories: h.removed, cleaner_method: "heuristic" };

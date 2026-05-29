@@ -31,6 +31,13 @@ function snippet(r: Row): string {
   return raw.length > 140 ? raw.slice(0, 137) + "…" : raw;
 }
 
+function reason(r: Row): string {
+  const sim = Math.round((r.similarity || 0) * 100);
+  if (sim >= 70) return `${sim}% tartalmi egyezés az epizód-index alapján`;
+  if (sim >= 55) return `${sim}% hasonlóság, rokon téma más műsorból`;
+  return "Rokon téma más műsorból";
+}
+
 type Props = {
   episodeIdOverride?: string;
   podcastIdOverride?: string | null;
@@ -175,6 +182,9 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
                 <div className="text-[10.5px] text-muted-foreground truncate">
                   {r.podcast_display_title || r.podcast_title}
                 </div>
+                <div className="text-[10.5px] leading-snug rounded-md bg-accent/10 text-accent px-2 py-1 line-clamp-2">
+                  {reason(r)}
+                </div>
                 <button
                   onClick={() => play(ep)}
                   className="mt-auto text-[11px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 self-start"
@@ -190,7 +200,6 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         <ul className="flex flex-col gap-2">
           {items.map((r) => {
             const epHref = `/podcast/${r.podcast_slug}/${r.slug}`;
-            const sim = Math.round(r.similarity * 100);
             const ep: SmartPlayerEpisode = {
               id: r.episode_id,
               title: r.display_title || r.title,
@@ -224,7 +233,9 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
                   </Link>
                   <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                     {r.podcast_display_title || r.podcast_title}
-                    {sim > 0 && <span className="ml-2 tabular-nums opacity-70">· {sim}% match</span>}
+                  </div>
+                  <div className="text-[11px] leading-snug rounded-md bg-accent/10 text-accent px-2 py-1 mt-1">
+                    {reason(r)}
                   </div>
                   {snippet(r) && (
                     <div className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">

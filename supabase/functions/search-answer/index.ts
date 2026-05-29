@@ -5,14 +5,13 @@
 // it identically to the old streamed path. This guarantees no English text ever reaches the user.
 import { isHungarianish } from "../_shared/hu-language-guard.ts";
 import { detectBot } from "../_shared/bot-detect.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 const SYS = `Magyar nyelvű podcast-kutatási asszisztens vagy a podiverzum.hu oldalon.
 SZABÁLYOK:
@@ -30,22 +29,22 @@ function huFallback(q: string): string {
 async function callOnce(q: string, compact: any[], extra?: string): Promise<string> {
   const user = `Kérdés: ${q}\n\nLegjobb epizódok:\n${compact.map((c) => `[${c.i}] ${c.title} — ${c.podcast}\n  ${c.summary}`).join("\n")}\n\nÍrd meg a magyar nyelvű összefoglalót MOST.`;
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        // Model policy v1: search_answer -> gemini-2.5-flash (HU user-facing answer).
-        model: "google/gemini-2.5-flash",
-        max_tokens: 900,
-        messages: [
-          { role: "system", content: SYS + (extra ? `\n${extra}` : "") },
-          { role: "user", content: user },
-        ],
-      }),
+    const ai = await callLovableAI({
+      // Model policy v2: search_answer -> flash-lite first; fallback text if quality gate fails.
+      model: "google/gemini-2.5-flash-lite",
+      job_type: "search_answer",
+      target_type: "search_query",
+      prompt_version: extra ? "search-answer-hu-retry-v2" : "search-answer-v2",
+      input_text: `${q}\n${compact.map((c) => `${c.title} ${c.podcast} ${c.summary}`).join("\n")}`,
+      min_input_chars: 30,
+      max_tokens: 600,
+      messages: [
+        { role: "system", content: SYS + (extra ? `\n${extra}` : "") },
+        { role: "user", content: user },
+      ],
     });
-    if (!r.ok) return "";
-    const j = await r.json();
-    return String(j?.choices?.[0]?.message?.content || "").trim();
+    if (!ai.ok) return "";
+    return String(ai.data?.choices?.[0]?.message?.content || "").trim();
   } catch (e) {
     console.warn("search-answer callOnce err", e);
     return "";
@@ -71,7 +70,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const q = String(body.q || "").trim();
     const episodes = Array.isArray(body.episodes) ? body.episodes.slice(0, 6) : [];
-    if (!q || episodes.length === 0 || !LOVABLE_API_KEY) {
+    if (!q || episodes.length === 0) {
       return new Response(JSON.stringify({ error: "missing input" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

@@ -2,7 +2,7 @@
 // Calls Lovable AI Gateway (gemini-2.5-flash-lite) with tool calling for structured output.
 // Returns: { entities[], expanded_terms[], synonyms[], intent, language }
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+import { callLovableAI } from "./lovable-ai.ts";
 
 export type Understanding = {
   entities: string[];
@@ -60,17 +60,19 @@ function cbRecordFail() {
 }
 
 export async function understandQuery(q: string, timeoutMs = 1500): Promise<Understanding> {
-  if (!LOVABLE_API_KEY || !q) return EMPTY;
+  if (!q) return EMPTY;
   if (!cbAllow()) return EMPTY;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const ai = await Promise.race([
+      callLovableAI({
         model: "google/gemini-2.5-flash-lite",
+        job_type: "search_understand",
+        target_type: "search_query",
+        prompt_version: "search-understand-v2",
+        input_text: q,
+        min_input_chars: 2,
         messages: [
           { role: "system", content: "You expand a Hungarian-language podcast search query for hybrid search. Return concise, plain synonyms and entity names in the SAME language as the query (default Hungarian). Never invent facts.\n\nIMPORTANT — Stock tickers:\n• US tickers (2-5 uppercase letters, optional .B suffix): include BOTH symbol AND company name. Examples: ASTS → [\"ASTS\", \"AST SpaceMobile\"], NVDA → [\"NVDA\", \"Nvidia\"], TSLA → [\"TSLA\", \"Tesla\"], BRK.B → [\"BRK.B\", \"Berkshire Hathaway\"], PLTR → [\"PLTR\", \"Palantir\"], COIN → [\"COIN\", \"Coinbase\"].\n• BÉT (Budapesti Értéktőzsde) tickerek: OTP → [\"OTP\", \"OTP Bank\"], MOL → [\"MOL\", \"MOL Nyrt\"], RICHTER → [\"Richter Gedeon\", \"Gedeon Richter\"], MTELEKOM → [\"Magyar Telekom\"], OPUS → [\"Opus Global\"], 4iG/4IG → [\"4iG\", \"4iG Nyrt\"], MASTERPLAST → [\"Masterplast\"], ANY → [\"ANY Biztonsági Nyomda\"], WABERER → [\"Waberer's\"], AKKO → [\"AKKO Invest\"], ALTEO → [\"ALTEO\"], AUTOWALLIS → [\"AutoWallis\"], DUNA → [\"Duna House\"], RABA → [\"Rába\"], ZWACK → [\"Zwack Unicum\"], CIG → [\"CIG Pannónia\"], PANNERGY → [\"PannErgy\"].\nSet intent=\"ticker\" mindkét esetben. Magyar tickereknél a szektor/iparág kerüljön expanded_terms-be magyarul (pl. \"bankszektor\", \"gyógyszeripar\", \"olajipar\"). Ha nem ismered fel a tickert, csak a szimbólumot add vissza entities-ben és intent=\"ticker\" — NE találj ki cégnevet." },
           { role: "user", content: `Query: "${q}"\nReturn entities (people/companies/topics named in the query — for tickers include both symbol AND company name), 3-6 expanded_terms (closely related keywords), 3-6 synonyms, intent (one of: topic, person, company, ticker, episode, question, news), and language (ISO code).` },
@@ -95,13 +97,16 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
         }],
         tool_choice: { type: "function", function: { name: "understand" } },
       }),
-    });
+      new Promise<null>((resolve) => {
+        ctrl.signal.addEventListener("abort", () => resolve(null), { once: true });
+      }),
+    ]);
     clearTimeout(t);
-    if (!r.ok) {
-      if (r.status >= 500 || r.status === 429) cbRecordFail();
+    if (!ai || !ai.ok) {
+      if ((ai?.status || 0) >= 500 || ai?.status === 429) cbRecordFail();
       return EMPTY;
     }
-    const j = await r.json();
+    const j = ai.data;
     const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return EMPTY;
     const p = typeof args === "string" ? JSON.parse(args) : args;

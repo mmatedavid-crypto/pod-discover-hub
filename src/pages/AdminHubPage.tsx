@@ -138,6 +138,7 @@ export default function AdminHubPage() {
       title: "Quality & Safety",
       tools: [
         { to: "/admin/language-gate", title: "Language Gate", desc: "Foreign podcast audit, review queue, cleanup.", icon: Shield, badge: "new", badgeTone: "warn" },
+        { to: "/admin/intelligence-audit", title: "Intelligence Audit", desc: "Clean text, entity, embedding és ajánló readiness mintavétel.", icon: Sparkles, badge: "new", badgeTone: "warn" },
         { to: "/admin/hu-formula-shadow", title: "HU Formula v1 (shadow)", desc: "Read-only HU ranking diff. Live tiers untouched. Formula C paused.", icon: Sparkles, badge: "new", badgeTone: "warn" },
         { to: "/admin/vector-search", title: "Vector Search & Moods", desc: "Mood diagnostics, recommendation test, personalized card preview.", icon: Sparkles, badge: "new", badgeTone: "warn" },
         { to: "/admin/hosts", title: "Hosts", desc: "Host management and verification.", icon: Users },

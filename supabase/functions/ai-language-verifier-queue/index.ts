@@ -7,40 +7,41 @@
 //     limit?: number,           // default 100, max 500
 //     dry_run?: boolean,        // default false
 //     min_confidence?: number,  // default 0.7
-//     model?: string,           // default google/gemini-3-flash-preview
+//     model?: string,           // default google/gemini-2.5-flash-lite
 //     concurrency?: number,     // default 6, max 8
 //     min_rank?: number,        // only scan candidates >= this rank (default 0)
 //   }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DEFAULT_MODEL = "google/gemini-3.1-flash-lite-preview";
+const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
 
 async function detectLanguage(model: string, title: string, description: string) {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
   const block = [
     `TITLE: ${title || "(none)"}`,
     `DESCRIPTION: ${(description || "").slice(0, 2500) || "(none)"}`,
   ].join("\n\n");
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      messages: [
+  const ai = await callLovableAI({
+    model,
+    job_type: "ai_language_verifier_queue",
+    target_type: "discovery_queue",
+    prompt_version: "language-verifier-queue-v2",
+    input_text: block,
+    min_input_chars: 40,
+    messages: [
         {
           role: "system",
           content: "You determine the PRIMARY SPOKEN language of a podcast based on its title and description metadata. Reply ONLY via the set_language tool. Be strict: English text means 'en', Spanish 'es', Czech 'cs', etc. A podcast is Hungarian ONLY if the title/description is actually written in Hungarian (uses Hungarian words, accents, grammar). Marketing fluff in Hungarian inside an otherwise English show does NOT make it Hungarian.",
         },
         { role: "user", content: block },
-      ],
-      tools: [{
+    ],
+    tools: [{
         type: "function",
         function: {
           name: "set_language",
@@ -56,14 +57,12 @@ async function detectLanguage(model: string, title: string, description: string)
             additionalProperties: false,
           },
         },
-      }],
-      tool_choice: { type: "function", function: { name: "set_language" } },
-    }),
+    }],
+    tool_choice: { type: "function", function: { name: "set_language" } },
   });
-  if (resp.status === 402) throw new Error("ai_credits_exhausted_402");
-  if (resp.status === 429) { (detectLanguage as any)._429 = Date.now(); throw new Error("ai_rate_limit_429"); }
-  if (!resp.ok) throw new Error(`ai_http_${resp.status}`);
-  const j = await resp.json();
+  if (ai.status === 429) (detectLanguage as any)._429 = Date.now();
+  if (!ai.ok) throw new Error(ai.error || `ai_http_${ai.status}`);
+  const j = ai.data;
   const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) throw new Error("ai_no_tool_call");
   return JSON.parse(args) as { lang: string; confidence: number; reason: string };

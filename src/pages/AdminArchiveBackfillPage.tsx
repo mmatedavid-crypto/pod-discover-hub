@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNoindex } from "@/lib/useNoindex";
 import { toast } from "@/hooks/use-toast";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 const FN_URL = (name: string) => `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}`;
 
@@ -75,6 +76,7 @@ const TIERS = ["S","A","B","C"] as const;
 
 export default function AdminArchiveBackfillPage() {
   useNoindex("HU Archive Backfill — Admin");
+  const { loading: adminLoading, isAdmin } = useAdminAccess();
   const [controls, setControls] = useState<Controls | null>(null);
   const [lastRun, setLastRun] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
@@ -114,9 +116,13 @@ export default function AdminArchiveBackfillPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (adminLoading || !isAdmin) return;
+    load();
+  }, [adminLoading, isAdmin]);
 
   const saveControls = async (patch: Partial<Controls>) => {
+    if (!isAdmin) return;
     const next = { ...(controls || {} as any), ...patch };
     setControls(next);
     await supabase.from("app_settings").upsert({
@@ -126,6 +132,7 @@ export default function AdminArchiveBackfillPage() {
   };
 
   const runDry = async () => {
+    if (!isAdmin) return;
     setBusy(true);
     const r = await callFn("hungarian-deep-archive-backfill", { dry_run: true });
     setBusy(false);
@@ -134,6 +141,7 @@ export default function AdminArchiveBackfillPage() {
     load();
   };
   const runBatch = async () => {
+    if (!isAdmin) return;
     setBusy(true);
     const r = await callFn("hungarian-deep-archive-backfill", { dry_run: false });
     setBusy(false);
@@ -143,11 +151,14 @@ export default function AdminArchiveBackfillPage() {
   };
   const togglePause = async () => saveControls({ enabled: !(controls?.enabled !== false) });
   const approvePi = async (id: string) => {
+    if (!isAdmin) return;
     await (supabase as any).from("podcasts").update({ pi_backfill_approved: true }).eq("id", id);
     toast({ title: "Approved for PI" });
     load();
   };
 
+  if (adminLoading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
+  if (!isAdmin) return <Layout><div className="container mx-auto py-20">Nincs jogosultság.</div></Layout>;
   if (loading || !controls) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
 
   return (

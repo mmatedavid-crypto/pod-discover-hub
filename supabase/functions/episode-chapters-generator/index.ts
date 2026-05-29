@@ -4,6 +4,7 @@
 // and stores them in episode_chapters. Safe to call repeatedly: skips if chapters exist.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -16,8 +17,6 @@ Deno.serve(async (req) => {
 
     const url = Deno.env.get("SUPABASE_URL")!;
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const aiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!aiKey) return json({ error: "ai_key_missing" }, 500);
 
     const admin = createClient(url, service);
 
@@ -72,26 +71,27 @@ ${lines.join("\n")}
 Válaszolj így (csak JSON, semmi más):
 {"chapters":[{"start_chunk":0,"title":"…","summary":"…"}, ...]}`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        response_format: { type: "json_object" },
-      }),
+    const inputText = lines.join("\n");
+    const ai = await callLovableAI({
+      model: "google/gemini-2.5-flash-lite",
+      job_type: "episode_chapters_generator",
+      target_type: "episode",
+      target_id: episode_id,
+      prompt_version: "episode-chapters-v2",
+      input_text: inputText,
+      min_input_chars: 500,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      response_format: { type: "json_object" },
     });
-    if (!aiRes.ok) {
-      const txt = await aiRes.text();
-      return json({ error: "ai_error", status: aiRes.status, body: txt.slice(0, 500) }, 502);
+    if (!ai.ok) {
+      return json({ status: "skipped", reason: ai.error || "ai_skipped", chapters: [] });
     }
-    const aiJson = await aiRes.json();
     let parsed: any = {};
     try {
-      parsed = JSON.parse(aiJson?.choices?.[0]?.message?.content || "{}");
+      parsed = JSON.parse(ai.data?.choices?.[0]?.message?.content || "{}");
     } catch {
       return json({ error: "parse_error" }, 502);
     }

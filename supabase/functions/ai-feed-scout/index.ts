@@ -2,6 +2,7 @@
 // Body: { sources?: string[], lang?: 'en'|'hu'|'all', model?: string, max_per_source?: number, dry_run?: boolean }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -276,7 +277,6 @@ async function firecrawlScrape(url: string): Promise<string | null> {
 }
 
 async function geminiExtract(markdown: string, sourceTag: string, langHint: string, max: number, model: string) {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY")!;
   const langName = langHint === "hu" ? "Hungarian" : langHint === "en" ? "English" : langHint;
   const prompt = `You are an expert podcast curator. Given the markdown of a webpage that lists or recommends podcasts, extract distinct podcasts.
 
@@ -296,13 +296,16 @@ Source tag: ${sourceTag}
 PAGE MARKDOWN (truncated):
 ${markdown.slice(0, 50000)}`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      tools: [{
+  const ai = await callLovableAI({
+    model,
+    job_type: "ai_feed_scout",
+    target_type: "source",
+    target_id: sourceTag,
+    prompt_version: "ai-feed-scout-v2",
+    input_text: markdown,
+    min_input_chars: 500,
+    messages: [{ role: "user", content: prompt }],
+    tools: [{
         type: "function",
         function: {
           name: "submit_podcasts",
@@ -327,15 +330,14 @@ ${markdown.slice(0, 50000)}`;
             required: ["podcasts"],
           },
         },
-      }],
-      tool_choice: { type: "function", function: { name: "submit_podcasts" } },
-    }),
+    }],
+    tool_choice: { type: "function", function: { name: "submit_podcasts" } },
   });
-  if (!res.ok) {
-    console.warn(`gemini extract failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  if (!ai.ok) {
+    console.warn(`gemini extract failed: ${ai.status} ${ai.error || ""}`);
     return [];
   }
-  const data = await res.json();
+  const data = ai.data;
   const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) return [];
   try {

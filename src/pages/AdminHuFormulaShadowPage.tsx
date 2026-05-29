@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import Layout from "@/components/Layout";
+import { useNoindex } from "@/lib/useNoindex";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 // Admin diff view for HU_v1 shadow scoring.
 // Read-only: shows live tier vs HU_v1 candidate tier and component breakdown.
@@ -39,6 +42,8 @@ function TierBadge({ tier }: { tier: string | null | undefined }) {
 }
 
 export default function AdminHuFormulaShadowPage() {
+  useNoindex("HU Formula Shadow — Admin");
+  const { loading: adminLoading, isAdmin } = useAdminAccess();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
@@ -58,9 +63,13 @@ export default function AdminHuFormulaShadowPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (adminLoading || !isAdmin) return;
+    load();
+  }, [adminLoading, isAdmin]);
 
   async function runShadow() {
+    if (!isAdmin) return;
     setRunning(true);
     setRunMsg("Running HU_v1 shadow scoring…");
     try {
@@ -111,6 +120,9 @@ export default function AdminHuFormulaShadowPage() {
   // Chart freshness from any scored row (same for all in a run).
   const chartFreshness = useMemo(() => enriched.find(r => r.chart_freshness.length > 0)?.chart_freshness || [], [enriched]);
   const anyChartStale = chartFreshness.some((c: any) => c.stale);
+
+  if (adminLoading) return <Layout><div className="container mx-auto py-20">Betöltés…</div></Layout>;
+  if (!isAdmin) return <Layout><div className="container mx-auto py-20">Nincs jogosultság.</div></Layout>;
 
   function flagBadge(flag: string | undefined) {
     if (!flag) return null;

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { useNoindex } from "@/lib/useNoindex";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { ArrowLeft, RefreshCw, Sparkles, AlertTriangle } from "lucide-react";
 
 type MoodRow = {
@@ -53,6 +54,7 @@ const PRESETS: { label: string; hour: number; dow: number; viewport: typeof VIEW
 
 export default function AdminVectorSearchPage() {
   useNoindex("Vector Search — Admin");
+  const { loading: adminLoading, isAdmin } = useAdminAccess();
   const [moods, setMoods] = useState<MoodRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSlug, setSelectedSlug] = useState<string>("");
@@ -81,6 +83,7 @@ export default function AdminVectorSearchPage() {
   };
 
   useEffect(() => {
+    if (adminLoading || !isAdmin) return;
     loadMoods();
     // Run preset card tests
     (async () => {
@@ -95,7 +98,7 @@ export default function AdminVectorSearchPage() {
       }
       setCards(out);
     })();
-  }, []);
+  }, [adminLoading, isAdmin]);
 
   const runRecommendationTest = async () => {
     if (!selectedSlug) return;
@@ -109,11 +112,15 @@ export default function AdminVectorSearchPage() {
   };
 
   const recomputeCounts = async () => {
+    if (!isAdmin) return;
     setRecomputing(true);
     await supabase.functions.invoke("mood-recommended-counts-runner", { body: {} });
     await loadMoods();
     setRecomputing(false);
   };
+
+  if (adminLoading) return <Layout><div className="container mx-auto py-20">Betöltés…</div></Layout>;
+  if (!isAdmin) return <Layout><div className="container mx-auto py-20">Nincs jogosultság.</div></Layout>;
 
   return (
     <Layout>

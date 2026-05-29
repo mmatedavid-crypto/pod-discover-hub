@@ -2,6 +2,7 @@
 // POST { prefix: string } -> { suggestions: string[] }
 // Strategy: cache lookup (24h) -> AI completion (gemini-2.5-flash-lite) seeded by prefix-matched episode titles.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,24 +12,24 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 function normalize(s: string): string {
   return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
 async function aiSuggest(prefix: string, seedTitles: string[]): Promise<string[]> {
-  if (!LOVABLE_API_KEY) return [];
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 3500);
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const ai = await Promise.race([
+      callLovableAI({
         // Model policy v1: search_suggest -> gemini-2.5-flash-lite (high volume, short output).
         model: "google/gemini-2.5-flash-lite",
+        job_type: "search_suggest",
+        target_type: "search_prefix",
+        prompt_version: "search-suggest-v2",
+        input_text: `${prefix}\n${seedTitles.join("\n")}`,
+        min_input_chars: 20,
         max_tokens: 256,
         messages: [
           { role: "system", content: "You suggest podcast search completions. Return short, natural search queries (2-5 words). No punctuation, lowercase." },
@@ -47,10 +48,13 @@ async function aiSuggest(prefix: string, seedTitles: string[]): Promise<string[]
         }],
         tool_choice: { type: "function", function: { name: "suggest" } },
       }),
-    });
+      new Promise<null>((resolve) => {
+        ctrl.signal.addEventListener("abort", () => resolve(null), { once: true });
+      }),
+    ]);
     clearTimeout(t);
-    if (!r.ok) return [];
-    const j = await r.json();
+    if (!ai || !ai.ok) return [];
+    const j = ai.data;
     const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return [];
     const p = typeof args === "string" ? JSON.parse(args) : args;

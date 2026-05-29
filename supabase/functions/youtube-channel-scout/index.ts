@@ -17,6 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { titleSim, normHu } from "../_shared/title-similarity.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -26,7 +27,6 @@ const json = (b: any, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 const YT_KEY = Deno.env.get("YOUTUBE_API_KEY");
-const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 async function ytSearchChannel(q: string) {
   const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&maxResults=3&q=${encodeURIComponent(q)}&key=${YT_KEY}`;
@@ -45,9 +45,24 @@ async function ytChannels(ids: string[]) {
 }
 
 async function aiValidate(model: string, podcast: any, candidates: any[]): Promise<{ winner_idx: number | null; reason: string }> {
-  if (!LOVABLE_KEY) return { winner_idx: null, reason: "no_ai_key" };
-  const payload = {
+  const userPayload = JSON.stringify({
+    podcast: { title: podcast.title, author: podcast.author || podcast.publisher, description: (podcast.description || "").slice(0, 400) },
+    candidates: candidates.map((c) => ({
+      channel_id: c.id,
+      title: c.snippet?.title,
+      description: (c.snippet?.description || "").slice(0, 400),
+      subs: c.statistics?.subscriberCount,
+      videos: c.statistics?.videoCount,
+    })),
+  });
+  const ai = await callLovableAI({
     model,
+    job_type: "youtube_channel_scout",
+    target_type: "podcast",
+    target_id: podcast.id,
+    prompt_version: "youtube-channel-scout-v2",
+    input_text: userPayload,
+    min_input_chars: 80,
     messages: [
       {
         role: "system",
@@ -56,28 +71,14 @@ async function aiValidate(model: string, podcast: any, candidates: any[]): Promi
       },
       {
         role: "user",
-        content: JSON.stringify({
-          podcast: { title: podcast.title, author: podcast.author || podcast.publisher, description: (podcast.description || "").slice(0, 400) },
-          candidates: candidates.map((c) => ({
-            channel_id: c.id,
-            title: c.snippet?.title,
-            description: (c.snippet?.description || "").slice(0, 400),
-            subs: c.statistics?.subscriberCount,
-            videos: c.statistics?.videoCount,
-          })),
-        }),
+        content: userPayload,
       },
     ],
     response_format: { type: "json_object" },
     temperature: 0,
-  };
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
   });
-  if (!r.ok) return { winner_idx: null, reason: `ai_${r.status}` };
-  const j = await r.json();
+  if (!ai.ok) return { winner_idx: null, reason: ai.error || `ai_${ai.status}` };
+  const j = ai.data;
   try {
     const parsed = JSON.parse(j.choices?.[0]?.message?.content || "{}");
     const idx = parsed.winner_idx;
