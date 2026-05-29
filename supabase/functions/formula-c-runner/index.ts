@@ -49,6 +49,16 @@ async function loadThresholds(supabase: any): Promise<{ S: number; A: number; B:
   return DEFAULT_THRESHOLDS;
 }
 
+async function isApplyToLiveEnabled(supabase: any): Promise<boolean> {
+  try {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", "formula_c_apply_to_live_rank").maybeSingle();
+    const v = data?.value as any;
+    return !!(v && v.enabled === true);
+  } catch (_) {
+    return false;
+  }
+}
+
 function classifyAction(p: any, computedTier: string) {
   const cur = p.rank_label;
   const isLegacy = cur && !VALID_TIERS.has(cur);
