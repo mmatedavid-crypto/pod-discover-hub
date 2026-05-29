@@ -7,6 +7,11 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 // Homepage-local editorial scoring (does NOT touch lib/episodeRank used elsewhere).
+//
+// Goal (post HU_v1 cutover): popular/strong shows (S/A + high podiverzum_rank)
+// stay eligible longer; freshness still matters but does not dominate; news
+// stays eligible but mildly downweighted; short bulletin/segment feeds get a
+// stronger penalty and a hard cap in the top rail. No blacklists.
 const NEWS_HINTS = [
   "hírek", "hírösszefoglaló", "hír összefoglaló",
   "napi hír", "esti hír", "reggeli hír",
@@ -24,36 +29,73 @@ function isNewsLikeEpisode(ep: any): boolean {
   ].filter(Boolean).join(" ").toLowerCase();
   return NEWS_HINTS.some((h) => hay.includes(h));
 }
+// Detect short bulletin / segment / breakout feeds:
+//   "1 - …", "02 - …", "20260529 - 08 Voga rovata", "Hírek röviden",
+//   "6 óra", "8 perc hírek", standalone "Bochkor: 03 …", etc.
+// These are typically <5 min cut-down segments that flood "Felkapott" if not
+// downweighted. We never reject the feed — just lower its homepage weight.
+const BULLETIN_HINTS = [
+  "hírek röviden", "röviden a hírek", "hírek 5 perc", "5 perc hír",
+  "percben", "perc hír", "perc hírek", "hírek dióhéjban",
+];
+function isBulletinLikeEpisode(ep: any): boolean {
+  const rawTitle = String(ep?.display_title || ep?.title || "").trim();
+  if (!rawTitle) return false;
+  const t = rawTitle.toLowerCase();
+  if (BULLETIN_HINTS.some((h) => t.includes(h))) return true;
+  // Numeric segment prefixes: "1 - …", "02 - …", "07 Hangcsapda háték"
+  if (/^\s*\d{1,2}\s*[-–—]\s+\S/.test(rawTitle)) return true;
+  // Date-prefixed segments: "20260529 - 02 Ma mi nyűgöz le", "2026 05 29 …"
+  if (/^\s*(20\d{6}|20\d{2}[\s._-]?\d{2}[\s._-]?\d{2})\s*[-–—\s]/.test(rawTitle)) return true;
+  // "N óra" / "N perc" mini-bulletin titles ("6 óra", "8 perc hírek")
+  if (/^\s*\d{1,2}\s+(óra|perc)\b/.test(t)) return true;
+  return false;
+}
+function tierDecayHours(label: string | null | undefined): number {
+  switch (label) {
+    case "S": return 14 * 24;
+    case "A": return 10 * 24;
+    case "B": return 7 * 24;
+    case "C": return 4 * 24;
+    default:  return 2 * 24; // D, E, null
+  }
+}
 function homepageScore(ep: any): number {
-  const label = ep?.podcasts?.rank_label;
+  const label = ep?.podcasts?.rank_label as string | undefined;
   const tier =
     label === "S" ? 100 :
-    label === "A" ? 70 :
-    label === "B" ? 40 :
-    label === "C" ? 20 :
-    (label === "D" || label === "E") ? 5 : 10;
+    label === "A" ? 75 :
+    label === "B" ? 45 :
+    label === "C" ? 25 :
+    (label === "D" || label === "E") ? 8 : 12;
 
   const featured = !!ep?.podcasts?.featured;
-  const fb = featured ? 60 : 0;
+  const fb = featured ? 25 : 0;
   const fr = Number(ep?.podcasts?.featured_rank);
   const featuredRankBonus = featured && Number.isFinite(fr)
-    ? Math.max(0, 20 - Math.min(20, fr)) : 0;
+    ? Math.max(0, 12 - Math.min(12, fr)) : 0;
 
+  // HU_v1 score lives in podiverzum_rank (0–10). Weight 3 per point → up to +30.
   const pvr = Math.min(Math.max(Number(ep?.podcasts?.podiverzum_rank) || 0, 0), 10);
-  const pr = Math.min(Math.max(Number(ep?.podcasts?.pod_rank) || 0, 0), 10);
-  const rankBoost = pvr * 2 + Math.max(0, 10 - pr) * 2;
+  const rankBoost = pvr * 3;
 
+  // Tier-aware freshness: stronger shows decay slower.
   let fresh = 0;
   const t = ep?.published_at ? new Date(ep.published_at).getTime() : NaN;
   if (Number.isFinite(t)) {
-    const ageH = (Date.now() - t) / 3600_000;
-    if (ageH < 24) fresh = 35;
-    else if (ageH < 72) fresh = 25;
-    else if (ageH < 24 * 7) fresh = 15;
-    else if (ageH < 24 * 14) fresh = 8;
+    const ageH = Math.max(0, (Date.now() - t) / 3600_000);
+    if (ageH < 24) fresh = 30; // <24h: strong recency boost regardless of tier
+    else {
+      const decay = tierDecayHours(label);
+      const remaining = Math.max(0, 1 - (ageH - 24) / Math.max(1, decay - 24));
+      fresh = Math.round(22 * remaining);
+    }
   }
 
-  const penalty = isNewsLikeEpisode(ep) ? 25 : 0;
+  const news = isNewsLikeEpisode(ep);
+  const bulletin = isBulletinLikeEpisode(ep);
+  const penalty = (bulletin ? 35 : 0) + (news ? 12 : 0);
+
   return tier + fb + featuredRankBonus + rankBoost + fresh - penalty;
 }
 function compareByHomepageScore(a: any, b: any): number {
