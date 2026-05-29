@@ -33,7 +33,9 @@ async function callAI(
   // GPT-5 reasoning models do not accept temperature.
   if (!/^openai\/gpt-5/.test(model) && typeof opts.temperature === "number") body.temperature = opts.temperature;
   // Reasoning effort: only supported by base gpt-5 and gpt-5.4 family. gpt-5.5 / gpt-5.2 / mini/nano/pro variants reject it as unknown parameter.
-  if (opts.reasoning && /^openai\/(gpt-5|gpt-5\.4)(-(mini|nano|pro))?$/.test(model)) body.reasoning = { effort: opts.reasoning };
+  // Reasoning effort: Lovable Gateway rejects `reasoning` on gpt-5 / gpt-5.5 base models ("Unknown parameter").
+  // Only gpt-5.4 family currently accepts it reliably.
+  if (opts.reasoning && /^openai\/gpt-5\.4(-(mini|nano|pro))?$/.test(model)) body.reasoning = { effort: opts.reasoning };
   if (opts.tools) body.tools = opts.tools;
   if (opts.toolChoice) body.tool_choice = opts.toolChoice;
 
@@ -256,20 +258,32 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
   try {
     const useWiki = hasVerifiedWikiSource(p);
     const wikiDerivedBio = useWiki ? wikipediaBio(p) : null;
+
+    // Unverified wiki candidate: extract/description present, but match_status != verified.
+    // Surface it to the LLM as advisory text — model must judge if it fits the same person.
+    const hasWikiCandidate = !useWiki && Boolean(
+      (String(p.wikipedia_extract || "").trim().length >= 40) ||
+      (String(p.wikipedia_description || "").trim().length >= 20)
+    );
+
     const wikiBlob = useWiki
       ? `Wikipedia leírás: ${p.wikipedia_description || ""}\nWikipedia kivonat: ${(p.wikipedia_extract || "").slice(0, 800)}`
-      : "Nincs ellenőrzött Wikipedia-forrás.";
+      : hasWikiCandidate
+        ? `Wikipedia-jelölt (NEM verified — csak akkor használd, ha a szöveg egyértelműen ugyanerről a személyről szól: a név egyezik, az életrajzi adatok hihetők, és nincs egyértelmű félreazonosítás pl. fiktív karakter, mű, város). Ha bármi gyanús, hagyd figyelmen kívül és írj obszervációs bio-t.\nLeírás: ${p.wikipedia_description || "—"}\nKivonat: ${(p.wikipedia_extract || "").slice(0, 800)}`
+        : "Nincs Wikipedia-forrás.";
+
+    const epTitlesShort = epList.slice(0, 6).map((e: any) => `• ${e.title}`).join("\n") || "—";
+    const podcastTitlesShort = (ppm || []).slice(0, 5).map((r: any) => `• ${r.podcasts?.title}`).filter(Boolean).join("\n") || "—";
 
     const bioSys = `Magyar nyelvű, neutrális, tényszerű rövid bio-t írsz egy podcast-katalógushoz.
 SZABÁLYOK:
-- KIZÁRÓLAG magyarul.
-- 2-3 rövid mondat. Tömör. Max ~280 karakter.
+- KIZÁRÓLAG magyarul. 2-3 rövid mondat, max ~280 karakter.
 - ÉLETRAJZI tényt (foglalkozás, nemzetiség, születési év, intézményi pozíció, politikai hovatartozás) CSAK akkor írj, ha a megadott Wikipedia-forrás KIFEJEZETTEN tartalmazza.
-- Ha NINCS Wikipedia-forrás, írj OBSZERVÁCIÓS bio-t a Podiverzum-kontextusból: mely magyar podcastokban / milyen szerepben (host/vendég/téma) tűnik fel. Példa stílus: "X magyar podcast-szereplő; az indexelt epizódokban főként vendégként/műsorvezetőként szerepel N műsorban." Ezt SOHA NE egészítsd ki kitalált életrajzi adattal.
-- Ha Wikipedia VAN, kezdj egy egymondatos életrajzi sorral (a forrásból), majd add hozzá 1 mondatban a podcast-kontextust.
+- Ha Wikipedia VAN (verified vagy egyértelműen ráillő jelölt), kezdj egy egymondatos életrajzi sorral a forrásból, majd 1 mondat podcast-kontextus.
+- Ha NINCS használható Wikipedia, írj OBSZERVÁCIÓS bio-t a Podiverzum-kontextusból: mely konkrét magyar podcastokban / milyen szerepben tűnik fel. Használd a tényleges podcast-címeket. Példa: "Schmied Andi a Partizán és a 444 epizódjaiban vendégként tűnik fel; főként közéleti/politikai témákban szólal meg." Ezt SOHA NE egészítsd ki kitalált életrajzi adattal.
 - TILOS: "valószínűleg", "úgy tudni", reklámszerű hype, politikai értékelés, becsült életkor/évszám forrás nélkül.
-- SOHA ne nevezd a személyt "műsorvezetőnek", ha a tally.host=0.
-- Ne add vissza a "magyar podcast epizódokban előforduló személy" sablont SZÓ SZERINT — írd meg a saját mondatot a fenti szabályok szerint.
+- SOHA ne nevezd "műsorvezetőnek" ha a tally.host=0.
+- ABSZOLÚT TILOS visszaadni az alábbi sablont (sem szó szerint, sem parafrázálva): "X magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók." — Ha nincs jobb anyagod, akkor is konkrét podcast-címet vagy szerepet kell említened.
 - Csak a bio szövegét add vissza, semmi mást.`;
 
     const bioUser = `Személy neve: ${p.name}
@@ -278,10 +292,12 @@ Wikipedia státusz: ${p.wikipedia_match_status} (konfidencia: ${p.wikipedia_matc
 ${wikiBlob}
 
 Podiverzum kontextus:
-- Magyar podcastokban szerepel/említik: ${(ppm || []).length} műsor
-- Host szerep ezekben: ${isHost ? "igen" : "nem"}
+- Magyar podcastok (${(ppm || []).length}):
+${podcastTitlesShort}
 - Indexelt epizódok száma: ${epList.length}
 - Megjelenések típusa: host=${tally.host}, guest=${tally.guest}, subject=${tally.subject}, mentioned=${tally.mentioned}
+- Példa epizódcímek:
+${epTitlesShort}
 
 Írd meg a bio-t a fenti szabályok szerint.`;
 
@@ -310,12 +326,10 @@ SZABÁLYOK:
     let auditCost = 0;
     let bioStatus = "completed";
     let auditResult: any = null;
-    if (epList.length === 0 && !useWiki) {
+    if (epList.length === 0 && !useWiki && !hasWikiCandidate) {
       bio = safeFallbackBio(p.name);
       overview = `A ${p.name} kapcsán jelenleg nincs elegendő indexelt magyar podcast epizód.`;
       bioStatus = "insufficient_evidence";
-      auditResult = { skipped: "insufficient_evidence" };
-
       auditResult = { skipped: "insufficient_evidence" };
     } else {
       const [b, o] = await Promise.all([
@@ -323,6 +337,31 @@ SZABÁLYOK:
         callAI(OVERVIEW_MODEL, overviewSys, overviewUser, { temperature: 0.3 }),
       ]);
       if (b.ok) { bio = b.text; bioCost = b.cost; } else { bio = wikiDerivedBio || safeFallbackBio(p.name); bioStatus = wikiDerivedBio ? "completed" : "needs_review"; }
+      if (o.ok) { overview = o.text; overviewCost = o.cost; } else { overview = ""; }
+
+      // Retry once if LLM gave up and returned the literal fallback (without verified wiki).
+      if (!useWiki && b.ok && isSafeFallback(p.name, bio)) {
+        const retrySys = bioSys + `\n\nFIGYELEM: az előző válaszod a TILTOTT sablon volt. Írd át úgy, hogy LEGALÁBB EGY konkrét podcast-címet vagy szerep-megfigyelést tartalmazzon a Podiverzum-kontextusból. NE add vissza ugyanazt.`;
+        const retry = await callAI(BIO_MODEL, retrySys, bioUser, { reasoning: "low" });
+        if (retry.ok && retry.text && !isSafeFallback(p.name, retry.text)) {
+          bio = retry.text;
+          bioCost += retry.cost;
+        }
+      }
+
+      if (useWiki && isSafeFallback(p.name, bio)) {
+        bio = wikiDerivedBio || safeFallbackBio(p.name);
+        bioStatus = wikiDerivedBio ? "completed" : "needs_review";
+        auditResult = { skipped: "wiki_verified_fallback_replaced" };
+      }
+
+      if (useWiki && bioStatus !== "completed" && wikiDerivedBio) {
+        bio = wikiDerivedBio;
+        bioStatus = "completed";
+        auditResult = { skipped: "wiki_verified_recovery" };
+      }
+
+
       if (o.ok) { overview = o.text; overviewCost = o.cost; } else { overview = ""; }
 
       if (useWiki && isSafeFallback(p.name, bio)) {
@@ -347,17 +386,16 @@ SZABÁLYOK:
           episode_titles: epList.map((e: any) => e.title),
           tally,
         });
-        auditCost = audit.cost;
-        auditResult = { model: AUDIT_MODEL, pass: audit.pass, flags: audit.flags, rationale: audit.rationale, ok: audit.ok };
         if (!audit.pass) {
-          // Reject unsupported AI text. If Wikipedia is verified, publish the source-derived sentence instead of a generic template.
+          // Reject unsupported AI text. If Wikipedia is verified, publish the source-derived sentence.
           if (wikiDerivedBio) {
             bio = wikiDerivedBio;
             bioStatus = "completed";
             auditResult.recovered_with_wikipedia = true;
           } else {
-            bio = safeFallbackBio(p.name);
-            bioStatus = "audited_fail";
+            // Without verified wiki: keep the AI text but mark as needs_review so the team can triage.
+            // Avoid demoting back to the literal fallback (creates audited_fail noise).
+            bioStatus = "needs_review";
           }
         } else if (!useWiki && epList.length < 2) {
           bioStatus = "needs_review";
