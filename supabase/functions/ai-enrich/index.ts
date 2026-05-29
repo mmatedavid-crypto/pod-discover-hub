@@ -66,6 +66,22 @@ async function recordDuplicateSkip(jobType: string, targetType: string, targetId
   });
 }
 
+async function updateRowWithHashFallback(supabase: any, table: "episodes" | "podcasts", id: string, update: Record<string, unknown>) {
+  const { error } = await supabase.from(table).update(update).eq("id", id);
+  if (!error) return;
+
+  const message = String(error.message || "");
+  if (!message.includes("ai_enrich_input_hash") && !message.includes("ai_enrich_prompt_version")) {
+    throw error;
+  }
+
+  const fallback = { ...update };
+  delete fallback.ai_enrich_input_hash;
+  delete fallback.ai_enrich_prompt_version;
+  const retry = await supabase.from(table).update(fallback).eq("id", id);
+  if (retry.error) throw retry.error;
+}
+
 async function loadEpisodeCleanText(supabase: any, episodeId: string): Promise<string | null> {
   const { data } = await supabase
     .from("episode_clean_text")
@@ -131,6 +147,10 @@ Deno.serve(async (req) => {
       const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
       const inputText = `${p.title || ""}\n${p.description || ""}`;
       const sourceHash = await sha256Hex(inputText.trim());
+      if (p.ai_enrich_input_hash === sourceHash && p.summary) {
+        await recordDuplicateSkip("ai_enrich_podcast_summary", "podcast", id, sourceHash, ctrl.model);
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "unchanged_ai_input" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       if (await hasSuccessfulAiRun(supabase, "ai_enrich_podcast_summary", "podcast", id, sourceHash)) {
         await recordDuplicateSkip("ai_enrich_podcast_summary", "podcast", id, sourceHash, ctrl.model);
         return new Response(JSON.stringify({ ok: true, skipped: true, reason: "unchanged_ai_input" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -154,7 +174,12 @@ Deno.serve(async (req) => {
       }
       const summary = ai.data?.choices?.[0]?.message?.content?.trim() || "";
       if (!summary) return new Response(JSON.stringify({ ok: true, skipped: true, reason: "empty_summary" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      await supabase.from("podcasts").update({ summary }).eq("id", id);
+      await updateRowWithHashFallback(supabase, "podcasts", id, {
+        summary,
+        ai_enriched_at: new Date().toISOString(),
+        ai_enrich_input_hash: sourceHash,
+        ai_enrich_prompt_version: PROMPT_VERSION,
+      });
       return new Response(JSON.stringify({ ok: true, summary }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -190,6 +215,10 @@ Deno.serve(async (req) => {
       }];
       const inputText = `${ep.title || ""}\n${sourceText}`;
       const sourceHash = await sha256Hex(inputText.trim());
+      if (ep.ai_enrich_input_hash === sourceHash && ep.summary && Number(ep.ai_entities_version || 0) >= 4) {
+        await recordDuplicateSkip("ai_enrich_episode", "episode", id, sourceHash, ctrl.model);
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "unchanged_ai_input" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       if (await hasSuccessfulAiRun(supabase, "ai_enrich_episode", "episode", id, sourceHash)) {
         await recordDuplicateSkip("ai_enrich_episode", "episode", id, sourceHash, ctrl.model);
         return new Response(JSON.stringify({ ok: true, skipped: true, reason: "unchanged_ai_input" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -215,14 +244,19 @@ Deno.serve(async (req) => {
       }
       const args = ai.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       const parsed = args ? JSON.parse(args) : {};
-      await supabase.from("episodes").update({
+      await updateRowWithHashFallback(supabase, "episodes", id, {
         summary: parsed.summary || null,
         topics: parsed.topics || [],
         people: parsed.people || [],
         companies: parsed.companies || [],
         tickers: parsed.tickers || [],
         ingredients: parsed.ingredients || [],
-      }).eq("id", id);
+        ai_entities_version: 4,
+        ai_enriched_at: new Date().toISOString(),
+        ai_summary_source: sourceLabel,
+        ai_enrich_input_hash: sourceHash,
+        ai_enrich_prompt_version: PROMPT_VERSION,
+      });
       // Stamp last AI run
       await supabase.from("app_settings").upsert({
         key: "ai_last_run", value: { at: new Date().toISOString() }, updated_at: new Date().toISOString(),
