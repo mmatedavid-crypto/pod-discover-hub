@@ -6,6 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const MODEL = "openai/gpt-5";
+const MODEL = "google/gemini-2.5-flash-lite";
 
 const DECISION_TOOL = {
   type: "function",
@@ -165,12 +166,18 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const body = await req.json().catch(() => ({}));
+    const guard = await checkBackgroundJobsAllowed(admin, "person-wiki-review-runner");
+    if (guard.blocked) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: guard.reason }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const limit = Math.min(Number(body.limit || 20), 100);
-    const budget = Number(body.daily_budget_usd || 5);
+    const budget = 1;
     const today = new Date().toISOString().slice(0, 10);
     const { data: spend } = await admin.from("ai_spend_daily").select("by_kind").eq("day", today).maybeSingle();
     const spentToday = Number(((spend?.by_kind as any) || {}).person_wiki_review || 0);
-    if (spentToday >= budget && !body.ignore_budget) {
+    if (spentToday >= budget) {
       return new Response(JSON.stringify({ paused: "budget_reached", spent_today: spentToday, budget }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

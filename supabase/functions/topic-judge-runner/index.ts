@@ -69,9 +69,12 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "episode_topic_judge_controls").maybeSingle();
   const ctrl = (ctrlRow?.value || {}) as any;
-  if (ctrl.enabled === false) return json({ ok: true, paused: true });
+  if (ctrl.enabled !== true) return json({ ok: true, paused: true, reason: "disabled_by_controls" });
   const dailyBudget = Number(ctrl.daily_budget_usd ?? 3);
-  const model = String(body.model || ctrl.model || "google/gemini-2.5-flash-lite");
+  const model = String(ctrl.model || "google/gemini-2.5-flash-lite");
+  if (/(openai\/gpt-5|gpt-5|gemini-.*-pro|\/.*-pro|gemini-3)/i.test(model)) {
+    return json({ ok: true, paused: true, reason: "blocked_batch_model", model });
+  }
   const batch = Math.max(1, Math.min(120, Number(body.batch) || ctrl.batch_size || 40));
   const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || ctrl.concurrency || 4));
   const prioritySlugs: string[] = ctrl.priority_topics || [];

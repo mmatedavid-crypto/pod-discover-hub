@@ -1,6 +1,5 @@
 // Hungarian AI bio + overview generator for People
-// Bio: openai/gpt-5.5. Audit pass: openai/gpt-5 (medium reasoning) — only audit-pass bios are published.
-// Overview: google/gemini-2.5-flash (cheap, evidence-bound).
+// Cost-safe mode: no GPT/Pro models in backlog runners. Controls are fail-closed.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
@@ -13,12 +12,19 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const BIO_MODEL = "openai/gpt-5.5";
-const AUDIT_MODEL = "openai/gpt-5";
-const OVERVIEW_MODEL = "google/gemini-2.5-flash";
+const BIO_MODEL = "google/gemini-2.5-flash-lite";
+const AUDIT_MODEL = "google/gemini-2.5-flash-lite";
+const OVERVIEW_MODEL = "google/gemini-2.5-flash-lite";
 const MODEL = BIO_MODEL; // backwards-compat reference
+const BLOCKED_BATCH_MODEL_RE = /(openai\/gpt-5|gpt-5|gemini-.*-pro|\/.*-pro|gemini-3)/i;
 
 type AICallResult = { text: string; cost: number; ok: boolean; error?: string; toolCall?: any };
+
+function assertCostSafeModel(model: string) {
+  if (BLOCKED_BATCH_MODEL_RE.test(model || "")) {
+    throw new Error(`blocked_batch_model:${model}`);
+  }
+}
 
 async function callAI(
   model: string,
@@ -26,6 +32,7 @@ async function callAI(
   user: string,
   opts: { reasoning?: "low" | "medium" | "high"; temperature?: number; tools?: any[]; toolChoice?: any } = {},
 ): Promise<AICallResult> {
+  assertCostSafeModel(model);
   const body: any = {
     model,
     messages: [{ role: "system", content: system }, { role: "user", content: user }],
@@ -521,26 +528,25 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
   const limit = Math.min(Number(body.limit || 20), 300);
-  const force = !!body.force;
+  const force = false;
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
-  // queue-health-controller pause respect.
-  if (!force && personIds.length === 0) {
-    const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "person_bio_generator_controls").maybeSingle();
-    if (ctrlRow?.value && (ctrlRow.value as any).enabled === false) {
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled_by_controls", auto_paused_reason: (ctrlRow.value as any).auto_paused_reason || null }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  // Fail-closed: this runner must be explicitly enabled before any AI call.
+  const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "person_bio_generator_controls").maybeSingle();
+  const controls = (ctrlRow?.value || {}) as any;
+  if (controls.enabled !== true) {
+    return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled_by_controls", paused_reason: controls.paused_reason || controls.auto_paused_reason || null }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
 
   // Daily budget cap — GPT-5.5 bio + GPT-5 audit is pricier than before.
-  const budget = Number(body.daily_budget_usd || 15);
+  const budget = Math.min(Number(controls.daily_budget_usd || 2), 2);
   const today = new Date().toISOString().slice(0, 10);
   const { data: spend } = await admin.from("ai_spend_daily").select("by_kind").eq("day", today).maybeSingle();
   const spentToday = Number(((spend?.by_kind as any) || {}).person_bio || 0);
-  if (spentToday >= budget && !body.ignore_budget) {
+  if (spentToday >= budget) {
     return new Response(JSON.stringify({ paused: "budget_reached", spent_today: spentToday, budget }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

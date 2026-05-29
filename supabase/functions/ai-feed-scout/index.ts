@@ -1,6 +1,7 @@
 // AI podcast scout: Firecrawl scrape → Gemini extract → PodcastIndex validate → pi_feed_staging.
 // Body: { sources?: string[], lang?: 'en'|'hu'|'all', model?: string, max_per_source?: number, dry_run?: boolean }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -350,6 +351,12 @@ Deno.serve(async (req) => {
   const t0 = Date.now();
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const guard = await checkBackgroundJobsAllowed(supabase, "ai-feed-scout");
+    if (guard.blocked) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: guard.reason }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const sources: { url: string; tag: string; lang_hint: string }[] = Array.isArray(body.sources) && body.sources.length
       ? body.sources.map((s: any) => {
@@ -357,7 +364,7 @@ Deno.serve(async (req) => {
           return { url: s.url, tag: s.tag || new URL(s.url).hostname, lang_hint: s.lang_hint || body.lang_hint || "en" };
         })
       : DEFAULT_SOURCES;
-    const model = body.model || "google/gemini-2.5-pro";
+    const model = "google/gemini-2.5-flash-lite";
     const maxPerSource = Math.max(5, Math.min(50, Number(body.max_per_source) || 25));
     const dryRun = !!body.dry_run;
     const strictLang = body.strict_lang !== false; // default ON

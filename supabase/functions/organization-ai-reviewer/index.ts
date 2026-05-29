@@ -5,6 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const MODEL = "google/gemini-2.5-flash";
-const DAILY_BUDGET_USD = 15;
+const DAILY_BUDGET_USD = 1;
 
 const ALLOWED_ACTIONS = new Set([
   "keep_indexable", "keep_public_noindex", "hide", "merge", "needs_review", "reject", "mark_internal",
@@ -306,12 +307,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
+  const guard = await checkBackgroundJobsAllowed(admin, "organization-ai-reviewer");
+  if (guard.blocked) {
+    return new Response(JSON.stringify({ ok: true, skipped: true, reason: guard.reason }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   const limit = Math.min(Math.max(Number(body.limit || 50), 1), 150);
   const concurrency = Math.min(Math.max(Number(body.concurrency || 8), 1), 12);
   const orgIds: string[] = Array.isArray(body.organization_ids) ? body.organization_ids : [];
 
   const spent = await dailySpend(admin);
-  if (spent >= DAILY_BUDGET_USD && !body.ignore_budget) {
+  if (spent >= DAILY_BUDGET_USD) {
     return new Response(JSON.stringify({ paused: "budget_reached", spent_today: spent, budget: DAILY_BUDGET_USD }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -331,7 +338,7 @@ Deno.serve(async (req) => {
       const r = await reviewOne(admin, ids[idx]);
       if (typeof r.cost_usd === "number") totalCost += r.cost_usd;
       results.push(r);
-      if (!body.ignore_budget && totalCost + spent >= DAILY_BUDGET_USD) {
+      if (totalCost + spent >= DAILY_BUDGET_USD) {
         stopped = true;
         results.push({ stopped: "budget_reached_mid_run" });
         return;

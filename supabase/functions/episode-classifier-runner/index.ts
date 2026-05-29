@@ -128,11 +128,14 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "episode_ai_classifier_controls").maybeSingle();
   const ctrl = (ctrlRow?.value || {}) as any;
-  if (ctrl.enabled === false && !body.force) return json({ ok: true, paused: true });
+  if (ctrl.enabled !== true) return json({ ok: true, paused: true, reason: "disabled_by_controls" });
 
   const dryRun = body.dry_run === true;
   const dailyBudget = Number(ctrl.daily_budget_usd ?? 10);
-  const model = String(body.model || ctrl.model || "google/gemini-2.5-flash-lite");
+  const model = String(ctrl.model || "google/gemini-2.5-flash-lite");
+  if (/(openai\/gpt-5|gpt-5|gemini-.*-pro|\/.*-pro|gemini-3)/i.test(model)) {
+    return json({ ok: true, paused: true, reason: "blocked_batch_model", model });
+  }
 
   // Adaptive throttle: scale toward max ceilings on clean streaks, scale down on errors.
   const maxBatch = Math.max(1, Math.min(1500, Number(ctrl.max_batch_size) || 800));
