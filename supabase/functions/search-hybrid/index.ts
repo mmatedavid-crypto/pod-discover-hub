@@ -418,7 +418,6 @@ Deno.serve(async (req) => {
     // NO stemming, NO vector fallback. Prevents "Burján Szilárd" -> Pap/Demeter
     // Szilárd or "szilárdult" word matches.
     let personNameQueryTokens: string[] = [];
-    let personNameStrictEpisodeIds = new Set<string>();
     {
       const origTokens = q.split(/\s+/).filter((t) => t.length > 0);
       const titleTokens = origTokens.filter((t) => /^[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű'-]+/.test(t));
@@ -474,8 +473,6 @@ Deno.serve(async (req) => {
             }
             epIds = Array.from(new Set(epIds.filter(Boolean)));
           }
-          personNameStrictEpisodeIds = new Set(epIds);
-
           // Fetch episodes (HU-only via podcasts.language)
           let episodes: any[] = [];
           if (epIds.length > 0) {
