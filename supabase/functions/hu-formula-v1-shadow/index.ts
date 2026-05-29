@@ -377,10 +377,12 @@ Deno.serve(async (req) => {
       dry_run: dry,
       duration_ms: Date.now() - t0,
       tier_distribution: tierCounts,
+      language_flag_distribution: flagCounts,
       news_like: newsCount,
       bulletin_like: bulletinCount,
-      metadata_mismatch: mismatchCount,
       market_popularity_pool: mpMap.size,
+      chart_stale: anyChartStale,
+      chart_freshness: chartFreshness,
     };
 
     if (!dry) {
