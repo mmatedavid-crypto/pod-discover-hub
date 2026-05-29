@@ -513,6 +513,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Name-query semantic guard (2026-05-29):
+    // When the query looks like a person name AND we fell through the strict
+    // gate (no direct hit was strong enough), disable AI-cost features that
+    // tend to inject phonetic / weak-vector noise:
+    //  - HyDE (hallucinated query expansion drifts to "famous András" topics)
+    //  - chunk augmentation (short name embedding is noisy across catalog)
+    //  - Cohere rerank (a 2-token name vs episode summaries is unreliable)
+    // We KEEP FTS, entity pyramid, and episode_embeddings (already strict via
+    // post-rank cutoff). Goal: precision > recall for names.
+    if (isPersonNameQuery) {
+      FF.hyde = false;
+      FF.chunkAugment = false;
+      FF.cohere = false;
+    }
+
+
+
 
 
     // 1) Cache lookup
