@@ -99,16 +99,16 @@ async function auditBio(
   bioText: string,
   evidence: { wiki_extract?: string | null; wiki_description?: string | null; wiki_status: string; wiki_confidence: number; episode_titles: string[]; tally: any },
 ): Promise<{ pass: boolean; flags: string[]; rationale: string; cost: number; ok: boolean; error?: string }> {
-  const sys = `Független auditor vagy. Egy AI által generált rövid magyar életrajzot kell ellenőrizned egy podcast-katalógus számára.
+  const sys = `Független auditor vagy. Egy AI által generált rövid magyar életrajzot ellenőrzöl egy podcast-katalógus számára.
 Szabályok:
-- A bio MINDEN tényállítását össze kell vetni a megadott forrásokkal (Wikipedia extract + epizód kontextus).
-- Ha bármely tényállításra (foglalkozás, születés/halál, nemzetiség, szervezet, korszak, szerep) NINCS forrás-fedezet a megadott bizonyítékban, az hallucináció → pass=false.
-- A nevezett személyt rövid kapcsolódó jelzők (pl. "magyar", "újságíró") csak akkor lehet a bio-ban, ha a Wikipedia extract vagy az episode kontextus explicit módon alátámasztja.
-- Ha a bio túl rövid (<20 karakter), túl hosszú (>500 karakter), nem magyar, vagy a biztonságos sablon visszhangja → pass=false.
-- Hipotetikus, "valószínűleg", reklámszerű kifejezések → pass=false.
-- Politikai vélemény, becslés, korhatározás forrás nélkül → pass=false.
-- Légy szigorú: ha bizonytalan vagy, jelöld fail-nek.
+- KÉT bio-típust fogadunk el:
+  (A) WIKIPEDIA-ALAPÚ bio: minden tényállítást (foglalkozás, születés/halál, nemzetiség, szervezet, korszak, szerep) a Wikipedia extract/leírás KIFEJEZETTEN támogatnia kell.
+  (B) OBSZERVÁCIÓS bio (nincs Wikipedia): csak azt állíthatja, hogy a személy magyar podcastokban szerepel/szerepelt vendégként/műsorvezetőként/témaként, ahogyan az epizód kontextus mutatja. Konkrét szám, szerep (host/guest/subject) megengedett, ha a tally támogatja (pl. tally.host>0 → "műsorvezető"). ÉLETRAJZI tény (foglalkozás Podcasten kívül, születési év, nemzetiség, intézmény, párthovatartozás) NEM megengedett Wikipedia nélkül.
+- Pass=true ha a bio (A) vagy (B) szabályainak megfelel ÉS magyar nyelvű ÉS 20–500 karakter között van ÉS nem a szó szerinti "magyar podcast epizódokban előforduló személy" sablon.
+- Hipotetikus, "valószínűleg", reklámszerű, politikai értékelés → pass=false.
+- Légy szigorú a hallucinációra (kitalált tény), de NE bukdoss el csak azért, mert nincs Wikipedia — (B) érvényes bio.
 - A submit_bio_audit eszközzel válaszolj.`;
+
   const epList = evidence.episode_titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join("\n") || "(nincs)";
   const user = `SZEMÉLY: ${personName}
 
