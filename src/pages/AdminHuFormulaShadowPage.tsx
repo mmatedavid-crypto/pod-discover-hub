@@ -93,15 +93,39 @@ export default function AdminHuFormulaShadowPage() {
       news_like: !!hu.news_like,
       bulletin_like: !!hu.bulletin_like,
       lang_flag: hu.language_gate_flag,
-      sources: hu.market_sources || [],
+      sources: Array.isArray(hu.market_sources) ? hu.market_sources : [],
+      source_count: Number(hu.market_source_count) || 0,
+      chart_stale: !!hu.chart_stale,
+      chart_freshness: Array.isArray(hu.chart_freshness) ? hu.chart_freshness : [],
     };
   }), [rows]);
 
   const upgrades = useMemo(() => [...enriched].filter(r => r.delta > 0).sort((a,b) => b.delta - a.delta || b.hu_score - a.hu_score).slice(0, 100), [enriched]);
   const downgrades = useMemo(() => [...enriched].filter(r => r.delta < 0).sort((a,b) => a.delta - b.delta || a.hu_score - b.hu_score).slice(0, 100), [enriched]);
-  const mismatch = useMemo(() => enriched.filter(r => r.lang_flag === "accepted_hungarian_metadata_mismatch").sort((a,b) => b.hu_score - a.hu_score), [enriched]);
+  const huMismatch = useMemo(() => enriched.filter(r => r.lang_flag === "hu_metadata_mismatch").sort((a,b) => b.hu_score - a.hu_score), [enriched]);
+  const foreignFP = useMemo(() => enriched.filter(r => r.lang_flag === "accepted_foreign_false_positive").sort((a,b) => b.hu_score - a.hu_score), [enriched]);
   const newsLike = useMemo(() => enriched.filter(r => r.news_like).sort((a,b) => b.hu_score - a.hu_score), [enriched]);
+  const bulletinLike = useMemo(() => enriched.filter(r => r.bulletin_like).sort((a,b) => b.hu_score - a.hu_score), [enriched]);
   const undervalued = useMemo(() => enriched.filter(r => r.market_pop >= 1 && (TIER_ORDER[String(r.rank_label||"")] ?? 0) <= 3).sort((a,b) => b.market_pop - a.market_pop), [enriched]);
+
+  // Chart freshness from any scored row (same for all in a run).
+  const chartFreshness = useMemo(() => enriched.find(r => r.chart_freshness.length > 0)?.chart_freshness || [], [enriched]);
+  const anyChartStale = chartFreshness.some((c: any) => c.stale);
+
+  function flagBadge(flag: string | undefined) {
+    if (!flag) return null;
+    const map: Record<string,string> = {
+      confirmed_hungarian: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+      hu_metadata_mismatch: "bg-amber-500/15 text-amber-700 border-amber-500/30",
+      accepted_foreign_false_positive: "bg-rose-500/15 text-rose-700 border-rose-500/30",
+      needs_language_review: "bg-sky-500/15 text-sky-700 border-sky-500/30",
+      likely_foreign: "bg-rose-500/10 text-rose-700 border-rose-500/30",
+      confirmed_foreign: "bg-rose-500/20 text-rose-800 border-rose-500/40",
+      unknown: "bg-muted text-muted-foreground border-border",
+    };
+    if (flag === "confirmed_hungarian") return null;
+    return <Badge variant="outline" className={map[flag] || ""}>{flag}</Badge>;
+  }
 
   function Table({ data }: { data: typeof enriched }) {
     return (
@@ -115,6 +139,7 @@ export default function AdminHuFormulaShadowPage() {
               <th className="p-2">HU score</th>
               <th className="p-2">Δ</th>
               <th className="p-2">Market</th>
+              <th className="p-2">Charts</th>
               <th className="p-2">Feed</th>
               <th className="p-2">Act</th>
               <th className="p-2">Cont</th>
@@ -132,6 +157,11 @@ export default function AdminHuFormulaShadowPage() {
                 <td className="p-2 tabular-nums">{r.hu_score.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.delta > 0 ? `+${r.delta}` : r.delta}</td>
                 <td className="p-2 tabular-nums">{r.market_pop.toFixed(2)}</td>
+                <td className="p-2 text-xs whitespace-nowrap" title={JSON.stringify(r.sources)}>
+                  {r.source_count > 0
+                    ? r.sources.map((s: any) => `${s.source[0].toUpperCase()}#${s.rank}`).join(" ")
+                    : "—"}
+                </td>
                 <td className="p-2 tabular-nums">{r.feed_health.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.activity.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.content.toFixed(2)}</td>
@@ -139,9 +169,8 @@ export default function AdminHuFormulaShadowPage() {
                 <td className="p-2 tabular-nums">{r.curation.toFixed(2)}</td>
                 <td className="p-2 space-x-1">
                   {r.news_like && <Badge variant="outline">news</Badge>}
-                  {r.bulletin_like && <Badge variant="outline">bulletin</Badge>}
-                  {r.lang_flag === "accepted_hungarian_metadata_mismatch" && <Badge variant="outline">lang-mismatch</Badge>}
-                  {r.lang_flag === "needs_language_review" && <Badge variant="outline">lang-review</Badge>}
+                  {r.bulletin_like && <Badge variant="outline" className="bg-orange-500/15 text-orange-700 border-orange-500/30">bulletin</Badge>}
+                  {flagBadge(r.lang_flag)}
                 </td>
               </tr>
             ))}
