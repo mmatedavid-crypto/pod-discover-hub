@@ -1,10 +1,10 @@
 // Spotify SHOW enricher — runs against the WHOLE catalog (HU podcasts).
 // Two passes:
 //   A) Match unknown podcasts via /v1/search (1 req per podcast, ~3 req/s safe)
-//   B) Refresh rich metadata via /v1/shows?ids=... (batch 50 per request)
+//   B) Refresh rich metadata via /v1/shows/{id} (per-show, client_credentials)
 //
-// Body params:
-//   { limit?: number, match_only?: boolean, refresh_only?: boolean, force?: boolean }
+// Rate-limit hardened: max 60s Retry-After, global cooldown_until in app_settings,
+// per-pass time budget (90s wall), early-return when cooldown active.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -17,6 +17,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SPOTIFY_CLIENT_ID = Deno.env.get("SPOTIFY_CLIENT_ID")!;
 const SPOTIFY_CLIENT_SECRET = Deno.env.get("SPOTIFY_CLIENT_SECRET")!;
+
+const MAX_RETRY_AFTER_MS = 60_000; // hard cap — never block longer than this in-process
+const WALL_BUDGET_MS = 90_000;     // per-invocation time budget
 
 async function getToken(): Promise<string> {
   const r = await fetch("https://accounts.spotify.com/api/token", {
@@ -43,14 +46,21 @@ function tokenSim(a: string, b: string): number {
   return inter / Math.max(A.size, B.size);
 }
 
-async function spFetch(url: string, token: string, retries = 3): Promise<Response> {
-  for (let i = 0; i < retries; i++) {
+// Returns { response | null, cooldownMs | null }. If 429 with Retry-After > cap,
+// returns cooldownMs (the server-requested wait) so the caller can persist it.
+async function spFetch(url: string, token: string): Promise<{ res: Response | null; cooldownMs: number | null }> {
+  for (let i = 0; i < 2; i++) {
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (r.status !== 429) return r;
-    const wait = Number(r.headers.get("Retry-After") || "2") * 1000;
-    await new Promise((res) => setTimeout(res, wait));
+    if (r.status !== 429) return { res: r, cooldownMs: null };
+    const retryAfterSec = Number(r.headers.get("Retry-After") || "2");
+    const waitMs = retryAfterSec * 1000;
+    if (waitMs > MAX_RETRY_AFTER_MS) {
+      // Too long — surface it so the runner can persist a cooldown and bail
+      return { res: null, cooldownMs: waitMs };
+    }
+    await new Promise((res) => setTimeout(res, waitMs));
   }
-  return await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  return { res: null, cooldownMs: 30_000 };
 }
 
 function pickImages(images: any[] | undefined): { i640: string | null; i300: string | null; i64: string | null } {
@@ -63,8 +73,23 @@ function pickImages(images: any[] | undefined): { i640: string | null; i300: str
   };
 }
 
+async function getCooldown(supabase: any): Promise<number> {
+  const { data } = await supabase.from("app_settings").select("value").eq("key", "spotify_enricher_state").maybeSingle();
+  const until = data?.value?.cooldown_until ? Date.parse(data.value.cooldown_until) : 0;
+  return until > Date.now() ? until : 0;
+}
+async function setCooldown(supabase: any, ms: number, reason: string) {
+  const until = new Date(Date.now() + ms).toISOString();
+  await supabase.from("app_settings").upsert({
+    key: "spotify_enricher_state",
+    value: { cooldown_until: until, reason, set_at: new Date().toISOString() },
+    updated_at: new Date().toISOString(),
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const startedAt = Date.now();
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
@@ -73,11 +98,26 @@ Deno.serve(async (req) => {
     const refreshOnly = body.refresh_only === true;
     const force = body.force === true;
 
+    // Cooldown gate — skip entire run if Spotify told us to back off
+    if (!body.ignore_cooldown) {
+      const cooldownUntil = await getCooldown(supabase);
+      if (cooldownUntil) {
+        return new Response(JSON.stringify({
+          ok: true, skipped: "cooldown_active",
+          cooldown_until: new Date(cooldownUntil).toISOString(),
+          minutes_left: Math.round((cooldownUntil - Date.now()) / 60000),
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     const token = await getToken();
     const summary: any = { matched: 0, no_match: 0, refreshed: 0, errors: 0 };
+    let cooldownTriggered = false;
+
+    const overBudget = () => Date.now() - startedAt > WALL_BUDGET_MS;
 
     // ---- PASS A: match unknown HU podcasts ----
-    if (!refreshOnly) {
+    if (!refreshOnly && !cooldownTriggered) {
       const { data: unmatched, error } = await supabase
         .from("podcasts")
         .select("id, title, display_title, language, spotify_match_status")
@@ -86,16 +126,21 @@ Deno.serve(async (req) => {
         .or("spotify_match_status.is.null,spotify_match_status.neq.no_match")
         .limit(limit);
       if (error) throw error;
-      if (error) throw error;
 
       for (const p of unmatched || []) {
+        if (overBudget() || cooldownTriggered) break;
         try {
           const title = (p.display_title || p.title || "").trim();
           if (!title) continue;
           const q = encodeURIComponent(title);
-          const r = await spFetch(`https://api.spotify.com/v1/search?type=show&market=HU&limit=10&q=${q}`, token);
-          if (!r.ok) { summary.errors++; continue; }
-          const j = await r.json();
+          const { res, cooldownMs } = await spFetch(`https://api.spotify.com/v1/search?type=show&market=HU&limit=10&q=${q}`, token);
+          if (cooldownMs) {
+            await setCooldown(supabase, Math.min(cooldownMs, 6 * 3600_000), `429 search (${cooldownMs}ms)`);
+            cooldownTriggered = true;
+            break;
+          }
+          if (!res || !res.ok) { summary.errors++; continue; }
+          const j = await res.json();
           const hits = j?.shows?.items || [];
           let best: any = null, bestScore = 0;
           for (const h of hits) {
@@ -119,15 +164,15 @@ Deno.serve(async (req) => {
             }).eq("id", p.id);
             summary.no_match++;
           }
-          await new Promise((r) => setTimeout(r, 300)); // ~3 req/s
+          await new Promise((r) => setTimeout(r, 300));
         } catch (e) {
           summary.errors++;
         }
       }
     }
 
-    // ---- PASS B: refresh rich metadata (batch 50) ----
-    if (!matchOnly) {
+    // ---- PASS B: refresh rich metadata ----
+    if (!matchOnly && !cooldownTriggered) {
       const freshCutoff = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
       let q = supabase
         .from("podcasts")
@@ -140,18 +185,22 @@ Deno.serve(async (req) => {
       const { data: pods, error } = await q.limit(limit);
       if (error) throw error;
 
-      // NOTE: Spotify removed /v1/shows?ids= batch from client-credentials access (Nov 2024).
-      // Use per-show GET. ~3 req/s safe.
       for (const pod of pods || []) {
+        if (overBudget() || cooldownTriggered) break;
         try {
-          const r = await spFetch(`https://api.spotify.com/v1/shows/${pod.spotify_id}?market=HU`, token);
-          if (!r.ok) {
-            const txt = await r.text().catch(() => "");
-            console.error("show fetch failed", pod.spotify_id, r.status, txt.slice(0, 200));
+          const { res, cooldownMs } = await spFetch(`https://api.spotify.com/v1/shows/${pod.spotify_id}?market=HU`, token);
+          if (cooldownMs) {
+            await setCooldown(supabase, Math.min(cooldownMs, 6 * 3600_000), `429 show (${cooldownMs}ms)`);
+            cooldownTriggered = true;
+            break;
+          }
+          if (!res || !res.ok) {
+            const txt = res ? await res.text().catch(() => "") : "";
+            console.error("show fetch failed", pod.spotify_id, res?.status, txt.slice(0, 200));
             summary.errors++;
             continue;
           }
-          const show = await r.json();
+          const show = await res.json();
           const imgs = pickImages(show.images);
           await supabase.from("podcasts").update({
             spotify_publisher: show.publisher || null,
@@ -179,9 +228,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, ...summary }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      ok: true, ...summary, cooldown_triggered: cooldownTriggered,
+      elapsed_ms: Date.now() - startedAt,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     const msg = e?.message || e?.error_description || JSON.stringify(e);
     console.error("spotify-show-enricher error", msg, e);
