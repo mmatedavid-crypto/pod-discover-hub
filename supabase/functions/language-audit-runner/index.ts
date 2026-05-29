@@ -38,7 +38,11 @@ Deno.serve(async (req) => {
       .limit(limit);
 
     if (force) {
-      // No filter — re-classify everything.
+      const processedBefore = body?.processed_before ? String(body.processed_before) : null;
+      if (processedBefore) {
+        q = q.or(`language_checked_at.is.null,language_checked_at.lt.${processedBefore}`);
+      }
+      // else: no filter — re-classify everything.
     } else if (onlyUnchecked) {
       q = q.is("language_checked_at", null);
     } else if (recheckHours > 0) {
