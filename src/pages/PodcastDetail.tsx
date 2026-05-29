@@ -298,27 +298,34 @@ function EpisodeListWithSearch({ eps, podcastSlug }: { eps: any[]; podcastSlug: 
     <>
       <div className="mt-10 mb-4 flex items-end justify-between gap-3 flex-wrap">
         <h2 className="text-xl font-semibold">Epizódok</h2>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Keresés ebben a podcastben…"
-            className="w-full pl-8 pr-8 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          {q && (
-            <button
-              type="button"
-              onClick={() => setQ("")}
-              aria-label="Törlés"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+        <div className="w-full sm:w-80">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Keresés ebben a podcastben…"
+              aria-label="Keresés ebben a podcastben"
+              className="w-full pl-8 pr-8 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                aria-label="Törlés"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground text-right">
+            Csak ebben a podcastben keres
+          </p>
         </div>
       </div>
+
       {eps.length === 0 ? (
         <div className="text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
       ) : filtered.length === 0 ? (
