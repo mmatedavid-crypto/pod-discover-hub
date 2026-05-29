@@ -86,13 +86,17 @@ const HU_DOMAINS = [
   "atv.hu","blogger.hu","fidelio","fortepan","prae.hu","kotvenymagazin",
 ];
 
+// Content-language signals only. Hosting/distribution platforms (spotify,
+// podcasters.spotify.com, anchor.fm, iheart, wondery, podcastone, apple podcasts)
+// are language-neutral and MUST NOT count as foreign evidence — they host plenty
+// of Hungarian podcasts too.
 const FOREIGN_DOMAINS = [
-  "npr.org","bbc.co.uk","bbc.com","theringer.com","sans.org","cisa.gov","spotify.com",
+  "npr.org","bbc.co.uk","bbc.com","theringer.com","sans.org","cisa.gov",
   "wnyc.org","wbur.org","kqed.org","sciencemag.org","stanford.edu","mit.edu",
   "nytimes.com","wsj.com","ft.com","economist.com","reuters.com","bloomberg.com",
   "tagesschau.de","faz.net","spiegel.de","zeit.de","lemonde.fr","lefigaro.fr",
   "elpais.com","abc.es","corriere.it","repubblica.it","rt.com","cnn.com",
-  "joerogan","theguardian","npr","podcastone","iheart","wondery",
+  "joerogan","theguardian",
 ];
 
 const SCRIPT_RANGES: Array<{ name: string; test: (cp: number) => boolean }> = [
@@ -269,19 +273,25 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
   }
 
   if (rssLang && rssLang !== "hu" && rssLang.length === 2) {
-    // explicit non-HU RSS language
-    foreign += 25;
+    // Explicit non-HU RSS language — weak metadata signal only. Many Hungarian
+    // shows ship with wrong/default `<language>` tags (en, en-US, …). Treat as
+    // a small hint, never as standalone evidence to reject.
+    foreign += 10;
     if (!detected || detected === "unknown") detected = rssLang;
-    path.push(`rss=${rssLang}:+25`);
+    path.push(`rss=${rssLang}:+10`);
   }
 
   if (foreignDomain) { foreign += 25; path.push(`foreign_domain:${foreignDomain}:+25`); }
 
-  // No HU accents AT ALL in a long text is a strong EN signal
-  if (titleHeavy.length > 300 && huAccentRatioVal === 0 && huMatches.count === 0) {
-    foreign += 15;
-    path.push("no_hu_accents_at_all:+15");
-  }
+  // NOTE: absence of `.hu` domain and absence of Hungarian accents are NEVER
+  // counted as foreign evidence. A Hungarian podcast may live on .fm, .com,
+  // Spotify, Apple, YouTube, Anchor, Buzzsprout, Substack, etc. Foreign
+  // classification must come from positive foreign-language content signals
+  // (foreign words, foreign script, foreign publisher domain).
+
+  // Positive foreign-content evidence flag — used by all rejection branches
+  // below. We only reject when actual foreign-language content is detected.
+  const hasPositiveForeignContent = topForeignScore > 0 || !!foreignDomain;
 
   // --- Decision ---
   hu = Math.max(0, Math.min(100, hu));
@@ -295,16 +305,32 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
   // CORE PRINCIPLE: a podcast with strong Hungarian signal must NEVER be auto-rejected,
   // even if it also contains foreign words (bilingual marketing copy, English titles
   // mixed in, etc.). Worst case for a HU-positive podcast is "review_uncertain".
+  // STRONG HU evidence — strict definition. Tiny accent ratios (e.g. 0.01) and
+  // bare `rss=hu` are NOT enough on their own, because French/Spanish/Italian
+  // text easily reaches 0.02 accent ratio and RSS lang tags lie often.
   const strongHuSignal =
-    rssLang === "hu" ||
-    huAccentRatioVal >= 0.01 ||
-    huMatches.count >= 5 ||
-    !!huDomain;
+    !!huDomain ||                                                 // known HU publisher / .hu domain
+    hu >= 35 ||                                                   // composite HU score
+    huMatches.count >= 3 ||                                       // 3+ real HU function words
+    (huAccentRatioVal >= 0.02 && huMatches.count >= 1) ||         // HU accents + ≥1 HU word
+    (huAccentRatioVal >= 0.04) ||                                 // very dense HU accents
+    (rssLang === "hu" && (huAccentRatioVal >= 0.01 || huMatches.count >= 2 || !!huDomain));
 
-  // rss=hu alone is NOT enough: an RSS feed can lie. Require at least one
-  // independent HU signal (accents, HU words, or HU domain). Otherwise → review.
+  // VERY strong HU (dominant native text) — accept even when foreign loanwords
+  // push the foreign score high. Bilingual marketing copy with lots of native HU
+  // (e.g. MOL Talks, SztereoTrip) belongs in the HU catalogue.
+  const veryStrongHu =
+    huMatches.count >= 10 ||
+    huAccentRatioVal >= 0.05 ||
+    (rssLang === "hu" && huMatches.count >= 5 && huAccentRatioVal >= 0.03);
+
   const hasHuTextEvidence = huAccentRatioVal > 0 || huMatches.count >= 2 || !!huDomain;
-  if (rssLang === "hu" && foreign < 30 && hasHuTextEvidence) {
+
+  if (veryStrongHu) {
+    decision = "accept_hungarian";
+    finalDetected = "hu";
+    path.push("accept:very_strong_hu");
+  } else if (rssLang === "hu" && foreign < 30 && hasHuTextEvidence) {
     decision = "accept_hungarian";
     finalDetected = "hu";
     path.push("accept:rss_hu+text_evidence+low_foreign");
@@ -317,15 +343,14 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     finalDetected = "hu";
     path.push("accept:hu_signal_dominant");
   } else if (strongHuSignal) {
-    // HU is clearly present but foreign is also strong → bilingual / mixed.
-    // NEVER reject. Send to review so a human can decide.
+    // Genuine bilingual / mixed — keep in review but tighter than before.
     decision = "review_uncertain";
     path.push("review:hu_signal_with_foreign");
-  } else if (foreign >= 55 && hu < 20) {
+  } else if (foreign >= 55 && hu < 20 && hasPositiveForeignContent) {
     decision = "reject_foreign";
     rejectReason = `text_dominant_${finalDetected}`;
     path.push("reject:strong_foreign");
-  } else if (foreign >= 70 && hu < 30) {
+  } else if (foreign >= 70 && hu < 30 && hasPositiveForeignContent) {
     decision = "reject_foreign";
     rejectReason = `text_dominant_${finalDetected}`;
     path.push("reject:very_strong_foreign");
@@ -342,7 +367,7 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     decision = "accept_hungarian";
     finalDetected = "hu";
     path.push("accept:hu_outweighs_foreign");
-  } else if (foreign > hu + 15) {
+  } else if (foreign > hu + 15 && hasPositiveForeignContent) {
     decision = "reject_foreign";
     rejectReason = `text_foreign_${finalDetected}`;
     path.push("reject:foreign_outweighs_hu");
@@ -351,32 +376,48 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     path.push("review:default_tie");
   }
 
-  // --- AUTO-EXCLUDE override ---
-  // review_uncertain MUST NOT be a manual-moderation dumping ground for obvious
-  // foreign podcasts. If RSS declares a non-HU 2-letter language AND foreign
-  // score is meaningful AND there is no REAL Hungarian evidence (stray accents
-  // or 1 incidental word don't count), auto-reject. Preserves HU metadata-
-  // mismatch cases (HEOL.hu language=af, Partizán language=en) because those
-  // carry strong HU evidence via huDomain or huMatches.
-  if (decision === "review_uncertain") {
+  // --- AUTO-EXCLUDE override (drain review_uncertain) ---
+  // review_uncertain MUST NOT be a manual-moderation queue. Drain ONLY when
+  // there is POSITIVE foreign-language content evidence (foreign words or a
+  // foreign publisher domain). RSS lang alone, missing .hu domain, or missing
+  // HU accents are NOT sufficient to reject — Hungarian podcasts routinely
+  // live on .com/.fm/Spotify/Apple/Anchor with wrong <language> tags.
+  if (decision === "review_uncertain" && !strongHuSignal && hasPositiveForeignContent) {
     const isNonHuRss = !!rssLang && rssLang !== "hu" && rssLang.length === 2;
-    const realHuEvidence =
-      huMatches.count >= 3 ||
-      huAccentRatioVal >= 0.02 ||
-      !!huDomain ||
-      hu >= 35;
-    if (isNonHuRss && foreign >= 45 && !realHuEvidence) {
+    const clearlyForeignDetected = finalDetected && finalDetected !== "unknown" && finalDetected !== "hu";
+    let triggered: string | null = null;
+    if (foreign >= 40) triggered = `foreign>=40`;
+    else if (isNonHuRss && foreign >= 35) triggered = `rss=${rssLang}+foreign>=35`;
+    else if (clearlyForeignDetected && foreign >= 30) triggered = `detected=${finalDetected}+foreign>=30`;
+    if (triggered) {
       decision = "reject_foreign";
-      rejectReason = `auto_exclude_foreign_rss_${rssLang}`;
-      finalDetected = finalDetected && finalDetected !== "unknown" ? finalDetected : rssLang;
-      path.push(`auto_exclude:rss=${rssLang}+foreign=${foreign}+no_real_hu`);
-    } else if (!rssLang && foreign >= 60 && !realHuEvidence) {
-      // No RSS language at all but very strong foreign signal + no HU evidence.
-      decision = "reject_foreign";
-      rejectReason = `auto_exclude_foreign_${finalDetected}`;
-      path.push(`auto_exclude:no_rss_lang+foreign=${foreign}`);
+      rejectReason = `auto_exclude_${finalDetected || rssLang || "foreign"}`;
+      if ((!finalDetected || finalDetected === "unknown") && rssLang) finalDetected = rssLang;
+      path.push(`auto_exclude:${triggered}`);
     }
   }
+
+  // --- SECOND-PASS DRAIN ---
+  // strongHuSignal triggered by huMatches>=3 alone can produce false positives
+  // on Spanish/French/Catalan/Turkish texts that happen to contain a few words
+  // also in the HU dictionary ("minden", "most", "soha", …). Reject ONLY when
+  // there is positive foreign-content evidence dominating the Hungarian one.
+  // Absence of a .hu domain is NOT used as a signal here — Hungarian podcasts
+  // may live on any TLD or hosting platform.
+  if (decision === "review_uncertain" && hasPositiveForeignContent) {
+    const looksLikeAccidentalHu =
+      huMatches.count < 8 &&
+      huAccentRatioVal < 0.04 &&
+      hu < 45;
+    const isNonHuRss = !!rssLang && rssLang !== "hu" && rssLang.length === 2;
+    if (looksLikeAccidentalHu && (foreign >= 50 || (isNonHuRss && foreign >= 35))) {
+      decision = "reject_foreign";
+      rejectReason = `auto_exclude_accidental_hu_${finalDetected || rssLang || "foreign"}`;
+      if ((!finalDetected || finalDetected === "unknown") && rssLang) finalDetected = rssLang;
+      path.push(`auto_exclude:accidental_hu+foreign=${foreign}`);
+    }
+  }
+
 
   return {
     language_decision: decision,
