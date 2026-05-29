@@ -1205,6 +1205,7 @@ Deno.serve(async (req) => {
           const kept = ordered.filter((e: any) => {
             if (personHasFullName(e)) return true;
             return tokenWholeWordHit(blobOf(e));
+          });
           // Prefer 0 noise over filler — if all matches were strict, that's
           // a better UX than padding with irrelevant phonetic look-alikes.
           // Only backfill if we ended up with literally 0 results (defensive).
@@ -1213,8 +1214,8 @@ Deno.serve(async (req) => {
           } else {
             ordered = kept;
           }
-
         }
+
       }
     } catch (e) {
       console.warn("name_tail_cutoff_failed", e);
