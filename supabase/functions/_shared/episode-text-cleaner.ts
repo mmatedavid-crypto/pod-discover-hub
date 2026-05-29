@@ -35,48 +35,121 @@ const TIMESTAMP_LINE_RX = /^\s*\d{1,2}:\d{2}(?::\d{2})?\s+.+$/gm;
 const MULTI_WHITESPACE = /\s{3,}/g;
 const HTML_RX = /<[^>]+>/g;
 
+// Strong footer markers — once we hit one, EVERYTHING after is footer.
+// HU + EN. Case-insensitive, matched against trimmed line.
+const FOOTER_MARKER_RX = [
+  // social platform handles / "Follow us"
+  /^\s*(?:facebook|instagram|tiktok|youtube|spotify|apple\s*podcasts?|x|twitter|linkedin|threads|patreon|discord|telegram|viber|mastodon|bluesky|snapchat|tumblr|pinterest|reddit|twitch|substack|whatsapp|messenger)\s*[:：\-–—|]/i,
+  /^\s*(?:kövess|kövessetek|kövessen|kövessétek)\s+(?:minket|bennünket|engem|a\s+műsort)/i,
+  /^\s*(?:iratkozz(?:atok)?\s+fel|feliratkozás|értesülj\s+elsőként)/i,
+  /^\s*(?:támogasd|támogass(?:atok)?|támogatónk|támogatóink|a\s+műsor\s+támogatója|szponzorunk|szponzoraink)/i,
+  /^\s*(?:follow\s+(?:us|me)|subscribe\s+(?:to|on)|support\s+(?:us|the\s+show)|our\s+sponsors?|sponsored\s+by|brought\s+to\s+you\s+by)/i,
+  /^\s*(?:közösségi\s+média|elérhetőség(?:eink)?|kapcsolat(?:tartás)?|social\s+media|find\s+us\s+on|contact\s+us)\s*[:：]?/i,
+  /^\s*(?:hallgasd|hallgassátok|hallgassa)\s+(?:meg\s+)?(?:a|az)?\s*(?:műsort|adást|podcastot|epizódot).*?(?:spotify|apple|youtube|deezer|pocket\s*casts)/i,
+  /^\s*(?:weboldal|honlap|website|web)\s*[:：]\s*https?:\/\//i,
+  /^\s*(?:email|e-mail|levelek|levél)\s*[:：]/i,
+  /^\s*(?:vágó|hangszerkesztő|producer|szerkesztő|operatőr|rendező|főszerkesztő|grafika)\s*[:：]/i,
+  /^\s*#\w+(?:\s+#\w+){2,}/, // hashtag wall (3+)
+];
+
+// Soft signals — a single line that "looks like" footer content.
+function isFooterishLine(line: string): boolean {
+  const s = line.trim();
+  if (!s) return false;
+  if (URL_RX.test(s)) { URL_RX.lastIndex = 0; return true; }
+  if (/^[•\-–—*·]?\s*(?:https?:|www\.)/i.test(s)) return true;
+  if (/^\s*#\w+/.test(s)) return true; // starts with hashtag
+  if (/^[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+\s*[:：]\s*$/.test(s)) return true; // "Facebook:" alone
+  return false;
+}
+
+function isSubstantiveLine(line: string): boolean {
+  const s = line.trim();
+  if (s.length < 40) return false;
+  if (isFooterishLine(s)) return false;
+  const words = s.split(/\s+/).filter((w) => w.length > 2);
+  return words.length >= 6;
+}
+
+function detectFooterStart(lines: string[]): number {
+  // Find earliest STRONG footer marker, but only accept it if the tail from there
+  // is dominated by footer-like content. Otherwise it's likely an intro plug at the top.
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    let isMarker = false;
+    for (const rx of FOOTER_MARKER_RX) {
+      if (rx.test(l)) { isMarker = true; break; }
+    }
+    if (!isMarker) continue;
+
+    const tail = lines.slice(i);
+    const nonEmpty = tail.filter((x) => x.trim().length > 0);
+    if (nonEmpty.length === 0) continue;
+    const substantive = nonEmpty.filter(isSubstantiveLine).length;
+    if (substantive / nonEmpty.length < 0.2) return i;
+  }
+  // Fallback: bottom-up footer-line peel
+  let run = 0;
+  let runStart = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (isFooterishLine(lines[i]) || lines[i].trim() === "") {
+      if (run === 0) runStart = i;
+      run++;
+    } else {
+      if (run >= 4) return runStart;
+      run = 0;
+      runStart = -1;
+    }
+  }
+  if (run >= 4) return runStart;
+  return -1;
+}
+
 export function heuristicClean(raw: string): { text: string; removed: string[] } {
   if (!raw) return { text: "", removed: [] };
   let t = String(raw);
   const removed: string[] = [];
 
-  // Strip HTML
+
+
+  // Strip HTML first so footer detection sees real line structure
   if (HTML_RX.test(t)) { t = t.replace(HTML_RX, " "); removed.push("html"); }
 
-  // Strip dense URL blocks: count urls per line, drop lines with >2 urls
-  const lines = t.split(/\r?\n/);
-  let urlLines = 0;
-  const keptLines: string[] = [];
-  for (const l of lines) {
-    const m = l.match(URL_RX);
-    if (m && m.length > 2) { urlLines++; continue; }
-    keptLines.push(l);
-  }
-  if (urlLines > 0) removed.push("url_blocks");
-  t = keptLines.join("\n");
+  // Convert common inline separators ( | • · ) to newlines so "Facebook: ... | Instagram: ..." splits properly
+  t = t.replace(/\s*[|•·]\s+/g, "\n");
 
-  // Strip dense timestamp lists (chapter markers) when 4+ consecutive
-  const tsMatches = t.match(TIMESTAMP_LINE_RX);
+  const lines = t.split(/\r?\n/);
+
+  // 1) Detect & cut footer
+  const footerStart = detectFooterStart(lines);
+  let kept = footerStart >= 0 ? lines.slice(0, footerStart) : lines;
+  if (footerStart >= 0) removed.push("footer_cut");
+
+  // 2) Strip dense timestamp lists (chapter markers) when 4+ total
+  let body = kept.join("\n");
+  const tsMatches = body.match(TIMESTAMP_LINE_RX);
   if (tsMatches && tsMatches.length >= 4) {
-    t = t.replace(TIMESTAMP_LINE_RX, "");
+    body = body.replace(TIMESTAMP_LINE_RX, "");
     removed.push("timestamps");
   }
 
-  // Strip boilerplate sentences
+  // 3) Strip leftover boilerplate sentences inside the kept body (safety net)
   let boilerHit = false;
   for (const rx of BOILERPLATE_RX) {
-    if (rx.test(t)) { boilerHit = true; t = t.replace(rx, ""); }
+    if (rx.test(body)) { boilerHit = true; body = body.replace(rx, ""); }
   }
   if (boilerHit) removed.push("boilerplate_phrases");
 
-  // Strip remaining inline URLs (keep host text removed)
-  t = t.replace(URL_RX, "");
+  // 4) Strip any remaining inline URLs in the kept body
+  if (URL_RX.test(body)) { body = body.replace(URL_RX, ""); removed.push("inline_urls"); }
+  URL_RX.lastIndex = 0;
 
-  // Whitespace normalize
-  t = t.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(MULTI_WHITESPACE, " ").trim();
+  // 5) Whitespace normalize
+  body = body.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(MULTI_WHITESPACE, " ").trim();
 
-  return { text: t, removed };
+  return { text: body, removed };
 }
+
 
 const AI_TOOL = {
   type: "function",
