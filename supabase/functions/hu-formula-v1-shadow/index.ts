@@ -216,11 +216,16 @@ Deno.serve(async (req) => {
         from += pageSize;
       }
     } else {
-      const { data, error } = await supabase
+      // Self-paging: only fetch podcasts that don't yet have hu_v1 shadow score.
+      const onlyUnscored: boolean = body.only_unscored !== false; // default true
+      let q = supabase
         .from("podcasts")
         .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
-        .or("language.ilike.hu%,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain")
-        .limit(limit);
+        .or("language.ilike.hu%,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain");
+      if (onlyUnscored) {
+        q = q.is("shadow_rank_components->hu_v1", null);
+      }
+      const { data, error } = await q.limit(limit);
       if (error) throw error;
       targets = data || [];
     }
