@@ -166,7 +166,13 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
-    return json({ ok: true, scanned: rows.length, promoted: changed.length, unchanged: unchanged.length });
+    return json({
+      ok: true,
+      scanned: rows.length,
+      promoted: changed.length,
+      unchanged: unchanged.length,
+      promoted_episode_ids: changed.map((r) => r.episode_id),
+    });
   } catch (e) {
     return json({ ok: false, error: e instanceof Error ? e.message : "error" }, 500);
   }

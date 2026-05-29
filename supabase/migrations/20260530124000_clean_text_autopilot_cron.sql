@@ -8,6 +8,7 @@ VALUES (
     'stage_limit', 250,
     'candidate_batch', 100,
     'promote_limit', 100,
+    'ai_enrich_limit', 20,
     'auto_stop_at_errors', 5,
     'consecutive_errors', 0,
     'note', 'Automated clean-text safe refresh: plan, stage, candidate generation, promote changed passed rows only.'

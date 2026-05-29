@@ -18,17 +18,19 @@ type Controls = {
   stage_limit?: number;
   candidate_batch?: number;
   promote_limit?: number;
+  ai_enrich_limit?: number;
   auto_stop_at_errors?: number;
   consecutive_errors?: number;
 };
 
-const DEFAULT_CONTROLS: Required<Pick<Controls, "enabled" | "mode" | "tiers" | "stage_limit" | "candidate_batch" | "promote_limit" | "auto_stop_at_errors" | "consecutive_errors">> = {
+const DEFAULT_CONTROLS: Required<Pick<Controls, "enabled" | "mode" | "tiers" | "stage_limit" | "candidate_batch" | "promote_limit" | "ai_enrich_limit" | "auto_stop_at_errors" | "consecutive_errors">> = {
   enabled: true,
   mode: "bad_or_old",
   tiers: ["S", "A", "B", "C"],
   stage_limit: 250,
   candidate_batch: 100,
   promote_limit: 100,
+  ai_enrich_limit: 20,
   auto_stop_at_errors: 5,
   consecutive_errors: 0,
 };
@@ -69,6 +71,7 @@ Deno.serve(async (req) => {
     const stageLimit = Math.max(1, Math.min(1000, Number(controls.stage_limit || DEFAULT_CONTROLS.stage_limit)));
     const candidateBatch = Math.max(1, Math.min(500, Number(controls.candidate_batch || DEFAULT_CONTROLS.candidate_batch)));
     const promoteLimit = Math.max(1, Math.min(500, Number(controls.promote_limit || DEFAULT_CONTROLS.promote_limit)));
+    const aiEnrichLimit = Math.max(0, Math.min(100, Number(controls.ai_enrich_limit ?? DEFAULT_CONTROLS.ai_enrich_limit)));
     const tiers = Array.isArray(controls.tiers) && controls.tiers.length ? controls.tiers.map(String) : DEFAULT_CONTROLS.tiers;
     const mode = String(controls.mode || DEFAULT_CONTROLS.mode);
 
@@ -76,6 +79,8 @@ Deno.serve(async (req) => {
     let stage: any = null;
     let candidates: any = null;
     let promote: any = null;
+    const aiEnrichResults: any[] = [];
+    const invalidatedEpisodeIds: string[] = [];
     let error: string | null = null;
 
     try {
@@ -94,6 +99,23 @@ Deno.serve(async (req) => {
         }, "?action=stage");
         candidates = await callFunction("episode-clean-text-candidate-runner", { batch: candidateBatch });
         promote = await callFunction("episode-clean-text-candidate-promoter", { limit: promoteLimit });
+
+        const promotedIds = Array.isArray(promote?.promoted_episode_ids)
+          ? promote.promoted_episode_ids.map(String).filter(Boolean)
+          : [];
+        for (const id of promotedIds.slice(0, aiEnrichLimit)) {
+          const result = await callFunction("ai-enrich", { type: "episode", id });
+          aiEnrichResults.push({ id, result });
+          if (result?.ok && !result?.skipped) invalidatedEpisodeIds.push(id);
+        }
+
+        if (invalidatedEpisodeIds.length) {
+          for (let i = 0; i < invalidatedEpisodeIds.length; i += 100) {
+            const slice = invalidatedEpisodeIds.slice(i, i + 100);
+            await admin.from("episode_embeddings").delete().in("episode_id", slice);
+            await admin.from("episode_chunks").delete().in("episode_id", slice);
+          }
+        }
       }
 
       controls.consecutive_errors = 0;
@@ -114,6 +136,8 @@ Deno.serve(async (req) => {
       last_stage: stage,
       last_candidates: candidates,
       last_promotion: promote,
+      last_ai_enrich_results: aiEnrichResults.slice(0, 20),
+      last_invalidated_episode_ids: invalidatedEpisodeIds.slice(0, 100),
       last_error: error,
     };
 
@@ -130,6 +154,8 @@ Deno.serve(async (req) => {
       staged: Number(stage?.staged || 0),
       candidates,
       promotion: promote,
+      ai_enriched: aiEnrichResults.length,
+      invalidated_embeddings: invalidatedEpisodeIds.length,
       error,
       enabled: state.enabled,
       consecutive_errors: state.consecutive_errors,

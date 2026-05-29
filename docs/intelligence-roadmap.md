@@ -162,6 +162,8 @@ Automation: `clean-text-autopilot` runs the same safe sequence in small batches 
 - generate candidates;
 - promote only changed candidates with `quality_status='passed'`;
 - mark unchanged candidates without invalidating downstream AI work.
+- run `ai-enrich` for a capped subset of promoted episodes;
+- delete old episode embeddings and chunks only after successful enrichment, so existing embedding runners rebuild from the new clean-text-derived data.
 
 The admin page is only an observability and emergency control surface. It is not the operating model for the full corpus.
 
