@@ -355,6 +355,8 @@ SZABÁLYOK:
             auditResult.recovered_with_wikipedia = true;
           } else {
             bio = safeFallbackBio(p.name);
+            bioStatus = "audited_fail";
+          }
         } else if (!useWiki && epList.length < 2) {
           bioStatus = "needs_review";
         }
@@ -362,10 +364,8 @@ SZABÁLYOK:
         // Bio was the safe fallback OR call failed; demote if no evidence.
         bioStatus = isSafeFallback(p.name, bio) ? (epList.length >= 2 ? "needs_review" : "insufficient_evidence") : (epList.length < 2 ? "needs_review" : "completed");
       }
-
-        bioStatus = isSafeFallback(p.name, bio) ? "needs_review" : (epList.length < 3 ? "needs_review" : "completed");
-      }
     }
+
 
     const sources = {
       wikipedia: useWiki ? { qid: p.wikidata_id, title: p.wikipedia_title, confidence: p.wikipedia_match_confidence } : null,
