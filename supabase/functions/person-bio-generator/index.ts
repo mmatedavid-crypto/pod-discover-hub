@@ -1,6 +1,5 @@
 // Hungarian AI bio + overview generator for People
-// Bio: openai/gpt-5.5. Audit pass: openai/gpt-5 (medium reasoning) — only audit-pass bios are published.
-// Overview: google/gemini-2.5-flash (cheap, evidence-bound).
+// Cost-safe mode: no GPT/Pro models in backlog runners. Controls are fail-closed.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 
@@ -13,12 +12,19 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const BIO_MODEL = "openai/gpt-5.5";
-const AUDIT_MODEL = "openai/gpt-5";
-const OVERVIEW_MODEL = "google/gemini-2.5-flash";
+const BIO_MODEL = "google/gemini-2.5-flash-lite";
+const AUDIT_MODEL = "google/gemini-2.5-flash-lite";
+const OVERVIEW_MODEL = "google/gemini-2.5-flash-lite";
 const MODEL = BIO_MODEL; // backwards-compat reference
+const BLOCKED_BATCH_MODEL_RE = /(openai\/gpt-5|gpt-5|gemini-.*-pro|\/.*-pro|gemini-3)/i;
 
 type AICallResult = { text: string; cost: number; ok: boolean; error?: string; toolCall?: any };
+
+function assertCostSafeModel(model: string) {
+  if (BLOCKED_BATCH_MODEL_RE.test(model || "")) {
+    throw new Error(`blocked_batch_model:${model}`);
+  }
+}
 
 async function callAI(
   model: string,
@@ -26,6 +32,7 @@ async function callAI(
   user: string,
   opts: { reasoning?: "low" | "medium" | "high"; temperature?: number; tools?: any[]; toolChoice?: any } = {},
 ): Promise<AICallResult> {
+  assertCostSafeModel(model);
   const body: any = {
     model,
     messages: [{ role: "system", content: system }, { role: "user", content: user }],
