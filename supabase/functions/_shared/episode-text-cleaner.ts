@@ -35,31 +35,50 @@ const TIMESTAMP_LINE_RX = /^\s*\d{1,2}:\d{2}(?::\d{2})?\s+.+$/gm;
 const MULTI_WHITESPACE = /\s{3,}/g;
 const HTML_RX = /<[^>]+>/g;
 
-// Strong footer markers — once we hit one, EVERYTHING after is footer.
+// Strong footer markers — once we hit one (and the rest of the doc is footer-dominated),
+// EVERYTHING from that line on is dropped.
 // HU + EN. Case-insensitive, matched against trimmed line.
 const FOOTER_MARKER_RX = [
-  // social platform handles / "Follow us"
-  /^\s*(?:facebook|instagram|tiktok|youtube|spotify|apple\s*podcasts?|x|twitter|linkedin|threads|patreon|discord|telegram|viber|mastodon|bluesky|snapchat|tumblr|pinterest|reddit|twitch|substack|whatsapp|messenger)\s*[:：\-–—|]/i,
-  /^\s*(?:kövess|kövessetek|kövessen|kövessétek)\s+(?:minket|bennünket|engem|a\s+műsort)/i,
-  /^\s*(?:iratkozz(?:atok)?\s+fel|feliratkozás|értesülj\s+elsőként)/i,
-  /^\s*(?:támogasd|támogass(?:atok)?|támogatónk|támogatóink|a\s+műsor\s+támogatója|szponzorunk|szponzoraink)/i,
-  /^\s*(?:follow\s+(?:us|me)|subscribe\s+(?:to|on)|support\s+(?:us|the\s+show)|our\s+sponsors?|sponsored\s+by|brought\s+to\s+you\s+by)/i,
-  /^\s*(?:közösségi\s+média|elérhetőség(?:eink)?|kapcsolat(?:tartás)?|social\s+media|find\s+us\s+on|contact\s+us)\s*[:：]?/i,
-  /^\s*(?:hallgasd|hallgassátok|hallgassa)\s+(?:meg\s+)?(?:a|az)?\s*(?:műsort|adást|podcastot|epizódot).*?(?:spotify|apple|youtube|deezer|pocket\s*casts)/i,
-  /^\s*(?:weboldal|honlap|website|web)\s*[:：]\s*https?:\/\//i,
-  /^\s*(?:email|e-mail|levelek|levél)\s*[:：]/i,
-  /^\s*(?:vágó|hangszerkesztő|producer|szerkesztő|operatőr|rendező|főszerkesztő|grafika)\s*[:：]/i,
-  /^\s*#\w+(?:\s+#\w+){2,}/, // hashtag wall (3+)
+  // social platform names at line start (with or without separator)
+  /^\s*(?:facebook|instagram|insta|tiktok|tik\s*tok|youtube|yt|spotify|apple\s*podcasts?|apple|twitter|linkedin|threads|patreon|discord|telegram|viber|mastodon|bluesky|snapchat|tumblr|pinterest|reddit|twitch|substack|whatsapp|messenger|deezer|pocket\s*casts|google\s*podcasts?|soundcloud|rumble|odysee|locals|buzzsprout|anchor|rss|fb|ig|tw)\b\s*[:：\-–—|@/]?/i,
+  // "Follow us / Subscribe / Like" HU + EN
+  /^\s*(?:kövess|kövessetek|kövessen|kövessétek|kövesd)\s+(?:minket|bennünket|engem|a\s+műsort|a\s+csatornát|a\s+podcastot|a\s+podcastunkat|az\s+oldalunkat)/i,
+  /^\s*(?:iratkozz(?:atok)?\s+fel|feliratkoz(?:ás|hatsz|hattok)|értesülj\s+elsőként|like[- ]?old|lájkold|kedveld|oszd\s+meg|nyomj\s+egy\s+lájkot)/i,
+  /^\s*(?:támogasd|támogass(?:atok)?|támogatónk|támogatóink|a\s+műsor\s+támogatója|szponzorunk|szponzoraink|szponzorált|szponzorálta|reklám|hirdetés)/i,
+  /^\s*(?:follow\s+(?:us|me)|subscribe\s+(?:to|on)|support\s+(?:us|the\s+show)|our\s+sponsors?|sponsored\s+by|brought\s+to\s+you\s+by|listen\s+(?:on|to)|available\s+(?:on|now)|watch\s+on)/i,
+  // "social media / contact" headings
+  /^\s*(?:közösségi\s+média|elérhetőség(?:eink)?|kapcsolat(?:tartás|fel(?:vétel)?)?|social\s+(?:media|links?|channels?)|find\s+us\s+on|contact\s+us|kapcsolódj|csatlakozz)\s*[:：]?/i,
+  // "listen / watch on …" HU
+  /^\s*(?:hallgasd|hallgassátok|hallgassa|nézd|nézzétek|nézze)\s+(?:meg\s+)?(?:a|az)?\s*(?:műsort|adást|podcastot|epizódot|csatornát|videót|interjút)/i,
+  /^\s*(?:meg(?:talál(?:hatsz|hattok|sz)?|hallgath(?:atsz|attok)?|nézh(?:etsz|etitek)?))\s+(?:minket|bennünket|a\s+műsort|a\s+podcastot)/i,
+  /^\s*(?:elérhető|megtalálható|hallgatható|nézhető|követhető)\s+(?:a|az)?\s*(?:spotify|apple|youtube|deezer|facebook|instagram|tiktok)/i,
+  // labelled link lines
+  /^\s*(?:weboldal|honlap|website|web|link|linkek|forrás(?:ok)?)\s*[:：]/i,
+  /^\s*(?:e-?mail|levél|leveleitek?|írj\s+nek[üi]nk|kérdés(?:eitek)?)\s*[:：@]/i,
+  // production credits
+  /^\s*(?:vágó|hangszerkesztő|hangmérnök|producer|szerkesztő|operatőr|rendező|főszerkesztő|grafika|design|zene|főcím(?:zene)?|intro|outro|narrátor|műsorvezető)\s*[:：]/i,
+  // hashtag walls
+  /^\s*#\w+(?:\s+#\w+)+/,
+  /^\s*(?:#[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű0-9_]+\s*){2,}$/,
 ];
 
-// Soft signals — a single line that "looks like" footer content.
+// Lines that look like a social/platform list item, URL, or labelled-link.
 function isFooterishLine(line: string): boolean {
   const s = line.trim();
   if (!s) return false;
-  if (URL_RX.test(s)) { URL_RX.lastIndex = 0; return true; }
-  if (/^[•\-–—*·]?\s*(?:https?:|www\.)/i.test(s)) return true;
-  if (/^\s*#\w+/.test(s)) return true; // starts with hashtag
-  if (/^[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+\s*[:：]\s*$/.test(s)) return true; // "Facebook:" alone
+  // URLs
+  if (/https?:\/\//i.test(s)) return true;
+  if (/^[•\-–—*·]?\s*www\./i.test(s)) return true;
+  // hashtag(s)
+  if (/^#\w+/.test(s)) return true;
+  // platform name at start
+  if (/^(?:facebook|instagram|insta|tiktok|youtube|yt|spotify|apple\s*podcasts?|apple|twitter|linkedin|threads|patreon|discord|telegram|mastodon|bluesky|snapchat|whatsapp|messenger|deezer|pocket\s*casts|google\s*podcasts?|soundcloud|substack|rumble|odysee|locals|rss|fb|ig)\b/i.test(s)) return true;
+  // @handle
+  if (/^@[A-Za-z0-9._-]{2,}/.test(s)) return true;
+  // "Label:" alone or "Label: <link/handle>"
+  if (/^[A-ZÁÉÍÓÖŐÚÜŰ][A-Za-záéíóöőúüű\s]{0,25}\s*[:：]\s*(?:https?:\/\/|www\.|@|$)/.test(s)) return true;
+  // production credit line
+  if (/^(?:vágó|hangszerkesztő|hangmérnök|producer|szerkesztő|operatőr|rendező|főszerkesztő|grafika|design|zene|narrátor|műsorvezető)\s*[:：]/i.test(s)) return true;
   return false;
 }
 
@@ -72,8 +91,8 @@ function isSubstantiveLine(line: string): boolean {
 }
 
 function detectFooterStart(lines: string[]): number {
-  // Find earliest STRONG footer marker, but only accept it if the tail from there
-  // is dominated by footer-like content. Otherwise it's likely an intro plug at the top.
+  // Find earliest STRONG footer marker; accept the cut if the tail from there
+  // is dominated by footer-like content. Otherwise it's likely an intro plug.
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     let isMarker = false;
@@ -86,9 +105,10 @@ function detectFooterStart(lines: string[]): number {
     const nonEmpty = tail.filter((x) => x.trim().length > 0);
     if (nonEmpty.length === 0) continue;
     const substantive = nonEmpty.filter(isSubstantiveLine).length;
-    if (substantive / nonEmpty.length < 0.2) return i;
+    // v3: bumped from 0.20 -> 0.40 so mixed footers (with one stray sponsor sentence) still cut.
+    if (substantive / nonEmpty.length < 0.4) return i;
   }
-  // Fallback: bottom-up footer-line peel
+  // Bottom-up footer-line peel (v3: 4 -> 3 consecutive footer lines).
   let run = 0;
   let runStart = -1;
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -96,12 +116,12 @@ function detectFooterStart(lines: string[]): number {
       if (run === 0) runStart = i;
       run++;
     } else {
-      if (run >= 4) return runStart;
+      if (run >= 3) return runStart;
       run = 0;
       runStart = -1;
     }
   }
-  if (run >= 4) return runStart;
+  if (run >= 3) return runStart;
   return -1;
 }
 
