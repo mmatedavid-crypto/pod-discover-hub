@@ -257,7 +257,7 @@ export default function SearchPage() {
       }
 
       // Kick off streaming AI answer when we have enough top results.
-      if (mapped.length >= 3) {
+      if (mapped.length >= 1) {
         setAiAnswerLoading(true);
         const ctrl = new AbortController();
         answerAbortRef.current = ctrl;
