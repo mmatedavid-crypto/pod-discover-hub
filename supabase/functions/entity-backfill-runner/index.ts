@@ -213,6 +213,12 @@ Deno.serve(async (req) => {
           ai_entities_version: 4,
         }).eq("id", ep.id);
 
+        // Drop stale episode_organization_map rows for this episode — the
+        // organizations-backfill-runner will rebuild them from the fresh
+        // `organizations` jsonb on its next pass. This guarantees orgs that
+        // disappeared after clean_text re-extraction stop being attributed.
+        await admin.from("episode_organization_map").delete().eq("episode_id", ep.id);
+
         succeeded++;
         mySpend += cost; runIncrement += cost; runCalls++;
       } catch (err: any) {
