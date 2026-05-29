@@ -1838,6 +1838,36 @@ export type Database = {
         }
         Relationships: []
       }
+      hu_v1_cutover_backup_20260529: {
+        Row: {
+          backup_at: string
+          old_podiverzum_rank: number | null
+          old_rank_label: string | null
+          old_rank_reason: Json | null
+          old_rank_updated_at: string | null
+          old_shadow_components: Json | null
+          podcast_id: string
+        }
+        Insert: {
+          backup_at?: string
+          old_podiverzum_rank?: number | null
+          old_rank_label?: string | null
+          old_rank_reason?: Json | null
+          old_rank_updated_at?: string | null
+          old_shadow_components?: Json | null
+          podcast_id: string
+        }
+        Update: {
+          backup_at?: string
+          old_podiverzum_rank?: number | null
+          old_rank_label?: string | null
+          old_rank_reason?: Json | null
+          old_rank_updated_at?: string | null
+          old_shadow_components?: Json | null
+          podcast_id?: string
+        }
+        Relationships: []
+      }
       landing_email_signups: {
         Row: {
           anonymous_session_id: string | null
