@@ -1,0 +1,1 @@
+SELECT public.refresh_homepage_feed();
