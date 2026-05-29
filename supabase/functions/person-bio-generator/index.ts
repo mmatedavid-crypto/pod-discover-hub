@@ -288,34 +288,55 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
     const epTitlesShort = epList.slice(0, 6).map((e: any) => `• ${e.title}`).join("\n") || "—";
     const podcastTitlesShort = (ppm || []).slice(0, 5).map((r: any) => `• ${r.podcasts?.title}`).filter(Boolean).join("\n") || "—";
 
-    // Episode-description evidence: leírásokban gyakran szerepel a vendég foglalkozása
-    // ("X Y közgazdász", "tájépítész", "az ELTE oktatója") — ezt megbízható forrásként kezeljük,
-    // ha legalább egy leírás explicit említi a személy nevét egy szerep/foglalkozás közelében.
+    // Episode TITLE + DESCRIPTION evidence: címekben és leírásokban gyakran ott a vendég
+    // foglalkozása / szerepe ("X Y közgazdász", "Z W, a Tisza Párt elnöke", "az ELTE oktatója").
+    // Mindkettőt megbízható forrásként kezeljük, ha a név szóhatáron egyezik.
     const nameForMatch = String(p.name || "").toLocaleLowerCase("hu-HU");
-    const lastTok = nameForMatch.split(/\s+/).slice(-1)[0] || "";
-    const firstTok = nameForMatch.split(/\s+/)[0] || "";
-    const epEvidenceBlob = epList
-      .map((e: any) => String(e.summary || ""))
-      .filter((s: string) => {
-        const lower = s.toLocaleLowerCase("hu-HU");
-        return lower.includes(nameForMatch)
-          || (lastTok.length >= 4 && lower.includes(lastTok))
-          || (firstTok.length >= 4 && lower.includes(firstTok));
-      })
-      .slice(0, 5)
-      .map((s: string, i: number) => `[${i + 1}] ${s.slice(0, 320)}`)
-      .join("\n") || "—";
+    const tokens = nameForMatch.split(/\s+/).filter(Boolean);
+    const lastTok = tokens.slice(-1)[0] || "";
+    const firstTok = tokens[0] || "";
+    const mentionsName = (raw: string): boolean => {
+      const lower = String(raw || "").toLocaleLowerCase("hu-HU");
+      if (!lower) return false;
+      if (lower.includes(nameForMatch)) return true;
+      const wordRe = (t: string) => new RegExp(`(^|[^\\p{L}])${t.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}([^\\p{L}]|$)`, "u");
+      if (lastTok.length >= 4 && wordRe(lastTok).test(lower)) return true;
+      if (firstTok.length >= 4 && wordRe(firstTok).test(lower)) return true;
+      return false;
+    };
+    const ROLE_HINT_RE = /(közgazdász|szociológus|politológus|újságíró|szerkeszt[őo]|riporter|műsorvezet[őo]|főszerkeszt[őo]|elnök|alelnök|miniszter|államtitkár|képvisel[őo]|polgármester|kutató|professzor|docens|oktató|tanár|orvos|jogász|ügyvéd|bíró|író|költ[őo]|rendez[őo]|színész|énekes|zenész|vállalkozó|alapító|tulajdonos|vezérigazgató|igazgató|tájépítész|építész|mérnök|programozó|sportoló|edz[őo]|elemz[őo]|szakért[őo]|történész|filozófus|pszichológus|pszichiáter|atléta|labdarúgó|kosárlabdázó|sportriporter|youtuber|influenszer|aktivista|nagykövet|tábornok|ezredes)/iu;
+
+    const epTextEvidence: string[] = [];
+    for (const e of epList) {
+      const title = String(e.title || "").trim();
+      const summary = String(e.summary || "").trim();
+      if (title && mentionsName(title) && epTextEvidence.length < 10) {
+        const tag = ROLE_HINT_RE.test(title) ? "CÍM [+szerep]" : "CÍM";
+        epTextEvidence.push(`${tag}: ${title.slice(0, 220)}`);
+      }
+      if (summary && mentionsName(summary) && epTextEvidence.length < 10) {
+        const tag = ROLE_HINT_RE.test(summary) ? "LEÍRÁS [+szerep]" : "LEÍRÁS";
+        epTextEvidence.push(`${tag}: ${summary.slice(0, 340)}`);
+      }
+      if (epTextEvidence.length >= 10) break;
+    }
+    // Prioritás: a [+szerep] jelölésűek előre
+    epTextEvidence.sort((a, b) => (b.includes("[+szerep]") ? 1 : 0) - (a.includes("[+szerep]") ? 1 : 0));
+    const epEvidenceBlob = epTextEvidence.length
+      ? epTextEvidence.slice(0, 8).map((s, i) => `[${i + 1}] ${s}`).join("\n")
+      : "—";
 
     const bioSys = `Magyar nyelvű, neutrális, tényszerű rövid bio-t írsz egy podcast-katalógushoz.
 SZABÁLYOK:
 - KIZÁRÓLAG magyarul. 2-3 rövid mondat, max ~280 karakter.
-- ÉLETRAJZI tényt (foglalkozás, nemzetiség, születési év, intézményi pozíció, politikai hovatartozás) HASZNÁLHATSZ, ha (a) a megadott Wikipedia-forrás explicit tartalmazza, VAGY (b) legalább egy podcast-epizód leírása explicit megnevezi a személy nevét és foglalkozását/szerepét egyazon mondatban (pl. "X Y közgazdász", "Z W tájépítész", "az ELTE oktatója"). Csak azt írd, ami szóról szóra alátámasztható.
-- Ha Wikipedia VAN (verified vagy egyértelműen ráillő jelölt), kezdj egy egymondatos életrajzi sorral a forrásból, majd 1 mondat podcast-kontextus.
-- Ha NINCS használható Wikipedia, de az epizód-leírások adnak foglalkozást/szerepet, kezdj azzal ("X Y közgazdász, …"). Egyébként írj OBSZERVÁCIÓS bio-t a tényleges podcast-címek alapján. Példa: "Schmied Andi a Partizán és a 444 epizódjaiban vendégként tűnik fel; főként közéleti/politikai témákban szólal meg."
-- SOHA ne találj ki életrajzi adatot. Ha a leírás bizonytalan ("talán", "valószínűleg"), hagyd ki.
-- TILOS: "valószínűleg", "úgy tudni", reklámszerű hype, politikai értékelés, becsült életkor/évszám forrás nélkül.
-- SOHA ne nevezd "műsorvezetőnek" ha a tally.host=0.
-- ABSZOLÚT TILOS visszaadni az alábbi sablont (sem szó szerint, sem parafrázálva): "X magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók." — Ha nincs jobb anyagod, akkor is konkrét podcast-címet vagy szerepet kell említened.
+- ELSŐDLEGES FELADAT: ha az evidence-blokkban a személy neve mellett szerepel a FOGLALKOZÁSA, SZEREPE, INTÉZMÉNYE vagy POZÍCIÓJA (pl. "X Y közgazdász", "Z W, a Tisza Párt elnöke", "az ELTE oktatója", "a 444 újságírója"), AKKOR KÖTELEZŐ ezt a bio első mondatában szerepeltetni. Ez fontosabb, mint az epizódcímek puszta felsorolása.
+- ÉLETRAJZI tényt csak akkor használj, ha (a) Wikipedia explicit tartalmazza VAGY (b) legalább egy epizód CÍME vagy LEÍRÁSA explicit megnevezi a nevet és a foglalkozást/szerepet ugyanazon mondatban. Szóról szóra alátámaszthatóság kötelező.
+- Ha Wikipedia VAN (verified vagy egyértelműen ráillő jelölt), kezdj életrajzi mondattal, majd 1 mondat podcast-kontextus.
+- Ha NINCS Wikipedia, de van [+szerep] evidence: kezdd a foglalkozással/szereppel ("Schmied Andi közgazdász, …"), majd 1 mondat hogy mely podcastokban / milyen témákban szólal meg.
+- Ha SEM Wikipedia SEM szerep-evidence nincs, írj OBSZERVÁCIÓS bio-t konkrét podcast-címekkel és a tally alapján vendég/műsorvezető/téma minőséggel.
+- SOHA ne találj ki életrajzi adatot. "Valószínűleg", "úgy tudni", reklám, politikai értékelés TILOS.
+- SOHA ne nevezd "műsorvezetőnek", ha a tally.host=0.
+- ABSZOLÚT TILOS visszaadni vagy parafrázálni: "magyar podcast epizódokban előforduló személy" / "magyar podcast adásokban megjelenő személy" / "az alábbi epizódokban kapcsolódó beszélgetések". Konkrét szerepet, foglalkozást VAGY podcast-címet KÖTELEZŐ említened.
 - Csak a bio szövegét add vissza, semmi mást.`;
 
     const bioUser = `Személy neve: ${p.name}
@@ -331,10 +352,10 @@ ${podcastTitlesShort}
 - Példa epizódcímek:
 ${epTitlesShort}
 
-Epizód-leírás részletek, amelyek megemlítik ${p.name} nevét (ezekből foglalkozás/szerep idézhető, ha explicit szerepel):
+EVIDENCE — epizód-CÍMEK és -LEÍRÁSOK, amelyek megemlítik ${p.name} nevét. A "[+szerep]" jelölésűek tartalmaznak foglalkozás/pozíció szót is — ezeket HASZNÁLD prioritással a bio első mondatához:
 ${epEvidenceBlob}
 
-Írd meg a bio-t a fenti szabályok szerint.`;
+Írd meg a bio-t a fenti szabályok szerint. Ha van [+szerep] evidence, abból KÖTELEZŐ a foglalkozást/szerepet kinyerni és az első mondatban szerepeltetni.`;
 
 
 
