@@ -8,6 +8,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -55,18 +56,20 @@ Rules:
 - Hungarian labels. Lowercase except proper nouns. No hashtags, no punctuation.
 - Do NOT map onto any predefined taxonomy. Invent the most natural label for what you actually see.`;
 
-async function extract(model: string, text: string, title: string, timeoutMs = 25000): Promise<{ topics: any[]; usage: any } | null> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) return null;
+async function extract(model: string, text: string, title: string, episodeId: string, timeoutMs = 25000): Promise<{ topics: any[]; usage: any } | null> {
   const body = `CÍM: ${title}\n\nSZÖVEG:\n${text.slice(0, 12000)}`;
   const ctrl = new AbortController();
   const tm = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const ai = await Promise.race([
+      callLovableAI({
         model,
+        job_type: "episode_topic_extractor",
+        target_type: "episode",
+        target_id: episodeId,
+        prompt_version: "topic-extractor-v1",
+        input_text: text,
+        min_input_chars: 400,
         messages: [
           { role: "system", content: SYSTEM },
           { role: "user", content: body },
@@ -74,20 +77,28 @@ async function extract(model: string, text: string, title: string, timeoutMs = 2
         tools: [TOOL],
         tool_choice: { type: "function", function: { name: "describe_episode_topics" } },
       }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      console.warn("ai error", res.status, txt.slice(0, 200));
+      new Promise<null>((resolve) => {
+        ctrl.signal.addEventListener("abort", () => resolve(null), { once: true });
+      }),
+    ]);
+    if (!ai || !ai.ok) {
+      console.warn("topic extractor ai skipped/error", ai?.status, ai?.error);
       return null;
     }
-    const j = await res.json();
+    const j = ai.data;
     const call = j.choices?.[0]?.message?.tool_calls?.[0];
     if (!call) return null;
     try {
       const args = JSON.parse(call.function?.arguments || "{}");
       if (!Array.isArray(args.topics)) return null;
-      return { topics: args.topics, usage: j.usage };
+      return {
+        topics: args.topics,
+        usage: {
+          prompt_tokens: ai.input_tokens || j.usage?.prompt_tokens || 0,
+          completion_tokens: ai.output_tokens || j.usage?.completion_tokens || 0,
+          completion_tokens_details: j.usage?.completion_tokens_details || {},
+        },
+      };
     } catch {
       return null;
     }
@@ -136,7 +147,7 @@ Deno.serve(async (req) => {
       .select("cost_usd")
       .eq("runner", "episode-topic-extractor")
       .gte("created_at", since.toISOString());
-    let spentToday = (spentRow || []).reduce((a: number, r: any) => a + Number(r.cost_usd || 0), 0);
+    const spentToday = (spentRow || []).reduce((a: number, r: any) => a + Number(r.cost_usd || 0), 0);
     if (spentToday >= dailyBudget) {
       return json({ ok: true, paused: true, reason: "daily_budget_exhausted", spent_today: spentToday });
     }
@@ -194,7 +205,7 @@ Deno.serve(async (req) => {
         }
         const slice = work.slice(i, i + concurrency);
         const results = await Promise.all(
-          slice.map(({ ep, text }) => extract(model, text, String(ep.title || "")).then((ai) => ({ ep, text, ai })))
+          slice.map(({ ep, text }) => extract(model, text, String(ep.title || ""), ep.id).then((ai) => ({ ep, text, ai })))
         );
         for (const { ep, text, ai } of results) {
           if (!ai || ai.topics.length === 0) { errIds.push(ep.id); continue; }
