@@ -528,26 +528,25 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
   const limit = Math.min(Number(body.limit || 20), 300);
-  const force = !!body.force;
+  const force = false;
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
-  // queue-health-controller pause respect.
-  if (!force && personIds.length === 0) {
-    const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "person_bio_generator_controls").maybeSingle();
-    if (ctrlRow?.value && (ctrlRow.value as any).enabled === false) {
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled_by_controls", auto_paused_reason: (ctrlRow.value as any).auto_paused_reason || null }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  // Fail-closed: this runner must be explicitly enabled before any AI call.
+  const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "person_bio_generator_controls").maybeSingle();
+  const controls = (ctrlRow?.value || {}) as any;
+  if (controls.enabled !== true) {
+    return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled_by_controls", paused_reason: controls.paused_reason || controls.auto_paused_reason || null }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
 
   // Daily budget cap — GPT-5.5 bio + GPT-5 audit is pricier than before.
-  const budget = Number(body.daily_budget_usd || 15);
+  const budget = Math.min(Number(controls.daily_budget_usd || 2), 2);
   const today = new Date().toISOString().slice(0, 10);
   const { data: spend } = await admin.from("ai_spend_daily").select("by_kind").eq("day", today).maybeSingle();
   const spentToday = Number(((spend?.by_kind as any) || {}).person_bio || 0);
-  if (spentToday >= budget && !body.ignore_budget) {
+  if (spentToday >= budget) {
     return new Response(JSON.stringify({ paused: "budget_reached", spent_today: spentToday, budget }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
