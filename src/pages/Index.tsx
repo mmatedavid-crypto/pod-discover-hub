@@ -396,11 +396,13 @@ const Index = () => {
         else overflow.push(e);
       }
       let ordered = [...primary, ...overflow];
-      // Mild news downweight: only if news >50% of the rail, demote news below non-news.
-      const newsItems = ordered.filter((e) => isNewsLikeEpisode(e));
-      if (ordered.length > 0 && newsItems.length * 2 > ordered.length) {
-        const nonNews = ordered.filter((e) => !isNewsLikeEpisode(e));
-        ordered = [...nonNews, ...newsItems];
+      // Mild downweight: if news+bulletin items dominate (>50% of rail),
+      // demote them below the non-news/non-bulletin items. No hard cap.
+      const heavy = (e: any) => isNewsLikeEpisode(e) || isBulletinLikeEpisode(e);
+      const heavyItems = ordered.filter(heavy);
+      if (ordered.length > 0 && heavyItems.length * 2 > ordered.length) {
+        const light = ordered.filter((e) => !heavy(e));
+        ordered = [...light, ...heavyItems];
       }
       grouped[k] = ordered.slice(0, 6);
     });
