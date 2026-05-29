@@ -1205,15 +1205,15 @@ Deno.serve(async (req) => {
           const kept = ordered.filter((e: any) => {
             if (personHasFullName(e)) return true;
             return tokenWholeWordHit(blobOf(e));
-          });
-          // Never collapse below 3 results — if cutoff was too aggressive,
-          // backfill from the dropped tail in original order.
-          if (kept.length < 3) {
-            const dropped = ordered.filter((e: any) => !kept.includes(e));
-            ordered = [...kept, ...dropped.slice(0, 3 - kept.length)];
+          // Prefer 0 noise over filler — if all matches were strict, that's
+          // a better UX than padding with irrelevant phonetic look-alikes.
+          // Only backfill if we ended up with literally 0 results (defensive).
+          if (kept.length === 0) {
+            ordered = ordered.slice(0, 3);
           } else {
             ordered = kept;
           }
+
         }
       }
     } catch (e) {
