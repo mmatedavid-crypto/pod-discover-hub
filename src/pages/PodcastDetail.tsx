@@ -267,39 +267,8 @@ export default function PodcastDetail() {
         })()}
 
 
-        <h2 className="text-xl font-semibold mt-10 mb-4">Epizódok</h2>
-        {eps.length === 0 ? (
-          <div className="text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
-        ) : (
-          <ul className="divide-y divide-border border border-border rounded-lg bg-card">
-            {eps.map((e) => {
-              const fr = freshnessOf(e.published_at);
-              return (
-                <li key={e.id} className="p-4 hover:bg-secondary/50">
-                  <Link to={`/podcast/${p.slug}/${e.slug}`} className="block">
-                    <div className="font-medium flex items-center gap-2 flex-wrap">
-                      {e.display_title || e.title}
-                      {fr === "new" && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-2 items-center">
-                      {e.published_at && <span title={new Date(e.published_at).toLocaleString()}>{relativeTime(e.published_at)}</span>}
-                    </div>
-                    {(e.summary || e.description) && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{snippet(e.summary || e.description, 200)}</p>
-                    )}
-                  </Link>
-                  {e.audio_url && (
-                    <a href={e.audio_url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground inline-block mt-2">↗ Hallgatás</a>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <EpisodeListWithSearch eps={eps} podcastSlug={p.slug} />
+
 
         <SimilarPodcasts podcastId={p.id} />
       </div>
