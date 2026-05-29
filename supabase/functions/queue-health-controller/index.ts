@@ -43,19 +43,20 @@ async function recentActivity(admin: any, kind: string, windowMin: number): Prom
       }
       case "person_wiki_activity": {
         const { count } = await admin.from("people").select("*", { count: "exact", head: true })
-          .gte("wikipedia_checked_at", since);
+          .gte("wiki_match_run_at", since);
         return count ?? 0;
       }
       case "org_wiki_activity": {
         const { count } = await admin.from("organizations").select("*", { count: "exact", head: true })
-          .gte("wikipedia_checked_at", since);
+          .gte("wiki_match_run_at", since);
         return count ?? 0;
       }
       case "person_mentions_activity": {
         const { count } = await admin.from("person_episode_mentions").select("*", { count: "exact", head: true })
-          .gte("relevance_judged_at", since);
+          .gte("ai_judged_at", since);
         return count ?? 0;
       }
+
       default:
         return null;
     }
