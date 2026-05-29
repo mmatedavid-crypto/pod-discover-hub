@@ -101,19 +101,21 @@ const AUDIT_TOOL = {
 async function auditBio(
   personName: string,
   bioText: string,
-  evidence: { wiki_extract?: string | null; wiki_description?: string | null; wiki_status: string; wiki_confidence: number; episode_titles: string[]; tally: any },
+  evidence: { wiki_extract?: string | null; wiki_description?: string | null; wiki_status: string; wiki_confidence: number; episode_titles: string[]; episode_evidence?: string[]; tally: any },
 ): Promise<{ pass: boolean; flags: string[]; rationale: string; cost: number; ok: boolean; error?: string }> {
   const sys = `Független auditor vagy. Egy AI által generált rövid magyar életrajzot ellenőrzöl egy podcast-katalógus számára.
 Szabályok:
-- KÉT bio-típust fogadunk el:
+- HÁROM bio-típust fogadunk el:
   (A) WIKIPEDIA-ALAPÚ bio: minden tényállítást (foglalkozás, születés/halál, nemzetiség, szervezet, korszak, szerep) a Wikipedia extract/leírás KIFEJEZETTEN támogatnia kell.
-  (B) OBSZERVÁCIÓS bio (nincs Wikipedia): csak azt állíthatja, hogy a személy magyar podcastokban szerepel/szerepelt vendégként/műsorvezetőként/témaként, ahogyan az epizód kontextus mutatja. Konkrét szám, szerep (host/guest/subject) megengedett, ha a tally támogatja (pl. tally.host>0 → "műsorvezető"). ÉLETRAJZI tény (foglalkozás Podcasten kívül, születési év, nemzetiség, intézmény, párthovatartozás) NEM megengedett Wikipedia nélkül.
-- Pass=true ha a bio (A) vagy (B) szabályainak megfelel ÉS magyar nyelvű ÉS 20–500 karakter között van ÉS nem a szó szerinti "magyar podcast epizódokban előforduló személy" sablon.
+  (B) EPIZÓD-LEÍRÁS-ALAPÚ bio (nincs Wikipedia, de a podcast-epizódok leírásai explicit megnevezik a személy nevét és foglalkozását/szerepét egy mondatban — pl. "X Y közgazdász", "Z W tájépítész", "az ELTE oktatója"). Ezek a foglalkozás-állítások ELFOGADHATÓK, ha a megadott epizód-evidence blokkban szóról szóra megtalálhatók.
+  (C) OBSZERVÁCIÓS bio (sem Wikipedia, sem releváns leírás): csak azt állíthatja, hogy a személy magyar podcastokban szerepel/szerepelt vendégként/műsorvezetőként/témaként. Konkrét szám, szerep (host/guest/subject) megengedett, ha a tally támogatja. ÉLETRAJZI tény NEM megengedett.
+- Pass=true ha a bio (A), (B) vagy (C) szabályainak megfelel ÉS magyar nyelvű ÉS 20–500 karakter között van ÉS nem a szó szerinti "magyar podcast epizódokban előforduló személy" sablon.
 - Hipotetikus, "valószínűleg", reklámszerű, politikai értékelés → pass=false.
-- Légy szigorú a hallucinációra (kitalált tény), de NE bukdoss el csak azért, mert nincs Wikipedia — (B) érvényes bio.
+- Légy szigorú a hallucinációra (kitalált tény), de NE bukdoss el azért, mert nincs Wikipedia — (B) és (C) érvényes bio.
 - A submit_bio_audit eszközzel válaszolj.`;
 
   const epList = evidence.episode_titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join("\n") || "(nincs)";
+  const epEvidence = (evidence.episode_evidence || []).slice(0, 5).map((s, i) => `[${i + 1}] ${s.slice(0, 320)}`).join("\n") || "(nincs releváns leírás)";
   const user = `SZEMÉLY: ${personName}
 
 GENERÁLT BIO (auditálandó):
@@ -128,7 +130,11 @@ Wikipedia kivonat (max 800 char): ${(evidence.wiki_extract || "").slice(0, 800) 
 Epizód kontextus (host=${evidence.tally?.host || 0} guest=${evidence.tally?.guest || 0} subject=${evidence.tally?.subject || 0} mentioned=${evidence.tally?.mentioned || 0}):
 ${epList}
 
+Epizód-leírás részletek (foglalkozás/szerep idézhető innen, ha explicit szerepel):
+${epEvidence}
+
 Végezd el az auditot.`;
+
   const r = await callAI(AUDIT_MODEL, sys, user, {
     reasoning: "medium",
     tools: [AUDIT_TOOL],
