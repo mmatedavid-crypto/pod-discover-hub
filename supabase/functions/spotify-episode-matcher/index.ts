@@ -1,8 +1,8 @@
 // Spotify EPISODE matcher — paginates /v1/shows/{id}/episodes for each matched podcast
 // and pairs Spotify episodes with our episodes by (release_date + fuzzy title).
-// Writes into episode_spotify_meta (upsert by episode_id).
+// Rate-limit hardened: max 60s Retry-After, global cooldown_until, 90s wall budget.
 //
-// Body: { limit?: number, force?: boolean, podcast_id?: string }
+// Body: { limit?: number, force?: boolean, podcast_id?: string, ignore_cooldown?: boolean }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -15,6 +15,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SPOTIFY_CLIENT_ID = Deno.env.get("SPOTIFY_CLIENT_ID")!;
 const SPOTIFY_CLIENT_SECRET = Deno.env.get("SPOTIFY_CLIENT_SECRET")!;
+
+const MAX_RETRY_AFTER_MS = 60_000;
+const WALL_BUDGET_MS = 90_000;
 
 async function getToken(): Promise<string> {
   const r = await fetch("https://accounts.spotify.com/api/token", {
@@ -29,14 +32,15 @@ async function getToken(): Promise<string> {
   return (await r.json()).access_token as string;
 }
 
-async function spFetch(url: string, token: string, retries = 3): Promise<Response> {
-  for (let i = 0; i < retries; i++) {
+async function spFetch(url: string, token: string): Promise<{ res: Response | null; cooldownMs: number | null }> {
+  for (let i = 0; i < 2; i++) {
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (r.status !== 429) return r;
-    const wait = Number(r.headers.get("Retry-After") || "2") * 1000;
-    await new Promise((res) => setTimeout(res, wait));
+    if (r.status !== 429) return { res: r, cooldownMs: null };
+    const waitMs = Number(r.headers.get("Retry-After") || "2") * 1000;
+    if (waitMs > MAX_RETRY_AFTER_MS) return { res: null, cooldownMs: waitMs };
+    await new Promise((res) => setTimeout(res, waitMs));
   }
-  return await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  return { res: null, cooldownMs: 30_000 };
 }
 
 function norm(s: string): string {
@@ -61,17 +65,43 @@ function pickImages(images: any[] | undefined): { i640: string | null; i300: str
   };
 }
 
+async function getCooldown(supabase: any): Promise<number> {
+  const { data } = await supabase.from("app_settings").select("value").eq("key", "spotify_enricher_state").maybeSingle();
+  const until = data?.value?.cooldown_until ? Date.parse(data.value.cooldown_until) : 0;
+  return until > Date.now() ? until : 0;
+}
+async function setCooldown(supabase: any, ms: number, reason: string) {
+  await supabase.from("app_settings").upsert({
+    key: "spotify_enricher_state",
+    value: { cooldown_until: new Date(Date.now() + ms).toISOString(), reason, set_at: new Date().toISOString() },
+    updated_at: new Date().toISOString(),
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const startedAt = Date.now();
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const limit = Math.min(Number(body.limit) || 20, 100); // podcasts per run
+    const limit = Math.min(Number(body.limit) || 20, 100);
     const force = body.force === true;
     const requestedPodcast = body.podcast_id as string | undefined;
 
+    if (!body.ignore_cooldown) {
+      const cooldownUntil = await getCooldown(supabase);
+      if (cooldownUntil) {
+        return new Response(JSON.stringify({
+          ok: true, skipped: "cooldown_active",
+          cooldown_until: new Date(cooldownUntil).toISOString(),
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     const token = await getToken();
     const summary = { podcasts_processed: 0, episodes_seen: 0, matched: 0, upserted: 0, errors: 0 };
+    let cooldownTriggered = false;
+    const overBudget = () => Date.now() - startedAt > WALL_BUDGET_MS;
 
     let query = supabase
       .from("podcasts")
@@ -91,8 +121,8 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     for (const pod of pods || []) {
+      if (overBudget() || cooldownTriggered) break;
       try {
-        // Load all our episodes for this podcast (released within 30 years, indexed by release_date)
         const { data: ours } = await supabase
           .from("episodes")
           .select("id, title, published_at")
@@ -106,21 +136,24 @@ Deno.serve(async (req) => {
           oursByDate.set(d, bucket);
         }
 
-        // Page through Spotify episodes
         let url: string | null = `https://api.spotify.com/v1/shows/${pod.spotify_id}/episodes?market=HU&limit=50&offset=0`;
         let pageGuard = 0;
-        while (url && pageGuard < 60) {
+        while (url && pageGuard < 60 && !overBudget() && !cooldownTriggered) {
           pageGuard++;
-          const r = await spFetch(url, token);
-          if (!r.ok) { summary.errors++; break; }
-          const j = await r.json();
+          const { res, cooldownMs } = await spFetch(url, token);
+          if (cooldownMs) {
+            await setCooldown(supabase, Math.min(cooldownMs, 6 * 3600_000), `429 episodes (${cooldownMs}ms)`);
+            cooldownTriggered = true;
+            break;
+          }
+          if (!res || !res.ok) { summary.errors++; break; }
+          const j = await res.json();
           const items = j?.items || [];
           for (const sp of items) {
             if (!sp || !sp.id) continue;
             summary.episodes_seen++;
             const spDate = (sp.release_date || "").slice(0, 10);
             const sameDay = oursByDate.get(spDate) || [];
-            // Also try ±1 day buckets for timezone wobble
             const neighbors = [
               ...sameDay,
               ...(oursByDate.get(shiftDate(spDate, -1)) || []),
@@ -166,18 +199,21 @@ Deno.serve(async (req) => {
           await new Promise((r) => setTimeout(r, 300));
         }
 
-        await supabase.from("podcasts")
-          .update({ spotify_episodes_last_synced_at: new Date().toISOString() })
-          .eq("id", pod.id);
-        summary.podcasts_processed++;
+        if (!cooldownTriggered) {
+          await supabase.from("podcasts")
+            .update({ spotify_episodes_last_synced_at: new Date().toISOString() })
+            .eq("id", pod.id);
+          summary.podcasts_processed++;
+        }
       } catch (e) {
         summary.errors++;
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, ...summary }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      ok: true, ...summary, cooldown_triggered: cooldownTriggered,
+      elapsed_ms: Date.now() - startedAt,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e) }), {
       status: 500,
