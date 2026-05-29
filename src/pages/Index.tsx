@@ -323,24 +323,30 @@ const Index = () => {
         // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
         const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
         const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
-        // Editorial homepage scoring: tier/featured/rank dominate, freshness softer,
-        // news-like episodes soft-penalized (-25). Hard caps: 2 ep/podcast, max 2
-        // news in top 8. Backfill from overflow (incl. news) so rail isn't empty.
+        // Editorial homepage scoring: tier/HU_v1 rank/featured dominate, freshness
+        // softer & tier-aware, news mildly penalized (-12), bulletin/segment feeds
+        // strongly penalized (-35). Hard caps in top 8: 2 ep/podcast, ≤2 news_like,
+        // ≤1 bulletin_like. Backfill from overflow so the rail is never empty.
         const sorted = trendingPool.slice().sort(compareByHomepageScore);
         const PER_PODCAST_CAP = 2;
         const NEWS_TOP_CAP = 2;
+        const BULLETIN_TOP_CAP = 1;
         const counts = new Map<string, number>();
         const primary: FeedEpisode[] = [];
         const overflow: FeedEpisode[] = [];
         let newsCount = 0;
+        let bulletinCount = 0;
         for (const e of sorted) {
           const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
           const n = counts.get(key) || 0;
           const news = isNewsLikeEpisode(e);
+          const bulletin = isBulletinLikeEpisode(e);
           if (n >= PER_PODCAST_CAP) { overflow.push(e); continue; }
+          if (bulletin && bulletinCount >= BULLETIN_TOP_CAP && primary.length < 8) { overflow.push(e); continue; }
           if (news && newsCount >= NEWS_TOP_CAP && primary.length < 8) { overflow.push(e); continue; }
           primary.push(e); counts.set(key, n + 1);
           if (news) newsCount += 1;
+          if (bulletin) bulletinCount += 1;
         }
         setTrendingEps([...primary, ...overflow].slice(0, 8));
         setAllEps(eps);
