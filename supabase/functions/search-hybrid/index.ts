@@ -34,6 +34,21 @@ function normalizeQ(q: string): string {
   return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
+function foldText(s: string): string {
+  return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function nameTokenHit(hay: string, token: string): boolean {
+  const t = escapeRegExp(token);
+  if (new RegExp(`(?:^|[^a-z0-9])${t}(?:$|[^a-z0-9])`).test(hay)) return true;
+  // Hungarian case suffixes on names: "Schmied Andival", "Orbán Viktorról".
+  return new RegExp(`(?:^|[^a-z0-9])${t}(?:val|vel|rol|bol|tol|nak|nek|ban|ben|hoz|hez|ra|re|on|en|ot|et|t)(?:$|[^a-z0-9])`).test(hay);
+}
+
 const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
   eth: ["Ethereum", "Ether"],
   btc: ["Bitcoin"],
@@ -402,12 +417,14 @@ Deno.serve(async (req) => {
     // person_aliases / person_episode_mentions. NO single-token fallback,
     // NO stemming, NO vector fallback. Prevents "Burján Szilárd" -> Pap/Demeter
     // Szilárd or "szilárdult" word matches.
+    let personNameQueryTokens: string[] = [];
     {
       const origTokens = q.split(/\s+/).filter((t) => t.length > 0);
       const titleTokens = origTokens.filter((t) => /^[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű'-]+/.test(t));
       const isPersonNameQuery = origTokens.length >= 2 && titleTokens.length >= 2 && origTokens.length <= 4;
       if (isPersonNameQuery) {
         const phrase = qNorm; // already lowercased + diacritics-stripped + trimmed
+        personNameQueryTokens = phrase.split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t));
         try {
           // 1) Resolve person via aliases (accepted scope=global) — exact normalized match.
           const { data: aliasRows } = await supa
@@ -431,6 +448,31 @@ Deno.serve(async (req) => {
               .map((r: any) => r.episode_id).filter(Boolean)));
           }
 
+          // Some real guests are present only in episode metadata (`episodes.people`,
+          // title/description) before the canonical `people` table catches up.
+          // For name queries, use those direct text mentions as strict hits too.
+          if (personNameQueryTokens.length >= 2) {
+            const firstOrigToken = origTokens[0].replace(/[%_]/g, "");
+            const fullNameNeedle = q.replace(/[%_]/g, "");
+            const directMentionQueries = await Promise.all([
+              supa.from("episodes").select("id,title,description,ai_summary,summary,people").contains("people", [q]).limit(120),
+              supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("title", `%${firstOrigToken}%`).limit(120),
+              supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("description", `%${fullNameNeedle}%`).limit(120),
+              supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("ai_summary", `%${fullNameNeedle}%`).limit(120),
+            ]);
+            const directRows = directMentionQueries.flatMap((r: any) => r.data || []);
+            for (const r of directRows) {
+              const hay = foldText([
+                r.title || "",
+                Array.isArray(r.people) ? r.people.join(" ") : "",
+                r.ai_summary || "",
+                r.summary || "",
+                String(r.description || "").slice(0, 1800),
+              ].join(" "));
+              if (personNameQueryTokens.every((t) => nameTokenHit(hay, t))) epIds.push(r.id);
+            }
+            epIds = Array.from(new Set(epIds.filter(Boolean)));
+          }
           // Fetch episodes (HU-only via podcasts.language)
           let episodes: any[] = [];
           if (epIds.length > 0) {
@@ -451,7 +493,7 @@ Deno.serve(async (req) => {
           // so text-mention episodes (not yet linked via
           // person_episode_mentions) still surface. Fixes "Szabó Magda"
           // returning only 2 episodes while FTS has 50+ matches.
-          if (episodes.length >= 10) {
+          if (episodes.length >= 1) {
             return new Response(JSON.stringify({
               episodes,
               timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
