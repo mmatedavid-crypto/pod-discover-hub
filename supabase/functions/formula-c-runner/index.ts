@@ -272,6 +272,7 @@ Deno.serve(async (req) => {
       ts: new Date().toISOString(),
       mode, considered: rows?.length || 0, updated, skipped, errors, demoted,
       no_change: diffOnly ? noChange : undefined,
+      apply_to_live_rank: applyToLive,
       duration_ms, ...remaining,
     };
 
