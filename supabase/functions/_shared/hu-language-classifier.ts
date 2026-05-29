@@ -86,13 +86,17 @@ const HU_DOMAINS = [
   "atv.hu","blogger.hu","fidelio","fortepan","prae.hu","kotvenymagazin",
 ];
 
+// Content-language signals only. Hosting/distribution platforms (spotify,
+// podcasters.spotify.com, anchor.fm, iheart, wondery, podcastone, apple podcasts)
+// are language-neutral and MUST NOT count as foreign evidence — they host plenty
+// of Hungarian podcasts too.
 const FOREIGN_DOMAINS = [
-  "npr.org","bbc.co.uk","bbc.com","theringer.com","sans.org","cisa.gov","spotify.com",
+  "npr.org","bbc.co.uk","bbc.com","theringer.com","sans.org","cisa.gov",
   "wnyc.org","wbur.org","kqed.org","sciencemag.org","stanford.edu","mit.edu",
   "nytimes.com","wsj.com","ft.com","economist.com","reuters.com","bloomberg.com",
   "tagesschau.de","faz.net","spiegel.de","zeit.de","lemonde.fr","lefigaro.fr",
   "elpais.com","abc.es","corriere.it","repubblica.it","rt.com","cnn.com",
-  "joerogan","theguardian","npr","podcastone","iheart","wondery",
+  "joerogan","theguardian",
 ];
 
 const SCRIPT_RANGES: Array<{ name: string; test: (cp: number) => boolean }> = [
