@@ -6,7 +6,63 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
 import { setSeo } from "@/lib/seo";
-import { compareByScore } from "@/lib/episodeRank";
+// Homepage-local editorial scoring (does NOT touch lib/episodeRank used elsewhere).
+const NEWS_HINTS = [
+  "hírek", "hírösszefoglaló", "hír összefoglaló",
+  "napi hír", "esti hír", "reggeli hír",
+  "krónika", "infostart",
+  "rádió hírek", "radio hirek",
+  "hírpercek", "hírműsor",
+];
+function isNewsLikeEpisode(ep: any): boolean {
+  const hay = [
+    ep?.podcasts?.category,
+    ep?.podcasts?.title,
+    ep?.podcasts?.display_title,
+    ep?.title,
+    ep?.display_title,
+  ].filter(Boolean).join(" ").toLowerCase();
+  return NEWS_HINTS.some((h) => hay.includes(h));
+}
+function homepageScore(ep: any): number {
+  const label = ep?.podcasts?.rank_label;
+  const tier =
+    label === "S" ? 100 :
+    label === "A" ? 70 :
+    label === "B" ? 40 :
+    label === "C" ? 20 :
+    (label === "D" || label === "E") ? 5 : 10;
+
+  const featured = !!ep?.podcasts?.featured;
+  const fb = featured ? 60 : 0;
+  const fr = Number(ep?.podcasts?.featured_rank);
+  const featuredRankBonus = featured && Number.isFinite(fr)
+    ? Math.max(0, 20 - Math.min(20, fr)) : 0;
+
+  const pvr = Math.min(Math.max(Number(ep?.podcasts?.podiverzum_rank) || 0, 0), 10);
+  const pr = Math.min(Math.max(Number(ep?.podcasts?.pod_rank) || 0, 0), 10);
+  const rankBoost = pvr * 2 + Math.max(0, 10 - pr) * 2;
+
+  let fresh = 0;
+  const t = ep?.published_at ? new Date(ep.published_at).getTime() : NaN;
+  if (Number.isFinite(t)) {
+    const ageH = (Date.now() - t) / 3600_000;
+    if (ageH < 24) fresh = 35;
+    else if (ageH < 72) fresh = 25;
+    else if (ageH < 24 * 7) fresh = 15;
+    else if (ageH < 24 * 14) fresh = 8;
+  }
+
+  const penalty = isNewsLikeEpisode(ep) ? 25 : 0;
+  return tier + fb + featuredRankBonus + rankBoost + fresh - penalty;
+}
+function compareByHomepageScore(a: any, b: any): number {
+  const sb = homepageScore(b), sa = homepageScore(a);
+  if (sb !== sa) return sb - sa;
+  const at = a.published_at ? new Date(a.published_at).getTime() : 0;
+  const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
+  return bt - at;
+}
 import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
@@ -129,8 +185,8 @@ const Index = () => {
 
   useEffect(() => {
     setSeo({
-      title: "Podiverzum — A magyar podcast kereső",
-      description: "Keress a magyar podcastok epizódjaiban téma, név, cég vagy ötlet alapján.",
+      title: "Podiverzum.hu — Find it. Hear it.",
+      description: "Magyar podcast kereső és felfedező. Keress epizódokat téma, személy, szervezet, műsor vagy gondolat alapján.",
       hreflang: [
         { lang: "hu", href: "https://podiverzum.hu/" },
         { lang: "x-default", href: "https://podiverzum.hu/" },
@@ -225,18 +281,24 @@ const Index = () => {
         // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
         const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
         const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
-        // Diversify: max 2 episodes per podcast in the trending strip so one show
-        // can't dominate. Spillover is appended after if we run short of 8 items.
-        const sorted = trendingPool.slice().sort(compareByScore);
+        // Editorial homepage scoring: tier/featured/rank dominate, freshness softer,
+        // news-like episodes soft-penalized (-25). Hard caps: 2 ep/podcast, max 2
+        // news in top 8. Backfill from overflow (incl. news) so rail isn't empty.
+        const sorted = trendingPool.slice().sort(compareByHomepageScore);
         const PER_PODCAST_CAP = 2;
+        const NEWS_TOP_CAP = 2;
         const counts = new Map<string, number>();
         const primary: FeedEpisode[] = [];
         const overflow: FeedEpisode[] = [];
+        let newsCount = 0;
         for (const e of sorted) {
           const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
           const n = counts.get(key) || 0;
-          if (n < PER_PODCAST_CAP) { primary.push(e); counts.set(key, n + 1); }
-          else overflow.push(e);
+          const news = isNewsLikeEpisode(e);
+          if (n >= PER_PODCAST_CAP) { overflow.push(e); continue; }
+          if (news && newsCount >= NEWS_TOP_CAP && primary.length < 8) { overflow.push(e); continue; }
+          primary.push(e); counts.set(key, n + 1);
+          if (news) newsCount += 1;
         }
         setTrendingEps([...primary, ...overflow].slice(0, 8));
         setAllEps(eps);
@@ -274,7 +336,7 @@ const Index = () => {
       (grouped[cat] ||= []).push(e);
     });
     Object.keys(grouped).forEach((k) => {
-      const sorted = grouped[k].sort(compareByScore);
+      const sorted = grouped[k].sort(compareByHomepageScore);
       // Same per-podcast cap as trending: max 2 per show within a category strip.
       const counts = new Map<string, number>();
       const primary: EpisodeLite[] = [];
@@ -285,7 +347,14 @@ const Index = () => {
         if (n < 2) { primary.push(e); counts.set(key, n + 1); }
         else overflow.push(e);
       }
-      grouped[k] = [...primary, ...overflow].slice(0, 6);
+      let ordered = [...primary, ...overflow];
+      // Mild news downweight: only if news >50% of the rail, demote news below non-news.
+      const newsItems = ordered.filter((e) => isNewsLikeEpisode(e));
+      if (ordered.length > 0 && newsItems.length * 2 > ordered.length) {
+        const nonNews = ordered.filter((e) => !isNewsLikeEpisode(e));
+        ordered = [...nonNews, ...newsItems];
+      }
+      grouped[k] = ordered.slice(0, 6);
     });
     return grouped;
   }, [allEps]);
