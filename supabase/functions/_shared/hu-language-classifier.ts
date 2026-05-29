@@ -390,6 +390,28 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     }
   }
 
+  // --- SECOND-PASS DRAIN ---
+  // strongHuSignal triggered by huMatches>=3 alone produces false positives on
+  // Spanish/French/Catalan/Turkish texts that happen to contain a few words also
+  // in the HU dictionary ("minden", "most", "soha", …). If we don't have a real
+  // HU publisher signal (huDomain), a dense HU accent ratio, or many HU words,
+  // and the foreign signal is dominant, reject.
+  if (decision === "review_uncertain") {
+    const looksLikeAccidentalHu =
+      !huDomain &&
+      huMatches.count < 8 &&
+      huAccentRatioVal < 0.04 &&
+      hu < 45;
+    const isNonHuRss = !!rssLang && rssLang !== "hu" && rssLang.length === 2;
+    if (looksLikeAccidentalHu && (foreign >= 50 || (isNonHuRss && foreign >= 35))) {
+      decision = "reject_foreign";
+      rejectReason = `auto_exclude_accidental_hu_${finalDetected || rssLang || "foreign"}`;
+      if ((!finalDetected || finalDetected === "unknown") && rssLang) finalDetected = rssLang;
+      path.push(`auto_exclude:accidental_hu+foreign=${foreign}`);
+    }
+  }
+
+
   return {
     language_decision: decision,
     hungarian_score: hu,
