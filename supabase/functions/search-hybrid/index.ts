@@ -1163,7 +1163,66 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Name-query tail cutoff (2026-05-29):
+    // For clearly name-shaped queries (e.g. "Schmied Andi"), once we've found
+    // at least one result whose `people` array contains the full name, drop
+    // any tail item that does NOT contain any of the query tokens as a WHOLE
+    // WORD (accent-folded). This kills phonetic / stemmer noise like
+    // "Szilvási András", "Anda Richárd", "Andrási László" leaking in for
+    // "Schmied Andi". Conservative: never trims below 3 results, only fires
+    // when query looks like a name AND a strict person-hit exists.
+    try {
+      const fold = (s: string) =>
+        String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+      const qFolded = fold(q);
+      const qTokens = qFolded.split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t));
+      const looksLikeName =
+        qTokens.length >= 2 && qTokens.length <= 4 &&
+        qTokens.every((t) => /^[a-z]+$/.test(t)) &&
+        // require at least one capitalized token in the ORIGINAL query
+        /\b[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]+\b/.test(q);
+      if (looksLikeName && qTokens.length) {
+        const personHasFullName = (e: any): boolean => {
+          const arr: string[] = Array.isArray(e.people) ? e.people : [];
+          return arr.some((p) => {
+            const pf = fold(p);
+            return qTokens.every((t) => new RegExp(`(?:^|[^a-z0-9])${t}(?:$|[^a-z0-9])`).test(pf));
+          });
+        };
+        const blobOf = (e: any) => fold([
+          e.title || "",
+          Array.isArray(e.people) ? e.people.join(" ") : "",
+          Array.isArray(e.companies) ? e.companies.join(" ") : "",
+          Array.isArray(e.topics) ? e.topics.join(" ") : "",
+          e.ai_summary || "",
+          e.summary || "",
+          String(e.description || "").slice(0, 1500),
+        ].join(" \u00a7 "));
+        const tokenWholeWordHit = (blob: string) =>
+          qTokens.some((t) => new RegExp(`(?:^|[^a-z0-9])${t}(?:$|[^a-z0-9])`).test(blob));
+        const strictPersonHits = ordered.filter(personHasFullName);
+        if (strictPersonHits.length >= 1) {
+          const kept = ordered.filter((e: any) => {
+            if (personHasFullName(e)) return true;
+            return tokenWholeWordHit(blobOf(e));
+          });
+          // Prefer 0 noise over filler — if all matches were strict, that's
+          // a better UX than padding with irrelevant phonetic look-alikes.
+          // Only backfill if we ended up with literally 0 results (defensive).
+          if (kept.length === 0) {
+            ordered = ordered.slice(0, 3);
+          } else {
+            ordered = kept;
+          }
+        }
+
+      }
+    } catch (e) {
+      console.warn("name_tail_cutoff_failed", e);
+    }
+
     // MMR diversity
+
     const diversify = (list: any[]): any[] => {
       if (list.length <= 5) return list;
       const caps: Array<{ until: number; max: number }> = [
