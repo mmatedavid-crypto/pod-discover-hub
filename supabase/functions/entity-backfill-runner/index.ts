@@ -153,8 +153,8 @@ Deno.serve(async (req) => {
             job_type: "entity_backfill", reason: skipReason, model,
             target_type: "episode", target_id: ep.id,
           });
-          // Mark as v3 so we don't keep retrying garbage descriptions.
-          await admin.from("episodes").update({ ai_entities_version: 3 }).eq("id", ep.id);
+          // Mark as v4 so we don't keep retrying garbage descriptions.
+          await admin.from("episodes").update({ ai_entities_version: 4 }).eq("id", ep.id);
           succeeded++;
           return;
         }
