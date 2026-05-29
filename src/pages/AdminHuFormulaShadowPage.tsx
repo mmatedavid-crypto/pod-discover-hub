@@ -198,12 +198,27 @@ export default function AdminHuFormulaShadowPage() {
 
       {runMsg && <Card className="p-3 text-sm">{runMsg}</Card>}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+      {chartFreshness.length > 0 && (
+        <Card className={`p-3 text-sm ${anyChartStale ? "border-amber-500/60 bg-amber-500/5" : ""}`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium">Chart freshness:</span>
+            {chartFreshness.map((c: any) => (
+              <Badge key={c.source} variant="outline" className={c.stale ? "bg-amber-500/15 text-amber-700 border-amber-500/40" : ""}>
+                {c.source}: {c.latest ? new Date(c.latest).toISOString().slice(0,10) : "—"} ({c.days_old}d, {c.rows} rows){c.stale ? " · STALE" : ""}
+              </Badge>
+            ))}
+            {anyChartStale && <span className="text-amber-700">⚠ at least one chart source is &gt;7d old — market_popularity may under-represent currently popular shows.</span>}
+          </div>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
         <Card className="p-3"><div className="text-muted-foreground">Scored</div><div className="text-xl font-semibold">{enriched.length}</div></Card>
         <Card className="p-3"><div className="text-muted-foreground">Upgrades</div><div className="text-xl font-semibold">{upgrades.length}</div></Card>
         <Card className="p-3"><div className="text-muted-foreground">Downgrades</div><div className="text-xl font-semibold">{downgrades.length}</div></Card>
-        <Card className="p-3"><div className="text-muted-foreground">Lang mismatch</div><div className="text-xl font-semibold">{mismatch.length}</div></Card>
-        <Card className="p-3"><div className="text-muted-foreground">News-like</div><div className="text-xl font-semibold">{newsLike.length}</div></Card>
+        <Card className="p-3"><div className="text-muted-foreground">HU meta mismatch</div><div className="text-xl font-semibold">{huMismatch.length}</div></Card>
+        <Card className="p-3"><div className="text-muted-foreground">Foreign FP</div><div className="text-xl font-semibold">{foreignFP.length}</div></Card>
+        <Card className="p-3"><div className="text-muted-foreground">News / Bulletin</div><div className="text-xl font-semibold">{newsLike.length} / {bulletinLike.length}</div></Card>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -211,14 +226,18 @@ export default function AdminHuFormulaShadowPage() {
           <TabsTrigger value="upgrades">Top upgrades</TabsTrigger>
           <TabsTrigger value="downgrades">Top downgrades</TabsTrigger>
           <TabsTrigger value="undervalued">Popular but low rank</TabsTrigger>
-          <TabsTrigger value="mismatch">Lang metadata mismatch</TabsTrigger>
-          <TabsTrigger value="news">News / bulletin-like</TabsTrigger>
+          <TabsTrigger value="hu_mismatch">HU metadata mismatch</TabsTrigger>
+          <TabsTrigger value="foreign_fp">Foreign false-positive</TabsTrigger>
+          <TabsTrigger value="news">News-like</TabsTrigger>
+          <TabsTrigger value="bulletin">Bulletin-like</TabsTrigger>
         </TabsList>
         <TabsContent value="upgrades"><Table data={upgrades} /></TabsContent>
         <TabsContent value="downgrades"><Table data={downgrades} /></TabsContent>
         <TabsContent value="undervalued"><Table data={undervalued} /></TabsContent>
-        <TabsContent value="mismatch"><Table data={mismatch} /></TabsContent>
+        <TabsContent value="hu_mismatch"><Table data={huMismatch} /></TabsContent>
+        <TabsContent value="foreign_fp"><Table data={foreignFP} /></TabsContent>
         <TabsContent value="news"><Table data={newsLike} /></TabsContent>
+        <TabsContent value="bulletin"><Table data={bulletinLike} /></TabsContent>
       </Tabs>
     </main>
   );
