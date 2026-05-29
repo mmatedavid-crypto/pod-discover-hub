@@ -27,7 +27,44 @@ type RunnerCfg = {
   pending_kind: string;
   wake_threshold?: number;
   stall_runs?: number;
+  activity_kind?: string;        // optional: detects equilibrium (work IS being done, but new items arrive at same rate)
+  activity_window_min?: number;  // default 20 min
 };
+
+// Recent "rows transitioned out of pending" detector — used to distinguish equilibrium from true stall.
+async function recentActivity(admin: any, kind: string, windowMin: number): Promise<number | null> {
+  try {
+    const since = new Date(Date.now() - windowMin * 60_000).toISOString();
+    switch (kind) {
+      case "person_bio_activity": {
+        const { count } = await admin.from("people").select("*", { count: "exact", head: true })
+          .gte("ai_bio_generated_at", since);
+        return count ?? 0;
+      }
+      case "person_wiki_activity": {
+        const { count } = await admin.from("people").select("*", { count: "exact", head: true })
+          .gte("wikipedia_checked_at", since);
+        return count ?? 0;
+      }
+      case "org_wiki_activity": {
+        const { count } = await admin.from("organizations").select("*", { count: "exact", head: true })
+          .gte("wikipedia_checked_at", since);
+        return count ?? 0;
+      }
+      case "person_mentions_activity": {
+        const { count } = await admin.from("person_episode_mentions").select("*", { count: "exact", head: true })
+          .gte("relevance_judged_at", since);
+        return count ?? 0;
+      }
+      default:
+        return null;
+    }
+  } catch (e) {
+    console.warn("recentActivity failed", kind, e);
+    return null;
+  }
+}
+
 
 async function countPending(admin: any, kind: string): Promise<number | null> {
   try {
