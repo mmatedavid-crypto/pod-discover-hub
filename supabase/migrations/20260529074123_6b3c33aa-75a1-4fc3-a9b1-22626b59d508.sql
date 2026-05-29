@@ -1,0 +1,1 @@
+UPDATE public.people SET ai_bio_status='pending', ai_bio=NULL WHERE ai_bio_status='audited_fail';
