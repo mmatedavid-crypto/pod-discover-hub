@@ -21,7 +21,7 @@ import {
   Users,
 } from "lucide-react";
 
-const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
+
 
 type Counts = {
   podcasts?: number;
@@ -47,7 +47,6 @@ export default function AdminHubPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [fallback, setFallback] = useState(false);
   const [counts, setCounts] = useState<Counts>({});
 
   useEffect(() => {
@@ -57,9 +56,7 @@ export default function AdminHubPage() {
       if (!uid) { nav("/auth"); return; }
       setUserId(uid);
       const { data: hasAdmin } = await (supabase as any).rpc("has_role", { _user_id: uid, _role: "admin" });
-      const fb = hasAdmin !== true && uid === TEMP_ADMIN_USER_ID;
-      const admin = hasAdmin === true || fb;
-      setFallback(fb);
+      const admin = hasAdmin === true;
       setIsAdmin(admin);
       setReady(true);
       if (admin) loadCounts();
@@ -153,7 +150,6 @@ export default function AdminHubPage() {
         { to: "/admin/pipeline-watchdog", title: "Pipeline Watchdog", desc: "Autonóm budget / error / liveness őr Telegram alerttel és auto-pause-zal.", icon: Activity, badge: "new", badgeTone: "warn" },
         { to: "/admin/pi-backfill", title: "PI Backfill", desc: "Podcast Index bulk backfill controls.", icon: Globe },
         { to: "/admin/archive-backfill", title: "HU Archive Backfill", desc: "Deep HU archive ingestion: RSS exhaustion + PI sweep, budget-aware.", icon: Database, badge: "new", badgeTone: "warn" },
-        { to: "/admin-bootstrap", title: "Admin Bootstrap", desc: "Temporary admin grant utility.", icon: Settings },
       ],
     },
   ];
@@ -179,11 +175,6 @@ export default function AdminHubPage() {
           </button>
         </header>
 
-        {fallback && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            Temporary admin fallback active.
-          </div>
-        )}
 
         <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           <Stat label="Podcasts" value={counts.podcasts} />
