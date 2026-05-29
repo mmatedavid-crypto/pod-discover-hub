@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
 
         await admin.from("episodes").update({
           people, mentioned, companies, organizations, tickers, topics,
-          ai_entities_version: 3,
+          ai_entities_version: 4,
         }).eq("id", ep.id);
 
         succeeded++;
