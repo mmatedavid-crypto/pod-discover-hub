@@ -30,6 +30,23 @@ type Row = {
   why_label: string | null;
 };
 
+type EpisodeFallbackRow = {
+  id: string;
+  podcast_id: string;
+  title: string;
+  display_title: string | null;
+  slug: string;
+  image_url: string | null;
+  audio_url: string | null;
+  published_at: string | null;
+  podcasts?: {
+    slug: string;
+    title: string;
+    display_title: string | null;
+    image_url: string | null;
+  } | null;
+};
+
 type Props = {
   episodeIdOverride?: string;
   variant?: "panel" | "compact";
@@ -55,13 +72,40 @@ const RAILS: Array<{
   },
 ];
 
+function fallbackToRows(rows: EpisodeFallbackRow[]): Row[] {
+  return rows.map((r) => ({
+    match_kind: "vector_neighbor",
+    episode_id: r.id,
+    podcast_id: r.podcast_id,
+    title: r.title,
+    display_title: r.display_title,
+    slug: r.slug,
+    image_url: r.image_url,
+    audio_url: r.audio_url,
+    podcast_slug: r.podcasts?.slug || "",
+    podcast_title: r.podcasts?.title || "",
+    podcast_display_title: r.podcasts?.display_title || null,
+    podcast_image_url: r.podcasts?.image_url || null,
+    published_at: r.published_at,
+    similarity: null,
+    best_chunk_idx: null,
+    best_char_start: null,
+    snippet: null,
+    seek_seconds: null,
+    shared_persons: null,
+    shared_orgs: null,
+    shared_topics: null,
+    why_label: "Friss, minőségi ajánlás más műsorból",
+  }));
+}
+
 
 export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Props = {}) {
   const { currentEpisode, play, setExpanded } = useSmartPlayer();
   const episodeId = episodeIdOverride ?? currentEpisode?.id;
   const isCompact = variant === "compact";
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["smart-discovery", episodeId],
     enabled: !!episodeId,
     staleTime: 1000 * 60 * 60,
@@ -71,8 +115,28 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
         "smart_player_discover" as any,
         { p_episode_id: episodeId!, p_limit: 6 },
       );
-      if (rpcErr) throw rpcErr;
-      return (rpcData as Row[]) || [];
+      if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) return rpcData as Row[];
+
+      const { data: cur } = await supabase
+        .from("episodes")
+        .select("podcast_id")
+        .eq("id", episodeId!)
+        .maybeSingle();
+      const sourcePodcastId = (cur as any)?.podcast_id || null;
+
+      let q = supabase
+        .from("episodes")
+        .select("id,podcast_id,title,display_title,slug,image_url,audio_url,published_at,podcasts!inner(slug,title,display_title,image_url,is_hungarian,rss_status,rank_label)")
+        .not("audio_url", "is", null)
+        .eq("podcasts.is_hungarian", true)
+        .not("podcasts.rss_status", "in", "(failed,inactive)")
+        .in("podcasts.rank_label", ["S", "A", "B", "C"])
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(12);
+      if (sourcePodcastId) q = q.neq("podcast_id", sourcePodcastId);
+
+      const { data: fallbackData } = await q;
+      return fallbackToRows(((fallbackData || []) as unknown as EpisodeFallbackRow[]).slice(0, 6));
     },
   });
 
@@ -126,12 +190,6 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
             <span>{totalPodcasts} kapcsolódó műsor megtalálva</span>
           )}
 
-        </div>
-      )}
-
-      {error && (
-        <div className="text-xs text-amber-500 mb-3">
-          Most nem tudtuk lekérni az ajánlásokat.
         </div>
       )}
 

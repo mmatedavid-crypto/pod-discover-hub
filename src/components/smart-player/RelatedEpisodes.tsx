@@ -50,7 +50,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
   const podcastId = podcastIdOverride ?? currentEpisode?.podcastId ?? null;
   const isCompact = variant === "compact";
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["smart-player-related", episodeId],
     enabled: !!episodeId,
     staleTime: 1000 * 60 * 60,
@@ -65,21 +65,21 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       // Fallback when no episode embedding: shared topics / people / category / same podcast
       const { data: cur } = await supabase
         .from("episodes")
-        .select("id,podcast_id,topics,persons,podcasts!inner(category)")
+        .select("id,podcast_id,topics,people,podcasts!inner(category)")
         .eq("id", episodeId!)
         .maybeSingle();
 
       const topics: string[] = (cur as any)?.topics || [];
-      const persons: string[] = (cur as any)?.persons || [];
+      const people: string[] = (cur as any)?.people || [];
       const category: string | null = (cur as any)?.podcasts?.category || null;
       const curPodcastId: string | null = (cur as any)?.podcast_id || podcastId;
 
       const sel =
-        "id,podcast_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,podcasts!inner(slug,title,display_title,image_url,category,rss_status)";
+        "id,podcast_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,podcasts!inner(slug,title,display_title,image_url,category,rss_status,is_hungarian,rank_label)";
 
       const probes: any[] = [];
       if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
-      if (persons.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("persons", persons.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
+      if (people.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("people", people.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
       if (category) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.category", category).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
       // Intentionally NO same-podcast probe: Smart Player surfaces cross-podcast discovery only.
 
@@ -90,6 +90,24 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         if (row.podcasts?.rss_status === "failed" || row.podcasts?.rss_status === "inactive") return;
         if (!candidates.has(row.id)) candidates.set(row.id, row);
       }));
+
+      if (candidates.size === 0) {
+        let q = supabase
+          .from("episodes")
+          .select(sel)
+          .neq("id", episodeId!)
+          .not("audio_url", "is", null)
+          .eq("podcasts.is_hungarian", true)
+          .not("podcasts.rss_status", "in", "(failed,inactive)")
+          .in("podcasts.rank_label", ["S", "A", "B", "C"])
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(12);
+        if (curPodcastId) q = q.neq("podcast_id", curPodcastId);
+        const { data: recent } = await q;
+        (recent || []).forEach((row: any) => {
+          if (row.audio_url && !candidates.has(row.id)) candidates.set(row.id, row);
+        });
+      }
 
       return Array.from(candidates.values()).slice(0, 12).map((r) => ({
         episode_id: r.id,
@@ -137,12 +155,9 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       {isLoading && (
         <div className="text-xs text-muted-foreground">Keresés a vektor-indexben…</div>
       )}
-      {error && !isCompact && (
-        <div className="text-xs text-amber-500">Most nem tudtuk lekérni az ajánlásokat.</div>
-      )}
-      {!isLoading && !error && !isCompact && items.length === 0 && (
+      {!isLoading && !isCompact && items.length === 0 && (
         <div className="text-xs text-muted-foreground">
-          Még nincs elég adat ehhez az epizódhoz a hasonlóság-számoláshoz.
+          Ehhez az epizódhoz még kevés a kapcsolódó adat, ezért most friss műsorokat emelünk előre.
         </div>
       )}
 

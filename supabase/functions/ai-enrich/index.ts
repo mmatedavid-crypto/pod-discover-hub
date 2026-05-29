@@ -1,6 +1,7 @@
 // AI summary + entity extraction with daily cap & enable flag from app_settings.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
+import { heuristicClean } from "../_shared/episode-text-cleaner.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,6 +39,40 @@ async function loadEpisodeCleanText(supabase: any, episodeId: string): Promise<s
   const text = String(data?.cleaned_text || "").trim();
   if (!text) return null;
   return text;
+}
+
+function dirtySignals(text: string): string[] {
+  const signals: string[] = [];
+  if (/https?:\/\/|www\./i.test(text)) signals.push("url");
+  if (/@[A-Za-z0-9_.-]+/.test(text)) signals.push("social_handle");
+  if (/\b(instagram|facebook|youtube|tiktok|spotify|patreon|discord|kövess|iratkozz|feliratkoz)\b/i.test(text)) {
+    signals.push("platform_or_cta");
+  }
+  if (/\b(undefined|null|\[object Object\])\b/i.test(text)) signals.push("placeholder");
+  return signals;
+}
+
+function isUsableCleanText(raw: string, clean: string | null): boolean {
+  if (!clean) return false;
+  const rawLen = raw.trim().length;
+  const cleanLen = clean.trim().length;
+  if (cleanLen < 40) return false;
+  if (rawLen >= 500 && cleanLen < 80) return false;
+  if (rawLen >= 500 && cleanLen < rawLen * 0.12) return false;
+  if (dirtySignals(clean).length > 0 && dirtySignals(raw).length > 0 && cleanLen > rawLen * 0.9) return false;
+  return true;
+}
+
+function chooseEpisodeSource(rawDescription: string, cleanText: string | null): { text: string; label: string } {
+  const raw = String(rawDescription || "").trim();
+  if (isUsableCleanText(raw, cleanText)) {
+    return { text: cleanText!.trim(), label: "Cleaned RSS description" };
+  }
+  const heuristic = heuristicClean(raw).text.trim();
+  if (isUsableCleanText(raw, heuristic)) {
+    return { text: heuristic, label: "Fresh deterministic clean RSS description" };
+  }
+  return { text: raw, label: "RSS description" };
 }
 
 Deno.serve(async (req) => {
@@ -85,8 +120,9 @@ Deno.serve(async (req) => {
       const { data: ep } = await supabase.from("episodes").select("*, podcasts(title,language)").eq("id", id).single();
       if (!ep) throw new Error("episode not found");
       const cleanText = await loadEpisodeCleanText(supabase, id);
-      const sourceText = cleanText || String(ep.description || "").trim();
-      const sourceLabel = cleanText ? "Cleaned RSS description" : "RSS description";
+      const source = chooseEpisodeSource(String(ep.description || ""), cleanText);
+      const sourceText = source.text;
+      const sourceLabel = source.label;
       const langRaw = ((ep as any).podcasts?.language) || "en";
       const langCode = String(langRaw).toLowerCase().split(/[-_]/)[0] || "en";
       const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
