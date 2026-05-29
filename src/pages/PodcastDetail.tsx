@@ -259,26 +259,13 @@ export default function PodcastDetail() {
         </div>
 
         {(() => {
-          // Inject podcast.hosts onto each episode-lite so excludeHosts can filter them out
           const epsLite = (eps as any[]).map((e) => ({ ...e, podcasts: { hosts: p.hosts || [] } }));
-          const people = topEntitiesFrom(epsLite, "people", "person", 8, { excludeHosts: true, blocklist: ["Csukás István"] });
-          const companies = topEntitiesFrom(epsLite, "companies", "company", 8);
-          const topics = topEntitiesFrom(epsLite, "topics", "topic", 8);
-          const all = [
-            people.length ? { eyebrow: "Személyek", title: "Az adásokban említett személyek", items: people, icon: "person" as const } : null,
-            companies.length ? { eyebrow: "Szervezetek", title: "Visszatérő szervezetek és márkák", items: companies, icon: "company" as const } : null,
-            topics.length ? { eyebrow: "Témák", title: "Visszatérő témák", items: topics, icon: "topic" as const } : null,
-          ].filter(Boolean) as Array<{ eyebrow: string; title: string; items: any[]; icon: "person" | "company" | "topic" }>;
-
-          if (!all.length) return null;
-          return (
-            <div className="mt-10 grid gap-6">
-              {all.map((s) => (
-                <TrendingEntities key={s.eyebrow} eyebrow={s.eyebrow} title={s.title} items={s.items} icon={s.icon} />
-              ))}
-            </div>
-          );
+          const people = topEntitiesFrom(epsLite, "people", "person", 24, { excludeHosts: true, blocklist: ["Csukás István"] });
+          const companies = topEntitiesFrom(epsLite, "companies", "company", 24);
+          const topics = topEntitiesFrom(epsLite, "topics", "topic", 24);
+          return <PodcastEntitiesCompact people={people} companies={companies} topics={topics} />;
         })()}
+
 
         <h2 className="text-xl font-semibold mt-10 mb-4">Epizódok</h2>
         {eps.length === 0 ? (
