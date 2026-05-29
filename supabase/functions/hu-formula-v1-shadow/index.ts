@@ -219,6 +219,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 1b) Chart freshness — surface staleness but DO NOT change formula aggressively.
+    const { data: freshRows } = await supabase.rpc("hu_chart_freshness");
+    const chartFreshness: Array<{ source: string; latest: string | null; days_old: number; rows: number; stale: boolean }> = [];
+    let anyChartStale = false;
+    for (const r of freshRows || []) {
+      const stale = !!(r as any).stale;
+      if (stale) anyChartStale = true;
+      chartFreshness.push({
+        source: (r as any).source,
+        latest: (r as any).latest_snapshot,
+        days_old: Number((r as any).days_old) || 0,
+        rows: Number((r as any).rows_in_latest) || 0,
+        stale,
+      });
+    }
+
     // 2) Resolve targets.
     let targets: any[] = [];
     if (ids && ids.length > 0) {
