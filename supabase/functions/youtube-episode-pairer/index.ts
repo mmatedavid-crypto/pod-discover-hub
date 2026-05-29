@@ -12,6 +12,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { titleSim } from "../_shared/title-similarity.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +22,6 @@ const json = (b: any, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 const YT_KEY = Deno.env.get("YOUTUBE_API_KEY");
-const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 async function getUploadsPlaylistId(channelId: string): Promise<string | null> {
   const url = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${YT_KEY}`;
@@ -51,23 +51,24 @@ async function listPlaylist(playlistId: string, max: number): Promise<any[]> {
 }
 
 async function aiValidatePair(model: string, epTitle: string, ytTitle: string, ytDesc: string): Promise<boolean> {
-  if (!LOVABLE_KEY) return false;
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [
+  const inputText = JSON.stringify({ podcast_episode_title: epTitle, youtube_title: ytTitle, youtube_description_excerpt: (ytDesc || "").slice(0, 300) });
+  const ai = await callLovableAI({
+    model,
+    job_type: "youtube_episode_pairer",
+    target_type: "episode",
+    prompt_version: "youtube-episode-pair-v2",
+    input_text: inputText,
+    min_input_chars: 40,
+    messages: [
         { role: "system", content: "Decide if the YouTube video is the same Hungarian podcast episode. Reply JSON only: {\"match\": true|false}. Strict: false if unsure." },
-        { role: "user", content: JSON.stringify({ podcast_episode_title: epTitle, youtube_title: ytTitle, youtube_description_excerpt: (ytDesc || "").slice(0, 300) }) },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0,
-    }),
+        { role: "user", content: inputText },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0,
   });
-  if (!r.ok) return false;
+  if (!ai.ok) return false;
   try {
-    const j = await r.json();
+    const j = ai.data;
     const p = JSON.parse(j.choices?.[0]?.message?.content || "{}");
     return p.match === true;
   } catch { return false; }

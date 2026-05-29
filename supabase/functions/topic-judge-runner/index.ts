@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -47,15 +48,22 @@ SZIGORÚ szabályok:
 - Soha ne találj ki tényt.`;
 
 async function callAI(model: string, messages: any[]) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, tools: [JUDGE_TOOL], tool_choice: { type: "function", function: { name: "judge_topic_relevance" } } }),
+  const inputText = messages.map((m) => String(m?.content || "")).join("\n");
+  const ai = await callLovableAI({
+    model,
+    job_type: "topic_judge",
+    target_type: "episode_topic_review",
+    prompt_version: "topic-judge-v2",
+    input_text: inputText,
+    min_input_chars: 120,
+    messages,
+    tools: [JUDGE_TOOL],
+    tool_choice: { type: "function", function: { name: "judge_topic_relevance" } },
   });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) throw new Error(`ai_${res.status}`);
-  return res.json();
+  if (ai.status === 429) throw new Error("rate_limited");
+  if (ai.status === 402) throw new Error("budget_exhausted_provider");
+  if (!ai.ok) throw new Error(ai.error || `ai_${ai.status}`);
+  return ai.data;
 }
 
 Deno.serve(async (req) => {
