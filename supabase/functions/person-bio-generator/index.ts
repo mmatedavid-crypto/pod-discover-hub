@@ -308,11 +308,12 @@ SZABÁLYOK:
     let auditCost = 0;
     let bioStatus = "completed";
     let auditResult: any = null;
-
     if (epList.length === 0 && !useWiki) {
       bio = safeFallbackBio(p.name);
       overview = `A ${p.name} kapcsán jelenleg nincs elegendő indexelt magyar podcast epizód.`;
-      bioStatus = "needs_review";
+      bioStatus = "insufficient_evidence";
+      auditResult = { skipped: "insufficient_evidence" };
+
       auditResult = { skipped: "insufficient_evidence" };
     } else {
       const [b, o] = await Promise.all([
