@@ -53,24 +53,32 @@ Deno.serve(async (req) => {
     assertModelAllowed(model);
 
     // Sample N random v3 HU eps with clean_text done AND existing organizations.
-    const { data: eps, error } = await admin
+    // Use the RPC-friendly two-step fetch to avoid nested-embed errors.
+    const { data: epRows, error } = await admin
       .from("episodes")
-      .select("id, title, display_title, organizations, podcast_id, podcasts!inner(title, display_title, language, hosts, is_hungarian), episode_clean_text!inner(cleaned_text)")
+      .select("id, title, display_title, organizations, podcast_id, podcasts!inner(title, display_title, hosts, is_hungarian)")
       .eq("podcasts.is_hungarian", true)
       .eq("ai_entities_version", 3)
       .eq("clean_text_status", "done")
       .not("organizations", "is", null)
-      .limit(limit * 3);
-    if (error) throw error;
+      .limit(limit * 4);
+    if (error) throw new Error(`episodes select: ${error.message}`);
+    const candidates = (epRows || []).filter((e: any) => Array.isArray(e.organizations) && e.organizations.length > 0);
+    if (candidates.length === 0) return json({ ok: true, processed: 0, note: "no candidates" });
 
-    // Random shuffle, take first N with non-empty cleaned_text and non-empty old orgs.
-    const pool = (eps || []).filter((e: any) => {
-      const c = e.episode_clean_text?.[0]?.cleaned_text || "";
-      const oldOrgs = Array.isArray(e.organizations) ? e.organizations : [];
-      return c.length > 80 && oldOrgs.length > 0;
-    });
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+    // Fetch clean_text for those ids
+    const ids = candidates.map((e: any) => e.id);
+    const { data: cts, error: ctErr } = await admin
+      .from("episode_clean_text")
+      .select("episode_id, cleaned_text")
+      .in("episode_id", ids);
+    if (ctErr) throw new Error(`clean_text select: ${ctErr.message}`);
+    const ctMap = new Map<string, string>();
+    for (const r of (cts || [])) ctMap.set((r as any).episode_id, (r as any).cleaned_text || "");
+
+    const pool = candidates
+      .map((e: any) => ({ ...e, cleaned_text: ctMap.get(e.id) || "" }))
+      .filter((e: any) => e.cleaned_text.length > 80);
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     const sample = pool.slice(0, limit);
