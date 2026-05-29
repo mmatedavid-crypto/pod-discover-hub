@@ -275,3 +275,91 @@ export default function PodcastDetail() {
     </Layout>
   );
 }
+
+function EpisodeListWithSearch({ eps, podcastSlug }: { eps: any[]; podcastSlug: string }) {
+  const [q, setQ] = useState("");
+  const norm = (s: string) =>
+    (s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  const needle = norm(q.trim());
+  const filtered = useMemo(() => {
+    if (!needle) return eps;
+    return eps.filter((e) => {
+      const hay = norm(
+        `${e.display_title || ""} ${e.title || ""} ${stripHtml(e.summary || "")} ${stripHtml(e.description || "")}`
+      );
+      return hay.includes(needle);
+    });
+  }, [eps, needle]);
+
+  return (
+    <>
+      <div className="mt-10 mb-4 flex items-end justify-between gap-3 flex-wrap">
+        <h2 className="text-xl font-semibold">Epizódok</h2>
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Keresés ebben a podcastben…"
+            className="w-full pl-8 pr-8 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ("")}
+              aria-label="Törlés"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+      {eps.length === 0 ? (
+        <div className="text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-muted-foreground text-sm border border-dashed border-border rounded-lg p-6 text-center">
+          Nincs találat a(z) „{q}" keresésre ebben a podcastben.
+        </div>
+      ) : (
+        <>
+          {needle && (
+            <div className="text-xs text-muted-foreground mb-2">{filtered.length} találat {eps.length} epizódból</div>
+          )}
+          <ul className="divide-y divide-border border border-border rounded-lg bg-card">
+            {filtered.map((e) => {
+              const fr = freshnessOf(e.published_at);
+              return (
+                <li key={e.id} className="p-4 hover:bg-secondary/50">
+                  <Link to={`/podcast/${podcastSlug}/${e.slug}`} className="block">
+                    <div className="font-medium flex items-center gap-2 flex-wrap">
+                      {e.display_title || e.title}
+                      {fr === "new" && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-2 items-center">
+                      {e.published_at && <span title={new Date(e.published_at).toLocaleString()}>{relativeTime(e.published_at)}</span>}
+                    </div>
+                    {(e.summary || e.description) && (
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{snippet(e.summary || e.description, 200)}</p>
+                    )}
+                  </Link>
+                  {e.audio_url && (
+                    <a href={e.audio_url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground inline-block mt-2">↗ Hallgatás</a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </>
+  );
+}
