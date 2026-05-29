@@ -295,12 +295,21 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     let written = 0, errors = 0;
     const tierCounts: Record<string, number> = { S: 0, A: 0, B: 0, C: 0, D: 0, E: 0 };
-    let newsCount = 0, bulletinCount = 0, mismatchCount = 0;
+    const flagCounts: Record<string, number> = {
+      confirmed_hungarian: 0,
+      hu_metadata_mismatch: 0,
+      accepted_foreign_false_positive: 0,
+      needs_language_review: 0,
+      likely_foreign: 0,
+      confirmed_foreign: 0,
+      unknown: 0,
+    };
+    let newsCount = 0, bulletinCount = 0;
 
     for (const p of targets) {
       const mp = mpMap.get(p.id) || { rrf: 0, srcCount: 0, sources: [] };
       const act = actMap.get(p.id) || { eps90: 0, eps180: 0, last: null };
-      const newsLike = detectNewsLike(p);
+      const newsLike = detectNewsLike(p, act.eps90);
 
       const market = scoreMarket(mp.rrf, mp.srcCount);
       const feed = scoreFeedHealth(p, act.last);
@@ -316,15 +325,18 @@ Deno.serve(async (req) => {
       if (newsLike.bulletin_like) bulletinCount++;
 
       const langFlag = languageGateFlag(p);
-      if (langFlag === "accepted_hungarian_metadata_mismatch") mismatchCount++;
+      if (langFlag in flagCounts) flagCounts[langFlag]++;
 
       const hu_v1 = {
         formula: "HU_v1",
+        formula_version: "1.1",
         computed_at: new Date().toISOString(),
         market_popularity_score: +market.score.toFixed(3),
         market_rrf: +mp.rrf.toFixed(5),
         market_source_count: mp.srcCount,
         market_sources: mp.sources,
+        chart_stale: anyChartStale,
+        chart_freshness: chartFreshness,
         feed_health_score: +feed.toFixed(3),
         activity_score: +activity.toFixed(3),
         eps_90d: act.eps90,
