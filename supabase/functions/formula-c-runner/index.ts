@@ -49,6 +49,16 @@ async function loadThresholds(supabase: any): Promise<{ S: number; A: number; B:
   return DEFAULT_THRESHOLDS;
 }
 
+async function isApplyToLiveEnabled(supabase: any): Promise<boolean> {
+  try {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", "formula_c_apply_to_live_rank").maybeSingle();
+    const v = data?.value as any;
+    return !!(v && v.enabled === true);
+  } catch (_) {
+    return false;
+  }
+}
+
 function classifyAction(p: any, computedTier: string) {
   const cur = p.rank_label;
   const isLegacy = cur && !VALID_TIERS.has(cur);
@@ -88,6 +98,7 @@ Deno.serve(async (req) => {
     }
 
     const thresholds = await loadThresholds(supabase);
+    const applyToLive = await isApplyToLiveEnabled(supabase);
 
     // Resolve target ids
     let targetIds: string[] = [];
@@ -213,19 +224,25 @@ Deno.serve(async (req) => {
       }
 
       const nowIso = new Date().toISOString();
-      const { error: updErr } = await supabase.from("podcasts").update({
+      // Phase A kill-switch: when formula_c_apply_to_live_rank.enabled !== true,
+      // we MUST NOT write live rank_label or podiverzum_rank. Shadow fields only.
+      const updatePayload: Record<string, unknown> = {
         shadow_rank: score,
         shadow_rank_tier: tier,
         shadow_rank_components: newComp,
         shadow_computed_at: nowIso,
-        rank_label: tier,
-        rank_updated_at: nowIso,
-        rank_reason: {
+      };
+      if (applyToLive) {
+        updatePayload.rank_label = tier;
+        updatePayload.rank_updated_at = nowIso;
+        updatePayload.rank_reason = {
           formula: "C_v3", source: "formula-c-runner-v1", from: "podiverzum_rank",
           podiverzum_rank: score, base_tier: baseTier,
           freshness_demotion: gate.demoted ? gate.reason || "demoted" : null,
-        },
-      }).eq("id", p.id);
+        };
+      }
+      // NOTE: podiverzum_rank is never written by this runner (input, not output).
+      const { error: updErr } = await supabase.from("podcasts").update(updatePayload).eq("id", p.id);
 
       if (updErr) {
         errors++;
@@ -255,6 +272,7 @@ Deno.serve(async (req) => {
       ts: new Date().toISOString(),
       mode, considered: rows?.length || 0, updated, skipped, errors, demoted,
       no_change: diffOnly ? noChange : undefined,
+      apply_to_live_rank: applyToLive,
       duration_ms, ...remaining,
     };
 
