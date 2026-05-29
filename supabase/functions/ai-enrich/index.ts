@@ -1,6 +1,6 @@
 // AI summary + entity extraction with daily cap & enable flag from app_settings.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { callLovableAI } from "../_shared/lovable-ai.ts";
+import { callLovableAI, recordAiCall } from "../_shared/lovable-ai.ts";
 import { heuristicClean } from "../_shared/episode-text-cleaner.ts";
 
 const corsHeaders = {
@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
+const PROMPT_VERSION = "ai-enrich-v2";
 
 async function loadControls(supabase: any) {
   const { data } = await supabase.from("app_settings").select("value").eq("key", "ai_controls").maybeSingle();
@@ -28,6 +29,41 @@ async function summariesToday(supabase: any) {
     .from("episodes").select("*", { count: "exact", head: true })
     .not("summary", "is", null).gte("updated_at", start.toISOString());
   return count || 0;
+}
+
+async function sha256Hex(s: string): Promise<string> {
+  const enc = new TextEncoder().encode(s);
+  const buf = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function hasSuccessfulAiRun(supabase: any, jobType: string, targetType: string, targetId: string, sourceHash: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("ai_call_audit")
+    .select("id")
+    .eq("job_type", jobType)
+    .eq("target_type", targetType)
+    .eq("target_id", targetId)
+    .eq("source_hash", sourceHash)
+    .eq("status", "ok")
+    .limit(1)
+    .maybeSingle();
+  return !!data?.id;
+}
+
+async function recordDuplicateSkip(jobType: string, targetType: string, targetId: string, sourceHash: string, model: string) {
+  await recordAiCall({
+    job_type: jobType,
+    model_used: model,
+    status: "skipped",
+    estimated_cost_usd: 0,
+    prompt_version: PROMPT_VERSION,
+    source_hash: sourceHash,
+    target_type: targetType,
+    target_id: targetId,
+    key_source: "none",
+    meta: { skipped_reason: "unchanged_ai_input", guard: "source_hash_dedupe" },
+  });
 }
 
 async function loadEpisodeCleanText(supabase: any, episodeId: string): Promise<string | null> {
@@ -94,12 +130,18 @@ Deno.serve(async (req) => {
       const langCode = (p.language || "").toLowerCase().split(/[-_]/)[0] || "en";
       const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
       const inputText = `${p.title || ""}\n${p.description || ""}`;
+      const sourceHash = await sha256Hex(inputText.trim());
+      if (await hasSuccessfulAiRun(supabase, "ai_enrich_podcast_summary", "podcast", id, sourceHash)) {
+        await recordDuplicateSkip("ai_enrich_podcast_summary", "podcast", id, sourceHash, ctrl.model);
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "unchanged_ai_input" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const ai = await callLovableAI({
         model: ctrl.model,
         job_type: "ai_enrich_podcast_summary",
         target_type: "podcast",
         target_id: id,
-        prompt_version: "ai-enrich-v2",
+        prompt_version: PROMPT_VERSION,
+        source_hash: sourceHash,
         input_text: inputText,
         min_input_chars: ctrl.minInputChars,
         messages: [
@@ -147,12 +189,18 @@ Deno.serve(async (req) => {
         },
       }];
       const inputText = `${ep.title || ""}\n${sourceText}`;
+      const sourceHash = await sha256Hex(inputText.trim());
+      if (await hasSuccessfulAiRun(supabase, "ai_enrich_episode", "episode", id, sourceHash)) {
+        await recordDuplicateSkip("ai_enrich_episode", "episode", id, sourceHash, ctrl.model);
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "unchanged_ai_input" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const ai = await callLovableAI({
         model: ctrl.model,
         job_type: "ai_enrich_episode",
         target_type: "episode",
         target_id: id,
-        prompt_version: "ai-enrich-v2",
+        prompt_version: PROMPT_VERSION,
+        source_hash: sourceHash,
         input_text: inputText,
         min_input_chars: ctrl.minInputChars,
         messages: [
