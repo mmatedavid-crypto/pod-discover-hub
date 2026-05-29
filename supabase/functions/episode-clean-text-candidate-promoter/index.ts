@@ -29,6 +29,7 @@ type CleanRow = {
 async function isAdmin(admin: AdminClient, authHeader: string | null) {
   if (!authHeader) return false;
   const token = authHeader.replace(/^Bearer\s+/i, "");
+  if (token && token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) return true;
   const { data: u } = await admin.auth.getUser(token);
   if (!u?.user) return false;
   const { data: r } = await admin.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();

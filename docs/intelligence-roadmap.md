@@ -155,6 +155,16 @@ Never overwrite the full corpus blindly. Keep the currently served clean text li
    - Reject empty, overcleaned, URL-only, and placeholder candidates.
    - Promote only rows that pass the quality gate.
 
+Automation: `clean-text-autopilot` runs the same safe sequence in small batches from cron:
+
+- dry-run plan;
+- stage bad or old rows;
+- generate candidates;
+- promote only changed candidates with `quality_status='passed'`;
+- mark unchanged candidates without invalidating downstream AI work.
+
+The admin page is only an observability and emergency control surface. It is not the operating model for the full corpus.
+
 6. After promotion, invalidate and rebuild only the promoted episodes:
    - SEO and `ai_summary`;
    - entity extraction;
