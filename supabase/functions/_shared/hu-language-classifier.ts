@@ -351,6 +351,33 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     path.push("review:default_tie");
   }
 
+  // --- AUTO-EXCLUDE override ---
+  // review_uncertain MUST NOT be a manual-moderation dumping ground for obvious
+  // foreign podcasts. If RSS declares a non-HU 2-letter language AND foreign
+  // score is meaningful AND there is no REAL Hungarian evidence (stray accents
+  // or 1 incidental word don't count), auto-reject. Preserves HU metadata-
+  // mismatch cases (HEOL.hu language=af, Partizán language=en) because those
+  // carry strong HU evidence via huDomain or huMatches.
+  if (decision === "review_uncertain") {
+    const isNonHuRss = !!rssLang && rssLang !== "hu" && rssLang.length === 2;
+    const realHuEvidence =
+      huMatches.count >= 3 ||
+      huAccentRatioVal >= 0.02 ||
+      !!huDomain ||
+      hu >= 35;
+    if (isNonHuRss && foreign >= 45 && !realHuEvidence) {
+      decision = "reject_foreign";
+      rejectReason = `auto_exclude_foreign_rss_${rssLang}`;
+      finalDetected = finalDetected && finalDetected !== "unknown" ? finalDetected : rssLang;
+      path.push(`auto_exclude:rss=${rssLang}+foreign=${foreign}+no_real_hu`);
+    } else if (!rssLang && foreign >= 60 && !realHuEvidence) {
+      // No RSS language at all but very strong foreign signal + no HU evidence.
+      decision = "reject_foreign";
+      rejectReason = `auto_exclude_foreign_${finalDetected}`;
+      path.push(`auto_exclude:no_rss_lang+foreign=${foreign}`);
+    }
+  }
+
   return {
     language_decision: decision,
     hungarian_score: hu,
