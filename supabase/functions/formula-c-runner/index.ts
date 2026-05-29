@@ -224,19 +224,25 @@ Deno.serve(async (req) => {
       }
 
       const nowIso = new Date().toISOString();
-      const { error: updErr } = await supabase.from("podcasts").update({
+      // Phase A kill-switch: when formula_c_apply_to_live_rank.enabled !== true,
+      // we MUST NOT write live rank_label or podiverzum_rank. Shadow fields only.
+      const updatePayload: Record<string, unknown> = {
         shadow_rank: score,
         shadow_rank_tier: tier,
         shadow_rank_components: newComp,
         shadow_computed_at: nowIso,
-        rank_label: tier,
-        rank_updated_at: nowIso,
-        rank_reason: {
+      };
+      if (applyToLive) {
+        updatePayload.rank_label = tier;
+        updatePayload.rank_updated_at = nowIso;
+        updatePayload.rank_reason = {
           formula: "C_v3", source: "formula-c-runner-v1", from: "podiverzum_rank",
           podiverzum_rank: score, base_tier: baseTier,
           freshness_demotion: gate.demoted ? gate.reason || "demoted" : null,
-        },
-      }).eq("id", p.id);
+        };
+      }
+      // NOTE: podiverzum_rank is never written by this runner (input, not output).
+      const { error: updErr } = await supabase.from("podcasts").update(updatePayload).eq("id", p.id);
 
       if (updErr) {
         errors++;
