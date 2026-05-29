@@ -44,32 +44,73 @@ function tierFor(s: number): "S"|"A"|"B"|"C"|"D"|"E" {
   return "E";
 }
 
-const NEWS_RE = /\b(hírek|hírmondó|hírmagazin|hírpercek|hírháttér|hírlevél|krónika|infostart|napi hírek|reggeli|esti hírek|déli hírek|hírösszefoglaló|news|bulletin)\b/i;
-const BULLETIN_RE = /\b(percben|perc alatt|\d+\s*perc|5\s*perc|10\s*perc|infó|hírgyors|gyorshír)\b/i;
+// News-like = general news/public-affairs/radio content
+const NEWS_RE = /\b(hírek|hírmondó|hírmagazin|hírpercek|hírháttér|hírlevél|krónika|infostart|napi hírek|reggeli hírek|esti hírek|déli hírek|éjszakai hírek|hírösszefoglaló|news|bulletin)\b/i;
+
+// Bulletin-like = short frequent news bulletins specifically.
+// Must NOT match interview/long-form shows like "Aréna".
+// Triggers on explicit bulletin phrasing OR very high cadence newsfeeds.
+const BULLETIN_TITLE_RE = /\b(hírpercek|hírgyors|napi hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírek\s*\d|\d+\s*perc(es)?\s*hír|hírösszefoglaló|infostart\s+hírek|hírmondó\s+\d+\s*perc|news\s+bulletin|hourly\s+news)\b/i;
 
 function clamp(x: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, x)); }
 
+// Phase B QA: split flags into:
+//   confirmed_hungarian            — language_decision=accept_hungarian AND RSS language is hu
+//   hu_metadata_mismatch           — accept_hungarian BUT RSS lang not hu, strong HU signals (genuinely HU, bad metadata)
+//   accepted_foreign_false_positive— accept_hungarian BUT RSS lang not hu AND weak HU signals / foreign dominates
+//   needs_language_review          — language_decision=review_uncertain, or ambiguous unset
+//   likely_foreign                 — no decision but foreign signals dominate
+//   confirmed_foreign              — language_decision=reject_foreign
+//   unknown                        — no usable signal
 function languageGateFlag(p: any): string {
   const ld = p.language_decision;
-  const langIsHu = typeof p.language === "string" && /^hu/i.test(p.language);
-  if (ld === "accept_hungarian") {
-    return langIsHu ? "accepted_hungarian" : "accepted_hungarian_metadata_mismatch";
-  }
-  if (ld === "review_uncertain") return "needs_language_review";
-  if (ld === "reject_foreign") return "confirmed_foreign";
-  // No decision yet
+  const lang = typeof p.language === "string" ? p.language.toLowerCase() : "";
+  const langIsHu = /^hu/i.test(lang);
   const hu = Number(p.hungarian_score) || 0;
   const fo = Number(p.foreign_score) || 0;
-  if (hu > 0 && hu >= fo) return langIsHu ? "accepted_hungarian" : "needs_language_review";
+  const det = typeof p.detected_language === "string" ? p.detected_language.toLowerCase() : "";
+  const detIsHu = det === "hu" || det.startsWith("hu");
+
+  if (ld === "reject_foreign") return "confirmed_foreign";
+
+  if (ld === "accept_hungarian") {
+    if (langIsHu) return "confirmed_hungarian";
+    // Bad RSS language tag — decide if genuinely HU or false positive.
+    // Strong HU signals (non-AI, no language tag):
+    //   detected_language=hu, hungarian_score>=50, hu_score >> foreign_score,
+    //   title/display_title ends in .hu (e.g. "Heol.hu", "Index.hu"),
+    //   apple_url/website_url uses /hu/ HU storefront.
+    const titleStr = `${p.title || ""} ${p.display_title || ""}`;
+    const huDomainInTitle = /\.hu\b/i.test(titleStr);
+    const urls = `${p.apple_url || ""} ${p.spotify_url || ""} ${p.website_url || ""}`;
+    const huStorefront = /\/hu\//i.test(urls) || /\.hu\b/i.test(p.website_url || "");
+    const strongHu =
+      detIsHu ||
+      hu >= 50 ||
+      (hu > 0 && hu >= fo + 20) ||
+      huDomainInTitle ||
+      (huStorefront && fo === 0);
+    if (strongHu) return "hu_metadata_mismatch";
+    return "accepted_foreign_false_positive";
+  }
+
+  if (ld === "review_uncertain") return "needs_language_review";
+
+  // No decision yet — fall back to non-AI signals
+  if (detIsHu || (hu > 0 && hu >= fo + 10)) return langIsHu ? "confirmed_hungarian" : "hu_metadata_mismatch";
   if (fo > 0 && fo > hu) return "likely_foreign";
-  return langIsHu ? "accepted_hungarian" : "unknown";
+  if (langIsHu) return "confirmed_hungarian";
+  return "unknown";
 }
 
-function detectNewsLike(p: any): { news_like: boolean; bulletin_like: boolean } {
-  const hay = `${p.title || ""} ${p.display_title || ""} ${(p.summary || "").slice(0,300)}`;
+function detectNewsLike(p: any, eps90: number): { news_like: boolean; bulletin_like: boolean } {
+  const hay = `${p.title || ""} ${p.display_title || ""} ${(p.summary || "").slice(0, 300)}`;
   const news = NEWS_RE.test(hay);
-  const bulletin = news && BULLETIN_RE.test(hay);
-  return { news_like: news, bulletin_like: bulletin };
+  const explicitBulletin = BULLETIN_TITLE_RE.test(hay);
+  // Bulletin = explicit bulletin phrasing OR (news + very high cadence > 60 eps/90d)
+  // → catches "Hírek 8 órakor", InfoRádió hourly feeds; does NOT flag Aréna-style shows.
+  const bulletin = explicitBulletin || (news && eps90 > 60);
+  return { news_like: news || explicitBulletin, bulletin_like: bulletin };
 }
 
 function scoreFeedHealth(p: any, lastEpAt: number | null): number {
@@ -190,12 +231,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 1b) Chart freshness — surface staleness but DO NOT change formula aggressively.
+    const { data: freshRows } = await supabase.rpc("hu_chart_freshness");
+    const chartFreshness: Array<{ source: string; latest: string | null; days_old: number; rows: number; stale: boolean }> = [];
+    let anyChartStale = false;
+    for (const r of freshRows || []) {
+      const stale = !!(r as any).stale;
+      if (stale) anyChartStale = true;
+      chartFreshness.push({
+        source: (r as any).source,
+        latest: (r as any).latest_snapshot,
+        days_old: Number((r as any).days_old) || 0,
+        rows: Number((r as any).rows_in_latest) || 0,
+        stale,
+      });
+    }
+
     // 2) Resolve targets.
     let targets: any[] = [];
     if (ids && ids.length > 0) {
       const { data, error } = await supabase
         .from("podcasts")
-        .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
+        .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,detected_language,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
         .in("id", ids);
       if (error) throw error;
       targets = data || [];
@@ -206,7 +263,7 @@ Deno.serve(async (req) => {
       while (true) {
         const { data, error } = await supabase
           .from("podcasts")
-          .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
+          .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,detected_language,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
           .or("language.ilike.hu%,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain")
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -220,7 +277,7 @@ Deno.serve(async (req) => {
       const onlyUnscored: boolean = body.only_unscored !== false; // default true
       let q = supabase
         .from("podcasts")
-        .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
+        .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,detected_language,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
         .or("language.ilike.hu%,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain");
       if (onlyUnscored) {
         q = q.is("shadow_rank_components->hu_v1", null);
@@ -250,12 +307,21 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     let written = 0, errors = 0;
     const tierCounts: Record<string, number> = { S: 0, A: 0, B: 0, C: 0, D: 0, E: 0 };
-    let newsCount = 0, bulletinCount = 0, mismatchCount = 0;
+    const flagCounts: Record<string, number> = {
+      confirmed_hungarian: 0,
+      hu_metadata_mismatch: 0,
+      accepted_foreign_false_positive: 0,
+      needs_language_review: 0,
+      likely_foreign: 0,
+      confirmed_foreign: 0,
+      unknown: 0,
+    };
+    let newsCount = 0, bulletinCount = 0;
 
     for (const p of targets) {
       const mp = mpMap.get(p.id) || { rrf: 0, srcCount: 0, sources: [] };
       const act = actMap.get(p.id) || { eps90: 0, eps180: 0, last: null };
-      const newsLike = detectNewsLike(p);
+      const newsLike = detectNewsLike(p, act.eps90);
 
       const market = scoreMarket(mp.rrf, mp.srcCount);
       const feed = scoreFeedHealth(p, act.last);
@@ -271,15 +337,18 @@ Deno.serve(async (req) => {
       if (newsLike.bulletin_like) bulletinCount++;
 
       const langFlag = languageGateFlag(p);
-      if (langFlag === "accepted_hungarian_metadata_mismatch") mismatchCount++;
+      if (langFlag in flagCounts) flagCounts[langFlag]++;
 
       const hu_v1 = {
         formula: "HU_v1",
+        formula_version: "1.1",
         computed_at: new Date().toISOString(),
         market_popularity_score: +market.score.toFixed(3),
         market_rrf: +mp.rrf.toFixed(5),
         market_source_count: mp.srcCount,
         market_sources: mp.sources,
+        chart_stale: anyChartStale,
+        chart_freshness: chartFreshness,
         feed_health_score: +feed.toFixed(3),
         activity_score: +activity.toFixed(3),
         eps_90d: act.eps90,
@@ -320,10 +389,12 @@ Deno.serve(async (req) => {
       dry_run: dry,
       duration_ms: Date.now() - t0,
       tier_distribution: tierCounts,
+      language_flag_distribution: flagCounts,
       news_like: newsCount,
       bulletin_like: bulletinCount,
-      metadata_mismatch: mismatchCount,
       market_popularity_pool: mpMap.size,
+      chart_stale: anyChartStale,
+      chart_freshness: chartFreshness,
     };
 
     if (!dry) {

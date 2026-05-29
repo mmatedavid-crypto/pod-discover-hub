@@ -93,15 +93,39 @@ export default function AdminHuFormulaShadowPage() {
       news_like: !!hu.news_like,
       bulletin_like: !!hu.bulletin_like,
       lang_flag: hu.language_gate_flag,
-      sources: hu.market_sources || [],
+      sources: Array.isArray(hu.market_sources) ? hu.market_sources : [],
+      source_count: Number(hu.market_source_count) || 0,
+      chart_stale: !!hu.chart_stale,
+      chart_freshness: Array.isArray(hu.chart_freshness) ? hu.chart_freshness : [],
     };
   }), [rows]);
 
   const upgrades = useMemo(() => [...enriched].filter(r => r.delta > 0).sort((a,b) => b.delta - a.delta || b.hu_score - a.hu_score).slice(0, 100), [enriched]);
   const downgrades = useMemo(() => [...enriched].filter(r => r.delta < 0).sort((a,b) => a.delta - b.delta || a.hu_score - b.hu_score).slice(0, 100), [enriched]);
-  const mismatch = useMemo(() => enriched.filter(r => r.lang_flag === "accepted_hungarian_metadata_mismatch").sort((a,b) => b.hu_score - a.hu_score), [enriched]);
+  const huMismatch = useMemo(() => enriched.filter(r => r.lang_flag === "hu_metadata_mismatch").sort((a,b) => b.hu_score - a.hu_score), [enriched]);
+  const foreignFP = useMemo(() => enriched.filter(r => r.lang_flag === "accepted_foreign_false_positive").sort((a,b) => b.hu_score - a.hu_score), [enriched]);
   const newsLike = useMemo(() => enriched.filter(r => r.news_like).sort((a,b) => b.hu_score - a.hu_score), [enriched]);
+  const bulletinLike = useMemo(() => enriched.filter(r => r.bulletin_like).sort((a,b) => b.hu_score - a.hu_score), [enriched]);
   const undervalued = useMemo(() => enriched.filter(r => r.market_pop >= 1 && (TIER_ORDER[String(r.rank_label||"")] ?? 0) <= 3).sort((a,b) => b.market_pop - a.market_pop), [enriched]);
+
+  // Chart freshness from any scored row (same for all in a run).
+  const chartFreshness = useMemo(() => enriched.find(r => r.chart_freshness.length > 0)?.chart_freshness || [], [enriched]);
+  const anyChartStale = chartFreshness.some((c: any) => c.stale);
+
+  function flagBadge(flag: string | undefined) {
+    if (!flag) return null;
+    const map: Record<string,string> = {
+      confirmed_hungarian: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+      hu_metadata_mismatch: "bg-amber-500/15 text-amber-700 border-amber-500/30",
+      accepted_foreign_false_positive: "bg-rose-500/15 text-rose-700 border-rose-500/30",
+      needs_language_review: "bg-sky-500/15 text-sky-700 border-sky-500/30",
+      likely_foreign: "bg-rose-500/10 text-rose-700 border-rose-500/30",
+      confirmed_foreign: "bg-rose-500/20 text-rose-800 border-rose-500/40",
+      unknown: "bg-muted text-muted-foreground border-border",
+    };
+    if (flag === "confirmed_hungarian") return null;
+    return <Badge variant="outline" className={map[flag] || ""}>{flag}</Badge>;
+  }
 
   function Table({ data }: { data: typeof enriched }) {
     return (
@@ -115,6 +139,7 @@ export default function AdminHuFormulaShadowPage() {
               <th className="p-2">HU score</th>
               <th className="p-2">Δ</th>
               <th className="p-2">Market</th>
+              <th className="p-2">Charts</th>
               <th className="p-2">Feed</th>
               <th className="p-2">Act</th>
               <th className="p-2">Cont</th>
@@ -132,6 +157,11 @@ export default function AdminHuFormulaShadowPage() {
                 <td className="p-2 tabular-nums">{r.hu_score.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.delta > 0 ? `+${r.delta}` : r.delta}</td>
                 <td className="p-2 tabular-nums">{r.market_pop.toFixed(2)}</td>
+                <td className="p-2 text-xs whitespace-nowrap" title={JSON.stringify(r.sources)}>
+                  {r.source_count > 0
+                    ? r.sources.map((s: any) => `${s.source[0].toUpperCase()}#${s.rank}`).join(" ")
+                    : "—"}
+                </td>
                 <td className="p-2 tabular-nums">{r.feed_health.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.activity.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.content.toFixed(2)}</td>
@@ -139,9 +169,8 @@ export default function AdminHuFormulaShadowPage() {
                 <td className="p-2 tabular-nums">{r.curation.toFixed(2)}</td>
                 <td className="p-2 space-x-1">
                   {r.news_like && <Badge variant="outline">news</Badge>}
-                  {r.bulletin_like && <Badge variant="outline">bulletin</Badge>}
-                  {r.lang_flag === "accepted_hungarian_metadata_mismatch" && <Badge variant="outline">lang-mismatch</Badge>}
-                  {r.lang_flag === "needs_language_review" && <Badge variant="outline">lang-review</Badge>}
+                  {r.bulletin_like && <Badge variant="outline" className="bg-orange-500/15 text-orange-700 border-orange-500/30">bulletin</Badge>}
+                  {flagBadge(r.lang_flag)}
                 </td>
               </tr>
             ))}
@@ -169,12 +198,27 @@ export default function AdminHuFormulaShadowPage() {
 
       {runMsg && <Card className="p-3 text-sm">{runMsg}</Card>}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+      {chartFreshness.length > 0 && (
+        <Card className={`p-3 text-sm ${anyChartStale ? "border-amber-500/60 bg-amber-500/5" : ""}`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium">Chart freshness:</span>
+            {chartFreshness.map((c: any) => (
+              <Badge key={c.source} variant="outline" className={c.stale ? "bg-amber-500/15 text-amber-700 border-amber-500/40" : ""}>
+                {c.source}: {c.latest ? new Date(c.latest).toISOString().slice(0,10) : "—"} ({c.days_old}d, {c.rows} rows){c.stale ? " · STALE" : ""}
+              </Badge>
+            ))}
+            {anyChartStale && <span className="text-amber-700">⚠ at least one chart source is &gt;7d old — market_popularity may under-represent currently popular shows.</span>}
+          </div>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
         <Card className="p-3"><div className="text-muted-foreground">Scored</div><div className="text-xl font-semibold">{enriched.length}</div></Card>
         <Card className="p-3"><div className="text-muted-foreground">Upgrades</div><div className="text-xl font-semibold">{upgrades.length}</div></Card>
         <Card className="p-3"><div className="text-muted-foreground">Downgrades</div><div className="text-xl font-semibold">{downgrades.length}</div></Card>
-        <Card className="p-3"><div className="text-muted-foreground">Lang mismatch</div><div className="text-xl font-semibold">{mismatch.length}</div></Card>
-        <Card className="p-3"><div className="text-muted-foreground">News-like</div><div className="text-xl font-semibold">{newsLike.length}</div></Card>
+        <Card className="p-3"><div className="text-muted-foreground">HU meta mismatch</div><div className="text-xl font-semibold">{huMismatch.length}</div></Card>
+        <Card className="p-3"><div className="text-muted-foreground">Foreign FP</div><div className="text-xl font-semibold">{foreignFP.length}</div></Card>
+        <Card className="p-3"><div className="text-muted-foreground">News / Bulletin</div><div className="text-xl font-semibold">{newsLike.length} / {bulletinLike.length}</div></Card>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -182,14 +226,18 @@ export default function AdminHuFormulaShadowPage() {
           <TabsTrigger value="upgrades">Top upgrades</TabsTrigger>
           <TabsTrigger value="downgrades">Top downgrades</TabsTrigger>
           <TabsTrigger value="undervalued">Popular but low rank</TabsTrigger>
-          <TabsTrigger value="mismatch">Lang metadata mismatch</TabsTrigger>
-          <TabsTrigger value="news">News / bulletin-like</TabsTrigger>
+          <TabsTrigger value="hu_mismatch">HU metadata mismatch</TabsTrigger>
+          <TabsTrigger value="foreign_fp">Foreign false-positive</TabsTrigger>
+          <TabsTrigger value="news">News-like</TabsTrigger>
+          <TabsTrigger value="bulletin">Bulletin-like</TabsTrigger>
         </TabsList>
         <TabsContent value="upgrades"><Table data={upgrades} /></TabsContent>
         <TabsContent value="downgrades"><Table data={downgrades} /></TabsContent>
         <TabsContent value="undervalued"><Table data={undervalued} /></TabsContent>
-        <TabsContent value="mismatch"><Table data={mismatch} /></TabsContent>
+        <TabsContent value="hu_mismatch"><Table data={huMismatch} /></TabsContent>
+        <TabsContent value="foreign_fp"><Table data={foreignFP} /></TabsContent>
         <TabsContent value="news"><Table data={newsLike} /></TabsContent>
+        <TabsContent value="bulletin"><Table data={bulletinLike} /></TabsContent>
       </Tabs>
     </main>
   );
