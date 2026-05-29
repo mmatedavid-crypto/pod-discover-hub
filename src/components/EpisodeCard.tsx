@@ -12,6 +12,7 @@ import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 
 export type EpisodeLite = {
   id: string;
+  podcast_id?: string | null;
   title: string;
   display_title?: string | null;
   slug: string;

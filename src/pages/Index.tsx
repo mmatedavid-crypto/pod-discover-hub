@@ -105,6 +105,22 @@ function compareByHomepageScore(a: any, b: any): number {
   const bt = b.published_at ? new Date(b.published_at).getTime() : 0;
   return bt - at;
 }
+
+function podcastKey(ep: any): string {
+  return ep?.podcast_id || ep?.podcasts?.slug || ep?.podcasts?.title || "_";
+}
+
+function avoidAdjacentSamePodcast<T>(items: T[]): T[] {
+  const remaining = items.slice();
+  const out: T[] = [];
+  while (remaining.length > 0) {
+    const prevKey = out.length ? podcastKey(out[out.length - 1]) : null;
+    let idx = remaining.findIndex((item) => podcastKey(item) !== prevKey);
+    if (idx < 0) idx = 0;
+    out.push(remaining.splice(idx, 1)[0]);
+  }
+  return out;
+}
 import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
@@ -296,6 +312,7 @@ const Index = () => {
 
         const mapRow = (r: any): FeedEpisode => ({
           id: r.episode_id,
+          podcast_id: r.podcast_id,
           title: r.title,
           display_title: r.display_title,
           slug: r.slug,
@@ -348,7 +365,7 @@ const Index = () => {
           if (news) newsCount += 1;
           if (bulletin) bulletinCount += 1;
         }
-        setTrendingEps([...primary, ...overflow].slice(0, 8));
+        setTrendingEps(avoidAdjacentSamePodcast([...primary, ...overflow]).slice(0, 8));
         setAllEps(eps);
 
         // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast (max 1 per show).
@@ -361,7 +378,7 @@ const Index = () => {
           if (!seenPods.has(key)) { seenPods.add(key); evergreenDiverse.push(e); }
           else evergreenSpill.push(e);
         }
-        setEvergreenEps([...evergreenDiverse, ...evergreenSpill].slice(0, 6));
+        setEvergreenEps(avoidAdjacentSamePodcast([...evergreenDiverse, ...evergreenSpill]).slice(0, 6));
 
         // Trending entities source (last 14 days, EN-only, healthy podcasts)
         setTrendingEntityEps((entityRes.data || []) as any);
@@ -404,7 +421,7 @@ const Index = () => {
         const light = ordered.filter((e) => !heavy(e));
         ordered = [...light, ...heavyItems];
       }
-      grouped[k] = ordered.slice(0, 6);
+      grouped[k] = avoidAdjacentSamePodcast(ordered).slice(0, 6);
     });
     return grouped;
   }, [allEps]);
