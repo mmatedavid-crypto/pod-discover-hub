@@ -6,7 +6,8 @@
 //
 // Cached in `search_hyde_cache` for 7 days per normalized query.
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+import { callLovableAI } from "./lovable-ai.ts";
+
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const CB_FAIL_THRESHOLD = 3;
@@ -39,29 +40,34 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
 }
 
 async function generateHydeText(q: string): Promise<string | null> {
-  if (!LOVABLE_API_KEY || !cbAllow()) return null;
+  if (!cbAllow()) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 2300);
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const ai = await Promise.race([
+      callLovableAI({
         model: "google/gemini-2.5-flash-lite",
+        job_type: "search_hyde",
+        target_type: "search_query",
+        prompt_version: "search-hyde-v2",
+        input_text: q,
+        min_input_chars: 2,
         messages: [
           { role: "system", content: "Írj egyetlen 2 mondatos hipotetikus podcast-epizód leírást magyarul, amely tökéletesen megválaszolja a felhasználó keresését. Természetes, konkrét nyelvezet, ahogy egy igazi podcast leírás szólna. Nincs bevezető, idézőjel vagy markdown — csak a leírás." },
           { role: "user", content: q.slice(0, 200) },
         ],
         max_tokens: 200,
       }),
-    });
+      new Promise<null>((resolve) => {
+        ctrl.signal.addEventListener("abort", () => resolve(null), { once: true });
+      }),
+    ]);
     clearTimeout(t);
-    if (!r.ok) {
-      if (r.status >= 500 || r.status === 429) cbRecordFail();
+    if (!ai || !ai.ok) {
+      if ((ai?.status || 0) >= 500 || ai?.status === 429) cbRecordFail();
       return null;
     }
-    const j = await r.json();
+    const j = ai.data;
     const txt = j?.choices?.[0]?.message?.content;
     if (typeof txt !== "string" || txt.length < 20) return null;
     return txt.trim().slice(0, 600);

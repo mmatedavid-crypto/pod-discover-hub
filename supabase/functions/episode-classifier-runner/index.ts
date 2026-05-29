@@ -13,6 +13,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -103,18 +104,22 @@ async function embed(text: string): Promise<number[] | null> {
 }
 
 async function callAI(model: string, messages: any[]) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, tools: [CLASSIFIER_TOOL], tool_choice: { type: "function", function: { name: "classify_episode" } } }),
+  const inputText = messages.map((m) => String(m?.content || "")).join("\n");
+  const ai = await callLovableAI({
+    model,
+    job_type: "episode_classifier",
+    target_type: "episode",
+    prompt_version: "episode-classifier-v2",
+    input_text: inputText,
+    min_input_chars: 160,
+    messages,
+    tools: [CLASSIFIER_TOOL],
+    tool_choice: { type: "function", function: { name: "classify_episode" } },
   });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status === 402) throw new Error("budget_exhausted_provider");
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`ai_${res.status}:${text.slice(0, 200)}`);
-  }
-  return res.json();
+  if (ai.status === 429) throw new Error("rate_limited");
+  if (ai.status === 402) throw new Error("budget_exhausted_provider");
+  if (!ai.ok) throw new Error(ai.error || `ai_${ai.status}`);
+  return ai.data;
 }
 
 Deno.serve(async (req) => {

@@ -1,6 +1,7 @@
 // Episode description cleaner: deterministic heuristics + optional AI fallback.
 // Output is hash-cached in episode_clean_text. Never throws on AI failure; falls back to heuristic.
 import { chatTokenCostUsd } from "./ai-pricing.ts";
+import { callLovableAI } from "./lovable-ai.ts";
 
 export type CleanerCtrl = {
   enabled?: boolean;
@@ -242,24 +243,23 @@ type AiUsage = {
 };
 
 async function callAICleaner(model: string, text: string): Promise<{ cleaned_text: string; removed_categories: string[]; usage?: AiUsage } | null> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) return null;
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: CLEANER_SYSTEM },
-          { role: "user", content: text.slice(0, 14000) },
-        ],
-        tools: [AI_TOOL],
-        tool_choice: { type: "function", function: { name: "clean_episode_description" } },
-      }),
+    const ai = await callLovableAI({
+      model,
+      job_type: "episode_text_cleaner",
+      target_type: "episode",
+      prompt_version: "episode-cleaner-v2",
+      input_text: text,
+      min_input_chars: 250,
+      messages: [
+        { role: "system", content: CLEANER_SYSTEM },
+        { role: "user", content: text.slice(0, 14000) },
+      ],
+      tools: [AI_TOOL],
+      tool_choice: { type: "function", function: { name: "clean_episode_description" } },
     });
-    if (!res.ok) return null;
-    const j = await res.json();
+    if (!ai.ok) return null;
+    const j = ai.data;
     const call = j.choices?.[0]?.message?.tool_calls?.[0];
     if (!call) return null;
     const args = JSON.parse(call.function?.arguments || "{}");
@@ -267,7 +267,11 @@ async function callAICleaner(model: string, text: string): Promise<{ cleaned_tex
     return {
       cleaned_text: args.cleaned_text,
       removed_categories: Array.isArray(args.removed_categories) ? args.removed_categories : [],
-      usage: j.usage,
+      usage: {
+        prompt_tokens: ai.input_tokens || j.usage?.prompt_tokens || 0,
+        completion_tokens: ai.output_tokens || j.usage?.completion_tokens || 0,
+        completion_tokens_details: j.usage?.completion_tokens_details || {},
+      },
     };
   } catch {
     return null;
