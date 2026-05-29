@@ -79,8 +79,6 @@ Deno.serve(async (req) => {
     const pool = candidates
       .map((e: any) => ({ ...e, cleaned_text: ctMap.get(e.id) || "" }))
       .filter((e: any) => e.cleaned_text.length > 80);
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
     const sample = pool.slice(0, limit);
 
     let totalOld = 0, totalNew = 0, totalAdded = 0, totalRemoved = 0, totalKept = 0;
@@ -92,12 +90,13 @@ Deno.serve(async (req) => {
 
     const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
-    // Run with concurrency 10
     let cursor = 0;
     const workers = Array.from({ length: 10 }, async () => {
       while (true) {
         const idx = cursor++;
         if (idx >= sample.length) return;
+        const ep = sample[idx];
+        const desc = String(ep.cleaned_text || "").replace(/\s+/g, " ").trim().slice(0, 2500);
         const ep = sample[idx];
         const cleaned = ep.episode_clean_text?.[0]?.cleaned_text || "";
         const desc = cleaned.replace(/\s+/g, " ").trim().slice(0, 2500);
