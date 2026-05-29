@@ -258,16 +258,16 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
       ? `Wikipedia leírás: ${p.wikipedia_description || ""}\nWikipedia kivonat: ${(p.wikipedia_extract || "").slice(0, 800)}`
       : "Nincs ellenőrzött Wikipedia-forrás.";
 
-    const bioSys = `Magyar nyelvű, neutrális, tényszerű életrajzot írsz egy podcast-katalógushoz.
+    const bioSys = `Magyar nyelvű, neutrális, tényszerű rövid bio-t írsz egy podcast-katalógushoz.
 SZABÁLYOK:
 - KIZÁRÓLAG magyarul.
-- 2-4 rövid mondat. Tömör.
-- Csak akkor írj életrajzi tényt, ha Wikipedia/Wikidata forrásból igazolt.
-- Ha nincs ellenőrzött forrás, használd ezt a biztonságos sablont SZÓ SZERINT: "${safeFallbackBio(p.name)}"
-- SOHA ne találj ki tényeket. Ne találgass nemzetiséget, foglalkozást, születési évet.
-- Ne nevezd a személyt "műsorvezetőnek", csak ha a podcast adatok kifejezetten host szerepet jeleznek.
-- Ne mondj olyat, hogy "vendégként szerepel" hacsak az nem egyértelmű.
-- Ne használj reklámszerű, hype kifejezéseket.
+- 2-3 rövid mondat. Tömör. Max ~280 karakter.
+- ÉLETRAJZI tényt (foglalkozás, nemzetiség, születési év, intézményi pozíció, politikai hovatartozás) CSAK akkor írj, ha a megadott Wikipedia-forrás KIFEJEZETTEN tartalmazza.
+- Ha NINCS Wikipedia-forrás, írj OBSZERVÁCIÓS bio-t a Podiverzum-kontextusból: mely magyar podcastokban / milyen szerepben (host/vendég/téma) tűnik fel. Példa stílus: "X magyar podcast-szereplő; az indexelt epizódokban főként vendégként/műsorvezetőként szerepel N műsorban." Ezt SOHA NE egészítsd ki kitalált életrajzi adattal.
+- Ha Wikipedia VAN, kezdj egy egymondatos életrajzi sorral (a forrásból), majd add hozzá 1 mondatban a podcast-kontextust.
+- TILOS: "valószínűleg", "úgy tudni", reklámszerű hype, politikai értékelés, becsült életkor/évszám forrás nélkül.
+- SOHA ne nevezd a személyt "műsorvezetőnek", ha a tally.host=0.
+- Ne add vissza a "magyar podcast epizódokban előforduló személy" sablont SZÓ SZERINT — írd meg a saját mondatot a fenti szabályok szerint.
 - Csak a bio szövegét add vissza, semmi mást.`;
 
     const bioUser = `Személy neve: ${p.name}
@@ -282,6 +282,7 @@ Podiverzum kontextus:
 - Megjelenések típusa: host=${tally.host}, guest=${tally.guest}, subject=${tally.subject}, mentioned=${tally.mentioned}
 
 Írd meg a bio-t a fenti szabályok szerint.`;
+
 
     const overviewSys = `Magyar nyelvű, neutrális összefoglalót írsz arról, MIT tárgyalnak a podcast epizódok ${p.name} kapcsán.
 SZABÁLYOK:
