@@ -6656,6 +6656,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      hu_chart_freshness: {
+        Args: never
+        Returns: {
+          days_old: number
+          latest_snapshot: string
+          rows_in_latest: number
+          source: string
+          stale: boolean
+        }[]
+      }
       hu_market_popularity: {
         Args: never
         Returns: {
