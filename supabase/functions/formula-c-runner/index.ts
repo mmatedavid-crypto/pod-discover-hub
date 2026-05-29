@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
     }
 
     const thresholds = await loadThresholds(supabase);
+    const applyToLive = await isApplyToLiveEnabled(supabase);
 
     // Resolve target ids
     let targetIds: string[] = [];
