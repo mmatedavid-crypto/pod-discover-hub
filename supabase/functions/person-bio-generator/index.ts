@@ -275,12 +275,31 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
     const epTitlesShort = epList.slice(0, 6).map((e: any) => `• ${e.title}`).join("\n") || "—";
     const podcastTitlesShort = (ppm || []).slice(0, 5).map((r: any) => `• ${r.podcasts?.title}`).filter(Boolean).join("\n") || "—";
 
+    // Episode-description evidence: leírásokban gyakran szerepel a vendég foglalkozása
+    // ("X Y közgazdász", "tájépítész", "az ELTE oktatója") — ezt megbízható forrásként kezeljük,
+    // ha legalább egy leírás explicit említi a személy nevét egy szerep/foglalkozás közelében.
+    const nameForMatch = String(p.name || "").toLocaleLowerCase("hu-HU");
+    const lastTok = nameForMatch.split(/\s+/).slice(-1)[0] || "";
+    const firstTok = nameForMatch.split(/\s+/)[0] || "";
+    const epEvidenceBlob = epList
+      .map((e: any) => String(e.summary || ""))
+      .filter((s: string) => {
+        const lower = s.toLocaleLowerCase("hu-HU");
+        return lower.includes(nameForMatch)
+          || (lastTok.length >= 4 && lower.includes(lastTok))
+          || (firstTok.length >= 4 && lower.includes(firstTok));
+      })
+      .slice(0, 5)
+      .map((s: string, i: number) => `[${i + 1}] ${s.slice(0, 320)}`)
+      .join("\n") || "—";
+
     const bioSys = `Magyar nyelvű, neutrális, tényszerű rövid bio-t írsz egy podcast-katalógushoz.
 SZABÁLYOK:
 - KIZÁRÓLAG magyarul. 2-3 rövid mondat, max ~280 karakter.
-- ÉLETRAJZI tényt (foglalkozás, nemzetiség, születési év, intézményi pozíció, politikai hovatartozás) CSAK akkor írj, ha a megadott Wikipedia-forrás KIFEJEZETTEN tartalmazza.
+- ÉLETRAJZI tényt (foglalkozás, nemzetiség, születési év, intézményi pozíció, politikai hovatartozás) HASZNÁLHATSZ, ha (a) a megadott Wikipedia-forrás explicit tartalmazza, VAGY (b) legalább egy podcast-epizód leírása explicit megnevezi a személy nevét és foglalkozását/szerepét egyazon mondatban (pl. "X Y közgazdász", "Z W tájépítész", "az ELTE oktatója"). Csak azt írd, ami szóról szóra alátámasztható.
 - Ha Wikipedia VAN (verified vagy egyértelműen ráillő jelölt), kezdj egy egymondatos életrajzi sorral a forrásból, majd 1 mondat podcast-kontextus.
-- Ha NINCS használható Wikipedia, írj OBSZERVÁCIÓS bio-t a Podiverzum-kontextusból: mely konkrét magyar podcastokban / milyen szerepben tűnik fel. Használd a tényleges podcast-címeket. Példa: "Schmied Andi a Partizán és a 444 epizódjaiban vendégként tűnik fel; főként közéleti/politikai témákban szólal meg." Ezt SOHA NE egészítsd ki kitalált életrajzi adattal.
+- Ha NINCS használható Wikipedia, de az epizód-leírások adnak foglalkozást/szerepet, kezdj azzal ("X Y közgazdász, …"). Egyébként írj OBSZERVÁCIÓS bio-t a tényleges podcast-címek alapján. Példa: "Schmied Andi a Partizán és a 444 epizódjaiban vendégként tűnik fel; főként közéleti/politikai témákban szólal meg."
+- SOHA ne találj ki életrajzi adatot. Ha a leírás bizonytalan ("talán", "valószínűleg"), hagyd ki.
 - TILOS: "valószínűleg", "úgy tudni", reklámszerű hype, politikai értékelés, becsült életkor/évszám forrás nélkül.
 - SOHA ne nevezd "műsorvezetőnek" ha a tally.host=0.
 - ABSZOLÚT TILOS visszaadni az alábbi sablont (sem szó szerint, sem parafrázálva): "X magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók." — Ha nincs jobb anyagod, akkor is konkrét podcast-címet vagy szerepet kell említened.
@@ -299,7 +318,11 @@ ${podcastTitlesShort}
 - Példa epizódcímek:
 ${epTitlesShort}
 
+Epizód-leírás részletek, amelyek megemlítik ${p.name} nevét (ezekből foglalkozás/szerep idézhető, ha explicit szerepel):
+${epEvidenceBlob}
+
 Írd meg a bio-t a fenti szabályok szerint.`;
+
 
 
     const overviewSys = `Magyar nyelvű, neutrális összefoglalót írsz arról, MIT tárgyalnak a podcast epizódok ${p.name} kapcsán.
