@@ -555,13 +555,14 @@ Deno.serve(async (req) => {
       .eq("is_public", true)
       .in("activation_status", ["indexable","manual_approved","public_noindex"])
       .or("is_indexable.eq.true,episode_count.gte.3,strong_mention_count.gte.2")
+      .order("ai_bio_generated_at", { ascending: true, nullsFirst: true })
       .order("episode_count", { ascending: false })
       .order("strong_mention_count", { ascending: false })
       .order("podcast_count", { ascending: false })
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
       .limit(limit * 3);
     const filtered = (data || []).filter((r: any) =>
-      (force || !["completed","audited_fail"].includes(r.ai_bio_status || "")) &&
+      (force || !["completed","audited_fail","insufficient_evidence","needs_review","error"].includes(r.ai_bio_status || "")) &&
       !["hide","reject","merge"].includes(r.ai_recommended_action || "") &&
       !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
     ).slice(0, limit);
