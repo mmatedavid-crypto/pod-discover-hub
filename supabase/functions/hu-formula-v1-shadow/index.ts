@@ -76,8 +76,20 @@ function languageGateFlag(p: any): string {
   if (ld === "accept_hungarian") {
     if (langIsHu) return "confirmed_hungarian";
     // Bad RSS language tag — decide if genuinely HU or false positive.
-    // Strong HU signals: detected_language=hu OR hungarian_score>=50 OR hu_score >> foreign_score
-    const strongHu = detIsHu || hu >= 50 || (hu > 0 && hu >= fo + 20);
+    // Strong HU signals (non-AI, no language tag):
+    //   detected_language=hu, hungarian_score>=50, hu_score >> foreign_score,
+    //   title/display_title ends in .hu (e.g. "Heol.hu", "Index.hu"),
+    //   apple_url/website_url uses /hu/ HU storefront.
+    const titleStr = `${p.title || ""} ${p.display_title || ""}`;
+    const huDomainInTitle = /\.hu\b/i.test(titleStr);
+    const urls = `${p.apple_url || ""} ${p.spotify_url || ""} ${p.website_url || ""}`;
+    const huStorefront = /\/hu\//i.test(urls) || /\.hu\b/i.test(p.website_url || "");
+    const strongHu =
+      detIsHu ||
+      hu >= 50 ||
+      (hu > 0 && hu >= fo + 20) ||
+      huDomainInTitle ||
+      (huStorefront && fo === 0);
     if (strongHu) return "hu_metadata_mismatch";
     return "accepted_foreign_false_positive";
   }
