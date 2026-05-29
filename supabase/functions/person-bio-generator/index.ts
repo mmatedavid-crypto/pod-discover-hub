@@ -597,12 +597,23 @@ Deno.serve(async (req) => {
     ids = filtered.map((r: any) => r.id);
   }
 
+  // Concurrency 6: a Lovable AI gateway elbírja, és ~6× gyorsít a sorosan futóhoz képest.
+  const CONCURRENCY = Math.max(1, Math.min(8, Number(controls.concurrency || 6)));
   const results: any[] = [];
-  for (const id of ids) {
-    const r = await processPerson(admin, id, { force });
-    results.push(r);
-    await new Promise(res => setTimeout(res, 100));
+  let cursor = 0;
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= ids.length) return;
+      try {
+        const r = await processPerson(admin, ids[i], { force });
+        results.push(r);
+      } catch (e: any) {
+        results.push({ id: ids[i], error: String(e?.message || e) });
+      }
+    }
   }
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
   return new Response(JSON.stringify({ processed: results.length, results }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
