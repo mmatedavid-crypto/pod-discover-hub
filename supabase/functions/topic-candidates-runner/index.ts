@@ -7,6 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { callLovableEmbedding } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,20 +16,21 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 const TIME_BUDGET_MS = 50_000;
 
 async function embed(text: string): Promise<number[] | null> {
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-embedding-001", input: text, dimensions: 768 }),
+    const res = await callLovableEmbedding({
+      model: "google/gemini-embedding-001",
+      input: text,
+      dimensions: 768,
+      job_type: "topic_candidates_embedding",
+      target_type: "topic_anchor",
+      prompt_version: "topic-candidates-embedding-v2",
+      min_input_chars: 20,
     });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return j?.data?.[0]?.embedding ?? null;
+    return res.embedding;
   } catch { return null; }
 }
 

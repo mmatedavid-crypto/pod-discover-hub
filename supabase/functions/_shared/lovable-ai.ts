@@ -8,9 +8,10 @@
 //
 // All callers should go through callLovableAI() so audit + blocklist apply.
 
-import { chatTokenCostUsd, normalizeAiModel, geminiOutputTokens, geminiInputTokens } from "./ai-pricing.ts";
+import { chatTokenCostUsd, embeddingTokenCostUsd, normalizeAiModel, geminiOutputTokens, geminiInputTokens } from "./ai-pricing.ts";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const EMBEDDINGS_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -157,6 +158,28 @@ export interface CallResult {
   error?: string;
 }
 
+export interface EmbeddingCallOpts {
+  model: string;
+  input: string;
+  dimensions?: number;
+  job_type: string;
+  target_type?: string;
+  target_id?: string;
+  source_hash?: string;
+  prompt_version?: string;
+  min_input_chars?: number;
+}
+
+export interface EmbeddingCallResult {
+  ok: boolean;
+  status: number;
+  embedding: number[] | null;
+  model_used: string;
+  input_tokens?: number;
+  cost_usd?: number;
+  error?: string;
+}
+
 async function rawCall(model: string, body: Record<string, unknown>) {
   const res = await fetch(GATEWAY_URL, {
     method: "POST",
@@ -169,6 +192,110 @@ async function rawCall(model: string, body: Record<string, unknown>) {
   let json: any = null;
   try { json = await res.json(); } catch { /* */ }
   return { res, json };
+}
+
+async function rawEmbeddingCall(body: Record<string, unknown>) {
+  const res = await fetch(EMBEDDINGS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  let json: any = null;
+  try { json = await res.json(); } catch { /* */ }
+  return { res, json };
+}
+
+export async function callLovableEmbedding(opts: EmbeddingCallOpts): Promise<EmbeddingCallResult> {
+  assertModelAllowed(opts.model);
+  const skipReason = validateAiInput(opts.input, { minChars: opts.min_input_chars ?? 40 });
+  if (skipReason) {
+    await recordAiCall({
+      job_type: opts.job_type,
+      model_used: opts.model,
+      status: "skipped",
+      estimated_cost_usd: 0,
+      error_message: skipReason,
+      target_type: opts.target_type,
+      target_id: opts.target_id,
+      source_hash: opts.source_hash,
+      prompt_version: opts.prompt_version,
+      key_source: "none",
+      meta: { skipped_reason: skipReason, key_source: "none", guard: "embedding_preflight_input" },
+    });
+    return { ok: false, status: 0, embedding: null, model_used: opts.model, input_tokens: 0, cost_usd: 0, error: skipReason };
+  }
+  if (!LOVABLE_API_KEY) {
+    await recordAiCall({
+      job_type: opts.job_type,
+      model_used: opts.model,
+      status: "error",
+      error_message: "LOVABLE_API_KEY missing",
+      target_type: opts.target_type,
+      target_id: opts.target_id,
+      source_hash: opts.source_hash,
+      prompt_version: opts.prompt_version,
+    });
+    return { ok: false, status: 0, embedding: null, model_used: opts.model, error: "LOVABLE_API_KEY missing" };
+  }
+
+  const t0 = Date.now();
+  const { res, json } = await rawEmbeddingCall({
+    model: opts.model,
+    input: opts.input,
+    dimensions: opts.dimensions,
+  });
+  const latency_ms = Date.now() - t0;
+  const usage = json?.usage || {};
+  const inputTokens = Number(usage.prompt_tokens || usage.input_tokens || Math.ceil(opts.input.length / 4));
+  const cost = embeddingTokenCostUsd(opts.model, inputTokens);
+
+  if (!res.ok) {
+    await recordAiCall({
+      job_type: opts.job_type,
+      model_used: opts.model,
+      status: "error",
+      input_tokens: inputTokens,
+      output_tokens: 0,
+      estimated_cost_usd: 0,
+      latency_ms,
+      error_message: `HTTP ${res.status}: ${JSON.stringify(json).slice(0, 300)}`,
+      target_type: opts.target_type,
+      target_id: opts.target_id,
+      source_hash: opts.source_hash,
+      prompt_version: opts.prompt_version,
+    });
+    return { ok: false, status: res.status, embedding: null, model_used: opts.model, input_tokens: inputTokens, cost_usd: 0, error: json?.error?.message || `HTTP ${res.status}` };
+  }
+
+  const embedding = json?.data?.[0]?.embedding;
+  const ok = Array.isArray(embedding) && embedding.length > 0;
+  await recordAiCall({
+    job_type: opts.job_type,
+    model_used: opts.model,
+    status: ok ? "ok" : "error",
+    input_tokens: inputTokens,
+    output_tokens: 0,
+    estimated_cost_usd: cost,
+    latency_ms,
+    error_message: ok ? null : "embedding_missing",
+    target_type: opts.target_type,
+    target_id: opts.target_id,
+    source_hash: opts.source_hash,
+    prompt_version: opts.prompt_version,
+  });
+
+  return {
+    ok,
+    status: res.status,
+    embedding: ok ? embedding : null,
+    model_used: opts.model,
+    input_tokens: inputTokens,
+    cost_usd: cost,
+    error: ok ? undefined : "embedding_missing",
+  };
 }
 
 export async function callLovableAI(opts: CallOpts): Promise<CallResult> {

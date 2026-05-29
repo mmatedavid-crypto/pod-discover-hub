@@ -13,7 +13,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
-import { callLovableAI } from "../_shared/lovable-ai.ts";
+import { callLovableAI, callLovableEmbedding } from "../_shared/lovable-ai.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -92,14 +92,16 @@ async function sha256(s: string): Promise<string> {
 
 async function embed(text: string): Promise<number[] | null> {
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-embedding-001", input: text, dimensions: 768 }),
+    const res = await callLovableEmbedding({
+      model: "google/gemini-embedding-001",
+      input: text,
+      dimensions: 768,
+      job_type: "episode_classifier_embedding",
+      target_type: "episode_anchor",
+      prompt_version: "episode-classifier-embedding-v2",
+      min_input_chars: 80,
     });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return j?.data?.[0]?.embedding ?? null;
+    return res.embedding;
   } catch { return null; }
 }
 
