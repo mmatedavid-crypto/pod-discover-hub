@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import Layout from "@/components/Layout";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "sonner";
 import { Loader2, Mail, Download, RefreshCw, CheckCircle2, XCircle, Clock } from "lucide-react";
 
@@ -27,6 +29,7 @@ type Row = {
 const TIER_FILTERS = ["all", "S", "A", "B"] as const;
 
 export default function AdminOutreachPage() {
+  const { loading: adminLoading, isAdmin } = useAdminAccess();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [extracting, setExtracting] = useState(false);
@@ -76,8 +79,9 @@ export default function AdminOutreachPage() {
   }
 
   useEffect(() => {
+    if (adminLoading || !isAdmin) return;
     load();
-  }, []);
+  }, [adminLoading, isAdmin]);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -99,6 +103,7 @@ export default function AdminOutreachPage() {
   }, [rows]);
 
   async function runExtract() {
+    if (!isAdmin) return;
     setExtracting(true);
     try {
       const targetIds = filtered
@@ -149,6 +154,7 @@ export default function AdminOutreachPage() {
   }
 
   async function markSent(id: string) {
+    if (!isAdmin) return;
     const { error } = await supabase
       .from("podcast_outreach_contacts")
       .update({ outreach_status: "sent", last_contacted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -160,12 +166,16 @@ export default function AdminOutreachPage() {
   }
 
   async function markExcluded(id: string) {
+    if (!isAdmin) return;
     const { error } = await supabase
       .from("podcast_outreach_contacts")
       .upsert({ podcast_id: id, outreach_status: "excluded", updated_at: new Date().toISOString() }, { onConflict: "podcast_id" });
     if (error) toast.error(error.message);
     else setRows((prev) => prev.map((r) => (r.podcast_id === id ? { ...r, outreach_status: "excluded" } : r)));
   }
+
+  if (adminLoading) return <Layout><div className="container mx-auto py-20">Betöltés…</div></Layout>;
+  if (!isAdmin) return <Layout><div className="container mx-auto py-20">Nincs jogosultság.</div></Layout>;
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">

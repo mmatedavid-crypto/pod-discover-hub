@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import type { ComponentType } from "react";
 import Layout from "@/components/Layout";
 import { useNoindex } from "@/lib/useNoindex";
 import { supabase } from "@/integrations/supabase/client";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Sparkles, Database, Search as SearchIcon, Users, Hash, FileText, Layers, Activity } from "lucide-react";
 
 type Row = {
@@ -10,7 +12,7 @@ type Row = {
   coverage: string;
   fallback: string;
   status: "live" | "partial" | "gated" | "off";
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
 };
 
 type Counts = {
@@ -39,10 +41,12 @@ function pct(n: number, d: number) {
 
 export default function AdminDataCoveragePage() {
   useNoindex("Data Coverage — Admin");
+  const { loading: adminLoading, isAdmin } = useAdminAccess();
   const [c, setC] = useState<Counts>(empty);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (adminLoading || !isAdmin) return;
     (async () => {
       const [eps, aiSum, emb, ents, clean, chunks, fc, pods, ppub, ptot, bios] = await Promise.all([
         supabase.from("episodes").select("id", { count: "estimated", head: true }),
@@ -72,7 +76,10 @@ export default function AdminDataCoveragePage() {
       });
       setLoading(false);
     })();
-  }, []);
+  }, [adminLoading, isAdmin]);
+
+  if (adminLoading) return <Layout><div className="container mx-auto py-20">Betöltés…</div></Layout>;
+  if (!isAdmin) return <Layout><div className="container mx-auto py-20">Nincs jogosultság.</div></Layout>;
 
   const rows: Row[] = [
     { icon: Sparkles, module: "Epizód kártya — leírás", layer: "ai_summary", coverage: pct(c.aiSummary, c.episodes), fallback: "clean_text → RSS leírás", status: "live" },

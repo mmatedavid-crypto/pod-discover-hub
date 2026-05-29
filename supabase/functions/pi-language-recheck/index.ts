@@ -10,7 +10,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = "google/gemini-2.5-flash-lite";
 
 async function detectLanguage(title: string, description: string): Promise<{ lang: string; confidence: number; reason: string } | null> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");

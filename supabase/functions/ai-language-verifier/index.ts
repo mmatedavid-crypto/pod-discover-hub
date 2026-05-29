@@ -9,7 +9,7 @@
 //     limit?: number,                          // default 50, max 300
 //     dry_run?: boolean,                       // default false
 //     min_confidence?: number,                 // default 0.7
-//     model?: string,                          // default google/gemini-3-flash-preview
+//     model?: string,                          // default google/gemini-2.5-flash-lite
 //   }
 //
 // Behaviour:
@@ -23,7 +23,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DEFAULT_MODEL = "google/gemini-3-flash-preview";
+const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
 
 async function detectLanguage(model: string, title: string, description: string, epTitles: string[]) {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");

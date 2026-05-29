@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     // Cap at 75s to stay under 120s edge fn limit with buffer.
     const timeBudgetMs = Math.max(5_000, Math.min(75_000, (Number(ctrl.time_budget_seconds ?? 60)) * 1000));
     const minChars = Number(ctrl.min_description_chars ?? 40);
-    const method = String(ctrl.method_version ?? "deterministic_v2");
+    const method = String(ctrl.method_version ?? "deterministic_v3");
 
     let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, passes = 0;
 

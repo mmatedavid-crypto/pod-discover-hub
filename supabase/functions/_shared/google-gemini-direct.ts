@@ -172,6 +172,10 @@ export interface OpenAICallOpts {
   prompt_version?: string;
   // routing
   preferTier1?: boolean;
+  // spend guard. By default we validate user-message content before any paid call.
+  input_text?: string;
+  min_input_chars?: number;
+  skip_input_validation?: boolean;
   // cost helper (optional). Pass a fn that returns USD given (model, inTok, outTok).
   costFn?: (model: string, inTok: number, outTok: number) => number;
 }
@@ -196,6 +200,32 @@ export interface OpenAICallResult {
 export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICallResult> {
   const rawModel = normalizeModel(opts.model);
   assertModelAllowed(rawModel);
+
+  if (!opts.skip_input_validation) {
+    const inputText = opts.input_text ?? extractUsefulTextFromMessages(opts.messages);
+    const skipReason = validateAiInput(inputText, { minChars: opts.min_input_chars ?? 40 });
+    if (skipReason) {
+      await auditSkip({
+        job_type: opts.job_type,
+        reason: skipReason,
+        model: rawModel,
+        target_type: opts.target_type,
+        target_id: opts.target_id,
+        source_hash: opts.source_hash,
+        meta: { prompt_version: opts.prompt_version ?? null, guard: "preflight_input" },
+      });
+      return {
+        ok: false,
+        status: 0,
+        data: null,
+        model_used: rawModel,
+        input_tokens: 0,
+        output_tokens: 0,
+        cost_usd: 0,
+        error: skipReason,
+      };
+    }
+  }
 
   const pool = getKeyPool({ preferTier1: opts.preferTier1 });
   if (pool.length === 0) {
@@ -312,6 +342,9 @@ export interface NativeCallOpts {
   target_id?: string;
   confidence?: number;
   preferTier1?: boolean;
+  input_text?: string;
+  min_input_chars?: number;
+  skip_input_validation?: boolean;
   costFn?: (model: string, inTok: number, outTok: number) => number;
 }
 
@@ -330,6 +363,28 @@ export interface NativeCallResult {
 export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCallResult> {
   const model = normalizeModel(opts.model);
   assertModelAllowed(model);
+  if (!opts.skip_input_validation) {
+    const skipReason = validateAiInput(opts.input_text ?? opts.prompt, { minChars: opts.min_input_chars ?? 40 });
+    if (skipReason) {
+      await auditSkip({
+        job_type: opts.job_type,
+        reason: skipReason,
+        model,
+        target_type: opts.target_type,
+        target_id: opts.target_id,
+        meta: { guard: "preflight_input" },
+      });
+      return {
+        ok: false,
+        model_used: model,
+        input_tokens: 0,
+        output_tokens: 0,
+        cost_usd: 0,
+        status: 0,
+        error: skipReason,
+      };
+    }
+  }
   const pool = getKeyPool({ preferTier1: opts.preferTier1 });
   if (pool.length === 0) {
     await writeAudit({
@@ -487,8 +542,32 @@ export function validateAiInput(text: unknown, opts?: { minChars?: number }): st
   if (t.length < minChars) return "input_too_short";
   if (/\b(undefined|null|\[object Object\])\b/i.test(t)) return "input_contains_placeholder";
   const stripped = t.replace(/https?:\/\/\S+/g, "").replace(/@[\w.-]+/g, "").replace(/\s+/g, " ").trim();
-  if (stripped.length < minChars * 0.4) return "input_boilerplate_only";
+  if (stripped.length < minChars) return "input_boilerplate_only";
   return null;
+}
+
+function messageContentToText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => {
+      if (typeof part === "string") return part;
+      if (part && typeof part === "object" && "text" in part) {
+        return String((part as { text?: unknown }).text ?? "");
+      }
+      return "";
+    }).filter(Boolean).join("\n");
+  }
+  return "";
+}
+
+export function extractUsefulTextFromMessages(messages: unknown): string {
+  if (!Array.isArray(messages)) return "";
+  return messages.map((message) => {
+    if (!message || typeof message !== "object") return "";
+    const role = String((message as { role?: unknown }).role || "").toLowerCase();
+    if (role === "system" || role === "developer") return "";
+    return messageContentToText((message as { content?: unknown }).content);
+  }).filter(Boolean).join("\n");
 }
 
 /**

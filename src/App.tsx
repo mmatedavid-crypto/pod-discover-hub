@@ -52,6 +52,7 @@ import AdminVectorSearchPage from "./pages/AdminVectorSearchPage.tsx";
 import AdminSearchBenchmarkPage from "./pages/AdminSearchBenchmarkPage.tsx";
 import AdminDataCoveragePage from "./pages/AdminDataCoveragePage.tsx";
 import AdminOutreachPage from "./pages/AdminOutreachPage.tsx";
+import AdminIntelligenceAuditPage from "./pages/AdminIntelligenceAuditPage.tsx";
 import PeopleHubPage from "./pages/PeopleHubPage.tsx";
 import PersonDetailPage from "./pages/PersonDetailPage.tsx";
 import TopicsHubPage from "./pages/TopicsHubPage.tsx";
@@ -139,6 +140,7 @@ const App = () => (
           <Route path="/admin/vector-search" element={<AdminVectorSearchPage />} />
           <Route path="/admin/search-benchmark" element={<AdminSearchBenchmarkPage />} />
           <Route path="/admin/data-coverage" element={<AdminDataCoveragePage />} />
+          <Route path="/admin/intelligence-audit" element={<AdminIntelligenceAuditPage />} />
           <Route path="/admin/outreach" element={<AdminOutreachPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />

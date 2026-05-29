@@ -504,14 +504,14 @@ VALUES ('{userId}', 'admin');
             <div className="mt-2 space-y-2">
               <p>Two options — pick one:</p>
               <p><strong>A. External cron (easiest):</strong> Use cron-job.org / GitHub Actions / Vercel Cron to <code>POST</code> daily to:</p>
-              <pre className="p-2 rounded bg-secondary overflow-x-auto">{`POST https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/refresh-all-rss
+              <pre className="p-2 rounded bg-secondary overflow-x-auto">{`POST ${import.meta.env.VITE_SUPABASE_URL}/functions/v1/refresh-all-rss
 Header: apikey: <publishable key>`}</pre>
               <p><strong>B. Postgres pg_cron + pg_net</strong> inside Lovable Cloud:</p>
               <pre className="p-2 rounded bg-secondary overflow-x-auto">{`select cron.schedule(
   'podiverzum-refresh-rss-daily',
   '0 4 * * *',
   $$ select net.http_post(
-    url:='https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/refresh-all-rss',
+    url:='${import.meta.env.VITE_SUPABASE_URL}/functions/v1/refresh-all-rss',
     headers:='{"Content-Type":"application/json"}'::jsonb,
     body:='{}'::jsonb
   ); $$

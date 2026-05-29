@@ -32,6 +32,29 @@ function buildPrefix(e: any): string {
   return parts.join("\n");
 }
 
+function usefulPrefixText(e: any): string {
+  const arr = (a: any) => (Array.isArray(a) ? a.slice(0, 8).join(" ") : "");
+  return [
+    e.ai_summary,
+    arr(e.topics),
+    arr(e.people),
+    arr(e.companies),
+    arr(e.tickers),
+  ].map((value) => String(value || "")).join(" ");
+}
+
+function validateEmbeddingInput(text: string): string | null {
+  const stripped = text
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/@[A-Za-z0-9_.-]+/g, " ")
+    .replace(/\b(undefined|null|\[object Object\])\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!stripped) return "embedding_input_empty";
+  if (stripped.length < 80) return "embedding_input_too_short";
+  return null;
+}
+
 async function embed(model: string, text: string): Promise<{ vec: number[]; tokens: number }> {
   const googleModel = model.replace(/^google\//, "");
   // Prefer paid Tier-1 key for drain throughput; fall back to default/free key.
@@ -103,7 +126,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
     }
 
-    let episodesProcessed = 0, chunksWritten = 0, cleanedAI = 0, errors = 0;
+    let episodesProcessed = 0, chunksWritten = 0, cleanedAI = 0, skipped = 0, errors = 0;
     const errorSamples: any[] = [];
     let stop = false, drainPasses = 0;
 
@@ -163,6 +186,12 @@ Deno.serve(async (req) => {
           }
 
           const prefix = buildPrefix(e);
+          const skipReason = validateEmbeddingInput(`${usefulPrefixText(e)} ${cleanedText}`);
+          if (skipReason) {
+            skipped++;
+            if (errorSamples.length < 5) errorSamples.push({ id: e.id, skipped: skipReason, cleaned_method: cleanedMethod });
+            return;
+          }
           const slices = cleanedText.length > 0
             ? chunkText(cleanedText, chunkChars, chunkOverlap)
             : [{ content: "", char_start: 0, char_end: 0 }];
@@ -263,6 +292,7 @@ Deno.serve(async (req) => {
       episodes_last_run: episodesProcessed,
       chunks_last_run: chunksWritten,
       ai_cleans_last_run: cleanedAI,
+      skipped_last_run: skipped,
       errors_last_run: errors,
       error_samples: errorSamples,
       pending_missing: pending,
@@ -286,7 +316,7 @@ Deno.serve(async (req) => {
       await admin.from("app_settings").upsert({ key: "embed_episode_chunks_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, episodes: episodesProcessed, chunks: chunksWritten, errors, pending, embed_spend_usd: embedSpend, clean_spend_usd: cleanSpend, schedule: recommended });
+    return json({ ok: true, episodes: episodesProcessed, chunks: chunksWritten, skipped, errors, pending, embed_spend_usd: embedSpend, clean_spend_usd: cleanSpend, schedule: recommended });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }

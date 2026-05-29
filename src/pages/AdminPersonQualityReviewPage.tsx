@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useNoindex } from "@/lib/useNoindex";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 export default function AdminPersonQualityReviewPage() {
   useNoindex("Person Quality Review — Admin");
+  const { loading: adminLoading, isAdmin } = useAdminAccess();
   const [summary, setSummary] = useState<any>(null);
   const [rows, setRows] = useState<any[]>([]);
   const [running, setRunning] = useState(false);
@@ -17,9 +19,13 @@ export default function AdminPersonQualityReviewPage() {
     ]);
     setSummary(s); setRows(r || []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (adminLoading || !isAdmin) return;
+    load();
+  }, [adminLoading, isAdmin]);
 
   const runReview = async (limit: number) => {
+    if (!isAdmin) return;
     setRunning(true); setLog("Futtatás…");
     const { data, error } = await supabase.functions.invoke("person-ai-reviewer", { body: { limit } });
     setLog(error ? String(error.message) : JSON.stringify(data, null, 2));
@@ -27,11 +33,15 @@ export default function AdminPersonQualityReviewPage() {
   };
 
   const refreshActivation = async () => {
+    if (!isAdmin) return;
     setRunning(true); setLog("Recompute activation…");
     const { data, error } = await (supabase as any).rpc("refresh_person_activation_status");
     setLog(error ? String(error.message) : JSON.stringify(data, null, 2));
     setRunning(false); load();
   };
+
+  if (adminLoading) return <Layout><div className="container mx-auto py-20">Betöltés…</div></Layout>;
+  if (!isAdmin) return <Layout><div className="container mx-auto py-20">Nincs jogosultság.</div></Layout>;
 
   return (
     <Layout>

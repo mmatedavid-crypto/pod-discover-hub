@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, ExternalLink, Play, Pause, Globe } from "lucide-react";
+import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe } from "lucide-react";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
@@ -26,6 +26,7 @@ import { detectAudioSource } from "@/lib/playerAudio";
 import { getProgress } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
 import { RelatedEpisodes } from "@/components/smart-player/RelatedEpisodes";
+import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
@@ -210,6 +211,7 @@ export default function EpisodeDetail() {
   const { p, e } = data;
   const summary = stripHtml(e.ai_summary) || stripHtml(e.summary);
   const description = stripHtml(e.description);
+  const understanding = getEpisodeUnderstanding(e);
   const handleSeek = (sec: number) => {
     const a = audioRef.current;
     if (!a) return;
@@ -422,6 +424,25 @@ export default function EpisodeDetail() {
             <p className="whitespace-pre-wrap">{summary}</p>
             <p className="text-[10px] text-muted-foreground mt-2">Indexelt epizód-metaadatból generálva.</p>
           </div>
+        )}
+
+        {understanding && (
+          <section className="mt-6 p-4 rounded-lg border border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground mb-2">
+              <Brain className="h-4 w-4 text-primary" />
+              A Podiverzum szerint
+            </div>
+            <p className="text-base font-medium text-foreground">{understanding.headline}</p>
+            {understanding.chips.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {understanding.chips.map((chip) => (
+                  <span key={`${chip.kind}-${chip.label}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] text-foreground/85">
+                    {chip.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         {description && description !== summary && (

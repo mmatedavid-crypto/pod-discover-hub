@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { setSeo } from "@/lib/seo";
 import { toast } from "@/hooks/use-toast";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 type Row = {
   id: string;
@@ -33,6 +34,7 @@ async function callFn(name: string, body: any) {
 }
 
 export default function AdminPiBackfillPage() {
+  const { loading: adminLoading, isAdmin } = useAdminAccess();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -45,6 +47,7 @@ export default function AdminPiBackfillPage() {
   }, []);
 
   const refresh = async () => {
+    if (!isAdmin) return;
     setLoading(true);
     const tiers = tier === "BC" ? ["B", "C"] : [tier];
     const { data } = await supabase
@@ -73,9 +76,13 @@ export default function AdminPiBackfillPage() {
     setLoading(false);
   };
 
-  useEffect(() => { refresh(); }, [tier]);
+  useEffect(() => {
+    if (adminLoading || !isAdmin) return;
+    refresh();
+  }, [adminLoading, isAdmin, tier]);
 
   const runPeek = async () => {
+    if (!isAdmin) return;
     setBusy(true);
     const r = await callFn("pi-backfill-peek", { limit: 20, tier_filter: tier === "BC" ? ["B", "C"] : [tier] });
     toast({ title: "Peek", description: `processed=${r.processed} new=${r.total_new} dup=${r.total_dup} remaining=${r.remaining_to_peek}` });
@@ -84,11 +91,13 @@ export default function AdminPiBackfillPage() {
   };
 
   const setApproval = async (id: string, approved: boolean) => {
+    if (!isAdmin) return;
     await supabase.from("podcasts").update({ pi_backfill_approved: approved }).eq("id", id);
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, pi_backfill_approved: approved } : r)));
   };
 
   const bulkApprove = async () => {
+    if (!isAdmin) return;
     const ids = rows.filter((r) => (r.pi_backfill_dry_run?.new ?? 0) >= minNew && r.pi_backfill_approved !== true).map((r) => r.id);
     if (ids.length === 0) return toast({ title: "Nincs kiválasztható" });
     setBusy(true);
@@ -99,6 +108,7 @@ export default function AdminPiBackfillPage() {
   };
 
   const bulkReject = async () => {
+    if (!isAdmin) return;
     const ids = rows.filter((r) => (r.pi_backfill_dry_run?.new ?? 0) < minNew && r.pi_backfill_peeked_at && r.pi_backfill_approved !== false).map((r) => r.id);
     if (ids.length === 0) return toast({ title: "Nincs elutasítható" });
     setBusy(true);
@@ -109,12 +119,16 @@ export default function AdminPiBackfillPage() {
   };
 
   const runBackfill = async () => {
+    if (!isAdmin) return;
     setBusy(true);
     const r = await callFn("pi-episode-backfill", { limit: 10 });
     toast({ title: "Backfill", description: `processed=${r.processed} new=${r.new_episodes} remaining=${r.remaining}` });
     await refresh();
     setBusy(false);
   };
+
+  if (adminLoading) return <Layout><div className="container mx-auto py-20">Betöltés…</div></Layout>;
+  if (!isAdmin) return <Layout><div className="container mx-auto py-20">Nincs jogosultság.</div></Layout>;
 
   return (
     <Layout>

@@ -60,7 +60,7 @@ async function callAdmin(action: string, body: any = {}) {
   });
   // supabase-js doesn't easily support querystring; use raw fetch instead
   const session = (await supabase.auth.getSession()).data.session;
-  const url = `https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/pipeline-watchdog-admin?action=${encodeURIComponent(action)}`;
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pipeline-watchdog-admin?action=${encodeURIComponent(action)}`;
   const r = await fetch(url, {
     method: "POST",
     headers: {
@@ -74,7 +74,7 @@ async function callAdmin(action: string, body: any = {}) {
 }
 
 async function fetchStatus(): Promise<StatusPayload | null> {
-  const url = `https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/pipeline-watchdog-admin?action=status`;
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pipeline-watchdog-admin?action=status`;
   const session = (await supabase.auth.getSession()).data.session;
   const r = await fetch(url, {
     headers: {

@@ -139,6 +139,10 @@ export interface CallOpts {
   target_id?: string;
   source_hash?: string;
   prompt_version?: string;
+  // spend guard. By default we validate user-message content before any paid call.
+  input_text?: string;
+  min_input_chars?: number;
+  skip_input_validation?: boolean;
   // Optional one-shot retry on parse-error / low-confidence.
   retry_model?: string;
 }
@@ -170,6 +174,30 @@ async function rawCall(model: string, body: Record<string, unknown>) {
 export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
   assertModelAllowed(opts.model);
   if (opts.retry_model) assertModelAllowed(opts.retry_model);
+  if (!opts.skip_input_validation) {
+    const inputText = opts.input_text ?? extractUsefulTextFromMessages(opts.messages);
+    const skipReason = validateAiInput(inputText, { minChars: opts.min_input_chars ?? 40 });
+    if (skipReason) {
+      await recordAiCall({
+        job_type: opts.job_type, model_used: opts.model, status: "skipped",
+        estimated_cost_usd: 0,
+        error_message: skipReason,
+        target_type: opts.target_type, target_id: opts.target_id,
+        source_hash: opts.source_hash, prompt_version: opts.prompt_version,
+        key_source: "none",
+        meta: { skipped_reason: skipReason, key_source: "none", guard: "preflight_input" },
+      });
+      return {
+        ok: false,
+        status: 0,
+        data: null,
+        model_used: opts.model,
+        input_tokens: 0,
+        output_tokens: 0,
+        error: skipReason,
+      };
+    }
+  }
   if (!LOVABLE_API_KEY) {
     await recordAiCall({
       job_type: opts.job_type, model_used: opts.model, status: "error",
@@ -224,4 +252,41 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
     ok: true, status: res.status, data: json,
     model_used: opts.model, input_tokens: inTok, output_tokens: outTok,
   };
+}
+
+export function validateAiInput(text: unknown, opts?: { minChars?: number }): string | null {
+  const minChars = opts?.minChars ?? 40;
+  if (text == null) return "input_null";
+  if (typeof text !== "string") return "input_not_string";
+  const t = text.trim();
+  if (!t) return "input_empty";
+  if (t.length < minChars) return "input_too_short";
+  if (/\b(undefined|null|\[object Object\])\b/i.test(t)) return "input_contains_placeholder";
+  const stripped = t.replace(/https?:\/\/\S+/g, "").replace(/@[\w.-]+/g, "").replace(/\s+/g, " ").trim();
+  if (stripped.length < minChars) return "input_boilerplate_only";
+  return null;
+}
+
+function messageContentToText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => {
+      if (typeof part === "string") return part;
+      if (part && typeof part === "object" && "text" in part) {
+        return String((part as { text?: unknown }).text ?? "");
+      }
+      return "";
+    }).filter(Boolean).join("\n");
+  }
+  return "";
+}
+
+export function extractUsefulTextFromMessages(messages: unknown): string {
+  if (!Array.isArray(messages)) return "";
+  return messages.map((message) => {
+    if (!message || typeof message !== "object") return "";
+    const role = String((message as { role?: unknown }).role || "").toLowerCase();
+    if (role === "system" || role === "developer") return "";
+    return messageContentToText((message as { content?: unknown }).content);
+  }).filter(Boolean).join("\n");
 }

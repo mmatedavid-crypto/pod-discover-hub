@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { setSeo } from "@/lib/seo";
 import { toast } from "@/hooks/use-toast";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 type Status = {
   controls: any;
@@ -27,6 +28,7 @@ async function call(action: string, body?: any) {
 }
 
 export default function AdminAiEnrichmentPage() {
+  const { loading: adminLoading, isAdmin } = useAdminAccess();
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -34,13 +36,19 @@ export default function AdminAiEnrichmentPage() {
   useEffect(() => { setSeo({ title: "AI Enrichment | Admin | Podiverzum", description: "SEO + AI enrichment controls", noindex: true }); }, []);
 
   const refresh = async () => {
+    if (!isAdmin) return;
     setLoading(true);
     const r = await call("status");
     setStatus(r);
     setLoading(false);
   };
 
-  useEffect(() => { refresh(); const t = setInterval(refresh, 15000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    if (adminLoading || !isAdmin) return;
+    refresh();
+    const t = setInterval(refresh, 15000);
+    return () => clearInterval(t);
+  }, [adminLoading, isAdmin]);
 
   const setControls = async (patch: any) => {
     setBusy(true);
@@ -76,6 +84,8 @@ export default function AdminAiEnrichmentPage() {
     setBusy(false);
   };
 
+  if (adminLoading) return <Layout><div className="container mx-auto py-10">Loading…</div></Layout>;
+  if (!isAdmin) return <Layout><div className="container mx-auto py-10">Nincs jogosultság.</div></Layout>;
   if (loading || !status) return <Layout><div className="container mx-auto py-10">Loading…</div></Layout>;
 
   const c = status.controls || {};

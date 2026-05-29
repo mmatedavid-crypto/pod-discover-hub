@@ -35,6 +35,32 @@ function buildContent(e: any, model: string): string {
   return parts.join("\n");
 }
 
+function usefulEmbeddingText(e: any): string {
+  const arr = (a: any) => (Array.isArray(a) ? a.slice(0, 10).join(" ") : "");
+  return [
+    e.ai_summary,
+    e.seo_description,
+    e.description,
+    arr(e.topics),
+    arr(e.people),
+    arr(e.companies),
+    arr(e.tickers),
+    arr(e.ingredients),
+  ].map((value) => String(value || "")).join(" ");
+}
+
+function validateEmbeddingInput(text: string): string | null {
+  const stripped = text
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/@[A-Za-z0-9_.-]+/g, " ")
+    .replace(/\b(undefined|null|\[object Object\])\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!stripped) return "embedding_input_empty";
+  if (stripped.length < 80) return "embedding_input_too_short";
+  return null;
+}
+
 async function embed(model: string, text: string): Promise<{ vec: number[]; tokens: number }> {
   const googleModel = model.replace(/^google\//, "");
   const apiKey = Deno.env.get("GEMINI_API_KEY");
@@ -86,7 +112,7 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (embedSpend >= dailyBudget) return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
 
-    let embedded = 0, errors = 0;
+    let embedded = 0, skipped = 0, errors = 0;
     const errorSamples: any[] = [];
     let stop = false;
     let drainPasses = 0;
@@ -110,6 +136,12 @@ Deno.serve(async (req) => {
         if (Date.now() - startedAt > TIME_BUDGET_MS - TIME_RESERVE_MS) { stop = true; return; }
         if (embedSpend >= dailyBudget) { stop = true; return; }
         try {
+          const skipReason = validateEmbeddingInput(usefulEmbeddingText(e));
+          if (skipReason) {
+            skipped++;
+            if (errorSamples.length < 5) errorSamples.push({ id: e.id, skipped: skipReason });
+            return;
+          }
           const content = buildContent(e, model);
           const hash = await sha256(content);
           const { vec, tokens } = await embed(model, content);
@@ -193,6 +225,7 @@ Deno.serve(async (req) => {
       last_run_at: new Date().toISOString(),
       duration_ms: durationMs,
       embedded_last_run: embedded,
+      skipped_last_run: skipped,
       errors_last_run: errors,
       error_samples: errorSamples,
       pending,
@@ -211,7 +244,7 @@ Deno.serve(async (req) => {
       await admin.from("app_settings").upsert({ key: "embed_episode_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, embedded, errors, pending, embed_spend_usd: embedSpend, schedule: recommended, durationMs });
+    return json({ ok: true, embedded, skipped, errors, pending, embed_spend_usd: embedSpend, schedule: recommended, durationMs });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
