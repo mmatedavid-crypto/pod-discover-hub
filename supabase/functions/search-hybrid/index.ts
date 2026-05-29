@@ -34,6 +34,21 @@ function normalizeQ(q: string): string {
   return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
+function foldText(s: string): string {
+  return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function nameTokenHit(hay: string, token: string): boolean {
+  const t = escapeRegExp(token);
+  if (new RegExp(`(?:^|[^a-z0-9])${t}(?:$|[^a-z0-9])`).test(hay)) return true;
+  // Hungarian case suffixes on names: "Schmied Andival", "Orbán Viktorról".
+  return new RegExp(`(?:^|[^a-z0-9])${t}(?:val|vel|rol|bol|tol|nak|nek|ban|ben|hoz|hez|ra|re|on|en|ot|et|t)(?:$|[^a-z0-9])`).test(hay);
+}
+
 const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
   eth: ["Ethereum", "Ether"],
   btc: ["Bitcoin"],
