@@ -413,6 +413,7 @@ SZABÁLYOK:
           wiki_status: p.wikipedia_match_status,
           wiki_confidence: Number(p.wikipedia_match_confidence || 0),
           episode_titles: epList.map((e: any) => e.title),
+          episode_evidence: epEvidenceBlob === "—" ? [] : epEvidenceBlob.split("\n").map((l: string) => l.replace(/^\[\d+\]\s*/, "")),
           tally,
         });
         if (!audit.pass) {
