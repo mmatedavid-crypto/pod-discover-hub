@@ -416,6 +416,8 @@ SZABÁLYOK:
           episode_evidence: epEvidenceBlob === "—" ? [] : epEvidenceBlob.split("\n").map((l: string) => l.replace(/^\[\d+\]\s*/, "")),
           tally,
         });
+        auditResult = audit;
+        auditCost += audit.cost || 0;
         if (!audit.pass) {
           // Reject unsupported AI text. If Wikipedia is verified, publish the source-derived sentence.
           if (wikiDerivedBio) {
@@ -502,6 +504,11 @@ SZABÁLYOK:
 
     return { id: personId, status: bioStatus, cost_usd: totalCost, audit: auditResult };
   } catch (e: any) {
+    await admin.from("people").update({
+      ai_bio_status: "error",
+      ai_bio_generated_at: new Date().toISOString(),
+      ai_bio_sources: { error: String(e?.message || e).slice(0, 500), generator_model: BIO_MODEL },
+    }).eq("id", personId);
     if (jobId) await admin.from("person_enrichment_jobs").update({
       status: "failed", error_message: String(e?.message || e), finished_at: new Date().toISOString(),
     }).eq("id", jobId);
