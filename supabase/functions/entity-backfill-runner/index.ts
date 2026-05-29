@@ -42,7 +42,7 @@ const ENTITY_TOOL = {
       "- research: research institute, think tank (MTA, RAND)\n" +
       "- radio_station: radio broadcaster (Klubrádió, Spirit FM, Tilos Rádió)\n" +
       "- other: only if none fits\n" +
-      "Do NOT include podcast names, podcast networks, hosting platforms (Spotify, Apple Podcasts), or sponsors only mentioned in credits.",
+      "Do NOT include podcast names, podcast networks, hosting/distribution platforms or social networks mentioned only as 'follow us / subscribe' footers — Spotify, Apple Podcasts, Apple Music, YouTube, YouTube Music, Facebook, Instagram, TikTok, X, Twitter, Threads, LinkedIn, Telegram, Discord, WhatsApp, Patreon, SoundCloud, Anchor, Buzzsprout — unless they are a substantive topic of discussion in the episode. Also exclude sponsors only mentioned in credits.",
     parameters: {
       type: "object",
       properties: {
@@ -153,8 +153,8 @@ Deno.serve(async (req) => {
             job_type: "entity_backfill", reason: skipReason, model,
             target_type: "episode", target_id: ep.id,
           });
-          // Mark as v3 so we don't keep retrying garbage descriptions.
-          await admin.from("episodes").update({ ai_entities_version: 3 }).eq("id", ep.id);
+          // Mark as v4 so we don't keep retrying garbage descriptions.
+          await admin.from("episodes").update({ ai_entities_version: 4 }).eq("id", ep.id);
           succeeded++;
           return;
         }
@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
 
         await admin.from("episodes").update({
           people, mentioned, companies, organizations, tickers, topics,
-          ai_entities_version: 3,
+          ai_entities_version: 4,
         }).eq("id", ep.id);
 
         succeeded++;
@@ -231,9 +231,10 @@ Deno.serve(async (req) => {
 
       const { data: rows, error } = await admin
         .from("episodes")
-        .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, language, hosts), episode_clean_text(cleaned_text)")
+        .select("id, title, display_title, description, ai_summary, podcast_id, clean_text_status, podcasts!inner(title, display_title, language, hosts), episode_clean_text(cleaned_text)")
         .not("ai_summary", "is", null)
-        .lt("ai_entities_version", 3)
+        .lt("ai_entities_version", 4)
+        .eq("clean_text_status", "done")
         .eq("podcasts.is_hungarian", true)
         .limit(batch);
       if (error) throw error;
