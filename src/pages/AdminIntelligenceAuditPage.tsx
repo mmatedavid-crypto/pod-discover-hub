@@ -21,6 +21,7 @@ export default function AdminIntelligenceAuditPage() {
   const [reprocessBusy, setReprocessBusy] = useState(false);
   const [reprocessPlan, setReprocessPlan] = useState<{ candidate_count?: number; staged?: number; error?: string } | null>(null);
   const [candidateRun, setCandidateRun] = useState<{ processed?: number; passed?: number; rejected?: number; error?: string } | null>(null);
+  const [promotionRun, setPromotionRun] = useState<{ scanned?: number; promoted?: number; unchanged?: number; error?: string } | null>(null);
   const [filter, setFilter] = useState<"all" | "bad" | "watch">("all");
 
   const load = useCallback(async () => {
@@ -117,6 +118,30 @@ export default function AdminIntelligenceAuditPage() {
     }
   };
 
+  const promoteCandidates = async () => {
+    setReprocessBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/episode-clean-text-candidate-promoter`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ limit: 100 }),
+      });
+      const data = await r.json();
+      setPromotionRun(data);
+      if (data?.ok) await load();
+    } catch (e) {
+      setPromotionRun({ error: e instanceof Error ? e.message : "request failed" });
+    } finally {
+      setReprocessBusy(false);
+    }
+  };
+
   const scores = useMemo(() => rows.map((row) => scoreAuditEpisode(row, embeddedIds)), [rows, embeddedIds]);
   const summary = useMemo(() => summarizeAudit(scores), [scores]);
   const visible = scores.filter((s) => filter === "all" || s.risk === filter);
@@ -165,6 +190,9 @@ export default function AdminIntelligenceAuditPage() {
             <Button size="sm" variant="outline" disabled={reprocessBusy || !reprocessPlan?.staged} onClick={runCandidateCleaner}>
               Generate candidates
             </Button>
+            <Button size="sm" variant="outline" disabled={reprocessBusy || !candidateRun?.passed} onClick={promoteCandidates}>
+              Promote passed
+            </Button>
             <div className="text-xs text-muted-foreground ml-auto">
               Recent Hungarian sample: {summary.sampleSize} episodes. This is a diagnostic sample, not a full corpus scan.
             </div>
@@ -183,6 +211,13 @@ export default function AdminIntelligenceAuditPage() {
               {candidateRun.error
                 ? `Candidate runner error: ${candidateRun.error}`
                 : `Generated ${candidateRun.processed ?? 0} candidates: ${candidateRun.passed ?? 0} passed, ${candidateRun.rejected ?? 0} rejected. Live clean text was not overwritten.`}
+            </div>
+          )}
+          {promotionRun && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              {promotionRun.error
+                ? `Candidate promotion error: ${promotionRun.error}`
+                : `Promoted ${promotionRun.promoted ?? 0} changed clean-text rows. ${promotionRun.unchanged ?? 0} unchanged rows were skipped without invalidating AI work.`}
             </div>
           )}
         </Card>

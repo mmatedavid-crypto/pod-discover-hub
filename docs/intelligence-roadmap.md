@@ -8,6 +8,20 @@ Podiverzum should feel like a lovable podcast Netflix for listeners, while the s
 
 The moat is not the page shell. The moat is clean text, entity quality, semantic search, recommendations, and reliable mention evidence.
 
+## National Leader Strategy
+
+Podiverzum wins nationally by becoming the interpretation layer for Hungarian podcasting, not just a directory.
+
+Execution order:
+
+1. Data quality first: clean text, duplicate control, reliable metadata, working audio, safe RSS handling.
+2. Recommendation quality: semantic and personalized discovery that explains why an episode is relevant.
+3. Lovable listener product: fast mobile-first homepage, persistent smart player, save/like/dislike, continue listening, mood and taste rails.
+4. "We understand the episode": strong summaries, people, organizations, topics, and related episodes from RSS descriptions now; transcripts later when cost-effective.
+5. B2B monitoring: trusted mention evidence for brands, public figures, companies, parties, and institutions.
+
+Operating rule: never spend AI money on unchanged input. Any batch reprocess must hash the actual model input and skip unchanged rows with zero cost.
+
 ## Layer 1: Clean Text Quality
 
 The system must prefer `episode_clean_text.cleaned_text` over raw RSS descriptions for search, entity extraction, summaries, chunks, and recommendations.
