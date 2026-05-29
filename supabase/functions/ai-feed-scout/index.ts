@@ -352,7 +352,11 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const guard = await checkBackgroundJobsAllowed(supabase, "ai-feed-scout");
-    if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
+    if (guard.blocked) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: guard.reason }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const sources: { url: string; tag: string; lang_hint: string }[] = Array.isArray(body.sources) && body.sources.length
       ? body.sources.map((s: any) => {
