@@ -12,7 +12,7 @@ import { PodcastDetailSkeleton } from "@/components/Skeletons";
 import { SimilarPodcasts } from "@/components/SimilarPodcasts";
 import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
-import { TrendingEntities } from "@/components/TrendingEntities";
+import { PodcastEntitiesCompact } from "@/components/PodcastEntitiesCompact";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { slugify } from "@/lib/slug";
 import { PodcastFollow } from "@/components/PodcastFollow";
