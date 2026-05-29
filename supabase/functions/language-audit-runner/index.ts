@@ -27,6 +27,7 @@ Deno.serve(async (req) => {
     const limit = Math.max(50, Math.min(20000, Number(body?.limit) || 5000));
     const recheckHours = Math.max(0, Number(body?.recheck_after_hours) || 720);
     const onlyUnchecked = body?.only_unchecked === true;
+    const force = body?.force === true;
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -36,7 +37,13 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(limit);
 
-    if (onlyUnchecked) {
+    if (force) {
+      const processedBefore = body?.processed_before ? String(body.processed_before) : null;
+      if (processedBefore) {
+        q = q.or(`language_checked_at.is.null,language_checked_at.lt.${processedBefore}`);
+      }
+      // else: no filter — re-classify everything.
+    } else if (onlyUnchecked) {
       q = q.is("language_checked_at", null);
     } else if (recheckHours > 0) {
       const cutoff = new Date(Date.now() - recheckHours * 3600_000).toISOString();
