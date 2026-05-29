@@ -134,6 +134,7 @@ const App = () => (
           <Route path="/admin/archive-backfill" element={<AdminArchiveBackfillPage />} />
           <Route path="/admin/hosts" element={<AdminHostsPage />} />
           <Route path="/admin/language-gate" element={<AdminLanguageGatePage />} />
+          <Route path="/admin/hu-formula-shadow" element={<AdminHuFormulaShadowPage />} />
           <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
           <Route path="/admin/vector-search" element={<AdminVectorSearchPage />} />
           <Route path="/admin/search-benchmark" element={<AdminSearchBenchmarkPage />} />
