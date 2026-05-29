@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
     if (ids && ids.length > 0) {
       const { data, error } = await supabase
         .from("podcasts")
-        .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
+        .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,detected_language,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
         .in("id", ids);
       if (error) throw error;
       targets = data || [];
@@ -251,7 +251,7 @@ Deno.serve(async (req) => {
       while (true) {
         const { data, error } = await supabase
           .from("podcasts")
-          .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
+          .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,detected_language,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
           .or("language.ilike.hu%,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain")
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
       const onlyUnscored: boolean = body.only_unscored !== false; // default true
       let q = supabase
         .from("podcasts")
-        .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
+        .select("id,title,display_title,summary,description,language,language_decision,hungarian_score,foreign_score,detected_language,rss_status,hydrated_episode_count,apple_url,spotify_url,youtube_url,youtube_channel_id,website_url,featured,featured_rank,seo_title,ai_quality_score,podiverzum_rank,rank_label,shadow_rank_components")
         .or("language.ilike.hu%,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain");
       if (onlyUnscored) {
         q = q.is("shadow_rank_components->hu_v1", null);
