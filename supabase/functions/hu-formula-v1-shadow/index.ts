@@ -44,32 +44,61 @@ function tierFor(s: number): "S"|"A"|"B"|"C"|"D"|"E" {
   return "E";
 }
 
-const NEWS_RE = /\b(hírek|hírmondó|hírmagazin|hírpercek|hírháttér|hírlevél|krónika|infostart|napi hírek|reggeli|esti hírek|déli hírek|hírösszefoglaló|news|bulletin)\b/i;
-const BULLETIN_RE = /\b(percben|perc alatt|\d+\s*perc|5\s*perc|10\s*perc|infó|hírgyors|gyorshír)\b/i;
+// News-like = general news/public-affairs/radio content
+const NEWS_RE = /\b(hírek|hírmondó|hírmagazin|hírpercek|hírháttér|hírlevél|krónika|infostart|napi hírek|reggeli hírek|esti hírek|déli hírek|éjszakai hírek|hírösszefoglaló|news|bulletin)\b/i;
+
+// Bulletin-like = short frequent news bulletins specifically.
+// Must NOT match interview/long-form shows like "Aréna".
+// Triggers on explicit bulletin phrasing OR very high cadence newsfeeds.
+const BULLETIN_TITLE_RE = /\b(hírpercek|hírgyors|napi hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírek\s*\d|\d+\s*perc(es)?\s*hír|hírösszefoglaló|infostart\s+hírek|hírmondó\s+\d+\s*perc|news\s+bulletin|hourly\s+news)\b/i;
 
 function clamp(x: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, x)); }
 
+// Phase B QA: split flags into:
+//   confirmed_hungarian            — language_decision=accept_hungarian AND RSS language is hu
+//   hu_metadata_mismatch           — accept_hungarian BUT RSS lang not hu, strong HU signals (genuinely HU, bad metadata)
+//   accepted_foreign_false_positive— accept_hungarian BUT RSS lang not hu AND weak HU signals / foreign dominates
+//   needs_language_review          — language_decision=review_uncertain, or ambiguous unset
+//   likely_foreign                 — no decision but foreign signals dominate
+//   confirmed_foreign              — language_decision=reject_foreign
+//   unknown                        — no usable signal
 function languageGateFlag(p: any): string {
   const ld = p.language_decision;
-  const langIsHu = typeof p.language === "string" && /^hu/i.test(p.language);
-  if (ld === "accept_hungarian") {
-    return langIsHu ? "accepted_hungarian" : "accepted_hungarian_metadata_mismatch";
-  }
-  if (ld === "review_uncertain") return "needs_language_review";
-  if (ld === "reject_foreign") return "confirmed_foreign";
-  // No decision yet
+  const lang = typeof p.language === "string" ? p.language.toLowerCase() : "";
+  const langIsHu = /^hu/i.test(lang);
   const hu = Number(p.hungarian_score) || 0;
   const fo = Number(p.foreign_score) || 0;
-  if (hu > 0 && hu >= fo) return langIsHu ? "accepted_hungarian" : "needs_language_review";
+  const det = typeof p.detected_language === "string" ? p.detected_language.toLowerCase() : "";
+  const detIsHu = det === "hu" || det.startsWith("hu");
+
+  if (ld === "reject_foreign") return "confirmed_foreign";
+
+  if (ld === "accept_hungarian") {
+    if (langIsHu) return "confirmed_hungarian";
+    // Bad RSS language tag — decide if genuinely HU or false positive.
+    // Strong HU signals: detected_language=hu OR hungarian_score>=50 OR hu_score >> foreign_score
+    const strongHu = detIsHu || hu >= 50 || (hu > 0 && hu >= fo + 20);
+    if (strongHu) return "hu_metadata_mismatch";
+    return "accepted_foreign_false_positive";
+  }
+
+  if (ld === "review_uncertain") return "needs_language_review";
+
+  // No decision yet — fall back to non-AI signals
+  if (detIsHu || (hu > 0 && hu >= fo + 10)) return langIsHu ? "confirmed_hungarian" : "hu_metadata_mismatch";
   if (fo > 0 && fo > hu) return "likely_foreign";
-  return langIsHu ? "accepted_hungarian" : "unknown";
+  if (langIsHu) return "confirmed_hungarian";
+  return "unknown";
 }
 
-function detectNewsLike(p: any): { news_like: boolean; bulletin_like: boolean } {
-  const hay = `${p.title || ""} ${p.display_title || ""} ${(p.summary || "").slice(0,300)}`;
+function detectNewsLike(p: any, eps90: number): { news_like: boolean; bulletin_like: boolean } {
+  const hay = `${p.title || ""} ${p.display_title || ""} ${(p.summary || "").slice(0, 300)}`;
   const news = NEWS_RE.test(hay);
-  const bulletin = news && BULLETIN_RE.test(hay);
-  return { news_like: news, bulletin_like: bulletin };
+  const explicitBulletin = BULLETIN_TITLE_RE.test(hay);
+  // Bulletin = explicit bulletin phrasing OR (news + very high cadence > 60 eps/90d)
+  // → catches "Hírek 8 órakor", InfoRádió hourly feeds; does NOT flag Aréna-style shows.
+  const bulletin = explicitBulletin || (news && eps90 > 60);
+  return { news_like: news || explicitBulletin, bulletin_like: bulletin };
 }
 
 function scoreFeedHealth(p: any, lastEpAt: number | null): number {
