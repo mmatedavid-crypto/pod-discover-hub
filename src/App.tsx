@@ -46,6 +46,7 @@ import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
 import AdminArchiveBackfillPage from "./pages/AdminArchiveBackfillPage.tsx";
 import AdminHostsPage from "./pages/AdminHostsPage.tsx";
 import AdminLanguageGatePage from "./pages/AdminLanguageGatePage.tsx";
+import AdminHuFormulaShadowPage from "./pages/AdminHuFormulaShadowPage.tsx";
 import AdminPersonQualityReviewPage from "./pages/AdminPersonQualityReviewPage.tsx";
 import AdminVectorSearchPage from "./pages/AdminVectorSearchPage.tsx";
 import AdminSearchBenchmarkPage from "./pages/AdminSearchBenchmarkPage.tsx";
