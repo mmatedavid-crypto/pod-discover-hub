@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic } from "lucide-react";
+import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
 import PersonAvatar from "@/components/PersonAvatar";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
