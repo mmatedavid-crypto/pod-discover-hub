@@ -32,9 +32,11 @@ async function callAI(
   };
   // GPT-5 reasoning models do not accept temperature.
   if (!/^openai\/gpt-5/.test(model) && typeof opts.temperature === "number") body.temperature = opts.temperature;
-  if (opts.reasoning && /^openai\/gpt-5/.test(model)) body.reasoning = { effort: opts.reasoning };
+  // Reasoning effort: only supported by base gpt-5 and gpt-5.4 family. gpt-5.5 / gpt-5.2 / mini/nano/pro variants reject it as unknown parameter.
+  if (opts.reasoning && /^openai\/(gpt-5|gpt-5\.4)(-(mini|nano|pro))?$/.test(model)) body.reasoning = { effort: opts.reasoning };
   if (opts.tools) body.tools = opts.tools;
   if (opts.toolChoice) body.tool_choice = opts.toolChoice;
+
 
   const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -99,16 +101,16 @@ async function auditBio(
   bioText: string,
   evidence: { wiki_extract?: string | null; wiki_description?: string | null; wiki_status: string; wiki_confidence: number; episode_titles: string[]; tally: any },
 ): Promise<{ pass: boolean; flags: string[]; rationale: string; cost: number; ok: boolean; error?: string }> {
-  const sys = `Független auditor vagy. Egy AI által generált rövid magyar életrajzot kell ellenőrizned egy podcast-katalógus számára.
+  const sys = `Független auditor vagy. Egy AI által generált rövid magyar életrajzot ellenőrzöl egy podcast-katalógus számára.
 Szabályok:
-- A bio MINDEN tényállítását össze kell vetni a megadott forrásokkal (Wikipedia extract + epizód kontextus).
-- Ha bármely tényállításra (foglalkozás, születés/halál, nemzetiség, szervezet, korszak, szerep) NINCS forrás-fedezet a megadott bizonyítékban, az hallucináció → pass=false.
-- A nevezett személyt rövid kapcsolódó jelzők (pl. "magyar", "újságíró") csak akkor lehet a bio-ban, ha a Wikipedia extract vagy az episode kontextus explicit módon alátámasztja.
-- Ha a bio túl rövid (<20 karakter), túl hosszú (>500 karakter), nem magyar, vagy a biztonságos sablon visszhangja → pass=false.
-- Hipotetikus, "valószínűleg", reklámszerű kifejezések → pass=false.
-- Politikai vélemény, becslés, korhatározás forrás nélkül → pass=false.
-- Légy szigorú: ha bizonytalan vagy, jelöld fail-nek.
+- KÉT bio-típust fogadunk el:
+  (A) WIKIPEDIA-ALAPÚ bio: minden tényállítást (foglalkozás, születés/halál, nemzetiség, szervezet, korszak, szerep) a Wikipedia extract/leírás KIFEJEZETTEN támogatnia kell.
+  (B) OBSZERVÁCIÓS bio (nincs Wikipedia): csak azt állíthatja, hogy a személy magyar podcastokban szerepel/szerepelt vendégként/műsorvezetőként/témaként, ahogyan az epizód kontextus mutatja. Konkrét szám, szerep (host/guest/subject) megengedett, ha a tally támogatja (pl. tally.host>0 → "műsorvezető"). ÉLETRAJZI tény (foglalkozás Podcasten kívül, születési év, nemzetiség, intézmény, párthovatartozás) NEM megengedett Wikipedia nélkül.
+- Pass=true ha a bio (A) vagy (B) szabályainak megfelel ÉS magyar nyelvű ÉS 20–500 karakter között van ÉS nem a szó szerinti "magyar podcast epizódokban előforduló személy" sablon.
+- Hipotetikus, "valószínűleg", reklámszerű, politikai értékelés → pass=false.
+- Légy szigorú a hallucinációra (kitalált tény), de NE bukdoss el csak azért, mert nincs Wikipedia — (B) érvényes bio.
 - A submit_bio_audit eszközzel válaszolj.`;
+
   const epList = evidence.episode_titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join("\n") || "(nincs)";
   const user = `SZEMÉLY: ${personName}
 
@@ -258,16 +260,16 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
       ? `Wikipedia leírás: ${p.wikipedia_description || ""}\nWikipedia kivonat: ${(p.wikipedia_extract || "").slice(0, 800)}`
       : "Nincs ellenőrzött Wikipedia-forrás.";
 
-    const bioSys = `Magyar nyelvű, neutrális, tényszerű életrajzot írsz egy podcast-katalógushoz.
+    const bioSys = `Magyar nyelvű, neutrális, tényszerű rövid bio-t írsz egy podcast-katalógushoz.
 SZABÁLYOK:
 - KIZÁRÓLAG magyarul.
-- 2-4 rövid mondat. Tömör.
-- Csak akkor írj életrajzi tényt, ha Wikipedia/Wikidata forrásból igazolt.
-- Ha nincs ellenőrzött forrás, használd ezt a biztonságos sablont SZÓ SZERINT: "${safeFallbackBio(p.name)}"
-- SOHA ne találj ki tényeket. Ne találgass nemzetiséget, foglalkozást, születési évet.
-- Ne nevezd a személyt "műsorvezetőnek", csak ha a podcast adatok kifejezetten host szerepet jeleznek.
-- Ne mondj olyat, hogy "vendégként szerepel" hacsak az nem egyértelmű.
-- Ne használj reklámszerű, hype kifejezéseket.
+- 2-3 rövid mondat. Tömör. Max ~280 karakter.
+- ÉLETRAJZI tényt (foglalkozás, nemzetiség, születési év, intézményi pozíció, politikai hovatartozás) CSAK akkor írj, ha a megadott Wikipedia-forrás KIFEJEZETTEN tartalmazza.
+- Ha NINCS Wikipedia-forrás, írj OBSZERVÁCIÓS bio-t a Podiverzum-kontextusból: mely magyar podcastokban / milyen szerepben (host/vendég/téma) tűnik fel. Példa stílus: "X magyar podcast-szereplő; az indexelt epizódokban főként vendégként/műsorvezetőként szerepel N műsorban." Ezt SOHA NE egészítsd ki kitalált életrajzi adattal.
+- Ha Wikipedia VAN, kezdj egy egymondatos életrajzi sorral (a forrásból), majd add hozzá 1 mondatban a podcast-kontextust.
+- TILOS: "valószínűleg", "úgy tudni", reklámszerű hype, politikai értékelés, becsült életkor/évszám forrás nélkül.
+- SOHA ne nevezd a személyt "műsorvezetőnek", ha a tally.host=0.
+- Ne add vissza a "magyar podcast epizódokban előforduló személy" sablont SZÓ SZERINT — írd meg a saját mondatot a fenti szabályok szerint.
 - Csak a bio szövegét add vissza, semmi mást.`;
 
     const bioUser = `Személy neve: ${p.name}
@@ -282,6 +284,7 @@ Podiverzum kontextus:
 - Megjelenések típusa: host=${tally.host}, guest=${tally.guest}, subject=${tally.subject}, mentioned=${tally.mentioned}
 
 Írd meg a bio-t a fenti szabályok szerint.`;
+
 
     const overviewSys = `Magyar nyelvű, neutrális összefoglalót írsz arról, MIT tárgyalnak a podcast epizódok ${p.name} kapcsán.
 SZABÁLYOK:
@@ -307,11 +310,12 @@ SZABÁLYOK:
     let auditCost = 0;
     let bioStatus = "completed";
     let auditResult: any = null;
-
     if (epList.length === 0 && !useWiki) {
       bio = safeFallbackBio(p.name);
       overview = `A ${p.name} kapcsán jelenleg nincs elegendő indexelt magyar podcast epizód.`;
-      bioStatus = "needs_review";
+      bioStatus = "insufficient_evidence";
+      auditResult = { skipped: "insufficient_evidence" };
+
       auditResult = { skipped: "insufficient_evidence" };
     } else {
       const [b, o] = await Promise.all([
@@ -355,13 +359,15 @@ SZABÁLYOK:
             bio = safeFallbackBio(p.name);
             bioStatus = "audited_fail";
           }
-        } else if (!useWiki && epList.length < 3) {
+        } else if (!useWiki && epList.length < 2) {
           bioStatus = "needs_review";
         }
       } else if (!useWiki) {
-        bioStatus = isSafeFallback(p.name, bio) ? "needs_review" : (epList.length < 3 ? "needs_review" : "completed");
+        // Bio was the safe fallback OR call failed; demote if no evidence.
+        bioStatus = isSafeFallback(p.name, bio) ? (epList.length >= 2 ? "needs_review" : "insufficient_evidence") : (epList.length < 2 ? "needs_review" : "completed");
       }
     }
+
 
     const sources = {
       wikipedia: useWiki ? { qid: p.wikidata_id, title: p.wikipedia_title, confidence: p.wikipedia_match_confidence } : null,
