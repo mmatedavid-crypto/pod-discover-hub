@@ -6656,6 +6656,25 @@ export type Database = {
         }
         Returns: boolean
       }
+      hu_market_popularity: {
+        Args: never
+        Returns: {
+          podcast_id: string
+          rrf_score: number
+          source_count: number
+          sources: Json
+        }[]
+      }
+      hu_recent_activity: {
+        Args: { _ids: string[] }
+        Returns: {
+          avg_ep_title_len: number
+          eps_180d: number
+          eps_90d: number
+          last_ep_at: string
+          podcast_id: string
+        }[]
+      }
       immutable_unaccent: { Args: { s: string }; Returns: string }
       is_publicly_visible_hu_podcast: {
         Args: { p_id: string }

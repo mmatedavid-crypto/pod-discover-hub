@@ -46,6 +46,7 @@ import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
 import AdminArchiveBackfillPage from "./pages/AdminArchiveBackfillPage.tsx";
 import AdminHostsPage from "./pages/AdminHostsPage.tsx";
 import AdminLanguageGatePage from "./pages/AdminLanguageGatePage.tsx";
+import AdminHuFormulaShadowPage from "./pages/AdminHuFormulaShadowPage.tsx";
 import AdminPersonQualityReviewPage from "./pages/AdminPersonQualityReviewPage.tsx";
 import AdminVectorSearchPage from "./pages/AdminVectorSearchPage.tsx";
 import AdminSearchBenchmarkPage from "./pages/AdminSearchBenchmarkPage.tsx";
@@ -133,6 +134,7 @@ const App = () => (
           <Route path="/admin/archive-backfill" element={<AdminArchiveBackfillPage />} />
           <Route path="/admin/hosts" element={<AdminHostsPage />} />
           <Route path="/admin/language-gate" element={<AdminLanguageGatePage />} />
+          <Route path="/admin/hu-formula-shadow" element={<AdminHuFormulaShadowPage />} />
           <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
           <Route path="/admin/vector-search" element={<AdminVectorSearchPage />} />
           <Route path="/admin/search-benchmark" element={<AdminSearchBenchmarkPage />} />
