@@ -42,7 +42,7 @@ const ENTITY_TOOL = {
       "- research: research institute, think tank (MTA, RAND)\n" +
       "- radio_station: radio broadcaster (Klubrádió, Spirit FM, Tilos Rádió)\n" +
       "- other: only if none fits\n" +
-      "Do NOT include podcast names, podcast networks, hosting/distribution platforms or social networks mentioned only as 'follow us / subscribe' footers — Spotify, Apple Podcasts, Apple Music, YouTube, YouTube Music, Facebook, Instagram, TikTok, X, Twitter, Threads, LinkedIn, Telegram, Discord, WhatsApp, Patreon, SoundCloud, Anchor, Buzzsprout — unless they are a substantive topic of discussion in the episode. Also exclude sponsors only mentioned in credits.",
+      "Do NOT include podcast names, podcast networks, hosting platforms (Spotify, Apple Podcasts), or sponsors only mentioned in credits.",
     parameters: {
       type: "object",
       properties: {
