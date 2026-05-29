@@ -273,19 +273,25 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
   }
 
   if (rssLang && rssLang !== "hu" && rssLang.length === 2) {
-    // explicit non-HU RSS language
-    foreign += 25;
+    // Explicit non-HU RSS language — weak metadata signal only. Many Hungarian
+    // shows ship with wrong/default `<language>` tags (en, en-US, …). Treat as
+    // a small hint, never as standalone evidence to reject.
+    foreign += 10;
     if (!detected || detected === "unknown") detected = rssLang;
-    path.push(`rss=${rssLang}:+25`);
+    path.push(`rss=${rssLang}:+10`);
   }
 
   if (foreignDomain) { foreign += 25; path.push(`foreign_domain:${foreignDomain}:+25`); }
 
-  // No HU accents AT ALL in a long text is a strong EN signal
-  if (titleHeavy.length > 300 && huAccentRatioVal === 0 && huMatches.count === 0) {
-    foreign += 15;
-    path.push("no_hu_accents_at_all:+15");
-  }
+  // NOTE: absence of `.hu` domain and absence of Hungarian accents are NEVER
+  // counted as foreign evidence. A Hungarian podcast may live on .fm, .com,
+  // Spotify, Apple, YouTube, Anchor, Buzzsprout, Substack, etc. Foreign
+  // classification must come from positive foreign-language content signals
+  // (foreign words, foreign script, foreign publisher domain).
+
+  // Positive foreign-content evidence flag — used by all rejection branches
+  // below. We only reject when actual foreign-language content is detected.
+  const hasPositiveForeignContent = topForeignScore > 0 || !!foreignDomain;
 
   // --- Decision ---
   hu = Math.max(0, Math.min(100, hu));
