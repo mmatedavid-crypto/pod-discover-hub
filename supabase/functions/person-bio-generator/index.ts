@@ -541,8 +541,9 @@ Deno.serve(async (req) => {
   }
 
 
-  // Daily budget cap — GPT-5.5 bio + GPT-5 audit is pricier than before.
-  const budget = Math.min(Number(controls.daily_budget_usd || 2), 2);
+  // Daily budget cap — honors controls.daily_budget_usd, hard ceiling at $30/day
+  // as a final guard against runaway loops.
+  const budget = Math.min(Number(controls.daily_budget_usd || 5), 30);
   const today = new Date().toISOString().slice(0, 10);
   const { data: spend } = await admin.from("ai_spend_daily").select("by_kind").eq("day", today).maybeSingle();
   const spentToday = Number(((spend?.by_kind as any) || {}).person_bio || 0);
