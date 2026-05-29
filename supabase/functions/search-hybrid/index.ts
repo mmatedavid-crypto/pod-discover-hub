@@ -418,10 +418,11 @@ Deno.serve(async (req) => {
     // NO stemming, NO vector fallback. Prevents "Burján Szilárd" -> Pap/Demeter
     // Szilárd or "szilárdult" word matches.
     let personNameQueryTokens: string[] = [];
+    let isPersonNameQuery = false;
     {
       const origTokens = q.split(/\s+/).filter((t) => t.length > 0);
       const titleTokens = origTokens.filter((t) => /^[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű'-]+/.test(t));
-      const isPersonNameQuery = origTokens.length >= 2 && titleTokens.length >= 2 && origTokens.length <= 4;
+      isPersonNameQuery = origTokens.length >= 2 && titleTokens.length >= 2 && origTokens.length <= 4;
       if (isPersonNameQuery) {
         const phrase = qNorm; // already lowercased + diacritics-stripped + trimmed
         personNameQueryTokens = phrase.split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t));
@@ -511,6 +512,23 @@ Deno.serve(async (req) => {
         }
       }
     }
+
+    // Name-query semantic guard (2026-05-29):
+    // When the query looks like a person name AND we fell through the strict
+    // gate (no direct hit was strong enough), disable AI-cost features that
+    // tend to inject phonetic / weak-vector noise:
+    //  - HyDE (hallucinated query expansion drifts to "famous András" topics)
+    //  - chunk augmentation (short name embedding is noisy across catalog)
+    //  - Cohere rerank (a 2-token name vs episode summaries is unreliable)
+    // We KEEP FTS, entity pyramid, and episode_embeddings (already strict via
+    // post-rank cutoff). Goal: precision > recall for names.
+    if (isPersonNameQuery) {
+      FF.hyde = false;
+      FF.chunkAugment = false;
+      FF.cohere = false;
+    }
+
+
 
 
 
