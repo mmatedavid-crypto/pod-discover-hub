@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,8 +16,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "google/gemini-2.5-flash-lite";
 const DAILY_BUDGET_USD = 1;
 
 const ALLOWED_ACTIONS = new Set([
@@ -110,28 +110,31 @@ async function bumpSpend(admin: any, cost: number) {
 }
 
 async function callAI(payload: any): Promise<{ args: any; cost: number; error?: string }> {
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOVABLE_API_KEY}` },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: JSON.stringify(payload) },
-      ],
-      tools: [REVIEW_TOOL],
-      tool_choice: { type: "function", function: { name: "submit_org_review" } },
-      temperature: 0.1,
-    }),
+  const inputText = JSON.stringify(payload);
+  const ai = await callLovableAI({
+    model: MODEL,
+    job_type: "organization_ai_review",
+    target_type: "organization",
+    target_id: payload?.id,
+    prompt_version: "organization-review-v2",
+    input_text: inputText,
+    min_input_chars: 120,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: inputText },
+    ],
+    tools: [REVIEW_TOOL],
+    tool_choice: { type: "function", function: { name: "submit_org_review" } },
+    temperature: 0.1,
   });
-  if (!r.ok) return { args: null, cost: 0, error: `ai_${r.status}` };
-  const j = await r.json();
+  if (!ai.ok) return { args: null, cost: 0, error: ai.error || `ai_${ai.status}` };
+  const j = ai.data;
   const call = j?.choices?.[0]?.message?.tool_calls?.[0];
   if (!call) return { args: null, cost: 0, error: "no_tool_call" };
   let parsed: any = null;
   try { parsed = JSON.parse(call.function.arguments); } catch { return { args: null, cost: 0, error: "parse_fail" }; }
-  const inTok = j?.usage?.prompt_tokens || 0;
-  const outTok = (j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0);
+  const inTok = ai.input_tokens || j?.usage?.prompt_tokens || 0;
+  const outTok = ai.output_tokens || ((j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0));
   const cost = chatTokenCostUsd(MODEL, Number(inTok || 0), Number(outTok || 0));
   return { args: parsed, cost };
 }
@@ -170,6 +173,7 @@ async function collectEvidence(admin: any, org: any) {
       .limit(5),
   ]);
   return {
+    id: org.id,
     name: org.name,
     slug: org.slug,
     normalized_name: org.normalized_name,

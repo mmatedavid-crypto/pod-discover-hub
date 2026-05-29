@@ -2,6 +2,7 @@
 // Cost-safe mode: no GPT/Pro models in backlog runners. Controls are fail-closed.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const BIO_MODEL = "google/gemini-2.5-flash-lite";
 const AUDIT_MODEL = "google/gemini-2.5-flash-lite";
 const OVERVIEW_MODEL = "google/gemini-2.5-flash-lite";
@@ -47,21 +47,27 @@ async function callAI(
   if (opts.toolChoice) body.tool_choice = opts.toolChoice;
 
 
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOVABLE_API_KEY}` },
-    body: JSON.stringify(body),
+  const ai = await callLovableAI({
+    model,
+    job_type: "person_bio_generator",
+    target_type: "person",
+    prompt_version: "person-bio-v2",
+    input_text: user,
+    min_input_chars: 120,
+    messages: body.messages,
+    tools: opts.tools,
+    tool_choice: opts.toolChoice,
+    temperature: typeof body.temperature === "number" ? body.temperature : undefined,
   });
-  if (!r.ok) {
-    const errText = await r.text().catch(() => "");
-    return { text: "", cost: 0, ok: false, error: `ai_${r.status}:${errText.slice(0, 200)}` };
+  if (!ai.ok) {
+    return { text: "", cost: 0, ok: false, error: ai.error || `ai_${ai.status}` };
   }
-  const j = await r.json();
+  const j = ai.data;
   const msg = j?.choices?.[0]?.message || {};
   const text = (msg.content || "").trim();
   const toolCall = msg.tool_calls?.[0];
-  const inTok = j?.usage?.prompt_tokens || 0;
-  const outTok = (j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0);
+  const inTok = ai.input_tokens || j?.usage?.prompt_tokens || 0;
+  const outTok = ai.output_tokens || ((j?.usage?.completion_tokens || 0) + (j?.usage?.completion_tokens_details?.reasoning_tokens || 0));
   const cost = chatTokenCostUsd(model, Number(inTok || 0), Number(outTok || 0));
   return { text, cost, ok: true, toolCall };
 }

@@ -4,6 +4,7 @@
 //
 // POST { limit?: number, only_peeked?: boolean (default true), tier?: ('B'|'C'|'BC') }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,19 +14,19 @@ const corsHeaders = {
 const MODEL = "google/gemini-2.5-flash-lite";
 
 async function detectLanguage(title: string, description: string): Promise<{ lang: string; confidence: number; reason: string } | null> {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) return null;
   const text = `Title: ${title}\n\nDescription: ${(description || "").slice(0, 2000)}`;
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
+  const ai = await callLovableAI({
+    model: MODEL,
+    job_type: "pi_language_recheck",
+    target_type: "podcast",
+    prompt_version: "pi-language-recheck-v2",
+    input_text: text,
+    min_input_chars: 40,
+    messages: [
         { role: "system", content: "You detect the primary spoken language of a podcast based on its title and description. Reply via the tool only." },
         { role: "user", content: text },
-      ],
-      tools: [{
+    ],
+    tools: [{
         type: "function",
         function: {
           name: "set_language",
@@ -41,12 +42,11 @@ async function detectLanguage(title: string, description: string): Promise<{ lan
             additionalProperties: false,
           },
         },
-      }],
-      tool_choice: { type: "function", function: { name: "set_language" } },
-    }),
+    }],
+    tool_choice: { type: "function", function: { name: "set_language" } },
   });
-  if (!resp.ok) return null;
-  const j = await resp.json();
+  if (!ai.ok) return null;
+  const j = ai.data;
   const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) return null;
   try { return JSON.parse(args); } catch { return null; }

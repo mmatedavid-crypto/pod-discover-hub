@@ -8,6 +8,7 @@ import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
 import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
 import { detectBot } from "../_shared/bot-detect.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +18,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const EPISODE_SELECT =
@@ -277,7 +277,7 @@ async function embedRaw(q: string): Promise<number[] | null> {
 const embed = (q: string) => withTimeout(embedRaw(q), 3500, "embed");
 
 async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string[]; why: Record<string, string> } | null> {
-  if (!LOVABLE_API_KEY || items.length < 5) return null;
+  if (items.length < 5) return null;
   const top = items.slice(0, 30);
   const compact = top.map((e, i) => ({
     i, id: e.id,
@@ -286,41 +286,43 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
     p: e.podcasts?.title?.slice(0, 60) ?? "",
   }));
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: "You re-rank Hungarian podcast episodes by relevance and explain why each top result matches in <12 words, in Hungarian." },
-          { role: "user", content: `Query: ${q}\nCandidates: ${JSON.stringify(compact)}\nReturn the top 15 most relevant ids in order, each with a one-line why_matched.` },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "rank",
-            parameters: {
-              type: "object", additionalProperties: false,
-              properties: {
-                results: {
-                  type: "array",
-                  maxItems: 15,
-                  items: {
-                    type: "object", additionalProperties: false,
-                    properties: { id: { type: "string" }, why: { type: "string" } },
-                    required: ["id", "why"],
-                  },
+    const inputText = `${q}\n${compact.map((e) => `${e.t} ${e.p} ${e.s}`).join("\n")}`;
+    const ai = await callLovableAI({
+      model: "google/gemini-2.5-flash-lite",
+      job_type: "search_hybrid_rerank",
+      target_type: "search_query",
+      prompt_version: "search-hybrid-rerank-v2",
+      input_text: inputText,
+      min_input_chars: 50,
+      messages: [
+        { role: "system", content: "You re-rank Hungarian podcast episodes by relevance and explain why each top result matches in <12 words, in Hungarian." },
+        { role: "user", content: `Query: ${q}\nCandidates: ${JSON.stringify(compact)}\nReturn the top 15 most relevant ids in order, each with a one-line why_matched.` },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "rank",
+          parameters: {
+            type: "object", additionalProperties: false,
+            properties: {
+              results: {
+                type: "array",
+                maxItems: 15,
+                items: {
+                  type: "object", additionalProperties: false,
+                  properties: { id: { type: "string" }, why: { type: "string" } },
+                  required: ["id", "why"],
                 },
               },
-              required: ["results"],
             },
+            required: ["results"],
           },
-        }],
-        tool_choice: { type: "function", function: { name: "rank" } },
-      }),
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "rank" } },
     });
-    if (!r.ok) { console.warn("rerank http", r.status); return null; }
-    const j = await r.json();
+    if (!ai.ok) { console.warn("rerank ai skipped/error", ai.status, ai.error); return null; }
+    const j = ai.data;
     const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return null;
     const parsed = typeof args === "string" ? JSON.parse(args) : args;
@@ -870,7 +872,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
+    const rpcResult = await supa.rpc("search_episodes_hybrid", {
       q: lexQ,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
@@ -881,11 +883,13 @@ Deno.serve(async (req) => {
       p_decay_lambda: decayLambda,
       phrase_terms: phraseTerms.length ? phraseTerms : null,
     });
+    let rows = rpcResult.data;
+    const error = rpcResult.error;
     if (error) {
       console.error("rpc err", error);
       return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    let mustGateApplied = requiredTerms.length > 0;
+    const mustGateApplied = requiredTerms.length > 0;
     let mustGateRelaxed = false;
     let mustGateDropped = false;
     const strictRows = rows || [];
