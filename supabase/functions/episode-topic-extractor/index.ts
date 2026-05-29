@@ -115,9 +115,12 @@ Deno.serve(async (req) => {
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "episode_topic_extractor_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
     const body = await req.json().catch(() => ({}));
-    if (ctrl.enabled === false && !body.force) return json({ ok: true, paused: true, reason: "disabled_by_controls" });
+    if (ctrl.enabled !== true) return json({ ok: true, paused: true, reason: "disabled_by_controls" });
 
     const model = String(ctrl.model || "google/gemini-2.5-flash-lite");
+    if (/(openai\/gpt-5|gpt-5|gemini-.*-pro|\/.*-pro|gemini-3)/i.test(model)) {
+      return json({ ok: true, paused: true, reason: "blocked_batch_model", model });
+    }
     const batchSize = Math.max(1, Math.min(40, Number(body.batch ?? ctrl.batch_limit ?? 20)));
     const concurrency = Math.max(1, Math.min(12, Number(ctrl.concurrency ?? 8)));
     const tierFilter: string[] = Array.isArray(ctrl.tier_filter) ? ctrl.tier_filter : ["S"];
