@@ -577,7 +577,7 @@ const Index = () => {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">Felkapott epizódok</h2>
-                <p className="text-xs text-muted-foreground mt-1">Friss epizódok a műsorok között.</p>
+                <p className="text-xs text-muted-foreground mt-1">Friss és erős epizódok a magyar podcastokból.</p>
               </div>
             </div>
             <EpisodeList items={trendingEps} scrollAlways />
