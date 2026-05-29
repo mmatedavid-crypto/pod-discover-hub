@@ -418,10 +418,11 @@ Deno.serve(async (req) => {
     // NO stemming, NO vector fallback. Prevents "Burján Szilárd" -> Pap/Demeter
     // Szilárd or "szilárdult" word matches.
     let personNameQueryTokens: string[] = [];
+    let isPersonNameQuery = false;
     {
       const origTokens = q.split(/\s+/).filter((t) => t.length > 0);
       const titleTokens = origTokens.filter((t) => /^[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű'-]+/.test(t));
-      const isPersonNameQuery = origTokens.length >= 2 && titleTokens.length >= 2 && origTokens.length <= 4;
+      isPersonNameQuery = origTokens.length >= 2 && titleTokens.length >= 2 && origTokens.length <= 4;
       if (isPersonNameQuery) {
         const phrase = qNorm; // already lowercased + diacritics-stripped + trimmed
         personNameQueryTokens = phrase.split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t));
