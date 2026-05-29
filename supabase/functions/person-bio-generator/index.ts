@@ -386,17 +386,16 @@ SZABÁLYOK:
           episode_titles: epList.map((e: any) => e.title),
           tally,
         });
-        auditCost = audit.cost;
-        auditResult = { model: AUDIT_MODEL, pass: audit.pass, flags: audit.flags, rationale: audit.rationale, ok: audit.ok };
         if (!audit.pass) {
-          // Reject unsupported AI text. If Wikipedia is verified, publish the source-derived sentence instead of a generic template.
+          // Reject unsupported AI text. If Wikipedia is verified, publish the source-derived sentence.
           if (wikiDerivedBio) {
             bio = wikiDerivedBio;
             bioStatus = "completed";
             auditResult.recovered_with_wikipedia = true;
           } else {
-            bio = safeFallbackBio(p.name);
-            bioStatus = "audited_fail";
+            // Without verified wiki: keep the AI text but mark as needs_review so the team can triage.
+            // Avoid demoting back to the literal fallback (creates audited_fail noise).
+            bioStatus = "needs_review";
           }
         } else if (!useWiki && epList.length < 2) {
           bioStatus = "needs_review";
