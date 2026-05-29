@@ -203,9 +203,23 @@ Deno.serve(async (req) => {
         samples.length >= stallRuns + 1 &&
         samples.every((v) => v === pending)
       ) {
-        action = "pause_stall";
-        reason = `stall: pending stuck at ${pending} for ${samples.length} runs (~${(samples.length - 1) * 2} min)`;
+        // Egyensúly-detektor: ha a runner valójában dolgozik (rekordok kerülnek ki a pending-ből az activity-ablakban),
+        // akkor a stabil pending csak azt jelenti, hogy ugyanolyan ütemben jönnek újak — nem stall.
+        let isEquilibrium = false;
+        if (r.activity_kind) {
+          const win = r.activity_window_min ?? 20;
+          const act = await recentActivity(admin, r.activity_kind, win);
+          if (act != null && act > 0) {
+            isEquilibrium = true;
+            reason = `equilibrium: pending stable at ${pending} but ${act} rows processed in last ${win}min (kind=${r.activity_kind})`;
+          }
+        }
+        if (!isEquilibrium) {
+          action = "pause_stall";
+          reason = `stall: pending stuck at ${pending} for ${samples.length} runs (~${(samples.length - 1) * 2} min)`;
+        }
       }
+
 
       if (action !== "noop" && !dryRun) {
         let next: any = { ...ctrl };
