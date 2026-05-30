@@ -57,7 +57,7 @@ function timeoutFetch(timeoutMs: number) {
   };
 }
 
-async function fetchSupadata(videoId: string, apiKey: string, preferredLang?: string): Promise<{
+async function fetchSupadata(videoId: string, apiKey: string, preferredLang?: string, mode = "native"): Promise<{
   text: string;
   segments: any[];
   duration: number;
@@ -67,6 +67,7 @@ async function fetchSupadata(videoId: string, apiKey: string, preferredLang?: st
   // Request segmented (no text=true) so we get offsets/durations.
   const params = new URLSearchParams({ videoId });
   if (preferredLang) params.set("lang", preferredLang);
+  params.set("mode", mode);
   const r = await timeoutFetch(SUPADATA_TIMEOUT_MS)(`${SUPADATA_URL}?${params}`, {
     headers: { "x-api-key": apiKey },
   });
@@ -146,6 +147,7 @@ Deno.serve(async (req) => {
     const concurrency = Math.min(Number(ctrl.concurrency || 2), 4);
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 2);
     const preferredLang = ctrl.preferred_lang || "hu";
+    const transcriptMode = String(ctrl.transcript_mode || "native");
     const minMatchScore = Number(ctrl.min_match_score ?? 0.84);
     const minDescriptionGainChars = Number(ctrl.min_description_gain_chars ?? 300);
     const minYoutubeDescriptionChars = Number(ctrl.min_youtube_description_chars ?? 250);
@@ -248,6 +250,7 @@ Deno.serve(async (req) => {
             ep.youtube_video_id!,
             SUPADATA_API_KEY!,
             preferredLang,
+            transcriptMode,
           );
           if (!text || text.length < 30) {
             no_captions++;
