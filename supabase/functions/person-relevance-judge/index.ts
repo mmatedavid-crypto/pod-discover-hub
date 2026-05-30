@@ -24,12 +24,12 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
       preferPaid: v.prefer_paid === true,
-      maxAiCallsPerRun: Math.min(Math.max(Number(v.max_ai_calls_per_run ?? 120), 1), 800),
+      maxAiCallsPerRun: Math.min(Math.max(Number(v.max_ai_calls_per_run ?? 800), 1), 2000),
       minConfidenceForAi: Math.max(0, Math.min(1, Number(v.min_confidence_for_ai ?? 0.55))),
       raw: v,
     };
   } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, preferPaid: false, maxAiCallsPerRun: 120, minConfidenceForAi: 0.55, raw: {} };
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, preferPaid: false, maxAiCallsPerRun: 800, minConfidenceForAi: 0.55, raw: {} };
   }
 }
 
