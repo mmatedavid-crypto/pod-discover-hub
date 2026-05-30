@@ -920,6 +920,118 @@ export type Database = {
           },
         ]
       }
+      episode_best_text_source: {
+        Row: {
+          cleaned_len: number
+          cleaned_preview: string | null
+          episode_id: string
+          evidence: Json
+          podcast_id: string
+          raw_len: number
+          raw_text: string
+          selected_at: string
+          source_confidence: number
+          source_reason: string[]
+          source_ref_id: string | null
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          cleaned_len?: number
+          cleaned_preview?: string | null
+          episode_id: string
+          evidence?: Json
+          podcast_id: string
+          raw_len?: number
+          raw_text: string
+          selected_at?: string
+          source_confidence?: number
+          source_reason?: string[]
+          source_ref_id?: string | null
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          cleaned_len?: number
+          cleaned_preview?: string | null
+          episode_id?: string
+          evidence?: Json
+          podcast_id?: string
+          raw_len?: number
+          raw_text?: string
+          selected_at?: string
+          source_confidence?: number
+          source_reason?: string[]
+          source_ref_id?: string | null
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_best_text_source_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_best_text_source_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_best_text_source_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_best_text_source_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_best_text_source_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_best_text_source_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_best_text_source_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_best_text_source_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_best_text_source_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       episode_category_overrides: {
         Row: {
           category_slug: string
@@ -1112,6 +1224,84 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      episode_clean_text_candidates: {
+        Row: {
+          cleaned_text: string
+          cleaner_method: string
+          created_at: string
+          episode_id: string
+          promoted_at: string | null
+          quality_reasons: string[]
+          quality_score: number | null
+          quality_status: string
+          removed_categories: string[]
+          source_hash: string
+          updated_at: string
+        }
+        Insert: {
+          cleaned_text: string
+          cleaner_method: string
+          created_at?: string
+          episode_id: string
+          promoted_at?: string | null
+          quality_reasons?: string[]
+          quality_score?: number | null
+          quality_status?: string
+          removed_categories?: string[]
+          source_hash: string
+          updated_at?: string
+        }
+        Update: {
+          cleaned_text?: string
+          cleaner_method?: string
+          created_at?: string
+          episode_id?: string
+          promoted_at?: string | null
+          quality_reasons?: string[]
+          quality_score?: number | null
+          quality_status?: string
+          removed_categories?: string[]
+          source_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_clean_text_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_clean_text_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_clean_text_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_clean_text_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_clean_text_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+        ]
       }
       episode_embeddings: {
         Row: {
@@ -6272,6 +6462,29 @@ export type Database = {
         }
         Relationships: []
       }
+      v_entity_quality_issues: {
+        Row: {
+          ai_review_score: number | null
+          ai_review_status: string | null
+          distinct_podcast_count: number | null
+          entity_id: string | null
+          entity_kind: string | null
+          entity_type: string | null
+          episode_count: number | null
+          is_browsable_in_hub: boolean | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          issue_codes: string[] | null
+          may_require_ai: boolean | null
+          mention_count: number | null
+          name: string | null
+          priority_score: number | null
+          repair_action: string | null
+          safety_policy: string | null
+          slug: string | null
+        }
+        Relationships: []
+      }
       v_episode_data_quality_issues: {
         Row: {
           clean_length: number | null
@@ -7015,6 +7228,19 @@ export type Database = {
           rows_in_latest: number
           source: string
           stale: boolean
+        }[]
+      }
+      hu_content_intelligence_v2: {
+        Args: { _ids: string[] }
+        Returns: {
+          audio_coverage: number
+          avg_description_len: number
+          entity_coverage: number
+          episode_count: number
+          podcast_id: string
+          recent_episode_count: number
+          summary_coverage: number
+          topic_coverage: number
         }[]
       }
       hu_market_popularity: {
