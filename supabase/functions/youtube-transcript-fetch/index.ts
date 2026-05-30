@@ -15,6 +15,7 @@
 // Budget tracking: ai_spend_daily.by_kind.youtube_transcript
 // Credit discipline:
 //   - only v3-confirmed YouTube episode matches are eligible
+//   - YouTube metadata must report captions before Supadata is called
 //   - transcript attempts are logged per video, including no-caption failures
 //   - RSS/YouTube description gain gates avoid spending when description is enough
 
@@ -41,6 +42,7 @@ type Candidate = {
   youtube_video_id: string;
   youtube_description: string | null;
   youtube_duration_seconds: number | null;
+  youtube_caption_available: boolean | null;
   match_score: number | null;
   validation_reason: any;
 };
@@ -148,6 +150,7 @@ Deno.serve(async (req) => {
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 2);
     const preferredLang = ctrl.preferred_lang || "hu";
     const transcriptMode = String(ctrl.transcript_mode || "native");
+    const requireYoutubeCaptionAvailable = ctrl.require_youtube_caption_available !== false;
     const minMatchScore = Number(ctrl.min_match_score ?? 0.84);
     const minDescriptionGainChars = Number(ctrl.min_description_gain_chars ?? 300);
     const minYoutubeDescriptionChars = Number(ctrl.min_youtube_description_chars ?? 250);
@@ -167,11 +170,12 @@ Deno.serve(async (req) => {
     // rows are deliberately ignored to avoid burning Supadata credits on weak matches.
     let candQ = admin
       .from("episode_youtube_links")
-      .select("episode_id,podcast_id,youtube_video_id,youtube_description,youtube_duration_seconds,match_score,validation_reason")
+      .select("episode_id,podcast_id,youtube_video_id,youtube_description,youtube_duration_seconds,youtube_caption_available,match_score,validation_reason")
       .eq("status", "confirmed")
       .contains("validation_reason", { policy: MATCH_POLICY })
       .gte("match_score", minMatchScore)
       .order("match_score", { ascending: false });
+    if (requireYoutubeCaptionAvailable) candQ = candQ.eq("youtube_caption_available", true);
     if (episodeIdParam) candQ = candQ.eq("episode_id", episodeIdParam);
     else candQ = candQ.limit(Math.max(batch * 4, 80));
     const { data: cands, error: cErr } = await candQ;

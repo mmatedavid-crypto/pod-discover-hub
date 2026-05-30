@@ -190,6 +190,7 @@ function evaluatePair(ep: any, scored: Array<{ item: any; score: number }>, idx:
   const ytDesc = item.videoDetails?.snippet?.description || item.snippet?.description || "";
   const ytPublished = item.videoDetails?.snippet?.publishedAt || item.snippet?.publishedAt || item.contentDetails?.videoPublishedAt || null;
   const ytDuration = parseIsoDurationSeconds(item.videoDetails?.contentDetails?.duration);
+  const ytCaptionAvailable = String(item.videoDetails?.contentDetails?.caption || "").toLowerCase() === "true";
   const ytViews = Number(item.videoDetails?.statistics?.viewCount || 0) || null;
   const second = idx === 0 ? scored[1] : scored[0];
   const ambiguityGap = Number((candidate.score - Number(second?.score || 0)).toFixed(4));
@@ -238,6 +239,7 @@ function evaluatePair(ep: any, scored: Array<{ item: any; score: number }>, idx:
       duration_score: Number(dur.score.toFixed(4)),
       duration_ratio: dur.ratio === null ? null : Number(dur.ratio.toFixed(4)),
       youtube_duration_seconds: ytDuration,
+      youtube_caption_available: ytCaptionAvailable,
       spotify_duration_ms: ep.spotify_duration_ms || null,
       ambiguity_gap: ambiguityGap,
       blockers,
@@ -407,6 +409,8 @@ Deno.serve(async (req) => {
               youtube_description: (s.item.videoDetails?.snippet?.description || s.item.snippet?.description || "").slice(0, 5000),
               youtube_published_at: s.item.videoDetails?.snippet?.publishedAt || s.item.snippet?.publishedAt,
               youtube_duration_seconds: s.ytDuration,
+              youtube_caption_available: s.evidence.youtube_caption_available,
+              youtube_caption_checked_at: new Date().toISOString(),
               youtube_view_count: s.ytViews,
               match_score: s.finalScore,
               confidence: isWinner ? confidence : (s.blockers.length ? "rejected" : "candidate"),
