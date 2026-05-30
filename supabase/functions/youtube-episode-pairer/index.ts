@@ -281,6 +281,126 @@ async function aiValidatePair(model: string, ep: any, evaluated: any): Promise<b
   } catch { return false; }
 }
 
+type AdaptivePlan = {
+  enabled: boolean;
+  phase: "manual" | "legacy" | "drain" | "catch_up" | "maintenance";
+  batch: number;
+  maxVideos: number;
+  episodeLimit: number;
+  timeBudgetMs: number;
+  maxAiCallsPerRun: number;
+  rescanAfterDays: number;
+  cutoffIso: string;
+  claimTimeoutMinutes: number;
+  backlog?: {
+    paired_hu_podcasts: number;
+    never_episode_scanned: number;
+    stale_episode_scan: number;
+    due_episode_scan: number;
+  };
+};
+
+async function countPodcasts(admin: ReturnType<typeof createClient>, tiers: string[], filter: "total" | "never" | "stale" | "due", cutoffIso: string): Promise<number> {
+  let q = admin
+    .from("podcasts")
+    .select("id", { count: "exact", head: true })
+    .eq("youtube_pairing_status", "paired")
+    .not("youtube_channel_id", "is", null)
+    .eq("is_hungarian", true)
+    .in("shadow_rank_tier", tiers);
+  if (filter === "never") q = q.is("youtube_last_episode_pair_at", null);
+  if (filter === "stale") q = q.lt("youtube_last_episode_pair_at", cutoffIso);
+  if (filter === "due") q = q.or(`youtube_last_episode_pair_at.is.null,youtube_last_episode_pair_at.lt.${cutoffIso}`);
+  const { count, error } = await q;
+  if (error) throw error;
+  return count || 0;
+}
+
+async function buildAdaptivePlan(admin: ReturnType<typeof createClient>, ctrl: any, tiers: string[], pilot: number, podcastIdParam: string | null, url: URL): Promise<AdaptivePlan> {
+  const manual = !!pilot || !!podcastIdParam;
+  const adaptiveEnabled = ctrl.adaptive_enabled !== false && !manual;
+  const rescanAfterDays = Math.max(1, Math.min(30, Number(ctrl.rescan_after_days || 7)));
+  const cutoffIso = new Date(Date.now() - rescanAfterDays * 86400000).toISOString();
+
+  if (!adaptiveEnabled) {
+    const requestedMaxVideos = Number(url.searchParams.get("max_videos") || ctrl.max_videos_per_channel || 500);
+    const requestedEpisodeLimit = Number(url.searchParams.get("episode_limit") || ctrl.episode_limit || (pilot ? 500 : 2000));
+    return {
+      enabled: false,
+      phase: manual ? "manual" : "legacy",
+      batch: pilot || Number(ctrl.podcast_batch || 10),
+      maxVideos: Math.max(20, Math.min(pilot ? 150 : 500, requestedMaxVideos)),
+      episodeLimit: Math.max(20, Math.min(2000, requestedEpisodeLimit)),
+      timeBudgetMs: Math.max(30000, Math.min(170000, Number(ctrl.time_budget_ms || 145000))),
+      maxAiCallsPerRun: Math.max(0, Math.min(500, Number(ctrl.max_ai_calls_per_run ?? 80))),
+      rescanAfterDays,
+      cutoffIso,
+      claimTimeoutMinutes: Math.max(5, Math.min(240, Number(ctrl.claim_timeout_minutes || 45))),
+    };
+  }
+
+  const [paired, never, stale, due] = await Promise.all([
+    countPodcasts(admin, tiers, "total", cutoffIso),
+    countPodcasts(admin, tiers, "never", cutoffIso),
+    countPodcasts(admin, tiers, "stale", cutoffIso),
+    countPodcasts(admin, tiers, "due", cutoffIso),
+  ]);
+  const phase: AdaptivePlan["phase"] = due >= Number(ctrl.drain_until_due_below || 50) || never > 0
+    ? "drain"
+    : due >= Number(ctrl.catchup_until_due_below || 10)
+      ? "catch_up"
+      : "maintenance";
+  const prefix = phase === "drain" ? "drain" : phase === "catch_up" ? "catchup" : "maintenance";
+
+  return {
+    enabled: true,
+    phase,
+    batch: Number(ctrl[`${prefix}_podcast_batch`] || (phase === "drain" ? 12 : phase === "catch_up" ? 6 : 2)),
+    maxVideos: Number(ctrl[`${prefix}_max_videos_per_channel`] || (phase === "drain" ? 180 : phase === "catch_up" ? 140 : 80)),
+    episodeLimit: Number(ctrl[`${prefix}_episode_limit`] || (phase === "drain" ? 900 : phase === "catch_up" ? 700 : 350)),
+    timeBudgetMs: Math.max(30000, Math.min(170000, Number(ctrl.time_budget_ms || 145000))),
+    maxAiCallsPerRun: Math.max(0, Math.min(500, Number(ctrl.max_ai_calls_per_run ?? (phase === "maintenance" ? 20 : 40)))),
+    rescanAfterDays,
+    cutoffIso,
+    claimTimeoutMinutes: Math.max(5, Math.min(240, Number(ctrl.claim_timeout_minutes || 45))),
+    backlog: {
+      paired_hu_podcasts: paired,
+      never_episode_scanned: never,
+      stale_episode_scan: stale,
+      due_episode_scan: due,
+    },
+  };
+}
+
+async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: AdaptivePlan, tiers: string[], podcastIdParam: string | null, batch: number) {
+  if (podcastIdParam) {
+    return await admin.from("podcasts")
+      .select("id, title, youtube_channel_id, shadow_rank_tier")
+      .eq("id", podcastIdParam)
+      .eq("youtube_pairing_status", "paired")
+      .not("youtube_channel_id", "is", null);
+  }
+
+  const { data, error } = await admin.rpc("claim_youtube_episode_pair_podcasts", {
+    p_limit: batch,
+    p_tiers: tiers,
+    p_cutoff: plan.cutoffIso,
+    p_claim_timeout_minutes: plan.claimTimeoutMinutes,
+  });
+  if (!error) return { data, error };
+
+  console.warn("claim_youtube_episode_pair_podcasts fallback", error.message);
+  return await admin.from("podcasts")
+    .select("id, title, youtube_channel_id, shadow_rank_tier")
+    .eq("youtube_pairing_status", "paired")
+    .not("youtube_channel_id", "is", null)
+    .in("shadow_rank_tier", tiers)
+    .eq("is_hungarian", true)
+    .or(`youtube_last_episode_pair_at.is.null,youtube_last_episode_pair_at.lt.${plan.cutoffIso}`)
+    .order("youtube_last_episode_pair_at", { ascending: true, nullsFirst: true })
+    .limit(batch);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
@@ -300,36 +420,60 @@ Deno.serve(async (req) => {
     if (ctrl.enabled === false && !pilot && !podcastIdParam) return json({ ok: true, paused: true });
 
     const tiers: string[] = ctrl.tiers || ["S", "A"];
-    const batch = pilot || Number(ctrl.podcast_batch || 10);
+    const plan = await buildAdaptivePlan(admin, ctrl, tiers, pilot, podcastIdParam, url);
+    const batch = Math.max(1, Math.min(50, plan.batch));
     const aiModel = String(ctrl.ai_validate_model || "google/gemini-2.5-flash-lite");
-    const requestedMaxVideos = Number(url.searchParams.get("max_videos") || ctrl.max_videos_per_channel || 500);
-    const maxVideos = Math.max(20, Math.min(pilot ? 150 : 500, requestedMaxVideos));
-    const requestedEpisodeLimit = Number(url.searchParams.get("episode_limit") || ctrl.episode_limit || (pilot ? 500 : 2000));
-    const episodeLimit = Math.max(20, Math.min(2000, requestedEpisodeLimit));
+    const maxVideos = Math.max(20, Math.min(pilot ? 150 : 250, plan.maxVideos));
+    const episodeLimit = Math.max(20, Math.min(1200, plan.episodeLimit));
+    const maxAiCallsPerRun = plan.maxAiCallsPerRun;
+    const timeBudgetMs = plan.timeBudgetMs;
     const strictAutoThr = Number(ctrl.strict_auto_pair_threshold || 0.84);
     const strictAiThr = Number(ctrl.strict_ai_pair_threshold || 0.78);
     const minAmbiguityGap = Number(ctrl.min_ambiguity_gap || 0.04);
 
-    // Pick paired podcasts to scan
-    let q = admin.from("podcasts")
-      .select("id, title, youtube_channel_id, shadow_rank_tier")
-      .eq("youtube_pairing_status", "paired")
-      .not("youtube_channel_id", "is", null);
-    if (podcastIdParam) q = q.eq("id", podcastIdParam);
-    else q = q.in("shadow_rank_tier", tiers).eq("is_hungarian", true)
-      .order("youtube_last_episode_pair_at", { ascending: true, nullsFirst: true })
-      .limit(batch);
-    const { data: pods, error: pErr } = await q;
+    const { data: pods, error: pErr } = await claimPodcasts(admin, plan, tiers, podcastIdParam, batch);
     if (pErr) throw pErr;
-    if (!pods?.length) return json({ ok: true, no_candidates: true });
+    if (!pods?.length) {
+      if (!dry) {
+        await admin.from("app_settings").upsert({
+          key: "youtube_episode_pairer_progress",
+          value: {
+            ok: true,
+            no_candidates: true,
+            adaptive: plan,
+            last_run_at: new Date().toISOString(),
+            elapsed_ms: Date.now() - startedAt,
+          },
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "key" });
+      }
+      return json({ ok: true, no_candidates: true, adaptive: plan });
+    }
 
     let auto = 0, ai_paired = 0, no_match = 0, errors = 0, videos_fetched = 0, candidates_written = 0;
+    let ai_calls = 0, skipped_ai_budget = 0, stopped_for_time_budget = false;
     const results: any[] = [];
+    const processedPodcastIds = new Set<string>();
 
     for (const pod of pods) {
+      if (Date.now() - startedAt > timeBudgetMs - 15000) {
+        stopped_for_time_budget = true;
+        break;
+      }
       try {
         const uploads = await getUploadsPlaylistId(pod.youtube_channel_id!);
-        if (!uploads) { errors++; results.push({ podcast_id: pod.id, error: "no_uploads_playlist" }); continue; }
+        if (!uploads) {
+          errors++;
+          results.push({ podcast_id: pod.id, error: "no_uploads_playlist" });
+          processedPodcastIds.add(pod.id);
+          if (!dry && !podcastIdParam) {
+            await admin.from("podcasts").update({
+              youtube_episode_pair_claimed_at: null,
+              youtube_episode_pair_claim_owner: null,
+            }).eq("id", pod.id);
+          }
+          continue;
+        }
         const items = await listPlaylist(uploads, maxVideos);
         const details = await hydrateVideoDetails(items);
         for (const item of items) {
@@ -343,6 +487,7 @@ Deno.serve(async (req) => {
         const { data: eps } = await admin.from("episodes")
           .select("id, title, description, published_at, youtube_video_id, youtube_pairing_status")
           .eq("podcast_id", pod.id)
+          .order("published_at", { ascending: false, nullsFirst: false })
           .limit(episodeLimit);
         const epIds = (eps || []).map((e: any) => e.id);
         const spotifyDurationByEp = new Map<string, number>();
@@ -361,6 +506,10 @@ Deno.serve(async (req) => {
         const candidatesToInsert: any[] = [];
 
         for (const rawEp of eps || []) {
+          if (Date.now() - startedAt > timeBudgetMs - 12000) {
+            stopped_for_time_budget = true;
+            break;
+          }
           const ep = { ...rawEp, spotify_duration_ms: spotifyDurationByEp.get(rawEp.id) || null };
           // Score every YT video against this episode; take top 3 by score
           const scored = items.map((it: any) => {
@@ -386,8 +535,13 @@ Deno.serve(async (req) => {
             && !best.blockers.includes("episode_number_mismatch")
             && !best.blockers.includes("duration_mismatch")
           ) {
-            const yes = await aiValidatePair(aiModel, ep, best);
-            if (yes) { winner = best; confidence = "ai_validated"; podAi++; }
+            if (ai_calls < maxAiCallsPerRun) {
+              ai_calls++;
+              const yes = await aiValidatePair(aiModel, ep, best);
+              if (yes) { winner = best; confidence = "ai_validated"; podAi++; }
+            } else {
+              skipped_ai_budget++;
+            }
           }
           if (winner) {
             if (confidence === "strict_auto") podAuto++;
@@ -450,8 +604,11 @@ Deno.serve(async (req) => {
           await admin.from("podcasts").update({
             youtube_last_episode_pair_at: new Date().toISOString(),
             youtube_episode_count: items.length,
+            youtube_episode_pair_claimed_at: null,
+            youtube_episode_pair_claim_owner: null,
           }).eq("id", pod.id);
         }
+        processedPodcastIds.add(pod.id);
 
         results.push({
           podcast_id: pod.id, title: pod.title, channel_id: pod.youtube_channel_id,
@@ -461,16 +618,47 @@ Deno.serve(async (req) => {
       } catch (e: any) {
         errors++;
         results.push({ podcast_id: pod.id, error: e?.message || String(e) });
+        processedPodcastIds.add(pod.id);
+        if (!dry && !podcastIdParam) {
+          await admin.from("podcasts").update({
+            youtube_episode_pair_claimed_at: null,
+            youtube_episode_pair_claim_owner: null,
+          }).eq("id", pod.id);
+        }
+      }
+    }
+    if (!dry && !podcastIdParam) {
+      const unprocessedClaimIds = (pods || []).map((pod: any) => pod.id).filter((id: string) => !processedPodcastIds.has(id));
+      if (unprocessedClaimIds.length) {
+        await admin.from("podcasts").update({
+          youtube_episode_pair_claimed_at: null,
+          youtube_episode_pair_claim_owner: null,
+        }).in("id", unprocessedClaimIds);
       }
     }
 
-    return json({
+    const responseBody = {
       ok: true, pilot: !!pilot, dry, processed_podcasts: pods.length,
+      adaptive: plan,
       auto, ai_paired, no_match, errors,
+      ai_calls, skipped_ai_budget, stopped_for_time_budget,
       videos_fetched, candidates_written,
       elapsed_ms: Date.now() - startedAt,
       results,
-    });
+    };
+    if (!dry) {
+      await admin.from("app_settings").upsert({
+        key: "youtube_episode_pairer_progress",
+        value: {
+          ...responseBody,
+          last_run_at: new Date().toISOString(),
+          results: results.slice(0, 20),
+        },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+    }
+
+    return json(responseBody);
   } catch (e: any) {
     console.error("youtube-episode-pairer error", e);
     return json({ error: e?.message || "error" }, 500);
