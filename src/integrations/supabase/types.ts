@@ -1225,6 +1225,7 @@ export type Database = {
           podcast_id: string | null
           role: string
           source: string
+          source_evidence: Json
         }
         Insert: {
           confidence?: number
@@ -1235,6 +1236,7 @@ export type Database = {
           podcast_id?: string | null
           role?: string
           source?: string
+          source_evidence?: Json
         }
         Update: {
           confidence?: number
@@ -1245,6 +1247,7 @@ export type Database = {
           podcast_id?: string | null
           role?: string
           source?: string
+          source_evidence?: Json
         }
         Relationships: [
           {
@@ -1631,6 +1634,7 @@ export type Database = {
           description: string | null
           detected_language: string | null
           display_title: string | null
+          entity_extraction_evidence: Json
           episode_rank: number
           episode_rank_label: string | null
           episode_rank_reason: Json
@@ -1687,6 +1691,7 @@ export type Database = {
           description?: string | null
           detected_language?: string | null
           display_title?: string | null
+          entity_extraction_evidence?: Json
           episode_rank?: number
           episode_rank_label?: string | null
           episode_rank_reason?: Json
@@ -1743,6 +1748,7 @@ export type Database = {
           description?: string | null
           detected_language?: string | null
           display_title?: string | null
+          entity_extraction_evidence?: Json
           episode_rank?: number
           episode_rank_label?: string | null
           episode_rank_reason?: Json
