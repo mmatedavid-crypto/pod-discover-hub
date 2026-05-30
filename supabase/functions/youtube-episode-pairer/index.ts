@@ -374,11 +374,12 @@ async function buildAdaptivePlan(admin: ReturnType<typeof createClient>, ctrl: a
 
 async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: AdaptivePlan, tiers: string[], podcastIdParam: string | null, batch: number) {
   if (podcastIdParam) {
-    return await admin.from("podcasts")
+    const res = await admin.from("podcasts")
       .select("id, title, youtube_channel_id, shadow_rank_tier")
       .eq("id", podcastIdParam)
       .eq("youtube_pairing_status", "paired")
       .not("youtube_channel_id", "is", null);
+    return { ...res, claim_path: "direct_podcast_id" };
   }
 
   const { data, error } = await admin.rpc("claim_youtube_episode_pair_podcasts", {
@@ -387,10 +388,10 @@ async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: Adapt
     p_cutoff: plan.cutoffIso,
     p_claim_timeout_minutes: plan.claimTimeoutMinutes,
   });
-  if (!error) return { data, error };
+  if (!error) return { data, error, claim_path: "rpc_skip_locked" };
 
   console.warn("claim_youtube_episode_pair_podcasts fallback", error.message);
-  return await admin.from("podcasts")
+  const fallback = await admin.from("podcasts")
     .select("id, title, youtube_channel_id, shadow_rank_tier")
     .eq("youtube_pairing_status", "paired")
     .not("youtube_channel_id", "is", null)
@@ -399,6 +400,7 @@ async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: Adapt
     .or(`youtube_last_episode_pair_at.is.null,youtube_last_episode_pair_at.lt.${plan.cutoffIso}`)
     .order("youtube_last_episode_pair_at", { ascending: true, nullsFirst: true })
     .limit(batch);
+  return { ...fallback, claim_path: "fallback_select", claim_error: error.message };
 }
 
 Deno.serve(async (req) => {
@@ -431,7 +433,7 @@ Deno.serve(async (req) => {
     const strictAiThr = Number(ctrl.strict_ai_pair_threshold || 0.78);
     const minAmbiguityGap = Number(ctrl.min_ambiguity_gap || 0.04);
 
-    const { data: pods, error: pErr } = await claimPodcasts(admin, plan, tiers, podcastIdParam, batch);
+    const { data: pods, error: pErr, claim_path: claimPath, claim_error: claimError } = await claimPodcasts(admin, plan, tiers, podcastIdParam, batch);
     if (pErr) throw pErr;
     if (!pods?.length) {
       if (!dry) {
@@ -440,6 +442,8 @@ Deno.serve(async (req) => {
           value: {
             ok: true,
             no_candidates: true,
+            claim_path: claimPath,
+            claim_error: claimError || null,
             adaptive: plan,
             last_run_at: new Date().toISOString(),
             elapsed_ms: Date.now() - startedAt,
@@ -640,6 +644,8 @@ Deno.serve(async (req) => {
     const responseBody = {
       ok: true, pilot: !!pilot, dry, processed_podcasts: pods.length,
       adaptive: plan,
+      claim_path: claimPath,
+      claim_error: claimError || null,
       auto, ai_paired, no_match, errors,
       ai_calls, skipped_ai_budget, stopped_for_time_budget,
       videos_fetched, candidates_written,
