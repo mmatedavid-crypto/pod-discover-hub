@@ -28,6 +28,7 @@ const functionChecks = [
   "episode-clean-text-candidate-promoter",
   "data-repair-apply-runner",
   "entity-quality-apply-runner",
+  "entity-quality-autopilot",
 ];
 
 let failures = 0;

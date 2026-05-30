@@ -134,7 +134,10 @@ Added backend objects:
 - `get_entity_quality_snapshot_v1(_limit)`
 - `entity_quality_controls`
 - `entity-quality-apply-runner`
+- `entity-quality-autopilot`
 
 The first apply action is intentionally narrow and no-AI:
 
 - `hide_low_confidence_organization`: for reviewed low-confidence organizations only; it keeps the organization row and mentions, but removes public index/hub visibility.
+
+The autopilot runs every 30 minutes after deploy, starts in dry-run, records the current entity quality snapshot, and calls the apply runner only for explicitly allowed no-AI actions. It self-disables after repeated errors via `auto_stop_at_errors`.

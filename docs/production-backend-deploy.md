@@ -33,3 +33,4 @@ It will:
 - `episode-clean-text-candidate-promoter`
 - `data-repair-apply-runner`
 - `entity-quality-apply-runner`
+- `entity-quality-autopilot`
