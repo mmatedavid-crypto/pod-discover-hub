@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PodcastCover } from "./PodcastCover";
-import { Apple, Music, Youtube } from "lucide-react";
+import { Apple, ArrowRight, Music, Trophy, Youtube } from "lucide-react";
+import { snippet } from "@/lib/text";
 
 type TrendingRow = {
   id: string;
@@ -11,6 +12,8 @@ type TrendingRow = {
   slug: string;
   image_url: string | null;
   category: string | null;
+  summary?: string | null;
+  description?: string | null;
   sources: { source: "apple" | "spotify" | "youtube"; rank: number }[];
 };
 
@@ -33,43 +36,69 @@ export function TrendingPodcasts() {
 
   return (
     <section>
-      <div className="flex items-end justify-between mb-4">
+      <div className="flex items-end justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Felkapott műsorok</h2>
+          <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
+            <Trophy className="h-3 w-3" /> Toplisták
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Népszerű most</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Az Apple Podcasts és YouTube top listái alapján — naponta frissül.
+            Apple, Spotify és YouTube jelekből számolt magyar toplista.
           </p>
         </div>
+        <Link to="/toplista" className="hidden sm:inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          Toplista <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
-      <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-        {items.map((p) => {
+      <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+        {items.map((p, index) => {
           const title = p.display_title || p.title;
+          const desc = snippet(p.summary || p.description, 92);
+          const lead = index === 0;
           return (
             <Link
               key={p.id}
               to={`/podcast/${p.slug}`}
-              className="group shrink-0 snap-start w-36 sm:w-40"
+              className={[
+                "group shrink-0 snap-start overflow-hidden rounded-lg border border-border/70 bg-card/80 shadow-sm transition-all hover:border-primary/50 hover:bg-card",
+                lead ? "w-[76vw] max-w-[320px] sm:w-72" : "w-[46vw] max-w-[190px] sm:w-48",
+              ].join(" ")}
             >
-              <div className="relative">
-                <PodcastCover title={title} src={p.image_url} />
+              <div className="relative aspect-square overflow-hidden bg-secondary">
+                <PodcastCover title={title} src={p.image_url} size={lead ? "lg" : undefined} />
+                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-background/85 to-transparent" />
+                <div className="absolute left-2 top-2 rounded-md bg-background/80 px-2 py-1 text-[11px] font-semibold text-foreground backdrop-blur">
+                  #{index + 1}
+                </div>
               </div>
-              <div className="mt-2 font-medium text-sm leading-snug line-clamp-2 group-hover:underline">
-                {title}
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                {p.sources?.map((s) => {
-                  const Icon = ICON[s.source];
-                  return (
-                    <span key={s.source} className="inline-flex items-center gap-1" title={`#${s.rank} ${LABEL[s.source]}`}>
-                      {Icon && <Icon className="h-3 w-3" />}#{s.rank}
-                    </span>
-                  );
-                })}
+              <div className="p-3">
+                <div className="font-semibold text-sm sm:text-base leading-snug line-clamp-2 group-hover:underline">
+                  {title}
+                </div>
+                {lead && desc && (
+                  <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">{desc}</p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                  {p.sources?.slice(0, 3).map((s) => {
+                    const Icon = ICON[s.source];
+                    return (
+                      <span key={s.source} className="inline-flex items-center gap-1" title={`#${s.rank} ${LABEL[s.source]}`}>
+                        {Icon && <Icon className="h-3 w-3" />}#{s.rank}
+                      </span>
+                    );
+                  })}
+                </div>
+                {p.category && (
+                  <div className="mt-2 text-[11px] text-muted-foreground/80 line-clamp-1">{p.category}</div>
+                )}
               </div>
             </Link>
           );
         })}
       </div>
+      <Link to="/toplista" className="mt-2 inline-flex sm:hidden items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        Teljes toplista <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
     </section>
   );
 }

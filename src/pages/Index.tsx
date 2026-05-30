@@ -610,9 +610,10 @@ const Index = () => {
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         
+        <TrendingPodcasts />
         <MyLibraryRails />
-        <PersonalizedHomeRails />
         <ContinueListening />
+        <PersonalizedHomeRails />
         {!loaded && trendingEps.length === 0 && (
           <section>
             <Skeleton className="h-6 w-48 mb-4" />
@@ -642,10 +643,6 @@ const Index = () => {
             <EpisodeList items={trendingEps} scrollAlways />
           </section>
         )}
-
-        <TrendingPodcasts />
-
-
 
         <MoodCollections />
 
