@@ -165,7 +165,12 @@ Automation: `clean-text-autopilot` runs the same safe sequence in small batches 
 - run `ai-enrich` for a capped subset of promoted episodes;
 - delete old episode embeddings and chunks only after successful enrichment, so existing embedding runners rebuild from the new clean-text-derived data.
 
-The admin page is only an observability and emergency control surface. It is not the operating model for the full corpus.
+Safety defaults:
+
+- Full-pipeline `dry_run=true` by default after deployment; it observes and logs without staging/promoting until explicitly disabled.
+- `daily_budget_usd` caps the autopilot's enrichment-triggered AI spend.
+- `pipeline-watchdog` tracks `clean_text_autopilot` liveness, errors, and budget.
+- The admin page is only an observability and emergency control surface. It is not the operating model for the full corpus.
 
 6. After promotion, invalidate and rebuild only the promoted episodes:
    - SEO and `ai_summary`;
