@@ -60,7 +60,8 @@ export default function EpisodeDetail() {
     if (deepLinkAppliedRef.current === key) return;
     deepLinkAppliedRef.current = key;
     const audioSrc = detectAudioSource(data.e);
-    if (!audioSrc) return;
+    const playerAudioUrl = audioSrc?.url || data.e.audio_url || null;
+    if (!playerAudioUrl) return;
     if (currentEpisode?.id === data.e.id) {
       seekTo(t);
       return;
@@ -73,7 +74,7 @@ export default function EpisodeDetail() {
       podcastSlug: data.p.slug || null,
       episodeSlug: data.e.slug || null,
       imageUrl: data.e.image_url || data.p.image_url || null,
-      audioUrl: audioSrc.url,
+      audioUrl: playerAudioUrl,
       externalUrl: data.e.episode_url || data.e.audio_url || null,
     };
     play(ep, { startAt: t });
@@ -268,12 +269,13 @@ export default function EpisodeDetail() {
 
         {(() => {
           const audioSrc = detectAudioSource(e);
-          const canInternalPlay = smartPlayerVisible && !!audioSrc;
+          const playerAudioUrl = audioSrc?.url || e.audio_url || null;
+          const canInternalPlay = !!playerAudioUrl;
           const isCurrent = currentEpisode?.id === e.id;
           const isThisPlaying = isCurrent && isPlaying;
 
           const handleInternalPrimary = () => {
-            if (!audioSrc) return;
+            if (!playerAudioUrl) return;
             if (isCurrent) {
               toggle();
               return;
@@ -288,7 +290,7 @@ export default function EpisodeDetail() {
               podcastSlug: p.slug || null,
               episodeSlug: e.slug || null,
               imageUrl: e.image_url || p.image_url || null,
-              audioUrl: audioSrc.url,
+              audioUrl: playerAudioUrl,
               externalUrl: e.episode_url || e.audio_url || null,
             };
             play(ep, { resume: canResume });

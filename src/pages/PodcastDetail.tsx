@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X } from "lucide-react";
+import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X, Play, Pause } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
 import PersonAvatar from "@/components/PersonAvatar";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
@@ -16,6 +16,8 @@ import { PodcastEntitiesCompact } from "@/components/PodcastEntitiesCompact";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { slugify } from "@/lib/slug";
 import { PodcastFollow } from "@/components/PodcastFollow";
+import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
+import { detectAudioSource } from "@/lib/playerAudio";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
@@ -267,7 +269,7 @@ export default function PodcastDetail() {
         })()}
 
 
-        <EpisodeListWithSearch eps={eps} podcastSlug={p.slug} />
+        <EpisodeListWithSearch eps={eps} podcast={p} />
 
 
         <SimilarPodcasts podcastId={p.id} />
@@ -276,8 +278,10 @@ export default function PodcastDetail() {
   );
 }
 
-function EpisodeListWithSearch({ eps, podcastSlug }: { eps: any[]; podcastSlug: string }) {
+function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
   const [q, setQ] = useState("");
+  const { play, toggle, currentEpisode, isPlaying } = useSmartPlayer();
+  const podcastSlug = podcast.slug;
   const norm = (s: string) =>
     (s || "")
       .toLowerCase()
@@ -340,6 +344,28 @@ function EpisodeListWithSearch({ eps, podcastSlug }: { eps: any[]; podcastSlug: 
           <ul className="divide-y divide-border border border-border rounded-lg bg-card">
             {filtered.map((e) => {
               const fr = freshnessOf(e.published_at);
+              const audioSrc = detectAudioSource(e);
+              const playerAudioUrl = audioSrc?.url || e.audio_url || null;
+              const isCurrent = currentEpisode?.id === e.id;
+              const isThisPlaying = isCurrent && isPlaying;
+              const handlePlay = () => {
+                if (!playerAudioUrl) return;
+                if (isCurrent) {
+                  toggle();
+                  return;
+                }
+                play({
+                  id: e.id,
+                  title: e.display_title || e.title,
+                  podcastId: podcast.id,
+                  podcastTitle: podcast.display_title || podcast.title,
+                  podcastSlug: podcast.slug || null,
+                  episodeSlug: e.slug || null,
+                  imageUrl: e.image_url || podcast.image_url || null,
+                  audioUrl: playerAudioUrl,
+                  externalUrl: e.episode_url || e.audio_url || null,
+                }, { resume: true });
+              };
               return (
                 <li key={e.id} className="p-4 hover:bg-secondary/50">
                   <Link to={`/podcast/${podcastSlug}/${e.slug}`} className="block">
@@ -358,8 +384,16 @@ function EpisodeListWithSearch({ eps, podcastSlug }: { eps: any[]; podcastSlug: 
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{snippet(e.summary || e.description, 200)}</p>
                     )}
                   </Link>
-                  {e.audio_url && (
-                    <a href={e.audio_url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground inline-block mt-2">↗ Hallgatás</a>
+                  {playerAudioUrl && (
+                    <button
+                      type="button"
+                      onClick={handlePlay}
+                      className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mt-2"
+                      aria-label={isThisPlaying ? "Szünet" : "Hallgatás"}
+                    >
+                      {isThisPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                      <span>{isThisPlaying ? "Szünet" : isCurrent ? "Folytatás" : "Hallgatás"}</span>
+                    </button>
                   )}
                 </li>
               );

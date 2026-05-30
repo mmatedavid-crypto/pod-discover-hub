@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { PodcastCover } from "./PodcastCover";
-import { Brain, ExternalLink, Info, Play } from "lucide-react";
+import { Brain, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { slugify } from "@/lib/slug";
@@ -65,10 +65,11 @@ export function EpisodeCard({
   const understanding = getEpisodeUnderstanding(e);
   const { play } = useSmartPlayer();
   const playable = detectAudioSource({ audio_url: e.audio_url });
+  const playerAudioUrl = playable?.url || e.audio_url || null;
   const handlePlay = (ev: React.MouseEvent) => {
     ev.preventDefault();
     ev.stopPropagation();
-    if (!playable) return;
+    if (!playerAudioUrl) return;
     play({
       id: e.id,
       title: epTitle,
@@ -77,7 +78,7 @@ export function EpisodeCard({
       podcastSlug: p.slug,
       episodeSlug: e.slug,
       imageUrl: p.image_url || null,
-      audioUrl: playable.url,
+      audioUrl: playerAudioUrl,
       externalUrl: e.audio_url || null,
     }, { resume: true });
   };
@@ -192,7 +193,7 @@ export function EpisodeCard({
           >
             <Info className="h-3.5 w-3.5" />
           </Link>
-          {e.audio_url && (playable ? (
+          {e.audio_url && (
             <button
               type="button"
               onClick={handlePlay}
@@ -201,20 +202,10 @@ export function EpisodeCard({
             >
               <Play className="h-3.5 w-3.5" />
             </button>
-          ) : (
-            <a
-              href={e.audio_url}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Hallgatás külső lejátszóban"
-              className="sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          ))}
+          )}
           {/* Tablet/desktop: text links */}
           <Link to={`/podcast/${p.slug}/${e.slug}`} className="hidden sm:inline text-muted-foreground hover:text-foreground">Részletek</Link>
-          {e.audio_url && (playable ? (
+          {e.audio_url && (
             <button
               type="button"
               onClick={handlePlay}
@@ -222,11 +213,7 @@ export function EpisodeCard({
             >
               <Play className="h-3 w-3" /> Lejátszás
             </button>
-          ) : (
-            <a href={e.audio_url} target="_blank" rel="noreferrer" className="hidden sm:inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
-              <ExternalLink className="h-3 w-3" /> Hallgatás
-            </a>
-          ))}
+          )}
           <div className="ml-auto"><EpisodeMarks episodeId={e.id} compact /></div>
         </div>
       </div>
