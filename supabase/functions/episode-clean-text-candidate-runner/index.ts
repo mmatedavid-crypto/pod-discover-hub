@@ -22,6 +22,13 @@ type EpisodeRow = {
   summary?: string | null;
 };
 
+type BestTextSourceRow = {
+  episode_id: string;
+  source_type: string;
+  raw_text: string | null;
+  source_confidence: number | null;
+};
+
 type AdminClient = ReturnType<typeof createClient>;
 
 async function isAdmin(admin: AdminClient, authHeader: string | null) {
@@ -95,18 +102,27 @@ Deno.serve(async (req) => {
       .in("id", ids);
     if (epErr) throw epErr;
 
+    const bestTextByEp = new Map<string, BestTextSourceRow>();
+    const { data: bestRows, error: bestErr } = await admin
+      .from("episode_best_text_source")
+      .select("episode_id,source_type,raw_text,source_confidence")
+      .in("episode_id", ids);
+    if (bestErr && !String(bestErr.message || "").includes("episode_best_text_source")) throw bestErr;
+    for (const row of (bestRows || []) as BestTextSourceRow[]) bestTextByEp.set(row.episode_id, row);
+
     const rows = ((episodes || []) as EpisodeRow[]).map(async (ep) => {
-      const raw = String(ep.description || ep.summary || "");
+      const best = bestTextByEp.get(ep.id);
+      const raw = String(best?.raw_text || ep.description || ep.summary || "");
       const { text, removed } = heuristicClean(raw);
       const cleaned = text.trim();
-      const sourceHash = await sha256Hex(`${method}::${raw}`);
+      const sourceHash = await sha256Hex(`${method}::${best?.source_type || "rss"}::${raw}`);
       const quality = qualityGate(raw, cleaned);
       return {
         episode_id: ep.id,
         cleaner_method: method,
         source_hash: sourceHash,
         cleaned_text: cleaned,
-        removed_categories: removed,
+        removed_categories: Array.from(new Set([...removed, best?.source_type ? `source_${best.source_type}` : "source_rss"])),
         quality_status: quality.status,
         quality_reasons: quality.reasons,
         quality_score: quality.score,

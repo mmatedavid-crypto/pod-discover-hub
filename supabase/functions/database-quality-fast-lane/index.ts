@@ -19,6 +19,8 @@ type Controls = {
   data_repair_limit?: number;
   run_entity_quality?: boolean;
   entity_quality_limit?: number;
+  run_best_text_source?: boolean;
+  best_text_source_limit?: number;
   run_clean_text?: boolean;
   run_entity_backfill?: boolean;
   entity_backfill_batch?: number;
@@ -41,6 +43,8 @@ const DEFAULT_CONTROLS: Required<Controls> = {
   data_repair_limit: 500,
   run_entity_quality: true,
   entity_quality_limit: 500,
+  run_best_text_source: true,
+  best_text_source_limit: 1000,
   run_clean_text: true,
   run_entity_backfill: true,
   entity_backfill_batch: 400,
@@ -126,6 +130,13 @@ Deno.serve(async (req) => {
     if (controls.run_entity_quality !== false) {
       await runStep("entity_quality", () => callFunction("entity-quality-autopilot", {
         trigger: "database_quality_fast_lane",
+      }));
+    }
+
+    if (controls.run_best_text_source !== false) {
+      await runStep("best_text_source", () => callFunction("episode-best-text-source-runner", {
+        trigger: "database_quality_fast_lane",
+        limit: Math.max(100, Math.min(5000, Number(controls.best_text_source_limit || DEFAULT_CONTROLS.best_text_source_limit))),
       }));
     }
 
