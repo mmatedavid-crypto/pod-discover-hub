@@ -6177,6 +6177,26 @@ export type Database = {
         }
         Relationships: []
       }
+      v_data_repair_queue: {
+        Row: {
+          action_order: number | null
+          display_title: string | null
+          episode_id: string | null
+          issue_codes: string[] | null
+          may_require_ai: boolean | null
+          podcast_display_title: string | null
+          podcast_id: string | null
+          podcast_title: string | null
+          podiverzum_rank: number | null
+          priority_score: number | null
+          published_at: string | null
+          rank_label: string | null
+          repair_action: string | null
+          safety_policy: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
       v_episode_data_quality_issues: {
         Row: {
           clean_length: number | null
@@ -6710,6 +6730,10 @@ export type Database = {
       get_cron_health: { Args: never; Returns: Json }
       get_data_quality_snapshot_v1: {
         Args: { _recent_days?: number; _sample_limit?: number }
+        Returns: Json
+      }
+      get_data_repair_plan_v1: {
+        Args: { _include_ai?: boolean; _limit?: number; _recent_days?: number }
         Returns: Json
       }
       get_homepage_rails_v1: {
