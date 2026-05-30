@@ -655,9 +655,10 @@ const Index = () => {
           // HU categories map to one or more English taxonomy buckets via taxonomy_keys.
           // Aggregate episode lists across all mapped keys for each HU tile.
           const itemsForCat = (c: any): EpisodeLite[] => {
-            const keys: string[] = Array.isArray(c.taxonomy_keys) && c.taxonomy_keys.length
-              ? c.taxonomy_keys
-              : [c.name];
+            const keys: string[] = Array.from(new Set([
+              c.name,
+              ...(Array.isArray(c.taxonomy_keys) ? c.taxonomy_keys : []),
+            ].filter(Boolean)));
             const merged: EpisodeLite[] = [];
             const seen = new Set<string>();
             for (const k of keys) {
