@@ -201,7 +201,7 @@ export default function AdminIntelligenceAuditPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ mode: "bad_or_old", limit: 250, tiers: ["S", "A", "B", "C"], dry_run: action === "plan" }),
+        body: JSON.stringify({ mode: "repair_queue", limit: 250, tiers: ["S", "A", "B", "C"], dry_run: action === "plan" }),
       });
       const data = await r.json();
       setReprocessPlan(data);

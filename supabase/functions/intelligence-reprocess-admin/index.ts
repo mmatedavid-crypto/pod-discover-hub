@@ -29,6 +29,18 @@ type CleanRow = {
   removed_categories: string[] | null;
 };
 
+type RepairQueueRow = {
+  episode_id: string;
+  podcast_id: string;
+  podcast_title: string | null;
+  podcast_display_title: string | null;
+  rank_label: string | null;
+  title: string | null;
+  display_title: string | null;
+  issue_codes: string[] | null;
+  priority_score: number | null;
+};
+
 type AdminClient = ReturnType<typeof createClient>;
 type ReprocessBody = {
   limit?: number | string;
@@ -80,6 +92,37 @@ async function loadCandidates(admin: AdminClient, body: ReprocessBody): Promise<
   const limit = Math.max(1, Math.min(1000, Number(body.limit || 200)));
   const tiers = Array.isArray(body.tiers) && body.tiers.length ? body.tiers.map(String) : DEFAULT_TIERS;
   const mode = String(body.mode || "bad_or_old");
+
+  if (mode === "repair_queue") {
+    const { data, error } = await admin
+      .from("v_data_repair_queue")
+      .select("episode_id,podcast_id,podcast_title,podcast_display_title,rank_label,title,display_title,issue_codes,priority_score")
+      .eq("repair_action", "clean_text_candidate")
+      .in("rank_label", tiers)
+      .order("priority_score", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    const rows = ((data || []) as RepairQueueRow[]);
+    const candidates = rows.map((row) => ({
+      id: row.episode_id,
+      podcast_id: row.podcast_id,
+      title: row.display_title || row.title || "Untitled episode",
+      description: null,
+      ai_summary: null,
+      clean_text_status: "queued_by_repair_plan",
+      ai_entities_version: 0,
+      podcasts: {
+        title: row.podcast_title,
+        display_title: row.podcast_display_title,
+        rank_label: row.rank_label,
+      },
+      reasons: [
+        "repair_queue",
+        ...((row.issue_codes || []).map((code) => `dq_${code}`)),
+      ],
+    }));
+    return { candidates, scanned: rows.length };
+  }
 
   const { data: eps, error } = await admin
     .from("episodes")
