@@ -24,7 +24,7 @@ const EXAMPLES = [
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
-function withSearchTimeout<T>(promise: Promise<T>, timeoutMs = 9500): Promise<T> {
+function withSearchTimeout<T>(promise: Promise<T>, timeoutMs = 14500): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error("search_timeout")), timeoutMs);
     promise.then(
@@ -168,7 +168,7 @@ export default function SearchPage() {
       // weak results above better final ones — explicitly disallowed by policy.
       try {
         const phase1 = await withSearchTimeout(supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: true, lang: "hu", latency_mode: "public", soft_budget_ms: 8500 },
+          body: { q: initial, limit: 80, rerank: true, lang: "hu", latency_mode: "quality", soft_budget_ms: 13500 },
         }));
         if (phase1.error) throw phase1.error;
         if (cancelled) return;
