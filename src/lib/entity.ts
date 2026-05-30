@@ -34,10 +34,11 @@ const TOPIC_ALIASES: Record<string, string> = {
   "mesterseges intelligencia": "Mesterséges intelligencia",
   kozelet: "Közélet",
   "koz elet": "Közélet",
-  politika: "Politika",
+  politika: "Magyar politika",
+  politikai: "Magyar politika",
   gazdasag: "Gazdaság",
-  uzlet: "Üzlet",
-  business: "Üzlet",
+  uzlet: "Vállalkozás",
+  business: "Vállalkozás",
   penzugy: "Pénzügy",
   befektetes: "Befektetés",
   egeszseg: "Egészség",
@@ -45,12 +46,14 @@ const TOPIC_ALIASES: Record<string, string> = {
   pszichologia: "Pszichológia",
   parkapcsolat: "Párkapcsolat",
   kapcsolatok: "Párkapcsolat",
+  onfejlesztes: "Önismeret",
+  "self improvement": "Önismeret",
   technologia: "Technológia",
   tech: "Technológia",
   tortenelem: "Történelem",
   historia: "Történelem",
-  kultura: "Kultúra",
-  muveszet: "Művészet",
+  kultura: "Magyar kultúra",
+  muveszet: "Magyar kultúra",
   vallas: "Vallás",
   spiritualitas: "Spiritualitás",
   oktatas: "Oktatás",
@@ -68,7 +71,13 @@ export function entitySlug(kind: EntityKind, value: string): string {
 }
 
 export function entityHref(kind: EntityKind, value: string): string {
-  return `/${kind === "ticker" ? "ticker" : kind}/${encodeURIComponent(entitySlug(kind, value))}`;
+  const route =
+    kind === "topic" ? "tema" :
+    kind === "person" ? "szemelyek" :
+    kind === "company" ? "ceg" :
+    kind === "ingredient" ? "hozzavalo" :
+    "ticker";
+  return `/${route}/${encodeURIComponent(entitySlug(kind, value))}`;
 }
 
 // Match against a candidate value (case-insensitive slug for most kinds; symbol for ticker)

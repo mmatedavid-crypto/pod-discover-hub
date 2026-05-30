@@ -19,7 +19,8 @@ interface Topic {
 // Merged/renamed topics → canonical slugs (301-style client redirect)
 const SLUG_REDIRECTS: Record<string, string> = {
   ai: "mesterseges-intelligencia",
-  futball: "foci",
+  foci: "labdarugas",
+  futball: "labdarugas",
 };
 
 export default function TopicDetailPage() {
