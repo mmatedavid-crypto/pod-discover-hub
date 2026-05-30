@@ -18,15 +18,18 @@ type Body = {
   dry_run?: boolean;
 };
 type RepairRow = {
-  episode_id: string;
+  id?: string;
+  episode_id?: string;
   podcast_id: string;
-  podcast_title: string | null;
-  podcast_display_title: string | null;
+  podcasts?: {
+    title?: string | null;
+    display_title?: string | null;
+    rank_label?: string | null;
+    podiverzum_rank?: number | null;
+  } | null;
   title: string | null;
   display_title: string | null;
-  repair_action: string;
-  issue_codes: string[];
-  priority_score: number;
+  published_at?: string | null;
 };
 
 const DEFAULT_LIMIT = 100;
@@ -79,16 +82,18 @@ Deno.serve(async (req) => {
     const dryRun = body.dry_run !== undefined ? body.dry_run !== false : controls.dry_run !== false;
 
     const { data: rows, error: queueErr } = await admin
-      .from("v_data_repair_queue")
-      .select("episode_id,podcast_id,podcast_title,podcast_display_title,title,display_title,repair_action,issue_codes,priority_score")
-      .eq("repair_action", action)
-      .eq("may_require_ai", false)
-      .order("priority_score", { ascending: false })
+      .from("episodes")
+      .select("id,podcast_id,title,display_title,published_at,podcasts!inner(title,display_title,rank_label,podiverzum_rank,is_hungarian,language_decision,rss_status)")
+      .eq("podcasts.is_hungarian", true)
+      .eq("podcasts.language_decision", "accept_hungarian")
+      .not("podcasts.rss_status", "in", "(failed,inactive)")
+      .or("episode_rank.is.null,episode_rank.neq.1,episode_rank_label.not.is.null")
+      .order("published_at", { ascending: false, nullsFirst: false })
       .limit(limit);
     if (queueErr) throw queueErr;
 
-    const candidates = ((rows || []) as RepairRow[]).filter((r) => r.episode_id);
-    const episodeIds = candidates.map((r) => r.episode_id);
+    const candidates = ((rows || []) as RepairRow[]).filter((r) => r.id);
+    const episodeIds = candidates.map((r) => r.id!).filter(Boolean);
     let applied = 0;
     let updateError: string | null = null;
 
@@ -120,11 +125,11 @@ Deno.serve(async (req) => {
       runtime_ms: Date.now() - startedAt,
       error: updateError,
       sample: candidates.slice(0, 25).map((r) => ({
-        episode_id: r.episode_id,
-        podcast: r.podcast_display_title || r.podcast_title,
+        episode_id: r.id,
+        podcast: r.podcasts?.display_title || r.podcasts?.title,
         title: r.display_title || r.title,
-        issue_codes: r.issue_codes,
-        priority_score: r.priority_score,
+        issue_codes: ["legacy_episode_rank_active"],
+        priority_score: r.podcasts?.rank_label === "S" ? 100 : r.podcasts?.rank_label === "A" ? 70 : 40,
       })),
     };
 

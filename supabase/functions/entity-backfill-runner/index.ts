@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
       try {
         // Prefer cleaned text (footer/social/platform chrome stripped) over raw description.
         // Avoids garbage entities like "Facebook"/"Instagram"/"Spotify" from "Kövess minket..." footers.
-        const cleanedText = ep.episode_clean_text?.[0]?.cleaned_text || null;
+        const cleanedText = ep.cleaned_text || null;
         const desc = String(cleanedText || ep.ai_summary || ep.description || "").replace(/\s+/g, " ").trim().slice(0, 2500);
         const podName = ep.podcasts?.display_title || ep.podcasts?.title || "";
         const podHosts: string[] = Array.isArray(ep.podcasts?.hosts) ? ep.podcasts.hosts : [];
@@ -386,7 +386,7 @@ Deno.serve(async (req) => {
 
       const { data: rows, error } = await admin
         .from("episodes")
-        .select("id, title, display_title, description, ai_summary, podcast_id, clean_text_status, podcasts!inner(title, display_title, language, hosts), episode_clean_text(cleaned_text)")
+        .select("id, title, display_title, description, ai_summary, podcast_id, clean_text_status, podcasts!inner(title, display_title, language, hosts)")
         .not("ai_summary", "is", null)
         .lt("ai_entities_version", 5)
         .eq("clean_text_status", "done")
@@ -395,6 +395,19 @@ Deno.serve(async (req) => {
       if (error) throw error;
       const list = (rows || []) as any[];
       if (!list.length) break;
+
+      const ids = list.map((r) => r.id).filter(Boolean);
+      const { data: cleanRows } = await admin
+        .from("episode_clean_text")
+        .select("episode_id, cleaned_text")
+        .in("episode_id", ids);
+      const cleanByEpisode = new Map<string, string>(
+        (cleanRows || []).map((r: any) => [String(r.episode_id), String(r.cleaned_text || "")]),
+      );
+      for (const ep of list) {
+        ep.cleaned_text = cleanByEpisode.get(String(ep.id)) || "";
+      }
+
       total_seen += list.length;
       drain_loops++;
 
