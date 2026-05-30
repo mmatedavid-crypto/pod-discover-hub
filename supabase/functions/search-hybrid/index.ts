@@ -378,6 +378,7 @@ async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: strin
 
 type CatalogAnchor = {
   kind: "podcast" | "person" | "organization" | "topic";
+  id: string | null;
   name: string;
   slug: string | null;
   score: number;
@@ -389,57 +390,73 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
   const infix = `%${qNorm}%`;
   const tasks = [
     supa.from("people")
-      .select("name,slug,gated_episode_count,episode_count,normalized_name")
+      .select("id,name,slug,gated_episode_count,episode_count,normalized_name")
       .eq("is_public", true)
       .or(`normalized_name.eq.${qNorm},normalized_name.ilike.${prefix}`)
       .order("gated_episode_count", { ascending: false, nullsFirst: false })
       .limit(4),
     supa.from("person_aliases")
-      .select("alias,confidence,people!inner(name,slug,is_public,gated_episode_count,episode_count)")
+      .select("person_id,alias,confidence,people!inner(id,name,slug,is_public,gated_episode_count,episode_count)")
       .eq("normalized_alias", qNorm)
       .eq("status", "accepted")
       .gte("confidence", 0.7)
       .limit(4),
     supa.from("organizations")
-      .select("name,slug,gated_episode_count,normalized_name")
+      .select("id,name,slug,gated_episode_count,normalized_name")
       .eq("is_indexable", true)
       .or(`normalized_name.eq.${qNorm},normalized_name.ilike.${prefix}`)
       .order("gated_episode_count", { ascending: false, nullsFirst: false })
       .limit(4),
     supa.from("organization_aliases")
-      .select("alias,confidence,organizations!inner(name,slug,is_indexable,gated_episode_count)")
+      .select("organization_id,alias,confidence,organizations!inner(id,name,slug,is_indexable,gated_episode_count)")
       .eq("normalized_alias", qNorm)
       .gte("confidence", 0.5)
       .limit(4),
     supa.from("topics")
-      .select("name,slug,short_name,episode_count")
+      .select("id,name,slug,short_name,episode_count")
       .eq("is_public", true)
       .or(`name.ilike.${infix},short_name.ilike.${infix}`)
       .order("episode_count", { ascending: false, nullsFirst: false })
+      .limit(4),
+    supa.from("topic_aliases")
+      .select("alias,weight,topics!inner(id,name,slug,short_name,episode_count,is_public)")
+      .eq("normalized_alias", qNorm)
+      .eq("topics.is_public", true)
+      .order("weight", { ascending: false, nullsFirst: false })
       .limit(4),
   ];
 
   const settled = await Promise.all(tasks.map((p) => p.catch((error: any) => ({ data: [], error }))));
   const out: CatalogAnchor[] = [];
   if (earlyPodcastPin?.title) {
-    out.push({ kind: "podcast", name: earlyPodcastPin.title, slug: earlyPodcastPin.slug || null, score: 1000 });
+    out.push({ kind: "podcast", id: earlyPodcastPin.podcast_id || null, name: earlyPodcastPin.title, slug: earlyPodcastPin.slug || null, score: 1000 });
   }
   for (const row of (settled[0] as any).data || []) {
-    out.push({ kind: "person", name: row.name, slug: row.slug || null, score: 700 + Number(row.gated_episode_count || row.episode_count || 0) });
+    out.push({ kind: "person", id: row.id || null, name: row.name, slug: row.slug || null, score: 700 + Number(row.gated_episode_count || row.episode_count || 0) });
   }
   for (const row of (settled[1] as any).data || []) {
     const p = row.people;
-    if (p?.name) out.push({ kind: "person", name: p.name, slug: p.slug || null, score: 760 + Number(p.gated_episode_count || p.episode_count || 0) });
+    if (p?.name) out.push({ kind: "person", id: p.id || row.person_id || null, name: p.name, slug: p.slug || null, score: 760 + Number(p.gated_episode_count || p.episode_count || 0) });
   }
   for (const row of (settled[2] as any).data || []) {
-    out.push({ kind: "organization", name: row.name, slug: row.slug || null, score: 650 + Number(row.gated_episode_count || 0) });
+    out.push({ kind: "organization", id: row.id || null, name: row.name, slug: row.slug || null, score: 650 + Number(row.gated_episode_count || 0) });
   }
   for (const row of (settled[3] as any).data || []) {
     const o = row.organizations;
-    if (o?.name) out.push({ kind: "organization", name: o.name, slug: o.slug || null, score: 720 + Number(o.gated_episode_count || 0) });
+    if (o?.name) out.push({ kind: "organization", id: o.id || row.organization_id || null, name: o.name, slug: o.slug || null, score: 720 + Number(o.gated_episode_count || 0) });
   }
   for (const row of (settled[4] as any).data || []) {
-    out.push({ kind: "topic", name: row.name || row.short_name, slug: row.slug || null, score: 500 + Number(row.episode_count || 0) });
+    out.push({ kind: "topic", id: row.id || null, name: row.name || row.short_name, slug: row.slug || null, score: 500 + Number(row.episode_count || 0) });
+  }
+  for (const row of (settled[5] as any).data || []) {
+    const t = row.topics;
+    if (t?.name || t?.short_name) out.push({
+      kind: "topic",
+      id: t.id || null,
+      name: t.name || t.short_name,
+      slug: t.slug || null,
+      score: 560 + Number(t.episode_count || 0) + Number(row.weight || 0),
+    });
   }
 
   const byKey = new Map<string, CatalogAnchor>();
@@ -449,6 +466,122 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
     if (!cur || a.score > cur.score) byKey.set(key, a);
   }
   return [...byKey.values()].sort((a, b) => b.score - a.score).slice(0, 12);
+}
+
+async function resolveAnchorEpisodeRows(
+  supa: ReturnType<typeof createClient>,
+  anchors: CatalogAnchor[],
+  limit: number,
+): Promise<{ rows: any[]; matches: any[] }> {
+  const useful = anchors
+    .filter((a) => a.id && a.kind !== "podcast")
+    .slice(0, 6);
+  if (useful.length === 0) return { rows: [], matches: [] };
+
+  const byEpisode = new Map<string, any>();
+  const matches: any[] = [];
+  const add = (episodeId: string | null | undefined, anchor: CatalogAnchor, score: number, source: string) => {
+    if (!episodeId) return;
+    const cur = byEpisode.get(episodeId);
+    if (!cur || score > cur.hybrid_score) {
+      byEpisode.set(episodeId, {
+        episode_id: episodeId,
+        lex_score: Math.max(0.1, score - 0.08),
+        sem_score: Math.max(0.1, score - 0.12),
+        hybrid_score: score,
+        anchor_source: source,
+        anchor_kind: anchor.kind,
+        anchor_name: anchor.name,
+      });
+    }
+  };
+
+  await Promise.all(useful.map(async (anchor, idx) => {
+    const baseScore = Math.max(0.82, 1.18 - idx * 0.04);
+    try {
+      if (anchor.kind === "person") {
+        const { data } = await supa
+          .from("person_episode_mentions")
+          .select("episode_id,confidence,final_relevance_score,relevance_status,mention_type")
+          .eq("person_id", anchor.id)
+          .or("relevance_status.is.null,relevance_status.neq.rejected")
+          .order("final_relevance_score", { ascending: false, nullsFirst: false })
+          .order("confidence", { ascending: false, nullsFirst: false })
+          .limit(Math.max(25, Math.min(90, limit)));
+        const rows = data || [];
+        matches.push({ kind: anchor.kind, name: anchor.name, slug: anchor.slug, count: rows.length });
+        for (const r of rows) {
+          const confidence = Number((r as any).final_relevance_score ?? (r as any).confidence ?? 0.7);
+          add((r as any).episode_id, anchor, baseScore + Math.min(0.18, confidence * 0.12), "person_episode_mentions");
+        }
+      } else if (anchor.kind === "organization") {
+        const { data } = await supa
+          .from("episode_organization_map")
+          .select("episode_id,confidence,role,source")
+          .eq("organization_id", anchor.id)
+          .order("confidence", { ascending: false, nullsFirst: false })
+          .limit(Math.max(25, Math.min(90, limit)));
+        const rows = data || [];
+        matches.push({ kind: anchor.kind, name: anchor.name, slug: anchor.slug, count: rows.length });
+        for (const r of rows) {
+          const confidence = Number((r as any).confidence ?? 0.7);
+          add((r as any).episode_id, anchor, baseScore + Math.min(0.16, confidence * 0.1), "episode_organization_map");
+        }
+      } else if (anchor.kind === "topic") {
+        const [reviewRows, mapRows, classRows] = await Promise.all([
+          supa
+            .from("episode_topic_relevance_reviews")
+            .select("episode_id,confidence")
+            .eq("topic_id", anchor.id)
+            .eq("status", "accepted")
+            .order("confidence", { ascending: false, nullsFirst: false })
+            .limit(Math.max(20, Math.min(70, limit))),
+          supa
+            .from("episode_topic_map")
+            .select("episode_id,confidence")
+            .eq("topic_id", anchor.id)
+            .order("confidence", { ascending: false, nullsFirst: false })
+            .limit(Math.max(20, Math.min(70, limit))),
+          anchor.slug
+            ? supa
+                .from("episode_ai_classifications")
+                .select("episode_id,confidence,topics")
+                .eq("classification_status", "classified")
+                .contains("topics", JSON.stringify([{ slug: anchor.slug }]) as any)
+                .order("confidence", { ascending: false, nullsFirst: false })
+                .limit(Math.max(20, Math.min(70, limit)))
+            : Promise.resolve({ data: [] } as any),
+        ]);
+        const seenTopicRows = new Set<string>();
+        for (const r of (reviewRows.data || [])) {
+          seenTopicRows.add((r as any).episode_id);
+          add((r as any).episode_id, anchor, baseScore + 0.13 + Math.min(0.08, Number((r as any).confidence || 0) * 0.08), "episode_topic_relevance_reviews");
+        }
+        for (const r of (classRows.data || [])) {
+          if (seenTopicRows.has((r as any).episode_id)) continue;
+          seenTopicRows.add((r as any).episode_id);
+          add((r as any).episode_id, anchor, baseScore + 0.08 + Math.min(0.06, Number((r as any).confidence || 0) * 0.06), "episode_ai_classifications");
+        }
+        for (const r of (mapRows.data || [])) {
+          if (seenTopicRows.has((r as any).episode_id)) continue;
+          add((r as any).episode_id, anchor, baseScore + Math.min(0.05, Number((r as any).confidence || 0) * 0.05), "episode_topic_map");
+        }
+        matches.push({
+          kind: anchor.kind,
+          name: anchor.name,
+          slug: anchor.slug,
+          count: (reviewRows.data || []).length + (mapRows.data || []).length + (classRows.data || []).length,
+        });
+      }
+    } catch (e) {
+      console.warn("anchor_episode_rows_failed", { kind: anchor.kind, name: anchor.name, error: String(e) });
+    }
+  }));
+
+  const rows = [...byEpisode.values()]
+    .sort((a, b) => Number(b.hybrid_score || 0) - Number(a.hybrid_score || 0))
+    .slice(0, Math.max(30, Math.min(140, limit * 2)));
+  return { rows, matches };
 }
 
 Deno.serve(async (req) => {
@@ -1070,6 +1203,39 @@ Deno.serve(async (req) => {
         }
       }
     };
+    const prependNew = (extra: any[] | null | undefined) => {
+      if (!extra) return 0;
+      let added = 0;
+      for (let i = extra.length - 1; i >= 0; i--) {
+        const r = extra[i];
+        if (r?.episode_id && !strictIds.has(r.episode_id)) {
+          strictRows.unshift(r);
+          strictIds.add(r.episode_id);
+          strictHitIds.add(r.episode_id);
+          added++;
+        }
+      }
+      return added;
+    };
+
+    // Catalog-anchor candidate injection:
+    // For known people, organizations and topics, use the curated entity maps as
+    // first-class retrieval sources. This fixes known-item/entity searches such
+    // as "Friderikusz", "Hadházy Ákos" and "Magyar Telekom" even when lexical
+    // description text is thin or noisy.
+    let anchorEpisodeMatches: any[] = [];
+    let anchorEpisodeCandidates = 0;
+    if (catalogAnchors.some((a) => a.id && a.kind !== "podcast") && hasBudget(1600)) {
+      const anchorResult = await withTimeout(
+        resolveAnchorEpisodeRows(supa, catalogAnchors, Math.max(limit, 60)),
+        Math.max(700, Math.min(1800, softBudgetMs - elapsed() - 900)),
+        "resolve_anchor_episode_rows",
+      );
+      anchorEpisodeMatches = anchorResult?.matches || [];
+      anchorEpisodeCandidates = prependNew(anchorResult?.rows || []);
+    } else if (catalogAnchors.some((a) => a.id && a.kind !== "podcast")) {
+      markLatencyDegrade();
+    }
 
     // Pass 2 — drop phrase requirement
     if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && phrasePool.length && hasBudget(3500)) {
@@ -1247,7 +1413,7 @@ Deno.serve(async (req) => {
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, anchor_episode_matches: anchorEpisodeMatches, anchor_episode_candidates: anchorEpisodeCandidates, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -1481,6 +1647,8 @@ Deno.serve(async (req) => {
         understanding,
         curated_synonyms: { matched: curated.matched_terms, expansions: curated.expansions },
         catalog_anchors: catalogAnchors,
+        anchor_episode_matches: anchorEpisodeMatches,
+        anchor_episode_candidates: anchorEpisodeCandidates,
         semantic: !!q_embedding,
         reranked: !!rerankResult,
         rerank_cache_hit: rerankCacheHit,
