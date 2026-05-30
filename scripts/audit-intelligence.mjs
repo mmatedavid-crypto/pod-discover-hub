@@ -116,6 +116,10 @@ if (!snapshot.error && snapshot.data) {
   const recentWithIssues = Number(s.recent_episodes_with_issues || 0);
   const issueCounts = s.issue_counts || {};
   const recentIssueCounts = s.recent_issue_counts || {};
+  const qualityIssueCounts = s.quality_indicator_issue_counts || {};
+  const recentQualityIssueCounts = s.recent_quality_indicator_issue_counts || {};
+  const qualityWithIssues = Number(s.episodes_with_quality_indicator_issues || 0);
+  const recentQualityWithIssues = Number(s.recent_episodes_with_quality_indicator_issues || 0);
 
   console.log("Podiverzum Data Quality Snapshot");
   console.log(`Generated: ${s.generated_at}`);
@@ -123,10 +127,18 @@ if (!snapshot.error && snapshot.data) {
   console.log(`Episodes with issues: ${pct(withIssues, eligible)} (${withIssues}/${eligible})`);
   console.log(`Recent ${s.recent_days || 30}d eligible HU episodes: ${recentEligible}`);
   console.log(`Recent episodes with issues: ${pct(recentWithIssues, recentEligible)} (${recentWithIssues}/${recentEligible})`);
+  console.log(`Quality indicator issues: ${pct(qualityWithIssues, eligible)} (${qualityWithIssues}/${eligible})`);
+  console.log(`Recent quality indicator issues: ${pct(recentQualityWithIssues, recentEligible)} (${recentQualityWithIssues}/${recentEligible})`);
   console.log("");
   console.log("Issue counts:");
   for (const [code, total] of Object.entries(issueCounts).sort((a, b) => Number(b[1]) - Number(a[1]))) {
     const recent = recentIssueCounts[code] || 0;
+    console.log(`- ${code}: ${total} (recent: ${recent})`);
+  }
+  console.log("");
+  console.log("Quality indicator issue counts:");
+  for (const [code, total] of Object.entries(qualityIssueCounts).sort((a, b) => Number(b[1]) - Number(a[1]))) {
+    const recent = recentQualityIssueCounts[code] || 0;
     console.log(`- ${code}: ${total} (recent: ${recent})`);
   }
   console.log("");
@@ -138,6 +150,14 @@ if (!snapshot.error && snapshot.data) {
     console.log(`- [${item.priority_score}] ${item.podcast} — ${item.title}`);
     console.log(`  raw=${item.raw_length} clean=${item.clean_length} keep=${keep} entities=${item.entity_signal_count}`);
     console.log(`  issues=${Array.isArray(item.issue_codes) ? item.issue_codes.join(",") : "-"}`);
+  }
+  console.log("");
+  console.log("Highest-priority quality indicator queue:");
+  for (const item of s.top_quality_indicator_episodes || []) {
+    console.log(`- [${item.quality_priority_score}] ${item.podcast} — ${item.title}`);
+    console.log(`  podiverzum=${item.podiverzum_rank} computed_episode=${item.computed_episode_score} legacy_episode=${item.legacy_episode_rank}`);
+    console.log(`  quality_issues=${Array.isArray(item.quality_issue_codes) ? item.quality_issue_codes.join(",") : "-"}`);
+    console.log(`  data_issues=${Array.isArray(item.data_issue_codes) ? item.data_issue_codes.join(",") : "-"}`);
   }
   process.exit(0);
 }

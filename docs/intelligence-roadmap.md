@@ -39,6 +39,7 @@ Current instrumentation:
 - `npm run audit:intelligence`
 - `get_data_quality_snapshot_v1()` for DB-wide quality counts and a prioritized repair queue
 - `v_episode_data_quality_issues` for per-episode issue codes without mutating production data
+- `v_episode_quality_indicator_audit` for checking visible quality badges, legacy episode rank leakage, and score/data mismatches
 
 ## Layer 2: Entity Extraction
 
