@@ -8,8 +8,8 @@ import Layout from "@/components/Layout";
 import { useNoindex } from "@/lib/useNoindex";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 
-// Admin diff view for HU_v1 shadow scoring.
-// Read-only: shows live tier vs HU_v1 candidate tier and component breakdown.
+// Admin diff view for HU_v2 shadow scoring.
+// Read-only: shows live tier vs HU_v2 candidate tier and component breakdown.
 // Live ranking fields are NEVER mutated from this page.
 
 type Row = {
@@ -58,7 +58,7 @@ export default function AdminHuFormulaShadowPage() {
       .or("language.ilike.hu%,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain")
       .not("shadow_rank_components", "is", null)
       .limit(2000);
-    const filtered = (data || []).filter((r: any) => r.shadow_rank_components && r.shadow_rank_components.hu_v1);
+    const filtered = (data || []).filter((r: any) => r.shadow_rank_components && (r.shadow_rank_components.hu_v2 || r.shadow_rank_components.hu_v1));
     setRows(filtered as Row[]);
     setLoading(false);
   }
@@ -71,9 +71,9 @@ export default function AdminHuFormulaShadowPage() {
   async function runShadow() {
     if (!isAdmin) return;
     setRunning(true);
-    setRunMsg("Running HU_v1 shadow scoring…");
+    setRunMsg("Running HU_v2 shadow scoring…");
     try {
-      const { data, error } = await supabase.functions.invoke("hu-formula-v1-shadow", {
+      const { data, error } = await supabase.functions.invoke("hu-formula-v2-shadow", {
         body: { limit: 800 },
       });
       if (error) throw error;
@@ -87,21 +87,26 @@ export default function AdminHuFormulaShadowPage() {
   }
 
   const enriched = useMemo(() => rows.map(r => {
-    const hu = r.shadow_rank_components?.hu_v1 || {};
+    const hu = r.shadow_rank_components?.hu_v2 || r.shadow_rank_components?.hu_v1 || {};
+    const comp = hu.components || {};
     return {
       ...r,
       hu_tier: hu.hu_candidate_tier,
       hu_score: Number(hu.final_hu_score) || 0,
+      confidence: Number(hu.confidence) || 0,
       delta: tierDelta(r.rank_label, hu.hu_candidate_tier),
-      market_pop: Number(hu.market_popularity_score) || 0,
-      feed_health: Number(hu.feed_health_score) || 0,
-      activity: Number(hu.activity_score) || 0,
-      content: Number(hu.content_quality_score) || 0,
-      platform: Number(hu.platform_availability_score) || 0,
-      curation: Number(hu.curation_boost) || 0,
+      market_pop: Number(comp.market ?? hu.market_popularity_score) || 0,
+      feed_health: Number(comp.trust ?? hu.feed_health_score) || 0,
+      freshness: Number(comp.freshness) || 0,
+      activity: Number(comp.category_activity ?? hu.activity_score) || 0,
+      content: Number(comp.content_intelligence ?? hu.content_quality_score) || 0,
+      platform: Number(comp.platform_availability ?? hu.platform_availability_score) || 0,
+      distinctiveness: Number(comp.distinctiveness) || 0,
+      curation: Number(comp.curation ?? hu.curation_boost) || 0,
       news_like: !!hu.news_like,
       bulletin_like: !!hu.bulletin_like,
       lang_flag: hu.language_gate_flag,
+      category_pct: Number(hu.category_eps90_percentile) || 0,
       sources: Array.isArray(hu.market_sources) ? hu.market_sources : [],
       source_count: Number(hu.market_source_count) || 0,
       chart_stale: !!hu.chart_stale,
@@ -147,15 +152,18 @@ export default function AdminHuFormulaShadowPage() {
             <tr>
               <th className="p-2">Podcast</th>
               <th className="p-2">Live</th>
-              <th className="p-2">HU_v1</th>
+              <th className="p-2">HU_v2</th>
               <th className="p-2">HU score</th>
+              <th className="p-2">Conf</th>
               <th className="p-2">Δ</th>
               <th className="p-2">Market</th>
               <th className="p-2">Charts</th>
-              <th className="p-2">Feed</th>
+              <th className="p-2">Trust</th>
+              <th className="p-2">Fresh</th>
               <th className="p-2">Act</th>
               <th className="p-2">Cont</th>
               <th className="p-2">Plat</th>
+              <th className="p-2">Distinct</th>
               <th className="p-2">Cur</th>
               <th className="p-2">Flags</th>
             </tr>
@@ -167,6 +175,7 @@ export default function AdminHuFormulaShadowPage() {
                 <td className="p-2"><TierBadge tier={r.rank_label} /></td>
                 <td className="p-2"><TierBadge tier={r.hu_tier} /></td>
                 <td className="p-2 tabular-nums">{r.hu_score.toFixed(2)}</td>
+                <td className="p-2 tabular-nums">{r.confidence.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.delta > 0 ? `+${r.delta}` : r.delta}</td>
                 <td className="p-2 tabular-nums">{r.market_pop.toFixed(2)}</td>
                 <td className="p-2 text-xs whitespace-nowrap" title={JSON.stringify(r.sources)}>
@@ -175,9 +184,11 @@ export default function AdminHuFormulaShadowPage() {
                     : "—"}
                 </td>
                 <td className="p-2 tabular-nums">{r.feed_health.toFixed(2)}</td>
+                <td className="p-2 tabular-nums">{r.freshness.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.activity.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.content.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.platform.toFixed(2)}</td>
+                <td className="p-2 tabular-nums">{r.distinctiveness.toFixed(2)}</td>
                 <td className="p-2 tabular-nums">{r.curation.toFixed(2)}</td>
                 <td className="p-2 space-x-1">
                   {r.news_like && <Badge variant="outline">news</Badge>}
@@ -196,10 +207,10 @@ export default function AdminHuFormulaShadowPage() {
     <main className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">HU Formula v1 — Shadow Diff</h1>
+          <h1 className="text-2xl font-semibold">HU Formula v2 — Shadow Diff</h1>
           <p className="text-sm text-muted-foreground">
             Read-only Hungarian ranking proposal. Live <code>rank_label</code> and <code>podiverzum_rank</code> are NOT modified.
-            Formula C is paused (cron dry-run). Writes only to <code>shadow_rank_components.hu_v1</code>.
+            Writes only to <code>shadow_rank_components.hu_v2</code>.
           </p>
         </div>
         <div className="flex gap-2 items-center">

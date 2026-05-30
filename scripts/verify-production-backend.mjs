@@ -19,6 +19,7 @@ const rpcChecks = [
   ["get_data_repair_plan_v1", { _limit: 1, _recent_days: 90, _include_ai: false }],
   ["get_entity_quality_snapshot_v1", { _limit: 1 }],
   ["get_homepage_rails_v1", { _trending_limit: 1, _evergreen_limit: 1, _category_limit: 1, _max_categories: 1 }],
+  ["hu_content_intelligence_v2", { _ids: [] }],
 ];
 
 const functionChecks = [
@@ -33,6 +34,7 @@ const functionChecks = [
   "entity-backfill-runner",
   "person-entity-extractor",
   "organizations-backfill-runner",
+  "hu-formula-v2-shadow",
 ];
 
 let failures = 0;
