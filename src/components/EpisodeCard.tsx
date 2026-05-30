@@ -212,6 +212,133 @@ export function EpisodeCard({
   );
 }
 
+function EpisodeRailCard({
+  e, showTopics = false, terms, showEntities = false,
+}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean }) {
+  const p = e.podcasts;
+  const epTitle = e.display_title || e.title;
+  const podTitle = p.display_title || p.title;
+  const desc = snippet(e.ai_summary || e.summary || e.description, 170, terms);
+  const understanding = getEpisodeUnderstanding(e);
+  const { play } = useSmartPlayer();
+  const playable = detectAudioSource({ audio_url: e.audio_url });
+  const playerAudioUrl = playable?.url || e.audio_url || null;
+  const handlePlay = (ev: React.MouseEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!playerAudioUrl) return;
+    play({
+      id: e.id,
+      title: epTitle,
+      podcastId: e.podcast_id || undefined,
+      podcastTitle: podTitle,
+      podcastSlug: p.slug,
+      episodeSlug: e.slug,
+      imageUrl: p.image_url || null,
+      audioUrl: playerAudioUrl,
+      externalUrl: e.audio_url || null,
+    }, { resume: true });
+  };
+  const allEnts = showEntities
+    ? [
+        ...(e.topics || []).map((v) => ({ kind: "topic" as const, v })),
+        ...(e.people || []).map((v) => ({ kind: "person" as const, v })),
+        ...(e.companies || []).map((v) => ({ kind: "company" as const, v })),
+      ].slice(0, 4)
+    : [];
+  const fr = e.published_at ? freshnessOf(e.published_at) : null;
+
+  return (
+    <article className="group h-full overflow-hidden rounded-lg border border-border/70 bg-card/80 shadow-sm transition-all hover:border-primary/50 hover:bg-card">
+      <Link to={`/podcast/${p.slug}/${e.slug}`} className="block">
+        <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
+          <div className="absolute inset-0 scale-110 opacity-35 blur-xl">
+            <PodcastCover title={podTitle} src={p.image_url} size="lg" className="h-full rounded-none border-0" />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/45 to-transparent" />
+          <div className="absolute left-3 top-3 w-16 rounded-md shadow-lg ring-1 ring-border/70 sm:w-20">
+            <PodcastCover title={podTitle} src={p.image_url} size="sm" />
+          </div>
+          {playerAudioUrl && (
+            <button
+              type="button"
+              onClick={handlePlay}
+              aria-label="Lejátszás"
+              className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-brand transition-transform group-hover:scale-105"
+            >
+              <Play className="h-4 w-4 fill-current" />
+            </button>
+          )}
+          <div className="absolute bottom-3 left-3 right-16">
+            <div className="text-[11px] font-medium text-foreground/80 line-clamp-1">{podTitle}</div>
+            {fr === "new" && (
+              <div className="mt-1 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
+              </div>
+            )}
+          </div>
+        </div>
+      </Link>
+      <div className="flex min-h-[210px] flex-col p-3 sm:p-4">
+        <Link to={`/podcast/${p.slug}/${e.slug}`} className="font-semibold leading-snug line-clamp-2 group-hover:underline">
+          <HL text={epTitle} terms={terms} />
+        </Link>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+          {p.category && <span>{p.category}</span>}
+          {e.published_at && (
+            <>
+              {p.category && <span className="opacity-60">·</span>}
+              <span title={new Date(e.published_at).toLocaleString()}>{relativeTime(e.published_at)}</span>
+            </>
+          )}
+          {understanding && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground/80">
+              <Brain className="h-3 w-3 text-primary" />
+              Podiverzum szerint
+            </span>
+          )}
+        </div>
+        {understanding && (
+          <p className="mt-2 rounded-md border border-primary/25 bg-primary/5 px-2.5 py-1.5 text-[12px] leading-snug text-foreground/85 line-clamp-2">
+            <span className="font-semibold text-primary mr-1">A lényeg:</span>
+            {understanding.headline}
+          </p>
+        )}
+        {!understanding && desc && (
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground line-clamp-3">
+            <HL text={desc} terms={terms} />
+          </p>
+        )}
+        {(showTopics && e.topics && e.topics.length > 0) && (
+          <div className="mt-2.5 flex flex-wrap gap-1">
+            {e.topics.slice(0, 3).map((t) => (
+              <Link key={t} to={`/topic/${encodeURIComponent(slugify(t))}`} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
+                {t}
+              </Link>
+            ))}
+          </div>
+        )}
+        {showEntities && allEnts.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap gap-1">
+            {allEnts.map(({ kind, v }) => {
+              const slug = entitySlug(kind as any, v);
+              return (
+                <Link key={`${kind}-${v}`} to={`/${kind}/${encodeURIComponent(slug)}`} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
+                  {v}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+        <div className="mt-auto flex items-center gap-2 pt-3 text-xs">
+          <Link to={`/podcast/${p.slug}/${e.slug}`} className="text-muted-foreground hover:text-foreground">Részletek</Link>
+          <div className="ml-auto"><EpisodeMarks episodeId={e.id} compact /></div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function EpisodeList({
   items, showTopics = false, empty = "Még nincsenek epizódok.", terms, showEntities = false, scrollOnMobile = false, scrollAlways = false,
 }: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean; scrollAlways?: boolean }) {
@@ -227,9 +354,9 @@ export function EpisodeList({
           {items.map((e) => (
             <div
               key={e.id}
-              className="snap-start shrink-0 w-[84vw] max-w-[360px] sm:w-[360px] rounded-xl border border-border/60 bg-card/70 overflow-hidden"
+              className="snap-start shrink-0 w-[78vw] max-w-[340px] sm:w-[340px]"
             >
-              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+              <EpisodeRailCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
             </div>
           ))}
           <div aria-hidden className="shrink-0 w-2" />
