@@ -87,6 +87,7 @@ const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
   mol: ["MOL Nyrt", "MOL Magyar Olaj"],
   richter: ["Richter Gedeon", "Gedeon Richter"],
   mtelekom: ["Magyar Telekom"],
+  mtel: ["Magyar Telekom"],
   opus: ["Opus Global"],
   "4ig": ["4iG", "4iG Nyrt"],
   masterplast: ["Masterplast"],
@@ -187,6 +188,7 @@ const MARKET_SYMBOL_SECTORS: Record<string, string> = {
   mol: "olaj gáz energia downstream petrolkémia üzemanyag",
   richter: "gyógyszeripar pharma nőgyógyászati készítmények biotechnológia",
   mtelekom: "telekommunikáció mobilszolgáltató internet kábeltévé",
+  mtel: "telekommunikáció mobilszolgáltató internet kábeltévé",
   opus: "építőipar energetika holding diverzifikált",
   "4ig": "informatika IT szolgáltatások védelmi technológia űripar",
   masterplast: "építőanyag szigetelés homlokzati rendszerek",
@@ -514,6 +516,133 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
   };
 }
 
+async function resolveOrganizationPin(supa: ReturnType<typeof createClient>, qNorm: string, anchors: CatalogAnchor[], marketSymbol: string | null, timeoutMs = 900) {
+  if (qNorm.length < 2 || qNorm.length > 80) return null;
+  const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
+  const anchor = anchors.find((a) => a.kind === "organization" && a.id)
+    || anchors.find((a) => a.kind === "organization" && symbolAliases.some((alias) => foldText(alias) === foldText(a.name)));
+  let organizationId = anchor?.id || null;
+
+  if (!organizationId) {
+    const aliasNorms = uniqueClean([
+      qNorm,
+      marketSymbol ? normalizeQ(marketSymbol) : "",
+      ...symbolAliases.map(normalizeQ),
+    ], 8);
+    const aliasRows = await withTimeout(
+      supa
+        .from("organization_aliases")
+        .select("organization_id,alias,confidence,organizations!inner(id,is_public,is_indexable)")
+        .in("normalized_alias", aliasNorms)
+        .eq("status", "accepted")
+        .gte("confidence", 0.45)
+        .order("confidence", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .then((r: any) => r.data),
+      timeoutMs,
+      "organization_pin_alias",
+    );
+    const alias = Array.isArray(aliasRows) && aliasRows.length ? aliasRows[0] : null;
+    organizationId = alias?.organization_id || alias?.organizations?.id || null;
+  }
+
+  if (!organizationId) {
+    const names = uniqueClean([qNorm, ...symbolAliases.map(normalizeQ)], 8);
+    const orgRows = await withTimeout(
+      supa
+        .from("organizations")
+        .select("id")
+        .or(names.map((n) => `normalized_name.eq.${n}`).join(","))
+        .eq("is_indexable", true)
+        .order("gated_episode_count", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .then((r: any) => r.data),
+      timeoutMs,
+      "organization_pin_name",
+    );
+    const org = Array.isArray(orgRows) && orgRows.length ? orgRows[0] : null;
+    organizationId = org?.id || null;
+  }
+
+  if (!organizationId) return null;
+  const org = await withTimeout(
+    supa
+      .from("organizations")
+      .select("id,name,slug,org_type,logo_url,short_description_hu,ai_bio,wikipedia_extract,ticker,sector,gated_episode_count,episode_count,podcast_count,is_public,is_indexable")
+      .eq("id", organizationId)
+      .maybeSingle()
+      .then((r: any) => r.data),
+    timeoutMs,
+    "organization_pin_meta",
+  );
+  if (!org?.slug || !org?.name || (!org.is_public && !org.is_indexable)) return null;
+  const count = Number(org.gated_episode_count ?? org.episode_count ?? 0);
+  if (count < 1) return null;
+
+  return {
+    id: org.id,
+    slug: org.slug,
+    name: org.name,
+    kind: org.org_type || "company",
+    image_url: org.logo_url || null,
+    short_bio: org.short_description_hu || org.ai_bio || org.wikipedia_extract || null,
+    ticker: org.ticker || (marketSymbol ? marketSymbol.toUpperCase() : null),
+    sector: org.sector || null,
+    gated_episode_count: org.gated_episode_count ?? org.episode_count ?? null,
+    podcast_count: org.podcast_count ?? null,
+    match_type: anchor ? "catalog_anchor" : "alias",
+  };
+}
+
+async function resolveTopicPin(supa: ReturnType<typeof createClient>, qNorm: string, anchors: CatalogAnchor[], timeoutMs = 900) {
+  if (qNorm.length < 2 || qNorm.length > 80) return null;
+  const anchor = anchors.find((a) => a.kind === "topic" && a.id);
+  let topicId = anchor?.id || null;
+
+  if (!topicId) {
+    const aliasRows = await withTimeout(
+      supa
+        .from("topic_aliases")
+        .select("topic_id,alias,weight,topics!inner(id,is_public)")
+        .eq("normalized_alias", qNorm)
+        .eq("topics.is_public", true)
+        .order("weight", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .then((r: any) => r.data),
+      timeoutMs,
+      "topic_pin_alias",
+    );
+    const alias = Array.isArray(aliasRows) && aliasRows.length ? aliasRows[0] : null;
+    topicId = alias?.topic_id || alias?.topics?.id || null;
+  }
+
+  if (!topicId) return null;
+  const topic = await withTimeout(
+    supa
+      .from("topics")
+      .select("id,name,slug,short_name,description,episode_count,podcast_count,is_public")
+      .eq("id", topicId)
+      .eq("is_public", true)
+      .maybeSingle()
+      .then((r: any) => r.data),
+    timeoutMs,
+    "topic_pin_meta",
+  );
+  if (!topic?.slug || !(topic?.name || topic?.short_name)) return null;
+  const count = Number(topic.episode_count || 0);
+  if (count < 1) return null;
+
+  return {
+    id: topic.id,
+    slug: topic.slug,
+    name: topic.name || topic.short_name,
+    short_bio: topic.description || null,
+    gated_episode_count: topic.episode_count ?? null,
+    podcast_count: topic.podcast_count ?? null,
+    match_type: anchor ? "catalog_anchor" : "alias",
+  };
+}
+
 type CatalogAnchor = {
   kind: "podcast" | "person" | "organization" | "topic";
   id: string | null;
@@ -790,6 +919,9 @@ Deno.serve(async (req) => {
     const markLatencyDegrade = () => { degradedForLatency = true; };
     let qNorm = normalizeQ(q);
     const naturalQuestion = deriveNaturalQuestionPlan(q, qNorm);
+    const marketSymbol = compactMarketSymbol(q);
+    const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
+    const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
     const earlyPodcastPin = await resolvePodcastPin(supa, q, qNorm, limit, 850).catch((e) => {
       console.warn("early podcast pin err", e);
       return null;
@@ -802,6 +934,16 @@ Deno.serve(async (req) => {
       console.warn("early person pin err", e);
       return null;
     });
+    const [earlyOrganizationPin, earlyTopicPin] = await Promise.all([
+      resolveOrganizationPin(supa, qNorm, catalogAnchors, marketSymbol, 850).catch((e) => {
+        console.warn("early organization pin err", e);
+        return null;
+      }),
+      resolveTopicPin(supa, qNorm, catalogAnchors, 850).catch((e) => {
+        console.warn("early topic pin err", e);
+        return null;
+      }),
+    ]);
 
     // Stopword + gibberish gate.
     {
@@ -825,6 +967,8 @@ Deno.serve(async (req) => {
               latest_episode_ids: earlyPodcastPin.latest_episode_ids,
             },
             person_pin: earlyPersonPin || undefined,
+            organization_pin: earlyOrganizationPin || undefined,
+            topic_pin: earlyTopicPin || undefined,
             reason: "known_podcast_title",
           }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
@@ -935,6 +1079,8 @@ Deno.serve(async (req) => {
               person_query: phrase,
               matched_person_ids: personIds,
               person_pin: earlyPersonPin || undefined,
+              organization_pin: earlyOrganizationPin || undefined,
+              topic_pin: earlyTopicPin || undefined,
               reason: "person_strict_match",
             }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
           }
@@ -1007,9 +1153,6 @@ Deno.serve(async (req) => {
       }
     } catch (e) { console.warn("cache read err", e); }
 
-    const marketSymbol = compactMarketSymbol(q);
-    const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
-    const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
     if (isTickerQ && understanding) {
       const hasCompany = (understanding.entities || []).some((e) => typeof e === "string" && e.includes(" "));
       if (!hasCompany && !symbolAliases.length) understanding = null;
@@ -1610,7 +1753,7 @@ Deno.serve(async (req) => {
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, person_pin: earlyPersonPin || undefined, anchor_episode_matches: anchorEpisodeMatches, anchor_episode_candidates: anchorEpisodeCandidates, natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined, natural_question_fallback: naturalQuestionFallback, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, person_pin: earlyPersonPin || undefined, organization_pin: earlyOrganizationPin || undefined, topic_pin: earlyTopicPin || undefined, anchor_episode_matches: anchorEpisodeMatches, anchor_episode_candidates: anchorEpisodeCandidates, natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined, natural_question_fallback: naturalQuestionFallback, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -1845,6 +1988,8 @@ Deno.serve(async (req) => {
         curated_synonyms: { matched: curated.matched_terms, expansions: curated.expansions },
         catalog_anchors: catalogAnchors,
         person_pin: earlyPersonPin || undefined,
+        organization_pin: earlyOrganizationPin || undefined,
+        topic_pin: earlyTopicPin || undefined,
         anchor_episode_matches: anchorEpisodeMatches,
         anchor_episode_candidates: anchorEpisodeCandidates,
         natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined,

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search } from "lucide-react";
+import { Building2, Hash, Search } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
@@ -81,6 +81,8 @@ export default function SearchPage() {
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
   const [confidence, setConfidence] = useState<"high" | "medium" | "low" | null>(null);
   const [pinnedPodcast, setPinnedPodcast] = useState<any | null>(null);
+  const [heroOrganization, setHeroOrganization] = useState<any | null>(null);
+  const [heroTopic, setHeroTopic] = useState<any | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
 
@@ -138,6 +140,8 @@ export default function SearchPage() {
     setPiFallback(null);
     setConfidence(null);
     setPinnedPodcast(null);
+    setHeroOrganization(null);
+    setHeroTopic(null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
@@ -198,6 +202,10 @@ export default function SearchPage() {
             disambiguation_label: personPin.disambiguation_label || null,
           });
         }
+        const organizationPin = phase1.data?.organization_pin;
+        if (organizationPin?.slug) setHeroOrganization(organizationPin);
+        const topicPin = phase1.data?.topic_pin;
+        if (topicPin?.slug) setHeroTopic(topicPin);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -450,7 +458,7 @@ export default function SearchPage() {
 
         {initial && loading && <SearchStagedLoader query={initial} />}
 
-        {initial && !loading && podcasts.length === 0 && episodes.length === 0 && !piFallback && !heroPerson && (
+        {initial && !loading && podcasts.length === 0 && episodes.length === 0 && !piFallback && !heroPerson && !heroOrganization && !heroTopic && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
             Nem találtunk elég erős egyezést. Próbálj meg más megfogalmazást vagy konkrétabb nevet/témát.
             {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
@@ -556,6 +564,64 @@ export default function SearchPage() {
                   </p>
                 )}
                 <div className="text-[11px] text-primary font-medium mt-2">Podcast megnyitása →</div>
+              </div>
+            </Link>
+          </div>
+        )}
+
+        {heroOrganization && (
+          <div className="mt-8">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-2">Legjobb cég / szervezet találat</div>
+            <Link
+              to={`/ceg/${heroOrganization.slug}`}
+              className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
+            >
+              {heroOrganization.image_url ? (
+                <img src={heroOrganization.image_url} alt={heroOrganization.name} loading="lazy"
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-contain shrink-0 border border-border/60 bg-background" />
+              ) : (
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-muted shrink-0 border border-border/60 flex items-center justify-center">
+                  <Building2 className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">{heroOrganization.name}</div>
+                {(heroOrganization.ticker || heroOrganization.sector) && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {[heroOrganization.ticker, heroOrganization.sector].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+                {typeof heroOrganization.gated_episode_count === "number" && heroOrganization.gated_episode_count > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">{heroOrganization.gated_episode_count} epizód</div>
+                )}
+                {heroOrganization.short_bio && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{heroOrganization.short_bio}</p>
+                )}
+                <div className="text-[11px] text-primary font-medium mt-2">Cég / szervezet oldal megnyitása →</div>
+              </div>
+            </Link>
+          </div>
+        )}
+
+        {heroTopic && (
+          <div className="mt-8">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-2">Legjobb téma találat</div>
+            <Link
+              to={`/tema/${heroTopic.slug}`}
+              className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
+            >
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-muted shrink-0 border border-border/60 flex items-center justify-center">
+                <Hash className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">{heroTopic.name}</div>
+                {typeof heroTopic.gated_episode_count === "number" && heroTopic.gated_episode_count > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">{heroTopic.gated_episode_count} epizód</div>
+                )}
+                {heroTopic.short_bio && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{heroTopic.short_bio}</p>
+                )}
+                <div className="text-[11px] text-primary font-medium mt-2">Téma oldal megnyitása →</div>
               </div>
             </Link>
           </div>
