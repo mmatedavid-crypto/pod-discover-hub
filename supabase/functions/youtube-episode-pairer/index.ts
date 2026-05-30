@@ -300,7 +300,10 @@ Deno.serve(async (req) => {
     const tiers: string[] = ctrl.tiers || ["S", "A"];
     const batch = pilot || Number(ctrl.podcast_batch || 10);
     const aiModel = String(ctrl.ai_validate_model || "google/gemini-2.5-flash-lite");
-    const maxVideos = Number(ctrl.max_videos_per_channel || 500);
+    const requestedMaxVideos = Number(url.searchParams.get("max_videos") || ctrl.max_videos_per_channel || 500);
+    const maxVideos = Math.max(20, Math.min(pilot ? 150 : 500, requestedMaxVideos));
+    const requestedEpisodeLimit = Number(url.searchParams.get("episode_limit") || ctrl.episode_limit || (pilot ? 500 : 2000));
+    const episodeLimit = Math.max(20, Math.min(2000, requestedEpisodeLimit));
     const strictAutoThr = Number(ctrl.strict_auto_pair_threshold || 0.84);
     const strictAiThr = Number(ctrl.strict_ai_pair_threshold || 0.78);
     const minAmbiguityGap = Number(ctrl.min_ambiguity_gap || 0.04);
@@ -338,7 +341,7 @@ Deno.serve(async (req) => {
         const { data: eps } = await admin.from("episodes")
           .select("id, title, description, published_at, youtube_video_id, youtube_pairing_status")
           .eq("podcast_id", pod.id)
-          .limit(2000);
+          .limit(episodeLimit);
         const epIds = (eps || []).map((e: any) => e.id);
         const spotifyDurationByEp = new Map<string, number>();
         if (epIds.length) {
