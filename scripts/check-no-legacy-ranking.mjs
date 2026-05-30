@@ -17,6 +17,7 @@ const ALLOW = [
   "src/pages/AdminPage.tsx",             // Formula C audit panel (UI labels)
   "supabase/functions/seo-enrich-enqueue/index.ts", // doc-only mention in contract header
   "supabase/functions/daily-growth-run/index.ts",   // doc-only mention warning future devs
+  "supabase/functions/data-repair-apply-runner/index.ts", // no-AI cleanup that neutralizes frozen legacy fields
 ];
 
 import { readFileSync, readdirSync, statSync } from "node:fs";

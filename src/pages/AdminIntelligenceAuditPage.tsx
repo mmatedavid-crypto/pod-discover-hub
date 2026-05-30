@@ -86,6 +86,17 @@ type DataRepairPlan = {
   next_safe_steps?: string[];
 };
 
+type DataRepairApplyRun = {
+  ok?: boolean;
+  dry_run?: boolean;
+  action?: string;
+  scanned?: number;
+  planned?: number;
+  applied?: number;
+  skipped?: number;
+  error?: string | null;
+};
+
 export default function AdminIntelligenceAuditPage() {
   useNoindex("Intelligence Audit — Admin");
   const { loading: adminLoading, isAdmin } = useAdminAccess();
@@ -100,6 +111,8 @@ export default function AdminIntelligenceAuditPage() {
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [repairPlan, setRepairPlan] = useState<DataRepairPlan | null>(null);
   const [repairPlanError, setRepairPlanError] = useState<string | null>(null);
+  const [repairApplyBusy, setRepairApplyBusy] = useState(false);
+  const [repairApplyRun, setRepairApplyRun] = useState<DataRepairApplyRun | null>(null);
   const [filter, setFilter] = useState<"all" | "bad" | "watch">("all");
 
   const load = useCallback(async () => {
@@ -246,6 +259,30 @@ export default function AdminIntelligenceAuditPage() {
     }
   };
 
+  const runNoAiRepairApply = async (dryRun: boolean) => {
+    setRepairApplyBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/data-repair-apply-runner`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ action: "neutralize_legacy_episode_rank", limit: 100, dry_run: dryRun }),
+      });
+      const data = await r.json();
+      setRepairApplyRun(data);
+      if (data?.ok && !dryRun) await load();
+    } catch (e) {
+      setRepairApplyRun({ ok: false, error: e instanceof Error ? e.message : "request failed" });
+    } finally {
+      setRepairApplyBusy(false);
+    }
+  };
+
   const scores = useMemo(() => rows.map((row) => scoreAuditEpisode(row, embeddedIds)), [rows, embeddedIds]);
   const summary = useMemo(() => summarizeAudit(scores), [scores]);
   const visible = scores.filter((s) => filter === "all" || s.risk === filter);
@@ -281,7 +318,14 @@ export default function AdminIntelligenceAuditPage() {
         </section>
 
         <SnapshotPanel snapshot={snapshot} error={snapshotError} />
-        <RepairPlanPanel plan={repairPlan} error={repairPlanError} />
+        <RepairPlanPanel
+          plan={repairPlan}
+          error={repairPlanError}
+          applyRun={repairApplyRun}
+          applyBusy={repairApplyBusy}
+          onPreviewApply={() => runNoAiRepairApply(true)}
+          onApply={() => runNoAiRepairApply(false)}
+        />
 
         <Card className="p-4">
           <div className="flex items-center gap-2 flex-wrap">
@@ -449,7 +493,21 @@ function SnapshotPanel({ snapshot, error }: { snapshot: DataQualitySnapshot | nu
   );
 }
 
-function RepairPlanPanel({ plan, error }: { plan: DataRepairPlan | null; error: string | null }) {
+function RepairPlanPanel({
+  plan,
+  error,
+  applyRun,
+  applyBusy,
+  onPreviewApply,
+  onApply,
+}: {
+  plan: DataRepairPlan | null;
+  error: string | null;
+  applyRun: DataRepairApplyRun | null;
+  applyBusy: boolean;
+  onPreviewApply: () => void;
+  onApply: () => void;
+}) {
   if (error) {
     return (
       <Card className="p-4 border-amber-500/30 bg-amber-500/5">
@@ -488,8 +546,26 @@ function RepairPlanPanel({ plan, error }: { plan: DataRepairPlan | null; error: 
             No mutation, no AI spend. Recent window: {plan.recent_days || 90}d. AI included: {plan.include_ai ? "yes" : "no"}.
           </div>
         </div>
-        <Badge variant={plan.dry_run === false ? "destructive" : "outline"}>{plan.dry_run === false ? "apply mode" : "dry-run"}</Badge>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" disabled={applyBusy} onClick={onPreviewApply}>
+            Preview no-AI apply
+          </Button>
+          <Button size="sm" variant="outline" disabled={applyBusy} onClick={onApply}>
+            Apply legacy rank reset
+          </Button>
+          <Badge variant={plan.dry_run === false ? "destructive" : "outline"}>{plan.dry_run === false ? "apply mode" : "dry-run"}</Badge>
+        </div>
       </div>
+
+      {applyRun && (
+        <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${
+          applyRun.error ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border bg-secondary/40 text-muted-foreground"
+        }`}>
+          {applyRun.error
+            ? `No-AI repair apply error: ${applyRun.error}`
+            : `${applyRun.dry_run ? "Previewed" : "Applied"} ${applyRun.action || "repair"}: planned ${applyRun.planned ?? 0}, applied ${applyRun.applied ?? 0}, skipped ${applyRun.skipped ?? 0}.`}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
         <Stat label="Eligible actions" value={plan.eligible_repair_actions || 0} />
