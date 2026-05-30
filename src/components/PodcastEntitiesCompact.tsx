@@ -11,7 +11,7 @@ type Group = {
 
 const ICONS = { topic: Hash, person: Users, company: Building2 };
 const HREF: Record<string, string> = {
-  topic: "topic",
+  topic: "tema",
   person: "person",
   company: "company",
 };

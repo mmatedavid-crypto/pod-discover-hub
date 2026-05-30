@@ -1,5 +1,5 @@
 import type { EpisodeLite } from "@/components/EpisodeCard";
-import { entitySlug, type EntityKind } from "./entity";
+import { canonicalEntityValue, entitySlug, type EntityKind } from "./entity";
 
 export type EntityCount = { kind: EntityKind; value: string; slug: string; count: number };
 
@@ -29,14 +29,17 @@ export function topEntitiesFrom(
       const hosts = (e as any)?.podcasts?.hosts as string[] | null | undefined;
       if (Array.isArray(hosts)) for (const h of hosts) if (h) epHosts.add(norm(h));
     }
+    const seenInEpisode = new Set<string>();
     for (const raw of arr) {
       if (!raw || typeof raw !== "string") continue;
-      const v = raw.trim();
+      const v = canonicalEntityValue(kind, raw);
       if (!v || v.length < 2) continue;
       const key = norm(v);
       if (STOP.has(key)) continue;
       if (blockSet.has(key)) continue;
       if (epHosts.has(key)) continue;
+      if (seenInEpisode.has(key)) continue;
+      seenInEpisode.add(key);
       const cur = tally.get(key);
       if (cur) cur.count++;
       else tally.set(key, { kind, value: v, slug: entitySlug(kind, v), count: 1 });

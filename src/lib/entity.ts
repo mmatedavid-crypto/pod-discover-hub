@@ -18,10 +18,53 @@ export const ENTITY_LABEL: Record<EntityKind, string> = {
   ingredient: "Hozzávaló",
 };
 
+function norm(v: string) {
+  return v.trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+}
+
+const TOPIC_ALIASES: Record<string, string> = {
+  labdarugas: "Labdarúgás",
+  foci: "Labdarúgás",
+  futball: "Labdarúgás",
+  football: "Labdarúgás",
+  soccer: "Labdarúgás",
+  ai: "Mesterséges intelligencia",
+  mi: "Mesterséges intelligencia",
+  "artificial intelligence": "Mesterséges intelligencia",
+  "mesterseges intelligencia": "Mesterséges intelligencia",
+  kozelet: "Közélet",
+  "koz elet": "Közélet",
+  politika: "Politika",
+  gazdasag: "Gazdaság",
+  uzlet: "Üzlet",
+  business: "Üzlet",
+  penzugy: "Pénzügy",
+  befektetes: "Befektetés",
+  egeszseg: "Egészség",
+  "mentalis egeszseg": "Mentális egészség",
+  pszichologia: "Pszichológia",
+  parkapcsolat: "Párkapcsolat",
+  kapcsolatok: "Párkapcsolat",
+  technologia: "Technológia",
+  tech: "Technológia",
+  tortenelem: "Történelem",
+  historia: "Történelem",
+  kultura: "Kultúra",
+  muveszet: "Művészet",
+  vallas: "Vallás",
+  spiritualitas: "Spiritualitás",
+  oktatas: "Oktatás",
+  edukacio: "Oktatás",
+};
+
+export function canonicalEntityValue(kind: EntityKind, value: string): string {
+  if (kind !== "topic") return value.trim();
+  return TOPIC_ALIASES[norm(value)] || value.trim();
+}
 
 export function entitySlug(kind: EntityKind, value: string): string {
   if (kind === "ticker") return value.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();
-  return slugify(value);
+  return slugify(canonicalEntityValue(kind, value));
 }
 
 export function entityHref(kind: EntityKind, value: string): string {
@@ -32,5 +75,5 @@ export function entityHref(kind: EntityKind, value: string): string {
 export function matchesEntitySlug(kind: EntityKind, value: string, slug: string): boolean {
   if (!value) return false;
   if (kind === "ticker") return value.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase() === slug.toUpperCase();
-  return slugify(value) === slug.toLowerCase();
+  return slugify(canonicalEntityValue(kind, value)) === slug.toLowerCase();
 }

@@ -3,8 +3,7 @@ import { PodcastCover } from "./PodcastCover";
 import { Brain, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
-import { slugify } from "@/lib/slug";
-import { entitySlug } from "@/lib/entity";
+import { entityHref, entitySlug } from "@/lib/entity";
 import { EpisodeMarks } from "./EpisodeMarks";
 import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
@@ -159,7 +158,7 @@ export function EpisodeCard({
         {(showTopics && e.topics && e.topics.length > 0) && (
           <div className="flex flex-wrap gap-1 mt-2.5">
             {e.topics.slice(0, 5).map((t) => (
-              <Link key={t} to={`/topic/${encodeURIComponent(slugify(t))}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
+              <Link key={t} to={entityHref("topic", t)} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                 {t}
               </Link>
             ))}
@@ -315,7 +314,7 @@ function EpisodeRailCard({
         {(showTopics && e.topics && e.topics.length > 0) && (
           <div className="mt-2.5 flex flex-wrap gap-1">
             {e.topics.slice(0, 3).map((t) => (
-              <Link key={t} to={`/topic/${encodeURIComponent(slugify(t))}`} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
+              <Link key={t} to={entityHref("topic", t)} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
                 {t}
               </Link>
             ))}

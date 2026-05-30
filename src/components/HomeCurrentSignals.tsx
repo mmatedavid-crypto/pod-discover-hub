@@ -11,7 +11,7 @@ type Lane = {
 };
 
 const HREF: Record<EntityKind, string> = {
-  topic: "topic",
+  topic: "tema",
   person: "person",
   company: "company",
   ticker: "ticker",
