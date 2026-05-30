@@ -149,6 +149,13 @@ type Category = { id: string; name: string; slug: string; description: string | 
 const HOMEPAGE_EPISODE_LIMIT = 240;
 
 type FeedEpisode = EpisodeLite & { freshness_bucket?: "hot" | "fresh" | "recent" };
+type HomepageRailRow = Record<string, unknown>;
+type HomepageRailsPayload = {
+  trending?: HomepageRailRow[];
+  evergreen?: HomepageRailRow[];
+  categories?: Record<string, HomepageRailRow[]>;
+};
+type HomepageRailsResponse = { data?: HomepageRailsPayload | null; error?: unknown };
 
 const Index = () => {
   const [q, setQ] = useState("");
@@ -156,6 +163,7 @@ const Index = () => {
   const [podcasts, setPodcasts] = useState<(PodcastLite & { podiverzum_rank?: number; featured?: boolean })[]>([]);
   const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
+  const [categoryRailEps, setCategoryRailEps] = useState<Record<string, EpisodeLite[]>>({});
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
   const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
@@ -264,20 +272,15 @@ const Index = () => {
     (async () => {
       try {
         const since14d = new Date(Date.now() - 14 * 86400_000).toISOString();
-        const [catsRes, feedRes, evergreenRes, podsRes, entityRes] = await Promise.all([
+        const [catsRes, homepageRailsRes, podsRes, entityRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
-            .from("mv_homepage_feed" as any)
-            .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
-            .lte("pod_rank", 6)
-            .order("published_at", { ascending: false, nullsFirst: false })
-            .limit(HOMEPAGE_EPISODE_LIMIT),
-          supabase
-            .from("mv_homepage_evergreen" as any)
-            .select("episode_id,title,display_title,slug,summary,description,ai_summary,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured")
-            .order("podiverzum_rank", { ascending: false, nullsFirst: false })
-            .order("published_at", { ascending: false, nullsFirst: false })
-            .limit(120),
+            .rpc("get_homepage_rails_v1" as never, {
+              _trending_limit: 8,
+              _evergreen_limit: 6,
+              _category_limit: 6,
+              _max_categories: 8,
+            } as never),
           supabase
             .from("podcasts")
             .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
@@ -335,50 +338,92 @@ const Index = () => {
           } as any,
         });
 
-        const eps: FeedEpisode[] = (feedRes.data || []).map(mapRow);
+        const loadFallbackRails = async () => {
+          const [feedRes, evergreenRes] = await Promise.all([
+            supabase
+              .from("mv_homepage_feed" as any)
+              .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+              .lte("pod_rank", 6)
+              .order("published_at", { ascending: false, nullsFirst: false })
+              .limit(HOMEPAGE_EPISODE_LIMIT),
+            supabase
+              .from("mv_homepage_evergreen" as any)
+              .select("episode_id,title,display_title,slug,summary,description,ai_summary,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured")
+              .order("podiverzum_rank", { ascending: false, nullsFirst: false })
+              .order("published_at", { ascending: false, nullsFirst: false })
+              .limit(120),
+          ]);
 
-        // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
-        const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
-        const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
-        // Editorial homepage scoring: tier/HU_v1 rank/featured dominate, freshness
-        // softer & tier-aware, news mildly penalized (-12), bulletin/segment feeds
-        // strongly penalized (-35). Hard caps in top 8: 2 ep/podcast, ≤2 news_like,
-        // ≤1 bulletin_like. Backfill from overflow so the rail is never empty.
-        const sorted = trendingPool.slice().sort(compareByHomepageScore);
-        const PER_PODCAST_CAP = 2;
-        const NEWS_TOP_CAP = 2;
-        const BULLETIN_TOP_CAP = 1;
-        const counts = new Map<string, number>();
-        const primary: FeedEpisode[] = [];
-        const overflow: FeedEpisode[] = [];
-        let newsCount = 0;
-        let bulletinCount = 0;
-        for (const e of sorted) {
-          const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
-          const n = counts.get(key) || 0;
-          const news = isNewsLikeEpisode(e);
-          const bulletin = isBulletinLikeEpisode(e);
-          if (n >= PER_PODCAST_CAP) { overflow.push(e); continue; }
-          if (bulletin && bulletinCount >= BULLETIN_TOP_CAP && primary.length < 8) { overflow.push(e); continue; }
-          if (news && newsCount >= NEWS_TOP_CAP && primary.length < 8) { overflow.push(e); continue; }
-          primary.push(e); counts.set(key, n + 1);
-          if (news) newsCount += 1;
-          if (bulletin) bulletinCount += 1;
-        }
-        setTrendingEps(avoidAdjacentSamePodcast([...primary, ...overflow]).slice(0, 8));
-        setAllEps(eps);
+          const eps: FeedEpisode[] = (feedRes.data || []).map(mapRow);
 
-        // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast (max 1 per show).
-        const evergreenAll: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
-        const seenPods = new Set<string>();
-        const evergreenDiverse: EpisodeLite[] = [];
-        const evergreenSpill: EpisodeLite[] = [];
-        for (const e of evergreenAll) {
-          const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
-          if (!seenPods.has(key)) { seenPods.add(key); evergreenDiverse.push(e); }
-          else evergreenSpill.push(e);
+          // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
+          const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
+          const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
+          // Editorial homepage scoring: tier/HU_v1 rank/featured dominate, freshness
+          // softer & tier-aware, news mildly penalized (-12), bulletin/segment feeds
+          // strongly penalized (-35). Hard caps in top 8: 2 ep/podcast, ≤2 news_like,
+          // ≤1 bulletin_like. Backfill from overflow so the rail is never empty.
+          const sorted = trendingPool.slice().sort(compareByHomepageScore);
+          const PER_PODCAST_CAP = 2;
+          const NEWS_TOP_CAP = 2;
+          const BULLETIN_TOP_CAP = 1;
+          const counts = new Map<string, number>();
+          const primary: FeedEpisode[] = [];
+          const overflow: FeedEpisode[] = [];
+          let newsCount = 0;
+          let bulletinCount = 0;
+          for (const e of sorted) {
+            const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
+            const n = counts.get(key) || 0;
+            const news = isNewsLikeEpisode(e);
+            const bulletin = isBulletinLikeEpisode(e);
+            if (n >= PER_PODCAST_CAP) { overflow.push(e); continue; }
+            if (bulletin && bulletinCount >= BULLETIN_TOP_CAP && primary.length < 8) { overflow.push(e); continue; }
+            if (news && newsCount >= NEWS_TOP_CAP && primary.length < 8) { overflow.push(e); continue; }
+            primary.push(e); counts.set(key, n + 1);
+            if (news) newsCount += 1;
+            if (bulletin) bulletinCount += 1;
+          }
+
+          // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast (max 1 per show).
+          const evergreenAll: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
+          const seenPods = new Set<string>();
+          const evergreenDiverse: EpisodeLite[] = [];
+          const evergreenSpill: EpisodeLite[] = [];
+          for (const e of evergreenAll) {
+            const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
+            if (!seenPods.has(key)) { seenPods.add(key); evergreenDiverse.push(e); }
+            else evergreenSpill.push(e);
+          }
+
+          return {
+            eps,
+            trending: avoidAdjacentSamePodcast([...primary, ...overflow]).slice(0, 8),
+            evergreen: avoidAdjacentSamePodcast([...evergreenDiverse, ...evergreenSpill]).slice(0, 6),
+          };
+        };
+
+        const homepageRailsResult = homepageRailsRes as HomepageRailsResponse;
+        const homepageRails = homepageRailsResult.data || null;
+        if (homepageRailsResult.error || !homepageRails) {
+          console.warn("Homepage rails RPC failed, falling back to materialized views", homepageRailsResult.error);
+          const fallback = await loadFallbackRails();
+          setTrendingEps(fallback.trending);
+          setAllEps(fallback.eps);
+          setCategoryRailEps({});
+          setEvergreenEps(fallback.evergreen);
+        } else {
+          const trending = (homepageRails.trending || []).map(mapRow);
+          const evergreen = (homepageRails.evergreen || []).map(mapRow);
+          const categories: Record<string, EpisodeLite[]> = {};
+          Object.entries(homepageRails.categories || {}).forEach(([category, rows]) => {
+            categories[category] = avoidAdjacentSamePodcast((rows || []).map(mapRow)).slice(0, 6);
+          });
+          setTrendingEps(avoidAdjacentSamePodcast(trending).slice(0, 8));
+          setAllEps(Object.values(categories).flat() as FeedEpisode[]);
+          setCategoryRailEps(categories);
+          setEvergreenEps(avoidAdjacentSamePodcast(evergreen).slice(0, 6));
         }
-        setEvergreenEps(avoidAdjacentSamePodcast([...evergreenDiverse, ...evergreenSpill]).slice(0, 6));
 
         // Trending entities source (last 14 days, EN-only, healthy podcasts)
         setTrendingEntityEps((entityRes.data || []) as any);
@@ -394,6 +439,7 @@ const Index = () => {
   const topPodcasts = useMemo(() => podcasts.slice(0, 3), [podcasts]);
 
   const epsByCat = useMemo(() => {
+    if (Object.keys(categoryRailEps).length > 0) return categoryRailEps;
     const grouped: Record<string, EpisodeLite[]> = {};
     allEps.forEach((e) => {
       const cat = e.podcasts?.category;
@@ -424,7 +470,7 @@ const Index = () => {
       grouped[k] = avoidAdjacentSamePodcast(ordered).slice(0, 6);
     });
     return grouped;
-  }, [allEps]);
+  }, [allEps, categoryRailEps]);
 
   return (
     <Layout>
