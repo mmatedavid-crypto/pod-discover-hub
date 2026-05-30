@@ -1,0 +1,1 @@
+ALTER VIEW public.v_episode_data_quality_issues SET (security_invoker = on);
