@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
 import { setSeo } from "@/lib/seo";
@@ -124,12 +123,11 @@ function avoidAdjacentSamePodcast<T>(items: T[]): T[] {
 import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
-import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
-import { TrendingEntities } from "@/components/TrendingEntities";
 import { TrendingPodcasts } from "@/components/TrendingPodcasts";
 import { MyLibraryRails } from "@/components/home/MyLibraryRails";
 import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
 import { HomeTopicsSection } from "@/components/HomeTopicsSection";
+import { HomeCurrentSignals } from "@/components/HomeCurrentSignals";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
@@ -160,7 +158,6 @@ type HomepageRailsResponse = { data?: HomepageRailsPayload | null; error?: unkno
 const Index = () => {
   const [q, setQ] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
-  const [podcasts, setPodcasts] = useState<(PodcastLite & { podiverzum_rank?: number; featured?: boolean })[]>([]);
   const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [categoryRailEps, setCategoryRailEps] = useState<Record<string, EpisodeLite[]>>({});
@@ -272,7 +269,7 @@ const Index = () => {
     (async () => {
       try {
         const since14d = new Date(Date.now() - 14 * 86400_000).toISOString();
-        const [catsRes, homepageRailsRes, podsRes, entityRes] = await Promise.all([
+        const [catsRes, homepageRailsRes, entityRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
             .rpc("get_homepage_rails_v1" as never, {
@@ -281,16 +278,6 @@ const Index = () => {
               _category_limit: 6,
               _max_categories: 8,
             } as never),
-          supabase
-            .from("podcasts")
-            .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
-            .not("rss_status", "in", "(failed,inactive)")
-            // HU-only safety gate (strict): must have passed the language gate
-            .eq("is_hungarian", true)
-            .eq("language_decision", "accept_hungarian")
-            .order("featured", { ascending: false })
-            .order("podiverzum_rank", { ascending: false })
-            .limit(40),
           supabase
             .from("episodes")
             .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label,hosts)")
@@ -301,13 +288,6 @@ const Index = () => {
         ]);
 
         setCats(catsRes.data || []);
-
-        const goodHealth = (p: any) => {
-          const hs = (p.shadow_rank_components as any)?.health_state;
-          return !hs || hs === "healthy" || hs === "recovered_rss_url";
-        };
-        const eligible = (podsRes.data || []).filter((p: any) => goodHealth(p));
-        setPodcasts(eligible);
 
         const mapRow = (r: any): FeedEpisode => ({
           id: r.episode_id,
@@ -432,7 +412,18 @@ const Index = () => {
     })();
   }, []);
 
-  const topPodcasts = useMemo(() => podcasts.slice(0, 3), [podcasts]);
+  const currentTopics = useMemo(
+    () => topEntitiesFrom(trendingEntityEps, "topics", "topic", 8),
+    [trendingEntityEps],
+  );
+  const currentPeople = useMemo(
+    () => topEntitiesFrom(trendingEntityEps, "people", "person", 8, { excludeHosts: true }),
+    [trendingEntityEps],
+  );
+  const currentCompanies = useMemo(
+    () => topEntitiesFrom(trendingEntityEps, "companies", "company", 8),
+    [trendingEntityEps],
+  );
 
   const epsByCat = useMemo(() => {
     if (Object.keys(categoryRailEps).length > 0) return categoryRailEps;
@@ -644,6 +635,8 @@ const Index = () => {
           </section>
         )}
 
+        <HomeCurrentSignals topics={currentTopics} people={currentPeople} companies={currentCompanies} />
+
         <MoodCollections />
 
 
@@ -716,26 +709,7 @@ const Index = () => {
           </section>
         )}
 
-        {topPodcasts.length > 0 && (
-          <section>
-            <div className="flex items-end justify-between mb-4">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Minőség mindenek felett</div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Top podcastok</h2>
-              </div>
-              <Link to="/kategoriak" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                Minden podcast <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {topPodcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
-            </div>
-          </section>
-        )}
-
-        
-
-        {loaded && !trendingEps.length && !topPodcasts.length && (
+        {loaded && !trendingEps.length && (
           <div className="text-center py-20 text-muted-foreground">
             {loadError
               ? "Az epizódok átmenetileg nem érhetők el. Kérlek, nézz vissza később."
