@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "audit:intelligence": "node scripts/audit-intelligence.mjs",
     "audit:ai-models": "node scripts/audit-ai-models.mjs",
+    "verify:production-backend": "node scripts/verify-production-backend.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
