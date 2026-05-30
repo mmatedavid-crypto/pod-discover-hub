@@ -13,6 +13,10 @@
 //   default            → reads ctrl from app_settings.youtube_transcript_controls
 //
 // Budget tracking: ai_spend_daily.by_kind.youtube_transcript
+// Credit discipline:
+//   - only v3-confirmed YouTube episode matches are eligible
+//   - transcript attempts are logged per video, including no-caption failures
+//   - RSS/YouTube description gain gates avoid spending when description is enough
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
@@ -28,8 +32,18 @@ const SUPADATA_URL = "https://api.supadata.ai/v1/youtube/transcript";
 const COST_PER_CALL = 0.0005; // approx, conservative
 const DB_TIMEOUT_MS = 12_000;
 const SUPADATA_TIMEOUT_MS = 20_000;
+const MATCH_POLICY = "youtube_episode_match_v3";
 
 type Segment = { text: string; offset: number; duration: number; lang?: string };
+type Candidate = {
+  episode_id: string;
+  podcast_id: string;
+  youtube_video_id: string;
+  youtube_description: string | null;
+  youtube_duration_seconds: number | null;
+  match_score: number | null;
+  validation_reason: any;
+};
 
 function timeoutFetch(timeoutMs: number) {
   return async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -129,9 +143,13 @@ Deno.serve(async (req) => {
     const ctrl = (ctrlRow?.value || {}) as any;
     if (ctrl.enabled === false && !pilot && !episodeIdParam) return json({ ok: true, paused: true });
     const batch = pilot || Number(ctrl.batch || 30);
-    const concurrency = Math.min(Number(ctrl.concurrency || 4), 8);
+    const concurrency = Math.min(Number(ctrl.concurrency || 2), 4);
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 2);
     const preferredLang = ctrl.preferred_lang || "hu";
+    const minMatchScore = Number(ctrl.min_match_score ?? 0.84);
+    const minDescriptionGainChars = Number(ctrl.min_description_gain_chars ?? 300);
+    const minYoutubeDescriptionChars = Number(ctrl.min_youtube_description_chars ?? 250);
+    const shortRssChars = Number(ctrl.short_rss_chars ?? 160);
     const TIME_BUDGET_MS = 100_000;
 
     // Budget check
@@ -143,24 +161,62 @@ Deno.serve(async (req) => {
       if (spent >= dailyBudget) return json({ ok: true, budget_exhausted: true, spent_usd: spent });
     }
 
-    // Pick episodes with youtube_video_id but no transcript yet
-    let candQ = admin.from("episodes")
-      .select("id, podcast_id, youtube_video_id")
-      .not("youtube_video_id", "is", null)
-      .eq("youtube_pairing_status", "paired");
-    if (episodeIdParam) candQ = candQ.eq("id", episodeIdParam);
-    else candQ = candQ.limit(Math.max(batch * 3, 60));
+    // Pick only strict v3-confirmed YouTube matches. Older "paired" episode
+    // rows are deliberately ignored to avoid burning Supadata credits on weak matches.
+    let candQ = admin
+      .from("episode_youtube_links")
+      .select("episode_id,podcast_id,youtube_video_id,youtube_description,youtube_duration_seconds,match_score,validation_reason")
+      .eq("status", "confirmed")
+      .contains("validation_reason", { policy: MATCH_POLICY })
+      .gte("match_score", minMatchScore)
+      .order("match_score", { ascending: false });
+    if (episodeIdParam) candQ = candQ.eq("episode_id", episodeIdParam);
+    else candQ = candQ.limit(Math.max(batch * 4, 80));
     const { data: cands, error: cErr } = await candQ;
     if (cErr) throw cErr;
     if (!cands?.length) return json({ ok: true, no_candidates: true });
 
-    const ids = cands.map((c) => c.id);
-    const { data: existing } = await admin.from("episode_transcripts").select("episode_id").in("episode_id", ids);
+    const uniqueByVideo = new Map<string, Candidate>();
+    for (const c of (cands || []) as Candidate[]) {
+      if (!c.youtube_video_id) continue;
+      const prev = uniqueByVideo.get(c.youtube_video_id);
+      if (!prev || Number(c.match_score || 0) > Number(prev.match_score || 0)) uniqueByVideo.set(c.youtube_video_id, c);
+    }
+    const unique = [...uniqueByVideo.values()];
+    const ids = unique.map((c) => c.episode_id);
+    const videoIds = unique.map((c) => c.youtube_video_id);
+
+    const { data: existing } = await admin
+      .from("episode_transcripts")
+      .select("episode_id,model")
+      .in("episode_id", ids);
     const have = new Set((existing || []).map((r) => r.episode_id));
-    const todo = cands.filter((c) => !have.has(c.id)).slice(0, batch);
+
+    const { data: attempts } = await admin
+      .from("youtube_transcript_attempts")
+      .select("youtube_video_id,status")
+      .in("youtube_video_id", videoIds);
+    const attempted = new Set((attempts || []).map((r) => `${r.youtube_video_id}:${r.status}`));
+    const blockedVideos = new Set((attempts || [])
+      .filter((r) => ["transcribed", "no_captions", "permanent_error"].includes(String(r.status)))
+      .map((r) => r.youtube_video_id));
+
+    const { data: episodes } = await admin
+      .from("episodes")
+      .select("id,description")
+      .in("id", ids);
+    const rssLenByEp = new Map((episodes || []).map((e: any) => [e.id, String(e.description || "").trim().length]));
+
+    const todo = unique.filter((c) => {
+      if (have.has(c.episode_id)) return false;
+      if (blockedVideos.has(c.youtube_video_id)) return false;
+      const rssLen = Number(rssLenByEp.get(c.episode_id) || 0);
+      const ytDescLen = String(c.youtube_description || "").trim().length;
+      return rssLen < shortRssChars || ytDescLen >= Math.max(minYoutubeDescriptionChars, rssLen + minDescriptionGainChars);
+    }).slice(0, batch);
     if (!todo.length) return json({ ok: true, all_done: true, scanned: cands.length });
 
-    let ok = 0, no_captions = 0, errors = 0, callsMade = 0;
+    let ok = 0, no_captions = 0, errors = 0, callsMade = 0, skipped_existing_attempt = 0;
     const errorDetails: any[] = [];
 
     const delayMs = Number(ctrl.delay_ms ?? 1500);
@@ -170,18 +226,47 @@ Deno.serve(async (req) => {
       if (workerIdx > 0) await new Promise((r) => setTimeout(r, workerIdx * 500));
       while (cursor < todo.length) {
         if (Date.now() - startedAt > TIME_BUDGET_MS) return;
-        const ep = todo[cursor++];
+        const ep = todo[cursor++] as Candidate;
+        if (attempted.has(`${ep.youtube_video_id}:started`)) {
+          skipped_existing_attempt++;
+          continue;
+        }
         callsMade++;
         try {
+          await admin.from("youtube_transcript_attempts").upsert({
+            episode_id: ep.episode_id,
+            podcast_id: ep.podcast_id,
+            youtube_video_id: ep.youtube_video_id,
+            status: "started",
+            match_score: ep.match_score,
+            match_policy: MATCH_POLICY,
+            attempted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "youtube_video_id,match_policy" });
+
           const { text, segments, duration, lang, generated } = await fetchSupadata(
             ep.youtube_video_id!,
             SUPADATA_API_KEY!,
             preferredLang,
           );
-          if (!text || text.length < 30) { no_captions++; continue; }
+          if (!text || text.length < 30) {
+            no_captions++;
+            await admin.from("youtube_transcript_attempts").upsert({
+              episode_id: ep.episode_id,
+              podcast_id: ep.podcast_id,
+              youtube_video_id: ep.youtube_video_id,
+              status: "no_captions",
+              match_score: ep.match_score,
+              match_policy: MATCH_POLICY,
+              cost_usd: COST_PER_CALL,
+              attempted_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "youtube_video_id,match_policy" });
+            continue;
+          }
           const content_hash = await sha256(text);
           const { error: upErr } = await admin.from("episode_transcripts").upsert({
-            episode_id: ep.id,
+            episode_id: ep.episode_id,
             podcast_id: ep.podcast_id,
             model: generated ? "supadata-youtube-asr" : "supadata-youtube",
             language: lang,
@@ -192,7 +277,19 @@ Deno.serve(async (req) => {
             cost_usd: COST_PER_CALL,
             updated_at: new Date().toISOString(),
           }, { onConflict: "episode_id,model" });
-          if (upErr) { errors++; errorDetails.push({ ep: ep.id, err: upErr.message }); continue; }
+          if (upErr) { errors++; errorDetails.push({ ep: ep.episode_id, err: upErr.message }); continue; }
+          await admin.from("youtube_transcript_attempts").upsert({
+            episode_id: ep.episode_id,
+            podcast_id: ep.podcast_id,
+            youtube_video_id: ep.youtube_video_id,
+            status: "transcribed",
+            match_score: ep.match_score,
+            match_policy: MATCH_POLICY,
+            transcript_chars: text.length,
+            cost_usd: COST_PER_CALL,
+            attempted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "youtube_video_id,match_policy" });
           ok++;
         } catch (e: any) {
           const msg = e?.message || String(e);
@@ -202,7 +299,19 @@ Deno.serve(async (req) => {
           } else {
             errors++;
           }
-          if (errorDetails.length < 5) errorDetails.push({ ep: ep.id, vid: ep.youtube_video_id, err: msg });
+          await admin.from("youtube_transcript_attempts").upsert({
+            episode_id: ep.episode_id,
+            podcast_id: ep.podcast_id,
+            youtube_video_id: ep.youtube_video_id,
+            status: msg.includes("supadata_404") || msg.includes("not_found") || msg.includes("no_captions") ? "no_captions" : "error",
+            match_score: ep.match_score,
+            match_policy: MATCH_POLICY,
+            error_message: msg.slice(0, 500),
+            cost_usd: COST_PER_CALL,
+            attempted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "youtube_video_id,match_policy" });
+          if (errorDetails.length < 5) errorDetails.push({ ep: ep.episode_id, vid: ep.youtube_video_id, err: msg });
         }
         if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
       }
@@ -214,6 +323,7 @@ Deno.serve(async (req) => {
     return json({
       ok: true, processed: ok + no_captions + errors,
       transcribed: ok, no_captions, errors,
+      skipped_existing_attempt,
       calls: callsMade, cost_usd: Number((callsMade * COST_PER_CALL).toFixed(4)),
       elapsed_ms: Date.now() - startedAt,
       sample_errors: errorDetails.slice(0, 5),
