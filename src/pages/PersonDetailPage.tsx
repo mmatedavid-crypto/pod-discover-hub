@@ -8,6 +8,7 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import NotFoundState from "@/components/NotFoundState";
 import { compareByScore } from "@/lib/episodeRank";
 import PersonAvatar from "@/components/PersonAvatar";
+import { matchesEntitySlug } from "@/lib/entity";
 
 interface Person {
   id: string; name: string; slug: string;
@@ -49,6 +50,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 
 export default function PersonDetailPage() {
   const { slug = "" } = useParams();
+  const decodedSlug = useMemo(() => decodeURIComponent(slug), [slug]);
   const [person, setPerson] = useState<Person | null>(null);
   const [eps, setEps] = useState<(EpisodeLite & { mention_type?: string; role_type?: string })[]>([]);
   const [pods, setPods] = useState<PodcastLite[]>([]);
@@ -61,6 +63,7 @@ export default function PersonDetailPage() {
     if (!slug) return;
     (async () => {
       setLoading(true);
+      setNotFound(false);
       const { data: p } = await supabase
         .from("people")
         .select("id, name, slug, ai_bio, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin")
@@ -71,7 +74,88 @@ export default function PersonDetailPage() {
         || ["hide","reject"].includes(pp.ai_recommended_action || "")
         || ["needs_human_review","duplicate_candidate"].includes(pp.ai_review_status || "")
         || ["split_resolved"].includes(pp.identity_status || "");
-      if (blocked) { setNotFound(true); setLoading(false); return; }
+      if (blocked) {
+        const selectCols = "id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
+        const { data: fallbackRows } = await supabase
+          .from("episodes")
+          .select(selectCols)
+          .or("people.not.is.null,mentioned.not.is.null")
+          .eq("podcasts.is_hungarian", true)
+          .eq("podcasts.language_decision", "accept_hungarian")
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(1600);
+
+        const podMap = new Map<string, any>();
+        let exemplar = decodedSlug;
+        const fallbackEps: any[] = [];
+        (fallbackRows || []).forEach((e: any) => {
+          const people = (e.people || []) as string[];
+          const mentioned = (e.mentioned || []) as string[];
+          const participantHit = people.find((v) => matchesEntitySlug("person", v, decodedSlug));
+          const mentionedHit = mentioned.find((v) => matchesEntitySlug("person", v, decodedSlug));
+          const hit = participantHit || mentionedHit;
+          if (!hit) return;
+          if (exemplar === decodedSlug) exemplar = hit;
+          fallbackEps.push({
+            ...e,
+            mention_type: participantHit ? "participant" : "mention",
+            role_type: participantHit ? "participant" : "mention",
+          });
+          if (e.podcasts) podMap.set(e.podcast_id, e.podcasts);
+        });
+
+        if (!fallbackEps.length) {
+          setNotFound(true);
+          setLoading(false);
+          return;
+        }
+
+        const sorted = fallbackEps.sort(compareByScore);
+        setPerson({
+          id: `fallback-${decodedSlug}`,
+          name: exemplar,
+          slug: decodedSlug,
+          ai_bio: null,
+          short_bio: null,
+          overview_text: null,
+          wikipedia_url: null,
+          wikipedia_title: null,
+          wikipedia_match_status: null,
+          wikipedia_extract: null,
+          wikipedia_description: null,
+          short_description_hu: null,
+          image_url: null,
+          image_original_url: null,
+          image_attribution: null,
+          image_license: null,
+          episode_count: sorted.length,
+          podcast_count: podMap.size,
+          is_indexable: sorted.length >= 5,
+          latest_episode_at: sorted[0]?.published_at || null,
+          disambiguation_label: null,
+          disambiguation_context: null,
+        });
+        setEps(sorted.slice(0, 40) as any);
+        setPods([...podMap.values()].sort((a: any, b: any) => (b.podiverzum_rank || 0) - (a.podiverzum_rank || 0)).slice(0, 9));
+        setRelated([]);
+        setLoading(false);
+
+        const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
+        setSeo({
+          title: `${exemplar} podcast epizódok, interjúk és említések | Podiverzum`,
+          description: `${exemplar} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen.`,
+          noindex: sorted.length < 5,
+          jsonLd: sorted.length < 5 ? undefined : [
+            {
+              "@context": "https://schema.org",
+              "@type": "CollectionPage",
+              name: `${exemplar} podcast epizódok`,
+              url: pageUrl,
+            },
+          ],
+        });
+        return;
+      }
       setPerson(p as any);
 
       const { data: mentions } = await supabase
@@ -178,7 +262,7 @@ export default function PersonDetailPage() {
         jsonLd: (!(p as any).is_indexable || thinPage) ? undefined : jsonLd,
       });
     })();
-  }, [slug]);
+  }, [slug, decodedSlug]);
 
   const isHistorical = Boolean((person as any)?.is_deceased || (person as any)?.is_historical);
   const hasArchival = Boolean((person as any)?.has_archival_evidence);

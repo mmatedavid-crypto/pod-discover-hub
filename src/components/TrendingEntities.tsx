@@ -27,8 +27,8 @@ const KIND_LABEL: Record<string, string> = {
 
 const HREF: Record<EntityKind, string> = {
   topic: "tema",
-  person: "person",
-  company: "company",
+  person: "szemelyek",
+  company: "ceg",
   ticker: "ticker",
   ingredient: "ingredient",
 };

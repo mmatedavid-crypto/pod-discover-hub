@@ -12,8 +12,8 @@ type Group = {
 const ICONS = { topic: Hash, person: Users, company: Building2 };
 const HREF: Record<string, string> = {
   topic: "tema",
-  person: "person",
-  company: "company",
+  person: "szemelyek",
+  company: "ceg",
 };
 
 export function PodcastEntitiesCompact({
