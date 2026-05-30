@@ -26,12 +26,17 @@ const BOILERPLATE_RX = [
   /follow us on [^.\n]+/gi,
   /support (?:us|the show) on patreon[^.\n]*/gi,
   /iratkozz fel[^.\n]*/gi,
-  /kövess (?:minket|bennünket) [^.\n]*/gi,
-  /támogasd (?:a műsort|minket)[^.\n]*/gi,
+  /kövess(?:etek|étek|en| minket| bennünket)? [^.\n]*/gi,
+  /(?:támogasd|támogass(?:atok)?) (?:a műsort|minket|a csatornát|a podcastot)[^.\n]*/gi,
+  /(?:támogatás|tamogatas|patreon|donate|adomány|adomany)[^.\n]*(?:https?:\/\/|www\.|@)[^.\n]*/gi,
+  /(?:linkek|show notes|shownotes|elérhetőség(?:eink)?|elerhetoseg(?:eink)?)[^.\n]*(?:https?:\/\/|www\.|@)[^.\n]*/gi,
   /(?:hallgasd|hallgassa) (?:meg )?(?:a|az) [^.\n]{0,40} (?:spotify|apple|youtube)[^.\n]*/gi,
 ];
 
 const URL_RX = /https?:\/\/\S+/gi;
+const BARE_URL_RX = /\b(?:www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|music\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|fb\.com|tiktok\.com|patreon\.com|discord\.gg|discord\.com|linktr\.ee|bio\.link|substack\.com)\/?\S*/gi;
+const EMAIL_RX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const HANDLE_RX = /(^|[\s([{"'„“])@[A-Za-z0-9._-]{2,}/g;
 const TIMESTAMP_LINE_RX = /^\s*\d{1,2}:\d{2}(?::\d{2})?\s+.+$/gm;
 const MULTI_WHITESPACE = /\s{3,}/g;
 const HTML_RX = /<[^>]+>/g;
@@ -76,6 +81,7 @@ function isFooterishLine(line: string): boolean {
   if (/^(?:facebook|instagram|insta|tiktok|youtube|yt|spotify|apple\s*podcasts?|apple|twitter|linkedin|threads|patreon|discord|telegram|mastodon|bluesky|snapchat|whatsapp|messenger|deezer|pocket\s*casts|google\s*podcasts?|soundcloud|substack|rumble|odysee|locals|rss|fb|ig)\b/i.test(s)) return true;
   // @handle
   if (/^@[A-Za-z0-9._-]{2,}/.test(s)) return true;
+  if (/^[•\-–—*·]?\s*(?:https?:\/\/|www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|tiktok\.com|patreon\.com|linktr\.ee)\b/i.test(s)) return true;
   // "Label:" alone or "Label: <link/handle>"
   if (/^[A-ZÁÉÍÓÖŐÚÜŰ][A-Za-záéíóöőúüű\s]{0,25}\s*[:：]\s*(?:https?:\/\/|www\.|@|$)/.test(s)) return true;
   // production credit line
@@ -89,6 +95,51 @@ function isSubstantiveLine(line: string): boolean {
   if (isFooterishLine(s)) return false;
   const words = s.split(/\s+/).filter((w) => w.length > 2);
   return words.length >= 6;
+}
+
+function stripInlineNoise(input: string): { text: string; removed: string[] } {
+  let body = input;
+  const removed: string[] = [];
+
+  if (URL_RX.test(body)) {
+    body = body.replace(URL_RX, "");
+    removed.push("inline_urls");
+  }
+  URL_RX.lastIndex = 0;
+
+  if (BARE_URL_RX.test(body)) {
+    body = body.replace(BARE_URL_RX, "");
+    removed.push("bare_urls");
+  }
+  BARE_URL_RX.lastIndex = 0;
+
+  if (EMAIL_RX.test(body)) {
+    body = body.replace(EMAIL_RX, "");
+    removed.push("email");
+  }
+  EMAIL_RX.lastIndex = 0;
+
+  if (HANDLE_RX.test(body)) {
+    body = body.replace(HANDLE_RX, "$1");
+    removed.push("social_handles");
+  }
+  HANDLE_RX.lastIndex = 0;
+
+  const cleanedLines = body.split(/\r?\n/).filter((line) => {
+    const s = line.trim();
+    if (!s) return true;
+    if (isFooterishLine(s)) {
+      removed.push("footer_lines");
+      return false;
+    }
+    if (/^(?:facebook|instagram|insta|tiktok|youtube|yt|spotify|apple podcasts?|patreon|discord|linkek|links?)\s*[:：]?\s*$/i.test(s)) {
+      removed.push("orphan_link_labels");
+      return false;
+    }
+    return true;
+  });
+
+  return { text: cleanedLines.join("\n"), removed: Array.from(new Set(removed)) };
 }
 
 function detectFooterStart(lines: string[]): number {
@@ -157,13 +208,16 @@ export function heuristicClean(raw: string): { text: string; removed: string[] }
   // 3) Strip leftover boilerplate sentences inside the kept body (safety net)
   let boilerHit = false;
   for (const rx of BOILERPLATE_RX) {
+    rx.lastIndex = 0;
     if (rx.test(body)) { boilerHit = true; body = body.replace(rx, ""); }
+    rx.lastIndex = 0;
   }
   if (boilerHit) removed.push("boilerplate_phrases");
 
-  // 4) Strip any remaining inline URLs in the kept body
-  if (URL_RX.test(body)) { body = body.replace(URL_RX, ""); removed.push("inline_urls"); }
-  URL_RX.lastIndex = 0;
+  // 4) Strip any remaining inline links, bare platform URLs, emails and handles.
+  const stripped = stripInlineNoise(body);
+  body = stripped.text;
+  removed.push(...stripped.removed);
 
   // 5) Whitespace normalize
   body = body.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(MULTI_WHITESPACE, " ").trim();
@@ -194,11 +248,9 @@ export function heuristicClean(raw: string): { text: string; removed: string[] }
     }
     if (boilerHit) fallbackRemoved.push("boilerplate_phrases");
 
-    if (URL_RX.test(fallback)) {
-      fallback = fallback.replace(URL_RX, "");
-      fallbackRemoved.push("inline_urls");
-    }
-    URL_RX.lastIndex = 0;
+    const strippedFallback = stripInlineNoise(fallback);
+    fallback = strippedFallback.text;
+    fallbackRemoved.push(...strippedFallback.removed);
 
     fallback = fallback.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(MULTI_WHITESPACE, " ").trim();
 

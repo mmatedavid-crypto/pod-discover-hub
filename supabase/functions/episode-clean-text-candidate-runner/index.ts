@@ -42,9 +42,9 @@ async function sha256Hex(s: string): Promise<string> {
 
 function dirtySignals(text: string): string[] {
   const signals: string[] = [];
-  if (/https?:\/\/|www\./i.test(text)) signals.push("url");
+  if (/https?:\/\/|www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|tiktok\.com|patreon\.com|linktr\.ee/i.test(text)) signals.push("url");
   if (/@[A-Za-z0-9_.-]+/.test(text)) signals.push("social_handle");
-  if (/\b(instagram|facebook|youtube|tiktok|spotify|patreon)\b/i.test(text)) signals.push("platform_link");
+  if (/^\s*(?:instagram|facebook|youtube|tiktok|spotify|patreon|apple podcasts?)\s*[:：-]/im.test(text)) signals.push("platform_link");
   if (/\b(undefined|null|\[object Object\])\b/i.test(text)) signals.push("placeholder");
   return signals;
 }
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       .eq("key", "intelligence_reprocess_staged_plan")
       .maybeSingle();
     const plan = (planRow?.value || {}) as StagedPlan;
-    const method = String(plan.cleaner_method || "deterministic_v3");
+    const method = String(plan.cleaner_method || "deterministic_v4");
     const ids = (plan.candidates || []).map((c) => c.id).filter((id): id is string => !!id).slice(0, batch);
     if (!ids.length) return json({ ok: true, processed: 0, reason: "no_staged_candidates" });
 

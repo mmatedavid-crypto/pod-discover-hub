@@ -49,7 +49,7 @@ type ReprocessBody = {
   dry_run?: boolean;
 };
 
-const CURRENT_CLEANER_METHOD = "deterministic_v3";
+const CURRENT_CLEANER_METHOD = "deterministic_v4";
 const DEFAULT_TIERS = ["S", "A", "B", "C", "D", "E"];
 
 async function isAdmin(admin: AdminClient, authHeader: string | null) {
@@ -77,7 +77,7 @@ function reasonsFor(ep: Candidate, clean?: CleanRow, mode = "bad_or_old"): strin
   if (ep.clean_text_status !== "done") reasons.push("clean_status_not_done");
   if (clean && clean.cleaner_method !== CURRENT_CLEANER_METHOD) reasons.push("old_cleaner_method");
   if (rawLen > 500 && cleanLen < 80) reasons.push("overcleaned");
-  if (rawLen > 500 && cleanLen > rawLen * 0.9 && /https?:\/\/|www\.|instagram|facebook|spotify|youtube|tiktok|kövess|iratkozz/i.test(String(ep.description || ""))) {
+  if (rawLen > 500 && cleanLen > rawLen * 0.9 && /https?:\/\/|www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|tiktok\.com|patreon\.com|linktr\.ee|kövess|iratkozz/i.test(String(ep.description || ""))) {
     reasons.push("likely_undercleaned");
   }
   if (removed.includes("footer_cut") && rawLen > 500 && cleanLen < rawLen * 0.2) reasons.push("suspicious_footer_cut");
