@@ -20,6 +20,20 @@ function backoffMin(attempts: number): number {
   return Math.min(1920, Math.round(30 * Math.pow(2, Math.min(attempts, 6))));
 }
 
+function initialPublicRank(candidateRank: unknown): number {
+  const raw = Number(candidateRank);
+  if (!Number.isFinite(raw)) return 3.5;
+  // candidate_rank is an import priority, not an editorial/public quality score.
+  // Keep newly imported shows discoverable, but never top-tier until HU_v1 scores them.
+  return Math.max(1, Math.min(4.5, raw));
+}
+
+function initialRankLabel(score: number): "C" | "D" | "E" {
+  if (score >= 4) return "C";
+  if (score >= 2.5) return "D";
+  return "E";
+}
+
 async function importOne(admin: any, item: any) {
   const stamp = new Date().toISOString();
   const attempts = (item.import_attempts || 0) + 1;
@@ -69,6 +83,8 @@ async function importOne(admin: any, item: any) {
     await setQueueFail({ import_status: "failed", import_error: reason, status: "rejected" });
     return { ...base, status: "failed", reason };
   }
+  const publicRank = initialPublicRank(item.candidate_rank);
+  const publicTier = initialRankLabel(publicRank);
   const { data: inserted, error: insErr } = await admin.from("podcasts").insert({
     title: item.title, slug,
     description: item.description, rss_url: item.rss_url,
@@ -76,8 +92,17 @@ async function importOne(admin: any, item: any) {
     language: item.language || "en", category: item.category,
     source: "queue_bulk_import",
     rss_status: "not_checked",
-    podiverzum_rank: item.candidate_rank,
-    rank_reason: item.rank_reason,
+    podiverzum_rank: publicRank,
+    rank_label: publicTier,
+    rank_reason: {
+      formula: "import_public_rank_v1",
+      source: "queue-import-runner",
+      public_rank: publicRank,
+      public_tier: publicTier,
+      candidate_rank: item.candidate_rank,
+      candidate_rank_reason: item.rank_reason || null,
+      note: "candidate_rank is import priority only; HU_v1 must promote to A/S.",
+    },
     ...gate.fields,
   }).select("*").single();
   if (inserted && gate.result.language_decision === "review_uncertain") {
