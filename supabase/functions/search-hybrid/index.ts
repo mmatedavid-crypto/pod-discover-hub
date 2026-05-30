@@ -252,6 +252,91 @@ function quoteWebSearchTerm(term: string): string {
   return term.includes(" ") ? `"${term.replace(/"/g, " ").trim()}"` : term;
 }
 
+type NaturalQuestionPlan = {
+  isQuestion: boolean;
+  coreTerms: string[];
+  expandedTerms: string[];
+  lexicalQuery: string;
+  semanticText: string;
+};
+
+const HU_QUESTION_STARTERS = new Set([
+  "mi", "mit", "mire", "miert", "hogyan", "hogy", "mikor", "hol", "hova", "honnan",
+  "melyik", "milyen", "mennyi", "kinek", "kivel", "kitol", "kell", "lehet", "erdemes",
+]);
+const HU_NLQ_FILLER = new Set([
+  ...RARE_GATE_STOPWORDS,
+  "keresek", "keresnek", "talalok", "ajanlas", "ajanlj", "ajanlotok", "szeretnek",
+  "tudok", "tudom", "legyen", "legjobb", "jo", "jobb", "tema", "temaban",
+  "kapcsan", "rol", "roluk", "szol", "szolnak", "szolo", "valami", "valamilyen",
+]);
+
+const NLQ_DOMAIN_EXPANSIONS: Array<{ re: RegExp; terms: string[] }> = [
+  { re: /\b(gyerek|gyermek|baba|csecsemo|szulo|szulok|anyuka|apuka)\b/, terms: ["gyerek", "gyermek", "baba", "csecsemő", "szülőség", "gyereknevelés"] },
+  { re: /\b(csukl|csuklik|csuklas)\b/, terms: ["csuklás", "csuklik", "rekeszizom", "gyerekorvos", "egészség"] },
+  { re: /\b(alvas|alszik|altatas|ebred|ebredes)\b/, terms: ["alvás", "altatás", "alvászavar", "gyereknevelés"] },
+  { re: /\b(szorong|stressz|panik|depresszio|kieges)\b/, terms: ["mentális egészség", "szorongás", "stressz", "pszichológia", "terápia"] },
+  { re: /\b(befektet|reszveny|tozsde|penz|megtakarit|hitel|inflacio)\b/, terms: ["befektetés", "tőzsde", "pénzügy", "megtakarítás", "gazdaság"] },
+  { re: /\b(ai|chatgpt|mesterséges|intelligencia|robot|automatizalas)\b/, terms: ["mesterséges intelligencia", "AI", "technológia", "automatizálás"] },
+  { re: /\b(valasztas|kormany|parlament|part|fidesz|tisza|ellenzek)\b/, terms: ["politika", "közélet", "választás", "parlament"] },
+  { re: /\b(tortenelem|haboru|trianon|rendszervaltas|kommunizmus)\b/, terms: ["történelem", "magyar történelem", "háború", "közélet"] },
+  { re: /\b(egeszseg|beteg|tunet|orvos|terapia|gyogyszer)\b/, terms: ["egészség", "orvos", "tünetek", "terápia"] },
+];
+
+function stripHuPossessive(token: string): string {
+  let t = token;
+  const suffixes = [
+    "aimnak", "eimnek", "unknak", "unknek", "emnek", "amnak", "omnak",
+    "oknak", "eknek", "aknak", "ban", "ben", "nak", "nek", "rol", "rol",
+    "bol", "bol", "tol", "tol", "hoz", "hez", "hoz", "val", "vel",
+    "kent", "ert", "ig", "on", "en", "ot", "et", "at", "em", "am", "om", "unk", "unk",
+  ];
+  for (const s of suffixes) {
+    if (t.length > s.length + 3 && t.endsWith(s)) {
+      t = t.slice(0, -s.length);
+      break;
+    }
+  }
+  return t;
+}
+
+function deriveNaturalQuestionPlan(q: string, qNorm: string): NaturalQuestionPlan {
+  const tokens = qNorm.split(/[^a-z0-9]+/).filter(Boolean);
+  const startsLikeQuestion = tokens.length > 0 && HU_QUESTION_STARTERS.has(tokens[0]);
+  const hasQuestionMark = q.includes("?");
+  const isQuestion = hasQuestionMark || startsLikeQuestion || /\b(miert|hogyan|milyen|melyik|mitol|mit tegyek|erdemes|lehet-e)\b/.test(qNorm);
+  if (!isQuestion) return { isQuestion: false, coreTerms: [], expandedTerms: [], lexicalQuery: q, semanticText: q };
+
+  const core = uniqueClean(tokens
+    .map(stripHuPossessive)
+    .filter((t) => t.length >= 3 && !HU_NLQ_FILLER.has(t) && !/^\d+$/.test(t)), 8);
+
+  const expansions: string[] = [];
+  for (const rule of NLQ_DOMAIN_EXPANSIONS) {
+    if (rule.re.test(qNorm) || core.some((t) => rule.re.test(t))) expansions.push(...rule.terms);
+  }
+  for (const t of core) {
+    expansions.push(t);
+    if (t.endsWith("ik") && t.length > 5) expansions.push(`${t.slice(0, -2)}ás`);
+    if (t.endsWith("ul") && t.length > 5) expansions.push(`${t.slice(0, -2)}ás`);
+    if (t === "gyerek") expansions.push("gyermek", "gyereknevelés", "szülőség");
+    if (t === "csukl") expansions.push("csuklás", "csuklik");
+  }
+  const expandedTerms = uniqueClean(expansions, 14);
+  const lexicalTerms = uniqueClean([...core, ...expandedTerms], 12);
+  const lexicalQuery = lexicalTerms.length
+    ? lexicalTerms.map(quoteWebSearchTerm).join(" OR ")
+    : q;
+  const semanticText = uniqueClean([...core, ...expandedTerms], 14).join(" ");
+  return {
+    isQuestion: true,
+    coreTerms: core,
+    expandedTerms,
+    lexicalQuery,
+    semanticText: `Magyar podcast epizód erről a kérdésről: ${q}. Kapcsolódó témák: ${semanticText || q}.`,
+  };
+}
+
 async function embedRaw(q: string): Promise<number[] | null> {
   if (!GEMINI_API_KEY) return null;
   try {
@@ -651,6 +736,7 @@ Deno.serve(async (req) => {
     let degradedForLatency = false;
     const markLatencyDegrade = () => { degradedForLatency = true; };
     let qNorm = normalizeQ(q);
+    const naturalQuestion = deriveNaturalQuestionPlan(q, qNorm);
     const earlyPodcastPin = await resolvePodcastPin(supa, q, qNorm, limit, 850).catch((e) => {
       console.warn("early podcast pin err", e);
       return null;
@@ -881,6 +967,27 @@ Deno.serve(async (req) => {
     if (!q_embedding) q_embedding = embVal;
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
+
+    if (naturalQuestion.isQuestion && !isBot) {
+      understanding = {
+        ...(understanding || { entities: [], expanded_terms: [], synonyms: [], intent: "question", language: "hu" }),
+        intent: "question",
+        expanded_terms: uniqueClean([
+          ...naturalQuestion.expandedTerms,
+          ...((understanding?.expanded_terms as string[]) || []),
+        ], 10),
+        synonyms: uniqueClean([
+          ...naturalQuestion.coreTerms,
+          ...((understanding?.synonyms as string[]) || []),
+        ], 10),
+        language: understanding?.language || "hu",
+      };
+      if (q_embedding && hasBudget(5200) && naturalQuestion.semanticText.length > q.length + 20) {
+        const nlqEmbedding = await embed(naturalQuestion.semanticText, 1200);
+        if (nlqEmbedding) q_embedding = blendEmbeddings(q_embedding, nlqEmbedding, 0.52);
+        else markLatencyDegrade();
+      }
+    }
     const tEmb = Date.now() - t0;
 
     // === P0 fix: adj+noun topic guard (e.g. "orosz irodalom" must NOT promote Orosz Ferenc) ===
@@ -1161,11 +1268,16 @@ Deno.serve(async (req) => {
       }
     } else {
       const synExpansions = uniqueClean([
+        ...(naturalQuestion.isQuestion ? naturalQuestion.expandedTerms : []),
+        ...(naturalQuestion.isQuestion ? naturalQuestion.coreTerms : []),
         ...(curated.expansions || []),
         ...((understanding?.synonyms as string[]) || []),
         ...((understanding?.expanded_terms as string[]) || []),
       ], 6).filter((t) => t.toLowerCase() !== q.toLowerCase());
-      if (synExpansions.length) {
+      if (naturalQuestion.isQuestion && naturalQuestion.lexicalQuery !== q) {
+        const parts = [naturalQuestion.lexicalQuery, ...synExpansions.map(quoteWebSearchTerm)];
+        lexQ = uniqueClean(parts, 14).join(" OR ");
+      } else if (synExpansions.length) {
         const parts = [quoteWebSearchTerm(q), ...synExpansions.map(quoteWebSearchTerm)];
         lexQ = parts.join(" OR ");
       }
@@ -1234,6 +1346,32 @@ Deno.serve(async (req) => {
       anchorEpisodeMatches = anchorResult?.matches || [];
       anchorEpisodeCandidates = prependNew(anchorResult?.rows || []);
     } else if (catalogAnchors.some((a) => a.id && a.kind !== "podcast")) {
+      markLatencyDegrade();
+    }
+
+    let naturalQuestionFallback = false;
+    if (
+      naturalQuestion.isQuestion &&
+      strictRows.length < 8 &&
+      naturalQuestion.lexicalQuery !== q &&
+      hasBudget(2800)
+    ) {
+      const nlqRetry = await supa.rpc("search_episodes_hybrid", {
+        q: naturalQuestion.lexicalQuery,
+        q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+        limit_n: Math.max(limit, 50),
+        lang,
+        required_terms: null,
+        entity_terms: naturalQuestion.expandedTerms.length ? naturalQuestion.expandedTerms.slice(0, 8) : null,
+        alpha_lex: 0.25,
+        p_decay_lambda: 0,
+        phrase_terms: naturalQuestion.coreTerms.length >= 2 ? [naturalQuestion.coreTerms.join(" ")] : null,
+      });
+      if (!nlqRetry.error && nlqRetry.data?.length) {
+        appendNew(nlqRetry.data);
+        naturalQuestionFallback = true;
+      }
+    } else if (naturalQuestion.isQuestion && strictRows.length < 8) {
       markLatencyDegrade();
     }
 
@@ -1413,7 +1551,7 @@ Deno.serve(async (req) => {
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, anchor_episode_matches: anchorEpisodeMatches, anchor_episode_candidates: anchorEpisodeCandidates, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, anchor_episode_matches: anchorEpisodeMatches, anchor_episode_candidates: anchorEpisodeCandidates, natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined, natural_question_fallback: naturalQuestionFallback, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -1649,6 +1787,8 @@ Deno.serve(async (req) => {
         catalog_anchors: catalogAnchors,
         anchor_episode_matches: anchorEpisodeMatches,
         anchor_episode_candidates: anchorEpisodeCandidates,
+        natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined,
+        natural_question_fallback: naturalQuestionFallback,
         semantic: !!q_embedding,
         reranked: !!rerankResult,
         rerank_cache_hit: rerankCacheHit,
