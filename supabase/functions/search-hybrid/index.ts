@@ -336,6 +336,121 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
 }
 const rerank = (q: string, items: any[], timeoutMs = 3000) => withTimeout(rerankWithReasons(q, items), timeoutMs, "rerank");
 
+async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: string, qNorm: string, limit: number, timeoutMs = 900) {
+  if (qNorm.length < 2 || qNorm.length > 60) return null;
+  const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes|epizod|musor)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
+  const pmRes = await withTimeout(
+    supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
+    timeoutMs, "match_podcast_by_name",
+  );
+  const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
+  const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
+  const mtype = top?.match_type as string | undefined;
+  const pinAllowed = top && (
+    mtype === "alias" || mtype === "exact" || mtype === "token" || mtype === "prefix" ||
+    mtype === "slug" || mtype === "slug_prefix"
+  );
+  if (!pinAllowed) return null;
+
+  const [{ data: pinMeta }, { data: pinEps }] = await Promise.all([
+    supa.from("podcasts").select("image_url,description,summary").eq("id", top.podcast_id).maybeSingle(),
+    supa.from("episodes").select(EPISODE_SELECT).eq("podcast_id", top.podcast_id)
+      .order("published_at", { ascending: false, nullsFirst: false }).limit(Math.max(8, Math.min(30, limit))),
+  ]);
+  const episodes = (pinEps || []).filter((e: any) => {
+    const p = e.podcasts;
+    if (!p) return false;
+    if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
+    return true;
+  });
+  return {
+    podcast_id: top.podcast_id,
+    slug: top.slug,
+    title: top.title,
+    image_url: (pinMeta as any)?.image_url || null,
+    description: (pinMeta as any)?.description || (pinMeta as any)?.summary || null,
+    match_type: mtype || null,
+    similarity: sim,
+    episodes,
+    latest_episode_ids: episodes.map((e: any) => e.id).slice(0, 8),
+  };
+}
+
+type CatalogAnchor = {
+  kind: "podcast" | "person" | "organization" | "topic";
+  name: string;
+  slug: string | null;
+  score: number;
+};
+
+async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNorm: string, earlyPodcastPin: any): Promise<CatalogAnchor[]> {
+  if (qNorm.length < 2 || qNorm.length > 80) return [];
+  const prefix = `${qNorm}%`;
+  const infix = `%${qNorm}%`;
+  const tasks = [
+    supa.from("people")
+      .select("name,slug,gated_episode_count,episode_count,normalized_name")
+      .eq("is_public", true)
+      .or(`normalized_name.eq.${qNorm},normalized_name.ilike.${prefix}`)
+      .order("gated_episode_count", { ascending: false, nullsFirst: false })
+      .limit(4),
+    supa.from("person_aliases")
+      .select("alias,confidence,people!inner(name,slug,is_public,gated_episode_count,episode_count)")
+      .eq("normalized_alias", qNorm)
+      .eq("status", "accepted")
+      .gte("confidence", 0.7)
+      .limit(4),
+    supa.from("organizations")
+      .select("name,slug,gated_episode_count,normalized_name")
+      .eq("is_indexable", true)
+      .or(`normalized_name.eq.${qNorm},normalized_name.ilike.${prefix}`)
+      .order("gated_episode_count", { ascending: false, nullsFirst: false })
+      .limit(4),
+    supa.from("organization_aliases")
+      .select("alias,confidence,organizations!inner(name,slug,is_indexable,gated_episode_count)")
+      .eq("normalized_alias", qNorm)
+      .gte("confidence", 0.5)
+      .limit(4),
+    supa.from("topics")
+      .select("name,slug,short_name,episode_count")
+      .eq("is_public", true)
+      .or(`name.ilike.${infix},short_name.ilike.${infix}`)
+      .order("episode_count", { ascending: false, nullsFirst: false })
+      .limit(4),
+  ];
+
+  const settled = await Promise.all(tasks.map((p) => p.catch((error: any) => ({ data: [], error }))));
+  const out: CatalogAnchor[] = [];
+  if (earlyPodcastPin?.title) {
+    out.push({ kind: "podcast", name: earlyPodcastPin.title, slug: earlyPodcastPin.slug || null, score: 1000 });
+  }
+  for (const row of (settled[0] as any).data || []) {
+    out.push({ kind: "person", name: row.name, slug: row.slug || null, score: 700 + Number(row.gated_episode_count || row.episode_count || 0) });
+  }
+  for (const row of (settled[1] as any).data || []) {
+    const p = row.people;
+    if (p?.name) out.push({ kind: "person", name: p.name, slug: p.slug || null, score: 760 + Number(p.gated_episode_count || p.episode_count || 0) });
+  }
+  for (const row of (settled[2] as any).data || []) {
+    out.push({ kind: "organization", name: row.name, slug: row.slug || null, score: 650 + Number(row.gated_episode_count || 0) });
+  }
+  for (const row of (settled[3] as any).data || []) {
+    const o = row.organizations;
+    if (o?.name) out.push({ kind: "organization", name: o.name, slug: o.slug || null, score: 720 + Number(o.gated_episode_count || 0) });
+  }
+  for (const row of (settled[4] as any).data || []) {
+    out.push({ kind: "topic", name: row.name || row.short_name, slug: row.slug || null, score: 500 + Number(row.episode_count || 0) });
+  }
+
+  const byKey = new Map<string, CatalogAnchor>();
+  for (const a of out) {
+    const key = `${a.kind}:${foldText(a.name)}`;
+    const cur = byKey.get(key);
+    if (!cur || a.score > cur.score) byKey.set(key, a);
+  }
+  return [...byKey.values()].sort((a, b) => b.score - a.score).slice(0, 12);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -403,6 +518,14 @@ Deno.serve(async (req) => {
     let degradedForLatency = false;
     const markLatencyDegrade = () => { degradedForLatency = true; };
     let qNorm = normalizeQ(q);
+    const earlyPodcastPin = await resolvePodcastPin(supa, q, qNorm, limit, 850).catch((e) => {
+      console.warn("early podcast pin err", e);
+      return null;
+    });
+    const catalogAnchors = await withTimeout(
+      resolveCatalogAnchors(supa, qNorm, earlyPodcastPin),
+      900, "resolve_catalog_anchors",
+    ) || [];
 
     // Stopword + gibberish gate.
     {
@@ -410,14 +533,37 @@ Deno.serve(async (req) => {
       const meaningful = tokens.filter((t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
       const allGibberish = meaningful.length > 0 && meaningful.every((t) => looksLikeGibberish(t));
       if (tokens.length > 0 && (meaningful.length === 0 || allGibberish)) {
-        return new Response(JSON.stringify({
-          episodes: [],
-          timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
-          confidence_band: "low",
-          stopword_gate: meaningful.length === 0,
-          gibberish_gate: allGibberish,
-          reason: allGibberish ? "gibberish_only" : "stopwords_only",
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (earlyPodcastPin?.episodes?.length) {
+          return new Response(JSON.stringify({
+            episodes: earlyPodcastPin.episodes,
+            timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
+            confidence_band: "high",
+            podcast_title_pin: true,
+            podcast_pin: {
+              slug: earlyPodcastPin.slug,
+              title: earlyPodcastPin.title,
+              image_url: earlyPodcastPin.image_url,
+              description: earlyPodcastPin.description,
+              match_type: earlyPodcastPin.match_type,
+              similarity: earlyPodcastPin.similarity,
+              latest_episode_ids: earlyPodcastPin.latest_episode_ids,
+            },
+            reason: "known_podcast_title",
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (catalogAnchors.length > 0) {
+          // Numeric/short brand anchors such as "444" are valid catalog
+          // queries. Let them continue into the hybrid path with anchor terms.
+        } else {
+          return new Response(JSON.stringify({
+            episodes: [],
+            timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
+            confidence_band: "low",
+            stopword_gate: meaningful.length === 0,
+            gibberish_gate: allGibberish,
+            reason: allGibberish ? "gibberish_only" : "stopwords_only",
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
       }
     }
 
@@ -668,7 +814,16 @@ Deno.serve(async (req) => {
       ? `${aiExpanded} ${curated.expansions.join(" ")}`.slice(0, 700)
       : aiExpanded;
 
-    const rawEntities = (understanding?.entities || [])
+    const catalogEntityNames = uniqueClean(
+      catalogAnchors
+        .filter((a) => a.kind !== "podcast")
+        .map((a) => a.name),
+      10,
+    );
+    const rawEntities = [
+      ...((understanding?.entities || []) as string[]),
+      ...catalogEntityNames,
+    ]
       .map((s) => String(s || "").trim())
       .filter((s) => s.length >= 3 && s.length <= 60);
     const resolvedMarketTerms = isTickerQ && marketSymbol
@@ -1031,37 +1186,16 @@ Deno.serve(async (req) => {
     let podcastPinMatchType: string | null = null;
     let podcastPinSimilarity: number | null = null;
     let podcastPinIds: string[] = [];
-    if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
-      const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes|epizod|musor)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
-      const pmRes = await withTimeout(
-        supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
-        1200, "match_podcast_by_name",
-      );
-      const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
-      const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
-      const mtype = top?.match_type as string | undefined;
-      // Pin ONLY on word-boundary matches (alias/exact/token/prefix).
-      // Never on `substr` (in-word match like "irodalom" ⊂ "birodalom") or
-      // `trgm` (fuzzy) — those produced false positives where a query word
-      // appeared as a substring inside an unrelated podcast title.
-      const pinAllowed = top && (
-        mtype === "alias" || mtype === "exact" || mtype === "token" || mtype === "prefix"
-      );
-      if (pinAllowed) {
-        podcastPinSlug = top.slug;
-        podcastPinTitle = top.title;
-        podcastPinMatchType = mtype || null;
-        podcastPinSimilarity = sim;
-        const [{ data: pinMeta }, { data: pinEps }] = await Promise.all([
-          supa.from("podcasts").select("image_url,description,summary").eq("id", top.podcast_id).maybeSingle(),
-          supa.from("episodes").select("id").eq("podcast_id", top.podcast_id)
-            .order("published_at", { ascending: false, nullsFirst: false }).limit(8),
-        ]);
-        if (pinMeta) {
-          podcastPinImage = (pinMeta as any).image_url || null;
-          podcastPinDescription = (pinMeta as any).description || (pinMeta as any).summary || null;
-        }
-        if (pinEps?.length) podcastPinIds = pinEps.map((e: any) => e.id);
+    if (!isTickerQ && qNorm.length >= 2 && qNorm.length <= 60) {
+      const pin = earlyPodcastPin || await resolvePodcastPin(supa, q, qNorm, limit, 900);
+      if (pin) {
+        podcastPinSlug = pin.slug;
+        podcastPinTitle = pin.title;
+        podcastPinImage = pin.image_url;
+        podcastPinDescription = pin.description;
+        podcastPinMatchType = pin.match_type;
+        podcastPinSimilarity = pin.similarity;
+        podcastPinIds = pin.latest_episode_ids;
         for (const id of podcastPinIds) {
           if (!strictIds.has(id)) {
             strictRows.unshift({ episode_id: id, lex_score: 1, sem_score: 1, hybrid_score: 1 } as any);
@@ -1113,7 +1247,7 @@ Deno.serve(async (req) => {
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -1346,6 +1480,7 @@ Deno.serve(async (req) => {
         episodes: ordered.slice(0, limit),
         understanding,
         curated_synonyms: { matched: curated.matched_terms, expansions: curated.expansions },
+        catalog_anchors: catalogAnchors,
         semantic: !!q_embedding,
         reranked: !!rerankResult,
         rerank_cache_hit: rerankCacheHit,
