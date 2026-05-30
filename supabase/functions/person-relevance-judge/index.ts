@@ -4,7 +4,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
-import { callGeminiNative } from "../_shared/google-gemini-direct.ts";
+import { callGeminiNative, checkBudget } from "../_shared/google-gemini-direct.ts";
 
 const TIME_BUDGET_MS = 20_000;
 const RESERVE_MS = 4_000;
@@ -13,7 +13,7 @@ const MODEL = "gemini-2.5-flash-lite";
 const DEFAULT_DAILY_BUDGET_USD = 2.0;
 const MAX_CONCURRENCY = 250;
 
-async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; preferPaid: boolean; raw: any }> {
+async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; preferPaid: boolean; maxAiCallsPerRun: number; minConfidenceForAi: number; raw: any }> {
   try {
     const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
     const v = data?.value || {};
@@ -24,10 +24,12 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
       enabled: v.enabled !== false,
       autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
       preferPaid: v.prefer_paid === true,
+      maxAiCallsPerRun: Math.min(Math.max(Number(v.max_ai_calls_per_run ?? 120), 1), 800),
+      minConfidenceForAi: Math.max(0, Math.min(1, Number(v.min_confidence_for_ai ?? 0.55))),
       raw: v,
     };
   } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, preferPaid: false, raw: {} };
+    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, preferPaid: false, maxAiCallsPerRun: 120, minConfidenceForAi: 0.55, raw: {} };
   }
 }
 
@@ -66,6 +68,8 @@ interface PendingRow {
   ep_ai_summary: string | null;
   pod_title: string;
   pod_description: string | null;
+  evidence: string | null;
+  source_evidence: Record<string, unknown> | null;
 }
 
 const TOOL = {
@@ -91,6 +95,7 @@ const TOOL = {
 function buildPrompt(r: PendingRow): string {
   const aliasLine = r.person_aliases && r.person_aliases.length ? `Aliasok: ${r.person_aliases.slice(0, 8).join(", ")}` : "";
   const disambig = r.disambiguation_label ? `Megkülönböztetés: ${r.disambiguation_label}${r.disambiguation_context ? ` (${r.disambiguation_context})` : ""}` : "";
+  const evidenceLine = r.evidence ? `FORRÁS-EVIDENCE: ${r.evidence.slice(0, 500)}` : "";
   return `Te magyar nyelvű podcast-relevancia bíró vagy. Döntsd el, hogy az alábbi epizód valóban a megnevezett személyhez kapcsolódik-e.
 
 SZIGORÚ SZABÁLYOK:
@@ -112,6 +117,7 @@ PODCAST LEÍRÁS: ${(r.pod_description || "").slice(0, 400)}
 
 EPIZÓD CÍM: ${r.ep_title}
 EPIZÓD ÖSSZEFOGLALÓ: ${(r.ep_ai_summary || r.ep_summary || "").slice(0, 1200)}
+${evidenceLine}
 
 Jelenlegi szabályalapú besorolás: mention_type=${r.mention_type}, confidence=${r.confidence}.
 
@@ -175,7 +181,8 @@ async function logSpend(supabase: any, cost: number) {
 async function getSpendToday(supabase: any): Promise<number> {
   const day = new Date().toISOString().slice(0, 10);
   const { data } = await supabase.from("ai_spend_daily").select("by_kind").eq("day", day).maybeSingle();
-  return Number((data?.by_kind as any)?.person_relevance || 0);
+  const byKind = (data?.by_kind as any) || {};
+  return Math.max(Number(byKind.person_relevance || 0), Number(byKind.person_relevance_judge || 0));
 }
 
 Deno.serve(async (req) => {
@@ -192,6 +199,17 @@ Deno.serve(async (req) => {
   const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 800);
   const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), MAX_CONCURRENCY);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
+
+  const globalBudget = await checkBudget("person_relevance");
+  if (!globalBudget.allowed) {
+    await setControls(supabase, {
+      last_run_status: "budget_blocked",
+      last_run_at: new Date().toISOString(),
+      last_budget_block_reason: globalBudget.reason,
+      last_spend_today_usd: globalBudget.job_spend_today_usd,
+    }, settings.raw);
+    return new Response(JSON.stringify({ ok: true, status: "budget_blocked", reason: globalBudget.reason, budget: globalBudget }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   // Reap stale 'in_progress' rows (workers that died) — reset to 'pending' if older than 90s.
   try {
@@ -213,6 +231,7 @@ Deno.serve(async (req) => {
   const startedAt = Date.now();
   let processed = 0, accepted = 0, rejected = 0, needs_review = 0, errors = 0;
   let spendToday = await getSpendToday(supabase);
+  let aiCallsThisRun = 0;
 
   while (Date.now() - startedAt < TIME_BUDGET_MS - RESERVE_MS) {
     if (spendToday >= DAILY_BUDGET_USD) break;
@@ -224,7 +243,7 @@ Deno.serve(async (req) => {
     const claimedIds: string[] = (claimed as any[]).map((r: any) => (typeof r === "string" ? r : r.id));
     let q = supabase
       .from("person_episode_mentions")
-      .select("id, person_id, episode_id, mention_type, confidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
+      .select("id, person_id, episode_id, mention_type, confidence, evidence, source_evidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
       .in("id", claimedIds);
     if (targetPersonIds) q = q.in("person_id", targetPersonIds);
     const { data: rows, error } = await q;
@@ -261,6 +280,29 @@ Deno.serve(async (req) => {
       try {
         if (Date.now() - startedAt > TIME_BUDGET_MS - RESERVE_MS) return;
         if (spendToday >= DAILY_BUDGET_USD) return;
+        if (aiCallsThisRun >= settings.maxAiCallsPerRun) return;
+
+        const hasEvidence = typeof m.evidence === "string" && m.evidence.trim().length >= 8;
+        if (!hasEvidence && Number(m.confidence || 0) < settings.minConfidenceForAi) {
+          await supabase.from("person_episode_mentions").update({
+            relevance_status: "needs_review",
+            final_relevance_score: Number(m.confidence || 0),
+            validation_source: "rule_guard",
+            ai_identity_match: "uncertain",
+            ai_reason: "Nincs elég erős forrásbizonyíték; AI-hívás kihagyva költségvédelem miatt.",
+            ai_evidence_phrases: [],
+            ai_judged_at: new Date().toISOString(),
+            ai_model: "rule_guard",
+          }).eq("id", m.id);
+          needs_review++;
+          processed++;
+          terminal = true;
+          return;
+        }
+
+        const budgetCheck = await checkBudget("person_relevance");
+        if (!budgetCheck.allowed) return;
+        aiCallsThisRun++;
         const pending: PendingRow = {
           id: m.id,
           person_id: m.person_id,
@@ -276,6 +318,8 @@ Deno.serve(async (req) => {
           ep_ai_summary: m.episodes.ai_summary,
           pod_title: m.podcasts.title,
           pod_description: m.podcasts.description,
+          evidence: m.evidence || null,
+          source_evidence: m.source_evidence || null,
         };
 
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -344,6 +388,7 @@ Deno.serve(async (req) => {
     if (rateLimitHits >= Math.max(5, Math.floor(rows.length / 4))) {
       await sleep(3000);
     }
+    if (aiCallsThisRun >= settings.maxAiCallsPerRun) break;
   }
 
   // recompute hub
@@ -382,6 +427,8 @@ Deno.serve(async (req) => {
     remaining_pending: remainingPending,
     runner_disabled: runnerDisabled,
     spend_today_usd: spendToday,
+    ai_calls_this_run: aiCallsThisRun,
+    max_ai_calls_per_run: settings.maxAiCallsPerRun,
     elapsed_ms: Date.now() - startedAt,
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
