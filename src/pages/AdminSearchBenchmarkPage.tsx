@@ -93,6 +93,47 @@ function computeMetrics(top: any[], scores: Record<string, number>) {
   return { p3, p5, ndcg: ng, rr };
 }
 
+function asStringArray(value: any): string[] {
+  return Array.isArray(value)
+    ? value.map((v) => String(v || "").trim()).filter(Boolean)
+    : [];
+}
+
+function foldForMatch(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function autoScoreTopResults(g: Golden, top: any[]): Record<string, number> {
+  const expectedEntity = foldForMatch(g.expected_entity || "");
+  const mustInclude = asStringArray(g.must_include).map(foldForMatch);
+  const mustExclude = asStringArray(g.must_exclude).map(foldForMatch);
+  const out: Record<string, number> = {};
+
+  top.forEach((r, idx) => {
+    const blob = foldForMatch([
+      r.title || "",
+      r.podcast_title || "",
+      r.podcast_slug || "",
+      r.why_matched || "",
+    ].join(" "));
+    const excluded = mustExclude.some((term) => term && blob.includes(term));
+    let score = excluded ? 0 : 1;
+
+    if (g.expected_podcast_slug && r.podcast_slug === g.expected_podcast_slug) score = Math.max(score, 3);
+    if (expectedEntity && blob.includes(expectedEntity)) score = Math.max(score, 3);
+    if (mustInclude.length && mustInclude.every((term) => blob.includes(term))) score = Math.max(score, 2);
+    if (!mustInclude.length && !expectedEntity && !g.expected_podcast_slug && !excluded) score = 1;
+    out[String(idx)] = score;
+  });
+
+  return out;
+}
+
 export default function AdminSearchBenchmarkPage() {
   useNoindex("Admin · Search benchmark — Podiverzum");
   const nav = useNavigate();
@@ -127,7 +168,7 @@ export default function AdminSearchBenchmarkPage() {
 
   async function refreshAll() {
     const [g, r] = await Promise.all([
-      supabase.from("search_golden_queries").select("*").order("query_type").order("query").limit(500),
+      supabase.from("search_golden_queries").select("*").eq("active", true).order("query_type").order("sort_order").order("query").limit(500),
       supabase.from("search_benchmark_runs").select("*").order("created_at", { ascending: false }).limit(50),
     ]);
     setGoldens((g.data as Golden[]) || []);
@@ -240,6 +281,8 @@ export default function AdminSearchBenchmarkPage() {
             podcast_slug: e.podcasts?.slug || e.podcast_slug || "",
             why_matched: e.why_matched || null,
           }));
+          const autoScores = autoScoreTopResults(g, top);
+          const autoMetrics = computeMetrics(top, autoScores);
           const detected = data?.understanding?.intent || null;
           const meta = {
             understanding: data?.understanding || null,
@@ -280,7 +323,14 @@ export default function AdminSearchBenchmarkPage() {
             result_count: top.length,
             top_results: top,
             raw_meta: meta,
+            scores: autoScores,
+            precision_at_3: autoMetrics.p3,
+            precision_at_5: autoMetrics.p5,
+            ndcg_at_10: autoMetrics.ndcg,
+            reciprocal_rank: autoMetrics.rr,
             intent_correct,
+            scored_at: new Date().toISOString(),
+            notes: "AUTO_SCORED from expected_podcast_slug / expected_entity / must_include. Manual review can override.",
           });
         } catch (e) {
           const latency = Math.round(performance.now() - t0);
