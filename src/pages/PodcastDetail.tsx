@@ -186,17 +186,6 @@ export default function PodcastDetail() {
             <h1 className="text-3xl font-semibold mt-1">{p.display_title || p.title}</h1>
 
             <div className="flex flex-wrap gap-2 mt-2 items-center text-xs">
-              {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
-                <Link
-                  to="/modszertan"
-                  className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors inline-flex items-center gap-1"
-                  title="A Podiverzum minőségjelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján."
-                  aria-label={`Minőségjelzés ${Number(p.podiverzum_rank).toFixed(1)} — mit jelent ez?`}
-                >
-                  Minőségjelzés {Number(p.podiverzum_rank).toFixed(1)}
-                  <span className="opacity-60">· Mit jelent ez?</span>
-                </Link>
-              )}
               {isHealthy ? (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-green-500/30 bg-green-500/10 text-[10px] font-medium text-green-400">
                   <Activity className="h-3 w-3" /> Frissül
@@ -309,8 +298,8 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Keresés ebben a podcastben…"
-              aria-label="Keresés ebben a podcastben"
+              placeholder={`Keresés csak a(z) „${podcast.display_title || podcast.title}” csatornán…`}
+              aria-label={`Keresés csak a(z) ${podcast.display_title || podcast.title} csatornán`}
               className="w-full pl-8 pr-8 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             {q && (
@@ -325,7 +314,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
             )}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground text-right">
-            Csak ebben a podcastben keres
+            Keresés csak a(z) „{podcast.display_title || podcast.title}” csatornán
           </p>
         </div>
       </div>

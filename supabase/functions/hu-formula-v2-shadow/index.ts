@@ -207,6 +207,15 @@ Deno.serve(async (req) => {
     const limit = Math.max(1, Math.min(2500, Number(body.limit) || 400));
     const all = !!body.all;
     const dry = !!body.dry_run;
+    const { data: ctrlRow } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "hu_formula_v2_controls")
+      .maybeSingle();
+    const controls = (ctrlRow?.value && typeof ctrlRow.value === "object") ? ctrlRow.value as Record<string, unknown> : {};
+    const applyLive = body.apply_live === true || controls.apply_live === true;
+    const minLiveConfidence = clamp(Number(body.min_live_confidence ?? controls.min_live_confidence ?? 0.55), 0, 1);
+    const allowChartStaleLive = body.allow_chart_stale_live === true || controls.allow_chart_stale_live === true;
 
     const { data: mpRows, error: mpErr } = await supabase.rpc("hu_market_popularity");
     if (mpErr) throw mpErr;
@@ -302,7 +311,7 @@ Deno.serve(async (req) => {
     }
 
     const tierCounts: Record<string, number> = { S: 0, A: 0, B: 0, C: 0, D: 0, E: 0 };
-    let written = 0, errors = 0, excluded = 0;
+    let written = 0, errors = 0, excluded = 0, liveApplied = 0, liveSkipped = 0;
     const examples: any[] = [];
 
     for (const p of targets) {
@@ -375,6 +384,37 @@ Deno.serve(async (req) => {
       const { error } = await supabase.from("podcasts").update({ shadow_rank_components: { ...prev, hu_v2 } }).eq("id", p.id);
       if (error) errors++;
       else written++;
+
+      const liveAllowed = applyLive
+        && !hardExcluded
+        && confidence >= minLiveConfidence
+        && (!anyChartStale || allowChartStaleLive)
+        && (langFlag === "confirmed_hungarian" || langFlag === "hu_metadata_mismatch" || langFlag === "needs_language_review");
+      if (!dry && liveAllowed) {
+        const { error: liveErr } = await supabase
+          .from("podcasts")
+          .update({
+            podiverzum_rank: final,
+            rank_label: tier,
+            rank_updated_at: new Date().toISOString(),
+            rank_reason: {
+              formula: "HU_v2",
+              source: "hu-formula-v2-shadow",
+              score: final,
+              tier,
+              confidence,
+              market_source_count: mp.srcCount || 0,
+              market_rrf: +(mp.rrf || 0).toFixed(5),
+              language_gate_flag: langFlag,
+              applied_at: new Date().toISOString(),
+            },
+          })
+          .eq("id", p.id);
+        if (liveErr) errors++;
+        else liveApplied++;
+      } else if (applyLive && !dry) {
+        liveSkipped++;
+      }
     }
 
     const summary = {
@@ -383,6 +423,10 @@ Deno.serve(async (req) => {
       written,
       errors,
       dry_run: dry,
+      apply_live: applyLive,
+      live_applied: liveApplied,
+      live_skipped: liveSkipped,
+      min_live_confidence: minLiveConfidence,
       excluded,
       tier_distribution: tierCounts,
       market_popularity_pool: mpMap.size,

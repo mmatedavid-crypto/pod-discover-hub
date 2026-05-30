@@ -255,16 +255,6 @@ export default function EpisodeDetail() {
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
             </span>
           )}
-          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
-            <Link
-              to="/modszertan"
-              className="text-[10px] text-muted-foreground hover:text-foreground"
-              title="A Podiverzum minőségjelzése: relevancia, frissesség, konzisztencia és feed-állapot alapján. Kattints a részletekért."
-            >
-              · Minőségjelzés {Number(p.podiverzum_rank).toFixed(1)}
-            </Link>
-          )}
-
         </div>
 
         {(() => {
