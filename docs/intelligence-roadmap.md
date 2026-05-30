@@ -37,6 +37,8 @@ Current instrumentation:
 
 - `/admin/intelligence-audit`
 - `npm run audit:intelligence`
+- `get_data_quality_snapshot_v1()` for DB-wide quality counts and a prioritized repair queue
+- `v_episode_data_quality_issues` for per-episode issue codes without mutating production data
 
 ## Layer 2: Entity Extraction
 

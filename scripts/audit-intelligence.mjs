@@ -102,6 +102,50 @@ if (!url || !key) {
 
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
+const snapshotLimit = Math.min(Math.max(SAMPLE_LIMIT, 1), 50);
+const snapshot = await supabase.rpc("get_data_quality_snapshot_v1", {
+  _recent_days: 30,
+  _sample_limit: snapshotLimit,
+});
+
+if (!snapshot.error && snapshot.data) {
+  const s = snapshot.data;
+  const eligible = Number(s.eligible_hu_episodes || 0);
+  const recentEligible = Number(s.recent_eligible_hu_episodes || 0);
+  const withIssues = Number(s.episodes_with_issues || 0);
+  const recentWithIssues = Number(s.recent_episodes_with_issues || 0);
+  const issueCounts = s.issue_counts || {};
+  const recentIssueCounts = s.recent_issue_counts || {};
+
+  console.log("Podiverzum Data Quality Snapshot");
+  console.log(`Generated: ${s.generated_at}`);
+  console.log(`Eligible HU episodes: ${eligible}`);
+  console.log(`Episodes with issues: ${pct(withIssues, eligible)} (${withIssues}/${eligible})`);
+  console.log(`Recent ${s.recent_days || 30}d eligible HU episodes: ${recentEligible}`);
+  console.log(`Recent episodes with issues: ${pct(recentWithIssues, recentEligible)} (${recentWithIssues}/${recentEligible})`);
+  console.log("");
+  console.log("Issue counts:");
+  for (const [code, total] of Object.entries(issueCounts).sort((a, b) => Number(b[1]) - Number(a[1]))) {
+    const recent = recentIssueCounts[code] || 0;
+    console.log(`- ${code}: ${total} (recent: ${recent})`);
+  }
+  console.log("");
+  console.log("Highest-priority repair queue:");
+  for (const item of s.top_episodes || []) {
+    const keep = item.retention_ratio === null || item.retention_ratio === undefined
+      ? "-"
+      : `${Math.round(Number(item.retention_ratio) * 100)}%`;
+    console.log(`- [${item.priority_score}] ${item.podcast} — ${item.title}`);
+    console.log(`  raw=${item.raw_length} clean=${item.clean_length} keep=${keep} entities=${item.entity_signal_count}`);
+    console.log(`  issues=${Array.isArray(item.issue_codes) ? item.issue_codes.join(",") : "-"}`);
+  }
+  process.exit(0);
+}
+
+if (snapshot.error) {
+  console.warn(`Data quality snapshot RPC unavailable, falling back to sample audit: ${snapshot.error.message}`);
+}
+
 const { data, error } = await supabase
   .from("episodes")
   .select("id,title,description,clean_text_status,ai_entities_version,ai_summary,people,mentioned,companies,organizations,topics,tickers,published_at,podcasts!inner(title,display_title,is_hungarian,shadow_rank_tier)")
