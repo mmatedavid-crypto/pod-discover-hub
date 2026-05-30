@@ -118,3 +118,23 @@ Until these are deployed, the admin quality snapshot, repair plan, no-AI repair 
 4. Audit `episode_clean_text` quality directly: dirty links, overcleaning, short/empty rows, source hash coverage.
 5. Run no-AI repair plan first: legacy rank neutralization, stale status cleanup, duplicate GUID report.
 6. Only then spend AI budget on changed clean-text inputs using hash dedupe.
+
+## Entity Quality Follow-Up
+
+Additional live audit found:
+
+- 3,864 duplicate GUID groups affecting 8,187 episode rows.
+- 3,682 duplicate GUID groups cross podcast boundaries, so some duplicates are shared-feed or import-source issues rather than only per-podcast conflicts.
+- High-value organizations and people are still pending review despite being public/indexable. Examples include major parties and public figures.
+- Several organizations are contradictory: `ai_review_summary` says the entity is too vague or should be hidden, while `is_indexable` / `is_browsable_in_hub` remain true.
+
+Added backend objects:
+
+- `v_entity_quality_issues`
+- `get_entity_quality_snapshot_v1(_limit)`
+- `entity_quality_controls`
+- `entity-quality-apply-runner`
+
+The first apply action is intentionally narrow and no-AI:
+
+- `hide_low_confidence_organization`: for reviewed low-confidence organizations only; it keeps the organization row and mentions, but removes public index/hub visibility.

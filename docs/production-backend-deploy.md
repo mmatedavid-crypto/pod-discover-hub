@@ -25,9 +25,11 @@ It will:
 
 - `get_data_quality_snapshot_v1`
 - `get_data_repair_plan_v1`
+- `get_entity_quality_snapshot_v1`
 - `get_homepage_rails_v1`
 - `intelligence-reprocess-admin`
 - `clean-text-autopilot`
 - `episode-clean-text-candidate-runner`
 - `episode-clean-text-candidate-promoter`
 - `data-repair-apply-runner`
+- `entity-quality-apply-runner`

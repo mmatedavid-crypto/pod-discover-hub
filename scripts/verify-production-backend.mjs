@@ -17,6 +17,7 @@ const headers = {
 const rpcChecks = [
   ["get_data_quality_snapshot_v1", { _recent_days: 30, _sample_limit: 1 }],
   ["get_data_repair_plan_v1", { _limit: 1, _recent_days: 90, _include_ai: false }],
+  ["get_entity_quality_snapshot_v1", { _limit: 1 }],
   ["get_homepage_rails_v1", { _trending_limit: 1, _evergreen_limit: 1, _category_limit: 1, _max_categories: 1 }],
 ];
 
@@ -26,6 +27,7 @@ const functionChecks = [
   "episode-clean-text-candidate-runner",
   "episode-clean-text-candidate-promoter",
   "data-repair-apply-runner",
+  "entity-quality-apply-runner",
 ];
 
 let failures = 0;
