@@ -153,6 +153,7 @@ export default function SearchPage() {
       let mapped: EpisodeLite[] = [];
       let usedFallback = false;
       let semantic = false;
+      let searchDiagnostics: any = null;
 
       const applyHybridResponse = (data: any) => {
         let eps = (data?.episodes || []) as any[];
@@ -176,6 +177,7 @@ export default function SearchPage() {
         }));
         if (phase1.error) throw phase1.error;
         if (cancelled) return;
+        searchDiagnostics = phase1.data || null;
         const r1 = applyHybridResponse(phase1.data);
         mapped = r1.mapped;
         semantic = r1.semantic;
@@ -242,9 +244,22 @@ export default function SearchPage() {
           terms_count: terms.length,
           result_count: mapped.length,
           fallback_used: usedFallback,
+          confidence_band: searchDiagnostics?.confidence_band || null,
+          semantic_used: Boolean(searchDiagnostics?.semantic),
+          reranked: Boolean(searchDiagnostics?.reranked),
+          podcast_pin_slug: searchDiagnostics?.podcast_pin?.slug || null,
+          person_pin_slug: searchDiagnostics?.person_pin?.slug || null,
+          organization_pin_slug: searchDiagnostics?.organization_pin?.slug || null,
+          topic_pin_slug: searchDiagnostics?.topic_pin?.slug || null,
+          catalog_anchors: Array.isArray(searchDiagnostics?.catalog_anchors) ? searchDiagnostics.catalog_anchors : [],
+          anchor_episode_candidates: typeof searchDiagnostics?.anchor_episode_candidates === "number" ? searchDiagnostics.anchor_episode_candidates : null,
+          natural_question: searchDiagnostics?.natural_question || null,
+          natural_question_fallback: typeof searchDiagnostics?.natural_question_fallback === "boolean" ? searchDiagnostics.natural_question_fallback : null,
+          degraded_for_latency: Boolean(searchDiagnostics?.degraded_for_latency),
+          timing: searchDiagnostics?.timing || null,
           viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
           user_id: sess.session?.user.id || null,
-        }).then(() => {}, () => {});
+        } as any).then(() => {}, () => {});
       }
 
       // Podcasts query (separate, simpler). Includes full-phrase title hit.
