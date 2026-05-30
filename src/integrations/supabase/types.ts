@@ -904,6 +904,20 @@ export type Database = {
             referencedRelation: "mv_homepage_feed"
             referencedColumns: ["episode_id"]
           },
+          {
+            foreignKeyName: "eac_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "eac_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
         ]
       }
       episode_category_overrides: {
@@ -973,6 +987,20 @@ export type Database = {
             columns: ["episode_id"]
             isOneToOne: false
             referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "eco_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "eco_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
             referencedColumns: ["episode_id"]
           },
         ]
@@ -1171,6 +1199,20 @@ export type Database = {
             referencedRelation: "mv_homepage_feed"
             referencedColumns: ["episode_id"]
           },
+          {
+            foreignKeyName: "episode_extracted_topics_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_extracted_topics_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
         ]
       }
       episode_organization_map: {
@@ -1343,6 +1385,20 @@ export type Database = {
             referencedColumns: ["episode_id"]
           },
           {
+            foreignKeyName: "episode_topic_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_topic_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
             foreignKeyName: "episode_topic_map_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
@@ -1417,6 +1473,20 @@ export type Database = {
             columns: ["episode_id"]
             isOneToOne: false
             referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "etrr_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "etrr_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
             referencedColumns: ["episode_id"]
           },
           {
@@ -1547,6 +1617,8 @@ export type Database = {
       }
       episodes: {
         Row: {
+          ai_enrich_input_hash: string | null
+          ai_enrich_prompt_version: string | null
           ai_enriched_at: string | null
           ai_entities_version: number
           ai_summary: string | null
@@ -1601,6 +1673,8 @@ export type Database = {
           youtube_video_id: string | null
         }
         Insert: {
+          ai_enrich_input_hash?: string | null
+          ai_enrich_prompt_version?: string | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_summary?: string | null
@@ -1655,6 +1729,8 @@ export type Database = {
           youtube_video_id?: string | null
         }
         Update: {
+          ai_enrich_input_hash?: string | null
+          ai_enrich_prompt_version?: string | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_summary?: string | null
@@ -3118,6 +3194,20 @@ export type Database = {
             referencedColumns: ["episode_id"]
           },
           {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
             foreignKeyName: "person_episode_mentions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -4157,6 +4247,8 @@ export type Database = {
           ai_category_confidence: number | null
           ai_category_model: string | null
           ai_category_needs_review: boolean | null
+          ai_enrich_input_hash: string | null
+          ai_enrich_prompt_version: string | null
           ai_enriched_at: string | null
           ai_entities_version: number
           ai_quality_input_hash: string | null
@@ -4277,6 +4369,8 @@ export type Database = {
           ai_category_confidence?: number | null
           ai_category_model?: string | null
           ai_category_needs_review?: boolean | null
+          ai_enrich_input_hash?: string | null
+          ai_enrich_prompt_version?: string | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_quality_input_hash?: string | null
@@ -4397,6 +4491,8 @@ export type Database = {
           ai_category_confidence?: number | null
           ai_category_model?: string | null
           ai_category_needs_review?: boolean | null
+          ai_enrich_input_hash?: string | null
+          ai_enrich_prompt_version?: string | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_quality_input_hash?: string | null
@@ -6081,6 +6177,135 @@ export type Database = {
         }
         Relationships: []
       }
+      v_data_repair_queue: {
+        Row: {
+          action_order: number | null
+          display_title: string | null
+          episode_id: string | null
+          issue_codes: string[] | null
+          may_require_ai: boolean | null
+          podcast_display_title: string | null
+          podcast_id: string | null
+          podcast_title: string | null
+          podiverzum_rank: number | null
+          priority_score: number | null
+          published_at: string | null
+          rank_label: string | null
+          repair_action: string | null
+          safety_policy: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
+      v_episode_data_quality_issues: {
+        Row: {
+          clean_length: number | null
+          clean_source_hash: string | null
+          clean_updated_at: string | null
+          cleaner_method: string | null
+          display_title: string | null
+          embedding_updated_at: string | null
+          entity_signal_count: number | null
+          episode_id: string | null
+          issue_codes: string[] | null
+          issue_count: number | null
+          podcast_display_title: string | null
+          podcast_id: string | null
+          podcast_title: string | null
+          podiverzum_rank: number | null
+          priority_score: number | null
+          published_at: string | null
+          rank_label: string | null
+          raw_length: number | null
+          retention_ratio: number | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
+      v_episode_quality_indicator_audit: {
+        Row: {
+          audio_url: string | null
+          computed_episode_score: number | null
+          data_issue_codes: string[] | null
+          data_issue_count: number | null
+          display_title: string | null
+          displayed_quality_score: number | null
+          episode_id: string | null
+          legacy_episode_rank: number | null
+          legacy_episode_rank_label: string | null
+          legacy_episode_rank_reason: Json | null
+          legacy_episode_rank_updated_at: string | null
+          podcast_display_title: string | null
+          podcast_id: string | null
+          podcast_title: string | null
+          podiverzum_rank: number | null
+          published_at: string | null
+          quality_issue_codes: string[] | null
+          quality_issue_count: number | null
+          quality_priority_score: number | null
+          rank_label: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       v_hu_archive_completeness: {
         Row: {
           episode_count: number | null
@@ -6503,6 +6728,23 @@ export type Database = {
         }[]
       }
       get_cron_health: { Args: never; Returns: Json }
+      get_data_quality_snapshot_v1: {
+        Args: { _recent_days?: number; _sample_limit?: number }
+        Returns: Json
+      }
+      get_data_repair_plan_v1: {
+        Args: { _include_ai?: boolean; _limit?: number; _recent_days?: number }
+        Returns: Json
+      }
+      get_homepage_rails_v1: {
+        Args: {
+          _category_limit?: number
+          _evergreen_limit?: number
+          _max_categories?: number
+          _trending_limit?: number
+        }
+        Returns: Json
+      }
       get_mood_episode_recommendations: {
         Args: { p_exclude?: string[]; p_limit?: number; p_mood_slug: string }
         Returns: {
