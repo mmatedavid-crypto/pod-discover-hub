@@ -144,6 +144,7 @@ export default function AdminSearchBenchmarkPage() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [results, setResults] = useState<ResultRow[]>([]);
   const [running, setRunning] = useState(false);
+  const [refreshingGoldens, setRefreshingGoldens] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [filterType, setFilterType] = useState<string>("all");
   const [scoringIdx, setScoringIdx] = useState(0);
@@ -187,6 +188,23 @@ export default function AdminSearchBenchmarkPage() {
       .eq("run_id", runId)
       .order("query");
     setResults((data as ResultRow[]) || []);
+  }
+
+  async function refreshGoldensFromCatalog() {
+    setRefreshingGoldens(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("refresh_search_golden_queries_from_catalog", {
+        p_limit_per_type: 50,
+        p_popular_limit: 50,
+      });
+      if (error) throw error;
+      toast.success(`Golden set frissítve: ${data?.upserted ?? "?"} upsert`);
+      await refreshAll();
+    } catch (e: any) {
+      toast.error(`Golden refresh failed: ${e?.message || e}`);
+    } finally {
+      setRefreshingGoldens(false);
+    }
   }
 
   async function runBenchmark() {
@@ -450,6 +468,13 @@ export default function AdminSearchBenchmarkPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={refreshGoldensFromCatalog}
+              disabled={running || refreshingGoldens}
+              className="px-4 py-2 rounded-md border border-border text-sm disabled:opacity-50"
+            >
+              {refreshingGoldens ? "Refreshing…" : "Refresh goldens from catalog"}
+            </button>
             <button
               onClick={runBenchmark}
               disabled={running || goldens.length === 0}
