@@ -21,11 +21,48 @@ function normalize(s: string): string {
 function slugify(s: string): string {
   return sharedSlugify(s, "person");
 }
+const COMMON_COLLISION_SURNAMES = new Set([
+  "lakatos", "kiss", "nagy", "kovacs", "kovács", "toth", "tóth", "szabo", "szabó",
+  "horvath", "horváth", "varga", "molnar", "molnár", "nemeth", "németh", "balogh",
+  "farkas", "papp", "takacs", "takács", "juhasz", "juhász", "meszaros", "mészáros",
+  "simon", "sipos", "szucs", "szűcs", "fekete", "feher", "fehér",
+]);
+const CONTEXT_LABEL: Record<string, string> = {
+  business: "üzlet/gazdaság",
+  sport_lifestyle: "sport/életmód",
+  religion: "vallás",
+  politics: "közélet/politika",
+  culture: "kultúra",
+  tech: "technológia",
+  health: "egészség",
+};
 function isLikelyFullName(name: string): boolean {
   const parts = name.trim().split(/\s+/);
   if (parts.length < 2) return false;
   if (parts.some(p => p.length < 2)) return false;
   return true;
+}
+function isCollisionProneName(name: string): boolean {
+  const surname = normalize(name).split(" ")[0] || "";
+  return COMMON_COLLISION_SURNAMES.has(surname);
+}
+function contextBucketFor(e: any, pod: any): string {
+  const hay = normalize([
+    pod?.title,
+    e?.title,
+    e?.ai_summary,
+    e?.description,
+    ...(Array.isArray(e?.topics) ? e.topics : []),
+  ].filter(Boolean).join(" "));
+  const has = (re: RegExp) => re.test(hay);
+  if (has(/\b(vallalkozas|cegepites|uzlet|business|startup|marketing|sales|vezetes|gazdasag|penzugy|befektetes|tozsde|ingatlan|kripto)\b/)) return "business";
+  if (has(/\b(sport|foci|futball|labdarugas|edzes|eletmod|fitness|mozgas|teljesitmeny|taplalkozas|crossfit|futas|maraton)\b/)) return "sport_lifestyle";
+  if (has(/\b(vallas|hit|biblia|kereszteny|baptista|katolikus|reformatus|gyulekezet|ige|ima|teologia|lelki)\b/)) return "religion";
+  if (has(/\b(politika|kozelet|kormany|ellenzek|parlament|valasztas|part|geopolitika|kulpolitika)\b/)) return "politics";
+  if (has(/\b(kultura|film|szinhaz|konyv|irodalom|zene|muveszet|media|popkultura)\b/)) return "culture";
+  if (has(/\b(technologia|tech|informatika|szoftver|ai|mi|mesterseges intelligencia|chatgpt|digitalis)\b/)) return "tech";
+  if (has(/\b(egeszseg|pszichologia|mentalis|terapia|orvos|gyogyitas|parkapcsolat|onismeret)\b/)) return "health";
+  return "unknown";
 }
 function roleTypeForMention(mentionType: string): string {
   if (["host", "guest", "interviewee", "speaker"].includes(mentionType)) return "participant";
@@ -69,7 +106,7 @@ Deno.serve(async (req) => {
     for (let fromExisting = 0; ; fromExisting += 1000) {
       const { data: page, error: existingError } = await supabase
         .from("people")
-        .select("id, slug, normalized_name")
+        .select("id, slug, normalized_name, canonical_identity_key")
         .order("id", { ascending: true })
         .range(fromExisting, fromExisting + 999);
       if (existingError) {
@@ -81,9 +118,13 @@ Deno.serve(async (req) => {
     }
     const peopleBySlug = new Map<string, string>();
     const peopleByNorm = new Map<string, string>();
+    const peopleByIdentity = new Map<string, string>();
+    const peopleSlugById = new Map<string, string>();
     existing.forEach((p: any) => {
       if (p.slug) peopleBySlug.set(p.slug, p.id);
       if (p.normalized_name) peopleByNorm.set(p.normalized_name, p.id);
+      if (p.canonical_identity_key) peopleByIdentity.set(p.canonical_identity_key, p.id);
+      if (p.id && p.slug) peopleSlugById.set(p.id, p.slug);
     });
 
     // Mention accumulator: person_id -> { episodes: Map<ep, {type,confidence,source,podcast_id,published_at}>, podcasts: Map<pod, {role, count, latest}> }
@@ -103,28 +144,41 @@ Deno.serve(async (req) => {
       podcastRoles: Map<string, { role: string; count: number; latest: string | null; confidence: number }>;
       maxConfidence: number;
       latest: string | null;
+      context_bucket: string;
+      disambiguation_label: string | null;
+      canonical_identity_key: string | null;
     }>();
 
-    function getOrCreatePerson(name: string): string | null {
+    function getOrCreatePerson(name: string, contextBucket = "unknown"): string | null {
       const cleaned = name.trim();
       if (!cleaned) return null;
       const norm = normalize(cleaned);
       if (norm.length < 3) return null;
       // Reject single first names / single tokens unless from hosts list
       if (!isLikelyFullName(cleaned)) return null;
-      const slug = slugify(cleaned);
+      const useContext = contextBucket !== "unknown" && isCollisionProneName(cleaned);
+      const identityKey = useContext ? `${norm}::${contextBucket}` : null;
+      const baseSlug = slugify(cleaned);
+      const contextSlug = useContext ? `${baseSlug}-${contextBucket.replace(/_/g, "-")}` : baseSlug;
+      const slug = useContext && peopleBySlug.has(baseSlug) ? contextSlug : baseSlug;
       if (!slug) return null;
-      const existingId = peopleByNorm.get(norm) || peopleBySlug.get(slug);
+      const existingId = (identityKey ? peopleByIdentity.get(identityKey) : null) || peopleBySlug.get(slug) || (!useContext ? peopleByNorm.get(norm) : null);
       const id = existingId || crypto.randomUUID();
+      const finalSlug = existingId ? (peopleSlugById.get(existingId) || slug) : slug;
       if (!existingId) {
-        peopleByNorm.set(norm, id);
-        peopleBySlug.set(slug, id);
+        if (!useContext) peopleByNorm.set(norm, id);
+        peopleBySlug.set(finalSlug, id);
+        peopleSlugById.set(id, finalSlug);
+        if (identityKey) peopleByIdentity.set(identityKey, id);
       }
       if (!personAgg.has(id)) {
         personAgg.set(id, {
-          name: cleaned, slug, norm,
+          name: cleaned, slug: finalSlug, norm,
           mentions: [], podcastRoles: new Map(),
           maxConfidence: 0, latest: null,
+          context_bucket: contextBucket,
+          disambiguation_label: useContext ? CONTEXT_LABEL[contextBucket] || contextBucket.replace(/_/g, " ") : null,
+          canonical_identity_key: identityKey,
         });
       }
       return id;
@@ -153,6 +207,7 @@ Deno.serve(async (req) => {
         if (!pod) continue;
         const hosts: string[] = pod.hosts || [];
         const hostSet = new Set(hosts.map(normalize));
+        const contextBucket = contextBucketFor(e, pod);
         const titleNorm = normalize(e.title || "");
         const descNorm = normalize([e.ai_summary, e.description].filter(Boolean).join(" "));
         const allText = titleNorm + " " + descNorm;
@@ -160,7 +215,7 @@ Deno.serve(async (req) => {
         // -------- People --------
         // Hosts: high confidence per podcast (mark as host on every episode of this pod)
         for (const h of hosts) {
-          const pid = getOrCreatePerson(h);
+          const pid = getOrCreatePerson(h, contextBucket);
           if (!pid) continue;
           const agg = personAgg.get(pid)!;
           agg.maxConfidence = Math.max(agg.maxConfidence, 0.95);
@@ -185,7 +240,7 @@ Deno.serve(async (req) => {
         // Guests / speakers: prefer v5 evidence-backed mentions, fall back to legacy episodes.people.
         for (const p of (evidenceSpeakers.length ? evidenceSpeakers : (e.people || []))) {
           if (hostSet.has(normalize(p))) continue;
-          const pid = getOrCreatePerson(p);
+          const pid = getOrCreatePerson(p, contextBucket);
           if (!pid) continue;
           const inTitle = titleNorm.includes(normalize(p));
           const evidence = evidencePeople.find((x: any) => normalize(x?.name || "") === normalize(p));
@@ -211,7 +266,7 @@ Deno.serve(async (req) => {
         // Mentioned (talked about, not speaking): prefer v5 evidence-backed mentions.
         for (const m of (evidenceMentioned.length ? evidenceMentioned : (e.mentioned || []))) {
           if (hostSet.has(normalize(m))) continue;
-          const pid = getOrCreatePerson(m);
+          const pid = getOrCreatePerson(m, contextBucket);
           if (!pid) continue;
           const evidence = evidencePeople.find((x: any) => normalize(x?.name || "") === normalize(m));
           const conf = Math.max(Number(evidence?.confidence || 0), evidence ? 0.72 : 0.7);
@@ -302,6 +357,11 @@ Deno.serve(async (req) => {
         episode_count: epCount,
         podcast_count: podCount,
         latest_episode_at: agg.latest,
+        canonical_identity_key: agg.canonical_identity_key,
+        disambiguation_label: agg.disambiguation_label,
+        disambiguation_context: agg.context_bucket !== "unknown" ? agg.context_bucket : null,
+        identity_confidence: agg.canonical_identity_key ? Math.max(0.65, agg.maxConfidence) : 0,
+        identity_status: agg.canonical_identity_key ? "context_resolved" : "normal",
       });
       aliasRowsToInsert.push({ person_id: pid, alias: agg.name, normalized_alias: agg.norm, source: "episode_extraction", confidence: agg.maxConfidence });
       for (const m of agg.mentions as any[]) {
