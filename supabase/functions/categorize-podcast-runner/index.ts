@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
     let stop = false;
     let total_claimed = 0, drain_loops = 0;
 
-    const tierOrder = ["S", "A", "B", "C"];
+    const tierOrder = ["S", "A", "B", "C", "D"];
 
     const runOne = async (p: any) => {
       if (stop) return;

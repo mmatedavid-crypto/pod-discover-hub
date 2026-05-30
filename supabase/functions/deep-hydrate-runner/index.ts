@@ -23,11 +23,15 @@ function targetForTier(tier: string | null, rank: number): number {
   if (tier === "A") return 600;
   if (tier === "B") return 300;
   if (tier === "C") return 100;
-  // Fallback by numeric rank if tier is missing
+  // D is an indexing tier, not a public quality tier. Hydrate lightly so HU_v1
+  // and downstream quality jobs can evaluate it without relying on import rank.
+  if (tier === "D" || tier === "E") return 40;
+  // Fallback by numeric rank only for older rows with missing labels.
   if (rank >= 8.5) return 1000;
   if (rank >= 7.0) return 600;
   if (rank >= 5.5) return 300;
   if (rank >= 4.0) return 100;
+  if (rank >= 2.5) return 40;
   return 0;
 }
 
@@ -86,12 +90,13 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     });
 
-    // Rank-priority candidates that are NOT yet fully backfilled.
-    // Only S/A/B/C tiers eligible; D/E and unhealthy states excluded.
+    // Quality/data candidates that are NOT yet fully backfilled.
+    // S/A/B/C are public quality tiers; D is an indexing tier used for new
+    // imports so they can become evaluable without inheriting legacy rank.
     const { data: candidates, error: cErr } = await admin
       .from("podcasts")
       .select("id, title, slug, rss_url, image_url, podiverzum_rank, rank_label, shadow_rank_components, rss_status, deep_hydration_status, deep_hydration_target, last_deep_hydrated_at, hydrated_episode_count, full_backfill_completed_at")
-      .in("rank_label", ["S", "A", "B", "C"])
+      .in("rank_label", ["S", "A", "B", "C", "D", "E"])
       .in("rss_status", ["active", "not_checked"])
       .eq("is_hungarian", true)
       .eq("language_decision", "accept_hungarian")
@@ -188,7 +193,7 @@ Deno.serve(async (req) => {
 
     const { count: remainingPending } = await admin
       .from("podcasts").select("id", { count: "exact", head: true })
-      .in("rank_label", ["S", "A", "B", "C"])
+      .in("rank_label", ["S", "A", "B", "C", "D", "E"])
       .in("rss_status", ["active", "not_checked"])
       .eq("is_hungarian", true)
       .eq("language_decision", "accept_hungarian")

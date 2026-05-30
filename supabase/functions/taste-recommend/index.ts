@@ -96,14 +96,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fallback: archetype topics -> recent HU S/A episodes by topic overlap
+    // Fallback: archetype topics -> recent HU non-spam episodes by topic overlap.
     if (episodeIds.length === 0) {
       const likedTopics: string[] = extractLikedTopics(profile?.archetype_result);
       const freshFallback = await admin
         .from("episodes")
         .select("id, podcast_id, topics, published_at, podcasts!inner(language, rank_label)")
         .ilike("podcasts.language", "hu%")
-        .in("podcasts.rank_label", ["S", "A", "B"])
         .not("published_at", "is", null)
         .gt("published_at", new Date(Date.now() - 30 * 86400_000).toISOString())
         .order("published_at", { ascending: false })

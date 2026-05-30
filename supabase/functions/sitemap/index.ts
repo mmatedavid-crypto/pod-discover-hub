@@ -169,7 +169,7 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
     for (const p of pods as any[]) {
       const broken = p.rss_status === "failed" || p.rss_status === "inactive";
       const hs = (p.shadow_rank_components as any)?.health_state;
-      if (broken || SITEMAP_BAD.has(hs) || p.rank_label === "E") continue;
+      if (broken || SITEMAP_BAD.has(hs)) continue;
       const tier = p.rank_label;
       const priority = tier === "S" ? "0.9" : tier === "A" ? "0.8" : tier === "B" ? "0.7" : tier === "C" ? "0.6" : "0.4";
       urls.push(urlTag(`${SITE}/podcast/${esc(p.slug)}`, maxDate(p.updated_at, p.ai_enriched_at), "daily", priority));

@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
     let q = admin.from("podcasts")
       .select("id, title, slug, rss_url, rank_label, podiverzum_rank, full_backfill_completed_at, pi_backfill_completed_at, pi_backfill_approved")
       .eq("is_hungarian", true).eq("language_decision", "accept_hungarian")
-      .in("rank_label", tierFilter).eq("rss_status", "active").not("rss_url", "is", null);
+      .eq("rss_status", "active").not("rss_url", "is", null);
     if (!forceRefresh) q = q.or("full_backfill_completed_at.is.null,pi_backfill_completed_at.is.null");
     q = q.order("podiverzum_rank", { ascending: false, nullsFirst: false }).limit(maxPods * 3);
     const { data: pool, error: poolErr } = await q;
@@ -304,7 +304,7 @@ Deno.serve(async (req) => {
       }
       if (Date.now() >= deadline || totalNewEps >= maxNewEps) { results.push(podRes); processedCount++; continue; }
 
-      const piEligible = ["S","A"].includes(p.rank_label) || p.pi_backfill_approved === true;
+      const piEligible = p.pi_backfill_approved !== false;
       const piNeeded = piEligible && (forceRefresh || p.pi_backfill_completed_at === null);
       if (piNeeded) {
         const cap = Math.max(0, Math.min(800, maxNewEps - totalNewEps));
@@ -325,10 +325,10 @@ Deno.serve(async (req) => {
     const [{ count: rssPending }, { count: piPending }] = await Promise.all([
       admin.from("podcasts").select("id", { count: "exact", head: true })
         .eq("is_hungarian", true).eq("language_decision", "accept_hungarian")
-        .in("rank_label", ["S","A","B","C"]).eq("rss_status", "active").is("full_backfill_completed_at", null),
+        .eq("rss_status", "active").is("full_backfill_completed_at", null),
       admin.from("podcasts").select("id", { count: "exact", head: true })
         .eq("is_hungarian", true).eq("language_decision", "accept_hungarian")
-        .in("rank_label", ["S","A","B","C"]).eq("rss_status", "active").is("pi_backfill_completed_at", null),
+        .eq("rss_status", "active").is("pi_backfill_completed_at", null),
     ]);
 
     const aiAfter = await aiBacklogCount(admin);

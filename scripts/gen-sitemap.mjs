@@ -64,7 +64,6 @@ while (true) {
   for (const p of data) {
     if (!p.slug) continue;
     if (p.rss_status === 'failed' || p.rss_status === 'inactive') continue;
-    if (p.rank_label === 'E') continue;
     const hs = p.shadow_rank_components?.health_state;
     if (BAD.has(hs)) continue;
     const t = p.rank_label;
@@ -120,7 +119,6 @@ while (true) {
   const { data, error } = await sb.from('episodes')
     .select('slug,published_at,updated_at,podcast_id,podcasts!inner(slug,language,rank_label,rss_status)')
     .ilike('podcasts.language', 'hu%')
-    .in('podcasts.rank_label', ['S','A','B'])
     .not('ai_summary', 'is', null)
     .gte('published_at', SINCE)
     .order('published_at', { ascending: false })
@@ -167,7 +165,7 @@ for (const t of topTopics) {
 // podcast/year: top S/A/B podcasts × 3 years
 const { data: topPods = [] } = await sb
   .from('podcasts').select('slug, rank_label, rss_status, language')
-  .ilike('language', 'hu%').in('rank_label', ['S', 'A', 'B'])
+  .ilike('language', 'hu%')
   .eq('rss_status', 'active').limit(800);
 for (const p of topPods) {
   if (!p.slug) continue;

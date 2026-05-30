@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       if (!ids.length) throw new Error("mode=ids requires ids[]");
       q = q.in("id", ids);
     } else if (mode === "ungated") {
-      q = q.is("language_decision", null).in("rank_label", ["S", "A", "B", "C"]).order("rank_label", { ascending: true });
+      q = q.is("language_decision", null).in("rank_label", ["S", "A", "B", "C", "D", "E"]).order("rank_label", { ascending: true });
     } else {
       // accepted: re-verify the heuristic-accepted set, oldest checked first
       q = q.eq("is_hungarian", true).eq("language_decision", "accept_hungarian").order("language_checked_at", { ascending: true, nullsFirst: true });

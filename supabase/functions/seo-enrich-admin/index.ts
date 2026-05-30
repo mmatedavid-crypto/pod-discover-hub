@@ -38,14 +38,14 @@ Deno.serve(async (req) => {
       }
 
       // Coverage by current scope
-      const minRank = Number(ctrl.min_rank ?? 8);
+      const allowedTiers = ctrl.tiers || ["S", "A", "B", "C", "D"];
       const { count: podsInScope } = await admin.from("podcasts")
         .select("id", { count: "exact", head: true })
-        .gte("podiverzum_rank", minRank)
+        .in("rank_label", allowedTiers)
         .not("full_backfill_completed_at", "is", null);
       const { count: podsDone } = await admin.from("podcasts")
         .select("id", { count: "exact", head: true })
-        .gte("podiverzum_rank", minRank)
+        .in("rank_label", allowedTiers)
         .not("full_backfill_completed_at", "is", null)
         .not("seo_title", "is", null);
 
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
         controls: ctrl,
         spend: spend || { day: today, spend_usd: 0, calls: 0 },
         jobs: counts,
-        scope: { min_rank: minRank, podcasts_in_scope: podsInScope || 0, podcasts_done: podsDone || 0 },
+        scope: { tiers: allowedTiers, podcasts_in_scope: podsInScope || 0, podcasts_done: podsDone || 0 },
         avg_cost_per_job_usd: avgCost,
         jobs_possible_today: jobsPossibleToday,
       });

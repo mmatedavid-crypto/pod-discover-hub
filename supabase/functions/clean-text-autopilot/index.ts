@@ -29,7 +29,7 @@ const DEFAULT_CONTROLS: Required<Pick<Controls, "enabled" | "dry_run" | "mode" |
   enabled: true,
   dry_run: true,
   mode: "bad_or_old",
-  tiers: ["S", "A", "B", "C"],
+  tiers: ["S", "A", "B", "C", "D", "E"],
   stage_limit: 250,
   candidate_batch: 100,
   promote_limit: 100,

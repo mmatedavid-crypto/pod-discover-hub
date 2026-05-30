@@ -46,7 +46,7 @@ function initialPublicRank(candidateRank: number) {
   // Discovery score is import priority only; it must never create A/S public quality.
   const n = Number(candidateRank);
   if (!Number.isFinite(n)) return 1;
-  return Math.max(1, Math.min(4.5, n));
+  return Math.max(1, Math.min(3.5, n));
 }
 
 function initialRankLabel(score: number) {

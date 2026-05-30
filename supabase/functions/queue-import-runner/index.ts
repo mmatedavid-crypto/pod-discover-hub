@@ -24,8 +24,8 @@ function initialPublicRank(candidateRank: unknown): number {
   const raw = Number(candidateRank);
   if (!Number.isFinite(raw)) return 3.5;
   // candidate_rank is an import priority, not an editorial/public quality score.
-  // Keep newly imported shows discoverable, but never top-tier until HU_v1 scores them.
-  return Math.max(1, Math.min(4.5, raw));
+  // New imports start as indexed/D; HU_v1 or editorial quality must promote them.
+  return Math.max(1, Math.min(3.5, raw));
 }
 
 function initialRankLabel(score: number): "C" | "D" | "E" {

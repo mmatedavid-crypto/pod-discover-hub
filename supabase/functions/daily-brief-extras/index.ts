@@ -52,13 +52,12 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 1) Fetch ~25 recent HU S/A episodes with summary for quote selection
+  // 1) Fetch ~25 recent HU non-spam episodes with summary for quote selection
   const since = new Date(Date.now() - 72 * 3600_000).toISOString();
   const { data: recentEps } = await supa
     .from("episodes")
     .select("id, slug, title, display_title, ai_summary, summary, podcast_id, podcasts!inner(title, display_title, slug, language, rank_label)")
     .gte("published_at", since)
-    .in("podcasts.rank_label", ["S", "A"])
     .ilike("podcasts.language", "hu%")
     .not("ai_summary", "is", null)
     .order("published_at", { ascending: false })

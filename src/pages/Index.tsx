@@ -284,7 +284,6 @@ const Index = () => {
           supabase
             .from("podcasts")
             .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,featured_rank,rss_status,podiverzum_rank,rank_label,shadow_rank_components")
-            .or("featured.eq.true,rank_label.in.(S,A)")
             .not("rss_status", "in", "(failed,inactive)")
             // HU-only safety gate (strict): must have passed the language gate
             .eq("is_hungarian", true)
@@ -296,7 +295,6 @@ const Index = () => {
             .from("episodes")
             .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label,hosts)")
             .gte("published_at", since14d)
-            .in("podcasts.rank_label", ["S", "A", "B"])
             .or("is_hungarian.eq.true", { foreignTable: "podcasts" })
             .not("podcasts.rss_status", "in", "(failed,inactive)")
             .limit(1500),
@@ -308,9 +306,7 @@ const Index = () => {
           const hs = (p.shadow_rank_components as any)?.health_state;
           return !hs || hs === "healthy" || hs === "recovered_rss_url";
         };
-        const eligible = (podsRes.data || []).filter((p: any) =>
-          p.featured || (["S", "A"].includes(p.rank_label) && goodHealth(p))
-        );
+        const eligible = (podsRes.data || []).filter((p: any) => goodHealth(p));
         setPodcasts(eligible);
 
         const mapRow = (r: any): FeedEpisode => ({

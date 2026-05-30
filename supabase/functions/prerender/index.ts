@@ -357,7 +357,6 @@ async function buildCategory(
     .eq("category", cat.name)
     .or("is_hungarian.eq.true")
     .eq("rss_status", "active")
-    .gte("podiverzum_rank", 3)
     .order("podiverzum_rank", { ascending: false })
     .limit(50);
 
@@ -761,10 +760,10 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
   if (kind === "podcastok") {
     const { data } = await (supabase as any)
       .from("podcasts")
-      .select("title, display_title, slug, summary, description, image_url, category, podiverzum_rank")
-      .ilike("language", "hu%")
+      .select("title, display_title, slug, summary, description, image_url, category, podiverzum_rank, rank_label")
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .eq("rss_status", "active")
-      .gte("podiverzum_rank", 7)
       .order("podiverzum_rank", { ascending: false })
       .order("title", { ascending: true })
       .limit(80);

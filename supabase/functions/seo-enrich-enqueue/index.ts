@@ -2,13 +2,12 @@
 // Idempotent (input_hash unique per kind/target).
 //
 // === Enqueue ordering contract (Formula C v3-safe) ===
-// 1. Podcast selection: rank_label IN (S,A,B,C) AND rss_status IN (active,
+// 1. Podcast selection: rank_label IN (S,A,B,C,D,E) AND rss_status IN (active,
 //    not_checked) AND health_state NOT IN (rss_url_not_found,
 //    needs_manual_rss_review, confirmed_dead, quarantined_spam). When
 //    require_full_backfill, full_backfill_completed_at must be set.
 //    Ordered by podiverzum_rank DESC.
-// 2. Job priority is derived from podcast tier: S=100, A=80, B=60, C=40.
-//    D/E are excluded entirely.
+// 2. Job priority is derived from podcast tier: S=100, A=80, B=60, C=40, D/E=20.
 // 3. Episode ordering inside a podcast: published_at DESC, nullsFirst=false.
 // 4. Legacy `episodes.episode_rank` / `episode_rank_label` are intentionally
 //    IGNORED — they are frozen outputs of the deprecated `recompute-ranks`
@@ -23,7 +22,7 @@ const cors = {
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-const TIER_PRIORITY: Record<string, number> = { S: 100, A: 80, B: 60, C: 40 };
+const TIER_PRIORITY: Record<string, number> = { S: 100, A: 80, B: 60, C: 40, D: 20, E: 20 };
 const BAD_HEALTH = new Set([
   "rss_url_not_found",
   "needs_manual_rss_review",
@@ -40,6 +39,7 @@ function podPriority(p: any): number {
   if (r >= 7.0) return 80;
   if (r >= 5.5) return 60;
   if (r >= 4.0) return 40;
+  if (r >= 2.5) return 20;
   return 1;
 }
 
@@ -58,12 +58,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "ai_seo_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
-    const minRank = Number(body.min_rank ?? ctrl.min_rank ?? 8);
     const requireBackfill = body.require_full_backfill ?? ctrl.require_full_backfill ?? true;
     const maxPods = Number(body.max_podcasts ?? ctrl.max_podcasts_per_run ?? 50);
     const maxEps = Number(body.max_episodes ?? ctrl.max_episodes_per_run ?? 300);
-    // Tiers eligible for enqueue. D/E excluded.
-    const allowedTiers: string[] = body.tiers || ctrl.tiers || ["S", "A", "B", "C"];
+    // D is allowed as an indexing/data-quality tier. It is not a public quality promotion.
+    const allowedTiers: string[] = body.tiers || ctrl.tiers || ["S", "A", "B", "C", "D", "E"];
 
     // === PASS 1: Podcast SEO enqueue ===
     // Only podcasts that still need SEO. Limited by maxPods.
@@ -268,7 +267,7 @@ Deno.serve(async (req) => {
       ep_podcasts_considered: epPods.length,
       ep_episodes_collected: collectedCount,
       upsert_err: upsertErr,
-      scope: { min_rank: minRank, require_full_backfill: requireBackfill, tiers: allowedTiers },
+      scope: { require_full_backfill: requireBackfill, tiers: allowedTiers },
     });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);

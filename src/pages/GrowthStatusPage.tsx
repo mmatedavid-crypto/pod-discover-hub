@@ -136,9 +136,9 @@ export default function GrowthStatusPage() {
 
       const [hRow, ns, cp, el] = await Promise.all([
         supabase.from("app_settings").select("value").eq("key", "deep_hydration").maybeSingle(),
-        supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").in("rank_label", ["S", "A", "B", "C"]),
+        supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").in("rank_label", ["S", "A", "B", "C", "D", "E"]),
         supabase.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "completed"),
-        supabase.from("podcasts").select("id", { count: "exact", head: true }).in("rank_label", ["S", "A", "B", "C"]).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
+        supabase.from("podcasts").select("id", { count: "exact", head: true }).in("rank_label", ["S", "A", "B", "C", "D", "E"]).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
       ]);
       setHydration((hRow.data?.value as any) || null);
       setHydrationCounts({ not_started: ns.count || 0, completed: cp.count || 0, eligible: el.count || 0 });

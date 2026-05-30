@@ -42,11 +42,11 @@ Deno.serve(async (req) => {
 
     const counts = async () => {
       const [ns, ip, cp, fl, el] = await Promise.all([
-        admin.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").in("rank_label", ["S", "A", "B", "C"]),
+        admin.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "not_started").in("rank_label", ["S", "A", "B", "C", "D", "E"]),
         admin.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "in_progress"),
         admin.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "completed"),
         admin.from("podcasts").select("id", { count: "exact", head: true }).eq("deep_hydration_status", "failed"),
-        admin.from("podcasts").select("id", { count: "exact", head: true }).in("rank_label", ["S", "A", "B", "C"]).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
+        admin.from("podcasts").select("id", { count: "exact", head: true }).in("rank_label", ["S", "A", "B", "C", "D", "E"]).in("rss_status", ["active", "not_checked"]).in("deep_hydration_status", ["not_started", "failed"]),
       ]);
       return {
         not_started: ns.count || 0, in_progress: ip.count || 0,

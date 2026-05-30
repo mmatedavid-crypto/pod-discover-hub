@@ -50,7 +50,7 @@ type ReprocessBody = {
 };
 
 const CURRENT_CLEANER_METHOD = "deterministic_v3";
-const DEFAULT_TIERS = ["S", "A", "B", "C"];
+const DEFAULT_TIERS = ["S", "A", "B", "C", "D", "E"];
 
 async function isAdmin(admin: AdminClient, authHeader: string | null) {
   if (!authHeader) return false;

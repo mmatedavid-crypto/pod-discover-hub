@@ -111,10 +111,11 @@ Deno.serve(async (req) => {
       .or(dueOrNull)
       .limit(limit);
 
-    // P1: S/A/B with host(website) != host(rss) — migration suspects
+    // P1: any Hungarian non-spam podcast with host(website) != host(rss) — rank is not an admission gate.
     const { data: p1raw } = await supabase.from("podcasts")
       .select("id, title, rss_url, website_url, rank_label, ai_quality_score, ai_spam_score, shadow_rank_components, rss_hunt_attempts, last_rss_hunt_at, next_rss_hunt_at, consecutive_failure_count, rss_status")
-      .in("rank_label", ["S", "A", "B"])
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .not("website_url", "is", null)
       .not("rss_url", "is", null)
       .lt("rss_hunt_attempts", MAX_HUNT_ATTEMPTS)

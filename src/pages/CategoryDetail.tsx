@@ -91,7 +91,7 @@ export default function CategoryDetail() {
         return !hs || hs === "healthy" || hs === "recovered_rss_url";
       };
       const visible = (ps || []).filter((p: any) =>
-        p.featured || (goodHealth(p) && p.rss_status !== "failed" && p.rss_status !== "inactive" && !["D", "E"].includes(p.rank_label))
+        goodHealth(p) && p.rss_status !== "failed" && p.rss_status !== "inactive"
       );
       const ids0 = visible.map((p: any) => p.id);
       const epCountMap: Record<string, number> = {};
@@ -101,7 +101,7 @@ export default function CategoryDetail() {
       }
       const high = visible.filter((p: any) => p.featured || (["S", "A"].includes(p.rank_label) && (epCountMap[p.id] || 0) > 0));
       const mid = visible.filter((p: any) => !p.featured && p.rank_label === "B" && (epCountMap[p.id] || 0) > 0);
-      const low = visible.filter((p: any) => !p.featured && p.rank_label === "C" && (epCountMap[p.id] || 0) > 0);
+      const low = visible.filter((p: any) => !p.featured && !["S", "A", "B"].includes(p.rank_label) && (epCountMap[p.id] || 0) > 0);
       const promotedPodcasts = (high.length >= 6 ? high : [...high, ...mid, ...low]).slice(0, 12);
       setPodcasts(promotedPodcasts);
 

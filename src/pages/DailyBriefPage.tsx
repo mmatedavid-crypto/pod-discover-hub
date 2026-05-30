@@ -63,7 +63,6 @@ export default function DailyBriefPage() {
         .from("episodes")
         .select(`id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language)`)
         .gte("published_at", since)
-        .in("podcasts.rank_label", ["S", "A", "B"])
         .or("is_hungarian.eq.true", { foreignTable: "podcasts" })
         .not("podcasts.rss_status", "in", "(failed,inactive)")
         .order("published_at", { ascending: false, nullsFirst: false })

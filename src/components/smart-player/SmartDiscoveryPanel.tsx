@@ -130,7 +130,7 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
         .not("audio_url", "is", null)
         .eq("podcasts.is_hungarian", true)
         .not("podcasts.rss_status", "in", "(failed,inactive)")
-        .in("podcasts.rank_label", ["S", "A", "B", "C"])
+        .in("podcasts.rank_label", ["S", "A", "B", "C", "D", "E"])
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(12);
       if (sourcePodcastId) q = q.neq("podcast_id", sourcePodcastId);

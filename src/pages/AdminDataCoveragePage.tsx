@@ -55,7 +55,7 @@ export default function AdminDataCoveragePage() {
         supabase.from("episodes").select("id", { count: "estimated", head: true }).gte("ai_entities_version", 1),
         supabase.from("episode_clean_text").select("episode_id", { count: "estimated", head: true }),
         supabase.from("episode_chunks").select("episode_id", { count: "estimated", head: true }),
-        supabase.from("podcasts").select("id", { count: "estimated", head: true }).in("rank_label", ["S", "A", "B", "C"]),
+        supabase.from("podcasts").select("id", { count: "estimated", head: true }).in("rank_label", ["S", "A", "B", "C", "D", "E"]),
         supabase.from("podcasts").select("id", { count: "estimated", head: true }),
         supabase.from("people").select("id", { count: "exact", head: true }).eq("is_public", true),
         supabase.from("people").select("id", { count: "exact", head: true }),
