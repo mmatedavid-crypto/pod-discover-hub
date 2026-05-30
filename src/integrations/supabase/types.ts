@@ -1030,6 +1030,13 @@ export type Database = {
             referencedRelation: "v_hu_archive_completeness"
             referencedColumns: ["podcast_id"]
           },
+          {
+            foreignKeyName: "episode_best_text_source_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
       episode_category_overrides: {
@@ -1758,6 +1765,8 @@ export type Database = {
           updated_at: string
           validated_by: string | null
           validation_reason: Json
+          youtube_caption_available: boolean | null
+          youtube_caption_checked_at: string | null
           youtube_channel_id: string | null
           youtube_description: string | null
           youtube_duration_seconds: number | null
@@ -1778,6 +1787,8 @@ export type Database = {
           updated_at?: string
           validated_by?: string | null
           validation_reason?: Json
+          youtube_caption_available?: boolean | null
+          youtube_caption_checked_at?: string | null
           youtube_channel_id?: string | null
           youtube_description?: string | null
           youtube_duration_seconds?: number | null
@@ -1798,6 +1809,8 @@ export type Database = {
           updated_at?: string
           validated_by?: string | null
           validation_reason?: Json
+          youtube_caption_available?: boolean | null
+          youtube_caption_checked_at?: string | null
           youtube_channel_id?: string | null
           youtube_description?: string | null
           youtube_duration_seconds?: number | null
@@ -2007,6 +2020,13 @@ export type Database = {
             columns: ["podcast_id"]
             isOneToOne: false
             referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
             referencedColumns: ["podcast_id"]
           },
         ]
@@ -3577,6 +3597,13 @@ export type Database = {
             referencedRelation: "v_hu_archive_completeness"
             referencedColumns: ["podcast_id"]
           },
+          {
+            foreignKeyName: "person_episode_mentions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
       person_podcast_map: {
@@ -3714,6 +3741,13 @@ export type Database = {
             columns: ["podcast_id"]
             isOneToOne: false
             referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_podcast_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
             referencedColumns: ["podcast_id"]
           },
         ]
@@ -4023,6 +4057,13 @@ export type Database = {
             referencedRelation: "v_hu_archive_completeness"
             referencedColumns: ["podcast_id"]
           },
+          {
+            foreignKeyName: "podcast_aliases_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
       podcast_boilerplate_blocks: {
@@ -4122,6 +4163,13 @@ export type Database = {
             columns: ["podcast_id"]
             isOneToOne: false
             referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_charts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
             referencedColumns: ["podcast_id"]
           },
         ]
@@ -4324,6 +4372,13 @@ export type Database = {
             referencedRelation: "v_hu_archive_completeness"
             referencedColumns: ["podcast_id"]
           },
+          {
+            foreignKeyName: "podcast_outreach_contacts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
       podcast_spotify_snapshots: {
@@ -4386,6 +4441,13 @@ export type Database = {
             referencedRelation: "v_hu_archive_completeness"
             referencedColumns: ["podcast_id"]
           },
+          {
+            foreignKeyName: "podcast_spotify_snapshots_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
       podcast_topic_map: {
@@ -4437,6 +4499,13 @@ export type Database = {
             columns: ["podcast_id"]
             isOneToOne: false
             referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_topic_map_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
             referencedColumns: ["podcast_id"]
           },
           {
@@ -6220,6 +6289,13 @@ export type Database = {
             referencedRelation: "v_hu_archive_completeness"
             referencedColumns: ["podcast_id"]
           },
+          {
+            foreignKeyName: "youtube_transcript_attempts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
     }
@@ -6643,6 +6719,13 @@ export type Database = {
             referencedRelation: "v_hu_archive_completeness"
             referencedColumns: ["podcast_id"]
           },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
         ]
       }
       v_episode_quality_indicator_audit: {
@@ -6696,6 +6779,13 @@ export type Database = {
             columns: ["podcast_id"]
             isOneToOne: false
             referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
             referencedColumns: ["podcast_id"]
           },
         ]
@@ -6945,6 +7035,18 @@ export type Database = {
           name: string | null
           pending_cnt: number | null
           slug: string | null
+        }
+        Relationships: []
+      }
+      v_youtube_native_transcript_candidates: {
+        Row: {
+          confirmed_youtube_episodes: number | null
+          last_caption_check_at: string | null
+          native_transcript_untried_episodes: number | null
+          podcast_id: string | null
+          podcast_title: string | null
+          stored_transcript_episodes: number | null
+          youtube_caption_available_episodes: number | null
         }
         Relationships: []
       }
@@ -7317,6 +7419,19 @@ export type Database = {
           trending_score: number
           website_url: string
           youtube_url: string
+        }[]
+      }
+      get_youtube_native_transcript_candidate_summary_v1: {
+        Args: { limit_count?: number }
+        Returns: {
+          caption_coverage: number
+          confirmed_youtube_episodes: number
+          last_caption_check_at: string
+          native_transcript_untried_episodes: number
+          podcast_id: string
+          podcast_title: string
+          stored_transcript_episodes: number
+          youtube_caption_available_episodes: number
         }[]
       }
       has_role: {
