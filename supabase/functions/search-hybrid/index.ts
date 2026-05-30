@@ -461,6 +461,59 @@ async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: strin
   };
 }
 
+async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: string, anchors: CatalogAnchor[], timeoutMs = 900) {
+  if (qNorm.length < 2 || qNorm.length > 80) return null;
+  const anchor = anchors.find((a) => a.kind === "person" && a.id);
+  let personId = anchor?.id || null;
+
+  if (!personId) {
+    const aliasRows = await withTimeout(
+      supa
+        .from("person_aliases")
+        .select("person_id,confidence,people!inner(id,is_public)")
+        .eq("normalized_alias", qNorm)
+        .eq("status", "accepted")
+        .gte("confidence", 0.7)
+        .order("confidence", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .then((r: any) => r.data),
+      timeoutMs,
+      "person_pin_alias",
+    );
+    const alias = Array.isArray(aliasRows) && aliasRows.length ? aliasRows[0] : null;
+    personId = alias?.person_id || alias?.people?.id || null;
+  }
+
+  if (!personId) return null;
+
+  const person = await withTimeout(
+    supa
+      .from("people")
+      .select("id,name,slug,image_url,short_bio,overview_text,wikipedia_description,disambiguation_label,gated_episode_count,episode_count,podcast_count,is_public,normalized_name")
+      .eq("id", personId)
+      .eq("is_public", true)
+      .maybeSingle()
+      .then((r: any) => r.data),
+    timeoutMs,
+    "person_pin_meta",
+  );
+  if (!person?.slug || !person?.name) return null;
+  const count = Number(person.gated_episode_count ?? person.episode_count ?? 0);
+  if (count < 1) return null;
+
+  return {
+    id: person.id,
+    slug: person.slug,
+    name: person.name,
+    image_url: person.image_url || null,
+    short_bio: person.short_bio || person.overview_text || person.wikipedia_description || null,
+    disambiguation_label: person.disambiguation_label || null,
+    gated_episode_count: person.gated_episode_count ?? person.episode_count ?? null,
+    podcast_count: person.podcast_count ?? null,
+    match_type: anchor ? "catalog_anchor" : "alias",
+  };
+}
+
 type CatalogAnchor = {
   kind: "podcast" | "person" | "organization" | "topic";
   id: string | null;
@@ -745,6 +798,10 @@ Deno.serve(async (req) => {
       resolveCatalogAnchors(supa, qNorm, earlyPodcastPin),
       900, "resolve_catalog_anchors",
     ) || [];
+    const earlyPersonPin = await resolvePersonPin(supa, qNorm, catalogAnchors, 850).catch((e) => {
+      console.warn("early person pin err", e);
+      return null;
+    });
 
     // Stopword + gibberish gate.
     {
@@ -767,6 +824,7 @@ Deno.serve(async (req) => {
               similarity: earlyPodcastPin.similarity,
               latest_episode_ids: earlyPodcastPin.latest_episode_ids,
             },
+            person_pin: earlyPersonPin || undefined,
             reason: "known_podcast_title",
           }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
@@ -876,6 +934,7 @@ Deno.serve(async (req) => {
               person_name_strict: true,
               person_query: phrase,
               matched_person_ids: personIds,
+              person_pin: earlyPersonPin || undefined,
               reason: "person_strict_match",
             }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
           }
@@ -1551,7 +1610,7 @@ Deno.serve(async (req) => {
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, anchor_episode_matches: anchorEpisodeMatches, anchor_episode_candidates: anchorEpisodeCandidates, natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined, natural_question_fallback: naturalQuestionFallback, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, catalog_anchors: catalogAnchors, person_pin: earlyPersonPin || undefined, anchor_episode_matches: anchorEpisodeMatches, anchor_episode_candidates: anchorEpisodeCandidates, natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined, natural_question_fallback: naturalQuestionFallback, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -1785,6 +1844,7 @@ Deno.serve(async (req) => {
         understanding,
         curated_synonyms: { matched: curated.matched_terms, expansions: curated.expansions },
         catalog_anchors: catalogAnchors,
+        person_pin: earlyPersonPin || undefined,
         anchor_episode_matches: anchorEpisodeMatches,
         anchor_episode_candidates: anchorEpisodeCandidates,
         natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined,

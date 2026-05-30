@@ -72,7 +72,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryLabels, setCategoryLabels] = useState<Record<string, string>>({});
-  const [heroPerson, setHeroPerson] = useState<{ name: string; slug: string; image_url: string | null; short_bio: string | null; gated_episode_count: number | null } | null>(null);
+  const [heroPerson, setHeroPerson] = useState<{ name: string; slug: string; image_url: string | null; short_bio: string | null; gated_episode_count: number | null; disambiguation_label?: string | null } | null>(null);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
@@ -185,6 +185,17 @@ export default function SearchPage() {
             id: pin.slug, slug: pin.slug, title: pin.title,
             image_url: pin.image_url, description: pin.description,
             summary: pin.description,
+          });
+        }
+        const personPin = phase1.data?.person_pin;
+        if (personPin?.slug) {
+          setHeroPerson({
+            name: personPin.name,
+            slug: personPin.slug,
+            image_url: personPin.image_url || null,
+            short_bio: personPin.short_bio || personPin.disambiguation_label || null,
+            gated_episode_count: personPin.gated_episode_count ?? null,
+            disambiguation_label: personPin.disambiguation_label || null,
           });
         }
         setLoading(false);
@@ -508,6 +519,9 @@ export default function SearchPage() {
               )}
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">{heroPerson.name}</div>
+                {heroPerson.disambiguation_label && (
+                  <div className="text-xs text-muted-foreground mt-0.5">{heroPerson.disambiguation_label}</div>
+                )}
                 {typeof heroPerson.gated_episode_count === "number" && heroPerson.gated_episode_count > 0 && (
                   <div className="text-xs text-muted-foreground mt-1">{heroPerson.gated_episode_count} epizód</div>
                 )}
