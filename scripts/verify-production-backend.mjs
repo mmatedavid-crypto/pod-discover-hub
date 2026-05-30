@@ -29,6 +29,7 @@ const functionChecks = [
   "data-repair-apply-runner",
   "entity-quality-apply-runner",
   "entity-quality-autopilot",
+  "database-quality-fast-lane",
 ];
 
 let failures = 0;
