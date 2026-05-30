@@ -1547,6 +1547,8 @@ export type Database = {
       }
       episodes: {
         Row: {
+          ai_enrich_input_hash: string | null
+          ai_enrich_prompt_version: string | null
           ai_enriched_at: string | null
           ai_entities_version: number
           ai_summary: string | null
@@ -1601,6 +1603,8 @@ export type Database = {
           youtube_video_id: string | null
         }
         Insert: {
+          ai_enrich_input_hash?: string | null
+          ai_enrich_prompt_version?: string | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_summary?: string | null
@@ -1655,6 +1659,8 @@ export type Database = {
           youtube_video_id?: string | null
         }
         Update: {
+          ai_enrich_input_hash?: string | null
+          ai_enrich_prompt_version?: string | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_summary?: string | null
@@ -4157,6 +4163,8 @@ export type Database = {
           ai_category_confidence: number | null
           ai_category_model: string | null
           ai_category_needs_review: boolean | null
+          ai_enrich_input_hash: string | null
+          ai_enrich_prompt_version: string | null
           ai_enriched_at: string | null
           ai_entities_version: number
           ai_quality_input_hash: string | null
@@ -4277,6 +4285,8 @@ export type Database = {
           ai_category_confidence?: number | null
           ai_category_model?: string | null
           ai_category_needs_review?: boolean | null
+          ai_enrich_input_hash?: string | null
+          ai_enrich_prompt_version?: string | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_quality_input_hash?: string | null
@@ -4397,6 +4407,8 @@ export type Database = {
           ai_category_confidence?: number | null
           ai_category_model?: string | null
           ai_category_needs_review?: boolean | null
+          ai_enrich_input_hash?: string | null
+          ai_enrich_prompt_version?: string | null
           ai_enriched_at?: string | null
           ai_entities_version?: number
           ai_quality_input_hash?: string | null
