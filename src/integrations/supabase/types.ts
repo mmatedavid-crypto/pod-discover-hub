@@ -1950,6 +1950,42 @@ export type Database = {
         }
         Relationships: []
       }
+      import_rank_public_quality_guard_20260530: {
+        Row: {
+          backup_at: string
+          guard_reason: string
+          old_podiverzum_rank: number | null
+          old_rank_label: string | null
+          old_rank_reason: Json | null
+          old_shadow_rank: number | null
+          old_shadow_rank_components: Json | null
+          old_shadow_rank_tier: string | null
+          podcast_id: string
+        }
+        Insert: {
+          backup_at?: string
+          guard_reason: string
+          old_podiverzum_rank?: number | null
+          old_rank_label?: string | null
+          old_rank_reason?: Json | null
+          old_shadow_rank?: number | null
+          old_shadow_rank_components?: Json | null
+          old_shadow_rank_tier?: string | null
+          podcast_id: string
+        }
+        Update: {
+          backup_at?: string
+          guard_reason?: string
+          old_podiverzum_rank?: number | null
+          old_rank_label?: string | null
+          old_rank_reason?: Json | null
+          old_shadow_rank?: number | null
+          old_shadow_rank_components?: Json | null
+          old_shadow_rank_tier?: string | null
+          podcast_id?: string
+        }
+        Relationships: []
+      }
       landing_email_signups: {
         Row: {
           anonymous_session_id: string | null
@@ -2043,6 +2079,39 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
+        }
+        Relationships: []
+      }
+      legacy_public_rank_replacement_20260530: {
+        Row: {
+          podcast_id: string
+          previous_podiverzum_rank: number | null
+          previous_rank_label: string | null
+          previous_rank_reason: Json | null
+          previous_shadow_rank: number | null
+          previous_shadow_rank_tier: string | null
+          replaced_at: string
+          title: string | null
+        }
+        Insert: {
+          podcast_id: string
+          previous_podiverzum_rank?: number | null
+          previous_rank_label?: string | null
+          previous_rank_reason?: Json | null
+          previous_shadow_rank?: number | null
+          previous_shadow_rank_tier?: string | null
+          replaced_at?: string
+          title?: string | null
+        }
+        Update: {
+          podcast_id?: string
+          previous_podiverzum_rank?: number | null
+          previous_rank_label?: string | null
+          previous_rank_reason?: Json | null
+          previous_shadow_rank?: number | null
+          previous_shadow_rank_tier?: string | null
+          replaced_at?: string
+          title?: string | null
         }
         Relationships: []
       }
@@ -6740,6 +6809,10 @@ export type Database = {
       }
       get_data_repair_plan_v1: {
         Args: { _include_ai?: boolean; _limit?: number; _recent_days?: number }
+        Returns: Json
+      }
+      get_entity_quality_snapshot_v1: {
+        Args: { _limit?: number }
         Returns: Json
       }
       get_homepage_rails_v1: {
