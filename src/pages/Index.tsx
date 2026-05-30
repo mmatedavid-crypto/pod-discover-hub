@@ -126,8 +126,10 @@ import { ContinueListening } from "@/components/ContinueListening";
 import { TrendingPodcasts } from "@/components/TrendingPodcasts";
 import { MyLibraryRails } from "@/components/home/MyLibraryRails";
 import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
+import { HomeDiscoveryShortcuts } from "@/components/home/HomeDiscoveryShortcuts";
 import { HomeTopicsSection } from "@/components/HomeTopicsSection";
 import { HomeCurrentSignals } from "@/components/HomeCurrentSignals";
+import DailyStatsStrip from "@/components/DailyStatsStrip";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
@@ -600,7 +602,8 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
-        
+        <HomeDiscoveryShortcuts />
+        <DailyStatsStrip />
         <TrendingPodcasts />
         <MyLibraryRails />
         <ContinueListening />
