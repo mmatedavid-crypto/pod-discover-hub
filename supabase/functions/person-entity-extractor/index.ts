@@ -61,13 +61,29 @@ Deno.serve(async (req) => {
       aliasMap.set(a.normalized_alias, arr);
     });
 
-    // Cache existing people
-    const { data: existing } = await supabase.from("people").select("id, slug, normalized_name");
+    // Cache all existing people. Supabase/PostgREST returns 1k rows by default,
+    // which is not enough for this catalog; a partial cache creates new UUIDs
+    // for already-known slugs and then the people_slug_key unique index rejects
+    // the whole chunk. That cascades into FK failures for aliases/mentions.
+    const existing: any[] = [];
+    for (let fromExisting = 0; ; fromExisting += 1000) {
+      const { data: page, error: existingError } = await supabase
+        .from("people")
+        .select("id, slug, normalized_name")
+        .order("id", { ascending: true })
+        .range(fromExisting, fromExisting + 999);
+      if (existingError) {
+        errors.push(`people_cache: ${existingError.message}`);
+        break;
+      }
+      existing.push(...(page || []));
+      if (!page || page.length < 1000) break;
+    }
     const peopleBySlug = new Map<string, string>();
     const peopleByNorm = new Map<string, string>();
-    (existing || []).forEach((p: any) => {
-      peopleBySlug.set(p.slug, p.id);
-      peopleByNorm.set(p.normalized_name, p.id);
+    existing.forEach((p: any) => {
+      if (p.slug) peopleBySlug.set(p.slug, p.id);
+      if (p.normalized_name) peopleByNorm.set(p.normalized_name, p.id);
     });
 
     // Mention accumulator: person_id -> { episodes: Map<ep, {type,confidence,source,podcast_id,published_at}>, podcasts: Map<pod, {role, count, latest}> }
@@ -316,11 +332,32 @@ Deno.serve(async (req) => {
       return { inserted, updated };
     }
 
-    const peopleResult = await chunkUpsert("people", peopleRows, "id");
+    function dedupeRows(rows: any[], keyFn: (row: any) => string) {
+      const out = new Map<string, any>();
+      for (const row of rows) {
+        const key = keyFn(row);
+        const prev = out.get(key);
+        if (!prev) {
+          out.set(key, row);
+          continue;
+        }
+        const prevConfidence = Number(prev.confidence ?? prev.role_confidence ?? 0);
+        const nextConfidence = Number(row.confidence ?? row.role_confidence ?? 0);
+        if (nextConfidence > prevConfidence) out.set(key, row);
+      }
+      return [...out.values()];
+    }
+
+    const peopleRowsUnique = dedupeRows(peopleRows, (r) => String(r.id));
+    const aliasRowsUnique = dedupeRows(aliasRowsToInsert, (r) => `${r.person_id}:${r.normalized_alias}`);
+    const mentionRowsUnique = dedupeRows(mentionRows, (r) => `${r.person_id}:${r.episode_id}:${r.mention_type}`);
+    const podcastRoleRowsUnique = dedupeRows(podcastRoleRows, (r) => `${r.person_id}:${r.podcast_id}:${r.role}`);
+
+    const peopleResult = await chunkUpsert("people", peopleRowsUnique, "id");
     peopleCreated = peopleResult.inserted;
-    await chunkUpsert("person_aliases", aliasRowsToInsert, "person_id,normalized_alias");
-    await chunkUpsert("person_episode_mentions", mentionRows, "person_id,episode_id,mention_type");
-    await chunkUpsert("person_podcast_map", podcastRoleRows, "person_id,podcast_id,role");
+    await chunkUpsert("person_aliases", aliasRowsUnique, "person_id,normalized_alias");
+    await chunkUpsert("person_episode_mentions", mentionRowsUnique, "person_id,episode_id,mention_type");
+    await chunkUpsert("person_podcast_map", podcastRoleRowsUnique, "person_id,podcast_id,role");
 
     // ---------- Persist topic maps ----------
     await chunkUpsert("episode_topic_map", episodeTopicRows, "episode_id,topic_id");
