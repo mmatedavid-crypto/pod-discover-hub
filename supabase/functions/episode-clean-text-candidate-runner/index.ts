@@ -103,12 +103,15 @@ Deno.serve(async (req) => {
     if (epErr) throw epErr;
 
     const bestTextByEp = new Map<string, BestTextSourceRow>();
-    const { data: bestRows, error: bestErr } = await admin
-      .from("episode_best_text_source")
-      .select("episode_id,source_type,raw_text,source_confidence")
-      .in("episode_id", ids);
-    if (bestErr && !String(bestErr.message || "").includes("episode_best_text_source")) throw bestErr;
-    for (const row of (bestRows || []) as BestTextSourceRow[]) bestTextByEp.set(row.episode_id, row);
+    for (let i = 0; i < ids.length; i += 100) {
+      const slice = ids.slice(i, i + 100);
+      const { data: bestRows, error: bestErr } = await admin
+        .from("episode_best_text_source")
+        .select("episode_id,source_type,raw_text,source_confidence")
+        .in("episode_id", slice);
+      if (bestErr && !String(bestErr.message || "").includes("episode_best_text_source")) throw bestErr;
+      for (const row of (bestRows || []) as BestTextSourceRow[]) bestTextByEp.set(row.episode_id, row);
+    }
 
     const rows = ((episodes || []) as EpisodeRow[]).map(async (ep) => {
       const best = bestTextByEp.get(ep.id);

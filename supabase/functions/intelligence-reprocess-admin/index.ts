@@ -51,6 +51,13 @@ type ReprocessBody = {
 
 const CURRENT_CLEANER_METHOD = "deterministic_v4";
 const DEFAULT_TIERS = ["S", "A", "B", "C", "D", "E"];
+const CLEAN_ROW_CHUNK_SIZE = 100;
+
+function errorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  try { return JSON.stringify(e); } catch { return "unknown_error"; }
+}
 
 async function isAdmin(admin: AdminClient, authHeader: string | null) {
   if (!authHeader) return false;
@@ -124,20 +131,21 @@ async function loadCandidates(admin: AdminClient, body: ReprocessBody): Promise<
     return { candidates, scanned: rows.length };
   }
 
+  const scanLimit = Math.min(limit * 2, 1500);
   const { data: eps, error } = await admin
     .from("episodes")
     .select("id,podcast_id,title,description,ai_summary,clean_text_status,ai_entities_version,podcasts!inner(title,display_title,rank_label,is_hungarian)")
     .eq("podcasts.is_hungarian", true)
     .in("podcasts.rank_label", tiers)
     .order("published_at", { ascending: false, nullsFirst: false })
-    .limit(limit * 4);
+    .limit(scanLimit);
   if (error) throw error;
 
-  const rows = ((eps || []) as Candidate[]).slice(0, limit * 4);
+  const rows = ((eps || []) as Candidate[]).slice(0, scanLimit);
   const ids = rows.map((r) => r.id);
   const cleanRows: CleanRow[] = [];
-  for (let i = 0; i < ids.length; i += 500) {
-    const slice = ids.slice(i, i + 500);
+  for (let i = 0; i < ids.length; i += CLEAN_ROW_CHUNK_SIZE) {
+    const slice = ids.slice(i, i + CLEAN_ROW_CHUNK_SIZE);
     const { data, error: cleanErr } = await admin
       .from("episode_clean_text")
       .select("episode_id,cleaned_text,cleaner_method,removed_categories")
@@ -219,6 +227,6 @@ Deno.serve(async (req) => {
       ],
     });
   } catch (e: unknown) {
-    return json({ error: e instanceof Error ? e.message : "error" }, 500);
+    return json({ error: errorMessage(e) }, 500);
   }
 });
