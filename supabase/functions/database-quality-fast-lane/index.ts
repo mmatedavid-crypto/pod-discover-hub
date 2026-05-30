@@ -20,6 +20,13 @@ type Controls = {
   run_entity_quality?: boolean;
   entity_quality_limit?: number;
   run_clean_text?: boolean;
+  run_entity_backfill?: boolean;
+  entity_backfill_batch?: number;
+  entity_backfill_concurrency?: number;
+  run_person_entity_extractor?: boolean;
+  person_entity_limit?: number;
+  run_organizations_backfill?: boolean;
+  organizations_backfill_batch?: number;
   run_topic_extractor?: boolean;
   topic_batch?: number;
   max_runtime_ms?: number;
@@ -35,6 +42,13 @@ const DEFAULT_CONTROLS: Required<Controls> = {
   run_entity_quality: true,
   entity_quality_limit: 500,
   run_clean_text: true,
+  run_entity_backfill: true,
+  entity_backfill_batch: 400,
+  entity_backfill_concurrency: 24,
+  run_person_entity_extractor: true,
+  person_entity_limit: 10000,
+  run_organizations_backfill: true,
+  organizations_backfill_batch: 1000,
   run_topic_extractor: true,
   topic_batch: 40,
   max_runtime_ms: 145000,
@@ -118,6 +132,28 @@ Deno.serve(async (req) => {
     if (controls.run_clean_text !== false) {
       await runStep("clean_text", () => callFunction("clean-text-autopilot", {
         trigger: "database_quality_fast_lane",
+      }));
+    }
+
+    if (controls.run_entity_backfill !== false) {
+      await runStep("entity_backfill", () => callFunction("entity-backfill-runner", {
+        trigger: "database_quality_fast_lane",
+        batch: Math.max(1, Math.min(600, Number(controls.entity_backfill_batch || DEFAULT_CONTROLS.entity_backfill_batch))),
+        concurrency: Math.max(1, Math.min(48, Number(controls.entity_backfill_concurrency || DEFAULT_CONTROLS.entity_backfill_concurrency))),
+      }));
+    }
+
+    if (controls.run_person_entity_extractor !== false) {
+      await runStep("person_entity_extractor", () => callFunction("person-entity-extractor", {
+        trigger: "database_quality_fast_lane",
+        limit: Math.max(100, Math.min(20000, Number(controls.person_entity_limit || DEFAULT_CONTROLS.person_entity_limit))),
+      }));
+    }
+
+    if (controls.run_organizations_backfill !== false) {
+      await runStep("organizations_backfill", () => callFunction("organizations-backfill-runner", {
+        trigger: "database_quality_fast_lane",
+        batch: Math.max(50, Math.min(2000, Number(controls.organizations_backfill_batch || DEFAULT_CONTROLS.organizations_backfill_batch))),
       }));
     }
 

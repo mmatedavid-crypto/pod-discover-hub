@@ -221,13 +221,20 @@ Deno.serve(async (req) => {
         }
 
         if (orgId) {
+          const confidence = Math.max(0, Math.min(1, Number(item.confidence || 0.7)));
           mapRows.push({
             episode_id: ep.id,
             organization_id: orgId,
             podcast_id: ep.podcast_id,
             role: "mentioned",
-            confidence: 0.7,
-            source: "ai",
+            confidence,
+            source: item.source || "ai",
+            source_evidence: {
+              extraction_version: item.evidence ? 5 : 4,
+              evidence: item.evidence || null,
+              raw_name: rawName,
+              raw_type: item.type || null,
+            },
           });
         }
       }

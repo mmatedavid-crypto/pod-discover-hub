@@ -30,6 +30,9 @@ const functionChecks = [
   "entity-quality-apply-runner",
   "entity-quality-autopilot",
   "database-quality-fast-lane",
+  "entity-backfill-runner",
+  "person-entity-extractor",
+  "organizations-backfill-runner",
 ];
 
 let failures = 0;

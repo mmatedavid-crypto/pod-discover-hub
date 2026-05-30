@@ -27,6 +27,11 @@ function isLikelyFullName(name: string): boolean {
   if (parts.some(p => p.length < 2)) return false;
   return true;
 }
+function roleTypeForMention(mentionType: string): string {
+  if (["host", "guest", "interviewee", "speaker"].includes(mentionType)) return "participant";
+  if (mentionType === "subject") return "subject";
+  return "mention";
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -70,7 +75,15 @@ Deno.serve(async (req) => {
       name: string;
       slug: string;
       norm: string;
-      mentions: { episode_id: string; podcast_id: string; mention_type: string; confidence: number; source: string }[];
+      mentions: {
+        episode_id: string;
+        podcast_id: string;
+        mention_type: string;
+        confidence: number;
+        source: string;
+        evidence?: string | null;
+        source_evidence?: Record<string, unknown>;
+      }[];
       podcastRoles: Map<string, { role: string; count: number; latest: string | null; confidence: number }>;
       maxConfidence: number;
       latest: string | null;
@@ -110,7 +123,7 @@ Deno.serve(async (req) => {
     while (scanned < limit) {
       const { data: eps, error } = await supabase
         .from("episodes")
-        .select("id, podcast_id, title, ai_summary, description, people, mentioned, topics, published_at, podcasts!inner(id, language, is_hungarian, language_decision, hosts, title)")
+        .select("id, podcast_id, title, ai_summary, description, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, is_hungarian, language_decision, hosts, title)")
         .eq("podcasts.is_hungarian", true)
         .eq("podcasts.language_decision", "accept_hungarian")
         .order("published_at", { ascending: false, nullsFirst: false })
@@ -143,33 +156,62 @@ Deno.serve(async (req) => {
           agg.podcastRoles.set(pod.id, cur);
         }
 
-        // Guests / speakers: episodes.people, exclude hosts
-        for (const p of (e.people || [])) {
+        const evidencePeople = Array.isArray(e.entity_extraction_evidence?.person_mentions)
+          ? e.entity_extraction_evidence.person_mentions
+          : [];
+        const evidenceSpeakers = evidencePeople
+          .filter((p: any) => p?.role === "speaker")
+          .map((p: any) => p.name);
+        const evidenceMentioned = evidencePeople
+          .filter((p: any) => p?.role !== "speaker")
+          .map((p: any) => p.name);
+
+        // Guests / speakers: prefer v5 evidence-backed mentions, fall back to legacy episodes.people.
+        for (const p of (evidenceSpeakers.length ? evidenceSpeakers : (e.people || []))) {
           if (hostSet.has(normalize(p))) continue;
           const pid = getOrCreatePerson(p);
           if (!pid) continue;
           const inTitle = titleNorm.includes(normalize(p));
-          const conf = inTitle ? 0.9 : 0.8;
+          const evidence = evidencePeople.find((x: any) => normalize(x?.name || "") === normalize(p));
+          const conf = Math.max(Number(evidence?.confidence || 0), inTitle ? 0.9 : 0.8);
           const agg = personAgg.get(pid)!;
           agg.maxConfidence = Math.max(agg.maxConfidence, conf);
           if (e.published_at && (!agg.latest || e.published_at > agg.latest)) agg.latest = e.published_at;
-          agg.mentions.push({ episode_id: e.id, podcast_id: pod.id, mention_type: "guest", confidence: conf, source: inTitle ? "title" : "ai_summary" });
+          agg.mentions.push({
+            episode_id: e.id,
+            podcast_id: pod.id,
+            mention_type: "guest",
+            confidence: conf,
+            source: evidence?.source || (inTitle ? "title" : "ai_summary"),
+            evidence: evidence?.evidence || null,
+            source_evidence: evidence ? { extraction_version: 5, evidence: evidence.evidence, role: evidence.role } : {},
+          } as any);
           const cur = agg.podcastRoles.get(pod.id) || { role: "recurring_guest", count: 0, latest: null, confidence: conf };
           cur.count++;
           if (e.published_at && (!cur.latest || e.published_at > cur.latest)) cur.latest = e.published_at;
           agg.podcastRoles.set(pod.id, cur);
         }
 
-        // Mentioned (talked about, not speaking)
-        for (const m of (e.mentioned || [])) {
+        // Mentioned (talked about, not speaking): prefer v5 evidence-backed mentions.
+        for (const m of (evidenceMentioned.length ? evidenceMentioned : (e.mentioned || []))) {
           if (hostSet.has(normalize(m))) continue;
           const pid = getOrCreatePerson(m);
           if (!pid) continue;
-          const conf = 0.7;
+          const evidence = evidencePeople.find((x: any) => normalize(x?.name || "") === normalize(m));
+          const conf = Math.max(Number(evidence?.confidence || 0), evidence ? 0.72 : 0.7);
           const agg = personAgg.get(pid)!;
           agg.maxConfidence = Math.max(agg.maxConfidence, conf);
           if (e.published_at && (!agg.latest || e.published_at > agg.latest)) agg.latest = e.published_at;
-          agg.mentions.push({ episode_id: e.id, podcast_id: pod.id, mention_type: "mentioned", confidence: conf, source: "ai_summary" });
+          const mentionType = evidence?.role === "subject" ? "subject" : "mentioned";
+          agg.mentions.push({
+            episode_id: e.id,
+            podcast_id: pod.id,
+            mention_type: mentionType,
+            confidence: conf,
+            source: evidence?.source || "ai_summary",
+            evidence: evidence?.evidence || null,
+            source_evidence: evidence ? { extraction_version: 5, evidence: evidence.evidence, role: evidence.role } : {},
+          } as any);
           const cur = agg.podcastRoles.get(pod.id) || { role: "frequent_subject", count: 0, latest: null, confidence: conf };
           cur.count++;
           if (e.published_at && (!cur.latest || e.published_at > cur.latest)) cur.latest = e.published_at;
@@ -246,8 +288,15 @@ Deno.serve(async (req) => {
         latest_episode_at: agg.latest,
       });
       aliasRowsToInsert.push({ person_id: pid, alias: agg.name, normalized_alias: agg.norm, source: "episode_extraction", confidence: agg.maxConfidence });
-      for (const m of agg.mentions) {
-        mentionRows.push({ person_id: pid, ...m, evidence: null });
+      for (const m of agg.mentions as any[]) {
+        mentionRows.push({
+          person_id: pid,
+          ...m,
+          evidence: m.evidence || null,
+          role_type: roleTypeForMention(m.mention_type),
+          role_confidence: m.confidence,
+          source_evidence: m.source_evidence || {},
+        });
       }
       for (const [pod_id, r] of agg.podcastRoles) {
         podcastRoleRows.push({ person_id: pid, podcast_id: pod_id, role: r.role, confidence: r.confidence, episode_count: r.count, latest_episode_at: r.latest });

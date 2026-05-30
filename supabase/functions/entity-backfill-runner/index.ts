@@ -48,6 +48,21 @@ const ENTITY_TOOL = {
       properties: {
         people: { type: "array", items: { type: "string" }, description: "Up to 6 speakers (guests/interviewees). NOT hosts. Original-language full names." },
         mentioned: { type: "array", items: { type: "string" }, description: "Up to 6 people talked about but absent. Politicians default here." },
+        person_mentions: {
+          type: "array",
+          description: "Evidence-backed people. Prefer this over legacy people/mentioned arrays.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Original-language full person name, literally present in the input." },
+              role: { type: "string", enum: ["speaker", "subject", "mentioned"], description: "speaker only when metadata says the person appears/speaks." },
+              confidence: { type: "number", minimum: 0, maximum: 1 },
+              evidence: { type: "string", description: "Short exact phrase from title/description containing or directly supporting the name." },
+            },
+            required: ["name", "role", "confidence", "evidence"],
+            additionalProperties: false,
+          },
+        },
         organizations: {
           type: "array",
           description: "Up to 10 typed organizations.",
@@ -56,6 +71,8 @@ const ENTITY_TOOL = {
             properties: {
               name: { type: "string", description: "Canonical original-language name (e.g. 'Tisza Párt', 'Ferencváros', 'OTP Bank')." },
               type: { type: "string", enum: [...ORG_TYPES] as any, description: "Precise type from enum." },
+              confidence: { type: "number", minimum: 0, maximum: 1 },
+              evidence: { type: "string", description: "Short exact phrase from title/description containing or directly supporting the organization." },
             },
             required: ["name", "type"],
             additionalProperties: false,
@@ -70,7 +87,7 @@ const ENTITY_TOOL = {
   },
 };
 
-const SYSTEM = "You extract structured entities from podcast episode metadata. You ONLY include entities literally present in the input. Distinguish `people` (speakers) from `mentioned` (absent). Classify every organization with a precise `type`. Never include show hosts. Never include podcast/network/platform names. If unsure, return empty arrays. No invention.";
+const SYSTEM = "You extract structured entities from podcast episode metadata. You ONLY include entities literally present in the input. Every person/organization should have an evidence phrase from the input. Distinguish speakers from people merely discussed. Classify every organization with a precise `type`. Never include show hosts. Never include podcast/network/platform names, social platforms, podcast apps, footer links or sponsors only mentioned in credits. If unsure, return empty arrays. No invention.";
 
 
 const cleanArr = (a: any, max = 6): string[] => {
@@ -87,6 +104,70 @@ const cleanArr = (a: any, max = 6): string[] => {
   }
   return out;
 };
+
+const PLATFORM_OR_FOOTER_ORGS = new Set([
+  "apple", "apple podcast", "apple podcasts", "spotify", "youtube", "google podcasts",
+  "facebook", "instagram", "tiktok", "twitter", "x", "linkedin", "patreon", "paypal",
+  "gmail", "mailchimp", "rss", "podbean", "anchor", "substack",
+]);
+
+const SHORT_ORG_ALLOWLIST = new Set([
+  "dk", "lmp", "mnb", "nav", "mta", "bme", "elte", "ceu", "eu", "nato", "ensz",
+  "who", "nasa", "fifa", "mlsz", "otp", "mol", "mav", "máv", "rtl", "atv", "hvg",
+]);
+
+function normalizeForMatch(s: string): string {
+  return s
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function includesLiteral(haystack: string, needle: string): boolean {
+  const h = ` ${normalizeForMatch(haystack)} `;
+  const n = normalizeForMatch(needle);
+  return !!n && h.includes(` ${n} `);
+}
+
+function evidenceSnippet(text: string, name: string, provided?: string): string | null {
+  const cleanProvided = String(provided || "").replace(/\s+/g, " ").trim().slice(0, 260);
+  if (cleanProvided && (includesLiteral(cleanProvided, name) || includesLiteral(text, cleanProvided))) {
+    return cleanProvided;
+  }
+  const normText = normalizeForMatch(text);
+  const normName = normalizeForMatch(name);
+  const idx = normText.indexOf(normName);
+  if (idx < 0) return null;
+  const raw = text.replace(/\s+/g, " ").trim();
+  const approx = Math.max(0, Math.min(raw.length - 1, idx));
+  return raw.slice(Math.max(0, approx - 90), Math.min(raw.length, approx + name.length + 140)).trim();
+}
+
+function isLikelyFullName(name: string): boolean {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return false;
+  if (parts.some((p) => p.length < 2)) return false;
+  if (parts.some((p) => /^[a-záéíóöőúüű]+$/.test(p))) return false;
+  return true;
+}
+
+function isFooterContext(evidence: string): boolean {
+  return /\b(kövess|follow|iratkozz|subscribe|hallgass|listen|megtalálsz|link|facebook|instagram|spotify|apple podcasts?|youtube|tiktok)\b/i.test(evidence);
+}
+
+function shouldKeepOrganization(name: string, type: string, evidence: string | null, text: string): boolean {
+  const norm = normalizeForMatch(name);
+  if (!norm || !evidence) return false;
+  if (!includesLiteral(text, name)) return false;
+  if (PLATFORM_OR_FOOTER_ORGS.has(norm) && isFooterContext(evidence)) return false;
+  const compact = norm.replace(/\s+/g, "");
+  if (compact.length <= 2 && !SHORT_ORG_ALLOWLIST.has(compact)) return false;
+  if (compact.length <= 3 && type === "other" && !SHORT_ORG_ALLOWLIST.has(compact)) return false;
+  return true;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -153,8 +234,17 @@ Deno.serve(async (req) => {
             job_type: "entity_backfill", reason: skipReason, model,
             target_type: "episode", target_id: ep.id,
           });
-          // Mark as v4 so we don't keep retrying garbage descriptions.
-          await admin.from("episodes").update({ ai_entities_version: 4 }).eq("id", ep.id);
+          // Mark as v5 so we don't keep retrying garbage descriptions.
+          await admin.from("episodes").update({
+            ai_entities_version: 5,
+            entity_extraction_evidence: {
+              version: 5,
+              skipped: true,
+              skip_reason: skipReason,
+              source: "entity_backfill",
+              extracted_at: new Date().toISOString(),
+            },
+          }).eq("id", ep.id);
           succeeded++;
           return;
         }
@@ -162,7 +252,7 @@ Deno.serve(async (req) => {
         const hostLine = podHosts.length
           ? `Show hosts (DO NOT include any of these names in 'people' or 'mentioned'): ${podHosts.join(", ")}\n`
           : "";
-        const userPrompt = `${hostLine}Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract entities. people = speakers only; mentioned = talked-about but absent. organizations = ALL named orgs with precise type.`;
+        const userPrompt = `${hostLine}Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract only evidence-backed entities. people/person_mentions speaker = speakers only; mentioned = talked-about but absent. organizations = named orgs with precise type and evidence. Ignore footer/social/listen links.`;
         const aiRes = await callGeminiOpenAI({
           model,
           messages: [
@@ -185,21 +275,71 @@ Deno.serve(async (req) => {
         const parsed = args ? JSON.parse(args) : null;
         if (!parsed) throw new Error("no_tool_call");
 
-        const people = filterHosts(cleanArr(parsed.people), podHosts);
-        const mentioned = filterHosts(cleanArr(parsed.mentioned), podHosts);
+        const sourceText = `${ep.display_title || ep.title || ""}\n${desc}`;
+        const hostNorms = new Set(podHosts.map(normalizeForMatch));
+        const personEvidence: { name: string; role: string; confidence: number; evidence: string; source: string }[] = [];
+        const rawPersonMentions = Array.isArray(parsed.person_mentions) ? parsed.person_mentions : [];
+        if (rawPersonMentions.length) {
+          for (const item of rawPersonMentions) {
+            const name = String(item?.name || "").replace(/\s+/g, " ").trim().slice(0, 100);
+            if (!name || !isLikelyFullName(name)) continue;
+            if (hostNorms.has(normalizeForMatch(name))) continue;
+            if (!includesLiteral(sourceText, name)) continue;
+            const evidence = evidenceSnippet(sourceText, name, item?.evidence);
+            if (!evidence) continue;
+            const role = ["speaker", "subject", "mentioned"].includes(String(item?.role)) ? String(item.role) : "mentioned";
+            personEvidence.push({
+              name,
+              role,
+              confidence: Math.max(0, Math.min(1, Number(item?.confidence || (role === "speaker" ? 0.82 : 0.7)))),
+              evidence,
+              source: "entity_backfill_v5",
+            });
+          }
+        } else {
+          for (const name of filterHosts(cleanArr(parsed.people), podHosts)) {
+            if (!isLikelyFullName(name) || !includesLiteral(sourceText, name)) continue;
+            const evidence = evidenceSnippet(sourceText, name);
+            if (evidence) personEvidence.push({ name, role: "speaker", confidence: 0.8, evidence, source: "entity_backfill_v4_fallback" });
+          }
+          for (const name of filterHosts(cleanArr(parsed.mentioned), podHosts)) {
+            if (!isLikelyFullName(name) || !includesLiteral(sourceText, name)) continue;
+            const evidence = evidenceSnippet(sourceText, name);
+            if (evidence) personEvidence.push({ name, role: "mentioned", confidence: 0.68, evidence, source: "entity_backfill_v4_fallback" });
+          }
+        }
+
+        const seenPerson = new Set<string>();
+        const dedupedPeopleEvidence = personEvidence.filter((p) => {
+          const key = `${normalizeForMatch(p.name)}:${p.role}`;
+          if (seenPerson.has(key)) return false;
+          seenPerson.add(key);
+          return true;
+        }).slice(0, 12);
+
+        const people = dedupedPeopleEvidence.filter((p) => p.role === "speaker").map((p) => p.name).slice(0, 6);
+        const mentioned = dedupedPeopleEvidence.filter((p) => p.role !== "speaker").map((p) => p.name).slice(0, 6);
 
         // Typed organizations (new in v3). Normalize + dedupe by lowercase name.
         const rawOrgs = Array.isArray(parsed.organizations) ? parsed.organizations : [];
         const seenOrg = new Set<string>();
-        const organizations: { name: string; type: string }[] = [];
+        const organizations: { name: string; type: string; confidence: number; evidence: string; source: string }[] = [];
         for (const o of rawOrgs) {
           const name = String(o?.name || "").replace(/\s+/g, " ").trim().slice(0, 120);
           if (!name) continue;
           const k = name.toLowerCase();
           if (seenOrg.has(k)) continue;
           const type = ORG_TYPES.includes(o?.type) ? o.type : "other";
+          const evidence = evidenceSnippet(sourceText, name, o?.evidence);
+          if (!shouldKeepOrganization(name, type, evidence, sourceText)) continue;
           seenOrg.add(k);
-          organizations.push({ name, type });
+          organizations.push({
+            name,
+            type,
+            confidence: Math.max(0, Math.min(1, Number(o?.confidence || 0.72))),
+            evidence: evidence!,
+            source: "entity_backfill_v5",
+          });
           if (organizations.length >= 10) break;
         }
         // Backwards-compat: keep legacy flat `companies` array populated from org names.
@@ -210,7 +350,16 @@ Deno.serve(async (req) => {
 
         await admin.from("episodes").update({
           people, mentioned, companies, organizations, tickers, topics,
-          ai_entities_version: 4,
+          entity_extraction_evidence: {
+            version: 5,
+            source: "entity_backfill",
+            model,
+            extracted_at: new Date().toISOString(),
+            person_mentions: dedupedPeopleEvidence,
+            organizations,
+            rejected_policy: "literal_name_and_evidence_required",
+          },
+          ai_entities_version: 5,
         }).eq("id", ep.id);
 
         // Drop stale episode_organization_map rows for this episode — the
@@ -239,7 +388,7 @@ Deno.serve(async (req) => {
         .from("episodes")
         .select("id, title, display_title, description, ai_summary, podcast_id, clean_text_status, podcasts!inner(title, display_title, language, hosts), episode_clean_text(cleaned_text)")
         .not("ai_summary", "is", null)
-        .lt("ai_entities_version", 4)
+        .lt("ai_entities_version", 5)
         .eq("clean_text_status", "done")
         .eq("podcasts.is_hungarian", true)
         .limit(batch);

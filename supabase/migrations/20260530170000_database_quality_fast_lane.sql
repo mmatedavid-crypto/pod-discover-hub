@@ -9,6 +9,13 @@ VALUES (
     'run_entity_quality', true,
     'entity_quality_limit', 500,
     'run_clean_text', true,
+    'run_entity_backfill', true,
+    'entity_backfill_batch', 400,
+    'entity_backfill_concurrency', 24,
+    'run_person_entity_extractor', true,
+    'person_entity_limit', 10000,
+    'run_organizations_backfill', true,
+    'organizations_backfill_batch', 1000,
     'run_topic_extractor', true,
     'topic_batch', 40,
     'max_runtime_ms', 145000,
@@ -73,6 +80,23 @@ VALUES (
     'auto_stop_at_errors', 5,
     'consecutive_errors', 0,
     'note', 'Fast-lane clean text refresh. Promotes only changed candidates that pass quality gates; AI enrich is capped and hash-deduped.'
+  ),
+  now()
+)
+ON CONFLICT (key) DO UPDATE
+SET value = public.app_settings.value || EXCLUDED.value,
+    updated_at = now();
+
+INSERT INTO public.app_settings (key, value, updated_at)
+VALUES (
+  'entity_backfill_controls',
+  jsonb_build_object(
+    'enabled', true,
+    'model', 'google/gemini-2.5-flash-lite',
+    'daily_budget_usd', 5.0,
+    'entity_schema_version', 5,
+    'strict_evidence_required', true,
+    'note', 'Fast-lane entity extraction v5. Requires literal evidence for people/orgs; skips empty/short input; budget guarded by entity_backfill spend key.'
   ),
   now()
 )
