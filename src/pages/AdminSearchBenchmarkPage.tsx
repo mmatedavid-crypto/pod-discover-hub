@@ -193,12 +193,19 @@ export default function AdminSearchBenchmarkPage() {
   async function refreshGoldensFromCatalog() {
     setRefreshingGoldens(true);
     try {
-      const { data, error } = await (supabase as any).rpc("refresh_search_golden_queries_from_catalog", {
-        p_limit_per_type: 50,
-        p_popular_limit: 50,
-      });
-      if (error) throw error;
-      toast.success(`Golden set frissítve: ${data?.upserted ?? "?"} upsert`);
+      const [catalog, external] = await Promise.all([
+        (supabase as any).rpc("refresh_search_golden_queries_from_catalog", {
+          p_limit_per_type: 50,
+          p_popular_limit: 20,
+        }),
+        (supabase as any).rpc("refresh_search_golden_queries_from_external_demand", {
+          p_chart_limit: 100,
+          p_seed_limit: 80,
+        }),
+      ]);
+      if (catalog.error) throw catalog.error;
+      if (external.error) throw external.error;
+      toast.success(`Golden set frissítve: catalog ${catalog.data?.upserted ?? "?"}, external ${external.data?.upserted ?? "?"}`);
       await refreshAll();
     } catch (e: any) {
       toast.error(`Golden refresh failed: ${e?.message || e}`);
@@ -473,7 +480,7 @@ export default function AdminSearchBenchmarkPage() {
               disabled={running || refreshingGoldens}
               className="px-4 py-2 rounded-md border border-border text-sm disabled:opacity-50"
             >
-              {refreshingGoldens ? "Refreshing…" : "Refresh goldens from catalog"}
+              {refreshingGoldens ? "Refreshing…" : "Refresh demand goldens"}
             </button>
             <button
               onClick={runBenchmark}
