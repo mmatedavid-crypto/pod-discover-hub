@@ -8,9 +8,53 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useNoindex } from "@/lib/useNoindex";
 import { pct, scoreAuditEpisode, summarizeAudit, type AuditEpisode, type EpisodeAuditScore } from "@/lib/intelligenceAudit";
-import { Brain, RefreshCw, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, Brain, Database, Gauge, RefreshCw, Search, ShieldCheck, Sparkles } from "lucide-react";
 
 const SAMPLE_LIMIT = 80;
+
+type DataQualityTopEpisode = {
+  episode_id?: string;
+  podcast?: string;
+  title?: string;
+  rank_label?: string | null;
+  published_at?: string | null;
+  priority_score?: number;
+  issue_codes?: string[];
+  raw_length?: number;
+  clean_length?: number;
+  retention_ratio?: number | null;
+  entity_signal_count?: number;
+};
+
+type QualityIndicatorTopEpisode = {
+  episode_id?: string;
+  podcast?: string;
+  title?: string;
+  rank_label?: string | null;
+  podiverzum_rank?: number | null;
+  computed_episode_score?: number;
+  legacy_episode_rank?: number | null;
+  quality_priority_score?: number;
+  quality_issue_codes?: string[];
+  data_issue_codes?: string[];
+};
+
+type DataQualitySnapshot = {
+  generated_at?: string;
+  recent_days?: number;
+  eligible_hu_episodes?: number;
+  recent_eligible_hu_episodes?: number;
+  episodes_with_issues?: number;
+  recent_episodes_with_issues?: number;
+  episodes_with_quality_indicator_issues?: number;
+  recent_episodes_with_quality_indicator_issues?: number;
+  issue_counts?: Record<string, number>;
+  recent_issue_counts?: Record<string, number>;
+  quality_indicator_issue_counts?: Record<string, number>;
+  recent_quality_indicator_issue_counts?: Record<string, number>;
+  top_episodes?: DataQualityTopEpisode[];
+  top_quality_indicator_episodes?: QualityIndicatorTopEpisode[];
+};
 
 export default function AdminIntelligenceAuditPage() {
   useNoindex("Intelligence Audit — Admin");
@@ -22,11 +66,25 @@ export default function AdminIntelligenceAuditPage() {
   const [reprocessPlan, setReprocessPlan] = useState<{ candidate_count?: number; staged?: number; error?: string } | null>(null);
   const [candidateRun, setCandidateRun] = useState<{ processed?: number; passed?: number; rejected?: number; error?: string } | null>(null);
   const [promotionRun, setPromotionRun] = useState<{ scanned?: number; promoted?: number; unchanged?: number; error?: string } | null>(null);
+  const [snapshot, setSnapshot] = useState<DataQualitySnapshot | null>(null);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "bad" | "watch">("all");
 
   const load = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
+    setSnapshotError(null);
+    const snapshotRes = await supabase.rpc("get_data_quality_snapshot_v1" as never, {
+      _recent_days: 30,
+      _sample_limit: 12,
+    } as never);
+    if (snapshotRes.error) {
+      setSnapshot(null);
+      setSnapshotError(snapshotRes.error.message);
+    } else {
+      setSnapshot((snapshotRes.data || null) as DataQualitySnapshot | null);
+    }
+
     const { data, error } = await supabase
       .from("episodes")
       .select(
@@ -176,6 +234,8 @@ export default function AdminIntelligenceAuditPage() {
           <Stat label="No summary" value={summary.noSummary} tone={summary.noSummary ? "warn" : "ok"} />
         </section>
 
+        <SnapshotPanel snapshot={snapshot} error={snapshotError} />
+
         <Card className="p-4">
           <div className="flex items-center gap-2 flex-wrap">
             <Button size="sm" variant={filter === "all" ? "default" : "secondary"} onClick={() => setFilter("all")}>All</Button>
@@ -269,6 +329,155 @@ function Stat({
       <div className={`text-xl font-semibold mt-1 ${toneClass}`}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
     </div>
+  );
+}
+
+function SnapshotPanel({ snapshot, error }: { snapshot: DataQualitySnapshot | null; error: string | null }) {
+  if (error) {
+    return (
+      <Card className="p-4 border-amber-500/30 bg-amber-500/5">
+        <div className="flex items-center gap-2 text-sm font-medium text-amber-600">
+          <AlertTriangle className="h-4 w-4" />
+          DB quality snapshot unavailable
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {error}. The sample audit below still works; the full snapshot appears after the latest Supabase migration is deployed.
+        </div>
+      </Card>
+    );
+  }
+
+  if (!snapshot) {
+    return (
+      <Card className="p-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Database className="h-4 w-4" />
+          Loading DB-wide quality snapshot...
+        </div>
+      </Card>
+    );
+  }
+
+  const eligible = Number(snapshot.eligible_hu_episodes || 0);
+  const recentEligible = Number(snapshot.recent_eligible_hu_episodes || 0);
+  const issueTotal = Number(snapshot.episodes_with_issues || 0);
+  const recentIssueTotal = Number(snapshot.recent_episodes_with_issues || 0);
+  const qualityIssueTotal = Number(snapshot.episodes_with_quality_indicator_issues || 0);
+  const recentQualityIssueTotal = Number(snapshot.recent_episodes_with_quality_indicator_issues || 0);
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Database className="h-5 w-5 text-primary" />
+            DB-wide quality snapshot
+          </h2>
+          <div className="text-xs text-muted-foreground">
+            {snapshot.generated_at ? `Generated ${new Date(snapshot.generated_at).toLocaleString()}` : "Generated by Supabase RPC"}
+          </div>
+        </div>
+        <Badge variant="outline">Recent window: {snapshot.recent_days || 30}d</Badge>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        <Stat icon={Database} label="HU episodes" value={eligible} sub={`recent ${recentEligible}`} />
+        <Stat label="Data issues" value={pct(issueTotal, eligible)} sub={`${issueTotal}/${eligible}`} tone={issueTotal ? "warn" : "ok"} />
+        <Stat label="Recent data issues" value={pct(recentIssueTotal, recentEligible)} sub={`${recentIssueTotal}/${recentEligible}`} tone={recentIssueTotal ? "warn" : "ok"} />
+        <Stat icon={Gauge} label="Quality badge issues" value={pct(qualityIssueTotal, eligible)} sub={`${qualityIssueTotal}/${eligible}`} tone={qualityIssueTotal ? "bad" : "ok"} />
+        <Stat label="Recent badge issues" value={pct(recentQualityIssueTotal, recentEligible)} sub={`${recentQualityIssueTotal}/${recentEligible}`} tone={recentQualityIssueTotal ? "bad" : "ok"} />
+        <Stat label="Top repair rows" value={(snapshot.top_episodes || []).length + (snapshot.top_quality_indicator_episodes || []).length} />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-3">
+        <IssueCounts title="Data issue counts" counts={snapshot.issue_counts || {}} recentCounts={snapshot.recent_issue_counts || {}} />
+        <IssueCounts title="Quality indicator issue counts" counts={snapshot.quality_indicator_issue_counts || {}} recentCounts={snapshot.recent_quality_indicator_issue_counts || {}} />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-3">
+        <TopDataQualityRows rows={snapshot.top_episodes || []} />
+        <TopQualityIndicatorRows rows={snapshot.top_quality_indicator_episodes || []} />
+      </div>
+    </section>
+  );
+}
+
+function IssueCounts({ title, counts, recentCounts }: { title: string; counts: Record<string, number>; recentCounts: Record<string, number> }) {
+  const items = Object.entries(counts).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 10);
+  return (
+    <Card className="p-4">
+      <div className="text-sm font-medium">{title}</div>
+      {items.length === 0 ? (
+        <div className="mt-2 text-xs text-muted-foreground">No issues detected.</div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {items.map(([code, total]) => (
+            <div key={code} className="flex items-center justify-between gap-3 text-xs">
+              <span className="truncate font-mono text-muted-foreground">{code}</span>
+              <span className="tabular-nums whitespace-nowrap">{total} <span className="text-muted-foreground">/ recent {recentCounts[code] || 0}</span></span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function TopDataQualityRows({ rows }: { rows: DataQualityTopEpisode[] }) {
+  return (
+    <Card className="p-4">
+      <div className="text-sm font-medium">Highest-priority repair queue</div>
+      <div className="mt-3 space-y-3">
+        {rows.length === 0 ? <div className="text-xs text-muted-foreground">No repair rows.</div> : rows.map((row) => {
+          const keep = row.retention_ratio == null ? "-" : `${Math.round(Number(row.retention_ratio) * 100)}%`;
+          return (
+            <div key={row.episode_id || `${row.podcast}:${row.title}`} className="border-t border-border/60 pt-3 first:border-t-0 first:pt-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium line-clamp-1">{row.title || "Untitled episode"}</div>
+                  <div className="text-[11px] text-muted-foreground line-clamp-1">{row.podcast || "Unknown podcast"}</div>
+                </div>
+                <Badge variant="outline" className="shrink-0">P{row.priority_score ?? 0}</Badge>
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                raw {row.raw_length ?? 0} · clean {row.clean_length ?? 0} · keep {keep} · entities {row.entity_signal_count ?? 0}
+              </div>
+              <BadgeList values={row.issue_codes || []} empty="complete" />
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function TopQualityIndicatorRows({ rows }: { rows: QualityIndicatorTopEpisode[] }) {
+  return (
+    <Card className="p-4">
+      <div className="text-sm font-medium">Quality indicator queue</div>
+      <div className="mt-3 space-y-3">
+        {rows.length === 0 ? <div className="text-xs text-muted-foreground">No quality indicator issues.</div> : rows.map((row) => (
+          <div key={row.episode_id || `${row.podcast}:${row.title}`} className="border-t border-border/60 pt-3 first:border-t-0 first:pt-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-xs font-medium line-clamp-1">{row.title || "Untitled episode"}</div>
+                <div className="text-[11px] text-muted-foreground line-clamp-1">{row.podcast || "Unknown podcast"}</div>
+              </div>
+              <Badge variant="outline" className="shrink-0">P{row.quality_priority_score ?? 0}</Badge>
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              shown {Number(row.podiverzum_rank ?? 0).toFixed(1)} · computed ep {Math.round(Number(row.computed_episode_score ?? 0))} · legacy {row.legacy_episode_rank ?? "-"}
+            </div>
+            <BadgeList values={row.quality_issue_codes || []} empty="ok" />
+            {(row.data_issue_codes || []).length > 0 && (
+              <div className="mt-1">
+                <BadgeList values={row.data_issue_codes || []} empty="data ok" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
