@@ -6116,6 +6116,112 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_transcript_attempts: {
+        Row: {
+          attempted_at: string
+          cost_usd: number
+          episode_id: string
+          error_message: string | null
+          match_policy: string
+          match_score: number | null
+          podcast_id: string
+          status: string
+          transcript_chars: number | null
+          updated_at: string
+          youtube_video_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          cost_usd?: number
+          episode_id: string
+          error_message?: string | null
+          match_policy?: string
+          match_score?: number | null
+          podcast_id: string
+          status: string
+          transcript_chars?: number | null
+          updated_at?: string
+          youtube_video_id: string
+        }
+        Update: {
+          attempted_at?: string
+          cost_usd?: number
+          episode_id?: string
+          error_message?: string | null
+          match_policy?: string
+          match_score?: number | null
+          podcast_id?: string
+          status?: string
+          transcript_chars?: number | null
+          updated_at?: string
+          youtube_video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "youtube_transcript_attempts_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "youtube_transcript_attempts_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "youtube_transcript_attempts_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "youtube_transcript_attempts_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "youtube_transcript_attempts_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "youtube_transcript_attempts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "youtube_transcript_attempts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "youtube_transcript_attempts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "youtube_transcript_attempts_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
     }
     Views: {
       mv_homepage_evergreen: {
