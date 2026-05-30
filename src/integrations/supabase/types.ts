@@ -6272,6 +6272,29 @@ export type Database = {
         }
         Relationships: []
       }
+      v_entity_quality_issues: {
+        Row: {
+          ai_review_score: number | null
+          ai_review_status: string | null
+          distinct_podcast_count: number | null
+          entity_id: string | null
+          entity_kind: string | null
+          entity_type: string | null
+          episode_count: number | null
+          is_browsable_in_hub: boolean | null
+          is_indexable: boolean | null
+          is_public: boolean | null
+          issue_codes: string[] | null
+          may_require_ai: boolean | null
+          mention_count: number | null
+          name: string | null
+          priority_score: number | null
+          repair_action: string | null
+          safety_policy: string | null
+          slug: string | null
+        }
+        Relationships: []
+      }
       v_episode_data_quality_issues: {
         Row: {
           clean_length: number | null
