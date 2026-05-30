@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Building2, Hash, Users } from "lucide-react";
 import type { EntityCount } from "@/lib/aggregateEntities";
-import type { EntityKind } from "@/lib/entity";
+import { entityHref } from "@/lib/entity";
 
 type Lane = {
   title: string;
@@ -10,21 +10,13 @@ type Lane = {
   items: EntityCount[];
 };
 
-const HREF: Record<EntityKind, string> = {
-  topic: "tema",
-  person: "szemelyek",
-  company: "ceg",
-  ticker: "ticker",
-  ingredient: "ingredient",
-};
-
 function EntityPill({ item }: { item: EntityCount }) {
   const label = item.value
     ? item.value.charAt(0).toLocaleUpperCase("hu-HU") + item.value.slice(1)
     : item.value;
   return (
     <Link
-      to={`/${HREF[item.kind]}/${encodeURIComponent(item.slug)}`}
+      to={entityHref(item.kind, item.value)}
       className="group flex min-w-0 w-full items-center justify-between gap-2 rounded-lg border border-border/70 bg-card/70 px-3 py-2 text-sm transition-colors hover:border-primary/50 hover:bg-card"
     >
       <span className="truncate font-medium group-hover:text-foreground">{label}</span>

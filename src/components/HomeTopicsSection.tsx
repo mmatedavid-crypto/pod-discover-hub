@@ -10,7 +10,7 @@ const PRIORITY = [
   { slug: "egeszseges-eletmod", name: "Egészséges életmód" },
   { slug: "film", name: "Film" },
   { slug: "tortenelem", name: "Történelem" },
-  { slug: "foci", name: "Foci" },
+  { slug: "labdarugas", name: "Labdarúgás" },
   { slug: "vallalkozas", name: "Vállalkozás" },
   { slug: "true-crime", name: "True crime" },
   { slug: "parkapcsolat", name: "Párkapcsolat" },

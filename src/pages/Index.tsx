@@ -120,6 +120,23 @@ function avoidAdjacentSamePodcast<T>(items: T[]): T[] {
   }
   return out;
 }
+
+function diversifyByPodcast<T>(items: T[], take: number, perPodcastCap = 2): T[] {
+  const counts = new Map<string, number>();
+  const primary: T[] = [];
+  const overflow: T[] = [];
+  for (const item of items) {
+    const key = podcastKey(item);
+    const n = counts.get(key) || 0;
+    if (n < perPodcastCap) {
+      counts.set(key, n + 1);
+      primary.push(item);
+    } else {
+      overflow.push(item);
+    }
+  }
+  return avoidAdjacentSamePodcast([...primary, ...overflow]).slice(0, take);
+}
 import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
@@ -397,10 +414,10 @@ const Index = () => {
           Object.entries(homepageRails.categories || {}).forEach(([category, rows]) => {
             categories[category] = avoidAdjacentSamePodcast((rows || []).map(mapRow)).slice(0, 6);
           });
-          setTrendingEps(avoidAdjacentSamePodcast(trending).slice(0, 8));
+          setTrendingEps(diversifyByPodcast(trending, 8, 2));
           setAllEps(Object.values(categories).flat() as FeedEpisode[]);
           setCategoryRailEps(categories);
-          setEvergreenEps(avoidAdjacentSamePodcast(evergreen).slice(0, 6));
+          setEvergreenEps(diversifyByPodcast(evergreen, 6, 1));
         }
 
         // Trending entities source (last 14 days, EN-only, healthy podcasts)
@@ -661,7 +678,7 @@ const Index = () => {
                 merged.push(e);
               }
             }
-            return merged.slice(0, 6);
+            return diversifyByPodcast(merged, 6, 2);
           };
           const populated = cats
             .filter((c: any) => c.slug !== "trending" && itemsForCat(c).length > 0)

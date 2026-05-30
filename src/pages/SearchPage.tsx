@@ -622,7 +622,7 @@ export default function SearchPage() {
           <div className="mt-8">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-2">Legjobb téma találat</div>
             <Link
-              to={`/tema/${heroTopic.slug}`}
+              to={`/temak/${heroTopic.slug}`}
               className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
             >
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-muted shrink-0 border border-border/60 flex items-center justify-center">

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Hash, Users, Building2 } from "lucide-react";
 import type { EntityCount } from "@/lib/aggregateEntities";
-import type { EntityKind } from "@/lib/entity";
+import { entityHref } from "@/lib/entity";
 
 type Props = {
   eyebrow: string;
@@ -25,14 +25,6 @@ const KIND_LABEL: Record<string, string> = {
   ingredient: "hozzávaló",
 };
 
-const HREF: Record<EntityKind, string> = {
-  topic: "tema",
-  person: "szemelyek",
-  company: "ceg",
-  ticker: "ticker",
-  ingredient: "ingredient",
-};
-
 export function TrendingEntities({ eyebrow, title, subtitle, items, icon = "topic" }: Props) {
   if (!items.length) return null;
   const Icon = ICONS[icon];
@@ -49,7 +41,7 @@ export function TrendingEntities({ eyebrow, title, subtitle, items, icon = "topi
         {items.map((it) => (
           <Link
             key={`${it.kind}-${it.slug}`}
-            to={`/${HREF[it.kind]}/${encodeURIComponent(it.slug)}`}
+            to={entityHref(it.kind, it.value)}
             className="group relative rounded-xl border border-border/70 bg-card/60 hover:bg-card hover:border-primary/40 p-3 transition-colors flex items-center justify-between gap-2 min-w-0"
           >
             <div className="min-w-0">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Hash, Users, Building2 } from "lucide-react";
 import type { EntityCount } from "@/lib/aggregateEntities";
+import { entityHref } from "@/lib/entity";
 
 type Group = {
   key: "topic" | "person" | "company";
@@ -10,11 +11,6 @@ type Group = {
 };
 
 const ICONS = { topic: Hash, person: Users, company: Building2 };
-const HREF: Record<string, string> = {
-  topic: "tema",
-  person: "szemelyek",
-  company: "ceg",
-};
 
 export function PodcastEntitiesCompact({
   people,
@@ -69,7 +65,7 @@ export function PodcastEntitiesCompact({
         {visible.map((it) => (
           <Link
             key={`${it.kind}-${it.slug}`}
-            to={`/${HREF[it.kind]}/${encodeURIComponent(it.slug)}`}
+            to={entityHref(it.kind, it.value)}
             className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/60 px-2.5 py-1 text-xs hover:border-primary/40 hover:text-primary transition-colors max-w-full"
           >
             <span className="truncate">
