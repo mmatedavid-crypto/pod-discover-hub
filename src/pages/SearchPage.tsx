@@ -24,6 +24,16 @@ const EXAMPLES = [
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
+function withSearchTimeout<T>(promise: Promise<T>, timeoutMs = 9500): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("search_timeout")), timeoutMs);
+    promise.then(
+      (value) => { window.clearTimeout(timer); resolve(value); },
+      (error) => { window.clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 function scorePodcast(p: any, terms: string[], fullPhrase: string): number {
   let s = 0;
   const title = (p.title || "").toLowerCase();
@@ -157,9 +167,9 @@ export default function SearchPage() {
       // pattern (rerank:false → rerank:true) caused result flicker and surfaced
       // weak results above better final ones — explicitly disallowed by policy.
       try {
-        const phase1 = await supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: true, lang: "hu" },
-        });
+        const phase1 = await withSearchTimeout(supabase.functions.invoke("search-hybrid", {
+          body: { q: initial, limit: 80, rerank: true, lang: "hu", latency_mode: "public", soft_budget_ms: 8500 },
+        }));
         if (phase1.error) throw phase1.error;
         if (cancelled) return;
         const r1 = applyHybridResponse(phase1.data);

@@ -272,9 +272,10 @@ async function embedRaw(q: string): Promise<number[] | null> {
     return v && v.length === 768 ? v : null;
   } catch (e) { console.warn("embed err", e); return null; }
 }
-// Quality-first: give the embedding call enough time to complete on cold paths.
-// A missing embedding silently degrades to lexical-only — that's the noisiest mode.
-const embed = (q: string) => withTimeout(embedRaw(q), 3500, "embed");
+// Public search must return well under the platform/client timeout. A missing
+// embedding degrades to lexical-only; cached embeddings still keep the high
+// quality path hot for common queries.
+const embed = (q: string, timeoutMs = 2200) => withTimeout(embedRaw(q), timeoutMs, "embed");
 
 async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string[]; why: Record<string, string> } | null> {
   if (items.length < 5) return null;
@@ -333,9 +334,7 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
     return { ids, why };
   } catch (e) { console.warn("rerank err", e); return null; }
 }
-// Quality-first: allow the reranker the time it needs. A 2-4s search with
-// correct ordering beats a 500ms search with the wrong top result.
-const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 9000, "rerank");
+const rerank = (q: string, items: any[], timeoutMs = 3000) => withTimeout(rerankWithReasons(q, items), timeoutMs, "rerank");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -395,6 +394,14 @@ Deno.serve(async (req) => {
 
     const supa = supaPre;
     const t0 = Date.now();
+    const latencyMode = String(body.latency_mode || "public").toLowerCase();
+    const softBudgetMs = latencyMode === "quality"
+      ? Math.max(9000, Math.min(14500, Number(body.soft_budget_ms || 13500)))
+      : Math.max(5500, Math.min(10500, Number(body.soft_budget_ms || 8500)));
+    const elapsed = () => Date.now() - t0;
+    const hasBudget = (reserveMs = 1000) => elapsed() < softBudgetMs - reserveMs;
+    let degradedForLatency = false;
+    const markLatencyDegrade = () => { degradedForLatency = true; };
     let qNorm = normalizeQ(q);
 
     // Stopword + gibberish gate.
@@ -587,8 +594,8 @@ Deno.serve(async (req) => {
     // 2) Parallel: understanding + embedding + curated synonyms
     // Bot path: skip LLM understanding and embedding entirely. Pure lexical search.
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : (isBot ? Promise.resolve(null) : understandQuery(q, 2500)),
-      q_embedding ? Promise.resolve(q_embedding) : (isBot ? Promise.resolve(null) : embed(q)),
+      understanding ? Promise.resolve(understanding) : (isBot ? Promise.resolve(null) : understandQuery(q, hasBudget(6500) ? 1800 : 900)),
+      q_embedding ? Promise.resolve(q_embedding) : (isBot ? Promise.resolve(null) : embed(q, hasBudget(6500) ? 2200 : 1200)),
       loadCuratedSynonyms(supa, qNorm),
     ]);
     understanding = u as Understanding;
@@ -743,7 +750,8 @@ Deno.serve(async (req) => {
         }
         q = rewritten;
         qNorm = normalizeQ(rewritten);
-        const newEmb = await embed(rewritten);
+        const newEmb = hasBudget(5000) ? await embed(rewritten, 1200) : null;
+        if (!newEmb) markLatencyDegrade();
         if (newEmb) q_embedding = newEmb;
         const newGateTokens = tokenizeForRareGate(rewritten, false);
         try {
@@ -803,7 +811,7 @@ Deno.serve(async (req) => {
       // person/topic entities at this budget.
       const resolved = await withTimeout(
         supa.rpc("resolve_query_entities", { p_q: q, p_max: 6, p_threshold: 0.45 }).then((r: any) => r.data),
-        1500, "resolve_query_entities",
+        hasBudget(6500) ? 1000 : 450, "resolve_query_entities",
       );
       if (Array.isArray(resolved)) resolvedEntities = resolved as any;
     }
@@ -834,6 +842,7 @@ Deno.serve(async (req) => {
     if (
       FF.hyde &&
       q_embedding &&
+      hasBudget(5000) &&
       (intent === "topic" || intent === "question" || intent === "") &&
       !isTickerQ &&
       qNorm.split(/\s+/).filter(Boolean).length >= 3
@@ -846,6 +855,8 @@ Deno.serve(async (req) => {
           hydeCacheHit = hyde.cache_hit;
         }
       } catch (e) { console.warn("hyde err", e); }
+    } else if (FF.hyde && q_embedding && !hasBudget(5000)) {
+      markLatencyDegrade();
     }
 
     // Lexical query
@@ -906,7 +917,7 @@ Deno.serve(async (req) => {
     };
 
     // Pass 2 — drop phrase requirement
-    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && phrasePool.length) {
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && phrasePool.length && hasBudget(3500)) {
       const noPhraseTerms = requiredTerms.filter((t) => !phrasePool.includes(t));
       if (noPhraseTerms.length !== requiredTerms.length) {
         const retry = await supa.rpc("search_episodes_hybrid", {
@@ -925,7 +936,7 @@ Deno.serve(async (req) => {
     }
 
     // Pass 3 — relaxed gate
-    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied) {
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && hasBudget(3000)) {
       const strictTerms = requiredTerms.filter((t) => t.includes(" ") && !phrasePool.includes(t));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
       if ((relaxedTerms?.join("|") || "") !== requiredTerms.join("|")) {
@@ -945,7 +956,7 @@ Deno.serve(async (req) => {
     }
 
     // Pass 4 — drop gate
-    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0) {
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0 && hasBudget(2500)) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
@@ -964,7 +975,7 @@ Deno.serve(async (req) => {
     let sectorFallback = false;
     let sectorHint: string | null = null;
     let fallbackKind: "ticker" | "person" | "company" | null = null;
-    if (FF.entityPyramid && strictRows.length === 0) {
+    if (FF.entityPyramid && strictRows.length === 0 && hasBudget(3500)) {
       let entityName: string | null = null;
       let contextTerms: string | null = null;
 
@@ -990,7 +1001,7 @@ Deno.serve(async (req) => {
 
       if (entityName && contextTerms) {
         const sectorQText = `${entityName} ${contextTerms}`.trim();
-        const sectorEmb = await embed(sectorQText);
+        const sectorEmb = await embed(sectorQText, 1200);
         if (sectorEmb) {
           const retry3 = await supa.rpc("search_episodes_hybrid", {
             q: entityName,
@@ -1008,6 +1019,8 @@ Deno.serve(async (req) => {
           }
         }
       }
+    } else if (FF.entityPyramid && strictRows.length === 0) {
+      markLatencyDegrade();
     }
 
     // Known-item podcast pin (P0 — strict podcast-title intent)
@@ -1100,7 +1113,7 @@ Deno.serve(async (req) => {
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc, total_ms: Date.now() - t0 }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens, degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -1126,7 +1139,8 @@ Deno.serve(async (req) => {
       FF.cohere &&
       ordered.length >= 10 &&
       (confidenceBand === "high" || confidenceBand === "medium") &&
-      !sectorFallback
+      !sectorFallback &&
+      hasBudget(3500)
     ) {
       const candidates: CohereRerankInput[] = ordered.slice(0, 30).map((e: any) => ({
         id: e.id,
@@ -1143,6 +1157,8 @@ Deno.serve(async (req) => {
         const tail = ordered.filter((e: any) => !rank.has(e.id));
         ordered = [...head, ...tail];
       }
+    } else if (FF.cohere && ordered.length >= 10 && !hasBudget(3500)) {
+      markLatencyDegrade();
     }
 
     // Gemini reranker fallback
@@ -1157,14 +1173,16 @@ Deno.serve(async (req) => {
           rerankCacheHit = true;
         }
       }
-      if (!rerankResult) {
-        rerankResult = await rerank(q, ordered);
+      if (!rerankResult && hasBudget(2500)) {
+        rerankResult = await rerank(q, ordered, Math.max(1200, Math.min(3000, softBudgetMs - elapsed() - 800)));
         if (rerankResult && rerankResult.ids.length) {
           supa.from("search_query_cache").update({
             rerank: { ids: rerankResult.ids, why: rerankResult.why, __rv: RANKING_VERSION },
             rerank_updated_at: new Date().toISOString(),
           }).eq("q_norm", qNorm).then(() => {}, (e) => console.warn("rerank cache write", e));
         }
+      } else if (!rerankResult) {
+        markLatencyDegrade();
       }
     }
     const tRerank = Date.now() - t0 - tEmb - tRpc;
@@ -1356,6 +1374,8 @@ Deno.serve(async (req) => {
         hyde_used: hydeUsed,
         hyde_cache_hit: hydeCacheHit,
         chunk_augmented: chunkAugmented || undefined,
+        degraded_for_latency: degradedForLatency,
+        soft_budget_ms: softBudgetMs,
         engine: `v${engN}`,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
