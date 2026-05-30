@@ -107,6 +107,11 @@ const snapshot = await supabase.rpc("get_data_quality_snapshot_v1", {
   _recent_days: 30,
   _sample_limit: snapshotLimit,
 });
+const repairPlan = await supabase.rpc("get_data_repair_plan_v1", {
+  _limit: snapshotLimit,
+  _recent_days: 90,
+  _include_ai: false,
+});
 
 if (!snapshot.error && snapshot.data) {
   const s = snapshot.data;
@@ -158,6 +163,24 @@ if (!snapshot.error && snapshot.data) {
     console.log(`  podiverzum=${item.podiverzum_rank} computed_episode=${item.computed_episode_score} legacy_episode=${item.legacy_episode_rank}`);
     console.log(`  quality_issues=${Array.isArray(item.quality_issue_codes) ? item.quality_issue_codes.join(",") : "-"}`);
     console.log(`  data_issues=${Array.isArray(item.data_issue_codes) ? item.data_issue_codes.join(",") : "-"}`);
+  }
+  if (!repairPlan.error && repairPlan.data) {
+    const plan = repairPlan.data;
+    console.log("");
+    console.log("No-cost data repair plan:");
+    console.log(`Eligible actions: ${plan.eligible_repair_actions || 0}; planned: ${plan.planned_repair_actions || 0}; include_ai=${plan.include_ai}`);
+    for (const [action, total] of Object.entries(plan.planned_action_counts || {}).sort((a, b) => Number(b[1]) - Number(a[1]))) {
+      console.log(`- ${action}: ${total}`);
+    }
+    console.log("");
+    console.log("Top planned repair actions:");
+    for (const item of plan.items || []) {
+      console.log(`- #${item.rank} [${item.repair_action}] ${item.podcast} — ${item.title}`);
+      console.log(`  score=${item.priority_score} ai=${item.may_require_ai ? "yes" : "no"} policy=${item.safety_policy}`);
+      console.log(`  issues=${Array.isArray(item.issue_codes) ? item.issue_codes.join(",") : "-"}`);
+    }
+  } else if (repairPlan.error) {
+    console.warn(`Repair plan RPC unavailable: ${repairPlan.error.message}`);
   }
   process.exit(0);
 }

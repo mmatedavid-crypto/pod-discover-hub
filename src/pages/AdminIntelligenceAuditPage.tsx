@@ -56,6 +56,36 @@ type DataQualitySnapshot = {
   top_quality_indicator_episodes?: QualityIndicatorTopEpisode[];
 };
 
+type RepairPlanItem = {
+  rank?: number;
+  episode_id?: string;
+  podcast?: string;
+  title?: string;
+  rank_label?: string | null;
+  podiverzum_rank?: number | null;
+  published_at?: string | null;
+  repair_action?: string;
+  issue_codes?: string[];
+  may_require_ai?: boolean;
+  safety_policy?: string;
+  priority_score?: number;
+};
+
+type DataRepairPlan = {
+  generated_at?: string;
+  dry_run?: boolean;
+  limit?: number;
+  recent_days?: number;
+  include_ai?: boolean;
+  eligible_repair_actions?: number;
+  planned_repair_actions?: number;
+  action_counts?: Record<string, number>;
+  planned_action_counts?: Record<string, number>;
+  ai_counts?: Record<string, number>;
+  items?: RepairPlanItem[];
+  next_safe_steps?: string[];
+};
+
 export default function AdminIntelligenceAuditPage() {
   useNoindex("Intelligence Audit — Admin");
   const { loading: adminLoading, isAdmin } = useAdminAccess();
@@ -68,21 +98,37 @@ export default function AdminIntelligenceAuditPage() {
   const [promotionRun, setPromotionRun] = useState<{ scanned?: number; promoted?: number; unchanged?: number; error?: string } | null>(null);
   const [snapshot, setSnapshot] = useState<DataQualitySnapshot | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [repairPlan, setRepairPlan] = useState<DataRepairPlan | null>(null);
+  const [repairPlanError, setRepairPlanError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "bad" | "watch">("all");
 
   const load = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
     setSnapshotError(null);
-    const snapshotRes = await supabase.rpc("get_data_quality_snapshot_v1" as never, {
-      _recent_days: 30,
-      _sample_limit: 12,
-    } as never);
+    setRepairPlanError(null);
+    const [snapshotRes, repairPlanRes] = await Promise.all([
+      supabase.rpc("get_data_quality_snapshot_v1" as never, {
+        _recent_days: 30,
+        _sample_limit: 12,
+      } as never),
+      supabase.rpc("get_data_repair_plan_v1" as never, {
+        _limit: 30,
+        _recent_days: 90,
+        _include_ai: false,
+      } as never),
+    ]);
     if (snapshotRes.error) {
       setSnapshot(null);
       setSnapshotError(snapshotRes.error.message);
     } else {
       setSnapshot((snapshotRes.data || null) as DataQualitySnapshot | null);
+    }
+    if (repairPlanRes.error) {
+      setRepairPlan(null);
+      setRepairPlanError(repairPlanRes.error.message);
+    } else {
+      setRepairPlan((repairPlanRes.data || null) as DataRepairPlan | null);
     }
 
     const { data, error } = await supabase
@@ -235,6 +281,7 @@ export default function AdminIntelligenceAuditPage() {
         </section>
 
         <SnapshotPanel snapshot={snapshot} error={snapshotError} />
+        <RepairPlanPanel plan={repairPlan} error={repairPlanError} />
 
         <Card className="p-4">
           <div className="flex items-center gap-2 flex-wrap">
@@ -402,6 +449,103 @@ function SnapshotPanel({ snapshot, error }: { snapshot: DataQualitySnapshot | nu
   );
 }
 
+function RepairPlanPanel({ plan, error }: { plan: DataRepairPlan | null; error: string | null }) {
+  if (error) {
+    return (
+      <Card className="p-4 border-amber-500/30 bg-amber-500/5">
+        <div className="flex items-center gap-2 text-sm font-medium text-amber-600">
+          <AlertTriangle className="h-4 w-4" />
+          Data repair plan unavailable
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {error}. The planner appears after the latest Supabase migration is deployed.
+        </div>
+      </Card>
+    );
+  }
+
+  if (!plan) {
+    return (
+      <Card className="p-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <ShieldCheck className="h-4 w-4" />
+          Loading dry-run repair plan...
+        </div>
+      </Card>
+    );
+  }
+
+  const items = plan.items || [];
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            Dry-run data repair plan
+          </h2>
+          <div className="text-xs text-muted-foreground">
+            No mutation, no AI spend. Recent window: {plan.recent_days || 90}d. AI included: {plan.include_ai ? "yes" : "no"}.
+          </div>
+        </div>
+        <Badge variant={plan.dry_run === false ? "destructive" : "outline"}>{plan.dry_run === false ? "apply mode" : "dry-run"}</Badge>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+        <Stat label="Eligible actions" value={plan.eligible_repair_actions || 0} />
+        <Stat label="Planned actions" value={plan.planned_repair_actions || 0} />
+        <Stat label="No-AI actions" value={plan.ai_counts?.false || 0} tone="ok" />
+        <Stat label="AI actions" value={plan.ai_counts?.true || 0} tone={plan.ai_counts?.true ? "warn" : "ok"} />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-3 mt-4">
+        <IssueCounts title="Planned action counts" counts={plan.planned_action_counts || {}} recentCounts={{}} />
+        <Card className="p-4">
+          <div className="text-sm font-medium">Safe sequence</div>
+          <div className="mt-3 space-y-2">
+            {(plan.next_safe_steps || []).map((step) => (
+              <div key={step} className="text-xs text-muted-foreground">{step}</div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-xs">
+          <thead className="bg-secondary text-muted-foreground">
+            <tr>
+              <th className="text-left px-3 py-2">Action</th>
+              <th className="text-left px-3 py-2">Episode</th>
+              <th className="text-left px-3 py-2">Issues</th>
+              <th className="text-left px-3 py-2">Policy</th>
+              <th className="text-right px-3 py-2">Priority</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr><td colSpan={5} className="px-3 py-4 text-muted-foreground">No planned repair actions.</td></tr>
+            ) : items.slice(0, 30).map((item) => (
+              <tr key={`${item.rank}:${item.episode_id}:${item.repair_action}`} className="border-t border-border/60">
+                <td className="px-3 py-2 min-w-[170px]">
+                  <div className="font-mono text-[11px]">{item.repair_action || "repair"}</div>
+                  <div className="text-muted-foreground">{item.may_require_ai ? "AI gated" : "no AI"}</div>
+                </td>
+                <td className="px-3 py-2 min-w-[260px]">
+                  <div className="font-medium line-clamp-1">{item.title || "Untitled episode"}</div>
+                  <div className="text-muted-foreground line-clamp-1">{item.podcast || "Unknown podcast"}</div>
+                </td>
+                <td className="px-3 py-2 min-w-[220px]"><BadgeList values={item.issue_codes || []} empty="-" /></td>
+                <td className="px-3 py-2 min-w-[240px] text-muted-foreground">{item.safety_policy || "-"}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{item.priority_score ?? 0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
 function IssueCounts({ title, counts, recentCounts }: { title: string; counts: Record<string, number>; recentCounts: Record<string, number> }) {
   const items = Object.entries(counts).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 10);
   return (
@@ -414,7 +558,10 @@ function IssueCounts({ title, counts, recentCounts }: { title: string; counts: R
           {items.map(([code, total]) => (
             <div key={code} className="flex items-center justify-between gap-3 text-xs">
               <span className="truncate font-mono text-muted-foreground">{code}</span>
-              <span className="tabular-nums whitespace-nowrap">{total} <span className="text-muted-foreground">/ recent {recentCounts[code] || 0}</span></span>
+              <span className="tabular-nums whitespace-nowrap">
+                {total}
+                {Object.keys(recentCounts).length > 0 && <span className="text-muted-foreground"> / recent {recentCounts[code] || 0}</span>}
+              </span>
             </div>
           ))}
         </div>
