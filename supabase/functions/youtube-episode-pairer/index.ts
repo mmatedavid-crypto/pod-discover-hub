@@ -186,9 +186,9 @@ function evaluatePair(ep: any, scored: Array<{ item: any; score: number }>, idx:
   const candidate = scored[idx];
   const item = candidate.item;
   const videoId = item.contentDetails?.videoId || item.snippet?.resourceId?.videoId || item.id;
-  const ytTitle = item.snippet?.title || "";
-  const ytDesc = item.snippet?.description || "";
-  const ytPublished = item.snippet?.publishedAt || item.contentDetails?.videoPublishedAt || null;
+  const ytTitle = item.videoDetails?.snippet?.title || item.snippet?.title || "";
+  const ytDesc = item.videoDetails?.snippet?.description || item.snippet?.description || "";
+  const ytPublished = item.videoDetails?.snippet?.publishedAt || item.snippet?.publishedAt || item.contentDetails?.videoPublishedAt || null;
   const ytDuration = parseIsoDurationSeconds(item.videoDetails?.contentDetails?.duration);
   const ytViews = Number(item.videoDetails?.statistics?.viewCount || 0) || null;
   const second = idx === 0 ? scored[1] : scored[0];
@@ -252,9 +252,9 @@ async function aiValidatePair(model: string, ep: any, evaluated: any): Promise<b
     podcast_episode_title: ep.title,
     podcast_episode_description_excerpt: String(ep.description || "").slice(0, 500),
     podcast_published_at: ep.published_at,
-    youtube_title: item.snippet?.title || "",
-    youtube_description_excerpt: String(item.snippet?.description || "").slice(0, 700),
-    youtube_published_at: item.snippet?.publishedAt || null,
+    youtube_title: item.videoDetails?.snippet?.title || item.snippet?.title || "",
+    youtube_description_excerpt: String(item.videoDetails?.snippet?.description || item.snippet?.description || "").slice(0, 700),
+    youtube_published_at: item.videoDetails?.snippet?.publishedAt || item.snippet?.publishedAt || null,
     evidence: evaluated.evidence,
   });
   const ai = await callLovableAI({
@@ -403,9 +403,9 @@ Deno.serve(async (req) => {
               podcast_id: pod.id,
               youtube_video_id: videoId,
               youtube_channel_id: pod.youtube_channel_id,
-              youtube_title: s.item.snippet?.title,
-              youtube_description: (s.item.snippet?.description || "").slice(0, 1000),
-              youtube_published_at: s.item.snippet?.publishedAt,
+              youtube_title: s.item.videoDetails?.snippet?.title || s.item.snippet?.title,
+              youtube_description: (s.item.videoDetails?.snippet?.description || s.item.snippet?.description || "").slice(0, 5000),
+              youtube_published_at: s.item.videoDetails?.snippet?.publishedAt || s.item.snippet?.publishedAt,
               youtube_duration_seconds: s.ytDuration,
               youtube_view_count: s.ytViews,
               match_score: s.finalScore,
