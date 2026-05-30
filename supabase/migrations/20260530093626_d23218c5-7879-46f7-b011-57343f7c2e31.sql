@@ -1,0 +1,1 @@
+ALTER ROLE readonly_codex WITH PASSWORD 'HKiayIWDSILU0ijUmvutl1uL5sz0Ml7en9ZZlKy4';
