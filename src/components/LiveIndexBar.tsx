@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { categoryLabel } from "@/lib/categoryLabels";
 
 type Item = {
   id: string;
@@ -93,6 +94,7 @@ export default function LiveIndexBar() {
           {loop.map((it, i) => {
             const epTitle = it.display_title || it.title;
             const podTitle = it.podcasts!.display_title || it.podcasts!.title;
+            const displayCategory = categoryLabel(it.podcasts!.category);
             return (
               <li key={`${it.id}-${i}`} className="shrink-0 flex items-center gap-2">
                 <span className="h-1 w-1 rounded-full bg-primary/70 shrink-0" aria-hidden />
@@ -104,8 +106,8 @@ export default function LiveIndexBar() {
                     {podTitle}
                   </span>
                   <span className="opacity-60">— {epTitle}</span>
-                  {it.podcasts!.category && (
-                    <span className="hidden md:inline opacity-50">· {it.podcasts!.category}</span>
+                  {displayCategory && (
+                    <span className="hidden md:inline opacity-50">· {displayCategory}</span>
                   )}
                 </Link>
               </li>

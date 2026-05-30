@@ -9,6 +9,7 @@ import { EpisodeMarks } from "./EpisodeMarks";
 import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
+import { categoryLabel } from "@/lib/categoryLabels";
 
 export type EpisodeLite = {
   id: string;
@@ -63,6 +64,7 @@ export function EpisodeCard({
   const podTitle = p.display_title || p.title;
   const desc = snippet(e.ai_summary || e.summary || e.description, 220, terms);
   const understanding = getEpisodeUnderstanding(e);
+  const categoryName = categoryLabel(p.category);
   const { play } = useSmartPlayer();
   const playable = detectAudioSource({ audio_url: e.audio_url });
   const playerAudioUrl = playable?.url || e.audio_url || null;
@@ -104,8 +106,8 @@ export function EpisodeCard({
         </Link>
         <div className="text-xs text-muted-foreground mt-1.5 flex flex-wrap gap-x-2 gap-y-1 items-center">
           <Link to={`/podcast/${p.slug}`} className="hover:text-foreground font-medium">{podTitle}</Link>
-          {p.category && <span className="opacity-60">·</span>}
-          {p.category && <span>{p.category}</span>}
+          {categoryName && <span className="opacity-60">·</span>}
+          {categoryName && <span>{categoryName}</span>}
           {e.published_at && (() => {
             const fr = freshnessOf(e.published_at);
             return (
@@ -220,6 +222,7 @@ function EpisodeRailCard({
   const podTitle = p.display_title || p.title;
   const desc = snippet(e.ai_summary || e.summary || e.description, 170, terms);
   const understanding = getEpisodeUnderstanding(e);
+  const categoryName = categoryLabel(p.category);
   const { play } = useSmartPlayer();
   const playable = detectAudioSource({ audio_url: e.audio_url });
   const playerAudioUrl = playable?.url || e.audio_url || null;
@@ -284,10 +287,10 @@ function EpisodeRailCard({
           <HL text={epTitle} terms={terms} />
         </Link>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-          {p.category && <span>{p.category}</span>}
+          {categoryName && <span>{categoryName}</span>}
           {e.published_at && (
             <>
-              {p.category && <span className="opacity-60">·</span>}
+              {categoryName && <span className="opacity-60">·</span>}
               <span title={new Date(e.published_at).toLocaleString()}>{relativeTime(e.published_at)}</span>
             </>
           )}

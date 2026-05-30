@@ -14,7 +14,7 @@ import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { PodcastEntitiesCompact } from "@/components/PodcastEntitiesCompact";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
-import { slugify } from "@/lib/slug";
+import { categoryHref, categoryLabel } from "@/lib/categoryLabels";
 import { PodcastFollow } from "@/components/PodcastFollow";
 import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
@@ -131,12 +131,13 @@ export default function PodcastDetail() {
           ? `Házigazda: ${hostNamesForSeo.slice(0, 3).join(", ")}${hostNamesForSeo.length > 3 ? "…" : ""}. `
           : "";
         const baseDesc = data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
+        const seoCategory = categoryLabel(data.category) || data.category;
         setSeo({
           title: data.seo_title || `${data.title} – Podiverzum`,
           description: snippet(hostPrefix + baseDesc, 160),
           canonical,
           noindex: data.rss_status === "failed" || data.rss_status === "inactive",
-          image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: data.category || "Podcast", image: data.image_url }),
+          image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: seoCategory || "Podcast", image: data.image_url }),
           jsonLd: [
             {
               "@context": "https://schema.org",
@@ -153,7 +154,7 @@ export default function PodcastDetail() {
             },
             breadcrumbJsonLd([
               { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-              ...(data.category ? [{ name: data.category, url: typeof window !== "undefined" ? `${window.location.origin}/category/${slugify(data.category as string)}` : `/category/${data.category}` }] : []),
+              ...(data.category ? [{ name: seoCategory || data.category, url: typeof window !== "undefined" ? `${window.location.origin}${categoryHref(data.category)}` : categoryHref(data.category) }] : []),
               { name: data.display_title || data.title, url: typeof window !== "undefined" ? window.location.href : "" },
             ]),
           ],
@@ -169,6 +170,7 @@ export default function PodcastDetail() {
   const healthState = (p.shadow_rank_components as any)?.health_state;
   const isHealthy = !healthState || healthState === "healthy" || healthState === "recovered_rss_url";
   const lastFresh = p.last_fetched_at ? relativeTime(p.last_fetched_at) : null;
+  const displayCategory = categoryLabel(p.category);
 
   return (
     <Layout>
@@ -178,9 +180,9 @@ export default function PodcastDetail() {
             <PodcastCover title={p.display_title || p.title} src={p.image_url} size="lg" />
           </div>
           <div className="min-w-0">
-            {p.category && (
-              <Link to={`/category/${slugify(p.category)}`} className="text-xs uppercase tracking-wide text-accent">
-                {p.category}
+            {displayCategory && (
+              <Link to={categoryHref(p.category)} className="text-xs uppercase tracking-wide text-accent">
+                {displayCategory}
               </Link>
             )}
             <h1 className="text-3xl font-semibold mt-1">{p.display_title || p.title}</h1>

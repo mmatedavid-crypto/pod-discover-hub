@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Apple, Music, Youtube, Globe } from "lucide-react";
 import { PodcastCover } from "./PodcastCover";
 import { snippet } from "@/lib/text";
+import { categoryLabel } from "@/lib/categoryLabels";
 
 export type PodcastLite = {
   id: string;
@@ -22,6 +23,7 @@ export type PodcastLite = {
 export function PodcastCard({ p }: { p: PodcastLite }) {
   const desc = snippet(p.seo_description || p.summary || p.description, 160);
   const title = p.display_title || p.title;
+  const displayCategory = categoryLabel(p.category);
   return (
     <article className="group flex gap-3 p-3 sm:p-4 rounded-xl border border-border/70 bg-card/70 card-lift hover:border-primary/40">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-20">
@@ -31,7 +33,7 @@ export function PodcastCard({ p }: { p: PodcastLite }) {
         <Link to={`/podcast/${p.slug}`} className="font-medium leading-snug line-clamp-2 group-hover:underline">
           {title}
         </Link>
-        {p.category && <div className="text-xs text-muted-foreground mt-0.5">{p.category}</div>}
+        {displayCategory && <div className="text-xs text-muted-foreground mt-0.5">{displayCategory}</div>}
         {desc && <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{desc}</p>}
         <div className="flex gap-2 mt-2 text-muted-foreground">
           {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" aria-label="Apple Podcasts" className="hover:text-foreground"><Apple className="h-4 w-4" /></a>}

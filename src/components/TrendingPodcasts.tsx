@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PodcastCover } from "./PodcastCover";
 import { Apple, ArrowRight, Music, Trophy, Youtube } from "lucide-react";
 import { snippet } from "@/lib/text";
+import { categoryLabel } from "@/lib/categoryLabels";
 
 type TrendingRow = {
   id: string;
@@ -55,6 +56,7 @@ export function TrendingPodcasts() {
           const title = p.display_title || p.title;
           const desc = snippet(p.summary || p.description, 92);
           const lead = index === 0;
+          const displayCategory = categoryLabel(p.category);
           return (
             <Link
               key={p.id}
@@ -88,8 +90,8 @@ export function TrendingPodcasts() {
                     );
                   })}
                 </div>
-                {p.category && (
-                  <div className="mt-2 text-[11px] text-muted-foreground/80 line-clamp-1">{p.category}</div>
+                {displayCategory && (
+                  <div className="mt-2 text-[11px] text-muted-foreground/80 line-clamp-1">{displayCategory}</div>
                 )}
               </div>
             </Link>
