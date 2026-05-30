@@ -904,6 +904,13 @@ export type Database = {
             referencedRelation: "mv_homepage_feed"
             referencedColumns: ["episode_id"]
           },
+          {
+            foreignKeyName: "eac_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
         ]
       }
       episode_category_overrides: {
@@ -973,6 +980,13 @@ export type Database = {
             columns: ["episode_id"]
             isOneToOne: false
             referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "eco_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
             referencedColumns: ["episode_id"]
           },
         ]
@@ -1171,6 +1185,13 @@ export type Database = {
             referencedRelation: "mv_homepage_feed"
             referencedColumns: ["episode_id"]
           },
+          {
+            foreignKeyName: "episode_extracted_topics_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
         ]
       }
       episode_organization_map: {
@@ -1343,6 +1364,13 @@ export type Database = {
             referencedColumns: ["episode_id"]
           },
           {
+            foreignKeyName: "episode_topic_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
             foreignKeyName: "episode_topic_map_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
@@ -1417,6 +1445,13 @@ export type Database = {
             columns: ["episode_id"]
             isOneToOne: false
             referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "etrr_episode_fk"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
             referencedColumns: ["episode_id"]
           },
           {
@@ -3121,6 +3156,13 @@ export type Database = {
             columns: ["episode_id"]
             isOneToOne: false
             referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
             referencedColumns: ["episode_id"]
           },
           {
@@ -6093,6 +6135,60 @@ export type Database = {
         }
         Relationships: []
       }
+      v_episode_data_quality_issues: {
+        Row: {
+          clean_length: number | null
+          clean_source_hash: string | null
+          clean_updated_at: string | null
+          cleaner_method: string | null
+          display_title: string | null
+          embedding_updated_at: string | null
+          entity_signal_count: number | null
+          episode_id: string | null
+          issue_codes: string[] | null
+          issue_count: number | null
+          podcast_display_title: string | null
+          podcast_id: string | null
+          podcast_title: string | null
+          podiverzum_rank: number | null
+          priority_score: number | null
+          published_at: string | null
+          rank_label: string | null
+          raw_length: number | null
+          retention_ratio: number | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episodes_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       v_hu_archive_completeness: {
         Row: {
           episode_count: number | null
@@ -6515,6 +6611,10 @@ export type Database = {
         }[]
       }
       get_cron_health: { Args: never; Returns: Json }
+      get_data_quality_snapshot_v1: {
+        Args: { _recent_days?: number; _sample_limit?: number }
+        Returns: Json
+      }
       get_homepage_rails_v1: {
         Args: {
           _category_limit?: number
