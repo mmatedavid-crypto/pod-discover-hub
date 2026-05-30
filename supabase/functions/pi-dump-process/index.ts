@@ -39,6 +39,19 @@ function scoreRow(r: any, maxAge: number) {
   return { score: Math.max(1, Math.min(10, Math.round(s))), reasons, ageDays };
 }
 
+function initialPublicRank(candidateRank: number) {
+  // Staging/import score is operational priority only; it must never create A/S public quality.
+  const n = Number(candidateRank);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(4.5, n));
+}
+
+function initialRankLabel(score: number) {
+  if (score >= 4) return "C";
+  if (score >= 2.5) return "D";
+  return "E";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -151,7 +164,7 @@ Deno.serve(async (req) => {
               if (!dup) break;
               slug = `${slugBase}-${a + 1}`;
             }
-            // Phase 4a: do NOT write legacy rank_label at INSERT. Leave NULL so Formula C v3 / stage4-persist assigns S/A/B/C/D/E.
+            const publicRank = initialPublicRank(score);
             const { data: inserted, error: insErr } = await supabase.from("podcasts").insert({
               title: r.title || "Untitled",
               slug,
@@ -162,8 +175,16 @@ Deno.serve(async (req) => {
               language: r.language || (aiLang && aiLang !== "mul" ? aiLang : null),
               source: importSourceMap[r.import_id] || "pi_dump",
               rss_status: "not_checked",
-              podiverzum_rank: score,
-              rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
+              podiverzum_rank: publicRank,
+              rank_label: initialRankLabel(publicRank),
+              rank_reason: {
+                formula: "import_public_rank_v1",
+                source: importSourceMap[r.import_id] || "pi_dump",
+                candidate_rank: score,
+                candidate_rank_reason: { factors: reasons, source: importSourceMap[r.import_id] || "pi_dump" },
+                note: "Staging/import score is import priority only; HU_v1/editorial quality must promote this podcast.",
+              },
+              rank_updated_at: new Date().toISOString(),
               deep_hydration_status: "not_started",
               deep_hydration_target: score >= 8 ? 100 : score >= 6 ? 75 : 40,
               ...gate.fields,

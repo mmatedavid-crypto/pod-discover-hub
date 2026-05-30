@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
 
     const { data: rows, error: selErr } = await supabase
       .from("podcasts")
-      .select("id, title, language, rss_status, hydrated_episode_count, podiverzum_rank, rank_label, rank_updated_at, shadow_rank, shadow_rank_tier, shadow_rank_components, shadow_computed_at")
+      .select("id, title, language, rss_status, hydrated_episode_count, podiverzum_rank, rank_label, rank_reason, rank_updated_at, shadow_rank, shadow_rank_tier, shadow_rank_components, shadow_computed_at")
       .in("id", targetIds);
     if (selErr) throw selErr;
 
@@ -212,11 +212,18 @@ Deno.serve(async (req) => {
         ? { ...(p.shadow_rank_components as Record<string, unknown>) } : {};
       const healthState = (typeof prevComp.health_state === "string" && prevComp.health_state)
         ? prevComp.health_state as string : "healthy";
-      const newComp = {
+      const newComp: Record<string, unknown> = {
         ...prevComp, formula: "C_v3", source: "formula-c-runner-v1", health_state: healthState,
         base_tier: baseTier,
         freshness_demotion: gate.demoted ? gate.reason || "demoted" : null,
       };
+      const liveRankReason = (p.rank_reason && typeof p.rank_reason === "object")
+        ? p.rank_reason as Record<string, unknown> : {};
+      const canApplyLive = liveRankReason.formula === "HU_v1"
+        || liveRankReason.source === "editorial"
+        || liveRankReason.source === "manual"
+        || liveRankReason.source === "admin"
+        || !!(prevComp as Record<string, unknown>).hu_v1;
 
       if (dry) {
         results.push({ id: p.id, title: p.title, podiverzum_rank: score, action, base_tier: baseTier, new_tier: tier, freshness_demotion: gate.demoted ? gate.reason : null, dry_run: true });
@@ -232,7 +239,7 @@ Deno.serve(async (req) => {
         shadow_rank_components: newComp,
         shadow_computed_at: nowIso,
       };
-      if (applyToLive) {
+      if (applyToLive && canApplyLive) {
         updatePayload.rank_label = tier;
         updatePayload.rank_updated_at = nowIso;
         updatePayload.rank_reason = {
@@ -240,6 +247,8 @@ Deno.serve(async (req) => {
           podiverzum_rank: score, base_tier: baseTier,
           freshness_demotion: gate.demoted ? gate.reason || "demoted" : null,
         };
+      } else if (applyToLive && !canApplyLive) {
+        newComp.live_apply_skipped = "legacy_or_import_rank_not_public_quality";
       }
       // NOTE: podiverzum_rank is never written by this runner (input, not output).
       const { error: updErr } = await supabase.from("podcasts").update(updatePayload).eq("id", p.id);

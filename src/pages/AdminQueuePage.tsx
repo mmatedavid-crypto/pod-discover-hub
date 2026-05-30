@@ -315,7 +315,7 @@ export default function AdminQueuePage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-medium truncate">{it.title}</div>
-                    <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">Rank {it.candidate_rank}</span>
+                    <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">Import priority {it.candidate_rank}</span>
                     {it.language && <span className="text-xs text-muted-foreground">{it.language}</span>}
                     {it.category && <span className="text-xs text-muted-foreground">· {it.category}</span>}
                   </div>

@@ -13,6 +13,19 @@ function slugify(s: string) {
   return slugifyShared(s, "podcast");
 }
 
+function initialPublicRank(candidateRank: number) {
+  // candidate_rank is operational import priority only; it must never create A/S public quality.
+  const n = Number(candidateRank);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(4.5, n));
+}
+
+function initialRankLabel(score: number) {
+  if (score >= 4) return "C";
+  if (score >= 2.5) return "D";
+  return "E";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -100,6 +113,7 @@ Deno.serve(async (req) => {
         await setQueueFail({ import_status: "failed", import_error: reason, status: "rejected" });
         failed++; results.push({ ...base, status: "failed", reason }); continue;
       }
+      const publicRank = initialPublicRank(item.candidate_rank);
       const { data: inserted, error: insErr } = await admin.from("podcasts").insert({
         title: item.title, slug,
         description: item.description, rss_url: item.rss_url,
@@ -107,8 +121,16 @@ Deno.serve(async (req) => {
         language: item.language || "en", category: item.category,
         source: "queue_bulk_import",
         rss_status: "not_checked",
-        podiverzum_rank: item.candidate_rank,
-        rank_reason: item.rank_reason,
+        podiverzum_rank: publicRank,
+        rank_label: initialRankLabel(publicRank),
+        rank_reason: {
+          formula: "import_public_rank_v1",
+          source: "queue_bulk_import",
+          candidate_rank: item.candidate_rank,
+          candidate_rank_reason: item.rank_reason || null,
+          note: "candidate_rank is import priority only; HU_v1/editorial quality must promote this podcast.",
+        },
+        rank_updated_at: stamp,
         ...gate.fields,
       }).select("*").single();
       if (inserted && gate.result.language_decision === "review_uncertain") {

@@ -26,6 +26,19 @@ function lightCap(rank: number) {
   return 15;
 }
 
+function initialPublicRank(candidateRank: number) {
+  // candidate_rank is operational import priority only; it must never create A/S public quality.
+  const n = Number(candidateRank);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(4.5, n));
+}
+
+function initialRankLabel(score: number) {
+  if (score >= 4) return "C";
+  if (score >= 2.5) return "D";
+  return "E";
+}
+
 async function importOne(admin: any, item: any) {
   const stamp = new Date().toISOString();
   const setQueue = (patch: any) =>
@@ -53,7 +66,7 @@ async function importOne(admin: any, item: any) {
     slug = `${slugify(item.title)}-${a + 1}`;
   }
 
-  // Phase 4a: do NOT write legacy rank_label at INSERT. Leave NULL so Formula C v3 / stage4-persist assigns S/A/B/C/D/E.
+  const publicRank = initialPublicRank(item.candidate_rank);
   const { data: inserted, error: insErr } = await admin.from("podcasts").insert({
     title: item.title, slug,
     description: item.description, rss_url: item.rss_url,
@@ -61,8 +74,16 @@ async function importOne(admin: any, item: any) {
     language: item.language || "en", category: item.category,
     source: "queue_drainer",
     rss_status: "not_checked",
-    podiverzum_rank: item.candidate_rank,
-    rank_reason: item.rank_reason,
+    podiverzum_rank: publicRank,
+    rank_label: initialRankLabel(publicRank),
+    rank_reason: {
+      formula: "import_public_rank_v1",
+      source: "queue_drainer",
+      candidate_rank: item.candidate_rank,
+      candidate_rank_reason: item.rank_reason || null,
+      note: "candidate_rank is import priority only; HU_v1/editorial quality must promote this podcast.",
+    },
+    rank_updated_at: stamp,
   }).select("*").single();
 
   if (insErr || !inserted) {

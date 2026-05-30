@@ -42,6 +42,19 @@ function scoreCandidate(p: any, settings: any) {
   return { score: final, reasons };
 }
 
+function initialPublicRank(candidateRank: number) {
+  // Discovery score is import priority only; it must never create A/S public quality.
+  const n = Number(candidateRank);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(4.5, n));
+}
+
+function initialRankLabel(score: number) {
+  if (score >= 4) return "C";
+  if (score >= 2.5) return "D";
+  return "E";
+}
+
 async function piSearch(term: string, apiKey: string, apiSecret: string, max: number, errorsOut: any[]) {
   const date = Math.floor(Date.now() / 1000).toString();
   const auth = await sha1Hex(apiKey + apiSecret + date);
@@ -243,9 +256,7 @@ Deno.serve(async (req) => {
             attempt++;
             slug = `${slugBase}-${attempt}`;
           }
-          // NOTE: New rows get an initial seed rank only. Live Formula C v3 ranking
-          // is computed by the dedicated pipeline elsewhere; we do NOT call the
-          // legacy recompute-ranks function from here.
+          const publicRank = initialPublicRank(score);
           const { data: inserted, error: insErr } = await supabase.from("podcasts").insert({
             title: c.title,
             slug,
@@ -257,9 +268,15 @@ Deno.serve(async (req) => {
             category: c._cat,
             source: "discovery_auto",
             rss_status: "not_checked",
-            podiverzum_rank: score,
-            rank_label: score >= 8 ? "A" : score >= 6 ? "B" : "C",
-            rank_reason: { factors: reasons, source: "discovery_seed" },
+            podiverzum_rank: publicRank,
+            rank_label: initialRankLabel(publicRank),
+            rank_reason: {
+              formula: "import_public_rank_v1",
+              source: "discovery_auto",
+              candidate_rank: score,
+              candidate_rank_reason: { factors: reasons, source: "discovery_seed" },
+              note: "Discovery score is import priority only; HU_v1/editorial quality must promote this podcast.",
+            },
             rank_updated_at: new Date().toISOString(),
           }).select("id").maybeSingle();
           if (!insErr && inserted) {
