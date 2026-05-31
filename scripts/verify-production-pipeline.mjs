@@ -30,6 +30,7 @@ clean_counts AS (
 best_source_counts AS (
   SELECT
     count(*) AS total,
+    count(*) FILTER (WHERE b.source_type = 'article') AS article,
     count(*) FILTER (WHERE b.source_type = 'youtube') AS youtube,
     count(*) FILTER (WHERE b.source_type = 'rss') AS rss,
     count(*) FILTER (WHERE b.source_type = 'spotify') AS spotify
@@ -50,6 +51,8 @@ settings AS (
   WHERE key IN (
     'clean_text_autopilot',
     'episode_clean_text_candidate_progress',
+    'episode_article_pairer_controls',
+    'episode_article_pairer_progress',
     'episode_best_text_source_controls',
     'episode_best_text_source_progress'
   )
@@ -76,6 +79,8 @@ controls AS (
       'runtime_ms', setting_values->'episode_clean_text_candidate_progress'->'runtime_ms',
       'last_run_at', setting_values->'episode_clean_text_candidate_progress'->'last_run_at'
     ),
+    'episode_article_pairer_controls', setting_values->'episode_article_pairer_controls',
+    'episode_article_pairer_progress', setting_values->'episode_article_pairer_progress',
     'episode_best_text_source_controls', setting_values->'episode_best_text_source_controls',
     'episode_best_text_source_progress', setting_values->'episode_best_text_source_progress'
   ) AS summary
@@ -98,6 +103,19 @@ SELECT jsonb_build_object(
     'text_processing_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'text_processing_policy'),
     'legacy_embed_episode_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'),
     'embed_chunks_returns_clean_text', COALESCE((SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%' FROM rpc_shapes), false)
+  ),
+  'article_pipeline', jsonb_build_object(
+    'table_exists', to_regclass('public.episode_article_candidates') IS NOT NULL,
+    'best_source_accepts_article', EXISTS (
+      SELECT 1
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      WHERE n.nspname = 'public'
+        AND t.relname = 'episode_best_text_source'
+        AND c.conname = 'episode_best_text_source_source_type_check'
+        AND pg_get_constraintdef(c.oid) ILIKE '%article%'
+    )
   ),
   'accepted_hu_episodes_with_description', (SELECT count(*) FROM accepted_hu),
   'clean_text', (SELECT to_jsonb(clean_counts) FROM clean_counts),
@@ -123,6 +141,22 @@ function runReadonlyQuery(query) {
 
 const result = runReadonlyQuery(sql);
 const snapshot = JSON.parse(result.rows?.[0]?.snapshot ?? "{}");
+if (snapshot.article_pipeline?.table_exists === true) {
+  try {
+    const articleResult = runReadonlyQuery(`
+      SELECT jsonb_build_object(
+        'total', count(*),
+        'confirmed', count(*) FILTER (WHERE status = 'confirmed'),
+        'needs_review', count(*) FILTER (WHERE status = 'needs_review'),
+        'rejected', count(*) FILTER (WHERE status = 'rejected')
+      ) AS counts
+      FROM public.episode_article_candidates;
+    `);
+    snapshot.article_candidates = JSON.parse(articleResult.rows?.[0]?.counts ?? "{}");
+  } catch (e) {
+    snapshot.article_candidates = { error: e instanceof Error ? e.message : String(e) };
+  }
+}
 const gates = snapshot.migration_gates ?? {};
 const failures = [];
 

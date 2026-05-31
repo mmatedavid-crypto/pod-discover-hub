@@ -30,10 +30,12 @@ function textQuality(text: string): { score: number; dirty: string[]; len: numbe
   return { score: Math.max(0, lengthScore - dirty.length * 0.12), dirty, len };
 }
 
-function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, ctrl: any) {
+function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, article: any | null, ctrl: any) {
   const gain = Number(ctrl.prefer_external_gain_chars ?? 150);
+  const articleGain = Number(ctrl.article_prefer_gain_chars ?? 300);
   const ytMin = Number(ctrl.youtube_min_confidence ?? 0.78);
   const spMin = Number(ctrl.spotify_min_confidence ?? 0.55);
+  const articleMin = Number(ctrl.article_min_confidence ?? 0.82);
   const rssText = String(ep.description || "").trim();
   const rssQ = textQuality(rssText);
   const candidates: any[] = [];
@@ -47,6 +49,36 @@ function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, ctrl
       reasons: ["rss_description"],
       quality: rssQ,
       evidence: { rss_len: rssQ.len, dirty: rssQ.dirty },
+    });
+  }
+
+  const articleText = String(article?.article_text || article?.article_excerpt || "").trim();
+  const articleScore = Number(article?.match_score || 0);
+  const articleQ = textQuality(articleText);
+  if (
+    articleText
+    && article?.status === "confirmed"
+    && articleScore >= articleMin
+    && (articleQ.len >= rssQ.len + articleGain || rssQ.len < 220)
+  ) {
+    candidates.push({
+      source_type: "article",
+      source_ref_id: article.id,
+      raw_text: articleText,
+      source_confidence: Math.min(0.97, 0.64 + articleScore * 0.25 + articleQ.score * 0.08),
+      reasons: ["confirmed_publisher_article_longer_or_rss_short"],
+      quality: articleQ,
+      evidence: {
+        article_match_score: articleScore,
+        article_url: article.article_url,
+        article_title: article.article_title,
+        article_len: articleQ.len,
+        rss_len: rssQ.len,
+        outlet: article.outlet,
+        match_reasons: article.match_reasons || [],
+        article_evidence: article.evidence || {},
+        dirty: articleQ.dirty,
+      },
     });
   }
 
@@ -203,6 +235,7 @@ Deno.serve(async (req) => {
     const epIds = eps.map((e) => e.id);
     const spotifyByEp = new Map<string, any>();
     const youtubeByEp = new Map<string, any>();
+    const articleByEp = new Map<string, any>();
 
     for (let i = 0; i < epIds.length; i += 500) {
       const slice = epIds.slice(i, i + 500);
@@ -234,12 +267,35 @@ Deno.serve(async (req) => {
           youtubeByEp.set(row.episode_id, row);
         }
       }
+
+      const { data: articleRows } = await admin
+        .from("episode_article_candidates")
+        .select("id,episode_id,outlet,article_url,article_title,article_excerpt,article_text,match_score,status,match_reasons,evidence")
+        .in("episode_id", slice)
+        .eq("status", "confirmed")
+        .order("match_score", { ascending: false });
+      for (const row of articleRows || []) {
+        const prev = articleByEp.get(row.episode_id);
+        const currentScore = Number(row.match_score || 0);
+        const prevScore = Number(prev?.match_score || 0);
+        const currentLen = String(row.article_text || row.article_excerpt || "").length;
+        const prevLen = String(prev?.article_text || prev?.article_excerpt || "").length;
+        if (!prev || currentScore > prevScore || (currentScore === prevScore && currentLen > prevLen)) {
+          articleByEp.set(row.episode_id, row);
+        }
+      }
     }
 
     const rows: any[] = [];
     const sourceCounts: Record<string, number> = {};
     for (const ep of eps) {
-      const best = pickBest(ep, spotifyByEp.get(ep.id) || null, youtubeByEp.get(ep.id) || null, ctrl);
+      const best = pickBest(
+        ep,
+        spotifyByEp.get(ep.id) || null,
+        youtubeByEp.get(ep.id) || null,
+        articleByEp.get(ep.id) || null,
+        ctrl,
+      );
       if (!best) continue;
       const cleaned = heuristicClean(best.raw_text).text.trim();
       rows.push({

@@ -20,6 +20,8 @@ type Controls = {
   run_entity_quality?: boolean;
   entity_quality_limit?: number;
   run_youtube_pairer?: boolean;
+  run_article_pairer?: boolean;
+  article_pairer_limit?: number;
   run_best_text_source?: boolean;
   best_text_source_limit?: number;
   run_clean_text?: boolean;
@@ -45,6 +47,8 @@ const DEFAULT_CONTROLS: Required<Controls> = {
   run_entity_quality: true,
   entity_quality_limit: 500,
   run_youtube_pairer: false,
+  run_article_pairer: true,
+  article_pairer_limit: 120,
   run_best_text_source: true,
   best_text_source_limit: 1000,
   run_clean_text: true,
@@ -145,6 +149,13 @@ Deno.serve(async (req) => {
     if (controls.run_youtube_pairer === true) {
       await runStep("youtube_pairer", () => callFunction("youtube-episode-pairer", {
         trigger: "database_quality_fast_lane",
+      }));
+    }
+
+    if (controls.run_article_pairer === true) {
+      await runStep("article_pairer", () => callFunction("episode-article-pairer", {
+        trigger: "database_quality_fast_lane",
+        limit: Math.max(10, Math.min(500, Number(controls.article_pairer_limit || DEFAULT_CONTROLS.article_pairer_limit))),
       }));
     }
 
