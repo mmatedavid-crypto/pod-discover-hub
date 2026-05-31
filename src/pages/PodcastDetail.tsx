@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X, Play, Pause } from "lucide-react";
+import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X, Play, Pause, Headphones, CalendarDays, Library, ArrowRight, ExternalLink, type LucideIcon } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
 import PersonAvatar from "@/components/PersonAvatar";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
@@ -106,6 +107,7 @@ export default function PodcastDetail() {
   const [eps, setEps] = useState<any[]>([]);
   const [hosts, setHosts] = useState<HostRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { play } = useSmartPlayer();
 
   useEffect(() => {
     if (!podcastSlug) return;
@@ -171,85 +173,151 @@ export default function PodcastDetail() {
   const isHealthy = !healthState || healthState === "healthy" || healthState === "recovered_rss_url";
   const lastFresh = p.last_fetched_at ? relativeTime(p.last_fetched_at) : null;
   const displayCategory = categoryLabel(p.category);
+  const latestEpisode = eps[0] || null;
+  const latestAudio = latestEpisode ? detectAudioSource(latestEpisode)?.url || latestEpisode.audio_url || null : null;
+  const latestPublished = latestEpisode?.published_at ? relativeTime(latestEpisode.published_at) : null;
+  const description = stripHtml(p.summary || p.description || "");
+  const externalLinks = [
+    p.apple_url ? { href: p.apple_url, label: "Apple", Icon: Apple } : null,
+    p.spotify_url ? { href: p.spotify_url, label: "Spotify", Icon: Music } : null,
+    p.youtube_url ? { href: p.youtube_url, label: "YouTube", Icon: Youtube } : null,
+    p.website_url ? { href: p.website_url, label: "Weboldal", Icon: Globe } : null,
+  ].filter(Boolean) as Array<{ href: string; label: string; Icon: LucideIcon }>;
+  const playLatest = () => {
+    if (!latestEpisode || !latestAudio) return;
+    play({
+      id: latestEpisode.id,
+      title: latestEpisode.display_title || latestEpisode.title,
+      podcastId: p.id,
+      podcastTitle: p.display_title || p.title,
+      podcastSlug: p.slug || null,
+      episodeSlug: latestEpisode.slug || null,
+      imageUrl: latestEpisode.image_url || p.image_url || null,
+      audioUrl: latestAudio,
+      externalUrl: latestEpisode.episode_url || latestEpisode.audio_url || null,
+    }, { resume: true });
+  };
 
   return (
     <Layout>
-      <div className="container mx-auto py-10">
-        <div className="flex flex-col sm:flex-row gap-6">
-          <div className="w-40 shrink-0">
-            <PodcastCover title={p.display_title || p.title} src={p.image_url} size="lg" />
-          </div>
-          <div className="min-w-0">
-            {displayCategory && (
-              <Link to={categoryHref(p.category)} className="text-xs uppercase tracking-wide text-accent">
-                {displayCategory}
-              </Link>
-            )}
-            <h1 className="text-3xl font-semibold mt-1">{p.display_title || p.title}</h1>
-
-            <div className="flex flex-wrap gap-2 mt-2 items-center text-xs">
-              {isHealthy ? (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-green-500/30 bg-green-500/10 text-[10px] font-medium text-green-400">
-                  <Activity className="h-3 w-3" /> Frissül
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-[10px] font-medium text-amber-400">
-                  <AlertTriangle className="h-3 w-3" /> Frissítési hiba
-                </span>
-              )}
-              {lastFresh && (
-                <span className="text-muted-foreground" title={new Date(p.last_fetched_at).toLocaleString()}>
-                  Frissítve {lastFresh}
-                </span>
-              )}
+      <div className="container mx-auto py-6 sm:py-10">
+        <section className="relative overflow-hidden border-b border-border pb-8">
+          <div className="grid gap-6 sm:grid-cols-[180px_1fr] lg:grid-cols-[210px_1fr_280px] lg:items-start">
+            <div className="mx-auto w-36 sm:mx-0 sm:w-44 lg:w-52">
+              <PodcastCover title={p.display_title || p.title} src={p.image_url} size="lg" />
             </div>
 
-
-            {hosts.length > 0 && (
-              <div className="mt-4 max-w-2xl">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 inline-flex items-center gap-1">
-                  <Mic className="h-3 w-3" /> {hosts.length === 1 ? "Házigazda" : "Házigazdák"}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {hosts.map((h, i) => {
-                    const content = (
-                      <>
-                        <PersonAvatar name={h.name} imageUrl={h.image_url ?? null} size="sm" className="h-6 w-6" />
-                        <span className="font-medium">{h.name}</span>
-                      </>
-                    );
-                    return h.slug ? (
-                      <Link
-                        key={i}
-                        to={`/person/${h.slug}`}
-                        className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-card border border-border hover:border-primary/40 hover:text-accent text-sm transition-colors"
-                      >
-                        {content}
-                      </Link>
-                    ) : (
-                      <span key={i} className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-card border border-border text-sm">
-                        {content}
-                      </span>
-                    );
-                  })}
-                </div>
+            <div className="min-w-0 text-center sm:text-left">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                {displayCategory && (
+                  <Link
+                    to={categoryHref(p.category)}
+                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-primary"
+                  >
+                    {displayCategory}
+                  </Link>
+                )}
+                {isHealthy ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-green-500/25 bg-green-500/10 px-2.5 py-1 text-[11px] font-medium text-green-500">
+                    <Activity className="h-3 w-3" /> Frissül
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-500">
+                    <AlertTriangle className="h-3 w-3" /> Frissítési hiba
+                  </span>
+                )}
               </div>
-            )}
 
-            {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{stripHtml(p.summary)}</p>}
-            {p.description && stripHtml(p.description) !== stripHtml(p.summary) && (
-              <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{stripHtml(p.description)}</p>
-            )}
-            <div className="flex flex-wrap gap-3 mt-4 items-center text-muted-foreground">
-              {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Apple className="h-4 w-4" /> Apple Podcasts</a>}
-              {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Music className="h-4 w-4" /> Spotify</a>}
-              {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
-              {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Globe className="h-4 w-4" /> Weboldal</a>}
-              <PodcastFollow podcastId={p.id} />
-              <SharePanel title={p.display_title || p.title} />
+              <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+                {p.display_title || p.title}
+              </h1>
+
+              {description && (
+                <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-foreground/85 sm:mx-0 sm:text-lg">
+                  {snippet(description, 420)}
+                </p>
+              )}
+
+              <div className="mt-5 grid grid-cols-3 gap-2 text-left sm:max-w-xl">
+                <PodcastStat icon={<Library className="h-4 w-4" />} label="epizód" value={eps.length.toLocaleString("hu-HU")} />
+                <PodcastStat icon={<CalendarDays className="h-4 w-4" />} label="legfrissebb" value={latestPublished || "nincs adat"} />
+                <PodcastStat icon={<Headphones className="h-4 w-4" />} label="állapot" value={isHealthy ? "aktív" : "ellenőrzés"} />
+              </div>
+
+              {hosts.length > 0 && (
+                <div className="mt-5 max-w-2xl">
+                  <div className="mb-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <Mic className="h-3 w-3" /> {hosts.length === 1 ? "Házigazda" : "Házigazdák"}
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-1.5 sm:justify-start">
+                    {hosts.map((h, i) => {
+                      const content = (
+                        <>
+                          <PersonAvatar name={h.name} imageUrl={h.image_url ?? null} size="sm" className="h-6 w-6" />
+                          <span className="font-medium">{h.name}</span>
+                        </>
+                      );
+                      return h.slug ? (
+                        <Link
+                          key={i}
+                          to={`/szemelyek/${h.slug}`}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-1.5 py-1 pr-3 text-sm transition-colors hover:border-primary/40 hover:text-primary"
+                        >
+                          {content}
+                        </Link>
+                      ) : (
+                        <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-1.5 py-1 pr-3 text-sm">
+                          {content}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                {latestEpisode && latestAudio && (
+                  <button
+                    type="button"
+                    onClick={playLatest}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Play className="h-4 w-4 fill-current" /> Legfrissebb epizód
+                  </button>
+                )}
+                <PodcastFollow podcastId={p.id} />
+                <SharePanel title={p.display_title || p.title} />
+              </div>
             </div>
+
+            <aside className="rounded-lg border border-border bg-card/70 p-4">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Hol hallgatható?
+              </div>
+              <div className="mt-3 grid gap-2">
+                {externalLinks.length > 0 ? externalLinks.map(({ href, label, Icon }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-between rounded-md border border-border bg-background/60 px-3 py-2 text-sm transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    <span className="inline-flex items-center gap-2"><Icon className="h-4 w-4" /> {label}</span>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  </a>
+                )) : (
+                  <p className="text-sm text-muted-foreground">Nincs külső hallgatási link.</p>
+                )}
+              </div>
+              {lastFresh && (
+                <p className="mt-3 text-xs text-muted-foreground" title={new Date(p.last_fetched_at).toLocaleString()}>
+                  Utolsó frissítés: {lastFresh}
+                </p>
+              )}
+            </aside>
           </div>
-        </div>
+        </section>
 
         {(() => {
           const epsLite = (eps as any[]).map((e) => ({ ...e, podcasts: { hosts: p.hosts || [] } }));
@@ -266,6 +334,18 @@ export default function PodcastDetail() {
         <SimilarPodcasts podcastId={p.id} />
       </div>
     </Layout>
+  );
+}
+
+function PodcastStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card/70 p-3">
+      <div className="flex items-center gap-1.5 text-primary">
+        {icon}
+        <span className="text-sm font-semibold leading-none">{value}</span>
+      </div>
+      <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+    </div>
   );
 }
 
@@ -291,9 +371,15 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
 
   return (
     <>
-      <div className="mt-10 mb-4 flex items-end justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold">Epizódok</h2>
-        <div className="w-full sm:w-80">
+      <section className="mt-10">
+      <div className="mb-4 flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Epizódok</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Böngészd a műsor friss és régebbi adásait, vagy keress csak ezen a csatornán belül.
+          </p>
+        </div>
+        <div className="w-full sm:w-[360px]">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -302,7 +388,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               onChange={(e) => setQ(e.target.value)}
               placeholder={`Keresés csak a(z) „${podcast.display_title || podcast.title}” csatornán…`}
               aria-label={`Keresés csak a(z) ${podcast.display_title || podcast.title} csatornán`}
-              className="w-full pl-8 pr-8 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full pl-8 pr-8 py-2.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             {q && (
               <button
@@ -322,7 +408,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
       </div>
 
       {eps.length === 0 ? (
-        <div className="text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
+        <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
       ) : filtered.length === 0 ? (
         <div className="text-muted-foreground text-sm border border-dashed border-border rounded-lg p-6 text-center">
           Nincs találat a(z) „{q}" keresésre ebben a podcastben.
@@ -332,7 +418,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
           {needle && (
             <div className="text-xs text-muted-foreground mb-2">{filtered.length} találat {eps.length} epizódból</div>
           )}
-          <ul className="divide-y divide-border border border-border rounded-lg bg-card">
+          <ul className="grid gap-3">
             {filtered.map((e) => {
               const fr = freshnessOf(e.published_at);
               const audioSrc = detectAudioSource(e);
@@ -358,40 +444,62 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
                 }, { resume: true });
               };
               return (
-                <li key={e.id} className="p-4 hover:bg-secondary/50">
-                  <Link to={`/podcast/${podcastSlug}/${e.slug}`} className="block">
-                    <div className="font-medium flex items-center gap-2 flex-wrap">
-                      {e.display_title || e.title}
-                      {fr === "new" && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-2 items-center">
-                      {e.published_at && <span title={new Date(e.published_at).toLocaleString()}>{relativeTime(e.published_at)}</span>}
-                    </div>
-                    {(e.summary || e.description) && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{snippet(e.summary || e.description, 200)}</p>
-                    )}
-                  </Link>
-                  {playerAudioUrl && (
+                <li key={e.id} className="rounded-lg border border-border bg-card p-3 transition-colors hover:border-primary/30 hover:bg-card/80 sm:p-4">
+                  <div className="flex gap-3">
                     <button
                       type="button"
                       onClick={handlePlay}
-                      className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mt-2"
+                      disabled={!playerAudioUrl}
+                      className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-40"
                       aria-label={isThisPlaying ? "Szünet" : "Hallgatás"}
                     >
-                      {isThisPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                      <span>{isThisPlaying ? "Szünet" : isCurrent ? "Folytatás" : "Hallgatás"}</span>
+                      {isThisPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
                     </button>
-                  )}
+                    <div className="min-w-0 flex-1">
+                      <Link to={`/podcast/${podcastSlug}/${e.slug}`} className="group block">
+                        <div className="font-medium leading-snug group-hover:text-primary flex items-center gap-2 flex-wrap">
+                          {e.display_title || e.title}
+                          {fr === "new" && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-2 items-center">
+                          {e.published_at && <span title={new Date(e.published_at).toLocaleString()}>{relativeTime(e.published_at)}</span>}
+                        </div>
+                        {(e.summary || e.description) && (
+                          <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">{snippet(stripHtml(e.summary || e.description), 220)}</p>
+                        )}
+                      </Link>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {playerAudioUrl && (
+                          <button
+                            type="button"
+                            onClick={handlePlay}
+                            className="inline-flex items-center gap-1 rounded-md bg-secondary px-2.5 py-1 text-xs text-foreground hover:bg-secondary/80"
+                            aria-label={isThisPlaying ? "Szünet" : "Hallgatás"}
+                          >
+                            {isThisPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                            <span>{isThisPlaying ? "Szünet" : isCurrent ? "Folytatás" : "Hallgatás"}</span>
+                          </button>
+                        )}
+                        <Link
+                          to={`/podcast/${podcastSlug}/${e.slug}`}
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                        >
+                          Részletek <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
                 </li>
               );
             })}
           </ul>
         </>
       )}
+      </section>
     </>
   );
 }
