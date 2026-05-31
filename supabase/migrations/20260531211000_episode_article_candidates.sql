@@ -59,12 +59,57 @@ BEGIN
   END IF;
 END $$;
 
-ALTER TABLE public.episode_best_text_source
-  DROP CONSTRAINT IF EXISTS episode_best_text_source_source_type_check;
+DO $$
+DECLARE
+  v_constraint_name text;
+BEGIN
+  SELECT c.conname
+  INTO v_constraint_name
+  FROM pg_constraint c
+  JOIN pg_class t ON t.oid = c.conrelid
+  JOIN pg_namespace n ON n.oid = t.relnamespace
+  WHERE n.nspname = 'public'
+    AND t.relname = 'episode_best_text_source'
+    AND c.contype = 'c'
+    AND pg_get_constraintdef(c.oid) ILIKE '%source_type%'
+  LIMIT 1;
+
+  IF v_constraint_name IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+       FROM pg_constraint c
+       JOIN pg_class t ON t.oid = c.conrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       WHERE n.nspname = 'public'
+         AND t.relname = 'episode_best_text_source'
+         AND c.contype = 'c'
+         AND pg_get_constraintdef(c.oid) ILIKE '%source_type%'
+         AND pg_get_constraintdef(c.oid) ILIKE '%article%'
+     ) THEN
+    EXECUTE format('ALTER TABLE public.episode_best_text_source DROP CONSTRAINT %I', v_constraint_name);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = 'public'
+      AND t.relname = 'episode_best_text_source'
+      AND c.conname = 'episode_best_text_source_source_type_check'
+  ) THEN
+    ALTER TABLE public.episode_best_text_source
+      ADD CONSTRAINT episode_best_text_source_source_type_check
+      CHECK (source_type IN ('rss', 'spotify', 'youtube', 'article'))
+      NOT VALID;
+  END IF;
+END $$;
 
 ALTER TABLE public.episode_best_text_source
-  ADD CONSTRAINT episode_best_text_source_source_type_check
-  CHECK (source_type IN ('rss', 'spotify', 'youtube', 'article'));
+  VALIDATE CONSTRAINT episode_best_text_source_source_type_check;
 
 INSERT INTO public.app_settings (key, value, updated_at)
 VALUES (

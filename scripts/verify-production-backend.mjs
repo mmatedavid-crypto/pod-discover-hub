@@ -27,6 +27,7 @@ const functionChecks = [
   "clean-text-autopilot",
   "episode-clean-text-candidate-runner",
   "episode-clean-text-candidate-promoter",
+  "episode-article-pairer",
   "episode-best-text-source-runner",
   "data-repair-apply-runner",
   "entity-quality-apply-runner",
