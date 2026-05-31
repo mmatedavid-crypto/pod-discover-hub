@@ -7842,6 +7842,9 @@ export type Database = {
         Args: { _limit: number; _model: string }
         Returns: {
           ai_summary: string
+          clean_source_hash: string
+          cleaned_text: string
+          cleaner_method: string
           companies: string[]
           description: string
           display_title: string
