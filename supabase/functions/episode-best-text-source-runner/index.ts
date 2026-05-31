@@ -142,15 +142,28 @@ Deno.serve(async (req) => {
       targetIds = Array.from(new Set((ytPriority || []).map((row: any) => String(row.episode_id)).filter(Boolean)));
     }
 
-    let q = admin
-      .from("episodes")
-      .select("id,podcast_id,title,description,updated_at")
-      .order("updated_at", { ascending: false, nullsFirst: false })
-      .limit(limit);
-    if (targetIds.length) q = q.in("id", targetIds);
-    const { data: episodes, error: epErr } = await q;
-    if (epErr) throw epErr;
-    const eps = (episodes || []) as EpisodeRow[];
+    let episodes: any[] = [];
+    if (targetIds.length) {
+      // Chunk .in() to avoid URL-length 414 / Bad Request at ~200+ uuids
+      for (let i = 0; i < targetIds.length; i += 150) {
+        const slice = targetIds.slice(i, i + 150);
+        const { data, error } = await admin
+          .from("episodes")
+          .select("id,podcast_id,title,description,updated_at")
+          .in("id", slice);
+        if (error) throw error;
+        if (data) episodes.push(...data);
+      }
+    } else {
+      const { data, error } = await admin
+        .from("episodes")
+        .select("id,podcast_id,title,description,updated_at")
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .limit(limit);
+      if (error) throw error;
+      episodes = data || [];
+    }
+    const eps = episodes as EpisodeRow[];
     if (!eps.length) return json({ ok: true, processed: 0 });
 
     const epIds = eps.map((e) => e.id);
