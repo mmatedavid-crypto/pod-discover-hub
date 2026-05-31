@@ -16,8 +16,10 @@
 // Credit discipline:
 //   - only v3-confirmed YouTube episode matches are eligible
 //   - YouTube metadata must report captions before Supadata is called
+//   - native mode rejects generated/ASR responses instead of storing them
+//   - batch/max_calls_per_run is a hard Supadata-call ceiling
 //   - transcript attempts are logged per video, including no-caption failures
-//   - RSS/YouTube description gain gates avoid spending when description is enough
+//   - optional RSS/YouTube description gain gate is off by default for native drain
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
@@ -45,6 +47,16 @@ type Candidate = {
   youtube_caption_available: boolean | null;
   match_score: number | null;
   validation_reason: any;
+};
+
+type ExistingTranscriptRow = {
+  episode_id: string;
+  model: string;
+};
+
+type TranscriptAttemptRow = {
+  youtube_video_id: string;
+  status: string;
 };
 
 function timeoutFetch(timeoutMs: number) {
@@ -145,12 +157,15 @@ Deno.serve(async (req) => {
       .select("value").eq("key", "youtube_transcript_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
     if (ctrl.enabled === false && !pilot && !episodeIdParam) return json({ ok: true, paused: true });
-    const batch = pilot || Number(ctrl.batch || 30);
+    const batch = Math.max(1, Math.min(100, pilot || Number(ctrl.batch || 30)));
+    const maxCallsPerRun = Math.max(1, Math.min(batch, Number(ctrl.max_supadata_calls_per_run || batch)));
     const concurrency = Math.min(Number(ctrl.concurrency || 2), 4);
-    const dailyBudget = Number(ctrl.daily_budget_usd ?? 2);
+    const dailyCreditLimit = Math.max(0, Number(ctrl.daily_credit_limit ?? ctrl.daily_budget_usd ?? 2));
     const preferredLang = ctrl.preferred_lang || "hu";
-    const transcriptMode = String(ctrl.transcript_mode || "native");
-    const requireYoutubeCaptionAvailable = ctrl.require_youtube_caption_available !== false;
+    const transcriptMode = "native";
+    const nativeOnly = ctrl.native_only !== false;
+    const requireYoutubeCaptionAvailable = true;
+    const requireDescriptionGain = ctrl.require_description_gain === true;
     const minMatchScore = Number(ctrl.min_match_score ?? 0.84);
     const minDescriptionGainChars = Number(ctrl.min_description_gain_chars ?? 300);
     const minYoutubeDescriptionChars = Number(ctrl.min_youtube_description_chars ?? 250);
@@ -162,8 +177,8 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().slice(0, 10);
       const { data: spendRow } = await admin.from("ai_spend_daily")
         .select("by_kind").eq("day", today).maybeSingle();
-      const spent = Number(((spendRow?.by_kind as any)?.youtube_transcript?.spend_usd) || 0);
-      if (spent >= dailyBudget) return json({ ok: true, budget_exhausted: true, spent_usd: spent });
+      const spentCredits = Number(((spendRow?.by_kind as any)?.youtube_transcript?.calls) || 0);
+      if (spentCredits >= dailyCreditLimit) return json({ ok: true, budget_exhausted: true, spent_credits: spentCredits, daily_credit_limit: dailyCreditLimit });
     }
 
     // Pick only strict v3-confirmed YouTube matches. Older "paired" episode
@@ -196,14 +211,16 @@ Deno.serve(async (req) => {
       .from("episode_transcripts")
       .select("episode_id,model")
       .in("episode_id", ids);
-    const have = new Set((existing || []).map((r) => r.episode_id));
+    const have = new Set(((existing || []) as ExistingTranscriptRow[])
+      .filter((r) => r.model === "supadata-youtube")
+      .map((r) => r.episode_id));
 
     const { data: attempts } = await admin
       .from("youtube_transcript_attempts")
       .select("youtube_video_id,status")
       .in("youtube_video_id", videoIds);
-    const attempted = new Set((attempts || []).map((r) => `${r.youtube_video_id}:${r.status}`));
-    const blockedVideos = new Set((attempts || [])
+    const attempted = new Set(((attempts || []) as TranscriptAttemptRow[]).map((r) => `${r.youtube_video_id}:${r.status}`));
+    const blockedVideos = new Set(((attempts || []) as TranscriptAttemptRow[])
       .filter((r) => ["transcribed", "no_captions", "permanent_error"].includes(String(r.status)))
       .map((r) => r.youtube_video_id));
 
@@ -216,10 +233,12 @@ Deno.serve(async (req) => {
     const todo = unique.filter((c) => {
       if (have.has(c.episode_id)) return false;
       if (blockedVideos.has(c.youtube_video_id)) return false;
+      if (c.youtube_caption_available !== true) return false;
+      if (!requireDescriptionGain) return true;
       const rssLen = Number(rssLenByEp.get(c.episode_id) || 0);
       const ytDescLen = String(c.youtube_description || "").trim().length;
       return rssLen < shortRssChars || ytDescLen >= Math.max(minYoutubeDescriptionChars, rssLen + minDescriptionGainChars);
-    }).slice(0, batch);
+    }).slice(0, maxCallsPerRun);
     if (!todo.length) return json({ ok: true, all_done: true, scanned: cands.length });
 
     let ok = 0, no_captions = 0, errors = 0, callsMade = 0, skipped_existing_attempt = 0;
@@ -256,6 +275,22 @@ Deno.serve(async (req) => {
             preferredLang,
             transcriptMode,
           );
+          if (nativeOnly && generated) {
+            errors++;
+            await admin.from("youtube_transcript_attempts").upsert({
+              episode_id: ep.episode_id,
+              podcast_id: ep.podcast_id,
+              youtube_video_id: ep.youtube_video_id,
+              status: "permanent_error",
+              match_score: ep.match_score,
+              match_policy: MATCH_POLICY,
+              error_message: "supadata_returned_generated_transcript_in_native_mode",
+              cost_usd: COST_PER_CALL,
+              attempted_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "youtube_video_id,match_policy" });
+            continue;
+          }
           if (!text || text.length < 30) {
             no_captions++;
             await admin.from("youtube_transcript_attempts").upsert({
@@ -275,7 +310,7 @@ Deno.serve(async (req) => {
           const { error: upErr } = await admin.from("episode_transcripts").upsert({
             episode_id: ep.episode_id,
             podcast_id: ep.podcast_id,
-            model: generated ? "supadata-youtube-asr" : "supadata-youtube",
+            model: "supadata-youtube",
             language: lang,
             transcript: text,
             segments,
@@ -331,7 +366,7 @@ Deno.serve(async (req) => {
       ok: true, processed: ok + no_captions + errors,
       transcribed: ok, no_captions, errors,
       skipped_existing_attempt,
-      calls: callsMade, cost_usd: Number((callsMade * COST_PER_CALL).toFixed(4)),
+      calls: callsMade, credits_used: callsMade, max_calls_per_run: maxCallsPerRun, cost_usd: Number((callsMade * COST_PER_CALL).toFixed(4)),
       elapsed_ms: Date.now() - startedAt,
       sample_errors: errorDetails.slice(0, 5),
     });
