@@ -116,6 +116,26 @@ function savePersisted(p: Persisted) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...p, updatedAt: new Date().toISOString() })); } catch { /* ignore */ }
 }
 
+function stableHash(input: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function seededRandom(seed: string): () => number {
+  let t = stableHash(seed) || 1;
+  return () => {
+    t = (t + 0x6d2b79f5) >>> 0;
+    let r = t;
+    r = Math.imul(r ^ (r >>> 15), r | 1);
+    r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /* ────────────────── Stopping logic ────────────────── */
 
 function shouldStop(totalSwipes: number, positiveSwipes: number, confidence: number): boolean {
@@ -155,6 +175,10 @@ function tagWeights(cards: Card[]): Record<string, number> {
     for (const t of tags) w[t] = (w[t] || 0) + 1;
   }
   return w;
+}
+
+function buildEffectiveLiked(liked: Card[], superLiked: Card[]): Card[] {
+  return [...liked, ...superLiked, ...superLiked];
 }
 
 function topTags(weights: Record<string, number>, n: number): string[] {
@@ -227,21 +251,21 @@ const BROAD_DOMAINS = [
 ];
 
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], rng: () => number = Math.random): T[] {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
 }
 
-function pickWeighted<T>(items: { item: T; score: number }[]): T {
+function pickWeighted<T>(items: { item: T; score: number }[], rng: () => number = Math.random): T {
   // Softmax-like weighted random — favors top items but never deterministic
   const max = Math.max(...items.map(i => i.score));
   const weights = items.map(i => Math.exp((i.score - max) * 6));
   const total = weights.reduce((s, w) => s + w, 0);
-  let r = Math.random() * total;
+  let r = rng() * total;
   for (let i = 0; i < items.length; i++) {
     r -= weights[i];
     if (r <= 0) return items[i].item;
@@ -259,6 +283,13 @@ function pickNextCard(
 ): Card | null {
   const candidates = pool.filter(c => !seen.has(c.id));
   if (candidates.length === 0) return null;
+  const stateSeed = [
+    swipeIdx,
+    ...Array.from(seen).sort(),
+    ...liked.map(c => c.id).sort(),
+    ...disliked.map(c => c.id).sort(),
+  ].join("|");
+  const rng = seededRandom(stateSeed);
 
   // First 8 swipes: ensure broad coverage, rotate domains (order shuffled per session)
   if (swipeIdx < 8) {
@@ -267,10 +298,10 @@ function pickNextCard(
       c => c.stage === "broad" && (c.topic_tags.includes(wantedDomain) || c.archetype_tags.includes(wantedDomain))
     );
     if (broadMatches.length > 0) {
-      const shuffled = shuffle(broadMatches);
-      return shuffled[Math.floor(Math.random() * Math.min(5, shuffled.length))];
+      const shuffled = shuffle(broadMatches, rng);
+      return shuffled[Math.floor(rng() * Math.min(5, shuffled.length))];
     }
-    const anyBroad = shuffle(candidates.filter(c => c.stage === "broad"));
+    const anyBroad = shuffle(candidates.filter(c => c.stage === "broad"), rng);
     if (anyBroad.length > 0) return anyBroad[0];
   }
 
@@ -287,13 +318,13 @@ function pickNextCard(
     const coverageGap = 1 / (1 + cardTagWeight);
     const negSim = negMean ? Math.max(0, cosine(c.card_embedding, negMean)) : 0;
     const disamb = 1 - negSim;
-    const rand = Math.random();
+    const rand = rng();
     const score = 0.30 * uncertainty + 0.22 * relevance + 0.20 * coverageGap + 0.10 * disamb + 0.18 * rand;
     return { item: c, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  // Weighted-random sample from the top 8 → keeps quality high but kills repeat sessions
-  return pickWeighted(scored.slice(0, 8));
+  // Seeded weighted sample from the top 8: varied, but stable for the same choices.
+  return pickWeighted(scored.slice(0, 8), rng);
 }
 
 /* ────────────────── Confidence ────────────────── */
@@ -374,7 +405,7 @@ export default function StartSwipePage() {
   // Stronger weighting = the user's strongest signals dominate the taste vector
   // and the result feels "this is really me" instead of generic.
   const effectiveLiked = useMemo(
-    () => [...liked, ...superLiked, ...superLiked],
+    () => buildEffectiveLiked(liked, superLiked),
     [liked, superLiked],
   );
 
@@ -665,10 +696,10 @@ export default function StartSwipePage() {
     // Mild haptic feedback (mobile)
     try { (navigator as any).vibrate?.(action === "super" ? [10, 40, 30] : 15); } catch { /* ignore */ }
 
-    // Build updated arrays for stop check (super counts 2x for vector signal)
+    // Build updated arrays for stop check with the same weighting as the result.
     const newLiked = isPositive ? [...liked, current] : liked;
     const newSuper = action === "super" ? [...superLiked, current] : superLiked;
-    const newEffective = [...newLiked, ...newSuper];
+    const newEffective = buildEffectiveLiked(newLiked, newSuper);
     const newDisliked = action === "skip" ? [...disliked, current] : disliked;
     const newConf = computeConfidence(newEffective, newDisliked);
     const total = next.seenCardIds.length;
@@ -1168,7 +1199,7 @@ function ResultView({
 
   // Match the page-level weighting: super-likes 3x (stronger personalization).
   const effectiveLiked = useMemo(
-    () => [...liked, ...superLiked, ...superLiked],
+    () => buildEffectiveLiked(liked, superLiked),
     [liked, superLiked],
   );
   const weights = useMemo(() => tagWeights(effectiveLiked), [effectiveLiked]);

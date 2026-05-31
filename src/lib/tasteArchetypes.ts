@@ -101,11 +101,13 @@ export function pickArchetype(tagWeights: Record<string, number>): Archetype {
   let bestScore = -Infinity;
   let bestNonPublic = ARCHETYPES[0];
   let bestNonPublicScore = -Infinity;
+  let publicScore = 0;
   for (const a of ARCHETYPES) {
     let s = 0;
     for (const [tag, aff] of Object.entries(a.affinity)) {
       s += (tagWeights[tag] || 0) * aff;
     }
+    if (a.id === "public_radar") publicScore = s;
     if (a.id !== "public_radar" && s > bestNonPublicScore) {
       bestNonPublicScore = s;
       bestNonPublic = a;
@@ -116,9 +118,18 @@ export function pickArchetype(tagWeights: Record<string, number>): Archetype {
     }
   }
   // Public-affairs cards are common and can accidentally dominate a mixed
-  // profile. Only return that archetype when it is clearly stronger than the
-  // closest non-political alternative.
-  if (best.id === "public_radar" && bestScore < bestNonPublicScore + 4) {
+  // profile. Only return that archetype when it is both absolutely strong and
+  // clearly stronger than the closest non-political alternative.
+  const explicitPublicSignals =
+    (tagWeights.közélet || 0) +
+    (tagWeights.politika || 0) +
+    (tagWeights["magyar közélet"] || 0) +
+    (tagWeights.geopolitika || 0) +
+    (tagWeights.demokrácia || 0);
+  if (
+    best.id === "public_radar" &&
+    (publicScore < 14 || explicitPublicSignals < 4 || bestScore < bestNonPublicScore + 8)
+  ) {
     return bestNonPublic;
   }
   return best;
