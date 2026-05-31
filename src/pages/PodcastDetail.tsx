@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X, Play, Pause, Headphones, CalendarDays, Library, ArrowRight, ExternalLink, type LucideIcon } from "lucide-react";
+import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X, Play, Pause, Headphones, CalendarDays, Library, ArrowRight, type LucideIcon } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
 import PersonAvatar from "@/components/PersonAvatar";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
@@ -203,7 +203,7 @@ export default function PodcastDetail() {
     <Layout>
       <div className="container mx-auto py-6 sm:py-10">
         <section className="relative overflow-hidden border-b border-border pb-8">
-          <div className="grid gap-6 sm:grid-cols-[180px_1fr] lg:grid-cols-[210px_1fr_280px] lg:items-start">
+          <div className="grid gap-6 sm:grid-cols-[180px_1fr] lg:grid-cols-[210px_1fr] lg:items-start">
             <div className="mx-auto w-36 sm:mx-0 sm:w-44 lg:w-52">
               <PodcastCover title={p.display_title || p.title} src={p.image_url} size="lg" />
             </div>
@@ -288,36 +288,31 @@ export default function PodcastDetail() {
                 )}
                 <PodcastFollow podcastId={p.id} />
                 <SharePanel title={p.display_title || p.title} />
-              </div>
-            </div>
-
-            <aside className="rounded-lg border border-border bg-card/70 p-4">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Hol hallgatható?
-              </div>
-              <div className="mt-3 grid gap-2">
-                {externalLinks.length > 0 ? externalLinks.map(({ href, label, Icon }) => (
-                  <a
-                    key={label}
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-between rounded-md border border-border bg-background/60 px-3 py-2 text-sm transition-colors hover:border-primary/40 hover:text-primary"
-                  >
-                    <span className="inline-flex items-center gap-2"><Icon className="h-4 w-4" /> {label}</span>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  </a>
-                )) : (
-                  <p className="text-sm text-muted-foreground">Nincs külső hallgatási link.</p>
+                {externalLinks.length > 0 && (
+                  <div className="inline-flex items-center gap-1 rounded-md border border-border bg-card/70 p-1" aria-label="Külső platformok">
+                    {externalLinks.map(({ href, label, Icon }) => (
+                      <a
+                        key={label}
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`${label} megnyitása`}
+                        title={label}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      >
+                        <Icon className="h-4 w-4" />
+                      </a>
+                    ))}
+                  </div>
                 )}
               </div>
-              {lastFresh && (
-                <p className="mt-3 text-xs text-muted-foreground" title={new Date(p.last_fetched_at).toLocaleString()}>
-                  Utolsó frissítés: {lastFresh}
-                </p>
-              )}
-            </aside>
+            </div>
           </div>
+          {lastFresh && (
+            <p className="mt-4 text-center text-xs text-muted-foreground sm:pl-[204px] sm:text-left lg:pl-[234px]" title={new Date(p.last_fetched_at).toLocaleString()}>
+              Utolsó frissítés: {lastFresh}
+            </p>
+          )}
         </section>
 
         {(() => {
