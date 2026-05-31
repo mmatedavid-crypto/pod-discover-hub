@@ -1,9 +1,9 @@
 // Personalized "Neked válogatva" recommendations for logged-in users.
 // Reads the user's taste_vec from profiles, calls match_user_episodes RPC,
-// hydrates episode + podcast metadata, returns 12-24 items.
+// hydrates episode + podcast metadata, and returns a diversified 12-item shelf.
 //
-// Fallback: if taste_signal_count < 3, we return recent S/A HU episodes ranked
-// by simple topic overlap with the archetype's liked topics.
+// Fallback/backfill: recent HU episodes ranked by archetype topic overlap,
+// with explicit guards against one podcast or news bulletins taking over.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -21,6 +21,7 @@ type EpisodeRow = {
   display_title: string | null;
   slug: string;
   published_at: string | null;
+  topics?: string[] | null;
 };
 
 type PodcastRow = {
@@ -29,7 +30,30 @@ type PodcastRow = {
   title: string;
   display_title: string | null;
   image_url: string | null;
+  category?: string | null;
+  rank_label?: string | null;
 };
+
+type HydratedEpisode = {
+  id: string;
+  slug: string;
+  title: string;
+  published_at: string | null;
+  topics: string[];
+  podcast: {
+    id: string;
+    slug: string;
+    title: string;
+    image_url: string | null;
+    category: string | null;
+    rank_label: string | null;
+  } | null;
+};
+
+const FINAL_LIMIT = 12;
+const PERSONALIZED_CANDIDATE_LIMIT = 80;
+const FALLBACK_CANDIDATE_LIMIT = 180;
+const PERSONALIZED_FRESHNESS_DAYS = 180;
 
 const NEWS_LIKE_RX = /\b(hírek|hír|hírösszefoglaló|hírháttér|hírpercek|krónika|infostart|napi hírek|reggeli hírek|esti hírek|news|bulletin)\b/i;
 const BULLETIN_LIKE_RX = /\b(hírek röviden|hírpercek|hírgyors|napi hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírösszefoglaló|infostart hírek|percben|perces hír|bulletin)\b/i;
@@ -92,63 +116,28 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const hasVector = !!profile?.taste_vec;
+    const likedTopics: string[] = extractLikedTopics(profile?.archetype_result);
 
     let episodeIds: string[] = [];
     let mode: "personalized" | "archetype" | "fresh" = "fresh";
+    let personalizedCandidateCount = 0;
 
     if (hasVector) {
       const { data: matches, error: matchErr } = await admin.rpc("match_user_episodes", {
         p_user: userId,
-        p_limit: 24,
-        p_freshness_days: 90,
+        p_limit: PERSONALIZED_CANDIDATE_LIMIT,
+        p_freshness_days: PERSONALIZED_FRESHNESS_DAYS,
       });
       if (matchErr) console.error("match_user_episodes error", matchErr);
       if (matches && matches.length > 0) {
+        personalizedCandidateCount = matches.length;
         episodeIds = matches.map((m: { episode_id: string }) => m.episode_id);
         mode = "personalized";
       }
     }
 
-    // Fallback: archetype topics -> recent HU non-spam episodes by topic overlap.
     if (episodeIds.length === 0) {
-      const likedTopics: string[] = extractLikedTopics(profile?.archetype_result);
-      const freshFallback = await admin
-        .from("episodes")
-        .select("id, podcast_id, topics, published_at, podcasts!inner(language, rank_label)")
-        .ilike("podcasts.language", "hu%")
-        .not("published_at", "is", null)
-        .gt("published_at", new Date(Date.now() - 30 * 86400_000).toISOString())
-        .order("published_at", { ascending: false })
-        .limit(120);
-
-      const rows = freshFallback.data ?? [];
-      // exclude seen
-      const { data: seenRows } = await admin
-        .from("user_episode_interactions")
-        .select("episode_id")
-        .eq("user_id", userId)
-        .gt("created_at", new Date(Date.now() - 60 * 86400_000).toISOString());
-      const seen = new Set((seenRows ?? []).map((r) => r.episode_id));
-
-      // score by topic overlap; dedupe podcast (max 2 per podcast)
-      const scored: { id: string; podcast_id: string; score: number }[] = [];
-      const perPodcast = new Map<string, number>();
-      for (const r of rows) {
-        if (seen.has(r.id)) continue;
-        const topics: string[] = Array.isArray(r.topics) ? r.topics : [];
-        const overlap = likedTopics.length
-          ? topics.filter((t) => likedTopics.includes(t)).length
-          : 0;
-        scored.push({ id: r.id, podcast_id: r.podcast_id, score: overlap });
-      }
-      scored.sort((a, b) => b.score - a.score);
-      for (const s of scored) {
-        const cnt = perPodcast.get(s.podcast_id) ?? 0;
-        if (cnt >= 2) continue;
-        perPodcast.set(s.podcast_id, cnt + 1);
-        episodeIds.push(s.id);
-        if (episodeIds.length >= 24) break;
-      }
+      episodeIds = await loadBackfillEpisodeIds(admin, userId, likedTopics, new Set(), PERSONALIZED_CANDIDATE_LIMIT);
       mode = likedTopics.length > 0 ? "archetype" : "fresh";
     }
 
@@ -156,67 +145,247 @@ Deno.serve(async (req) => {
       return json({ episodes: [], mode, signal_count: signalCount });
     }
 
-    // Hydrate
-    const { data: episodes } = await admin
-      .from("episodes")
-      .select("id, podcast_id, title, display_title, slug, published_at")
-      .in("id", episodeIds);
+    const hydrated = await hydrateEpisodes(admin, episodeIds);
+    let ordered = diversifyRecommendations(hydrated, FINAL_LIMIT);
+    let backfilledCount = 0;
 
-    const podcastIds = Array.from(new Set((episodes ?? []).map((e) => e.podcast_id)));
-    const { data: podcasts } = await admin
-      .from("podcasts")
-      .select("id, slug, title, display_title, image_url")
-      .in("id", podcastIds);
-    const podById = new Map<string, PodcastRow>((podcasts ?? []).map((p) => [p.id, p as PodcastRow]));
-
-    // Preserve match ordering
-    const epById = new Map<string, EpisodeRow>(
-      (episodes ?? []).map((e) => [e.id, e as EpisodeRow]),
-    );
-    const hydrated = episodeIds
-      .map((id) => epById.get(id))
-      .filter((e): e is EpisodeRow => !!e)
-      .map((e) => {
-        const p = podById.get(e.podcast_id);
-        return {
-          id: e.id,
-          slug: e.slug,
-          title: e.display_title || e.title,
-          published_at: e.published_at,
-          podcast: p
-            ? {
-                id: p.id,
-                slug: p.slug,
-                title: p.display_title || p.title,
-                image_url: p.image_url,
-              }
-            : null,
-        };
-      });
-
-    const ordered: typeof hydrated = [];
-    let newsCount = 0;
-    let bulletinCount = 0;
-    for (const row of hydrated) {
-      const bulletin = isBulletinLike({ title: row.title, podcastTitle: row.podcast?.title });
-      const news = isNewsLike({ title: row.title, podcastTitle: row.podcast?.title });
-      if (bulletin && bulletinCount >= 1) continue;
-      if (news && newsCount >= 3) continue;
-      if (bulletin) bulletinCount++;
-      if (news) newsCount++;
-      ordered.push(row);
+    if (ordered.length < FINAL_LIMIT) {
+      const exclude = new Set<string>([
+        ...episodeIds,
+        ...ordered.map((e) => e.id),
+      ]);
+      const backfillIds = await loadBackfillEpisodeIds(
+        admin,
+        userId,
+        likedTopics,
+        exclude,
+        FALLBACK_CANDIDATE_LIMIT,
+      );
+      backfilledCount = backfillIds.length;
+      const backfilled = await hydrateEpisodes(admin, backfillIds);
+      ordered = diversifyRecommendations([...ordered, ...backfilled], FINAL_LIMIT);
     }
 
     return json({
-      episodes: ordered.slice(0, 12),
+      episodes: ordered.slice(0, FINAL_LIMIT),
       mode,
       signal_count: signalCount,
+      guard: {
+        personalized_candidates: personalizedCandidateCount,
+        hydrated_candidates: hydrated.length,
+        backfilled_candidates: backfilledCount,
+        returned: Math.min(ordered.length, FINAL_LIMIT),
+      },
     });
   } catch (e) {
     console.error("taste-recommend error", e);
     return json({ error: e instanceof Error ? e.message : "unknown" }, 500);
   }
 });
+
+async function hydrateEpisodes(admin: ReturnType<typeof createClient>, episodeIds: string[]): Promise<HydratedEpisode[]> {
+  const ids = Array.from(new Set(episodeIds)).filter(Boolean);
+  if (ids.length === 0) return [];
+
+  const { data: episodes, error: epErr } = await admin
+    .from("episodes")
+    .select("id, podcast_id, title, display_title, slug, published_at, topics")
+    .in("id", ids);
+  if (epErr) {
+    console.error("hydrate episodes error", epErr);
+    return [];
+  }
+
+  const podcastIds = Array.from(new Set((episodes ?? []).map((e) => e.podcast_id).filter(Boolean)));
+  const { data: podcasts, error: podErr } = await admin
+    .from("podcasts")
+    .select("id, slug, title, display_title, image_url, category, rank_label")
+    .in("id", podcastIds);
+  if (podErr) console.error("hydrate podcasts error", podErr);
+
+  const podById = new Map<string, PodcastRow>((podcasts ?? []).map((p) => [p.id, p as PodcastRow]));
+  const epById = new Map<string, EpisodeRow>(
+    (episodes ?? []).map((e) => [e.id, e as EpisodeRow]),
+  );
+
+  return ids
+    .map((id) => epById.get(id))
+    .filter((e): e is EpisodeRow => !!e)
+    .map((e) => {
+      const p = podById.get(e.podcast_id);
+      return {
+        id: e.id,
+        slug: e.slug,
+        title: e.display_title || e.title,
+        published_at: e.published_at,
+        topics: Array.isArray(e.topics) ? e.topics.filter((t): t is string => typeof t === "string") : [],
+        podcast: p
+          ? {
+              id: p.id,
+              slug: p.slug,
+              title: p.display_title || p.title,
+              image_url: p.image_url,
+              category: p.category ?? null,
+              rank_label: p.rank_label ?? null,
+            }
+          : null,
+      };
+    });
+}
+
+function diversifyRecommendations(rows: HydratedEpisode[], limit: number): HydratedEpisode[] {
+  const strict = pickDiverse(rows, limit, {
+    maxPerPodcast: 1,
+    maxPerCategory: 4,
+    maxNews: 2,
+    maxBulletin: 1,
+  });
+  if (strict.length >= limit) return strict;
+
+  return pickDiverse(rows, limit, {
+    maxPerPodcast: 2,
+    maxPerCategory: 5,
+    maxNews: 3,
+    maxBulletin: 1,
+  });
+}
+
+function pickDiverse(
+  rows: HydratedEpisode[],
+  limit: number,
+  caps: { maxPerPodcast: number; maxPerCategory: number; maxNews: number; maxBulletin: number },
+): HydratedEpisode[] {
+  const out: HydratedEpisode[] = [];
+  const seen = new Set<string>();
+  const perPodcast = new Map<string, number>();
+  const perCategory = new Map<string, number>();
+  let newsCount = 0;
+  let bulletinCount = 0;
+
+  for (const row of rows) {
+    if (seen.has(row.id)) continue;
+    const podcastTitle = row.podcast?.title;
+    const bulletin = isBulletinLike({ title: row.title, podcastTitle });
+    const news = isNewsLike({ title: row.title, podcastTitle });
+    if (bulletin && bulletinCount >= caps.maxBulletin) continue;
+    if (news && newsCount >= caps.maxNews) continue;
+
+    const podcastKey = row.podcast?.id || row.podcast?.slug || row.id;
+    const podcastCount = perPodcast.get(podcastKey) ?? 0;
+    if (podcastCount >= caps.maxPerPodcast) continue;
+
+    const categoryKey = normalizeCategory(row.podcast?.category);
+    const categoryCount = categoryKey ? perCategory.get(categoryKey) ?? 0 : 0;
+    if (categoryKey && categoryCount >= caps.maxPerCategory) continue;
+
+    seen.add(row.id);
+    perPodcast.set(podcastKey, podcastCount + 1);
+    if (categoryKey) perCategory.set(categoryKey, categoryCount + 1);
+    if (bulletin) bulletinCount++;
+    if (news) newsCount++;
+    out.push(row);
+    if (out.length >= limit) break;
+  }
+
+  return out;
+}
+
+async function loadBackfillEpisodeIds(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  likedTopics: string[],
+  exclude: Set<string>,
+  limit: number,
+): Promise<string[]> {
+  const { data: seenRows } = await admin
+    .from("user_episode_interactions")
+    .select("episode_id")
+    .eq("user_id", userId)
+    .gt("created_at", new Date(Date.now() - 60 * 86400_000).toISOString());
+  const seen = new Set((seenRows ?? []).map((r) => r.episode_id));
+
+  const { data, error } = await admin
+    .from("episodes")
+    .select("id, podcast_id, title, display_title, topics, published_at, podcasts!inner(language, language_decision, is_hungarian, rank_label, category, title, display_title)")
+    .or("language_decision.eq.accept_hungarian,is_hungarian.eq.true", { foreignTable: "podcasts" })
+    .not("published_at", "is", null)
+    .gt("published_at", new Date(Date.now() - 120 * 86400_000).toISOString())
+    .order("published_at", { ascending: false })
+    .limit(Math.max(limit, 80));
+
+  if (error) {
+    console.error("taste backfill query error", error);
+    return [];
+  }
+
+  const scored = (data ?? [])
+    .filter((r) => !seen.has(r.id) && !exclude.has(r.id))
+    .map((r) => {
+      const topics: string[] = Array.isArray(r.topics)
+        ? r.topics.filter((t): t is string => typeof t === "string")
+        : [];
+      const topicOverlap = likedTopics.length
+        ? topics.filter((t) => likedTopics.includes(t)).length
+        : 0;
+      const podcast = Array.isArray(r.podcasts) ? r.podcasts[0] : r.podcasts;
+      const rankScore = rankWeight(podcast?.rank_label);
+      const title = r.display_title || r.title;
+      const podcastTitle = podcast?.display_title || podcast?.title || "";
+      const bulletinPenalty = isBulletinLike({ title, podcastTitle }) ? -8 : 0;
+      const newsPenalty = isNewsLike({ title, podcastTitle }) ? -3 : 0;
+      const recencyScore = r.published_at
+        ? Math.max(0, 4 - (Date.now() - new Date(r.published_at).getTime()) / (30 * 86400_000))
+        : 0;
+      return {
+        id: r.id,
+        podcast_id: r.podcast_id,
+        score: topicOverlap * 12 + rankScore + recencyScore + bulletinPenalty + newsPenalty,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const picked: string[] = [];
+  const perPodcast = new Map<string, number>();
+  for (const row of scored) {
+    const count = perPodcast.get(row.podcast_id) ?? 0;
+    if (count >= 1) continue;
+    perPodcast.set(row.podcast_id, count + 1);
+    picked.push(row.id);
+    if (picked.length >= limit) break;
+  }
+
+  if (picked.length >= FINAL_LIMIT) return picked;
+
+  for (const row of scored) {
+    if (picked.includes(row.id)) continue;
+    const count = perPodcast.get(row.podcast_id) ?? 0;
+    if (count >= 2) continue;
+    perPodcast.set(row.podcast_id, count + 1);
+    picked.push(row.id);
+    if (picked.length >= limit) break;
+  }
+
+  return picked;
+}
+
+function normalizeCategory(category?: string | null): string | null {
+  return category ? category.trim().toLowerCase() : null;
+}
+
+function rankWeight(rank?: string | null): number {
+  switch ((rank || "").toUpperCase()) {
+    case "S":
+      return 8;
+    case "A":
+      return 6;
+    case "B":
+      return 4;
+    case "C":
+      return 2;
+    default:
+      return 0;
+  }
+}
 
 function extractLikedTopics(archetypeResult: unknown): string[] {
   if (!archetypeResult || typeof archetypeResult !== "object") return [];
