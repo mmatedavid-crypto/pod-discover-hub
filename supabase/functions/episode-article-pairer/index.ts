@@ -27,6 +27,11 @@ type SourceConfig = {
   podcast_title_patterns?: string[];
 };
 
+type SourceDiagnostics = Record<string, {
+  feeds: Record<string, { ok: boolean; items: number; error?: string }>;
+  listings: Record<string, { ok: boolean; items: number; error?: string }>;
+}>;
+
 async function fetchArticleText(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
   if (!res.ok) return "";
@@ -36,27 +41,48 @@ async function fetchArticleText(url: string): Promise<string> {
   return stripHtml(main).slice(0, 18000);
 }
 
-async function fetchFeedItems(source: SourceConfig, ctrl: Record<string, unknown>): Promise<ArticleItem[]> {
+async function fetchFeedItems(source: SourceConfig, ctrl: Record<string, unknown>, diagnostics: SourceDiagnostics): Promise<ArticleItem[]> {
   const out: ArticleItem[] = [];
+  diagnostics[source.outlet] ||= { feeds: {}, listings: {} };
   const limit = Math.max(10, Math.min(200, Number(ctrl.article_feed_item_limit || 80)));
   for (const feedUrl of source.feed_urls || []) {
     try {
       const res = await fetch(feedUrl, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        diagnostics[source.outlet].feeds[feedUrl] = { ok: false, items: 0, error: `http_${res.status}` };
+        continue;
+      }
       const xml = await res.text();
-      out.push(...parsePublisherFeed(xml, source.outlet));
+      const items = parsePublisherFeed(xml, source.outlet);
+      diagnostics[source.outlet].feeds[feedUrl] = {
+        ok: items.length > 0,
+        items: items.length,
+        ...(items.length ? {} : { error: "no_feed_items" }),
+      };
+      out.push(...items);
     } catch (e) {
       console.error("article feed fetch failed", source.outlet, feedUrl, e);
+      diagnostics[source.outlet].feeds[feedUrl] = { ok: false, items: 0, error: e instanceof Error ? e.message : String(e) };
     }
   }
   for (const listingUrl of source.listing_urls || []) {
     try {
       const res = await fetch(listingUrl, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        diagnostics[source.outlet].listings[listingUrl] = { ok: false, items: 0, error: `http_${res.status}` };
+        continue;
+      }
       const html = await res.text();
-      out.push(...parsePublisherListingHtml(html, source.outlet, listingUrl));
+      const items = parsePublisherListingHtml(html, source.outlet, listingUrl);
+      diagnostics[source.outlet].listings[listingUrl] = {
+        ok: items.length > 0,
+        items: items.length,
+        ...(items.length ? {} : { error: "no_listing_items" }),
+      };
+      out.push(...items);
     } catch (e) {
       console.error("article listing fetch failed", source.outlet, listingUrl, e);
+      diagnostics[source.outlet].listings[listingUrl] = { ok: false, items: 0, error: e instanceof Error ? e.message : String(e) };
     }
   }
   const seen = new Set<string>();
@@ -93,11 +119,12 @@ Deno.serve(async (req) => {
     let fetchesLeft = Math.max(0, Math.min(80, Number(ctrl.max_article_fetches_per_run || 25)));
 
     const inserted: Record<string, number> = {};
+    const sourceDiagnostics: SourceDiagnostics = {};
     let scannedArticles = 0;
     let scannedEpisodes = 0;
 
     for (const source of sources) {
-      const items = (await fetchFeedItems(source, ctrl)).filter((item) => {
+      const items = (await fetchFeedItems(source, ctrl, sourceDiagnostics)).filter((item) => {
         if (!item.published_at) return true;
         return new Date(item.published_at).getTime() > Date.now() - recentArticleDays * 86_400_000;
       });
@@ -175,6 +202,7 @@ Deno.serve(async (req) => {
       scanned_articles: scannedArticles,
       scanned_episodes: scannedEpisodes,
       upserted_by_outlet: inserted,
+      source_diagnostics: sourceDiagnostics,
       runtime_ms: Date.now() - startedAt,
       policy: "publisher_article_match_v1",
     };
