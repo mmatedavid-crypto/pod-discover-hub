@@ -93,8 +93,34 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const plan = (planRow?.value || {}) as StagedPlan;
     const method = String(plan.cleaner_method || "deterministic_v4");
-    const ids = (plan.candidates || []).map((c) => c.id).filter((id): id is string => !!id).slice(0, batch);
-    if (!ids.length) return json({ ok: true, processed: 0, reason: "no_staged_candidates" });
+    let ids = (plan.candidates || []).map((c) => c.id).filter((id): id is string => !!id).slice(0, batch);
+
+    if (!ids.length) {
+      const idSet = new Set<string>();
+      const { data: oldClean, error: oldErr } = await admin
+        .from("episode_clean_text")
+        .select("episode_id,updated_at,cleaner_method")
+        .neq("cleaner_method", method)
+        .order("updated_at", { ascending: true, nullsFirst: true })
+        .limit(batch);
+      if (oldErr) throw oldErr;
+      for (const row of oldClean || []) idSet.add(String(row.episode_id));
+
+      if (idSet.size < batch) {
+        const { data: missingClean, error: missingErr } = await admin
+          .from("episodes")
+          .select("id,updated_at")
+          .neq("clean_text_status", "done")
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .limit(batch - idSet.size);
+        if (missingErr) throw missingErr;
+        for (const row of missingClean || []) idSet.add(String(row.id));
+      }
+
+      ids = Array.from(idSet).slice(0, batch);
+    }
+
+    if (!ids.length) return json({ ok: true, processed: 0, reason: "no_staged_or_drain_candidates" });
 
     const { data: episodes, error: epErr } = await admin
       .from("episodes")

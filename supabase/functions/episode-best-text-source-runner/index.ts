@@ -128,12 +128,26 @@ Deno.serve(async (req) => {
     const limit = Math.max(1, Math.min(5000, Number(body.limit || ctrl.batch_limit || 1000)));
     const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean).slice(0, limit) : [];
 
+    let targetIds = ids;
+    if (!targetIds.length) {
+      const { data: ytPriority, error: ytPriorityErr } = await admin
+        .from("episode_youtube_links")
+        .select("episode_id,updated_at")
+        .eq("status", "confirmed")
+        .contains("validation_reason", { policy: "youtube_episode_match_v3" })
+        .not("youtube_description", "is", null)
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .limit(limit);
+      if (ytPriorityErr) throw ytPriorityErr;
+      targetIds = Array.from(new Set((ytPriority || []).map((row: any) => String(row.episode_id)).filter(Boolean)));
+    }
+
     let q = admin
       .from("episodes")
       .select("id,podcast_id,title,description,updated_at")
       .order("updated_at", { ascending: false, nullsFirst: false })
       .limit(limit);
-    if (ids.length) q = q.in("id", ids);
+    if (targetIds.length) q = q.in("id", targetIds);
     const { data: episodes, error: epErr } = await q;
     if (epErr) throw epErr;
     const eps = (episodes || []) as EpisodeRow[];

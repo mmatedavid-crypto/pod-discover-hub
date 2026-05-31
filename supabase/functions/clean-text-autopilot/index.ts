@@ -103,12 +103,21 @@ Deno.serve(async (req) => {
     let error: string | null = null;
 
     try {
-      plan = await callFunction("intelligence-reprocess-admin", {
-        mode,
-        limit: stageLimit,
-        tiers,
-        dry_run: true,
-      }, "?action=plan");
+      try {
+        plan = await callFunction("intelligence-reprocess-admin", {
+          mode,
+          limit: stageLimit,
+          tiers,
+          dry_run: true,
+        }, "?action=plan");
+      } catch (e) {
+        plan = {
+          ok: false,
+          fallback: "direct_clean_text_drain",
+          error: e instanceof Error ? e.message : String(e),
+          candidate_count: candidateBatch,
+        };
+      }
 
       spendTodayUsd = await aiEnrichSpendToday(admin);
       if (dryRun) {
@@ -120,11 +129,15 @@ Deno.serve(async (req) => {
         promote = { ok: true, skipped: true, reason: "daily_budget_reached", spend_today_usd: spendTodayUsd, daily_budget_usd: dailyBudget };
       } else
       if (Number(plan?.candidate_count || 0) > 0) {
-        stage = await callFunction("intelligence-reprocess-admin", {
-          mode,
-          limit: stageLimit,
-          tiers,
-        }, "?action=stage");
+        if (!plan?.fallback) {
+          stage = await callFunction("intelligence-reprocess-admin", {
+            mode,
+            limit: stageLimit,
+            tiers,
+          }, "?action=stage");
+        } else {
+          stage = { ok: true, skipped: true, reason: "using_direct_clean_text_drain" };
+        }
         candidates = await callFunction("episode-clean-text-candidate-runner", { batch: candidateBatch });
         promote = await callFunction("episode-clean-text-candidate-promoter", { limit: promoteLimit });
 
