@@ -19,7 +19,7 @@ type Candidate = {
   ai_summary: string | null;
   clean_text_status: string;
   ai_entities_version: number;
-  podcasts?: { title?: string | null; display_title?: string | null; rank_label?: string | null } | null;
+  podcasts?: { title?: string | null; display_title?: string | null; rank_label?: string | null; language_decision?: string | null } | null;
 };
 
 type CleanRow = {
@@ -134,8 +134,9 @@ async function loadCandidates(admin: AdminClient, body: ReprocessBody): Promise<
   const scanLimit = Math.min(limit * 2, 1500);
   const { data: eps, error } = await admin
     .from("episodes")
-    .select("id,podcast_id,title,description,ai_summary,clean_text_status,ai_entities_version,podcasts!inner(title,display_title,rank_label,is_hungarian)")
+    .select("id,podcast_id,title,description,ai_summary,clean_text_status,ai_entities_version,podcasts!inner(title,display_title,rank_label,is_hungarian,language_decision)")
     .eq("podcasts.is_hungarian", true)
+    .eq("podcasts.language_decision", "accept_hungarian")
     .in("podcasts.rank_label", tiers)
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(scanLimit);

@@ -30,6 +30,7 @@ type BestTextSourceRow = {
 };
 
 type AdminClient = ReturnType<typeof createClient>;
+const ID_CHUNK_SIZE = 40;
 
 async function isAdmin(admin: AdminClient, authHeader: string | null) {
   if (!authHeader) return false;
@@ -74,6 +75,25 @@ function qualityGate(raw: string, cleaned: string): { status: "passed" | "reject
   return { status: reasons.length ? "rejected" : "passed", reasons, score };
 }
 
+async function filterAcceptedHungarianEpisodeIds(admin: AdminClient, ids: string[]): Promise<string[]> {
+  const order = new Map(ids.map((id, index) => [id, index]));
+  const accepted = new Set<string>();
+
+  for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+    const slice = ids.slice(i, i + ID_CHUNK_SIZE);
+    const { data, error } = await admin
+      .from("episodes")
+      .select("id,podcasts!inner(is_hungarian,language_decision)")
+      .in("id", slice)
+      .eq("podcasts.is_hungarian", true)
+      .eq("podcasts.language_decision", "accept_hungarian");
+    if (error) throw error;
+    for (const row of data || []) accepted.add(String(row.id));
+  }
+
+  return Array.from(accepted).sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
@@ -96,6 +116,7 @@ Deno.serve(async (req) => {
     const plan = (planRow?.value || {}) as StagedPlan;
     const method = String(plan.cleaner_method || "deterministic_v4");
     let ids = (plan.candidates || []).map((c) => c.id).filter((id): id is string => !!id).slice(0, batch);
+    ids = await filterAcceptedHungarianEpisodeIds(admin, ids);
 
     if (!ids.length) {
       const idSet = new Set<string>();
@@ -104,19 +125,27 @@ Deno.serve(async (req) => {
         .select("episode_id,updated_at,cleaner_method")
         .neq("cleaner_method", method)
         .order("updated_at", { ascending: true, nullsFirst: true })
-        .limit(batch);
+        .limit(batch * 4);
       if (oldErr) throw oldErr;
-      for (const row of oldClean || []) idSet.add(String(row.episode_id));
+      for (const id of await filterAcceptedHungarianEpisodeIds(admin, (oldClean || []).map((row) => String(row.episode_id)))) {
+        if (idSet.size >= batch) break;
+        idSet.add(id);
+      }
 
       if (idSet.size < batch) {
         const { data: missingClean, error: missingErr } = await admin
           .from("episodes")
-          .select("id,updated_at")
+          .select("id,updated_at,podcasts!inner(is_hungarian,language_decision)")
           .neq("clean_text_status", "done")
+          .eq("podcasts.is_hungarian", true)
+          .eq("podcasts.language_decision", "accept_hungarian")
           .order("updated_at", { ascending: false, nullsFirst: false })
-          .limit(batch - idSet.size);
+          .limit((batch - idSet.size) * 4);
         if (missingErr) throw missingErr;
-        for (const row of missingClean || []) idSet.add(String(row.id));
+        for (const row of missingClean || []) {
+          if (idSet.size >= batch) break;
+          idSet.add(String(row.id));
+        }
       }
 
       ids = Array.from(idSet).slice(0, batch);
@@ -125,20 +154,22 @@ Deno.serve(async (req) => {
     if (!ids.length) return json({ ok: true, processed: 0, reason: "no_staged_or_drain_candidates" });
 
     const episodesAll: EpisodeRow[] = [];
-    for (let i = 0; i < ids.length; i += 40) {
-      const slice = ids.slice(i, i + 40);
+    for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+      const slice = ids.slice(i, i + ID_CHUNK_SIZE);
       const { data: epRows, error: epErr } = await admin
         .from("episodes")
-        .select("id,description,summary")
-        .in("id", slice);
+        .select("id,description,summary,podcasts!inner(is_hungarian,language_decision)")
+        .in("id", slice)
+        .eq("podcasts.is_hungarian", true)
+        .eq("podcasts.language_decision", "accept_hungarian");
       if (epErr) throw epErr;
       for (const row of (epRows || []) as EpisodeRow[]) episodesAll.push(row);
     }
     const episodes = episodesAll;
 
     const bestTextByEp = new Map<string, BestTextSourceRow>();
-    for (let i = 0; i < ids.length; i += 40) {
-      const slice = ids.slice(i, i + 40);
+    for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+      const slice = ids.slice(i, i + ID_CHUNK_SIZE);
       const { data: bestRows, error: bestErr } = await admin
         .from("episode_best_text_source")
         .select("episode_id,source_type,raw_text,source_confidence")
