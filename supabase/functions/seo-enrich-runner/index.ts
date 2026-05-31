@@ -220,10 +220,10 @@ Deno.serve(async (req) => {
         if (isPodcast) {
           const seo_title = trim(String(parsed.seo_title || ""), 65);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
-          const { data: pLang } = await admin.from("podcasts").select("language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle();
-          if (isAcceptedHungarian(pLang) && !isHungarianish(`${seo_title} ${seo_description}`)) {
+          if (!isHungarianish(`${seo_title} ${seo_description}`)) {
             throw new Error("hu_language_guard_failed");
           }
+          const { data: pLang } = await admin.from("podcasts").select("language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle();
           const update: any = { seo_title, seo_description, ai_enriched_at: new Date().toISOString() };
           // Never let a model-side detected language overwrite our accepted-Hungarian decision.
           if (detectedLang && detectedLang !== "mul" && !isAcceptedHungarian(pLang)) update.language = detectedLang;
@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
             epHosts = ((ep2 as any)?.podcasts?.hosts) || [];
             epPodcastMeta = (ep2 as any)?.podcasts || null;
           }
-          if (isAcceptedHungarian(epPodcastMeta) && !isHungarianish(`${seo_title} ${seo_description} ${ai_summary}`)) {
+          if (!isHungarianish(`${seo_title} ${seo_description} ${ai_summary}`)) {
             throw new Error("hu_language_guard_failed");
           }
           const people = filterHosts(cleanArr(parsed.people), epHosts);
