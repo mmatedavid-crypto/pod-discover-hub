@@ -144,7 +144,6 @@ import { TrendingPodcasts } from "@/components/TrendingPodcasts";
 import { MyLibraryRails } from "@/components/home/MyLibraryRails";
 import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
 import { HomeDiscoveryShortcuts } from "@/components/home/HomeDiscoveryShortcuts";
-import { HomeAudienceLanes } from "@/components/home/HomeAudienceLanes";
 import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
 import { auditHomepageRail } from "@/lib/homepageQuality";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
@@ -650,7 +649,6 @@ const Index = () => {
         <TrendingPodcasts />
         <HomeDiscoveryShortcuts />
         <WeeklyEditorialStrip />
-        <HomeAudienceLanes />
         <MyLibraryRails />
         <ContinueListening />
         <PersonalizedHomeRails />

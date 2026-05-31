@@ -105,7 +105,7 @@ export function MoodCollections() {
           Összes hangulat <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
-      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 sm:overflow-visible">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
         {cards.map((c) => {
           const Icon = ICONS[c.slug] || Sparkles;
           const href = `/hangulatok/${c.slug}`;
@@ -113,7 +113,7 @@ export function MoodCollections() {
             <Link
               key={c.slug}
               to={href}
-              className="group relative w-[68vw] max-w-[240px] shrink-0 snap-start overflow-hidden rounded-lg border border-border/70 bg-card/70 p-4 transition-colors hover:border-primary/40 sm:w-auto sm:max-w-none"
+              className="group relative min-h-[132px] overflow-hidden rounded-lg border border-border/70 bg-card/70 p-3.5 transition-colors hover:border-primary/40 sm:p-4"
             >
               <div className="flex items-start justify-between">
                 <Icon className="h-5 w-5 text-primary" />
