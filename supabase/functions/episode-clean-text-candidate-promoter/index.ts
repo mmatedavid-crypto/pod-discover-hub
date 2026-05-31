@@ -136,8 +136,8 @@ Deno.serve(async (req) => {
 
       await updateEpisodesAfterPromotion(admin, changed.map((r) => r.episode_id));
 
-      for (let i = 0; i < changed.length; i += 150) {
-        const slice = changed.slice(i, i + 150).map((r) => r.episode_id);
+      for (let i = 0; i < changed.length; i += 40) {
+        const slice = changed.slice(i, i + 40).map((r) => r.episode_id);
         const { error } = await admin
           .from("episode_clean_text_candidates")
           .update({ promoted_at: now, quality_status: "promoted", updated_at: now })
@@ -149,8 +149,8 @@ Deno.serve(async (req) => {
 
     if (unchanged.length) {
       const now = new Date().toISOString();
-      for (let i = 0; i < unchanged.length; i += 150) {
-        const slice = unchanged.slice(i, i + 150).map((r) => r.episode_id);
+      for (let i = 0; i < unchanged.length; i += 40) {
+        const slice = unchanged.slice(i, i + 40).map((r) => r.episode_id);
         const { error } = await admin
           .from("episode_clean_text_candidates")
           .update({ quality_status: "unchanged", updated_at: now })
