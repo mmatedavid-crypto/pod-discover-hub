@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
+import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 
 type Row = {
   match_kind: "chunk_moment" | "entity_overlap" | "vector_neighbor";
@@ -132,6 +133,8 @@ function rowToCandidate(row: Row) {
 
 
 export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Props = {}) {
+  if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null;
+
   const { currentEpisode, play, setExpanded } = useSmartPlayer();
   const episodeId = episodeIdOverride ?? currentEpisode?.id;
   const isCompact = variant === "compact";

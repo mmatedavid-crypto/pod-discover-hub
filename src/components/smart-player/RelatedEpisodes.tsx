@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
+import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 
 type Row = {
   episode_id: string;
@@ -74,6 +75,8 @@ type Props = {
 };
 
 export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant = "panel" }: Props = {}) {
+  if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null;
+
   const { currentEpisode, play, setExpanded } = useSmartPlayer();
   const episodeId = episodeIdOverride ?? currentEpisode?.id;
   const podcastId = podcastIdOverride ?? currentEpisode?.podcastId ?? null;

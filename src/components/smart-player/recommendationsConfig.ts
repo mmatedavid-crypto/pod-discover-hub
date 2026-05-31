@@ -1,0 +1,1 @@
+export const SMART_PLAYER_RECOMMENDATIONS_ENABLED = false;
