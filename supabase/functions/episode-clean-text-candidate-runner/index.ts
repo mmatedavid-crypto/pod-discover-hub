@@ -52,6 +52,8 @@ function dirtySignals(text: string): string[] {
   if (/https?:\/\/|www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|tiktok\.com|patreon\.com|linktr\.ee/i.test(text)) signals.push("url");
   if (/@[A-Za-z0-9_.-]+/.test(text)) signals.push("social_handle");
   if (/^\s*(?:instagram|facebook|youtube|tiktok|spotify|patreon|apple podcasts?)\s*[:：-]/im.test(text)) signals.push("platform_link");
+  if (/\b(?:foglalj|foglaljon|jelentkezz|jelentkezzen|regisztrálj|regisztráljon|rendeld\s+meg|rendelje\s+meg|vegye\s+kézbe|vedd\s+kézbe|részletek(?:\s+és\s+regisztráció)?|weboldalunkon|webinár|webinar|mentoring\s+nap|konzultáció|bestseller\s+könyv|book\s+a\s+call|register(?:\s+(?:now|here|today))?|apply\s+for)\b/i.test(text)) signals.push("promo_cta");
+  if (/\b(?:jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)?|nem\s+minős(?:ül|íthető)[^.!?\n]{0,120}(?:befektetési|befektetésre|tanácsadás|ösztönzés)|not\s+(?:financial|investment|legal)\s+advice)\b/i.test(text)) signals.push("legal_disclaimer");
   if (/\b(undefined|null|\[object Object\])\b/i.test(text)) signals.push("placeholder");
   return signals;
 }
