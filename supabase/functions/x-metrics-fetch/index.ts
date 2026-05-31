@@ -1,7 +1,7 @@
 // Fetches engagement metrics for recently published X posts and updates social_posts.
 // Runs every 6 hours via cron, scans last 14 days of status='success' posts.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { checkBackgroundJobsAllowed, checkSocialAutomationAllowed } from "../_shared/incident-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,6 +103,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    const socialGuard = await checkSocialAutomationAllowed(admin, "x-metrics-fetch");
+    if (socialGuard.blocked) {
+      return new Response(JSON.stringify({ ok: false, blocked: true, reason: socialGuard.reason }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const guard = await checkBackgroundJobsAllowed(admin, "x-metrics-fetch");
     if (guard.blocked) {

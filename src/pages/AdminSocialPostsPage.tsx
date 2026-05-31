@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import { Loader2, Send, Eye, ExternalLink, RefreshCcw } from "lucide-react";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
+const SOCIAL_AUTOMATION_DISABLED = true;
 
 type SocialPost = {
   id: string;
@@ -56,6 +57,10 @@ export default function AdminSocialPostsPage() {
   };
 
   const runPreview = async () => {
+    if (SOCIAL_AUTOMATION_DISABLED) {
+      setMsg("Social content generation is disabled. History only.");
+      return;
+    }
     setMsg(""); setPreview(null); setPosting(true);
     const { data, error } = await supabase.functions.invoke("daily-social-post", {
       body: { dry_run: true, trigger: "manual_preview" },
@@ -66,6 +71,10 @@ export default function AdminSocialPostsPage() {
   };
 
   const postNow = async () => {
+    if (SOCIAL_AUTOMATION_DISABLED) {
+      setMsg("Social auto-posting is disabled. Preview/history only.");
+      return;
+    }
     if (!confirm("Post to X right now?")) return;
     setMsg(""); setPosting(true);
     const { data, error } = await supabase.functions.invoke("daily-social-post", {
@@ -87,7 +96,7 @@ export default function AdminSocialPostsPage() {
         <header>
           <h1 className="text-2xl sm:text-3xl font-semibold">Daily Social Posts</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Auto-posts to X daily at 14:00 UTC (9 AM ET). Picks 2-3 fresh S/A-tier episodes from the last 24h.
+            Disabled. Preview/history only; automatic X/TikTok/social posting is no longer active.
           </p>
         </header>
 
@@ -95,19 +104,19 @@ export default function AdminSocialPostsPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={runPreview}
-              disabled={posting}
+              disabled={posting || SOCIAL_AUTOMATION_DISABLED}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-secondary hover:bg-secondary/80 text-sm disabled:opacity-50"
             >
               {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-              Preview (dry run)
+              Preview disabled
             </button>
             <button
               onClick={postNow}
-              disabled={posting}
+              disabled={posting || SOCIAL_AUTOMATION_DISABLED}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-brand text-brand-foreground hover:bg-brand/90 text-sm disabled:opacity-50"
             >
               {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Post now
+              Posting disabled
             </button>
             <button
               onClick={loadPosts}

@@ -16,7 +16,7 @@
 // Daily caps: weekdays 3, weekends 2. Same podcast cannot be re-posted within 3 days.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { checkBackgroundJobsAllowed, checkSocialAutomationAllowed } from "../_shared/incident-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -612,6 +612,14 @@ async function main(req: Request) {
   const trigger = body?.trigger || (dryRun ? "manual_preview" : "cron");
   const forceSlotTime: string | undefined = body?.force_slot;
 
+  const socialGuard = await checkSocialAutomationAllowed(
+    admin,
+    dryRun ? "daily-social-post-preview" : body?.manual === true || trigger === "manual" ? "daily-social-post-manual" : "daily-social-post",
+  );
+  if (socialGuard.blocked) {
+    return jsonRes({ ok: false, blocked: true, reason: socialGuard.reason });
+  }
+
   // ---------- Manual override: post a fully-specified payload as-is ----------
   if (body?.manual === true) {
     const mainText: string = String(body.main_text || "").trim();
@@ -687,7 +695,7 @@ async function main(req: Request) {
     }, status === "success" ? 200 : 500);
   }
 
-  // Kill switch (skip for dry-run)
+  // Background kill switch (skip for dry-run preview only)
   if (!dryRun) {
     const guard = await checkBackgroundJobsAllowed(admin, "daily-social-post");
     if (guard.blocked) {
