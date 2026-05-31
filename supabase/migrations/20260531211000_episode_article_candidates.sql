@@ -117,6 +117,7 @@ VALUES (
   jsonb_build_object(
     'enabled', true,
     'policy', 'publisher_article_match_v1',
+    'source_version', 'publisher_sources_v2',
     'batch_limit', 120,
     'article_feed_item_limit', 80,
     'max_article_fetches_per_run', 25,
@@ -129,8 +130,10 @@ VALUES (
       jsonb_build_object(
         'outlet', '444',
         'feed_urls', jsonb_build_array(
-          'https://444.hu/category/podcast/feed',
-          'https://444.hu/category/podcastFeed'
+          'https://444.hu/feed'
+        ),
+        'listing_urls', jsonb_build_array(
+          'https://444.hu/category/podcast'
         ),
         'podcast_title_patterns', jsonb_build_array('444', 'borízű', 'tyúkól', 'saját tőke')
       ),
@@ -139,6 +142,10 @@ VALUES (
         'feed_urls', jsonb_build_array(
           'https://telex.hu/rss?tag=podcast',
           'https://telex.hu/rss'
+        ),
+        'listing_urls', jsonb_build_array(
+          'https://telex.hu/rovat/podcast',
+          'https://telex.hu/cimke/podcast'
         ),
         'podcast_title_patterns', jsonb_build_array('telex', 'after', 'nyomozó', 'ízfokozó', 'téma')
       )
@@ -150,7 +157,9 @@ ON CONFLICT (key) DO UPDATE
 SET value = public.app_settings.value
   || jsonb_build_object(
     'enabled', COALESCE(public.app_settings.value->'enabled', 'true'::jsonb),
-    'policy', 'publisher_article_match_v1'
+    'policy', 'publisher_article_match_v1',
+    'source_version', 'publisher_sources_v2',
+    'sources', EXCLUDED.value->'sources'
   ),
   updated_at = now();
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 const {
+  parsePublisherListingHtml,
   parsePublisherFeed,
   scorePublisherArticleMatch,
 } = await import("../../supabase/functions/_shared/publisher-article-match");
@@ -71,5 +72,20 @@ describe("publisher article matching", () => {
     expect(items).toHaveLength(1);
     expect(items[0].url).toBe("https://444.hu/podcast/podcastcikk");
     expect(items[0].text).toContain("jobb description");
+  });
+
+  it("extracts publisher article links from listing HTML when there is no RSS feed", () => {
+    const items = parsePublisherListingHtml(`
+      <a href="/2026/04/29/az-orban-rendszerben-boven-van-meg-banyasznivalo-ujsagiras-es-media-eddig-es-ezutan">
+        podcast cikk
+      </a>
+      <script>{"url":"https://444.hu/2026/05/30/borizu-hang-podcast-majus-vege"}</script>
+      <a href="/assets/logo.svg">asset</a>
+    `, "444", "https://444.hu/category/podcast");
+
+    expect(items.map((item) => item.url)).toContain("https://444.hu/2026/04/29/az-orban-rendszerben-boven-van-meg-banyasznivalo-ujsagiras-es-media-eddig-es-ezutan");
+    expect(items.map((item) => item.url)).toContain("https://444.hu/2026/05/30/borizu-hang-podcast-majus-vege");
+    expect(items.some((item) => item.url.includes("assets"))).toBe(false);
+    expect(items[0].title.length).toBeGreaterThan(8);
   });
 });

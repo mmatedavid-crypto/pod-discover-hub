@@ -7,6 +7,7 @@ import {
   ArticleEpisodeRow,
   ArticleItem,
   articlePodcastTitle,
+  parsePublisherListingHtml,
   parsePublisherFeed,
   scorePublisherArticleMatch,
   stripHtml,
@@ -22,6 +23,7 @@ const json = (body: unknown, status = 200) =>
 type SourceConfig = {
   outlet: string;
   feed_urls: string[];
+  listing_urls?: string[];
   podcast_title_patterns?: string[];
 };
 
@@ -45,6 +47,16 @@ async function fetchFeedItems(source: SourceConfig, ctrl: Record<string, unknown
       out.push(...parsePublisherFeed(xml, source.outlet));
     } catch (e) {
       console.error("article feed fetch failed", source.outlet, feedUrl, e);
+    }
+  }
+  for (const listingUrl of source.listing_urls || []) {
+    try {
+      const res = await fetch(listingUrl, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
+      if (!res.ok) continue;
+      const html = await res.text();
+      out.push(...parsePublisherListingHtml(html, source.outlet, listingUrl));
+    } catch (e) {
+      console.error("article listing fetch failed", source.outlet, listingUrl, e);
     }
   }
   const seen = new Set<string>();

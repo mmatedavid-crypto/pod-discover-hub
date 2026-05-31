@@ -132,3 +132,53 @@ export function parsePublisherFeed(xml: string, outlet: string): ArticleItem[] {
     };
   }).filter((item) => item.url && item.title);
 }
+
+function titleFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const slug = parsed.pathname.split("/").filter(Boolean).pop() || "";
+    return decodeURIComponent(slug)
+      .replace(/\.(html?|php)$/i, "")
+      .replace(/[-_]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  } catch {
+    return "";
+  }
+}
+
+export function parsePublisherListingHtml(html: string, outlet: string, baseUrl: string): ArticleItem[] {
+  const candidates = new Set<string>();
+  const base = new URL(baseUrl);
+  const urlPatterns = [
+    /https?:\\?\/\\?\/(?:www\.)?(?:444\.hu|telex\.hu)\\?\/[^"'<>\s\\]+/gi,
+    /\bhref=["']([^"']+)["']/gi,
+  ];
+
+  for (const pattern of urlPatterns) {
+    for (const match of String(html || "").matchAll(pattern)) {
+      const raw = (match[1] || match[0] || "").replace(/\\\//g, "/");
+      try {
+        const url = new URL(raw, base);
+        if (url.hostname !== base.hostname) continue;
+        url.hash = "";
+        url.search = "";
+        const path = url.pathname;
+        if (!path || path === "/" || path.startsWith("/assets") || path.startsWith("/_nuxt")) continue;
+        if (!/\/20\d{2}\//.test(path) && !path.includes("podcast") && !path.includes("after")) continue;
+        candidates.add(url.toString());
+      } catch {
+        // Ignore malformed publisher-side URLs.
+      }
+    }
+  }
+
+  return Array.from(candidates).slice(0, 200).map((url) => ({
+    outlet,
+    url,
+    title: titleFromUrl(url),
+    excerpt: "",
+    text: "",
+    published_at: null,
+  })).filter((item) => item.title.length >= 8);
+}
