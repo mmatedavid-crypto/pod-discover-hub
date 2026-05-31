@@ -29,6 +29,8 @@ const BOILERPLATE_RX = [
   /kövess(?:etek|étek|en| minket| bennünket)? [^.\n]*/gi,
   /(?:támogasd|támogass(?:atok)?) (?:a műsort|minket|a csatornát|a podcastot)[^.\n]*/gi,
   /(?:támogatás|tamogatas|patreon|donate|adomány|adomany)[^.\n]*(?:https?:\/\/|www\.|@)[^.\n]*/gi,
+  /(?:amennyiben\s+szeretn[ée]\s+támogatni|ha\s+meghívnál\s+minket\s+egy\s+kávéra|patreon\s+támogatás|adomány(?:aikat)?|bankszámla(?:szám)?|közleménybe\s+kérjük)[^.\n]*/gi,
+  /learn more about your ad choices\.?\s*visit\s+megaphone\.fm\/adchoices/gi,
   /(?:linkek|show notes|shownotes|elérhetőség(?:eink)?|elerhetoseg(?:eink)?)[^.\n]*(?:https?:\/\/|www\.|@)[^.\n]*/gi,
   /(?:hallgasd|hallgassa) (?:meg )?(?:a|az) [^.\n]{0,40} (?:spotify|apple|youtube)[^.\n]*/gi,
 ];
@@ -62,6 +64,7 @@ const FOOTER_MARKER_RX = [
   /^\s*(?:kövess|kövessetek|kövessen|kövessétek|kövesd)\s+(?:minket|bennünket|engem|a\s+műsort|a\s+csatornát|a\s+podcastot|a\s+podcastunkat|az\s+oldalunkat)/i,
   /^\s*(?:iratkozz(?:atok)?\s+fel|feliratkoz(?:ás|hatsz|hattok)|értesülj\s+elsőként|like[- ]?old|lájkold|kedveld|oszd\s+meg|nyomj\s+egy\s+lájkot)/i,
   /^\s*(?:támogasd|támogass(?:atok)?|támogatónk|támogatóink|a\s+műsor\s+támogatója|szponzorunk|szponzoraink|szponzorált|szponzorálta|reklám|hirdetés)/i,
+  /^\s*(?:amennyiben\s+szeretn[ée]\s+támogatni|ha\s+meghívnál\s+minket\s+egy\s+kávéra|adomány(?:aikat)?|bankszámla(?:szám)?|közleménybe\s+kérjük)/i,
   /^\s*(?:follow\s+(?:us|me)|subscribe\s+(?:to|on)|support\s+(?:us|the\s+show)|our\s+sponsors?|sponsored\s+by|brought\s+to\s+you\s+by|listen\s+(?:on|to)|available\s+(?:on|now)|watch\s+on)/i,
   // "social media / contact" headings
   /^\s*(?:közösségi\s+média|elérhetőség(?:eink)?|kapcsolat(?:tartás|fel(?:vétel)?)?|social\s+(?:media|links?|channels?)|find\s+us\s+on|contact\s+us|kapcsolódj|csatlakozz)\s*[:：]?/i,
@@ -217,7 +220,7 @@ function isFooterishSentence(sentence: string): boolean {
   if (LEGAL_TAIL_RX.test(s)) return true;
   if (PROMO_SENTENCE_RX.test(s)) return true;
   if (/(?:https?:\/\/|www\.|@|spotify|apple\s+podcasts?|youtube|instagram|facebook|tiktok|patreon|discord|telegram|linktr\.ee)/i.test(s)) return true;
-  if (/(?:kövesd|kövess|iratkozz|feliratkoz|támogasd|támogass|hallgasd|nézd|nézzétek|listen|subscribe|follow|support|download)\b/i.test(s)) return true;
+  if (/(?:kövesd|kövess|iratkozz|feliratkoz|támogasd|támogass|támogatni|adomány|bankszámla|meghívnál\s+minket\s+egy\s+kávéra|hallgasd|nézd|nézzétek|learn\s+more\s+about\s+your\s+ad\s+choices|megaphone\.fm\/adchoices|listen|subscribe|follow|support|download)\b/i.test(s)) return true;
   if (/^(?:email|e-?mail|website|weboldal|honlap|additional\s+resources|contact\s+information|headshots|x\s+\(ex-twitter\)|bluesky)\s*[:：]/i.test(s)) return true;
   return false;
 }
