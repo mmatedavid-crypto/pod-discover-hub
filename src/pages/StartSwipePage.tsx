@@ -78,6 +78,8 @@ type Phase = "intro" | "swipe" | "result";
 type SwipeAction = "like" | "skip" | "super";
 
 const STORAGE_KEY = "podiverzum_taste_v1";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://yoxewklaybougzpmzvkg.supabase.co";
+const SHARE_FN_URL = `${SUPABASE_URL}/functions/v1/te-podiverzumod-share`;
 
 type Persisted = {
   sessionId: string;
@@ -123,6 +125,31 @@ function loadPersisted(): Persisted {
 
 function savePersisted(p: Persisted) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...p, updatedAt: new Date().toISOString() })); } catch { /* ignore */ }
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* fall through */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
 }
 
 function stableHash(input: string): number {
@@ -1305,7 +1332,7 @@ function ResultView({
     () => buildReceiptNumber(shareId || pdvCode || listenerProfile.id),
     [shareId, pdvCode, listenerProfile.id],
   );
-  const [busy, setBusy] = useState<null | "share" | "download" | "copy" | "ig" | "fb">(null);
+  const [busy, setBusy] = useState<null | "share" | "download" | "copy">(null);
   const [showShareHint, setShowShareHint] = useState(false);
 
   // Fire `profile_generated` once when the result mounts.
@@ -1334,15 +1361,11 @@ function ResultView({
       tags: listenerProfile.traits,
       aura_colors: aura.colors.slice(0, 4),
     };
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
-    const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/te-podiverzumod-share`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
+    const res = await fetch(SHARE_FN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
     if (!res.ok) return null;
     const { url, share_id } = (await res.json()) as { url: string; share_id: string };
     // Új kanonikus share URL: /hallgatoi-profil/:shareId
@@ -1430,7 +1453,8 @@ function ResultView({
         toast.error("Nem sikerült létrehozni a linket.");
         return;
       }
-      await navigator.clipboard.writeText(created.url);
+      const copied = await copyText(created.url);
+      if (!copied) throw new Error("copy failed");
       trackProfileEvent("profile_link_copied", {
         share_id: created.share_id,
         archetype_id: listenerProfile.id,
