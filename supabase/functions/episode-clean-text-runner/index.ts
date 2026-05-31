@@ -5,6 +5,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { heuristicClean } from "../_shared/episode-text-cleaner.ts";
+import { detectAiTrimBucket, runAiTrim, AI_TRIM_TARGET_BUCKETS, type AiTrimBucket } from "../_shared/clean-text-ai-trim.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -59,7 +60,33 @@ Deno.serve(async (req) => {
     const useBestTextSource = ctrl.use_best_text_source !== false;
     const requeueResult = await maybeRequeueLegacyV3(admin, ctrl, body, batchLimit);
 
+    // ---- AI-trim gate (LIVE 2026-05-31) ----
+    // Bucket-routes yt_dominant / over_trimmed_v3 / sponsor_heavy to flash-lite few-shot.
+    // v3 still runs first; AI-trim only OVERWRITES cleaned_text when guards pass.
+    const aiTrimEnabled = ctrl.ai_trim_enabled === true;
+    const aiTrimModel = String(ctrl.ai_trim_model ?? "google/gemini-3.1-flash-lite-preview");
+    const aiTrimBudget = Number(ctrl.ai_trim_daily_budget_usd ?? 5);
+    const aiTrimMaxPerRun = Math.max(0, Math.min(200, Number(ctrl.ai_trim_max_per_run ?? 60)));
+    const aiTrimBuckets = new Set<AiTrimBucket>(
+      Array.isArray(ctrl.ai_trim_buckets) && ctrl.ai_trim_buckets.length
+        ? ctrl.ai_trim_buckets.map(String) as AiTrimBucket[]
+        : AI_TRIM_TARGET_BUCKETS,
+    );
+
+    let aiTrimSpendToday = 0;
+    if (aiTrimEnabled) {
+      const today = new Date(); today.setUTCHours(0,0,0,0);
+      const { data: spentRows } = await admin
+        .from("ai_call_audit")
+        .select("estimated_cost_usd")
+        .eq("job_type", "clean_text_ai_trim")
+        .gte("created_at", today.toISOString());
+      aiTrimSpendToday = (spentRows || []).reduce((s: number, r: any) => s + Number(r.estimated_cost_usd || 0), 0);
+    }
+
     let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, passes = 0;
+    let aiTrimCalls = 0, aiTrimApplied = 0, aiTrimRejected = 0, aiTrimErrors = 0;
+    const aiTrimBucketCounts: Record<string, number> = {};
 
     // Drain loop: keep claiming batches until time budget exhausted or queue empty.
     while (Date.now() - startedAt < timeBudgetMs) {
@@ -114,19 +141,59 @@ Deno.serve(async (req) => {
         }
         try {
           const { text, removed } = heuristicClean(raw);
-          const source_hash = await sha256Hex(`${usedMethod}::${raw}`);
+          let cleaned = text.trim();
+          let appliedMethod = usedMethod;
+          const removedCats = best?.source_type ? Array.from(new Set([...removed, `source_${best.source_type}`])) : [...removed];
+
+          // ----- AI-trim gate -----
+          if (aiTrimEnabled && aiTrimCalls < aiTrimMaxPerRun && aiTrimSpendToday < aiTrimBudget) {
+            const bucket = detectAiTrimBucket({
+              raw_text: raw,
+              v3_cleaned: cleaned,
+              source_type: String(best?.source_type || "rss"),
+              rss_description: rss,
+            });
+            aiTrimBucketCounts[bucket] = (aiTrimBucketCounts[bucket] || 0) + 1;
+            if (bucket !== "none" && aiTrimBuckets.has(bucket)) {
+              aiTrimCalls++;
+              try {
+                const aiRes = await runAiTrim({
+                  episode_id: (ep as any).id,
+                  raw_text: raw,
+                  v3_cleaned: cleaned,
+                  bucket,
+                  model: aiTrimModel,
+                  source_hash: await sha256Hex(`ai_trim::${bucket}::${raw}`),
+                });
+                if (aiRes.ok && aiRes.cleaned_text) {
+                  cleaned = aiRes.cleaned_text;
+                  appliedMethod = `${usedMethod}+ai_trim_${bucket}`;
+                  removedCats.push(`ai_trim_${bucket}`);
+                  aiTrimSpendToday += Number(aiRes.cost_usd || 0);
+                  aiTrimApplied++;
+                } else {
+                  aiTrimRejected++;
+                  removedCats.push(`ai_trim_skipped_${aiRes.reason || "unknown"}`);
+                }
+              } catch (e) {
+                aiTrimErrors++;
+                console.warn("ai_trim error", (ep as any).id, e);
+              }
+            }
+          }
+
+          const source_hash = await sha256Hex(`${appliedMethod}::${raw}`);
           upsertRows.push({
             episode_id: (ep as any).id,
             source_hash,
-            cleaned_text: text.trim(),
-            removed_categories: best?.source_type ? Array.from(new Set([...removed, `source_${best.source_type}`])) : removed,
-            cleaner_method: usedMethod,
+            cleaned_text: cleaned,
+            removed_categories: removedCats,
+            cleaner_method: appliedMethod,
           });
           doneIds.push((ep as any).id);
         } catch (e) {
           totalErrors++;
           console.warn("clean-text heuristic error", (ep as any).id, e);
-          // Mark as error individually (rare path).
           await admin.from("episodes").update({ clean_text_status: "error" }).eq("id", (ep as any).id);
         }
       }
@@ -138,10 +205,8 @@ Deno.serve(async (req) => {
         if (upErr) {
           totalErrors += upsertRows.length;
           console.warn("clean-text bulk upsert error", upErr.message);
-          // Don't flip status on failure — they remain pending and will be retried.
         } else {
           totalWritten += upsertRows.length;
-          // Chunk the IN list to avoid PostgREST URL length limits (~150 ids per call).
           for (let i = 0; i < doneIds.length; i += ID_CHUNK_SIZE) {
             const slice = doneIds.slice(i, i + ID_CHUNK_SIZE);
             await admin.from("episodes").update({ clean_text_status: "done" }).in("id", slice);
@@ -178,6 +243,17 @@ Deno.serve(async (req) => {
           method_version: method,
           use_best_text_source: useBestTextSource,
           legacy_v3_requeue: requeueResult,
+          ai_trim: {
+            enabled: aiTrimEnabled,
+            model: aiTrimModel,
+            daily_budget_usd: aiTrimBudget,
+            spend_today_usd: aiTrimSpendToday,
+            calls: aiTrimCalls,
+            applied: aiTrimApplied,
+            rejected: aiTrimRejected,
+            errors: aiTrimErrors,
+            bucket_counts: aiTrimBucketCounts,
+          },
         },
       }, { onConflict: "key" });
     } catch (_) { /* non-fatal */ }
@@ -193,6 +269,16 @@ Deno.serve(async (req) => {
       method_version: method,
       use_best_text_source: useBestTextSource,
       legacy_v3_requeue: requeueResult,
+      ai_trim: {
+        enabled: aiTrimEnabled,
+        calls: aiTrimCalls,
+        applied: aiTrimApplied,
+        rejected: aiTrimRejected,
+        errors: aiTrimErrors,
+        spend_today_usd: aiTrimSpendToday,
+        daily_budget_usd: aiTrimBudget,
+        bucket_counts: aiTrimBucketCounts,
+      },
     });
   } catch (e) {
     console.error("episode-clean-text-runner err", e);
