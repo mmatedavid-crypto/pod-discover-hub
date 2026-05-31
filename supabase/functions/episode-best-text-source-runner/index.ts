@@ -235,6 +235,8 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, scanned: eps.length, upserted, source_counts: sourceCounts, elapsed_ms: Date.now() - startedAt });
   } catch (e) {
-    return json({ ok: false, error: e instanceof Error ? e.message : "error" }, 500);
+    const msg = e instanceof Error ? `${e.message}${e.stack ? ` :: ${e.stack.split('\n').slice(0,3).join(' | ')}` : ''}` : (typeof e === "string" ? e : JSON.stringify(e));
+    console.error("episode-best-text-source-runner error:", msg);
+    return json({ ok: false, error: msg }, 500);
   }
 });
