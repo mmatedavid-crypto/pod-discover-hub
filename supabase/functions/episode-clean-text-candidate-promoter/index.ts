@@ -180,6 +180,8 @@ Deno.serve(async (req) => {
       promoted_episode_ids: changed.map((r) => r.episode_id),
     });
   } catch (e) {
-    return json({ ok: false, error: e instanceof Error ? e.message : "error" }, 500);
+    const msg = e instanceof Error ? `${e.message}${e.stack ? `\n${e.stack}` : ""}` : (() => { try { return JSON.stringify(e); } catch { return String(e); } })();
+    console.error("[clean-text-candidate-promoter] fatal:", msg);
+    return json({ ok: false, error: msg }, 500);
   }
 });
