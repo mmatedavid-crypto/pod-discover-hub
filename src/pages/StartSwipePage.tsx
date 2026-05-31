@@ -74,6 +74,7 @@ type RecEp = {
 };
 
 type Phase = "intro" | "swipe" | "result";
+type SwipeAction = "like" | "skip" | "super";
 
 const STORAGE_KEY = "podiverzum_taste_v1";
 
@@ -118,19 +119,31 @@ function savePersisted(p: Persisted) {
 /* ────────────────── Stopping logic ────────────────── */
 
 function shouldStop(totalSwipes: number, positiveSwipes: number, confidence: number): boolean {
-  if (totalSwipes >= 10 && positiveSwipes >= 6 && confidence >= 0.72) return true;
-  if (totalSwipes >= 22 && positiveSwipes >= 5 && confidence >= 0.60) return true;
-  if (totalSwipes >= 30) return true;
+  if (totalSwipes >= 8 && positiveSwipes >= 5 && confidence >= 0.62) return true;
+  if (totalSwipes >= 12 && positiveSwipes >= 4 && confidence >= 0.55) return true;
+  if (totalSwipes >= 16 && positiveSwipes >= 5) return true;
+  if (totalSwipes >= 22) return true;
   return false;
 }
 
 function progressCopy(totalSwipes: number, positiveSwipes: number, confidence: number): string {
-  if (totalSwipes === 0) return "Pár döntés, és indulnak a személyes ajánlások.";
-  if (totalSwipes < 6) return `Még ${6 - totalSwipes} gyors döntés, hogy ráérezzünk.`;
+  if (totalSwipes === 0) return "Nincs rossz válasz. Csak húzd, ami ösztönből jön.";
+  if (totalSwipes < 5) return `Még ${5 - totalSwipes} gyors húzás, hogy ráérezzünk.`;
   if (positiveSwipes < 4) return "Mutatunk még pár irányt, hogy legyen miből ajánlani.";
-  if (confidence >= 0.72 && positiveSwipes >= 6) return "Elég erős a profilod, jönnek az ajánlások.";
-  if (totalSwipes < 10) return `Még ${10 - totalSwipes} finomító döntés.`;
-  return "Már elég sokat tudunk rólad, hamarosan kész.";
+  if (confidence >= 0.62 && positiveSwipes >= 5) return "Összeállt a profilod. Már jöhetnek az ajánlások.";
+  if (totalSwipes < 8) return `Még ${8 - totalSwipes} finomító húzás.`;
+  return "Már van elég jel. Mutathatjuk, mi passzol hozzád.";
+}
+
+function swipeFeedback(action: SwipeAction, totalSwipes: number): string {
+  if (action === "super") return "Ez erős jel. Ebből többet keresünk.";
+  if (action === "like") {
+    if (totalSwipes <= 2) return "Megvan az első irány.";
+    if (totalSwipes <= 6) return "Finomodik az ízlésprofilod.";
+    return "Ezt beleszámoljuk az ajánlásokba.";
+  }
+  if (totalSwipes <= 2) return "Oké, ezt elengedjük.";
+  return "Hasznos passz. Ebből is tanul a rendszer.";
 }
 
 /* ────────────────── Tag weights aggregation ────────────────── */
@@ -312,6 +325,7 @@ export default function StartSwipePage() {
   const [recs, setRecs] = useState<RecEp[] | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
   const [recsError, setRecsError] = useState<string | null>(null);
+  const [lastSwipeFeedback, setLastSwipeFeedback] = useState<string | null>(null);
 
   // Derived collections
   const byId = useMemo(() => {
@@ -587,7 +601,15 @@ export default function StartSwipePage() {
     setPhase("swipe");
   };
 
-  const handleSwipe = (action: "like" | "skip" | "super") => {
+  const finishSwipe = (reason: string, total = totalSwipes, positives = positiveSwipes) => {
+    setCurrent(null);
+    completedRef.current = true;
+    trackLandingEvent("SwipeCompleted", { total, positives, reason });
+    trackProfileEvent("swipe_completed", { total, positives, reason });
+    setPhase("result");
+  };
+
+  const handleSwipe = (action: SwipeAction) => {
     if (!current || !pool) return;
     if (!firstActionRef.current) {
       firstActionRef.current = true;
@@ -604,6 +626,7 @@ export default function StartSwipePage() {
     };
     setPersisted(next);
     savePersisted(next);
+    setLastSwipeFeedback(swipeFeedback(action, next.seenCardIds.length));
 
     // Mild haptic feedback (mobile)
     try { (navigator as any).vibrate?.(action === "super" ? [10, 40, 30] : 15); } catch { /* ignore */ }
@@ -623,11 +646,7 @@ export default function StartSwipePage() {
     }
 
     if (shouldStop(total, positives, newConf)) {
-      setCurrent(null);
-      completedRef.current = true;
-      trackLandingEvent("SwipeCompleted", { total, positives });
-      trackProfileEvent("swipe_completed", { total, positives });
-      setPhase("result");
+      finishSwipe("auto_confident", total, positives);
       return;
     }
 
@@ -635,10 +654,7 @@ export default function StartSwipePage() {
     const seen = new Set(next.seenCardIds);
     const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total);
     if (!nextCard) {
-      completedRef.current = true;
-      trackLandingEvent("SwipeCompleted", { total, positives, reason: "pool_exhausted" });
-      setPhase("result");
-      setCurrent(null);
+      finishSwipe("pool_exhausted", total, positives);
       return;
     }
     setCurrent(nextCard);
@@ -725,6 +741,9 @@ export default function StartSwipePage() {
             positiveSwipes={positiveSwipes}
             superSwipes={superSwipes}
             confidence={confidence}
+            feedback={lastSwipeFeedback}
+            canFinish={totalSwipes >= 8 && positiveSwipes >= 4}
+            onFinish={() => finishSwipe("user_ready")}
             onAction={handleSwipe}
           />
         )}
@@ -787,15 +806,15 @@ function IntroLanding({
 
       <div className="mt-10 grid grid-cols-3 gap-3 text-xs text-muted-foreground">
         <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="font-medium text-foreground">← Balra ❌</div>
-          <div className="mt-1">Nem nekem való</div>
+          <div className="font-medium text-foreground">← Balra</div>
+          <div className="mt-1">Most nem</div>
         </div>
         <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4">
-          <div className="font-medium text-primary">↑ Fel ⭐</div>
+          <div className="font-medium text-primary">↑ Fel</div>
           <div className="mt-1">Imádom</div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="font-medium text-foreground">Jobbra ❤ →</div>
+          <div className="font-medium text-foreground">Jobbra →</div>
           <div className="mt-1">Érdekel</div>
         </div>
       </div>
@@ -806,7 +825,7 @@ function IntroLanding({
 /* ────────────────── Swipe ────────────────── */
 
 function SwipeView({
-  current, upcoming, loading, poolError, onRetry, totalSwipes, positiveSwipes, superSwipes, confidence, onAction,
+  current, upcoming, loading, poolError, onRetry, totalSwipes, positiveSwipes, superSwipes, confidence, feedback, canFinish, onFinish, onAction,
 }: {
   current: Card | null;
   upcoming: Card[];
@@ -817,7 +836,10 @@ function SwipeView({
   positiveSwipes: number;
   superSwipes: number;
   confidence: number;
-  onAction: (a: "like" | "skip" | "super") => void;
+  feedback: string | null;
+  canFinish: boolean;
+  onFinish: () => void;
+  onAction: (a: SwipeAction) => void;
 }) {
   // Keyboard shortcuts
   useEffect(() => {
@@ -874,7 +896,7 @@ function SwipeView({
       <div className="mb-5">
         <h1 className="text-3xl font-semibold tracking-tight">Építsd fel A Te Podiverzumod</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Jobbra, ha érdekel. Balra, ha nem. Fel, ha nagyon betalált.
+          Jobbra, ha érdekel. Balra, ha most nem. Fel, ha nagyon betalált.
         </p>
       </div>
 
@@ -890,6 +912,19 @@ function SwipeView({
           transition={{ type: "spring", stiffness: 120, damping: 18 }}
         />
       </div>
+      <AnimatePresence mode="popLayout">
+        {feedback && (
+          <motion.div
+            key={feedback}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="mb-3 rounded-full border border-primary/20 bg-primary/10 px-3 py-2 text-center text-xs font-medium text-primary"
+          >
+            {feedback}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="relative mx-auto aspect-[3/4] h-[min(60svh,30rem)] max-w-full">
         {/* Background stack (next cards) */}
@@ -922,7 +957,7 @@ function SwipeView({
       </div>
 
       <div className="mt-6 flex items-center justify-center gap-5">
-        <ActionBtn label="Nem nekem való" onClick={() => onAction("skip")} variant="skip">
+        <ActionBtn label="Most nem" onClick={() => onAction("skip")} variant="skip">
           <X className="h-7 w-7" />
         </ActionBtn>
         <ActionBtn label="Imádom" onClick={() => onAction("super")} variant="super">
@@ -933,13 +968,22 @@ function SwipeView({
         </ActionBtn>
       </div>
       <div className="mt-3 text-center text-[10px] uppercase tracking-wider text-muted-foreground">
-        Balra: nem nekem · Fel: imádom · Jobbra: érdekel
+        Balra: most nem · Fel: imádom · Jobbra: érdekel
       </div>
+      {canFinish && (
+        <button
+          type="button"
+          onClick={onFinish}
+          className="mx-auto mt-4 flex items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary hover:bg-primary/15"
+        >
+          Mutasd az ajánlásokat <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }
 
-function SwipeCard({ card, onAction }: { card: Card; onAction: (a: "like" | "skip" | "super") => void }) {
+function SwipeCard({ card, onAction }: { card: Card; onAction: (a: SwipeAction) => void }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 
@@ -1010,7 +1054,7 @@ function SwipeCard({ card, onAction }: { card: Card; onAction: (a: "like" | "ski
           style={{ opacity: nopeOpacity, rotate: 12 }}
         >
           <div className="rounded-md border-4 border-rose-500 px-3 py-1 text-2xl font-black uppercase tracking-widest text-rose-500 shadow-lg">
-            Passz
+            Most nem
           </div>
         </motion.div>
 
@@ -1441,6 +1485,30 @@ function ResultView({
           )}
         </div>
 
+      </div>
+
+      <div className="rounded-3xl border border-border bg-card p-5">
+        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          Miért ezt kaptad?
+        </div>
+        <div className="mt-3 space-y-2 text-sm text-foreground/85">
+          <div className="flex gap-2">
+            <span className="text-primary">01</span>
+            <span>{liked.length + superLiked.length} pozitív jel alapján épült a profilod.</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="text-primary">02</span>
+            <span>
+              {topInterestLabels.length > 0
+                ? `A legerősebb érdeklődési irányaid: ${topInterestLabels.join(", ")}.`
+                : listenerProfile.recommendedDirection}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <span className="text-primary">03</span>
+            <span>A „most nem” húzások is számítanak, hogy ne generikus ajánlót kapj.</span>
+          </div>
+        </div>
       </div>
 
 
