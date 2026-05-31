@@ -42,6 +42,8 @@ candidate_counts AS (
   SELECT
     count(*) AS total,
     count(*) FILTER (WHERE quality_status = 'passed') AS passed,
+    count(*) FILTER (WHERE quality_status = 'passed' AND promoted_at IS NULL) AS passed_pending,
+    count(*) FILTER (WHERE quality_status = 'passed' AND promoted_at IS NOT NULL) AS passed_already_promoted,
     count(*) FILTER (WHERE quality_status = 'rejected') AS rejected,
     count(*) FILTER (WHERE promoted_at IS NOT NULL) AS promoted
   FROM public.episode_clean_text_candidates

@@ -144,6 +144,10 @@ function isDirectDrainRequested(body: Record<string, unknown>, plan: StagedPlan)
   return planCount === 0;
 }
 
+function candidateKey(row: { episode_id: string; cleaner_method: string; source_hash: string }) {
+  return `${row.episode_id}::${row.cleaner_method}::${row.source_hash}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
@@ -224,10 +228,26 @@ Deno.serve(async (req) => {
     });
 
     const candidateRows = await Promise.all(rows);
-    if (candidateRows.length) {
+    const alreadyPromoted = new Set<string>();
+    for (let i = 0; i < candidateRows.length; i += ID_CHUNK_SIZE) {
+      const slice = candidateRows.slice(i, i + ID_CHUNK_SIZE);
+      const { data: existing, error: existingErr } = await admin
+        .from("episode_clean_text_candidates")
+        .select("episode_id,cleaner_method,source_hash,promoted_at")
+        .in("episode_id", slice.map((row) => row.episode_id))
+        .eq("cleaner_method", method)
+        .not("promoted_at", "is", null);
+      if (existingErr) throw existingErr;
+      for (const row of existing || []) {
+        alreadyPromoted.add(candidateKey(row as { episode_id: string; cleaner_method: string; source_hash: string }));
+      }
+    }
+
+    const candidateRowsToWrite = candidateRows.filter((row) => !alreadyPromoted.has(candidateKey(row)));
+    if (candidateRowsToWrite.length) {
       const { error: upErr } = await admin
         .from("episode_clean_text_candidates")
-        .upsert(candidateRows, { onConflict: "episode_id,cleaner_method,source_hash" });
+        .upsert(candidateRowsToWrite, { onConflict: "episode_id,cleaner_method,source_hash" });
       if (upErr) throw upErr;
     }
 
@@ -242,6 +262,7 @@ Deno.serve(async (req) => {
         direct_drain: directDrain,
         requested_batch: batch,
         processed: candidateRows.length,
+        skipped_already_promoted: candidateRows.length - candidateRowsToWrite.length,
         passed,
         rejected,
         sample_rejections: candidateRows
@@ -252,7 +273,16 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
-    return json({ ok: true, processed: candidateRows.length, passed, rejected, method, direct_drain: directDrain });
+    return json({
+      ok: true,
+      processed: candidateRows.length,
+      written: candidateRowsToWrite.length,
+      skipped_already_promoted: candidateRows.length - candidateRowsToWrite.length,
+      passed,
+      rejected,
+      method,
+      direct_drain: directDrain,
+    });
   } catch (e) {
     const msg = e instanceof Error ? `${e.message}${e.stack ? `\n${e.stack}` : ""}` : (() => { try { return JSON.stringify(e); } catch { return String(e); } })();
     console.error("[clean-text-candidate-runner] fatal:", msg);
