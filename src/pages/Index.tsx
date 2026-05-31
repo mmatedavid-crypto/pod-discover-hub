@@ -615,7 +615,7 @@ const Index = () => {
           </div>
           {!hasSearched && q.length === 0 && (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
-              <div className="flex flex-nowrap items-center gap-2 min-w-0">
+              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden sm:flex-nowrap">
                 {visibleChips.map((c, i) => (
                   <button
                     key={c.label}

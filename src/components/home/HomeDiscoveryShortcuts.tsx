@@ -36,22 +36,24 @@ const shortcuts = [
 
 export function HomeDiscoveryShortcuts() {
   return (
-    <section aria-label="Gyors felfedezés" className="-mx-4 sm:mx-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="flex min-w-max gap-2.5 px-4 sm:grid sm:min-w-0 sm:grid-cols-5 sm:px-0">
-        {shortcuts.map(({ title, href, Icon, accent }) => (
-          <Link
-            key={href}
-            to={href}
-            className="group flex w-[136px] flex-col gap-2 rounded-lg border border-border bg-card/50 p-3 transition-colors hover:border-primary/35 hover:bg-card sm:w-auto"
-          >
-            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${accent}`}>
-              <Icon className="h-4 w-4" aria-hidden />
-            </span>
-            <span className="text-sm font-medium leading-tight group-hover:text-primary">
-              {title}
-            </span>
-          </Link>
-        ))}
+    <section aria-label="Gyors felfedezés" className="w-full max-w-full overflow-hidden">
+      <div className="-mx-4 overflow-x-auto [scrollbar-width:none] sm:mx-0 [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max gap-2.5 px-4 sm:grid sm:w-full sm:grid-cols-5 sm:px-0">
+          {shortcuts.map(({ title, href, Icon, accent }) => (
+            <Link
+              key={href}
+              to={href}
+              className="group flex w-[136px] flex-col gap-2 rounded-lg border border-border bg-card/50 p-3 transition-colors hover:border-primary/35 hover:bg-card sm:w-auto"
+            >
+              <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${accent}`}>
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="text-sm font-medium leading-tight group-hover:text-primary">
+                {title}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </section>
   );
