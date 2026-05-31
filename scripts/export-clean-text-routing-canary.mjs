@@ -54,6 +54,10 @@ const routeQuotas = {
   yt_dominant: 20,
   sponsor_heavy: 20,
   over_trimmed_v3: 15,
+  non_hungarian: 12,
+  junk_no_content: 12,
+  paid_preview: 8,
+  transcript_or_article_like: 12,
 };
 
 function sqlString(value) {
@@ -64,6 +68,17 @@ function csvCell(value) {
   const s = String(value ?? "");
   if (/[",\n\r]/.test(s)) return `"${s.replaceAll("\"", "\"\"")}"`;
   return s;
+}
+
+function normalizeEpisodeKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[#_()[\]{}"'.,:;!?|/\\-]+/g, " ")
+    .replace(/\b(?:ism|ismetles|resz|part|episode|ep)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function query(sql) {
@@ -178,6 +193,7 @@ const seedBuckets = [
 ];
 
 const seen = new Set();
+const seenEpisodeKeys = new Set();
 const routeCounts = new Map();
 const outputRows = [];
 const deferredRows = [];
@@ -187,6 +203,8 @@ for (const bucket of seedBuckets) {
   for (const row of rows) {
     if (outputRows.length >= targetRows) break;
     if (seen.has(row.episode_id)) continue;
+    const episodeKey = `${row.podcast_id || row.podcast_title}:${normalizeEpisodeKey(row.episode_title)}`;
+    if (episodeKey.length > 12 && seenEpisodeKeys.has(episodeKey)) continue;
     const deterministic = heuristicClean(row.raw_text).text.trim();
     const quality = assessCleanTextQuality(row.raw_text, deterministic);
     const route = classifyCleanTextRoute(row.raw_text, deterministic, {
@@ -194,6 +212,7 @@ for (const bucket of seedBuckets) {
       previousCleanedText: row.current_cleaned_text,
     });
     seen.add(row.episode_id);
+    seenEpisodeKeys.add(episodeKey);
     const outRow = {
       route_bucket: route.bucket,
       route_action: route.action,

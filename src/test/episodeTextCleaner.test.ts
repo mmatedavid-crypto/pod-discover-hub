@@ -64,7 +64,7 @@ describe("episode text cleaner", () => {
     expect(result.text).toContain("családi pénzminták");
     expect(result.text).toContain("mindennapi kiadásokban");
     expect(result.text).not.toMatch(/Money Mentoring|Jelentkezzen|Foglalj|Rendeld meg|Jogi nyilatkozat|befektetésre/i);
-    expect(result.removed).toContain("sentence_footer_tail_cut");
+    expect(result.removed.some((reason) => ["sentence_footer_tail_cut", "inline_footer_cut"].includes(reason))).toBe(true);
   });
 
   it("keeps substantive one-line descriptions that mention legal topics", () => {
@@ -247,6 +247,48 @@ describe("episode text cleaner", () => {
       bucket: "yt_dominant",
       action: "ai_trim",
       ai_policy: "flash_zero_shot",
+    });
+  });
+
+  it("cuts rating/supporter tails without removing the episode description", () => {
+    const raw = [
+      "Az adásban Szerémi Péterrel beszélgetünk a rossz hírek közléséről, a vezetői kommunikációról és a biztonságos céges kultúráról.",
+      "Ne felejts el értékelni sem minket, kommentelni, vagy továbbküldeni az adást annak az ismerősödnek, akit szintén érdekelhet az adás témája!",
+      "A podcast támogatója a Shiwaforce.",
+    ].join(" ");
+
+    const result = heuristicClean(raw);
+
+    expect(result.text).toContain("Szerémi Péterrel");
+    expect(result.text).not.toMatch(/Ne felejts|értékelni|támogatója|Shiwaforce/i);
+  });
+
+  it("routes non-Hungarian, promo-only and paid preview rows out of the clean text pipeline", () => {
+    const nonHu = "Translation: Break asunder I must Attachment-chain for liberation. Four Hundred Blue-Green-White-Red Song-Birds, Part 1";
+    const promo = "Iratkozz fel a hírleveleinkre: https://bit.ly/a Weboldal: https://bit.ly/b Támogass minket: https://x.hu Facebook: facebook.com/x Instagram: instagram.com/x";
+    const paid = "This is a free preview of a paid episode. To hear more, visit www.example.hu A nyár közeledtével beszéljünk a szabadság kérdéséről.";
+
+    expect(classifyCleanTextRoute(nonHu, heuristicClean(nonHu).text)).toMatchObject({
+      bucket: "non_hungarian",
+      action: "exclude",
+    });
+    expect(classifyCleanTextRoute(promo, heuristicClean(promo).text)).toMatchObject({
+      bucket: "junk_no_content",
+      action: "exclude",
+    });
+    expect(classifyCleanTextRoute(paid, heuristicClean(paid).text)).toMatchObject({
+      bucket: "paid_preview",
+      action: "exclude",
+    });
+  });
+
+  it("marks very long article-like descriptions for review instead of AI trimming", () => {
+    const paragraph = "A kriptovilág néhány év alatt átalakult, és a szakértők szerint a biztonság, az átláthatóság és a megbízhatóság került a középpontba.";
+    const raw = Array.from({ length: 35 }, () => paragraph).join(" ");
+
+    expect(classifyCleanTextRoute(raw, heuristicClean(raw).text)).toMatchObject({
+      bucket: "transcript_or_article_like",
+      action: "review",
     });
   });
 });

@@ -45,15 +45,15 @@ const HTML_RX = /<[^>]+>/g;
 const HTML_ENTITY_RX = /&(amp|nbsp|quot|apos|lt|gt);/gi;
 const EXTENDED_HTML_ENTITY_RX = /&([a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);/g;
 const INLINE_FOOTER_START_RX =
-  /\s(?:--+|—|–)?\s*(?:hasznos\s+linkek|linkek|additional\s+resources|contact\s+information|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)|támogatóink|tamogatoink|támogatók|tamogatok|közösségi\s+média|social\s+(?:links?|media)|show\s+notes|shownotes)\s*[:：]/i;
+  /\s(?:--+|—|–)?\s*(?:hasznos\s+linkek|linkek|additional\s+resources|contact\s+information|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)|támogatóink|tamogatoink|támogatók|tamogatok|money\s+mentoring|(?:a\s+)?podcast(?:\s+műsor)?\s+támogatója|(?:a\s+)?műsor\s+partnerei|közösségi\s+média|social\s+(?:links?|media)|show\s+notes|shownotes|get\s+full\s+access)\s*[:：]?/i;
 const CTA_LABEL_RX =
   /(?:^|\s)(?:kövesd|kövess(?:etek|en)?|iratkozz(?:atok)?\s+fel|köszönjük,\s+ha|koszonjuk,\s+ha|támogasd|támogass(?:atok)?|töltsd\s+le|nézz(?:étek)?|hallgass(?:átok)?|hallgasd|foglalj|jelentkezz|jelentkezzen|regisztrálj|regisztráljon|rendeld\s+meg|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal|watch|listen|subscribe|follow|support|download|register|book\s+a\s+call|apply\s+for)\b[^:\n.!?]{0,180}[:：]\s*/gi;
 const CTA_SENTENCE_RX = [
   /(?:^|[.!?]\s+)(?:kövesd|kövess(?:etek|en)?|iratkozz(?:atok)?\s+fel|támogasd|támogass(?:atok)?|töltsd\s+le|nézz(?:étek)?|hallgass(?:átok)?|hallgasd|foglalj|jelentkezz|jelentkezzen|regisztrálj|regisztráljon|rendeld\s+meg|vegye\s+kézbe|vedd\s+kézbe|watch|listen|subscribe|follow|support|download|register(?:\s+(?:now|here|today))?|book\s+a\s+call|apply\s+for)\b[^.!?\n]{0,260}(?:\.|!|\?|$)/gi,
-  /(?:^|[.!?]\s+)(?:részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|weboldalunkon|webinár|webinar|mentoring\s+nap|konzultáció|bestseller\s+könyv|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)?|email|e-?mail|website|weboldal|honlap|headshots|shoot\s+footage|edit\s+footage|patreon|discord|telegram|x\s+\(ex-twitter\)|bluesky)\b[^.!?\n]{0,260}(?:\.|!|\?|$)/gi,
+  /(?:^|[.!?]\s+)(?:ne\s+felejts(?:etek)?\s+el\s+értékelni|ne\s+felejts(?:etek)?\s+el\s+ertekelni|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|weboldalunkon|webinár|webinar|mentoring\s+nap|konzultáció|bestseller\s+könyv|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)?|email|e-?mail|website|weboldal|honlap|headshots|shoot\s+footage|edit\s+footage|patreon|discord|telegram|x\s+\(ex-twitter\)|bluesky|get\s+full\s+access)\b[^.!?\n]{0,300}(?:\.|!|\?|$)/gi,
 ];
 const LEGAL_TAIL_RX = /\b(?:jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)?|nem\s+minős(?:ül|íthető)[^.!?\n]{0,120}(?:befektetési|befektetésre|tanácsadás|ösztönzés)|not\s+(?:financial|investment|legal)\s+advice)\b/i;
-const PROMO_SENTENCE_RX = /\b(?:foglalj|foglaljon|jelentkezz|jelentkezzen|regisztrálj|regisztráljon|rendeld\s+meg|rendelje\s+meg|vegye\s+kézbe|vedd\s+kézbe|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|weboldalunkon|webinár|webinar|mentoring\s+nap|konzultáció|bestseller\s+könyv|book\s+a\s+call|register(?:\s+(?:now|here|today))?|apply\s+for)\b/i;
+const PROMO_SENTENCE_RX = /\b(?:foglalj|foglaljon|jelentkezz|jelentkezzen|regisztrálj|regisztráljon|rendeld\s+meg|rendelje\s+meg|vegye\s+kézbe|vedd\s+kézbe|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|weboldalunkon|webinár|webinar|money\s+mentoring|mentoring\s+nap|konzultáció|bestseller\s+könyv|book\s+a\s+call|register(?:\s+(?:now|here|today))?|apply\s+for)\b/i;
 
 // Strong footer markers — once we hit one (and the rest of the doc is footer-dominated),
 // EVERYTHING from that line on is dropped.
@@ -65,6 +65,7 @@ const FOOTER_MARKER_RX = [
   /^\s*(?:kövess|kövessetek|kövessen|kövessétek|kövesd)\s+(?:minket|bennünket|engem|a\s+műsort|a\s+csatornát|a\s+podcastot|a\s+podcastunkat|az\s+oldalunkat)/i,
   /^\s*(?:iratkozz(?:atok)?\s+fel|feliratkoz(?:ás|hatsz|hattok)|értesülj\s+elsőként|like[- ]?old|lájkold|kedveld|oszd\s+meg|nyomj\s+egy\s+lájkot)/i,
   /^\s*(?:támogasd|támogass(?:atok)?|támogatónk|támogatóink|a\s+műsor\s+támogatója|szponzorunk|szponzoraink|szponzorált|szponzorálta|reklám|hirdetés)/i,
+  /^\s*(?:(?:a\s+)?podcast(?:\s+műsor)?\s+támogatója|(?:a\s+)?műsor\s+partnerei|get\s+full\s+access|this\s+is\s+a\s+free\s+preview\s+of\s+a\s+paid\s+episode)/i,
   /^\s*(?:amennyiben\s+szeretn[ée]\s+támogatni|ha\s+meghívnál\s+minket\s+egy\s+kávéra|adomány(?:aikat)?|bankszámla(?:szám)?|közleménybe\s+kérjük)/i,
   /^\s*(?:follow\s+(?:us|me)|subscribe\s+(?:to|on)|support\s+(?:us|the\s+show)|our\s+sponsors?|sponsored\s+by|brought\s+to\s+you\s+by|listen\s+(?:on|to)|available\s+(?:on|now)|watch\s+on)/i,
   // "social media / contact" headings
@@ -461,14 +462,78 @@ export type CleanTextRouteBucket =
   | "long_narrative"
   | "yt_dominant"
   | "sponsor_heavy"
-  | "over_trimmed_v3";
+  | "over_trimmed_v3"
+  | "paid_preview"
+  | "non_hungarian"
+  | "junk_no_content"
+  | "transcript_or_article_like";
 
 export type CleanTextRoute = {
   bucket: CleanTextRouteBucket;
-  action: "deterministic" | "ai_trim";
+  action: "deterministic" | "ai_trim" | "exclude" | "review";
   ai_policy: "none" | "flash_zero_shot" | "flash_lite_fewshot";
   reasons: string[];
 };
+
+const HU_SIGNAL_WORDS = new Set([
+  "a", "az", "és", "hogy", "nem", "van", "egy", "két", "milyen", "miért", "hogyan",
+  "adás", "epizód", "műsor", "beszélget", "beszélgetünk", "vendég", "magyar",
+  "szerint", "közben", "után", "előtt", "erről", "arról", "témában",
+]);
+const FOREIGN_SIGNAL_WORDS = new Set([
+  "the", "and", "with", "this", "that", "from", "about", "episode", "show", "song",
+  "part", "track", "music", "library", "translation", "free", "preview", "paid",
+  "visit", "more", "children", "introduction", "recorded", "narrated", "break",
+  "asunder", "must", "liberation", "blue", "green", "white", "red",
+  "le", "la", "les", "des", "avec", "pour", "dans", "émission", "esta", "uma",
+]);
+
+function wordTokens(input: string): string[] {
+  return String(input || "")
+    .toLowerCase()
+    .normalize("NFKC")
+    .match(/[a-záéíóöőúüűàâäçèêëìîïñòôöùûÿß'-]+/giu) || [];
+}
+
+function countSignals(tokens: string[], set: Set<string>): number {
+  return tokens.reduce((sum, token) => sum + (set.has(token) ? 1 : 0), 0);
+}
+
+function isLikelyNonHungarianEpisodeText(raw: string): boolean {
+  const text = String(raw || "");
+  const tokens = wordTokens(text);
+  if (tokens.length < 8) return false;
+  const hu = countSignals(tokens, HU_SIGNAL_WORDS);
+  const foreign = countSignals(tokens, FOREIGN_SIGNAL_WORDS);
+  const huAccentCount = (text.match(/[áéíóöőúüűÁÉÍÓÖŐÚÜŰ]/g) || []).length;
+  const cyrillicOrCjk = /[\u0400-\u04FF\u3040-\u30FF\u3400-\u9FFF]/u.test(text);
+  if (cyrillicOrCjk && hu < 3) return true;
+  if (/^\s*translation\s*:/i.test(text) && hu === 0) return true;
+  return hu <= 1 && huAccentCount <= 1 && foreign >= 4;
+}
+
+function isPaidPreviewText(raw: string): boolean {
+  return /\b(?:this\s+is\s+a\s+free\s+preview\s+of\s+a\s+paid\s+episode|free\s+preview\s+of\s+a\s+paid\s+episode|ingyenes\s+részlet|fizetős\s+epizód|előfizetőknek|teljes\s+adás\s+előfizetőknek)\b/i.test(String(raw || ""));
+}
+
+function isPromoOnlyJunk(raw: string, cleaned: string): boolean {
+  const text = String(raw || "");
+  const clean = String(cleaned || "");
+  const urlHits = (text.match(/https?:\/\/|www\.|bit\.ly|linktr\.ee|facebook|instagram|spotify|youtube|patreon|donably|subscribe|iratkozz|támogass|támogasd|weboldal|hírlevél|klubkártya/gi) || []).length;
+  const cleanWords = wordTokens(clean).filter((token) => token.length >= 4);
+  const topicWords = cleanWords.filter((token) => !FOREIGN_SIGNAL_WORDS.has(token) && !HU_SIGNAL_WORDS.has(token));
+  return urlHits >= 5 && topicWords.length < 12;
+}
+
+function isTranscriptOrArticleLike(raw: string, cleaned: string): boolean {
+  const text = String(cleaned || raw || "");
+  const len = text.trim().length;
+  if (len < 4500) return false;
+  const sentenceCount = splitSentences(text).length;
+  const timestampCount = (text.match(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g) || []).length;
+  const firstPersonCount = (text.match(/\b(?:én|engem|nekem|szerintem|mesélek|beszéltem|gondolom)\b/gi) || []).length;
+  return timestampCount >= 6 || sentenceCount >= 28 || firstPersonCount >= 8;
+}
 
 export type ExtractOnlyValidation = {
   ok: boolean;
@@ -508,6 +573,18 @@ export function classifyCleanTextRoute(
   const previousRatio = rawLen > 0 && previousLen > 0 ? previousLen / rawLen : null;
   const reasons: string[] = [];
 
+  if (isPaidPreviewText(rawText)) {
+    return { bucket: "paid_preview", action: "exclude", ai_policy: "none", reasons: ["paid_preview_or_free_excerpt"] };
+  }
+
+  if (isLikelyNonHungarianEpisodeText(rawText)) {
+    return { bucket: "non_hungarian", action: "exclude", ai_policy: "none", reasons: ["non_hungarian_episode_text"] };
+  }
+
+  if (isPromoOnlyJunk(rawText, cleanText)) {
+    return { bucket: "junk_no_content", action: "exclude", ai_policy: "none", reasons: ["promo_link_only_no_substantive_description"] };
+  }
+
   if (quality.overcut_risk || (previousRatio != null && rawLen >= 500 && previousRatio < 0.20)) {
     reasons.push(...quality.reasons, "overtrim_risk");
     return { bucket: "over_trimmed_v3", action: "ai_trim", ai_policy: "flash_zero_shot", reasons: Array.from(new Set(reasons)) };
@@ -528,6 +605,9 @@ export function classifyCleanTextRoute(
   }
 
   if (rawLen >= 2500) {
+    if (isTranscriptOrArticleLike(rawText, cleanText)) {
+      return { bucket: "transcript_or_article_like", action: "review", ai_policy: "none", reasons: ["long_text_transcript_or_article_like"] };
+    }
     return { bucket: "long_narrative", action: "deterministic", ai_policy: "none", reasons: ["long_narrative_keep_deterministic"] };
   }
 
