@@ -57,7 +57,9 @@ settings AS (
     'episode_article_pairer_controls',
     'episode_article_pairer_progress',
     'episode_best_text_source_controls',
-    'episode_best_text_source_progress'
+    'episode_best_text_source_progress',
+    'episode_clean_text_controls',
+    'episode_clean_text_progress'
   )
 ),
 controls AS (
@@ -85,7 +87,9 @@ controls AS (
     'episode_article_pairer_controls', setting_values->'episode_article_pairer_controls',
     'episode_article_pairer_progress', setting_values->'episode_article_pairer_progress',
     'episode_best_text_source_controls', setting_values->'episode_best_text_source_controls',
-    'episode_best_text_source_progress', setting_values->'episode_best_text_source_progress'
+    'episode_best_text_source_progress', setting_values->'episode_best_text_source_progress',
+    'episode_clean_text_controls', setting_values->'episode_clean_text_controls',
+    'episode_clean_text_progress', setting_values->'episode_clean_text_progress'
   ) AS summary
   FROM settings
 ),
@@ -106,6 +110,12 @@ SELECT jsonb_build_object(
     'text_processing_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'text_processing_policy'),
     'legacy_embed_episode_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'),
     'embed_chunks_returns_clean_text', COALESCE((SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%' FROM rpc_shapes), false)
+  ),
+  'clean_text_backfill_gates', jsonb_build_object(
+    'legacy_v3_requeue_rpc', to_regprocedure('public.requeue_legacy_clean_text_v4_backfill(integer,text[])') IS NOT NULL,
+    'runner_uses_best_text_source', (SELECT setting_values->'episode_clean_text_controls'->>'use_best_text_source' = 'true' FROM settings),
+    'legacy_v3_backfill_enabled', (SELECT setting_values->'episode_clean_text_controls'->>'legacy_v3_backfill_enabled' = 'true' FROM settings),
+    'method_version_v4', (SELECT setting_values->'episode_clean_text_controls'->>'method_version' = 'deterministic_v4' FROM settings)
   ),
   'article_pipeline', jsonb_build_object(
     'table_exists', to_regclass('public.episode_article_candidates') IS NOT NULL,
@@ -192,6 +202,11 @@ const failures = [];
 
 for (const [key, ok] of Object.entries(gates)) {
   if (ok !== true) failures.push(`migration_gates.${key}`);
+}
+
+const cleanBackfillGates = snapshot.clean_text_backfill_gates ?? {};
+for (const [key, ok] of Object.entries(cleanBackfillGates)) {
+  if (ok !== true) failures.push(`clean_text_backfill_gates.${key}`);
 }
 
 const articlePipeline = snapshot.article_pipeline ?? {};

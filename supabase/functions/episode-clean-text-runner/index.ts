@@ -11,10 +11,30 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+const ID_CHUNK_SIZE = 150;
 
 function sha256Hex(s: string): Promise<string> {
   const enc = new TextEncoder().encode(s);
   return crypto.subtle.digest("SHA-256", enc).then((buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join(""));
+}
+
+async function maybeRequeueLegacyV3(admin: any, ctrl: any, body: any, batchLimit: number) {
+  if (ctrl.legacy_v3_backfill_enabled !== true && body.requeue_legacy_v3 !== true) return null;
+  const tiers = Array.isArray(body.tiers)
+    ? body.tiers.map(String)
+    : Array.isArray(ctrl.legacy_v3_backfill_tiers)
+      ? ctrl.legacy_v3_backfill_tiers.map(String)
+      : ["S", "A", "B", "C", "D"];
+  const limit = Math.max(1, Math.min(5000, Number(body.requeue_limit ?? ctrl.legacy_v3_backfill_limit ?? batchLimit)));
+  const { data, error } = await admin.rpc("requeue_legacy_clean_text_v4_backfill", {
+    _limit: limit,
+    _tiers: tiers,
+  });
+  if (error) {
+    console.warn("legacy v3 requeue unavailable", error.message);
+    return { ok: false, error: error.message };
+  }
+  return data;
 }
 
 Deno.serve(async (req) => {
@@ -36,6 +56,8 @@ Deno.serve(async (req) => {
     const timeBudgetMs = Math.max(5_000, Math.min(75_000, (Number(ctrl.time_budget_seconds ?? 60)) * 1000));
     const minChars = Number(ctrl.min_description_chars ?? 40);
     const method = String(ctrl.method_version ?? "deterministic_v3");
+    const useBestTextSource = ctrl.use_best_text_source !== false;
+    const requeueResult = await maybeRequeueLegacyV3(admin, ctrl, body, batchLimit);
 
     let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, passes = 0;
 
@@ -46,31 +68,31 @@ Deno.serve(async (req) => {
 
       const { data: eps, error: selErr } = await admin
         .from("episodes")
-        .select("id, description, summary")
+        .select("id, description, summary, podcasts!inner(is_hungarian,language_decision)")
         .eq("clean_text_status", "pending")
+        .eq("podcasts.is_hungarian", true)
+        .eq("podcasts.language_decision", "accept_hungarian")
         .limit(batchLimit);
       if (selErr) return json({ ok: false, error: selErr.message }, 500);
       if (!eps || eps.length === 0) break;
 
-      // Fetch confirmed YouTube descriptions for this batch — we compare raw
-      // YT vs raw RSS text directly and pick the longer one.
       const epIds = eps.map((e: any) => e.id);
-      const ytByEp = new Map<string, string>();
-      for (let i = 0; i < epIds.length; i += 200) {
-        const slice = epIds.slice(i, i + 200);
-        const { data: ytRows } = await admin
-          .from("episode_youtube_links")
-          .select("episode_id, youtube_description, match_score")
-          .in("episode_id", slice)
-          .eq("status", "confirmed")
-          .not("youtube_description", "is", null)
-          .order("match_score", { ascending: false });
-        for (const row of ytRows || []) {
-          const eid = String((row as any).episode_id);
-          const txt = String((row as any).youtube_description || "").trim();
-          if (!txt) continue;
-          const prev = ytByEp.get(eid);
-          if (!prev || txt.length > prev.length) ytByEp.set(eid, txt);
+      const bestByEp = new Map<string, { source_type: string; raw_text: string }>();
+      if (useBestTextSource) {
+        for (let i = 0; i < epIds.length; i += ID_CHUNK_SIZE) {
+          const slice = epIds.slice(i, i + ID_CHUNK_SIZE);
+          const { data: bestRows, error: bestErr } = await admin
+            .from("episode_best_text_source")
+            .select("episode_id,source_type,raw_text")
+            .in("episode_id", slice);
+          if (bestErr && !String(bestErr.message || "").includes("episode_best_text_source")) throw bestErr;
+          for (const row of bestRows || []) {
+            const rawText = String((row as any).raw_text || "").trim();
+            if (rawText) bestByEp.set(String((row as any).episode_id), {
+              source_type: String((row as any).source_type || "rss"),
+              raw_text: rawText,
+            });
+          }
         }
       }
 
@@ -82,11 +104,9 @@ Deno.serve(async (req) => {
       for (const ep of eps) {
         totalProcessed++;
         const rss = String((ep as any).description || (ep as any).summary || "").trim();
-        const yt = ytByEp.get((ep as any).id) || "";
-        // Compare raw lengths directly — whichever is longer wins.
-        const useYt = yt.length > rss.length;
-        const raw = useYt ? yt : rss;
-        const usedMethod = useYt ? `${method}+ytdesc` : method;
+        const best = bestByEp.get((ep as any).id);
+        const raw = String(best?.raw_text || rss).trim();
+        const usedMethod = best?.source_type && best.source_type !== "rss" ? `${method}+${best.source_type}` : method;
         if (!raw || raw.length < minChars) {
           skipIds.push((ep as any).id);
           totalSkipped++;
@@ -99,7 +119,7 @@ Deno.serve(async (req) => {
             episode_id: (ep as any).id,
             source_hash,
             cleaned_text: text.trim(),
-            removed_categories: useYt ? Array.from(new Set([...removed, "source_youtube"])) : removed,
+            removed_categories: best?.source_type ? Array.from(new Set([...removed, `source_${best.source_type}`])) : removed,
             cleaner_method: usedMethod,
           });
           doneIds.push((ep as any).id);
@@ -122,15 +142,15 @@ Deno.serve(async (req) => {
         } else {
           totalWritten += upsertRows.length;
           // Chunk the IN list to avoid PostgREST URL length limits (~150 ids per call).
-          for (let i = 0; i < doneIds.length; i += 150) {
-            const slice = doneIds.slice(i, i + 150);
+          for (let i = 0; i < doneIds.length; i += ID_CHUNK_SIZE) {
+            const slice = doneIds.slice(i, i + ID_CHUNK_SIZE);
             await admin.from("episodes").update({ clean_text_status: "done" }).in("id", slice);
           }
         }
       }
       if (skipIds.length > 0) {
-        for (let i = 0; i < skipIds.length; i += 150) {
-          const slice = skipIds.slice(i, i + 150);
+        for (let i = 0; i < skipIds.length; i += ID_CHUNK_SIZE) {
+          const slice = skipIds.slice(i, i + ID_CHUNK_SIZE);
           await admin.from("episodes").update({ clean_text_status: "skipped" }).in("id", slice);
         }
       }
@@ -156,6 +176,8 @@ Deno.serve(async (req) => {
           batch_limit: batchLimit,
           time_budget_seconds: Math.round(timeBudgetMs / 1000),
           method_version: method,
+          use_best_text_source: useBestTextSource,
+          legacy_v3_requeue: requeueResult,
         },
       }, { onConflict: "key" });
     } catch (_) { /* non-fatal */ }
@@ -169,6 +191,8 @@ Deno.serve(async (req) => {
       errors: totalErrors,
       runtime_ms: runtimeMs,
       method_version: method,
+      use_best_text_source: useBestTextSource,
+      legacy_v3_requeue: requeueResult,
     });
   } catch (e) {
     console.error("episode-clean-text-runner err", e);
