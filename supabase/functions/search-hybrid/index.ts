@@ -1036,7 +1036,7 @@ Deno.serve(async (req) => {
               supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("title", `%${firstOrigToken}%`).limit(120),
               supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("description", `%${fullNameNeedle}%`).limit(120),
               supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("ai_summary", `%${fullNameNeedle}%`).limit(120),
-              supa.from("episode_clean_text").select("episode_id,cleaned_text").eq("cleaner_method", "deterministic_v4").ilike("cleaned_text", `%${fullNameNeedle}%`).limit(120),
+              supa.from("episode_clean_text").select("episode_id,cleaned_text").like("cleaner_method", "deterministic_v4%").ilike("cleaned_text", `%${fullNameNeedle}%`).limit(120),
             ]);
             const cleanRows = (directMentionQueries[4] as any)?.data || [];
             const directRows = directMentionQueries.slice(0, 4).flatMap((r: any) => r.data || []);

@@ -86,7 +86,7 @@ async function loadEpisodeCleanText(supabase: any, episodeId: string): Promise<{
     .from("episode_clean_text")
     .select("cleaned_text,cleaner_method")
     .eq("episode_id", episodeId)
-    .eq("cleaner_method", "deterministic_v4")
+    .like("cleaner_method", "deterministic_v4%")
     .maybeSingle();
   const text = String(data?.cleaned_text || "").trim();
   if (!text) return null;
@@ -118,7 +118,7 @@ function isUsableCleanText(raw: string, clean: string | null): boolean {
 function chooseEpisodeSource(rawDescription: string, cleanText: { text: string; method: string } | null): { text: string; label: string } | null {
   const raw = String(rawDescription || "").trim();
   if (isUsableCleanText(raw, cleanText?.text || null)) {
-    return { text: cleanText!.text.trim(), label: "deterministic_v4 clean text" };
+    return { text: cleanText!.text.trim(), label: `${cleanText!.method || "deterministic_v4"} clean text` };
   }
   return null;
 }

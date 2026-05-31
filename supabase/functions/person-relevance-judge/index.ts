@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
         .from("episode_clean_text")
         .select("episode_id, cleaned_text")
         .in("episode_id", slice)
-        .eq("cleaner_method", "deterministic_v4");
+        .like("cleaner_method", "deterministic_v4%");
       (cleanRows || []).forEach((r: any) => cleanTextMap.set(r.episode_id, String(r.cleaned_text || "")));
     }
 

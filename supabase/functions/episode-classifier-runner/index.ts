@@ -377,7 +377,7 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
         .from("episode_clean_text")
         .select("episode_id,cleaned_text")
         .in("episode_id", chunk)
-        .eq("cleaner_method", "deterministic_v4");
+        .like("cleaner_method", "deterministic_v4%");
       if (ctChunk?.length) cleanRows.push(...ctChunk);
     }
     const cleanById = new Map(cleanRows.map((r: any) => [r.episode_id, r.cleaned_text || ""]));

@@ -288,7 +288,7 @@ async function buildEpisode(
     .from("episode_clean_text")
     .select("cleaned_text")
     .eq("episode_id", ep.id)
-    .eq("cleaner_method", "deterministic_v4")
+    .like("cleaner_method", "deterministic_v4%")
     .maybeSingle();
   const cleanText = stripHtml((cleanRow as any)?.cleaned_text || "");
 
@@ -1116,7 +1116,7 @@ async function buildPodcastYear(
       .from("episode_clean_text")
       .select("episode_id,cleaned_text")
       .in("episode_id", ids)
-      .eq("cleaner_method", "deterministic_v4");
+      .like("cleaner_method", "deterministic_v4%");
     for (const r of cleanRows || []) cleanByEpisode.set((r as any).episode_id, (r as any).cleaned_text || "");
   }
 

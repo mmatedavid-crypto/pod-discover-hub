@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
               .from("episode_clean_text")
               .select("cleaned_text,cleaner_method")
               .eq("episode_id", job.target_id)
-              .eq("cleaner_method", "deterministic_v4")
+              .like("cleaner_method", "deterministic_v4%")
               .maybeSingle();
             (e as any).clean_text = (ct as any)?.cleaned_text || null;
             if (!(job as any).__has_transcript && String((e as any).clean_text || "").trim().length < 80) {

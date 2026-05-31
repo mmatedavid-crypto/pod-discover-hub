@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
         .from("episode_clean_text")
         .select("episode_id, cleaned_text")
         .in("episode_id", claimIds)
-        .eq("cleaner_method", "deterministic_v4");
+        .like("cleaner_method", "deterministic_v4%");
       const ctMap = new Map<string, string>((cts || []).map((r: any) => [r.episode_id, r.cleaned_text || ""]));
 
       // Pre-filter short ones

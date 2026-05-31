@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
         try {
           const cleanedText = String(e.cleaned_text || "").trim();
           const cleanedMethod = String(e.cleaner_method || "missing_clean_text");
-          if (cleanedText.length < 80 || cleanedMethod !== "deterministic_v4") {
+          if (cleanedText.length < 80 || !cleanedMethod.startsWith("deterministic_v4")) {
             skipped++;
             if (errorSamples.length < 5) errorSamples.push({ id: e.id, skipped: "requires_promoted_deterministic_v4_clean_text", cleaned_method: cleanedMethod });
             return;
