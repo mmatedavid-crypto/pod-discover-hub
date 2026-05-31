@@ -42,14 +42,14 @@ export function detectAiTrimBucket(opts: {
     return "yt_dominant";
   }
 
-  // 2. over_trimmed_v3 — raw had substance but v3 cut it too aggressively.
-  if (rawLen >= 600 && v3Len < Math.min(220, rawLen * 0.25)) {
+  // 2. over_trimmed_v3 — raw had substance but v3 kept less than 25% of it (lost too much).
+  if (rawLen >= 800 && v3Len < rawLen * 0.25) {
     return "over_trimmed_v3";
   }
 
-  // 3. sponsor_heavy — v3 still contains sponsor markers despite cleanup.
-  const matches = SPONSOR_MARKERS.reduce((n, rx) => n + (rx.test(v3) ? 1 : 0), 0);
-  if (matches >= 2 && v3Len > 250) return "sponsor_heavy";
+  // 3. sponsor_heavy — raw is loaded with sponsor markers (check raw, not v3, since v3 strips most).
+  const sponsorMatches = SPONSOR_MARKERS.reduce((n, rx) => n + (rx.test(raw) ? 1 : 0), 0);
+  if (sponsorMatches >= 3 && rawLen > 800) return "sponsor_heavy";
 
   return "none";
 }
