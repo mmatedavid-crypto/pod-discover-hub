@@ -44,8 +44,8 @@ async function updateEpisodesAfterPromotion(admin: AdminClient, ids: string[]) {
     ai_enrich_input_hash: null,
     ai_enrich_prompt_version: null,
   };
-  for (let i = 0; i < ids.length; i += 150) {
-    const slice = ids.slice(i, i + 150);
+  for (let i = 0; i < ids.length; i += 40) {
+    const slice = ids.slice(i, i + 40);
     const { error } = await admin.from("episodes").update(update).in("id", slice);
     if (!error) continue;
 
@@ -91,11 +91,17 @@ Deno.serve(async (req) => {
     const ids = rows.map((r) => r.episode_id);
     if (!ids.length) return json({ ok: true, promoted: 0, unchanged: 0, dry_run: dryRun });
 
-    const { data: liveRows, error: liveErr } = await admin
-      .from("episode_clean_text")
-      .select("episode_id,source_hash,cleaned_text")
-      .in("episode_id", ids);
-    if (liveErr) throw liveErr;
+    const liveRowsAll: CleanRow[] = [];
+    for (let i = 0; i < ids.length; i += 40) {
+      const slice = ids.slice(i, i + 40);
+      const { data: liveRows, error: liveErr } = await admin
+        .from("episode_clean_text")
+        .select("episode_id,source_hash,cleaned_text")
+        .in("episode_id", slice);
+      if (liveErr) throw liveErr;
+      for (const row of (liveRows || []) as CleanRow[]) liveRowsAll.push(row);
+    }
+    const liveRows = liveRowsAll;
 
     const liveById = new Map(((liveRows || []) as CleanRow[]).map((r) => [r.episode_id, r]));
     const changed = rows.filter((r) => {
@@ -130,8 +136,8 @@ Deno.serve(async (req) => {
 
       await updateEpisodesAfterPromotion(admin, changed.map((r) => r.episode_id));
 
-      for (let i = 0; i < changed.length; i += 150) {
-        const slice = changed.slice(i, i + 150).map((r) => r.episode_id);
+      for (let i = 0; i < changed.length; i += 40) {
+        const slice = changed.slice(i, i + 40).map((r) => r.episode_id);
         const { error } = await admin
           .from("episode_clean_text_candidates")
           .update({ promoted_at: now, quality_status: "promoted", updated_at: now })
@@ -143,8 +149,8 @@ Deno.serve(async (req) => {
 
     if (unchanged.length) {
       const now = new Date().toISOString();
-      for (let i = 0; i < unchanged.length; i += 150) {
-        const slice = unchanged.slice(i, i + 150).map((r) => r.episode_id);
+      for (let i = 0; i < unchanged.length; i += 40) {
+        const slice = unchanged.slice(i, i + 40).map((r) => r.episode_id);
         const { error } = await admin
           .from("episode_clean_text_candidates")
           .update({ quality_status: "unchanged", updated_at: now })
@@ -174,6 +180,8 @@ Deno.serve(async (req) => {
       promoted_episode_ids: changed.map((r) => r.episode_id),
     });
   } catch (e) {
-    return json({ ok: false, error: e instanceof Error ? e.message : "error" }, 500);
+    const msg = e instanceof Error ? `${e.message}${e.stack ? `\n${e.stack}` : ""}` : (() => { try { return JSON.stringify(e); } catch { return String(e); } })();
+    console.error("[clean-text-candidate-promoter] fatal:", msg);
+    return json({ ok: false, error: msg }, 500);
   }
 });
