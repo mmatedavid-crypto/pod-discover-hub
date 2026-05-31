@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe } from "lucide-react";
+import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, CalendarDays, ArrowLeft, Sparkles } from "lucide-react";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
@@ -27,6 +27,7 @@ import { getProgress } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
 import { RelatedEpisodes } from "@/components/smart-player/RelatedEpisodes";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
+import { PodcastCover } from "@/components/PodcastCover";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
@@ -222,6 +223,7 @@ export default function EpisodeDetail() {
     } catch { /* noop */ }
   };
   const displayCategory = categoryLabel(p.category);
+  const hasEntities = ENT_KINDS.some(({ kind }) => ((e[ENTITY_COLUMN[kind]] || []) as string[]).length > 0);
 
   const EntList = ({ kind, label }: { kind: EntityKind; label: string }) => {
     const items: string[] = e[ENTITY_COLUMN[kind]] || [];
@@ -242,21 +244,71 @@ export default function EpisodeDetail() {
 
   return (
     <Layout>
-      <div className="container mx-auto py-10 max-w-3xl">
-        <Link to={`/podcast/${p.slug}`} className="text-sm text-muted-foreground hover:text-accent">← {p.display_title || p.title}</Link>
-        <h1 className="text-3xl font-semibold mt-2">{e.display_title || e.title}</h1>
-        <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
-          <Link to={`/podcast/${p.slug}`} className="hover:text-foreground">{p.display_title || p.title}</Link>
-          {displayCategory && <Link to={categoryHref(p.category)} className="hover:text-foreground">· {displayCategory}</Link>}
-          {e.published_at && (
-            <span title={new Date(e.published_at).toLocaleString()}>· {relativeTime(e.published_at)}</span>
-          )}
-          {e.published_at && freshnessOf(e.published_at) === "new" && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/40 bg-primary/15 text-[10px] font-semibold text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
-            </span>
-          )}
-        </div>
+      <div className="container mx-auto py-6 sm:py-10 max-w-5xl">
+        <section className="border-b border-border pb-8">
+          <Link
+            to={`/podcast/${p.slug}`}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {p.display_title || p.title}
+          </Link>
+
+          <div className="mt-5 grid gap-5 sm:grid-cols-[132px_1fr] lg:grid-cols-[160px_1fr]">
+            <div className="mx-auto w-32 sm:mx-0 sm:w-40">
+              <PodcastCover title={p.display_title || p.title} src={e.image_url || p.image_url} size="lg" />
+            </div>
+
+            <div className="min-w-0 text-center sm:text-left">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                <Link
+                  to={`/podcast/${p.slug}`}
+                  className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground hover:border-primary/40 hover:text-primary"
+                >
+                  {p.display_title || p.title}
+                </Link>
+                {displayCategory && (
+                  <Link
+                    to={categoryHref(p.category)}
+                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-primary"
+                  >
+                    {displayCategory}
+                  </Link>
+                )}
+                {e.published_at && freshnessOf(e.published_at) === "new" && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/15 px-2.5 py-1 text-[10px] font-semibold text-primary">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
+                  </span>
+                )}
+              </div>
+
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">
+                {e.display_title || e.title}
+              </h1>
+
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground sm:justify-start">
+                {e.published_at && (
+                  <span className="inline-flex items-center gap-1.5" title={new Date(e.published_at).toLocaleString()}>
+                    <CalendarDays className="h-4 w-4" />
+                    {relativeTime(e.published_at)}
+                  </span>
+                )}
+                {understanding?.headline && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Podiverzum ajánlóval
+                  </span>
+                )}
+              </div>
+
+              {summary && (
+                <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-foreground/85 sm:mx-0 sm:text-lg">
+                  {summary}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
 
         {(() => {
           const audioSrc = detectAudioSource(e);
@@ -304,12 +356,12 @@ export default function EpisodeDetail() {
           return (
             <>
               {/* Primary CTA */}
-              <div className="mt-5">
+              <div className="mt-6 flex flex-wrap items-center gap-2">
                 {canInternalPlay ? (
                   <button
                     onClick={handleInternalPrimary}
                     aria-label={isThisPlaying ? "Szünet" : "Hallgatás"}
-                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[0_6px_22px_-8px_hsl(var(--brand-red)/0.55)] hover:bg-primary/90 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-semibold text-primary-foreground shadow-[0_6px_22px_-8px_hsl(var(--brand-red)/0.55)] transition-colors hover:bg-primary/90"
                   >
                     {isThisPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                     <span>{isThisPlaying ? "Szünet" : isCurrent ? "Folytatás" : "Hallgatás"}</span>
@@ -320,12 +372,14 @@ export default function EpisodeDetail() {
                     target="_blank"
                     rel="noreferrer"
                     onClick={() => trackExternal("original_page", externalFallbackHref)}
-                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[0_6px_22px_-8px_hsl(var(--brand-red)/0.55)] hover:bg-primary/90 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-semibold text-primary-foreground shadow-[0_6px_22px_-8px_hsl(var(--brand-red)/0.55)] transition-colors hover:bg-primary/90"
                   >
                     <ExternalLink className="h-5 w-5" />
                     <span>{externalFallbackLabel}</span>
                   </a>
                 ) : null}
+                <EpisodeMarks episodeId={e.id} />
+                <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
               </div>
 
               {/* Secondary platform row */}
@@ -386,17 +440,10 @@ export default function EpisodeDetail() {
                       <span className="hidden sm:inline">Eredeti</span>
                     </a>
                   )}
-                  <div className="ml-auto flex items-center gap-2">
-                    <EpisodeMarks episodeId={e.id} />
-                    <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
-                  </div>
                 </div>
               )}
               {!(p.apple_url || p.spotify_url || p.youtube_url) && (
-                <div className="mt-3 flex items-center gap-2">
-                  <EpisodeMarks episodeId={e.id} />
-                  <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
-                </div>
+                null
               )}
 
               {/* Smart Player card (or legacy inline fallback) */}
@@ -411,17 +458,9 @@ export default function EpisodeDetail() {
           );
         })()}
 
-        {summary && (
-          <div className="mt-6 p-4 rounded-lg border border-border bg-card">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Összefoglaló</div>
-            <p className="whitespace-pre-wrap">{summary}</p>
-            <p className="text-[10px] text-muted-foreground mt-2">Indexelt epizód-metaadatból generálva.</p>
-          </div>
-        )}
-
         {understanding && (
-          <section className="mt-6 p-4 rounded-lg border border-primary/30 bg-primary/5">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground mb-2">
+          <section className="mt-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
               <Brain className="h-4 w-4 text-primary" />
               A Podiverzum szerint
             </div>
@@ -429,7 +468,7 @@ export default function EpisodeDetail() {
             {understanding.chips.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {understanding.chips.map((chip) => (
-                  <span key={`${chip.kind}-${chip.label}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] text-foreground/85">
+                  <span key={`${chip.kind}-${chip.label}`} className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-foreground/85">
                     {chip.label}
                   </span>
                 ))}
@@ -439,16 +478,21 @@ export default function EpisodeDetail() {
         )}
 
         {description && description !== summary && (
-          <div className="mt-6 text-sm text-foreground/90 whitespace-pre-wrap">{description}</div>
+          <section className="mt-6 rounded-lg border border-border bg-card p-4">
+            <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Leírás</div>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{description}</div>
+          </section>
         )}
 
         {moments.length > 0 && (
           <KeyMoments moments={moments} audioUrl={e.audio_url} onSeek={e.audio_url ? handleSeek : undefined} />
         )}
 
-        <div className="grid gap-4 mt-8">
-          {ENT_KINDS.map(({ kind, label }) => <EntList key={kind} kind={kind} label={label} />)}
-        </div>
+        {hasEntities && (
+          <div className="grid gap-4 mt-8 rounded-lg border border-border bg-card p-4">
+            {ENT_KINDS.map(({ kind, label }) => <EntList key={kind} kind={kind} label={label} />)}
+          </div>
+        )}
 
         <RelatedEpisodes episodeIdOverride={e.id} podcastIdOverride={p.id} variant="compact" />
 
