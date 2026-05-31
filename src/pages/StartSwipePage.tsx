@@ -89,15 +89,7 @@ type Persisted = {
 };
 
 function isCompletedTasteSession(p: Pick<Persisted, "completedAt" | "seenCardIds" | "likedCardIds">): boolean {
-  const total = p.seenCardIds.length;
-  const positives = p.likedCardIds.length;
-  return Boolean(
-    p.completedAt ||
-    (total >= 8 && positives >= 5) ||
-    (total >= 12 && positives >= 4) ||
-    (total >= 16 && positives >= 5) ||
-    total >= 22,
-  );
+  return Boolean(p.completedAt || p.likedCardIds.length >= 6 || p.seenCardIds.length >= 10);
 }
 
 function loadPersisted(): Persisted {
@@ -159,20 +151,19 @@ function seededRandom(seed: string): () => number {
 /* ────────────────── Stopping logic ────────────────── */
 
 function shouldStop(totalSwipes: number, positiveSwipes: number, confidence: number): boolean {
-  if (totalSwipes >= 8 && positiveSwipes >= 5 && confidence >= 0.62) return true;
-  if (totalSwipes >= 12 && positiveSwipes >= 4 && confidence >= 0.55) return true;
-  if (totalSwipes >= 16 && positiveSwipes >= 5) return true;
-  if (totalSwipes >= 22) return true;
+  if (totalSwipes >= 10 && positiveSwipes >= 6 && confidence >= 0.72) return true;
+  if (totalSwipes >= 22 && positiveSwipes >= 5 && confidence >= 0.60) return true;
+  if (totalSwipes >= 30) return true;
   return false;
 }
 
 function progressCopy(totalSwipes: number, positiveSwipes: number, confidence: number): string {
-  if (totalSwipes === 0) return "Nincs rossz válasz. Csak húzd, ami ösztönből jön.";
-  if (totalSwipes < 5) return `Még ${5 - totalSwipes} gyors húzás, hogy ráérezzünk.`;
+  if (totalSwipes === 0) return "Pár döntés, és indulnak a személyes ajánlások.";
+  if (totalSwipes < 6) return `Még ${6 - totalSwipes} gyors döntés, hogy ráérezzünk.`;
   if (positiveSwipes < 4) return "Mutatunk még pár irányt, hogy legyen miből ajánlani.";
-  if (confidence >= 0.62 && positiveSwipes >= 5) return "Összeállt a profilod. Már jöhetnek az ajánlások.";
-  if (totalSwipes < 8) return `Még ${8 - totalSwipes} finomító húzás.`;
-  return "Már van elég jel. Mutathatjuk, mi passzol hozzád.";
+  if (confidence >= 0.72 && positiveSwipes >= 6) return "Elég erős a profilod, jönnek az ajánlások.";
+  if (totalSwipes < 10) return `Még ${10 - totalSwipes} finomító döntés.`;
+  return "Már elég sokat tudunk rólad, hamarosan kész.";
 }
 
 function swipeFeedback(action: SwipeAction, totalSwipes: number): string {
