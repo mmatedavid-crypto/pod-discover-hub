@@ -44,8 +44,8 @@ async function updateEpisodesAfterPromotion(admin: AdminClient, ids: string[]) {
     ai_enrich_input_hash: null,
     ai_enrich_prompt_version: null,
   };
-  for (let i = 0; i < ids.length; i += 150) {
-    const slice = ids.slice(i, i + 150);
+  for (let i = 0; i < ids.length; i += 40) {
+    const slice = ids.slice(i, i + 40);
     const { error } = await admin.from("episodes").update(update).in("id", slice);
     if (!error) continue;
 
