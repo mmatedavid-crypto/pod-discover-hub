@@ -15,6 +15,7 @@ type Card = {
   href: string;
   reason_label: string | null;
   energy_level: string | null;
+  representative_episode_count?: number | null;
 };
 
 const ICONS: Record<string, any> = {
@@ -54,7 +55,14 @@ export function MoodCollections() {
         p_hour: now.getHours(),
         p_dow: now.getDay(),
       })
-      .then(({ data }) => setCards((data as Card[]) || []));
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn("[mood-collections]", error.message);
+          setCards([]);
+          return;
+        }
+        setCards((data as Card[]) || []);
+      });
   }, [isMobile]);
 
   if (!cards.length) return null;
@@ -68,7 +76,7 @@ export function MoodCollections() {
           </div>
           <h2 className="text-xl sm:text-2xl font-semibold">Mihez van most kedved?</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Válogatott ajánlók, az aktuális helyzethez igazítva.
+            Az aktuális napszakhoz és hallgatási helyzethez igazítva.
           </p>
         </div>
         <Link
@@ -78,14 +86,15 @@ export function MoodCollections() {
           Összes hangulat <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 sm:overflow-visible">
         {cards.map((c) => {
           const Icon = ICONS[c.slug] || Sparkles;
+          const href = `/hangulatok/${c.slug}`;
           return (
             <Link
               key={c.slug}
-              to={c.href || `/hangulatok/${c.slug}`}
-              className="group relative overflow-hidden rounded-xl border border-border/70 bg-card/70 p-4 hover:border-primary/40 transition-colors"
+              to={href}
+              className="group relative w-[68vw] max-w-[240px] shrink-0 snap-start overflow-hidden rounded-lg border border-border/70 bg-card/70 p-4 transition-colors hover:border-primary/40 sm:w-auto sm:max-w-none"
             >
               <div className="flex items-start justify-between">
                 <Icon className="h-5 w-5 text-primary" />
@@ -98,6 +107,11 @@ export function MoodCollections() {
               {c.reason_label && (
                 <div className="mt-2 inline-flex items-center text-[10px] uppercase tracking-[0.12em] text-primary/80">
                   {c.reason_label}
+                </div>
+              )}
+              {!!c.representative_episode_count && (
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  {c.representative_episode_count.toLocaleString("hu-HU")} ajánlott epizód
                 </div>
               )}
             </Link>
