@@ -84,22 +84,41 @@ type Persisted = {
   likedCardIds: string[];
   dislikedCardIds: string[];
   superLikedCardIds: string[];
+  completedAt?: string | null;
   updatedAt: string;
 };
+
+function isCompletedTasteSession(p: Pick<Persisted, "completedAt" | "seenCardIds" | "likedCardIds">): boolean {
+  const total = p.seenCardIds.length;
+  const positives = p.likedCardIds.length;
+  return Boolean(
+    p.completedAt ||
+    (total >= 8 && positives >= 5) ||
+    (total >= 12 && positives >= 4) ||
+    (total >= 16 && positives >= 5) ||
+    total >= 22,
+  );
+}
 
 function loadPersisted(): Persisted {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      return {
+      const normalized: Persisted = {
         sessionId: p.sessionId || crypto.randomUUID(),
         seenCardIds: p.seenCardIds || [],
         likedCardIds: p.likedCardIds || [],
         dislikedCardIds: p.dislikedCardIds || [],
         superLikedCardIds: p.superLikedCardIds || [],
+        completedAt: p.completedAt || null,
         updatedAt: p.updatedAt || new Date().toISOString(),
       };
+      if (!normalized.completedAt && isCompletedTasteSession(normalized)) {
+        normalized.completedAt = normalized.updatedAt || new Date().toISOString();
+        savePersisted(normalized);
+      }
+      return normalized;
     }
   } catch { /* ignore */ }
   return {
@@ -108,6 +127,7 @@ function loadPersisted(): Persisted {
     likedCardIds: [],
     dislikedCardIds: [],
     superLikedCardIds: [],
+    completedAt: null,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -367,7 +387,7 @@ export default function StartSwipePage() {
   const initialPhase: Phase = (() => {
     try {
       const p = loadPersisted();
-      if (p.likedCardIds.length >= 6 || p.seenCardIds.length >= 10) return "result";
+      if (isCompletedTasteSession(p)) return "result";
     } catch { /* ignore */ }
     return "swipe";
   })();
@@ -514,6 +534,7 @@ export default function StartSwipePage() {
         const fresh: Persisted = {
           sessionId: crypto.randomUUID(),
           seenCardIds: [], likedCardIds: [], dislikedCardIds: [], superLikedCardIds: [],
+          completedAt: null,
           updatedAt: new Date().toISOString(),
         };
         savePersisted(fresh);
@@ -666,7 +687,19 @@ export default function StartSwipePage() {
     setPhase("swipe");
   };
 
-  const finishSwipe = (reason: string, total = totalSwipes, positives = positiveSwipes) => {
+  const finishSwipe = (
+    reason: string,
+    total = totalSwipes,
+    positives = positiveSwipes,
+    base: Persisted = persisted,
+  ) => {
+    const completed: Persisted = {
+      ...base,
+      completedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    savePersisted(completed);
+    setPersisted(completed);
     setCurrent(null);
     completedRef.current = true;
     trackLandingEvent("SwipeCompleted", { total, positives, reason });
@@ -711,7 +744,7 @@ export default function StartSwipePage() {
     }
 
     if (shouldStop(total, positives, newConf)) {
-      finishSwipe("auto_confident", total, positives);
+      finishSwipe("auto_confident", total, positives, next);
       return;
     }
 
@@ -719,7 +752,7 @@ export default function StartSwipePage() {
     const seen = new Set(next.seenCardIds);
     const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total);
     if (!nextCard) {
-      finishSwipe("pool_exhausted", total, positives);
+      finishSwipe("pool_exhausted", total, positives, next);
       return;
     }
     setCurrent(nextCard);
@@ -732,6 +765,7 @@ export default function StartSwipePage() {
       likedCardIds: [],
       dislikedCardIds: [],
       superLikedCardIds: [],
+      completedAt: null,
       updatedAt: new Date().toISOString(),
     };
     savePersisted(fresh);
@@ -1524,6 +1558,19 @@ function ResultView({
         </div>
 
         <div className="mt-6 space-y-3">
+          <Link
+            to="/en-podiverzumom?tab=profil"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Podcastok nekem
+          </Link>
+          <a
+            href="#ajanlott-epizodok"
+            className="inline-flex w-full items-center justify-center rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+          >
+            Mutasd az ajánlott epizódokat
+          </a>
           <Button onClick={handleShare} size="lg" className="w-full" disabled={busy !== null}>
             <Share2 className="mr-2 h-4 w-4" />
             {busy === "share" ? "Készítem…" : "Megosztás"}
@@ -1583,7 +1630,7 @@ function ResultView({
       )}
 
       {/* Recommended episodes */}
-      <div>
+      <div id="ajanlott-epizodok" className="scroll-mt-6">
         <h3 className="mb-3 text-lg font-semibold">Ajánlott epizódok</h3>
         {recsLoading && (
           <div className="space-y-3">
@@ -1676,6 +1723,11 @@ function ResultView({
         archetypeSlug={archetype.id}
         archetypeResult={{
           name: archetype.name,
+          result_type: listenerProfile.id,
+          result_title: listenerProfile.name,
+          result_subtitle: listenerProfile.recommendedDirection,
+          result_description: `${listenerProfile.name} — ${listenerProfile.traits.join(" · ")}`,
+          tags: topInterestLabels,
           element: element.key,
           aura: aura.essence,
           topInterests,
