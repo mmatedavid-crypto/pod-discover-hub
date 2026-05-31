@@ -146,7 +146,6 @@ import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
 import { HomeDiscoveryShortcuts } from "@/components/home/HomeDiscoveryShortcuts";
 import { HomeAudienceLanes } from "@/components/home/HomeAudienceLanes";
 import { HomeMediaSignals } from "@/components/home/HomeMediaSignals";
-import { HomeTopicsSection } from "@/components/HomeTopicsSection";
 import { HomeCurrentSignals } from "@/components/HomeCurrentSignals";
 import DailyStatsStrip from "@/components/DailyStatsStrip";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
@@ -741,8 +740,6 @@ const Index = () => {
             );
           });
         })()}
-
-        <HomeTopicsSection />
 
         <div className="flex justify-center">
           <Link
