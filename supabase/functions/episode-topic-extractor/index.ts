@@ -170,7 +170,6 @@ Deno.serve(async (req) => {
         .in("podcasts.rank_label", tierFilter)
         .eq("podcasts.is_hungarian", true)
         .eq("podcasts.language_decision", "accept_hungarian")
-        .ilike("podcasts.language", "hu%")
         .limit(batchSize);
       if (selErr) return json({ ok: false, error: selErr.message }, 500);
       if (!epsRaw || epsRaw.length === 0) break;

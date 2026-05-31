@@ -1,18 +1,20 @@
 // language-cleanup-runner: cascades deletion of podcasts that have been classified
-// as `reject_foreign`. Writes a row to podcast_language_cleanup_log per podcast
+// as confirmed non-Hungarian. Writes a row to podcast_language_cleanup_log per podcast
 // with full per-table delete counts BEFORE removing data. Safe to re-run; only
-// touches podcasts whose `language_decision = 'reject_foreign'`.
+// touches podcasts whose `language_decision` is a known foreign rejection.
 //
 // Body:
 //   { dry_run?: boolean (default true), limit?: number (default 200),
 //     podcast_ids?: string[] (override: only delete these IDs if they are
-//     classified reject_foreign) }
+//     classified non-Hungarian) }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const FOREIGN_DELETE_DECISIONS = ["reject_foreign", "confirmed_foreign", "reject_non_hungarian"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -25,8 +27,8 @@ Deno.serve(async (req) => {
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    let q = admin.from("podcasts").select("id, title, rss_url, detected_language, hungarian_score, foreign_score, language_evidence, language_rejection_reason")
-      .eq("language_decision", "reject_foreign")
+    let q = admin.from("podcasts").select("id, title, rss_url, detected_language, hungarian_score, foreign_score, language_evidence, language_rejection_reason, language_decision")
+      .in("language_decision", FOREIGN_DELETE_DECISIONS)
       .limit(limit);
     if (explicitIds && explicitIds.length) q = q.in("id", explicitIds);
     const { data: targets, error } = await q;
@@ -105,7 +107,7 @@ Deno.serve(async (req) => {
         detected_language: t.detected_language,
         hungarian_score: t.hungarian_score,
         foreign_score: t.foreign_score,
-        deletion_reason: t.language_rejection_reason || "reject_foreign",
+        deletion_reason: t.language_rejection_reason || t.language_decision || "non_hungarian",
         deleted_related_episode_count: eps2.count || 0,
         deleted_embedding_count: (epEmb.count || 0) + (podEmb.count || 0),
         deleted_ai_job_count: (aiJobsPod.count || 0) + (aiJobsEp.count || 0),

@@ -392,14 +392,14 @@ async function buildCategory(
 
   const { data: pods } = await supabase
     .from("podcasts")
-    .select("title, display_title, slug, summary, image_url")
+    .select("title, display_title, slug, summary, image_url, language_decision")
     .eq("category", cat.name)
-    .or("is_hungarian.eq.true")
+    .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")
     .eq("rss_status", "active")
     .order("podiverzum_rank", { ascending: false })
     .limit(50);
 
-  const list = (pods ?? []) as Array<Record<string, any>>;
+  const list = ((pods ?? []) as Array<Record<string, any>>).filter((p) => p.language_decision !== "reject_foreign");
   const title = cat.seo_title || `${cat.name} podcastek — Podiverzum`;
   const desc =
     cat.seo_description ||

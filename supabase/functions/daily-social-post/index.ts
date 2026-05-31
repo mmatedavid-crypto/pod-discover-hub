@@ -319,15 +319,15 @@ async function loadCandidates(admin: any): Promise<EpisodeRow[]> {
     .select(`
       id, title, display_title, ai_summary, slug, published_at, podcast_id, image_url,
       topics, people, companies, tickers,
-      podcasts!inner(id, title, display_title, slug, category, shadow_rank_tier, featured, image_url, language)
+      podcasts!inner(id, title, display_title, slug, category, shadow_rank_tier, featured, image_url, language, is_hungarian, language_decision)
     `)
     .gte("published_at", since)
     .not("ai_summary", "is", null)
-    .or("is_hungarian.eq.true", { referencedTable: "podcasts" })
+    .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { referencedTable: "podcasts" })
     .order("published_at", { ascending: false })
     .limit(300);
   if (error) throw new Error(`loadCandidates: ${error.message}`);
-  return (data || []) as EpisodeRow[];
+  return (data || []).filter((e: any) => e.podcasts?.language_decision !== "reject_foreign") as EpisodeRow[];
 }
 
 async function recentlyPosted(admin: any) {

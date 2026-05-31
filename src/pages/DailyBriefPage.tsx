@@ -61,14 +61,16 @@ export default function DailyBriefPage() {
       const since = new Date(Date.now() - 72 * 3600_000).toISOString();
       const { data } = await supabase
         .from("episodes")
-        .select(`id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language)`)
+        .select(`id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)`)
         .gte("published_at", since)
-        .or("is_hungarian.eq.true", { foreignTable: "podcasts" })
+        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
         .not("podcasts.rss_status", "in", "(failed,inactive)")
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(400);
 
-      const mapped = (data || []).map(mapRow);
+      const mapped = (data || [])
+        .filter((e: any) => e.podcasts?.language_decision !== "reject_foreign")
+        .map(mapRow);
       setEps(mapped);
       setLoading(false);
     })();

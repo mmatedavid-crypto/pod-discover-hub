@@ -13,6 +13,22 @@ const corsHeaders = {
 
 const MODEL = "google/gemini-2.5-flash-lite";
 
+async function deleteRejectedForeignPodcasts(limit: number) {
+  try {
+    const r = await fetch(`${Deno.env.get("SUPABASE_URL")!}/functions/v1/language-cleanup-runner`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+      },
+      body: JSON.stringify({ dry_run: false, limit }),
+    });
+    if (!r.ok) console.warn("language cleanup failed", r.status, await r.text().catch(() => ""));
+  } catch (e) {
+    console.warn("language cleanup invoke failed", String((e as Error)?.message || e));
+  }
+}
+
 async function detectLanguage(title: string, description: string): Promise<{ lang: string; confidence: number; reason: string } | null> {
   const text = `Title: ${title}\n\nDescription: ${(description || "").slice(0, 2000)}`;
   const ai = await callLovableAI({
@@ -103,6 +119,7 @@ Deno.serve(async (req) => {
         results.push({ id: p.id, title: p.title, was: "hu", now: det.lang, conf: det.confidence, reason: det.reason });
       }
     }
+    if (changed > 0) await deleteRejectedForeignPodcasts(Math.max(50, Math.min(2000, changed * 2)));
 
     return new Response(JSON.stringify({ ok: true, processed: pending.length, changed, kept, errors, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

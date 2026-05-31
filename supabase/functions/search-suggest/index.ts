@@ -88,11 +88,14 @@ Deno.serve(async (req) => {
     // Seed with up to 12 episode titles whose search_text contains the prefix.
     const { data: rows } = await supa
       .from("episodes")
-      .select("title, podcasts!inner(language)")
+      .select("title, podcasts!inner(language,is_hungarian,language_decision)")
       .ilike("search_text", `%${prefix}%`)
-      .or("is_hungarian.eq.true", { foreignTable: "podcasts" })
+      .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
       .limit(12);
-    const seed = (rows || []).map((r: any) => String(r.title || "").slice(0, 100)).filter(Boolean);
+    const seed = (rows || [])
+      .filter((r: any) => r.podcasts?.language_decision !== "reject_foreign")
+      .map((r: any) => String(r.title || "").slice(0, 100))
+      .filter(Boolean);
 
     const suggestions = await aiSuggest(prefix, seed);
     const dedup = Array.from(new Set(suggestions)).slice(0, 5);

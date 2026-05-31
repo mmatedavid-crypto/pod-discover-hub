@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
         const podName = sanitize(podNameById.get(e.podcast_id) || "");
         (e as any).clean_text = cleanById.get(e.id) || null;
         const podMeta: any = epPods.find((p: any) => p.id === e.podcast_id) || {};
-        if (podMeta.is_hungarian === true || podMeta.language_decision === "accept_hungarian") {
+        if (!["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(String(podMeta.language_decision || "")) && (podMeta.is_hungarian === true || podMeta.language_decision === "accept_hungarian")) {
           (e as any).output_language_code = "hu";
         } else {
           (e as any).language = podMeta.language || null;
@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
             transcriptCandidates++;
             const podName = sanitize(pod.display_title || pod.title || "");
             const transcript = String(transcriptById.get((ep as any).id) || "");
-            if (pod.is_hungarian === true || pod.language_decision === "accept_hungarian") {
+            if (!["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(String(pod.language_decision || "")) && (pod.is_hungarian === true || pod.language_decision === "accept_hungarian")) {
               (ep as any).output_language_code = "hu";
             } else {
               (ep as any).language = pod.language || null;

@@ -55,7 +55,9 @@ async function hasSuccessfulAiRun(supabase: any, jobType: string, targetType: st
 }
 
 function isAcceptedHungarianPodcast(p: any): boolean {
-  return p?.is_hungarian === true || String(p?.language_decision || "") === "accept_hungarian" || String(p?.language || "").toLowerCase().startsWith("hu");
+  const decision = String(p?.language_decision || "");
+  if (["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(decision)) return false;
+  return p?.is_hungarian === true || decision === "accept_hungarian";
 }
 
 async function recordDuplicateSkip(jobType: string, targetType: string, targetId: string, sourceHash: string, model: string) {

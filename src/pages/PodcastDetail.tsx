@@ -115,6 +115,14 @@ export default function PodcastDetail() {
     (async () => {
       setLoading(true);
       const { data } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).maybeSingle();
+      const isForeignRejected = (podcast: any) => ["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(String(podcast?.language_decision || ""));
+      if (data && isForeignRejected(data)) {
+        setP(null);
+        setEps([]);
+        setHosts([]);
+        setLoading(false);
+        return;
+      }
       setP(data);
       setLoading(false);
       if (data) {
@@ -135,7 +143,7 @@ export default function PodcastDetail() {
           : "";
         const baseDesc = data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
         const seoCategory = categoryLabel(data.category) || data.category;
-        const isAcceptedHungarian = data.is_hungarian === true && data.language_decision === "accept_hungarian";
+        const isAcceptedHungarian = !isForeignRejected(data) && (data.is_hungarian === true || data.language_decision === "accept_hungarian");
         const noindex = !isAcceptedHungarian || data.rss_status === "failed" || data.rss_status === "inactive";
         setSeo({
           title: data.seo_title || `${data.title} – Podiverzum`,

@@ -18,6 +18,8 @@ type Item = {
     rss_status: string;
     rank_label: string | null;
     language?: string | null;
+    is_hungarian?: boolean | null;
+    language_decision?: string | null;
   } | null;
 
 };
@@ -38,8 +40,8 @@ export default function LiveIndexBar() {
       try {
         const { data, error } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,rank_label,language)")
-          .ilike("podcasts.language", "hu%")
+          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,rank_label,language,is_hungarian,language_decision)")
+          .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
           .not("title", "is", null)
           .order("created_at", { ascending: false })
           .limit(40);
@@ -58,7 +60,7 @@ export default function LiveIndexBar() {
           t.length > 90;
         const trim = (t: string) => (t.length > 70 ? t.slice(0, 67).trimEnd() + "…" : t);
         const rows = ((data || []) as unknown as Item[])
-          .filter((r) => r.title && r.podcasts && r.podcasts.rss_status !== "failed" && r.podcasts.rss_status !== "inactive")
+          .filter((r) => r.title && r.podcasts && r.podcasts.rss_status !== "failed" && r.podcasts.rss_status !== "inactive" && r.podcasts.language_decision !== "reject_foreign")
           .filter((r) => !looksLikeJunk(r.display_title || r.title))
           .map((r) => ({ ...r, display_title: trim(r.display_title || r.title), title: trim(r.title) }));
         // Prefer most recent ~72h window, but always keep at least 8 items so the marquee fills.

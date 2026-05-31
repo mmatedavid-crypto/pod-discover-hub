@@ -345,9 +345,9 @@ const Index = () => {
             } as never),
           supabase
             .from("episodes")
-            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label,hosts)")
+            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label,hosts,is_hungarian,language_decision)")
             .gte("published_at", since14d)
-            .or("is_hungarian.eq.true", { foreignTable: "podcasts" })
+            .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
             .not("podcasts.rss_status", "in", "(failed,inactive)")
             .limit(1500),
         ]);

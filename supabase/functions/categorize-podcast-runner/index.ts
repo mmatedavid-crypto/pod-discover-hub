@@ -282,7 +282,7 @@ Deno.serve(async (req) => {
         .select("id", { count: "exact", head: true })
         .is("category", null)
         .in("shadow_rank_tier", ["S","A","B","C"])
-        .or("is_hungarian.eq.true");
+        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
       totalRemaining = Number(remaining || 0);
       // Stepped backoff (2026-05-12): rate_limit no longer crashes cadence to */30 —
       // we slow down ONE notch instead, so a transient 429 doesn't kill throughput

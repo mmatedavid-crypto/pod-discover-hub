@@ -87,6 +87,12 @@ export default function EpisodeDetail() {
       setLoading(true);
       const { data: p } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).maybeSingle();
       if (!p) { setData(null); setLoading(false); return; }
+      const isForeignRejected = ["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(String(p.language_decision || ""));
+      if (isForeignRejected) {
+        setData(null);
+        setLoading(false);
+        return;
+      }
       const { data: e } = await supabase.from("episodes").select("*").eq("podcast_id", p.id).eq("slug", episodeSlug).maybeSingle();
       setData(e ? { p, e } : { p, e: null });
       setLoading(false);
@@ -109,7 +115,7 @@ export default function EpisodeDetail() {
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
-      const isAcceptedHungarian = p.is_hungarian === true && p.language_decision === "accept_hungarian";
+      const isAcceptedHungarian = !isForeignRejected && (p.is_hungarian === true || p.language_decision === "accept_hungarian");
       setSeo({
         title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,

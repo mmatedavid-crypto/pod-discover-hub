@@ -56,13 +56,14 @@ const BAD = new Set(['needs_manual_rss_review','quarantined_spam','confirmed_dea
 let from = 0, podcasts = [];
 while (true) {
   const { data, error } = await sb.from('podcasts')
-    .select('slug,updated_at,ai_enriched_at,rss_status,rank_label,language,shadow_rank_components')
-    .ilike('language', 'hu%')
+    .select('slug,updated_at,ai_enriched_at,rss_status,rank_label,language,is_hungarian,language_decision,shadow_rank_components')
+    .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian')
     .order('id').range(from, from + 999);
   if (error) throw error;
   if (!data?.length) break;
   for (const p of data) {
     if (!p.slug) continue;
+    if (p.language_decision === 'reject_foreign') continue;
     if (p.rss_status === 'failed' || p.rss_status === 'inactive') continue;
     const hs = p.shadow_rank_components?.health_state;
     if (BAD.has(hs)) continue;
@@ -117,8 +118,8 @@ from = 0;
 const SINCE = new Date(Date.now() - 180 * 86400_000).toISOString();
 while (true) {
   const { data, error } = await sb.from('episodes')
-    .select('slug,published_at,updated_at,podcast_id,podcasts!inner(slug,language,rank_label,rss_status)')
-    .ilike('podcasts.language', 'hu%')
+    .select('slug,published_at,updated_at,podcast_id,podcasts!inner(slug,language,is_hungarian,language_decision,rank_label,rss_status)')
+    .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian', { foreignTable: 'podcasts' })
     .not('ai_summary', 'is', null)
     .gte('published_at', SINCE)
     .order('published_at', { ascending: false })
@@ -128,6 +129,7 @@ while (true) {
   for (const e of data) {
     if (!e.slug || !e.podcasts?.slug) continue;
     const ps = e.podcasts;
+    if (ps.language_decision === 'reject_foreign') continue;
     if (ps.rss_status === 'failed' || ps.rss_status === 'inactive') continue;
     const pr = ps.rank_label === 'S' ? '0.8' : ps.rank_label === 'A' ? '0.7' : '0.6';
     const lm = [e.updated_at, e.published_at].filter(Boolean).sort().pop();
@@ -164,11 +166,12 @@ for (const t of topTopics) {
 
 // podcast/year: top S/A/B podcasts × 3 years
 const { data: topPods = [] } = await sb
-  .from('podcasts').select('slug, rank_label, rss_status, language')
-  .ilike('language', 'hu%')
+  .from('podcasts').select('slug, rank_label, rss_status, language, is_hungarian, language_decision')
+  .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian')
   .eq('rss_status', 'active').limit(800);
 for (const p of topPods) {
   if (!p.slug) continue;
+  if (p.language_decision === 'reject_foreign') continue;
   for (const y of yearList) {
     longtail.push(tag(`${SITE}/podcast/${esc(p.slug)}/epizodok/${y}`, now, 'monthly', '0.5'));
   }

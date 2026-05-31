@@ -21,7 +21,15 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const EPISODE_SELECT =
-  "id,title,slug,published_at,summary,description,ai_summary,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language)";
+  "id,title,slug,published_at,summary,description,ai_summary,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)";
+
+function isAcceptedHungarianPodcast(p: any): boolean {
+  if (!p) return false;
+  if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
+  const decision = String(p.language_decision || "");
+  if (["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(decision)) return false;
+  return p.is_hungarian === true || decision === "accept_hungarian";
+}
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
   return new Promise((resolve) => {
@@ -440,15 +448,13 @@ async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: strin
   if (!pinAllowed) return null;
 
   const [{ data: pinMeta }, { data: pinEps }] = await Promise.all([
-    supa.from("podcasts").select("image_url,description,summary").eq("id", top.podcast_id).maybeSingle(),
+    supa.from("podcasts").select("image_url,description,summary,rss_status,is_hungarian,language_decision").eq("id", top.podcast_id).maybeSingle(),
     supa.from("episodes").select(EPISODE_SELECT).eq("podcast_id", top.podcast_id)
       .order("published_at", { ascending: false, nullsFirst: false }).limit(Math.max(8, Math.min(30, limit))),
   ]);
+  if (!isAcceptedHungarianPodcast(pinMeta)) return null;
   const episodes = (pinEps || []).filter((e: any) => {
-    const p = e.podcasts;
-    if (!p) return false;
-    if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
-    return true;
+    return isAcceptedHungarianPodcast(e.podcasts);
   });
   return {
     podcast_id: top.podcast_id,
@@ -1056,7 +1062,7 @@ Deno.serve(async (req) => {
             }
             epIds = Array.from(new Set(epIds.filter(Boolean)));
           }
-          // Fetch episodes (HU-only via podcasts.language)
+          // Fetch episodes via our language gate, not the unreliable RSS language field.
           let episodes: any[] = [];
           if (epIds.length > 0) {
             const { data: eps } = await supa
@@ -1065,10 +1071,7 @@ Deno.serve(async (req) => {
               .in("id", epIds.slice(0, 80))
               .order("published_at", { ascending: false })
               .limit(limit);
-            episodes = (eps || []).filter((e: any) => {
-              const plang = e?.podcasts?.language || "";
-              return typeof plang === "string" && plang.toLowerCase().startsWith("hu");
-            });
+            episodes = (eps || []).filter((e: any) => isAcceptedHungarianPodcast(e?.podcasts));
           }
 
           // Only short-circuit when the person has enough directly linked
@@ -1771,10 +1774,7 @@ Deno.serve(async (req) => {
     (rows as any[]).forEach((r, i) => orderMap.set(r.episode_id, i));
     let ordered = (eps || [])
       .filter((e: any) => {
-        const p = e.podcasts;
-        if (!p) return false;
-        if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
-        return true;
+        return isAcceptedHungarianPodcast(e.podcasts);
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 

@@ -54,7 +54,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         setProfile(null);
       }
 
-      const selectCols = `id,title,slug,published_at,summary,description,audio_url,topics,people,mentioned,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured)`;
+      const selectCols = `id,title,slug,published_at,summary,description,audio_url,topics,people,mentioned,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured,is_hungarian,language_decision)`;
 
       let speakerMatches: any[] = [];
       let mentionedMatches: any[] = [];
@@ -151,7 +151,11 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
       const filterVisible = (e: any) => {
         const ps = e.podcasts;
-        return ps && ps.rss_status !== "failed" && ps.rss_status !== "inactive";
+        return ps &&
+          ps.rss_status !== "failed" &&
+          ps.rss_status !== "inactive" &&
+          ps.language_decision !== "reject_foreign" &&
+          (ps.is_hungarian === true || ps.language_decision === "accept_hungarian");
       };
       const visible = speakerMatches.filter(filterVisible);
       const visibleMentioned = mentionedMatches.filter(filterVisible);
@@ -169,10 +173,11 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       if (podIds.length) {
         const { data: ps } = await supabase
           .from("podcasts")
-          .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
-          .in("id", podIds);
+          .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,is_hungarian,language_decision")
+          .in("id", podIds)
+          .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
         const sortedPods = (ps || [])
-          .filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"))
+          .filter((p: any) => p.rss_status !== "failed" && p.rss_status !== "inactive" && p.language_decision !== "reject_foreign")
           .sort((a: any, b: any) => (b.podiverzum_rank || 0) - (a.podiverzum_rank || 0))
           .slice(0, 9);
         setPods(sortedPods);

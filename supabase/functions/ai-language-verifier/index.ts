@@ -26,6 +26,22 @@ const corsHeaders = {
 
 const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
 
+async function deleteRejectedForeignPodcasts(limit: number) {
+  try {
+    const r = await fetch(`${Deno.env.get("SUPABASE_URL")!}/functions/v1/language-cleanup-runner`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+      },
+      body: JSON.stringify({ dry_run: false, limit }),
+    });
+    if (!r.ok) console.warn("language cleanup failed", r.status, await r.text().catch(() => ""));
+  } catch (e) {
+    console.warn("language cleanup invoke failed", String((e as Error)?.message || e));
+  }
+}
+
 async function detectLanguage(model: string, title: string, description: string, epTitles: string[]) {
   const block = [
     `TITLE: ${title || "(none)"}`,
@@ -170,6 +186,9 @@ Deno.serve(async (req) => {
     });
     await Promise.all(workers);
     const remaining = queue.length;
+    if (!dryRun && flipped_to_foreign > 0) {
+      await deleteRejectedForeignPodcasts(Math.max(50, Math.min(2000, flipped_to_foreign * 2)));
+    }
 
     return new Response(JSON.stringify({
       ok: true, mode, dry_run: dryRun, model, min_confidence: minConf,

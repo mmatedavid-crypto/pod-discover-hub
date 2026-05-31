@@ -21,7 +21,9 @@ const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, h
 import { callGeminiOpenAI } from "../_shared/google-gemini-direct.ts";
 
 function isAcceptedHungarian(meta: any): boolean {
-  return meta?.is_hungarian === true || String(meta?.language_decision || "") === "accept_hungarian" || String(meta?.language || "").toLowerCase().startsWith("hu");
+  const decision = String(meta?.language_decision || "");
+  if (["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(decision)) return false;
+  return meta?.is_hungarian === true || decision === "accept_hungarian";
 }
 
 async function callAI(model: string, messages: any[], tools: any[], toolName: string, targetId?: string, kind?: string) {
