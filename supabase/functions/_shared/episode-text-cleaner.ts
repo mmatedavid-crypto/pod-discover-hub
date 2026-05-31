@@ -43,6 +43,7 @@ const TIMESTAMP_LINE_RX = /^\s*\d{1,2}:\d{2}(?::\d{2})?\s+.+$/gm;
 const MULTI_WHITESPACE = /\s{3,}/g;
 const HTML_RX = /<[^>]+>/g;
 const HTML_ENTITY_RX = /&(amp|nbsp|quot|apos|lt|gt);/gi;
+const EXTENDED_HTML_ENTITY_RX = /&([a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);/g;
 const INLINE_FOOTER_START_RX =
   /\s(?:--+|—|–)?\s*(?:hasznos\s+linkek|linkek|additional\s+resources|contact\s+information|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)|támogatóink|tamogatoink|támogatók|tamogatok|közösségi\s+média|social\s+(?:links?|media)|show\s+notes|shownotes)\s*[:：]/i;
 const CTA_LABEL_RX =
@@ -89,8 +90,9 @@ function isFooterishLine(line: string): boolean {
   // URLs
   if (/https?:\/\//i.test(s)) return true;
   if (/^[•\-–—*·]?\s*www\./i.test(s)) return true;
-  // hashtag(s)
-  if (/^#\w+/.test(s)) return true;
+  // Hashtag walls are footer noise; a single leading disclosure like
+  // "#hirdetés ..." can be substantive and must not delete the whole line.
+  if (/^(?:#[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű0-9_]+\s*){2,}$/.test(s)) return true;
   // platform name at start
   if (/^(?:facebook|instagram|insta|tiktok|youtube|yt|spotify|apple\s*podcasts?|apple|twitter|linkedin|threads|patreon|discord|telegram|mastodon|bluesky|snapchat|whatsapp|messenger|deezer|pocket\s*casts|google\s*podcasts?|soundcloud|substack|rumble|odysee|locals|rss|fb|ig)\b/i.test(s)) return true;
   // @handle
@@ -157,7 +159,7 @@ function stripInlineNoise(input: string): { text: string; removed: string[] } {
 }
 
 function decodeBasicEntities(input: string): string {
-  return input.replace(HTML_ENTITY_RX, (_, entity: string) => {
+  const basic = input.replace(HTML_ENTITY_RX, (_, entity: string) => {
     switch (entity.toLowerCase()) {
       case "amp": return "&";
       case "nbsp": return " ";
@@ -167,6 +169,25 @@ function decodeBasicEntities(input: string): string {
       case "gt": return ">";
       default: return "";
     }
+  });
+  const named: Record<string, string> = {
+    aacute: "á", eacute: "é", iacute: "í", oacute: "ó", uacute: "ú",
+    Aacute: "Á", Eacute: "É", Iacute: "Í", Oacute: "Ó", Uacute: "Ú",
+    ouml: "ö", uuml: "ü", Ouml: "Ö", Uuml: "Ü",
+    ocirc: "ő", ucirc: "ű", Ocirc: "Ő", Ucirc: "Ű",
+    otilde: "ő", utilde: "ű", Otilde: "Ő", Utilde: "Ű",
+    ndash: "–", mdash: "—", hellip: "…", rsquo: "'", lsquo: "'", rdquo: "\"", ldquo: "\"",
+  };
+  return basic.replace(EXTENDED_HTML_ENTITY_RX, (match, entity: string) => {
+    if (entity.startsWith("#x")) {
+      const code = Number.parseInt(entity.slice(2), 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : "";
+    }
+    if (entity.startsWith("#")) {
+      const code = Number.parseInt(entity.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : "";
+    }
+    return named[entity] ?? match;
   });
 }
 
@@ -259,10 +280,17 @@ function stripSentenceFooterTail(input: string): { text: string; removed: string
 
 function stripDanglingLabels(input: string): { text: string; removed: string[] } {
   const labels =
-    /(?:^|\n|\s)(?:email|e-?mail|website|weboldal|honlap|headshots|additional resources|contact information|work with [^:\n]{1,40}|apply for a consultation|shoot footage for your reel|edit footage into a reel|x \(ex-twitter\)|bluesky|telegram csatornánk|discord szerverünk|patreon oldalunk|támogatóink|tamogatoink|kövesd|köszönjük, ha|töltsd le és hallgasd|biblia egy év alatt kihívás|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal)\s*[:：]\s*(?=$|\n|[A-ZÁÉÍÓÖŐÚÜŰ])/gi;
+    /(?:^|\n|\s)(?:facebook|instagram|insta|tiktok|youtube|yt|spotify|apple\s*podcasts?|patreon|discord|telegram|linkedin|threads|twitter|x \(ex-twitter\)|bluesky|email|e-?mail|website|weboldal|honlap|headshots|additional resources|contact information|work with [^:\n]{1,40}|apply for a consultation|shoot footage for your reel|edit footage into a reel|telegram csatornánk|discord szerverünk|patreon oldalunk|támogatóink|tamogatoink|kövesd|köszönjük, ha|töltsd le és hallgasd|biblia egy év alatt kihívás|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal)\s*[:：]\s*(?=$|\n|[A-ZÁÉÍÓÖŐÚÜŰ])/gi;
   if (!labels.test(input)) return { text: input, removed: [] };
   labels.lastIndex = 0;
-  return { text: input.replace(labels, " "), removed: ["dangling_labels"] };
+  let text = input;
+  for (let i = 0; i < 5; i++) {
+    labels.lastIndex = 0;
+    if (!labels.test(text)) break;
+    labels.lastIndex = 0;
+    text = text.replace(labels, " ");
+  }
+  return { text, removed: ["dangling_labels"] };
 }
 
 function detectFooterStart(lines: string[]): number {
@@ -414,6 +442,62 @@ export function heuristicClean(raw: string): { text: string; removed: string[] }
   }
 
   return { text: body, removed };
+}
+
+export type CleanTextQuality = {
+  ok: boolean;
+  needs_ai_trim: boolean;
+  overcut_risk: boolean;
+  dirty_signals: string[];
+  reasons: string[];
+  raw_len: number;
+  clean_len: number;
+  clean_ratio: number;
+};
+
+export function assessCleanTextQuality(raw: string, cleaned: string): CleanTextQuality {
+  const rawText = String(raw || "");
+  const cleanText = String(cleaned || "");
+  const rawLen = rawText.trim().length;
+  const cleanLen = cleanText.trim().length;
+  const cleanRatio = rawLen > 0 ? cleanLen / rawLen : 0;
+  const dirtySignals: string[] = [];
+  const reasons: string[] = [];
+
+  if (/https?:\/\/|www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|tiktok\.com|patreon\.com|linktr\.ee|megaphone\.fm|omnystudio\.com/i.test(cleanText)) {
+    dirtySignals.push("url_or_platform");
+  }
+  if (/@[A-Za-z0-9_.-]+/.test(cleanText)) dirtySignals.push("handle");
+  if (/\b(?:kövesd|kövess|iratkozz|feliratkoz|támogasd|támogass|adomány|bankszámla|hallgasd|nézd|nézzétek|listen|subscribe|follow|support|learn more about your ad choices)\b/i.test(cleanText)) {
+    dirtySignals.push("cta");
+  }
+  if (/\b(?:jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal|not\s+(?:financial|investment|legal)\s+advice)\b/i.test(cleanText)) {
+    dirtySignals.push("legal");
+  }
+  if (/(?:#[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű0-9_]+\s*){2,}/.test(cleanText)) dirtySignals.push("hashtag_wall");
+  if (/\b(?:facebook|instagram|youtube|spotify|patreon|weboldal|honlap|e-?mail)\s*[:：]\s*(?:$|[A-ZÁÉÍÓÖŐÚÜŰ]|#)/i.test(cleanText)) {
+    dirtySignals.push("dangling_label");
+  }
+
+  if (dirtySignals.length > 0) reasons.push("dirty_signals");
+  if (rawLen >= 500 && cleanLen < 100) reasons.push("near_empty_after_long_input");
+  if (rawLen >= 500 && cleanRatio < 0.35 && dirtySignals.length === 0) reasons.push("possible_overcut");
+  if (rawLen >= 1500 && cleanRatio > 0.92 && /https?:\/\/|www\.|facebook|instagram|spotify|youtube|patreon|discord|kövesd|iratkozz|támogasd/i.test(rawText)) {
+    reasons.push("possibly_undercleaned");
+  }
+
+  const overcutRisk = reasons.includes("near_empty_after_long_input") || reasons.includes("possible_overcut");
+  const needsAiTrim = dirtySignals.length > 0 || reasons.includes("possibly_undercleaned");
+  return {
+    ok: !overcutRisk && !needsAiTrim,
+    needs_ai_trim: needsAiTrim,
+    overcut_risk: overcutRisk,
+    dirty_signals: Array.from(new Set(dirtySignals)),
+    reasons: Array.from(new Set(reasons)),
+    raw_len: rawLen,
+    clean_len: cleanLen,
+    clean_ratio: Number(cleanRatio.toFixed(4)),
+  };
 }
 
 
