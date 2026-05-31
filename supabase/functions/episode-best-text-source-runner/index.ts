@@ -164,14 +164,24 @@ Deno.serve(async (req) => {
         usedYtPriority = true;
       } else {
         // 2) Drain remaining episodes that don't have a best_text_source yet.
-        const fetchLimit = Math.min(limit * 4, 20000);
-        const { data, error } = await admin
-          .from("episodes")
-          .select("id,podcast_id,title,description,updated_at")
-          .order("updated_at", { ascending: false, nullsFirst: false })
-          .limit(fetchLimit);
-        if (error) throw error;
-        targetIds = (data || []).filter((r: any) => !doneSet.has(String(r.id))).slice(0, limit).map((r: any) => String(r.id));
+        //    Paginate episodes by updated_at desc, filter out doneSet, until we collect `limit` ids.
+        const collected: string[] = [];
+        for (let offset = 0; offset < 500000 && collected.length < limit; offset += 1000) {
+          const { data, error } = await admin
+            .from("episodes")
+            .select("id")
+            .order("updated_at", { ascending: false, nullsFirst: false })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          for (const r of data) {
+            const id = String((r as any).id);
+            if (!doneSet.has(id)) collected.push(id);
+            if (collected.length >= limit) break;
+          }
+          if (data.length < 1000) break;
+        }
+        targetIds = collected;
       }
     }
 
