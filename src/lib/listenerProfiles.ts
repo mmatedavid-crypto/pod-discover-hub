@@ -36,9 +36,9 @@ export const LISTENER_PROFILES: ListenerProfile[] = [
   },
   {
     id: "kozeleti_radar",
-    name: "A Közéleti Radar",
-    traits: ["naprakész", "kritikus", "összefüggést keres"],
-    recommendedDirection: "Közélet, társadalom, friss kontextus",
+    name: "A Fókuszált Elemző",
+    traits: ["elemző", "kritikus", "összefüggést keres"],
+    recommendedDirection: "Elemző beszélgetések, társadalmi kontextus",
   },
   {
     id: "uzleti_navigator",
@@ -73,7 +73,7 @@ const ARCHETYPE_TO_PROFILE: Record<string, string> = {
   strategic_curious: "strategiai_figyelo",
   deep_dive: "melyinterju_vadasz",
   future_watcher: "tech_kivancsi",
-  public_radar: "kozeleti_radar",
+  public_radar: "fokuszalt_elemzo",
   story_collector: "tortenetkereso",
   market_realist: "uzleti_navigator",
   culture_hunter: "kulturflaneur",

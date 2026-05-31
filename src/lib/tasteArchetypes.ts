@@ -99,15 +99,27 @@ export const ARCHETYPES: Archetype[] = [
 export function pickArchetype(tagWeights: Record<string, number>): Archetype {
   let best = ARCHETYPES[0];
   let bestScore = -Infinity;
+  let bestNonPublic = ARCHETYPES[0];
+  let bestNonPublicScore = -Infinity;
   for (const a of ARCHETYPES) {
     let s = 0;
     for (const [tag, aff] of Object.entries(a.affinity)) {
       s += (tagWeights[tag] || 0) * aff;
     }
+    if (a.id !== "public_radar" && s > bestNonPublicScore) {
+      bestNonPublicScore = s;
+      bestNonPublic = a;
+    }
     if (s > bestScore) {
       bestScore = s;
       best = a;
     }
+  }
+  // Public-affairs cards are common and can accidentally dominate a mixed
+  // profile. Only return that archetype when it is clearly stronger than the
+  // closest non-political alternative.
+  if (best.id === "public_radar" && bestScore < bestNonPublicScore + 4) {
+    return bestNonPublic;
   }
   return best;
 }
