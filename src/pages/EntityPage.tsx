@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entitySlug, matchesEntitySlug } from "@/lib/entity";
@@ -27,11 +26,11 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const decoded = useMemo(() => decodeURIComponent(slug), [slug]);
   const [eps, setEps] = useState<EpisodeLite[]>([]);
   const [mentionedEps, setMentionedEps] = useState<EpisodeLite[]>([]);
-  const [pods, setPods] = useState<PodcastLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>(decoded);
   const [profile, setProfile] = useState<EntityProfile | null>(null);
   const [related, setRelated] = useState<{ kind: EntityKind; v: string; n: number }[]>([]);
+  const [distinctPodcastCount, setDistinctPodcastCount] = useState(0);
 
   useEffect(() => {
     if (!slug) return;
@@ -166,24 +165,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       const sortedM = visibleMentioned.slice().sort(compareByScore);
       setMentionedEps(sortedM.slice(0, 20) as any);
 
-      // Related podcasts (only from speaker matches — more authoritative)
-      const podMap = new Map<string, any>();
-      visible.forEach((e: any) => { if (e.podcasts) podMap.set(e.podcast_id, e.podcasts); });
-      const podIds = Array.from(podMap.keys());
-      if (podIds.length) {
-        const { data: ps } = await supabase
-          .from("podcasts")
-          .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,is_hungarian,language_decision")
-          .in("id", podIds)
-          .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
-        const sortedPods = (ps || [])
-          .filter((p: any) => p.rss_status !== "failed" && p.rss_status !== "inactive" && p.language_decision !== "reject_foreign")
-          .sort((a: any, b: any) => (b.podiverzum_rank || 0) - (a.podiverzum_rank || 0))
-          .slice(0, 9);
-        setPods(sortedPods);
-      } else {
-        setPods([]);
-      }
+      setDistinctPodcastCount(new Set(visible.map((e: any) => e.podcast_id).filter(Boolean)).size);
 
       // Related entities (co-occurring) from speaker matches
       const tally = new Map<string, { kind: EntityKind; v: string; n: number }>();
@@ -291,7 +273,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             <Stat label={kind === "person" ? "Megszólal" : "Epizódok"} value={total} />
             {kind === "person" && mentionedEps.length > 0 && <Stat label="Említve" value={mentionedEps.length} />}
             <Stat label="Új (30 nap)" value={last30Count} />
-            <Stat label="Műsorok" value={pods.length} />
+            <Stat label="Műsorok" value={distinctPodcastCount} />
           </div>
         </div>
       </section>
@@ -319,18 +301,6 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
               </p>
             </div>
             <EpisodeList items={best} showEntities />
-          </section>
-        )}
-
-        {pods.length > 0 && (
-          <section>
-            <div className="mb-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Források</div>
-              <h2 className="text-xl font-semibold">Műsorok, amelyek témaként foglalkoznak vele</h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {pods.map((p) => <PodcastCard key={p.id} p={p} />)}
-            </div>
           </section>
         )}
 

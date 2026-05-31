@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import NotFoundState from "@/components/NotFoundState";
 import { compareByScore } from "@/lib/episodeRank";
 import PersonAvatar from "@/components/PersonAvatar";
@@ -72,7 +71,6 @@ export default function PersonDetailPage() {
   const decodedSlug = useMemo(() => decodeURIComponent(slug), [slug]);
   const [person, setPerson] = useState<Person | null>(null);
   const [eps, setEps] = useState<(EpisodeLite & { mention_type?: string; role_type?: string })[]>([]);
-  const [pods, setPods] = useState<PodcastLite[]>([]);
   const [related, setRelated] = useState<{ slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -156,7 +154,6 @@ export default function PersonDetailPage() {
           disambiguation_context: null,
         });
         setEps(sorted.slice(0, 40) as any);
-        setPods([...podMap.values()].sort((a: any, b: any) => (b.podiverzum_rank || 0) - (a.podiverzum_rank || 0)).slice(0, 9));
         setRelated([]);
         setLoading(false);
 
@@ -210,16 +207,6 @@ export default function PersonDetailPage() {
         if (m.episodes.podcasts) podMap.set(m.episodes.podcast_id, m.episodes.podcasts);
       });
       setEps(epList.sort(compareByScore) as any);
-
-      if (podMap.size > 0) {
-        const { data: ps } = await supabase
-          .from("podcasts")
-          .select("id, title, display_title, slug, summary, description, image_url, category, apple_url, spotify_url, youtube_url, website_url, featured, rss_status, podiverzum_rank")
-          .in("id", [...podMap.keys()])
-          .eq("is_hungarian", true)
-          .eq("language_decision", "accept_hungarian");
-        setPods(((ps || []) as any).sort((a: any, b: any) => (b.podiverzum_rank || 0) - (a.podiverzum_rank || 0)).slice(0, 9));
-      }
 
       const tally = new Map<string, number>();
       epList.forEach((e: any) => {
@@ -464,15 +451,6 @@ export default function PersonDetailPage() {
               <EpisodeList items={eps.slice(0, 30)} showEntities />
             </section>
           )
-        )}
-
-        {pods.length > 0 && (
-          <section>
-            <h2 className="text-xl font-semibold mb-3">Kapcsolódó podcastok</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {pods.map(p => <PodcastCard key={p.id} p={p} />)}
-            </div>
-          </section>
         )}
 
         {related.length > 0 && (

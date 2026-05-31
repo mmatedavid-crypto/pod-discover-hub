@@ -149,7 +149,7 @@ const App = () => (
           <Route path="/admin/outreach" element={<AdminOutreachPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
-          <Route path="/tema/:slug" element={<EntityPage kind="topic" />} />
+          <Route path="/tema/:slug" element={<RedirectWithSlug to="/temak" />} />
           <Route path="/topic/:slug" element={<RedirectWithSlug to="/temak" />} />
           <Route path="/szemely/:slug" element={<RedirectWithSlug to="/szemelyek" />} />
           <Route path="/person/:slug" element={<RedirectWithSlug to="/szemelyek" />} />

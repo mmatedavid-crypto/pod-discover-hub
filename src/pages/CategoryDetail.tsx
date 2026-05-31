@@ -56,7 +56,7 @@ export default function CategoryDetail() {
       if (!c) return;
       setSeo({
         title: c.seo_title || `${c.name} podcastok és epizódok — Podiverzum`,
-        description: c.seo_description || `Válogatás a legjobb ${c.name} podcast epizódokból. A sorrendet a relevancia, a frissesség és a Podiverzum-rang adja.`,
+        description: c.seo_description || `Válogatás a legjobb ${c.name} podcast epizódokból. A sorrendet a relevancia és a frissesség adja.`,
         jsonLd: [
           {
             "@context": "https://schema.org",
@@ -210,7 +210,7 @@ export default function CategoryDetail() {
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold">{cat.name}</h1>
         <p className="text-muted-foreground mt-1">
-          A legfrissebb ${cat.name} podcast epizódok, relevancia, frissesség és Podiverzum-rang szerint rendezve.
+          A legfrissebb {cat.name} podcast epizódok, relevancia és frissesség szerint rendezve.
         </p>
 
         {/* Category-scoped search */}
