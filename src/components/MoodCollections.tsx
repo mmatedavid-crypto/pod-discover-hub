@@ -64,6 +64,7 @@ export function polishMoodTitle(title: string | null | undefined, slug?: string 
 export function MoodCollections() {
   const [cards, setCards] = useState<Card[]>([]);
   const isMobile = useIsMobile();
+  const desktopGridClass = cards.length > 6 ? "lg:grid-cols-4" : "lg:grid-cols-3";
 
   useEffect(() => {
     const viewport = detectViewport(isMobile);
@@ -105,7 +106,7 @@ export function MoodCollections() {
           Összes hangulat <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-2.5 sm:grid-cols-3 ${desktopGridClass}`}>
         {cards.map((c) => {
           const Icon = ICONS[c.slug] || Sparkles;
           const href = `/hangulatok/${c.slug}`;
