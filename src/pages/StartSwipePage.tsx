@@ -1530,13 +1530,6 @@ function ResultView({
         </div>
 
         <div className="mt-6 space-y-3">
-          <a
-            href="#ajanlott-epizodok"
-            className="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <Sparkles className="mr-2 h-4 w-4" />
-            Podcastok nekem
-          </a>
           <Button onClick={handleShare} size="lg" className="w-full" disabled={busy !== null}>
             <Share2 className="mr-2 h-4 w-4" />
             {busy === "share" ? "Készítem…" : "Megosztás"}
