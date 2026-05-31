@@ -34,6 +34,8 @@ export function setSeo(opts: SeoOpts) {
   upsertMeta('meta[property="og:title"]', { property: "og:title", content: opts.title });
   upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: opts.title });
   upsertMeta('meta[property="og:type"]', { property: "og:type", content: opts.ogType || "website" });
+  upsertMeta('meta[property="og:site_name"]', { property: "og:site_name", content: "Podiverzum" });
+  upsertMeta('meta[property="og:locale"]', { property: "og:locale", content: "hu_HU" });
 
   if (opts.image) {
     upsertMeta('meta[property="og:image"]', { property: "og:image", content: opts.image });

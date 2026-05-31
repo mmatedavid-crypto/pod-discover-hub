@@ -141,21 +141,38 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Podiverzum",
-    url: SITE,
+    alternateName: "Podiverzum.hu",
+    url: `${SITE}/`,
+    inLanguage: "hu-HU",
     potentialAction: {
       "@type": "SearchAction",
-      target: `${SITE}/search?q={search_term_string}`,
+      target: `${SITE}/kereses?q={search_term_string}`,
       "query-input": "required name=search_term_string",
     },
   };
+  const organization = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Podiverzum",
+    url: `${SITE}/`,
+    logo: `${SITE}/icon-512.png`,
+  };
+  const collectionPage = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Magyar podcast kereső és ajánló",
+    url: `${SITE}/`,
+    inLanguage: "hu-HU",
+    description: "Magyar podcast epizódok, műsorok, témák, személyek és szervezetek felfedezése.",
+  };
 
   return new Response(new TextEncoder().encode(shell({
-      title: "Podiverzum — Találd meg. Hallgasd meg.",
+      title: "Podiverzum — magyar podcast kereső és ajánló",
       description:
-        "Magyar podcast felfedező. Keress epizódokat témák, személyek, cégek vagy ötletek alapján. Találd meg. Hallgasd meg.",
+        "Magyar podcast kereső, ajánló és felfedező. Keress epizódokat téma, személy, cég, szervezet, műsor vagy gondolat alapján.",
       canonical: `${SITE}/`,
-      jsonLd: [website, itemList],
-      bodyHtml: `<header><h1>Podiverzum</h1><p>Magyar podcast felfedező — találd meg, hallgasd meg.</p></header>
+      jsonLd: [website, organization, collectionPage, itemList],
+      bodyHtml: `<header><h1>Magyar podcastok okosabban</h1><p>Podiverzum — magyar podcast kereső, ajánló és felfedező.</p></header>
 <main><h2>Friss epizódok</h2><ul>${itemsHtml}</ul></main>`,
     })),
     { headers: new Headers(baseHeaders) },

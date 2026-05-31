@@ -292,23 +292,44 @@ const Index = () => {
 
   useEffect(() => {
     setSeo({
-      title: "Podiverzum.hu — Find it. Hear it.",
-      description: "Magyar podcast kereső és felfedező. Keress epizódokat téma, személy, szervezet, műsor vagy gondolat alapján.",
+      title: "Podiverzum — magyar podcast kereső és ajánló",
+      description: "Magyar podcast kereső, ajánló és felfedező. Keress epizódokat téma, személy, cég, szervezet, műsor vagy gondolat alapján.",
+      canonical: "https://podiverzum.hu/",
+      image: "https://podiverzum.hu/og-image.jpg",
       hreflang: [
         { lang: "hu", href: "https://podiverzum.hu/" },
         { lang: "x-default", href: "https://podiverzum.hu/" },
       ],
-      jsonLd: {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        name: "Podiverzum",
-        url: "https://podiverzum.hu",
-        potentialAction: {
-          "@type": "SearchAction",
-          target: "https://podiverzum.hu/search?q={search_term_string}",
-          "query-input": "required name=search_term_string",
+      jsonLd: [
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "Podiverzum",
+          alternateName: "Podiverzum.hu",
+          url: "https://podiverzum.hu/",
+          inLanguage: "hu-HU",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://podiverzum.hu/kereses?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
         },
-      },
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "Podiverzum",
+          url: "https://podiverzum.hu/",
+          logo: "https://podiverzum.hu/icon-512.png",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Magyar podcast kereső és ajánló",
+          url: "https://podiverzum.hu/",
+          inLanguage: "hu-HU",
+          description: "Magyar podcast epizódok, műsorok, témák, személyek és szervezetek felfedezése.",
+        },
+      ],
     });
     (async () => {
       try {
@@ -527,7 +548,7 @@ const Index = () => {
             Podcast felfedezés
           </div>
           <h1 className="text-5xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
-            Find it. <span className="text-brand-gradient">Hear it.</span>
+            Magyar podcastok. <span className="text-brand-gradient">Okosabban.</span>
           </h1>
 
           <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
