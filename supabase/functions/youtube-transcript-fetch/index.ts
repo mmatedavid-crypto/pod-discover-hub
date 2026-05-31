@@ -161,6 +161,7 @@ Deno.serve(async (req) => {
     const maxCallsPerRun = Math.max(1, Math.min(batch, Number(ctrl.max_supadata_calls_per_run || batch)));
     const concurrency = Math.min(Number(ctrl.concurrency || 2), 4);
     const dailyCreditLimit = Math.max(0, Number(ctrl.daily_credit_limit ?? ctrl.daily_budget_usd ?? 2));
+    const monthlyCreditLimit = Math.max(0, Number(ctrl.monthly_credit_limit ?? 30000));
     const preferredLang = ctrl.preferred_lang || "hu";
     const transcriptMode = "native";
     const nativeOnly = ctrl.native_only !== false;
