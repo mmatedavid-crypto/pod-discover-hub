@@ -9,6 +9,12 @@ export type Archetype = {
   affinity: Record<string, number>; // tag -> weight
 };
 
+export type ArchetypeScore = {
+  id: string;
+  name: string;
+  score: number;
+};
+
 export const ARCHETYPES: Archetype[] = [
   {
     id: "strategic_curious",
@@ -97,16 +103,31 @@ export const ARCHETYPES: Archetype[] = [
 ];
 
 export function pickArchetype(tagWeights: Record<string, number>): Archetype {
+  const decision = scoreArchetypes(tagWeights);
+  return decision.winner;
+}
+
+export function scoreArchetypes(tagWeights: Record<string, number>): {
+  winner: Archetype;
+  rawWinner: Archetype;
+  scores: ArchetypeScore[];
+  explicitPublicSignals: number;
+  publicScore: number;
+  bestNonPublicScore: number;
+} {
+  const scores = ARCHETYPES.map((a) => ({
+    id: a.id,
+    name: a.name,
+    score: Object.entries(a.affinity).reduce((s, [tag, aff]) => s + (tagWeights[tag] || 0) * aff, 0),
+  })).sort((a, b) => b.score - a.score);
   let best = ARCHETYPES[0];
   let bestScore = -Infinity;
   let bestNonPublic = ARCHETYPES[0];
   let bestNonPublicScore = -Infinity;
   let publicScore = 0;
-  for (const a of ARCHETYPES) {
-    let s = 0;
-    for (const [tag, aff] of Object.entries(a.affinity)) {
-      s += (tagWeights[tag] || 0) * aff;
-    }
+  for (const score of scores) {
+    const a = ARCHETYPES.find((candidate) => candidate.id === score.id) ?? ARCHETYPES[0];
+    const s = score.score;
     if (a.id === "public_radar") publicScore = s;
     if (a.id !== "public_radar" && s > bestNonPublicScore) {
       bestNonPublicScore = s;
@@ -117,6 +138,7 @@ export function pickArchetype(tagWeights: Record<string, number>): Archetype {
       best = a;
     }
   }
+  const rawWinner = best;
   // Public-affairs cards are common and can accidentally dominate a mixed
   // profile. Only return that archetype when it is both absolutely strong and
   // clearly stronger than the closest non-political alternative.
@@ -130,9 +152,16 @@ export function pickArchetype(tagWeights: Record<string, number>): Archetype {
     best.id === "public_radar" &&
     (publicScore < 14 || explicitPublicSignals < 4 || bestScore < bestNonPublicScore + 8)
   ) {
-    return bestNonPublic;
+    best = bestNonPublic;
   }
-  return best;
+  return {
+    winner: best,
+    rawWinner,
+    scores,
+    explicitPublicSignals,
+    publicScore,
+    bestNonPublicScore,
+  };
 }
 
 // Softmax-style confidence: how dominant is the top archetype?
