@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import NotFoundState from "@/components/NotFoundState";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
 
@@ -29,7 +28,6 @@ export default function TopicDetailPage() {
   const slug = SLUG_REDIRECTS[rawSlug] || rawSlug;
   const [topic, setTopic] = useState<Topic | null>(null);
   const [eps, setEps] = useState<EpisodeLite[]>([]);
-  const [pods, setPods] = useState<PodcastLite[]>([]);
   const [related, setRelated] = useState<Topic[]>([]);
   const [people, setPeople] = useState<{ slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,17 +107,6 @@ export default function TopicDetailPage() {
       const epList: any[] = [...byId.values()];
       setEps(epList.sort(compareByScore).slice(0, 40) as any);
 
-      // Podcasts mapped to topic
-      const { data: podRows } = await supabase
-        .from("podcast_topic_map")
-        .select("podcast_id, confidence, podcasts!inner(id, title, display_title, slug, summary, description, image_url, category, apple_url, spotify_url, youtube_url, website_url, featured, rss_status, podiverzum_rank, is_hungarian, language_decision)")
-        .eq("topic_id", (t as any).id)
-        .eq("podcasts.is_hungarian", true)
-        .eq("podcasts.language_decision", "accept_hungarian")
-        .limit(20);
-      const podList: any[] = (podRows || []).map((r: any) => r.podcasts).filter(Boolean);
-      setPods(podList.sort((a, b) => (b.podiverzum_rank || 0) - (a.podiverzum_rank || 0)).slice(0, 9));
-
       // Related topics same domain
       if ((t as any).domain) {
         const { data: rel } = await supabase
@@ -177,7 +164,7 @@ export default function TopicDetailPage() {
             "@context": "https://schema.org",
             "@type": "FAQPage",
             mainEntity: [
-              { "@type": "Question", name: `Milyen magyar podcastok foglalkoznak ${(t as any).name} témával?`, acceptedAnswer: { "@type": "Answer", text: `Jelenleg ${(t as any).podcast_count} magyar podcastot és ${(t as any).episode_count} epizódot indexelünk ehhez a témához.` } },
+              { "@type": "Question", name: `Milyen magyar podcast epizódok foglalkoznak ${(t as any).name} témával?`, acceptedAnswer: { "@type": "Answer", text: `Jelenleg ${(t as any).episode_count} magyar podcast epizódot indexelünk ehhez a témához.` } },
               { "@type": "Question", name: `Hol találok friss ${(t as any).name} podcast epizódokat?`, acceptedAnswer: { "@type": "Answer", text: "A Podiverzum naponta frissül, az új epizódok automatikusan megjelennek a témaoldalon." } },
               { "@type": "Question", name: "Hogyan válogatja a Podiverzum ezeket az epizódokat?", acceptedAnswer: { "@type": "Answer", text: "Kulcsszavak, AI-elemzés és a műsorok minősége alapján rangsorolunk." } },
             ],
@@ -233,14 +220,6 @@ export default function TopicDetailPage() {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
-        {pods.length > 0 && (
-          <section>
-            <h2 className="text-xl font-semibold mb-3">Kiemelt műsorok</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {pods.map(p => <PodcastCard key={p.id} p={p} />)}
-            </div>
-          </section>
-        )}
         {newest.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-3">Friss epizódok</h2>
@@ -273,7 +252,7 @@ export default function TopicDetailPage() {
             </div>
           </section>
         )}
-        {eps.length === 0 && pods.length === 0 && (
+        {eps.length === 0 && (
           <div className="text-muted-foreground">Még gyűjtjük az epizódokat ehhez a témához.</div>
         )}
       </div>
