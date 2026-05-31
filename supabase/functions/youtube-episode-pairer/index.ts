@@ -622,22 +622,16 @@ Deno.serve(async (req) => {
         results.push({ podcast_id: pod.id, error: e?.message || String(e) });
         processedPodcastIds.add(pod.id);
         if (!dry && !podcastIdParam) {
+          // Still bump last_pair_at so we don't get stuck on the same broken
+          // podcast forever; the next sweep can retry after the rescan window.
           await admin.from("podcasts").update({
-            youtube_episode_pair_claimed_at: null,
-            youtube_episode_pair_claim_owner: null,
+            youtube_last_episode_pair_at: new Date().toISOString(),
           }).eq("id", pod.id);
         }
       }
     }
-    if (!dry && !podcastIdParam) {
-      const unprocessedClaimIds = (pods || []).map((pod: any) => pod.id).filter((id: string) => !processedPodcastIds.has(id));
-      if (unprocessedClaimIds.length) {
-        await admin.from("podcasts").update({
-          youtube_episode_pair_claimed_at: null,
-          youtube_episode_pair_claim_owner: null,
-        }).in("id", unprocessedClaimIds);
-      }
-    }
+    // No claim columns exist on the podcasts table yet; rely on the
+    // last_episode_pair_at + cutoff window to space repeated work.
 
     const responseBody = {
       ok: true, pilot: !!pilot, dry, processed_podcasts: pods.length,
