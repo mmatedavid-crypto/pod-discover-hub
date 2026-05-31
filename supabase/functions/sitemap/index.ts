@@ -82,8 +82,6 @@ async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
     `<sitemap><loc>${FN_BASE}?type=core</loc><lastmod>${lastmod}</lastmod></sitemap>`,
     `<sitemap><loc>${FN_BASE}?type=podcasts</loc><lastmod>${lastmod}</lastmod></sitemap>`,
   ];
-  // Entity sub-sitemaps disabled until entity extraction is re-enabled
-  // (topics/people/companies/tickers/ingredients arrays are currently empty).
   // Split each month into two halves (1-15, 16-end) so no sub-sitemap exceeds
   // Google's 50k URL limit (peak month was ~87k whole, ~44k per half).
   for (const ym of months) {
@@ -98,11 +96,14 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
   const urls: string[] = [
     urlTag(`${SITE}/`, null, "daily", "1.0"),
     urlTag(`${SITE}/kategoriak`, null, "daily", "0.7"),
+    urlTag(`${SITE}/toplista`, null, "daily", "0.8"),
     urlTag(`${SITE}/temak`, null, "daily", "0.8"),
     urlTag(`${SITE}/szemelyek`, null, "daily", "0.7"),
     urlTag(`${SITE}/szervezetek`, null, "daily", "0.7"),
+    urlTag(`${SITE}/cegek`, null, "daily", "0.7"),
     urlTag(`${SITE}/partok`, null, "weekly", "0.6"),
     urlTag(`${SITE}/hangulatok`, null, "weekly", "0.7"),
+    urlTag(`${SITE}/intelligence`, null, "weekly", "0.5"),
     urlTag(`${SITE}/uj`, null, "daily", "0.6"),
     urlTag(`${SITE}/napi`, null, "daily", "0.6"),
     urlTag(`${SITE}/heti-valogatas`, null, "weekly", "0.7"),
@@ -157,6 +158,27 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
       urls.push(urlTag(`${SITE}/szemelyek/${esc(p.slug)}`, p.updated_at, "weekly", "0.6"));
     });
     if (people.length < 1000) break;
+    from += 1000;
+  }
+
+  // Indexable organization pages. Canonical public detail route is /ceg/:slug;
+  // /szervezetek is the browsing hub. Include parties and sport teams too:
+  // these are exactly the "Fradi podcast", "Magyar Telekom podcast" style
+  // landing pages Google should discover reliably.
+  from = 0;
+  while (true) {
+    const { data: orgs } = await supabase
+      .from("organizations").select("slug, updated_at, gated_episode_count, is_public, is_indexable, ai_review_status, org_type")
+      .eq("is_public", true).eq("is_indexable", true)
+      .order("gated_episode_count", { ascending: false })
+      .range(from, from + 999);
+    if (!orgs || orgs.length === 0) break;
+    (orgs as any[]).forEach((o) => {
+      if (["needs_human_review", "duplicate_candidate"].includes(o.ai_review_status || "")) return;
+      const priority = Number(o.gated_episode_count || 0) >= 20 ? "0.7" : "0.55";
+      urls.push(urlTag(`${SITE}/ceg/${esc(o.slug)}`, o.updated_at, "weekly", priority));
+    });
+    if (orgs.length < 1000) break;
     from += 1000;
   }
 

@@ -198,10 +198,17 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       const finalName = prof?.display_name || exemplar;
       const seoDesc = prof?.bio
         ? prof.bio.split(/\.\s+/)[0].slice(0, 160)
+        : kind === "company"
+        ? `${finalName} említései magyar podcastokban. Kapcsolódó epizódok, műsorok és témák a Podiverzumon.`
         : `Magyar podcast epizódok ${finalName} témában. A Podiverzum keresője a műsorok minősége, az epizódok frissessége és relevanciája szerint rangsorol.`;
+      const title =
+        kind === "company" ? `${finalName} podcast említések | Podiverzum` :
+        kind === "topic" ? `${finalName} podcastok magyarul | Podiverzum` :
+        `${finalName}: podcast epizódok | Podiverzum`;
       setSeo({
-        title: `${finalName}: podcast epizódok — Podiverzum`,
+        title,
         description: seoDesc,
+        canonical: pageUrl,
         noindex,
         jsonLd: noindex ? undefined : [
           {

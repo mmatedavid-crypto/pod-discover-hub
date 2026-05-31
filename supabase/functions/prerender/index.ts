@@ -426,21 +426,24 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, wikipedia_extract, wikipedia_description, short_bio, is_public")
+    .select("id, name, slug, image_url, ai_bio, wikipedia_extract, wikipedia_description, short_bio, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
+  const noindex = person.is_indexable === false
+    || ["needs_human_review", "duplicate_candidate"].includes(person.ai_review_status || "")
+    || !["indexable", "manual_approved", null, undefined].includes(person.activation_status);
 
   const { data: rows } = await (supabase as any)
     .from("person_episode_mentions")
-    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, language))`)
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, is_hungarian, language_decision))`)
     .eq("person_id", person.id)
     .order("created_at", { ascending: false })
     .limit(80);
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
     .slice(0, 40);
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
@@ -448,7 +451,7 @@ async function buildPerson(
   const desc = bio
     ? truncate(bio, 160)
     : truncate(`${person.name} — epizódok és említések a Podiverzumon. Magyar podcastek, AI-összefoglalóval.`, 160);
-  const title = `${person.name} — epizódok a Podiverzumon`;
+  const title = `${person.name} podcast epizódok és interjúk | Podiverzum`;
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
@@ -471,6 +474,7 @@ async function buildPerson(
       canonical,
       ogImage: person.image_url,
       jsonLd: [personLd],
+      noindex,
       bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
     })),
@@ -486,21 +490,21 @@ async function buildTopic(
 ) {
   const { data: topic } = await (supabase as any)
     .from("topics")
-    .select("id, name, slug, description, seo_title, seo_description, intro_text, is_public")
+    .select("id, name, slug, description, seo_title, seo_description, intro_text, is_public, is_indexable")
     .eq("slug", slug)
     .maybeSingle();
   if (!topic || topic.is_public === false) return null;
 
   const { data: rows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
     .eq("topic_id", topic.id)
     .order("confidence", { ascending: false })
     .limit(120);
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
     .slice(0, 40);
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
@@ -532,6 +536,7 @@ async function buildTopic(
       canonical,
       ogImage,
       jsonLd: [itemList],
+      noindex: topic.is_indexable === false,
       bodyHtml: `<header><h1>${esc(topic.name)}</h1>${topic.intro_text ? `<p>${esc(stripHtml(topic.intro_text))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
     })),
@@ -547,29 +552,31 @@ async function buildOrganization(
 ) {
   const { data: org } = await (supabase as any)
     .from("organizations")
-    .select("id, name, slug, logo_url, ai_bio, wikipedia_extract, short_description_hu")
+    .select("id, name, slug, logo_url, ai_bio, wikipedia_extract, short_description_hu, is_public, is_indexable, ai_review_status")
     .eq("slug", slug)
     .maybeSingle();
-  if (!org) return null;
+  if (!org || org.is_public === false) return null;
+  const noindex = org.is_indexable === false
+    || ["needs_human_review", "duplicate_candidate"].includes(org.ai_review_status || "");
 
   const { data: rows } = await (supabase as any)
     .from("episode_organization_map")
-    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
     .eq("organization_id", org.id)
     .order("confidence", { ascending: false })
     .limit(120);
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
     .slice(0, 40);
 
-  const canonical = `${SITE}/${urlPrefix}/${slug}`;
+  const canonical = `${SITE}/ceg/${slug}`;
   const bio = stripHtml(org.ai_bio || org.wikipedia_extract || org.short_description_hu || "");
-  const title = `${org.name} — epizódok a Podiverzumon`;
+  const title = `${org.name} podcast említések | Podiverzum`;
   const desc = bio
     ? truncate(bio, 160)
-    : truncate(`Magyar podcast epizódok, amelyek a(z) ${org.name} szervezetet említik.`, 160);
+    : truncate(`${org.name} említései magyar podcastokban. Kapcsolódó epizódok, műsorok és témák a Podiverzumon.`, 160);
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
@@ -592,6 +599,7 @@ async function buildOrganization(
       canonical,
       ogImage: org.logo_url,
       jsonLd: [orgLd],
+      noindex,
       bodyHtml: `<header><h1>${esc(org.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
     })),
@@ -616,10 +624,10 @@ async function buildMoodCollection(
   if (episodeIds.length) {
     const { data } = await (supabase as any)
       .from("episodes")
-      .select(`title, display_title, slug, ai_summary, published_at, image_url, podcast:podcasts!inner(title, display_title, slug, image_url, language)`)
+      .select(`title, display_title, slug, ai_summary, published_at, image_url, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision)`)
       .in("id", episodeIds.slice(0, 60));
     eps = ((data ?? []) as Array<any>)
-      .filter((e) => /^hu/i.test(e.podcast?.language || ""))
+      .filter((e) => e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
       .slice(0, 40);
   }
 
@@ -674,13 +682,13 @@ async function buildLegacyEntity(
 
   const { data } = await (supabase as any)
     .from("episodes")
-    .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
+    .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, is_hungarian, language_decision, rss_status)`)
     .contains(arrayCol, [matchValue])
     .order("published_at", { ascending: false })
     .limit(60);
 
   let rows = (data ?? []) as Array<Record<string, any>>;
-  rows = rows.filter((r: any) => /^hu/i.test(r.podcast?.language || ""));
+  rows = rows.filter((r: any) => r.podcast?.is_hungarian === true && r.podcast?.language_decision === "accept_hungarian");
   if (!rows.length) return null;
 
   const human = slug.replace(/-/g, " ");
@@ -1001,7 +1009,7 @@ async function buildTopicYear(
   const { from, to } = yearBounds(year);
   const { data: rows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
     .eq("topic_id", topic.id)
     .gte("episodes.published_at", from)
     .lt("episodes.published_at", to)
@@ -1010,7 +1018,7 @@ async function buildTopicYear(
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
     .slice(0, 50);
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
@@ -1137,13 +1145,13 @@ async function buildPersonTopic(
   // Fetch topic episodes (with podcast join) first — bounded by topic relevance.
   const { data: tRows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
     .eq("topic_id", topic.id)
     .order("confidence", { ascending: false })
     .limit(500);
   const topicEps = ((tRows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""));
+    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian");
   if (topicEps.length === 0) return null;
   const topicEpIds = topicEps.map((e) => e.id);
 
@@ -1215,13 +1223,13 @@ async function buildOrgTopic(
   // Same inverted strategy as person/topic.
   const { data: tRows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
     .eq("topic_id", topic.id)
     .order("confidence", { ascending: false })
     .limit(500);
   const topicEps = ((tRows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""));
+    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian");
   if (topicEps.length === 0) return null;
   const topicEpIds = topicEps.map((e) => e.id);
 
@@ -1295,7 +1303,7 @@ async function buildTopicCross(
 
   const { data: bRows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language))`)
+    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
     .eq("topic_id", b.id)
     .in("episode_id", Array.from(aSet).slice(0, 1500))
     .order("confidence", { ascending: false })
@@ -1303,7 +1311,7 @@ async function buildTopicCross(
 
   const eps = ((bRows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && /^hu/i.test(e.podcast?.language || ""))
+    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
     .slice(0, 40);
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 

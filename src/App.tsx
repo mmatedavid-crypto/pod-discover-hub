@@ -11,6 +11,10 @@ function RedirectWithSlug({ to }: { to: string }) {
   const { slug = "" } = useParams();
   return <Navigate to={`${to}/${slug}`} replace />;
 }
+function RedirectWithTwoSlugs({ to }: { to: string }) {
+  const { slug = "", topicSlug = "" } = useParams();
+  return <Navigate to={`${to}/${slug}/temak/${topicSlug}`} replace />;
+}
 import Index from "./pages/Index.tsx";
 import StartSwipePage from "./pages/StartSwipePage.tsx";
 import StartLandingPage from "./pages/StartLandingPage.tsx";
@@ -150,6 +154,7 @@ const App = () => (
           <Route path="/szemely/:slug" element={<RedirectWithSlug to="/szemelyek" />} />
           <Route path="/person/:slug" element={<RedirectWithSlug to="/szemelyek" />} />
           <Route path="/ceg/:slug" element={<EntityPage kind="company" />} />
+          <Route path="/ceg/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />
           <Route path="/company/:slug" element={<RedirectWithSlug to="/ceg" />} />
           <Route path="/ticker/:slug" element={<EntityPage kind="ticker" />} />
           <Route path="/hozzavalo/:slug" element={<EntityPage kind="ingredient" />} />
@@ -170,6 +175,7 @@ const App = () => (
           <Route path="/uj-podcastok" element={<NewPodcastsPage />} />
           <Route path="/uj" element={<Navigate to="/uj-podcastok" replace />} />
           <Route path="/new" element={<Navigate to="/uj-podcastok" replace />} />
+          <Route path="/podcastok" element={<Navigate to="/toplista" replace />} />
           <Route path="/napi" element={<DailyBriefPage />} />
           <Route path="/mai-valogatas" element={<Navigate to="/napi" replace />} />
           <Route path="/daily" element={<Navigate to="/napi" replace />} />
@@ -188,7 +194,10 @@ const App = () => (
           <Route path="/szemelyek/:slug" element={<PersonDetailPage />} />
           <Route path="/szemelyek/:slug/temak/:topicSlug" element={<PersonDetailPage />} />
           <Route path="/szervezetek" element={<OrganizationsIndexPage />} />
+          <Route path="/szervezetek/:slug" element={<RedirectWithSlug to="/ceg" />} />
           <Route path="/szervezetek/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />
+          <Route path="/part/:slug" element={<RedirectWithSlug to="/ceg" />} />
+          <Route path="/part/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />
           <Route path="/entitasok" element={<Navigate to="/szervezetek" replace />} />
           <Route path="/cegek" element={<CompaniesHubPage />} />
           <Route path="/partok" element={<PartiesHubPage />} />

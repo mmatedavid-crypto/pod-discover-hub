@@ -144,6 +144,7 @@ export default function PersonDetailPage() {
         setSeo({
           title: `${exemplar} podcast epizódok, interjúk és említések | Podiverzum`,
           description: `${exemplar} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen.`,
+          canonical: pageUrl,
           noindex: sorted.length < 5,
           jsonLd: sorted.length < 5 ? undefined : [
             {
@@ -258,6 +259,7 @@ export default function PersonDetailPage() {
       setSeo({
         title: `${(p as any).name} podcast epizódok, interjúk és említések | Podiverzum`,
         description: bio?.slice(0, 160) || safeDesc,
+        canonical: pageUrl,
         noindex: !(p as any).is_indexable || thinPage,
         jsonLd: (!(p as any).is_indexable || thinPage) ? undefined : jsonLd,
       });

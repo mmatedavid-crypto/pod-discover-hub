@@ -11,6 +11,14 @@ type SeoOpts = {
   ogType?: "website" | "article";
 };
 
+function absoluteUrl(url?: string): string {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (typeof window === "undefined") return url;
+  if (url.startsWith("/")) return `${window.location.origin}${url}`;
+  return new URL(url, window.location.origin).toString();
+}
+
 export function setSeo(opts: SeoOpts) {
   if (typeof document === "undefined") return;
   document.title = opts.title.slice(0, 70);
@@ -38,12 +46,13 @@ export function setSeo(opts: SeoOpts) {
   upsertMeta('meta[property="og:locale"]', { property: "og:locale", content: "hu_HU" });
 
   if (opts.image) {
-    upsertMeta('meta[property="og:image"]', { property: "og:image", content: opts.image });
-    upsertMeta('meta[name="twitter:image"]', { name: "twitter:image", content: opts.image });
+    const image = absoluteUrl(opts.image);
+    upsertMeta('meta[property="og:image"]', { property: "og:image", content: image });
+    upsertMeta('meta[name="twitter:image"]', { name: "twitter:image", content: image });
     upsertMeta('meta[name="twitter:card"]', { name: "twitter:card", content: "summary_large_image" });
   }
 
-  const href = opts.canonical || (typeof window !== "undefined" ? window.location.href.split("?")[0] : "");
+  const href = absoluteUrl(opts.canonical) || (typeof window !== "undefined" ? window.location.href.split("?")[0] : "");
   if (href) {
     let link = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!link) {

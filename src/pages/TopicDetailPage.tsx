@@ -154,6 +154,7 @@ export default function TopicDetailPage() {
       setSeo({
         title: (t as any).seo_title || `${(t as any).name} podcastok magyarul | Podiverzum`,
         description: (t as any).seo_description || `${(t as any).name} témájú magyar podcast epizódok és beszélgetések.`,
+        canonical: pageUrl,
         noindex: !(t as any).is_indexable,
         jsonLd: !(t as any).is_indexable ? undefined : [
           {
