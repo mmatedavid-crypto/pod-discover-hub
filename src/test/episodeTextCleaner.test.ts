@@ -5,7 +5,7 @@ Object.defineProperty(globalThis, "Deno", {
   configurable: true,
 });
 
-const { heuristicClean, assessCleanTextQuality, validateExtractOnlyTrim } = await import("../../supabase/functions/_shared/episode-text-cleaner");
+const { heuristicClean, assessCleanTextQuality, classifyCleanTextRoute, validateExtractOnlyTrim } = await import("../../supabase/functions/_shared/episode-text-cleaner");
 
 describe("episode text cleaner", () => {
   it("cuts inline Hungarian link/supporter footers after the substantive description", () => {
@@ -212,5 +212,41 @@ describe("episode text cleaner", () => {
 
     expect(result.ok).toBe(false);
     expect(result.reasons).toContain("suspiciously_small_candidate");
+  });
+
+  it("routes radio bulletin and clean short RSS to deterministic cleanup", () => {
+    const bulletin = "2025.08.03. Mi történt ma a magyar gazdaságban? Milyen döntések születtek? Mire figyeljenek a hallgatók?";
+    const short = "Ebben az adásban a vendéggel a családi pénzügyekről és a mindennapi döntésekről beszélgetünk.";
+
+    expect(classifyCleanTextRoute(bulletin, heuristicClean(bulletin).text)).toMatchObject({
+      bucket: "radio_bulletin",
+      action: "deterministic",
+    });
+    expect(classifyCleanTextRoute(short, heuristicClean(short).text)).toMatchObject({
+      bucket: "short_rss",
+      action: "deterministic",
+    });
+  });
+
+  it("routes sponsor-heavy and YouTube-dominant descriptions to AI trim", () => {
+    const sponsor = [
+      "Az adásban arról beszélgetünk, hogyan lehet tudatosabban kezelni a pénzügyi döntéseket és a családi mintákat.",
+      "Támogasd a műsort Patreonon, iratkozz fel, és használd a KUPON10 kedvezménykódot.",
+    ].join(" ");
+    const youtube = [
+      "Milyen hibákat követünk el az étrendünkben? Hogyan áll ma a dietetika az elhízáshoz?",
+      "Támogasd a munkánkat, kövess minket YouTube-on és Instagramon.",
+    ].join(" ");
+
+    expect(classifyCleanTextRoute(sponsor, heuristicClean(sponsor).text)).toMatchObject({
+      bucket: "sponsor_heavy",
+      action: "ai_trim",
+      ai_policy: "flash_lite_fewshot",
+    });
+    expect(classifyCleanTextRoute(youtube, heuristicClean(youtube).text, { sourceType: "youtube" })).toMatchObject({
+      bucket: "yt_dominant",
+      action: "ai_trim",
+      ai_policy: "flash_zero_shot",
+    });
   });
 });

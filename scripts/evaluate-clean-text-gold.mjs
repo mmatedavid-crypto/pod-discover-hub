@@ -88,6 +88,19 @@ function tokenF1(a, b) {
   return precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
 }
 
+function tokenRecall(candidate, reference) {
+  const candidateTokens = tokens(candidate);
+  const referenceTokens = tokens(reference);
+  if (referenceTokens.length === 0) return candidateTokens.length === 0 ? 1 : 0;
+  if (candidateTokens.length === 0) return 0;
+  const candidateSet = new Set(candidateTokens);
+  let overlap = 0;
+  for (const token of referenceTokens) {
+    if (candidateSet.has(token)) overlap += 1;
+  }
+  return overlap / referenceTokens.length;
+}
+
 function average(values) {
   if (values.length === 0) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -117,8 +130,19 @@ const rows = parsed
   .map((cells) => Object.fromEntries(header.map((name, index) => [name, cells[index] || ""])));
 
 const usable = rows.filter((row) => row.raw_text.trim() && row.gold_cleaned_text.trim());
+const emptyGoldRows = rows
+  .filter((row) => row.raw_text.trim() && !row.gold_cleaned_text.trim())
+  .map((row) => ({
+    episode_id: row.episode_id,
+    bucket: row[bucketColumn] || "unknown",
+    podcast_title: row.podcast_title || "",
+    episode_title: row.episode_title || "",
+    note: row.notes || "",
+    raw_preview: row.raw_text.slice(0, 240),
+  }));
 const bucketStats = new Map();
 const failures = [];
+const suspiciousGoldRows = [];
 const candidateScores = [];
 const currentScores = [];
 let currentDirty = 0;
@@ -135,6 +159,8 @@ for (const row of usable) {
   const candidateQuality = assessCleanTextQuality(rawText, candidate);
   const currentF1 = tokenF1(currentText, goldText);
   const candidateF1 = tokenF1(candidate, goldText);
+  const goldRawRecall = tokenRecall(rawText, goldText);
+  const goldCurrentRecall = tokenRecall(currentText, goldText);
   const bucket = row[bucketColumn] || "unknown";
   const stat = bucketStats.get(bucket) || { rows: 0, currentF1: [], candidateF1: [], dirty: 0, overcut: 0 };
   stat.rows += 1;
@@ -150,6 +176,19 @@ for (const row of usable) {
   if (candidateQuality.dirty_signals.length > 0) candidateDirty += 1;
   if (candidateQuality.overcut_risk) candidateOvercut += 1;
   if (candidateF1 > currentF1 + 0.05) candidateBetter += 1;
+
+  if (tokens(goldText).length >= 8 && goldRawRecall < 0.25 && goldCurrentRecall < 0.25) {
+    suspiciousGoldRows.push({
+      episode_id: row.episode_id,
+      bucket,
+      podcast_title: row.podcast_title || "",
+      episode_title: row.episode_title || "",
+      gold_raw_recall: Number(goldRawRecall.toFixed(4)),
+      gold_current_recall: Number(goldCurrentRecall.toFixed(4)),
+      raw_preview: rawText.slice(0, 240),
+      gold_preview: goldText.slice(0, 240),
+    });
+  }
 
   if (candidateQuality.overcut_risk || candidateQuality.dirty_signals.length > 0 || candidateF1 < 0.8) {
     failures.push({
@@ -167,6 +206,8 @@ for (const row of usable) {
 const summary = {
   rows: rows.length,
   usable_rows: usable.length,
+  empty_gold_rows_count: emptyGoldRows.length,
+  suspicious_gold_rows_count: suspiciousGoldRows.length,
   current_avg_token_f1: Number(average(currentScores).toFixed(4)),
   candidate_avg_token_f1: Number(average(candidateScores).toFixed(4)),
   current_dirty_rate_pct: pct(currentDirty / Math.max(usable.length, 1)),
@@ -186,6 +227,8 @@ const summary = {
     candidate_dirty_rate_pct: pct(stat.dirty / Math.max(stat.rows, 1)),
     candidate_overcut_rate_pct: pct(stat.overcut / Math.max(stat.rows, 1)),
   }])),
+  empty_gold_rows: emptyGoldRows.slice(0, 25),
+  suspicious_gold_rows: suspiciousGoldRows.slice(0, 25),
   failures: failures.slice(0, 25),
 };
 

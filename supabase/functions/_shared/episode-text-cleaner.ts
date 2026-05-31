@@ -455,6 +455,21 @@ export type CleanTextQuality = {
   clean_ratio: number;
 };
 
+export type CleanTextRouteBucket =
+  | "short_rss"
+  | "radio_bulletin"
+  | "long_narrative"
+  | "yt_dominant"
+  | "sponsor_heavy"
+  | "over_trimmed_v3";
+
+export type CleanTextRoute = {
+  bucket: CleanTextRouteBucket;
+  action: "deterministic" | "ai_trim";
+  ai_policy: "none" | "flash_zero_shot" | "flash_lite_fewshot";
+  reasons: string[];
+};
+
 export type ExtractOnlyValidation = {
   ok: boolean;
   overlap: number;
@@ -462,6 +477,62 @@ export type ExtractOnlyValidation = {
   compression_ratio: number;
   reasons: string[];
 };
+
+function hasRadioBulletinShape(raw: string): boolean {
+  const text = String(raw || "").trim();
+  if (text.length > 1400) return false;
+  if (/^\s*\d{4}[./-]\d{1,2}[./-]\d{1,2}\.?/.test(text)) return true;
+  if (/\b(?:hírek|hirek|krónika|kronika|lapszemle|infórádió|inforádió|kossuth rádió|rádió|percről percre)\b/i.test(text) && text.length < 900) return true;
+  const questions = (text.match(/\?/g) || []).length;
+  return questions >= 3 && text.length < 700;
+}
+
+function hasSponsorHeavyShape(raw: string, cleaned: string, quality: CleanTextQuality): boolean {
+  const joined = `${raw}\n${cleaned}`;
+  if (quality.dirty_signals.some((signal) => ["cta", "legal", "url_or_platform", "hashtag_wall", "dangling_label"].includes(signal))) return true;
+  return /\b(?:szponzor|támogató|támogasd|támogass|patreon|kuponkód|kedvezménykód|promóció|hirdetés|reklám|adomány|bankszámla|weboldalunkon|regisztráció|konzultáció|book\s+a\s+call|sponsored\s+by|support\s+us)\b/i.test(joined);
+}
+
+export function classifyCleanTextRoute(
+  raw: string,
+  deterministicCleaned: string,
+  opts: { sourceType?: string | null; previousCleanedText?: string | null } = {},
+): CleanTextRoute {
+  const rawText = String(raw || "");
+  const cleanText = String(deterministicCleaned || "");
+  const quality = assessCleanTextQuality(rawText, cleanText);
+  const rawLen = rawText.trim().length;
+  const cleanLen = cleanText.trim().length;
+  const sourceType = String(opts.sourceType || "").toLowerCase();
+  const previousLen = String(opts.previousCleanedText || "").trim().length;
+  const previousRatio = rawLen > 0 && previousLen > 0 ? previousLen / rawLen : null;
+  const reasons: string[] = [];
+
+  if (quality.overcut_risk || (previousRatio != null && rawLen >= 500 && previousRatio < 0.20)) {
+    reasons.push(...quality.reasons, "overtrim_risk");
+    return { bucket: "over_trimmed_v3", action: "ai_trim", ai_policy: "flash_zero_shot", reasons: Array.from(new Set(reasons)) };
+  }
+
+  if (sourceType === "youtube" && rawLen >= 80) {
+    reasons.push("youtube_best_source", ...quality.reasons, ...quality.dirty_signals.map((s) => `dirty_${s}`));
+    return { bucket: "yt_dominant", action: "ai_trim", ai_policy: "flash_zero_shot", reasons: Array.from(new Set(reasons)) };
+  }
+
+  if (hasSponsorHeavyShape(rawText, cleanText, quality)) {
+    reasons.push("sponsor_or_cta_heavy", ...quality.reasons, ...quality.dirty_signals.map((s) => `dirty_${s}`));
+    return { bucket: "sponsor_heavy", action: "ai_trim", ai_policy: "flash_lite_fewshot", reasons: Array.from(new Set(reasons)) };
+  }
+
+  if (hasRadioBulletinShape(rawText)) {
+    return { bucket: "radio_bulletin", action: "deterministic", ai_policy: "none", reasons: ["radio_bulletin_shape"] };
+  }
+
+  if (rawLen >= 2500) {
+    return { bucket: "long_narrative", action: "deterministic", ai_policy: "none", reasons: ["long_narrative_keep_deterministic"] };
+  }
+
+  return { bucket: "short_rss", action: "deterministic", ai_policy: "none", reasons: ["short_or_clean_enough"] };
+}
 
 function comparableTokens(input: string): string[] {
   return String(input || "")
