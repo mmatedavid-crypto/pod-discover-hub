@@ -22,6 +22,7 @@ WITH accepted_hu AS (
 clean_counts AS (
   SELECT
     count(*) FILTER (WHERE ct.cleaner_method = 'deterministic_v4') AS deterministic_v4,
+    count(*) FILTER (WHERE ct.cleaner_method LIKE 'deterministic_v4%') AS deterministic_v4_family,
     count(*) FILTER (WHERE ct.cleaner_method = 'deterministic_v3') AS deterministic_v3,
     count(*) FILTER (WHERE ct.cleaner_method IS NOT NULL) AS any_clean
   FROM accepted_hu h
@@ -198,7 +199,7 @@ for (const [key, ok] of Object.entries(articlePipeline)) {
 
 const clean = snapshot.clean_text ?? {};
 const total = Number(snapshot.accepted_hu_episodes_with_description ?? 0);
-const v4 = Number(clean.deterministic_v4 ?? 0);
+const v4 = Number(clean.deterministic_v4_family ?? clean.deterministic_v4 ?? 0);
 if (total > 0 && v4 / total < 0.5) {
   failures.push(`clean_text.deterministic_v4_coverage_low:${v4}/${total}`);
 }

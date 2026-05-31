@@ -160,10 +160,31 @@ Deno.serve(async (req) => {
     }
 
     if (controls.run_best_text_source !== false) {
-      await runStep("best_text_source", () => callFunction("episode-best-text-source-runner", {
-        trigger: "database_quality_fast_lane",
-        limit: Math.max(100, Math.min(5000, Number(controls.best_text_source_limit || DEFAULT_CONTROLS.best_text_source_limit))),
-      }));
+      await runStep("best_text_source", async () => {
+        const requestedLimit = Math.max(100, Math.min(5000, Number(controls.best_text_source_limit || DEFAULT_CONTROLS.best_text_source_limit)));
+        try {
+          return await callFunction("episode-best-text-source-runner", {
+            trigger: "database_quality_fast_lane",
+            limit: requestedLimit,
+          });
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          if (!/WORKER_RESOURCE_LIMIT|CPU Time exceeded|546/i.test(message) || requestedLimit <= 1000) throw e;
+          const retryLimit = Math.max(500, Math.min(1000, Math.floor(requestedLimit / 5)));
+          const retry = await callFunction("episode-best-text-source-runner", {
+            trigger: "database_quality_fast_lane_retry",
+            limit: retryLimit,
+          });
+          return {
+            ok: true,
+            retried_after_worker_limit: true,
+            original_limit: requestedLimit,
+            retry_limit: retryLimit,
+            first_error: message,
+            retry,
+          };
+        }
+      });
     }
 
     if (controls.run_clean_text !== false) {
