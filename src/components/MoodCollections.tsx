@@ -18,6 +18,13 @@ type Card = {
   representative_episode_count?: number | null;
 };
 
+const BAD_SHORT_TITLES: Record<string, string> = {
+  test: "Mozgás és egészség",
+  fej: "Gondolatok és tudás",
+  élet: "Lélek és élethelyzetek",
+  elet: "Lélek és élethelyzetek",
+};
+
 const ICONS: Record<string, any> = {
   "elalvashoz": Moon,
   "munkaba-menet": Coffee,
@@ -40,6 +47,18 @@ function detectViewport(isMobile: boolean): "mobile" | "tablet" | "desktop" {
   if (isMobile) return "mobile";
   if (typeof window !== "undefined" && window.innerWidth < 1024) return "tablet";
   return "desktop";
+}
+
+export function polishMoodTitle(title: string | null | undefined, slug?: string | null): string {
+  const raw = String(title || "").replace(/\s+/g, " ").trim();
+  const key = raw.toLowerCase();
+  if (BAD_SHORT_TITLES[key]) return BAD_SHORT_TITLES[key];
+  if (raw.length >= 3 && raw.length <= 5 && !/\s/.test(raw)) {
+    if (/test|edz|mozgas|mozgás|sport/.test(`${slug || ""} ${key}`)) return "Mozgás és egészség";
+    if (/fej|tanul|tudas|tudás|tech/.test(`${slug || ""} ${key}`)) return "Gondolatok és tudás";
+    if (/elet|élet|lelek|lélek|onismeret|önismeret/.test(`${slug || ""} ${key}`)) return "Lélek és élethelyzetek";
+  }
+  return raw || "Válogatott hallgatnivaló";
 }
 
 export function MoodCollections() {
@@ -100,7 +119,7 @@ export function MoodCollections() {
                 <Icon className="h-5 w-5 text-primary" />
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
               </div>
-              <div className="mt-3 font-semibold leading-tight">{c.title}</div>
+              <div className="mt-3 font-semibold leading-tight">{polishMoodTitle(c.title, c.slug)}</div>
               <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
                 {c.short_description || c.description || ""}
               </div>

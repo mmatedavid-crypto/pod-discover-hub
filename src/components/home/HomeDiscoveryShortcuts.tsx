@@ -27,13 +27,13 @@ const shortcuts = [
     accent: "text-violet-500 bg-violet-500/10",
   },
   {
-    title: "Nekem való",
+    title: "A Te Podiverzumod",
     href: "/start",
     Icon: Sparkles,
     accent: "text-primary bg-primary/10",
   },
   {
-    title: "Folytatás",
+    title: "Hallgatnám tovább",
     href: "/en-podiverzumom?tab=meghallgatando",
     Icon: Headphones,
     accent: "text-amber-500 bg-amber-500/10",
