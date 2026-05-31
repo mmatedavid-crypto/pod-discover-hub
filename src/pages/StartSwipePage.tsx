@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from "framer-motion";
-import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star, ThumbsUp } from "lucide-react";
+import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star, ThumbsUp, Instagram } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1552,19 +1552,27 @@ function ResultView({
         <div className="mt-6 space-y-3">
           <Button onClick={handleShare} size="lg" className="w-full" disabled={busy !== null}>
             <Share2 className="mr-2 h-4 w-4" />
-            {busy === "share" ? "Készítem…" : "Megosztás"}
+            {busy === "share" ? "Készítem…" : "Megosztás képként"}
           </Button>
           <p className="text-center text-[11px] text-muted-foreground">
-            A megosztás képet készít a profilodból. Ha a böngésző csak linket enged, a Kép gombbal külön is mentheted.
+            Instagramra és Facebookra a profilkártyádat érdemes storyként kitenni.
           </p>
 
-          <div className="grid grid-cols-3 gap-2 pt-1">
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <Button onClick={() => handleStoryShare("ig")} variant="secondary" size="sm" disabled={busy !== null}>
+              <Instagram className="mr-1.5 h-4 w-4" /> Instagram
+            </Button>
+            <Button onClick={() => handleStoryShare("fb")} variant="secondary" size="sm" disabled={busy !== null}>
+              <Share2 className="mr-1.5 h-4 w-4" /> Facebook
+            </Button>
             <Button onClick={handleDownload} variant="secondary" size="sm" disabled={busy !== null}>
               <Download className="mr-1.5 h-4 w-4" /> Kép
             </Button>
             <Button onClick={handleCopyLink} variant="secondary" size="sm" disabled={busy !== null}>
               <Link2 className="mr-1.5 h-4 w-4" /> Link
             </Button>
+          </div>
+          <div className="pt-1">
             <Button onClick={onReset} variant="ghost" size="sm">
               <RotateCcw className="mr-1.5 h-4 w-4" /> Újra
             </Button>
