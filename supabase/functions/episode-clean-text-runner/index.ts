@@ -52,6 +52,21 @@ Deno.serve(async (req) => {
       if (selErr) return json({ ok: false, error: selErr.message }, 500);
       if (!eps || eps.length === 0) break;
 
+      // Fetch confirmed YouTube descriptions in bulk — if YT desc is materially
+      // richer than RSS desc, prefer it as the clean-text input.
+      const epIds = eps.map((e: any) => e.id);
+      const ytDescByEp = new Map<string, string>();
+      if (epIds.length) {
+        const { data: ytRows } = await admin
+          .from("episode_youtube_links")
+          .select("episode_id, youtube_description")
+          .in("episode_id", epIds)
+          .eq("status", "confirmed");
+        for (const r of ytRows || []) {
+          if (r.youtube_description) ytDescByEp.set(r.episode_id, String(r.youtube_description));
+        }
+      }
+
       passes++;
       const upsertRows: any[] = [];
       const doneIds: string[] = [];
@@ -59,7 +74,11 @@ Deno.serve(async (req) => {
 
       for (const ep of eps) {
         totalProcessed++;
-        const raw = String((ep as any).description || (ep as any).summary || "");
+        const rss = String((ep as any).description || (ep as any).summary || "");
+        const yt = ytDescByEp.get((ep as any).id) || "";
+        // Prefer YT desc only when it's clearly richer than RSS (avoid 1-line YT desc overriding a long RSS body).
+        const useYt = yt.length >= 400 && yt.length > rss.length * 1.5 + 200;
+        const raw = useYt ? yt : rss;
         if (!raw || raw.trim().length < minChars) {
           skipIds.push((ep as any).id);
           totalSkipped++;
@@ -67,13 +86,13 @@ Deno.serve(async (req) => {
         }
         try {
           const { text, removed } = heuristicClean(raw);
-          const source_hash = await sha256Hex(`${method}::${raw}`);
+          const source_hash = await sha256Hex(`${method}::${useYt ? "ytdesc::" : ""}${raw}`);
           upsertRows.push({
             episode_id: (ep as any).id,
             source_hash,
             cleaned_text: text.trim(),
             removed_categories: removed,
-            cleaner_method: method,
+            cleaner_method: useYt ? `${method}+ytdesc` : method,
           });
           doneIds.push((ep as any).id);
         } catch (e) {
