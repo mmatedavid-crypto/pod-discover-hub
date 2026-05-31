@@ -44,52 +44,37 @@ async function fetchCaptionFlags(videoIds: string[]): Promise<Map<string, boolea
   return out;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (!YT_KEY) return json({ error: "missing_YOUTUBE_API_KEY" }, 500);
-
-  let body: any = {};
-  try { body = await req.json(); } catch { /* GET ok */ }
-
-  const limit = Math.min(Math.max(Number(body?.limit) || 1000, 1), 5000);
-  const dry = body?.dry === true;
-
+async function drain(limit: number): Promise<{ checked: number; captioned: number; no_caption: number; errors: number; batches: number }> {
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Pull confirmed links missing the caption flag. We dedupe by video_id so we
-  // pay quota once per video even if multiple link rows point at it.
   const { data: rows, error } = await admin
     .from("episode_youtube_links")
     .select("youtube_video_id")
     .eq("status", "confirmed")
     .is("youtube_caption_available", null)
-    .limit(limit * 2); // overfetch since we dedupe
-  if (error) return json({ error: error.message }, 500);
+    .limit(limit * 2);
+  if (error) throw new Error(error.message);
 
   const uniqueVideoIds = [...new Set((rows || []).map((r: any) => r.youtube_video_id).filter(Boolean))].slice(0, limit);
-  if (!uniqueVideoIds.length) return json({ ok: true, no_candidates: true });
-
-  if (dry) return json({ ok: true, dry: true, would_check: uniqueVideoIds.length, sample: uniqueVideoIds.slice(0, 5) });
-
-  let checked = 0, captioned = 0, no_caption = 0, errors = 0;
+  let checked = 0, captioned = 0, no_caption = 0, errors = 0, batches = 0;
   const nowIso = new Date().toISOString();
 
-  // YouTube API allows up to 50 video IDs per videos.list call.
   for (let i = 0; i < uniqueVideoIds.length; i += 50) {
     const batch = uniqueVideoIds.slice(i, i + 50);
+    batches++;
     let flags: Map<string, boolean>;
     try {
       flags = await fetchCaptionFlags(batch);
     } catch (e) {
       errors++;
-      console.warn("batch_err", e);
+      console.warn("batch_err", String(e));
       continue;
     }
-    // Update all link rows for each video in this batch
-    for (const [videoId, hasCaption] of flags.entries()) {
+    // Update all rows for each video — run within-batch updates in parallel.
+    const updates = [...flags.entries()].map(async ([videoId, hasCaption]) => {
       const { error: upErr } = await admin
         .from("episode_youtube_links")
         .update({
@@ -98,18 +83,53 @@ Deno.serve(async (req) => {
         })
         .eq("youtube_video_id", videoId)
         .is("youtube_caption_available", null);
-      if (upErr) { errors++; continue; }
+      if (upErr) return { ok: false, hasCaption };
+      return { ok: true, hasCaption };
+    });
+    const results = await Promise.all(updates);
+    for (const r of results) {
+      if (!r.ok) { errors++; continue; }
       checked++;
-      if (hasCaption) captioned++; else no_caption++;
+      if (r.hasCaption) captioned++; else no_caption++;
     }
   }
+  console.log(`backfill done: checked=${checked} captioned=${captioned} no_caption=${no_caption} errors=${errors} batches=${batches}`);
+  return { checked, captioned, no_caption, errors, batches };
+}
 
-  return json({
-    ok: true,
-    checked,
-    captioned,
-    no_caption,
-    errors,
-    quota_units_used: Math.ceil(uniqueVideoIds.length / 50),
-  });
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (!YT_KEY) return json({ error: "missing_YOUTUBE_API_KEY" }, 500);
+
+  let body: any = {};
+  try { body = await req.json(); } catch { /* GET ok */ }
+
+  const limit = Math.min(Math.max(Number(body?.limit) || 800, 1), 5000);
+  const dry = body?.dry === true;
+  const sync = body?.sync === true;
+
+  if (dry) {
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: rows } = await admin
+      .from("episode_youtube_links")
+      .select("youtube_video_id")
+      .eq("status", "confirmed")
+      .is("youtube_caption_available", null)
+      .limit(limit * 2);
+    const uniq = [...new Set((rows || []).map((r: any) => r.youtube_video_id).filter(Boolean))].slice(0, limit);
+    return json({ ok: true, dry: true, would_check: uniq.length });
+  }
+
+  if (sync) {
+    const r = await drain(limit);
+    return json({ ok: true, mode: "sync", ...r });
+  }
+
+  // Background drain so HTTP client doesn't time out.
+  // @ts-ignore EdgeRuntime is provided by Supabase edge runtime
+  EdgeRuntime.waitUntil(drain(limit).catch((e) => console.error("drain_err", e)));
+  return json({ ok: true, mode: "background", started: limit }, 202);
 });
