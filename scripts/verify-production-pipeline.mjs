@@ -164,6 +164,11 @@ for (const [key, ok] of Object.entries(gates)) {
   if (ok !== true) failures.push(`migration_gates.${key}`);
 }
 
+const articlePipeline = snapshot.article_pipeline ?? {};
+for (const [key, ok] of Object.entries(articlePipeline)) {
+  if (ok !== true) failures.push(`article_pipeline.${key}`);
+}
+
 const clean = snapshot.clean_text ?? {};
 const total = Number(snapshot.accepted_hu_episodes_with_description ?? 0);
 const v4 = Number(clean.deterministic_v4 ?? 0);
