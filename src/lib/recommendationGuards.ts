@@ -24,7 +24,8 @@ const PUBLIC_AFFAIRS_RE =
   /\b(kozelet|közélet|politika|politics|hirek|hírek|tarsadalom|társadalom|interju|interjú|kozbeszed|közbeszéd)\b/i;
 
 const HEALTH_RE = /\b(egeszseg|egészség|orvos|pszicho|mentalis|mentális|eletmod|életmód|sport)\b/i;
-const RELIGION_RE = /\b(vallas|vallás|hit|kereszteny|keresztény|isten|biblia|egyhaz|egyház)\b/i;
+const RELIGION_RE =
+  /\b(vallas|vallás|hit|kereszteny|keresztény|isten|biblia|egyhaz|egyház|istentisztelet|igehirdetes|igehirdetés|prédikáció|predikacio|katolikus|reformatus|református|baptista|evangelium|evangélium|ahitat|áhítat)\b/i;
 
 function normalizeText(value: string | null | undefined): string {
   return (value || "")
@@ -86,6 +87,11 @@ export function isSafeRelatedEpisode(
 
   if (candidateGroup === "children" && sourceGroup !== "children") return false;
   if (sourceGroup === "children" && candidateGroup !== "children" && !bridged) return false;
+
+  // Religion is a high-risk semantic false positive: words like "Isten" can
+  // occur in public-affairs titles while the target is actually worship/sermon
+  // content. Never bridge it from/to non-religious episodes by vector score.
+  if ((sourceGroup === "religion") !== (candidateGroup === "religion")) return false;
 
   if (sourceGroup !== "general" && candidateGroup !== "general" && sourceGroup !== candidateGroup) {
     return bridged || similarity >= 0.72;
