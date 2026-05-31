@@ -72,6 +72,19 @@ Global backfill stays disabled until an eval run over the gold CSV passes:
 - `candidate_gold_similarity >= 0.80` average token F1.
 - Every `suspected_overcut` row must be manually inspected; no near-empty output may pass when gold is substantive.
 
+## AI Trim Gate
+
+Paid AI trim is allowed only for rows where `assessCleanTextQuality` marks the deterministic candidate as `needs_ai_trim=true` and `overcut_risk=false`.
+
+Every AI output must then pass `validateExtractOnlyTrim`:
+
+- At least 90% of candidate tokens must exist in the original text.
+- Added-token ratio must stay under 8%.
+- Candidate must not be near-empty compared with a long original.
+- Candidate must not be longer than the original.
+
+If validation fails, the AI output is discarded. The row stays unresolved for a better deterministic rule or manual gold review; it must not silently fall through to downstream embedding/SEO/entity refresh.
+
 ## Eval Command
 
 After the reviewed spreadsheet is exported to CSV:

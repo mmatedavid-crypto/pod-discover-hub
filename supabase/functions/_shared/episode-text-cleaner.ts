@@ -455,6 +455,72 @@ export type CleanTextQuality = {
   clean_ratio: number;
 };
 
+export type ExtractOnlyValidation = {
+  ok: boolean;
+  overlap: number;
+  added_token_ratio: number;
+  compression_ratio: number;
+  reasons: string[];
+};
+
+function comparableTokens(input: string): string[] {
+  return String(input || "")
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 2);
+}
+
+export function validateExtractOnlyTrim(
+  original: string,
+  candidate: string,
+  opts: { minOverlap?: number; maxAddedTokenRatio?: number; minCompressionRatio?: number } = {},
+): ExtractOnlyValidation {
+  const minOverlap = Number(opts.minOverlap ?? 0.90);
+  const maxAddedTokenRatio = Number(opts.maxAddedTokenRatio ?? 0.08);
+  const minCompressionRatio = Number(opts.minCompressionRatio ?? 0.05);
+  const originalText = String(original || "").trim();
+  const candidateText = String(candidate || "").trim();
+  const reasons: string[] = [];
+
+  if (!candidateText) reasons.push("empty_candidate");
+  if (candidateText.length > originalText.length * 1.05) reasons.push("candidate_longer_than_original");
+
+  const originalCounts = new Map<string, number>();
+  for (const token of comparableTokens(originalText)) {
+    originalCounts.set(token, (originalCounts.get(token) || 0) + 1);
+  }
+  const candidateTokens = comparableTokens(candidateText);
+  let matched = 0;
+  let added = 0;
+  for (const token of candidateTokens) {
+    const count = originalCounts.get(token) || 0;
+    if (count > 0) {
+      matched += 1;
+      originalCounts.set(token, count - 1);
+    } else {
+      added += 1;
+    }
+  }
+
+  const overlap = candidateTokens.length === 0 ? 0 : matched / candidateTokens.length;
+  const addedTokenRatio = candidateTokens.length === 0 ? 1 : added / candidateTokens.length;
+  const compressionRatio = originalText.length === 0 ? 0 : candidateText.length / originalText.length;
+
+  if (overlap < minOverlap) reasons.push("low_original_overlap");
+  if (addedTokenRatio > maxAddedTokenRatio) reasons.push("too_many_added_tokens");
+  if (compressionRatio < minCompressionRatio && originalText.length >= 500) reasons.push("suspiciously_small_candidate");
+
+  return {
+    ok: reasons.length === 0,
+    overlap: Number(overlap.toFixed(4)),
+    added_token_ratio: Number(addedTokenRatio.toFixed(4)),
+    compression_ratio: Number(compressionRatio.toFixed(4)),
+    reasons: Array.from(new Set(reasons)),
+  };
+}
+
 export function assessCleanTextQuality(raw: string, cleaned: string): CleanTextQuality {
   const rawText = String(raw || "");
   const cleanText = String(cleaned || "");

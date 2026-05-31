@@ -5,7 +5,7 @@ Object.defineProperty(globalThis, "Deno", {
   configurable: true,
 });
 
-const { heuristicClean, assessCleanTextQuality } = await import("../../supabase/functions/_shared/episode-text-cleaner");
+const { heuristicClean, assessCleanTextQuality, validateExtractOnlyTrim } = await import("../../supabase/functions/_shared/episode-text-cleaner");
 
 describe("episode text cleaner", () => {
   it("cuts inline Hungarian link/supporter footers after the substantive description", () => {
@@ -179,5 +179,38 @@ describe("episode text cleaner", () => {
       needs_ai_trim: false,
       overcut_risk: true,
     });
+  });
+
+  it("accepts AI trim only when it is extract-like and mostly copied from the original", () => {
+    const raw = [
+      "A mai adásban a magyar gazdaság helyzetéről, az inflációról és a kamatokról beszélgetünk szakértő vendégünkkel.",
+      "Kövess minket Facebookon és iratkozz fel a hírlevelünkre.",
+    ].join(" ");
+    const candidate = "A mai adásban a magyar gazdaság helyzetéről, az inflációról és a kamatokról beszélgetünk szakértő vendégünkkel.";
+
+    expect(validateExtractOnlyTrim(raw, candidate)).toMatchObject({
+      ok: true,
+      reasons: [],
+    });
+  });
+
+  it("rejects AI trim that paraphrases or adds unsupported wording", () => {
+    const raw = "A mai adásban a magyar gazdaság helyzetéről, az inflációról és a kamatokról beszélgetünk szakértő vendégünkkel.";
+    const candidate = "Ebben a kiváló epizódban átfogó makrogazdasági elemzést kapsz, amely segít megérteni a jövő befektetési lehetőségeit.";
+
+    const result = validateExtractOnlyTrim(raw, candidate);
+
+    expect(result.ok).toBe(false);
+    expect(result.reasons).toContain("low_original_overlap");
+    expect(result.reasons).toContain("too_many_added_tokens");
+  });
+
+  it("rejects near-empty AI trim from a long original", () => {
+    const raw = "A beszélgetésben részletesen végigvesszük a vendég életútját, szakmai döntéseit és az adás fő tanulságait. ".repeat(12);
+
+    const result = validateExtractOnlyTrim(raw, "A vendég életútja.");
+
+    expect(result.ok).toBe(false);
+    expect(result.reasons).toContain("suspiciously_small_candidate");
   });
 });
