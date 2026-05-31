@@ -144,10 +144,13 @@ import { TrendingPodcasts } from "@/components/TrendingPodcasts";
 import { MyLibraryRails } from "@/components/home/MyLibraryRails";
 import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
 import { HomeDiscoveryShortcuts } from "@/components/home/HomeDiscoveryShortcuts";
+import { HomeAudienceLanes } from "@/components/home/HomeAudienceLanes";
+import { HomeMediaSignals } from "@/components/home/HomeMediaSignals";
 import { HomeTopicsSection } from "@/components/HomeTopicsSection";
 import { HomeCurrentSignals } from "@/components/HomeCurrentSignals";
 import DailyStatsStrip from "@/components/DailyStatsStrip";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
+import { auditHomepageRail } from "@/lib/homepageQuality";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
 const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
@@ -173,6 +176,29 @@ type HomepageRailsPayload = {
   categories?: Record<string, HomepageRailRow[]>;
 };
 type HomepageRailsResponse = { data?: HomepageRailsPayload | null; error?: unknown };
+
+function homepageReasonFor(ep: FeedEpisode): string {
+  const rank = Number(ep.podcasts?.podiverzum_rank) || 0;
+  const tier = (ep.podcasts as any)?.rank_label;
+  if (ep.freshness_bucket === "hot") return "friss";
+  if (tier === "S" || tier === "A" || rank >= 7.5) return "top műsorból";
+  if ((ep.topics || []).length > 0) return "téma alapján";
+  return "szerkesztett ajánló";
+}
+
+const CATEGORY_COPY: Record<string, { title: string; subtitle: string }> = {
+  "News": { title: "Értsd meg a világot", subtitle: "Közélet, hírek és háttérbeszélgetések emberi tempóban." },
+  "Business": { title: "Pénz és karrier", subtitle: "Gazdaság, vállalkozás, befektetés és munka." },
+  "Health & Fitness": { title: "Test, fej, élet", subtitle: "Egészség, pszichológia, önismeret és életmód." },
+  "Technology": { title: "Tech és MI", subtitle: "Technológia, mesterséges intelligencia és startup világ." },
+  "Society & Culture": { title: "Sztorik és interjúk", subtitle: "Emberi történetek, kultúra és hosszabb beszélgetések." },
+  "Comedy": { title: "Kikapcsolódás", subtitle: "Humor, könnyebb beszélgetések és szórakozás." },
+  "Religion & Spirituality": { title: "Hit és spiritualitás", subtitle: "Vallási és lelki tartalmak külön válogatva." },
+};
+
+function homeCategoryCopy(category: string, fallback: string) {
+  return CATEGORY_COPY[category] || { title: fallback, subtitle: "Válogatás a kategória friss epizódjaiból." };
+}
 
 const Index = () => {
   const [q, setQ] = useState("");
@@ -308,30 +334,34 @@ const Index = () => {
 
         setCats(catsRes.data || []);
 
-        const mapRow = (r: any): FeedEpisode => ({
-          id: r.episode_id,
-          podcast_id: r.podcast_id,
-          title: r.title,
-          display_title: r.display_title,
-          slug: r.slug,
-          summary: r.summary,
-          description: r.description,
-          published_at: r.published_at,
-          audio_url: r.audio_url,
-          topics: r.topics,
-          freshness_bucket: r.freshness_bucket,
-          podcasts: {
-            slug: r.podcast_slug,
-            title: r.podcast_title,
-            display_title: r.podcast_display_title,
-            image_url: r.podcast_image_url,
-            category: r.podcast_category,
-            podiverzum_rank: r.podiverzum_rank,
-            rank_label: r.rank_label,
-            rss_status: r.rss_status,
-            featured: r.featured,
-          } as any,
-        });
+        const mapRow = (r: any): FeedEpisode => {
+          const ep: FeedEpisode = {
+            id: r.episode_id,
+            podcast_id: r.podcast_id,
+            title: r.title,
+            display_title: r.display_title,
+            slug: r.slug,
+            summary: r.summary,
+            description: r.description,
+            published_at: r.published_at,
+            audio_url: r.audio_url,
+            topics: r.topics,
+            freshness_bucket: r.freshness_bucket,
+            podcasts: {
+              slug: r.podcast_slug,
+              title: r.podcast_title,
+              display_title: r.podcast_display_title,
+              image_url: r.podcast_image_url,
+              category: r.podcast_category,
+              podiverzum_rank: r.podiverzum_rank,
+              rank_label: r.rank_label,
+              rss_status: r.rss_status,
+              featured: r.featured,
+            } as any,
+          };
+          ep.homepageReason = homepageReasonFor(ep);
+          return ep;
+        };
 
         const loadFallbackRails = async () => {
           const [feedRes, evergreenRes] = await Promise.all([
@@ -478,6 +508,12 @@ const Index = () => {
     return grouped;
   }, [allEps, categoryRailEps]);
 
+  useEffect(() => {
+    auditHomepageRail("most_erdemes", trendingEps);
+    auditHomepageRail("idotallo", evergreenEps);
+    Object.entries(epsByCat).forEach(([name, items]) => auditHomepageRail(`category:${name}`, items));
+  }, [trendingEps, evergreenEps, epsByCat]);
+
   return (
     <Layout>
       
@@ -621,6 +657,7 @@ const Index = () => {
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <HomeDiscoveryShortcuts />
         <DailyStatsStrip />
+        <HomeAudienceLanes />
         <TrendingPodcasts />
         <MyLibraryRails />
         <ContinueListening />
@@ -657,6 +694,8 @@ const Index = () => {
 
         <HomeCurrentSignals topics={currentTopics} people={currentPeople} companies={currentCompanies} />
 
+        <HomeMediaSignals people={currentPeople} companies={currentCompanies} />
+
         <MoodCollections />
 
 
@@ -686,15 +725,16 @@ const Index = () => {
             .slice(0, 3);
           return populated.map((c: any) => {
             const items = itemsForCat(c);
+            const copy = homeCategoryCopy(c.name, c.name);
             return (
               <section key={c.id}>
                 <div className="flex items-end justify-between mb-1">
-                  <h2 className="text-xl sm:text-2xl font-semibold">{c.name}</h2>
+                  <h2 className="text-xl sm:text-2xl font-semibold">{copy.title}</h2>
                   <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                     Több epizód <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">Válogatás a kategória friss epizódjaiból.</p>
+                <p className="text-xs text-muted-foreground mb-4">{copy.subtitle}</p>
                 <EpisodeList items={items} scrollAlways />
 
               </section>

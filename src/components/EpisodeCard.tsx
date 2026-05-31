@@ -3,7 +3,7 @@ import { PodcastCover } from "./PodcastCover";
 import { Brain, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
-import { entityHref, entitySlug } from "@/lib/entity";
+import { entityHref } from "@/lib/entity";
 import { EpisodeMarks } from "./EpisodeMarks";
 import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
@@ -33,6 +33,8 @@ export type EpisodeLite = {
   matchBadge?: string | null;
   /** Optional one-line AI reason why this matched the query. */
   why_matched?: string | null;
+  /** Optional one-line editorial reason for homepage rails. */
+  homepageReason?: string | null;
   podcasts: {
     slug: string;
     title: string;
@@ -128,6 +130,9 @@ export function EpisodeCard({
           {e.matchBadge && (
             <span className="px-1.5 py-0.5 rounded-md border border-border bg-secondary text-[10px] font-medium text-foreground/80">{e.matchBadge}</span>
           )}
+          {e.homepageReason && (
+            <span className="px-1.5 py-0.5 rounded-md border border-primary/35 bg-primary/10 text-[10px] font-medium text-primary">{e.homepageReason}</span>
+          )}
           {understanding && (
             <span
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-foreground/80"
@@ -167,9 +172,8 @@ export function EpisodeCard({
         {showEntities && allEnts.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2.5">
             {allEnts.map(({ kind, v }) => {
-              const slug = entitySlug(kind as any, v);
               return (
-                <Link key={`${kind}-${v}`} to={`/${kind}/${encodeURIComponent(slug)}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
+                <Link key={`${kind}-${v}`} to={entityHref(kind as any, v)} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                   {v}
                 </Link>
               );
@@ -299,6 +303,11 @@ function EpisodeRailCard({
               Podiverzum szerint
             </span>
           )}
+          {e.homepageReason && (
+            <span className="rounded-md border border-primary/35 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              {e.homepageReason}
+            </span>
+          )}
         </div>
         {understanding && (
           <p className="mt-2 rounded-md border border-primary/25 bg-primary/5 px-2.5 py-1.5 text-[12px] leading-snug text-foreground/85 line-clamp-2">
@@ -323,9 +332,8 @@ function EpisodeRailCard({
         {showEntities && allEnts.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1">
             {allEnts.map(({ kind, v }) => {
-              const slug = entitySlug(kind as any, v);
               return (
-                <Link key={`${kind}-${v}`} to={`/${kind}/${encodeURIComponent(slug)}`} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
+                <Link key={`${kind}-${v}`} to={entityHref(kind as any, v)} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
                   {v}
                 </Link>
               );
