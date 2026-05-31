@@ -188,6 +188,8 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, processed: candidateRows.length, passed, rejected, method });
   } catch (e) {
-    return json({ ok: false, error: e instanceof Error ? e.message : "error" }, 500);
+    const msg = e instanceof Error ? `${e.message}${e.stack ? `\n${e.stack}` : ""}` : (() => { try { return JSON.stringify(e); } catch { return String(e); } })();
+    console.error("[clean-text-candidate-runner] fatal:", msg);
+    return json({ ok: false, error: msg }, 500);
   }
 });
