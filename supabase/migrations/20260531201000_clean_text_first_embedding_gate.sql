@@ -2,6 +2,11 @@
 -- RSS/YouTube best source -> deterministic clean text -> embeddings/search.
 -- The embedding runner must not silently re-clean raw RSS descriptions.
 
+-- This function's return shape changes in this migration by adding clean-text
+-- provenance fields. PostgreSQL cannot change OUT columns with CREATE OR
+-- REPLACE, so the old signature must be dropped first.
+DROP FUNCTION IF EXISTS public.select_embed_chunks_candidates(text, integer);
+
 CREATE OR REPLACE FUNCTION public.select_embed_chunks_candidates(_model text, _limit integer)
  RETURNS TABLE(
   id uuid,
@@ -66,6 +71,9 @@ AS $function$
     e.published_at DESC NULLS LAST
   LIMIT _limit;
 $function$;
+
+GRANT EXECUTE ON FUNCTION public.select_embed_chunks_candidates(text, integer)
+TO anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.embed_chunks_candidate_stats(_model text)
  RETURNS jsonb
