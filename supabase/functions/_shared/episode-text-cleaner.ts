@@ -40,6 +40,15 @@ const HANDLE_RX = /(^|[\s([{"'„“])@[A-Za-z0-9._-]{2,}/g;
 const TIMESTAMP_LINE_RX = /^\s*\d{1,2}:\d{2}(?::\d{2})?\s+.+$/gm;
 const MULTI_WHITESPACE = /\s{3,}/g;
 const HTML_RX = /<[^>]+>/g;
+const HTML_ENTITY_RX = /&(amp|nbsp|quot|apos|lt|gt);/gi;
+const INLINE_FOOTER_START_RX =
+  /\s(?:--+|—|–)?\s*(?:hasznos\s+linkek|linkek|additional\s+resources|contact\s+information|támogatóink|tamogatoink|támogatók|tamogatok|közösségi\s+média|social\s+(?:links?|media)|show\s+notes|shownotes)\s*[:：]/i;
+const CTA_LABEL_RX =
+  /(?:^|\s)(?:kövesd|kövess(?:etek|en)?|iratkozz(?:atok)?\s+fel|köszönjük,\s+ha|koszonjuk,\s+ha|támogasd|támogass(?:atok)?|töltsd\s+le|nézz(?:étek)?|hallgass(?:átok)?|hallgasd|watch|listen|subscribe|follow|support|download)\b[^:\n.!?]{0,180}[:：]\s*/gi;
+const CTA_SENTENCE_RX = [
+  /(?:^|[.!?]\s+)(?:kövesd|kövess(?:etek|en)?|iratkozz(?:atok)?\s+fel|támogasd|támogass(?:atok)?|töltsd\s+le|nézz(?:étek)?|hallgass(?:átok)?|hallgasd|watch|listen|subscribe|follow|support|download)\b[^.!?\n]{0,220}(?:\.|!|\?|$)/gi,
+  /(?:^|[.!?]\s+)(?:email|e-?mail|website|weboldal|honlap|headshots|shoot\s+footage|edit\s+footage|patreon|discord|telegram|x\s+\(ex-twitter\)|bluesky)\s*[:：][^.!?\n]{0,220}(?:\.|!|\?|$)/gi,
+];
 
 // Strong footer markers — once we hit one (and the rest of the doc is footer-dominated),
 // EVERYTHING from that line on is dropped.
@@ -142,6 +151,64 @@ function stripInlineNoise(input: string): { text: string; removed: string[] } {
   return { text: cleanedLines.join("\n"), removed: Array.from(new Set(removed)) };
 }
 
+function decodeBasicEntities(input: string): string {
+  return input.replace(HTML_ENTITY_RX, (_, entity: string) => {
+    switch (entity.toLowerCase()) {
+      case "amp": return "&";
+      case "nbsp": return " ";
+      case "quot": return "\"";
+      case "apos": return "'";
+      case "lt": return "<";
+      case "gt": return ">";
+      default: return "";
+    }
+  });
+}
+
+function stripInlineFooterBlocks(input: string): { text: string; removed: string[] } {
+  const marker = input.search(INLINE_FOOTER_START_RX);
+  if (marker < 0) return { text: input, removed: [] };
+
+  const before = input.slice(0, marker).trim();
+  const after = input.slice(marker).trim();
+  const beforeWords = before.split(/\s+/).filter((w) => w.length > 2).length;
+  const afterHasTopicList = /\b(?:tartalom|téma|temak|témák|fejezetek)\s*[:：]/i.test(after);
+  if (beforeWords >= 18 && !afterHasTopicList) {
+    return { text: before, removed: ["inline_footer_cut"] };
+  }
+  return { text: input, removed: [] };
+}
+
+function stripCtaSentences(input: string): { text: string; removed: string[] } {
+  let body = input;
+  let hit = false;
+  for (let i = 0; i < 3; i++) {
+    CTA_LABEL_RX.lastIndex = 0;
+    if (!CTA_LABEL_RX.test(body)) break;
+    CTA_LABEL_RX.lastIndex = 0;
+    hit = true;
+    body = body.replace(CTA_LABEL_RX, " ");
+  }
+  CTA_LABEL_RX.lastIndex = 0;
+  for (const rx of CTA_SENTENCE_RX) {
+    rx.lastIndex = 0;
+    if (rx.test(body)) {
+      hit = true;
+      body = body.replace(rx, (match) => (/^[.!?]\s+/.test(match) ? match.slice(0, 1) : ""));
+    }
+    rx.lastIndex = 0;
+  }
+  return { text: body, removed: hit ? ["cta_sentences"] : [] };
+}
+
+function stripDanglingLabels(input: string): { text: string; removed: string[] } {
+  const labels =
+    /(?:^|\n|\s)(?:email|e-?mail|website|weboldal|honlap|headshots|additional resources|contact information|work with [^:\n]{1,40}|apply for a consultation|shoot footage for your reel|edit footage into a reel|x \(ex-twitter\)|bluesky|telegram csatornánk|discord szerverünk|patreon oldalunk|támogatóink|tamogatoink|kövesd|köszönjük, ha|töltsd le és hallgasd|biblia egy év alatt kihívás)\s*[:：]\s*(?=$|\n|[A-ZÁÉÍÓÖŐÚÜŰ])/gi;
+  if (!labels.test(input)) return { text: input, removed: [] };
+  labels.lastIndex = 0;
+  return { text: input.replace(labels, " "), removed: ["dangling_labels"] };
+}
+
 function detectFooterStart(lines: string[]): number {
   // Find earliest STRONG footer marker; accept the cut if the tail from there
   // is dominated by footer-like content. Otherwise it's likely an intro plug.
@@ -179,7 +246,7 @@ function detectFooterStart(lines: string[]): number {
 
 export function heuristicClean(raw: string): { text: string; removed: string[] } {
   if (!raw) return { text: "", removed: [] };
-  let t = String(raw);
+  let t = decodeBasicEntities(String(raw));
   const removed: string[] = [];
 
 
@@ -214,10 +281,26 @@ export function heuristicClean(raw: string): { text: string; removed: string[] }
   }
   if (boilerHit) removed.push("boilerplate_phrases");
 
+  const inlineFooter = stripInlineFooterBlocks(body);
+  body = inlineFooter.text;
+  removed.push(...inlineFooter.removed);
+
+  const preCtaStripped = stripInlineNoise(body);
+  body = preCtaStripped.text;
+  removed.push(...preCtaStripped.removed);
+
+  const ctaStripped = stripCtaSentences(body);
+  body = ctaStripped.text;
+  removed.push(...ctaStripped.removed);
+
   // 4) Strip any remaining inline links, bare platform URLs, emails and handles.
   const stripped = stripInlineNoise(body);
   body = stripped.text;
   removed.push(...stripped.removed);
+
+  const dangling = stripDanglingLabels(body);
+  body = dangling.text;
+  removed.push(...dangling.removed);
 
   // 5) Whitespace normalize
   body = body.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(MULTI_WHITESPACE, " ").trim();
