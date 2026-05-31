@@ -1558,18 +1558,12 @@ function ResultView({
         </div>
 
         <div className="mt-6 space-y-3">
-          <Link
-            to="/en-podiverzumom?tab=profil"
+          <a
+            href="#ajanlott-epizodok"
             className="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Sparkles className="mr-2 h-4 w-4" />
             Podcastok nekem
-          </Link>
-          <a
-            href="#ajanlott-epizodok"
-            className="inline-flex w-full items-center justify-center rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-          >
-            Mutasd az ajánlott epizódokat
           </a>
           <Button onClick={handleShare} size="lg" className="w-full" disabled={busy !== null}>
             <Share2 className="mr-2 h-4 w-4" />
@@ -1599,39 +1593,9 @@ function ResultView({
 
       </div>
 
-      <div className="rounded-3xl border border-border bg-card p-5">
-        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          Miért ezt kaptad?
-        </div>
-        <div className="mt-3 space-y-2 text-sm text-foreground/85">
-          <div className="flex gap-2">
-            <span className="text-primary">01</span>
-            <span>{liked.length + superLiked.length} pozitív jel alapján épült a profilod.</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="text-primary">02</span>
-            <span>
-              {topInterestLabels.length > 0
-                ? `A legerősebb érdeklődési irányaid: ${topInterestLabels.join(", ")}.`
-                : listenerProfile.recommendedDirection}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <span className="text-primary">03</span>
-            <span>A „most nem” húzások is számítanak, hogy ne generikus ajánlót kapj.</span>
-          </div>
-        </div>
-      </div>
-
-
-      {/* Constellation */}
-      {constellation.stars.length >= 3 && (
-        <ConstellationVisual constellation={constellation} accent={aura.primary} />
-      )}
-
       {/* Recommended episodes */}
       <div id="ajanlott-epizodok" className="scroll-mt-6">
-        <h3 className="mb-3 text-lg font-semibold">Ajánlott epizódok</h3>
+        <h3 className="mb-3 text-lg font-semibold">Neked ajánlott epizódok</h3>
         {recsLoading && (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
@@ -1639,6 +1603,10 @@ function ResultView({
         )}
         {!recsLoading && recs && recs.length > 0 && (
           <div className="space-y-3">
+            <Button onClick={() => onOpen(recs[0].podcast_slug, recs[0].slug)} size="lg" className="w-full">
+              <Play className="mr-2 h-4 w-4" />
+              Indítsd az első ajánlást
+            </Button>
             {recs.map(r => (
               <button
                 key={r.episode_id}
@@ -1693,6 +1661,36 @@ function ResultView({
           </div>
         )}
       </div>
+
+      <div className="rounded-3xl border border-border bg-card p-5">
+        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          Miért ezt kaptad?
+        </div>
+        <div className="mt-3 space-y-2 text-sm text-foreground/85">
+          <div className="flex gap-2">
+            <span className="text-primary">01</span>
+            <span>{liked.length + superLiked.length} pozitív jel alapján épült a profilod.</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="text-primary">02</span>
+            <span>
+              {topInterestLabels.length > 0
+                ? `A legerősebb érdeklődési irányaid: ${topInterestLabels.join(", ")}.`
+                : listenerProfile.recommendedDirection}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <span className="text-primary">03</span>
+            <span>A „most nem” húzások is számítanak, hogy ne generikus ajánlót kapj.</span>
+          </div>
+        </div>
+      </div>
+
+
+      {/* Constellation */}
+      {constellation.stars.length >= 3 && (
+        <ConstellationVisual constellation={constellation} accent={aura.primary} />
+      )}
 
       {/* Recommended podcasts */}
       {recPodcasts.length > 0 && (

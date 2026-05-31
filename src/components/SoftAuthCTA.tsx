@@ -30,7 +30,12 @@ export function SoftAuthCTA({ archetypeSlug, archetypeResult }: Props) {
   // Auto-save archetype for logged-in users
   useEffect(() => {
     if (!user || !archetypeSlug) return;
-    if (profile?.archetype_slug === archetypeSlug) return;
+    const hasCompleteResult = Boolean(
+      profile?.archetype_result?.result_title &&
+      Array.isArray(profile?.archetype_result?.tags) &&
+      profile.archetype_result.tags.length > 0,
+    );
+    if (profile?.archetype_slug === archetypeSlug && hasCompleteResult) return;
     (async () => {
       const { error } = await supabase
         .from("profiles")

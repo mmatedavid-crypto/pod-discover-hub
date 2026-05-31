@@ -394,6 +394,9 @@ function extractLikedTopics(archetypeResult: unknown): string[] {
     r.liked_topics,
     r.likedTopics,
     r.topics,
+    r.tags,
+    r.topInterests,
+    r.top_interests,
     (r.preferences as Record<string, unknown> | undefined)?.topics,
   ];
   for (const c of candidates) {
