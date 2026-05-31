@@ -43,15 +43,32 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
     let cancelled = false;
     (async () => {
       const since30d = new Date(Date.now() - 30 * 86400_000).toISOString();
-      const { data } = await supabase
-        .from("mv_homepage_feed" as any)
-        .select("episode_id,title,display_title,slug,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,pod_rank,published_at")
-        .gte("published_at", since30d)
-        .lte("pod_rank", 4)
-        .not("audio_url", "is", null)
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .limit(60);
-      if (cancelled || !data) return;
+      const { data: rails } = await supabase
+        .rpc("get_homepage_rails_v1" as never, {
+          _trending_limit: 20,
+          _evergreen_limit: 10,
+          _category_limit: 0,
+          _max_categories: 0,
+        } as never);
+
+      let data = [
+        ...(((rails as any)?.trending ?? []) as any[]),
+        ...(((rails as any)?.evergreen ?? []) as any[]),
+      ];
+
+      if (!data.length) {
+        const fallback = await supabase
+          .from("mv_homepage_feed" as any)
+          .select("episode_id,title,display_title,slug,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,pod_rank,published_at")
+          .gte("published_at", since30d)
+          .lte("pod_rank", 4)
+          .not("audio_url", "is", null)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(60);
+        data = fallback.data || [];
+      }
+
+      if (cancelled || !data.length) return;
 
       const tagSet = new Set((tags ?? []).map((t) => t.toLowerCase()));
       const scored = (data as any[]).map((r) => {

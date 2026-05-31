@@ -119,14 +119,46 @@ function notFound(path: string) {
 // ---------- builders ----------
 
 async function buildHome(supabase: ReturnType<typeof createClient>) {
-  const { data } = await (supabase as any)
-    .from("mv_homepage_feed")
-    .select("episode_id, title, display_title, slug, summary, description, published_at, podcast_title, podcast_display_title, podcast_slug")
-    .order("published_at", { ascending: false })
-    .limit(40);
+  const { data: rails } = await (supabase as any)
+    .rpc("get_homepage_rails_v1", {
+      _trending_limit: 10,
+      _evergreen_limit: 8,
+      _category_limit: 0,
+      _max_categories: 0,
+    });
 
-  const rows = (data ?? []) as Array<Record<string, any>>;
-  const items = rows.slice(0, 30);
+  const railRows = [
+    ...(((rails as any)?.trending ?? []) as Array<Record<string, any>>),
+    ...(((rails as any)?.evergreen ?? []) as Array<Record<string, any>>),
+  ];
+
+  let rows = railRows;
+  if (!rows.length) {
+    const { data } = await (supabase as any)
+      .from("mv_homepage_feed")
+      .select("episode_id, title, display_title, slug, summary, description, published_at, podcast_title, podcast_display_title, podcast_slug, rank_label, pod_rank, podcast_category")
+      .lte("pod_rank", 8)
+      .not("audio_url", "is", null)
+      .order("published_at", { ascending: false })
+      .limit(80);
+
+    rows = ((data ?? []) as Array<Record<string, any>>)
+      .filter((r) => {
+        const hay = `${r.podcast_category ?? ""} ${r.podcast_title ?? ""} ${r.podcast_display_title ?? ""} ${r.title ?? ""} ${r.display_title ?? ""}`.toLowerCase();
+        const title = String(r.display_title || r.title || "").toLowerCase();
+        const newsLike = /(hírek|hirek|infostart|összes hír|osszes hir|krónika|kronika)/i.test(hay);
+        const bulletinLike = /(^\s*[0-9]{1,2}\s*[-–—]\s+|^\s*20[0-9]{6}(\s|[-–—])|hírek röviden|hirek roviden|percben)/i.test(title);
+        return !bulletinLike && !newsLike;
+      });
+  }
+
+  const seen = new Set<string>();
+  const items = rows.filter((r) => {
+    const id = String(r.episode_id || `${r.podcast_slug}/${r.slug}`);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }).slice(0, 30);
 
   const itemsHtml = items
     .map((r) => {
@@ -176,13 +208,13 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     name: "Magyar podcast kereső és ajánló",
     url: `${SITE}/`,
     inLanguage: "hu-HU",
-    description: "Magyar podcast epizódok, műsorok, témák, személyek és szervezetek felfedezése.",
+      description: "Magyar podcast epizódok, műsorok, témák és személyes ajánlók felfedezése.",
   };
 
   return new Response(new TextEncoder().encode(shell({
       title: "Podiverzum — magyar podcast kereső és ajánló",
       description:
-        "Magyar podcast kereső, ajánló és felfedező. Keress epizódokat téma, személy, cég, szervezet, műsor vagy gondolat alapján.",
+        "Magyar podcast kereső, ajánló és felfedező. Keress epizódokat téma, személy, műsor vagy gondolat alapján.",
       canonical: `${SITE}/`,
       jsonLd: [website, organization, collectionPage, itemList],
       bodyHtml: `<header><h1>Magyar podcastok okosabban</h1><p>Podiverzum — magyar podcast kereső, ajánló és felfedező.</p></header>
