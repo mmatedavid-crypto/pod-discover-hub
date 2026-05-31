@@ -372,7 +372,7 @@ async function buildAdaptivePlan(admin: ReturnType<typeof createClient>, ctrl: a
   };
 }
 
-async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: AdaptivePlan, tiers: string[], podcastIdParam: string | null, batch: number) {
+async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: AdaptivePlan, tiers: string[], podcastIdParam: string | null, batch: number, useClaimRpc = false) {
   if (podcastIdParam) {
     const res = await admin.from("podcasts")
       .select("id, title, youtube_channel_id, shadow_rank_tier")
@@ -382,15 +382,28 @@ async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: Adapt
     return { ...res, claim_path: "direct_podcast_id" };
   }
 
-  const { data, error } = await admin.rpc("claim_youtube_episode_pair_podcasts", {
-    p_limit: batch,
-    p_tiers: tiers,
-    p_cutoff: plan.cutoffIso,
-    p_claim_timeout_minutes: plan.claimTimeoutMinutes,
-  });
-  if (!error) return { data, error, claim_path: "rpc_skip_locked" };
+  if (useClaimRpc) {
+    const { data, error } = await admin.rpc("claim_youtube_episode_pair_podcasts", {
+      p_limit: batch,
+      p_tiers: tiers,
+      p_cutoff: plan.cutoffIso,
+      p_claim_timeout_minutes: plan.claimTimeoutMinutes,
+    });
+    if (!error) return { data, error, claim_path: "rpc_skip_locked" };
 
-  console.warn("claim_youtube_episode_pair_podcasts fallback", error.message);
+    console.warn("claim_youtube_episode_pair_podcasts fallback", error.message);
+    const fallback = await admin.from("podcasts")
+      .select("id, title, youtube_channel_id, shadow_rank_tier")
+      .eq("youtube_pairing_status", "paired")
+      .not("youtube_channel_id", "is", null)
+      .in("shadow_rank_tier", tiers)
+      .eq("is_hungarian", true)
+      .or(`youtube_last_episode_pair_at.is.null,youtube_last_episode_pair_at.lt.${plan.cutoffIso}`)
+      .order("youtube_last_episode_pair_at", { ascending: true, nullsFirst: true })
+      .limit(batch);
+    return { ...fallback, claim_path: "fallback_select", claim_error: error.message };
+  }
+
   const fallback = await admin.from("podcasts")
     .select("id, title, youtube_channel_id, shadow_rank_tier")
     .eq("youtube_pairing_status", "paired")
@@ -400,7 +413,7 @@ async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: Adapt
     .or(`youtube_last_episode_pair_at.is.null,youtube_last_episode_pair_at.lt.${plan.cutoffIso}`)
     .order("youtube_last_episode_pair_at", { ascending: true, nullsFirst: true })
     .limit(batch);
-  return { ...fallback, claim_path: "fallback_select", claim_error: error.message };
+  return { ...fallback, claim_path: "fallback_select" };
 }
 
 Deno.serve(async (req) => {
@@ -433,7 +446,8 @@ Deno.serve(async (req) => {
     const strictAiThr = Number(ctrl.strict_ai_pair_threshold || 0.78);
     const minAmbiguityGap = Number(ctrl.min_ambiguity_gap || 0.04);
 
-    const { data: pods, error: pErr, claim_path: claimPath, claim_error: claimError } = await claimPodcasts(admin, plan, tiers, podcastIdParam, batch);
+    const useClaimRpc = ctrl.claim_rpc_enabled === true;
+    const { data: pods, error: pErr, claim_path: claimPath, claim_error: claimError } = await claimPodcasts(admin, plan, tiers, podcastIdParam, batch, useClaimRpc);
     if (pErr) throw pErr;
     if (!pods?.length) {
       if (!dry) {
