@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, paused: true, reason: "daily_budget_exhausted", spent_today: spentToday });
     }
 
-    let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, runCost = 0, batches = 0;
+    let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, totalWaitingCleanText = 0, runCost = 0, batches = 0;
 
     // Drain loop: keep claiming batches until time budget exhausted, queue empty, or budget exhausted
     while (Date.now() - startedAt < maxRuntimeMs) {
@@ -160,13 +160,16 @@ Deno.serve(async (req) => {
       if (maxRuntimeMs - (Date.now() - startedAt) < 25000) break;
       if (spentToday + runCost >= dailyBudget) break;
 
-      // Claim pending S-tier episodes with clean_text done
+      // Claim pending episodes only from accepted Hungarian podcasts. The expensive
+      // extraction itself is gated below on promoted deterministic_v4 clean text.
       const { data: epsRaw, error: selErr } = await admin
         .from("episodes")
-        .select("id, title, podcast_id, podcasts!inner(rank_label, language)")
+        .select("id, title, podcast_id, podcasts!inner(rank_label, language, is_hungarian, language_decision)")
         .eq("topic_extraction_status", "pending")
         .eq("clean_text_status", "done")
         .in("podcasts.rank_label", tierFilter)
+        .eq("podcasts.is_hungarian", true)
+        .eq("podcasts.language_decision", "accept_hungarian")
         .ilike("podcasts.language", "hu%")
         .limit(batchSize);
       if (selErr) return json({ ok: false, error: selErr.message }, 500);
@@ -176,15 +179,22 @@ Deno.serve(async (req) => {
       const claimIds = epsRaw.map((e: any) => e.id);
       await admin.from("episodes").update({ topic_extraction_status: "in_progress" }).in("id", claimIds);
 
-      // Fetch clean_text
-      const { data: cts } = await admin.from("episode_clean_text").select("episode_id, cleaned_text").in("episode_id", claimIds);
+      // Fetch only promoted deterministic_v4 clean text. Older cleaner rows must
+      // wait; otherwise we would extract topics from polluted descriptions.
+      const { data: cts } = await admin
+        .from("episode_clean_text")
+        .select("episode_id, cleaned_text")
+        .in("episode_id", claimIds)
+        .eq("cleaner_method", "deterministic_v4");
       const ctMap = new Map<string, string>((cts || []).map((r: any) => [r.episode_id, r.cleaned_text || ""]));
 
       // Pre-filter short ones
       const skipIds: string[] = [];
+      const waitingCleanTextIds: string[] = [];
       const work: any[] = [];
       for (const ep of epsRaw as any[]) {
-        const text = String(ctMap.get(ep.id) || "");
+        const text = String(ctMap.get(ep.id) || "").trim();
+        if (!text) { waitingCleanTextIds.push(ep.id); continue; }
         if (text.length < minChars) { skipIds.push(ep.id); continue; }
         work.push({ ep, text });
       }
@@ -251,6 +261,11 @@ Deno.serve(async (req) => {
           await admin.from("episodes").update({ topic_extraction_status: "skipped_short" }).in("id", skipIds.slice(i, i + 150));
         }
       }
+      if (waitingCleanTextIds.length > 0) {
+        for (let i = 0; i < waitingCleanTextIds.length; i += 150) {
+          await admin.from("episodes").update({ topic_extraction_status: "waiting_clean_text" }).in("id", waitingCleanTextIds.slice(i, i + 150));
+        }
+      }
       if (errIds.length > 0) {
         for (let i = 0; i < errIds.length; i += 150) {
           await admin.from("episodes").update({ topic_extraction_status: "error" }).in("id", errIds.slice(i, i + 150));
@@ -260,6 +275,7 @@ Deno.serve(async (req) => {
       totalProcessed += epsRaw.length;
       totalWritten += doneIds.length;
       totalSkipped += skipIds.length;
+      totalWaitingCleanText += waitingCleanTextIds.length;
       totalErrors += errIds.length;
       batches++;
     }
@@ -270,7 +286,7 @@ Deno.serve(async (req) => {
         runner: "episode-topic-extractor",
         model,
         cost_usd: runCost,
-        meta: { processed: totalProcessed, written: totalWritten, skipped: totalSkipped, errors: totalErrors, batches },
+        meta: { processed: totalProcessed, written: totalWritten, skipped: totalSkipped, waiting_clean_text: totalWaitingCleanText, errors: totalErrors, batches },
       });
     } catch (_) { /* table optional */ }
 
@@ -280,6 +296,7 @@ Deno.serve(async (req) => {
       processed: totalProcessed,
       written: totalWritten,
       skipped: totalSkipped,
+      waiting_clean_text: totalWaitingCleanText,
       errors: totalErrors,
       cost_usd: Number(runCost.toFixed(5)),
       spent_today: Number((spentToday + runCost).toFixed(4)),

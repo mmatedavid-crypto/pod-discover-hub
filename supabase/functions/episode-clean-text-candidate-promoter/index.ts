@@ -55,6 +55,16 @@ async function updateEpisodesAfterPromotion(admin: AdminClient, ids: string[]) {
     const retry = await admin.from("episodes").update(fallback).in("id", slice);
     if (retry.error) throw retry.error;
   }
+
+  for (let i = 0; i < ids.length; i += 40) {
+    const slice = ids.slice(i, i + 40);
+    const { error } = await admin
+      .from("episodes")
+      .update({ topic_extraction_status: "pending" })
+      .in("id", slice)
+      .eq("topic_extraction_status", "waiting_clean_text");
+    if (error && !String(error.message || "").includes("topic_extraction_status")) throw error;
+  }
 }
 
 Deno.serve(async (req) => {
