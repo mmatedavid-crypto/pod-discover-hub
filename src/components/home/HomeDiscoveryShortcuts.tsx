@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Flame, Headphones, Radio, Sparkles, Tags, UserRound } from "lucide-react";
+import { Flame, Headphones, Radio, Sparkles, Tags } from "lucide-react";
 
 const shortcuts = [
   {
@@ -13,12 +13,6 @@ const shortcuts = [
     href: "/napi",
     Icon: Radio,
     accent: "text-sky-500 bg-sky-500/10",
-  },
-  {
-    title: "Személyek",
-    href: "/szemelyek",
-    Icon: UserRound,
-    accent: "text-emerald-500 bg-emerald-500/10",
   },
   {
     title: "Témák",
@@ -43,7 +37,7 @@ const shortcuts = [
 export function HomeDiscoveryShortcuts() {
   return (
     <section aria-label="Gyors felfedezés" className="-mx-4 sm:mx-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="flex min-w-max gap-2.5 px-4 sm:grid sm:min-w-0 sm:grid-cols-6 sm:px-0">
+      <div className="flex min-w-max gap-2.5 px-4 sm:grid sm:min-w-0 sm:grid-cols-5 sm:px-0">
         {shortcuts.map(({ title, href, Icon, accent }) => (
           <Link
             key={href}

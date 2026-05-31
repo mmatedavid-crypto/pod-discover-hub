@@ -145,10 +145,7 @@ import { MyLibraryRails } from "@/components/home/MyLibraryRails";
 import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
 import { HomeDiscoveryShortcuts } from "@/components/home/HomeDiscoveryShortcuts";
 import { HomeAudienceLanes } from "@/components/home/HomeAudienceLanes";
-import { HomeCurrentSignals } from "@/components/HomeCurrentSignals";
-import DailyStatsStrip from "@/components/DailyStatsStrip";
 import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
-import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { auditHomepageRail } from "@/lib/homepageQuality";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
@@ -206,7 +203,6 @@ const Index = () => {
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [categoryRailEps, setCategoryRailEps] = useState<Record<string, EpisodeLite[]>>({});
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
-  const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
   const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
     { label: "MNB kamatdöntés", query: "MNB kamatdöntés" },
     { label: "magyar gazdaság", query: "magyar gazdaság" },
@@ -293,7 +289,7 @@ const Index = () => {
   useEffect(() => {
     setSeo({
       title: "Podiverzum — magyar podcast kereső és ajánló",
-      description: "Magyar podcast kereső, ajánló és felfedező. Keress epizódokat téma, személy, cég, szervezet, műsor vagy gondolat alapján.",
+      description: "Magyar podcast kereső, ajánló és felfedező. Keress epizódokat téma, személy, műsor, hangulat vagy gondolat alapján.",
       canonical: "https://podiverzum.hu/",
       image: "https://podiverzum.hu/og-image.jpg",
       hreflang: [
@@ -327,14 +323,13 @@ const Index = () => {
           name: "Magyar podcast kereső és ajánló",
           url: "https://podiverzum.hu/",
           inLanguage: "hu-HU",
-          description: "Magyar podcast epizódok, műsorok, témák, személyek és szervezetek felfedezése.",
+          description: "Magyar podcast epizódok, műsorok, témák és személyes ajánlók felfedezése.",
         },
       ],
     });
     (async () => {
       try {
-        const since14d = new Date(Date.now() - 14 * 86400_000).toISOString();
-        const [catsRes, homepageRailsRes, entityRes] = await Promise.all([
+        const [catsRes, homepageRailsRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
             .rpc("get_homepage_rails_v1" as never, {
@@ -343,13 +338,6 @@ const Index = () => {
               _category_limit: 6,
               _max_categories: 8,
             } as never),
-          supabase
-            .from("episodes")
-            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label,hosts,is_hungarian,language_decision)")
-            .gte("published_at", since14d)
-            .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
-            .not("podcasts.rss_status", "in", "(failed,inactive)")
-            .limit(1500),
         ]);
 
         setCats(catsRes.data || []);
@@ -469,9 +457,6 @@ const Index = () => {
           setCategoryRailEps(categories);
           setEvergreenEps(diversifyByPodcast(evergreen, 6, 1));
         }
-
-        // Trending entities source (last 14 days, EN-only, healthy podcasts)
-        setTrendingEntityEps((entityRes.data || []) as any);
       } catch (err) {
         console.error("Index load failed", err);
         setLoadError(true);
@@ -480,19 +465,6 @@ const Index = () => {
       }
     })();
   }, []);
-
-  const currentTopics = useMemo(
-    () => topEntitiesFrom(trendingEntityEps, "topics", "topic", 8),
-    [trendingEntityEps],
-  );
-  const currentPeople = useMemo(
-    () => topEntitiesFrom(trendingEntityEps, "people", "person", 8, { excludeHosts: true }),
-    [trendingEntityEps],
-  );
-  const currentCompanies = useMemo(
-    () => topEntitiesFrom(trendingEntityEps, "companies", "company", 8),
-    [trendingEntityEps],
-  );
 
   const epsByCat = useMemo(() => {
     if (Object.keys(categoryRailEps).length > 0) return categoryRailEps;
@@ -552,7 +524,7 @@ const Index = () => {
           </h1>
 
           <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Keress úgy, ahogy gondolkodsz: téma, személy, cég, piac, technológia, hangulat vagy gondolat alapján.
+            Keress úgy, ahogy gondolkodsz: téma, személy, műsor, hangulat vagy gondolat alapján.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
             A Podiverzum az epizódok tartalma alapján mutatja meg, mit érdemes meghallgatni.
@@ -677,7 +649,6 @@ const Index = () => {
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <TrendingPodcasts />
         <HomeDiscoveryShortcuts />
-        <DailyStatsStrip />
         <WeeklyEditorialStrip />
         <HomeAudienceLanes />
         <MyLibraryRails />
@@ -712,8 +683,6 @@ const Index = () => {
             <EpisodeList items={trendingEps} scrollAlways />
           </section>
         )}
-
-        <HomeCurrentSignals topics={currentTopics} people={currentPeople} companies={currentCompanies} />
 
         <MoodCollections />
 
