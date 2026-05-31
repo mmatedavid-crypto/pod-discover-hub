@@ -109,7 +109,7 @@ async function loadDirectDrainEpisodeIds(
   const { data: oldClean, error: oldErr } = await admin
     .from("episode_clean_text")
     .select("episode_id,updated_at,cleaner_method")
-    .neq("cleaner_method", method)
+    .not("cleaner_method", "like", `${method}%`)
     .order("updated_at", { ascending: true, nullsFirst: true })
     .limit(limit * 4);
   if (oldErr) throw oldErr;
