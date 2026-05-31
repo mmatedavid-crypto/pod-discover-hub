@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from "framer-motion";
-import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star, ThumbsUp, Instagram } from "lucide-react";
+import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star, ThumbsUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1444,91 +1444,6 @@ function ResultView({
     }
   };
 
-  /**
-   * Story megosztás Instagram / Facebook appba.
-   * A web nem tud közvetlenül képet feltölteni a Story compose-ba (csak natív iOS/Android
-   * SDK), ezért: (1) mentjük a képet az eszközre, (2) deep-linkkel nyitjuk a Story kamerát,
-   * (3) a user kiválasztja a most mentett képet. Két lépés helyett három, de a leggyorsabb
-   * elérhető út a webről.
-   */
-  const handleStoryShare = async (target: "ig" | "fb") => {
-    if (busy) return;
-    setBusy(target);
-    trackLandingEvent("ResultShared", { target: target === "ig" ? "instagram_story" : "facebook_story" });
-    trackProfileEvent("profile_share_clicked", {
-      archetype_id: listenerProfile.id,
-      target: target === "ig" ? "instagram_story" : "facebook_story",
-    });
-    if (!receiptRef.current) {
-      toast.error("A profil még tölt, próbáld újra egy másodperc múlva.");
-      setBusy(null);
-      return;
-    }
-
-    const label = target === "ig" ? "Instagram" : "Facebook";
-    const appUrl = target === "ig" ? "instagram://story-camera" : "fb://story_composer";
-    const webFallback = target === "ig" ? "https://www.instagram.com/" : "https://www.facebook.com/";
-
-    let created: { url: string; share_id: string } | null = null;
-    try {
-      created = await ensureShare();
-    } catch (e) {
-      console.warn("[story-share] share link creation skipped", e);
-    }
-
-    let blob: Blob;
-    try {
-      blob = await renderReceiptPng(receiptRef.current, "story");
-    } catch (e) {
-      console.error("[story-share] image render failed", e);
-      toast.error("Nem sikerült elkészíteni a megosztható képet. Próbáld újra.");
-      setBusy(null);
-      return;
-    }
-
-    downloadReceipt(blob, `podiverzum-${listenerProfile.id}.png`);
-    trackProfileEvent("profile_image_downloaded", {
-      share_id: created?.share_id ?? null,
-      archetype_id: listenerProfile.id,
-    });
-    if (created?.url) {
-      navigator.clipboard?.writeText(created.url).catch(() => {});
-    }
-
-    const ua = navigator.userAgent || "";
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
-
-    if (isMobile) {
-      toast.success(`Kép elkészült. Nyitom a ${label}ot — tedd ki storyként a frissen mentett képet.`, {
-        duration: 6500,
-      });
-      setTimeout(() => {
-        const start = Date.now();
-        window.location.href = appUrl;
-        setTimeout(() => {
-          if (Date.now() - start < 2200 && document.visibilityState === "visible") {
-            window.location.href = webFallback;
-          }
-        }, 1600);
-      }, 500);
-    } else {
-      toast.success(
-        `Kép elkészült. Töltsd fel a ${label}ra storyként; a linket megpróbáltuk vágólapra másolni.`,
-        { duration: 6500 },
-      );
-      try {
-        window.open(webFallback, "_blank", "noopener");
-      } catch {
-        window.location.href = webFallback;
-      }
-    }
-    setShowShareHint(true);
-    setBusy(null);
-  };
-
-
-
-
   if (liked.length === 0) {
     return (
       <div className="rounded-3xl border border-border bg-card p-8 text-center">
@@ -1568,27 +1483,19 @@ function ResultView({
         <div className="mt-6 space-y-3">
           <Button onClick={handleShare} size="lg" className="w-full" disabled={busy !== null}>
             <Share2 className="mr-2 h-4 w-4" />
-            {busy === "share" ? "Készítem…" : "Megosztás képként"}
+            {busy === "share" ? "Készítem…" : "Megosztás"}
           </Button>
           <p className="text-center text-[11px] text-muted-foreground">
-            Instagramra és Facebookra a profilkártyádat érdemes storyként kitenni.
+            Mobilon ez a telefon megosztóablakát nyitja meg; onnan válaszd az Instagramot vagy Facebookot.
           </p>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Button onClick={() => handleStoryShare("ig")} variant="secondary" size="sm" disabled={busy !== null}>
-              <Instagram className="mr-1.5 h-4 w-4" /> Instagram
-            </Button>
-            <Button onClick={() => handleStoryShare("fb")} variant="secondary" size="sm" disabled={busy !== null}>
-              <Share2 className="mr-1.5 h-4 w-4" /> Facebook
-            </Button>
+          <div className="grid grid-cols-3 gap-2 pt-1">
             <Button onClick={handleDownload} variant="secondary" size="sm" disabled={busy !== null}>
               <Download className="mr-1.5 h-4 w-4" /> Kép
             </Button>
             <Button onClick={handleCopyLink} variant="secondary" size="sm" disabled={busy !== null}>
               <Link2 className="mr-1.5 h-4 w-4" /> Link
             </Button>
-          </div>
-          <div className="pt-1">
             <Button onClick={onReset} variant="ghost" size="sm">
               <RotateCcw className="mr-1.5 h-4 w-4" /> Újra
             </Button>
