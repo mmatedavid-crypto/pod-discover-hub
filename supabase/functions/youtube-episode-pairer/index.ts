@@ -429,6 +429,10 @@ Deno.serve(async (req) => {
     const pilot = Number(url.searchParams.get("pilot") || 0);
     const dry = url.searchParams.get("dry") === "1";
     const podcastIdParam = url.searchParams.get("podcast_id");
+    // Deep-history mode: re-scan paired podcasts with much higher episode_limit
+    // and ignore the rescan cutoff so the old back-catalog gets a chance.
+    // Intended for a daily cron pass, not the 30-min increment loop.
+    const deep = url.searchParams.get("mode") === "deep";
 
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "youtube_episode_pairer_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
@@ -436,10 +440,18 @@ Deno.serve(async (req) => {
 
     const tiers: string[] = ctrl.tiers || ["S", "A"];
     const plan = await buildAdaptivePlan(admin, ctrl, tiers, pilot, podcastIdParam, url);
+    if (deep) {
+      // Widen the cutoff so every paired podcast is eligible again, and bump
+      // the per-podcast episode_limit so we reach into the deep back-catalog.
+      plan.cutoffIso = new Date().toISOString();
+      plan.episodeLimit = Math.max(plan.episodeLimit, Number(url.searchParams.get("episode_limit") || ctrl.deep_episode_limit || 2500));
+      plan.batch = Math.min(plan.batch, Number(ctrl.deep_podcast_batch || 5));
+      plan.phase = "drain";
+    }
     const batch = Math.max(1, Math.min(50, plan.batch));
     const aiModel = String(ctrl.ai_validate_model || "google/gemini-2.5-flash-lite");
-    const maxVideos = Math.max(20, Math.min(pilot ? 150 : 250, plan.maxVideos));
-    const episodeLimit = Math.max(20, Math.min(1200, plan.episodeLimit));
+    const maxVideos = Math.max(20, Math.min(pilot ? 150 : (deep ? 1500 : 250), deep ? (Number(url.searchParams.get("max_videos") || ctrl.deep_max_videos || 1500)) : plan.maxVideos));
+    const episodeLimit = Math.max(20, Math.min(deep ? 5000 : 1200, plan.episodeLimit));
     const maxAiCallsPerRun = plan.maxAiCallsPerRun;
     const timeBudgetMs = plan.timeBudgetMs;
     const strictAutoThr = Number(ctrl.strict_auto_pair_threshold || 0.84);
