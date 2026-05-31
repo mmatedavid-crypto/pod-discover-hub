@@ -173,13 +173,19 @@ Deno.serve(async (req) => {
     const shortRssChars = Number(ctrl.short_rss_chars ?? 160);
     const TIME_BUDGET_MS = 100_000;
 
-    // Budget check
+    // Budget check (daily + monthly)
     if (!pilot && !episodeIdParam) {
       const today = new Date().toISOString().slice(0, 10);
+      const monthStart = today.slice(0, 8) + "01";
       const { data: spendRow } = await admin.from("ai_spend_daily")
         .select("by_kind").eq("day", today).maybeSingle();
       const spentCredits = Number(((spendRow?.by_kind as any)?.youtube_transcript?.calls) || 0);
-      if (spentCredits >= dailyCreditLimit) return json({ ok: true, budget_exhausted: true, spent_credits: spentCredits, daily_credit_limit: dailyCreditLimit });
+      if (spentCredits >= dailyCreditLimit) return json({ ok: true, budget_exhausted: true, scope: "daily", spent_credits: spentCredits, daily_credit_limit: dailyCreditLimit });
+
+      const { data: monthRows } = await admin.from("ai_spend_daily")
+        .select("by_kind").gte("day", monthStart).lte("day", today);
+      const monthCredits = (monthRows || []).reduce((s, r: any) => s + Number(r?.by_kind?.youtube_transcript?.calls || 0), 0);
+      if (monthCredits >= monthlyCreditLimit) return json({ ok: true, budget_exhausted: true, scope: "monthly", month_credits: monthCredits, monthly_credit_limit: monthlyCreditLimit });
     }
 
     // Pick only strict v3-confirmed YouTube matches. Older "paired" episode
