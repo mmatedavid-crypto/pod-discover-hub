@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
@@ -23,6 +23,7 @@ interface EntityProfile {
 
 export default function EntityPage({ kind }: { kind: EntityKind }) {
   const { slug = "" } = useParams();
+  const nav = useNavigate();
   const decoded = useMemo(() => decodeURIComponent(slug), [slug]);
   const [eps, setEps] = useState<EpisodeLite[]>([]);
   const [mentionedEps, setMentionedEps] = useState<EpisodeLite[]>([]);
@@ -66,11 +67,22 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         // every older mention (e.g. NASA → 137 episodes but all old).
         const { data: org } = await supabase
           .from("organizations")
-          .select("id, name, ai_bio, wikipedia_extract, short_description_hu")
+          .select("id, name, slug, ai_bio, wikipedia_extract, short_description_hu, is_public, is_indexable, ai_duplicate_of_organization_id")
           .eq("slug", decoded)
           .maybeSingle();
 
         if (org?.id) {
+          if ((org as any).ai_duplicate_of_organization_id) {
+            const { data: canonicalOrg } = await supabase
+              .from("organizations")
+              .select("slug")
+              .eq("id", (org as any).ai_duplicate_of_organization_id)
+              .maybeSingle();
+            if (canonicalOrg?.slug && canonicalOrg.slug !== decoded) {
+              nav(`/ceg/${canonicalOrg.slug}`, { replace: true });
+              return;
+            }
+          }
           exemplar = org.name || exemplar;
           const orgBio =
             (org.ai_bio && String(org.ai_bio).trim()) ||
@@ -228,7 +240,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         ],
       });
     })();
-  }, [kind, slug, decoded]);
+  }, [kind, slug, decoded, nav]);
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
 
