@@ -243,6 +243,17 @@ Deno.serve(async (req) => {
           method_version: method,
           use_best_text_source: useBestTextSource,
           legacy_v3_requeue: requeueResult,
+          ai_trim: {
+            enabled: aiTrimEnabled,
+            model: aiTrimModel,
+            daily_budget_usd: aiTrimBudget,
+            spend_today_usd: aiTrimSpendToday,
+            calls: aiTrimCalls,
+            applied: aiTrimApplied,
+            rejected: aiTrimRejected,
+            errors: aiTrimErrors,
+            bucket_counts: aiTrimBucketCounts,
+          },
         },
       }, { onConflict: "key" });
     } catch (_) { /* non-fatal */ }
@@ -258,6 +269,16 @@ Deno.serve(async (req) => {
       method_version: method,
       use_best_text_source: useBestTextSource,
       legacy_v3_requeue: requeueResult,
+      ai_trim: {
+        enabled: aiTrimEnabled,
+        calls: aiTrimCalls,
+        applied: aiTrimApplied,
+        rejected: aiTrimRejected,
+        errors: aiTrimErrors,
+        spend_today_usd: aiTrimSpendToday,
+        daily_budget_usd: aiTrimBudget,
+        bucket_counts: aiTrimBucketCounts,
+      },
     });
   } catch (e) {
     console.error("episode-clean-text-runner err", e);
