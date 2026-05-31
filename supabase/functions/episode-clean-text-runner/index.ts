@@ -141,19 +141,59 @@ Deno.serve(async (req) => {
         }
         try {
           const { text, removed } = heuristicClean(raw);
-          const source_hash = await sha256Hex(`${usedMethod}::${raw}`);
+          let cleaned = text.trim();
+          let appliedMethod = usedMethod;
+          const removedCats = best?.source_type ? Array.from(new Set([...removed, `source_${best.source_type}`])) : [...removed];
+
+          // ----- AI-trim gate -----
+          if (aiTrimEnabled && aiTrimCalls < aiTrimMaxPerRun && aiTrimSpendToday < aiTrimBudget) {
+            const bucket = detectAiTrimBucket({
+              raw_text: raw,
+              v3_cleaned: cleaned,
+              source_type: String(best?.source_type || "rss"),
+              rss_description: rss,
+            });
+            aiTrimBucketCounts[bucket] = (aiTrimBucketCounts[bucket] || 0) + 1;
+            if (bucket !== "none" && aiTrimBuckets.has(bucket)) {
+              aiTrimCalls++;
+              try {
+                const aiRes = await runAiTrim({
+                  episode_id: (ep as any).id,
+                  raw_text: raw,
+                  v3_cleaned: cleaned,
+                  bucket,
+                  model: aiTrimModel,
+                  source_hash: await sha256Hex(`ai_trim::${bucket}::${raw}`),
+                });
+                if (aiRes.ok && aiRes.cleaned_text) {
+                  cleaned = aiRes.cleaned_text;
+                  appliedMethod = `${usedMethod}+ai_trim_${bucket}`;
+                  removedCats.push(`ai_trim_${bucket}`);
+                  aiTrimSpendToday += Number(aiRes.cost_usd || 0);
+                  aiTrimApplied++;
+                } else {
+                  aiTrimRejected++;
+                  removedCats.push(`ai_trim_skipped_${aiRes.reason || "unknown"}`);
+                }
+              } catch (e) {
+                aiTrimErrors++;
+                console.warn("ai_trim error", (ep as any).id, e);
+              }
+            }
+          }
+
+          const source_hash = await sha256Hex(`${appliedMethod}::${raw}`);
           upsertRows.push({
             episode_id: (ep as any).id,
             source_hash,
-            cleaned_text: text.trim(),
-            removed_categories: best?.source_type ? Array.from(new Set([...removed, `source_${best.source_type}`])) : removed,
-            cleaner_method: usedMethod,
+            cleaned_text: cleaned,
+            removed_categories: removedCats,
+            cleaner_method: appliedMethod,
           });
           doneIds.push((ep as any).id);
         } catch (e) {
           totalErrors++;
           console.warn("clean-text heuristic error", (ep as any).id, e);
-          // Mark as error individually (rare path).
           await admin.from("episodes").update({ clean_text_status: "error" }).eq("id", (ep as any).id);
         }
       }
@@ -165,10 +205,8 @@ Deno.serve(async (req) => {
         if (upErr) {
           totalErrors += upsertRows.length;
           console.warn("clean-text bulk upsert error", upErr.message);
-          // Don't flip status on failure — they remain pending and will be retried.
         } else {
           totalWritten += upsertRows.length;
-          // Chunk the IN list to avoid PostgREST URL length limits (~150 ids per call).
           for (let i = 0; i < doneIds.length; i += ID_CHUNK_SIZE) {
             const slice = doneIds.slice(i, i + ID_CHUNK_SIZE);
             await admin.from("episodes").update({ clean_text_status: "done" }).in("id", slice);
