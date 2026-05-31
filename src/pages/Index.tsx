@@ -145,7 +145,6 @@ import { MyLibraryRails } from "@/components/home/MyLibraryRails";
 import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
 import { HomeDiscoveryShortcuts } from "@/components/home/HomeDiscoveryShortcuts";
 import { HomeAudienceLanes } from "@/components/home/HomeAudienceLanes";
-import { HomeMediaSignals } from "@/components/home/HomeMediaSignals";
 import { HomeCurrentSignals } from "@/components/HomeCurrentSignals";
 import DailyStatsStrip from "@/components/DailyStatsStrip";
 import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
@@ -715,8 +714,6 @@ const Index = () => {
         )}
 
         <HomeCurrentSignals topics={currentTopics} people={currentPeople} companies={currentCompanies} />
-
-        <HomeMediaSignals people={currentPeople} companies={currentCompanies} />
 
         <MoodCollections />
 

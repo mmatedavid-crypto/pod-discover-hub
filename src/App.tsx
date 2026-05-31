@@ -62,6 +62,7 @@ import CompaniesHubPage from "./pages/CompaniesHubPage.tsx";
 import PodcastReport2026 from "./pages/PodcastReport2026.tsx";
 import PartiesHubPage from "./pages/PartiesHubPage.tsx";
 import ToplistaPage from "./pages/ToplistaPage.tsx";
+import IntelligencePage from "./pages/IntelligencePage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
@@ -194,6 +195,9 @@ const App = () => (
           <Route path="/en-podiverzumom" element={<EnPodiverzumomPage />} />
           <Route path="/p/:username" element={<PublicProfilePage />} />
           <Route path="/jelentes/magyar-podcast-piac-2026" element={<PodcastReport2026 />} />
+          <Route path="/intelligence" element={<IntelligencePage />} />
+          <Route path="/b2b" element={<Navigate to="/intelligence" replace />} />
+          <Route path="/mediafigyeles" element={<Navigate to="/intelligence" replace />} />
           <Route path="/toplista" element={<ToplistaPage />} />
           <Route path="/toplist" element={<Navigate to="/toplista" replace />} />
           <Route path="*" element={<NotFound />} />
