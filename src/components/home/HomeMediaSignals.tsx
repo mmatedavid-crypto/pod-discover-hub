@@ -63,8 +63,8 @@ export function HomeMediaSignals({
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
             <ShieldCheck className="h-3 w-3" /> Médiafigyelés
           </div>
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Kik és márkák a podcastokban</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Közszereplők, cégek és szervezetek friss podcast-említései.</p>
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Emberek és szervezetek a podcastokban</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Közszereplők, cégek és szervezetek friss podcastos említései.</p>
         </div>
         <Link to="/szervezetek" className="hidden sm:inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           Szervezetek <ArrowRight className="h-3.5 w-3.5" />

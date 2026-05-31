@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  Bell,
   Building2,
   ChartNoAxesColumnIncreasing,
   CheckCircle2,
@@ -18,17 +17,17 @@ import { useEffect } from "react";
 const useCases = [
   {
     title: "Márkaemlítés",
-    body: "Hol beszélnek a cégedről, versenytársadról vagy termékedről magyar podcastokban.",
+    body: "Mely magyar podcastokban kerül szóba a céged, a terméked vagy a versenytársad.",
     Icon: Building2,
   },
   {
-    title: "Közéleti radar",
-    body: "Politikusok, pártok, intézmények és ügyek podcastos jelenléte egy helyen.",
+    title: "Közéleti figyelés",
+    body: "Politikusok, pártok, intézmények és ügyek podcastos említései egy helyen.",
     Icon: Radar,
   },
   {
     title: "Személyfigyelés",
-    body: "Ismert emberek, vezetők, szakértők és alkotók említéseinek kontextusa.",
+    body: "Ismert emberek, vezetők, szakértők és alkotók említései, témák szerint rendezve.",
     Icon: UsersRound,
   },
 ];
@@ -36,10 +35,10 @@ const useCases = [
 const signals = [
   "említés forrása",
   "podcast és epizód",
-  "téma és kontextus",
+  "téma és szövegkörnyezet",
   "szereplők és szervezetek",
   "heti változás",
-  "riport és alert",
+  "riport és értesítés",
 ];
 
 export default function IntelligencePage() {
@@ -47,7 +46,7 @@ export default function IntelligencePage() {
     setSeo({
       title: "Podiverzum Intelligence - podcast médiafigyelés cégeknek",
       description:
-        "Magyar podcast médiafigyelés márkáknak, ismert embereknek, szervezeteknek és közéleti szereplőknek.",
+        "Magyar podcast médiafigyelés cégeknek, ismert embereknek, szervezeteknek és közéleti szereplőknek.",
       canonical: "/intelligence",
     });
   }, []);
@@ -62,18 +61,18 @@ export default function IntelligencePage() {
               Podiverzum Intelligence
             </div>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">
-              Podcast médiafigyelés magyar szereplőknek.
+              Magyar podcastfigyelés cégeknek és közszereplőknek.
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Márkák, cégek, közszereplők és szervezetek podcastos említései: hol hangzanak el, milyen témában,
-              milyen kontextusban, és hogyan változik a jelenlétük hétről hétre.
+              Megmutatjuk, mely podcastokban kerül szóba egy márka, cég, közszereplő vagy szervezet,
+              milyen témák mellett, és hogyan változik a láthatósága hétről hétre.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Link
                 to="/kapcsolat"
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                Pilot egyeztetés
+                Egyeztetés próbafigyelésről
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
@@ -89,8 +88,8 @@ export default function IntelligencePage() {
           <div className="rounded-lg border border-border/70 bg-card/70 p-4 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/70 pb-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Mintanézet</p>
-                <h2 className="mt-1 font-semibold">Heti podcast jelenlét</h2>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Mintariport</p>
+                <h2 className="mt-1 font-semibold">Heti podcastjelenlét</h2>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1 text-xs text-emerald-500">
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -114,7 +113,7 @@ export default function IntelligencePage() {
             </div>
             <div className="mt-4 space-y-2">
               {[
-                ["Magyar Telekom", "brand", "üzlet, digitális szolgáltatások", "31 említés"],
+                ["Magyar Telekom", "márka", "üzlet, digitális szolgáltatások", "31 említés"],
                 ["Budapest", "intézmény", "közlekedés, városfejlesztés", "24 említés"],
                 ["Lakáspiac", "téma", "hitel, infláció, befektetés", "19 említés"],
               ].map(([name, type, context, count]) => (
@@ -139,8 +138,8 @@ export default function IntelligencePage() {
           <div className="mb-4 max-w-2xl">
             <h2 className="text-2xl font-semibold tracking-tight">Mire jó?</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              A lakossági Podiverzum felfedezést ad. Az Intelligence oldal döntéstámogatást: ki, hol,
-              miről és milyen összefüggésben beszél a magyar podcastpiacon.
+              A lakossági Podiverzum abban segít, hogy jó adásokat találj. Az Intelligence oldal üzleti
+              és kommunikációs döntésekhez ad áttekintést: kiről, miről és hol beszélnek a magyar podcastpiacon.
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
@@ -162,7 +161,7 @@ export default function IntelligencePage() {
               <ChartNoAxesColumnIncreasing className="h-3.5 w-3.5" />
               Adatminőség
             </div>
-            <h2 className="text-2xl font-semibold tracking-tight">Nem kattintásszámot mérünk, hanem kontextust.</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">Nem kattintásszámot mérünk, hanem említéseket és összefüggéseket.</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               A rendszer epizódleírásokból, YouTube-leírásokból, entitásokból és témákból épít heti riportot.
               Átirat csak ott kerül be, ahol natív felirat igazoltan elérhető.
@@ -181,7 +180,7 @@ export default function IntelligencePage() {
           <div>
             <h2 className="text-xl font-semibold">Heti riport vagy figyelmeztetés kell?</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Pilotban név, márka, szervezet vagy téma alapján lehet indítani a figyelést.
+              Próbaidőszakban név, márka, szervezet vagy téma alapján lehet indítani a figyelést.
             </p>
           </div>
           <Link

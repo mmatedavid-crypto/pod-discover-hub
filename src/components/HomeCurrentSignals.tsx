@@ -35,9 +35,9 @@ export function HomeCurrentSignals({
   companies: EntityCount[];
 }) {
   const lanes: Lane[] = [
-    { title: "Témák", subtitle: "amik körül most forog a beszélgetés", icon: Hash, items: topics },
+    { title: "Témák", subtitle: "amelyek körül most forog a beszélgetés", icon: Hash, items: topics },
     { title: "Személyek", subtitle: "akik gyakran előkerülnek", icon: Users, items: people },
-    { title: "Cégek", subtitle: "márkák és szervezetek a műsorokban", icon: Building2, items: companies },
+    { title: "Cégek", subtitle: "márkák és szervezetek, amelyek szóba kerülnek", icon: Building2, items: companies },
   ].filter((lane) => lane.items.length > 0);
 
   if (!lanes.length) return null;
