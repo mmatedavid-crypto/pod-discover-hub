@@ -1,7 +1,6 @@
 // AI summary + entity extraction with daily cap & enable flag from app_settings.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, recordAiCall } from "../_shared/lovable-ai.ts";
-import { heuristicClean } from "../_shared/episode-text-cleaner.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,15 +81,16 @@ async function updateRowWithHashFallback(supabase: any, table: "episodes" | "pod
   if (retry.error) throw retry.error;
 }
 
-async function loadEpisodeCleanText(supabase: any, episodeId: string): Promise<string | null> {
+async function loadEpisodeCleanText(supabase: any, episodeId: string): Promise<{ text: string; method: string } | null> {
   const { data } = await supabase
     .from("episode_clean_text")
-    .select("cleaned_text")
+    .select("cleaned_text,cleaner_method")
     .eq("episode_id", episodeId)
+    .eq("cleaner_method", "deterministic_v4")
     .maybeSingle();
   const text = String(data?.cleaned_text || "").trim();
   if (!text) return null;
-  return text;
+  return { text, method: String(data?.cleaner_method || "") };
 }
 
 function dirtySignals(text: string): string[] {
@@ -115,16 +115,12 @@ function isUsableCleanText(raw: string, clean: string | null): boolean {
   return true;
 }
 
-function chooseEpisodeSource(rawDescription: string, cleanText: string | null): { text: string; label: string } {
+function chooseEpisodeSource(rawDescription: string, cleanText: { text: string; method: string } | null): { text: string; label: string } | null {
   const raw = String(rawDescription || "").trim();
-  if (isUsableCleanText(raw, cleanText)) {
-    return { text: cleanText!.trim(), label: "Cleaned RSS description" };
+  if (isUsableCleanText(raw, cleanText?.text || null)) {
+    return { text: cleanText!.text.trim(), label: "deterministic_v4 clean text" };
   }
-  const heuristic = heuristicClean(raw).text.trim();
-  if (isUsableCleanText(raw, heuristic)) {
-    return { text: heuristic, label: "Fresh deterministic clean RSS description" };
-  }
-  return { text: raw, label: "RSS description" };
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -188,6 +184,14 @@ Deno.serve(async (req) => {
       if (!ep) throw new Error("episode not found");
       const cleanText = await loadEpisodeCleanText(supabase, id);
       const source = chooseEpisodeSource(String(ep.description || ""), cleanText);
+      if (!source) {
+        return new Response(JSON.stringify({
+          ok: true,
+          skipped: true,
+          reason: "waiting_for_deterministic_v4_clean_text",
+          guard: "clean_text_first_ai_enrich",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const sourceText = source.text;
       const sourceLabel = source.label;
       const langRaw = ((ep as any).podcasts?.language) || "en";
