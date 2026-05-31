@@ -29,7 +29,7 @@ async function fetchAllEpisodes(podcastId: string) {
   for (let i = 0; i < 20; i++) {
     const { data, error } = await supabase
       .from("episodes")
-      .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
+      .select("id,title,display_title,slug,published_at,summary,description,audio_url,image_url,episode_url,topics,people,companies,tickers,ingredients")
       .eq("podcast_id", podcastId)
       .order("published_at", { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1);
@@ -423,6 +423,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               const fr = freshnessOf(e.published_at);
               const audioSrc = detectAudioSource(e);
               const playerAudioUrl = audioSrc?.url || e.audio_url || null;
+              const thumb = e.image_url || podcast.image_url || null;
               const isCurrent = currentEpisode?.id === e.id;
               const isThisPlaying = isCurrent && isPlaying;
               const handlePlay = () => {
@@ -446,15 +447,22 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               return (
                 <li key={e.id} className="rounded-lg border border-border bg-card p-3 transition-colors hover:border-primary/30 hover:bg-card/80 sm:p-4">
                   <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={handlePlay}
-                      disabled={!playerAudioUrl}
-                      className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-40"
-                      aria-label={isThisPlaying ? "Szünet" : "Hallgatás"}
-                    >
-                      {isThisPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
-                    </button>
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted sm:h-20 sm:w-20">
+                      {thumb ? (
+                        <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover" />
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={handlePlay}
+                        disabled={!playerAudioUrl}
+                        className="absolute inset-0 flex items-center justify-center bg-black/25 text-white transition-colors hover:bg-black/35 disabled:pointer-events-none disabled:opacity-0"
+                        aria-label={isThisPlaying ? "Szünet" : "Hallgatás"}
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 backdrop-blur">
+                          {isThisPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+                        </span>
+                      </button>
+                    </div>
                     <div className="min-w-0 flex-1">
                       <Link to={`/podcast/${podcastSlug}/${e.slug}`} className="group block">
                         <div className="font-medium leading-snug group-hover:text-primary flex items-center gap-2 flex-wrap">

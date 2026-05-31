@@ -468,9 +468,14 @@ export default function EpisodeDetail() {
             {understanding.chips.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {understanding.chips.map((chip) => (
-                  <span key={`${chip.kind}-${chip.label}`} className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-foreground/85">
+                  <Link
+                    key={`${chip.kind}-${chip.label}`}
+                    to={entityHref(chip.kind, chip.label)}
+                    className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-foreground/85 transition-colors hover:border-primary/40 hover:text-primary"
+                    aria-label={`${ENTITY_LABEL[chip.kind]}: ${chip.label}`}
+                  >
                     {chip.label}
-                  </span>
+                  </Link>
                 ))}
               </div>
             )}
