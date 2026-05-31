@@ -278,18 +278,26 @@ async function buildEpisode(
 
   const { data: ep } = await supabase
     .from("episodes")
-    .select("title, display_title, slug, published_at, audio_url, image_url, ai_summary, summary, description, seo_title, seo_description, topics, people, companies, tickers, ingredients")
+    .select("id, title, display_title, slug, published_at, audio_url, image_url, ai_summary, summary, description, seo_title, seo_description, topics, people, companies, tickers, ingredients")
     .eq("podcast_id", pod.id)
     .eq("slug", episodeSlug)
     .maybeSingle();
   if (!ep) return null;
 
+  const { data: cleanRow } = await supabase
+    .from("episode_clean_text")
+    .select("cleaned_text")
+    .eq("episode_id", ep.id)
+    .eq("cleaner_method", "deterministic_v4")
+    .maybeSingle();
+  const cleanText = stripHtml((cleanRow as any)?.cleaned_text || "");
+
   const title = ep.seo_title || `${ep.display_title || ep.title} — ${pod.display_title || pod.title}`;
   const desc =
     ep.seo_description ||
-    truncate(stripHtml(ep.ai_summary || ep.summary || ep.description) || ep.title, 160);
+    truncate(stripHtml(ep.ai_summary || ep.summary) || cleanText || stripHtml(ep.description) || ep.title, 160);
   const canonical = `${SITE}/podcast/${pod.slug}/${ep.slug}`;
-  const longText = stripHtml(ep.ai_summary || ep.summary || ep.description);
+  const longText = stripHtml(ep.ai_summary || ep.summary) || cleanText || stripHtml(ep.description);
 
   const entities: Array<{ k: string; label: string; vals: string[] }> = [
     { k: "topic", label: "Témák", vals: ep.topics ?? [] },
@@ -1091,7 +1099,7 @@ async function buildPodcastYear(
   const { from, to } = yearBounds(year);
   const { data } = await supabase
     .from("episodes")
-    .select("title, display_title, slug, published_at, ai_summary, summary, description")
+    .select("id, title, display_title, slug, published_at, ai_summary, summary, description")
     .eq("podcast_id", pod.id)
     .gte("published_at", from)
     .lt("published_at", to)
@@ -1100,6 +1108,18 @@ async function buildPodcastYear(
   const eps = (data ?? []) as Array<Record<string, any>>;
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
+  const cleanByEpisode = new Map<string, string>();
+  for (let i = 0; i < eps.length; i += 100) {
+    const ids = eps.slice(i, i + 100).map((e) => e.id).filter(Boolean);
+    if (!ids.length) continue;
+    const { data: cleanRows } = await supabase
+      .from("episode_clean_text")
+      .select("episode_id,cleaned_text")
+      .in("episode_id", ids)
+      .eq("cleaner_method", "deterministic_v4");
+    for (const r of cleanRows || []) cleanByEpisode.set((r as any).episode_id, (r as any).cleaned_text || "");
+  }
+
   const canonical = `${SITE}/podcast/${podcastSlug}/epizodok/${year}`;
   const podTitle = pod.display_title || pod.title;
   const title = `${podTitle} epizódok ${year} — Podiverzum`;
@@ -1107,7 +1127,8 @@ async function buildPodcastYear(
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${podcastSlug}/${e.slug}`;
-    const s = truncate(stripHtml(e.ai_summary || e.summary || e.description), 220);
+    const cleanText = cleanByEpisode.get(e.id) || "";
+    const s = truncate(stripHtml(e.ai_summary || e.summary) || stripHtml(cleanText) || stripHtml(e.description), 220);
     return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a>${e.published_at ? ` <time datetime="${esc(e.published_at)}">${esc(e.published_at.slice(0,10))}</time>` : ""}${s ? `<p>${esc(s)}</p>` : ""}</li>`;
   }).join("");
 

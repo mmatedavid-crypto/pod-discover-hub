@@ -1036,8 +1036,10 @@ Deno.serve(async (req) => {
               supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("title", `%${firstOrigToken}%`).limit(120),
               supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("description", `%${fullNameNeedle}%`).limit(120),
               supa.from("episodes").select("id,title,description,ai_summary,summary,people").ilike("ai_summary", `%${fullNameNeedle}%`).limit(120),
+              supa.from("episode_clean_text").select("episode_id,cleaned_text").eq("cleaner_method", "deterministic_v4").ilike("cleaned_text", `%${fullNameNeedle}%`).limit(120),
             ]);
-            const directRows = directMentionQueries.flatMap((r: any) => r.data || []);
+            const cleanRows = (directMentionQueries[4] as any)?.data || [];
+            const directRows = directMentionQueries.slice(0, 4).flatMap((r: any) => r.data || []);
             for (const r of directRows) {
               const hay = foldText([
                 r.title || "",
@@ -1047,6 +1049,10 @@ Deno.serve(async (req) => {
                 String(r.description || "").slice(0, 1800),
               ].join(" "));
               if (personNameQueryTokens.every((t) => nameTokenHit(hay, t))) epIds.push(r.id);
+            }
+            for (const r of cleanRows) {
+              const hay = foldText(String(r.cleaned_text || "").slice(0, 5000));
+              if (personNameQueryTokens.every((t) => nameTokenHit(hay, t))) epIds.push(r.episode_id);
             }
             epIds = Array.from(new Set(epIds.filter(Boolean)));
           }
