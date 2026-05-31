@@ -31,6 +31,19 @@ type PodcastRow = {
   image_url: string | null;
 };
 
+const NEWS_LIKE_RX = /\b(hírek|hír|hírösszefoglaló|hírháttér|hírpercek|krónika|infostart|napi hírek|reggeli hírek|esti hírek|news|bulletin)\b/i;
+const BULLETIN_LIKE_RX = /\b(hírek röviden|hírpercek|hírgyors|napi hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírösszefoglaló|infostart hírek|percben|perces hír|bulletin)\b/i;
+
+function isBulletinLike(input: { title?: string | null; podcastTitle?: string | null }): boolean {
+  const hay = `${input.title || ""} ${input.podcastTitle || ""}`.toLowerCase();
+  return BULLETIN_LIKE_RX.test(hay) || /^\s*\d{1,2}\s*[-–—]\s+/.test(input.title || "");
+}
+
+function isNewsLike(input: { title?: string | null; podcastTitle?: string | null }): boolean {
+  const hay = `${input.title || ""} ${input.podcastTitle || ""}`.toLowerCase();
+  return isBulletinLike(input) || NEWS_LIKE_RX.test(hay);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -160,7 +173,7 @@ Deno.serve(async (req) => {
     const epById = new Map<string, EpisodeRow>(
       (episodes ?? []).map((e) => [e.id, e as EpisodeRow]),
     );
-    const ordered = episodeIds
+    const hydrated = episodeIds
       .map((id) => epById.get(id))
       .filter((e): e is EpisodeRow => !!e)
       .map((e) => {
@@ -180,6 +193,19 @@ Deno.serve(async (req) => {
             : null,
         };
       });
+
+    const ordered: typeof hydrated = [];
+    let newsCount = 0;
+    let bulletinCount = 0;
+    for (const row of hydrated) {
+      const bulletin = isBulletinLike({ title: row.title, podcastTitle: row.podcast?.title });
+      const news = isNewsLike({ title: row.title, podcastTitle: row.podcast?.title });
+      if (bulletin && bulletinCount >= 1) continue;
+      if (news && newsCount >= 3) continue;
+      if (bulletin) bulletinCount++;
+      if (news) newsCount++;
+      ordered.push(row);
+    }
 
     return json({
       episodes: ordered.slice(0, 12),

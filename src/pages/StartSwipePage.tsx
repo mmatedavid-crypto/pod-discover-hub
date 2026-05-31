@@ -195,6 +195,29 @@ function primaryReason(r: RecEp): string {
   return "Az ízlésprofilod alapján";
 }
 
+const NEWS_LIKE_RX = /\b(hírek|hír|hírösszefoglaló|hírháttér|hírpercek|krónika|infostart|napi hírek|reggeli hírek|esti hírek|news|bulletin)\b/i;
+const BULLETIN_LIKE_RX = /\b(hírek röviden|hírpercek|hírgyors|napi hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírösszefoglaló|infostart hírek|percben|perces hír|bulletin)\b/i;
+
+function recHaystack(r: RecEp): string {
+  return [
+    r.title,
+    r.display_title,
+    r.podcast_title,
+    r.category,
+    ...(r.topics || []),
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function isBulletinLike(r: RecEp): boolean {
+  const hay = recHaystack(r);
+  return BULLETIN_LIKE_RX.test(hay) || /^\s*\d{1,2}\s*[-–—]\s+/.test(r.title || "");
+}
+
+function isNewsLike(r: RecEp): boolean {
+  const hay = recHaystack(r);
+  return isBulletinLike(r) || NEWS_LIKE_RX.test(hay) || (r.category || "").toLowerCase().includes("news");
+}
+
 /* ────────────────── Next-card selector ────────────────── */
 
 const BROAD_DOMAINS = [
@@ -489,12 +512,12 @@ export default function StartSwipePage() {
       ? normalize(add(centroid, scale(dislikedDev, 2.5)))
       : null;
 
-    // Over-fetch (40) so we have headroom for tag-overlap re-rank below.
+    // Over-fetch so we have enough headroom for quality caps and diversity.
     const { data, error } = await supabase.rpc("match_episodes_by_taste_vector", {
       p_user_vector: toPgVector(userVec) as any,
       p_negative_vector: negVec ? (toPgVector(negVec) as any) : null,
       p_exclude_episode_ids: [],
-      p_limit: 40,
+      p_limit: 80,
     });
     if (error || !data) {
       setRecsError(error?.message || "Nem sikerült lekérni az ajánlásokat.");
@@ -552,7 +575,9 @@ export default function StartSwipePage() {
       const publishedAt = (r as any).published_at ? new Date((r as any).published_at).getTime() : 0;
       const ageDays = publishedAt ? (now - publishedAt) / 86_400_000 : 9999;
       const freshBonus = ageDays < 7 ? 0.05 : ageDays < 30 ? 0.025 : 0;
-      const taste_score = 0.58 * normSim + 0.32 * normOverlap - 0.15 * normAnti + freshBonus;
+      const bulletinPenalty = isBulletinLike(r) ? 0.35 : 0;
+      const newsPenalty = !bulletinPenalty && isNewsLike(r) ? 0.06 : 0;
+      const taste_score = 0.58 * normSim + 0.32 * normOverlap - 0.15 * normAnti + freshBonus - bulletinPenalty - newsPenalty;
       const reasons = matched
         .sort((a, b) => b.w - a.w)
         .slice(0, 2)
@@ -560,14 +585,23 @@ export default function StartSwipePage() {
       return { ...r, taste_score, reasons };
     });
 
-    // Sort by blended taste score, then diversify (≤2 per podcast in final 16).
+    // Sort by blended taste score, then diversify. News/public-affairs can appear,
+    // but short bulletin feeds should never dominate a personal profile result.
     rows.sort((a, b) => (b.taste_score! - a.taste_score!));
     const perPod = new Map<string, number>();
     const finalRows: RecEp[] = [];
+    let newsCount = 0;
+    let bulletinCount = 0;
     for (const r of rows) {
       const n = perPod.get(r.podcast_id) || 0;
-      if (n >= 2) continue;
+      if (n >= 1) continue;
+      const bulletin = isBulletinLike(r);
+      const news = isNewsLike(r);
+      if (bulletin && bulletinCount >= 1) continue;
+      if (news && newsCount >= 3) continue;
       perPod.set(r.podcast_id, n + 1);
+      if (bulletin) bulletinCount++;
+      if (news) newsCount++;
       finalRows.push(r);
       if (finalRows.length >= 16) break;
     }
