@@ -1,0 +1,146 @@
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..");
+
+if (!process.env.DATABASE_URL) {
+  console.error("Missing DATABASE_URL. Use a read-only Postgres connection string.");
+  process.exit(1);
+}
+
+const sql = `
+WITH accepted_hu AS (
+  SELECT e.id
+  FROM public.episodes e
+  JOIN public.podcasts p ON p.id = e.podcast_id
+  WHERE p.is_hungarian = true
+    AND p.language_decision = 'accept_hungarian'
+    AND COALESCE(e.description, '') <> ''
+),
+clean_counts AS (
+  SELECT
+    count(*) FILTER (WHERE ct.cleaner_method = 'deterministic_v4') AS deterministic_v4,
+    count(*) FILTER (WHERE ct.cleaner_method = 'deterministic_v3') AS deterministic_v3,
+    count(*) FILTER (WHERE ct.cleaner_method IS NOT NULL) AS any_clean
+  FROM accepted_hu h
+  LEFT JOIN public.episode_clean_text ct ON ct.episode_id = h.id
+),
+best_source_counts AS (
+  SELECT
+    count(*) AS total,
+    count(*) FILTER (WHERE b.source_type = 'youtube') AS youtube,
+    count(*) FILTER (WHERE b.source_type = 'rss') AS rss,
+    count(*) FILTER (WHERE b.source_type = 'spotify') AS spotify
+  FROM accepted_hu h
+  JOIN public.episode_best_text_source b ON b.episode_id = h.id
+),
+candidate_counts AS (
+  SELECT
+    count(*) AS total,
+    count(*) FILTER (WHERE quality_status = 'passed') AS passed,
+    count(*) FILTER (WHERE quality_status = 'rejected') AS rejected,
+    count(*) FILTER (WHERE promoted_at IS NOT NULL) AS promoted
+  FROM public.episode_clean_text_candidates
+),
+settings AS (
+  SELECT jsonb_object_agg(key, value) AS setting_values
+  FROM public.app_settings
+  WHERE key IN (
+    'clean_text_autopilot',
+    'episode_clean_text_candidate_progress',
+    'episode_best_text_source_controls',
+    'episode_best_text_source_progress'
+  )
+),
+controls AS (
+  SELECT jsonb_build_object(
+    'clean_text_autopilot', jsonb_build_object(
+      'enabled', setting_values->'clean_text_autopilot'->'enabled',
+      'dry_run', setting_values->'clean_text_autopilot'->'dry_run',
+      'stage_limit', setting_values->'clean_text_autopilot'->'stage_limit',
+      'candidate_batch', setting_values->'clean_text_autopilot'->'candidate_batch',
+      'promote_limit', setting_values->'clean_text_autopilot'->'promote_limit',
+      'last_run_at', setting_values->'clean_text_autopilot'->'last_run_at',
+      'last_candidates', setting_values->'clean_text_autopilot'->'last_candidates',
+      'last_promotion', setting_values->'clean_text_autopilot'->'last_promotion',
+      'consecutive_errors', setting_values->'clean_text_autopilot'->'consecutive_errors',
+      'spend_today_usd', setting_values->'clean_text_autopilot'->'spend_today_usd'
+    ),
+    'episode_clean_text_candidate_progress', jsonb_build_object(
+      'method', setting_values->'episode_clean_text_candidate_progress'->'method',
+      'processed', setting_values->'episode_clean_text_candidate_progress'->'processed',
+      'passed', setting_values->'episode_clean_text_candidate_progress'->'passed',
+      'rejected', setting_values->'episode_clean_text_candidate_progress'->'rejected',
+      'runtime_ms', setting_values->'episode_clean_text_candidate_progress'->'runtime_ms',
+      'last_run_at', setting_values->'episode_clean_text_candidate_progress'->'last_run_at'
+    ),
+    'episode_best_text_source_controls', setting_values->'episode_best_text_source_controls',
+    'episode_best_text_source_progress', setting_values->'episode_best_text_source_progress'
+  ) AS summary
+  FROM settings
+),
+rpc_shapes AS (
+  SELECT
+    pg_get_function_result(p.oid) AS result
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'select_embed_chunks_candidates'
+    AND pg_get_function_arguments(p.oid) = '_model text, _limit integer'
+  LIMIT 1
+)
+SELECT jsonb_build_object(
+  'generated_at', now(),
+  'migration_gates', jsonb_build_object(
+    'pipeline_health_rpc', to_regprocedure('public.get_pipeline_health_snapshot_v1()') IS NOT NULL,
+    'text_processing_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'text_processing_policy'),
+    'legacy_embed_episode_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'),
+    'embed_chunks_returns_clean_text', COALESCE((SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%' FROM rpc_shapes), false)
+  ),
+  'accepted_hu_episodes_with_description', (SELECT count(*) FROM accepted_hu),
+  'clean_text', (SELECT to_jsonb(clean_counts) FROM clean_counts),
+  'best_text_source', (SELECT to_jsonb(best_source_counts) FROM best_source_counts),
+  'clean_text_candidates', (SELECT to_jsonb(candidate_counts) FROM candidate_counts),
+  'controls', COALESCE((SELECT summary FROM controls), '{}'::jsonb)
+) AS snapshot;
+`;
+
+function runReadonlyQuery(query) {
+  const out = execFileSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts/pg-readonly-query.mjs"), query],
+    {
+      cwd: repoRoot,
+      env: process.env,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  return JSON.parse(out);
+}
+
+const result = runReadonlyQuery(sql);
+const snapshot = JSON.parse(result.rows?.[0]?.snapshot ?? "{}");
+const gates = snapshot.migration_gates ?? {};
+const failures = [];
+
+for (const [key, ok] of Object.entries(gates)) {
+  if (ok !== true) failures.push(`migration_gates.${key}`);
+}
+
+const clean = snapshot.clean_text ?? {};
+const total = Number(snapshot.accepted_hu_episodes_with_description ?? 0);
+const v4 = Number(clean.deterministic_v4 ?? 0);
+if (total > 0 && v4 / total < 0.5) {
+  failures.push(`clean_text.deterministic_v4_coverage_low:${v4}/${total}`);
+}
+
+console.log(JSON.stringify({
+  ok: failures.length === 0,
+  failures,
+  snapshot,
+}, null, 2));
+
+if (failures.length) process.exit(1);
