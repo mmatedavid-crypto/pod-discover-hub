@@ -575,6 +575,14 @@ export default function StartSwipePage() {
     }
     const maxW = Math.max(1, ...Object.values(tagW));
     const maxAntiW = Math.max(1, ...Object.values(antiW));
+    const newsSignal =
+      (tagW.közélet || 0) +
+      (tagW.politika || 0) +
+      (tagW["magyar közélet"] || 0) +
+      (tagW.hírek || 0) +
+      (tagW.geopolitika || 0);
+    const allowsNews = newsSignal >= 4;
+    const allowsBulletins = newsSignal >= 7;
 
     // Re-rank: vector + positive tag overlap − anti-tag penalty + small freshness nudge.
     const now = Date.now();
@@ -599,14 +607,16 @@ export default function StartSwipePage() {
       const publishedAt = (r as any).published_at ? new Date((r as any).published_at).getTime() : 0;
       const ageDays = publishedAt ? (now - publishedAt) / 86_400_000 : 9999;
       const freshBonus = ageDays < 7 ? 0.05 : ageDays < 30 ? 0.025 : 0;
-      const bulletinPenalty = isBulletinLike(r) ? 0.35 : 0;
-      const newsPenalty = !bulletinPenalty && isNewsLike(r) ? 0.06 : 0;
-      const taste_score = 0.58 * normSim + 0.32 * normOverlap - 0.15 * normAnti + freshBonus - bulletinPenalty - newsPenalty;
+      const bulletinPenalty = isBulletinLike(r) ? (allowsBulletins ? 0.18 : 0.55) : 0;
+      const newsPenalty = !bulletinPenalty && isNewsLike(r) ? (allowsNews ? 0.04 : 0.16) : 0;
+      const precisionQualified = matched.length > 0 || normSim >= 0.7;
+      const weakEvidencePenalty = precisionQualified ? 0 : 0.12;
+      const taste_score = 0.58 * normSim + 0.32 * normOverlap - 0.15 * normAnti + freshBonus - bulletinPenalty - newsPenalty - weakEvidencePenalty;
       const reasons = matched
         .sort((a, b) => b.w - a.w)
         .slice(0, 2)
         .map(m => m.tag);
-      return { ...r, taste_score, reasons };
+      return { ...r, taste_score, reasons, precisionQualified };
     });
 
     // Sort by blended taste score, then diversify. News/public-affairs can appear,
@@ -616,17 +626,27 @@ export default function StartSwipePage() {
     const finalRows: RecEp[] = [];
     let newsCount = 0;
     let bulletinCount = 0;
-    for (const r of rows) {
+    const tryAdd = (r: RecEp & { precisionQualified?: boolean }, strict: boolean) => {
       const n = perPod.get(r.podcast_id) || 0;
-      if (n >= 1) continue;
+      if (n >= 1) return false;
       const bulletin = isBulletinLike(r);
       const news = isNewsLike(r);
-      if (bulletin && bulletinCount >= 1) continue;
-      if (news && newsCount >= 3) continue;
+      if (strict && !r.precisionQualified) return false;
+      if (bulletin && (!allowsBulletins || bulletinCount >= 1)) return false;
+      if (news && newsCount >= (allowsNews ? 2 : 1)) return false;
       perPod.set(r.podcast_id, n + 1);
       if (bulletin) bulletinCount++;
       if (news) newsCount++;
       finalRows.push(r);
+      return true;
+    };
+    for (const r of rows) {
+      tryAdd(r, true);
+      if (finalRows.length >= 12) break;
+    }
+    for (const r of rows) {
+      if (finalRows.some((existing) => existing.episode_id === r.episode_id)) continue;
+      tryAdd(r, false);
       if (finalRows.length >= 16) break;
     }
     setRecs(finalRows);
