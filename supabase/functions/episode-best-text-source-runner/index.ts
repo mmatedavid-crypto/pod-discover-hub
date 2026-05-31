@@ -155,13 +155,20 @@ Deno.serve(async (req) => {
         if (data) episodes.push(...data);
       }
     } else {
+      // No YouTube-priority IDs left → drain remaining episodes that don't have a best_text_source yet.
+      const { data: doneRows } = await admin
+        .from("episode_best_text_source")
+        .select("episode_id")
+        .limit(50000);
+      const doneSet = new Set((doneRows || []).map((r: any) => String(r.episode_id)));
+      const fetchLimit = Math.min(limit * 4, 20000);
       const { data, error } = await admin
         .from("episodes")
         .select("id,podcast_id,title,description,updated_at")
         .order("updated_at", { ascending: false, nullsFirst: false })
-        .limit(limit);
+        .limit(fetchLimit);
       if (error) throw error;
-      episodes = data || [];
+      episodes = (data || []).filter((r: any) => !doneSet.has(String(r.id))).slice(0, limit);
     }
     const eps = episodes as EpisodeRow[];
     if (!eps.length) return json({ ok: true, processed: 0 });
