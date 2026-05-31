@@ -472,8 +472,7 @@ Deno.serve(async (req) => {
           processedPodcastIds.add(pod.id);
           if (!dry && !podcastIdParam) {
             await admin.from("podcasts").update({
-              youtube_episode_pair_claimed_at: null,
-              youtube_episode_pair_claim_owner: null,
+              youtube_last_episode_pair_at: new Date().toISOString(),
             }).eq("id", pod.id);
           }
           continue;
