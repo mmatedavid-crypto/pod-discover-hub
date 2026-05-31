@@ -137,6 +137,13 @@ async function loadDirectDrainEpisodeIds(
   return Array.from(idSet).slice(0, limit);
 }
 
+function isDirectDrainRequested(body: Record<string, unknown>, plan: StagedPlan): boolean {
+  if (body.direct_drain === true) return true;
+  if (body.ignore_staged_plan === true) return true;
+  const planCount = Array.isArray(plan.candidates) ? plan.candidates.length : 0;
+  return planCount === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
@@ -158,8 +165,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const plan = (planRow?.value || {}) as StagedPlan;
     const method = String(plan.cleaner_method || "deterministic_v4");
-    let ids = (plan.candidates || []).map((c) => c.id).filter((id): id is string => !!id).slice(0, batch);
-    ids = await filterAcceptedHungarianEpisodeIds(admin, ids);
+    const directDrain = isDirectDrainRequested(body, plan);
+    let ids = directDrain
+      ? []
+      : (plan.candidates || []).map((c) => c.id).filter((id): id is string => !!id).slice(0, batch);
+    ids = directDrain ? ids : await filterAcceptedHungarianEpisodeIds(admin, ids);
 
     if (ids.length < batch) {
       const direct = await loadDirectDrainEpisodeIds(admin, method, batch - ids.length, new Set(ids));
@@ -229,6 +239,8 @@ Deno.serve(async (req) => {
         last_run_at: new Date().toISOString(),
         runtime_ms: Date.now() - startedAt,
         method,
+        direct_drain: directDrain,
+        requested_batch: batch,
         processed: candidateRows.length,
         passed,
         rejected,
@@ -240,7 +252,7 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
-    return json({ ok: true, processed: candidateRows.length, passed, rejected, method });
+    return json({ ok: true, processed: candidateRows.length, passed, rejected, method, direct_drain: directDrain });
   } catch (e) {
     const msg = e instanceof Error ? `${e.message}${e.stack ? `\n${e.stack}` : ""}` : (() => { try { return JSON.stringify(e); } catch { return String(e); } })();
     console.error("[clean-text-candidate-runner] fatal:", msg);

@@ -138,7 +138,11 @@ Deno.serve(async (req) => {
         } else {
           stage = { ok: true, skipped: true, reason: "using_direct_clean_text_drain" };
         }
-        candidates = await callFunction("episode-clean-text-candidate-runner", { batch: candidateBatch });
+        candidates = await callFunction("episode-clean-text-candidate-runner", {
+          batch: candidateBatch,
+          direct_drain: true,
+          trigger: "clean_text_autopilot",
+        });
         promote = await callFunction("episode-clean-text-candidate-promoter", { limit: promoteLimit });
 
         const promotedIds = Array.isArray(promote?.promoted_episode_ids)
