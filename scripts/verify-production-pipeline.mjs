@@ -106,6 +106,10 @@ SELECT jsonb_build_object(
   ),
   'article_pipeline', jsonb_build_object(
     'table_exists', to_regclass('public.episode_article_candidates') IS NOT NULL,
+    'controls_configured', (SELECT setting_values->'episode_article_pairer_controls' IS NOT NULL FROM settings),
+    'sources_v2_configured', (SELECT setting_values->'episode_article_pairer_controls'->>'source_version' = 'publisher_sources_v2' FROM settings),
+    'best_source_article_policy', (SELECT setting_values->'episode_best_text_source_controls'->>'policy' = 'best_text_source_v2_confirmed_article_youtube_first'
+      AND setting_values->'episode_best_text_source_controls' ? 'article_min_confidence' FROM settings),
     'best_source_accepts_article', EXISTS (
       SELECT 1
       FROM pg_constraint c
@@ -144,13 +148,36 @@ const snapshot = JSON.parse(result.rows?.[0]?.snapshot ?? "{}");
 if (snapshot.article_pipeline?.table_exists === true) {
   try {
     const articleResult = runReadonlyQuery(`
+      WITH totals AS (
+        SELECT
+          count(*) AS total,
+          count(*) FILTER (WHERE status = 'confirmed') AS confirmed,
+          count(*) FILTER (WHERE status = 'needs_review') AS needs_review,
+          count(*) FILTER (WHERE status = 'rejected') AS rejected
+        FROM public.episode_article_candidates
+      ),
+      by_outlet AS (
+        SELECT jsonb_object_agg(outlet, counts ORDER BY outlet) AS counts
+        FROM (
+          SELECT outlet, jsonb_build_object(
+            'total', count(*),
+            'confirmed', count(*) FILTER (WHERE status = 'confirmed'),
+            'needs_review', count(*) FILTER (WHERE status = 'needs_review'),
+            'rejected', count(*) FILTER (WHERE status = 'rejected'),
+            'latest', max(updated_at)
+          ) AS counts
+          FROM public.episode_article_candidates
+          GROUP BY outlet
+        ) s
+      )
       SELECT jsonb_build_object(
-        'total', count(*),
-        'confirmed', count(*) FILTER (WHERE status = 'confirmed'),
-        'needs_review', count(*) FILTER (WHERE status = 'needs_review'),
-        'rejected', count(*) FILTER (WHERE status = 'rejected')
+        'total', totals.total,
+        'confirmed', totals.confirmed,
+        'needs_review', totals.needs_review,
+        'rejected', totals.rejected,
+        'by_outlet', COALESCE(by_outlet.counts, '{}'::jsonb)
       ) AS counts
-      FROM public.episode_article_candidates;
+      FROM totals, by_outlet;
     `);
     snapshot.article_candidates = JSON.parse(articleResult.rows?.[0]?.counts ?? "{}");
   } catch (e) {
