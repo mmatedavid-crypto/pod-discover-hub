@@ -1,3 +1,5 @@
+// deno-lint-ignore-file no-explicit-any
+declare const Deno: { env: { get(key: string): string | undefined } };
 // Shared Lovable AI Gateway helper with model-policy guard + audit logging.
 // Policy doc: app_settings.lovable_ai_model_policy (single source of truth).
 //
