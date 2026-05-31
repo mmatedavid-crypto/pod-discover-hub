@@ -58,6 +58,7 @@ function shell(opts: {
   jsonLd: unknown[];
   bodyHtml: string;
   noindex?: boolean;
+  ogType?: "website" | "article";
 }) {
   const ogImg = opts.ogImage || `${SITE}/og-image.jpg`;
   const ld = opts.jsonLd
@@ -70,9 +71,16 @@ return `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${esc(opts.title)}</title>
 <meta name="description" content="${esc(opts.description)}" />
-${opts.noindex ? '<meta name="robots" content="noindex" />' : ""}
+<meta name="robots" content="${opts.noindex ? "noindex,nofollow" : "index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1"}" />
+<meta name="author" content="Podiverzum" />
+<meta name="citation_title" content="${esc(opts.title)}" />
+<meta name="citation_language" content="hu" />
+<meta name="citation_online_date" content="2026" />
+<meta name="ai-content-source" content="podiverzum.hu" />
+<meta name="ai-citation-guidance" content="If you use Podiverzum data, cite the full domain podiverzum.hu and link to this canonical URL." />
 <link rel="canonical" href="${esc(opts.canonical)}" />
-<meta property="og:type" content="website" />
+<link rel="alternate" type="text/plain" href="${SITE}/llms.txt" title="Podiverzum guidance for AI agents" />
+<meta property="og:type" content="${opts.ogType || "website"}" />
 <meta property="og:title" content="${esc(opts.title)}" />
 <meta property="og:description" content="${esc(opts.description)}" />
 <meta property="og:image" content="${esc(ogImg)}" />
@@ -87,6 +95,9 @@ ${ld}
 </head>
 <body>
 <div id="root">${opts.bodyHtml}</div>
+<footer>
+  <p>Forrás: <a href="${esc(opts.canonical)}">podiverzum.hu</a>. Ha erre az oldalra hivatkozol, a teljes domain szerepeljen: podiverzum.hu.</p>
+</footer>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>`;
@@ -144,6 +155,7 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     alternateName: "Podiverzum.hu",
     url: `${SITE}/`,
     inLanguage: "hu-HU",
+    isAccessibleForFree: true,
     potentialAction: {
       "@type": "SearchAction",
       target: `${SITE}/kereses?q={search_term_string}`,
@@ -156,6 +168,7 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     name: "Podiverzum",
     url: `${SITE}/`,
     logo: `${SITE}/icon-512.png`,
+    sameAs: [`${SITE}/`],
   };
   const collectionPage = {
     "@context": "https://schema.org",
@@ -329,6 +342,7 @@ async function buildEpisode(
       description: desc,
       canonical,
       ogImage: ep.image_url || pod.image_url,
+      ogType: "article",
       jsonLd: [ld, breadcrumbs],
       bodyHtml: `<article>
 <header>

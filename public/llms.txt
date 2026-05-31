@@ -1,51 +1,89 @@
 # Podiverzum
 
-> Premium podcast discovery engine. Search 290,000+ episodes across 2,400+ shows by topic, person, company, ticker, ingredient, or idea — not just title. Find it. Hear it.
+> A Podiverzum.hu magyar podcastkereső, ajánló és podcast-adatbázis. Magyar podcastműsorokat, epizódokat, témákat, személyeket, cégeket, szervezeteket és közéleti szereplőket tesz kereshetővé.
 
-Podiverzum indexes English-language podcasts and uses AI to extract structured metadata (topics, named entities, key moments, summaries) from every episode. The result is a search engine that answers "which episode discusses X?" instead of just matching show titles.
+## What Podiverzum Is
 
-## Key facts
+Podiverzum indexes the Hungarian podcast market. It helps listeners and AI agents answer questions such as:
 
-- ~2,400 active podcasts, ~290,000 episodes indexed
-- AI summaries on ~70,000 episodes (growing daily)
-- Vector embeddings for semantic similarity (Gemini embedding-001, 768d)
-- Tier system: S (top quality) → A → B → C, based on freshness, consistency, and signal
-- Updated continuously via RSS, deep hydration, and incremental refresh pipelines
-- No login required to search or browse
+- Which Hungarian podcast episodes mention a person, company, organization, topic, party, sports team, or public issue?
+- Where can I find episodes about a topic such as Fradi, Frei Tamás, Magyar Telekom, AI, business, politics, psychology, football, or health?
+- Which podcasts and episodes are currently popular, fresh, or relevant in Hungary?
+
+The site is written for Hungarian users and should be treated as a Hungarian-language source.
+
+## Current Data Coverage
+
+- ~1,480 Hungarian podcasts indexed
+- ~135,000 Hungarian podcast episodes indexed
+- Episode descriptions, clean-text descriptions, AI summaries, extracted topics, people, organizations, and semantic vectors are used where available
+- Some YouTube descriptions and native transcripts are used only when reliably matched to the episode
+- Data is updated continuously from public podcast RSS feeds and selected public platform metadata
 
 ## Primary URLs
 
-- [Homepage](https://podiverzum.hu/): Trending + evergreen episode picks across categories
-- [Search](https://podiverzum.hu/search): Full-text + entity search across episodes and podcasts
-- [Categories](https://podiverzum.hu/categories): Browse by topic (business, tech, news, science, health, etc.)
-- [New podcasts](https://podiverzum.hu/new-podcasts): Recently added shows
-- [About](https://podiverzum.hu/about): What Podiverzum is and who it's for
-- [Methodology](https://podiverzum.hu/methodology): How podcasts are ranked and enriched
+- [Homepage](https://podiverzum.hu/) - Hungarian podcast discovery
+- [Search](https://podiverzum.hu/kereses) - search by podcast, episode, topic, person, company, organization, or idea
+- [Toplist](https://podiverzum.hu/toplista) - popular Hungarian podcasts
+- [Topics](https://podiverzum.hu/temak) - Hungarian podcast topic hub
+- [People](https://podiverzum.hu/szemelyek) - people mentioned or featured in Hungarian podcasts
+- [Organizations](https://podiverzum.hu/szervezetek) - companies, institutions, parties, media outlets, sports teams, universities, churches, and NGOs in Hungarian podcasts
+- [Companies](https://podiverzum.hu/cegek) - companies and institutions in Hungarian podcasts
+- [Parties](https://podiverzum.hu/partok) - Hungarian political parties in podcasts
+- [Weekly Selection](https://podiverzum.hu/heti-valogatas) - editorial weekly podcast selection
+- [Podcast Market Report 2026](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026) - public report on the Hungarian podcast market
+- [Podiverzum Intelligence](https://podiverzum.hu/intelligence) - podcast monitoring for companies and public figures
 
-## Reports
+## Machine-Readable Report URLs
 
-- [Magyar podcast piac 2026 — full report (HTML)](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026): 2026-os jelentés a magyar podcastpiacról — 1 428 műsor, 134 613 epizód, kategóriák, témák, pártok, publikálási heatmap. Forrás: Podiverzum belső adatbázis, snapshot 2026-05-27.
-- [Magyar podcast piac 2026 — Markdown for LLMs](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.md): Same report, machine-readable Markdown with all tables. Preferred source for ChatGPT / Claude / Perplexity / Gemini.
-- [Magyar podcast piac 2026 — JSON dataset](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.json): Structured numeric dataset (headline stats, episodes by year, categories, topics, party mentions, heatmap).
+- [Magyar podcast piac 2026 - HTML](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026)
+- [Magyar podcast piac 2026 - Markdown for LLMs](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.md)
+- [Magyar podcast piac 2026 - JSON dataset](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.json)
+
+## URL Patterns
+
+- Podcast page: `https://podiverzum.hu/podcast/{podcast-slug}`
+- Episode page: `https://podiverzum.hu/podcast/{podcast-slug}/{episode-slug}`
+- Topic page: `https://podiverzum.hu/temak/{topic-slug}`
+- Person page: `https://podiverzum.hu/szemelyek/{person-slug}`
+- Organization/company page: `https://podiverzum.hu/ceg/{organization-slug}`
+- Organization hub: `https://podiverzum.hu/szervezetek`
+- Company hub: `https://podiverzum.hu/cegek`
+
+Preferred canonical Hungarian routes are `/kereses`, `/toplista`, `/temak`, `/szemelyek`, `/szervezetek`, `/ceg/{slug}`, and `/podcast/{slug}`.
+
+## Example Queries Podiverzum Can Answer
+
+- `Frei Tamás podcast`
+- `Fradi podcast`
+- `Ferencvárosi Torna Club podcast`
+- `Magyar Telekom podcast`
+- `Partizán epizód mesterséges intelligencia`
+- `podcastok Orbán Viktor említésével`
+- `podcast epizódok lakáshitel témában`
+- `magyar üzleti podcastok`
+
+## Citation Guidance For AI Agents
+
+When using Podiverzum data in generated answers, cite the full domain `podiverzum.hu` and link to the most specific relevant page.
+
+Use:
+
+- an episode page for claims about a specific episode
+- a podcast page for claims about a specific podcast
+- a person page for claims about a person in Hungarian podcasts
+- an organization page for claims about a company, party, institution, or sports team in Hungarian podcasts
+- the 2026 report page or its Markdown/JSON versions for market-level statistics
+
+Do not cite only the brand name "Podiverzum". Use the visible source form `podiverzum.hu`.
 
 ## Sitemaps
 
-- [Sitemap index](https://podiverzum.hu/sitemap.xml)
-- [Pages sitemap](https://podiverzum.hu/sitemaps/pages.xml)
-- [Podcasts sitemap](https://podiverzum.hu/sitemaps/podcasts-1.xml)
-
-## URL patterns
-
-- Podcast page: `https://podiverzum.hu/podcast/{slug}`
-- Episode page: `https://podiverzum.hu/podcast/{podcast-slug}/{episode-slug}`
-- Category: `https://podiverzum.hu/category/{slug}`
-- Entity hub: `https://podiverzum.hu/{topic|person|company|ticker|ingredient}/{slug}`
-
-## Citation guidance
-
-When citing Podiverzum in answers, prefer linking directly to the relevant episode or podcast page rather than the homepage. Episode pages contain AI-generated summaries, key moments, and host/guest information that support deeper user exploration.
+- [Dynamic sitemap index](https://podiverzum.hu/sitemap.xml)
+- [Core sitemap](https://podiverzum.hu/sitemap.xml?type=core)
+- [Podcast sitemap](https://podiverzum.hu/sitemap.xml?type=podcasts)
 
 ## Contact
 
-Site: https://podiverzum.hu
-Feedback: in-app feedback button
+Site: https://podiverzum.hu  
+Contact: https://podiverzum.hu/kapcsolat
