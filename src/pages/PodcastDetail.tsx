@@ -19,6 +19,7 @@ import { categoryHref, categoryLabel } from "@/lib/categoryLabels";
 import { PodcastFollow } from "@/components/PodcastFollow";
 import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
@@ -419,11 +420,12 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
             <div className="text-xs text-muted-foreground mb-2">{filtered.length} találat {eps.length} epizódból</div>
           )}
           <ul className="grid gap-3">
-            {filtered.map((e) => {
+            {filtered.map((e, i) => {
               const fr = freshnessOf(e.published_at);
               const audioSrc = detectAudioSource(e);
               const playerAudioUrl = audioSrc?.url || e.audio_url || null;
               const thumb = e.image_url || podcast.image_url || null;
+              const optimizedThumb = optimizedImageUrl(thumb, { width: i < 4 ? 160 : 96, height: i < 4 ? 160 : 96 });
               const isCurrent = currentEpisode?.id === e.id;
               const isThisPlaying = isCurrent && isPlaying;
               const handlePlay = () => {
@@ -449,7 +451,18 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
                   <div className="flex gap-3">
                     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted sm:h-20 sm:w-20">
                       {thumb ? (
-                        <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        <img
+                          src={optimizedThumb || thumb}
+                          srcSet={imageSrcSet(thumb, [96, 160, 240])}
+                          sizes="(max-width: 640px) 64px, 80px"
+                          alt=""
+                          loading={i < 4 ? "eager" : "lazy"}
+                          fetchPriority={i < 4 ? "high" : "auto"}
+                          decoding="async"
+                          width={i < 4 ? 160 : 96}
+                          height={i < 4 ? 160 : 96}
+                          className="h-full w-full object-cover"
+                        />
                       ) : null}
                       <button
                         type="button"

@@ -58,8 +58,8 @@ function HL({ text, terms }: { text: string; terms?: string[] }) {
 }
 
 export function EpisodeCard({
-  e, showTopics = false, terms, showEntities = false,
-}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean }) {
+  e, showTopics = false, terms, showEntities = false, imagePriority = false,
+}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean; imagePriority?: boolean }) {
   const p = e.podcasts;
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
@@ -98,7 +98,13 @@ export function EpisodeCard({
     <article className="group flex gap-3 sm:gap-4 p-4 sm:p-5 hover:bg-secondary/40 transition-colors">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-16 sm:w-20">
         <div className="overflow-hidden rounded-md ring-1 ring-border/70 shadow-sm">
-          <PodcastCover title={podTitle} src={p.image_url} size="sm" />
+          <PodcastCover
+            title={podTitle}
+            src={p.image_url}
+            size="sm"
+            loading={imagePriority ? "eager" : "lazy"}
+            fetchPriority={imagePriority ? "high" : "auto"}
+          />
         </div>
       </Link>
       <div className="min-w-0 flex-1">
@@ -218,8 +224,8 @@ export function EpisodeCard({
 }
 
 function EpisodeRailCard({
-  e, showTopics = false, terms, showEntities = false,
-}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean }) {
+  e, showTopics = false, terms, showEntities = false, imagePriority = false,
+}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean; imagePriority?: boolean }) {
   const p = e.podcasts;
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
@@ -263,7 +269,13 @@ function EpisodeRailCard({
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/45 to-transparent" />
           <div className="absolute left-3 top-3 w-16 rounded-md shadow-lg ring-1 ring-border/70 sm:w-20">
-            <PodcastCover title={podTitle} src={p.image_url} size="sm" />
+            <PodcastCover
+              title={podTitle}
+              src={p.image_url}
+              size="sm"
+              loading={imagePriority ? "eager" : "lazy"}
+              fetchPriority={imagePriority ? "high" : "auto"}
+            />
           </div>
           {playerAudioUrl && (
             <button
@@ -361,12 +373,12 @@ export function EpisodeList({
           className="flex gap-3 sm:gap-4 overflow-x-auto snap-x snap-mandatory pl-4 sm:pl-2 pr-8 pb-3 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ scrollPaddingLeft: "1rem", WebkitOverflowScrolling: "touch" }}
         >
-          {items.map((e) => (
+          {items.map((e, i) => (
             <div
               key={e.id}
               className="snap-start shrink-0 w-[78vw] max-w-[340px] sm:w-[340px]"
             >
-              <EpisodeRailCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+              <EpisodeRailCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i < 3} />
             </div>
           ))}
           <div aria-hidden className="shrink-0 w-2" />
@@ -381,9 +393,9 @@ export function EpisodeList({
 
   const desktop = (
     <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:surface overflow-hidden`}>
-      {items.map((e) => (
+      {items.map((e, i) => (
         <li key={e.id} className="transition-colors">
-          <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+          <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i < 4} />
         </li>
       ))}
     </ul>
@@ -396,12 +408,12 @@ export function EpisodeList({
           className="flex gap-3 overflow-x-auto snap-x snap-mandatory pl-4 pr-8 pb-3 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ scrollPaddingLeft: "1rem", WebkitOverflowScrolling: "touch" }}
         >
-          {items.map((e) => (
+          {items.map((e, i) => (
             <div
               key={e.id}
               className="snap-start shrink-0 w-[84vw] max-w-[360px] rounded-xl border border-border/60 bg-card/70 overflow-hidden"
             >
-              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i < 3} />
             </div>
           ))}
           <div aria-hidden className="shrink-0 w-2" />

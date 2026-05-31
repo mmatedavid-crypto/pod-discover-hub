@@ -1,4 +1,5 @@
 import { forwardRef, useState } from "react";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 function initials(title: string) {
   const normalized = (title || "")
@@ -27,16 +28,21 @@ type Props = {
   src?: string | null;
   className?: string;
   size?: "sm" | "md" | "lg";
+  loading?: "eager" | "lazy";
+  fetchPriority?: "high" | "low" | "auto";
 };
 
 export const PodcastCover = forwardRef<HTMLDivElement, Props>(function PodcastCover(
-  { title, src, className = "", size = "md" },
+  { title, src, className = "", size = "md", loading = "lazy", fetchPriority = "auto" },
   ref,
 ) {
   const [broken, setBroken] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const showImg = src && !broken;
   const sizeCls = size === "sm" ? "text-xs" : size === "lg" ? "text-3xl" : "text-base";
+  const pixelSize = size === "sm" ? 96 : size === "lg" ? 320 : 192;
+  const optimizedSrc = optimizedImageUrl(src, { width: pixelSize, height: pixelSize });
+  const srcSet = imageSrcSet(src, size === "lg" ? [192, 320, 480] : [80, 128, 192]);
   return (
     <div
       ref={ref}
@@ -52,12 +58,15 @@ export const PodcastCover = forwardRef<HTMLDivElement, Props>(function PodcastCo
       </div>
       {showImg && (
         <img
-          src={src as string}
+          src={optimizedSrc || (src as string)}
+          srcSet={srcSet}
+          sizes={size === "lg" ? "(max-width: 640px) 160px, 320px" : "(max-width: 640px) 64px, 96px"}
           alt={title}
-          loading="lazy"
+          loading={loading}
+          fetchPriority={fetchPriority}
           decoding="async"
-          width={400}
-          height={400}
+          width={pixelSize}
+          height={pixelSize}
           onLoad={() => setLoaded(true)}
           onError={() => setBroken(true)}
           className={`relative w-full h-full object-cover transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`}
