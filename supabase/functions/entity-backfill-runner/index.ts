@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { filterHosts } from "../_shared/seo-prompt.ts";
+import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
 import {
   callGeminiOpenAI,
   assertModelAllowed,
@@ -54,7 +55,7 @@ const ENTITY_TOOL = {
           items: {
             type: "object",
             properties: {
-              name: { type: "string", description: "Original-language full person name, literally present in the input." },
+              name: { type: "string", description: "Canonical original-language full person name. For Hungarian, remove case suffixes/ragok: 'Vigh Vandával' -> 'Vigh Vanda', 'Schmied Andival' -> 'Schmied Andi', 'Nagy Péterrel' -> 'Nagy Péter'." },
               role: { type: "string", enum: ["speaker", "subject", "mentioned"], description: "speaker only when metadata says the person appears/speaks." },
               confidence: { type: "number", minimum: 0, maximum: 1 },
               evidence: { type: "string", description: "Short exact phrase from title/description containing or directly supporting the name." },
@@ -152,6 +153,10 @@ function isLikelyFullName(name: string): boolean {
   if (parts.some((p) => p.length < 2)) return false;
   if (parts.some((p) => /^[a-záéíóöőúüű]+$/.test(p))) return false;
   return true;
+}
+
+function canonicalPersonName(name: string): string {
+  return canonicalizeHungarianPersonName(name).name;
 }
 
 function isFooterContext(evidence: string): boolean {
@@ -281,11 +286,12 @@ Deno.serve(async (req) => {
         const rawPersonMentions = Array.isArray(parsed.person_mentions) ? parsed.person_mentions : [];
         if (rawPersonMentions.length) {
           for (const item of rawPersonMentions) {
-            const name = String(item?.name || "").replace(/\s+/g, " ").trim().slice(0, 100);
+            const rawName = String(item?.name || "").replace(/\s+/g, " ").trim().slice(0, 100);
+            const name = canonicalPersonName(rawName);
             if (!name || !isLikelyFullName(name)) continue;
             if (hostNorms.has(normalizeForMatch(name))) continue;
-            if (!includesLiteral(sourceText, name)) continue;
-            const evidence = evidenceSnippet(sourceText, name, item?.evidence);
+            if (!includesLiteral(sourceText, rawName) && !includesLiteral(sourceText, name)) continue;
+            const evidence = evidenceSnippet(sourceText, rawName, item?.evidence) || evidenceSnippet(sourceText, name, item?.evidence);
             if (!evidence) continue;
             const role = ["speaker", "subject", "mentioned"].includes(String(item?.role)) ? String(item.role) : "mentioned";
             personEvidence.push({
@@ -297,14 +303,16 @@ Deno.serve(async (req) => {
             });
           }
         } else {
-          for (const name of filterHosts(cleanArr(parsed.people), podHosts)) {
-            if (!isLikelyFullName(name) || !includesLiteral(sourceText, name)) continue;
-            const evidence = evidenceSnippet(sourceText, name);
+          for (const rawName of filterHosts(cleanArr(parsed.people), podHosts)) {
+            const name = canonicalPersonName(rawName);
+            if (!isLikelyFullName(name) || (!includesLiteral(sourceText, rawName) && !includesLiteral(sourceText, name))) continue;
+            const evidence = evidenceSnippet(sourceText, rawName) || evidenceSnippet(sourceText, name);
             if (evidence) personEvidence.push({ name, role: "speaker", confidence: 0.8, evidence, source: "entity_backfill_v4_fallback" });
           }
-          for (const name of filterHosts(cleanArr(parsed.mentioned), podHosts)) {
-            if (!isLikelyFullName(name) || !includesLiteral(sourceText, name)) continue;
-            const evidence = evidenceSnippet(sourceText, name);
+          for (const rawName of filterHosts(cleanArr(parsed.mentioned), podHosts)) {
+            const name = canonicalPersonName(rawName);
+            if (!isLikelyFullName(name) || (!includesLiteral(sourceText, rawName) && !includesLiteral(sourceText, name))) continue;
+            const evidence = evidenceSnippet(sourceText, rawName) || evidenceSnippet(sourceText, name);
             if (evidence) personEvidence.push({ name, role: "mentioned", confidence: 0.68, evidence, source: "entity_backfill_v4_fallback" });
           }
         }

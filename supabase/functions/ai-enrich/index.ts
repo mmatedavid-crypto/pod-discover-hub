@@ -1,6 +1,7 @@
 // AI summary + entity extraction with daily cap & enable flag from app_settings.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, recordAiCall } from "../_shared/lovable-ai.ts";
+import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -123,6 +124,21 @@ function chooseEpisodeSource(rawDescription: string, cleanText: { text: string; 
   return null;
 }
 
+function cleanPersonArray(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const canonical = canonicalizeHungarianPersonName(String(value || "")).name;
+    if (!canonical) continue;
+    const key = canonical.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(canonical);
+  }
+  return out.slice(0, 12);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -237,7 +253,7 @@ Deno.serve(async (req) => {
         input_text: inputText,
         min_input_chars: ctrl.minInputChars,
         messages: [
-          { role: "system", content: `You analyze podcast episode metadata and extract structured entities. Write the summary field in ${langName} (${langCode}) — match the source language; never translate. Entity names (people, companies, tickers) stay in their original form.` },
+          { role: "system", content: `You analyze podcast episode metadata and extract structured entities. Write the summary field in ${langName} (${langCode}) — match the source language; never translate. Entity names stay in their original canonical form. For Hungarian person names, remove case suffixes/ragok from names: "Vigh Vandával" -> "Vigh Vanda", "Schmied Andival" -> "Schmied Andi", "Nagy Péterrel" -> "Nagy Péter".` },
           { role: "user", content: `Podcast: ${(ep as any).podcasts?.title}\nEpisode: ${ep.title}\n\n${sourceLabel}: ${sourceText || "(none)"}` },
         ],
         tools,
@@ -251,7 +267,7 @@ Deno.serve(async (req) => {
       await updateRowWithHashFallback(supabase, "episodes", id, {
         summary: parsed.summary || null,
         topics: parsed.topics || [],
-        people: parsed.people || [],
+        people: cleanPersonArray(parsed.people),
         companies: parsed.companies || [],
         tickers: parsed.tickers || [],
         ingredients: parsed.ingredients || [],

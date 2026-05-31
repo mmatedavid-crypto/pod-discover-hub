@@ -12,6 +12,7 @@ const cors = {
 };
 
 import { slugify as sharedSlugify } from "../_shared/slug.ts";
+import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
 // normalize() is kept as the comparison key for existing `people.normalized_name`
 // rows — changing it would re-bucket the entire people table. The slugify path
 // now uses the central HU-safe helper so new person slugs match site-wide rules.
@@ -68,6 +69,10 @@ function roleTypeForMention(mentionType: string): string {
   if (["host", "guest", "interviewee", "speaker"].includes(mentionType)) return "participant";
   if (mentionType === "subject") return "subject";
   return "mention";
+}
+
+function canonicalPersonInput(name: string) {
+  return canonicalizeHungarianPersonName(name);
 }
 
 Deno.serve(async (req) => {
@@ -150,7 +155,8 @@ Deno.serve(async (req) => {
     }>();
 
     function getOrCreatePerson(name: string, contextBucket = "unknown"): string | null {
-      const cleaned = name.trim();
+      const canonical = canonicalPersonInput(name);
+      const cleaned = canonical.name.trim();
       if (!cleaned) return null;
       const norm = normalize(cleaned);
       if (norm.length < 3) return null;
@@ -218,7 +224,7 @@ Deno.serve(async (req) => {
         const pod = e.podcasts;
         if (!pod) continue;
         const hosts: string[] = pod.hosts || [];
-        const hostSet = new Set(hosts.map(normalize));
+        const hostSet = new Set(hosts.map((host) => normalize(canonicalPersonInput(host).name)));
         const contextBucket = contextBucketFor(e, pod);
         const titleNorm = normalize(e.title || "");
         const descNorm = normalize([e.ai_summary, e.clean_text].filter(Boolean).join(" "));
@@ -244,18 +250,19 @@ Deno.serve(async (req) => {
           : [];
         const evidenceSpeakers = evidencePeople
           .filter((p: any) => p?.role === "speaker")
-          .map((p: any) => p.name);
+          .map((p: any) => canonicalPersonInput(p.name).name);
         const evidenceMentioned = evidencePeople
           .filter((p: any) => p?.role !== "speaker")
-          .map((p: any) => p.name);
+          .map((p: any) => canonicalPersonInput(p.name).name);
 
         // Guests / speakers: prefer v5 evidence-backed mentions, fall back to legacy episodes.people.
         for (const p of (evidenceSpeakers.length ? evidenceSpeakers : (e.people || []))) {
-          if (hostSet.has(normalize(p))) continue;
+          const canonicalName = canonicalPersonInput(p);
+          if (hostSet.has(normalize(canonicalName.name))) continue;
           const pid = getOrCreatePerson(p, contextBucket);
           if (!pid) continue;
           const inTitle = titleNorm.includes(normalize(p));
-          const evidence = evidencePeople.find((x: any) => normalize(x?.name || "") === normalize(p));
+          const evidence = evidencePeople.find((x: any) => normalize(canonicalPersonInput(x?.name || "").name) === normalize(canonicalName.name));
           const conf = Math.max(Number(evidence?.confidence || 0), inTitle ? 0.9 : 0.8);
           const agg = personAgg.get(pid)!;
           agg.maxConfidence = Math.max(agg.maxConfidence, conf);
@@ -267,7 +274,7 @@ Deno.serve(async (req) => {
             confidence: conf,
             source: evidence?.source || (inTitle ? "title" : "ai_summary"),
             evidence: evidence?.evidence || null,
-            source_evidence: evidence ? { extraction_version: 5, evidence: evidence.evidence, role: evidence.role } : {},
+            source_evidence: evidence ? { extraction_version: 5, evidence: evidence.evidence, role: evidence.role, original_name: evidence.name, canonicalized_name: canonicalName.changed ? canonicalName.name : undefined, removed_suffix: canonicalName.removed_suffix } : {},
           } as any);
           const cur = agg.podcastRoles.get(pod.id) || { role: "recurring_guest", count: 0, latest: null, confidence: conf };
           cur.count++;
@@ -277,10 +284,11 @@ Deno.serve(async (req) => {
 
         // Mentioned (talked about, not speaking): prefer v5 evidence-backed mentions.
         for (const m of (evidenceMentioned.length ? evidenceMentioned : (e.mentioned || []))) {
-          if (hostSet.has(normalize(m))) continue;
+          const canonicalName = canonicalPersonInput(m);
+          if (hostSet.has(normalize(canonicalName.name))) continue;
           const pid = getOrCreatePerson(m, contextBucket);
           if (!pid) continue;
-          const evidence = evidencePeople.find((x: any) => normalize(x?.name || "") === normalize(m));
+          const evidence = evidencePeople.find((x: any) => normalize(canonicalPersonInput(x?.name || "").name) === normalize(canonicalName.name));
           const conf = Math.max(Number(evidence?.confidence || 0), evidence ? 0.72 : 0.7);
           const agg = personAgg.get(pid)!;
           agg.maxConfidence = Math.max(agg.maxConfidence, conf);
@@ -293,7 +301,7 @@ Deno.serve(async (req) => {
             confidence: conf,
             source: evidence?.source || "ai_summary",
             evidence: evidence?.evidence || null,
-            source_evidence: evidence ? { extraction_version: 5, evidence: evidence.evidence, role: evidence.role } : {},
+            source_evidence: evidence ? { extraction_version: 5, evidence: evidence.evidence, role: evidence.role, original_name: evidence.name, canonicalized_name: canonicalName.changed ? canonicalName.name : undefined, removed_suffix: canonicalName.removed_suffix } : {},
           } as any);
           const cur = agg.podcastRoles.get(pod.id) || { role: "frequent_subject", count: 0, latest: null, confidence: conf };
           cur.count++;
