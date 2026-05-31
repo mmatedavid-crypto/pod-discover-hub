@@ -60,7 +60,33 @@ Deno.serve(async (req) => {
     const useBestTextSource = ctrl.use_best_text_source !== false;
     const requeueResult = await maybeRequeueLegacyV3(admin, ctrl, body, batchLimit);
 
+    // ---- AI-trim gate (LIVE 2026-05-31) ----
+    // Bucket-routes yt_dominant / over_trimmed_v3 / sponsor_heavy to flash-lite few-shot.
+    // v3 still runs first; AI-trim only OVERWRITES cleaned_text when guards pass.
+    const aiTrimEnabled = ctrl.ai_trim_enabled === true;
+    const aiTrimModel = String(ctrl.ai_trim_model ?? "google/gemini-3.1-flash-lite-preview");
+    const aiTrimBudget = Number(ctrl.ai_trim_daily_budget_usd ?? 5);
+    const aiTrimMaxPerRun = Math.max(0, Math.min(200, Number(ctrl.ai_trim_max_per_run ?? 60)));
+    const aiTrimBuckets = new Set<AiTrimBucket>(
+      Array.isArray(ctrl.ai_trim_buckets) && ctrl.ai_trim_buckets.length
+        ? ctrl.ai_trim_buckets.map(String) as AiTrimBucket[]
+        : AI_TRIM_TARGET_BUCKETS,
+    );
+
+    let aiTrimSpendToday = 0;
+    if (aiTrimEnabled) {
+      const today = new Date(); today.setUTCHours(0,0,0,0);
+      const { data: spentRows } = await admin
+        .from("ai_call_audit")
+        .select("estimated_cost_usd")
+        .eq("job_type", "clean_text_ai_trim")
+        .gte("created_at", today.toISOString());
+      aiTrimSpendToday = (spentRows || []).reduce((s: number, r: any) => s + Number(r.estimated_cost_usd || 0), 0);
+    }
+
     let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, passes = 0;
+    let aiTrimCalls = 0, aiTrimApplied = 0, aiTrimRejected = 0, aiTrimErrors = 0;
+    const aiTrimBucketCounts: Record<string, number> = {};
 
     // Drain loop: keep claiming batches until time budget exhausted or queue empty.
     while (Date.now() - startedAt < timeBudgetMs) {
