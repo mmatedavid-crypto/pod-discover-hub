@@ -7286,6 +7286,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_pipeline_health_snapshot_v1: { Args: never; Returns: Json }
       get_related_episodes_by_embedding: {
         Args: {
           p_downweight_same_podcast?: boolean
@@ -7680,6 +7681,17 @@ export type Database = {
           count: number
           letter: string
         }[]
+      }
+      pipeline_health_item_v1: {
+        Args: {
+          p_backlog?: number
+          p_backlog_label?: string
+          p_controls_key: string
+          p_cron_pattern: string
+          p_name: string
+          p_progress_key: string
+        }
+        Returns: Json
       }
       purge_search_query_cache: {
         Args: { older_than_days?: number }
