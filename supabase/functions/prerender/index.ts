@@ -1351,7 +1351,7 @@ async function buildShare(
     .maybeSingle();
   if (!data) return null;
 
-  const canonical = `${SITE}/te-podiverzumod/eredmeny/${slug}`;
+  const canonical = `${SITE}/hallgatoi-profil/${slug}`;
   const title = `Én ${data.result_title} lettem — Podiverzum`;
   const desc = truncate(
     stripHtml(data.result_subtitle || data.result_description || "Nézd meg, te milyen hallgató vagy a Podiverzumon."),
@@ -1483,6 +1483,10 @@ Deno.serve(async (req) => {
     }
     if (parts[0] === "te-podiverzumod" && parts[1] === "eredmeny" && parts.length === 3) {
       const r = await buildShare(supabase, parts[2]);
+      return r ?? notFound(path);
+    }
+    if (parts[0] === "hallgatoi-profil" && parts.length === 2) {
+      const r = await buildShare(supabase, parts[1]);
       return r ?? notFound(path);
     }
     if (parts.length === 2) {

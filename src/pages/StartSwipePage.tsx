@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from "framer-motion";
-import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star } from "lucide-react";
+import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star, ThumbsUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -124,6 +124,15 @@ function shouldStop(totalSwipes: number, positiveSwipes: number, confidence: num
   return false;
 }
 
+function progressCopy(totalSwipes: number, positiveSwipes: number, confidence: number): string {
+  if (totalSwipes === 0) return "Pár döntés, és indulnak a személyes ajánlások.";
+  if (totalSwipes < 6) return `Még ${6 - totalSwipes} gyors döntés, hogy ráérezzünk.`;
+  if (positiveSwipes < 4) return "Mutatunk még pár irányt, hogy legyen miből ajánlani.";
+  if (confidence >= 0.72 && positiveSwipes >= 6) return "Elég erős a profilod, jönnek az ajánlások.";
+  if (totalSwipes < 10) return `Még ${10 - totalSwipes} finomító döntés.`;
+  return "Már elég sokat tudunk rólad, hamarosan kész.";
+}
+
 /* ────────────────── Tag weights aggregation ────────────────── */
 
 function tagWeights(cards: Card[]): Record<string, number> {
@@ -137,6 +146,40 @@ function tagWeights(cards: Card[]): Record<string, number> {
 
 function topTags(weights: Record<string, number>, n: number): string[] {
   return Object.entries(weights).sort((a, b) => b[1] - a[1]).slice(0, n).map(([t]) => t);
+}
+
+const TAG_LABELS: Record<string, string> = {
+  ai: "AI",
+  "mesterséges intelligencia": "mesterséges intelligencia",
+  technológia: "technológia",
+  gazdaság: "gazdaság",
+  pénzügy: "pénzügy",
+  befektetés: "befektetés",
+  közélet: "közélet",
+  politika: "közélet",
+  társadalom: "társadalmi témák",
+  kultúra: "kultúra",
+  irodalom: "irodalom",
+  film: "film",
+  tudomány: "tudomány",
+  pszichológia: "pszichológia",
+  önfejlesztés: "önfejlesztés",
+  sport: "sport",
+  humor: "humor",
+  mélyinterjú: "mélyebb beszélgetések",
+  interjú: "interjúk",
+};
+
+function tagLabel(tag: string): string {
+  const key = tag.toLowerCase();
+  return TAG_LABELS[key] || tag;
+}
+
+function primaryReason(r: RecEp): string {
+  const reasons = (r.reasons || []).map(tagLabel).filter(Boolean);
+  if (reasons.length) return `Passzol: ${reasons.slice(0, 2).join(" + ")}`;
+  if (r.category) return `Irány: ${r.category}`;
+  return "Az ízlésprofilod alapján";
 }
 
 /* ────────────────── Next-card selector ────────────────── */
@@ -264,9 +307,11 @@ export default function StartSwipePage() {
   const [phase, setPhase] = useState<Phase>(initialPhase);
   const [pool, setPool] = useState<Card[] | null>(null);
   const [poolError, setPoolError] = useState<string | null>(null);
+  const [poolLoadNonce, setPoolLoadNonce] = useState(0);
   const [current, setCurrent] = useState<Card | null>(null);
   const [recs, setRecs] = useState<RecEp[] | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
+  const [recsError, setRecsError] = useState<string | null>(null);
 
   // Derived collections
   const byId = useMemo(() => {
@@ -308,6 +353,7 @@ export default function StartSwipePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setPoolError(null);
       const { data, error } = await supabase.rpc("get_active_taste_cards", { p_limit: 500 });
       if (cancelled) return;
       if (error) { setPoolError(error.message); return; }
@@ -318,7 +364,7 @@ export default function StartSwipePage() {
       setPool(cards);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [poolLoadNonce]);
 
   // Fire SwipeStarted on first mount when starting directly in swipe phase
   useEffect(() => {
@@ -415,6 +461,7 @@ export default function StartSwipePage() {
   const fetchRecs = async () => {
     if (effectiveLiked.length === 0 || !pool) return;
     setRecsLoading(true);
+    setRecsError(null);
 
     // Mean-center against the pool centroid so the user's *deviation* dominates.
     const centroid = mean(pool.map(c => c.card_embedding));
@@ -435,7 +482,11 @@ export default function StartSwipePage() {
       p_exclude_episode_ids: [],
       p_limit: 40,
     });
-    if (error || !data) { setRecsLoading(false); return; }
+    if (error || !data) {
+      setRecsError(error?.message || "Nem sikerült lekérni az ajánlásokat.");
+      setRecsLoading(false);
+      return;
+    }
 
     // ── Build the user's "taste fingerprint" from their swipes:
     // top topic / mood / archetype tags weighted (super-likes 3x).
@@ -664,6 +715,12 @@ export default function StartSwipePage() {
             current={current}
             upcoming={upcoming}
             loading={!pool}
+            poolError={poolError}
+            onRetry={() => {
+              setPool(null);
+              setCurrent(null);
+              setPoolLoadNonce((n) => n + 1);
+            }}
             totalSwipes={totalSwipes}
             positiveSwipes={positiveSwipes}
             superSwipes={superSwipes}
@@ -679,6 +736,11 @@ export default function StartSwipePage() {
             superLiked={superLiked}
             recs={recs}
             recsLoading={recsLoading}
+            recsError={recsError}
+            onRetryRecs={() => {
+              setRecs(null);
+              void fetchRecs();
+            }}
             onReset={resetAll}
             onOpen={(p, e) => navigate(`/podcast/${p}/${e}`)}
           />
@@ -744,11 +806,13 @@ function IntroLanding({
 /* ────────────────── Swipe ────────────────── */
 
 function SwipeView({
-  current, upcoming, loading, totalSwipes, positiveSwipes, superSwipes, confidence, onAction,
+  current, upcoming, loading, poolError, onRetry, totalSwipes, positiveSwipes, superSwipes, confidence, onAction,
 }: {
   current: Card | null;
   upcoming: Card[];
   loading: boolean;
+  poolError: string | null;
+  onRetry: () => void;
   totalSwipes: number;
   positiveSwipes: number;
   superSwipes: number;
@@ -768,7 +832,35 @@ function SwipeView({
     return () => window.removeEventListener("keydown", onKey);
   }, [current, onAction]);
 
-  if (loading) return <Skeleton className="mx-auto aspect-[3/4] h-[min(60svh,30rem)] rounded-3xl" />;
+  if (poolError) {
+    return (
+      <div className="rounded-3xl border border-border bg-card p-6 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Sparkles className="h-5 w-5" />
+        </div>
+        <h1 className="mt-4 text-2xl font-semibold">Nem jöttek be a kártyák</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Ez nem nálad van. Próbáljuk újra, és ha kell, rögtön új kártyacsomagot kérünk.
+        </p>
+        <Button onClick={onRetry} className="mt-5 w-full">
+          Újrapróbálom
+        </Button>
+      </div>
+    );
+  }
+  if (loading) {
+    return (
+      <div>
+        <div className="mb-5">
+          <h1 className="text-3xl font-semibold tracking-tight">Építsd fel A Te Podiverzumod</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Töltjük a kártyákat. Csak azt kell jelezned, mi érdekel és mi nem.
+          </p>
+        </div>
+        <Skeleton className="mx-auto aspect-[3/4] h-[min(60svh,30rem)] rounded-3xl" />
+      </div>
+    );
+  }
   if (!current) {
     return (
       <div className="rounded-3xl border border-border bg-card p-8 text-center text-muted-foreground">
@@ -779,14 +871,22 @@ function SwipeView({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-end text-xs text-muted-foreground">
-        <span>magabiztosság: {Math.round(confidence * 100)}%</span>
+      <div className="mb-5">
+        <h1 className="text-3xl font-semibold tracking-tight">Építsd fel A Te Podiverzumod</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Jobbra, ha érdekel. Balra, ha nem. Fel, ha nagyon betalált.
+        </p>
+      </div>
+
+      <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span>{progressCopy(totalSwipes, positiveSwipes, confidence)}</span>
+        <span className="shrink-0">{totalSwipes} döntés</span>
       </div>
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <motion.div
           className="h-full bg-gradient-to-r from-primary to-primary/70"
           initial={false}
-          animate={{ width: `${Math.min(100, Math.round(confidence * 100))}%` }}
+          animate={{ width: `${Math.min(100, Math.max(8, Math.round((totalSwipes / 10) * 100)))}%` }}
           transition={{ type: "spring", stiffness: 120, damping: 18 }}
         />
       </div>
@@ -833,7 +933,7 @@ function SwipeView({
         </ActionBtn>
       </div>
       <div className="mt-3 text-center text-[10px] uppercase tracking-wider text-muted-foreground">
-        ← skip · ↑ imádom · → like
+        Balra: nem nekem · Fel: imádom · Jobbra: érdekel
       </div>
     </div>
   );
@@ -971,13 +1071,15 @@ function ActionBtn({
 /* ────────────────── Result ────────────────── */
 
 function ResultView({
-  liked, disliked, superLiked, recs, recsLoading, onReset, onOpen,
+  liked, disliked, superLiked, recs, recsLoading, recsError, onRetryRecs, onReset, onOpen,
 }: {
   liked: Card[];
   disliked: Card[];
   superLiked: Card[];
   recs: RecEp[] | null;
   recsLoading: boolean;
+  recsError: string | null;
+  onRetryRecs: () => void;
   onReset: () => void;
   onOpen: (p: string, e: string) => void;
 }) {
@@ -994,6 +1096,7 @@ function ResultView({
   const weights = useMemo(() => tagWeights(effectiveLiked), [effectiveLiked]);
   const archetype = useMemo(() => pickArchetype(weights), [weights]);
   const topInterests = useMemo(() => topTags(weights, 5), [weights]);
+  const topInterestLabels = useMemo(() => topInterests.slice(0, 3).map(tagLabel), [topInterests]);
 
   // ── Aura: mood-tag-weighted color palette (super-likes 3x)
   const moodWeights = useMemo(() => {
@@ -1287,7 +1390,7 @@ function ResultView({
   return (
     <div className="space-y-8">
       {/* Hero: Hallgatói profil nyugta — a viral megosztó tárgy */}
-      <div className="rounded-3xl border border-border bg-card p-5 md:p-8">
+      <div className="rounded-3xl border border-border bg-card p-4 md:p-8">
         <div className="text-center">
           <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
             A hallgatói profilod
@@ -1295,9 +1398,14 @@ function ResultView({
           <h2 className="mt-1 text-2xl font-semibold md:text-3xl">
             {listenerProfile.name}
           </h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+            {topInterestLabels.length > 0
+              ? `A profilod legerősebb jelei: ${topInterestLabels.join(", ")}.`
+              : listenerProfile.recommendedDirection}
+          </p>
         </div>
 
-        <div className="mt-6 flex justify-center">
+        <div className="mt-6 flex justify-center overflow-hidden">
           <ListenerReceipt
             ref={receiptRef}
             profile={listenerProfile}
@@ -1312,7 +1420,7 @@ function ResultView({
             {busy === "share" ? "Készítem…" : "Megosztás"}
           </Button>
           <p className="text-center text-[11px] text-muted-foreground">
-            iPhone: koppints a <strong>Megosztás</strong>ra → válaszd az <strong>Instagram</strong>ot vagy a <strong>Mentés képként</strong> opciót. A "Kép" gomb új fülön nyitja meg a képet — ott hosszan nyomd, majd <strong>Hozzáadás a Fotókhoz</strong>.
+            A megosztás képet készít a profilodból. Ha a böngésző csak linket enged, a Kép gombbal külön is mentheted.
           </p>
 
           <div className="grid grid-cols-3 gap-2 pt-1">
@@ -1370,10 +1478,19 @@ function ResultView({
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs uppercase tracking-wider text-muted-foreground">{r.podcast_title}</div>
                   <div className="line-clamp-2 font-medium">{r.display_title || r.title}</div>
+                  {r.ai_summary && (
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {r.ai_summary}
+                    </p>
+                  )}
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
                       <Sparkles className="h-3 w-3" />
                       {mysticMatch(r.taste_score ?? r.similarity, recs!.indexOf(r))}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      <ThumbsUp className="h-3 w-3" />
+                      {primaryReason(r)}
                     </span>
                   </div>
                 </div>
@@ -1382,7 +1499,15 @@ function ResultView({
             ))}
           </div>
         )}
-        {!recsLoading && (!recs || recs.length === 0) && (
+        {!recsLoading && recsError && (
+          <div className="rounded-2xl border border-border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">Most nem sikerült lekérni az ajánlásokat.</p>
+            <Button onClick={onRetryRecs} variant="secondary" className="mt-4">
+              Újrapróbálom
+            </Button>
+          </div>
+        )}
+        {!recsLoading && !recsError && (!recs || recs.length === 0) && (
           <div className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">
             Még tanuljuk az ízlésedet — swipe-olj párat újra.
           </div>

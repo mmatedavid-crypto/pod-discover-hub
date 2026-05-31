@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
 
       // Always use the canonical production domain so shared links work cross-device
       // and bot prerender (Cloudflare worker) can resolve them. Never use request origin.
-      const url = `https://podiverzum.hu/te-podiverzumod/eredmeny/${inserted.share_id}`;
+      const url = `https://podiverzum.hu/hallgatoi-profil/${inserted.share_id}`;
       return json(200, { share_id: inserted.share_id, url });
     }
 

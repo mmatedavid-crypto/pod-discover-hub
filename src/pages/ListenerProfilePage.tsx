@@ -111,6 +111,12 @@ export default function ListenerProfilePage() {
     : "A Te Podiverzumod — milyen hallgató vagy?";
   const ogDesc =
     "Pár döntésből kiderül, milyen podcast-hallgató vagy. Neked mi jön ki?";
+  const ogImageParams = new URLSearchParams({
+    kind: "share",
+    title: profile.name,
+    subtitle: `A TE PODIVERZUMOD · ${profile.recommendedDirection}`,
+  });
+  const ogImage = `${SUPABASE_URL}/functions/v1/og-image?${ogImageParams.toString()}`;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -123,10 +129,12 @@ export default function ListenerProfilePage() {
         <meta property="og:url" content={pageUrl} />
         <meta property="og:title" content={ogTitle} />
         <meta property="og:description" content={ogDesc} />
+        <meta property="og:image" content={ogImage} />
         <meta property="og:site_name" content="Podiverzum" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={ogTitle} />
         <meta name="twitter:description" content={ogDesc} />
+        <meta name="twitter:image" content={ogImage} />
       </Helmet>
 
       <div className="mx-auto max-w-md px-4 pt-6 pb-20 md:pt-10">

@@ -42,6 +42,7 @@ export const ListenerReceipt = forwardRef<HTMLDivElement, ReceiptProps>(
         className="listener-receipt"
         style={{
           width: 360,
+          maxWidth: "100%",
           background: "#f7f4ee",
           color: "#0a0a0a",
           fontFamily:
