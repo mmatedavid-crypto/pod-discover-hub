@@ -132,11 +132,18 @@ Deno.serve(async (req) => {
     let usedYtPriority = false;
     if (!targetIds.length) {
       // Load already-processed set once so we can skip episodes already done.
-      const { data: doneRows } = await admin
-        .from("episode_best_text_source")
-        .select("episode_id")
-        .limit(200000);
-      const doneSet = new Set((doneRows || []).map((r: any) => String(r.episode_id)));
+      // Supabase default cap is 1000 rows/select → paginate via .range().
+      const doneSet = new Set<string>();
+      for (let offset = 0; offset < 500000; offset += 1000) {
+        const { data: chunk, error: doneErr } = await admin
+          .from("episode_best_text_source")
+          .select("episode_id")
+          .range(offset, offset + 999);
+        if (doneErr) throw doneErr;
+        if (!chunk || chunk.length === 0) break;
+        for (const r of chunk) doneSet.add(String((r as any).episode_id));
+        if (chunk.length < 1000) break;
+      }
 
       // 1) YouTube-confirmed-first priority, but only episodes not yet done.
       const { data: ytPriority, error: ytPriorityErr } = await admin
