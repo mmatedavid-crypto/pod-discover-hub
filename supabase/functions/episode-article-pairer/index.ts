@@ -3,6 +3,14 @@
 // title/date/token agreement becomes confirmed evidence for best-text-source.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import {
+  ArticleEpisodeRow,
+  ArticleItem,
+  articlePodcastTitle,
+  parsePublisherFeed,
+  scorePublisherArticleMatch,
+  stripHtml,
+} from "../_shared/publisher-article-match.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -16,137 +24,6 @@ type SourceConfig = {
   feed_urls: string[];
   podcast_title_patterns?: string[];
 };
-
-type ArticleItem = {
-  outlet: string;
-  url: string;
-  title: string;
-  excerpt: string;
-  text: string;
-  published_at: string | null;
-};
-
-type EpisodeRow = {
-  id: string;
-  podcast_id: string;
-  title: string | null;
-  display_title: string | null;
-  description: string | null;
-  published_at: string | null;
-  podcasts?: { title?: string | null; display_title?: string | null } | { title?: string | null; display_title?: string | null }[];
-};
-
-const STOPWORDS = new Set([
-  "a", "az", "egy", "és", "hogy", "mit", "mi", "ez", "ezt", "de", "ha", "is", "nem", "van", "volt", "lesz",
-  "podcast", "adás", "epizód", "rész", "telex", "444", "after", "video", "videó",
-]);
-
-function stripHtml(input: string): string {
-  return String(input || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalize(input: string): string {
-  return String(input || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/https?:\/\/\S+/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function tokens(input: string): string[] {
-  return normalize(input)
-    .split(" ")
-    .filter((t) => t.length >= 3 && !STOPWORDS.has(t));
-}
-
-function tokenScore(a: string, b: string) {
-  const aa = new Set(tokens(a));
-  const bb = new Set(tokens(b));
-  if (!aa.size || !bb.size) return { score: 0, shared: [] as string[] };
-  const shared = Array.from(aa).filter((t) => bb.has(t));
-  return { score: shared.length / Math.max(aa.size, bb.size), shared };
-}
-
-function dateScore(epDate?: string | null, articleDate?: string | null): number {
-  if (!epDate || !articleDate) return 0.35;
-  const diffDays = Math.abs(new Date(epDate).getTime() - new Date(articleDate).getTime()) / 86_400_000;
-  if (diffDays <= 1) return 1;
-  if (diffDays <= 3) return 0.82;
-  if (diffDays <= 7) return 0.58;
-  if (diffDays <= 14) return 0.32;
-  return 0;
-}
-
-function podcastTitle(ep: EpisodeRow): string {
-  const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
-  return p?.display_title || p?.title || "";
-}
-
-function scoreMatch(ep: EpisodeRow, article: ArticleItem) {
-  const epTitle = ep.display_title || ep.title || "";
-  const articleHay = `${article.title} ${article.excerpt} ${article.text.slice(0, 1200)}`;
-  const title = tokenScore(epTitle, article.title);
-  const body = tokenScore(epTitle, articleHay);
-  const date = dateScore(ep.published_at, article.published_at);
-  const podcast = podcastTitle(ep);
-  const podcastMention = podcast && normalize(articleHay).includes(normalize(podcast).slice(0, 24)) ? 0.08 : 0;
-  const score = Math.min(1, title.score * 0.55 + body.score * 0.25 + date * 0.18 + podcastMention);
-  const reasons = [
-    title.score >= 0.45 ? "title_token_match" : null,
-    body.score >= 0.35 ? "article_body_token_match" : null,
-    date >= 0.82 ? "published_near_episode" : null,
-    podcastMention ? "podcast_mentioned" : null,
-  ].filter(Boolean) as string[];
-  return { score, reasons, shared_title_tokens: title.shared, shared_body_tokens: body.shared.slice(0, 20), date_score: date };
-}
-
-function parseFeed(xml: string, outlet: string): ArticleItem[] {
-  const doc = new DOMParser().parseFromString(xml, "text/xml");
-  const entries = Array.from(doc.querySelectorAll("item, entry")).slice(0, 200);
-  return entries.map((el) => {
-    const title = stripHtml(el.querySelector("title")?.textContent || "");
-    const link =
-      el.querySelector("link")?.textContent?.trim() ||
-      el.querySelector("link[href]")?.getAttribute("href") ||
-      "";
-    const excerpt = stripHtml(
-      el.querySelector("description")?.textContent ||
-      el.querySelector("summary")?.textContent ||
-      "",
-    );
-    const content = stripHtml(
-      el.querySelector("encoded")?.textContent ||
-      el.querySelector("content")?.textContent ||
-      excerpt,
-    );
-    const dateText =
-      el.querySelector("pubDate")?.textContent ||
-      el.querySelector("published")?.textContent ||
-      el.querySelector("updated")?.textContent ||
-      "";
-    const date = dateText ? new Date(dateText) : null;
-    return {
-      outlet,
-      url: link,
-      title,
-      excerpt,
-      text: content,
-      published_at: date && !Number.isNaN(date.getTime()) ? date.toISOString() : null,
-    };
-  }).filter((item) => item.url && item.title);
-}
 
 async function fetchArticleText(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
@@ -165,7 +42,7 @@ async function fetchFeedItems(source: SourceConfig, ctrl: Record<string, unknown
       const res = await fetch(feedUrl, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
       if (!res.ok) continue;
       const xml = await res.text();
-      out.push(...parseFeed(xml, source.outlet));
+      out.push(...parsePublisherFeed(xml, source.outlet));
     } catch (e) {
       console.error("article feed fetch failed", source.outlet, feedUrl, e);
     }
@@ -238,9 +115,9 @@ Deno.serve(async (req) => {
           if (fullText.length > article.text.length) article.text = fullText;
         }
 
-        let best: { ep: EpisodeRow; score: ReturnType<typeof scoreMatch> } | null = null;
-        for (const ep of (episodes || []) as EpisodeRow[]) {
-          const s = scoreMatch(ep, article);
+        let best: { ep: ArticleEpisodeRow; score: ReturnType<typeof scorePublisherArticleMatch> } | null = null;
+        for (const ep of (episodes || []) as ArticleEpisodeRow[]) {
+          const s = scorePublisherArticleMatch(ep, article);
           if (!best || s.score > best.score.score) best = { ep, score: s };
         }
         if (!best || best.score.score < needsReview) continue;
@@ -266,7 +143,7 @@ Deno.serve(async (req) => {
             shared_body_tokens: best.score.shared_body_tokens,
             article_len: article.text.length,
             episode_title: best.ep.display_title || best.ep.title,
-            podcast_title: podcastTitle(best.ep),
+            podcast_title: articlePodcastTitle(best.ep),
           },
           fetched_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
