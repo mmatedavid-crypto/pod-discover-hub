@@ -105,6 +105,7 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
     urlTag(`${SITE}/hangulatok`, null, "weekly", "0.7"),
     urlTag(`${SITE}/uj`, null, "daily", "0.6"),
     urlTag(`${SITE}/napi`, null, "daily", "0.6"),
+    urlTag(`${SITE}/heti-valogatas`, null, "weekly", "0.7"),
     urlTag(`${SITE}/rolunk`, null, "monthly", "0.4"),
     urlTag(`${SITE}/modszertan`, null, "monthly", "0.4"),
     urlTag(`${SITE}/kapcsolat`, null, "yearly", "0.3"),
@@ -121,6 +122,18 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
     .eq("is_indexable", true)
     .gte("recommended_episode_count", 10);
   (moods || []).forEach((m: any) => urls.push(urlTag(`${SITE}/hangulatok/${esc(m.slug)}`, m.updated_at, "weekly", "0.7")));
+
+  // Published weekly editorial selections.
+  const { data: editorials } = await supabase
+    .from("editorial_posts")
+    .select("week_start,published_at,updated_at")
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .limit(200);
+  (editorials || []).forEach((p: any) => {
+    if (!p.week_start) return;
+    urls.push(urlTag(`${SITE}/heti-valogatas/${esc(p.week_start)}`, maxDate(p.updated_at, p.published_at), "weekly", "0.65"));
+  });
 
   // Indexable topic pages
   const { data: topics } = await supabase

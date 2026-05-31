@@ -148,6 +148,7 @@ import { HomeAudienceLanes } from "@/components/home/HomeAudienceLanes";
 import { HomeMediaSignals } from "@/components/home/HomeMediaSignals";
 import { HomeCurrentSignals } from "@/components/HomeCurrentSignals";
 import DailyStatsStrip from "@/components/DailyStatsStrip";
+import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
 import { auditHomepageRail } from "@/lib/homepageQuality";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
@@ -677,6 +678,7 @@ const Index = () => {
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <HomeDiscoveryShortcuts />
         <DailyStatsStrip />
+        <WeeklyEditorialStrip />
         <HomeAudienceLanes />
         <TrendingPodcasts />
         <MyLibraryRails />

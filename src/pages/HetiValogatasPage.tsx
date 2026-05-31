@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { setSeo } from "@/lib/seo";
+import { breadcrumbJsonLd, ogImageUrl, setSeo } from "@/lib/seo";
 import { Quote, Calendar, ArrowRight } from "lucide-react";
+
+const SITE_URL = "https://podiverzum.hu";
 
 type Item = {
   episode_id: string;
@@ -81,17 +83,65 @@ export default function HetiValogatasPage() {
 
   useEffect(() => {
     if (post) {
+      const canonical = weekId
+        ? `${SITE_URL}/heti-valogatas/${post.week_start}`
+        : `${SITE_URL}/heti-valogatas`;
+      const title = post.title || "Heti válogatás";
+      const description = post.intro?.slice(0, 155) || "A hét legizgalmasabb magyar podcast epizódjai, szerkesztői válogatásban.";
       setSeo({
-        title: `${post.title || "Heti válogatás"} – ${fmtRange(post.week_start, post.week_end)} | Podiverzum`,
-        description: post.intro?.slice(0, 155) || "A hét legizgalmasabb magyar podcast epizódjai — szerkesztői válogatás.",
+        title: `${title} | Podiverzum`,
+        description,
+        canonical,
+        image: post.cover_image_url || ogImageUrl({ kind: "site", title, subtitle: fmtRange(post.week_start, post.week_end) }),
+        ogType: "article",
+        hreflang: [
+          { lang: "hu", href: canonical },
+          { lang: "x-default", href: canonical },
+        ],
+        jsonLd: [
+          {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: title,
+            description,
+            url: canonical,
+            inLanguage: "hu-HU",
+            datePublished: post.published_at || post.week_end,
+            dateModified: post.published_at || post.week_end,
+            image: post.cover_image_url || `${SITE_URL}/og-image.jpg`,
+            publisher: {
+              "@type": "Organization",
+              name: "Podiverzum",
+              url: SITE_URL,
+              logo: `${SITE_URL}/icon-512.png`,
+            },
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: title,
+            itemListElement: (post.items || []).map((it, idx) => ({
+              "@type": "ListItem",
+              position: idx + 1,
+              url: `${SITE_URL}/podcast/${it.podcast_slug}/${it.episode_slug}`,
+              name: it.title,
+            })),
+          },
+          breadcrumbJsonLd([
+            { name: "Podiverzum", url: `${SITE_URL}/` },
+            { name: "Heti válogatás", url: `${SITE_URL}/heti-valogatas` },
+          ]),
+        ],
       });
     } else {
       setSeo({
         title: "Heti válogatás – magyar podcast epizódok | Podiverzum",
-        description: "A hét legizgalmasabb magyar podcast epizódjai — szerkesztői válogatás.",
+        description: "A hét legizgalmasabb magyar podcast epizódjai, szerkesztői válogatásban.",
+        canonical: `${SITE_URL}/heti-valogatas`,
+        noindex: Boolean(notFound && weekId),
       });
     }
-  }, [post]);
+  }, [post, weekId, notFound]);
 
   return (
     <Layout>

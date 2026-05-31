@@ -20,6 +20,15 @@ const corsHeaders = {
 const SITE_URL = "https://podiverzum.hu";
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
+const DEFAULT_MIN_TEXT_CHARS = 180;
+
+type Controls = {
+  enabled?: boolean;
+  min_text_chars?: number;
+  max_candidates?: number;
+  allow_reuse_existing_week?: boolean;
+  model?: string;
+};
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -62,7 +71,48 @@ function entityBonus(ep: any): number {
   s += Math.min(15, ((ep.people || []).length) * 3);
   s += Math.min(10, ((ep.parties || []).length) * 4);
   s += Math.min(8, ((ep.companies || []).length) * 2);
+  s += Math.min(8, ((ep.topics || []).length) * 1.5);
   return s;
+}
+
+const BOILERPLATE_HINTS = [
+  "iratkozz fel", "kövess minket", "facebook", "instagram", "tiktok", "youtube",
+  "spotify", "apple podcast", "támogasd", "patreon", "webshop", "kupon",
+];
+const NEWS_HINTS = [
+  "hírek", "hírösszefoglaló", "hír összefoglaló", "reggeli hír", "esti hír",
+  "krónika", "hírpercek", "hírműsor",
+];
+const CATEGORY_CAPS: Record<string, number> = {
+  "Religion & Spirituality": 1,
+  "News": 2,
+};
+
+function textQuality(text: string, minTextChars = DEFAULT_MIN_TEXT_CHARS): number {
+  const t = (text || "").trim();
+  if (t.length < minTextChars) return -120;
+  let s = Math.min(30, Math.floor(t.length / 140));
+  const lower = t.toLowerCase();
+  const boilerHits = BOILERPLATE_HINTS.filter((h) => lower.includes(h)).length;
+  s -= Math.min(35, boilerHits * 7);
+  const urlHits = (lower.match(/https?:\/\/|www\.|\.hu\b|\.com\b/g) || []).length;
+  s -= Math.min(25, urlHits * 5);
+  return s;
+}
+
+function isBulletinLike(ep: any): boolean {
+  const rawTitle = String(ep?.display_title || ep?.title || "").trim();
+  if (!rawTitle) return false;
+  const t = rawTitle.toLowerCase();
+  if (NEWS_HINTS.some((h) => t.includes(h))) return true;
+  if (/^\s*\d{1,2}\s*[-–—]\s+\S/.test(rawTitle)) return true;
+  if (/^\s*(20\d{6}|20\d{2}[\s._-]?\d{2}[\s._-]?\d{2})\s*[-–—\s]/.test(rawTitle)) return true;
+  if (/^\s*\d{1,2}\s+(óra|perc)\b/.test(t)) return true;
+  return false;
+}
+
+function categoryKey(ep: any): string {
+  return ep?.podcasts?.category || ep?.podcast?.category || "_";
 }
 
 type Cand = {
@@ -78,55 +128,136 @@ type Cand = {
   parties: string[];
   companies: string[];
   topics: string[];
-  podcast: { id: string; title: string; display_title: string | null; slug: string; rank_label: string | null; podiverzum_rank: number | null };
+  podcast: {
+    id: string;
+    title: string;
+    display_title: string | null;
+    slug: string;
+    rank_label: string | null;
+    podiverzum_rank: number | null;
+    category?: string | null;
+    featured?: boolean | null;
+    shadow_rank_components?: Record<string, unknown> | null;
+  };
   _score: number;
+  _source_text: string;
+  _text_quality: number;
 };
 
-async function pickEpisodes(admin: any, days: number, limit: number): Promise<Cand[]> {
+async function fetchControls(admin: any): Promise<Controls> {
+  const { data } = await admin
+    .from("app_settings")
+    .select("value")
+    .eq("key", "weekly_editorial_controls")
+    .maybeSingle();
+  return (data?.value || {}) as Controls;
+}
+
+async function existingPostForWeek(admin: any, weekStart: string) {
+  const { data, error } = await admin
+    .from("editorial_posts")
+    .select("*")
+    .eq("week_start", weekStart)
+    .in("status", ["draft", "approved", "published"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`existing editorial lookup: ${error.message}`);
+  return data || null;
+}
+
+async function pickEpisodes(admin: any, days: number, limit: number, controls: Controls): Promise<Cand[]> {
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const maxCandidates = Math.max(100, Math.min(1000, Number(controls.max_candidates || 500)));
+  const minTextChars = Math.max(80, Math.min(800, Number(controls.min_text_chars || DEFAULT_MIN_TEXT_CHARS)));
   const { data, error } = await admin
     .from("episodes")
     .select(`
       id, title, display_title, slug, published_at, ai_summary, description, summary,
       people, parties, companies, topics,
-      podcasts!inner(id, title, display_title, slug, language, rank_label, podiverzum_rank)
+      podcasts!inner(id, title, display_title, slug, language, language_decision, is_hungarian, rss_status, category, rank_label, podiverzum_rank, featured, shadow_rank_components)
     `)
     .gte("published_at", since)
-    .in("podcasts.rank_label", ["S", "A"])
-    .ilike("podcasts.language", "hu%")
-    .not("ai_summary", "is", null)
+    .eq("podcasts.is_hungarian", true)
+    .eq("podcasts.language_decision", "accept_hungarian")
     .order("published_at", { ascending: false })
-    .limit(300);
+    .limit(maxCandidates);
 
   if (error) throw new Error(`episode query: ${error.message}`);
 
+  const ids = (data || []).map((e: any) => e.id);
+  const cleanById = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: cleanRows, error: cleanErr } = await admin
+      .from("episode_clean_text")
+      .select("episode_id, cleaned_text, cleaner_method")
+      .in("episode_id", ids)
+      .limit(ids.length);
+    if (cleanErr && !String(cleanErr.message || "").includes("episode_clean_text")) {
+      console.warn("weekly editorial clean text lookup failed:", cleanErr.message);
+    }
+    for (const row of cleanRows || []) {
+      if (row?.episode_id && row?.cleaned_text) cleanById.set(row.episode_id, row.cleaned_text);
+    }
+  }
+
   const scored: Cand[] = (data || []).map((e: any) => {
-    const text = `${e.ai_summary || ""} ${e.summary || ""} ${e.description || ""}`.slice(0, 4000);
+    const cleanText = cleanById.get(e.id) || "";
+    const sourceText = (cleanText || e.ai_summary || e.summary || e.description || "").slice(0, 5000);
+    const tq = textQuality(sourceText, minTextChars);
+    const featuredBonus = e.podcasts?.featured ? 20 : 0;
+    const qualityState = (e.podcasts?.shadow_rank_components || {})?.health_state;
+    const rssState = String(e.podcasts?.rss_status || "");
+    const healthPenalty =
+      ["failed", "inactive", "deleted"].includes(rssState) ||
+      ["quarantined_spam", "confirmed_dead", "needs_manual_rss_review"].includes(String(qualityState || ""))
+        ? 200
+        : 0;
+    const bulletinPenalty = isBulletinLike(e) ? 45 : 0;
     const score =
       tierWeight(e.podcasts?.rank_label) +
+      featuredBonus +
       freshnessBoost(e.published_at) +
-      claimDensity(text) +
+      claimDensity(sourceText) +
       entityBonus(e) +
-      Math.min(10, Number(e.podcasts?.podiverzum_rank ?? 0));
-    return { ...e, podcast: e.podcasts, _score: score };
-  });
+      tq +
+      Math.min(20, Number(e.podcasts?.podiverzum_rank ?? 0) * 2) -
+      bulletinPenalty -
+      healthPenalty;
+    return { ...e, podcast: e.podcasts, _score: score, _source_text: sourceText, _text_quality: tq };
+  }).filter((e: Cand) => e._score > -40 && e._source_text.trim().length >= minTextChars);
 
   scored.sort((a, b) => b._score - a._score);
 
-  // Diversity: max 1 episode per podcast
+  // Diversity: max 1 episode per podcast, and cap categories that can flood a week.
   const seenPodcasts = new Set<string>();
+  const categoryCounts = new Map<string, number>();
   const picked: Cand[] = [];
   for (const c of scored) {
     if (seenPodcasts.has(c.podcast.id)) continue;
+    const cat = categoryKey(c);
+    const cap = CATEGORY_CAPS[cat] || 2;
+    if ((categoryCounts.get(cat) || 0) >= cap && picked.length < limit) continue;
     seenPodcasts.add(c.podcast.id);
+    categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
     picked.push(c);
     if (picked.length >= limit) break;
+  }
+
+  if (picked.length < limit) {
+    for (const c of scored) {
+      if (picked.some((p) => p.id === c.id)) continue;
+      if (seenPodcasts.has(c.podcast.id)) continue;
+      seenPodcasts.add(c.podcast.id);
+      picked.push(c);
+      if (picked.length >= limit) break;
+    }
   }
   return picked;
 }
 
 function episodeUrl(ep: Cand): string {
-  return `${SITE_URL}/podcast/${ep.podcast.slug}/epizod/${ep.slug}`;
+  return `${SITE_URL}/podcast/${ep.podcast.slug}/${ep.slug}`;
 }
 
 function buildPrompt(eps: Cand[], weekLabel: string): { system: string; user: string } {
@@ -146,9 +277,10 @@ Magyarul írj. Ne használj emoji-kat a teaser-ben (intro-ban 1 oké). Ne hashta
   const epsBlock = eps.map((e, i) => {
     const podcast = e.podcast.display_title || e.podcast.title;
     const title = e.display_title || e.title;
-    const summary = (e.ai_summary || e.summary || e.description || "").slice(0, 1200);
+    const summary = (e._source_text || e.ai_summary || e.summary || e.description || "").slice(0, 1400);
     const people = (e.people || []).slice(0, 5).join(", ");
-    return `[${i + 1}] PODCAST: ${podcast}\nEPIZÓD: ${title}\nSZEREPLŐK: ${people || "—"}\nÖSSZEFOGLALÓ: ${summary}`;
+    const topics = (e.topics || []).slice(0, 6).join(", ");
+    return `[${i + 1}] PODCAST: ${podcast}\nKATEGÓRIA: ${e.podcast.category || "—"}\nEPIZÓD: ${title}\nSZEREPLŐK: ${people || "—"}\nTÉMÁK: ${topics || "—"}\nSZÖVEGFORRÁS: ${summary}`;
   }).join("\n\n");
 
   const user = `Hét: ${weekLabel}\n\nEpizódok (sorrendben):\n\n${epsBlock}\n\nGenerálj editorial-t a megadott JSON sémába. Az items sorrendje legyen ugyanaz.`;
@@ -156,12 +288,12 @@ Magyarul írj. Ne használj emoji-kat a teaser-ben (intro-ban 1 oké). Ne hashta
   return { system, user };
 }
 
-async function callAI(system: string, user: string, itemCount: number): Promise<{ intro: string; items: { title: string; teaser: string; quote: string }[] }> {
+async function callAI(system: string, user: string, itemCount: number, model = MODEL): Promise<{ intro: string; items: { title: string; teaser: string; quote: string }[] }> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
 
   const body = {
-    model: MODEL,
+    model,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -255,20 +387,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method === "GET") return json({ ok: true, function: "weekly-editorial-post" });
 
-  // background-jobs kill switch
-  try {
-    const { checkBackgroundJobsAllowed } = await import("../_shared/incident-guard.ts");
-    await checkBackgroundJobsAllowed();
-  } catch (e: any) {
-    if (String(e?.message || "").includes("disabled")) {
-      return json({ ok: false, error: "background_jobs disabled" }, 503);
-    }
-  }
-
   let body: any = {};
   try { body = await req.json(); } catch { /* */ }
 
   const dryRun = body?.dry_run === true;
+  const force = body?.force === true;
   const days = Math.max(1, Math.min(30, Number(body?.days ?? 7)));
   const limit = Math.max(3, Math.min(7, Number(body?.limit ?? 5)));
 
@@ -278,14 +401,40 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const picked = await pickEpisodes(admin, days, limit);
+    const { checkBackgroundJobsAllowed } = await import("../_shared/incident-guard.ts");
+    const guard = await checkBackgroundJobsAllowed(admin, "weekly-editorial-post");
+    if (guard.blocked) return json({ ok: false, blocked: true, reason: guard.reason }, 503);
+
+    const controls = await fetchControls(admin);
+    if (controls.enabled === false) {
+      return json({ ok: false, error: "weekly_editorial disabled" }, 503);
+    }
+
+    const { start, end, label } = weekRange();
+    const weekStart = start.toISOString().slice(0, 10);
+    const existing = !dryRun && !force && controls.allow_reuse_existing_week !== false
+      ? await existingPostForWeek(admin, weekStart)
+      : null;
+    if (existing) {
+      return json({
+        ok: true,
+        reused_existing: true,
+        post_id: existing.id,
+        status: existing.status,
+        week_start: existing.week_start,
+        week_end: existing.week_end,
+        title: existing.title,
+      });
+    }
+
+    const picked = await pickEpisodes(admin, days, limit, controls);
     if (picked.length < 3) {
       return json({ ok: false, error: `not enough strong episodes (got ${picked.length})` }, 200);
     }
 
-    const { start, end, label } = weekRange();
     const { system, user } = buildPrompt(picked, label);
-    const ai = await callAI(system, user, picked.length);
+    const model = controls.model || MODEL;
+    const ai = await callAI(system, user, picked.length, model);
 
     const items = picked.map((ep, i) => {
       const aiItem = ai.items[i] || { title: ep.display_title || ep.title, teaser: "", quote: "" };
@@ -300,6 +449,8 @@ Deno.serve(async (req) => {
         quote: aiItem.quote,
         cover_card_url: null as string | null,
         score: ep._score,
+        source_quality: ep._text_quality,
+        source_text_chars: ep._source_text.length,
       };
     });
 
@@ -307,7 +458,7 @@ Deno.serve(async (req) => {
     const title = `A hét a Podiverzumon — ${label}`;
 
     const payload = {
-      week_start: start.toISOString().slice(0, 10),
+      week_start: weekStart,
       week_end: end.toISOString().slice(0, 10),
       status: "draft",
       title,
@@ -315,8 +466,14 @@ Deno.serve(async (req) => {
       items,
       ig_caption: captions.ig,
       fb_caption: captions.fb,
-      ai_model: MODEL,
-      generation_meta: { picked: picked.length, days, scores: picked.map((p) => p._score) },
+      ai_model: model,
+      generation_meta: {
+        picked: picked.length,
+        days,
+        scores: picked.map((p) => p._score),
+        source_quality: picked.map((p) => p._text_quality),
+        policy: "weekly_editorial_v2_hu_non_spam_diverse",
+      },
       trigger: body?.trigger || (dryRun ? "manual_preview" : "cron"),
     };
 
