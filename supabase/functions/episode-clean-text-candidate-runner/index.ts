@@ -122,15 +122,21 @@ Deno.serve(async (req) => {
 
     if (!ids.length) return json({ ok: true, processed: 0, reason: "no_staged_or_drain_candidates" });
 
-    const { data: episodes, error: epErr } = await admin
-      .from("episodes")
-      .select("id,description,summary")
-      .in("id", ids);
-    if (epErr) throw epErr;
+    const episodesAll: EpisodeRow[] = [];
+    for (let i = 0; i < ids.length; i += 40) {
+      const slice = ids.slice(i, i + 40);
+      const { data: epRows, error: epErr } = await admin
+        .from("episodes")
+        .select("id,description,summary")
+        .in("id", slice);
+      if (epErr) throw epErr;
+      for (const row of (epRows || []) as EpisodeRow[]) episodesAll.push(row);
+    }
+    const episodes = episodesAll;
 
     const bestTextByEp = new Map<string, BestTextSourceRow>();
-    for (let i = 0; i < ids.length; i += 100) {
-      const slice = ids.slice(i, i + 100);
+    for (let i = 0; i < ids.length; i += 40) {
+      const slice = ids.slice(i, i + 40);
       const { data: bestRows, error: bestErr } = await admin
         .from("episode_best_text_source")
         .select("episode_id,source_type,raw_text,source_confidence")
