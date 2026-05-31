@@ -498,6 +498,7 @@ SZABÁLYOK:
       overview_sources: sources,
     };
     if (publish) update.short_bio = bio;
+    else if (!isSafeFallback(p.name, p.short_bio)) update.short_bio = null;
     await admin.from("people").update(update).eq("id", personId);
 
     // Audit trail entry
