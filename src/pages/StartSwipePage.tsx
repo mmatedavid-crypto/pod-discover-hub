@@ -1459,55 +1459,71 @@ function ResultView({
       archetype_id: listenerProfile.id,
       target: target === "ig" ? "instagram_story" : "facebook_story",
     });
-    try {
-      const created = await ensureShare();
-      if (!receiptRef.current) {
-        toast.error("A profil még tölt, próbáld újra egy másodperc múlva.");
-        return;
-      }
-      const blob = await renderReceiptPng(receiptRef.current, "story");
-      downloadReceipt(blob, `podiverzum-${listenerProfile.id}.png`);
-      trackProfileEvent("profile_image_downloaded", {
-        share_id: created?.share_id ?? null,
-        archetype_id: listenerProfile.id,
-      });
-
-      const appUrl = target === "ig" ? "instagram://story-camera" : "fb://story_composer";
-      const webFallback = target === "ig" ? "https://www.instagram.com/" : "https://www.facebook.com/";
-      const label = target === "ig" ? "Instagram" : "Facebook";
-
-      const ua = navigator.userAgent || "";
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
-
-      if (isMobile) {
-        toast.success(`Kép mentve. Nyitom a ${label} Storyt — válaszd ki a galériából.`, {
-          duration: 5000,
-        });
-        // Kis késleltetés, hogy a toast megjelenjen + a böngésző engedje a navigációt.
-        setTimeout(() => {
-          // Próbáljuk meg az app deep-linket; ha nincs app, a böngésző marad a fallbacken.
-          const start = Date.now();
-          window.location.href = appUrl;
-          setTimeout(() => {
-            // Ha 1.5s múlva még itt vagyunk és nem váltott appra, web fallback.
-            if (Date.now() - start < 2000 && document.visibilityState === "visible") {
-              window.location.href = webFallback;
-            }
-          }, 1500);
-        }, 600);
-      } else {
-        toast.success(
-          `Kép letöltve. Töltsd fel a ${label}ra Story-ként a telefonodról vagy a ${label} webről.`,
-          { duration: 6000 },
-        );
-      }
-      setShowShareHint(true);
-    } catch (e) {
-      console.error("[story-share] error", e);
-      toast.error("Hoppá, valami félrement.");
-    } finally {
+    if (!receiptRef.current) {
+      toast.error("A profil még tölt, próbáld újra egy másodperc múlva.");
       setBusy(null);
+      return;
     }
+
+    const label = target === "ig" ? "Instagram" : "Facebook";
+    const appUrl = target === "ig" ? "instagram://story-camera" : "fb://story_composer";
+    const webFallback = target === "ig" ? "https://www.instagram.com/" : "https://www.facebook.com/";
+
+    let created: { url: string; share_id: string } | null = null;
+    try {
+      created = await ensureShare();
+    } catch (e) {
+      console.warn("[story-share] share link creation skipped", e);
+    }
+
+    let blob: Blob;
+    try {
+      blob = await renderReceiptPng(receiptRef.current, "story");
+    } catch (e) {
+      console.error("[story-share] image render failed", e);
+      toast.error("Nem sikerült elkészíteni a megosztható képet. Próbáld újra.");
+      setBusy(null);
+      return;
+    }
+
+    downloadReceipt(blob, `podiverzum-${listenerProfile.id}.png`);
+    trackProfileEvent("profile_image_downloaded", {
+      share_id: created?.share_id ?? null,
+      archetype_id: listenerProfile.id,
+    });
+    if (created?.url) {
+      navigator.clipboard?.writeText(created.url).catch(() => {});
+    }
+
+    const ua = navigator.userAgent || "";
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+
+    if (isMobile) {
+      toast.success(`Kép elkészült. Nyitom a ${label}ot — tedd ki storyként a frissen mentett képet.`, {
+        duration: 6500,
+      });
+      setTimeout(() => {
+        const start = Date.now();
+        window.location.href = appUrl;
+        setTimeout(() => {
+          if (Date.now() - start < 2200 && document.visibilityState === "visible") {
+            window.location.href = webFallback;
+          }
+        }, 1600);
+      }, 500);
+    } else {
+      toast.success(
+        `Kép elkészült. Töltsd fel a ${label}ra storyként; a linket megpróbáltuk vágólapra másolni.`,
+        { duration: 6500 },
+      );
+      try {
+        window.open(webFallback, "_blank", "noopener");
+      } catch {
+        window.location.href = webFallback;
+      }
+    }
+    setShowShareHint(true);
+    setBusy(null);
   };
 
 
