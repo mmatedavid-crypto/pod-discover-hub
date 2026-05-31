@@ -87,6 +87,14 @@ If validation fails, the AI output is discarded. The row stays unresolved for a 
 
 ## Eval Command
 
+Generate the sample directly from production read-only Postgres:
+
+```bash
+DATABASE_URL="postgresql://..." node scripts/export-clean-text-gold-sample.mjs --per-bucket=10 --out=/tmp/clean-text-gold-sample.csv
+```
+
+The exporter writes the required columns and keeps the sample balanced across the six buckets.
+
 After the reviewed spreadsheet is exported to CSV:
 
 ```bash

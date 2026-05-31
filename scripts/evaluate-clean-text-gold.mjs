@@ -12,6 +12,8 @@ if (!csvPath) {
   console.error("Usage: node scripts/evaluate-clean-text-gold.mjs path/to/clean-text-gold.csv");
   process.exit(1);
 }
+const minRowsArg = process.argv.find((arg) => arg.startsWith("--min-rows="));
+const minRows = Math.max(1, Number(minRowsArg?.split("=")[1] || 60));
 
 function parseCsv(input) {
   const rows = [];
@@ -98,10 +100,15 @@ function pct(value) {
 const rawCsv = fs.readFileSync(csvPath, "utf8").replace(/^\uFEFF/, "");
 const parsed = parseCsv(rawCsv);
 const header = parsed.shift()?.map((name) => name.trim()) || [];
-const required = ["episode_id", "sample_bucket", "raw_text", "current_cleaned_text", "gold_cleaned_text"];
+const required = ["episode_id", "raw_text", "current_cleaned_text", "gold_cleaned_text"];
 const missing = required.filter((name) => !header.includes(name));
 if (missing.length > 0) {
   console.error(`Missing required columns: ${missing.join(", ")}`);
+  process.exit(1);
+}
+const bucketColumn = header.includes("sample_bucket") ? "sample_bucket" : "bucket";
+if (!header.includes(bucketColumn)) {
+  console.error("Missing required columns: sample_bucket or bucket");
   process.exit(1);
 }
 
@@ -128,7 +135,7 @@ for (const row of usable) {
   const candidateQuality = assessCleanTextQuality(rawText, candidate);
   const currentF1 = tokenF1(currentText, goldText);
   const candidateF1 = tokenF1(candidate, goldText);
-  const bucket = row.sample_bucket || "unknown";
+  const bucket = row[bucketColumn] || "unknown";
   const stat = bucketStats.get(bucket) || { rows: 0, currentF1: [], candidateF1: [], dirty: 0, overcut: 0 };
   stat.rows += 1;
   stat.currentF1.push(currentF1);
@@ -167,9 +174,10 @@ const summary = {
   candidate_overcut_rate_pct: pct(candidateOvercut / Math.max(usable.length, 1)),
   candidate_better_rows: candidateBetter,
   gates: {
-    candidate_dirty_rate_ok: candidateDirty / Math.max(usable.length, 1) <= 0.05,
-    candidate_overcut_rate_ok: candidateOvercut / Math.max(usable.length, 1) <= 0.01,
-    candidate_gold_similarity_ok: average(candidateScores) >= 0.8,
+    enough_gold_rows: usable.length >= minRows,
+    candidate_dirty_rate_ok: usable.length >= minRows && candidateDirty / usable.length <= 0.05,
+    candidate_overcut_rate_ok: usable.length >= minRows && candidateOvercut / usable.length <= 0.01,
+    candidate_gold_similarity_ok: usable.length >= minRows && average(candidateScores) >= 0.8,
   },
   buckets: Object.fromEntries(Array.from(bucketStats.entries()).map(([bucket, stat]) => [bucket, {
     rows: stat.rows,
