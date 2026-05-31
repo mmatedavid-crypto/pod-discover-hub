@@ -129,7 +129,23 @@ Deno.serve(async (req) => {
     const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean).slice(0, limit) : [];
 
     let targetIds = ids;
+    let usedYtPriority = false;
     if (!targetIds.length) {
+      // Load already-processed set once so we can skip episodes already done.
+      // Supabase default cap is 1000 rows/select → paginate via .range().
+      const doneSet = new Set<string>();
+      for (let offset = 0; offset < 500000; offset += 1000) {
+        const { data: chunk, error: doneErr } = await admin
+          .from("episode_best_text_source")
+          .select("episode_id")
+          .range(offset, offset + 999);
+        if (doneErr) throw doneErr;
+        if (!chunk || chunk.length === 0) break;
+        for (const r of chunk) doneSet.add(String((r as any).episode_id));
+        if (chunk.length < 1000) break;
+      }
+
+      // 1) YouTube-confirmed-first priority, but only episodes not yet done.
       const { data: ytPriority, error: ytPriorityErr } = await admin
         .from("episode_youtube_links")
         .select("episode_id,updated_at")
@@ -137,20 +153,51 @@ Deno.serve(async (req) => {
         .contains("validation_reason", { policy: "youtube_episode_match_v3" })
         .not("youtube_description", "is", null)
         .order("updated_at", { ascending: false, nullsFirst: false })
-        .limit(limit);
+        .limit(Math.max(limit * 4, 5000));
       if (ytPriorityErr) throw ytPriorityErr;
-      targetIds = Array.from(new Set((ytPriority || []).map((row: any) => String(row.episode_id)).filter(Boolean)));
+      const ytIds = Array.from(new Set((ytPriority || []).map((row: any) => String(row.episode_id)).filter(Boolean)))
+        .filter((id) => !doneSet.has(id))
+        .slice(0, limit);
+
+      if (ytIds.length) {
+        targetIds = ytIds;
+        usedYtPriority = true;
+      } else {
+        // 2) Drain remaining episodes that don't have a best_text_source yet.
+        //    Paginate episodes by updated_at desc, filter out doneSet, until we collect `limit` ids.
+        const collected: string[] = [];
+        for (let offset = 0; offset < 500000 && collected.length < limit; offset += 1000) {
+          const { data, error } = await admin
+            .from("episodes")
+            .select("id")
+            .order("updated_at", { ascending: false, nullsFirst: false })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          for (const r of data) {
+            const id = String((r as any).id);
+            if (!doneSet.has(id)) collected.push(id);
+            if (collected.length >= limit) break;
+          }
+          if (data.length < 1000) break;
+        }
+        targetIds = collected;
+      }
     }
 
-    let q = admin
-      .from("episodes")
-      .select("id,podcast_id,title,description,updated_at")
-      .order("updated_at", { ascending: false, nullsFirst: false })
-      .limit(limit);
-    if (targetIds.length) q = q.in("id", targetIds);
-    const { data: episodes, error: epErr } = await q;
-    if (epErr) throw epErr;
-    const eps = (episodes || []) as EpisodeRow[];
+    let episodes: any[] = [];
+    if (targetIds.length) {
+      for (let i = 0; i < targetIds.length; i += 150) {
+        const slice = targetIds.slice(i, i + 150);
+        const { data, error } = await admin
+          .from("episodes")
+          .select("id,podcast_id,title,description,updated_at")
+          .in("id", slice);
+        if (error) throw error;
+        if (data) episodes.push(...data);
+      }
+    }
+    const eps = episodes as EpisodeRow[];
     if (!eps.length) return json({ ok: true, processed: 0 });
 
     const epIds = eps.map((e) => e.id);
@@ -235,6 +282,8 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, scanned: eps.length, upserted, source_counts: sourceCounts, elapsed_ms: Date.now() - startedAt });
   } catch (e) {
-    return json({ ok: false, error: e instanceof Error ? e.message : "error" }, 500);
+    const msg = e instanceof Error ? `${e.message}${e.stack ? ` :: ${e.stack.split('\n').slice(0,3).join(' | ')}` : ''}` : (typeof e === "string" ? e : JSON.stringify(e));
+    console.error("episode-best-text-source-runner error:", msg);
+    return json({ ok: false, error: msg }, 500);
   }
 });
