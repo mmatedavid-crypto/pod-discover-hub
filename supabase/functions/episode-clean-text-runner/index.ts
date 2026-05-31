@@ -52,6 +52,28 @@ Deno.serve(async (req) => {
       if (selErr) return json({ ok: false, error: selErr.message }, 500);
       if (!eps || eps.length === 0) break;
 
+      // Fetch confirmed YouTube descriptions for this batch — we compare raw
+      // YT vs raw RSS text directly and pick the longer one.
+      const epIds = eps.map((e: any) => e.id);
+      const ytByEp = new Map<string, string>();
+      for (let i = 0; i < epIds.length; i += 200) {
+        const slice = epIds.slice(i, i + 200);
+        const { data: ytRows } = await admin
+          .from("episode_youtube_links")
+          .select("episode_id, youtube_description, match_score")
+          .in("episode_id", slice)
+          .eq("status", "confirmed")
+          .not("youtube_description", "is", null)
+          .order("match_score", { ascending: false });
+        for (const row of ytRows || []) {
+          const eid = String((row as any).episode_id);
+          const txt = String((row as any).youtube_description || "").trim();
+          if (!txt) continue;
+          const prev = ytByEp.get(eid);
+          if (!prev || txt.length > prev.length) ytByEp.set(eid, txt);
+        }
+      }
+
       passes++;
       const upsertRows: any[] = [];
       const doneIds: string[] = [];
@@ -59,21 +81,26 @@ Deno.serve(async (req) => {
 
       for (const ep of eps) {
         totalProcessed++;
-        const raw = String((ep as any).description || (ep as any).summary || "");
-        if (!raw || raw.trim().length < minChars) {
+        const rss = String((ep as any).description || (ep as any).summary || "").trim();
+        const yt = ytByEp.get((ep as any).id) || "";
+        // Compare raw lengths directly — whichever is longer wins.
+        const useYt = yt.length > rss.length;
+        const raw = useYt ? yt : rss;
+        const usedMethod = useYt ? `${method}+ytdesc` : method;
+        if (!raw || raw.length < minChars) {
           skipIds.push((ep as any).id);
           totalSkipped++;
           continue;
         }
         try {
           const { text, removed } = heuristicClean(raw);
-          const source_hash = await sha256Hex(`${method}::${raw}`);
+          const source_hash = await sha256Hex(`${usedMethod}::${raw}`);
           upsertRows.push({
             episode_id: (ep as any).id,
             source_hash,
             cleaned_text: text.trim(),
-            removed_categories: removed,
-            cleaner_method: method,
+            removed_categories: useYt ? Array.from(new Set([...removed, "source_youtube"])) : removed,
+            cleaner_method: usedMethod,
           });
           doneIds.push((ep as any).id);
         } catch (e) {
@@ -83,6 +110,7 @@ Deno.serve(async (req) => {
           await admin.from("episodes").update({ clean_text_status: "error" }).eq("id", (ep as any).id);
         }
       }
+
 
       // Bulk upsert all cleaned rows, then bulk flip status. Massively cheaper than per-row.
       if (upsertRows.length > 0) {
