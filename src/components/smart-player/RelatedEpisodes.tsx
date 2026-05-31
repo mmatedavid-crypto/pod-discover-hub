@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
 
 type Row = {
@@ -17,10 +18,14 @@ type Row = {
   description: string | null;
   published_at: string | null;
   audio_url: string | null;
+  topics?: string[] | null;
+  people?: string[] | null;
+  companies?: string[] | null;
   podcast_slug: string;
   podcast_title: string;
   podcast_display_title: string | null;
   podcast_image_url: string | null;
+  podcast_category?: string | null;
 };
 
 const MAX = 5;
@@ -36,6 +41,30 @@ function reason(r: Row): string {
   if (sim >= 70) return `${sim}% tartalmi egyezés az epizód-index alapján`;
   if (sim >= 55) return `${sim}% hasonlóság, rokon téma más műsorból`;
   return "Rokon téma más műsorból";
+}
+
+function sourceFromEpisode(cur: any): RecommendationContext {
+  const podcast = Array.isArray(cur?.podcasts) ? cur.podcasts[0] : cur?.podcasts;
+  return {
+    title: cur?.display_title || cur?.title || null,
+    podcastTitle: podcast?.display_title || podcast?.title || null,
+    category: podcast?.category || null,
+    topics: cur?.topics || [],
+    people: cur?.people || [],
+    companies: cur?.companies || [],
+  };
+}
+
+function rowToCandidate(row: Row) {
+  return {
+    ...row,
+    title: row.display_title || row.title,
+    podcastTitle: row.podcast_display_title || row.podcast_title,
+    category: row.podcast_category || null,
+    topics: row.topics || [],
+    people: row.people || [],
+    companies: row.companies || [],
+  };
 }
 
 type Props = {
@@ -56,26 +85,27 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
     staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 6,
     queryFn: async (): Promise<Row[]> => {
+      const { data: cur } = await supabase
+        .from("episodes")
+        .select("id,podcast_id,title,display_title,topics,people,companies,podcasts!inner(title,display_title,category)")
+        .eq("id", episodeId!)
+        .maybeSingle();
+      const source = sourceFromEpisode(cur);
+      const topics: string[] = (cur as any)?.topics || [];
+      const people: string[] = (cur as any)?.people || [];
+      const category: string | null = (Array.isArray((cur as any)?.podcasts) ? (cur as any)?.podcasts?.[0] : (cur as any)?.podcasts)?.category || null;
+
       const { data: rpcData, error: rpcErr } = await supabase.rpc("similar_episodes", {
         p_episode_id: episodeId!,
         p_limit: 12,
       });
-      if (!rpcErr && rpcData && (rpcData as any[]).length > 0) return rpcData as Row[];
+      if (!rpcErr && rpcData && (rpcData as any[]).length > 0) {
+        return filterSafeRelatedEpisodes(source, (rpcData as Row[]).map(rowToCandidate), 12) as Row[];
+      }
 
-      // Fallback when no episode embedding: shared topics / people / category / same podcast
-      const { data: cur } = await supabase
-        .from("episodes")
-        .select("id,podcast_id,topics,people,podcasts!inner(category)")
-        .eq("id", episodeId!)
-        .maybeSingle();
-
-      const topics: string[] = (cur as any)?.topics || [];
-      const people: string[] = (cur as any)?.people || [];
-      const category: string | null = (cur as any)?.podcasts?.category || null;
-      const curPodcastId: string | null = (cur as any)?.podcast_id || podcastId;
-
+      // Fallback when no episode embedding: explicit shared topics / people / category only.
       const sel =
-        "id,podcast_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,podcasts!inner(slug,title,display_title,image_url,category,rss_status,is_hungarian,rank_label)";
+        "id,podcast_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,rss_status,is_hungarian,rank_label)";
 
       const probes: any[] = [];
       if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
@@ -91,25 +121,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         if (!candidates.has(row.id)) candidates.set(row.id, row);
       }));
 
-      if (candidates.size === 0) {
-        let q = supabase
-          .from("episodes")
-          .select(sel)
-          .neq("id", episodeId!)
-          .not("audio_url", "is", null)
-          .eq("podcasts.is_hungarian", true)
-          .not("podcasts.rss_status", "in", "(failed,inactive)")
-          .in("podcasts.rank_label", ["S", "A", "B", "C", "D", "E"])
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(12);
-        if (curPodcastId) q = q.neq("podcast_id", curPodcastId);
-        const { data: recent } = await q;
-        (recent || []).forEach((row: any) => {
-          if (row.audio_url && !candidates.has(row.id)) candidates.set(row.id, row);
-        });
-      }
-
-      return Array.from(candidates.values()).slice(0, 12).map((r) => ({
+      const rows = Array.from(candidates.values()).map((r) => ({
         episode_id: r.id,
         podcast_id: r.podcast_id,
         similarity: 0,
@@ -121,11 +133,16 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         description: r.description,
         published_at: r.published_at,
         audio_url: r.audio_url,
+        topics: r.topics,
+        people: r.people,
+        companies: r.companies,
         podcast_slug: r.podcasts?.slug,
         podcast_title: r.podcasts?.title,
         podcast_display_title: r.podcasts?.display_title,
         podcast_image_url: r.podcasts?.image_url,
+        podcast_category: r.podcasts?.category,
       })) as Row[];
+      return filterSafeRelatedEpisodes(source, rows.map(rowToCandidate), 12) as Row[];
     },
   });
 
@@ -157,7 +174,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       )}
       {!isLoading && !isCompact && items.length === 0 && (
         <div className="text-xs text-muted-foreground">
-          Ehhez az epizódhoz még kevés a kapcsolódó adat, ezért most friss műsorokat emelünk előre.
+          Ehhez az epizódhoz még nincs elég erős kapcsolódó adat.
         </div>
       )}
 

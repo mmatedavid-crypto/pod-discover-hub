@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles, Users, Radio, Zap } from "lucide-react";
+import { Sparkles, Users, Radio } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
 
 type Row = {
@@ -39,11 +40,15 @@ type EpisodeFallbackRow = {
   image_url: string | null;
   audio_url: string | null;
   published_at: string | null;
+  topics: string[] | null;
+  people: string[] | null;
+  companies: string[] | null;
   podcasts?: {
     slug: string;
     title: string;
     display_title: string | null;
     image_url: string | null;
+    category: string | null;
   } | null;
 };
 
@@ -66,8 +71,8 @@ const RAILS: Array<{
   },
   {
     kind: "vector_neighbor",
-    title: "Hasonló hangulat",
-    blurb: "Vektor-alapú ajánlás — más műsorok, hasonló rezgéssel",
+    title: "Tartalmilag kapcsolódik",
+    blurb: "Témák, szereplők és szövegközelség alapján válogatva",
     Icon: Radio,
   },
 ];
@@ -94,9 +99,35 @@ function fallbackToRows(rows: EpisodeFallbackRow[]): Row[] {
     seek_seconds: null,
     shared_persons: null,
     shared_orgs: null,
-    shared_topics: null,
-    why_label: "Friss, minőségi ajánlás más műsorból",
+    shared_topics: r.topics || null,
+    why_label: "Közös téma vagy közeli tartalmi jel alapján",
   }));
+}
+
+function sourceFromEpisode(cur: any): RecommendationContext {
+  const podcast = Array.isArray(cur?.podcasts) ? cur.podcasts[0] : cur?.podcasts;
+  return {
+    title: cur?.display_title || cur?.title || null,
+    podcastTitle: podcast?.display_title || podcast?.title || null,
+    category: podcast?.category || null,
+    topics: cur?.topics || [],
+    people: cur?.people || [],
+    companies: cur?.companies || [],
+  };
+}
+
+function rowToCandidate(row: Row) {
+  return {
+    ...row,
+    title: row.display_title || row.title,
+    podcastTitle: row.podcast_display_title || row.podcast_title,
+    topics: row.shared_topics || [],
+    people: row.shared_persons || [],
+    companies: row.shared_orgs || [],
+    sharedTopics: row.shared_topics || [],
+    sharedPeople: row.shared_persons || [],
+    sharedCompanies: row.shared_orgs || [],
+  };
 }
 
 
@@ -111,22 +142,25 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
     staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 6,
     queryFn: async (): Promise<Row[]> => {
+      const { data: cur } = await supabase
+        .from("episodes")
+        .select("id,podcast_id,title,display_title,topics,people,companies,podcasts!inner(title,display_title,category)")
+        .eq("id", episodeId!)
+        .maybeSingle();
+      const source = sourceFromEpisode(cur);
+      const sourcePodcastId = (cur as any)?.podcast_id || null;
+
       const { data: rpcData, error: rpcErr } = await supabase.rpc(
         "smart_player_discover" as any,
         { p_episode_id: episodeId!, p_limit: 6 },
       );
-      if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) return rpcData as Row[];
-
-      const { data: cur } = await supabase
-        .from("episodes")
-        .select("podcast_id")
-        .eq("id", episodeId!)
-        .maybeSingle();
-      const sourcePodcastId = (cur as any)?.podcast_id || null;
+      if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+        return filterSafeRelatedEpisodes(source, (rpcData as Row[]).map(rowToCandidate), 12) as Row[];
+      }
 
       let q = supabase
         .from("episodes")
-        .select("id,podcast_id,title,display_title,slug,image_url,audio_url,published_at,podcasts!inner(slug,title,display_title,image_url,is_hungarian,rss_status,rank_label)")
+        .select("id,podcast_id,title,display_title,slug,image_url,audio_url,published_at,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,is_hungarian,rss_status,rank_label)")
         .not("audio_url", "is", null)
         .eq("podcasts.is_hungarian", true)
         .not("podcasts.rss_status", "in", "(failed,inactive)")
@@ -136,7 +170,8 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
       if (sourcePodcastId) q = q.neq("podcast_id", sourcePodcastId);
 
       const { data: fallbackData } = await q;
-      return fallbackToRows(((fallbackData || []) as unknown as EpisodeFallbackRow[]).slice(0, 6));
+      const rows = fallbackToRows(((fallbackData || []) as unknown as EpisodeFallbackRow[]).slice(0, 12));
+      return filterSafeRelatedEpisodes(source, rows.map(rowToCandidate), 6) as Row[];
     },
   });
 

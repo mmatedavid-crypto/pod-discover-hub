@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { EpisodeList, EpisodeLite } from "./EpisodeCard";
 import { Sparkles } from "lucide-react";
+import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 
 type Row = {
   episode_id: string;
@@ -60,6 +61,28 @@ function relatedReasonFromSimilarity(similarity: number): string {
 
 const MIN_RESULTS = 3;
 
+function sourceFromEpisode(cur: any): RecommendationContext {
+  const podcast = Array.isArray(cur?.podcasts) ? cur.podcasts[0] : cur?.podcasts;
+  return {
+    title: cur?.display_title || cur?.title || null,
+    podcastTitle: podcast?.display_title || podcast?.title || null,
+    category: podcast?.category || null,
+    topics: cur?.topics || [],
+    people: cur?.people || [],
+    companies: cur?.companies || [],
+  };
+}
+
+function rowToCandidate(row: Row) {
+  return {
+    ...row,
+    title: row.display_title || row.title,
+    podcastTitle: row.podcast_display_title || row.podcast_title,
+    category: row.podcast_category || null,
+    topics: row.topics || [],
+  };
+}
+
 export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; limit?: number }) {
   const [items, setItems] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,21 +90,33 @@ export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; l
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    supabase
-      .rpc("get_related_episodes_by_embedding" as any, {
-        p_episode_id: episodeId,
-        p_limit: limit,
-        p_downweight_same_podcast: true,
-      })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !Array.isArray(data)) {
-          setItems([]);
-        } else {
-          setItems((data as Row[]).map(rowToEpisode));
-        }
-        setLoading(false);
-      });
+    async function load() {
+      const [{ data: cur }, { data, error }] = await Promise.all([
+        supabase
+          .from("episodes")
+          .select("id,title,display_title,topics,people,companies,podcasts!inner(title,display_title,category)")
+          .eq("id", episodeId)
+          .maybeSingle(),
+        supabase.rpc("get_related_episodes_by_embedding" as any, {
+          p_episode_id: episodeId,
+          p_limit: limit,
+          p_downweight_same_podcast: true,
+        }),
+      ]);
+      if (cancelled) return;
+      if (error || !Array.isArray(data)) {
+        setItems([]);
+      } else {
+        const safeRows = filterSafeRelatedEpisodes(
+          sourceFromEpisode(cur),
+          (data as Row[]).map(rowToCandidate),
+          limit,
+        ) as Row[];
+        setItems(safeRows.map(rowToEpisode));
+      }
+      setLoading(false);
+    }
+    load();
     return () => {
       cancelled = true;
     };
