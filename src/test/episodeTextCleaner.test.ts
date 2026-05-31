@@ -48,4 +48,35 @@ describe("episode text cleaner", () => {
     expect(result.text).toContain("bring in more auditions fast");
     expect(result.text).not.toMatch(/Email|Website|Additional Resources|Headshots|https?:\/\/|martin@/i);
   });
+
+  it("cuts one-line promo and legal boilerplate tails after the actual episode text", () => {
+    const raw = [
+      "Ebben az adásban arról beszélgetünk, miért szorongunk a pénztől, hogyan alakulnak ki a családi pénzminták, és milyen lépésekkel lehet tudatosabb döntéseket hozni a mindennapi kiadásokban.",
+      "Money Mentoring Nap – Vegye kézbe pénzügyeit szakértőinkkel.",
+      "Jelentkezzen 2026. május 29-én, részletek és regisztráció a weboldalunkon.",
+      "Foglalj ingyenes konzultációt privát bankárainkkal.",
+      "Rendeld meg bestseller könyvünket.",
+      "Jogi nyilatkozat A jelen bejegyzésben/műsorban elhangzottak nem minősíthetők befektetésre való ösztönzésnek.",
+    ].join(" ");
+
+    const result = heuristicClean(raw);
+
+    expect(result.text).toContain("családi pénzminták");
+    expect(result.text).toContain("mindennapi kiadásokban");
+    expect(result.text).not.toMatch(/Money Mentoring|Jelentkezzen|Foglalj|Rendeld meg|Jogi nyilatkozat|befektetésre/i);
+    expect(result.removed).toContain("sentence_footer_tail_cut");
+  });
+
+  it("keeps substantive one-line descriptions that mention legal topics", () => {
+    const raw = [
+      "A mai epizódban egy munkajogi szakértővel beszélgetünk arról, hogyan működik a felmondás, milyen jogi lehetőségei vannak a munkavállalónak, és mit érdemes átnézni egy szerződésben.",
+      "A beszélgetés konkrét példákon keresztül mutatja be a magyar munkahelyi konfliktusok tipikus hibáit.",
+    ].join(" ");
+
+    const result = heuristicClean(raw);
+
+    expect(result.text).toContain("munkajogi szakértővel");
+    expect(result.text).toContain("magyar munkahelyi konfliktusok");
+    expect(result.removed).not.toContain("sentence_footer_tail_cut");
+  });
 });

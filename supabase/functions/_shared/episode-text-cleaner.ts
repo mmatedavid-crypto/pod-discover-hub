@@ -42,13 +42,15 @@ const MULTI_WHITESPACE = /\s{3,}/g;
 const HTML_RX = /<[^>]+>/g;
 const HTML_ENTITY_RX = /&(amp|nbsp|quot|apos|lt|gt);/gi;
 const INLINE_FOOTER_START_RX =
-  /\s(?:--+|—|–)?\s*(?:hasznos\s+linkek|linkek|additional\s+resources|contact\s+information|támogatóink|tamogatoink|támogatók|tamogatok|közösségi\s+média|social\s+(?:links?|media)|show\s+notes|shownotes)\s*[:：]/i;
+  /\s(?:--+|—|–)?\s*(?:hasznos\s+linkek|linkek|additional\s+resources|contact\s+information|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)|támogatóink|tamogatoink|támogatók|tamogatok|közösségi\s+média|social\s+(?:links?|media)|show\s+notes|shownotes)\s*[:：]/i;
 const CTA_LABEL_RX =
-  /(?:^|\s)(?:kövesd|kövess(?:etek|en)?|iratkozz(?:atok)?\s+fel|köszönjük,\s+ha|koszonjuk,\s+ha|támogasd|támogass(?:atok)?|töltsd\s+le|nézz(?:étek)?|hallgass(?:átok)?|hallgasd|watch|listen|subscribe|follow|support|download)\b[^:\n.!?]{0,180}[:：]\s*/gi;
+  /(?:^|\s)(?:kövesd|kövess(?:etek|en)?|iratkozz(?:atok)?\s+fel|köszönjük,\s+ha|koszonjuk,\s+ha|támogasd|támogass(?:atok)?|töltsd\s+le|nézz(?:étek)?|hallgass(?:átok)?|hallgasd|foglalj|jelentkezz|jelentkezzen|regisztrálj|regisztráljon|rendeld\s+meg|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal|watch|listen|subscribe|follow|support|download|register|book\s+a\s+call|apply\s+for)\b[^:\n.!?]{0,180}[:：]\s*/gi;
 const CTA_SENTENCE_RX = [
-  /(?:^|[.!?]\s+)(?:kövesd|kövess(?:etek|en)?|iratkozz(?:atok)?\s+fel|támogasd|támogass(?:atok)?|töltsd\s+le|nézz(?:étek)?|hallgass(?:átok)?|hallgasd|watch|listen|subscribe|follow|support|download)\b[^.!?\n]{0,220}(?:\.|!|\?|$)/gi,
-  /(?:^|[.!?]\s+)(?:email|e-?mail|website|weboldal|honlap|headshots|shoot\s+footage|edit\s+footage|patreon|discord|telegram|x\s+\(ex-twitter\)|bluesky)\s*[:：][^.!?\n]{0,220}(?:\.|!|\?|$)/gi,
+  /(?:^|[.!?]\s+)(?:kövesd|kövess(?:etek|en)?|iratkozz(?:atok)?\s+fel|támogasd|támogass(?:atok)?|töltsd\s+le|nézz(?:étek)?|hallgass(?:átok)?|hallgasd|foglalj|jelentkezz|jelentkezzen|regisztrálj|regisztráljon|rendeld\s+meg|vegye\s+kézbe|vedd\s+kézbe|watch|listen|subscribe|follow|support|download|register(?:\s+(?:now|here|today))?|book\s+a\s+call|apply\s+for)\b[^.!?\n]{0,260}(?:\.|!|\?|$)/gi,
+  /(?:^|[.!?]\s+)(?:részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|weboldalunkon|webinár|webinar|mentoring\s+nap|konzultáció|bestseller\s+könyv|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)?|email|e-?mail|website|weboldal|honlap|headshots|shoot\s+footage|edit\s+footage|patreon|discord|telegram|x\s+\(ex-twitter\)|bluesky)\b[^.!?\n]{0,260}(?:\.|!|\?|$)/gi,
 ];
+const LEGAL_TAIL_RX = /\b(?:jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal\s+(?:notice|disclaimer)?|nem\s+minős(?:ül|íthető)[^.!?\n]{0,120}(?:befektetési|befektetésre|tanácsadás|ösztönzés)|not\s+(?:financial|investment|legal)\s+advice)\b/i;
+const PROMO_SENTENCE_RX = /\b(?:foglalj|foglaljon|jelentkezz|jelentkezzen|regisztrálj|regisztráljon|rendeld\s+meg|rendelje\s+meg|vegye\s+kézbe|vedd\s+kézbe|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|weboldalunkon|webinár|webinar|mentoring\s+nap|konzultáció|bestseller\s+könyv|book\s+a\s+call|register(?:\s+(?:now|here|today))?|apply\s+for)\b/i;
 
 // Strong footer markers — once we hit one (and the rest of the doc is footer-dominated),
 // EVERYTHING from that line on is dropped.
@@ -201,9 +203,60 @@ function stripCtaSentences(input: string): { text: string; removed: string[] } {
   return { text: body, removed: hit ? ["cta_sentences"] : [] };
 }
 
+function sentenceWordCount(input: string): number {
+  return input.split(/\s+/).filter((w) => /[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű0-9]{3,}/.test(w)).length;
+}
+
+function splitSentences(input: string): string[] {
+  return input.match(/[^.!?\n]+(?:[.!?]+|$)/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+}
+
+function isFooterishSentence(sentence: string): boolean {
+  const s = sentence.trim();
+  if (!s) return false;
+  if (LEGAL_TAIL_RX.test(s)) return true;
+  if (PROMO_SENTENCE_RX.test(s)) return true;
+  if (/(?:https?:\/\/|www\.|@|spotify|apple\s+podcasts?|youtube|instagram|facebook|tiktok|patreon|discord|telegram|linktr\.ee)/i.test(s)) return true;
+  if (/(?:kövesd|kövess|iratkozz|feliratkoz|támogasd|támogass|hallgasd|nézd|nézzétek|listen|subscribe|follow|support|download)\b/i.test(s)) return true;
+  if (/^(?:email|e-?mail|website|weboldal|honlap|additional\s+resources|contact\s+information|headshots|x\s+\(ex-twitter\)|bluesky)\s*[:：]/i.test(s)) return true;
+  return false;
+}
+
+function stripSentenceFooterTail(input: string): { text: string; removed: string[] } {
+  const normalized = input.trim();
+  if (normalized.length < 500) return { text: input, removed: [] };
+
+  const sentences = splitSentences(normalized);
+  if (sentences.length < 3) return { text: input, removed: [] };
+
+  for (let i = 1; i < sentences.length; i++) {
+    const before = sentences.slice(0, i).join(" ").trim();
+    const tail = sentences.slice(i);
+    const beforeWords = sentenceWordCount(before);
+    if (beforeWords < 18) continue;
+
+    const tailText = tail.join(" ").trim();
+    const tailWords = sentenceWordCount(tailText);
+    if (tailWords < 8) continue;
+
+    if (LEGAL_TAIL_RX.test(tail[0])) {
+      return { text: before, removed: ["sentence_footer_tail_cut"] };
+    }
+
+    const footerish = tail.filter(isFooterishSentence).length;
+    const ratio = footerish / tail.length;
+    const firstTwoFooterish = tail.slice(0, 2).filter(isFooterishSentence).length;
+    if (ratio >= 0.5 && firstTwoFooterish >= 1) {
+      return { text: before, removed: ["sentence_footer_tail_cut"] };
+    }
+  }
+
+  return { text: input, removed: [] };
+}
+
 function stripDanglingLabels(input: string): { text: string; removed: string[] } {
   const labels =
-    /(?:^|\n|\s)(?:email|e-?mail|website|weboldal|honlap|headshots|additional resources|contact information|work with [^:\n]{1,40}|apply for a consultation|shoot footage for your reel|edit footage into a reel|x \(ex-twitter\)|bluesky|telegram csatornánk|discord szerverünk|patreon oldalunk|támogatóink|tamogatoink|kövesd|köszönjük, ha|töltsd le és hallgasd|biblia egy év alatt kihívás)\s*[:：]\s*(?=$|\n|[A-ZÁÉÍÓÖŐÚÜŰ])/gi;
+    /(?:^|\n|\s)(?:email|e-?mail|website|weboldal|honlap|headshots|additional resources|contact information|work with [^:\n]{1,40}|apply for a consultation|shoot footage for your reel|edit footage into a reel|x \(ex-twitter\)|bluesky|telegram csatornánk|discord szerverünk|patreon oldalunk|támogatóink|tamogatoink|kövesd|köszönjük, ha|töltsd le és hallgasd|biblia egy év alatt kihívás|részletek(?:\s+és\s+regisztráció)?|reszletek(?:\s+es\s+regisztracio)?|jogi\s+(?:nyilatkozat|figyelmeztetés)|disclaimer|legal)\s*[:：]\s*(?=$|\n|[A-ZÁÉÍÓÖŐÚÜŰ])/gi;
   if (!labels.test(input)) return { text: input, removed: [] };
   labels.lastIndex = 0;
   return { text: input.replace(labels, " "), removed: ["dangling_labels"] };
@@ -289,9 +342,17 @@ export function heuristicClean(raw: string): { text: string; removed: string[] }
   body = preCtaStripped.text;
   removed.push(...preCtaStripped.removed);
 
+  const sentenceFooterBeforeCta = stripSentenceFooterTail(body);
+  body = sentenceFooterBeforeCta.text;
+  removed.push(...sentenceFooterBeforeCta.removed);
+
   const ctaStripped = stripCtaSentences(body);
   body = ctaStripped.text;
   removed.push(...ctaStripped.removed);
+
+  const sentenceFooter = stripSentenceFooterTail(body);
+  body = sentenceFooter.text;
+  removed.push(...sentenceFooter.removed);
 
   // 4) Strip any remaining inline links, bare platform URLs, emails and handles.
   const stripped = stripInlineNoise(body);
@@ -334,6 +395,10 @@ export function heuristicClean(raw: string): { text: string; removed: string[] }
     const strippedFallback = stripInlineNoise(fallback);
     fallback = strippedFallback.text;
     fallbackRemoved.push(...strippedFallback.removed);
+
+    const fallbackSentenceFooter = stripSentenceFooterTail(fallback);
+    fallback = fallbackSentenceFooter.text;
+    fallbackRemoved.push(...fallbackSentenceFooter.removed);
 
     fallback = fallback.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(MULTI_WHITESPACE, " ").trim();
 
