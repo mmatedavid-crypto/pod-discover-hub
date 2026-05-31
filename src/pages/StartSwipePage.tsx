@@ -11,6 +11,7 @@ import {
 import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArchetypes";
 // (image share-card no longer used here; switched to public share-link flow)
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
+import { isCompletedTasteProgress, shouldCompleteTasteProfile, tasteProgressCopy } from "@/lib/tasteCompletion";
 import { toast } from "sonner";
 import { SoftAuthCTA } from "@/components/SoftAuthCTA";
 import { EmailCaptureCard } from "@/components/EmailCaptureCard";
@@ -88,10 +89,6 @@ type Persisted = {
   updatedAt: string;
 };
 
-function isCompletedTasteSession(p: Pick<Persisted, "completedAt" | "seenCardIds" | "likedCardIds">): boolean {
-  return Boolean(p.completedAt || p.likedCardIds.length >= 6 || p.seenCardIds.length >= 10);
-}
-
 function loadPersisted(): Persisted {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -106,7 +103,7 @@ function loadPersisted(): Persisted {
         completedAt: p.completedAt || null,
         updatedAt: p.updatedAt || new Date().toISOString(),
       };
-      if (!normalized.completedAt && isCompletedTasteSession(normalized)) {
+      if (!normalized.completedAt && isCompletedTasteProgress(normalized)) {
         normalized.completedAt = normalized.updatedAt || new Date().toISOString();
         savePersisted(normalized);
       }
@@ -149,22 +146,6 @@ function seededRandom(seed: string): () => number {
 }
 
 /* ────────────────── Stopping logic ────────────────── */
-
-function shouldStop(totalSwipes: number, positiveSwipes: number, confidence: number): boolean {
-  if (totalSwipes >= 10 && positiveSwipes >= 6 && confidence >= 0.72) return true;
-  if (totalSwipes >= 22 && positiveSwipes >= 5 && confidence >= 0.60) return true;
-  if (totalSwipes >= 30) return true;
-  return false;
-}
-
-function progressCopy(totalSwipes: number, positiveSwipes: number, confidence: number): string {
-  if (totalSwipes === 0) return "Pár döntés, és indulnak a személyes ajánlások.";
-  if (totalSwipes < 6) return `Még ${6 - totalSwipes} gyors döntés, hogy ráérezzünk.`;
-  if (positiveSwipes < 4) return "Mutatunk még pár irányt, hogy legyen miből ajánlani.";
-  if (confidence >= 0.72 && positiveSwipes >= 6) return "Elég erős a profilod, jönnek az ajánlások.";
-  if (totalSwipes < 10) return `Még ${10 - totalSwipes} finomító döntés.`;
-  return "Már elég sokat tudunk rólad, hamarosan kész.";
-}
 
 function swipeFeedback(action: SwipeAction, totalSwipes: number): string {
   if (action === "super") return "Ez erős jel. Ebből többet keresünk.";
@@ -378,7 +359,7 @@ export default function StartSwipePage() {
   const initialPhase: Phase = (() => {
     try {
       const p = loadPersisted();
-      if (isCompletedTasteSession(p)) return "result";
+      if (isCompletedTasteProgress(p)) return "result";
     } catch { /* ignore */ }
     return "swipe";
   })();
@@ -734,7 +715,7 @@ export default function StartSwipePage() {
       trackLandingEvent("SwipeProgress", { total, positives, action });
     }
 
-    if (shouldStop(total, positives, newConf)) {
+    if (shouldCompleteTasteProfile(total, positives, newConf)) {
       finishSwipe("auto_confident", total, positives, next);
       return;
     }
@@ -991,7 +972,7 @@ function SwipeView({
       </div>
 
       <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span>{progressCopy(totalSwipes, positiveSwipes, confidence)}</span>
+        <span>{tasteProgressCopy(totalSwipes, positiveSwipes, confidence)}</span>
         <span className="shrink-0">{totalSwipes} döntés</span>
       </div>
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
