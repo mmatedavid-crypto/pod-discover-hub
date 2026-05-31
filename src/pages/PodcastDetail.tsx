@@ -135,13 +135,15 @@ export default function PodcastDetail() {
           : "";
         const baseDesc = data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
         const seoCategory = categoryLabel(data.category) || data.category;
+        const isAcceptedHungarian = data.is_hungarian === true && data.language_decision === "accept_hungarian";
+        const noindex = !isAcceptedHungarian || data.rss_status === "failed" || data.rss_status === "inactive";
         setSeo({
           title: data.seo_title || `${data.title} – Podiverzum`,
           description: snippet(hostPrefix + baseDesc, 160),
           canonical,
-          noindex: data.rss_status === "failed" || data.rss_status === "inactive",
+          noindex,
           image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: seoCategory || "Podcast", image: data.image_url }),
-          jsonLd: [
+          jsonLd: noindex ? undefined : [
             {
               "@context": "https://schema.org",
               "@type": "PodcastSeries",

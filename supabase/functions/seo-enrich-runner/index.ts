@@ -10,7 +10,7 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { isHungarianish } from "../_shared/hu-language-guard.ts";
 
-const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A forrás magyar nyelvű. Soha NE fordítsd angolra. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj.";
+const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj.";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +19,10 @@ const cors = {
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 import { callGeminiOpenAI } from "../_shared/google-gemini-direct.ts";
+
+function isAcceptedHungarian(meta: any): boolean {
+  return meta?.is_hungarian === true || String(meta?.language_decision || "") === "accept_hungarian" || String(meta?.language || "").toLowerCase().startsWith("hu");
+}
 
 async function callAI(model: string, messages: any[], tools: any[], toolName: string, targetId?: string, kind?: string) {
   const r = await callGeminiOpenAI({
@@ -111,15 +115,16 @@ Deno.serve(async (req) => {
         let prompt = job.result?.prompt as string | undefined;
         if (!prompt) {
           if (isPodcast) {
-            const { data: p } = await admin.from("podcasts").select("title,display_title,description,category,language").eq("id", job.target_id).maybeSingle();
+            const { data: p } = await admin.from("podcasts").select("title,display_title,description,category,language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle();
             if (!p) throw new Error("target_missing");
             prompt = podcastUserPrompt(p as any);
           } else {
-            const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title,language,hosts)").eq("id", job.target_id).maybeSingle();
+            const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title,language,is_hungarian,language_decision,hosts)").eq("id", job.target_id).maybeSingle();
             if (!e) throw new Error("target_missing");
             const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
             const podLanguage = ((e as any).podcasts?.language) || null;
             const podHosts = ((e as any).podcasts?.hosts) || [];
+            if (isAcceptedHungarian((e as any).podcasts)) (e as any).output_language_code = "hu";
             // Fetch latest transcript (if any) — used as PRIMARY source when present.
             const { data: tr } = await admin
               .from("episode_transcripts")
@@ -172,12 +177,11 @@ Deno.serve(async (req) => {
         // Looks at podcast.language (episodes inherit). If still not Hungarian after retry,
         // we fail the job (don't write English output to the DB).
         {
-          const srcLang = String(
-            isPodcast
-              ? ((await admin.from("podcasts").select("language").eq("id", job.target_id).maybeSingle()).data?.language || "")
-              : ((await admin.from("episodes").select("podcasts!inner(language)").eq("id", job.target_id).maybeSingle()).data as any)?.podcasts?.language || "",
-          ).toLowerCase();
-          if (srcLang.startsWith("hu")) {
+          const { data: langTarget } = isPodcast
+            ? await admin.from("podcasts").select("language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle()
+            : await admin.from("episodes").select("podcasts!inner(language,is_hungarian,language_decision)").eq("id", job.target_id).maybeSingle();
+          const huSource = isAcceptedHungarian(isPodcast ? langTarget : (langTarget as any)?.podcasts);
+          if (huSource) {
             const sample = `${parsed.seo_title || ""} ${parsed.seo_description || ""} ${parsed.ai_summary || ""}`.trim();
             if (sample.length >= 20 && !isHungarianish(sample)) {
               console.warn("seo-enrich: non-HU output on HU source, retrying", { target_id: job.target_id, kind: job.kind, sample: sample.slice(0, 100) });
@@ -216,9 +220,13 @@ Deno.serve(async (req) => {
         if (isPodcast) {
           const seo_title = trim(String(parsed.seo_title || ""), 65);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
+          const { data: pLang } = await admin.from("podcasts").select("language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle();
+          if (isAcceptedHungarian(pLang) && !isHungarianish(`${seo_title} ${seo_description}`)) {
+            throw new Error("hu_language_guard_failed");
+          }
           const update: any = { seo_title, seo_description, ai_enriched_at: new Date().toISOString() };
-          // Always trust Gemini's detection (except 'mul'): fixes both EN→other AND wrong-HU→EN.
-          if (detectedLang && detectedLang !== "mul") update.language = detectedLang;
+          // Never let a model-side detected language overwrite our accepted-Hungarian decision.
+          if (detectedLang && detectedLang !== "mul" && !isAcceptedHungarian(pLang)) update.language = detectedLang;
           await admin.from("podcasts").update(update).eq("id", job.target_id);
         } else {
           const seo_title = trim(String(parsed.seo_title || ""), 70);
@@ -243,10 +251,15 @@ Deno.serve(async (req) => {
           // (the runner-side filter is a belt-and-braces guard on top of the prompt rule).
           let epHosts: string[] = [];
           let epPodcastId: string | null = null;
+          let epPodcastMeta: any = null;
           {
-            const { data: ep2 } = await admin.from("episodes").select("podcast_id, podcasts!inner(hosts)").eq("id", job.target_id).maybeSingle();
+            const { data: ep2 } = await admin.from("episodes").select("podcast_id, podcasts!inner(hosts,language,is_hungarian,language_decision)").eq("id", job.target_id).maybeSingle();
             epPodcastId = (ep2 as any)?.podcast_id || null;
             epHosts = ((ep2 as any)?.podcasts?.hosts) || [];
+            epPodcastMeta = (ep2 as any)?.podcasts || null;
+          }
+          if (isAcceptedHungarian(epPodcastMeta) && !isHungarianish(`${seo_title} ${seo_description} ${ai_summary}`)) {
+            throw new Error("hu_language_guard_failed");
           }
           const people = filterHosts(cleanArr(parsed.people), epHosts);
           const mentioned = filterHosts(cleanArr(parsed.mentioned), epHosts);
@@ -265,7 +278,7 @@ Deno.serve(async (req) => {
           }).eq("id", job.target_id);
           // If a real (non-mul) language is detected for the episode and it disagrees with
           // the parent podcast's tag, fix the parent. Handles both wrong-EN→other AND wrong-HU→EN.
-          if (detectedLang && detectedLang !== "mul") {
+          if (detectedLang && detectedLang !== "mul" && !isAcceptedHungarian(epPodcastMeta)) {
             const { data: ep } = await admin.from("episodes").select("podcast_id").eq("id", job.target_id).maybeSingle();
             if (ep?.podcast_id) {
               const { data: parent } = await admin.from("podcasts").select("language").eq("id", ep.podcast_id).maybeSingle();

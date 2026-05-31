@@ -67,9 +67,11 @@ Deno.serve(async (req) => {
     // === PASS 1: Podcast SEO enqueue ===
     // Only podcasts that still need SEO. Limited by maxPods.
     let pq = admin.from("podcasts")
-      .select("id, title, display_title, description, category, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, crawl_state, seo_title, seo_description, rss_status")
+      .select("id, title, display_title, description, category, language, is_hungarian, language_decision, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, crawl_state, seo_title, seo_description, rss_status")
       .in("rank_label", allowedTiers)
       .in("rss_status", ["active", "not_checked"])
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .or("seo_title.is.null,seo_description.is.null")
       .order("podiverzum_rank", { ascending: false })
       .limit(maxPods);
@@ -101,9 +103,11 @@ Deno.serve(async (req) => {
     // complete, this starved the episode queue (~590 podcasts only). Now we
     // enqueue episodes from ALL eligible S/A/B/C podcasts independently.
     let epPq = admin.from("podcasts")
-      .select("id, title, display_title, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, rss_status")
+      .select("id, title, display_title, language, is_hungarian, language_decision, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, rss_status")
       .in("rank_label", allowedTiers)
       .in("rss_status", ["active", "not_checked"])
+      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .order("podiverzum_rank", { ascending: false })
       .limit(2000);
     if (requireBackfill) epPq = epPq.not("full_backfill_completed_at", "is", null);
@@ -159,6 +163,12 @@ Deno.serve(async (req) => {
       for (const e of collected) {
         const podName = sanitize(podNameById.get(e.podcast_id) || "");
         (e as any).clean_text = cleanById.get(e.id) || null;
+        const podMeta: any = epPods.find((p: any) => p.id === e.podcast_id) || {};
+        if (podMeta.is_hungarian === true || podMeta.language_decision === "accept_hungarian") {
+          (e as any).output_language_code = "hu";
+        } else {
+          (e as any).language = podMeta.language || null;
+        }
         const prompt = sanitize(episodeUserPrompt(e as any, podName));
         const hash = await inputHash(prompt);
         rows.push({
@@ -217,7 +227,7 @@ Deno.serve(async (req) => {
           const slice = epIds.slice(i, i + CHUNK);
           const { data: eps, error: eErr } = await admin
             .from("episodes")
-            .select("id, podcast_id, title, display_title, description, ai_summary_source, podcasts!inner(id, title, display_title, language, hosts, rank_label, rss_status, shadow_rank_components, full_backfill_completed_at)")
+            .select("id, podcast_id, title, display_title, description, ai_summary_source, podcasts!inner(id, title, display_title, language, is_hungarian, language_decision, hosts, rank_label, rss_status, shadow_rank_components, full_backfill_completed_at)")
             .in("id", slice);
           if (eErr) { transcriptUpsertErr = eErr.message; break; }
           for (const ep of (eps || [])) {
@@ -232,6 +242,11 @@ Deno.serve(async (req) => {
             transcriptCandidates++;
             const podName = sanitize(pod.display_title || pod.title || "");
             const transcript = String(transcriptById.get((ep as any).id) || "");
+            if (pod.is_hungarian === true || pod.language_decision === "accept_hungarian") {
+              (ep as any).output_language_code = "hu";
+            } else {
+              (ep as any).language = pod.language || null;
+            }
             const prompt = sanitize(episodeUserPrompt(ep as any, podName, pod.language, pod.hosts, transcript));
             const hash = await inputHash(prompt + "|tr:" + transcript.slice(0, 200));
             rows.push({

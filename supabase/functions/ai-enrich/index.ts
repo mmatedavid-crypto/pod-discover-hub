@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, recordAiCall } from "../_shared/lovable-ai.ts";
 import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
+import { isHungarianish } from "../_shared/hu-language-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +10,8 @@ const corsHeaders = {
 };
 
 const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
-const PROMPT_VERSION = "ai-enrich-v2";
+const PROMPT_VERSION = "ai-enrich-hu-only-v3";
+const HU_ONLY_SYSTEM = "Podiverzum magyar podcast-oldal. Minden publikus összefoglalót kizárólag magyarul írj. Angol summary soha nem kerülhet ki. Ne keverd a nyelveket.";
 
 async function loadControls(supabase: any) {
   const { data } = await supabase.from("app_settings").select("value").eq("key", "ai_controls").maybeSingle();
@@ -45,10 +47,15 @@ async function hasSuccessfulAiRun(supabase: any, jobType: string, targetType: st
     .eq("target_type", targetType)
     .eq("target_id", targetId)
     .eq("source_hash", sourceHash)
+    .eq("prompt_version", PROMPT_VERSION)
     .eq("status", "ok")
     .limit(1)
     .maybeSingle();
   return !!data?.id;
+}
+
+function isAcceptedHungarianPodcast(p: any): boolean {
+  return p?.is_hungarian === true || String(p?.language_decision || "") === "accept_hungarian" || String(p?.language || "").toLowerCase().startsWith("hu");
 }
 
 async function recordDuplicateSkip(jobType: string, targetType: string, targetId: string, sourceHash: string, model: string) {
@@ -155,8 +162,9 @@ Deno.serve(async (req) => {
     if (type === "podcast") {
       const { data: p } = await supabase.from("podcasts").select("*").eq("id", id).single();
       if (!p) throw new Error("podcast not found");
-      const langCode = (p.language || "").toLowerCase().split(/[-_]/)[0] || "en";
-      const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
+      if (!isAcceptedHungarianPodcast(p)) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "not_hungarian_podcast" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const inputText = `${p.title || ""}\n${p.description || ""}`;
       const sourceHash = await sha256Hex(inputText.trim());
       if (p.ai_enrich_input_hash === sourceHash && p.summary) {
@@ -177,8 +185,8 @@ Deno.serve(async (req) => {
         input_text: inputText,
         min_input_chars: ctrl.minInputChars,
         messages: [
-        { role: "system", content: `You write concise 2-sentence podcast summaries (max 280 chars). No marketing fluff. Write the summary in ${langName} (${langCode}) — match the source language; never translate.` },
-        { role: "user", content: `Podcast: ${p.title}\n\nDescription: ${p.description || "(none)"}\n\nWrite a clear neutral summary in ${langName}.` },
+        { role: "system", content: `${HU_ONLY_SYSTEM} Írj tömör, 2 mondatos podcast-összefoglalót magyarul, max. 280 karakterben. Nincs marketing bullshit.` },
+        { role: "user", content: `Podcast: ${p.title}\n\nLeírás: ${p.description || "(nincs)"}\n\nÍrj világos, semleges magyar összefoglalót.` },
         ],
       });
       if (!ai.ok) {
@@ -186,6 +194,9 @@ Deno.serve(async (req) => {
       }
       const summary = ai.data?.choices?.[0]?.message?.content?.trim() || "";
       if (!summary) return new Response(JSON.stringify({ ok: true, skipped: true, reason: "empty_summary" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!isHungarianish(summary)) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "hu_language_guard_failed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       await updateRowWithHashFallback(supabase, "podcasts", id, {
         summary,
         ai_enriched_at: new Date().toISOString(),
@@ -196,8 +207,11 @@ Deno.serve(async (req) => {
     }
 
     if (type === "episode") {
-      const { data: ep } = await supabase.from("episodes").select("*, podcasts(title,language)").eq("id", id).single();
+      const { data: ep } = await supabase.from("episodes").select("*, podcasts(title,language,is_hungarian,language_decision)").eq("id", id).single();
       if (!ep) throw new Error("episode not found");
+      if (!isAcceptedHungarianPodcast((ep as any).podcasts)) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "not_hungarian_podcast" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const cleanText = await loadEpisodeCleanText(supabase, id);
       const source = chooseEpisodeSource(String(ep.description || ""), cleanText);
       if (!source) {
@@ -210,9 +224,6 @@ Deno.serve(async (req) => {
       }
       const sourceText = source.text;
       const sourceLabel = source.label;
-      const langRaw = ((ep as any).podcasts?.language) || "en";
-      const langCode = String(langRaw).toLowerCase().split(/[-_]/)[0] || "en";
-      const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
       const tools = [{
         type: "function",
         function: {
@@ -221,7 +232,7 @@ Deno.serve(async (req) => {
           parameters: {
             type: "object",
             properties: {
-              summary: { type: "string", description: `2-sentence neutral summary in ${langName}, max 280 chars.` },
+              summary: { type: "string", description: "2 mondatos, semleges magyar összefoglaló, max. 280 karakter." },
               topics: { type: "array", items: { type: "string" } },
               people: { type: "array", items: { type: "string" } },
               companies: { type: "array", items: { type: "string" } },
@@ -253,8 +264,8 @@ Deno.serve(async (req) => {
         input_text: inputText,
         min_input_chars: ctrl.minInputChars,
         messages: [
-          { role: "system", content: `You analyze podcast episode metadata and extract structured entities. Write the summary field in ${langName} (${langCode}) — match the source language; never translate. Entity names stay in their original canonical form. For Hungarian person names, remove case suffixes/ragok from names: "Vigh Vandával" -> "Vigh Vanda", "Schmied Andival" -> "Schmied Andi", "Nagy Péterrel" -> "Nagy Péter".` },
-          { role: "user", content: `Podcast: ${(ep as any).podcasts?.title}\nEpisode: ${ep.title}\n\n${sourceLabel}: ${sourceText || "(none)"}` },
+          { role: "system", content: `${HU_ONLY_SYSTEM} Elemezd a podcast epizód metaadatait és nyerj ki strukturált entitásokat. A summary mező kötelezően magyar. Az entitásnevek maradjanak eredeti kanonikus formában. Magyar személyneveknél vedd le a ragokat: "Vigh Vandával" -> "Vigh Vanda", "Schmied Andival" -> "Schmied Andi", "Nagy Péterrel" -> "Nagy Péter".` },
+          { role: "user", content: `Podcast: ${(ep as any).podcasts?.title}\nEpizód: ${ep.title}\n\n${sourceLabel}: ${sourceText || "(nincs)"}` },
         ],
         tools,
         tool_choice: { type: "function", function: { name: "enrich_episode" } },
@@ -264,6 +275,9 @@ Deno.serve(async (req) => {
       }
       const args = ai.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       const parsed = args ? JSON.parse(args) : {};
+      if (!isHungarianish(String(parsed.summary || ""))) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "hu_language_guard_failed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       await updateRowWithHashFallback(supabase, "episodes", id, {
         summary: parsed.summary || null,
         topics: parsed.topics || [],

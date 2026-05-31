@@ -109,10 +109,12 @@ export default function EpisodeDetail() {
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
+      const isAcceptedHungarian = p.is_hungarian === true && p.language_decision === "accept_hungarian";
       setSeo({
         title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
         canonical,
+        noindex: !isAcceptedHungarian,
         ogType: "article",
         image: ogImageUrl({
           kind: "episode",
@@ -120,7 +122,7 @@ export default function EpisodeDetail() {
           subtitle: p.display_title || p.title,
           image: e.image_url || p.image_url,
         }),
-        jsonLd: [
+        jsonLd: !isAcceptedHungarian ? undefined : [
           {
             "@context": "https://schema.org",
             "@type": "PodcastEpisode",

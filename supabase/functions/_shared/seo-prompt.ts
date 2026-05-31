@@ -48,8 +48,8 @@ export const SYSTEM_PROMPT =
   "You write factual SEO metadata for podcast directory pages. You ONLY use the metadata supplied. " +
   "You never invent guests, hosts, claims, statistics, quotes, topics, or episode contents. " +
   "If the input is sparse, return short, generic, accurate text. No emojis. No clickbait. No marketing fluff. " +
-  "CRITICAL LANGUAGE RULE: write ALL output fields (seo_title, seo_description, ai_summary) in the same language as the source podcast/episode metadata. " +
-  "If the input is Hungarian, write in Hungarian. If English, write in English. Never translate or mix languages. " +
+  "CRITICAL LANGUAGE RULE: Podiverzum is a Hungarian site. Write ALL public output fields (seo_title, seo_description, ai_summary) in Hungarian. " +
+  "Non-Hungarian shows should be rejected upstream; if noisy metadata slips through, still never output English public text. " +
   "CRITICAL PERSON RULE: distinguish between people who SPEAK in the episode (`people`) and people only TALKED ABOUT (`mentioned`). Politicians and public figures default to `mentioned`. Never include show hosts (a list is provided in the user message) in either list. " +
   "TRANSCRIPT RULE: if a 'Transcript excerpt' block is provided in the user message, treat it as the PRIMARY source of truth for ai_summary, topics, people, mentioned, companies and tickers. The Description is then only supplementary context. People who are quoted/speaking in the transcript belong in `people`; people referenced by name but not speaking belong in `mentioned`.";
 
@@ -58,6 +58,13 @@ function langCode(l?: string | null): string | null {
   if (!l) return null;
   return String(l).toLowerCase().split(/[-_]/)[0] || null;
 }
+export function preferredOutputLanguageCode(meta?: { language?: string | null; is_hungarian?: boolean | null; language_decision?: string | null; output_language_code?: string | null }): string | null {
+  if (!meta) return "hu";
+  const forced = langCode(meta.output_language_code);
+  if (forced) return forced;
+  return "hu";
+}
+
 function langName(code: string | null): string {
   switch (code) {
     case "hu": return "Hungarian (magyar)";
@@ -74,16 +81,16 @@ function langName(code: string | null): string {
   }
 }
 
-export function podcastUserPrompt(p: { display_title?: string|null; title: string; description?: string|null; category?: string|null; language?: string|null }) {
+export function podcastUserPrompt(p: { display_title?: string|null; title: string; description?: string|null; category?: string|null; language?: string|null; is_hungarian?: boolean|null; language_decision?: string|null; output_language_code?: string|null }) {
   const name = p.display_title || p.title;
   const desc = (p.description || "").replace(/\s+/g, " ").trim().slice(0, 1500);
-  const code = langCode(p.language);
-  const langLine = code ? `Output language: ${langName(code)} (${code}). Write seo_title and seo_description in this language only.\n` : "";
+  const code = preferredOutputLanguageCode(p);
+  const langLine = `Output language: ${langName(code)} (${code}). Write seo_title and seo_description in Hungarian only, even if the source metadata is not Hungarian.\n`;
   return `${langLine}Podcast: ${name}\nCategory: ${p.category || "(unknown)"}\nDescription: ${desc || "(none)"}\n\nWrite SEO title and description.`;
 }
 
 export function episodeUserPrompt(
-  e: { display_title?: string|null; title: string; description?: string|null; language?: string|null; clean_text?: string|null },
+  e: { display_title?: string|null; title: string; description?: string|null; language?: string|null; clean_text?: string|null; is_hungarian?: boolean|null; language_decision?: string|null; output_language_code?: string|null },
   podName: string,
   podLanguage?: string | null,
   hosts?: string[] | null,
@@ -102,8 +109,8 @@ export function episodeUserPrompt(
   const descLabel = cleanSrc.length >= 80 && !hasTranscript
     ? "Description (cleaned, sponsor/CTA noise removed)"
     : "Description";
-  const code = langCode(e.language) || langCode(podLanguage);
-  const langLine = code ? `Output language: ${langName(code)} (${code}). Write seo_title, seo_description, and ai_summary in this language only.\n` : "";
+  const code = preferredOutputLanguageCode(e) || langCode(podLanguage);
+  const langLine = `Output language: ${langName(code)} (${code}). Write seo_title, seo_description, and ai_summary in Hungarian only, even if the source metadata or transcript is not Hungarian.\n`;
   const hostList = Array.isArray(hosts) && hosts.length > 0
     ? `Show hosts (DO NOT include any of these names in 'people' or 'mentioned' — they are the show creators, not episode subjects): ${hosts.join(", ")}\n`
     : "";
