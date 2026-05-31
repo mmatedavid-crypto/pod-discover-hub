@@ -91,11 +91,17 @@ Deno.serve(async (req) => {
     const ids = rows.map((r) => r.episode_id);
     if (!ids.length) return json({ ok: true, promoted: 0, unchanged: 0, dry_run: dryRun });
 
-    const { data: liveRows, error: liveErr } = await admin
-      .from("episode_clean_text")
-      .select("episode_id,source_hash,cleaned_text")
-      .in("episode_id", ids);
-    if (liveErr) throw liveErr;
+    const liveRowsAll: CleanRow[] = [];
+    for (let i = 0; i < ids.length; i += 40) {
+      const slice = ids.slice(i, i + 40);
+      const { data: liveRows, error: liveErr } = await admin
+        .from("episode_clean_text")
+        .select("episode_id,source_hash,cleaned_text")
+        .in("episode_id", slice);
+      if (liveErr) throw liveErr;
+      for (const row of (liveRows || []) as CleanRow[]) liveRowsAll.push(row);
+    }
+    const liveRows = liveRowsAll;
 
     const liveById = new Map(((liveRows || []) as CleanRow[]).map((r) => [r.episode_id, r]));
     const changed = rows.filter((r) => {
