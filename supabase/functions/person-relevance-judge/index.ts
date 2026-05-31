@@ -66,6 +66,7 @@ interface PendingRow {
   ep_title: string;
   ep_summary: string | null;
   ep_ai_summary: string | null;
+  ep_clean_text: string | null;
   pod_title: string;
   pod_description: string | null;
   evidence: string | null;
@@ -117,6 +118,7 @@ PODCAST LEÍRÁS: ${(r.pod_description || "").slice(0, 400)}
 
 EPIZÓD CÍM: ${r.ep_title}
 EPIZÓD ÖSSZEFOGLALÓ: ${(r.ep_ai_summary || r.ep_summary || "").slice(0, 1200)}
+EPIZÓD TISZTÍTOTT LEÍRÁS: ${(r.ep_clean_text || "").slice(0, 2200)}
 ${evidenceLine}
 
 Jelenlegi szabályalapú besorolás: mention_type=${r.mention_type}, confidence=${r.confidence}.
@@ -259,6 +261,18 @@ Deno.serve(async (req) => {
       aliasMap.set(a.person_id, list);
     });
 
+    const episodeIds = [...new Set(rows.map((r: any) => r.episode_id).filter(Boolean))];
+    const cleanTextMap = new Map<string, string>();
+    for (let i = 0; i < episodeIds.length; i += 100) {
+      const slice = episodeIds.slice(i, i + 100);
+      const { data: cleanRows } = await supabase
+        .from("episode_clean_text")
+        .select("episode_id, cleaned_text")
+        .in("episode_id", slice)
+        .eq("cleaner_method", "deterministic_v4");
+      (cleanRows || []).forEach((r: any) => cleanTextMap.set(r.episode_id, String(r.cleaned_text || "")));
+    }
+
     let rateLimitHits = 0;
     const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -283,6 +297,23 @@ Deno.serve(async (req) => {
         if (aiCallsThisRun >= settings.maxAiCallsPerRun) return;
 
         const hasEvidence = typeof m.evidence === "string" && m.evidence.trim().length >= 8;
+        const cleanText = String(cleanTextMap.get(m.episode_id) || "").trim();
+        if (!hasEvidence && cleanText.length < 120) {
+          await supabase.from("person_episode_mentions").update({
+            relevance_status: "waiting_clean_text",
+            final_relevance_score: Number(m.confidence || 0),
+            validation_source: "clean_text_guard",
+            ai_identity_match: "uncertain",
+            ai_reason: "Nincs deterministic_v4 clean text vagy elég erős forrásbizonyíték; AI-hívás kihagyva.",
+            ai_evidence_phrases: [],
+            ai_judged_at: new Date().toISOString(),
+            ai_model: "clean_text_guard",
+          }).eq("id", m.id);
+          needs_review++;
+          processed++;
+          terminal = true;
+          return;
+        }
         if (!hasEvidence && Number(m.confidence || 0) < settings.minConfidenceForAi) {
           await supabase.from("person_episode_mentions").update({
             relevance_status: "needs_review",
@@ -316,6 +347,7 @@ Deno.serve(async (req) => {
           ep_title: m.episodes.title,
           ep_summary: m.episodes.summary,
           ep_ai_summary: m.episodes.ai_summary,
+          ep_clean_text: cleanText || null,
           pod_title: m.podcasts.title,
           pod_description: m.podcasts.description,
           evidence: m.evidence || null,

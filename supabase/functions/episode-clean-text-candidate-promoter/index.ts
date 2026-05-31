@@ -65,6 +65,16 @@ async function updateEpisodesAfterPromotion(admin: AdminClient, ids: string[]) {
       .eq("topic_extraction_status", "waiting_clean_text");
     if (error && !String(error.message || "").includes("topic_extraction_status")) throw error;
   }
+
+  for (let i = 0; i < ids.length; i += 40) {
+    const slice = ids.slice(i, i + 40);
+    const { error } = await admin
+      .from("person_episode_mentions")
+      .update({ relevance_status: "pending", ai_judged_at: null })
+      .in("episode_id", slice)
+      .eq("relevance_status", "waiting_clean_text");
+    if (error && !String(error.message || "").includes("person_episode_mentions")) throw error;
+  }
 }
 
 Deno.serve(async (req) => {
