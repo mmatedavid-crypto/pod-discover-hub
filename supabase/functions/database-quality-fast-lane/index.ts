@@ -77,6 +77,13 @@ async function callFunction(name: string, body: Record<string, unknown>) {
   return data;
 }
 
+function isTransientWorkerError(message: string): boolean {
+  return (
+    /\b(503|502|504|546)\b/.test(message) ||
+    /SUPABASE_EDGE_RUNTIME_SERVICE_DEGRADED|WORKER_RESOURCE_LIMIT|temporarily unavailable|CPU Time exceeded|context canceled/i.test(message)
+  );
+}
+
 async function loadControls(admin: ReturnType<typeof createClient>) {
   const { data } = await admin
     .from("app_settings")
@@ -183,14 +190,16 @@ Deno.serve(async (req) => {
       }));
     }
 
+    const hardErrors = errors.filter((message) => !isTransientWorkerError(message));
     const nextControls = {
       ...controls,
-      consecutive_errors: errors.length ? Number(controls.consecutive_errors || 0) + 1 : 0,
+      consecutive_errors: hardErrors.length ? Number(controls.consecutive_errors || 0) + 1 : 0,
       last_run_at: new Date().toISOString(),
       last_trigger: trigger,
       last_runtime_ms: Date.now() - startedAt,
       last_results: results,
       last_errors: errors,
+      last_hard_errors: hardErrors,
     };
     if (Number(nextControls.consecutive_errors || 0) >= Number(controls.auto_stop_at_errors || DEFAULT_CONTROLS.auto_stop_at_errors)) {
       nextControls.enabled = false;
