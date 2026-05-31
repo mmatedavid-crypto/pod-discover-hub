@@ -119,18 +119,27 @@ async function loadDirectDrainEpisodeIds(
   }
 
   if (idSet.size < limit) {
-    const { data: missingClean, error: missingErr } = await admin
+    const { data: possibleMissingClean, error: missingErr } = await admin
       .from("episodes")
       .select("id,updated_at,podcasts!inner(is_hungarian,language_decision)")
-      .neq("clean_text_status", "done")
       .eq("podcasts.is_hungarian", true)
       .eq("podcasts.language_decision", "accept_hungarian")
       .order("updated_at", { ascending: false, nullsFirst: false })
-      .limit((limit - idSet.size) * 4);
+      .limit((limit - idSet.size) * 8);
     if (missingErr) throw missingErr;
-    for (const row of missingClean || []) {
-      add(String(row.id));
-      if (idSet.size >= limit) break;
+    const possibleIds = (possibleMissingClean || []).map((row) => String(row.id)).filter((id) => !exclude.has(id) && !idSet.has(id));
+    for (let i = 0; i < possibleIds.length && idSet.size < limit; i += ID_CHUNK_SIZE) {
+      const slice = possibleIds.slice(i, i + ID_CHUNK_SIZE);
+      const { data: cleanRows, error: cleanErr } = await admin
+        .from("episode_clean_text")
+        .select("episode_id")
+        .in("episode_id", slice);
+      if (cleanErr) throw cleanErr;
+      const hasClean = new Set((cleanRows || []).map((row) => String(row.episode_id)));
+      for (const id of slice) {
+        if (!hasClean.has(id)) add(id);
+        if (idSet.size >= limit) break;
+      }
     }
   }
 
