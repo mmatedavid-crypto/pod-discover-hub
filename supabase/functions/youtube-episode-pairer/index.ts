@@ -604,12 +604,11 @@ Deno.serve(async (req) => {
         auto += podAuto; ai_paired += podAi; no_match += podNo;
 
         if (!dry) {
-          await admin.from("podcasts").update({
+          const { error: podUpdErr } = await admin.from("podcasts").update({
             youtube_last_episode_pair_at: new Date().toISOString(),
             youtube_episode_count: items.length,
-            youtube_episode_pair_claimed_at: null,
-            youtube_episode_pair_claim_owner: null,
           }).eq("id", pod.id);
+          if (podUpdErr) console.error("podcasts update err", pod.id, podUpdErr);
         }
         processedPodcastIds.add(pod.id);
 
