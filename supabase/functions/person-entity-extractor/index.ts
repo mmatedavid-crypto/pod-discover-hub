@@ -51,7 +51,7 @@ function contextBucketFor(e: any, pod: any): string {
     pod?.title,
     e?.title,
     e?.ai_summary,
-    e?.description,
+    e?.clean_text,
     ...(Array.isArray(e?.topics) ? e.topics : []),
   ].filter(Boolean).join(" "));
   const has = (re: RegExp) => re.test(hay);
@@ -193,15 +193,27 @@ Deno.serve(async (req) => {
     while (scanned < limit) {
       const { data: eps, error } = await supabase
         .from("episodes")
-        .select("id, podcast_id, title, ai_summary, description, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, is_hungarian, language_decision, hosts, title)")
+        .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, is_hungarian, language_decision, hosts, title)")
         .eq("podcasts.is_hungarian", true)
         .eq("podcasts.language_decision", "accept_hungarian")
         .order("published_at", { ascending: false, nullsFirst: false })
         .range(from, from + PAGE - 1);
       if (error) { errors.push(error.message); break; }
       if (!eps || eps.length === 0) break;
+      const epIds = (eps as any[]).map((e: any) => e.id);
+      const cleanRows: any[] = [];
+      for (let c = 0; c < epIds.length; c += 100) {
+        const { data: ctChunk } = await supabase
+          .from("episode_clean_text")
+          .select("episode_id,cleaned_text")
+          .in("episode_id", epIds.slice(c, c + 100))
+          .eq("cleaner_method", "deterministic_v4");
+        if (ctChunk?.length) cleanRows.push(...ctChunk);
+      }
+      const cleanById = new Map(cleanRows.map((r: any) => [r.episode_id, r.cleaned_text || ""]));
 
       for (const e of eps as any[]) {
+        e.clean_text = cleanById.get(e.id) || "";
         scanned++;
         const pod = e.podcasts;
         if (!pod) continue;
@@ -209,7 +221,7 @@ Deno.serve(async (req) => {
         const hostSet = new Set(hosts.map(normalize));
         const contextBucket = contextBucketFor(e, pod);
         const titleNorm = normalize(e.title || "");
-        const descNorm = normalize([e.ai_summary, e.description].filter(Boolean).join(" "));
+        const descNorm = normalize([e.ai_summary, e.clean_text].filter(Boolean).join(" "));
         const allText = titleNorm + " " + descNorm;
 
         // -------- People --------

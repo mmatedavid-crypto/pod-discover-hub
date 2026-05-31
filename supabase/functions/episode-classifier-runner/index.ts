@@ -201,7 +201,14 @@ Deno.serve(async (req) => {
     const podTitle = ep.podcasts?.display_title || ep.podcasts?.title || "—";
     const podCat = ep.podcasts?.category || "—";
     const epTitle = ep.display_title || ep.title || "";
-    const epDesc = String(ep.ai_summary || ep.description || "").replace(/\s+/g, " ").trim().slice(0, 2400);
+    const epDesc = String([ep.ai_summary, ep.clean_text].filter(Boolean).join("\n"))
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2400);
+    if (epDesc.length < 80) {
+      too_thin++;
+      return;
+    }
     const sourceText = `${epTitle}\n${epDesc}\n${ep.podcast_id}\n${TAXONOMY_VERSION}`;
     const source_hash = await sha256(sourceText);
 
@@ -356,12 +363,25 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       const chunk = ids.slice(c, c + 100);
       const { data: epsChunk, error: epsErr } = await admin
         .from("episodes")
-        .select("id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, category)")
+        .select("id, title, display_title, ai_summary, podcast_id, podcasts!inner(title, display_title, category)")
         .in("id", chunk);
       if (epsErr) { failed++; continue; }
       if (epsChunk?.length) eps.push(...epsChunk);
     }
     if (!eps.length) break;
+
+    const cleanRows: any[] = [];
+    for (let c = 0; c < ids.length; c += 100) {
+      const chunk = ids.slice(c, c + 100);
+      const { data: ctChunk } = await admin
+        .from("episode_clean_text")
+        .select("episode_id,cleaned_text")
+        .in("episode_id", chunk)
+        .eq("cleaner_method", "deterministic_v4");
+      if (ctChunk?.length) cleanRows.push(...ctChunk);
+    }
+    const cleanById = new Map(cleanRows.map((r: any) => [r.episode_id, r.cleaned_text || ""]));
+    for (const ep of eps) ep.clean_text = cleanById.get(ep.id) || "";
 
     let i = 0;
     const workers = Array.from({ length: concurrency }, async () => {

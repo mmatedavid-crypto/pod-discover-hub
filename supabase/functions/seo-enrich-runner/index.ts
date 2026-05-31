@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, budget_reached: true, spend });
     }
 
-    let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
+    let processed = 0, succeeded = 0, failed = 0, skipped = 0, rate_limited = 0;
     let stop = false;
     let total_claimed = 0;
     let drain_loops = 0;
@@ -130,13 +130,25 @@ Deno.serve(async (req) => {
               .maybeSingle();
             const transcript = (tr as any)?.transcript || null;
             (job as any).__has_transcript = !!(transcript && String(transcript).trim().length > 200);
-            // Prefer cleaned RSS text (sponsor/CTA noise removed) over raw description.
+            // Episode SEO/summary/entity input policy:
+            // transcript wins; otherwise require promoted deterministic clean text.
+            // Never spend AI on raw RSS/YT descriptions directly.
             const { data: ct } = await admin
               .from("episode_clean_text")
-              .select("cleaned_text")
+              .select("cleaned_text,cleaner_method")
               .eq("episode_id", job.target_id)
+              .eq("cleaner_method", "deterministic_v4")
               .maybeSingle();
             (e as any).clean_text = (ct as any)?.cleaned_text || null;
+            if (!(job as any).__has_transcript && String((e as any).clean_text || "").trim().length < 80) {
+              await admin.from("ai_enrichment_jobs").update({
+                status: "pending",
+                locked_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                last_error: "waiting_for_deterministic_v4_clean_text",
+              }).eq("id", job.id);
+              skipped++;
+              return;
+            }
             prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts, transcript);
           }
         }
@@ -354,7 +366,7 @@ Deno.serve(async (req) => {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
-    return json({ ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt });
+    return json({ ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, skipped, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }

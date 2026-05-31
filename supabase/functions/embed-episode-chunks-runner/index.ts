@@ -1,10 +1,10 @@
-// Multi-chunk episode embedder. Uses episode-text-cleaner for sponsor/CTA scrub,
-// then chunks the cleaned description into 2500-char windows (250 overlap),
+// Multi-chunk episode embedder. Uses promoted episode_clean_text only,
+// then chunks the cleaned text into 2500-char windows (250 overlap),
 // prepends a stable prefix (title + ai_summary + entities), embeds each chunk,
 // upserts into episode_chunks. Adaptive cron via set_embed_episode_chunks_schedule.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
-import { cleanEpisodeText, chunkText, type CleanerCtrl } from "../_shared/episode-text-cleaner.ts";
+import { chunkText } from "../_shared/episode-text-cleaner.ts";
 import { embeddingTokenCostUsd } from "../_shared/ai-pricing.ts";
 
 const cors = {
@@ -95,19 +95,14 @@ Deno.serve(async (req) => {
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
     const body = await req.json().catch(() => ({}));
 
-    const [{ data: ctrlRow }, { data: cleanerRow }] = await Promise.all([
-      admin.from("app_settings").select("value").eq("key", "embed_episode_chunks_controls").maybeSingle(),
-      admin.from("app_settings").select("value").eq("key", "episode_text_cleaner_controls").maybeSingle(),
-    ]);
+    const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "embed_episode_chunks_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
-    const cleanerCtrl = (cleanerRow?.value || {}) as CleanerCtrl;
     if (ctrl.enabled === false) {
       try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30" }); } catch { }
       return json({ ok: true, paused: true });
     }
     const model = String(ctrl.model || "google/gemini-embedding-001");
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 3.0);
-    const cleanerBudget = Number(cleanerCtrl.daily_budget_usd ?? 2.0);
     const chunkChars = Math.max(1000, Math.min(6000, Number(ctrl.chunk_chars || 2500)));
     const chunkOverlap = Math.max(0, Math.min(1000, Number(ctrl.chunk_overlap || 250)));
     const batch = Math.max(1, Math.min(100, Number(body.batch) || Number(ctrl.batch_size) || 30));
@@ -117,16 +112,14 @@ Deno.serve(async (req) => {
     const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", dayKey).maybeSingle();
     const byKind = (spendRow?.by_kind as any) || {};
     let embedSpend = Number(byKind.embed_episode_chunks_usd || 0);
-    let cleanSpend = Number(byKind.embed_episode_clean_usd || 0);
     let embedSpendIncrement = 0;
-    let cleanSpendIncrement = 0;
     let runCalls = 0;
     if (embedSpend >= dailyBudget) {
       try { await admin.rpc("set_embed_episode_chunks_schedule" as any, { _schedule: "*/30" }); } catch { }
       return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
     }
 
-    let episodesProcessed = 0, chunksWritten = 0, cleanedAI = 0, skipped = 0, errors = 0;
+    let episodesProcessed = 0, chunksWritten = 0, skipped = 0, errors = 0;
     const errorSamples: any[] = [];
     let stop = false, drainPasses = 0;
 
@@ -148,41 +141,12 @@ Deno.serve(async (req) => {
         if (Date.now() - startedAt > TIME_BUDGET_MS - TIME_RESERVE_MS) { stop = true; return; }
         if (embedSpend >= dailyBudget) { stop = true; return; }
         try {
-          const rawDesc = String(e.description || "");
-          const srcHash = await sha256(rawDesc);
-
-          let cleanedText = "";
-          let cleanedMethod = "none";
-          if (rawDesc.length > 0) {
-            const { data: cached } = await admin
-              .from("episode_clean_text")
-              .select("source_hash,cleaned_text,cleaner_method")
-              .eq("episode_id", e.id)
-              .maybeSingle();
-            if (cached && cached.source_hash === srcHash) {
-              cleanedText = cached.cleaned_text || "";
-              cleanedMethod = cached.cleaner_method || "cached";
-            } else {
-              const cleanerBudgetRemaining = Math.max(0, cleanerBudget - cleanSpend);
-              const r = await cleanEpisodeText(rawDesc, cleanerCtrl, { aiBudgetRemainingUsd: cleanerBudgetRemaining });
-              cleanedText = r.cleaned_text;
-              cleanedMethod = r.cleaner_method;
-              if (r.cost_usd) {
-                cleanSpend += r.cost_usd;
-                cleanSpendIncrement += r.cost_usd;
-                cleanedAI++;
-              }
-              await admin.from("episode_clean_text").upsert({
-                episode_id: e.id,
-                source_hash: srcHash,
-                cleaned_text: cleanedText,
-                removed_categories: r.removed_categories,
-                cleaner_method: r.cleaner_method,
-                model: r.model || null,
-                cost_usd: r.cost_usd || null,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: "episode_id" });
-            }
+          const cleanedText = String(e.cleaned_text || "").trim();
+          const cleanedMethod = String(e.cleaner_method || "missing_clean_text");
+          if (cleanedText.length < 80 || cleanedMethod !== "deterministic_v4") {
+            skipped++;
+            if (errorSamples.length < 5) errorSamples.push({ id: e.id, skipped: "requires_promoted_deterministic_v4_clean_text", cleaned_method: cleanedMethod });
+            return;
           }
 
           const prefix = buildPrefix(e);
@@ -255,17 +219,14 @@ Deno.serve(async (req) => {
     }
 
     // Atomic per-key merge — does NOT clobber other runners' by_kind entries.
-    const totalIncrement = embedSpendIncrement + cleanSpendIncrement;
-    if (totalIncrement > 0 || chunksWritten > 0 || cleanedAI > 0) {
+    if (embedSpendIncrement > 0 || chunksWritten > 0) {
       await admin.rpc("merge_ai_spend", {
         p_day: dayKey,
         p_delta: {
           embed_episode_chunks_usd: embedSpendIncrement,
           embed_episode_chunks_count: chunksWritten,
-          embed_episode_clean_usd: cleanSpendIncrement,
-          embed_episode_clean_count: cleanedAI,
         } as any,
-        p_total_amount: totalIncrement,
+        p_total_amount: embedSpendIncrement,
         p_calls: runCalls,
       } as any);
     }
@@ -291,7 +252,6 @@ Deno.serve(async (req) => {
       duration_ms: Date.now() - startedAt,
       episodes_last_run: episodesProcessed,
       chunks_last_run: chunksWritten,
-      ai_cleans_last_run: cleanedAI,
       skipped_last_run: skipped,
       errors_last_run: errors,
       error_samples: errorSamples,
@@ -299,11 +259,12 @@ Deno.serve(async (req) => {
       eligible_total: Number(s.eligible_total || 0),
       already_chunked: Number(s.already_chunked || 0),
       total_chunks: Number(s.total_chunks || 0),
+      waiting_for_clean_text: Number(s.waiting_for_clean_text || 0),
       embed_spend_usd_today: embedSpend,
-      clean_spend_usd_today: cleanSpend,
       cron_schedule: recommended,
       model, chunk_chars: chunkChars, chunk_overlap: chunkOverlap,
       batch_size: batch, concurrency, drain_passes: drainPasses,
+      source_policy: "best_source_then_deterministic_v4_clean_text_then_embedding",
     };
     await admin.from("app_settings").upsert({
       key: "embed_episode_chunks_progress",
@@ -316,7 +277,7 @@ Deno.serve(async (req) => {
       await admin.from("app_settings").upsert({ key: "embed_episode_chunks_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, episodes: episodesProcessed, chunks: chunksWritten, skipped, errors, pending, embed_spend_usd: embedSpend, clean_spend_usd: cleanSpend, schedule: recommended });
+    return json({ ok: true, episodes: episodesProcessed, chunks: chunksWritten, skipped, errors, pending, waiting_for_clean_text: Number(s.waiting_for_clean_text || 0), embed_spend_usd: embedSpend, schedule: recommended });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
