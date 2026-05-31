@@ -129,7 +129,16 @@ Deno.serve(async (req) => {
     const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean).slice(0, limit) : [];
 
     let targetIds = ids;
+    let usedYtPriority = false;
     if (!targetIds.length) {
+      // Load already-processed set once so we can skip episodes already done.
+      const { data: doneRows } = await admin
+        .from("episode_best_text_source")
+        .select("episode_id")
+        .limit(200000);
+      const doneSet = new Set((doneRows || []).map((r: any) => String(r.episode_id)));
+
+      // 1) YouTube-confirmed-first priority, but only episodes not yet done.
       const { data: ytPriority, error: ytPriorityErr } = await admin
         .from("episode_youtube_links")
         .select("episode_id,updated_at")
@@ -137,14 +146,30 @@ Deno.serve(async (req) => {
         .contains("validation_reason", { policy: "youtube_episode_match_v3" })
         .not("youtube_description", "is", null)
         .order("updated_at", { ascending: false, nullsFirst: false })
-        .limit(limit);
+        .limit(Math.max(limit * 4, 5000));
       if (ytPriorityErr) throw ytPriorityErr;
-      targetIds = Array.from(new Set((ytPriority || []).map((row: any) => String(row.episode_id)).filter(Boolean)));
+      const ytIds = Array.from(new Set((ytPriority || []).map((row: any) => String(row.episode_id)).filter(Boolean)))
+        .filter((id) => !doneSet.has(id))
+        .slice(0, limit);
+
+      if (ytIds.length) {
+        targetIds = ytIds;
+        usedYtPriority = true;
+      } else {
+        // 2) Drain remaining episodes that don't have a best_text_source yet.
+        const fetchLimit = Math.min(limit * 4, 20000);
+        const { data, error } = await admin
+          .from("episodes")
+          .select("id,podcast_id,title,description,updated_at")
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .limit(fetchLimit);
+        if (error) throw error;
+        targetIds = (data || []).filter((r: any) => !doneSet.has(String(r.id))).slice(0, limit).map((r: any) => String(r.id));
+      }
     }
 
     let episodes: any[] = [];
     if (targetIds.length) {
-      // Chunk .in() to avoid URL-length 414 / Bad Request at ~200+ uuids
       for (let i = 0; i < targetIds.length; i += 150) {
         const slice = targetIds.slice(i, i + 150);
         const { data, error } = await admin
@@ -154,21 +179,6 @@ Deno.serve(async (req) => {
         if (error) throw error;
         if (data) episodes.push(...data);
       }
-    } else {
-      // No YouTube-priority IDs left → drain remaining episodes that don't have a best_text_source yet.
-      const { data: doneRows } = await admin
-        .from("episode_best_text_source")
-        .select("episode_id")
-        .limit(50000);
-      const doneSet = new Set((doneRows || []).map((r: any) => String(r.episode_id)));
-      const fetchLimit = Math.min(limit * 4, 20000);
-      const { data, error } = await admin
-        .from("episodes")
-        .select("id,podcast_id,title,description,updated_at")
-        .order("updated_at", { ascending: false, nullsFirst: false })
-        .limit(fetchLimit);
-      if (error) throw error;
-      episodes = (data || []).filter((r: any) => !doneSet.has(String(r.id))).slice(0, limit);
     }
     const eps = episodes as EpisodeRow[];
     if (!eps.length) return json({ ok: true, processed: 0 });
