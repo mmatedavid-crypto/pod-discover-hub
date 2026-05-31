@@ -226,7 +226,7 @@ BEGIN
 
   SELECT count(*)
   INTO v_person_pending
-  FROM public.person_mentions
+  FROM public.person_episode_mentions
   WHERE relevance_status IN ('pending', 'in_progress');
 
   SELECT count(*)
@@ -242,7 +242,7 @@ BEGIN
 
   SELECT count(*)
   INTO v_weekly_posts
-  FROM public.weekly_editorial_posts
+  FROM public.editorial_posts
   WHERE published_at > now() - interval '14 days';
 
   v_items := jsonb_build_array(
