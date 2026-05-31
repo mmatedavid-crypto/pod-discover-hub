@@ -94,6 +94,49 @@ async function filterAcceptedHungarianEpisodeIds(admin: AdminClient, ids: string
   return Array.from(accepted).sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
 }
 
+async function loadDirectDrainEpisodeIds(
+  admin: AdminClient,
+  method: string,
+  limit: number,
+  exclude: Set<string>,
+): Promise<string[]> {
+  const idSet = new Set<string>();
+  const add = (id: string) => {
+    if (!id || exclude.has(id) || idSet.has(id) || idSet.size >= limit) return;
+    idSet.add(id);
+  };
+
+  const { data: oldClean, error: oldErr } = await admin
+    .from("episode_clean_text")
+    .select("episode_id,updated_at,cleaner_method")
+    .neq("cleaner_method", method)
+    .order("updated_at", { ascending: true, nullsFirst: true })
+    .limit(limit * 4);
+  if (oldErr) throw oldErr;
+  for (const id of await filterAcceptedHungarianEpisodeIds(admin, (oldClean || []).map((row) => String(row.episode_id)))) {
+    add(id);
+    if (idSet.size >= limit) break;
+  }
+
+  if (idSet.size < limit) {
+    const { data: missingClean, error: missingErr } = await admin
+      .from("episodes")
+      .select("id,updated_at,podcasts!inner(is_hungarian,language_decision)")
+      .neq("clean_text_status", "done")
+      .eq("podcasts.is_hungarian", true)
+      .eq("podcasts.language_decision", "accept_hungarian")
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit((limit - idSet.size) * 4);
+    if (missingErr) throw missingErr;
+    for (const row of missingClean || []) {
+      add(String(row.id));
+      if (idSet.size >= limit) break;
+    }
+  }
+
+  return Array.from(idSet).slice(0, limit);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
@@ -107,7 +150,7 @@ Deno.serve(async (req) => {
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
     const body = await req.json().catch(() => ({}));
-    const batch = Math.max(1, Math.min(500, Number(body.batch || 100)));
+    const batch = Math.max(1, Math.min(1000, Number(body.batch || 100)));
     const { data: planRow } = await admin
       .from("app_settings")
       .select("value")
@@ -118,37 +161,9 @@ Deno.serve(async (req) => {
     let ids = (plan.candidates || []).map((c) => c.id).filter((id): id is string => !!id).slice(0, batch);
     ids = await filterAcceptedHungarianEpisodeIds(admin, ids);
 
-    if (!ids.length) {
-      const idSet = new Set<string>();
-      const { data: oldClean, error: oldErr } = await admin
-        .from("episode_clean_text")
-        .select("episode_id,updated_at,cleaner_method")
-        .neq("cleaner_method", method)
-        .order("updated_at", { ascending: true, nullsFirst: true })
-        .limit(batch * 4);
-      if (oldErr) throw oldErr;
-      for (const id of await filterAcceptedHungarianEpisodeIds(admin, (oldClean || []).map((row) => String(row.episode_id)))) {
-        if (idSet.size >= batch) break;
-        idSet.add(id);
-      }
-
-      if (idSet.size < batch) {
-        const { data: missingClean, error: missingErr } = await admin
-          .from("episodes")
-          .select("id,updated_at,podcasts!inner(is_hungarian,language_decision)")
-          .neq("clean_text_status", "done")
-          .eq("podcasts.is_hungarian", true)
-          .eq("podcasts.language_decision", "accept_hungarian")
-          .order("updated_at", { ascending: false, nullsFirst: false })
-          .limit((batch - idSet.size) * 4);
-        if (missingErr) throw missingErr;
-        for (const row of missingClean || []) {
-          if (idSet.size >= batch) break;
-          idSet.add(String(row.id));
-        }
-      }
-
-      ids = Array.from(idSet).slice(0, batch);
+    if (ids.length < batch) {
+      const direct = await loadDirectDrainEpisodeIds(admin, method, batch - ids.length, new Set(ids));
+      ids = Array.from(new Set([...ids, ...direct])).slice(0, batch);
     }
 
     if (!ids.length) return json({ ok: true, processed: 0, reason: "no_staged_or_drain_candidates" });

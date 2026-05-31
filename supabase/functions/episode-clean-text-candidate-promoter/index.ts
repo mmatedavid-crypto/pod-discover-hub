@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
     const body = await req.json().catch(() => ({}));
-    const limit = Math.max(1, Math.min(500, Number(body.limit || 100)));
+    const limit = Math.max(1, Math.min(1000, Number(body.limit || 100)));
     const dryRun = body.dry_run === true;
 
     const { data: candidates, error: candErr } = await admin

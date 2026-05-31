@@ -86,8 +86,8 @@ Deno.serve(async (req) => {
 
     const dryRun = controls.dry_run !== false;
     const stageLimit = Math.max(1, Math.min(1000, Number(controls.stage_limit || DEFAULT_CONTROLS.stage_limit)));
-    const candidateBatch = Math.max(1, Math.min(500, Number(controls.candidate_batch || DEFAULT_CONTROLS.candidate_batch)));
-    const promoteLimit = Math.max(1, Math.min(500, Number(controls.promote_limit || DEFAULT_CONTROLS.promote_limit)));
+    const candidateBatch = Math.max(1, Math.min(1000, Number(controls.candidate_batch || DEFAULT_CONTROLS.candidate_batch)));
+    const promoteLimit = Math.max(1, Math.min(1000, Number(controls.promote_limit || DEFAULT_CONTROLS.promote_limit)));
     const aiEnrichLimit = Math.max(0, Math.min(100, Number(controls.ai_enrich_limit ?? DEFAULT_CONTROLS.ai_enrich_limit)));
     const dailyBudget = Math.max(0, Number(controls.daily_budget_usd ?? DEFAULT_CONTROLS.daily_budget_usd));
     const tiers = Array.isArray(controls.tiers) && controls.tiers.length ? controls.tiers.map(String) : DEFAULT_CONTROLS.tiers;
