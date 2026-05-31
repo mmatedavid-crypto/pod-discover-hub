@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
-import { Briefcase, HeartPulse, Landmark, Laugh, Lightbulb, MonitorCog } from "lucide-react";
+import { Briefcase, Landmark, Laugh, Lightbulb, MonitorCog, Sparkles } from "lucide-react";
 
 const lanes = [
   { title: "Értsd meg a világot", query: "közélet politika gazdaság", Icon: Landmark, accent: "text-blue-500 bg-blue-500/10" },
   { title: "Pénz és karrier", query: "befektetés karrier vállalkozás", Icon: Briefcase, accent: "text-emerald-500 bg-emerald-500/10" },
-  { title: "Test, fej, élet", query: "egészség pszichológia életmód", Icon: HeartPulse, accent: "text-rose-500 bg-rose-500/10" },
+  { title: "Lélek és önismeret", query: "egészség pszichológia önismeret életmód", Icon: Sparkles, accent: "text-rose-500 bg-rose-500/10" },
   { title: "Tech és MI", query: "mesterséges intelligencia technológia startup", Icon: MonitorCog, accent: "text-cyan-500 bg-cyan-500/10" },
   { title: "Sztorik és interjúk", query: "interjú élettörténet beszélgetés", Icon: Lightbulb, accent: "text-amber-500 bg-amber-500/10" },
   { title: "Kikapcsolódás", query: "film humor kultúra szórakozás", Icon: Laugh, accent: "text-fuchsia-500 bg-fuchsia-500/10" },
