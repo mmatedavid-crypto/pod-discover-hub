@@ -96,6 +96,14 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const currentEpisodeRef = useRef<SmartPlayerEpisode | null>(null);
   const autoplayNextRef = useRef<((ep: SmartPlayerEpisode) => void) | null>(null);
   const autoplayHistoryRef = useRef<Set<string>>(new Set());
+  // Tracks whether the most recent pause came from a user action (button,
+  // mediaSession, stop) vs. an OS-level interruption (incoming call, route
+  // change, headphones unplug, app backgrounded by another media app).
+  // When an interruption pauses us, we try to auto-resume as soon as the
+  // tab regains focus / visibility / network — Netflix-style "pick up where
+  // you left off" after a phone call.
+  const userPausedRef = useRef(false);
+  const interruptedRef = useRef(false);
 
   useEffect(() => {
     setPreviewActive(isPlayerPreviewActive());
@@ -116,8 +124,21 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
 
     const onTime = () => setCurrentTime(a.currentTime);
     const onDur = () => setDuration(a.duration || 0);
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
+    const onPlay = () => {
+      setIsPlaying(true);
+      interruptedRef.current = false;
+      userPausedRef.current = false;
+    };
+    const onPause = () => {
+      setIsPlaying(false);
+      // If we're paused but not at end and the user didn't ask for it,
+      // assume an OS interruption (incoming call etc.) and remember so we
+      // can auto-resume when the page becomes active again.
+      const a2 = audioRef.current;
+      if (a2 && !a2.ended && !userPausedRef.current) {
+        interruptedRef.current = true;
+      }
+    };
     const onWait = () => setIsLoading(true);
     const onCanPlay = () => setIsLoading(false);
     const onError = () => {
@@ -169,6 +190,35 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       a.removeEventListener("ended", onEnded);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-resume after OS-level interruptions (incoming phone call, another
+  // app grabbing audio focus, headphones disconnect that auto-paused etc.).
+  // When the tab/app becomes active again, if we were interrupted mid-episode
+  // we kick playback back on automatically.
+  useEffect(() => {
+    const tryResume = () => {
+      const a = audioRef.current;
+      if (!a) return;
+      if (!interruptedRef.current) return;
+      if (!currentEpisodeRef.current) return;
+      if (!a.paused || a.ended) return;
+      void a.play().then(() => {
+        interruptedRef.current = false;
+      }).catch(() => {
+        // Browser blocked autoplay — leave the flag so the next focus/
+        // visibility event (often triggered by user tapping back) retries.
+      });
+    };
+    const onVisibility = () => { if (document.visibilityState === "visible") tryResume(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", tryResume);
+    window.addEventListener("online", tryResume);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", tryResume);
+      window.removeEventListener("online", tryResume);
+    };
   }, []);
 
   useEffect(() => {
@@ -297,6 +347,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   }, [currentEpisode]);
 
   const pause = useCallback(() => {
+    userPausedRef.current = true;
+    interruptedRef.current = false;
     audioRef.current?.pause();
     if (currentEpisode) {
       logPlayerEvent({
@@ -309,6 +361,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   }, [currentEpisode]);
 
   const resume = useCallback(() => {
+    userPausedRef.current = false;
+    interruptedRef.current = false;
     audioRef.current?.play().catch(() => setError("Playback error"));
   }, []);
 
@@ -354,6 +408,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   }, [currentEpisode]);
 
   const stop = useCallback(() => {
+    userPausedRef.current = true;
+    interruptedRef.current = false;
     audioRef.current?.pause();
     setCurrentEpisode(null);
     setIsPlaying(false);
