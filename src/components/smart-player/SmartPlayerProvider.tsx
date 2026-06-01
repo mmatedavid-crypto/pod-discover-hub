@@ -124,8 +124,21 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
 
     const onTime = () => setCurrentTime(a.currentTime);
     const onDur = () => setDuration(a.duration || 0);
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
+    const onPlay = () => {
+      setIsPlaying(true);
+      interruptedRef.current = false;
+      userPausedRef.current = false;
+    };
+    const onPause = () => {
+      setIsPlaying(false);
+      // If we're paused but not at end and the user didn't ask for it,
+      // assume an OS interruption (incoming call etc.) and remember so we
+      // can auto-resume when the page becomes active again.
+      const a2 = audioRef.current;
+      if (a2 && !a2.ended && !userPausedRef.current) {
+        interruptedRef.current = true;
+      }
+    };
     const onWait = () => setIsLoading(true);
     const onCanPlay = () => setIsLoading(false);
     const onError = () => {
