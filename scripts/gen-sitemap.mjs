@@ -1,4 +1,7 @@
 // Generates HU-only sitemap index + per-type sitemaps for podiverzum.hu.
+// Policy 2026-06-01: include EVERYTHING public/indexable — no tier filter,
+// no recency cap, no ai_summary requirement. Press-release inbound links
+// are coming, give Google the full surface.
 // Run: node scripts/gen-sitemap.mjs  (requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
@@ -9,29 +12,43 @@ const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_R
 const esc = s => String(s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-const tag = (loc, lastmod, cf='daily', pr='0.6') =>
+const tag = (loc, lastmod, cf='weekly', pr='0.6') =>
   `<url><loc>${loc}</loc>${lastmod?`<lastmod>${new Date(lastmod).toISOString()}</lastmod>`:''}<changefreq>${cf}</changefreq><priority>${pr}</priority></url>`;
 const wrap = urls => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
 
 fs.mkdirSync('public/sitemaps', { recursive: true });
 
 const now = new Date().toISOString();
+const CHUNK = 45000;
 
-// ---- pages.xml (static + categories + moods) ----
+function writeChunks(prefix, urls) {
+  const files = [];
+  if (urls.length === 0) return files;
+  for (let i = 0; i < urls.length; i += CHUNK) {
+    const idx = Math.floor(i / CHUNK) + 1;
+    const fname = `${prefix}-${idx}.xml`;
+    fs.writeFileSync(`public/sitemaps/${fname}`, wrap(urls.slice(i, i + CHUNK)));
+    files.push(fname);
+    console.log(fname + ':', Math.min(CHUNK, urls.length - i), 'urls');
+  }
+  return files;
+}
+
+// ---- pages.xml (static + categories + moods + topics hub list) ----
 const { data: cats = [] } = await sb
   .from('categories').select('slug,created_at')
   .eq('active', true).order('sort_order');
 
 const { data: moods = [] } = await sb
-  .from('mood_collections').select('slug,updated_at,recommended_episode_count')
+  .from('mood_collections').select('slug,updated_at')
   .eq('active', true).order('sort_order');
 
 const pages = [
   tag(`${SITE}/`, now, 'daily', '1.0'),
-  // SEO hub landing pages (prerendered) — bumped priority, daily freshness.
-  tag(`${SITE}/podcastok`, now, 'daily', '0.9'),
+  tag(`${SITE}/toplista`, now, 'daily', '0.9'),
   tag(`${SITE}/szemelyek`, now, 'daily', '0.9'),
   tag(`${SITE}/szervezetek`, now, 'daily', '0.9'),
+  tag(`${SITE}/cegek`, now, 'daily', '0.8'),
   tag(`${SITE}/partok`, now, 'daily', '0.9'),
   tag(`${SITE}/temak`, now, 'daily', '0.9'),
   tag(`${SITE}/kategoriak`, now, 'daily', '0.7'),
@@ -45,18 +62,16 @@ const pages = [
   tag(`${SITE}/adatvedelem`, now, 'yearly', '0.2'),
   tag(`${SITE}/feltetelek`, now, 'yearly', '0.2'),
   ...cats.map(c => tag(`${SITE}/kategoria/${esc(c.slug)}`, c.created_at, 'daily', '0.8')),
-  ...moods.filter(m => (m.recommended_episode_count ?? 0) >= 10)
-          .map(m => tag(`${SITE}/hangulatok/${esc(m.slug)}`, m.updated_at, 'weekly', '0.7')),
+  ...moods.map(m => tag(`${SITE}/hangulatok/${esc(m.slug)}`, m.updated_at, 'weekly', '0.7')),
 ];
 fs.writeFileSync('public/sitemaps/pages.xml', wrap(pages));
 console.log('pages.xml:', pages.length, 'urls');
 
-// ---- podcasts (HU-only, healthy, non-E tier) ----
-const BAD = new Set(['needs_manual_rss_review','quarantined_spam','confirmed_dead']);
+// ---- podcasts (ALL HU; only drop explicit reject_foreign) ----
 let from = 0, podcasts = [];
 while (true) {
   const { data, error } = await sb.from('podcasts')
-    .select('slug,updated_at,ai_enriched_at,rss_status,rank_label,language,is_hungarian,language_decision,shadow_rank_components')
+    .select('slug,updated_at,ai_enriched_at,rank_label,language_decision,is_hungarian')
     .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian')
     .order('id').range(from, from + 999);
   if (error) throw error;
@@ -64,33 +79,22 @@ while (true) {
   for (const p of data) {
     if (!p.slug) continue;
     if (p.language_decision === 'reject_foreign') continue;
-    if (p.rss_status === 'failed' || p.rss_status === 'inactive') continue;
-    const hs = p.shadow_rank_components?.health_state;
-    if (BAD.has(hs)) continue;
     const t = p.rank_label;
-    const pr = t === 'S' ? '0.9' : t === 'A' ? '0.8' : t === 'B' ? '0.7' : t === 'C' ? '0.6' : '0.4';
+    const pr = t === 'S' ? '0.9' : t === 'A' ? '0.8' : t === 'B' ? '0.7' : t === 'C' ? '0.6' : '0.5';
     const lm = [p.updated_at, p.ai_enriched_at].filter(Boolean).sort().pop();
-    podcasts.push(tag(`${SITE}/podcast/${esc(p.slug)}`, lm, 'daily', pr));
+    podcasts.push(tag(`${SITE}/podcast/${esc(p.slug)}`, lm, 'weekly', pr));
   }
   if (data.length < 1000) break;
   from += 1000;
 }
-const CHUNK = 45000;
-const podFiles = [];
-for (let i = 0; i < podcasts.length; i += CHUNK) {
-  const idx = Math.floor(i / CHUNK) + 1;
-  const fname = `podcasts-${idx}.xml`;
-  fs.writeFileSync(`public/sitemaps/${fname}`, wrap(podcasts.slice(i, i + CHUNK)));
-  podFiles.push(fname);
-  console.log(fname + ':', Math.min(CHUNK, podcasts.length - i), 'urls');
-}
+const podFiles = writeChunks('podcasts', podcasts);
 
-// ---- people (indexable only) ----
+// ---- people (indexable) ----
 const peopleUrls = [];
 from = 0;
 while (true) {
   const { data, error } = await sb.from('people')
-    .select('slug,updated_at,is_indexable,latest_episode_at')
+    .select('slug,updated_at,latest_episode_at')
     .eq('is_indexable', true)
     .order('id').range(from, from + 999);
   if (error) throw error;
@@ -103,26 +107,56 @@ while (true) {
   if (data.length < 1000) break;
   from += 1000;
 }
-const peopleFiles = [];
-for (let i = 0; i < peopleUrls.length; i += CHUNK) {
-  const idx = Math.floor(i / CHUNK) + 1;
-  const fname = `people-${idx}.xml`;
-  fs.writeFileSync(`public/sitemaps/${fname}`, wrap(peopleUrls.slice(i, i + CHUNK)));
-  peopleFiles.push(fname);
-  console.log(fname + ':', Math.min(CHUNK, peopleUrls.length - i), 'urls');
-}
+const peopleFiles = writeChunks('people', peopleUrls);
 
-// ---- episodes (HU, S/A/B with ai_summary, last 180d) ----
+// ---- organizations (indexable; canonical route is /ceg/:slug for all org types) ----
+const orgUrls = [];
+from = 0;
+while (true) {
+  const { data, error } = await sb.from('organizations')
+    .select('slug,updated_at,latest_episode_at,org_type')
+    .eq('is_indexable', true)
+    .order('id').range(from, from + 999);
+  if (error) throw error;
+  if (!data?.length) break;
+  for (const o of data) {
+    if (!o.slug) continue;
+    const lm = [o.latest_episode_at, o.updated_at].filter(Boolean).sort().pop();
+    const pr = o.org_type === 'party' ? '0.7' : '0.6';
+    orgUrls.push(tag(`${SITE}/ceg/${esc(o.slug)}`, lm, 'weekly', pr));
+  }
+  if (data.length < 1000) break;
+  from += 1000;
+}
+const orgFiles = writeChunks('organizations', orgUrls);
+
+// ---- topics (public) ----
+const topicUrls = [];
+from = 0;
+while (true) {
+  const { data, error } = await sb.from('topics')
+    .select('slug,updated_at')
+    .eq('is_public', true)
+    .order('id').range(from, from + 999);
+  if (error) throw error;
+  if (!data?.length) break;
+  for (const t of data) {
+    if (!t.slug) continue;
+    topicUrls.push(tag(`${SITE}/temak/${esc(t.slug)}`, t.updated_at, 'weekly', '0.6'));
+  }
+  if (data.length < 1000) break;
+  from += 1000;
+}
+const topicFiles = writeChunks('topics', topicUrls);
+
+// ---- episodes (ALL HU; no recency cap, no ai_summary filter) ----
 const epUrls = [];
 from = 0;
-const SINCE = new Date(Date.now() - 180 * 86400_000).toISOString();
 while (true) {
   const { data, error } = await sb.from('episodes')
-    .select('slug,published_at,updated_at,podcast_id,podcasts!inner(slug,language,is_hungarian,language_decision,rank_label,rss_status)')
+    .select('slug,published_at,updated_at,podcasts!inner(slug,is_hungarian,language_decision,rank_label)')
     .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian', { foreignTable: 'podcasts' })
-    .not('ai_summary', 'is', null)
-    .gte('published_at', SINCE)
-    .order('published_at', { ascending: false })
+    .order('id')
     .range(from, from + 999);
   if (error) throw error;
   if (!data?.length) break;
@@ -130,61 +164,14 @@ while (true) {
     if (!e.slug || !e.podcasts?.slug) continue;
     const ps = e.podcasts;
     if (ps.language_decision === 'reject_foreign') continue;
-    if (ps.rss_status === 'failed' || ps.rss_status === 'inactive') continue;
-    const pr = ps.rank_label === 'S' ? '0.8' : ps.rank_label === 'A' ? '0.7' : '0.6';
+    const pr = ps.rank_label === 'S' ? '0.7' : ps.rank_label === 'A' ? '0.6' : '0.5';
     const lm = [e.updated_at, e.published_at].filter(Boolean).sort().pop();
-    epUrls.push(tag(`${SITE}/podcast/${esc(ps.slug)}/${esc(e.slug)}`, lm, 'weekly', pr));
+    epUrls.push(tag(`${SITE}/podcast/${esc(ps.slug)}/${esc(e.slug)}`, lm, 'monthly', pr));
   }
   if (data.length < 1000) break;
   from += 1000;
-  if (epUrls.length >= 40000) break; // cap to keep crawl budget healthy
 }
-const epFiles = [];
-for (let i = 0; i < epUrls.length; i += CHUNK) {
-  const idx = Math.floor(i / CHUNK) + 1;
-  const fname = `episodes-${idx}.xml`;
-  fs.writeFileSync(`public/sitemaps/${fname}`, wrap(epUrls.slice(i, i + CHUNK)));
-  epFiles.push(fname);
-  console.log(fname + ':', Math.min(CHUNK, epUrls.length - i), 'urls');
-}
-
-// ---- Wave 3: long-tail aggregation pages ----
-const longtail = [];
-const nowYear = new Date().getUTCFullYear();
-const yearList = [nowYear, nowYear - 1, nowYear - 2];
-
-// topic/year: top 60 public topics × 3 years (gated client-side by min episode count via prerender; sitemap is permissive)
-const { data: topTopics = [] } = await sb
-  .from('topics').select('slug, episode_count')
-  .eq('is_public', true).gt('episode_count', 20)
-  .order('episode_count', { ascending: false }).limit(60);
-for (const t of topTopics) {
-  for (const y of yearList) {
-    longtail.push(tag(`${SITE}/temak/${esc(t.slug)}/${y}`, now, 'monthly', '0.5'));
-  }
-}
-
-// podcast/year: top S/A/B podcasts × 3 years
-const { data: topPods = [] } = await sb
-  .from('podcasts').select('slug, rank_label, rss_status, language, is_hungarian, language_decision')
-  .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian')
-  .eq('rss_status', 'active').limit(800);
-for (const p of topPods) {
-  if (!p.slug) continue;
-  if (p.language_decision === 'reject_foreign') continue;
-  for (const y of yearList) {
-    longtail.push(tag(`${SITE}/podcast/${esc(p.slug)}/epizodok/${y}`, now, 'monthly', '0.5'));
-  }
-}
-
-const longtailFiles = [];
-for (let i = 0; i < longtail.length; i += CHUNK) {
-  const idx = Math.floor(i / CHUNK) + 1;
-  const fname = `longtail-${idx}.xml`;
-  fs.writeFileSync(`public/sitemaps/${fname}`, wrap(longtail.slice(i, i + CHUNK)));
-  longtailFiles.push(fname);
-  console.log(fname + ':', Math.min(CHUNK, longtail.length - i), 'urls');
-}
+const epFiles = writeChunks('episodes', epUrls);
 
 // ---- sitemap.xml (index) ----
 const lastmod = new Date().toISOString();
@@ -192,9 +179,11 @@ const entries = [
   `<sitemap><loc>${SITE}/sitemaps/pages.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`,
   ...podFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
   ...peopleFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
+  ...orgFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
+  ...topicFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
   ...epFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
-  ...longtailFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
 ];
 const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</sitemapindex>\n`;
 fs.writeFileSync('public/sitemap.xml', indexXml);
 console.log('sitemap.xml index entries:', entries.length);
+console.log('TOTAL URLs:', pages.length + podcasts.length + peopleUrls.length + orgUrls.length + topicUrls.length + epUrls.length);
