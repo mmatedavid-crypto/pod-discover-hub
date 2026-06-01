@@ -16,7 +16,7 @@ export function SmartPlayerBar() {
   const {
     playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
     toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
-    playbackRate, setPlaybackRate,
+    playbackRate, setPlaybackRate, autoplayMode, setAutoplayMode,
   } = useSmartPlayer();
 
   const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
