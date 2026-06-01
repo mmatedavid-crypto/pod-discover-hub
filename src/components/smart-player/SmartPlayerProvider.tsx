@@ -80,6 +80,16 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const [duration, setDuration] = useState(0);
   const [playbackRate, setRateState] = useState(1);
   const [expanded, setExpanded] = useState(false);
+  const [autoplayMode, setAutoplayModeState] = useState<AutoplayMode>(() => {
+    try {
+      const v = typeof window !== "undefined" ? localStorage.getItem("podiverzum_autoplay_mode") : null;
+      return v === "series" ? "series" : "related";
+    } catch { return "related"; }
+  });
+  const setAutoplayMode = useCallback((m: AutoplayMode) => {
+    setAutoplayModeState(m);
+    try { localStorage.setItem("podiverzum_autoplay_mode", m); } catch { /* noop */ }
+  }, []);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const markedRef = useRef<Set<string>>(new Set());
