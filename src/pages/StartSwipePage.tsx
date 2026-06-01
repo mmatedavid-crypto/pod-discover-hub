@@ -313,11 +313,13 @@ function pickNextCard(
   liked: Card[],
   disliked: Card[],
   swipeIdx: number,
+  sessionSeed: string,
   domainOrder: string[] = BROAD_DOMAINS,
 ): Card | null {
   const candidates = pool.filter(c => !seen.has(c.id));
   if (candidates.length === 0) return null;
   const stateSeed = [
+    sessionSeed,
     swipeIdx,
     ...Array.from(seen).sort(),
     ...liked.map(c => c.id).sort(),
@@ -453,6 +455,10 @@ export default function StartSwipePage() {
     () => computeConfidence(effectiveLiked, disliked),
     [effectiveLiked, disliked]
   );
+  const sessionDomainOrder = useMemo(
+    () => shuffle(BROAD_DOMAINS, seededRandom(`domains:${persisted.sessionId}`)),
+    [persisted.sessionId],
+  );
 
   // Load card pool once
   useEffect(() => {
@@ -535,9 +541,9 @@ export default function StartSwipePage() {
   useEffect(() => {
     if (phase !== "swipe" || !pool || current) return;
     const seen = new Set(persisted.seenCardIds);
-    const next = pickNextCard(pool, seen, effectiveLiked, disliked, totalSwipes);
+    const next = pickNextCard(pool, seen, effectiveLiked, disliked, totalSwipes, persisted.sessionId, sessionDomainOrder);
     setCurrent(next);
-  }, [phase, pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
+  }, [phase, pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes, persisted.sessionId, sessionDomainOrder]);
 
   // Auto-fetch recs when entering result. Completed profiles must survive card
   // pool refreshes, so saved card snapshots are enough to reconstruct the taste.
@@ -708,14 +714,14 @@ export default function StartSwipePage() {
     let tempDisliked = disliked;
     let idx = totalSwipes + 1;
     for (let i = 0; i < 2; i++) {
-      const c = pickNextCard(pool, seen, tempLiked, tempDisliked, idx);
+      const c = pickNextCard(pool, seen, tempLiked, tempDisliked, idx, persisted.sessionId, sessionDomainOrder);
       if (!c) break;
       out.push(c);
       seen.add(c.id);
       idx++;
     }
     return out;
-  }, [pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
+  }, [pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes, persisted.sessionId, sessionDomainOrder]);
 
   /* ─────── Actions ─────── */
 
@@ -792,7 +798,7 @@ export default function StartSwipePage() {
 
     // Pick next card
     const seen = new Set(next.seenCardIds);
-    const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total);
+    const nextCard = pickNextCard(pool, seen, newEffective, newDisliked, total, next.sessionId, sessionDomainOrder);
     if (!nextCard) {
       finishSwipe("pool_exhausted", total, positives, next);
       return;
