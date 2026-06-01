@@ -87,6 +87,7 @@ type Persisted = {
   likedCardIds: string[];
   dislikedCardIds: string[];
   superLikedCardIds: string[];
+  cardSnapshots?: Record<string, Card>;
   completedAt?: string | null;
   updatedAt: string;
 };
@@ -102,6 +103,7 @@ function loadPersisted(): Persisted {
         likedCardIds: p.likedCardIds || [],
         dislikedCardIds: p.dislikedCardIds || [],
         superLikedCardIds: p.superLikedCardIds || [],
+        cardSnapshots: p.cardSnapshots || {},
         completedAt: p.completedAt || null,
         updatedAt: p.updatedAt || new Date().toISOString(),
       };
@@ -118,6 +120,7 @@ function loadPersisted(): Persisted {
     likedCardIds: [],
     dislikedCardIds: [],
     superLikedCardIds: [],
+    cardSnapshots: {},
     completedAt: null,
     updatedAt: new Date().toISOString(),
   };
@@ -125,6 +128,18 @@ function loadPersisted(): Persisted {
 
 function savePersisted(p: Persisted) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...p, updatedAt: new Date().toISOString() })); } catch { /* ignore */ }
+}
+
+function snapshotCard(card: Card): Card {
+  return {
+    ...card,
+    topic_tags: card.topic_tags || [],
+    mood_tags: card.mood_tags || [],
+    format_tags: card.format_tags || [],
+    psych_tags: card.psych_tags || [],
+    archetype_tags: card.archetype_tags || [],
+    card_embedding: card.card_embedding || [],
+  };
 }
 
 async function copyText(text: string): Promise<boolean> {
@@ -403,9 +418,12 @@ export default function StartSwipePage() {
   // Derived collections
   const byId = useMemo(() => {
     const m = new Map<string, Card>();
+    Object.values(persisted.cardSnapshots || {}).forEach(c => {
+      if (c?.id) m.set(c.id, snapshotCard(c));
+    });
     (pool || []).forEach(c => m.set(c.id, c));
     return m;
-  }, [pool]);
+  }, [pool, persisted.cardSnapshots]);
 
   const liked = useMemo(
     () => persisted.likedCardIds.map(id => byId.get(id)).filter((c): c is Card => !!c),
@@ -521,38 +539,25 @@ export default function StartSwipePage() {
     setCurrent(next);
   }, [phase, pool, current, persisted.seenCardIds, effectiveLiked, disliked, totalSwipes]);
 
-  // Auto-fetch recs when entering result (wait for pool + derived liked to be ready).
-  // If saved card-ids no longer exist in the current pool (catalog rotated out),
-  // fall back to the swipe phase so the user isn't stuck on an empty result screen.
+  // Auto-fetch recs when entering result. Completed profiles must survive card
+  // pool refreshes, so saved card snapshots are enough to reconstruct the taste.
   useEffect(() => {
     if (phase !== "result" || recs || recsLoading) return;
-    if (!pool) return;
-    if (effectiveLiked.length === 0) {
-      if (persisted.likedCardIds.length > 0 || persisted.seenCardIds.length > 0) {
-        // Saved progress is stale → reset and send back to swipe
-        const fresh: Persisted = {
-          sessionId: crypto.randomUUID(),
-          seenCardIds: [], likedCardIds: [], dislikedCardIds: [], superLikedCardIds: [],
-          completedAt: null,
-          updatedAt: new Date().toISOString(),
-        };
-        savePersisted(fresh);
-        setPersisted(fresh);
-        setPhase("swipe");
-      }
-      return;
-    }
+    if (effectiveLiked.length === 0) return;
     void fetchRecs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, pool, effectiveLiked.length, recs, recsLoading]);
 
   const fetchRecs = async () => {
-    if (effectiveLiked.length === 0 || !pool) return;
+    if (effectiveLiked.length === 0) return;
     setRecsLoading(true);
     setRecsError(null);
 
     // Mean-center against the pool centroid so the user's *deviation* dominates.
-    const centroid = mean(pool.map(c => c.card_embedding));
+    const centroidSource = pool?.length
+      ? pool.map(c => c.card_embedding)
+      : [...effectiveLiked, ...disliked].map(c => c.card_embedding);
+    const centroid = mean(centroidSource);
     const likedDev = mean(effectiveLiked.map(c => sub(c.card_embedding, centroid)));
     const dislikedDev = disliked.length
       ? mean(disliked.map(c => sub(c.card_embedding, centroid)))
@@ -676,6 +681,20 @@ export default function StartSwipePage() {
       tryAdd(r, false);
       if (finalRows.length >= 16) break;
     }
+    // Never leave the finished profile with an empty recommendation shelf.
+    // Keep the hard bulletin/news caps, but allow high-vector non-bulletin
+    // matches even when the database lacks topic labels for the episode.
+    for (const r of rows) {
+      if (finalRows.length >= 8) break;
+      if (finalRows.some((existing) => existing.episode_id === r.episode_id)) continue;
+      const n = perPod.get(r.podcast_id) || 0;
+      if (n >= 1) continue;
+      if (isBulletinLike(r)) continue;
+      if (!allowsNews && isNewsLike(r)) continue;
+      if ((r.taste_score ?? 0) < 0.42 && (r.similarity ?? 0) < 0.62) continue;
+      perPod.set(r.podcast_id, n + 1);
+      finalRows.push(r);
+    }
     setRecs(finalRows);
     setRecsLoading(false);
   };
@@ -739,6 +758,10 @@ export default function StartSwipePage() {
       likedCardIds: isPositive ? [...persisted.likedCardIds, current.id] : persisted.likedCardIds,
       dislikedCardIds: action === "skip" ? [...persisted.dislikedCardIds, current.id] : persisted.dislikedCardIds,
       superLikedCardIds: action === "super" ? [...persisted.superLikedCardIds, current.id] : persisted.superLikedCardIds,
+      cardSnapshots: {
+        ...(persisted.cardSnapshots || {}),
+        [current.id]: snapshotCard(current),
+      },
       updatedAt: new Date().toISOString(),
     };
     setPersisted(next);
@@ -784,6 +807,7 @@ export default function StartSwipePage() {
       likedCardIds: [],
       dislikedCardIds: [],
       superLikedCardIds: [],
+      cardSnapshots: {},
       completedAt: null,
       updatedAt: new Date().toISOString(),
     };
@@ -867,20 +891,30 @@ export default function StartSwipePage() {
         )}
 
         {phase === "result" && (
-          <ResultView
-            liked={liked}
-            disliked={disliked}
-            superLiked={superLiked}
-            recs={recs}
-            recsLoading={recsLoading}
-            recsError={recsError}
-            onRetryRecs={() => {
-              setRecs(null);
-              void fetchRecs();
-            }}
-            onReset={resetAll}
-            onOpen={(p, e) => navigate(`/podcast/${p}/${e}`)}
-          />
+          persisted.likedCardIds.length > 0 && liked.length === 0 ? (
+            <div className="rounded-3xl border border-border bg-card p-8 text-center">
+              <Skeleton className="mx-auto h-28 w-48 rounded-2xl" />
+              <h1 className="mt-5 text-2xl font-semibold">Visszatöltjük a profilodat</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                A korábbi döntéseid megvannak, csak frissítjük hozzájuk a kártyaadatokat.
+              </p>
+            </div>
+          ) : (
+            <ResultView
+              liked={liked}
+              disliked={disliked}
+              superLiked={superLiked}
+              recs={recs}
+              recsLoading={recsLoading}
+              recsError={recsError}
+              onRetryRecs={() => {
+                setRecs(null);
+                void fetchRecs();
+              }}
+              onReset={resetAll}
+              onOpen={(p, e) => navigate(`/podcast/${p}/${e}`)}
+            />
+          )
         )}
       </div>
     </div>
