@@ -408,6 +408,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   }, [currentEpisode]);
 
   const stop = useCallback(() => {
+    userPausedRef.current = true;
+    interruptedRef.current = false;
     audioRef.current?.pause();
     setCurrentEpisode(null);
     setIsPlaying(false);
