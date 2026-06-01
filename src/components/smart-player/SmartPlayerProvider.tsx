@@ -375,14 +375,48 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     if (currentEpisode?.id) autoplayHistoryRef.current.add(currentEpisode.id);
   }, [currentEpisode]);
 
-  // Netflix-style autoplay: when an episode ends, immediately start the most
-  // related cross-podcast episode. Uses the same `similar_episodes` RPC as
-  // the in-player "related" list, so the chosen next episode matches what the
-  // user already sees as "kapcsolódó".
+  // Autoplay on episode end.
+  //  - mode "related": jump to the most similar cross-podcast episode
+  //    (same vector index that powers the "Kapcsolódó" list).
+  //  - mode "series":  play the next chronological episode of the SAME podcast
+  //    (newer published_at, then asc) so listeners can binge a series in order.
   useEffect(() => {
     autoplayNextRef.current = (ended) => {
       void (async () => {
         try {
+          if (autoplayMode === "series" && ended.podcastId) {
+            const { data: cur } = await supabase
+              .from("episodes")
+              .select("published_at")
+              .eq("id", ended.id)
+              .maybeSingle();
+            const curAt = (cur as { published_at?: string | null } | null)?.published_at;
+            if (!curAt) return;
+            const { data: nextRows } = await supabase
+              .from("episodes")
+              .select("id,title,display_title,slug,audio_url,podcasts!inner(slug,title,display_title,image_url)")
+              .eq("podcast_id", ended.podcastId)
+              .gt("published_at", curAt)
+              .not("audio_url", "is", null)
+              .order("published_at", { ascending: true })
+              .limit(1);
+            const next = (nextRows || [])[0] as any;
+            if (!next) return;
+            const pod = Array.isArray(next.podcasts) ? next.podcasts[0] : next.podcasts;
+            play({
+              id: next.id,
+              title: next.display_title || next.title,
+              podcastId: ended.podcastId,
+              podcastTitle: pod?.display_title || pod?.title || ended.podcastTitle,
+              podcastSlug: pod?.slug || ended.podcastSlug,
+              episodeSlug: next.slug,
+              imageUrl: pod?.image_url || ended.imageUrl,
+              audioUrl: next.audio_url,
+            });
+            return;
+          }
+
+          // mode === "related" — cross-podcast vector match.
           const { data, error } = await supabase.rpc("similar_episodes" as never, {
             p_episode_id: ended.id,
             p_limit: 12,
@@ -423,14 +457,13 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         }
       })();
     };
-  }, [play]);
-
-
+  }, [play, autoplayMode]);
 
   const value: Ctx = {
     flags, previewActive, playerVisible, currentEpisode,
     isPlaying, isLoading, error, currentTime, duration, playbackRate,
     expanded, setExpanded,
+    autoplayMode, setAutoplayMode,
     play, toggle, pause, resume, seekTo, seekBy, setPlaybackRate, stop,
   };
 
