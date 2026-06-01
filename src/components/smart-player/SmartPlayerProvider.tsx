@@ -118,15 +118,17 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     };
     const onEnded = () => {
       setIsPlaying(false);
-      if (currentEpisode) {
-        saveProgress(currentEpisode.id, a.currentTime, a.duration, true);
+      const ep = currentEpisodeRef.current;
+      if (ep) {
+        saveProgress(ep.id, a.currentTime, a.duration, true);
         logPlayerEvent({
           eventType: "play_complete",
-          episodeId: currentEpisode.id,
-          podcastId: currentEpisode.podcastId,
+          episodeId: ep.id,
+          podcastId: ep.podcastId,
           positionSec: a.currentTime,
           durationSec: a.duration,
         });
+        autoplayNextRef.current?.(ep);
       }
     };
 
