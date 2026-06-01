@@ -34,6 +34,8 @@ const DEFAULT_FLAGS: FlagShape = {
   show_semantic_queue: false,
 };
 
+export type AutoplayMode = "related" | "series";
+
 type Ctx = {
   flags: FlagShape;
   previewActive: boolean;
@@ -46,6 +48,8 @@ type Ctx = {
   duration: number;
   playbackRate: number;
   expanded: boolean;
+  autoplayMode: AutoplayMode;
+  setAutoplayMode: (m: AutoplayMode) => void;
   setExpanded: (v: boolean) => void;
   play: (ep: SmartPlayerEpisode, opts?: { resume?: boolean; startAt?: number }) => void;
   toggle: () => void;
