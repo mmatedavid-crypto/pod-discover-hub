@@ -354,6 +354,65 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     return false;
   }, [flags, previewActive]);
 
+  // Keep a ref of the current episode so non-React handlers (audio "ended")
+  // always see the latest value without stale closures.
+  useEffect(() => {
+    currentEpisodeRef.current = currentEpisode;
+    if (currentEpisode?.id) autoplayHistoryRef.current.add(currentEpisode.id);
+  }, [currentEpisode]);
+
+  // Netflix-style autoplay: when an episode ends, immediately start the most
+  // related cross-podcast episode. Uses the same `similar_episodes` RPC as
+  // the in-player "related" list, so the chosen next episode matches what the
+  // user already sees as "kapcsolódó".
+  useEffect(() => {
+    autoplayNextRef.current = (ended) => {
+      void (async () => {
+        try {
+          const { data, error } = await supabase.rpc("similar_episodes" as never, {
+            p_episode_id: ended.id,
+            p_limit: 12,
+          } as never);
+          if (error || !Array.isArray(data)) return;
+          const rows = data as Array<{
+            episode_id: string;
+            podcast_id: string | null;
+            title: string;
+            display_title: string | null;
+            slug: string;
+            audio_url: string | null;
+            podcast_slug: string;
+            podcast_title: string;
+            podcast_display_title: string | null;
+            podcast_image_url: string | null;
+          }>;
+          const next = rows.find(
+            (r) =>
+              !!r.audio_url &&
+              r.episode_id !== ended.id &&
+              r.podcast_id !== ended.podcastId &&
+              !autoplayHistoryRef.current.has(r.episode_id),
+          );
+          if (!next) return;
+          play({
+            id: next.episode_id,
+            title: next.display_title || next.title,
+            podcastId: next.podcast_id,
+            podcastTitle: next.podcast_display_title || next.podcast_title,
+            podcastSlug: next.podcast_slug,
+            episodeSlug: next.slug,
+            imageUrl: next.podcast_image_url,
+            audioUrl: next.audio_url!,
+          });
+        } catch {
+          /* fail-safe — silence is better than crashing the player */
+        }
+      })();
+    };
+  }, [play]);
+
+
+
   const value: Ctx = {
     flags, previewActive, playerVisible, currentEpisode,
     isPlaying, isLoading, error, currentTime, duration, playbackRate,
