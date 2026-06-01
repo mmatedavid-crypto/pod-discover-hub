@@ -96,6 +96,14 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const currentEpisodeRef = useRef<SmartPlayerEpisode | null>(null);
   const autoplayNextRef = useRef<((ep: SmartPlayerEpisode) => void) | null>(null);
   const autoplayHistoryRef = useRef<Set<string>>(new Set());
+  // Tracks whether the most recent pause came from a user action (button,
+  // mediaSession, stop) vs. an OS-level interruption (incoming call, route
+  // change, headphones unplug, app backgrounded by another media app).
+  // When an interruption pauses us, we try to auto-resume as soon as the
+  // tab regains focus / visibility / network — Netflix-style "pick up where
+  // you left off" after a phone call.
+  const userPausedRef = useRef(false);
+  const interruptedRef = useRef(false);
 
   useEffect(() => {
     setPreviewActive(isPlayerPreviewActive());
