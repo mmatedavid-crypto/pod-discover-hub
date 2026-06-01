@@ -39,14 +39,13 @@ Deno.serve(async (req) => {
     if (error) throw new Error(`upload ${path}: ${error.message}`);
   }
 
-  function writeChunks(prefix: string, urls: string[]): string[] {
+  async function writeChunks(prefix: string, urls: string[]): Promise<string[]> {
     const files: string[] = [];
     if (urls.length === 0) return files;
-    const tasks: Promise<void>[] = [];
     for (let i = 0; i < urls.length; i += CHUNK) {
       const idx = Math.floor(i / CHUNK) + 1;
       const fname = `${prefix}-${idx}.xml`;
-      tasks.push(upload(fname, wrap(urls.slice(i, i + CHUNK))));
+      await upload(fname, wrap(urls.slice(i, i + CHUNK)));
       files.push(fname);
     }
     return files;
