@@ -164,6 +164,36 @@ export default {
     }
 
 
+    // Sitemap proxy → Supabase Storage `sitemaps` bucket.
+    // `refresh-sitemap` edge function regenerates these daily (pg_cron 04:30 UTC).
+    if ((request.method === "GET" || request.method === "HEAD") &&
+        (url.pathname === "/sitemap.xml" || /^\/sitemaps\/[a-z0-9_-]+\.xml$/i.test(url.pathname))) {
+      const objectPath = url.pathname === "/sitemap.xml"
+        ? "sitemap.xml"
+        : url.pathname.replace(/^\/sitemaps\//, "");
+      const storageUrl = `https://yoxewklaybougzpmzvkg.supabase.co/storage/v1/object/public/sitemaps/${objectPath}`;
+      try {
+        const upstream = await fetch(storageUrl, {
+          cf: { cacheTtl: 3600, cacheEverything: true },
+          headers: { "User-Agent": "podiverzum-cf-worker" },
+        });
+        if (!upstream.ok) {
+          // Fall back to repo-shipped sitemap so we never 404 on Google.
+          return fetch(request);
+        }
+        return new Response(request.method === "HEAD" ? null : upstream.body, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/xml; charset=utf-8",
+            "Cache-Control": "public, max-age=3600, s-maxage=3600",
+            "X-Served-By": "worker-sitemap-proxy",
+          },
+        });
+      } catch (_e) {
+        return fetch(request);
+      }
+    }
+
     if (SCANNER_PATH_REGEX.test(url.pathname)) {
       return new Response("Not Found", {
         status: 404,
