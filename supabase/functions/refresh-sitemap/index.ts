@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       }
       if (data.length < 1000) break;
     }
-    const podFiles = writeChunks('podcasts', podcasts);
+    const podFiles = await writeChunks('podcasts', podcasts);
 
     // ---- people ----
     const peopleUrls: string[] = [];
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
       }
       if (data.length < 1000) break;
     }
-    const peopleFiles = writeChunks('people', peopleUrls);
+    const peopleFiles = await writeChunks('people', peopleUrls);
 
     // ---- organizations ----
     const orgUrls: string[] = [];
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       }
       if (data.length < 1000) break;
     }
-    const orgFiles = writeChunks('organizations', orgUrls);
+    const orgFiles = await writeChunks('organizations', orgUrls);
 
     // ---- topics ----
     const topicUrls: string[] = [];
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       }
       if (data.length < 1000) break;
     }
-    const topicFiles = writeChunks('topics', topicUrls);
+    const topicFiles = await writeChunks('topics', topicUrls);
 
     // ---- episodes ----
     const epUrls: string[] = [];
@@ -176,12 +176,7 @@ Deno.serve(async (req) => {
       }
       if (data.length < 1000) break;
     }
-    const epFiles = writeChunks('episodes', epUrls);
-
-    // Wait for chunk uploads above (writeChunks already awaited via upload promises tracked in tasks?
-    // Note: writeChunks above issues fire-and-forget uploads. Refactor: track promises and await here.
-    // Implemented inline by awaiting an aggregate below.
-    // (we collect by re-uploading nothing; all uploads inside writeChunks are awaited via tasks array — but tasks array is local. Fix: do it sync inline.)
+    const epFiles = await writeChunks('episodes', epUrls);
 
     // ---- sitemap.xml (index) ----
     const lastmod = new Date().toISOString();
