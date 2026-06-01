@@ -192,6 +192,35 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-resume after OS-level interruptions (incoming phone call, another
+  // app grabbing audio focus, headphones disconnect that auto-paused etc.).
+  // When the tab/app becomes active again, if we were interrupted mid-episode
+  // we kick playback back on automatically.
+  useEffect(() => {
+    const tryResume = () => {
+      const a = audioRef.current;
+      if (!a) return;
+      if (!interruptedRef.current) return;
+      if (!currentEpisodeRef.current) return;
+      if (!a.paused || a.ended) return;
+      void a.play().then(() => {
+        interruptedRef.current = false;
+      }).catch(() => {
+        // Browser blocked autoplay — leave the flag so the next focus/
+        // visibility event (often triggered by user tapping back) retries.
+      });
+    };
+    const onVisibility = () => { if (document.visibilityState === "visible") tryResume(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", tryResume);
+    window.addEventListener("online", tryResume);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", tryResume);
+      window.removeEventListener("online", tryResume);
+    };
+  }, []);
+
   useEffect(() => {
     if (!currentEpisode || !duration) return;
     const id = currentEpisode.id;
