@@ -82,6 +82,37 @@ export function SmartPlayerBar() {
             >{formatSpeedLabel(playbackRate)}</button>
           )}
           {!error && (
+            <div
+              className="hidden xs:inline-flex items-center rounded-md border border-border bg-card/60 overflow-hidden shrink-0 sm:inline-flex"
+              role="group"
+              aria-label="Mit indítson az adás végén"
+              title={
+                autoplayMode === "series"
+                  ? "Folytatás sorrendben: ugyanennek a műsornak a következő része indul"
+                  : "Kapcsolódó: más műsorból hasonló téma indul"
+              }
+            >
+              <button
+                onClick={() => setAutoplayMode("related")}
+                className={`text-[10px] uppercase tracking-wider px-2 py-1 transition-colors ${
+                  autoplayMode === "related"
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={autoplayMode === "related"}
+              >Kapcsolódó</button>
+              <button
+                onClick={() => setAutoplayMode("series")}
+                className={`text-[10px] uppercase tracking-wider px-2 py-1 transition-colors ${
+                  autoplayMode === "series"
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={autoplayMode === "series"}
+              >Sorrendben</button>
+            </div>
+          )}
+          {!error && (
             <div className="hidden sm:flex items-center gap-1">
               <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("back15")}>−15</button>
               <button onClick={() => seekBy(30)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("fwd30")}>+30</button>
