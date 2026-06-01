@@ -16,7 +16,7 @@ export function SmartPlayerBar() {
   const {
     playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
     toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
-    playbackRate, setPlaybackRate,
+    playbackRate, setPlaybackRate, autoplayMode, setAutoplayMode,
   } = useSmartPlayer();
 
   const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
@@ -80,6 +80,37 @@ export function SmartPlayerBar() {
               aria-label={`${t("playbackSpeed")}: ${formatSpeedLabel(playbackRate)}`}
               title={t("playbackSpeed")}
             >{formatSpeedLabel(playbackRate)}</button>
+          )}
+          {!error && (
+            <div
+              className="hidden xs:inline-flex items-center rounded-md border border-border bg-card/60 overflow-hidden shrink-0 sm:inline-flex"
+              role="group"
+              aria-label="Mit indítson az adás végén"
+              title={
+                autoplayMode === "series"
+                  ? "Folytatás sorrendben: ugyanennek a műsornak a következő része indul"
+                  : "Kapcsolódó: más műsorból hasonló téma indul"
+              }
+            >
+              <button
+                onClick={() => setAutoplayMode("related")}
+                className={`text-[10px] uppercase tracking-wider px-2 py-1 transition-colors ${
+                  autoplayMode === "related"
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={autoplayMode === "related"}
+              >Kapcsolódó</button>
+              <button
+                onClick={() => setAutoplayMode("series")}
+                className={`text-[10px] uppercase tracking-wider px-2 py-1 transition-colors ${
+                  autoplayMode === "series"
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={autoplayMode === "series"}
+              >Sorrendben</button>
+            </div>
           )}
           {!error && (
             <div className="hidden sm:flex items-center gap-1">
