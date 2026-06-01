@@ -347,6 +347,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   }, [currentEpisode]);
 
   const pause = useCallback(() => {
+    userPausedRef.current = true;
+    interruptedRef.current = false;
     audioRef.current?.pause();
     if (currentEpisode) {
       logPlayerEvent({
@@ -359,6 +361,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   }, [currentEpisode]);
 
   const resume = useCallback(() => {
+    userPausedRef.current = false;
+    interruptedRef.current = false;
     audioRef.current?.play().catch(() => setError("Playback error"));
   }, []);
 
