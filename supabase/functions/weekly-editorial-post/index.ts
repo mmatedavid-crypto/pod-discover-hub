@@ -385,10 +385,12 @@ function validateEditorial(ai: { intro: string; items: { title: string; teaser: 
     }
   }
   // konkrétság: legalább 1 nagybetűs név (mid-sentence) vagy szám az introban
-  const hasNumber = /\d/.test(intro);
+  // timestampeket NEM számoljuk számnak (azokat amúgy is a BANNED_PHRASES kiszűri)
+  const introNoTs = intro.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, "");
+  const hasNumber = /\d/.test(introNoTs);
   const hasProperNoun = /(?<=[.!?]\s|^|„|"|\s)[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]{2,}/.test(intro);
   if (!hasNumber && !hasProperNoun) {
-    return { ok: false, reason: "az intro nem tartalmaz egyetlen konkrét nevet vagy számot sem — írj bele egy konkrét állítást az epizódokból" };
+    return { ok: false, reason: "az intro nem tartalmaz egyetlen konkrét nevet vagy valódi számot sem (timestamp nem számít) — írj bele egy konkrét állítást az epizódokból" };
   }
   return { ok: true };
 }
