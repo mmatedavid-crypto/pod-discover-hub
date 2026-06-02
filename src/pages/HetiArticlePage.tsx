@@ -65,18 +65,24 @@ export default function HetiArticlePage() {
     (async () => {
       setLoading(true);
       const monday = isoWeekToMonday(parsed.year, parsed.week);
-      // Posts can have week_start a few days off Monday — give a ±3 day window.
-      const lo = new Date(`${monday}T00:00:00Z`); lo.setUTCDate(lo.getUTCDate() - 3);
-      const hi = new Date(`${monday}T00:00:00Z`); hi.setUTCDate(hi.getUTCDate() + 3);
+      // Posts can have week_start a few days off Monday (Sat/Sun/Mon) — widen
+      // the window and pick the row whose hetiSlug matches or whose ISO week matches.
+      const lo = new Date(`${monday}T00:00:00Z`); lo.setUTCDate(lo.getUTCDate() - 10);
+      const hi = new Date(`${monday}T00:00:00Z`); hi.setUTCDate(hi.getUTCDate() + 10);
       const { data } = await supabase
         .from("editorial_posts" as any)
         .select("id,week_start,week_end,title,intro,items,cover_image_url,published_at")
         .eq("status", "published")
         .gte("week_start", lo.toISOString().slice(0, 10))
         .lte("week_start", hi.toISOString().slice(0, 10))
-        .order("week_start", { ascending: false })
-        .limit(1);
-      const p = (data?.[0] as unknown as Post) || null;
+        .order("week_start", { ascending: false });
+      const rows = (data as unknown as Post[]) || [];
+      const exact = rows.find((r) => hetiSlug(r) === slug);
+      const sameWeek = rows.find((r) => {
+        const w = isoWeek(r.week_start);
+        return w.year === parsed.year && w.week === parsed.week;
+      });
+      const p: Post | null = exact || sameWeek || null;
       setPost(p);
       setNotFound(!p);
 
