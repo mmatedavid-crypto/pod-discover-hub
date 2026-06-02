@@ -5,8 +5,9 @@ import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
-import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entitySlug, matchesEntitySlug } from "@/lib/entity";
+import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entityHref, matchesEntitySlug } from "@/lib/entity";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
+import { snippet } from "@/lib/text";
 
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
@@ -263,7 +264,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">{ENTITY_LABEL[kind]}</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2 leading-[1.05]">{displayName}</h1>
           {profile?.bio ? (
-            <p className="text-foreground/85 mt-4 max-w-2xl leading-relaxed">{profile.bio}</p>
+            <p className="text-foreground/85 mt-4 max-w-2xl leading-relaxed">{snippet(profile.bio, 300)}</p>
           ) : (
             <p className="text-muted-foreground mt-3 max-w-2xl">
               Minden magyar podcast epizód, amiben {kind === "person" ? "megszólal" : "szó esik erről"}: <span className="text-foreground font-medium">{displayName}</span>. Minőség, frissesség és relevancia szerint rangsorolva.
@@ -324,11 +325,10 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             </div>
             <div className="flex flex-wrap gap-2">
               {related.map(({ kind: k, v }) => {
-                const s = entitySlug(k as any, v);
                 return (
                   <Link
                     key={`${k}-${v}`}
-                    to={`/${k}/${encodeURIComponent(s)}`}
+                    to={entityHref(k as any, v)}
                     className="px-3 py-1.5 rounded-full border border-border bg-card text-sm hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
                     <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{ENTITY_LABEL[k]}</span>

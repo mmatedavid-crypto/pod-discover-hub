@@ -8,6 +8,7 @@ import NotFoundState from "@/components/NotFoundState";
 import { compareByScore } from "@/lib/episodeRank";
 import PersonAvatar from "@/components/PersonAvatar";
 import { matchesEntitySlug } from "@/lib/entity";
+import { snippet } from "@/lib/text";
 
 interface Person {
   id: string; name: string; slug: string;
@@ -321,12 +322,6 @@ export default function PersonDetailPage() {
     (person.short_description_hu && person.short_description_hu.trim()) ||
     (person.overview_text && person.overview_text.trim()) ||
     (eps.length > 0 ? huFallbackBio(person.name) : null);
-  const bioSource: "ai" | "wikipedia" | "fallback" =
-    isSafeGeneratedBio(person, person.ai_bio) || isSafeShortBio(person)
-      ? "ai"
-      : (verifiedWiki && person.wikipedia_extract && person.wikipedia_extract.trim()) || (person.short_description_hu && person.short_description_hu.trim())
-      ? "wikipedia"
-      : "fallback";
   const avatarUrl = person.image_url || person.image_original_url || null;
 
   const pCount = segments.participants.length;
@@ -357,18 +352,17 @@ export default function PersonDetailPage() {
               {person.disambiguation_label && (
                 <div className="text-sm text-muted-foreground mt-1">{person.disambiguation_label}</div>
               )}
-              {verifiedWiki && person.wikipedia_description && (
+              {verifiedWiki && person.wikipedia_description && !bioText?.toLocaleLowerCase("hu-HU").includes(person.wikipedia_description.toLocaleLowerCase("hu-HU")) && (
                 <div className="text-sm text-muted-foreground mt-1 italic">{person.wikipedia_description}</div>
               )}
               {bioText && (
-                <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{bioText}</p>
+                <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{snippet(bioText, 320)}</p>
               )}
               {person.wikipedia_url && person.wikipedia_match_status === "verified" && (
                 <div className="text-xs text-muted-foreground mt-3 flex flex-wrap gap-x-3 gap-y-1">
-                  <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Wikipedia: {person.wikipedia_title} →</a>
-                  {bioSource === "wikipedia" && <span>Forrás: Wikipedia (CC BY-SA)</span>}
+                  <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">Forrás: Wikipedia</a>
                   {avatarUrl && person.image_license && (
-                    <span>Fotó: {person.image_attribution || "Wikimedia Commons"} · {person.image_license}</span>
+                    <span>Fotó: {person.image_attribution || "Wikimedia Commons"}</span>
                   )}
                 </div>
               )}
