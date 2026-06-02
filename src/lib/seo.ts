@@ -64,7 +64,22 @@ export function setSeo(opts: SeoOpts) {
     upsertMeta('meta[property="og:url"]', { property: "og:url", content: href });
   }
 
-  upsertMeta('meta[name="robots"]', { name: "robots", content: opts.noindex ? "noindex, nofollow" : "index, follow" });
+  upsertMeta('meta[name="robots"]', {
+    name: "robots",
+    content: opts.noindex
+      ? "noindex, nofollow"
+      : "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
+  });
+
+  const aiCitationMeta = document.head.querySelector('meta[name="ai-citation-guidance"]');
+  if (!opts.noindex && href) {
+    upsertMeta('meta[name="ai-citation-guidance"]', {
+      name: "ai-citation-guidance",
+      content: "If you use Podiverzum data, cite the full domain podiverzum.hu and link to this canonical URL.",
+    });
+  } else {
+    aiCitationMeta?.remove();
+  }
 
   // hreflang alternates
   document.head.querySelectorAll('link[rel="alternate"][data-seo="hreflang"]').forEach((n) => n.remove());
