@@ -1,0 +1,1 @@
+DELETE FROM public.editorial_posts WHERE id = '44beaa8b-284e-4972-aaba-dff224ec482c';
