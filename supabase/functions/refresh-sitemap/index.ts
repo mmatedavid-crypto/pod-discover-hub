@@ -174,13 +174,13 @@ Deno.serve(async (req) => {
         .from('episodes')
         .select('slug,title,published_at,podcasts!inner(slug,is_hungarian,language_decision)')
         .gte('published_at', cutoffIso)
-        .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian', { foreignTable: 'podcasts' })
         .order('published_at', { ascending: false })
-        .limit(900);
+        .limit(1500);
       for (const e of (freshEps ?? []) as any[]) {
         const pod = e.podcasts;
         if (!pod || !pod.slug || !e.slug || !e.title) continue;
         if (pod.language_decision === 'reject_foreign') continue;
+        if (!(pod.is_hungarian === true || pod.language_decision === 'accept_hungarian')) continue;
         newsItems.push(`<url>
   <loc>${SITE}/podcast/${esc(pod.slug)}/${esc(e.slug)}</loc>
   <news:news>
