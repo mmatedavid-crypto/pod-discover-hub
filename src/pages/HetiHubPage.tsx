@@ -49,6 +49,24 @@ export default function HetiHubPage() {
     });
   }, []);
 
+  // RSS autodiscovery for /heti/rss.xml
+  useEffect(() => {
+    const HREF = `${SITE_URL}/heti/rss.xml`;
+    let el = document.head.querySelector<HTMLLinkElement>(
+      'link[rel="alternate"][type="application/rss+xml"][data-heti-rss="1"]',
+    );
+    if (!el) {
+      el = document.createElement("link");
+      el.setAttribute("rel", "alternate");
+      el.setAttribute("type", "application/rss+xml");
+      el.setAttribute("title", "Podiverzum Heti RSS");
+      el.setAttribute("data-heti-rss", "1");
+      document.head.appendChild(el);
+    }
+    el.setAttribute("href", HREF);
+    return () => { el?.remove(); };
+  }, []);
+
   useEffect(() => {
     (async () => {
       setLoading(true);

@@ -166,6 +166,30 @@ export default {
     }
 
 
+    // Podiverzum Heti RSS feed → Supabase edge function `heti-rss`.
+    // Public, no auth. Served as application/rss+xml. UA-independent.
+    if ((request.method === "GET" || request.method === "HEAD") &&
+        url.pathname === "/heti/rss.xml") {
+      const fnUrl = "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/heti-rss";
+      try {
+        const upstream = await fetch(fnUrl, {
+          cf: { cacheTtl: 900, cacheEverything: true },
+          headers: { "User-Agent": "podiverzum-cf-worker" },
+        });
+        if (!upstream.ok) return fetch(request);
+        return new Response(request.method === "HEAD" ? null : upstream.body, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/rss+xml; charset=utf-8",
+            "Cache-Control": "public, max-age=900, s-maxage=900",
+            "X-Served-By": "worker-heti-rss-proxy",
+          },
+        });
+      } catch (_e) {
+        return fetch(request);
+      }
+    }
+
     // Sitemap proxy → Supabase Storage `sitemaps` bucket.
     // `refresh-sitemap` edge function regenerates these daily (pg_cron 04:30 UTC).
     if ((request.method === "GET" || request.method === "HEAD") &&
