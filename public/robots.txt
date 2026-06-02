@@ -38,4 +38,8 @@ Allow: /
 User-agent: Applebot-Extended
 Allow: /
 
+User-agent: Googlebot-News
+Allow: /
+
 Sitemap: https://podiverzum.hu/sitemap.xml
+Sitemap: https://podiverzum.hu/news-sitemap.xml
