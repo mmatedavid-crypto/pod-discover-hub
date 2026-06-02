@@ -43,6 +43,7 @@ const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
   { pattern: /\bmagunkhoz köt\b/i, reason: `"magunkhoz köt" magyartalan` },
   { pattern: /\bmust[-\s]?listen\b/i, reason: `angol "must-listen" tükörfordítás` },
   { pattern: /[\u{1F1E6}-\u{1F1FF}]{2}/u, reason: `országzászló-emoji` },
+  { pattern: /\b\d{1,2}:\d{2}(?::\d{2})?\b/, reason: `epizód-timestamp (pl. "1:09:46") — soha ne tedd a szövegbe` },
 ];
 
 // JÓ PÉLDA — a máj.17-i intro, few-shotként a system promptba.
@@ -337,8 +338,10 @@ ${bannedList}
 
 INTRO szabályai:
 - max 3 mondat, max 70 szó
-- legalább 1 konkrét elem: tulajdonnév, intézmény, szám, vagy az epizódokból vett konkrét állítás
-- nem műfaj-összegzés, hanem egy gondolati ív vagy egy konkrét megfigyelés a hét tartalmáról
+- legalább 1 konkrét elem: tulajdonnév, intézmény, vagy az epizódokból vett konkrét állítás
+- TILOS bármilyen idő-bélyeg (pl. „1:09:46", „12:30", „0:45") — az olvasó nem ugrik az epizódba, ez csak zaj
+- számot csak akkor írj, ha valódi tény (Ft, %, év, darab) — ne pedig perc/másodperc
+- nem műfaj-összegzés, hanem egy gondolati ív vagy konkrét megfigyelés a hét tartalmáról
 - emoji max 1 db, semmiképp nem országzászló
 
 JÓ PÉLDA introra (másold a stílust, ne a tartalmat):
@@ -382,10 +385,12 @@ function validateEditorial(ai: { intro: string; items: { title: string; teaser: 
     }
   }
   // konkrétság: legalább 1 nagybetűs név (mid-sentence) vagy szám az introban
-  const hasNumber = /\d/.test(intro);
+  // timestampeket NEM számoljuk számnak (azokat amúgy is a BANNED_PHRASES kiszűri)
+  const introNoTs = intro.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, "");
+  const hasNumber = /\d/.test(introNoTs);
   const hasProperNoun = /(?<=[.!?]\s|^|„|"|\s)[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]{2,}/.test(intro);
   if (!hasNumber && !hasProperNoun) {
-    return { ok: false, reason: "az intro nem tartalmaz egyetlen konkrét nevet vagy számot sem — írj bele egy konkrét állítást az epizódokból" };
+    return { ok: false, reason: "az intro nem tartalmaz egyetlen konkrét nevet vagy valódi számot sem (timestamp nem számít) — írj bele egy konkrét állítást az epizódokból" };
   }
   return { ok: true };
 }
