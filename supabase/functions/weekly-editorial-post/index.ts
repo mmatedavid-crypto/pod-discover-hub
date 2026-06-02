@@ -190,6 +190,10 @@ async function pickEpisodes(admin: any, days: number, limit: number, controls: C
     .gte("published_at", since)
     .eq("podcasts.is_hungarian", true)
     .eq("podcasts.language_decision", "accept_hungarian")
+    // Toplista-szűrő: csak S/A/B/C tier-ből válogatunk, hogy ne ajánljunk
+    // olyan csatornát, amit gyakorlatilag senki nem hallgat. Featured podcast
+    // bármelyik tier-ből beengedett (alább, a fallback ágon).
+    .or("rank_label.in.(S,A,B,C),featured.eq.true", { foreignTable: "podcasts" })
     .order("published_at", { ascending: false })
     .limit(maxCandidates);
 
