@@ -147,6 +147,7 @@ import { HomeDiscoveryShortcuts } from "@/components/home/HomeDiscoveryShortcuts
 import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
 import { auditHomepageRail } from "@/lib/homepageQuality";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
   podcast: Mic,
@@ -594,7 +595,17 @@ const Index = () => {
                     className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 border-b border-border/40 last:border-b-0"
                   >
                     {s.image_url ? (
-                      <img src={s.image_url} alt="" loading="lazy" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                      <img
+                        src={optimizedImageUrl(s.image_url, { width: 40, height: 40 }) || s.image_url}
+                        srcSet={imageSrcSet(s.image_url, [28, 40, 56])}
+                        sizes="28px"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        width={40}
+                        height={40}
+                        className="h-7 w-7 rounded object-cover bg-muted shrink-0"
+                      />
                     ) : (
                       <span className="h-7 w-7 rounded bg-muted/60 flex items-center justify-center shrink-0">
                         <Icon className="h-3.5 w-3.5 text-muted-foreground" />

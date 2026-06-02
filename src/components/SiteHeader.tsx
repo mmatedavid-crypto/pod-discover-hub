@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/co
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UserMenu } from "./UserMenu";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type Suggestion = GhostSuggestion;
 
@@ -93,8 +94,6 @@ export function SiteHeader() {
           <NavLink to="/temak" className={linkCls}>Témák</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/szemelyek" className={linkCls}>Személyek</NavLink>
-          <span aria-hidden className="h-4 w-px bg-border/50" />
-          <NavLink to="/szervezetek" className={linkCls}>Szervezetek</NavLink>
         </nav>
         {isHome && (
           <NavLink
@@ -182,9 +181,14 @@ export function SiteHeader() {
                   >
                     {s.image_url ? (
                       <img
-                        src={s.image_url}
+                        src={optimizedImageUrl(s.image_url, { width: 40, height: 40 }) || s.image_url}
+                        srcSet={imageSrcSet(s.image_url, [28, 40, 56])}
+                        sizes="28px"
                         alt=""
                         loading="lazy"
+                        decoding="async"
+                        width={40}
+                        height={40}
                         className="h-7 w-7 rounded object-cover bg-muted shrink-0"
                       />
                     ) : (
@@ -235,7 +239,6 @@ export function SiteHeader() {
                   { to: "/kategoriak", label: "Podcast kategóriák" },
                   { to: "/temak", label: "Témák" },
                   { to: "/szemelyek", label: "Személyek" },
-                  { to: "/szervezetek", label: "Szervezetek" },
                   { to: "/kereses", label: "Keresés" },
                 ].map((item) => (
                   <NavLink
