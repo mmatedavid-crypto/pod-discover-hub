@@ -77,6 +77,12 @@ function newsTag(loc: string, publishedAt: string, title: string) {
 </url>`;
 }
 
+async function sha256Hex(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -243,6 +249,39 @@ ${newsItems.join('\n')}
 </urlset>
 `;
       await upload('news-sitemap.xml', newsXml);
+      const newsHash = await sha256Hex(newsXml);
+      const { data: newsStateRow } = await sb
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'news_sitemap_state')
+        .maybeSingle();
+      const previousHash = (newsStateRow?.value as any)?.hash || null;
+      let googlePinged = false;
+      let googlePingStatus: number | null = null;
+      if (newsHash !== previousHash && newsItems.length > 0) {
+        try {
+          const ping = await fetch(`https://www.google.com/ping?sitemap=${encodeURIComponent(`${SITE}/news-sitemap.xml`)}`, {
+            method: 'GET',
+            headers: { 'User-Agent': 'podiverzum-sitemap-refresh/1.0' },
+          });
+          googlePinged = true;
+          googlePingStatus = ping.status;
+        } catch (_e) {
+          googlePinged = false;
+        }
+      }
+      await sb.from('app_settings').upsert({
+        key: 'news_sitemap_state',
+        value: {
+          hash: newsHash,
+          previous_hash: previousHash,
+          changed: newsHash !== previousHash,
+          url_count: newsItems.length,
+          google_pinged: googlePinged,
+          google_ping_status: googlePingStatus,
+          updated_at: new Date().toISOString(),
+        },
+      });
 
 
 
