@@ -22,6 +22,7 @@ import { profileForArchetypeId, buildReceiptNumber } from "@/lib/listenerProfile
 import { renderReceiptPng, shareReceipt, downloadReceipt } from "@/lib/receiptImage";
 import { trackProfileEvent, captureSourceProfileFromUrl, getSourceProfileId } from "@/lib/profileEvents";
 import { Download, Link2 } from "lucide-react";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -1594,11 +1595,24 @@ function ResultView({
                 className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted"
               >
                 <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl">
-                  {(r.image_url || r.podcast_image_url) ? (
-                    <img src={r.image_url || r.podcast_image_url || ""} alt={r.title} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full bg-muted" />
-                  )}
+                  {(() => {
+                    const src = r.image_url || r.podcast_image_url;
+                    return src ? (
+                      <img
+                        src={optimizedImageUrl(src, { width: 112, height: 112 }) || src}
+                        srcSet={imageSrcSet(src, [80, 112, 160])}
+                        sizes="80px"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        width={112}
+                        height={112}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-muted" />
+                    );
+                  })()}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
                     <Play className="h-6 w-6 fill-white text-white" />
                   </div>
@@ -1685,7 +1699,17 @@ function ResultView({
               >
                 <div className="aspect-square overflow-hidden rounded-2xl border border-border bg-muted">
                   {p.image ? (
-                    <img src={p.image} alt={p.title} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                    <img
+                      src={optimizedImageUrl(p.image, { width: 160, height: 160 }) || p.image}
+                      srcSet={imageSrcSet(p.image, [128, 160, 240])}
+                      sizes="128px"
+                      alt={p.title}
+                      loading="lazy"
+                      decoding="async"
+                      width={160}
+                      height={160}
+                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    />
                   ) : null}
                 </div>
                 <div className="mt-2 line-clamp-2 text-xs">{p.title}</div>

@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { setSeo } from "@/lib/seo";
 import RecommendedForYou from "@/components/taste/RecommendedForYou";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 const MOOD_OPTIONS = [
   "Reggel fókusz",
@@ -96,7 +97,17 @@ export default function EnPodiverzumomPage() {
       <div className="container mx-auto max-w-4xl py-8 sm:py-12">
         <header className="flex items-center gap-4 mb-8">
           {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/30" />
+            <img
+              src={optimizedImageUrl(profile.avatar_url, { width: 80, height: 80 }) || profile.avatar_url}
+              srcSet={imageSrcSet(profile.avatar_url, [56, 80, 112])}
+              sizes="56px"
+              alt=""
+              loading="eager"
+              decoding="async"
+              width={80}
+              height={80}
+              className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/30"
+            />
           ) : (
             <div className="h-14 w-14 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xl font-semibold ring-2 ring-primary/30">
               {(profile?.display_name || user.email || "?").charAt(0).toUpperCase()}
@@ -236,7 +247,17 @@ function MarksList({ type, empty }: { type: "favorite" | "listen_later"; empty: 
         <li key={e.id}>
           <Link to={`/podcast/${e.podcasts?.slug}/${e.slug}`} className="flex items-center gap-3 p-3 hover:bg-secondary/40 transition-colors">
             {e.podcasts?.image_url && (
-              <img src={e.podcasts.image_url} alt="" className="h-12 w-12 rounded-md object-cover shrink-0" />
+              <img
+                src={optimizedImageUrl(e.podcasts.image_url, { width: 64, height: 64 }) || e.podcasts.image_url}
+                srcSet={imageSrcSet(e.podcasts.image_url, [48, 64, 96])}
+                sizes="48px"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                width={64}
+                height={64}
+                className="h-12 w-12 rounded-md object-cover shrink-0"
+              />
             )}
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium line-clamp-1">{e.display_title || e.title}</div>
@@ -278,7 +299,19 @@ function FollowedPodcasts() {
       {items.map((p) => (
         <li key={p.id}>
           <Link to={`/podcast/${p.slug}`} className="flex gap-3 p-3 rounded-xl border border-border bg-card hover:border-primary/40 transition-colors">
-            {p.image_url && <img src={p.image_url} alt="" className="h-14 w-14 rounded-md object-cover shrink-0" />}
+            {p.image_url && (
+              <img
+                src={optimizedImageUrl(p.image_url, { width: 80, height: 80 }) || p.image_url}
+                srcSet={imageSrcSet(p.image_url, [56, 80, 112])}
+                sizes="56px"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                width={80}
+                height={80}
+                className="h-14 w-14 rounded-md object-cover shrink-0"
+              />
+            )}
             <div className="min-w-0">
               <div className="text-sm font-medium line-clamp-1">{p.display_title || p.title}</div>
               {p.category && <div className="text-xs text-muted-foreground mt-0.5">{p.category}</div>}

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LikeDislikeButtons, TasteBadge } from "./LikeDislikeButtons";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type RecEpisode = {
   id: string;
@@ -113,9 +114,14 @@ export default function RecommendedForYou() {
           >
             {ep.podcast?.image_url ? (
               <img
-                src={ep.podcast.image_url}
+                src={optimizedImageUrl(ep.podcast.image_url, { width: 96, height: 96 }) || ep.podcast.image_url}
+                srcSet={imageSrcSet(ep.podcast.image_url, [64, 96, 128])}
+                sizes="64px"
                 alt=""
                 loading="lazy"
+                decoding="async"
+                width={96}
+                height={96}
                 className="h-16 w-16 flex-none rounded-lg object-cover"
               />
             ) : (

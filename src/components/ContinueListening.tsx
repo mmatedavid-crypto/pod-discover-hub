@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { History, X } from "lucide-react";
 import { getRecentEpisodes, clearRecentEpisodes, RecentEpisode } from "@/lib/recentlyPlayed";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 export function ContinueListening() {
   const [items, setItems] = useState<RecentEpisode[]>([]);
@@ -41,9 +42,14 @@ export function ContinueListening() {
           >
             {it.imageUrl ? (
               <img
-                src={it.imageUrl}
+                src={optimizedImageUrl(it.imageUrl, { width: 80, height: 80 }) || it.imageUrl}
+                srcSet={imageSrcSet(it.imageUrl, [56, 80, 112])}
+                sizes="56px"
                 alt=""
                 loading="lazy"
+                decoding="async"
+                width={80}
+                height={80}
                 className="h-14 w-14 rounded-md object-cover flex-shrink-0"
               />
             ) : (

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Bookmark, History, ArrowRight } from "lucide-react";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type Item = {
   episode_id: string;
@@ -29,9 +30,14 @@ function Card({ it, showProgress }: { it: Item; showProgress?: boolean }) {
     >
       {img ? (
         <img
-          src={img}
+          src={optimizedImageUrl(img, { width: 80, height: 80 }) || img}
+          srcSet={imageSrcSet(img, [56, 80, 112])}
+          sizes="56px"
           alt=""
           loading="lazy"
+          decoding="async"
+          width={80}
+          height={80}
           className="h-14 w-14 rounded-md object-cover flex-shrink-0"
         />
       ) : (
