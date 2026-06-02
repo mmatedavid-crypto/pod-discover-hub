@@ -96,6 +96,8 @@ function shouldPrerender(pathname) {
   if (/^\/te-podiverzumod\/eredmeny\/[^/]+\/?$/.test(pathname)) return true;
   // Sajtó / kutatási jelentések — AI ügynökök is feldolgozhatják
   if (/^\/jelentes\/[^/]+\/?$/.test(pathname)) return true;
+  // Podiverzum Heti weekly column (hub + per-week article)
+  if (pathname === "/heti" || /^\/heti\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
 
@@ -167,10 +169,14 @@ export default {
     // Sitemap proxy → Supabase Storage `sitemaps` bucket.
     // `refresh-sitemap` edge function regenerates these daily (pg_cron 04:30 UTC).
     if ((request.method === "GET" || request.method === "HEAD") &&
-        (url.pathname === "/sitemap.xml" || /^\/sitemaps\/[a-z0-9_-]+\.xml$/i.test(url.pathname))) {
+        (url.pathname === "/sitemap.xml" ||
+         url.pathname === "/news-sitemap.xml" ||
+         /^\/sitemaps\/[a-z0-9_-]+\.xml$/i.test(url.pathname))) {
       const objectPath = url.pathname === "/sitemap.xml"
         ? "sitemap.xml"
-        : url.pathname.replace(/^\/sitemaps\//, "");
+        : url.pathname === "/news-sitemap.xml"
+          ? "news-sitemap.xml"
+          : url.pathname.replace(/^\/sitemaps\//, "");
       const storageUrl = `https://yoxewklaybougzpmzvkg.supabase.co/storage/v1/object/public/sitemaps/${objectPath}`;
       try {
         const upstream = await fetch(storageUrl, {

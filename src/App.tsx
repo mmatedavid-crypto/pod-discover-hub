@@ -77,7 +77,9 @@ import AboutPage from "./pages/AboutPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
 import DailyBriefPage from "./pages/DailyBriefPage.tsx";
-import HetiValogatasPage from "./pages/HetiValogatasPage.tsx";
+import HetiHubPage from "./pages/HetiHubPage.tsx";
+import HetiArticlePage from "./pages/HetiArticlePage.tsx";
+import HetiLegacyRedirect from "./pages/HetiLegacyRedirect.tsx";
 import ContactPage from "./pages/ContactPage.tsx";
 import MoodsPage from "./pages/MoodsPage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
@@ -179,8 +181,11 @@ const App = () => (
           <Route path="/napi" element={<DailyBriefPage />} />
           <Route path="/mai-valogatas" element={<Navigate to="/napi" replace />} />
           <Route path="/daily" element={<Navigate to="/napi" replace />} />
-          <Route path="/heti-valogatas" element={<HetiValogatasPage />} />
-          <Route path="/heti-valogatas/:weekId" element={<HetiValogatasPage />} />
+          <Route path="/heti" element={<HetiHubPage />} />
+          <Route path="/heti/:slug" element={<HetiArticlePage />} />
+          {/* Legacy redirects → /heti */}
+          <Route path="/heti-valogatas" element={<HetiLegacyRedirect />} />
+          <Route path="/heti-valogatas/:weekId" element={<HetiLegacyRedirect />} />
           <Route path="/kapcsolat" element={<ContactPage />} />
           <Route path="/contact" element={<Navigate to="/kapcsolat" replace />} />
           <Route path="/hangulatok" element={<MoodsPage />} />

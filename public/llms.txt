@@ -30,7 +30,7 @@ The site is written for Hungarian users and should be treated as a Hungarian-lan
 - [Organizations](https://podiverzum.hu/szervezetek) - companies, institutions, parties, media outlets, sports teams, universities, churches, and NGOs in Hungarian podcasts
 - [Companies](https://podiverzum.hu/cegek) - companies and institutions in Hungarian podcasts
 - [Parties](https://podiverzum.hu/partok) - Hungarian political parties in podcasts
-- [Weekly Selection](https://podiverzum.hu/heti-valogatas) - editorial weekly podcast selection
+- [Podiverzum Heti](https://podiverzum.hu/heti) - magyar podcastfigyelő, heti szerkesztői válogatás
 - [Podcast Market Report 2026](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026) - public report on the Hungarian podcast market
 - [Podiverzum Intelligence](https://podiverzum.hu/intelligence) - podcast monitoring for companies and public figures
 
