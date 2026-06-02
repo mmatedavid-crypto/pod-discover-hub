@@ -38,8 +38,18 @@ function json(obj: unknown, status = 200) {
 }
 
 function tierWeight(label: string | null | undefined): number {
-  switch (label) { case "S": return 100; case "A": return 70; case "B": return 35; default: return 5; }
+  // HU_v1 toplista alapján — D/E gyakorlatilag senki nem hallgatja, így nem
+  // engedjük be őket a heti editorialba (lásd a pickEpisodes hard-filterét).
+  switch (label) {
+    case "S": return 140;
+    case "A": return 95;
+    case "B": return 55;
+    case "C": return 20;
+    default: return 0;
+  }
 }
+
+const ALLOWED_TIERS = new Set(["S", "A", "B", "C"]);
 
 function freshnessBoost(publishedAt: string | null | undefined): number {
   if (!publishedAt) return 0;
