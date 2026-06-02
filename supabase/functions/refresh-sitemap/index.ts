@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
         tag(`${SITE}/hangulatok`, now, 'weekly', '0.7'),
         tag(`${SITE}/uj`, now, 'daily', '0.6'),
         tag(`${SITE}/napi`, now, 'daily', '0.6'),
+        tag(`${SITE}/heti`, now, 'weekly', '0.8'),
         tag(`${SITE}/jelentes/magyar-podcast-piac-2026`, now, 'monthly', '0.9'),
         tag(`${SITE}/rolunk`, now, 'monthly', '0.4'),
         tag(`${SITE}/modszertan`, now, 'monthly', '0.4'),
