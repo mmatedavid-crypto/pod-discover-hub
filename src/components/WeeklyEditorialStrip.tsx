@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, ArrowRight } from "lucide-react";
+import { hetiSlug } from "@/lib/hetiSlug";
 
 type Post = {
   id: string;
@@ -37,27 +38,32 @@ export default function WeeklyEditorialStrip() {
     (post.intro || "").split("\n").find((l) => l.trim().length > 30)?.trim().slice(0, 180) ||
     `${post.items?.length ?? 0} epizód, amit érdemes meghallgatni a héten.`;
 
+  const href = `/heti/${hetiSlug(post)}`;
+
   return (
     <section className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] via-card/40 to-card/40 p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <Sparkles className="h-5 w-5 text-primary mt-1 shrink-0" aria-hidden />
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-[0.18em] text-primary font-semibold mb-1.5">
-            Heti válogatás
+            Podiverzum Heti
           </div>
           <h2 className="text-lg sm:text-xl font-semibold leading-snug mb-1.5">
-            <Link to="/heti-valogatas" className="hover:text-primary">
-              {post.title || "A hét legizgalmasabb podcast epizódjai"}
+            <Link to={href} className="hover:text-primary">
+              {post.title || "Podiverzum Heti"}
             </Link>
           </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-3 line-clamp-2">
+          <p className="text-sm text-muted-foreground leading-relaxed mb-1">
+            A hét legérdekesebb magyar podcastjai, témái és idézetei.
+          </p>
+          <p className="text-sm text-foreground/80 leading-relaxed mb-3 line-clamp-2">
             {teaser}
           </p>
           <Link
-            to="/heti-valogatas"
+            to={href}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
           >
-            Olvasd el a heti válogatást
+            Megnézem a heti válogatást
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
