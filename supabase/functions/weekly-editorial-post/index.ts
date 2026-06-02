@@ -27,6 +27,7 @@ type Controls = {
   min_text_chars?: number;
   max_candidates?: number;
   allow_reuse_existing_week?: boolean;
+  auto_publish?: boolean;
   model?: string;
 };
 
@@ -123,6 +124,15 @@ function isBulletinLike(ep: any): boolean {
 
 function categoryKey(ep: any): string {
   return ep?.podcasts?.category || ep?.podcast?.category || "_";
+}
+
+function podcastDiversityKey(podcast: any): string {
+  return String(podcast?.display_title || podcast?.title || podcast?.slug || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(podcast|podcastok|radio|radio|musor)\b/g, "")
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 type Cand = {
@@ -245,14 +255,18 @@ async function pickEpisodes(admin: any, days: number, limit: number, controls: C
 
   // Diversity: max 1 episode per podcast, and cap categories that can flood a week.
   const seenPodcasts = new Set<string>();
+  const seenPodcastKeys = new Set<string>();
   const categoryCounts = new Map<string, number>();
   const picked: Cand[] = [];
   for (const c of scored) {
     if (seenPodcasts.has(c.podcast.id)) continue;
+    const key = podcastDiversityKey(c.podcast);
+    if (key && seenPodcastKeys.has(key)) continue;
     const cat = categoryKey(c);
     const cap = CATEGORY_CAPS[cat] || 2;
     if ((categoryCounts.get(cat) || 0) >= cap && picked.length < limit) continue;
     seenPodcasts.add(c.podcast.id);
+    if (key) seenPodcastKeys.add(key);
     categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
     picked.push(c);
     if (picked.length >= limit) break;
@@ -262,7 +276,10 @@ async function pickEpisodes(admin: any, days: number, limit: number, controls: C
     for (const c of scored) {
       if (picked.some((p) => p.id === c.id)) continue;
       if (seenPodcasts.has(c.podcast.id)) continue;
+      const key = podcastDiversityKey(c.podcast);
+      if (key && seenPodcastKeys.has(key)) continue;
       seenPodcasts.add(c.podcast.id);
+      if (key) seenPodcastKeys.add(key);
       picked.push(c);
       if (picked.length >= limit) break;
     }
@@ -423,6 +440,7 @@ Deno.serve(async (req) => {
     if (controls.enabled === false) {
       return json({ ok: false, error: "weekly_editorial disabled" }, 503);
     }
+    const publishNow = body?.publish === true || controls.auto_publish === true;
 
     const { start, end, label } = weekRange();
     const weekStart = start.toISOString().slice(0, 10);
@@ -430,6 +448,29 @@ Deno.serve(async (req) => {
       ? await existingPostForWeek(admin, weekStart)
       : null;
     if (existing) {
+      if (publishNow && existing.status !== "published") {
+        const { data: published, error: pubErr } = await admin
+          .from("editorial_posts")
+          .update({
+            status: "published",
+            approved_at: existing.approved_at || new Date().toISOString(),
+            published_at: existing.published_at || new Date().toISOString(),
+          })
+          .eq("id", existing.id)
+          .select()
+          .single();
+        if (pubErr) throw new Error(`publish existing editorial: ${pubErr.message}`);
+        return json({
+          ok: true,
+          reused_existing: true,
+          published_existing: true,
+          post_id: published.id,
+          status: published.status,
+          week_start: published.week_start,
+          week_end: published.week_end,
+          title: published.title,
+        });
+      }
       return json({
         ok: true,
         reused_existing: true,
@@ -474,7 +515,7 @@ Deno.serve(async (req) => {
     const payload = {
       week_start: weekStart,
       week_end: end.toISOString().slice(0, 10),
-      status: "draft",
+      status: publishNow ? "published" : "draft",
       title,
       intro: ai.intro,
       items,
@@ -487,8 +528,11 @@ Deno.serve(async (req) => {
         scores: picked.map((p) => p._score),
         source_quality: picked.map((p) => p._text_quality),
         policy: "weekly_editorial_v2_hu_non_spam_diverse",
+        auto_published: publishNow,
       },
       trigger: body?.trigger || (dryRun ? "manual_preview" : "cron"),
+      approved_at: publishNow ? new Date().toISOString() : null,
+      published_at: publishNow ? new Date().toISOString() : null,
     };
 
     if (dryRun && !body?.persist) {
