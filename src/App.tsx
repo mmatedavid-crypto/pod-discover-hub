@@ -181,8 +181,11 @@ const App = () => (
           <Route path="/napi" element={<DailyBriefPage />} />
           <Route path="/mai-valogatas" element={<Navigate to="/napi" replace />} />
           <Route path="/daily" element={<Navigate to="/napi" replace />} />
-          <Route path="/heti-valogatas" element={<HetiValogatasPage />} />
-          <Route path="/heti-valogatas/:weekId" element={<HetiValogatasPage />} />
+          <Route path="/heti" element={<HetiHubPage />} />
+          <Route path="/heti/:slug" element={<HetiArticlePage />} />
+          {/* Legacy redirects → /heti */}
+          <Route path="/heti-valogatas" element={<HetiLegacyRedirect />} />
+          <Route path="/heti-valogatas/:weekId" element={<HetiLegacyRedirect />} />
           <Route path="/kapcsolat" element={<ContactPage />} />
           <Route path="/contact" element={<Navigate to="/kapcsolat" replace />} />
           <Route path="/hangulatok" element={<MoodsPage />} />
