@@ -27,6 +27,56 @@ const tag = (loc: string, lastmod: string | null | undefined, cf = 'weekly', pr 
 const wrap = (urls: string[]) =>
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
 
+const TRUSTED_NEWS_SOURCE_RX = /\b(444|telex|partizan|partizán|hvg|portfolio|hold|hold-after-hours|g7|qubit|direkt36|atlatszo|átlátszó|lakmusz|magyar-hang|magyar hang|valasz|válasz|inforadio|infostart|klubradio|szabad-europa|szabad európa|forbes|concorde)\b/i;
+const NEWSWORTHY_CATEGORIES = new Set([
+  'News & Politics',
+  'Finance',
+  'Business & Finance',
+  'Technology',
+  'Science',
+  'Sports',
+]);
+const NEWS_EXCLUDED_CATEGORIES = new Set([
+  'Religion & Spirituality',
+  'Kids & Family',
+  'Fiction',
+  'Music',
+  'Sleep',
+]);
+const NEWS_TITLE_NOISE_RX = /\b(beköszönés|elköszönés|hangcsapda|játék|adásnapló|esti mese|napi biblia|igeidő|szentmise|áhítat|rövid változat|short version|trailer|előzetes)\b/i;
+const NEWS_FOREIGN_NOISE_RX = /\b(seo\s*\+\s*ia|venta asistida|ecommerce|masterclass|sunday mood)\b/i;
+
+function isTrustedNewsPodcast(p: any): boolean {
+  const haystack = `${p?.slug || ''} ${p?.title || ''} ${p?.display_title || ''}`;
+  return TRUSTED_NEWS_SOURCE_RX.test(haystack);
+}
+
+function isNewsworthyEpisode(e: any): boolean {
+  const p = e?.podcasts || {};
+  const title = String(e?.display_title || e?.title || '').trim();
+  if (!title || !e?.slug || !p?.slug) return false;
+  if (NEWS_TITLE_NOISE_RX.test(title) || NEWS_FOREIGN_NOISE_RX.test(title)) return false;
+  if (NEWS_EXCLUDED_CATEGORIES.has(String(p?.category || ''))) return false;
+  const trusted = isTrustedNewsPodcast(p);
+  if (trusted) return true;
+  const tier = String(p?.rank_label || '');
+  return NEWSWORTHY_CATEGORIES.has(String(p?.category || '')) && ['S', 'A', 'B'].includes(tier);
+}
+
+function newsTag(loc: string, publishedAt: string, title: string) {
+  return `<url>
+  <loc>${esc(loc)}</loc>
+  <news:news>
+    <news:publication>
+      <news:name>Podiverzum</news:name>
+      <news:language>hu</news:language>
+    </news:publication>
+    <news:publication_date>${new Date(publishedAt).toISOString()}</news:publication_date>
+    <news:title>${esc(title)}</news:title>
+  </news:news>
+</url>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -143,83 +193,47 @@ Deno.serve(async (req) => {
       ];
       await upload('pages.xml', wrap(pages));
 
-      // News sitemap — Google News namespace. 48h freshness window per spec.
-      // Sources: (a) published Podiverzum Heti posts, (b) recent HU episodes.
-      const NEWS_CUTOFF_MS = Date.now() - 2 * 24 * 3600 * 1000;
-      const newsItems: string[] = [];
+      // News sitemap — editorial posts + fresh, newsworthy Hungarian episodes.
+      // Keep this aggressive enough for Partizán / Hold After Hours / Portfolio /
+      // HVG / 444 / Telex, but gated enough that bedtime stories, daily prayers,
+      // foreign SEO spam and radio filler do not pollute Google News.
+      const NEWS_CUTOFF = Date.now() - 2 * 24 * 3600 * 1000;
+      const newsItems: string[] = (hetiRows ?? [])
+        .filter((p: any) => p.published_at && new Date(p.published_at).getTime() >= NEWS_CUTOFF)
+        .slice(0, 1000)
+        .map((p: any) => {
+          const slug = hetiSlugOf(p);
+          const title = p.title || `Podiverzum Heti – ${p.week_start}`;
+          return newsTag(`${SITE}/heti/${slug}`, p.published_at, title);
+        });
 
-      for (const p of (hetiRows ?? []) as any[]) {
-        if (!p.published_at) continue;
-        if (new Date(p.published_at).getTime() < NEWS_CUTOFF_MS) continue;
-        const slug = hetiSlugOf(p);
-        const title = p.title || `Podiverzum Heti – ${p.week_start}`;
-        newsItems.push(`<url>
-  <loc>${SITE}/heti/${esc(slug)}</loc>
-  <news:news>
-    <news:publication>
-      <news:name>Podiverzum</news:name>
-      <news:language>hu</news:language>
-    </news:publication>
-    <news:publication_date>${new Date(p.published_at).toISOString()}</news:publication_date>
-    <news:title>${esc(title)}</news:title>
-  </news:news>
-</url>`);
-      }
-
-      // Recent HU episodes (last 48h). Build a HU podcast map first (small),
-      // then a flat episodes query — mirrors the pattern used in the episodes ág.
-      const huPodMap = new Map<string, string>(); // id → slug
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await sb.from('podcasts')
-          .select('id,slug,is_hungarian,language_decision')
-          .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian')
-          .order('id').range(from, from + PAGE - 1);
-        if (error) break;
-        if (!data?.length) break;
-        for (const p of data as any[]) {
-          if (!p.slug || p.language_decision === 'reject_foreign') continue;
-          huPodMap.set(String(p.id), p.slug);
-        }
-        if (data.length < PAGE) break;
-      }
-      const cutoffIso = new Date(NEWS_CUTOFF_MS).toISOString();
-      const { data: freshEps = [] } = await sb
+      const { data: freshEpisodes = [] } = await sb
         .from('episodes')
-        .select('slug,title,published_at,podcast_id')
-        .gte('published_at', cutoffIso)
+        .select('slug,title,display_title,published_at,podcasts!inner(slug,title,display_title,category,rank_label,is_hungarian,language_decision,rss_status)')
+        .gte('published_at', new Date(NEWS_CUTOFF).toISOString())
+        .eq('podcasts.is_hungarian', true)
+        .eq('podcasts.language_decision', 'accept_hungarian')
         .order('published_at', { ascending: false })
-        .limit(1500);
-      for (const e of (freshEps ?? []) as any[]) {
-        const podSlug = huPodMap.get(String(e.podcast_id));
-        if (!podSlug || !e.slug || !e.title) continue;
-        newsItems.push(`<url>
-  <loc>${SITE}/podcast/${esc(podSlug)}/${esc(e.slug)}</loc>
-  <news:news>
-    <news:publication>
-      <news:name>Podiverzum</news:name>
-      <news:language>hu</news:language>
-    </news:publication>
-    <news:publication_date>${new Date(e.published_at).toISOString()}</news:publication_date>
-    <news:title>${esc(e.title)}</news:title>
-  </news:news>
-</url>`);
+        .limit(1200);
+
+      const perPodcast = new Map<string, number>();
+      for (const ep of freshEpisodes ?? []) {
         if (newsItems.length >= 1000) break;
+        if (!isNewsworthyEpisode(ep)) continue;
+        const p = (ep as any).podcasts || {};
+        if (['failed', 'inactive', 'deleted'].includes(String(p.rss_status || ''))) continue;
+        const key = String(p.slug || '_');
+        const cap = isTrustedNewsPodcast(p) ? 40 : 12;
+        if ((perPodcast.get(key) || 0) >= cap) continue;
+        perPodcast.set(key, (perPodcast.get(key) || 0) + 1);
+        const title = String((ep as any).display_title || (ep as any).title || '').trim();
+        newsItems.push(newsTag(`${SITE}/podcast/${p.slug}/${(ep as any).slug}`, (ep as any).published_at, title));
       }
 
       // Always include the /heti hub as a fallback so the sitemap is never empty
-      // (Google News rejects sitemaps with zero items).
+      // if no article/episode matches the 48h freshness window.
       if (newsItems.length === 0) {
-        newsItems.push(`<url>
-  <loc>${SITE}/heti</loc>
-  <news:news>
-    <news:publication>
-      <news:name>Podiverzum</news:name>
-      <news:language>hu</news:language>
-    </news:publication>
-    <news:publication_date>${new Date().toISOString()}</news:publication_date>
-    <news:title>Podiverzum Heti — magyar podcastfigyelő</news:title>
-  </news:news>
-</url>`);
+        newsItems.push(newsTag(`${SITE}/heti`, new Date().toISOString(), 'Podiverzum Heti — magyar podcastfigyelő'));
       }
 
       const newsXml = `<?xml version="1.0" encoding="UTF-8"?>
