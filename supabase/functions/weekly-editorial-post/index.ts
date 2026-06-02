@@ -338,8 +338,10 @@ ${bannedList}
 
 INTRO szabályai:
 - max 3 mondat, max 70 szó
-- legalább 1 konkrét elem: tulajdonnév, intézmény, szám, vagy az epizódokból vett konkrét állítás
-- nem műfaj-összegzés, hanem egy gondolati ív vagy egy konkrét megfigyelés a hét tartalmáról
+- legalább 1 konkrét elem: tulajdonnév, intézmény, vagy az epizódokból vett konkrét állítás
+- TILOS bármilyen idő-bélyeg (pl. „1:09:46", „12:30", „0:45") — az olvasó nem ugrik az epizódba, ez csak zaj
+- számot csak akkor írj, ha valódi tény (Ft, %, év, darab) — ne pedig perc/másodperc
+- nem műfaj-összegzés, hanem egy gondolati ív vagy konkrét megfigyelés a hét tartalmáról
 - emoji max 1 db, semmiképp nem országzászló
 
 JÓ PÉLDA introra (másold a stílust, ne a tartalmat):
