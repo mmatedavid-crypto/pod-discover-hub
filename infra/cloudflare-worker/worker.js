@@ -208,6 +208,21 @@ export default {
           headers: { "User-Agent": "podiverzum-cf-worker" },
         });
         if (!upstream.ok) {
+          if (url.pathname === "/news-sitemap.xml") {
+            const newsFallback = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+</urlset>
+`;
+            return new Response(request.method === "HEAD" ? null : newsFallback, {
+              status: 200,
+              headers: {
+                "Content-Type": "application/xml; charset=utf-8",
+                "Cache-Control": "public, max-age=300, s-maxage=300",
+                "X-Served-By": "worker-news-sitemap-empty-fallback",
+              },
+            });
+          }
           // Fall back to repo-shipped sitemap so we never 404 on Google.
           return fetch(request);
         }

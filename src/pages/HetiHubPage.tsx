@@ -18,6 +18,22 @@ type Post = {
   published_at: string | null;
 };
 
+type FallbackEpisode = {
+  id: string;
+  title: string | null;
+  display_title: string | null;
+  slug: string | null;
+  published_at: string | null;
+  ai_summary: string | null;
+  summary: string | null;
+  description: string | null;
+  podcasts?: {
+    slug: string | null;
+    title: string | null;
+    display_title: string | null;
+  } | null;
+};
+
 function fmtRange(start: string, end: string) {
   const s = new Date(start);
   const e = new Date(end);
@@ -28,6 +44,7 @@ function fmtRange(start: string, end: string) {
 
 export default function HetiHubPage() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [fallbackEpisodes, setFallbackEpisodes] = useState<FallbackEpisode[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -77,6 +94,21 @@ export default function HetiHubPage() {
         .order("week_start", { ascending: false })
         .limit(60);
       setPosts((data as unknown as Post[]) || []);
+      if (!data || data.length === 0) {
+        const { data: eps } = await supabase
+          .from("episodes")
+          .select("id,title,display_title,slug,published_at,ai_summary,summary,description,podcasts!inner(slug,title,display_title,is_hungarian,language_decision,rss_status,category)")
+          .eq("podcasts.is_hungarian", true)
+          .eq("podcasts.language_decision", "accept_hungarian")
+          .neq("podcasts.rss_status", "failed")
+          .neq("podcasts.category", "Religion & Spirituality")
+          .not("slug", "is", null)
+          .order("published_at", { ascending: false })
+          .limit(8);
+        setFallbackEpisodes((eps as unknown as FallbackEpisode[]) || []);
+      } else {
+        setFallbackEpisodes([]);
+      }
       setLoading(false);
     })();
   }, []);
@@ -105,9 +137,48 @@ export default function HetiHubPage() {
         )}
 
         {!loading && posts.length === 0 && (
-          <div className="text-center py-16 text-muted-foreground">
-            Még nincs publikált heti anyag.
-          </div>
+          <section className="space-y-5">
+            <div className="rounded-xl border border-border bg-card/40 p-5 sm:p-6">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-primary font-semibold mb-2">
+                A következő heti válogatás készül
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">Friss magyar podcastok addig is</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed mt-2 max-w-2xl">
+                A heti szerkesztői anyag automatikusan frissül, amikor elkészül. Addig itt vannak
+                a legfrissebb magyar epizódok, hogy a link ne üres oldalra vigyen.
+              </p>
+            </div>
+
+            {fallbackEpisodes.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {fallbackEpisodes.map((ep) => {
+                  const podcast = ep.podcasts;
+                  const href = podcast?.slug && ep.slug ? `/podcast/${podcast.slug}/${ep.slug}` : "/uj";
+                  const title = ep.display_title || ep.title || "Friss epizód";
+                  const text = ep.ai_summary || ep.summary || ep.description || "";
+                  return (
+                    <Link
+                      key={ep.id}
+                      to={href}
+                      className="group rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/50"
+                    >
+                      <div className="text-xs text-muted-foreground mb-2">
+                        {podcast?.display_title || podcast?.title || "Podcast"}
+                      </div>
+                      <h3 className="font-semibold leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                        {title}
+                      </h3>
+                      {text && (
+                        <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                          {text}
+                        </p>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
 
         {featured && (
