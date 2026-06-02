@@ -19,8 +19,37 @@ const corsHeaders = {
 
 const SITE_URL = "https://podiverzum.hu";
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "google/gemini-2.5-pro";
+const FALLBACK_MODEL = "google/gemini-2.5-flash";
 const DEFAULT_MIN_TEXT_CHARS = 180;
+const SOURCE_TEXT_CHARS = 3500;
+
+// Tiltott klisék / tükörfordítások — ezeket post-validáció szűri, és 1 javító kört kérünk a modelltől.
+const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
+  { pattern: /\bmintha\b/i, reason: `"Mintha…" üres meta-keret` },
+  { pattern: /\bezen a héten\b/i, reason: `"Ezen a héten" klisé` },
+  { pattern: /\ba hét adásai\b/i, reason: `"A hét adásai" klisé` },
+  { pattern: /\bjelenleg mi foglalkoztatja\b/i, reason: `"jelenleg mi foglalkoztatja" klisé` },
+  { pattern: /\bjól jellemzi\b/i, reason: `"jól jellemzi" műfaj-összefoglaló` },
+  { pattern: /\bközös szál\b/i, reason: `"közös szál" klisé` },
+  { pattern: /\bizgalmas\b/i, reason: `"izgalmas" üres jelző` },
+  { pattern: /\bérdekes\b/i, reason: `"érdekes" üres jelző` },
+  { pattern: /\blebilincsel/i, reason: `"lebilincselő" üres jelző` },
+  { pattern: /\bmagával ragad/i, reason: `"magával ragadó" üres jelző` },
+  { pattern: /\bkiderül,?\s+hogyan\b/i, reason: `"kiderül, hogyan" üres bevezető` },
+  { pattern: /\bszó esik arról\b/i, reason: `"szó esik arról" üres bevezető` },
+  { pattern: /\baz egyszeri magyar (hallgató|ember)\b/i, reason: `"az egyszeri magyar hallgató" klisé` },
+  { pattern: /\bmindannyiunk\b/i, reason: `"mindannyiunk" patetikus` },
+  { pattern: /\bmagunkhoz köt\b/i, reason: `"magunkhoz köt" magyartalan` },
+  { pattern: /\bmust[-\s]?listen\b/i, reason: `angol "must-listen" tükörfordítás` },
+  { pattern: /[\u{1F1E6}-\u{1F1FF}]{2}/u, reason: `országzászló-emoji` },
+];
+
+// JÓ PÉLDA — a máj.17-i intro, few-shotként a system promptba.
+const GOOD_INTRO_EXAMPLE = `Ezen a héten a nagy rendszerek ára látszik: vízumdíjban, klímaszorongásban, kiégésben, önbizalomhiányban és képekben elmesélt életutakban. A vászontáska itt már kevés, a brit ügyintézésnél pedig a romantikus külföldre költözés is hamar Excel-táblává változik.`;
+
+// ROSSZ PÉLDA — a máj.26-i intro, hogy a modell lássa miért nem jó.
+const BAD_INTRO_EXAMPLE = `Mintha tudatosan reflektálnánk a közelgő uniós választásokra, a hét adásai a jövőről szólnak, annak is a legsürgetőbb kérdéseiről: mezőgazdaságáról, a demokrácia alappilléréről, az egészségügyéről. Négy politikai, egy sport, egy történelmi adás – jól jellemzi, hogy jelenleg mi foglalkoztatja a podcast-hallgatókat 🇭🇺.`;
 
 type Controls = {
   enabled?: boolean;
@@ -291,24 +320,45 @@ function episodeUrl(ep: Cand): string {
   return `${SITE_URL}/podcast/${ep.podcast.slug}/${ep.slug}`;
 }
 
-function buildPrompt(eps: Cand[], weekLabel: string): { system: string; user: string } {
-  const system = `Magyar szerkesztő vagy a Podiverzum.hu-nál. HVG-stílusú "Fülszöveg" heti podcastajánlót írsz Instagram/Facebook posztra.
+function buildPrompt(eps: Cand[], weekLabel: string, retryHint?: string): { system: string; user: string } {
+  const bannedList = BANNED_PHRASES.map((b) => `  • ${b.reason}`).join("\n");
 
-Hangnem: szerkesztői, kicsit ironikus, intelligens, sosem szenzációhajhász. Konkrét állítások, nevek, számok. NINCS "ne hagyd ki!", "must-listen", "izgalmas beszélgetés" típusú közhely.
+  const system = `Magyar szerkesztő vagy a Podiverzum.hu-nál. HVG / Magyar Narancs / Telex stílusú heti podcastajánlót írsz Instagram/Facebook posztra.
 
-Felépítés:
-1) intro — 2-3 mondat, megfogja az olvasót, ha van közös szál a heti epizódokban azt emeli ki, különben a hét hangulatát.
-2) items[] — minden epizódra:
-   - title: pontosan az adott epizód neve (NE módosítsd)
-   - teaser: 2-3 mondat, MIRŐL szól és MIÉRT érdekes — konkrét állítás vagy kérdés a tartalomból. Sose írd hogy "interjú" vagy "beszélgetés" üres frázisként.
-   - quote: 1 erős mondat IDÉZŐJEL nélkül, max 140 karakter. Lehet a vendég állítása parafrazálva, vagy egy provokatív összegzés a tartalomból. Soha ne idézz konkrétan ha nem biztos a forrás.
+ALAPELVEK
+- Szerkesztői hang: éles, intelligens, kicsit ironikus, sosem szenzációhajhász és sosem patetikus.
+- Minden mondat konkrét: név, szám, intézmény, vagy az epizódból származó konkrét állítás. Általánosság = hiba.
+- Természetes, élő magyar mondatszerkezet. Rövid mondatok jobbak, mint körmondatok. Kerüld a 3+ tagú birtokláncokat.
+- Ne foglald össze az epizódok MŰFAJÁT vagy SZÁMÁT (pl. „négy politikai, egy sport"). Az olvasót nem a metaadat érdekli.
 
-Magyarul írj. Ne használj emoji-kat a teaser-ben (intro-ban 1 oké). Ne hashtagelj.`;
+TILTOTT FORDULATOK (NE használd, sem az introban, sem a teaserben):
+${bannedList}
+  • országzászló-emoji bárhol (🇭🇺 🇪🇺 stb.)
+
+INTRO szabályai:
+- max 3 mondat, max 70 szó
+- legalább 1 konkrét elem: tulajdonnév, intézmény, szám, vagy az epizódokból vett konkrét állítás
+- nem műfaj-összegzés, hanem egy gondolati ív vagy egy konkrét megfigyelés a hét tartalmáról
+- emoji max 1 db, semmiképp nem országzászló
+
+JÓ PÉLDA introra (másold a stílust, ne a tartalmat):
+"${GOOD_INTRO_EXAMPLE}"
+
+ROSSZ PÉLDA — ezt NE csináld:
+"${BAD_INTRO_EXAMPLE}"
+Miért rossz: „Mintha tudatosan reflektálnánk" üres meta-keret; birtoklánc-halmozás („jövőről, kérdéseiről, mezőgazdaságáról, alappilléréről, egészségügyéről"); „az egyszeri magyar hallgatóként ülő magunkhoz köt" magyartalan körmondat; műfaj-összesítés a végén; zászló-emoji.
+
+ITEMS szabályai (minden epizódra):
+- title: pontosan az adott epizód neve (NE módosítsd)
+- teaser: 2-3 mondat, MIRŐL szól és MIÉRT számít — konkrét állítás, név vagy szám a SZÖVEGFORRÁSBÓL. Sose írd hogy „interjú", „beszélgetés", „izgalmas", „érdekes" üres frázisként.
+- quote: 1 erős mondat IDÉZŐJEL nélkül, max 140 karakter — parafrázis vagy provokatív összegzés. Soha ne idézz szó szerint ha nem biztos a forrás.
+
+Magyarul írj. Ne hashtagelj.${retryHint ? `\n\nFONTOS JAVÍTÁS: ${retryHint}` : ""}`;
 
   const epsBlock = eps.map((e, i) => {
     const podcast = e.podcast.display_title || e.podcast.title;
     const title = e.display_title || e.title;
-    const summary = (e._source_text || e.ai_summary || e.summary || e.description || "").slice(0, 1400);
+    const summary = (e._source_text || e.ai_summary || e.summary || e.description || "").slice(0, SOURCE_TEXT_CHARS);
     const people = (e.people || []).slice(0, 5).join(", ");
     const topics = (e.topics || []).slice(0, 6).join(", ");
     return `[${i + 1}] PODCAST: ${podcast}\nKATEGÓRIA: ${e.podcast.category || "—"}\nEPIZÓD: ${title}\nSZEREPLŐK: ${people || "—"}\nTÉMÁK: ${topics || "—"}\nSZÖVEGFORRÁS: ${summary}`;
@@ -317,6 +367,27 @@ Magyarul írj. Ne használj emoji-kat a teaser-ben (intro-ban 1 oké). Ne hashta
   const user = `Hét: ${weekLabel}\n\nEpizódok (sorrendben):\n\n${epsBlock}\n\nGenerálj editorial-t a megadott JSON sémába. Az items sorrendje legyen ugyanaz.`;
 
   return { system, user };
+}
+
+// Validáció: tiltott frázisok + min. 1 konkrét tulajdonnév/szám az introban.
+function validateEditorial(ai: { intro: string; items: { title: string; teaser: string; quote: string }[] }): { ok: true } | { ok: false; reason: string } {
+  const intro = ai.intro || "";
+  for (const b of BANNED_PHRASES) {
+    if (b.pattern.test(intro)) return { ok: false, reason: `intro tartalmaz tiltott fordulatot (${b.reason})` };
+  }
+  for (let i = 0; i < ai.items.length; i++) {
+    const t = ai.items[i].teaser || "";
+    for (const b of BANNED_PHRASES) {
+      if (b.pattern.test(t)) return { ok: false, reason: `${i + 1}. teaser tartalmaz tiltott fordulatot (${b.reason})` };
+    }
+  }
+  // konkrétság: legalább 1 nagybetűs név (mid-sentence) vagy szám az introban
+  const hasNumber = /\d/.test(intro);
+  const hasProperNoun = /(?<=[.!?]\s|^|„|"|\s)[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű]{2,}/.test(intro);
+  if (!hasNumber && !hasProperNoun) {
+    return { ok: false, reason: "az intro nem tartalmaz egyetlen konkrét nevet vagy számot sem — írj bele egy konkrét állítást az epizódokból" };
+  }
+  return { ok: true };
 }
 
 async function callAI(system: string, user: string, itemCount: number, model = MODEL): Promise<{ intro: string; items: { title: string; teaser: string; quote: string }[] }> {
@@ -487,9 +558,55 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: `not enough strong episodes (got ${picked.length})` }, 200);
     }
 
-    const { system, user } = buildPrompt(picked, label);
-    const model = controls.model || MODEL;
-    const ai = await callAI(system, user, picked.length, model);
+    const primaryModel = controls.model || MODEL;
+    let modelUsed = primaryModel;
+    let validationNote: string | null = null;
+
+    // 1. próba: primary model (gemini-2.5-pro alapból)
+    let ai: Awaited<ReturnType<typeof callAI>>;
+    try {
+      const { system, user } = buildPrompt(picked, label);
+      ai = await callAI(system, user, picked.length, primaryModel);
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      const shouldFallback =
+        msg === "rate_limited" ||
+        msg === "payment_required" ||
+        msg === "no tool call in AI response" ||
+        msg.startsWith("AI error 5");
+      if (shouldFallback && primaryModel !== FALLBACK_MODEL) {
+        console.warn(`weekly-editorial primary model failed (${msg}), falling back to ${FALLBACK_MODEL}`);
+        modelUsed = FALLBACK_MODEL;
+        const { system, user } = buildPrompt(picked, label);
+        ai = await callAI(system, user, picked.length, FALLBACK_MODEL);
+      } else {
+        throw e;
+      }
+    }
+
+    // Validáció + max 1 javító kör
+    const check = validateEditorial(ai);
+    if (!check.ok) {
+      console.warn(`weekly-editorial validation failed: ${check.reason} — retrying once`);
+      validationNote = check.reason;
+      try {
+        const { system, user } = buildPrompt(picked, label, check.reason);
+        const ai2 = await callAI(system, user, picked.length, modelUsed);
+        const check2 = validateEditorial(ai2);
+        if (check2.ok) {
+          ai = ai2;
+          validationNote = `retry_passed_after: ${check.reason}`;
+        } else {
+          // A jobbat tartjuk meg (kevesebb tiltott találat) — itt az eredetit hagyjuk, hogy ne akadjon el a heti poszt.
+          validationNote = `retry_still_failing: ${check2.reason} (original: ${check.reason})`;
+          console.warn(`weekly-editorial retry still invalid: ${check2.reason}`);
+          ai = ai2; // a retry általában jobb, akkor is ha még nem tökéletes
+        }
+      } catch (e: any) {
+        console.warn(`weekly-editorial retry threw: ${e?.message}`);
+      }
+    }
+    const model = modelUsed;
 
     const items = picked.map((ep, i) => {
       const aiItem = ai.items[i] || { title: ep.display_title || ep.title, teaser: "", quote: "" };
@@ -527,8 +644,11 @@ Deno.serve(async (req) => {
         days,
         scores: picked.map((p) => p._score),
         source_quality: picked.map((p) => p._text_quality),
-        policy: "weekly_editorial_v2_hu_non_spam_diverse",
+        policy: "weekly_editorial_v3_hu_strict_style",
         auto_published: publishNow,
+        primary_model: primaryModel,
+        model_used: modelUsed,
+        validation_note: validationNote,
       },
       trigger: body?.trigger || (dryRun ? "manual_preview" : "cron"),
       approved_at: publishNow ? new Date().toISOString() : null,
