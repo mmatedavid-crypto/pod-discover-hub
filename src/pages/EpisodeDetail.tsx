@@ -10,7 +10,6 @@ import { pickEpisodeDescription } from "@/lib/episodeText";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { ENTITY_COLUMN, EntityKind, ENTITY_LABEL, entityHref } from "@/lib/entity";
 import { EpisodeDetailSkeleton } from "@/components/Skeletons";
-import { compareByScore } from "@/lib/episodeRank";
 import { SimilarEpisodes } from "@/components/SimilarEpisodes";
 import { SharePanel } from "@/components/SharePanel";
 import { EpisodeMarks } from "@/components/EpisodeMarks";
@@ -42,7 +41,6 @@ export default function EpisodeDetail() {
   const { podcastSlug, episodeSlug } = useParams();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [related, setRelated] = useState<EpisodeLite[]>([]);
   const [moreFromPod, setMoreFromPod] = useState<EpisodeLite[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { playerVisible: smartPlayerVisible, play, toggle, currentEpisode, isPlaying, seekTo } = useSmartPlayer();
@@ -160,46 +158,6 @@ export default function EpisodeDetail() {
           ]),
         ],
       });
-
-      // Related episodes by shared entity, then category, then same podcast
-      const ents: { kind: EntityKind; v: string }[] = [];
-      ENT_KINDS.forEach(({ kind }) => {
-        const arr: string[] = e[ENTITY_COLUMN[kind]] || [];
-        arr.slice(0, 4).forEach((v) => ents.push({ kind, v }));
-      });
-
-      const candidates = new Map<string, any>();
-      if (ents.length) {
-        for (const { kind, v } of ents.slice(0, 8)) {
-          const col = ENTITY_COLUMN[kind];
-          const { data: rs } = await supabase
-            .from("episodes")
-            .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
-            .neq("id", e.id)
-            .contains(col, [v])
-            .order("published_at", { ascending: false, nullsFirst: false })
-            .limit(8);
-          (rs || []).forEach((r: any) => {
-            if (r.podcasts?.rss_status === "failed" || r.podcasts?.rss_status === "inactive") return;
-            candidates.set(r.id, r);
-          });
-          if (candidates.size >= 12) break;
-        }
-      }
-      if (candidates.size < 6 && p.category) {
-        const { data: rs } = await supabase
-          .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
-          .neq("id", e.id).neq("podcast_id", p.id)
-          .eq("podcasts.category", p.category)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(20);
-        (rs || []).forEach((r: any) => candidates.set(r.id, r));
-      }
-      const rel = Array.from(candidates.values())
-        .sort(compareByScore)
-        .slice(0, 8);
-      setRelated(rel as any);
 
       const { data: mp } = await supabase
         .from("episodes")

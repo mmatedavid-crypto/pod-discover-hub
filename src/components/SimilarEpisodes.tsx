@@ -19,6 +19,9 @@ type Row = {
   audio_url: string | null;
   image_url: string | null;
   topics: string[] | null;
+  people?: string[] | null;
+  mentioned?: string[] | null;
+  companies?: string[] | null;
   podcast_slug: string;
   podcast_title: string;
   podcast_display_title: string | null;
@@ -41,6 +44,9 @@ function rowToEpisode(r: Row): EpisodeLite {
     published_at: r.published_at,
     audio_url: r.audio_url,
     topics: r.topics,
+    people: r.people,
+    mentioned: r.mentioned,
+    companies: r.companies,
     why_matched: r.related_reason || relatedReasonFromSimilarity(r.similarity),
     podcasts: {
       slug: r.podcast_slug,
@@ -68,7 +74,7 @@ function sourceFromEpisode(cur: any): RecommendationContext {
     podcastTitle: podcast?.display_title || podcast?.title || null,
     category: podcast?.category || null,
     topics: cur?.topics || [],
-    people: cur?.people || [],
+    people: [...(cur?.people || []), ...(cur?.mentioned || [])],
     companies: cur?.companies || [],
   };
 }
@@ -80,7 +86,30 @@ function rowToCandidate(row: Row) {
     podcastTitle: row.podcast_display_title || row.podcast_title,
     category: row.podcast_category || null,
     topics: row.topics || [],
+    people: [...(row.people || []), ...(row.mentioned || [])],
+    companies: row.companies || [],
   };
+}
+
+async function hydrateRows(rows: Row[]): Promise<Row[]> {
+  const ids = rows.map((r) => r.episode_id).filter(Boolean);
+  if (!ids.length) return rows;
+  const { data } = await supabase
+    .from("episodes")
+    .select("id,topics,people,mentioned,companies")
+    .in("id", ids);
+  const byId = new Map((data || []).map((r: any) => [r.id, r]));
+  return rows.map((row) => {
+    const full = byId.get(row.episode_id);
+    if (!full) return row;
+    return {
+      ...row,
+      topics: full.topics || row.topics || [],
+      people: full.people || [],
+      mentioned: full.mentioned || [],
+      companies: full.companies || [],
+    };
+  });
 }
 
 export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; limit?: number }) {
@@ -94,7 +123,7 @@ export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; l
       const [{ data: cur }, { data, error }] = await Promise.all([
         supabase
           .from("episodes")
-          .select("id,title,display_title,topics,people,companies,podcasts!inner(title,display_title,category)")
+          .select("id,title,display_title,topics,people,mentioned,companies,podcasts!inner(title,display_title,category)")
           .eq("id", episodeId)
           .maybeSingle(),
         supabase.rpc("get_related_episodes_by_embedding" as any, {
@@ -107,9 +136,11 @@ export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; l
       if (error || !Array.isArray(data)) {
         setItems([]);
       } else {
+        const hydrated = await hydrateRows(data as Row[]);
+        if (cancelled) return;
         const safeRows = filterSafeRelatedEpisodes(
           sourceFromEpisode(cur),
-          (data as Row[]).map(rowToCandidate),
+          hydrated.map(rowToCandidate),
           limit,
         ) as Row[];
         setItems(safeRows.map(rowToEpisode));
