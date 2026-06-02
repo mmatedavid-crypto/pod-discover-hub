@@ -181,6 +181,24 @@ export default function HetiArticlePage() {
     });
   }, [post, loading]);
 
+  // RSS autodiscovery for /heti/rss.xml
+  useEffect(() => {
+    const HREF = `${SITE_URL}/heti/rss.xml`;
+    let el = document.head.querySelector<HTMLLinkElement>(
+      'link[rel="alternate"][type="application/rss+xml"][data-heti-rss="1"]',
+    );
+    if (!el) {
+      el = document.createElement("link");
+      el.setAttribute("rel", "alternate");
+      el.setAttribute("type", "application/rss+xml");
+      el.setAttribute("title", "Podiverzum Heti RSS");
+      el.setAttribute("data-heti-rss", "1");
+      document.head.appendChild(el);
+    }
+    el.setAttribute("href", HREF);
+    return () => { el?.remove(); };
+  }, []);
+
   // If the slug tail doesn't match the current title slug, redirect to the canonical slug.
   if (canonicalSlug && canonicalSlug !== slug) {
     return <Navigate to={`/heti/${canonicalSlug}`} replace />;
