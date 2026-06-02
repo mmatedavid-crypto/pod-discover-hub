@@ -19,8 +19,8 @@ const corsHeaders = {
 
 const SITE_URL = "https://podiverzum.hu";
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-pro";
-const FALLBACK_MODEL = "google/gemini-2.5-flash";
+const MODEL = "openai/gpt-5.5";
+const FALLBACK_MODEL = "google/gemini-2.5-pro";
 const DEFAULT_MIN_TEXT_CHARS = 180;
 const SOURCE_TEXT_CHARS = 3500;
 
