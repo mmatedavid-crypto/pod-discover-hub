@@ -94,6 +94,30 @@ Deno.serve(async (req) => {
       const now = new Date().toISOString();
       const { data: cats = [] } = await sb.from('categories').select('slug,created_at').eq('active', true).order('sort_order');
       const { data: moods = [] } = await sb.from('mood_collections').select('slug,updated_at').eq('active', true).order('sort_order');
+
+      // Podiverzum Heti — fetch published weekly columns once, reuse for pages.xml + news-sitemap.xml.
+      const { data: hetiRows = [] } = await sb
+        .from('editorial_posts')
+        .select('week_start,week_end,title,published_at,updated_at')
+        .eq('status', 'published')
+        .order('week_start', { ascending: false })
+        .limit(200);
+      const HU_MAP: Record<string, string> = { á:'a',é:'e',í:'i',ó:'o',ö:'o',ő:'o',ú:'u',ü:'u',ű:'u',Á:'a',É:'e',Í:'i',Ó:'o',Ö:'o',Ő:'o',Ú:'u',Ü:'u',Ű:'u' };
+      const slugifyHu = (s: string) => s.split('').map(c => HU_MAP[c] ?? c).join('').toLowerCase()
+        .normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'podiverzum-heti';
+      const isoWeek = (dateStr: string) => {
+        const d = new Date(`${dateStr}T00:00:00Z`);
+        const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+        const dn = t.getUTCDay() || 7;
+        t.setUTCDate(t.getUTCDate() + 4 - dn);
+        const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+        return { year: t.getUTCFullYear(), week: Math.ceil((((+t - +ys) / 86400000) + 1) / 7) };
+      };
+      const hetiSlugOf = (p: { week_start: string; title: string | null }) => {
+        const { year, week } = isoWeek(p.week_start);
+        return `${year}-${String(week).padStart(2,'0')}-${p.title ? slugifyHu(p.title) : 'podiverzum-heti'}`;
+      };
+
       const pages = [
         tag(`${SITE}/`, now, 'daily', '1.0'),
         tag(`${SITE}/toplista`, now, 'daily', '0.9'),
@@ -115,8 +139,40 @@ Deno.serve(async (req) => {
         tag(`${SITE}/feltetelek`, now, 'yearly', '0.2'),
         ...(cats ?? []).map((c: any) => tag(`${SITE}/kategoria/${esc(c.slug)}`, c.created_at, 'daily', '0.8')),
         ...(moods ?? []).map((m: any) => tag(`${SITE}/hangulatok/${esc(m.slug)}`, m.updated_at, 'weekly', '0.7')),
+        ...(hetiRows ?? []).map((p: any) => tag(`${SITE}/heti/${esc(hetiSlugOf(p))}`, p.updated_at || p.published_at, 'weekly', '0.7')),
       ];
       await upload('pages.xml', wrap(pages));
+
+      // News sitemap — only the per-week article pages, with Google News namespace.
+      // 48h freshness window per Google News spec; we keep up to 1000 items max anyway.
+      const NEWS_CUTOFF = Date.now() - 2 * 24 * 3600 * 1000;
+      const newsItems = (hetiRows ?? [])
+        .filter((p: any) => p.published_at && new Date(p.published_at).getTime() >= NEWS_CUTOFF)
+        .slice(0, 1000)
+        .map((p: any) => {
+          const slug = hetiSlugOf(p);
+          const title = p.title || `Podiverzum Heti – ${p.week_start}`;
+          return `<url>
+  <loc>${SITE}/heti/${esc(slug)}</loc>
+  <news:news>
+    <news:publication>
+      <news:name>Podiverzum</news:name>
+      <news:language>hu</news:language>
+    </news:publication>
+    <news:publication_date>${new Date(p.published_at).toISOString()}</news:publication_date>
+    <news:title>${esc(title)}</news:title>
+  </news:news>
+</url>`;
+        });
+      const newsXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+${newsItems.join('\n')}
+</urlset>
+`;
+      await upload('news-sitemap.xml', newsXml);
+
+
 
       // podcasts
       const podcasts: string[] = [];
