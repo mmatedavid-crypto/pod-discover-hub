@@ -96,6 +96,8 @@ function shouldPrerender(pathname) {
   if (/^\/te-podiverzumod\/eredmeny\/[^/]+\/?$/.test(pathname)) return true;
   // Sajtó / kutatási jelentések — AI ügynökök is feldolgozhatják
   if (/^\/jelentes\/[^/]+\/?$/.test(pathname)) return true;
+  // Podiverzum Heti weekly column (hub + per-week article)
+  if (pathname === "/heti" || /^\/heti\/[^/]+\/?$/.test(pathname)) return true;
   return false;
 }
 
