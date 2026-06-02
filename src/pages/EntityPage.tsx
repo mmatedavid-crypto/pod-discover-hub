@@ -5,7 +5,7 @@ import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
-import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entityHref, matchesEntitySlug } from "@/lib/entity";
+import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entityHref, entitySlug, matchesEntitySlug } from "@/lib/entity";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
 import { snippet } from "@/lib/text";
 
