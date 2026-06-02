@@ -17,6 +17,7 @@ interface Person {
   overview_text: string | null;
   wikipedia_url: string | null; wikipedia_title: string | null;
   wikipedia_match_status: string | null;
+  wikipedia_match_confidence?: number | null;
   wikipedia_extract: string | null;
   wikipedia_description: string | null;
   short_description_hu: string | null;
@@ -29,6 +30,9 @@ interface Person {
   latest_episode_at: string | null;
   disambiguation_label: string | null;
   disambiguation_context: string | null;
+  identity_ambiguous?: boolean | null;
+  manual_approved?: boolean | null;
+  ai_bio_confidence?: number | null;
 }
 
 function huFallbackBio(name: string): string {
@@ -44,13 +48,23 @@ function hasVerifiedWiki(person: Pick<Person, "wikipedia_match_status">): boolea
   return person.wikipedia_match_status === "verified";
 }
 
+function isAmbiguousWithoutTrustedIdentity(person: Person): boolean {
+  if (!person.identity_ambiguous) return false;
+  if (person.manual_approved) return false;
+  if (hasVerifiedWiki(person) && Number(person.wikipedia_match_confidence || 0) >= 0.8) return false;
+  return true;
+}
+
 function isSafeGeneratedBio(person: Person, text?: string | null): boolean {
   if (person.ai_bio_status && person.ai_bio_status !== "completed") return false;
+  if (isAmbiguousWithoutTrustedIdentity(person)) return false;
+  if (person.ai_bio_confidence != null && Number(person.ai_bio_confidence) < 0.75) return false;
   return !isFallbackBio(person.name, text);
 }
 
 function isSafeShortBio(person: Person): boolean {
   if (isFallbackBio(person.name, person.short_bio)) return false;
+  if (isAmbiguousWithoutTrustedIdentity(person)) return false;
   if (hasVerifiedWiki(person)) return true;
   const shortBio = String(person.short_bio || "").trim().toLocaleLowerCase("hu-HU");
   const wikiDescription = String(person.wikipedia_description || "").trim().toLocaleLowerCase("hu-HU");
@@ -84,7 +98,7 @@ export default function PersonDetailPage() {
       setNotFound(false);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, ai_bio_status, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin")
+        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
@@ -153,6 +167,10 @@ export default function PersonDetailPage() {
           latest_episode_at: sorted[0]?.published_at || null,
           disambiguation_label: null,
           disambiguation_context: null,
+          identity_ambiguous: false,
+          manual_approved: false,
+          ai_bio_confidence: null,
+          wikipedia_match_confidence: null,
         });
         setEps(sorted.slice(0, 40) as any);
         setRelated([]);
@@ -226,14 +244,12 @@ export default function PersonDetailPage() {
       setLoading(false);
 
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
-      const verifiedWiki = (p as any).wikipedia_match_status === "verified";
-      const bio = (p as any).ai_bio_status === "completed" && !isFallbackBio((p as any).name, (p as any).ai_bio)
-        ? (p as any).ai_bio
-        : !isFallbackBio((p as any).name, (p as any).short_bio) && (verifiedWiki || !(p as any).wikipedia_description || !String((p as any).short_bio || "").includes((p as any).wikipedia_description))
-        ? (p as any).short_bio
-        : verifiedWiki
-        ? ((p as any).wikipedia_extract || (p as any).wikipedia_description || null)
-        : (p as any).overview_text || null;
+      const verifiedWiki = (p as any).wikipedia_match_status === "verified" && Number((p as any).wikipedia_match_confidence || 0) >= 0.8;
+      const personForBio = p as any as Person;
+      const bio = (isSafeGeneratedBio(personForBio, (p as any).ai_bio) && (p as any).ai_bio)
+        || (isSafeShortBio(personForBio) && (p as any).short_bio)
+        || (verifiedWiki ? ((p as any).wikipedia_extract || (p as any).wikipedia_description || null) : null)
+        || (!isAmbiguousWithoutTrustedIdentity(personForBio) ? ((p as any).short_description_hu || (p as any).overview_text || null) : null);
       const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
       const thinPage = epList.length < 2;
 
@@ -314,15 +330,17 @@ export default function PersonDetailPage() {
   const hasArchivalSection = segments.archival.length > 0;
   const distinctSections = [hasParticipants, hasSubjects, hasMentions, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
-  const verifiedWiki = hasVerifiedWiki(person);
+  const verifiedWiki = hasVerifiedWiki(person) && Number(person.wikipedia_match_confidence || 0) >= 0.8;
   const bioText =
     (isSafeGeneratedBio(person, person.ai_bio) && person.ai_bio?.trim()) ||
     (isSafeShortBio(person) && person.short_bio?.trim()) ||
     (verifiedWiki && person.wikipedia_extract && person.wikipedia_extract.trim()) ||
-    (person.short_description_hu && person.short_description_hu.trim()) ||
-    (person.overview_text && person.overview_text.trim()) ||
+    (!isAmbiguousWithoutTrustedIdentity(person) && person.short_description_hu && person.short_description_hu.trim()) ||
+    (!isAmbiguousWithoutTrustedIdentity(person) && person.overview_text && person.overview_text.trim()) ||
     (eps.length > 0 ? huFallbackBio(person.name) : null);
-  const avatarUrl = person.image_url || person.image_original_url || null;
+  const avatarUrl = isAmbiguousWithoutTrustedIdentity(person)
+    ? null
+    : person.image_url || person.image_original_url || null;
 
   const pCount = segments.participants.length;
   const sCount = segments.subjects.length;
