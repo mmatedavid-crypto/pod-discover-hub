@@ -43,6 +43,7 @@ const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
   { pattern: /\bmagunkhoz köt\b/i, reason: `"magunkhoz köt" magyartalan` },
   { pattern: /\bmust[-\s]?listen\b/i, reason: `angol "must-listen" tükörfordítás` },
   { pattern: /[\u{1F1E6}-\u{1F1FF}]{2}/u, reason: `országzászló-emoji` },
+  { pattern: /\b\d{1,2}:\d{2}(?::\d{2})?\b/, reason: `epizód-timestamp (pl. "1:09:46") — soha ne tedd a szövegbe` },
 ];
 
 // JÓ PÉLDA — a máj.17-i intro, few-shotként a system promptba.
