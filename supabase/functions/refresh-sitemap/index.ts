@@ -143,16 +143,17 @@ Deno.serve(async (req) => {
       ];
       await upload('pages.xml', wrap(pages));
 
-      // News sitemap — only the per-week article pages, with Google News namespace.
-      // 48h freshness window per Google News spec; we keep up to 1000 items max anyway.
-      const NEWS_CUTOFF = Date.now() - 2 * 24 * 3600 * 1000;
-      const newsItems = (hetiRows ?? [])
-        .filter((p: any) => p.published_at && new Date(p.published_at).getTime() >= NEWS_CUTOFF)
-        .slice(0, 1000)
-        .map((p: any) => {
-          const slug = hetiSlugOf(p);
-          const title = p.title || `Podiverzum Heti – ${p.week_start}`;
-          return `<url>
+      // News sitemap — Google News namespace. 48h freshness window per spec.
+      // Sources: (a) published Podiverzum Heti posts, (b) recent HU episodes.
+      const NEWS_CUTOFF_MS = Date.now() - 2 * 24 * 3600 * 1000;
+      const newsItems: string[] = [];
+
+      for (const p of (hetiRows ?? []) as any[]) {
+        if (!p.published_at) continue;
+        if (new Date(p.published_at).getTime() < NEWS_CUTOFF_MS) continue;
+        const slug = hetiSlugOf(p);
+        const title = p.title || `Podiverzum Heti – ${p.week_start}`;
+        newsItems.push(`<url>
   <loc>${SITE}/heti/${esc(slug)}</loc>
   <news:news>
     <news:publication>
@@ -162,8 +163,53 @@ Deno.serve(async (req) => {
     <news:publication_date>${new Date(p.published_at).toISOString()}</news:publication_date>
     <news:title>${esc(title)}</news:title>
   </news:news>
-</url>`;
-        });
+</url>`);
+      }
+
+      // Recent HU episodes (last 48h). Inner join via the HU podcast set we
+      // already built for the main sitemap (looked up in podcasts ágban lentebb),
+      // but here we do a focused query to keep this section self-contained.
+      const cutoffIso = new Date(NEWS_CUTOFF_MS).toISOString();
+      const { data: freshEps = [] } = await sb
+        .from('episodes')
+        .select('slug,title,published_at,podcasts!inner(slug,is_hungarian,language_decision)')
+        .gte('published_at', cutoffIso)
+        .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian', { foreignTable: 'podcasts' })
+        .order('published_at', { ascending: false })
+        .limit(900);
+      for (const e of (freshEps ?? []) as any[]) {
+        const pod = e.podcasts;
+        if (!pod || !pod.slug || !e.slug || !e.title) continue;
+        if (pod.language_decision === 'reject_foreign') continue;
+        newsItems.push(`<url>
+  <loc>${SITE}/podcast/${esc(pod.slug)}/${esc(e.slug)}</loc>
+  <news:news>
+    <news:publication>
+      <news:name>Podiverzum</news:name>
+      <news:language>hu</news:language>
+    </news:publication>
+    <news:publication_date>${new Date(e.published_at).toISOString()}</news:publication_date>
+    <news:title>${esc(e.title)}</news:title>
+  </news:news>
+</url>`);
+      }
+
+      // Always include the /heti hub as a fallback so the sitemap is never empty
+      // (Google News rejects sitemaps with zero items).
+      if (newsItems.length === 0) {
+        newsItems.push(`<url>
+  <loc>${SITE}/heti</loc>
+  <news:news>
+    <news:publication>
+      <news:name>Podiverzum</news:name>
+      <news:language>hu</news:language>
+    </news:publication>
+    <news:publication_date>${new Date().toISOString()}</news:publication_date>
+    <news:title>Podiverzum Heti — magyar podcastfigyelő</news:title>
+  </news:news>
+</url>`);
+      }
+
       const newsXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
