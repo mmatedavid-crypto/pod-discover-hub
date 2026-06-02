@@ -1,0 +1,1 @@
+DELETE FROM public.editorial_posts WHERE week_start = '2026-05-26';
