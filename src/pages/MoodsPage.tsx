@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
+import { polishMoodTitle } from "@/components/MoodCollections";
 
 type Mood = {
   slug: string;
@@ -32,6 +33,7 @@ export default function MoodsPage() {
 
   const Card = ({ m }: { m: Mood }) => {
     const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
+    const title = polishMoodTitle(m.title, m.slug);
     return (
       <Link
         to={`/hangulatok/${m.slug}`}
@@ -42,7 +44,7 @@ export default function MoodsPage() {
           <Sparkles className="h-5 w-5" style={{ color: accent }} />
           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform mt-5" />
         </div>
-        <div className="mt-3 font-semibold leading-tight">{m.title}</div>
+        <div className="mt-3 font-semibold leading-tight">{title}</div>
         <div className="text-[11px] text-muted-foreground mt-0.5">{m.mood}</div>
         {m.description && (
           <div className="text-xs text-muted-foreground mt-2 line-clamp-2">{m.description}</div>
@@ -58,9 +60,9 @@ export default function MoodsPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Vissza a kezdőlapra
         </Link>
         <div className="mt-3">
-          <h1 className="text-3xl sm:text-4xl font-semibold">Hangulatok</h1>
+          <h1 className="text-3xl sm:text-4xl font-semibold">Hallgatási helyzetek</h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            Epizódgyűjtemények hangulat, formátum és hallgatási helyzet szerint.
+            Magyar podcast epizódok hangulat, napszak és hallgatási helyzet szerint.
           </p>
         </div>
 

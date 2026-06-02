@@ -136,7 +136,7 @@ export default function EnPodiverzumomPage() {
             <TabTrigger value="kedvencek" icon={Heart}>Kedvencek</TabTrigger>
             <TabTrigger value="meghallgatando" icon={Bookmark}>Meghallgatandó</TabTrigger>
             <TabTrigger value="kovetett" icon={Bell}>Követett</TabTrigger>
-            <TabTrigger value="hangulatok" icon={Wind}>Hangulatok</TabTrigger>
+            <TabTrigger value="hangulatok" icon={Wind}>Helyzetek</TabTrigger>
             <TabTrigger value="beallitasok" icon={Settings}>Beállítások</TabTrigger>
           </TabsList>
 
