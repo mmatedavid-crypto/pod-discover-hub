@@ -110,6 +110,21 @@ describe("production policy static guards", () => {
     expect(migration).toContain("submit_only_when_news_sitemap_has_new_urls");
   });
 
+  it("keeps root sitemap XMLs served through the Cloudflare worker with fresh news cache", () => {
+    const worker = read("infra/cloudflare-worker/worker.js");
+    const robots = read("public/robots.txt");
+
+    expect(worker).toContain("const SITEMAP_CACHE_TTL_SECONDS = 900");
+    expect(worker).toContain("const NEWS_SITEMAP_CACHE_TTL_SECONDS = 300");
+    expect(worker).toContain('url.pathname === "/news-sitemap.xml"');
+    expect(worker).toContain("worker-sitemap-proxy");
+    expect(worker).toContain("storage/v1/object/public/sitemaps");
+    expect(worker).toContain("X-Served-By");
+
+    expect(robots).toContain("Sitemap: https://podiverzum.hu/sitemap.xml");
+    expect(robots).toContain("Sitemap: https://podiverzum.hu/news-sitemap.xml");
+  });
+
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
 

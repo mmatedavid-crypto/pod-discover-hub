@@ -13,6 +13,8 @@
 
 const PRERENDER_ENDPOINT =
   "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/prerender";
+const SITEMAP_CACHE_TTL_SECONDS = 900;
+const NEWS_SITEMAP_CACHE_TTL_SECONDS = 300;
 
 // Lovable origin host (proxied via Cloudflare). Workers route runs BEFORE
 // the proxy returns, so we just `fetch(request)` to passthrough.
@@ -191,7 +193,9 @@ export default {
     }
 
     // Sitemap proxy → Supabase Storage `sitemaps` bucket.
-    // `refresh-sitemap` edge function regenerates these daily (pg_cron 04:30 UTC).
+    // `refresh-sitemap` edge function regenerates lite sitemaps every 15 minutes;
+    // news-sitemap gets a shorter edge cache so fresh publisher episodes can
+    // reach Google quickly without hammering Storage.
     if ((request.method === "GET" || request.method === "HEAD") &&
         (url.pathname === "/sitemap.xml" ||
          url.pathname === "/news-sitemap.xml" ||
@@ -201,10 +205,13 @@ export default {
         : url.pathname === "/news-sitemap.xml"
           ? "news-sitemap.xml"
           : url.pathname.replace(/^\/sitemaps\//, "");
+      const cacheTtl = url.pathname === "/news-sitemap.xml"
+        ? NEWS_SITEMAP_CACHE_TTL_SECONDS
+        : SITEMAP_CACHE_TTL_SECONDS;
       const storageUrl = `https://yoxewklaybougzpmzvkg.supabase.co/storage/v1/object/public/sitemaps/${objectPath}`;
       try {
         const upstream = await fetch(storageUrl, {
-          cf: { cacheTtl: 3600, cacheEverything: true },
+          cf: { cacheTtl, cacheEverything: true },
           headers: { "User-Agent": "podiverzum-cf-worker" },
         });
         if (!upstream.ok) {
@@ -230,7 +237,7 @@ export default {
           status: 200,
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "public, max-age=3600, s-maxage=3600",
+            "Cache-Control": `public, max-age=${cacheTtl}, s-maxage=${cacheTtl}`,
             "X-Served-By": "worker-sitemap-proxy",
           },
         });
