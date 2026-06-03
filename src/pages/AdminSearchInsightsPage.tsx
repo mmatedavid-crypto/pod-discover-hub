@@ -199,7 +199,7 @@ function Table({ rows }: { rows: { q: string; n: number; zero: number; avg: numb
         <tbody>
           {rows.map((r) => (
             <tr key={r.q} className="border-t border-border">
-              <td className="px-3 py-2"><a href={`/search?q=${encodeURIComponent(r.q)}`} className="hover:underline">{r.q}</a></td>
+              <td className="px-3 py-2"><a href={`/kereses?q=${encodeURIComponent(r.q)}`} className="hover:underline">{r.q}</a></td>
               <td className="px-3 py-2 text-right">{r.n}</td>
               <td className="px-3 py-2 text-right">{r.avg.toFixed(1)}</td>
               <td className="px-3 py-2 text-right">{r.zero}</td>

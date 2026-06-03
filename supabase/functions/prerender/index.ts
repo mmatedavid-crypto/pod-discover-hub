@@ -953,7 +953,7 @@ ${hubCrossLinks(kind)}`,
     const rows = (data ?? []) as Array<Record<string, any>>;
     const title = "Szervezetek és cégek — Podiverzum";
     const desc = "Cégek, intézmények, médiumok, sportcsapatok, egyetemek, NGO-k — mind, amelyeket a magyar podcastek említenek.";
-    const intro = `<p>A <strong>Podiverzum</strong> ${rows.length}+ szervezetet indexel a magyar podcast-világból: vállalatokat, médiumokat, állami és önkormányzati intézményeket, sportcsapatokat, egyetemeket, civil szervezeteket és NGO-kat. Minden szervezethez megtalálod a friss említéseket, a kapcsolódó <a href="/szemelyek">személyeket</a> és a leginkább érintett <a href="/podcastok">műsorokat</a>.</p>
+    const intro = `<p>A <strong>Podiverzum</strong> ${rows.length}+ szervezetet indexel a magyar podcast-világból: vállalatokat, médiumokat, állami és önkormányzati intézményeket, sportcsapatokat, egyetemeket, civil szervezeteket és NGO-kat. Minden szervezethez megtalálod a friss említéseket, a kapcsolódó <a href="/szemelyek">személyeket</a> és a leginkább érintett <a href="/toplista">műsorokat</a>.</p>
 <p>A szervezetek nagy részénél <strong>Wikipedia-megerősítéssel</strong> és típus-besorolással dolgozunk (cég, média, sportcsapat, oktatási intézmény, NGO stb.), így gyorsan szűrhetsz arra, ami valóban érdekel. Ha egy adott szektor — magyar fintech, hazai egyetemek, sportklubok vagy közmédia — érdekel, néhány kattintással átfogó képet kapsz arról, mit beszélnek róluk a magyar podcastek.</p>
 <p>A politikai pártokat külön oldalon mutatjuk: lásd a <a href="/partok">Pártok</a> hubot a teljes listához. Témánkénti bontásért látogasd meg a <a href="/temak">Témák</a> hubot.</p>`;
     const listHtml = rows.map((o) => {
@@ -991,7 +991,7 @@ ${hubCrossLinks(kind)}`,
     const title = "Magyar pártok podcastekben — Podiverzum";
     const desc = "Magyar politikai pártok említései és szereplései a magyar podcastekben — Fidesz, Tisza, DK, Momentum, és társaik.";
     const intro = `<p>A magyar közélet pártjai a podcastek tükrében. A <strong>Podiverzum</strong> ${rows.length} pártot indexel — minden parlamenti és parlamenten kívüli releváns magyar pártot. Pártonként megtalálod, mely epizódokban, milyen kontextusban beszéltek róluk az elmúlt időszakban.</p>
-<p>A párt-oldalakon nem csak a friss említéseket látod, hanem azt is, mely <a href="/podcastok">műsorok</a> foglalkoznak vele rendszeresen, mely <a href="/szemelyek">közéleti szereplők</a> jelennek meg pártképviselőként vagy elemzőként, és milyen <a href="/temak">témák</a> kapcsolódnak hozzá — például választási kampány, gazdaságpolitika, EU-ügyek vagy belpolitikai konfliktusok.</p>
+<p>A párt-oldalakon nem csak a friss említéseket látod, hanem azt is, mely <a href="/toplista">műsorok</a> foglalkoznak vele rendszeresen, mely <a href="/szemelyek">közéleti szereplők</a> jelennek meg pártképviselőként vagy elemzőként, és milyen <a href="/temak">témák</a> kapcsolódnak hozzá — például választási kampány, gazdaságpolitika, EU-ügyek vagy belpolitikai konfliktusok.</p>
 <p>Ha egy adott politikai téma — gazdaságpolitika, jogállamiság, választás, EU-tagság, energiapolitika — érdekel, érdemes a <a href="/temak">Témák</a> hubon is körülnézned. A pártokon túl a kapcsolódó <a href="/szervezetek">intézményeket és médiumokat</a> külön szekcióban gyűjtjük.</p>`;
     const listHtml = rows.map((o) => {
       const u = `${SITE}/szervezetek/${o.slug}`;
@@ -1027,7 +1027,7 @@ ${hubCrossLinks(kind)}`,
     const rows = (data ?? []) as Array<Record<string, any>>;
     const title = "Témák — Podiverzum";
     const desc = "Magyar podcast témák és kategóriák — politika, gazdaság, AI, sport, kultúra, egészség és minden más, amiről a magyar podcastek beszélnek.";
-    const intro = `<p>A <strong>Podiverzum</strong> ${rows.length} témát indexel a magyar podcast-világból — politika, gazdaság, technológia, AI, sport, kultúra, egészség, oktatás, tudomány, lifestyle és minden más, ami foglalkoztatja a hazai hallgatókat. Minden témánál megtalálod a legrelevánsabb epizódokat, a leggyakrabban szereplő <a href="/szemelyek">vendégeket</a> és a téma köré szerveződő <a href="/podcastok">műsorokat</a>.</p>
+    const intro = `<p>A <strong>Podiverzum</strong> ${rows.length} témát indexel a magyar podcast-világból — politika, gazdaság, technológia, AI, sport, kultúra, egészség, oktatás, tudomány, lifestyle és minden más, ami foglalkoztatja a hazai hallgatókat. Minden témánál megtalálod a legrelevánsabb epizódokat, a leggyakrabban szereplő <a href="/szemelyek">vendégeket</a> és a téma köré szerveződő <a href="/toplista">műsorokat</a>.</p>
 <p>A témákat <strong>AI-elemzés</strong> azonosítja az epizódok tartalmából: nem csak címszavakat keresünk, hanem a teljes szövegkörnyezetet figyelembe vesszük. Így pontosan megtalálod például az "infláció", "mesterséges intelligencia", "magyar foci", "klímaváltozás" vagy "vállalkozói történetek" témákat — még akkor is, ha az epizód címe nem említi szó szerint.</p>
 <p>Politikai vagy közéleti témák érdekelnek? Nézd meg a <a href="/partok">Pártok</a> hubot a párt-szintű bontásért, vagy a <a href="/szervezetek">Szervezetek</a> hubot az intézmények és médiumok említéseiért.</p>`;
     const listHtml = rows.map((t) => {
@@ -1203,7 +1203,7 @@ async function buildPodcastYear(
   const breadcrumbs = {
     "@context": "https://schema.org", "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Podcastek", item: `${SITE}/podcastok` },
+      { "@type": "ListItem", position: 1, name: "Podcastek", item: `${SITE}/toplista` },
       { "@type": "ListItem", position: 2, name: podTitle, item: `${SITE}/podcast/${podcastSlug}` },
       { "@type": "ListItem", position: 3, name: `Epizódok ${year}`, item: canonical },
     ],
@@ -1216,7 +1216,7 @@ async function buildPodcastYear(
 <main><h2>Epizódok</h2><ul>${html}</ul></main>
 <aside><h2>Tovább</h2><ul>
 <li><a href="/podcast/${esc(podcastSlug)}">${esc(podTitle)} — főoldal</a></li>
-<li><a href="/podcastok">Podcastek hub</a></li>
+<li><a href="/toplista">Podcastek hub</a></li>
 </ul></aside>`,
   })), { headers: new Headers(baseHeaders) });
 }

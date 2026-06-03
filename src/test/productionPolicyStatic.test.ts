@@ -97,12 +97,14 @@ describe("production policy static guards", () => {
     expect(fn).toContain("const realNewsItemCount = newsItems.length");
     expect(fn).toContain("const previousUrls = new Set<string>");
     expect(fn).toContain("const newUrls = currentUrls.filter");
+    expect(fn).toContain("const googleSubmitPolicy = 'submit_only_when_news_sitemap_has_new_urls'");
     expect(fn).toContain("const shouldSubmitToGoogle = newUrls.length > 0 && realNewsItemCount > 0");
     expect(fn).toContain("if (shouldSubmitToGoogle)");
     expect(fn).toContain("new_url_count");
     expect(fn).toContain("new_urls_sample");
     expect(fn).toContain("real_news_item_count");
     expect(fn).toContain("source_counts");
+    expect(fn).toContain("google_submit_policy");
     expect(fn).toContain("google_submit_status");
     expect(fn).not.toContain("www.google.com/ping");
     expect(fn).not.toContain("google_ping_status");

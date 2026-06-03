@@ -85,4 +85,19 @@ describe("page consistency static guards", () => {
     expect(entity).not.toContain("Legújabb epizódok, ahol megszólal");
     expect(entity).not.toContain("label={kind === \"person\" ? \"Megszólal\"");
   });
+
+  it("keeps SEO fallback and prerender links on canonical Hungarian routes", () => {
+    const notFound = read("src/pages/NotFound.tsx");
+    const prerender = read("supabase/functions/prerender/index.ts");
+    const searchInsights = read("src/pages/AdminSearchInsightsPage.tsx");
+
+    expect(notFound).toContain("nav(`/kereses?q=");
+    expect(notFound).not.toContain("nav(`/search?q=");
+    expect(searchInsights).toContain("/kereses?q=");
+    expect(searchInsights).not.toContain("/search?q=");
+    expect(prerender).toContain('href="/toplista"');
+    expect(prerender).toContain("`${SITE}/toplista`");
+    expect(prerender).not.toContain('href="/podcastok"');
+    expect(prerender).not.toContain("`${SITE}/podcastok`");
+  });
 });

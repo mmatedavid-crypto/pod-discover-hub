@@ -365,6 +365,7 @@ ${newsItems.join('\n')}
       const currentUrls = Array.from(seenNewsUrls);
       const newUrls = currentUrls.filter((loc) => !previousUrls.has(loc));
       const changed = newsHash !== previousHash;
+      const googleSubmitPolicy = 'submit_only_when_news_sitemap_has_new_urls';
       const shouldSubmitToGoogle = newUrls.length > 0 && realNewsItemCount > 0;
       let googleSubmit: GoogleSubmitResult = {
         attempted: false,
@@ -398,6 +399,7 @@ ${newsItems.join('\n')}
           url_count: newsItems.length,
           real_news_item_count: realNewsItemCount,
           source_counts: newsSourceCounts,
+          google_submit_policy: googleSubmitPolicy,
           google_submit_attempted: googleSubmit.attempted,
           google_submit_ok: googleSubmit.ok,
           google_submit_status: googleSubmit.status,
@@ -502,6 +504,7 @@ ${newsItems.join('\n')}
           changed,
           new_url_count: newUrls.length,
           source_counts: newsSourceCounts,
+          google_submit_policy: googleSubmitPolicy,
           google_submit_attempted: googleSubmit.attempted,
           google_submit_ok: googleSubmit.ok,
           google_submit_status: googleSubmit.status,
