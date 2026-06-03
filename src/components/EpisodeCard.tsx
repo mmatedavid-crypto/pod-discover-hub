@@ -1,14 +1,16 @@
+import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { PodcastCover } from "./PodcastCover";
 import { Brain, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { entityHref } from "@/lib/entity";
-import { EpisodeMarks } from "./EpisodeMarks";
 import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { categoryLabel } from "@/lib/categoryLabels";
+
+const EpisodeMarks = lazy(() => import("./EpisodeMarks").then((m) => ({ default: m.EpisodeMarks })));
 
 export type EpisodeLite = {
   id: string;
@@ -54,6 +56,16 @@ function HL({ text, terms }: { text: string; terms?: string[] }) {
         ? <mark key={i} className="bg-primary/25 text-foreground rounded px-0.5">{p.s}</mark>
         : <span key={i}>{p.s}</span>)}
     </>
+  );
+}
+
+function EpisodeMarksSlot({ episodeId }: { episodeId: string }) {
+  return (
+    <div className="ml-auto min-h-8 min-w-[76px]">
+      <Suspense fallback={<span aria-hidden className="block h-8 w-[76px]" />}>
+        <EpisodeMarks episodeId={episodeId} compact />
+      </Suspense>
+    </div>
   );
 }
 
@@ -216,7 +228,7 @@ export function EpisodeCard({
               <Play className="h-3 w-3" /> Lejátszás
             </button>
           )}
-          <div className="ml-auto"><EpisodeMarks episodeId={e.id} compact /></div>
+          <EpisodeMarksSlot episodeId={e.id} />
         </div>
       </div>
     </article>
@@ -361,7 +373,7 @@ function EpisodeRailCard({
         )}
         <div className="mt-auto flex items-center gap-2 pt-3 text-xs">
           <Link to={`/podcast/${p.slug}/${e.slug}`} className="text-muted-foreground hover:text-foreground">Részletek</Link>
-          <div className="ml-auto"><EpisodeMarks episodeId={e.id} compact /></div>
+          <EpisodeMarksSlot episodeId={e.id} />
         </div>
       </div>
     </article>
