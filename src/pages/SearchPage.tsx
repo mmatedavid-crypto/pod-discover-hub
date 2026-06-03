@@ -12,6 +12,7 @@ import { pushRecentSearch } from "@/lib/recentSearches";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 import { SearchStagedLoader } from "@/components/SearchStagedLoader";
 import { buildPersonCardContextLine, type PersonCardData } from "@/components/PersonCard";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type SortKey = "best" | "newest" | "rank";
 
@@ -326,7 +327,7 @@ export default function SearchPage() {
               episodes: mapped.slice(0, 6).map((e: any) => ({
                 title: e.display_title || e.title,
                 podcast: e.podcasts?.title || "",
-                summary: e.ai_summary || e.summary || "",
+                summary: sanitizeHungarianPublicText(e.ai_summary) || sanitizeHungarianPublicText(e.summary) || "",
               })),
             }),
           });

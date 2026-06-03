@@ -23,6 +23,7 @@ import { renderReceiptPng, shareReceipt, downloadReceipt } from "@/lib/receiptIm
 import { trackProfileEvent, captureSourceProfileFromUrl, getSourceProfileId } from "@/lib/profileEvents";
 import { Download, Link2 } from "lucide-react";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -1620,9 +1621,9 @@ function ResultView({
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs uppercase tracking-wider text-muted-foreground">{r.podcast_title}</div>
                   <div className="line-clamp-2 font-medium">{r.display_title || r.title}</div>
-                  {r.ai_summary && (
+                  {sanitizeHungarianPublicText(r.ai_summary) && (
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {r.ai_summary}
+                      {sanitizeHungarianPublicText(r.ai_summary)}
                     </p>
                   )}
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

@@ -5,6 +5,7 @@ import Layout from "@/components/Layout";
 import { breadcrumbJsonLd, setSeo } from "@/lib/seo";
 import { hetiSlug } from "@/lib/hetiSlug";
 import { Calendar, ArrowRight } from "lucide-react";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 const SITE_URL = "https://podiverzum.hu";
 
@@ -155,7 +156,9 @@ export default function HetiHubPage() {
                   const podcast = ep.podcasts;
                   const href = podcast?.slug && ep.slug ? `/podcast/${podcast.slug}/${ep.slug}` : "/uj";
                   const title = ep.display_title || ep.title || "Friss epizód";
-                  const text = ep.ai_summary || ep.summary || ep.description || "";
+                  const text = sanitizeHungarianPublicText(ep.ai_summary)
+                    || sanitizeHungarianPublicText(ep.summary)
+                    || sanitizeHungarianPublicText(ep.description);
                   return (
                     <Link
                       key={ep.id}

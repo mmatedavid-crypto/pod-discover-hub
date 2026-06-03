@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type Row = {
   episode_id: string;
@@ -32,7 +33,9 @@ type Row = {
 const MAX = 5;
 
 function snippet(r: Row): string {
-  const raw = (r.ai_summary || r.summary || r.description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const raw = sanitizeHungarianPublicText(r.ai_summary)
+    || sanitizeHungarianPublicText(r.summary)
+    || sanitizeHungarianPublicText(r.description);
   if (!raw) return "";
   return raw.length > 140 ? raw.slice(0, 137) + "…" : raw;
 }

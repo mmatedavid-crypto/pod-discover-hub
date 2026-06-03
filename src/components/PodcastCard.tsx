@@ -3,6 +3,7 @@ import { Apple, Music, Youtube, Globe } from "lucide-react";
 import { PodcastCover } from "./PodcastCover";
 import { snippet } from "@/lib/text";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 export type PodcastLite = {
   id: string;
@@ -21,7 +22,12 @@ export type PodcastLite = {
 };
 
 export function PodcastCard({ p }: { p: PodcastLite }) {
-  const desc = snippet(p.seo_description || p.summary || p.description, 160);
+  const desc = snippet(
+    sanitizeHungarianPublicText(p.seo_description)
+      || sanitizeHungarianPublicText(p.summary)
+      || sanitizeHungarianPublicText(p.description),
+    160,
+  );
   const title = p.display_title || p.title;
   const displayCategory = categoryLabel(p.category);
   return (

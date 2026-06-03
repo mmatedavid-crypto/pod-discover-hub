@@ -9,6 +9,7 @@ import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { pickEpisodeDescription } from "@/lib/episodeText";
 
 const EpisodeMarks = lazy(() => import("./EpisodeMarks").then((m) => ({ default: m.EpisodeMarks })));
 
@@ -75,7 +76,7 @@ export function EpisodeCard({
   const p = e.podcasts;
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
-  const desc = snippet(e.ai_summary || e.summary || e.description, 220, terms);
+  const desc = snippet(pickEpisodeDescription(e, 260), 220, terms);
   const understanding = getEpisodeUnderstanding(e);
   const categoryName = categoryLabel(p.category);
   const { play } = useSmartPlayer();
@@ -241,7 +242,7 @@ function EpisodeRailCard({
   const p = e.podcasts;
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
-  const desc = snippet(e.ai_summary || e.summary || e.description, 170, terms);
+  const desc = snippet(pickEpisodeDescription(e, 210), 170, terms);
   const understanding = getEpisodeUnderstanding(e);
   const categoryName = categoryLabel(p.category);
   const { play } = useSmartPlayer();

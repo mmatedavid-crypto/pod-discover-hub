@@ -4,6 +4,7 @@
 // the UI never blocks on it.
 
 import { stripHtml } from "@/lib/text";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 export type EpisodeTextSource = {
   ai_summary?: string | null;
@@ -15,7 +16,7 @@ export type EpisodeTextSource = {
 
 function clean(s?: string | null): string {
   if (!s) return "";
-  return stripHtml(s).replace(/\s+/g, " ").trim();
+  return sanitizeHungarianPublicText(stripHtml(s));
 }
 
 /**
