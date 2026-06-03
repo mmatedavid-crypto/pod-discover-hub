@@ -122,6 +122,9 @@ Deno.serve(async (req) => {
     const sourceDiagnostics: SourceDiagnostics = {};
     let scannedArticles = 0;
     let scannedEpisodes = 0;
+    let selectedCandidates = 0;
+    let confirmedCandidates = 0;
+    let verifiedUpsertRows = 0;
 
     for (const source of sources) {
       const items = (await fetchFeedItems(source, ctrl, sourceDiagnostics)).filter((item) => {
@@ -189,19 +192,34 @@ Deno.serve(async (req) => {
         });
       }
 
+      selectedCandidates += candidates.length;
+      confirmedCandidates += candidates.filter((candidate) => candidate.status === "confirmed").length;
       for (let i = 0; i < candidates.length; i += 100) {
         const chunk = candidates.slice(i, i + 100);
-        const { error } = await admin.from("episode_article_candidates").upsert(chunk, { onConflict: "episode_id,article_url" });
+        const { data: upsertedRows, error } = await admin
+          .from("episode_article_candidates")
+          .upsert(chunk, { onConflict: "episode_id,article_url" })
+          .select("id");
         if (error) throw error;
         inserted[source.outlet] = (inserted[source.outlet] || 0) + chunk.length;
+        verifiedUpsertRows += upsertedRows?.length || 0;
       }
     }
+
+    const { count: totalArticleCandidates, error: countErr } = await admin
+      .from("episode_article_candidates")
+      .select("id", { count: "exact", head: true });
+    if (countErr) throw countErr;
 
     const progress = {
       last_run_at: new Date().toISOString(),
       scanned_articles: scannedArticles,
       scanned_episodes: scannedEpisodes,
+      selected_candidates: selectedCandidates,
+      confirmed_candidates: confirmedCandidates,
       upserted_by_outlet: inserted,
+      verified_upsert_rows: verifiedUpsertRows,
+      total_article_candidates: totalArticleCandidates || 0,
       source_diagnostics: sourceDiagnostics,
       runtime_ms: Date.now() - startedAt,
       policy: "publisher_article_match_v1",

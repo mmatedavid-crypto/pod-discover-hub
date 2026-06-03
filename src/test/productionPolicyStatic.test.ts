@@ -73,10 +73,17 @@ describe("production policy static guards", () => {
 
     expect(verifier).toContain("pairer_has_run");
     expect(verifier).toContain("pairer_scanned_articles");
+    expect(verifier).toContain("pairer_records_write_verification");
+    expect(verifier).toContain("pairer_records_total_candidates");
     expect(verifier).toContain("pairer_no_domparser_error");
     expect(verifier).toContain("DOMParser is not defined");
     expect(verifier).toContain("article_candidates_started");
     expect(verifier).toContain("episode_article_pairer_progress");
+
+    const pairer = read("supabase/functions/episode-article-pairer/index.ts");
+    expect(pairer).toContain("verified_upsert_rows");
+    expect(pairer).toContain("total_article_candidates");
+    expect(pairer).toContain('.select("id")');
   });
 
   it("keeps legacy clean-text backfill quality-gated instead of globally enabled", () => {
