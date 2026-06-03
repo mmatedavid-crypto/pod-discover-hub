@@ -49,6 +49,7 @@ const AdminAiEnrichmentPage = lazy(() => import("./pages/AdminAiEnrichmentPage.t
 const AdminCronStatusPage = lazy(() => import("./pages/AdminCronStatusPage.tsx"));
 const AdminPipelineWatchdogPage = lazy(() => import("./pages/AdminPipelineWatchdogPage.tsx"));
 const AdminQueueHealthPage = lazy(() => import("./pages/AdminQueueHealthPage.tsx"));
+const AdminRedditBotPage = lazy(() => import("./pages/AdminRedditBotPage.tsx"));
 const AdminSocialPostsPage = lazy(() => import("./pages/AdminSocialPostsPage.tsx"));
 const AdminEditorialPage = lazy(() => import("./pages/AdminEditorialPage.tsx"));
 const AdminLivePage = lazy(() => import("./pages/AdminLivePage.tsx"));
@@ -146,6 +147,7 @@ const App = () => (
           <Route path="/admin/cron-status" element={<AdminCronStatusPage />} />
           <Route path="/admin/pipeline-watchdog" element={<AdminPipelineWatchdogPage />} />
           <Route path="/admin/queue-health" element={<AdminQueueHealthPage />} />
+          <Route path="/admin/reddit-bot" element={<AdminRedditBotPage />} />
           <Route path="/admin/social" element={<AdminSocialPostsPage />} />
           <Route path="/admin/editorial" element={<AdminEditorialPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
