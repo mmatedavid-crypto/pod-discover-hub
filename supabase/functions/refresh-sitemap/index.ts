@@ -7,6 +7,7 @@
 // Each call updates `app_settings.sitemap_state` with its file list, then
 // rebuilds sitemap.xml from the merged state so the index always works.
 // Policy 2026-06-01: include EVERYTHING public/indexable — no tier filter.
+// Policy 2026-06-03: Search Console submit is gated by newly added news URLs.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
