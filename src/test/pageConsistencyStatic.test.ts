@@ -57,6 +57,15 @@ describe("page consistency static guards", () => {
     expect(analytics).toContain('return "/hangulatok/:slug"');
   });
 
+  it("keeps live analytics route labels canonical for people and moods", () => {
+    const live = read("src/pages/AdminLivePage.tsx");
+
+    expect(live).toContain('return "/szemelyek/:slug"');
+    expect(live).toContain('return "/hangulatok/:slug"');
+    expect(live).not.toContain('return "/szemely/:slug"');
+    expect(live).not.toContain('return "/hangulat/:slug"');
+  });
+
   it("keeps topic chips on the canonical plural topic route", () => {
     const entity = read("src/lib/entity.ts");
     const analytics = read("src/pages/AdminAnalyticsPage.tsx");

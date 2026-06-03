@@ -22,10 +22,10 @@ function classifyRoute(path: string): string {
   if (/^\/podcast\/[^/]+\/[^/]+$/.test(path)) return "/podcast/:p/:e";
   if (/^\/podcast\/[^/]+$/.test(path)) return "/podcast/:p";
   if (/^\/(topic|tema|temak)\/[^/]+$/.test(path)) return "/temak/:slug";
-  if (/^\/(person|szemely)\/[^/]+$/.test(path)) return "/szemely/:slug";
+  if (/^\/(person|szemely|szemelyek)\/[^/]+$/.test(path)) return "/szemelyek/:slug";
   if (/^\/(company|ceg)\/[^/]+$/.test(path)) return "/ceg/:slug";
   if (/^\/ticker\/[^/]+$/.test(path)) return "/ticker/:s";
-  if (/^\/(mood|hangulat)\/[^/]+$/.test(path)) return "/hangulat/:slug";
+  if (/^\/(mood|moods|hangulat|hangulatok)\/[^/]+$/.test(path)) return "/hangulatok/:slug";
   return path;
 }
 
