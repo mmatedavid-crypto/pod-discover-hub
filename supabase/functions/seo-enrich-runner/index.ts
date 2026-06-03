@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, episodeUserPrompt, filterHosts } from "../_shared/seo-prompt.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
-import { isHungarianish } from "../_shared/hu-language-guard.ts";
+import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj.";
 
@@ -222,9 +222,7 @@ Deno.serve(async (req) => {
         if (isPodcast) {
           const seo_title = trim(String(parsed.seo_title || ""), 65);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
-          if (!isHungarianish(`${seo_title} ${seo_description}`)) {
-            throw new Error("hu_language_guard_failed");
-          }
+          assertHungarianPublicFields({ seo_title, seo_description });
           const { data: pLang } = await admin.from("podcasts").select("language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle();
           const update: any = { seo_title, seo_description, ai_enriched_at: new Date().toISOString() };
           // Never let a model-side detected language overwrite our accepted-Hungarian decision.
@@ -260,9 +258,7 @@ Deno.serve(async (req) => {
             epHosts = ((ep2 as any)?.podcasts?.hosts) || [];
             epPodcastMeta = (ep2 as any)?.podcasts || null;
           }
-          if (!isHungarianish(`${seo_title} ${seo_description} ${ai_summary}`)) {
-            throw new Error("hu_language_guard_failed");
-          }
+          assertHungarianPublicFields({ seo_title, seo_description, ai_summary });
           const people = filterHosts(cleanArr(parsed.people), epHosts);
           const mentioned = filterHosts(cleanArr(parsed.mentioned), epHosts);
           const companies = cleanArr(parsed.companies);

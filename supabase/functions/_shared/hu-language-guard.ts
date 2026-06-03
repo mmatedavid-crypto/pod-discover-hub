@@ -40,6 +40,31 @@ export function isHungarianish(text: string): boolean {
   return huScore(text).ok;
 }
 
+export function nonHungarianPublicFields(fields: Record<string, unknown>): string[] {
+  const entries = Object.entries(fields)
+    .map(([key, value]) => [key, String(value || "").replace(/\s+/g, " ").trim()] as const)
+    .filter(([, value]) => value.length > 0);
+
+  const failing = new Set<string>();
+  for (const [key, value] of entries) {
+    if (value.length >= 20 && !isHungarianish(value)) failing.add(key);
+  }
+
+  const combined = entries.map(([, value]) => value).join(" ");
+  if (combined.length >= 20 && !isHungarianish(combined)) {
+    for (const [key] of entries) failing.add(key);
+  }
+
+  return Array.from(failing);
+}
+
+export function assertHungarianPublicFields(fields: Record<string, unknown>): void {
+  const failing = nonHungarianPublicFields(fields);
+  if (failing.length > 0) {
+    throw new Error(`hu_language_guard_failed:${failing.join(",")}`);
+  }
+}
+
 // Wrap an async generator function. If the first output is non-HU, regenerate once with stronger HU instruction.
 // If still non-HU, return fallback.
 export async function ensureHungarian(
