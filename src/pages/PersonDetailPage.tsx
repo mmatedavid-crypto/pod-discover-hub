@@ -72,6 +72,15 @@ function isSafeShortBio(person: Person): boolean {
   return true;
 }
 
+export function isUsefulPersonIdentityLabel(label?: string | null): boolean {
+  const value = String(label || "").replace(/\s+/g, " ").trim().toLocaleLowerCase("hu-HU");
+  if (!value) return false;
+  if (/^(személy|közszereplő|közeleti szereplő|közéleti szereplő)$/i.test(value)) return false;
+  if (/^nemzetközi( téma)? személy$/i.test(value)) return false;
+  if (/^podcast(ok)?ban (előforduló|említett) személy$/i.test(value)) return false;
+  return true;
+}
+
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
@@ -347,6 +356,9 @@ export default function PersonDetailPage() {
   const avatarUrl = isAmbiguousWithoutTrustedIdentity(person)
     ? null
     : person.image_url || person.image_original_url || null;
+  const identityLabel = isUsefulPersonIdentityLabel(person.disambiguation_label)
+    ? person.disambiguation_label
+    : null;
 
   const pCount = segments.participants.length;
   const sCount = segments.subjects.length;
@@ -373,10 +385,10 @@ export default function PersonDetailPage() {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személy</div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{person.name}</h1>
-              {person.disambiguation_label && (
-                <div className="text-sm text-muted-foreground mt-1">{person.disambiguation_label}</div>
+              {identityLabel && (
+                <div className="text-sm text-muted-foreground mt-1">{identityLabel}</div>
               )}
-              {verifiedWiki && person.wikipedia_description && !bioText?.toLocaleLowerCase("hu-HU").includes(person.wikipedia_description.toLocaleLowerCase("hu-HU")) && (
+              {verifiedWiki && !bioText && person.wikipedia_description && (
                 <div className="text-sm text-muted-foreground mt-1 italic">{person.wikipedia_description}</div>
               )}
               {bioText && (
