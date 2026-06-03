@@ -284,7 +284,7 @@ Deno.serve(async (req) => {
         type: "category",
         label: name,
         subtitle: "Kategória",
-        href: `/category/${(c as any).slug}`,
+        href: `/kategoria/${(c as any).slug}`,
         confidence: norm(name).startsWith(q) ? 0.7 : 0.5,
       });
     }

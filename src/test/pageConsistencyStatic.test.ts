@@ -33,6 +33,25 @@ describe("page consistency static guards", () => {
     expect(methodology).not.toContain("nem streameljük");
   });
 
+  it("keeps category links on the Hungarian canonical route", () => {
+    const labels = read("src/lib/categoryLabels.ts");
+    const categories = read("src/pages/CategoriesPage.tsx");
+    const home = read("src/pages/Index.tsx");
+    const detail = read("src/pages/CategoryDetail.tsx");
+    const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
+    const analytics = read("src/pages/AdminAnalyticsPage.tsx");
+
+    for (const source of [labels, categories, home, detail, autocomplete]) {
+      expect(source).toContain("/kategoria/");
+      expect(source).not.toContain("/category/${");
+    }
+    expect(labels).toContain("Hírek és politika");
+    expect(labels).toContain("Vallás és spiritualitás");
+    expect(labels).toContain("Kultúra és társadalom");
+    expect(labels).toContain("Bűnügyek és rejtélyek");
+    expect(analytics).toContain('return "/kategoria/:slug"');
+  });
+
   it("keeps smart-player related-copy human, not internal AI/vector jargon", () => {
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
     const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");

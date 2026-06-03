@@ -732,7 +732,7 @@ const Index = () => {
               <section key={c.id}>
                 <div className="flex items-end justify-between mb-1">
                   <h2 className="text-xl sm:text-2xl font-semibold">{copy.title}</h2>
-                  <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                  <Link to={`/kategoria/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                     Több epizód <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>

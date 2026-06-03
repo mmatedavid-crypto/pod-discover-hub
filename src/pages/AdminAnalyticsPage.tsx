@@ -28,7 +28,7 @@ function classifyRoute(path: string): string {
   if (path === "/") return "/";
   if (path === "/categories") return "/categories";
   if (path === "/search") return "/search";
-  if (/^\/category\/[^/]+$/.test(path)) return "/category/:slug";
+  if (/^\/category\/[^/]+$/.test(path) || /^\/kategoria\/[^/]+$/.test(path)) return "/kategoria/:slug";
   if (/^\/podcast\/[^/]+\/[^/]+$/.test(path)) return "/podcast/:podcastSlug/:episodeSlug";
   if (/^\/podcast\/[^/]+$/.test(path)) return "/podcast/:podcastSlug";
   if (/^\/topic\/[^/]+$/.test(path)) return "/topic/:slug";
