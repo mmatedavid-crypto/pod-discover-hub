@@ -50,6 +50,11 @@ describe("page consistency static guards", () => {
     expect(labels).toContain("Kultúra és társadalom");
     expect(labels).toContain("Bűnügyek és rejtélyek");
     expect(analytics).toContain('return "/kategoria/:slug"');
+    expect(analytics).toContain('return "/kereses"');
+    expect(analytics).toContain('return "/temak/:slug"');
+    expect(analytics).toContain('return "/szemelyek/:slug"');
+    expect(analytics).toContain('return "/ceg/:slug"');
+    expect(analytics).toContain('return "/hangulatok/:slug"');
   });
 
   it("keeps smart-player related-copy human, not internal AI/vector jargon", () => {

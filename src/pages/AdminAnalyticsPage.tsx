@@ -26,16 +26,17 @@ type Row = {
 
 function classifyRoute(path: string): string {
   if (path === "/") return "/";
-  if (path === "/categories") return "/categories";
-  if (path === "/search") return "/search";
+  if (path === "/categories" || path === "/kategoriak") return "/kategoriak";
+  if (path === "/search" || path === "/kereses") return "/kereses";
   if (/^\/category\/[^/]+$/.test(path) || /^\/kategoria\/[^/]+$/.test(path)) return "/kategoria/:slug";
   if (/^\/podcast\/[^/]+\/[^/]+$/.test(path)) return "/podcast/:podcastSlug/:episodeSlug";
   if (/^\/podcast\/[^/]+$/.test(path)) return "/podcast/:podcastSlug";
-  if (/^\/topic\/[^/]+$/.test(path)) return "/topic/:slug";
-  if (/^\/person\/[^/]+$/.test(path)) return "/person/:slug";
-  if (/^\/company\/[^/]+$/.test(path)) return "/company/:slug";
+  if (/^\/topic\/[^/]+$/.test(path) || /^\/tema\/[^/]+$/.test(path) || /^\/temak\/[^/]+$/.test(path)) return "/temak/:slug";
+  if (/^\/person\/[^/]+$/.test(path) || /^\/szemely\/[^/]+$/.test(path) || /^\/szemelyek\/[^/]+$/.test(path)) return "/szemelyek/:slug";
+  if (/^\/company\/[^/]+$/.test(path) || /^\/ceg\/[^/]+$/.test(path)) return "/ceg/:slug";
   if (/^\/ticker\/[^/]+$/.test(path)) return "/ticker/:symbol";
-  if (/^\/ingredient\/[^/]+$/.test(path)) return "/ingredient/:slug";
+  if (/^\/ingredient\/[^/]+$/.test(path) || /^\/hozzavalo\/[^/]+$/.test(path)) return "/hozzavalo/:slug";
+  if (/^\/moods?\/[^/]+$/.test(path) || /^\/hangulat(ok)?\/[^/]+$/.test(path)) return "/hangulatok/:slug";
   return path;
 }
 
