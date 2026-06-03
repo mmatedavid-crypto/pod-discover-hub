@@ -19,13 +19,13 @@ export default function TermsPage() {
         <p>A Podiverzum egy kereső magyar podcast epizódokhoz. Az oldal használatával elfogadod az alábbi feltételeket.</p>
 
         <h2 className="mt-8 text-xl font-semibold">A szolgáltatásról</h2>
-        <p>A Podiverzum segít releváns podcast epizódokat találni témák, személyek, cégek és más kifejezések alapján. A podcasttartalom – beleértve a hanganyagot, a leírásokat és a borítóképeket – az eredeti alkotók és kiadók tulajdona. A Podiverzum <strong>nyilvánosan elérhető RSS-hírcsatornákat</strong> indexel, és a lejátszáshoz az epizód eredeti platformjára irányít át.</p>
+        <p>A Podiverzum segít releváns podcast epizódokat találni témák, személyek, cégek és más kifejezések alapján. A podcasttartalom – beleértve a hanganyagot, a leírásokat és a borítóképeket – az eredeti alkotók és kiadók tulajdona. A Podiverzum <strong>nyilvánosan elérhető RSS-hírcsatornákat</strong> indexel, és ahol technikailag lehetséges, saját lejátszóban indítja el az epizódot az eredeti kiadói hangforrás használatával.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Az adatok pontossága</h2>
         <p>A keresési találatok, az összefoglalók, a rangsorok és a témacímkék automatikusan jönnek létre. Emiatt lehetnek hiányosak, elavultak vagy pontatlanok. Tekintsd a Podiverzumot kiindulópontnak, ne pedig hiteles forrásnak.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Podcast epizódok meghallgatása</h2>
-        <p>A meghallgatáshoz a Podiverzum az eredeti kiadó vagy egy harmadik fél (pl. Apple, Spotify, YouTube, a műsor saját oldala) felületére irányít át. Ezekre a platformokra a saját felhasználási feltételeik és adatvédelmi szabályzatuk vonatkozik.</p>
+        <p>A meghallgatás általában a Podiverzum saját lejátszójában indul, de a hangfájl forrása továbbra is az eredeti kiadó vagy egy harmadik fél (pl. Apple, Spotify, YouTube, a műsor saját oldala). Ha a beágyazott lejátszás nem működik, külső megnyitási lehetőséget adunk. A külső platformokra a saját felhasználási feltételeik és adatvédelmi szabályzatuk vonatkozik.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Elfogadható használat</h2>
         <ul className="list-disc pl-5">

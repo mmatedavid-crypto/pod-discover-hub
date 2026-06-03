@@ -31,7 +31,7 @@ export default function AboutPage() {
           érthetővé és könnyen áttekinthetővé válik.
         </p>
         <p>
-          Nem tárolunk hanganyagot. Nem helyettesítjük a podcastlejátszókat. Nyilvános podcastokat
+          Nem tárolunk hanganyagot, de a hallgatást saját lejátszóval tesszük kényelmesebbé. Nyilvános podcastokat
           indexelünk, és segítünk megtalálni az epizódokat a tényleges tartalmuk alapján — személyekről,
           cégekről, piacokról, technológiákról, ötletekről, helyekről, egészségről,
           kulturális trendekről és sok másról.
@@ -72,14 +72,14 @@ export default function AboutPage() {
             hallgatási ajánlók, kategóriák és tematikus oldalak.
           </li>
           <li>
-            A hallgatókat visszairányítjuk az eredeti kiadóhoz — az Apple Podcasts, a Spotify,
-            a YouTube vagy a műsor saját oldala felé.
+            Saját playerrel indítjuk a hallgatást, miközben a hanganyag továbbra is az eredeti
+            kiadói forrásból érkezik.
           </li>
         </ul>
 
         <h2 className="mt-10 text-xl font-semibold">Mit nem csinálunk</h2>
         <ul className="list-disc pl-5">
-          <li>Nem tárolunk és nem streamelünk hangfájlokat. A hang az alkotóké és a kiadóké.</li>
+          <li>Nem tárolunk hangfájlokat. A hang az alkotóké és a kiadóké.</li>
           <li>
             Nem adjuk el a személyes adataidat. Részletek:{" "}
             <Link to="/adatvedelem" className="text-primary hover:underline">Adatvédelem</Link>.

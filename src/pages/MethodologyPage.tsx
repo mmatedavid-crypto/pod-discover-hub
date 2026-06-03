@@ -91,8 +91,8 @@ export default function MethodologyPage() {
           és a rendszerezéshez.
         </p>
         <p>
-          A hanganyagot nem tároljuk és nem streameljük. A podcastok az eredeti kiadóikhoz
-          tartoznak; mi az adataikat dolgozzuk fel a felfedezhetőség érdekében.
+          A hanganyagot nem tároljuk. A saját lejátszó az eredeti kiadói hangforrást használja;
+          mi az adataikat dolgozzuk fel a felfedezhetőség érdekében.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Mit nem állítunk?</h2>
