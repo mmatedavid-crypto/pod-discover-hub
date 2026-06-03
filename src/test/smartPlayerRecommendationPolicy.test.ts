@@ -18,6 +18,8 @@ describe("smart player recommendation policy", () => {
     expect(bar).toContain("!error && SMART_PLAYER_RECOMMENDATIONS_ENABLED");
     expect(bar).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED ? \"Smart ajánlások\" : \"Lejátszó részletei\"");
     expect(bar).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED ? \"Smart\" : \"Részletek\"");
+    expect(bar).toContain("{SMART_PLAYER_RECOMMENDATIONS_ENABLED && (");
+    expect(bar).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED && (\n                  <div className=\"w-full max-w-3xl mt-2 border-t border-border pt-5\">");
     expect(episodePlayer).toContain("{SMART_PLAYER_RECOMMENDATIONS_ENABLED && (");
     expect(episodePlayer).toContain("<SmartDiscoveryPanel episodeIdOverride={episode.id} variant=\"compact\" />");
   });

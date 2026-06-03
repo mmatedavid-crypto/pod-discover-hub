@@ -236,9 +236,11 @@ export function SmartPlayerBar() {
                 <div className="w-full max-w-2xl mt-2 border-t border-border pt-5">
                   <SmartPlayerChapters episodeId={ep.id} />
                 </div>
-                <div className="w-full max-w-3xl mt-2 border-t border-border pt-5">
-                  <SmartDiscoveryPanel />
-                </div>
+                {SMART_PLAYER_RECOMMENDATIONS_ENABLED && (
+                  <div className="w-full max-w-3xl mt-2 border-t border-border pt-5">
+                    <SmartDiscoveryPanel />
+                  </div>
+                )}
               </>
             )}
           </div>
