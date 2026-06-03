@@ -151,7 +151,7 @@ export function parsePublisherListingHtml(html: string, outlet: string, baseUrl:
   const candidates = new Set<string>();
   const base = new URL(baseUrl);
   const urlPatterns = [
-    /https?:\\?\/\\?\/(?:www\.)?(?:444\.hu|telex\.hu)\\?\/[^"'<>\s\\]+/gi,
+    /https?:\\?\/\\?\/[^"'<>\s\\]+/gi,
     /\bhref=["']([^"']+)["']/gi,
   ];
 

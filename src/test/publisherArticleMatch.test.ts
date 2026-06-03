@@ -88,4 +88,40 @@ describe("publisher article matching", () => {
     expect(items.some((item) => item.url.includes("assets"))).toBe(false);
     expect(items[0].title.length).toBeGreaterThan(8);
   });
+
+  it("extracts same-domain absolute links for expanded Hungarian publisher sources", () => {
+    const items = parsePublisherListingHtml(`
+      <script>{"url":"https://www.portfolio.hu/podcast/2026/06/02/checklist-inflacio-forint-arfolyam"}</script>
+      <a href="https://example.com/podcast/2026/06/02/foreign-copy">másik domain</a>
+      <a href="/uzlet/podcast/2026/06/02/portfolio-checklist-befektetesek">relatív portfolio link</a>
+    `, "portfolio", "https://www.portfolio.hu/podcast");
+
+    const urls = items.map((item) => item.url);
+    expect(urls).toContain("https://www.portfolio.hu/podcast/2026/06/02/checklist-inflacio-forint-arfolyam");
+    expect(urls).toContain("https://www.portfolio.hu/uzlet/podcast/2026/06/02/portfolio-checklist-befektetesek");
+    expect(urls.some((url) => url.includes("example.com"))).toBe(false);
+  });
+
+  it("keeps publisher article matching conservative for broad financial terms", () => {
+    const score = scorePublisherArticleMatch(
+      {
+        id: "ep-hold",
+        podcast_id: "pod-hold",
+        title: "Hold After Hours: Mi történik a forinttal és az inflációval?",
+        display_title: null,
+        published_at: "2026-06-02T08:00:00Z",
+        podcasts: { title: "Hold After Hours", display_title: "Hold After Hours" },
+      },
+      {
+        outlet: "portfolio",
+        url: "https://www.portfolio.hu/gazdasag/2026/06/02/inflacio-forint",
+        title: "Gyengült a forint, új inflációs adat érkezett",
+        excerpt: "Pénzpiaci összefoglaló podcast nélkül.",
+        text: "A forint árfolyama és az inflációs adat mozgatta a piacokat, de a cikk nem a Hold After Hours adásáról szól.",
+        published_at: "2026-06-02T09:00:00Z",
+      },
+    );
+
+    expect(score.score).toBeLessThan(0.82);
+  });
 });
