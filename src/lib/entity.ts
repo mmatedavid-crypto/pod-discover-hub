@@ -149,7 +149,7 @@ export function entitySlug(kind: EntityKind, value: string): string {
 
 export function entityHref(kind: EntityKind, value: string): string {
   const route =
-    kind === "topic" ? "tema" :
+    kind === "topic" ? "temak" :
     kind === "person" ? "szemelyek" :
     kind === "company" ? "ceg" :
     kind === "ingredient" ? "hozzavalo" :

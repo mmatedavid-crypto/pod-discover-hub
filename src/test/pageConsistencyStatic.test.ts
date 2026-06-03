@@ -57,6 +57,18 @@ describe("page consistency static guards", () => {
     expect(analytics).toContain('return "/hangulatok/:slug"');
   });
 
+  it("keeps topic chips on the canonical plural topic route", () => {
+    const entity = read("src/lib/entity.ts");
+    const analytics = read("src/pages/AdminAnalyticsPage.tsx");
+    const live = read("src/pages/AdminLivePage.tsx");
+
+    expect(entity).toContain('kind === "topic" ? "temak"');
+    expect(entity).not.toContain('kind === "topic" ? "tema"');
+    expect(analytics).toContain('return "/temak/:slug"');
+    expect(live).toContain('return "/temak/:slug"');
+    expect(live).not.toContain('return "/tema/:slug"');
+  });
+
   it("keeps organization detail links on the canonical company route", () => {
     const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
     const orgCard = read("src/components/OrgCard.tsx");
