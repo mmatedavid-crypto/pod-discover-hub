@@ -920,6 +920,137 @@ export type Database = {
           },
         ]
       }
+      episode_article_candidates: {
+        Row: {
+          article_excerpt: string | null
+          article_published_at: string | null
+          article_text: string | null
+          article_title: string
+          article_url: string
+          created_at: string
+          episode_id: string
+          evidence: Json
+          fetched_at: string
+          id: string
+          match_reasons: string[]
+          match_score: number
+          outlet: string
+          podcast_id: string
+          reviewed_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          article_excerpt?: string | null
+          article_published_at?: string | null
+          article_text?: string | null
+          article_title: string
+          article_url: string
+          created_at?: string
+          episode_id: string
+          evidence?: Json
+          fetched_at?: string
+          id?: string
+          match_reasons?: string[]
+          match_score?: number
+          outlet: string
+          podcast_id: string
+          reviewed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          article_excerpt?: string | null
+          article_published_at?: string | null
+          article_text?: string | null
+          article_title?: string
+          article_url?: string
+          created_at?: string
+          episode_id?: string
+          evidence?: Json
+          fetched_at?: string
+          id?: string
+          match_reasons?: string[]
+          match_score?: number
+          outlet?: string
+          podcast_id?: string
+          reviewed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_article_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_article_candidates_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       episode_best_text_source: {
         Row: {
           cleaned_len: number
@@ -7485,6 +7616,10 @@ export type Database = {
         }[]
       }
       immutable_unaccent: { Args: { s: string }; Returns: string }
+      is_hungarianish_public_ai_text: {
+        Args: { _text: string }
+        Returns: boolean
+      }
       is_publicly_visible_hu_podcast: {
         Args: { p_id: string }
         Returns: boolean
@@ -7493,6 +7628,8 @@ export type Database = {
         Args: { p_letter?: string; p_limit?: number; p_offset?: number }
         Returns: {
           ai_bio: string
+          ai_bio_confidence: number
+          ai_bio_status: string
           disambiguation_label: string
           episode_count: number
           gated_episode_count: number
@@ -7500,20 +7637,26 @@ export type Database = {
           guest_count: number
           host_count: number
           id: string
+          identity_ambiguous: boolean
           image_url: string
           latest_accepted_relevant_episode_at: string
+          manual_approved: boolean
           name: string
           podcast_count: number
           short_bio: string
           slug: string
           strong_mention_count: number
           total_count: number
+          wikipedia_match_confidence: number
+          wikipedia_match_status: string
         }[]
       }
       list_people_hub: {
         Args: { p_limit?: number; p_offset?: number; p_search?: string }
         Returns: {
           ai_bio: string
+          ai_bio_confidence: number
+          ai_bio_status: string
           disambiguation_label: string
           distinct_podcast_count: number
           episode_count: number
@@ -7522,8 +7665,10 @@ export type Database = {
           guest_count: number
           host_count: number
           id: string
+          identity_ambiguous: boolean
           image_url: string
           latest_accepted_relevant_episode_at: string
+          manual_approved: boolean
           name: string
           people_hub_score: number
           podcast_count: number
@@ -7532,6 +7677,8 @@ export type Database = {
           slug: string
           strong_mention_count: number
           total_count: number
+          wikipedia_match_confidence: number
+          wikipedia_match_status: string
         }[]
       }
       match_episodes_by_centroid: {
@@ -7713,6 +7860,28 @@ export type Database = {
         Args: { _older_than_minutes?: number }
         Returns: number
       }
+      recommendation_has_topic_bridge: {
+        Args: { p_candidate_topics: string[]; p_source_topics: string[] }
+        Returns: boolean
+      }
+      recommendation_is_compatible: {
+        Args: {
+          p_candidate_group: string
+          p_has_topic_bridge: boolean
+          p_similarity: number
+          p_source_group: string
+        }
+        Returns: boolean
+      }
+      recommendation_text_group: {
+        Args: {
+          p_category: string
+          p_podcast_title: string
+          p_title: string
+          p_topics: string[]
+        }
+        Returns: string
+      }
       recompute_mood_recommended_counts: {
         Args: never
         Returns: {
@@ -7761,6 +7930,10 @@ export type Database = {
       refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
       refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
+      requeue_legacy_clean_text_v4_backfill: {
+        Args: { _limit?: number; _tiers?: string[] }
+        Returns: Json
+      }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
