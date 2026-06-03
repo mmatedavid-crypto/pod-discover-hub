@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafeRelatedEpisode } from "@/lib/recommendationGuards";
+import { filterSafeRelatedEpisodes, isSafeRelatedEpisode } from "@/lib/recommendationGuards";
 
 describe("recommendationGuards", () => {
   it("does not recommend worship content for public affairs episodes just because the title mentions Isten", () => {
@@ -115,5 +115,39 @@ describe("recommendationGuards", () => {
     };
 
     expect(isSafeRelatedEpisode(source, candidate)).toBe(true);
+  });
+
+  it("ranks explainable entity/topic bridges above pure vector neighbours", () => {
+    const source = {
+      title: "Mészáros Lőrinc részvényeinek látványos zuhanása",
+      podcastTitle: "Puzsér Róbert",
+      category: "Society & Culture",
+      topics: ["közélet", "gazdaság"],
+      people: ["Mészáros Lőrinc", "Orbán Viktor"],
+      companies: ["Opus"],
+    };
+
+    const rows = filterSafeRelatedEpisodes(source, [
+      {
+        title: "Általános gazdasági beszélgetés",
+        podcastTitle: "Üzleti podcast",
+        category: "Business",
+        topics: ["gazdaság"],
+        people: [],
+        companies: [],
+        similarity: 0.92,
+      },
+      {
+        title: "Mi történik Mészáros Lőrinc cégeivel?",
+        podcastTitle: "Közéleti podcast",
+        category: "News & Politics",
+        topics: ["közélet", "gazdaság"],
+        people: ["Mészáros Lőrinc"],
+        companies: ["Opus"],
+        similarity: 0.61,
+      },
+    ], 2);
+
+    expect(rows[0].title).toBe("Mi történik Mészáros Lőrinc cégeivel?");
   });
 });

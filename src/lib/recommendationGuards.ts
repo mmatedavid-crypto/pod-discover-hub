@@ -76,6 +76,32 @@ function hasExplicitBridge(source: RecommendationContext, candidate: Recommendat
   );
 }
 
+function overlapCount(a?: string[] | null, b?: string[] | null): number {
+  if (!a?.length || !b?.length) return 0;
+  const left = new Set(a.map(normalizeText).filter(Boolean));
+  return b.reduce((count, item) => count + (left.has(normalizeText(item)) ? 1 : 0), 0);
+}
+
+function bridgeStrength(source: RecommendationContext, candidate: RecommendationCandidate): number {
+  return (
+    overlapCount(source.people, candidate.people) * 4 +
+    overlapCount(source.people, candidate.sharedPeople) * 4 +
+    overlapCount(source.companies, candidate.companies) * 3 +
+    overlapCount(source.companies, candidate.sharedCompanies) * 3 +
+    overlapCount(source.topics, candidate.topics) * 2 +
+    overlapCount(source.topics, candidate.sharedTopics) * 2
+  );
+}
+
+function safetyRank(source: RecommendationContext, candidate: RecommendationCandidate): number {
+  const sourceGroup = group(source);
+  const candidateGroup = group(candidate);
+  const similarity = candidate.similarity ?? 0;
+  const strength = bridgeStrength(source, candidate);
+  const sameSpecificGroup = sourceGroup !== "general" && sourceGroup === candidateGroup;
+  return strength * 10 + (sameSpecificGroup ? 3 : 0) + similarity;
+}
+
 export function isSafeRelatedEpisode(
   source: RecommendationContext,
   candidate: RecommendationCandidate,
@@ -113,5 +139,8 @@ export function filterSafeRelatedEpisodes<T extends RecommendationCandidate>(
   candidates: T[],
   limit: number,
 ): T[] {
-  return candidates.filter((candidate) => isSafeRelatedEpisode(source, candidate)).slice(0, limit);
+  return candidates
+    .filter((candidate) => isSafeRelatedEpisode(source, candidate))
+    .sort((a, b) => safetyRank(source, b) - safetyRank(source, a))
+    .slice(0, limit);
 }
