@@ -12,7 +12,10 @@ describe("production policy static guards", () => {
     expect(fn).toContain("submitGoogleSearchConsoleSitemap");
     expect(fn).toContain("https://www.googleapis.com/webmasters/v3/sites/");
     expect(fn).toContain("const changed = newsHash !== previousHash");
-    expect(fn).toContain("if (newsHash !== previousHash && newsItems.length > 0)");
+    expect(fn).toContain("const realNewsItemCount = newsItems.length");
+    expect(fn).toContain("const shouldSubmitToGoogle = changed && realNewsItemCount > 0");
+    expect(fn).toContain("if (shouldSubmitToGoogle)");
+    expect(fn).toContain("real_news_item_count");
     expect(fn).toContain("source_counts");
     expect(fn).toContain("google_submit_status");
     expect(fn).not.toContain("www.google.com/ping");

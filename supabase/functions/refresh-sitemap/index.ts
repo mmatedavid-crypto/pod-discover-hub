@@ -334,10 +334,15 @@ Deno.serve(async (req) => {
         addNewsItem(`${SITE}/podcast/${p.slug}/${(ep as any).slug}`, (ep as any).published_at, title, String(p.display_title || p.title || p.slug || 'podcast'));
       }
 
+      const realNewsItemCount = newsItems.length;
+
       // Always include the /heti hub as a fallback so the sitemap is never empty
-      // if no article/episode matches the 48h freshness window.
+      // if no article/episode matches the 48h freshness window. Keep the
+      // fallback timestamp stable so it does not trigger Search Console submits.
       if (newsItems.length === 0) {
-        addNewsItem(`${SITE}/heti`, new Date().toISOString(), 'Podiverzum Heti — magyar podcastfigyelő', 'fallback');
+        const latestHeti = (hetiRows ?? [])[0] as any;
+        const fallbackDate = latestHeti?.updated_at || latestHeti?.published_at || latestHeti?.week_start || '2026-06-01T00:00:00.000Z';
+        addNewsItem(`${SITE}/heti`, fallbackDate, 'Podiverzum Heti — magyar podcastfigyelő', 'fallback');
       }
 
       const newsXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -355,13 +360,14 @@ ${newsItems.join('\n')}
         .maybeSingle();
       const previousHash = (newsStateRow?.value as any)?.hash || null;
       const changed = newsHash !== previousHash;
+      const shouldSubmitToGoogle = changed && realNewsItemCount > 0;
       let googleSubmit: GoogleSubmitResult = {
         attempted: false,
         ok: false,
         status: null,
-        reason: changed ? 'not_attempted' : 'unchanged',
+        reason: shouldSubmitToGoogle ? 'not_attempted' : (changed ? 'changed_without_real_news_items' : 'unchanged'),
       };
-      if (newsHash !== previousHash && newsItems.length > 0) {
+      if (shouldSubmitToGoogle) {
         try {
           googleSubmit = await submitGoogleSearchConsoleSitemap(`${SITE}/news-sitemap.xml`);
         } catch (e) {
@@ -380,12 +386,13 @@ ${newsItems.join('\n')}
           previous_hash: previousHash,
           changed,
           url_count: newsItems.length,
+          real_news_item_count: realNewsItemCount,
           source_counts: newsSourceCounts,
           google_submit_attempted: googleSubmit.attempted,
           google_submit_ok: googleSubmit.ok,
           google_submit_status: googleSubmit.status,
           google_submit_reason: googleSubmit.reason,
-          submit_needed: changed && !googleSubmit.ok,
+          submit_needed: shouldSubmitToGoogle && !googleSubmit.ok,
           updated_at: new Date().toISOString(),
         },
       });
