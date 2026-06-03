@@ -430,7 +430,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               const audioSrc = detectAudioSource(e);
               const playerAudioUrl = audioSrc?.url || e.audio_url || null;
               const thumb = e.image_url || podcast.image_url || null;
-              const optimizedThumb = optimizedImageUrl(thumb, { width: i < 4 ? 160 : 96, height: i < 4 ? 160 : 96 });
+              const optimizedThumb = optimizedImageUrl(thumb, { width: 96, height: 96 });
               const isCurrent = currentEpisode?.id === e.id;
               const isThisPlaying = isCurrent && isPlaying;
               const handlePlay = () => {
@@ -458,14 +458,14 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
                       {thumb ? (
                         <img
                           src={optimizedThumb || thumb}
-                          srcSet={imageSrcSet(thumb, [96, 160, 240])}
+                          srcSet={imageSrcSet(thumb, [64, 96, 160])}
                           sizes="(max-width: 640px) 64px, 80px"
                           alt=""
                           loading={i < 4 ? "eager" : "lazy"}
                           fetchPriority={i < 4 ? "high" : "auto"}
                           decoding="async"
-                          width={i < 4 ? 160 : 96}
-                          height={i < 4 ? 160 : 96}
+                          width={96}
+                          height={96}
                           className="h-full w-full object-cover"
                         />
                       ) : null}

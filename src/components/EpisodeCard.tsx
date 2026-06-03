@@ -265,7 +265,14 @@ function EpisodeRailCard({
       <Link to={`/podcast/${p.slug}/${e.slug}`} className="block">
         <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
           <div className="absolute inset-0 scale-110 opacity-35 blur-xl">
-            <PodcastCover title={podTitle} src={p.image_url} size="lg" className="h-full rounded-none border-0" />
+            <PodcastCover
+              title={podTitle}
+              src={p.image_url}
+              size="sm"
+              loading="lazy"
+              fetchPriority="low"
+              className="h-full rounded-none border-0"
+            />
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/45 to-transparent" />
           <div className="absolute left-3 top-3 w-16 rounded-md shadow-lg ring-1 ring-border/70 sm:w-20">
