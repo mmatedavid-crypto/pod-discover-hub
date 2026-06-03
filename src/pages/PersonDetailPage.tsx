@@ -282,9 +282,15 @@ export default function PersonDetailPage() {
         });
       }
 
+      const personName = (p as any).name;
+      const epCount = epList.length;
+      const epLabel = epCount > 0 ? ` – ${epCount} podcast epizódban hallható` : "";
+      const descBase = bio?.trim() || safeDesc;
+      const descSuffix = epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amelyben ${personName} szerepel.` : "";
+      const fullDesc = `${descBase}${descSuffix}`.trim();
       setSeo({
-        title: `${(p as any).name} podcast epizódok, interjúk és említések | Podiverzum`,
-        description: bio?.slice(0, 160) || safeDesc,
+        title: `${personName}${epLabel} | Podiverzum`,
+        description: fullDesc.length > 160 ? fullDesc.slice(0, 157).trimEnd() + "…" : fullDesc,
         canonical: pageUrl,
         noindex: !(p as any).is_indexable || thinPage,
         jsonLd: (!(p as any).is_indexable || thinPage) ? undefined : jsonLd,
