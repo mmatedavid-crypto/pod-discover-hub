@@ -38,6 +38,35 @@ const stripHtml = (s?: string | null) =>
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
 
+function hasVerifiedPersonWiki(person: Record<string, unknown>): boolean {
+  return person.wikipedia_match_status === "verified"
+    && Number(person.wikipedia_match_confidence || 0) >= 0.8;
+}
+
+function isSafeGeneratedPersonBio(person: Record<string, unknown>, text?: string | null): boolean {
+  const raw = stripHtml(text);
+  if (!raw) return false;
+  if (person.identity_ambiguous && !person.manual_approved && !hasVerifiedPersonWiki(person)) return false;
+  if (person.ai_bio_status && person.ai_bio_status !== "completed") return false;
+  if (person.ai_bio_confidence != null && Number(person.ai_bio_confidence) < 0.75) return false;
+  return true;
+}
+
+function safePersonBioForPrerender(person: Record<string, unknown>): string {
+  const verifiedWiki = hasVerifiedPersonWiki(person);
+  const aiBio = typeof person.ai_bio === "string" ? person.ai_bio : "";
+  const shortBio = typeof person.short_bio === "string" ? person.short_bio : "";
+  const wikiExtract = typeof person.wikipedia_extract === "string" ? person.wikipedia_extract : "";
+  const wikiDescription = typeof person.wikipedia_description === "string" ? person.wikipedia_description : "";
+
+  return stripHtml(
+    (isSafeGeneratedPersonBio(person, aiBio) && aiBio)
+      || (verifiedWiki && (wikiExtract || wikiDescription))
+      || (isSafeGeneratedPersonBio(person, shortBio) && shortBio)
+      || "",
+  );
+}
+
 function htmlResponse(body: string, status = 200) {
   // Build a fresh Headers per response — sharing a plain object can let the
   // gateway override Content-Type to text/plain.
@@ -480,7 +509,7 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, wikipedia_extract, wikipedia_description, short_bio, is_public, is_indexable, ai_review_status, activation_status")
+    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
@@ -501,7 +530,7 @@ async function buildPerson(
     .slice(0, 40);
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
-  const bio = stripHtml(person.ai_bio || person.wikipedia_extract || person.wikipedia_description || person.short_bio || "");
+  const bio = safePersonBioForPrerender(person);
   const desc = bio
     ? truncate(bio, 160)
     : truncate(`${person.name} — epizódok és említések a Podiverzumon. Magyar podcastek, AI-összefoglalóval.`, 160);

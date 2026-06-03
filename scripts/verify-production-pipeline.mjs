@@ -193,7 +193,8 @@ SELECT jsonb_build_object(
     'religion_cross_group_runtime_blocked', false
   ),
   'people_hub_identity_safety', jsonb_build_object(
-    'policy_configured_v1', (SELECT (setting_values->'people_hub_identity_safety_policy'->>'version')::int >= 1 FROM settings),
+    'policy_configured_v2', (SELECT (setting_values->'people_hub_identity_safety_policy'->>'version')::int >= 2 FROM settings),
+    'prerender_bio_rule_recorded', (SELECT setting_values->'people_hub_identity_safety_policy' ? 'prerender_bio_rule' FROM settings),
     'list_people_hub_has_identity_fields', EXISTS (
       SELECT 1
       FROM pg_proc p

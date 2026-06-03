@@ -104,6 +104,8 @@ describe("production policy static guards", () => {
 
   it("keeps production verifier covering recommendation and people identity policies", () => {
     const verifier = read("scripts/verify-production-pipeline.mjs");
+    const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
+    const prerender = read("supabase/functions/prerender/index.ts");
 
     expect(verifier).toContain("related_episode_quality_policy");
     expect(verifier).toContain("people_hub_identity_safety_policy");
@@ -116,7 +118,19 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("Mészáros Lőrinc tündöklése");
     expect(verifier).toContain("list_people_hub_has_identity_fields");
     expect(verifier).toContain("list_people_alpha_has_identity_fields");
+    expect(verifier).toContain("policy_configured_v2");
+    expect(verifier).toContain("prerender_bio_rule_recorded");
     expect(verifier).toContain("failures.push(`related_episode_quality.${key}`)");
     expect(verifier).toContain("failures.push(`people_hub_identity_safety.${key}`)");
+
+    expect(peopleMigration).toContain("'version', 2");
+    expect(peopleMigration).toContain("prerender_bio_rule");
+    expect(peopleMigration).toContain("identity_ambiguous boolean");
+    expect(peopleMigration).toContain("wikipedia_match_confidence numeric");
+
+    expect(prerender).toContain("safePersonBioForPrerender");
+    expect(prerender).toContain("isSafeGeneratedPersonBio");
+    expect(prerender).toContain("wikipedia_match_confidence");
+    expect(prerender).not.toContain("const bio = stripHtml(person.ai_bio ||");
   });
 });
