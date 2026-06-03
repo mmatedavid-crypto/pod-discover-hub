@@ -11,10 +11,15 @@ describe("smart player recommendation policy", () => {
 
     const provider = read("src/components/smart-player/SmartPlayerProvider.tsx");
     const bar = read("src/components/smart-player/SmartPlayerBar.tsx");
+    const episodePlayer = read("src/components/smart-player/EpisodeAudioPlayer.tsx");
 
     expect(provider).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return \"series\"");
     expect(provider).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return;");
     expect(bar).toContain("!error && SMART_PLAYER_RECOMMENDATIONS_ENABLED");
+    expect(bar).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED ? \"Smart ajánlások\" : \"Lejátszó részletei\"");
+    expect(bar).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED ? \"Smart\" : \"Részletek\"");
+    expect(episodePlayer).toContain("{SMART_PLAYER_RECOMMENDATIONS_ENABLED && (");
+    expect(episodePlayer).toContain("<SmartDiscoveryPanel episodeIdOverride={episode.id} variant=\"compact\" />");
   });
 
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
