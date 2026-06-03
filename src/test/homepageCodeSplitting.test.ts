@@ -17,4 +17,13 @@ describe("homepage code splitting", () => {
     expect(index).not.toContain('import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails"');
     expect(index).not.toContain('import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip"');
   });
+
+  it("keeps the weekly editorial strip visible even before the first published issue", () => {
+    const strip = read("src/components/WeeklyEditorialStrip.tsx");
+
+    expect(strip).toContain('const href = post ? `/heti/${hetiSlug(post)}` : "/heti"');
+    expect(strip).toContain('const title = post?.title || "A heti válogatás készül"');
+    expect(strip).toContain("Friss epizódok a Hetiben");
+    expect(strip).not.toContain("if (!post) return null");
+  });
 });

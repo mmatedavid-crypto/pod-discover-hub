@@ -32,13 +32,17 @@ export default function WeeklyEditorialStrip() {
     })();
   }, []);
 
-  if (!post) return null;
+  const teaser = post
+    ? (post.intro || "").split("\n").find((l) => l.trim().length > 30)?.trim().slice(0, 180) ||
+      `${post.items?.length ?? 0} epizód, amit érdemes meghallgatni a héten.`
+    : "A szerkesztett heti válogatás készül. Addig a legfrissebb magyar epizódokból lehet továbbindulni.";
 
-  const teaser =
-    (post.intro || "").split("\n").find((l) => l.trim().length > 30)?.trim().slice(0, 180) ||
-    `${post.items?.length ?? 0} epizód, amit érdemes meghallgatni a héten.`;
-
-  const href = `/heti/${hetiSlug(post)}`;
+  const href = post ? `/heti/${hetiSlug(post)}` : "/heti";
+  const title = post?.title || "A heti válogatás készül";
+  const description = post
+    ? "A hét legérdekesebb magyar podcastjai, témái és idézetei."
+    : "Friss magyar podcastok egy helyen, amíg elkészül a következő Podiverzum Heti.";
+  const cta = post ? "Megnézem a heti válogatást" : "Friss epizódok a Hetiben";
 
   return (
     <section className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] via-card/40 to-card/40 p-5 sm:p-6">
@@ -50,11 +54,11 @@ export default function WeeklyEditorialStrip() {
           </div>
           <h2 className="text-lg sm:text-xl font-semibold leading-snug mb-1.5">
             <Link to={href} className="hover:text-primary">
-              {post.title || "Podiverzum Heti"}
+              {title}
             </Link>
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed mb-1">
-            A hét legérdekesebb magyar podcastjai, témái és idézetei.
+            {description}
           </p>
           <p className="text-sm text-foreground/80 leading-relaxed mb-3 line-clamp-2">
             {teaser}
@@ -63,7 +67,7 @@ export default function WeeklyEditorialStrip() {
             to={href}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
           >
-            Megnézem a heti válogatást
+            {cta}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
