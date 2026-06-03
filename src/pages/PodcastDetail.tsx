@@ -145,12 +145,21 @@ export default function PodcastDetail() {
         const seoCategory = categoryLabel(data.category) || data.category;
         const isAcceptedHungarian = !isForeignRejected(data) && (data.is_hungarian === true || data.language_decision === "accept_hungarian");
         const noindex = !isAcceptedHungarian || data.rss_status === "failed" || data.rss_status === "inactive";
+        const displayName = data.display_title || data.title;
+        const epCount = allEps.length;
+        const epCountLabel = epCount > 0 ? `${epCount} epizód · ` : "";
+        const seoTitle = data.seo_title
+          ? (/\|\s*Podiverzum\s*$/i.test(data.seo_title) ? data.seo_title : `${data.seo_title} | Podiverzum`)
+          : `${displayName} – ${epCountLabel}magyar podcast | Podiverzum`;
+        const brandSuffix = " Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
+        const descCore = (hostPrefix + baseDesc).trim();
+        const seoDescription = snippet(`${descCore}${descCore.length < 100 ? brandSuffix : ""}`, 160);
         setSeo({
-          title: data.seo_title || `${data.title} – Podiverzum`,
-          description: snippet(hostPrefix + baseDesc, 160),
+          title: seoTitle,
+          description: seoDescription,
           canonical,
           noindex,
-          image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: seoCategory || "Podcast", image: data.image_url }),
+          image: ogImageUrl({ kind: "podcast", title: displayName, subtitle: seoCategory || "Podcast", image: data.image_url }),
           jsonLd: noindex ? undefined : [
             {
               "@context": "https://schema.org",
