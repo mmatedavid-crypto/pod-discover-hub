@@ -9,8 +9,10 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Link,
   Preview,
+  Section,
   Text,
 } from 'npm:@react-email/components@0.0.22'
 
@@ -25,26 +27,28 @@ export const InviteEmail = ({
   siteUrl,
   confirmationUrl,
 }: InviteEmailProps) => (
-  <Html lang="en" dir="ltr">
+  <Html lang="hu" dir="ltr">
     <Head />
-    <Preview>You've been invited to join {siteName}</Preview>
+    <Preview>Meghívót kaptál a {siteName}-ra</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>You've been invited</Heading>
+        <Section style={logoWrap}>
+          <Img src={logoSrc} width="56" height="56" alt="Podiverzum" style={logo} />
+        </Section>
+        <Heading style={h1}>Meghívót kaptál</Heading>
         <Text style={text}>
-          You've been invited to join{' '}
+          Meghívást kaptál a{' '}
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
-          . Click the button below to accept the invitation and create your
-          account.
+          -ra. Kattints az alábbi gombra a meghívás elfogadásához és a fiókod
+          létrehozásához.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Accept Invitation
+          Meghívás elfogadása
         </Button>
         <Text style={footer}>
-          If you weren't expecting this invitation, you can safely ignore this
-          email.
+          Ha nem számítottál erre a meghívóra, nyugodtan hagyd figyelmen kívül.
         </Text>
       </Container>
     </Body>
@@ -53,27 +57,36 @@ export const InviteEmail = ({
 
 export default InviteEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
+const logoSrc = 'https://podiverzum.hu/podiverzum-logo-square.png'
+const main = {
+  backgroundColor: '#ffffff',
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+}
+const container = { padding: '32px 28px', maxWidth: '560px' }
+const logoWrap = { margin: '0 0 24px' }
+const logo = { borderRadius: '10px', display: 'block' }
 const h1 = {
-  fontSize: '22px',
+  fontSize: '24px',
   fontWeight: 'bold' as const,
-  color: '#000000',
+  color: '#0f0f0f',
   margin: '0 0 20px',
+  letterSpacing: '-0.01em',
 }
 const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+  fontSize: '15px',
+  color: '#3d3d3d',
+  lineHeight: '1.55',
+  margin: '0 0 22px',
 }
-const link = { color: 'inherit', textDecoration: 'underline' }
+const link = { color: '#e51414', textDecoration: 'underline' }
 const button = {
-  backgroundColor: '#000000',
+  backgroundColor: '#e51414',
   color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
+  fontSize: '15px',
+  fontWeight: 'bold' as const,
+  borderRadius: '10px',
+  padding: '13px 22px',
   textDecoration: 'none',
+  display: 'inline-block',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: '#9a9a9a', margin: '32px 0 0', lineHeight: '1.5' }

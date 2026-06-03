@@ -9,17 +9,15 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Link,
   Preview,
+  Section,
   Text,
 } from 'npm:@react-email/components@0.0.22'
 
 interface EmailChangeEmailProps {
   siteName: string
-  // oldEmail is the user's current address (HookData.OldEmail). For the
-  // NEW-recipient half of a secure email_change fanout, `email` equals the
-  // recipient (NEW), so the "from" line must render oldEmail to read
-  // "from OLD to NEW" instead of "from NEW to NEW".
   oldEmail: string
   email: string
   newEmail: string
@@ -32,32 +30,34 @@ export const EmailChangeEmail = ({
   newEmail,
   confirmationUrl,
 }: EmailChangeEmailProps) => (
-  <Html lang="en" dir="ltr">
+  <Html lang="hu" dir="ltr">
     <Head />
-    <Preview>Confirm your email change for {siteName}</Preview>
+    <Preview>Erősítsd meg az email-cím módosítást — {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Confirm your email change</Heading>
+        <Section style={logoWrap}>
+          <Img src={logoSrc} width="56" height="56" alt="Podiverzum" style={logo} />
+        </Section>
+        <Heading style={h1}>Email-cím módosítás megerősítése</Heading>
         <Text style={text}>
-          You requested to change your email address for {siteName} from{' '}
+          Email-cím módosítást kértél a {siteName} fiókodhoz a következő címről:{' '}
           <Link href={`mailto:${oldEmail}`} style={link}>
             {oldEmail}
           </Link>{' '}
-          to{' '}
+          erre:{' '}
           <Link href={`mailto:${newEmail}`} style={link}>
             {newEmail}
           </Link>
           .
         </Text>
         <Text style={text}>
-          Click the button below to confirm this change:
+          Kattints az alábbi gombra a változtatás megerősítéséhez:
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Confirm Email Change
+          Módosítás megerősítése
         </Button>
         <Text style={footer}>
-          If you didn't request this change, please secure your account
-          immediately.
+          Ha nem te kérted ezt a módosítást, kérjük, azonnal biztosítsd a fiókodat.
         </Text>
       </Container>
     </Body>
@@ -66,27 +66,36 @@ export const EmailChangeEmail = ({
 
 export default EmailChangeEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
+const logoSrc = 'https://podiverzum.hu/podiverzum-logo-square.png'
+const main = {
+  backgroundColor: '#ffffff',
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+}
+const container = { padding: '32px 28px', maxWidth: '560px' }
+const logoWrap = { margin: '0 0 24px' }
+const logo = { borderRadius: '10px', display: 'block' }
 const h1 = {
-  fontSize: '22px',
+  fontSize: '24px',
   fontWeight: 'bold' as const,
-  color: '#000000',
+  color: '#0f0f0f',
   margin: '0 0 20px',
+  letterSpacing: '-0.01em',
 }
 const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+  fontSize: '15px',
+  color: '#3d3d3d',
+  lineHeight: '1.55',
+  margin: '0 0 22px',
 }
-const link = { color: 'inherit', textDecoration: 'underline' }
+const link = { color: '#e51414', textDecoration: 'underline' }
 const button = {
-  backgroundColor: '#000000',
+  backgroundColor: '#e51414',
   color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
+  fontSize: '15px',
+  fontWeight: 'bold' as const,
+  borderRadius: '10px',
+  padding: '13px 22px',
   textDecoration: 'none',
+  display: 'inline-block',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: '#9a9a9a', margin: '32px 0 0', lineHeight: '1.5' }
