@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-// Global "/" hotkey: focus the first <input> inside the site header search form.
+// Global "/" hotkey: focus the visible site search input.
 // Ignored when the user is typing in another input/textarea/contenteditable.
 export function SearchHotkey() {
   useEffect(() => {
@@ -16,13 +16,18 @@ export function SearchHotkey() {
       ) {
         return;
       }
-      const headerInput = document.querySelector<HTMLInputElement>(
-        'header input[placeholder^="Search"]',
-      );
-      if (headerInput) {
+      const candidates = Array.from(document.querySelectorAll<HTMLInputElement>(
+        'form[role="search"] input[aria-label="Keresés"], input[aria-label="Keresés"]',
+      ));
+      const searchInput = candidates.find((input) => {
+        const rect = input.getBoundingClientRect();
+        const style = window.getComputedStyle(input);
+        return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+      });
+      if (searchInput) {
         e.preventDefault();
-        headerInput.focus();
-        headerInput.select();
+        searchInput.focus();
+        searchInput.select();
       }
     };
     window.addEventListener("keydown", handler);
