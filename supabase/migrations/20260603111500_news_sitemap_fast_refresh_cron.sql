@@ -5,13 +5,13 @@ VALUES (
     'enabled', true,
     'cadence_minutes', 15,
     'mode', 'refresh_sitemap_lite',
-    'google_submit_policy', 'submit_only_when_news_sitemap_hash_changes',
+    'google_submit_policy', 'submit_only_when_news_sitemap_has_new_urls',
     'requires_google_secrets', jsonb_build_array(
       'GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL',
       'GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY',
       'GOOGLE_SEARCH_CONSOLE_SITE_URL'
     ),
-    'note', 'Refreshes sitemap lite every 15 minutes; refresh-sitemap submits news-sitemap.xml to Google Search Console only when the generated XML hash changes.'
+    'note', 'Refreshes sitemap lite every 15 minutes; refresh-sitemap submits news-sitemap.xml to Google Search Console only when newly published news URLs appear.'
   ),
   now()
 )
@@ -27,7 +27,7 @@ BEGIN
 
   -- Retire the older daily/lite job name if it exists; the 15-minute job is
   -- cheap because it only rewrites small sitemap groups and Google submit is
-  -- hash-gated in the edge function.
+  -- gated by newly published news URLs in the edge function.
   IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'podiverzum-refresh-sitemap-lite-daily') THEN
     PERFORM cron.unschedule('podiverzum-refresh-sitemap-lite-daily');
   END IF;

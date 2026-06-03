@@ -358,14 +358,20 @@ ${newsItems.join('\n')}
         .select('value')
         .eq('key', 'news_sitemap_state')
         .maybeSingle();
-      const previousHash = (newsStateRow?.value as any)?.hash || null;
+      const previousState = (newsStateRow?.value as any) || {};
+      const previousHash = previousState?.hash || null;
+      const previousUrls = new Set<string>(Array.isArray(previousState?.urls) ? previousState.urls : []);
+      const currentUrls = Array.from(seenNewsUrls);
+      const newUrls = currentUrls.filter((loc) => !previousUrls.has(loc));
       const changed = newsHash !== previousHash;
-      const shouldSubmitToGoogle = changed && realNewsItemCount > 0;
+      const shouldSubmitToGoogle = newUrls.length > 0 && realNewsItemCount > 0;
       let googleSubmit: GoogleSubmitResult = {
         attempted: false,
         ok: false,
         status: null,
-        reason: shouldSubmitToGoogle ? 'not_attempted' : (changed ? 'changed_without_real_news_items' : 'unchanged'),
+        reason: shouldSubmitToGoogle
+          ? 'not_attempted'
+          : (changed ? 'changed_without_new_news_urls' : 'unchanged'),
       };
       if (shouldSubmitToGoogle) {
         try {
@@ -385,6 +391,9 @@ ${newsItems.join('\n')}
           hash: newsHash,
           previous_hash: previousHash,
           changed,
+          urls: currentUrls,
+          new_url_count: newUrls.length,
+          new_urls_sample: newUrls.slice(0, 20),
           url_count: newsItems.length,
           real_news_item_count: realNewsItemCount,
           source_counts: newsSourceCounts,
@@ -490,6 +499,7 @@ ${newsItems.join('\n')}
         },
         news_sitemap: {
           changed,
+          new_url_count: newUrls.length,
           source_counts: newsSourceCounts,
           google_submit_attempted: googleSubmit.attempted,
           google_submit_ok: googleSubmit.ok,

@@ -53,7 +53,7 @@ describe("production policy static guards", () => {
     expect(verifier).not.toContain("legacy_v3_backfill_enabled', (SELECT");
   });
 
-  it("keeps news sitemap submission hash-gated through Google Search Console", () => {
+  it("keeps news sitemap submission new-url-gated through Google Search Console", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
     const migration = read("supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql");
 
@@ -61,8 +61,12 @@ describe("production policy static guards", () => {
     expect(fn).toContain("https://www.googleapis.com/webmasters/v3/sites/");
     expect(fn).toContain("const changed = newsHash !== previousHash");
     expect(fn).toContain("const realNewsItemCount = newsItems.length");
-    expect(fn).toContain("const shouldSubmitToGoogle = changed && realNewsItemCount > 0");
+    expect(fn).toContain("const previousUrls = new Set<string>");
+    expect(fn).toContain("const newUrls = currentUrls.filter");
+    expect(fn).toContain("const shouldSubmitToGoogle = newUrls.length > 0 && realNewsItemCount > 0");
     expect(fn).toContain("if (shouldSubmitToGoogle)");
+    expect(fn).toContain("new_url_count");
+    expect(fn).toContain("new_urls_sample");
     expect(fn).toContain("real_news_item_count");
     expect(fn).toContain("source_counts");
     expect(fn).toContain("google_submit_status");
@@ -71,7 +75,7 @@ describe("production policy static guards", () => {
 
     expect(migration).toContain("podiverzum-refresh-sitemap-lite-15min");
     expect(migration).toContain("*/15 * * * *");
-    expect(migration).toContain("submit_only_when_news_sitemap_hash_changes");
+    expect(migration).toContain("submit_only_when_news_sitemap_has_new_urls");
   });
 
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
