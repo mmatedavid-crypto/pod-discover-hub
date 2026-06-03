@@ -61,7 +61,8 @@ settings AS (
     'episode_clean_text_controls',
     'episode_clean_text_progress',
     'news_sitemap_refresh_controls',
-    'news_sitemap_state'
+    'news_sitemap_state',
+    'public_ai_language_guard_policy'
   )
 ),
 controls AS (
@@ -93,7 +94,8 @@ controls AS (
     'episode_clean_text_controls', setting_values->'episode_clean_text_controls',
     'episode_clean_text_progress', setting_values->'episode_clean_text_progress',
     'news_sitemap_refresh_controls', setting_values->'news_sitemap_refresh_controls',
-    'news_sitemap_state', setting_values->'news_sitemap_state'
+    'news_sitemap_state', setting_values->'news_sitemap_state',
+    'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy'
   ) AS summary
   FROM settings
 ),
@@ -149,6 +151,12 @@ SELECT jsonb_build_object(
     'state_not_legacy_google_ping', (SELECT NOT (setting_values->'news_sitemap_state' ? 'google_ping_status') FROM settings),
     'submit_not_known_404', (SELECT COALESCE((setting_values->'news_sitemap_state'->>'google_submit_status')::int <> 404, true) FROM settings),
     'submit_policy_recorded', (SELECT setting_values->'news_sitemap_state' ? 'submit_needed' FROM settings)
+  ),
+  'public_ai_language_guard', jsonb_build_object(
+    'sql_guard_function_exists', to_regprocedure('public.is_hungarianish_public_ai_text(text)') IS NOT NULL,
+    'episode_trigger_function_exists', to_regprocedure('public.enforce_hu_episode_public_ai_text()') IS NOT NULL,
+    'podcast_trigger_function_exists', to_regprocedure('public.enforce_hu_podcast_public_ai_text()') IS NOT NULL,
+    'policy_configured_v2', (SELECT (setting_values->'public_ai_language_guard_policy'->>'version')::int >= 2 FROM settings)
   ),
   'accepted_hu_episodes_with_description', (SELECT count(*) FROM accepted_hu),
   'clean_text', (SELECT to_jsonb(clean_counts) FROM clean_counts),
@@ -233,6 +241,11 @@ for (const [key, ok] of Object.entries(articlePipeline)) {
 const seoNewsSitemap = snapshot.seo_news_sitemap ?? {};
 for (const [key, ok] of Object.entries(seoNewsSitemap)) {
   if (ok !== true) failures.push(`seo_news_sitemap.${key}`);
+}
+
+const publicAiLanguageGuard = snapshot.public_ai_language_guard ?? {};
+for (const [key, ok] of Object.entries(publicAiLanguageGuard)) {
+  if (ok !== true) failures.push(`public_ai_language_guard.${key}`);
 }
 
 const clean = snapshot.clean_text ?? {};
