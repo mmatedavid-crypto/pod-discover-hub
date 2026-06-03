@@ -13,6 +13,7 @@
     "audit:ai-models": "node scripts/audit-ai-models.mjs",
     "verify:production-backend": "node scripts/verify-production-backend.mjs",
     "verify:production-pipeline": "node scripts/verify-production-pipeline.mjs",
+    "validate:deploy-env": "node scripts/validate-deploy-env.mjs",
     "preflight:migrations": "node scripts/preflight-migrations.mjs",
     "test": "vitest run",
     "test:watch": "vitest"

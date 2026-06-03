@@ -23,12 +23,18 @@ const rpcChecks = [
 ];
 
 const functionChecks = [
+  "ai-enrich",
   "intelligence-reprocess-admin",
   "clean-text-autopilot",
+  "episode-clean-text-runner",
   "episode-clean-text-candidate-runner",
   "episode-clean-text-candidate-promoter",
   "episode-article-pairer",
   "episode-best-text-source-runner",
+  "seo-enrich-runner",
+  "seo-enrich-enqueue",
+  "refresh-sitemap",
+  "prerender",
   "data-repair-apply-runner",
   "entity-quality-apply-runner",
   "entity-quality-autopilot",

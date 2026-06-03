@@ -5,6 +5,34 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
 
 describe("production policy static guards", () => {
+  it("fails Supabase backend deploy early when required secrets are missing", () => {
+    const validator = read("scripts/validate-deploy-env.mjs");
+    const backendVerifier = read("scripts/verify-production-backend.mjs");
+    const pkg = read("package.json");
+
+    expect(pkg).toContain('"validate:deploy-env": "node scripts/validate-deploy-env.mjs"');
+    for (const secret of [
+      "SUPABASE_ACCESS_TOKEN",
+      "SUPABASE_DB_PASSWORD",
+      "SUPABASE_READONLY_DATABASE_URL",
+      "SUPABASE_PUBLISHABLE_KEY",
+    ]) {
+      expect(validator).toContain(secret);
+    }
+
+    for (const fn of [
+      "ai-enrich",
+      "episode-clean-text-runner",
+      "episode-article-pairer",
+      "episode-best-text-source-runner",
+      "seo-enrich-runner",
+      "refresh-sitemap",
+      "prerender",
+    ]) {
+      expect(backendVerifier).toContain(`"${fn}"`);
+    }
+  });
+
   it("keeps legacy clean-text backfill quality-gated instead of globally enabled", () => {
     const migration = read("supabase/migrations/20260603171000_clean_text_backfill_quality_gate_consolidated.sql");
     const runner = read("supabase/functions/episode-clean-text-runner/index.ts");
