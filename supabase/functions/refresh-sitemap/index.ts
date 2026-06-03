@@ -292,13 +292,23 @@ Deno.serve(async (req) => {
       // HVG / 444 / Telex, but gated enough that bedtime stories, daily prayers,
       // foreign SEO spam and radio filler do not pollute Google News.
       const NEWS_CUTOFF = Date.now() - 2 * 24 * 3600 * 1000;
-      const newsItems: string[] = (hetiRows ?? [])
+      const seenNewsUrls = new Set<string>();
+      const newsItems: string[] = [];
+      const newsSourceCounts: Record<string, number> = {};
+      const addNewsItem = (loc: string, publishedAt: string, title: string, source: string) => {
+        if (newsItems.length >= 1000 || seenNewsUrls.has(loc)) return;
+        seenNewsUrls.add(loc);
+        newsSourceCounts[source] = (newsSourceCounts[source] || 0) + 1;
+        newsItems.push(newsTag(loc, publishedAt, title));
+      };
+
+      (hetiRows ?? [])
         .filter((p: any) => p.published_at && new Date(p.published_at).getTime() >= NEWS_CUTOFF)
         .slice(0, 1000)
-        .map((p: any) => {
+        .forEach((p: any) => {
           const slug = hetiSlugOf(p);
           const title = p.title || `Podiverzum Heti – ${p.week_start}`;
-          return newsTag(`${SITE}/heti/${slug}`, p.published_at, title);
+          addNewsItem(`${SITE}/heti/${slug}`, p.published_at, title, 'Podiverzum Heti');
         });
 
       const { data: freshEpisodes = [] } = await sb
@@ -321,13 +331,13 @@ Deno.serve(async (req) => {
         if ((perPodcast.get(key) || 0) >= cap) continue;
         perPodcast.set(key, (perPodcast.get(key) || 0) + 1);
         const title = String((ep as any).display_title || (ep as any).title || '').trim();
-        newsItems.push(newsTag(`${SITE}/podcast/${p.slug}/${(ep as any).slug}`, (ep as any).published_at, title));
+        addNewsItem(`${SITE}/podcast/${p.slug}/${(ep as any).slug}`, (ep as any).published_at, title, String(p.display_title || p.title || p.slug || 'podcast'));
       }
 
       // Always include the /heti hub as a fallback so the sitemap is never empty
       // if no article/episode matches the 48h freshness window.
       if (newsItems.length === 0) {
-        newsItems.push(newsTag(`${SITE}/heti`, new Date().toISOString(), 'Podiverzum Heti — magyar podcastfigyelő'));
+        addNewsItem(`${SITE}/heti`, new Date().toISOString(), 'Podiverzum Heti — magyar podcastfigyelő', 'fallback');
       }
 
       const newsXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -370,6 +380,7 @@ ${newsItems.join('\n')}
           previous_hash: previousHash,
           changed,
           url_count: newsItems.length,
+          source_counts: newsSourceCounts,
           google_submit_attempted: googleSubmit.attempted,
           google_submit_ok: googleSubmit.ok,
           google_submit_status: googleSubmit.status,
@@ -468,6 +479,15 @@ ${newsItems.join('\n')}
           people: peopleUrls.length,
           organizations: orgUrls.length,
           topics: topicUrls.length,
+          news: newsItems.length,
+        },
+        news_sitemap: {
+          changed,
+          source_counts: newsSourceCounts,
+          google_submit_attempted: googleSubmit.attempted,
+          google_submit_ok: googleSubmit.ok,
+          google_submit_status: googleSubmit.status,
+          google_submit_reason: googleSubmit.reason,
         },
         files: ['pages.xml', ...podFiles, ...peopleFiles, ...orgFiles, ...topicFiles],
         index_entries: indexEntries,
