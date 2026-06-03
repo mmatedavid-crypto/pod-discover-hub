@@ -12,6 +12,7 @@
     "audit:intelligence": "node scripts/audit-intelligence.mjs",
     "audit:ai-models": "node scripts/audit-ai-models.mjs",
     "verify:production-backend": "node scripts/verify-production-backend.mjs",
+    "verify:production-edge-seo": "node scripts/verify-production-edge-seo.mjs",
     "verify:production-pipeline": "node scripts/verify-production-pipeline.mjs",
     "report:production-deploy-gap": "node scripts/report-production-deploy-gap.mjs",
     "validate:deploy-env": "node scripts/validate-deploy-env.mjs",

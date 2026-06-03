@@ -127,6 +127,10 @@ describe("production policy static guards", () => {
 
   it("keeps SEO alias routes redirected at the Cloudflare edge", () => {
     const worker = read("infra/cloudflare-worker/worker.js");
+    const verifier = read("scripts/verify-production-edge-seo.mjs");
+    const pkg = read("package.json");
+
+    expect(pkg).toContain('"verify:production-edge-seo": "node scripts/verify-production-edge-seo.mjs"');
 
     for (const pair of [
       ['/^\\/search\\/?$/', '"/kereses"'],
@@ -143,6 +147,27 @@ describe("production policy static guards", () => {
       expect(worker).toContain(pair[1]);
     }
     expect(worker).toContain('"X-Redirect": "alias-to-canonical-301"');
+
+    for (const path of [
+      "/search",
+      "/categories",
+      "/podcastok",
+      "/toplist",
+      "/b2b",
+      "/mediafigyeles",
+      "/heti-valogatas",
+      "/szervezetek/fradi",
+      "/part/fidesz",
+      "/sitemap.xml",
+      "/news-sitemap.xml",
+      "/robots.txt",
+      "/llms.txt",
+    ]) {
+      expect(verifier).toContain(path);
+    }
+    expect(verifier).toContain("redirect: \"manual\"");
+    expect(verifier).toContain("worker-sitemap-proxy");
+    expect(verifier).toContain("max-age=300");
   });
 
   it("keeps llms.txt canonical, Hungarian-first, and free of unsupported sitemap query URLs", () => {
