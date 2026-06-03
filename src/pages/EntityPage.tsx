@@ -271,11 +271,11 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             <p className="text-foreground/85 mt-4 max-w-2xl leading-relaxed">{snippet(profile.bio, 300)}</p>
           ) : (
             <p className="text-muted-foreground mt-3 max-w-2xl">
-              Minden magyar podcast epizód, amiben {kind === "person" ? "megszólal" : "szó esik erről"}: <span className="text-foreground font-medium">{displayName}</span>. Minőség, frissesség és relevancia szerint rangsorolva.
+              Minden magyar podcast epizód, amely ehhez kapcsolódik: <span className="text-foreground font-medium">{displayName}</span>. Minőség, frissesség és relevancia szerint rangsorolva.
             </p>
           )}
           <div className="mt-6 flex flex-wrap gap-3">
-            <Stat label={kind === "person" ? "Megszólal" : "Epizódok"} value={total} />
+            <Stat label="Epizódok" value={total} />
             {kind === "person" && mentionedEps.length > 0 && <Stat label="Említve" value={mentionedEps.length} />}
             <Stat label="Új (30 nap)" value={last30Count} />
             <Stat label="Műsorok" value={distinctPodcastCount} />
@@ -289,7 +289,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             <div className="flex items-end justify-between mb-3">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Friss</div>
-                <h2 className="text-xl font-semibold">{kind === "person" ? "Legújabb epizódok, ahol megszólal" : "Legújabb epizódok"}</h2>
+                <h2 className="text-xl font-semibold">{kind === "person" ? "Legújabb kapcsolódó epizódok" : "Legújabb epizódok"}</h2>
               </div>
             </div>
             <EpisodeList items={newest} showEntities />

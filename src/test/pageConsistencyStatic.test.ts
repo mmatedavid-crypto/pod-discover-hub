@@ -74,4 +74,15 @@ describe("page consistency static guards", () => {
       expect(source).not.toContain("▶ Play");
     }
   });
+
+  it("keeps entity pages careful about person evidence", () => {
+    const entity = read("src/pages/EntityPage.tsx");
+
+    expect(entity).toContain("Minden magyar podcast epizód, amely ehhez kapcsolódik");
+    expect(entity).toContain("Legújabb kapcsolódó epizódok");
+    expect(entity).toContain("Epizódok, ahol szó esik róla");
+    expect(entity).not.toContain("Minden magyar podcast epizód, amiben");
+    expect(entity).not.toContain("Legújabb epizódok, ahol megszólal");
+    expect(entity).not.toContain("label={kind === \"person\" ? \"Megszólal\"");
+  });
 });
