@@ -33,6 +33,38 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("keeps production deploy gap reporting actionable by pipeline area", () => {
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
+    const pkg = read("package.json");
+
+    expect(pkg).toContain('"report:production-deploy-gap": "node scripts/report-production-deploy-gap.mjs"');
+    expect(reporter).toContain("verify-production-pipeline.mjs");
+    for (const group of [
+      "clean_text_backfill_gates",
+      "article_pipeline",
+      "seo_news_sitemap",
+      "public_ai_language_guard",
+      "related_episode_quality",
+      "people_hub_identity_safety",
+    ]) {
+      expect(reporter).toContain(group);
+    }
+    for (const artifact of [
+      "20260603171000_clean_text_backfill_quality_gate_consolidated.sql",
+      "20260603164000_article_pipeline_consolidated.sql",
+      "20260603111500_news_sitemap_fast_refresh_cron.sql",
+      "20260603162000_public_ai_language_guard_consolidated.sql",
+      "20260603165000_related_episode_quality_consolidated.sql",
+      "20260603170000_people_identity_safety_consolidated.sql",
+      "episode-article-pairer",
+      "refresh-sitemap",
+      "ai-enrich",
+      "prerender",
+    ]) {
+      expect(reporter).toContain(artifact);
+    }
+  });
+
   it("keeps legacy clean-text backfill quality-gated instead of globally enabled", () => {
     const migration = read("supabase/migrations/20260603171000_clean_text_backfill_quality_gate_consolidated.sql");
     const runner = read("supabase/functions/episode-clean-text-runner/index.ts");
