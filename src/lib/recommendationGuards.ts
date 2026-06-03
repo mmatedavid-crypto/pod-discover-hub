@@ -21,7 +21,7 @@ const BUSINESS_RE =
   /\b(uzlet|üzlet|business|gazdasag|gazdaság|penz|pénz|tozsde|tőzsde|befektetes|befektetés|milliardos|milliárdos|ceg|cég|vallalkozas|vállalkozás|ingatlan|karrier|menedzsment)\b/i;
 
 const PUBLIC_AFFAIRS_RE =
-  /\b(kozelet|közélet|politika|politics|hirek|hírek|tarsadalom|társadalom|interju|interjú|kozbeszed|közbeszéd)\b/i;
+  /\b(kozelet|közélet|politika|politics|hirek|hírek|tarsadalom|társadalom|interju|interjú|kozbeszed|közbeszéd|orban|orbán|meszaros|mészáros|fidesz|tisza|kormany|kormány|parlament|part|párt|valasztas|választás|puzser|puzsér)\b/i;
 
 const HEALTH_RE = /\b(egeszseg|egészség|orvos|pszicho|mentalis|mentális|eletmod|életmód|sport)\b/i;
 const RELIGION_RE =

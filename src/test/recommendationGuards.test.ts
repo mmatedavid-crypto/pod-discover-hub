@@ -25,6 +25,29 @@ describe("recommendationGuards", () => {
     expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
   });
 
+  it("treats political context as public affairs even when topics are missing", () => {
+    const source = {
+      title: "Mészáros Lőrinc tündöklése és részvényeinek látványos zuhanása: Isten, Orbán, Andi és a balszerencse",
+      podcastTitle: "Puzsér Róbert",
+      category: "Society & Culture",
+      topics: [],
+      people: [],
+      companies: [],
+    };
+
+    const candidate = {
+      title: "Isten nem mond nemet ránk",
+      podcastTitle: "Zarándok.ma",
+      category: "Religion & Spirituality",
+      topics: ["vallás", "igehirdetés"],
+      people: [],
+      companies: [],
+      similarity: 0.99,
+    };
+
+    expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
+  });
+
   it("still allows related public affairs episodes with strong overlap", () => {
     const source = {
       title: "Mészáros Lőrinc részvényeinek látványos zuhanása",

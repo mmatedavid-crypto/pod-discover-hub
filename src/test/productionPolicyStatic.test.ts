@@ -108,7 +108,12 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("related_episode_quality_policy");
     expect(verifier).toContain("people_hub_identity_safety_policy");
     expect(verifier).toContain("snapshot.related_episode_quality?.compatibility_function_exists === true");
+    expect(verifier).toContain("text_group_function_exists");
+    expect(verifier).toContain("topic_bridge_function_exists");
+    expect(verifier).toContain("policy_configured_v3");
     expect(verifier).toContain("recommendation_is_compatible('public_affairs', 'religion', 0.99::double precision, true) = false");
+    expect(verifier).toContain("public_affairs_title_with_isten_runtime_grouped");
+    expect(verifier).toContain("Mészáros Lőrinc tündöklése");
     expect(verifier).toContain("list_people_hub_has_identity_fields");
     expect(verifier).toContain("list_people_alpha_has_identity_fields");
     expect(verifier).toContain("failures.push(`related_episode_quality.${key}`)");

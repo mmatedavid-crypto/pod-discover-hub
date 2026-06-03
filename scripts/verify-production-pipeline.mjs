@@ -184,8 +184,12 @@ SELECT jsonb_build_object(
   ),
   'related_episode_quality', jsonb_build_object(
     'compatibility_function_exists', to_regprocedure('public.recommendation_is_compatible(text,text,double precision,boolean)') IS NOT NULL,
-    'policy_configured_v2', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 2 FROM settings),
+    'text_group_function_exists', to_regprocedure('public.recommendation_text_group(text,text,text,text[])') IS NOT NULL,
+    'topic_bridge_function_exists', to_regprocedure('public.recommendation_has_topic_bridge(text[],text[])') IS NOT NULL,
+    'policy_configured_v3', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 3 FROM settings),
     'religion_cross_group_hard_block_recorded', (SELECT setting_values->'related_episode_quality_policy'->>'religion_cross_group' = 'hard_block' FROM settings),
+    'political_context_override_recorded', (SELECT setting_values->'related_episode_quality_policy' ? 'public_affairs_override_terms' FROM settings),
+    'public_affairs_title_with_isten_runtime_grouped', false,
     'religion_cross_group_runtime_blocked', false
   ),
   'people_hub_identity_safety', jsonb_build_object(
@@ -282,7 +286,14 @@ if (snapshot.related_episode_quality?.compatibility_function_exists === true) {
     const relatedResult = runReadonlyQuery(`
       SELECT jsonb_build_object(
         'religion_cross_group_runtime_blocked',
-        public.recommendation_is_compatible('public_affairs', 'religion', 0.99::double precision, true) = false
+        public.recommendation_is_compatible('public_affairs', 'religion', 0.99::double precision, true) = false,
+        'public_affairs_title_with_isten_runtime_grouped',
+        public.recommendation_text_group(
+          'Mészáros Lőrinc tündöklése és részvényeinek látványos zuhanása: Isten, Orbán, Andi és a balszerencse',
+          'Puzsér Róbert',
+          'Society & Culture',
+          ARRAY['közélet','politika','gazdaság']::text[]
+        ) = 'public_affairs'
       ) AS checks;
     `);
     const checks = JSON.parse(relatedResult.rows?.[0]?.checks ?? "{}");
@@ -294,6 +305,7 @@ if (snapshot.related_episode_quality?.compatibility_function_exists === true) {
     snapshot.related_episode_quality = {
       ...snapshot.related_episode_quality,
       religion_cross_group_runtime_blocked: false,
+      public_affairs_title_with_isten_runtime_grouped: false,
       runtime_check_error: e instanceof Error ? e.message : String(e),
     };
   }
