@@ -168,12 +168,12 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
           Más műsorokból, hasonló témában
         </h3>
         <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-          AI vektor-egyezés
+          Tartalmi kapcsolat
         </span>
       </div>
 
       {isLoading && (
-        <div className="text-xs text-muted-foreground">Keresés a vektor-indexben…</div>
+        <div className="text-xs text-muted-foreground">Keressük a kapcsolódó epizódokat…</div>
       )}
       {!isLoading && !isCompact && items.length === 0 && (
         <div className="text-xs text-muted-foreground">
@@ -283,7 +283,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
                   className="shrink-0 text-[11px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
                   aria-label={`Lejátszás: ${r.title}`}
                 >
-                  ▶ Play
+                  ▶ Lejátszás
                 </button>
               </li>
             );

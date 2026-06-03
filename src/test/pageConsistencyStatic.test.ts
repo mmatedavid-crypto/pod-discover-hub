@@ -32,4 +32,22 @@ describe("page consistency static guards", () => {
     expect(about).not.toContain("A hallgatókat visszairányítjuk");
     expect(methodology).not.toContain("nem streameljük");
   });
+
+  it("keeps smart-player related-copy human, not internal AI/vector jargon", () => {
+    const related = read("src/components/smart-player/RelatedEpisodes.tsx");
+    const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
+    const bar = read("src/components/smart-player/SmartPlayerBar.tsx");
+
+    expect(related).toContain("Tartalmi kapcsolat");
+    expect(related).toContain("Keressük a kapcsolódó epizódokat");
+    expect(discovery).toContain("Keressük a kapcsolódó epizódokat");
+    expect(bar).toContain("Kapcsolódó epizódok és értékelés");
+
+    for (const source of [related, discovery, bar]) {
+      expect(source).not.toContain("AI vektor");
+      expect(source).not.toContain("vektor-index");
+      expect(source).not.toContain("AI ajánlások");
+      expect(source).not.toContain("▶ Play");
+    }
+  });
 });
