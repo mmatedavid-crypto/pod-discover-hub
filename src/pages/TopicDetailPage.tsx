@@ -138,9 +138,16 @@ export default function TopicDetailPage() {
       setLoading(false);
 
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
+      const topicName = (t as any).name;
+      const epCount = Number((t as any).episode_count || 0);
+      const podCount = Number((t as any).podcast_count || 0);
+      const countLabel = epCount > 0 ? ` – ${epCount} podcast epizód` : "";
+      const introClean = ((t as any).intro_text || "").replace(/\s+/g, " ").trim();
+      const fallbackDesc = `${topicName} témájú magyar podcast epizódok és beszélgetések${podCount > 0 ? `, ${podCount} műsorból` : ""}. Fedezd fel a kapcsolódó tartalmakat a Podiverzumon.`;
+      const descSource = (t as any).seo_description || introClean || fallbackDesc;
       setSeo({
-        title: (t as any).seo_title || `${(t as any).name} podcastok magyarul | Podiverzum`,
-        description: (t as any).seo_description || `${(t as any).name} témájú magyar podcast epizódok és beszélgetések.`,
+        title: (t as any).seo_title || `${topicName}${countLabel} magyar podcastokból | Podiverzum`,
+        description: descSource.length > 160 ? descSource.slice(0, 157).trimEnd() + "…" : descSource,
         canonical: pageUrl,
         noindex: !(t as any).is_indexable,
         jsonLd: !(t as any).is_indexable ? undefined : [
