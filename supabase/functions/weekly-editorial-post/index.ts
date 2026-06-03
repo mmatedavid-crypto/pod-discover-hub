@@ -24,14 +24,19 @@ const FALLBACK_MODEL = "google/gemini-2.5-pro";
 const DEFAULT_MIN_TEXT_CHARS = 180;
 const SOURCE_TEXT_CHARS = 3500;
 
-// Tiltott klisék / tükörfordítások — ezeket post-validáció szűri, és 1 javító kört kérünk a modelltől.
+// Tiltott klisék / tükörfordítások / publicisztikai keretek — post-validáció szűri, 1 javító kört kérünk a modelltől.
 const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
   { pattern: /\bmintha\b/i, reason: `"Mintha…" üres meta-keret` },
   { pattern: /\bezen a héten\b/i, reason: `"Ezen a héten" klisé` },
   { pattern: /\ba hét adásai\b/i, reason: `"A hét adásai" klisé` },
   { pattern: /\bjelenleg mi foglalkoztatja\b/i, reason: `"jelenleg mi foglalkoztatja" klisé` },
   { pattern: /\bjól jellemzi\b/i, reason: `"jól jellemzi" műfaj-összefoglaló` },
-  { pattern: /\bközös szál\b/i, reason: `"közös szál" klisé` },
+  { pattern: /\bközös szál\b/i, reason: `"közös szál" klisé — erőltetett közös nevező` },
+  { pattern: /\bközös nevező\b/i, reason: `"közös nevező" — erőltetett átkötés` },
+  { pattern: /\bugyanabba a leckébe\b/i, reason: `"ugyanabba a leckébe fut bele" — túl nagy átkötés` },
+  { pattern: /\ba rendszer lebuk/i, reason: `"a rendszer lebukik" — publicisztikai vezércikk-hang` },
+  { pattern: /\b(a )?rendszer(ek)? ára\b/i, reason: `"a rendszerek ára" — költői metafora` },
+  { pattern: /\brendszerszint/i, reason: `"rendszerszintű" — publicisztikai általánosítás` },
   { pattern: /\bizgalmas\b/i, reason: `"izgalmas" üres jelző` },
   { pattern: /\bérdekes\b/i, reason: `"érdekes" üres jelző` },
   { pattern: /\blebilincsel/i, reason: `"lebilincselő" üres jelző` },
@@ -46,11 +51,11 @@ const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
   { pattern: /\b\d{1,2}:\d{2}(?::\d{2})?\b/, reason: `epizód-timestamp (pl. "1:09:46") — soha ne tedd a szövegbe` },
 ];
 
-// JÓ PÉLDA — a máj.17-i intro, few-shotként a system promptba.
-const GOOD_INTRO_EXAMPLE = `Ezen a héten a nagy rendszerek ára látszik: vízumdíjban, klímaszorongásban, kiégésben, önbizalomhiányban és képekben elmesélt életutakban. A vászontáska itt már kevés, a brit ügyintézésnél pedig a romantikus külföldre költözés is hamar Excel-táblává változik.`;
+// JÓ PÉLDA — nyugodt, szerkesztett heti ajánló. Konkrét témák, nincs nagy metafora, nincs közös tézis.
+const GOOD_INTRO_EXAMPLE = `A héten Magyar Péter kampánystratégiájáról, a MÁV nyári menetrendjéről és egy hosszú Hadházy-interjúról is szó esik. Mellette egy beszélgetés Karikó Katalinnal a kutatói pályáról, és egy adás a magyar női kézilabda-válogatott állapotáról.`;
 
-// ROSSZ PÉLDA — a máj.26-i intro, hogy a modell lássa miért nem jó.
-const BAD_INTRO_EXAMPLE = `Mintha tudatosan reflektálnánk a közelgő uniós választásokra, a hét adásai a jövőről szólnak, annak is a legsürgetőbb kérdéseiről: mezőgazdaságáról, a demokrácia alappilléréről, az egészségügyéről. Négy politikai, egy sport, egy történelmi adás – jól jellemzi, hogy jelenleg mi foglalkoztatja a podcast-hallgatókat 🇭🇺.`;
+// ROSSZ PÉLDA — publicisztikai vezércikk-hang, nagy metafora, erőltetett közös nevező.
+const BAD_INTRO_EXAMPLE = `A hét során a nagy rendszerek ára látszik: vízumdíjban, klímaszorongásban, kiégésben, önbizalomhiányban. Az adások ugyanabba a leckébe futnak bele — a rendszer lebukik, mi pedig kapkodva próbáljuk megérteni, hova tartunk.`;
 
 type Controls = {
   enabled?: boolean;
