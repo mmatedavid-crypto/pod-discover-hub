@@ -43,6 +43,17 @@ describe("page consistency static guards", () => {
     expect(userMenu).not.toContain('if (!user) {\\n    return (\\n      <Link\\n        to="/belepes"');
   });
 
+  it("keeps Te Podiverzumod recommendations useful even when vector matching is unavailable", () => {
+    const startSwipe = read("src/pages/StartSwipePage.tsx");
+
+    expect(startSwipe).toContain("fallbackQuery.overlaps(\"topics\", fallbackTags)");
+    expect(startSwipe).toContain("recommendationRows = ((fallbackData || []) as any[]).map");
+    expect(startSwipe).toContain("accept_hungarian");
+    expect(startSwipe).toContain("Friss magyar epizódokat készítünk elő a profilodhoz.");
+    expect(startSwipe).not.toContain("Nem sikerült lekérni az ajánlásokat");
+    expect(startSwipe).not.toContain("Most nem sikerült lekérni az ajánlásokat");
+  });
+
   it("keeps category links on the Hungarian canonical route", () => {
     const labels = read("src/lib/categoryLabels.ts");
     const categories = read("src/pages/CategoriesPage.tsx");

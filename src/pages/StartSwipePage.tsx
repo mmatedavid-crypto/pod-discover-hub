@@ -561,36 +561,8 @@ export default function StartSwipePage() {
     setRecsLoading(true);
     setRecsError(null);
 
-    // Mean-center against the pool centroid so the user's *deviation* dominates.
-    const centroidSource = pool?.length
-      ? pool.map(c => c.card_embedding)
-      : [...effectiveLiked, ...disliked].map(c => c.card_embedding);
-    const centroid = mean(centroidSource);
-    const likedDev = mean(effectiveLiked.map(c => sub(c.card_embedding, centroid)));
-    const dislikedDev = disliked.length
-      ? mean(disliked.map(c => sub(c.card_embedding, centroid)))
-      : zero(centroid.length);
-    const direction = sub(likedDev, dislikedDev);
-    const userVec = normalize(add(centroid, scale(direction, 2.5)));
-    const negVec = disliked.length
-      ? normalize(add(centroid, scale(dislikedDev, 2.5)))
-      : null;
-
-    // Over-fetch so we have enough headroom for quality caps and diversity.
-    const { data, error } = await supabase.rpc("match_episodes_by_taste_vector", {
-      p_user_vector: toPgVector(userVec) as any,
-      p_negative_vector: negVec ? (toPgVector(negVec) as any) : null,
-      p_exclude_episode_ids: [],
-      p_limit: 80,
-    });
-    if (error || !data) {
-      setRecsError(error?.message || "Nem sikerült lekérni az ajánlásokat.");
-      setRecsLoading(false);
-      return;
-    }
-
-    // ── Build the user's "taste fingerprint" from their swipes:
-    // top topic / mood / archetype tags weighted (super-likes 3x).
+    // Build the user's "taste fingerprint" before the RPC call so the page can
+    // still produce useful recommendations if the vector matcher is temporarily unavailable.
     const tagW: Record<string, number> = {};
     const antiW: Record<string, number> = {};
     const bump = (target: Record<string, number>, arr: string[] | undefined, k: number) => {
@@ -613,6 +585,89 @@ export default function StartSwipePage() {
     for (const k of Object.keys(antiW)) {
       if (tagW[k]) delete antiW[k]; // tag is loved AND skipped → ambiguous, ignore as anti
     }
+
+    // Mean-center against the pool centroid so the user's *deviation* dominates.
+    const centroidSource = pool?.length
+      ? pool.map(c => c.card_embedding)
+      : [...effectiveLiked, ...disliked].map(c => c.card_embedding);
+    const centroid = mean(centroidSource);
+    const likedDev = mean(effectiveLiked.map(c => sub(c.card_embedding, centroid)));
+    const dislikedDev = disliked.length
+      ? mean(disliked.map(c => sub(c.card_embedding, centroid)))
+      : zero(centroid.length);
+    const direction = sub(likedDev, dislikedDev);
+    const userVec = normalize(add(centroid, scale(direction, 2.5)));
+    const negVec = disliked.length
+      ? normalize(add(centroid, scale(dislikedDev, 2.5)))
+      : null;
+
+    // Over-fetch so we have enough headroom for quality caps and diversity.
+    const { data, error } = await supabase.rpc("match_episodes_by_taste_vector", {
+      p_user_vector: toPgVector(userVec) as any,
+      p_negative_vector: negVec ? (toPgVector(negVec) as any) : null,
+      p_exclude_episode_ids: [],
+      p_limit: 80,
+    });
+
+    let recommendationRows = (data as RecEp[] | null) || null;
+    if (error || !recommendationRows) {
+      const fallbackTags = Object.entries(tagW)
+        .sort((a, b) => b[1] - a[1])
+        .map(([tag]) => tag)
+        .filter((tag) => tag.length >= 3)
+        .slice(0, 8);
+
+      let fallbackQuery = supabase
+        .from("episodes")
+        .select("episode_id:id,podcast_id,title,display_title,slug,image_url,ai_summary,audio_url,published_at,topics,podcasts!inner(slug,title,display_title,image_url,category,is_hungarian,language_decision,rss_status)")
+        .not("audio_url", "is", null)
+        .eq("podcasts.is_hungarian", true)
+        .eq("podcasts.language_decision", "accept_hungarian")
+        .not("podcasts.rss_status", "in", "(failed,inactive,deleted)")
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(80);
+      if (fallbackTags.length > 0) fallbackQuery = fallbackQuery.overlaps("topics", fallbackTags);
+
+      const { data: fallbackDataRaw } = await fallbackQuery;
+      let fallbackData = fallbackDataRaw || [];
+      if (fallbackData.length === 0 && fallbackTags.length > 0) {
+        const { data: broadFallbackData } = await supabase
+          .from("episodes")
+          .select("episode_id:id,podcast_id,title,display_title,slug,image_url,ai_summary,audio_url,published_at,topics,podcasts!inner(slug,title,display_title,image_url,category,is_hungarian,language_decision,rss_status)")
+          .not("audio_url", "is", null)
+          .eq("podcasts.is_hungarian", true)
+          .eq("podcasts.language_decision", "accept_hungarian")
+          .not("podcasts.rss_status", "in", "(failed,inactive,deleted)")
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(80);
+        fallbackData = broadFallbackData || [];
+      }
+      recommendationRows = ((fallbackData || []) as any[]).map((r) => {
+        const podcast = Array.isArray(r.podcasts) ? r.podcasts[0] : r.podcasts;
+        return {
+          episode_id: r.episode_id,
+          podcast_id: r.podcast_id,
+          title: r.title,
+          display_title: r.display_title,
+          slug: r.slug,
+          image_url: r.image_url,
+          ai_summary: r.ai_summary,
+          podcast_title: podcast?.display_title || podcast?.title || "Podcast",
+          podcast_slug: podcast?.slug || "",
+          podcast_image_url: podcast?.image_url || null,
+          similarity: 0.55,
+          final_score: 0.52,
+          topics: r.topics || null,
+          category: podcast?.category || null,
+          published_at: r.published_at,
+        } as RecEp;
+      });
+      if (recommendationRows.length === 0) {
+        setRecs([]);
+        setRecsLoading(false);
+        return;
+      }
+    }
     const maxW = Math.max(1, ...Object.values(tagW));
     const maxAntiW = Math.max(1, ...Object.values(antiW));
     const newsSignal =
@@ -626,7 +681,7 @@ export default function StartSwipePage() {
 
     // Re-rank: vector + positive tag overlap − anti-tag penalty + small freshness nudge.
     const now = Date.now();
-    const rows = (data as RecEp[]).map(r => {
+    const rows = recommendationRows.map(r => {
       const epTags = new Set<string>([
         ...(r.topics || []).map(t => t.toLowerCase()),
         ...(r.category ? [r.category.toLowerCase()] : []),
@@ -1644,9 +1699,11 @@ function ResultView({
         )}
         {!recsLoading && recsError && (
           <div className="rounded-2xl border border-border bg-card p-6 text-center">
-            <p className="text-sm text-muted-foreground">Most nem sikerült lekérni az ajánlásokat.</p>
+            <p className="text-sm text-muted-foreground">
+              Friss magyar epizódokat készítünk elő a profilodhoz.
+            </p>
             <Button onClick={onRetryRecs} variant="secondary" className="mt-4">
-              Újrapróbálom
+              Frissítem az ajánlásokat
             </Button>
           </div>
         )}
