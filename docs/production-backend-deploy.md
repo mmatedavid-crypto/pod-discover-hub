@@ -1,35 +1,21 @@
 # Production Backend Deploy
 
-The frontend can deploy while Supabase migrations and edge functions stay stale. When that happens the app falls back where possible, but admin intelligence panels and repair runners will show unavailable/404 states.
+This project uses Lovable Cloud for the production backend. Do not deploy the
+backend from GitHub Actions and do not run `supabase link`, `supabase db push`,
+or Supabase CLI deploy commands from CI.
 
-## Required GitHub Secrets
+## Deploy flow
 
-- `SUPABASE_ACCESS_TOKEN`
-- `SUPABASE_DB_PASSWORD`
-- `SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_READONLY_DATABASE_URL`
+- Frontend code is handled by Lovable preview / publish.
+- Edge functions are deployed by the Lovable agent / Lovable Cloud sync.
+- Database migrations are applied only by the Lovable agent with the internal
+  migration tool.
 
-`SUPABASE_READONLY_DATABASE_URL` is used only by the preflight and production
-pipeline verifiers. It should be a read-only Postgres connection string, not a
-service-role key.
+GitHub/Codex can edit `supabase/functions/**` and add SQL files under
+`supabase/migrations/**`, but it must stop there. If a migration needs to run,
+leave it for the Lovable agent to apply.
 
-## Deploy
-
-Run GitHub Actions workflow:
-
-- `Deploy Supabase backend`
-
-It will:
-
-1. Link project `yoxewklaybougzpmzvkg`.
-2. Push database migrations.
-3. Deploy every edge function directory that has an `index.ts`.
-4. Run `npm run verify:production-backend`.
-5. Run `npm run verify:production-pipeline`.
-
-The workflow also runs on pushes to `main` when `supabase/**`, the production
-verifier scripts, or the workflow itself changes. This keeps database
-migrations and edge functions from silently lagging behind the frontend deploy.
+See `CODEX_INSTRUCTIONS.md` before changing backend-related files.
 
 ## Current Critical Backend Checks
 
