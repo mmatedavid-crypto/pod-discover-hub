@@ -43,7 +43,7 @@ function orgTypeLabel(t: string): string {
 }
 
 function orgHref(t: string, slug: string): string {
-  return t === "party" ? `/part/${slug}` : `/ceg/${slug}`;
+  return `/ceg/${slug}`;
 }
 
 function norm(s: string): string {

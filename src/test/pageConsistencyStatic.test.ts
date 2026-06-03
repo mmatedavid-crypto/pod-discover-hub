@@ -57,6 +57,25 @@ describe("page consistency static guards", () => {
     expect(analytics).toContain('return "/hangulatok/:slug"');
   });
 
+  it("keeps organization detail links on the canonical company route", () => {
+    const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
+    const orgCard = read("src/components/OrgCard.tsx");
+    const report = read("src/pages/PodcastReport2026.tsx");
+    const prerender = read("supabase/functions/prerender/index.ts");
+
+    expect(autocomplete).toContain("return `/ceg/${slug}`");
+    expect(autocomplete).not.toContain("`/part/${slug}`");
+    expect(orgCard).toContain("return `/ceg/${o.slug}`");
+    expect(orgCard).not.toContain("`/part/${o.slug}`");
+    expect(report).toContain("to={`/ceg/${p.slug}`}");
+    expect(report).not.toContain("to={`/part/${p.slug}`}");
+    expect(prerender).toContain("`${SITE}/ceg/${o.slug}`");
+    expect(prerender).toContain("`${SITE}/ceg/${orgSlug}/temak/${topicSlug}`");
+    expect(prerender).toContain('parts[0] === "ceg"');
+    expect(prerender).not.toContain("`${SITE}/szervezetek/${o.slug}`");
+    expect(prerender).not.toContain("`${SITE}/szervezetek/${orgSlug}/temak/${topicSlug}`");
+  });
+
   it("keeps smart-player related-copy human, not internal AI/vector jargon", () => {
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
     const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");

@@ -957,7 +957,7 @@ ${hubCrossLinks(kind)}`,
 <p>A szervezetek nagy részénél <strong>Wikipedia-megerősítéssel</strong> és típus-besorolással dolgozunk (cég, média, sportcsapat, oktatási intézmény, NGO stb.), így gyorsan szűrhetsz arra, ami valóban érdekel. Ha egy adott szektor — magyar fintech, hazai egyetemek, sportklubok vagy közmédia — érdekel, néhány kattintással átfogó képet kapsz arról, mit beszélnek róluk a magyar podcastek.</p>
 <p>A politikai pártokat külön oldalon mutatjuk: lásd a <a href="/partok">Pártok</a> hubot a teljes listához. Témánkénti bontásért látogasd meg a <a href="/temak">Témák</a> hubot.</p>`;
     const listHtml = rows.map((o) => {
-      const u = `${SITE}/szervezetek/${o.slug}`;
+      const u = `${SITE}/ceg/${o.slug}`;
       const bio = truncate(stripHtml(o.wikipedia_extract), 160);
       return `<li><a href="${esc(u)}"><strong>${esc(o.name)}</strong></a>${o.org_type ? ` <em>· ${esc(o.org_type)}</em>` : ""}${o.gated_episode_count ? ` <em>· ${o.gated_episode_count} epizód</em>` : ""}${bio ? `<p>${esc(bio)}</p>` : ""}</li>`;
     }).join("");
@@ -967,7 +967,7 @@ ${hubCrossLinks(kind)}`,
       name: title,
       itemListElement: rows.map((o, i) => ({
         "@type": "ListItem", position: i + 1,
-        url: `${SITE}/szervezetek/${o.slug}`, name: o.name,
+        url: `${SITE}/ceg/${o.slug}`, name: o.name,
       })),
     };
     return new Response(new TextEncoder().encode(shell({
@@ -994,7 +994,7 @@ ${hubCrossLinks(kind)}`,
 <p>A párt-oldalakon nem csak a friss említéseket látod, hanem azt is, mely <a href="/toplista">műsorok</a> foglalkoznak vele rendszeresen, mely <a href="/szemelyek">közéleti szereplők</a> jelennek meg pártképviselőként vagy elemzőként, és milyen <a href="/temak">témák</a> kapcsolódnak hozzá — például választási kampány, gazdaságpolitika, EU-ügyek vagy belpolitikai konfliktusok.</p>
 <p>Ha egy adott politikai téma — gazdaságpolitika, jogállamiság, választás, EU-tagság, energiapolitika — érdekel, érdemes a <a href="/temak">Témák</a> hubon is körülnézned. A pártokon túl a kapcsolódó <a href="/szervezetek">intézményeket és médiumokat</a> külön szekcióban gyűjtjük.</p>`;
     const listHtml = rows.map((o) => {
-      const u = `${SITE}/szervezetek/${o.slug}`;
+      const u = `${SITE}/ceg/${o.slug}`;
       const bio = truncate(stripHtml(o.wikipedia_extract), 200);
       return `<li><a href="${esc(u)}"><strong>${esc(o.name)}</strong></a>${o.gated_episode_count ? ` <em>· ${o.gated_episode_count} epizód</em>` : ""}${bio ? `<p>${esc(bio)}</p>` : ""}</li>`;
     }).join("");
@@ -1004,7 +1004,7 @@ ${hubCrossLinks(kind)}`,
       name: title,
       itemListElement: rows.map((o, i) => ({
         "@type": "ListItem", position: i + 1,
-        url: `${SITE}/szervezetek/${o.slug}`, name: o.name,
+        url: `${SITE}/ceg/${o.slug}`, name: o.name,
       })),
     };
     return new Response(new TextEncoder().encode(shell({
@@ -1299,7 +1299,7 @@ async function buildPersonTopic(
   })), { headers: new Headers(baseHeaders) });
 }
 
-// /szervezetek/:slug/temak/:topic — episodes mentioning an organization within a topic.
+// /ceg/:slug/temak/:topic — episodes mentioning an organization within a topic.
 async function buildOrgTopic(
   supabase: ReturnType<typeof createClient>,
   orgSlug: string,
@@ -1338,7 +1338,7 @@ async function buildOrgTopic(
   const eps = topicEps.filter((e) => matchedSet.has(e.id)).slice(0, 40);
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
-  const canonical = `${SITE}/szervezetek/${orgSlug}/temak/${topicSlug}`;
+  const canonical = `${SITE}/ceg/${orgSlug}/temak/${topicSlug}`;
   const title = `${org.name} és a ${topic.name} — Podiverzum`;
   const desc = truncate(`${eps.length} magyar podcast epizód, amely a(z) ${org.name} szervezetet a ${topic.name} témakörben említi.`, 160);
 
@@ -1352,7 +1352,7 @@ async function buildOrgTopic(
     "@context": "https://schema.org", "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Szervezetek", item: `${SITE}/szervezetek` },
-      { "@type": "ListItem", position: 2, name: org.name, item: `${SITE}/szervezetek/${orgSlug}` },
+      { "@type": "ListItem", position: 2, name: org.name, item: `${SITE}/ceg/${orgSlug}` },
       { "@type": "ListItem", position: 3, name: topic.name, item: canonical },
     ],
   };
@@ -1367,10 +1367,10 @@ async function buildOrgTopic(
   return new Response(new TextEncoder().encode(shell({
     title, description: desc, canonical, ogImage: org.logo_url, jsonLd: [itemList, breadcrumbs],
     bodyHtml: `<header><h1>${esc(org.name)} — ${esc(topic.name)}</h1>
-<p>${eps.length} epizód a(z) <a href="/szervezetek/${esc(orgSlug)}">${esc(org.name)}</a> szervezetről a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témakörben. Magyar podcastek, AI-összefoglalókkal.</p></header>
+<p>${eps.length} epizód a(z) <a href="/ceg/${esc(orgSlug)}">${esc(org.name)}</a> szervezetről a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témakörben. Magyar podcastek, AI-összefoglalókkal.</p></header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>
 <aside><h2>Tovább</h2><ul>
-<li><a href="/szervezetek/${esc(orgSlug)}">${esc(org.name)} — főoldal</a></li>
+<li><a href="/ceg/${esc(orgSlug)}">${esc(org.name)} — főoldal</a></li>
 <li><a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a></li>
 </ul></aside>`,
   })), { headers: new Headers(baseHeaders) });
@@ -1572,8 +1572,8 @@ Deno.serve(async (req) => {
       const r = await buildPersonTopic(supabase, parts[1], parts[3]);
       return r ?? notFound(path);
     }
-    // Wave 3: /szervezetek/:slug/temak/:topic
-    if (parts[0] === "szervezetek" && parts.length === 4 && parts[2] === "temak") {
+    // Wave 3: /ceg/:slug/temak/:topic, with legacy /szervezetek/:slug/temak/:topic fallback.
+    if ((parts[0] === "ceg" || parts[0] === "szervezetek") && parts.length === 4 && parts[2] === "temak") {
       const r = await buildOrgTopic(supabase, parts[1], parts[3]);
       return r ?? notFound(path);
     }

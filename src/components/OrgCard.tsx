@@ -62,7 +62,6 @@ const TYPE_LABEL: Record<OrgType, string> = {
 };
 
 function detailHref(o: { org_type: OrgType; slug: string }): string {
-  if (o.org_type === "party") return `/part/${o.slug}`;
   return `/ceg/${o.slug}`;
 }
 

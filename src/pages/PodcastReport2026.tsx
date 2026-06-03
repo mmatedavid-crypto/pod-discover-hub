@@ -793,7 +793,7 @@ export default function PodcastReport2026() {
           <div className="max-w-xl">
             <div className="space-y-2">
               {STATS.topParties.map((p, i) => (
-                <Link key={p.slug} to={`/part/${p.slug}`} className="flex items-center gap-2 group">
+                <Link key={p.slug} to={`/ceg/${p.slug}`} className="flex items-center gap-2 group">
                   <div className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground">{i + 1}.</div>
                   <div className="flex-1 min-w-0 text-sm font-medium text-foreground group-hover:text-primary truncate">{p.name}</div>
                   <div className="relative w-28 h-5 rounded bg-muted overflow-hidden">
