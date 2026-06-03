@@ -5161,6 +5161,75 @@ export type Database = {
         }
         Relationships: []
       }
+      reddit_bot_log: {
+        Row: {
+          action: string
+          id: number
+          matched_kind: string | null
+          matched_name: string | null
+          matched_url: string | null
+          raw: Json | null
+          reason: string | null
+          response_id: string | null
+          subreddit: string | null
+          thing_author: string | null
+          thing_id: string | null
+          thing_kind: string | null
+          thing_url: string | null
+          ts: string
+        }
+        Insert: {
+          action: string
+          id?: number
+          matched_kind?: string | null
+          matched_name?: string | null
+          matched_url?: string | null
+          raw?: Json | null
+          reason?: string | null
+          response_id?: string | null
+          subreddit?: string | null
+          thing_author?: string | null
+          thing_id?: string | null
+          thing_kind?: string | null
+          thing_url?: string | null
+          ts?: string
+        }
+        Update: {
+          action?: string
+          id?: number
+          matched_kind?: string | null
+          matched_name?: string | null
+          matched_url?: string | null
+          raw?: Json | null
+          reason?: string | null
+          response_id?: string | null
+          subreddit?: string | null
+          thing_author?: string | null
+          thing_id?: string | null
+          thing_kind?: string | null
+          thing_url?: string | null
+          ts?: string
+        }
+        Relationships: []
+      }
+      reddit_bot_opt_out: {
+        Row: {
+          created_at: string
+          reason: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          reason?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string
+          reason?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       rss_url_history: {
         Row: {
           changed_at: string
@@ -6719,6 +6788,18 @@ export type Database = {
         }
         Relationships: []
       }
+      reddit_name_index: {
+        Row: {
+          entity_id: string | null
+          kind: string | null
+          name: string | null
+          norm_name: string | null
+          path: string | null
+          rank_label: string | null
+          weight: number | null
+        }
+        Relationships: []
+      }
       te_podiverzumod_shares_public: {
         Row: {
           aura_colors: string[] | null
@@ -7929,6 +8010,7 @@ export type Database = {
       refresh_homepage_feed: { Args: never; Returns: undefined }
       refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
+      refresh_reddit_name_index: { Args: never; Returns: undefined }
       refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
       requeue_legacy_clean_text_v4_backfill: {
         Args: { _limit?: number; _tiers?: string[] }
