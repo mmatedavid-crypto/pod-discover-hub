@@ -139,6 +139,9 @@ SELECT jsonb_build_object(
     'source_count_at_least_6', (SELECT jsonb_array_length(COALESCE(setting_values->'episode_article_pairer_controls'->'sources', '[]'::jsonb)) >= 6 FROM settings),
     'best_source_article_policy', (SELECT setting_values->'episode_best_text_source_controls'->>'policy' = 'best_text_source_v2_confirmed_article_youtube_first'
       AND setting_values->'episode_best_text_source_controls' ? 'article_min_confidence' FROM settings),
+    'pairer_has_run', (SELECT COALESCE(length(setting_values->'episode_article_pairer_progress'->>'last_run_at') > 0, false) FROM settings),
+    'pairer_scanned_articles', (SELECT COALESCE((setting_values->'episode_article_pairer_progress'->>'scanned_articles')::int > 0, false) FROM settings),
+    'pairer_no_domparser_error', (SELECT COALESCE((setting_values->'episode_article_pairer_progress'->'source_diagnostics')::text NOT ILIKE '%DOMParser is not defined%', false) FROM settings),
     'best_source_accepts_article', EXISTS (
       SELECT 1
       FROM pg_constraint c
@@ -293,8 +296,16 @@ if (snapshot.article_pipeline?.table_exists === true) {
       FROM totals, by_outlet;
     `);
     snapshot.article_candidates = JSON.parse(articleResult.rows?.[0]?.counts ?? "{}");
+    snapshot.article_pipeline = {
+      ...snapshot.article_pipeline,
+      article_candidates_started: Number(snapshot.article_candidates?.total || 0) > 0,
+    };
   } catch (e) {
     snapshot.article_candidates = { error: e instanceof Error ? e.message : String(e) };
+    snapshot.article_pipeline = {
+      ...snapshot.article_pipeline,
+      article_candidates_started: false,
+    };
   }
 }
 

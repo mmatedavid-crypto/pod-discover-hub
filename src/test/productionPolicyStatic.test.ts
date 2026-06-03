@@ -68,6 +68,17 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("keeps publisher article pipeline verification tied to runtime output", () => {
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+
+    expect(verifier).toContain("pairer_has_run");
+    expect(verifier).toContain("pairer_scanned_articles");
+    expect(verifier).toContain("pairer_no_domparser_error");
+    expect(verifier).toContain("DOMParser is not defined");
+    expect(verifier).toContain("article_candidates_started");
+    expect(verifier).toContain("episode_article_pairer_progress");
+  });
+
   it("keeps legacy clean-text backfill quality-gated instead of globally enabled", () => {
     const migration = read("supabase/migrations/20260603171000_clean_text_backfill_quality_gate_consolidated.sql");
     const runner = read("supabase/functions/episode-clean-text-runner/index.ts");
