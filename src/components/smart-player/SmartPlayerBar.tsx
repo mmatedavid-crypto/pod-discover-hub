@@ -10,6 +10,7 @@ import { ShareMomentButton } from "./ShareMomentCard";
 import { EpisodeMarks } from "@/components/EpisodeMarks";
 import { LikeDislikeButtons } from "@/components/taste/LikeDislikeButtons";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
+import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 
 
 export function SmartPlayerBar() {
@@ -81,7 +82,7 @@ export function SmartPlayerBar() {
               title={t("playbackSpeed")}
             >{formatSpeedLabel(playbackRate)}</button>
           )}
-          {!error && (
+          {!error && SMART_PLAYER_RECOMMENDATIONS_ENABLED && (
             <div
               className="hidden xs:inline-flex items-center rounded-md border border-border bg-card/60 overflow-hidden shrink-0 sm:inline-flex"
               role="group"

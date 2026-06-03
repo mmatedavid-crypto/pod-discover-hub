@@ -5,6 +5,7 @@ import { detectAudioSource } from "@/lib/playerAudio";
 import { getProgress, saveProgress, markPlayCount } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
+import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 
 export type SmartPlayerEpisode = {
   id: string;
@@ -81,14 +82,16 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const [playbackRate, setRateState] = useState(1);
   const [expanded, setExpanded] = useState(false);
   const [autoplayMode, setAutoplayModeState] = useState<AutoplayMode>(() => {
+    if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return "series";
     try {
       const v = typeof window !== "undefined" ? localStorage.getItem("podiverzum_autoplay_mode") : null;
       return v === "series" ? "series" : "related";
     } catch { return "related"; }
   });
   const setAutoplayMode = useCallback((m: AutoplayMode) => {
-    setAutoplayModeState(m);
-    try { localStorage.setItem("podiverzum_autoplay_mode", m); } catch { /* noop */ }
+    const next = !SMART_PLAYER_RECOMMENDATIONS_ENABLED && m === "related" ? "series" : m;
+    setAutoplayModeState(next);
+    try { localStorage.setItem("podiverzum_autoplay_mode", next); } catch { /* noop */ }
   }, []);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -472,7 +475,9 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          // mode === "related" — cross-podcast vector match.
+          // mode === "related" — cross-podcast vector match. Keep fully off
+          // while smart-player recommendations are not editorially trusted.
+          if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return;
           const { data, error } = await supabase.rpc("similar_episodes" as never, {
             p_episode_id: ended.id,
             p_limit: 12,
