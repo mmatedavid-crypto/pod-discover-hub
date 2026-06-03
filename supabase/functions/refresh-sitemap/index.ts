@@ -99,84 +99,27 @@ async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function base64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function base64UrlJson(value: unknown): string {
-  return base64Url(new TextEncoder().encode(JSON.stringify(value)));
-}
-
-async function importPkcs8PrivateKey(pem: string): Promise<CryptoKey> {
-  const body = pem
-    .replace(/\\n/g, '\n')
-    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-    .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '');
-  const binary = atob(body);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return crypto.subtle.importKey(
-    'pkcs8',
-    bytes,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-}
-
-async function getGoogleAccessToken(): Promise<{ ok: true; token: string } | { ok: false; reason: string }> {
-  const clientEmail = Deno.env.get('GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL');
-  const privateKey = Deno.env.get('GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY');
-  if (!clientEmail || !privateKey) return { ok: false, reason: 'missing_google_search_console_credentials' };
-
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const claim = {
-    iss: clientEmail,
-    scope: 'https://www.googleapis.com/auth/webmasters',
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600,
-  };
-  const unsigned = `${base64UrlJson(header)}.${base64UrlJson(claim)}`;
-  const key = await importPkcs8PrivateKey(privateKey);
-  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned));
-  const assertion = `${unsigned}.${base64Url(new Uint8Array(signature))}`;
-
-  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion,
-    }),
-  });
-  if (!tokenRes.ok) return { ok: false, reason: `google_oauth_${tokenRes.status}` };
-  const tokenJson = await tokenRes.json();
-  if (!tokenJson?.access_token) return { ok: false, reason: 'google_oauth_no_access_token' };
-  return { ok: true, token: tokenJson.access_token };
-}
-
 async function submitGoogleSearchConsoleSitemap(feedpath: string): Promise<GoogleSubmitResult> {
-  const siteUrl = Deno.env.get('GOOGLE_SEARCH_CONSOLE_SITE_URL') || SITE;
-  const access = await getGoogleAccessToken();
-  if (!access.ok) {
-    return { attempted: false, ok: false, status: null as number | null, reason: access.reason };
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const connectionKey = Deno.env.get('GOOGLE_SEARCH_CONSOLE_API_KEY');
+  if (!lovableKey || !connectionKey) {
+    return { attempted: false, ok: false, status: null as number | null, reason: 'missing_lovable_gsc_connector_credentials' };
   }
 
-  const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}`;
+  const siteUrl = Deno.env.get('GOOGLE_SEARCH_CONSOLE_SITE_URL') || `${SITE}/`;
+  const endpoint = `https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}`;
   const res = await fetch(endpoint, {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${access.token}` },
+    headers: {
+      Authorization: `Bearer ${lovableKey}`,
+      'X-Connection-Api-Key': connectionKey,
+    },
   });
   return {
     attempted: true,
     ok: res.ok,
     status: res.status,
-    reason: res.ok ? null : `search_console_submit_${res.status}`,
+    reason: res.ok ? null : `lovable_gsc_submit_${res.status}`,
   };
 }
 

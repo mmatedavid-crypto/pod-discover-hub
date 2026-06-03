@@ -20,7 +20,10 @@ const GROUPS = {
   },
   seo_news_sitemap: {
     label: "Fast news sitemap + Google submit",
-    migrations: ["supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql"],
+    migrations: [
+      "supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql",
+      "supabase/migrations/20260603221000_news_sitemap_gsc_connector_gateway.sql",
+    ],
     functions: ["refresh-sitemap"],
     why: "15 percenként friss news sitemap, Google submit csak új news URL esetén.",
   },

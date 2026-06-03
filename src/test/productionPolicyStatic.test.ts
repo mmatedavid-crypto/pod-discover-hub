@@ -55,6 +55,7 @@ describe("production policy static guards", () => {
       "20260603171000_clean_text_backfill_quality_gate_consolidated.sql",
       "20260603164000_article_pipeline_consolidated.sql",
       "20260603111500_news_sitemap_fast_refresh_cron.sql",
+      "20260603221000_news_sitemap_gsc_connector_gateway.sql",
       "20260603162000_public_ai_language_guard_consolidated.sql",
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
@@ -90,9 +91,17 @@ describe("production policy static guards", () => {
   it("keeps news sitemap submission new-url-gated through Google Search Console", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
     const migration = read("supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql");
+    const connectorMigration = read("supabase/migrations/20260603221000_news_sitemap_gsc_connector_gateway.sql");
 
     expect(fn).toContain("submitGoogleSearchConsoleSitemap");
-    expect(fn).toContain("https://www.googleapis.com/webmasters/v3/sites/");
+    expect(fn).toContain("https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/");
+    expect(fn).toContain("LOVABLE_API_KEY");
+    expect(fn).toContain("GOOGLE_SEARCH_CONSOLE_API_KEY");
+    expect(fn).toContain("X-Connection-Api-Key");
+    expect(fn).toContain("missing_lovable_gsc_connector_credentials");
+    expect(fn).not.toContain("GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL");
+    expect(fn).not.toContain("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY");
+    expect(fn).not.toContain("https://oauth2.googleapis.com/token");
     expect(fn).toContain("const changed = newsHash !== previousHash");
     expect(fn).toContain("const realNewsItemCount = newsItems.length");
     expect(fn).toContain("const extractXmlLocs =");
@@ -116,9 +125,21 @@ describe("production policy static guards", () => {
     expect(fn).not.toContain("www.google.com/ping");
     expect(fn).not.toContain("google_ping_status");
 
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+    expect(verifier).toContain("new_url_submit_not_blocked_by_credentials");
+    expect(verifier).toContain("ILIKE 'missing%credentials'");
+    expect(verifier).toContain("submit_needed");
+
     expect(migration).toContain("podiverzum-refresh-sitemap-lite-15min");
     expect(migration).toContain("*/15 * * * *");
     expect(migration).toContain("submit_only_when_news_sitemap_has_new_urls");
+
+    expect(connectorMigration).toContain("lovable_google_search_console_connector_gateway");
+    expect(connectorMigration).toContain("requires_connector_secrets");
+    expect(connectorMigration).toContain("LOVABLE_API_KEY");
+    expect(connectorMigration).toContain("GOOGLE_SEARCH_CONSOLE_API_KEY");
+    expect(connectorMigration).toContain("requires_google_secrets");
+    expect(connectorMigration).not.toContain("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY");
   });
 
   it("keeps root sitemap XMLs served through the Cloudflare worker with fresh news cache", () => {
