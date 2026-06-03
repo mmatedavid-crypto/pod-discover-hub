@@ -473,6 +473,30 @@ function weekRange(): { start: Date; end: Date; label: string } {
   return { start, end, label };
 }
 
+// Csak akkor enged át idézetet, ha az tényleg megtalálható a forrásszövegben.
+// Normalizál: kisbetű, ékezet-tűrés, írásjelek/whitespace ki, majd substring-match.
+// Min. 25 karakter tartalmi hossz (rövidebb idézet túl könnyen véletlenül egyezik / túl gyenge).
+function verifyQuote(rawQuote: string, sourceText: string): string {
+  const q = (rawQuote || "").trim().replace(/^[„"'»«]+|[„"'»«]+$/g, "").trim();
+  if (!q) return "";
+  const norm = (s: string) => s
+    .toLowerCase()
+    .replace(/[„""''»«\-–—.,;:!?()\[\]{}\/\\]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const nq = norm(q);
+  const ns = norm(sourceText || "");
+  if (nq.length < 25) return "";
+  if (!ns) return "";
+  if (ns.includes(nq)) return q;
+  // Fuzzy fallback: az idézet első és utolsó ~30 karakteres ablaka is meglegyen a forrásban
+  // (kis AI-átfogalmazás megengedett, de a magnak ott kell lennie).
+  const head = nq.slice(0, Math.min(40, nq.length));
+  const tail = nq.slice(-Math.min(40, nq.length));
+  if (head.length >= 30 && tail.length >= 30 && ns.includes(head) && ns.includes(tail)) return q;
+  return "";
+}
+
 function buildCaptions(intro: string, items: { title: string; podcast_name: string; url: string; quote: string }[]): { ig: string; fb: string } {
   const fbLines = [
     `📰 A hét a Podiverzumon`,
