@@ -5,6 +5,26 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
 
 describe("production policy static guards", () => {
+  it("keeps legacy clean-text backfill quality-gated instead of globally enabled", () => {
+    const migration = read("supabase/migrations/20260603171000_clean_text_backfill_quality_gate_consolidated.sql");
+    const runner = read("supabase/functions/episode-clean-text-runner/index.ts");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.requeue_legacy_clean_text_v4_backfill");
+    expect(migration).toContain("'use_best_text_source', true");
+    expect(migration).toContain("'legacy_v3_backfill_enabled', false");
+    expect(migration).toContain("'legacy_v3_backfill_mode', 'manual_canary_only'");
+    expect(migration).toContain("'quality_gate_required_before_global_backfill', true");
+    expect(migration).toContain("'clean_text_backfill_status', 'frozen_pending_quality_proof'");
+    expect(migration).toContain("manual_canary_only_until_quality_proof");
+
+    expect(runner).toContain("ctrl.legacy_v3_backfill_enabled !== true && body.requeue_legacy_v3 !== true");
+    expect(runner).toContain("use_best_text_source");
+
+    expect(verifier).toContain("legacy_v3_backfill_quality_gated");
+    expect(verifier).not.toContain("legacy_v3_backfill_enabled', (SELECT");
+  });
+
   it("keeps news sitemap submission hash-gated through Google Search Console", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
     const migration = read("supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql");

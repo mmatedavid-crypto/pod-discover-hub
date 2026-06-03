@@ -124,7 +124,11 @@ SELECT jsonb_build_object(
   'clean_text_backfill_gates', jsonb_build_object(
     'legacy_v3_requeue_rpc', to_regprocedure('public.requeue_legacy_clean_text_v4_backfill(integer,text[])') IS NOT NULL,
     'runner_uses_best_text_source', (SELECT setting_values->'episode_clean_text_controls'->>'use_best_text_source' = 'true' FROM settings),
-    'legacy_v3_backfill_enabled', (SELECT setting_values->'episode_clean_text_controls'->>'legacy_v3_backfill_enabled' = 'true' FROM settings),
+    'legacy_v3_backfill_quality_gated', (SELECT
+      setting_values->'episode_clean_text_controls'->>'legacy_v3_backfill_mode' = 'manual_canary_only'
+      AND setting_values->'episode_clean_text_controls'->>'quality_gate_required_before_global_backfill' = 'true'
+      AND setting_values->'text_processing_policy'->>'clean_text_backfill_status' = 'frozen_pending_quality_proof'
+    FROM settings),
     'method_version_v4', (SELECT setting_values->'episode_clean_text_controls'->>'method_version' = 'deterministic_v4' FROM settings)
   ),
   'article_pipeline', jsonb_build_object(
