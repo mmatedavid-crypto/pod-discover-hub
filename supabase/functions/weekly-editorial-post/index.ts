@@ -35,14 +35,14 @@ const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
   { pattern: /\bközös nevező\b/i, reason: `"közös nevező" — erőltetett átkötés` },
   { pattern: /\bugyanabba a leckébe\b/i, reason: `"ugyanabba a leckébe fut bele" — túl nagy átkötés` },
   { pattern: /\ba rendszer lebuk/i, reason: `"a rendszer lebukik" — publicisztikai vezércikk-hang` },
+  { pattern: /\bhatalmi repedés/i, reason: `"hatalmi repedés" — publicisztikai metafora` },
+  { pattern: /\bnem díszlet\b/i, reason: `"nem díszlet" — publicisztikai keret` },
   { pattern: /\b(a )?rendszer(ek)? ára\b/i, reason: `"a rendszerek ára" — költői metafora` },
   { pattern: /\brendszerszint/i, reason: `"rendszerszintű" — publicisztikai általánosítás` },
   { pattern: /\bizgalmas\b/i, reason: `"izgalmas" üres jelző` },
-  { pattern: /\bérdekes\b/i, reason: `"érdekes" üres jelző` },
   { pattern: /\blebilincsel/i, reason: `"lebilincselő" üres jelző` },
   { pattern: /\bmagával ragad/i, reason: `"magával ragadó" üres jelző` },
   { pattern: /\bkiderül,?\s+hogyan\b/i, reason: `"kiderül, hogyan" üres bevezető` },
-  { pattern: /\bszó esik arról\b/i, reason: `"szó esik arról" üres bevezető` },
   { pattern: /\baz egyszeri magyar (hallgató|ember)\b/i, reason: `"az egyszeri magyar hallgató" klisé` },
   { pattern: /\bmindannyiunk\b/i, reason: `"mindannyiunk" patetikus` },
   { pattern: /\bmagunkhoz köt\b/i, reason: `"magunkhoz köt" magyartalan` },
@@ -51,8 +51,8 @@ const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
   { pattern: /\b\d{1,2}:\d{2}(?::\d{2})?\b/, reason: `epizód-timestamp (pl. "1:09:46") — soha ne tedd a szövegbe` },
 ];
 
-// JÓ PÉLDA — nyugodt, szerkesztett heti ajánló. Konkrét témák, nincs nagy metafora, nincs közös tézis.
-const GOOD_INTRO_EXAMPLE = `A héten Magyar Péter kampánystratégiájáról, a MÁV nyári menetrendjéről és egy hosszú Hadházy-interjúról is szó esik. Mellette egy beszélgetés Karikó Katalinnal a kutatói pályáról, és egy adás a magyar női kézilabda-válogatott állapotáról.`;
+// JÓ PÉLDA — nyugodt, szerkesztett heti ajánló. Konkrét témák egymás mellett, nincs közös tézis.
+const GOOD_INTRO_EXAMPLE = `A heti válogatásban most egymástól távoli témák találkoznak: no-till gazdálkodás, kultúrpolitikai viták, egészségügy, futball és Estée Lauder története. Öt epizód, öt világ — a magyar podcastok ezen a héten innen voltak érdekesek.`;
 
 // ROSSZ PÉLDA — publicisztikai vezércikk-hang, nagy metafora, erőltetett közös nevező.
 const BAD_INTRO_EXAMPLE = `A hét során a nagy rendszerek ára látszik: vízumdíjban, klímaszorongásban, kiégésben, önbizalomhiányban. Az adások ugyanabba a leckébe futnak bele — a rendszer lebukik, mi pedig kapkodva próbáljuk megérteni, hova tartunk.`;
@@ -334,34 +334,38 @@ function buildPrompt(eps: Cand[], weekLabel: string, retryHint?: string): { syst
 ALAPELVEK
 - Szerkesztett, nyugodt magyar hang. Olyan, mint egy jó újságírós heti ajánló: konkrét, tárgyilagos, nem okoskodó.
 - Heti ajánló a cél: röviden elmondod, MIKRŐL szól a hét válogatása. Nem rángatod össze egy nagy tézisbe, nem mondasz közös tanulságot.
+- Csak a megadott SZÖVEGFORRÁSRA támaszkodj (cím + leírás). NE találj ki tényt, idézetet, következtetést.
+- Attribúciós keret: ne állítsd a Podiverzum hangján a vitás híreket. Használj ilyen fordulatokat: „az adásban szóba kerül", „az epizód arról beszél", „a beszélgetés témája", „a vendég szerint".
 - Minden mondat konkrét: név, intézmény, téma, esemény. Általánosság, hangulati festés, költői kép = hiba.
-- Természetes, rövid mondatok. Nincs körmondat, nincs birtoklánc-halmozás, nincs túlmagyarázás.
-- Ne foglald össze az epizódok MŰFAJÁT vagy SZÁMÁT (pl. „négy politikai, egy sport"). Az olvasót nem a metaadat érdekli.
+- Természetes, rövid mondatok. Nincs körmondat, nincs túlmagyarázás, nincs clickbait, nincs AI-szagú átkötés az epizódok között.
 
 TILTOTT FORDULATOK (NE használd, sem az introban, sem a teaserben):
 ${bannedList}
   • országzászló-emoji bárhol (🇭🇺 🇪🇺 stb.)
 
 INTRO szabályai:
-- max 3 mondat, max 70 szó
-- HETI AJÁNLÓ, NEM VEZÉRCIKK: röviden felsorolod, mikről lesz szó. Nincs nagy közös tézis, nincs „a rendszer", nincs „ára látszik", nincs „ugyanabba a leckébe fut bele".
-- TILOS: minden epizódot egy közös metaforába vagy rendszerkritikai állításba összerántani. Az epizódok különböző dolgokról szólnak — ezt tükrözze az intro is.
-- TILOS: költői kép, publicisztikai okoskodás, olyan állítás amit az epizódok együtt nem bizonyítanak.
-- TILOS: bármilyen idő-bélyeg (pl. „1:09:46", „12:30") — csak zaj.
-- Konkrét nevek / témák jók (Magyar Péter, MÁV, Karikó Katalin, kézilabda-válogatott). Számot csak akkor írj, ha valódi tény (Ft, %, év).
-- Emoji max 1 db, semmiképp nem országzászló. Inkább nulla.
+- PONTOSAN 2 rövid mondat. Max 60 szó összesen.
+- Nevezd meg a fő téma-területeket (pl. „kultúrpolitika, egészségügy, futball"). NINCS nagy közös üzenet.
+- TILOS: minden epizódot egy közös metaforába vagy rendszerkritikai állításba összerántani.
+- TILOS: költői kép, publicisztikai okoskodás, „a rendszer", „hatalmi repedés", „nem díszlet", „ára látszik", clickbait.
+- TILOS: bármilyen idő-bélyeg (pl. „1:09:46"). Számot csak akkor írj, ha valódi tény (év, %, Ft).
+- Emoji max 1, semmiképp nem országzászló. Inkább nulla.
 
-JÓ PÉLDA introra (másold a stílust, ne a tartalmat — figyeld: nyugodt felsorolás, nincs közös tézis):
+JÓ PÉLDA introra (másold a stílust, ne a tartalmat — nyugodt felsorolás, nincs közös tézis):
 "${GOOD_INTRO_EXAMPLE}"
 
 ROSSZ PÉLDA — ezt NE csináld:
 "${BAD_INTRO_EXAMPLE}"
-Miért rossz: nagy metafora („a rendszerek ára látszik"), erőltetett közös nevező („ugyanabba a leckébe futnak bele"), publicisztikai vezércikk-hang („a rendszer lebukik"), olyan állítás amit az 5-6 különböző epizód együtt nem bizonyít.
+Miért rossz: nagy metafora, erőltetett közös nevező, publicisztikai vezércikk-hang.
 
 ITEMS szabályai (minden epizódra):
-- title: pontosan az adott epizód neve (NE módosítsd)
-- teaser: 2-3 mondat, MIRŐL szól és MIÉRT számít — konkrét állítás, név vagy szám a SZÖVEGFORRÁSBÓL. Sose írd hogy „interjú", „beszélgetés", „izgalmas", „érdekes" üres frázisként.
-- quote: OPCIONÁLIS. Csak akkor töltsd ki, ha a SZÖVEGFORRÁSBAN szó szerint (vagy szinte szó szerint) megtalálható egy erős, önmagában is érthető mondat (max 140 karakter, idézőjel nélkül). Ha nincs ilyen valódi mondat, hagyd ÜRES STRINGként (""). SOHA ne találj ki idézetet, ne parafrazálj, ne foglalj össze idézet-mezőbe. Inkább üres, mint kitalált.
+- title: pontosan az adott epizód neve (NE módosítsd).
+- teaser: 2–3 mondat.
+   1. mondat: MIRŐL szól az epizód (ki a vendég, mi a fő téma) — attribúcióval, nem a Podiverzum állításaként.
+   2. mondat: a kulcs-témák felsorolása (név, intézmény, ügy) a szövegforrásból.
+   3. mondat (opcionális): miért érdekes / mi a tét — csak ha a forrás alátámasztja, NE túlfogalmazd.
+   Tilos üres frázis: „interjú", „beszélgetés", „izgalmas". Tilos clickbait és tilos AI-átkötés.
+- quote: OPCIONÁLIS. Csak akkor töltsd ki, ha a SZÖVEGFORRÁSBAN SZÓ SZERINT megtalálható egy erős, önmagában is érthető mondat (max 140 karakter, idézőjel NÉLKÜL a mezőben). Ha nincs ilyen szó szerinti mondat, hagyd ÜRES STRINGként (""). SOHA ne találj ki idézetet, ne parafrazálj, ne foglalj össze idézet-mezőbe. Inkább üres, mint kitalált. NE tegyél idézőjelet a teaserbe sem, ha nem szó szerinti elhangzott mondatról van szó.
 
 Magyarul írj. Ne hashtagelj.${retryHint ? `\n\nFONTOS JAVÍTÁS: ${retryHint}` : ""}`;
 
