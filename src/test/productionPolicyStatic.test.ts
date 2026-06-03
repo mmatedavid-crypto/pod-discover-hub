@@ -125,6 +125,26 @@ describe("production policy static guards", () => {
     expect(robots).toContain("Sitemap: https://podiverzum.hu/news-sitemap.xml");
   });
 
+  it("keeps SEO alias routes redirected at the Cloudflare edge", () => {
+    const worker = read("infra/cloudflare-worker/worker.js");
+
+    for (const pair of [
+      ['/^\\/search\\/?$/', '"/kereses"'],
+      ['/^\\/categories\\/?$/', '"/kategoriak"'],
+      ['/^\\/podcastok\\/?$/', '"/toplista"'],
+      ['/^\\/toplist\\/?$/', '"/toplista"'],
+      ['/^\\/b2b\\/?$/', '"/intelligence"'],
+      ['/^\\/mediafigyeles\\/?$/', '"/intelligence"'],
+      ['/^\\/heti-valogatas(\\/[^/]+)?\\/?$/', '"/heti"'],
+      ['/^\\/szervezetek\\/([^/]+)\\/?$/', '"/ceg/$1"'],
+      ['/^\\/part\\/([^/]+)\\/?$/', '"/ceg/$1"'],
+    ]) {
+      expect(worker).toContain(pair[0]);
+      expect(worker).toContain(pair[1]);
+    }
+    expect(worker).toContain('"X-Redirect": "alias-to-canonical-301"');
+  });
+
   it("keeps llms.txt canonical, Hungarian-first, and free of unsupported sitemap query URLs", () => {
     const llms = read("public/llms.txt");
 
