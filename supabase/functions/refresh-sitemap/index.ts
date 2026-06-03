@@ -27,6 +27,14 @@ const tag = (loc: string, lastmod: string | null | undefined, cf = 'weekly', pr 
   `<url><loc>${loc}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString()}</lastmod>` : ''}<changefreq>${cf}</changefreq><priority>${pr}</priority></url>`;
 const wrap = (urls: string[]) =>
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
+const xmlUnescape = (s: string) => s
+  .replace(/&amp;/g, '&')
+  .replace(/&lt;/g, '<')
+  .replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"')
+  .replace(/&apos;/g, "'");
+const extractXmlLocs = (xml: string): string[] =>
+  Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), (m) => xmlUnescape(m[1] || '').trim()).filter(Boolean);
 
 const TRUSTED_NEWS_SOURCE_RX = /\b(444|telex|partizan|partizán|hvg|portfolio|hold|hold-after-hours|g7|qubit|direkt36|atlatszo|átlátszó|lakmusz|magyar-hang|magyar hang|valasz|válasz|inforadio|infostart|klubradio|szabad-europa|szabad európa|forbes|concorde)\b/i;
 const NEWSWORTHY_CATEGORIES = new Set([
@@ -193,6 +201,12 @@ Deno.serve(async (req) => {
     if (error) throw new Error(`upload ${path}: ${error.message}`);
   }
 
+  async function readExistingSitemapLocs(path: string): Promise<string[]> {
+    const { data, error } = await sb.storage.from(BUCKET).download(path);
+    if (error || !data) return [];
+    return extractXmlLocs(await data.text());
+  }
+
   async function writeChunks(prefix: string, urls: string[]): Promise<string[]> {
     const files: string[] = [];
     if (urls.length === 0) return files;
@@ -352,7 +366,6 @@ Deno.serve(async (req) => {
 ${newsItems.join('\n')}
 </urlset>
 `;
-      await upload('news-sitemap.xml', newsXml);
       const newsHash = await sha256Hex(newsXml);
       const { data: newsStateRow } = await sb
         .from('app_settings')
@@ -361,7 +374,12 @@ ${newsItems.join('\n')}
         .maybeSingle();
       const previousState = (newsStateRow?.value as any) || {};
       const previousHash = previousState?.hash || null;
-      const previousUrls = new Set<string>(Array.isArray(previousState?.urls) ? previousState.urls : []);
+      const previousStateHasUrls = Array.isArray(previousState?.urls);
+      const previousKnownUrls = previousStateHasUrls
+        ? previousState.urls
+        : await readExistingSitemapLocs('news-sitemap.xml');
+      const previousUrls = new Set<string>(previousKnownUrls);
+      await upload('news-sitemap.xml', newsXml);
       const currentUrls = Array.from(seenNewsUrls);
       const newUrls = currentUrls.filter((loc) => !previousUrls.has(loc));
       const changed = newsHash !== previousHash;
@@ -394,6 +412,7 @@ ${newsItems.join('\n')}
           previous_hash: previousHash,
           changed,
           urls: currentUrls,
+          previous_url_source: previousStateHasUrls ? 'state' : 'existing_news_sitemap_xml',
           new_url_count: newUrls.length,
           new_urls_sample: newUrls.slice(0, 20),
           url_count: newsItems.length,

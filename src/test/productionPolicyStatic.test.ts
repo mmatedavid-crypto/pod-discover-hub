@@ -95,6 +95,10 @@ describe("production policy static guards", () => {
     expect(fn).toContain("https://www.googleapis.com/webmasters/v3/sites/");
     expect(fn).toContain("const changed = newsHash !== previousHash");
     expect(fn).toContain("const realNewsItemCount = newsItems.length");
+    expect(fn).toContain("const extractXmlLocs =");
+    expect(fn).toContain("readExistingSitemapLocs('news-sitemap.xml')");
+    expect(fn).toContain("const previousStateHasUrls = Array.isArray(previousState?.urls)");
+    expect(fn).toContain("previous_url_source");
     expect(fn).toContain("const previousUrls = new Set<string>");
     expect(fn).toContain("const newUrls = currentUrls.filter");
     expect(fn).toContain("const googleSubmitPolicy = 'submit_only_when_news_sitemap_has_new_urls'");
