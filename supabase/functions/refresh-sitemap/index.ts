@@ -46,6 +46,13 @@ const NEWS_EXCLUDED_CATEGORIES = new Set([
 const NEWS_TITLE_NOISE_RX = /\b(beköszönés|elköszönés|hangcsapda|játék|adásnapló|esti mese|napi biblia|igeidő|szentmise|áhítat|rövid változat|short version|trailer|előzetes)\b/i;
 const NEWS_FOREIGN_NOISE_RX = /\b(seo\s*\+\s*ia|venta asistida|ecommerce|masterclass|sunday mood)\b/i;
 
+type GoogleSubmitResult = {
+  attempted: boolean;
+  ok: boolean;
+  status: number | null;
+  reason: string | null;
+};
+
 function isTrustedNewsPodcast(p: any): boolean {
   const haystack = `${p?.slug || ''} ${p?.title || ''} ${p?.display_title || ''}`;
   return TRUSTED_NEWS_SOURCE_RX.test(haystack);
@@ -81,6 +88,87 @@ async function sha256Hex(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function base64Url(bytes: Uint8Array): string {
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlJson(value: unknown): string {
+  return base64Url(new TextEncoder().encode(JSON.stringify(value)));
+}
+
+async function importPkcs8PrivateKey(pem: string): Promise<CryptoKey> {
+  const body = pem
+    .replace(/\\n/g, '\n')
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/\s+/g, '');
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return crypto.subtle.importKey(
+    'pkcs8',
+    bytes,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+}
+
+async function getGoogleAccessToken(): Promise<{ ok: true; token: string } | { ok: false; reason: string }> {
+  const clientEmail = Deno.env.get('GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL');
+  const privateKey = Deno.env.get('GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY');
+  if (!clientEmail || !privateKey) return { ok: false, reason: 'missing_google_search_console_credentials' };
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
+    iss: clientEmail,
+    scope: 'https://www.googleapis.com/auth/webmasters',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+  };
+  const unsigned = `${base64UrlJson(header)}.${base64UrlJson(claim)}`;
+  const key = await importPkcs8PrivateKey(privateKey);
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned));
+  const assertion = `${unsigned}.${base64Url(new Uint8Array(signature))}`;
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  if (!tokenRes.ok) return { ok: false, reason: `google_oauth_${tokenRes.status}` };
+  const tokenJson = await tokenRes.json();
+  if (!tokenJson?.access_token) return { ok: false, reason: 'google_oauth_no_access_token' };
+  return { ok: true, token: tokenJson.access_token };
+}
+
+async function submitGoogleSearchConsoleSitemap(feedpath: string): Promise<GoogleSubmitResult> {
+  const siteUrl = Deno.env.get('GOOGLE_SEARCH_CONSOLE_SITE_URL') || SITE;
+  const access = await getGoogleAccessToken();
+  if (!access.ok) {
+    return { attempted: false, ok: false, status: null as number | null, reason: access.reason };
+  }
+
+  const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}`;
+  const res = await fetch(endpoint, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${access.token}` },
+  });
+  return {
+    attempted: true,
+    ok: res.ok,
+    status: res.status,
+    reason: res.ok ? null : `search_console_submit_${res.status}`,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -256,18 +344,23 @@ ${newsItems.join('\n')}
         .eq('key', 'news_sitemap_state')
         .maybeSingle();
       const previousHash = (newsStateRow?.value as any)?.hash || null;
-      let googlePinged = false;
-      let googlePingStatus: number | null = null;
+      const changed = newsHash !== previousHash;
+      let googleSubmit: GoogleSubmitResult = {
+        attempted: false,
+        ok: false,
+        status: null,
+        reason: changed ? 'not_attempted' : 'unchanged',
+      };
       if (newsHash !== previousHash && newsItems.length > 0) {
         try {
-          const ping = await fetch(`https://www.google.com/ping?sitemap=${encodeURIComponent(`${SITE}/news-sitemap.xml`)}`, {
-            method: 'GET',
-            headers: { 'User-Agent': 'podiverzum-sitemap-refresh/1.0' },
-          });
-          googlePinged = true;
-          googlePingStatus = ping.status;
-        } catch (_e) {
-          googlePinged = false;
+          googleSubmit = await submitGoogleSearchConsoleSitemap(`${SITE}/news-sitemap.xml`);
+        } catch (e) {
+          googleSubmit = {
+            attempted: true,
+            ok: false,
+            status: null,
+            reason: `search_console_submit_error:${String((e as any)?.message || e).slice(0, 120)}`,
+          };
         }
       }
       await sb.from('app_settings').upsert({
@@ -275,10 +368,13 @@ ${newsItems.join('\n')}
         value: {
           hash: newsHash,
           previous_hash: previousHash,
-          changed: newsHash !== previousHash,
+          changed,
           url_count: newsItems.length,
-          google_pinged: googlePinged,
-          google_ping_status: googlePingStatus,
+          google_submit_attempted: googleSubmit.attempted,
+          google_submit_ok: googleSubmit.ok,
+          google_submit_status: googleSubmit.status,
+          google_submit_reason: googleSubmit.reason,
+          submit_needed: changed && !googleSubmit.ok,
           updated_at: new Date().toISOString(),
         },
       });
