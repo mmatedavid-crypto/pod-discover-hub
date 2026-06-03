@@ -19,7 +19,6 @@ import { categoryHref, categoryLabel } from "@/lib/categoryLabels";
 import { PodcastFollow } from "@/components/PodcastFollow";
 import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
-import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
@@ -441,7 +440,6 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               const audioSrc = detectAudioSource(e);
               const playerAudioUrl = audioSrc?.url || e.audio_url || null;
               const thumb = e.image_url || podcast.image_url || null;
-              const optimizedThumb = optimizedImageUrl(thumb, { width: 96, height: 96 });
               const isCurrent = currentEpisode?.id === e.id;
               const isThisPlaying = isCurrent && isPlaying;
               const handlePlay = () => {
@@ -466,20 +464,14 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
                 <li key={e.id} className="rounded-lg border border-border bg-card p-3 transition-colors hover:border-primary/30 hover:bg-card/80 sm:p-4">
                   <div className="flex gap-3">
                     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted sm:h-20 sm:w-20">
-                      {thumb ? (
-                        <img
-                          src={optimizedThumb || thumb}
-                          srcSet={imageSrcSet(thumb, [64, 96, 160])}
-                          sizes="(max-width: 640px) 64px, 80px"
-                          alt=""
-                          loading={i < 4 ? "eager" : "lazy"}
-                          fetchPriority={i < 4 ? "high" : "auto"}
-                          decoding="async"
-                          width={96}
-                          height={96}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
+                      <PodcastCover
+                        title={e.display_title || e.title || podcast.display_title || podcast.title}
+                        src={thumb}
+                        size="sm"
+                        loading={i < 4 ? "eager" : "lazy"}
+                        fetchPriority={i < 4 ? "high" : "auto"}
+                        className="h-full rounded-none border-0"
+                      />
                       <button
                         type="button"
                         onClick={handlePlay}
