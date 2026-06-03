@@ -33,8 +33,8 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: "future_watcher",
     name: "A Jövőfigyelő",
-    tagline: "AI, technológia, jövőkép — szeretsz előre nézni, és érdekel, hogyan változik körülöttünk a világ.",
-    topics: ["AI", "technológia", "jövő"],
+    tagline: "MI, technológia, jövőkép — szeretsz előre nézni, és érdekel, hogyan változik körülöttünk a világ.",
+    topics: ["MI", "technológia", "jövő"],
     affinity: { AI: 3, technológia: 3, jövő: 3, innováció: 2, startup: 1, tudomány: 1 },
   },
   {

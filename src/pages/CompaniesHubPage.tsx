@@ -221,8 +221,8 @@ export default function CompaniesHubPage() {
 function EmptyState() {
   return (
     <div className="rounded-xl border border-dashed border-border bg-card/40 p-6 text-sm text-muted-foreground">
-      Még gyűjtjük a szervezeteket az epizódokból. Az AI ~16 ezer epizódból már kinyerte a említett cégeket
-      és intézményeket; ezek hamarosan itt jelennek meg.
+      Még rendszerezzük az epizódokban említett cégeket és intézményeket.
+      A pontosított szervezeti oldalak folyamatosan kerülnek ki.
     </div>
   );
 }

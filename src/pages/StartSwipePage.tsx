@@ -222,7 +222,7 @@ function topTags(weights: Record<string, number>, n: number): string[] {
 }
 
 const TAG_LABELS: Record<string, string> = {
-  ai: "AI",
+  ai: "MI",
   "mesterséges intelligencia": "mesterséges intelligencia",
   technológia: "technológia",
   gazdaság: "gazdaság",

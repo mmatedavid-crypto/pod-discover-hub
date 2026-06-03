@@ -50,7 +50,7 @@ export const LISTENER_PROFILES: ListenerProfile[] = [
     id: "tech_kivancsi",
     name: "A Tech Kíváncsi",
     traits: ["jövőfigyelő", "kísérletező", "nyitott"],
-    recommendedDirection: "AI, technológia, jövőkép",
+    recommendedDirection: "MI, technológia, jövőkép",
   },
   {
     id: "kulturflaneur",

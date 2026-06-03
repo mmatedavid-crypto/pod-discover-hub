@@ -22,4 +22,27 @@ describe("homepage Hungarian copy", () => {
     expect(polishMoodTitle("Fej", "tanulashoz")).toBe("Gondolatok és tudás");
     expect(polishMoodTitle("Élet", "elmelyuleshez")).toBe("Lélek és élethelyzetek");
   });
+
+  it("keeps public consumer copy using Hungarian MI wording instead of raw AI labels", () => {
+    const archetypes = read("src/lib/tasteArchetypes.ts");
+    const listenerProfiles = read("src/lib/listenerProfiles.ts");
+    const topicsHub = read("src/pages/TopicsHubPage.tsx");
+    const topicDetail = read("src/pages/TopicDetailPage.tsx");
+    const companiesHub = read("src/pages/CompaniesHubPage.tsx");
+    const startSwipe = read("src/pages/StartSwipePage.tsx");
+
+    expect(archetypes).toContain("MI, technológia, jövőkép");
+    expect(listenerProfiles).toContain("MI, technológia, jövőkép");
+    expect(topicsHub).toContain('tech: "Tech és MI"');
+    expect(topicDetail).toContain("MI-elemzés");
+    expect(companiesHub).toContain("Még rendszerezzük az epizódokban említett cégeket");
+    expect(startSwipe).toContain('ai: "MI"');
+
+    for (const source of [archetypes, listenerProfiles, topicsHub, topicDetail, companiesHub]) {
+      expect(source).not.toContain("Tech és AI");
+      expect(source).not.toContain("AI, technológia");
+      expect(source).not.toContain("AI-elemzés");
+      expect(source).not.toContain("a említett");
+    }
+  });
 });

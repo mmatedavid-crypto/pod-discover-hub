@@ -175,7 +175,7 @@ export default function TopicDetailPage() {
             mainEntity: [
               { "@type": "Question", name: `Milyen magyar podcast epizódok foglalkoznak ${(t as any).name} témával?`, acceptedAnswer: { "@type": "Answer", text: `Jelenleg ${(t as any).episode_count} magyar podcast epizódot indexelünk ehhez a témához.` } },
               { "@type": "Question", name: `Hol találok friss ${(t as any).name} podcast epizódokat?`, acceptedAnswer: { "@type": "Answer", text: "A Podiverzum naponta frissül, az új epizódok automatikusan megjelennek a témaoldalon." } },
-              { "@type": "Question", name: "Hogyan válogatja a Podiverzum ezeket az epizódokat?", acceptedAnswer: { "@type": "Answer", text: "Kulcsszavak, AI-elemzés és a műsorok minősége alapján rangsorolunk." } },
+              { "@type": "Question", name: "Hogyan válogatja a Podiverzum ezeket az epizódokat?", acceptedAnswer: { "@type": "Answer", text: "Kulcsszavak, MI-elemzés és a műsorok minősége alapján rangsorolunk." } },
             ],
           },
         ],

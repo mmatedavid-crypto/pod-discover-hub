@@ -15,7 +15,7 @@ interface Topic {
 const DOMAIN_LABEL: Record<string, string> = {
   economy: "Gazdaság és pénzügy",
   business: "Üzlet és vállalkozás",
-  tech: "Tech és AI",
+  tech: "Tech és MI",
   politics: "Közélet és politika",
   psychology: "Pszichológia és élet",
   health: "Egészség",
