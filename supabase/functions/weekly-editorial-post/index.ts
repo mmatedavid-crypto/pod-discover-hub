@@ -479,7 +479,7 @@ function buildCaptions(intro: string, items: { title: string; podcast_name: stri
     "",
     intro,
     "",
-    ...items.map((it) => `▸ ${it.title} — ${it.podcast_name}\n  ${it.quote}\n  ${it.url}`),
+    ...items.map((it) => `▸ ${it.title} — ${it.podcast_name}${it.quote ? `\n  ${it.quote}` : ""}\n  ${it.url}`),
     "",
     `Több: ${SITE_URL}`,
   ];
