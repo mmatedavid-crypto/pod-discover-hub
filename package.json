@@ -15,6 +15,7 @@
     "verify:production-edge-seo": "node scripts/verify-production-edge-seo.mjs",
     "verify:production-pipeline": "node scripts/verify-production-pipeline.mjs",
     "report:production-deploy-gap": "node scripts/report-production-deploy-gap.mjs",
+    "report:latest-backend-workflow": "node scripts/report-latest-backend-workflow.mjs",
     "validate:deploy-env": "node scripts/validate-deploy-env.mjs",
     "preflight:migrations": "node scripts/preflight-migrations.mjs",
     "test": "vitest run",
