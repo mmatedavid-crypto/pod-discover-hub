@@ -361,7 +361,7 @@ Miért rossz: nagy metafora („a rendszerek ára látszik"), erőltetett közö
 ITEMS szabályai (minden epizódra):
 - title: pontosan az adott epizód neve (NE módosítsd)
 - teaser: 2-3 mondat, MIRŐL szól és MIÉRT számít — konkrét állítás, név vagy szám a SZÖVEGFORRÁSBÓL. Sose írd hogy „interjú", „beszélgetés", „izgalmas", „érdekes" üres frázisként.
-- quote: 1 erős mondat IDÉZŐJEL nélkül, max 140 karakter — parafrázis vagy provokatív összegzés. Soha ne idézz szó szerint ha nem biztos a forrás.
+- quote: OPCIONÁLIS. Csak akkor töltsd ki, ha a SZÖVEGFORRÁSBAN szó szerint (vagy szinte szó szerint) megtalálható egy erős, önmagában is érthető mondat (max 140 karakter, idézőjel nélkül). Ha nincs ilyen valódi mondat, hagyd ÜRES STRINGként (""). SOHA ne találj ki idézetet, ne parafrazálj, ne foglalj össze idézet-mezőbe. Inkább üres, mint kitalált.
 
 Magyarul írj. Ne hashtagelj.${retryHint ? `\n\nFONTOS JAVÍTÁS: ${retryHint}` : ""}`;
 
