@@ -2,23 +2,64 @@ import { Link, useNavigate } from "react-router-dom";
 import { User, LogOut, Sparkles, Heart, Bookmark, Bell, Settings } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { isCompletedTasteProgress } from "@/lib/tasteCompletion";
+
+const TASTE_STORAGE_KEY = "podiverzum_taste_v1";
+
+function hasLocalTasteResult(): boolean {
+  try {
+    const raw = localStorage.getItem(TASTE_STORAGE_KEY);
+    if (!raw) return false;
+    const p = JSON.parse(raw);
+    return isCompletedTasteProgress({
+      completedAt: p.completedAt || null,
+      seenCardIds: Array.isArray(p.seenCardIds) ? p.seenCardIds : [],
+      likedCardIds: Array.isArray(p.likedCardIds) ? p.likedCardIds : [],
+    });
+  } catch {
+    return false;
+  }
+}
 
 export function UserMenu() {
   const { user, profile, signOut } = useAuth();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
+  const [localTasteDone, setLocalTasteDone] = useState(false);
+
+  useEffect(() => {
+    setLocalTasteDone(hasLocalTasteResult());
+  }, []);
 
   if (!user) {
     return (
-      <Link
-        to="/belepes"
-        aria-label="Belépés"
-        title="Belépés"
-        className="inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-      >
-        <User className="h-4 w-4" />
-      </Link>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Hallgatói menü"
+            title="Hallgatói menü"
+            className="inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+          >
+            <User className="h-4 w-4" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          className="w-60 p-2 rounded-md border border-border bg-popover shadow-lg"
+        >
+          <nav className="flex flex-col gap-0.5">
+            <MenuItem to="/te-podiverzumod" icon={Sparkles} onClick={() => setOpen(false)}>
+              {localTasteDone ? "Hallgatói profilom" : "Te Podiverzumod"}
+            </MenuItem>
+            <MenuItem to="/belepes" icon={User} onClick={() => setOpen(false)}>
+              Belépés
+            </MenuItem>
+          </nav>
+        </PopoverContent>
+      </Popover>
     );
   }
 

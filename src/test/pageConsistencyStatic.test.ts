@@ -33,6 +33,16 @@ describe("page consistency static guards", () => {
     expect(methodology).not.toContain("nem streameljük");
   });
 
+  it("keeps anonymous listeners one click away from their local Podiverzum profile", () => {
+    const userMenu = read("src/components/UserMenu.tsx");
+
+    expect(userMenu).toContain("hasLocalTasteResult");
+    expect(userMenu).toContain('to="/te-podiverzumod"');
+    expect(userMenu).toContain('localTasteDone ? "Hallgatói profilom" : "Te Podiverzumod"');
+    expect(userMenu).toContain('to="/belepes"');
+    expect(userMenu).not.toContain('if (!user) {\\n    return (\\n      <Link\\n        to="/belepes"');
+  });
+
   it("keeps category links on the Hungarian canonical route", () => {
     const labels = read("src/lib/categoryLabels.ts");
     const categories = read("src/pages/CategoriesPage.tsx");
