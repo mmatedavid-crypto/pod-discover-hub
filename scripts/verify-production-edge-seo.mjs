@@ -27,7 +27,22 @@ const fetchChecks = [
   {
     path: "/robots.txt",
     contentType: "text/plain",
-    bodyIncludes: ["Sitemap: https://podiverzum.hu/sitemap.xml", "GPTBot"],
+    bodyIncludes: [
+      "Sitemap: https://podiverzum.hu/sitemap.xml",
+      "Sitemap: https://podiverzum.hu/news-sitemap.xml",
+      "Content-Signal: search=yes,ai-input=yes,ai-train=no",
+      "User-agent: GPTBot",
+      "User-agent: OAI-SearchBot",
+      "User-agent: ClaudeBot",
+    ],
+    bodyExcludes: [
+      "BEGIN Cloudflare Managed",
+      "User-agent: GPTBot\nDisallow: /",
+      "User-agent: ClaudeBot\nDisallow: /",
+      "User-agent: Google-Extended\nDisallow: /",
+      "User-agent: Applebot-Extended\nDisallow: /",
+    ],
+    header: ["x-served-by", "worker-robots-policy"],
   },
   {
     path: "/llms.txt",
@@ -62,8 +77,9 @@ for (const check of fetchChecks) {
   const cacheControl = res.headers.get("cache-control") || "";
   const body = await res.text();
   const missingBody = (check.bodyIncludes || []).filter((needle) => !body.includes(needle));
+  const forbiddenBody = (check.bodyExcludes || []).filter((needle) => body.includes(needle));
   const headerOk = !check.header || (res.headers.get(check.header[0]) || "") === check.header[1];
-  const ok = res.ok && contentType.includes(check.contentType) && missingBody.length === 0 && headerOk;
+  const ok = res.ok && contentType.includes(check.contentType) && missingBody.length === 0 && forbiddenBody.length === 0 && headerOk;
   results.push({
     kind: "fetch",
     path: check.path,
@@ -73,7 +89,7 @@ for (const check of fetchChecks) {
     ok,
   });
   if (!ok) {
-    failures.push(`fetch ${check.path} failed: status=${res.status}, content-type=${contentType}, missing=${missingBody.join(",")}, headerOk=${headerOk}`);
+    failures.push(`fetch ${check.path} failed: status=${res.status}, content-type=${contentType}, missing=${missingBody.join(",")}, forbidden=${forbiddenBody.join(",")}, headerOk=${headerOk}`);
   }
 }
 

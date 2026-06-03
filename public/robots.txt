@@ -1,6 +1,6 @@
 # Podiverzum robots policy.
-# NOTE: Live serving is overridden by the Cloudflare worker (.lovable/cloudflare-worker.js)
-# so any Cloudflare Managed robots.txt / "AI Scrapers and Crawlers" injection is bypassed.
+# Served directly by the Cloudflare Worker so Cloudflare Managed robots rules
+# cannot inject contradictory AI crawler blocks.
 
 User-agent: *
 Allow: /
@@ -10,11 +10,15 @@ Disallow: /admin-bootstrap
 Disallow: /growth-status
 Disallow: /auth
 Disallow: /belepes
+Content-Signal: search=yes,ai-input=yes,ai-train=no
 
 User-agent: Googlebot
 Allow: /
 
 User-agent: Bingbot
+Allow: /
+
+User-agent: Googlebot-News
 Allow: /
 
 User-agent: OAI-SearchBot
@@ -36,9 +40,6 @@ User-agent: Google-Extended
 Allow: /
 
 User-agent: Applebot-Extended
-Allow: /
-
-User-agent: Googlebot-News
 Allow: /
 
 Sitemap: https://podiverzum.hu/sitemap.xml

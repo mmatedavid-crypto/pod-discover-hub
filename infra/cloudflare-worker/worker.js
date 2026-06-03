@@ -15,6 +15,53 @@ const PRERENDER_ENDPOINT =
   "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/prerender";
 const SITEMAP_CACHE_TTL_SECONDS = 900;
 const NEWS_SITEMAP_CACHE_TTL_SECONDS = 300;
+const ROBOTS_TXT = `# Podiverzum robots policy.
+# Served directly by the Cloudflare Worker so Cloudflare Managed robots rules
+# cannot inject contradictory AI crawler blocks.
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /admin-bootstrap
+Disallow: /growth-status
+Disallow: /auth
+Disallow: /belepes
+Content-Signal: search=yes,ai-input=yes,ai-train=no
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Googlebot-News
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+Sitemap: https://podiverzum.hu/sitemap.xml
+Sitemap: https://podiverzum.hu/news-sitemap.xml
+`;
 
 // Lovable origin host (proxied via Cloudflare). Workers route runs BEFORE
 // the proxy returns, so we just `fetch(request)` to passthrough.
@@ -112,6 +159,19 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const ua = request.headers.get("user-agent") || "";
+
+    if ((request.method === "GET" || request.method === "HEAD") &&
+        url.pathname === "/robots.txt") {
+      return new Response(request.method === "HEAD" ? null : ROBOTS_TXT, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=300, s-maxage=300",
+          "X-Served-By": "worker-robots-policy",
+          "X-Robots-Policy": "ai-search-friendly",
+        },
+      });
+    }
 
     // Permanent www -> apex redirect (preserves path + query).
     // Runs first so no other logic (passthrough, prerender) can downgrade it to 302.

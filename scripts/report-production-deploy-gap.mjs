@@ -45,6 +45,13 @@ const GROUPS = {
     functions: ["prerender"],
     why: "Névazonosságoknál ne kerüljenek hamis életrajzok SEO/prerender oldalra.",
   },
+  edge_worker_seo: {
+    label: "Cloudflare edge SEO policy",
+    migrations: [],
+    functions: [],
+    worker: ["infra/cloudflare-worker/worker.js", ".lovable/cloudflare-worker.js"],
+    why: "Robots.txt, AI crawler hozzáférés, canonical alias 301-ek és friss news-sitemap cache a Google/AI ügynököknek.",
+  },
 };
 
 function runPipelineVerifier() {
@@ -66,8 +73,33 @@ function runPipelineVerifier() {
   }
 }
 
+function runEdgeVerifier() {
+  try {
+    const stdout = execFileSync(process.execPath, ["scripts/verify-production-edge-seo.mjs"], {
+      cwd: repoRoot,
+      env: process.env,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return JSON.parse(stdout);
+  } catch (error) {
+    const stdout = String(error.stdout || "").trim();
+    if (!stdout) {
+      return {
+        ok: false,
+        failures: [`edge verifier failed without JSON: ${String(error.stderr || error.message || error)}`],
+      };
+    }
+    return JSON.parse(stdout);
+  }
+}
+
 const result = runPipelineVerifier();
-const failures = Array.isArray(result.failures) ? result.failures : [];
+const edgeResult = runEdgeVerifier();
+const failures = [
+  ...(Array.isArray(result.failures) ? result.failures : []),
+  ...(Array.isArray(edgeResult.failures) ? edgeResult.failures.map((failure) => `edge_worker_seo.${failure}`) : []),
+];
 const failedGroups = new Map();
 
 for (const failure of failures) {
@@ -90,6 +122,10 @@ const report = {
   deploy_gap_group_count: groups.length,
   groups,
   raw_failures: failures,
+  edge: {
+    ok: Boolean(edgeResult.ok),
+    failure_count: Array.isArray(edgeResult.failures) ? edgeResult.failures.length : 0,
+  },
 };
 
 console.log(JSON.stringify(report, null, 2));

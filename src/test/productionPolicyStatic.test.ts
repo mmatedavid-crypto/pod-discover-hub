@@ -41,6 +41,7 @@ describe("production policy static guards", () => {
 
     expect(pkg).toContain('"report:production-deploy-gap": "node scripts/report-production-deploy-gap.mjs"');
     expect(reporter).toContain("verify-production-pipeline.mjs");
+    expect(reporter).toContain("verify-production-edge-seo.mjs");
     for (const group of [
       "clean_text_backfill_gates",
       "article_pipeline",
@@ -48,6 +49,7 @@ describe("production policy static guards", () => {
       "public_ai_language_guard",
       "related_episode_quality",
       "people_hub_identity_safety",
+      "edge_worker_seo",
     ]) {
       expect(reporter).toContain(group);
     }
@@ -63,6 +65,8 @@ describe("production policy static guards", () => {
       "refresh-sitemap",
       "ai-enrich",
       "prerender",
+      "infra/cloudflare-worker/worker.js",
+      ".lovable/cloudflare-worker.js",
     ]) {
       expect(reporter).toContain(artifact);
     }
@@ -162,6 +166,7 @@ describe("production policy static guards", () => {
 
   it("keeps root sitemap XMLs served through the Cloudflare worker with fresh news cache", () => {
     const worker = read("infra/cloudflare-worker/worker.js");
+    const lovableWorker = read(".lovable/cloudflare-worker.js");
     const robots = read("public/robots.txt");
 
     expect(worker).toContain("const SITEMAP_CACHE_TTL_SECONDS = 900");
@@ -170,9 +175,20 @@ describe("production policy static guards", () => {
     expect(worker).toContain("worker-sitemap-proxy");
     expect(worker).toContain("storage/v1/object/public/sitemaps");
     expect(worker).toContain("X-Served-By");
+    expect(worker).toContain('url.pathname === "/robots.txt"');
+    expect(worker).toContain("worker-robots-policy");
+    expect(worker).toContain("Content-Signal: search=yes,ai-input=yes,ai-train=no");
+    expect(worker).not.toContain("BEGIN Cloudflare Managed");
+
+    expect(lovableWorker).toContain('url.pathname === "/robots.txt"');
+    expect(lovableWorker).toContain("worker-robots-policy");
 
     expect(robots).toContain("Sitemap: https://podiverzum.hu/sitemap.xml");
     expect(robots).toContain("Sitemap: https://podiverzum.hu/news-sitemap.xml");
+    expect(robots).toContain("Content-Signal: search=yes,ai-input=yes,ai-train=no");
+    expect(robots).not.toContain("BEGIN Cloudflare Managed");
+    expect(robots).not.toContain("User-agent: GPTBot\nDisallow: /");
+    expect(robots).not.toContain("User-agent: ClaudeBot\nDisallow: /");
   });
 
   it("keeps SEO alias routes redirected at the Cloudflare edge", () => {
@@ -217,6 +233,9 @@ describe("production policy static guards", () => {
     }
     expect(verifier).toContain("redirect: \"manual\"");
     expect(verifier).toContain("worker-sitemap-proxy");
+    expect(verifier).toContain("worker-robots-policy");
+    expect(verifier).toContain("bodyExcludes");
+    expect(verifier).toContain("BEGIN Cloudflare Managed");
     expect(verifier).toContain("max-age=300");
   });
 
