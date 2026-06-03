@@ -62,7 +62,9 @@ settings AS (
     'episode_clean_text_progress',
     'news_sitemap_refresh_controls',
     'news_sitemap_state',
-    'public_ai_language_guard_policy'
+    'public_ai_language_guard_policy',
+    'related_episode_quality_policy',
+    'people_hub_identity_safety_policy'
   )
 ),
 controls AS (
@@ -95,7 +97,9 @@ controls AS (
     'episode_clean_text_progress', setting_values->'episode_clean_text_progress',
     'news_sitemap_refresh_controls', setting_values->'news_sitemap_refresh_controls',
     'news_sitemap_state', setting_values->'news_sitemap_state',
-    'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy'
+    'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy',
+    'related_episode_quality_policy', setting_values->'related_episode_quality_policy',
+    'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy'
   ) AS summary
   FROM settings
 ),
@@ -157,6 +161,37 @@ SELECT jsonb_build_object(
     'episode_trigger_function_exists', to_regprocedure('public.enforce_hu_episode_public_ai_text()') IS NOT NULL,
     'podcast_trigger_function_exists', to_regprocedure('public.enforce_hu_podcast_public_ai_text()') IS NOT NULL,
     'policy_configured_v2', (SELECT (setting_values->'public_ai_language_guard_policy'->>'version')::int >= 2 FROM settings)
+  ),
+  'related_episode_quality', jsonb_build_object(
+    'compatibility_function_exists', to_regprocedure('public.recommendation_is_compatible(text,text,double precision,boolean)') IS NOT NULL,
+    'policy_configured_v2', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 2 FROM settings),
+    'religion_cross_group_hard_block_recorded', (SELECT setting_values->'related_episode_quality_policy'->>'religion_cross_group' = 'hard_block' FROM settings),
+    'religion_cross_group_runtime_blocked', false
+  ),
+  'people_hub_identity_safety', jsonb_build_object(
+    'policy_configured_v1', (SELECT (setting_values->'people_hub_identity_safety_policy'->>'version')::int >= 1 FROM settings),
+    'list_people_hub_has_identity_fields', EXISTS (
+      SELECT 1
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'list_people_hub'
+        AND pg_get_function_arguments(p.oid) = 'p_limit integer, p_offset integer, p_search text'
+        AND pg_get_function_result(p.oid) ILIKE '%identity_ambiguous boolean%'
+        AND pg_get_function_result(p.oid) ILIKE '%ai_bio_status text%'
+        AND pg_get_function_result(p.oid) ILIKE '%wikipedia_match_confidence numeric%'
+    ),
+    'list_people_alpha_has_identity_fields', EXISTS (
+      SELECT 1
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'list_people_alpha'
+        AND pg_get_function_arguments(p.oid) = 'p_letter text, p_limit integer, p_offset integer'
+        AND pg_get_function_result(p.oid) ILIKE '%identity_ambiguous boolean%'
+        AND pg_get_function_result(p.oid) ILIKE '%ai_bio_status text%'
+        AND pg_get_function_result(p.oid) ILIKE '%wikipedia_match_confidence numeric%'
+    )
   ),
   'accepted_hu_episodes_with_description', (SELECT count(*) FROM accepted_hu),
   'clean_text', (SELECT to_jsonb(clean_counts) FROM clean_counts),
@@ -221,6 +256,29 @@ if (snapshot.article_pipeline?.table_exists === true) {
     snapshot.article_candidates = { error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+if (snapshot.related_episode_quality?.compatibility_function_exists === true) {
+  try {
+    const relatedResult = runReadonlyQuery(`
+      SELECT jsonb_build_object(
+        'religion_cross_group_runtime_blocked',
+        public.recommendation_is_compatible('public_affairs', 'religion', 0.99::double precision, true) = false
+      ) AS checks;
+    `);
+    const checks = JSON.parse(relatedResult.rows?.[0]?.checks ?? "{}");
+    snapshot.related_episode_quality = {
+      ...snapshot.related_episode_quality,
+      ...checks,
+    };
+  } catch (e) {
+    snapshot.related_episode_quality = {
+      ...snapshot.related_episode_quality,
+      religion_cross_group_runtime_blocked: false,
+      runtime_check_error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 const gates = snapshot.migration_gates ?? {};
 const failures = [];
 
@@ -246,6 +304,16 @@ for (const [key, ok] of Object.entries(seoNewsSitemap)) {
 const publicAiLanguageGuard = snapshot.public_ai_language_guard ?? {};
 for (const [key, ok] of Object.entries(publicAiLanguageGuard)) {
   if (ok !== true) failures.push(`public_ai_language_guard.${key}`);
+}
+
+const relatedEpisodeQuality = snapshot.related_episode_quality ?? {};
+for (const [key, ok] of Object.entries(relatedEpisodeQuality)) {
+  if (ok !== true) failures.push(`related_episode_quality.${key}`);
+}
+
+const peopleHubIdentitySafety = snapshot.people_hub_identity_safety ?? {};
+for (const [key, ok] of Object.entries(peopleHubIdentitySafety)) {
+  if (ok !== true) failures.push(`people_hub_identity_safety.${key}`);
 }
 
 const clean = snapshot.clean_text ?? {};

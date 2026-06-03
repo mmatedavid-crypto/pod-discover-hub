@@ -58,4 +58,17 @@ describe("production policy static guards", () => {
     expect(migration).toContain("'version', 2");
     expect(migration).toContain("non_hu_public_text_repair");
   });
+
+  it("keeps production verifier covering recommendation and people identity policies", () => {
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+
+    expect(verifier).toContain("related_episode_quality_policy");
+    expect(verifier).toContain("people_hub_identity_safety_policy");
+    expect(verifier).toContain("snapshot.related_episode_quality?.compatibility_function_exists === true");
+    expect(verifier).toContain("recommendation_is_compatible('public_affairs', 'religion', 0.99::double precision, true) = false");
+    expect(verifier).toContain("list_people_hub_has_identity_fields");
+    expect(verifier).toContain("list_people_alpha_has_identity_fields");
+    expect(verifier).toContain("failures.push(`related_episode_quality.${key}`)");
+    expect(verifier).toContain("failures.push(`people_hub_identity_safety.${key}`)");
+  });
 });
