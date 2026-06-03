@@ -35,6 +35,18 @@ export function stripHtml(input: string): string {
     .trim();
 }
 
+function decodeXmlText(input: string): string {
+  return String(input || "")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, "$1")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_m, dec) => String.fromCodePoint(parseInt(dec, 10)));
+}
+
 export function normalizeArticleText(input: string): string {
   return String(input || "")
     .normalize("NFD")
@@ -97,30 +109,38 @@ export function scorePublisherArticleMatch(ep: ArticleEpisodeRow, article: Artic
   return { score, reasons, shared_title_tokens: title.shared, shared_body_tokens: body.shared.slice(0, 20), date_score: date };
 }
 
-function firstText(el: Element, selectors: string[]): string {
-  for (const selector of selectors) {
-    const value = el.querySelector(selector)?.textContent;
-    if (value) return value;
-  }
-  for (const selector of selectors) {
-    const direct = el.getElementsByTagName(selector)[0]?.textContent;
-    if (direct) return direct;
+function firstXmlText(xml: string, tagNames: string[]): string {
+  for (const tag of tagNames) {
+    const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = xml.match(new RegExp(`<${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escaped}>`, "i"));
+    if (match?.[1]) return decodeXmlText(match[1]).trim();
   }
   return "";
 }
 
+function firstXmlAttr(xml: string, tagName: string, attrName: string): string {
+  const tagMatch = xml.match(new RegExp(`<${tagName}(?:\\s[^>]*)?>`, "i"))?.[0] || "";
+  const attrMatch = tagMatch.match(new RegExp(`\\s${attrName}=["']([^"']+)["']`, "i"));
+  return attrMatch?.[1] ? decodeXmlText(attrMatch[1]).trim() : "";
+}
+
+function extractXmlEntries(xml: string): string[] {
+  const entries = Array.from(String(xml || "").matchAll(/<entry\b[\s\S]*?<\/entry>/gi)).map((m) => m[0]);
+  if (entries.length) return entries.slice(0, 200);
+  return Array.from(String(xml || "").matchAll(/<item\b[\s\S]*?<\/item>/gi)).map((m) => m[0]).slice(0, 200);
+}
+
 export function parsePublisherFeed(xml: string, outlet: string): ArticleItem[] {
-  const doc = new DOMParser().parseFromString(xml, "text/xml");
-  const entries = Array.from(doc.querySelectorAll("item, entry")).slice(0, 200);
-  return entries.map((el) => {
-    const title = stripHtml(firstText(el, ["title"]));
+  const entries = extractXmlEntries(xml);
+  return entries.map((entry) => {
+    const title = stripHtml(firstXmlText(entry, ["title"]));
     const link =
-      firstText(el, ["link"]).trim() ||
-      el.querySelector("link[href]")?.getAttribute("href") ||
+      firstXmlAttr(entry, "link", "href") ||
+      firstXmlText(entry, ["link"]).trim() ||
       "";
-    const excerpt = stripHtml(firstText(el, ["description", "summary"]));
-    const content = stripHtml(firstText(el, ["content\\:encoded", "encoded", "content"]) || excerpt);
-    const dateText = firstText(el, ["pubDate", "published", "updated"]);
+    const excerpt = stripHtml(firstXmlText(entry, ["description", "summary"]));
+    const content = stripHtml(firstXmlText(entry, ["content:encoded", "encoded", "content"]) || excerpt);
+    const dateText = firstXmlText(entry, ["pubDate", "published", "updated"]);
     const date = dateText ? new Date(dateText) : null;
     return {
       outlet,

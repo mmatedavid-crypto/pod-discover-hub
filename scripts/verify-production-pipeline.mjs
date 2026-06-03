@@ -64,7 +64,8 @@ settings AS (
     'news_sitemap_state',
     'public_ai_language_guard_policy',
     'related_episode_quality_policy',
-    'people_hub_identity_safety_policy'
+    'people_hub_identity_safety_policy',
+    'text_processing_policy'
   )
 ),
 controls AS (
@@ -206,7 +207,7 @@ SELECT jsonb_build_object(
       JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'public'
         AND p.proname = 'list_people_hub'
-        AND pg_get_function_arguments(p.oid) = 'p_limit integer, p_offset integer, p_search text'
+        AND oidvectortypes(p.proargtypes) = 'integer, integer, text'
         AND pg_get_function_result(p.oid) ILIKE '%identity_ambiguous boolean%'
         AND pg_get_function_result(p.oid) ILIKE '%ai_bio_status text%'
         AND pg_get_function_result(p.oid) ILIKE '%wikipedia_match_confidence numeric%'
@@ -217,7 +218,7 @@ SELECT jsonb_build_object(
       JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'public'
         AND p.proname = 'list_people_alpha'
-        AND pg_get_function_arguments(p.oid) = 'p_letter text, p_limit integer, p_offset integer'
+        AND oidvectortypes(p.proargtypes) = 'text, integer, integer'
         AND pg_get_function_result(p.oid) ILIKE '%identity_ambiguous boolean%'
         AND pg_get_function_result(p.oid) ILIKE '%ai_bio_status text%'
         AND pg_get_function_result(p.oid) ILIKE '%wikipedia_match_confidence numeric%'

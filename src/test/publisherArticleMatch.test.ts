@@ -56,13 +56,13 @@ describe("publisher article matching", () => {
     expect(score.reasons).not.toContain("title_token_match");
   });
 
-  it("parses RSS content:encoded as article text", () => {
+  it("parses RSS content:encoded as article text without DOMParser", () => {
     const items = parsePublisherFeed(`
       <rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel>
         <item>
           <title><![CDATA[Podcastcikk hosszabb leírással]]></title>
           <link>https://444.hu/podcast/podcastcikk</link>
-          <description><![CDATA[Rövid bevezető]]></description>
+          <description><![CDATA[<p>Rövid bevezető &amp; ajánló</p>]]></description>
           <content:encoded><![CDATA[<article><p>Ez a hosszabb cikk törzse, amelyből jobb description készülhet.</p></article>]]></content:encoded>
           <pubDate>Sun, 31 May 2026 10:00:00 GMT</pubDate>
         </item>
@@ -71,7 +71,26 @@ describe("publisher article matching", () => {
 
     expect(items).toHaveLength(1);
     expect(items[0].url).toBe("https://444.hu/podcast/podcastcikk");
+    expect(items[0].excerpt).toBe("Rövid bevezető & ajánló");
     expect(items[0].text).toContain("jobb description");
+  });
+
+  it("parses Atom entries with href links", () => {
+    const items = parsePublisherFeed(`
+      <feed>
+        <entry>
+          <title>Telex podcast háttéranyag</title>
+          <link href="https://telex.hu/podcast/2026/06/03/telex-podcast-hatteranyag" />
+          <summary>Podcast cikk összefoglalója.</summary>
+          <updated>2026-06-03T12:00:00Z</updated>
+        </entry>
+      </feed>
+    `, "telex");
+
+    expect(items).toHaveLength(1);
+    expect(items[0].url).toBe("https://telex.hu/podcast/2026/06/03/telex-podcast-hatteranyag");
+    expect(items[0].title).toBe("Telex podcast háttéranyag");
+    expect(items[0].text).toBe("Podcast cikk összefoglalója.");
   });
 
   it("extracts publisher article links from listing HTML when there is no RSS feed", () => {
