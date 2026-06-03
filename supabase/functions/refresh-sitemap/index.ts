@@ -378,20 +378,25 @@ ${newsItems.join('\n')}
       const previousKnownUrls = previousStateHasUrls
         ? previousState.urls
         : await readExistingSitemapLocs('news-sitemap.xml');
+      const hasReliablePreviousUrlBaseline = previousStateHasUrls || previousKnownUrls.length > 0;
       const previousUrls = new Set<string>(previousKnownUrls);
       await upload('news-sitemap.xml', newsXml);
       const currentUrls = Array.from(seenNewsUrls);
       const newUrls = currentUrls.filter((loc) => !previousUrls.has(loc));
       const changed = newsHash !== previousHash;
       const googleSubmitPolicy = 'submit_only_when_news_sitemap_has_new_urls';
-      const shouldSubmitToGoogle = newUrls.length > 0 && realNewsItemCount > 0;
+      const shouldSubmitToGoogle = hasReliablePreviousUrlBaseline && newUrls.length > 0 && realNewsItemCount > 0;
       let googleSubmit: GoogleSubmitResult = {
         attempted: false,
         ok: false,
         status: null,
         reason: shouldSubmitToGoogle
           ? 'not_attempted'
-          : (changed ? 'changed_without_new_news_urls' : 'unchanged'),
+          : !hasReliablePreviousUrlBaseline
+            ? 'baseline_saved_without_submit'
+            : changed
+              ? 'changed_without_new_news_urls'
+              : 'unchanged',
       };
       if (shouldSubmitToGoogle) {
         try {
@@ -413,6 +418,7 @@ ${newsItems.join('\n')}
           changed,
           urls: currentUrls,
           previous_url_source: previousStateHasUrls ? 'state' : 'existing_news_sitemap_xml',
+          previous_url_baseline_reliable: hasReliablePreviousUrlBaseline,
           new_url_count: newUrls.length,
           new_urls_sample: newUrls.slice(0, 20),
           url_count: newsItems.length,

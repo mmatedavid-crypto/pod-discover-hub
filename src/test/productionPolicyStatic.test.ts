@@ -102,7 +102,10 @@ describe("production policy static guards", () => {
     expect(fn).toContain("const previousUrls = new Set<string>");
     expect(fn).toContain("const newUrls = currentUrls.filter");
     expect(fn).toContain("const googleSubmitPolicy = 'submit_only_when_news_sitemap_has_new_urls'");
-    expect(fn).toContain("const shouldSubmitToGoogle = newUrls.length > 0 && realNewsItemCount > 0");
+    expect(fn).toContain("const hasReliablePreviousUrlBaseline = previousStateHasUrls || previousKnownUrls.length > 0");
+    expect(fn).toContain("const shouldSubmitToGoogle = hasReliablePreviousUrlBaseline && newUrls.length > 0 && realNewsItemCount > 0");
+    expect(fn).toContain("baseline_saved_without_submit");
+    expect(fn).toContain("previous_url_baseline_reliable");
     expect(fn).toContain("if (shouldSubmitToGoogle)");
     expect(fn).toContain("new_url_count");
     expect(fn).toContain("new_urls_sample");
