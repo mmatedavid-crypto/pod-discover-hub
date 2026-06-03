@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
@@ -137,17 +137,18 @@ function diversifyByPodcast<T>(items: T[], take: number, perPodcastCap = 2): T[]
   }
   return avoidAdjacentSamePodcast([...primary, ...overflow]).slice(0, take);
 }
-import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
-import { ContinueListening } from "@/components/ContinueListening";
-import { TrendingPodcasts } from "@/components/TrendingPodcasts";
-import { MyLibraryRails } from "@/components/home/MyLibraryRails";
-import { PersonalizedHomeRails } from "@/components/home/PersonalizedHomeRails";
-import { HomeDiscoveryShortcuts } from "@/components/home/HomeDiscoveryShortcuts";
-import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
 import { auditHomepageRail } from "@/lib/homepageQuality";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+
+const MoodCollections = lazy(() => import("@/components/MoodCollections").then((m) => ({ default: m.MoodCollections })));
+const ContinueListening = lazy(() => import("@/components/ContinueListening").then((m) => ({ default: m.ContinueListening })));
+const TrendingPodcasts = lazy(() => import("@/components/TrendingPodcasts").then((m) => ({ default: m.TrendingPodcasts })));
+const MyLibraryRails = lazy(() => import("@/components/home/MyLibraryRails").then((m) => ({ default: m.MyLibraryRails })));
+const PersonalizedHomeRails = lazy(() => import("@/components/home/PersonalizedHomeRails").then((m) => ({ default: m.PersonalizedHomeRails })));
+const HomeDiscoveryShortcuts = lazy(() => import("@/components/home/HomeDiscoveryShortcuts").then((m) => ({ default: m.HomeDiscoveryShortcuts })));
+const WeeklyEditorialStrip = lazy(() => import("@/components/WeeklyEditorialStrip"));
 
 const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
   podcast: Mic,
@@ -657,12 +658,14 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
-        <TrendingPodcasts />
-        <HomeDiscoveryShortcuts />
-        <WeeklyEditorialStrip />
-        <MyLibraryRails />
-        <ContinueListening />
-        <PersonalizedHomeRails />
+        <Suspense fallback={null}>
+          <TrendingPodcasts />
+          <HomeDiscoveryShortcuts />
+          <WeeklyEditorialStrip />
+          <MyLibraryRails />
+          <ContinueListening />
+          <PersonalizedHomeRails />
+        </Suspense>
         {!loaded && trendingEps.length === 0 && (
           <section>
             <Skeleton className="h-6 w-48 mb-4" />
@@ -693,7 +696,9 @@ const Index = () => {
           </section>
         )}
 
-        <MoodCollections />
+        <Suspense fallback={null}>
+          <MoodCollections />
+        </Suspense>
 
 
 

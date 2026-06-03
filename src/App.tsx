@@ -22,7 +22,6 @@ import NotFound from "./pages/NotFound.tsx";
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
-import { SmartPlayerBar } from "./components/smart-player/SmartPlayerBar";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 
 const StartSwipePage = lazy(() => import("./pages/StartSwipePage.tsx"));
@@ -88,6 +87,7 @@ const ContactPage = lazy(() => import("./pages/ContactPage.tsx"));
 const MoodsPage = lazy(() => import("./pages/MoodsPage.tsx"));
 const EnPodiverzumomPage = lazy(() => import("./pages/EnPodiverzumomPage.tsx"));
 const PublicProfilePage = lazy(() => import("./pages/PublicProfilePage.tsx"));
+const SmartPlayerBar = lazy(() => import("./components/smart-player/SmartPlayerBar").then((m) => ({ default: m.SmartPlayerBar })));
 
 const queryClient = new QueryClient();
 
@@ -228,7 +228,9 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
-        <SmartPlayerBar />
+        <Suspense fallback={null}>
+          <SmartPlayerBar />
+        </Suspense>
         </SmartPlayerProvider>
       </BrowserRouter>
     </TooltipProvider>

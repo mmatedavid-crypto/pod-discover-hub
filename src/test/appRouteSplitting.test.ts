@@ -13,8 +13,11 @@ describe("app route splitting", () => {
     expect(app).toContain('const StartSwipePage = lazy(() => import("./pages/StartSwipePage.tsx"))');
     expect(app).toContain('const AdminPage = lazy(() => import("./pages/AdminPage.tsx"))');
     expect(app).toContain('const PodcastDetail = lazy(() => import("./pages/PodcastDetail.tsx"))');
+    expect(app).toContain('const SmartPlayerBar = lazy(() => import("./components/smart-player/SmartPlayerBar")');
     expect(app).toContain("<Suspense fallback={<RouteLoading />}>");
+    expect(app).toContain("<SmartPlayerBar />");
     expect(app).not.toContain('import StartSwipePage from "./pages/StartSwipePage.tsx"');
     expect(app).not.toContain('import AdminPage from "./pages/AdminPage.tsx"');
+    expect(app).not.toContain('import { SmartPlayerBar } from "./components/smart-player/SmartPlayerBar"');
   });
 });
