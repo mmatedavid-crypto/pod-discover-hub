@@ -622,6 +622,7 @@ Deno.serve(async (req) => {
 
     const items = picked.map((ep, i) => {
       const aiItem = ai.items[i] || { title: ep.display_title || ep.title, teaser: "", quote: "" };
+      const verifiedQuote = verifyQuote(aiItem.quote || "", ep._source_text || "");
       return {
         episode_id: ep.id,
         title: ep.display_title || ep.title,
@@ -630,7 +631,7 @@ Deno.serve(async (req) => {
         episode_slug: ep.slug,
         url: episodeUrl(ep),
         teaser: aiItem.teaser,
-        quote: aiItem.quote,
+        quote: verifiedQuote,
         cover_card_url: null as string | null,
         score: ep._score,
         source_quality: ep._text_quality,
