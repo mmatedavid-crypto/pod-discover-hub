@@ -15,7 +15,7 @@ export type RecommendationCandidate = RecommendationContext & {
 };
 
 const CHILDREN_RE =
-  /\b(mese|meseradio|meseradio|meserádió|gyerek|gyermek|gyerekek|ovis|ovodas|óvodás|altato|altató|tunder|tündér|baba|babak|babák|csaladi mese|esti mese)\b/i;
+  /\b(kids|family|children|child|bedtime|story|stories|mese|meseradio|meseradio|meserádió|gyerek|gyermek|gyerekek|ovis|ovodas|óvodás|altato|altató|tunder|tündér|baba|babak|babák|csaladi mese|esti mese)\b/i;
 
 const BUSINESS_RE =
   /\b(uzlet|üzlet|business|gazdasag|gazdaság|penz|pénz|tozsde|tőzsde|befektetes|befektetés|milliardos|milliárdos|ceg|cég|vallalkozas|vállalkozás|ingatlan|karrier|menedzsment)\b/i;
@@ -25,7 +25,7 @@ const PUBLIC_AFFAIRS_RE =
 
 const HEALTH_RE = /\b(egeszseg|egészség|orvos|pszicho|mentalis|mentális|eletmod|életmód|sport)\b/i;
 const RELIGION_RE =
-  /\b(vallas|vallás|hit|kereszteny|keresztény|isten|biblia|egyhaz|egyház|istentisztelet|igehirdetes|igehirdetés|prédikáció|predikacio|katolikus|reformatus|református|baptista|evangelium|evangélium|ahitat|áhítat)\b/i;
+  /\b(religion|spirituality|spiritual|faith|christian|church|sermon|prayer|gospel|vallas|vallás|hit|kereszteny|keresztény|isten|biblia|egyhaz|egyház|istentisztelet|igehirdetes|igehirdetés|prédikáció|predikacio|katolikus|reformatus|református|baptista|evangelium|evangélium|ahitat|áhítat)\b/i;
 
 function normalizeText(value: string | null | undefined): string {
   return (value || "")

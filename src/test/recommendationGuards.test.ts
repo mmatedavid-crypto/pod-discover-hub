@@ -48,6 +48,52 @@ describe("recommendationGuards", () => {
     expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
   });
 
+  it("blocks religion category candidates even when their title is bland", () => {
+    const source = {
+      title: "Pénz, politika és befolyás a magyar gazdaságban",
+      podcastTitle: "Közéleti elemzés",
+      category: "News & Politics",
+      topics: ["közélet", "gazdaság"],
+      people: ["Orbán Viktor"],
+      companies: [],
+    };
+
+    const candidate = {
+      title: "Heti beszélgetés",
+      podcastTitle: "Vasárnapi műsor",
+      category: "Religion & Spirituality",
+      topics: [],
+      people: [],
+      companies: [],
+      similarity: 0.99,
+    };
+
+    expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
+  });
+
+  it("blocks kids category candidates for adult public affairs episodes", () => {
+    const source = {
+      title: "Mészáros Lőrinc és a magyar tőzsde",
+      podcastTitle: "Puzsér Róbert",
+      category: "Society & Culture",
+      topics: ["közélet", "gazdaság"],
+      people: ["Mészáros Lőrinc"],
+      companies: [],
+    };
+
+    const candidate = {
+      title: "Mai adás",
+      podcastTitle: "Családi rádió",
+      category: "Kids & Family",
+      topics: [],
+      people: [],
+      companies: [],
+      similarity: 0.99,
+    };
+
+    expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
+  });
+
   it("still allows related public affairs episodes with strong overlap", () => {
     const source = {
       title: "Mészáros Lőrinc részvényeinek látványos zuhanása",
