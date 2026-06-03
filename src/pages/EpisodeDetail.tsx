@@ -5,7 +5,6 @@ import Layout from "@/components/Layout";
 import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, CalendarDays, ArrowLeft, Sparkles } from "lucide-react";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
-import { stripHtml } from "@/lib/text";
 import { pickEpisodeDescription } from "@/lib/episodeText";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
@@ -106,8 +105,8 @@ export default function EpisodeDetail() {
         imageUrl: e.image_url || p.image_url,
       });
 
-      const summary = stripHtml(e.summary);
-      const desc = stripHtml(e.description);
+      const summary = sanitizeHungarianPublicText(e.summary);
+      const desc = sanitizeHungarianPublicText(e.description);
       // Unified resolver: ai_summary → clean_text → RSS summary/description
       const bestDesc = pickEpisodeDescription(e, 320);
       const safeSeoDescription = sanitizeHungarianPublicText(e.seo_description);
@@ -173,15 +172,15 @@ export default function EpisodeDetail() {
   }, [podcastSlug, episodeSlug]);
 
   const moments = useMemo(
-    () => extractKeyMoments(stripHtml(data?.e?.description) || stripHtml(data?.e?.summary)),
+    () => extractKeyMoments(sanitizeHungarianPublicText(data?.e?.description) || sanitizeHungarianPublicText(data?.e?.summary)),
     [data?.e?.description, data?.e?.summary],
   );
 
   if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
   if (!data?.e) return <NotFoundState title="Nincs ilyen epizód" message="Ez az epizód nem létezik vagy eltávolításra került." />;
   const { p, e } = data;
-  const summary = pickEpisodeDescription(e, 420) || stripHtml(e.summary);
-  const description = stripHtml(e.description);
+  const summary = pickEpisodeDescription(e, 420) || sanitizeHungarianPublicText(e.summary);
+  const description = sanitizeHungarianPublicText(e.description);
   const understanding = getEpisodeUnderstanding(e);
   const handleSeek = (sec: number) => {
     const a = audioRef.current;

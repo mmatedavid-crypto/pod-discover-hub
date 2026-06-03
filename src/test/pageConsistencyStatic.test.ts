@@ -147,8 +147,9 @@ describe("page consistency static guards", () => {
     const topic = read("src/pages/TopicDetailPage.tsx");
     const search = read("src/pages/SearchPage.tsx");
     const trending = read("src/components/TrendingPodcasts.tsx");
+    const episode = read("src/pages/EpisodeDetail.tsx");
 
-    for (const source of [podcast, category, topic, search, trending]) {
+    for (const source of [podcast, category, topic, search, trending, episode]) {
       expect(source).toContain("sanitizeHungarianPublicText");
     }
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_description)");
@@ -158,6 +159,9 @@ describe("page consistency static guards", () => {
     expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
     expect(trending).toContain("sanitizeHungarianPublicText(p.summary)");
+    expect(episode).toContain("const description = sanitizeHungarianPublicText(e.description)");
+    expect(episode).toContain("extractKeyMoments(sanitizeHungarianPublicText(data?.e?.description)");
+    expect(episode).not.toContain("const description = stripHtml(e.description)");
   });
 
   it("keeps public search on the accepted Hungarian catalog, not query accent language guesses", () => {
