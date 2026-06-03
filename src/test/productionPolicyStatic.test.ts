@@ -269,8 +269,12 @@ describe("production policy static guards", () => {
     expect(migration).toContain("CREATE TRIGGER trg_enforce_hu_episode_public_ai_text");
     expect(migration).toContain("CREATE TRIGGER trg_enforce_hu_podcast_public_ai_text");
     expect(migration).toContain("en_ratio > 0.12");
+    expect(migration).toContain("tmp_non_hu_episode_public_text_v3");
+    expect(migration).toContain("non_hu_public_text_repair_episode_v3");
+    expect(migration).toContain("non_hu_public_text_repair_podcast_v3");
     expect(migration).toContain("public_ai_language_guard_policy");
     expect(migration).toContain("'version', 3");
+    expect(migration).toContain("'repair_job_source', 'migration_20260603162000'");
     expect(migration).toContain("trg_enforce_hu_episode_public_ai_text");
     expect(migration).toContain("trg_enforce_hu_podcast_public_ai_text");
 
