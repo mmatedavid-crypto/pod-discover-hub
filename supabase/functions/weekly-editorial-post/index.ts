@@ -361,7 +361,7 @@ Miért rossz: nagy metafora („a rendszerek ára látszik"), erőltetett közö
 ITEMS szabályai (minden epizódra):
 - title: pontosan az adott epizód neve (NE módosítsd)
 - teaser: 2-3 mondat, MIRŐL szól és MIÉRT számít — konkrét állítás, név vagy szám a SZÖVEGFORRÁSBÓL. Sose írd hogy „interjú", „beszélgetés", „izgalmas", „érdekes" üres frázisként.
-- quote: 1 erős mondat IDÉZŐJEL nélkül, max 140 karakter — parafrázis vagy provokatív összegzés. Soha ne idézz szó szerint ha nem biztos a forrás.
+- quote: OPCIONÁLIS. Csak akkor töltsd ki, ha a SZÖVEGFORRÁSBAN szó szerint (vagy szinte szó szerint) megtalálható egy erős, önmagában is érthető mondat (max 140 karakter, idézőjel nélkül). Ha nincs ilyen valódi mondat, hagyd ÜRES STRINGként (""). SOHA ne találj ki idézetet, ne parafrazálj, ne foglalj össze idézet-mezőbe. Inkább üres, mint kitalált.
 
 Magyarul írj. Ne hashtagelj.${retryHint ? `\n\nFONTOS JAVÍTÁS: ${retryHint}` : ""}`;
 
@@ -473,13 +473,37 @@ function weekRange(): { start: Date; end: Date; label: string } {
   return { start, end, label };
 }
 
+// Csak akkor enged át idézetet, ha az tényleg megtalálható a forrásszövegben.
+// Normalizál: kisbetű, ékezet-tűrés, írásjelek/whitespace ki, majd substring-match.
+// Min. 25 karakter tartalmi hossz (rövidebb idézet túl könnyen véletlenül egyezik / túl gyenge).
+function verifyQuote(rawQuote: string, sourceText: string): string {
+  const q = (rawQuote || "").trim().replace(/^[„"'»«]+|[„"'»«]+$/g, "").trim();
+  if (!q) return "";
+  const norm = (s: string) => s
+    .toLowerCase()
+    .replace(/[„""''»«\-–—.,;:!?()\[\]{}\/\\]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const nq = norm(q);
+  const ns = norm(sourceText || "");
+  if (nq.length < 25) return "";
+  if (!ns) return "";
+  if (ns.includes(nq)) return q;
+  // Fuzzy fallback: az idézet első és utolsó ~30 karakteres ablaka is meglegyen a forrásban
+  // (kis AI-átfogalmazás megengedett, de a magnak ott kell lennie).
+  const head = nq.slice(0, Math.min(40, nq.length));
+  const tail = nq.slice(-Math.min(40, nq.length));
+  if (head.length >= 30 && tail.length >= 30 && ns.includes(head) && ns.includes(tail)) return q;
+  return "";
+}
+
 function buildCaptions(intro: string, items: { title: string; podcast_name: string; url: string; quote: string }[]): { ig: string; fb: string } {
   const fbLines = [
     `📰 A hét a Podiverzumon`,
     "",
     intro,
     "",
-    ...items.map((it) => `▸ ${it.title} — ${it.podcast_name}\n  ${it.quote}\n  ${it.url}`),
+    ...items.map((it) => `▸ ${it.title} — ${it.podcast_name}${it.quote ? `\n  ${it.quote}` : ""}\n  ${it.url}`),
     "",
     `Több: ${SITE_URL}`,
   ];
@@ -622,6 +646,7 @@ Deno.serve(async (req) => {
 
     const items = picked.map((ep, i) => {
       const aiItem = ai.items[i] || { title: ep.display_title || ep.title, teaser: "", quote: "" };
+      const verifiedQuote = verifyQuote(aiItem.quote || "", ep._source_text || "");
       return {
         episode_id: ep.id,
         title: ep.display_title || ep.title,
@@ -630,7 +655,7 @@ Deno.serve(async (req) => {
         episode_slug: ep.slug,
         url: episodeUrl(ep),
         teaser: aiItem.teaser,
-        quote: aiItem.quote,
+        quote: verifiedQuote,
         cover_card_url: null as string | null,
         score: ep._score,
         source_quality: ep._text_quality,
