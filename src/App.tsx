@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,80 +17,89 @@ function RedirectWithTwoSlugs({ to }: { to: string }) {
   return <Navigate to={`${to}/${slug}/temak/${topicSlug}`} replace />;
 }
 import Index from "./pages/Index.tsx";
-import StartSwipePage from "./pages/StartSwipePage.tsx";
-import StartLandingPage from "./pages/StartLandingPage.tsx";
-import TePodiverzumodSharePage from "./pages/TePodiverzumodSharePage.tsx";
-import ListenerProfilePage from "./pages/ListenerProfilePage.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import CategoriesPage from "./pages/CategoriesPage.tsx";
-import CategoryDetail from "./pages/CategoryDetail.tsx";
-import PodcastDetail from "./pages/PodcastDetail.tsx";
-import EpisodeDetail from "./pages/EpisodeDetail.tsx";
-import SearchPage from "./pages/SearchPage.tsx";
-import AuthPage from "./pages/AuthPage.tsx";
-import AdminPage from "./pages/AdminPage.tsx";
-import AdminHubPage from "./pages/AdminHubPage.tsx";
-
-import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
-import AdminGrowthPage from "./pages/AdminGrowthPage.tsx";
-import AdminAutopilotPage from "./pages/AdminAutopilotPage.tsx";
-import AdminQueuePage from "./pages/AdminQueuePage.tsx";
-import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
-import EntityPage from "./pages/EntityPage.tsx";
-import AdminFeedbackPage from "./pages/AdminFeedbackPage.tsx";
-import AdminSearchInsightsPage from "./pages/AdminSearchInsightsPage.tsx";
-import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
-import AdminAiEnrichmentPage from "./pages/AdminAiEnrichmentPage.tsx";
-import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
-import AdminPipelineWatchdogPage from "./pages/AdminPipelineWatchdogPage.tsx";
-import AdminQueueHealthPage from "./pages/AdminQueueHealthPage.tsx";
-import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
-import AdminEditorialPage from "./pages/AdminEditorialPage.tsx";
-import AdminLivePage from "./pages/AdminLivePage.tsx";
-import AdminPiBackfillPage from "./pages/AdminPiBackfillPage.tsx";
-import AdminArchiveBackfillPage from "./pages/AdminArchiveBackfillPage.tsx";
-import AdminHostsPage from "./pages/AdminHostsPage.tsx";
-import AdminLanguageGatePage from "./pages/AdminLanguageGatePage.tsx";
-import AdminHuFormulaShadowPage from "./pages/AdminHuFormulaShadowPage.tsx";
-import AdminPersonQualityReviewPage from "./pages/AdminPersonQualityReviewPage.tsx";
-import AdminVectorSearchPage from "./pages/AdminVectorSearchPage.tsx";
-import AdminSearchBenchmarkPage from "./pages/AdminSearchBenchmarkPage.tsx";
-import AdminDataCoveragePage from "./pages/AdminDataCoveragePage.tsx";
-import AdminOutreachPage from "./pages/AdminOutreachPage.tsx";
-import AdminIntelligenceAuditPage from "./pages/AdminIntelligenceAuditPage.tsx";
-import PeopleHubPage from "./pages/PeopleHubPage.tsx";
-import PersonDetailPage from "./pages/PersonDetailPage.tsx";
-import TopicsHubPage from "./pages/TopicsHubPage.tsx";
-import TopicDetailPage from "./pages/TopicDetailPage.tsx";
-import OrganizationsIndexPage from "./pages/OrganizationsIndexPage.tsx";
-import CompaniesHubPage from "./pages/CompaniesHubPage.tsx";
-import PodcastReport2026 from "./pages/PodcastReport2026.tsx";
-import PartiesHubPage from "./pages/PartiesHubPage.tsx";
-import ToplistaPage from "./pages/ToplistaPage.tsx";
-import IntelligencePage from "./pages/IntelligencePage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
-import PrivacyPage from "./pages/PrivacyPage.tsx";
-import TermsPage from "./pages/TermsPage.tsx";
-import MoodCollectionPage from "./pages/MoodCollectionPage.tsx";
-
-import AboutPage from "./pages/AboutPage.tsx";
-import MethodologyPage from "./pages/MethodologyPage.tsx";
-import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
-import DailyBriefPage from "./pages/DailyBriefPage.tsx";
-import HetiHubPage from "./pages/HetiHubPage.tsx";
-import HetiArticlePage from "./pages/HetiArticlePage.tsx";
-import HetiLegacyRedirect from "./pages/HetiLegacyRedirect.tsx";
-import ContactPage from "./pages/ContactPage.tsx";
-import MoodsPage from "./pages/MoodsPage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
 import { SmartPlayerBar } from "./components/smart-player/SmartPlayerBar";
-import EnPodiverzumomPage from "./pages/EnPodiverzumomPage.tsx";
-import PublicProfilePage from "./pages/PublicProfilePage.tsx";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 
+const StartSwipePage = lazy(() => import("./pages/StartSwipePage.tsx"));
+const StartLandingPage = lazy(() => import("./pages/StartLandingPage.tsx"));
+const TePodiverzumodSharePage = lazy(() => import("./pages/TePodiverzumodSharePage.tsx"));
+const ListenerProfilePage = lazy(() => import("./pages/ListenerProfilePage.tsx"));
+const CategoriesPage = lazy(() => import("./pages/CategoriesPage.tsx"));
+const CategoryDetail = lazy(() => import("./pages/CategoryDetail.tsx"));
+const PodcastDetail = lazy(() => import("./pages/PodcastDetail.tsx"));
+const EpisodeDetail = lazy(() => import("./pages/EpisodeDetail.tsx"));
+const SearchPage = lazy(() => import("./pages/SearchPage.tsx"));
+const AuthPage = lazy(() => import("./pages/AuthPage.tsx"));
+const AdminPage = lazy(() => import("./pages/AdminPage.tsx"));
+const AdminHubPage = lazy(() => import("./pages/AdminHubPage.tsx"));
+const AdminDiscoveryPage = lazy(() => import("./pages/AdminDiscoveryPage.tsx"));
+const AdminGrowthPage = lazy(() => import("./pages/AdminGrowthPage.tsx"));
+const AdminAutopilotPage = lazy(() => import("./pages/AdminAutopilotPage.tsx"));
+const AdminQueuePage = lazy(() => import("./pages/AdminQueuePage.tsx"));
+const GrowthStatusPage = lazy(() => import("./pages/GrowthStatusPage.tsx"));
+const EntityPage = lazy(() => import("./pages/EntityPage.tsx"));
+const AdminFeedbackPage = lazy(() => import("./pages/AdminFeedbackPage.tsx"));
+const AdminSearchInsightsPage = lazy(() => import("./pages/AdminSearchInsightsPage.tsx"));
+const AdminAnalyticsPage = lazy(() => import("./pages/AdminAnalyticsPage.tsx"));
+const AdminAiEnrichmentPage = lazy(() => import("./pages/AdminAiEnrichmentPage.tsx"));
+const AdminCronStatusPage = lazy(() => import("./pages/AdminCronStatusPage.tsx"));
+const AdminPipelineWatchdogPage = lazy(() => import("./pages/AdminPipelineWatchdogPage.tsx"));
+const AdminQueueHealthPage = lazy(() => import("./pages/AdminQueueHealthPage.tsx"));
+const AdminSocialPostsPage = lazy(() => import("./pages/AdminSocialPostsPage.tsx"));
+const AdminEditorialPage = lazy(() => import("./pages/AdminEditorialPage.tsx"));
+const AdminLivePage = lazy(() => import("./pages/AdminLivePage.tsx"));
+const AdminPiBackfillPage = lazy(() => import("./pages/AdminPiBackfillPage.tsx"));
+const AdminArchiveBackfillPage = lazy(() => import("./pages/AdminArchiveBackfillPage.tsx"));
+const AdminHostsPage = lazy(() => import("./pages/AdminHostsPage.tsx"));
+const AdminLanguageGatePage = lazy(() => import("./pages/AdminLanguageGatePage.tsx"));
+const AdminHuFormulaShadowPage = lazy(() => import("./pages/AdminHuFormulaShadowPage.tsx"));
+const AdminPersonQualityReviewPage = lazy(() => import("./pages/AdminPersonQualityReviewPage.tsx"));
+const AdminVectorSearchPage = lazy(() => import("./pages/AdminVectorSearchPage.tsx"));
+const AdminSearchBenchmarkPage = lazy(() => import("./pages/AdminSearchBenchmarkPage.tsx"));
+const AdminDataCoveragePage = lazy(() => import("./pages/AdminDataCoveragePage.tsx"));
+const AdminOutreachPage = lazy(() => import("./pages/AdminOutreachPage.tsx"));
+const AdminIntelligenceAuditPage = lazy(() => import("./pages/AdminIntelligenceAuditPage.tsx"));
+const PeopleHubPage = lazy(() => import("./pages/PeopleHubPage.tsx"));
+const PersonDetailPage = lazy(() => import("./pages/PersonDetailPage.tsx"));
+const TopicsHubPage = lazy(() => import("./pages/TopicsHubPage.tsx"));
+const TopicDetailPage = lazy(() => import("./pages/TopicDetailPage.tsx"));
+const OrganizationsIndexPage = lazy(() => import("./pages/OrganizationsIndexPage.tsx"));
+const CompaniesHubPage = lazy(() => import("./pages/CompaniesHubPage.tsx"));
+const PodcastReport2026 = lazy(() => import("./pages/PodcastReport2026.tsx"));
+const PartiesHubPage = lazy(() => import("./pages/PartiesHubPage.tsx"));
+const ToplistaPage = lazy(() => import("./pages/ToplistaPage.tsx"));
+const IntelligencePage = lazy(() => import("./pages/IntelligencePage.tsx"));
+const PrivacyPage = lazy(() => import("./pages/PrivacyPage.tsx"));
+const TermsPage = lazy(() => import("./pages/TermsPage.tsx"));
+const MoodCollectionPage = lazy(() => import("./pages/MoodCollectionPage.tsx"));
+const AboutPage = lazy(() => import("./pages/AboutPage.tsx"));
+const MethodologyPage = lazy(() => import("./pages/MethodologyPage.tsx"));
+const NewPodcastsPage = lazy(() => import("./pages/NewPodcastsPage.tsx"));
+const DailyBriefPage = lazy(() => import("./pages/DailyBriefPage.tsx"));
+const HetiHubPage = lazy(() => import("./pages/HetiHubPage.tsx"));
+const HetiArticlePage = lazy(() => import("./pages/HetiArticlePage.tsx"));
+const HetiLegacyRedirect = lazy(() => import("./pages/HetiLegacyRedirect.tsx"));
+const ContactPage = lazy(() => import("./pages/ContactPage.tsx"));
+const MoodsPage = lazy(() => import("./pages/MoodsPage.tsx"));
+const EnPodiverzumomPage = lazy(() => import("./pages/EnPodiverzumomPage.tsx"));
+const PublicProfilePage = lazy(() => import("./pages/PublicProfilePage.tsx"));
+
 const queryClient = new QueryClient();
+
+function RouteLoading() {
+  return (
+    <div className="min-h-[40vh] px-4 py-10">
+      <div className="mx-auto h-2 w-28 overflow-hidden rounded-full bg-muted">
+        <div className="h-full w-1/2 animate-pulse rounded-full bg-primary/70" />
+      </div>
+    </div>
+  );
+}
 
 const App = () => (
   <AppErrorBoundary>
@@ -102,6 +112,7 @@ const App = () => (
 
         <PageViewTracker />
         <SearchHotkey />
+        <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/start" element={<StartLandingPage />} />
@@ -216,6 +227,7 @@ const App = () => (
           <Route path="/toplist" element={<Navigate to="/toplista" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
         <SmartPlayerBar />
         </SmartPlayerProvider>
       </BrowserRouter>
