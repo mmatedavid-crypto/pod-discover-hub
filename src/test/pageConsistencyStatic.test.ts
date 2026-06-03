@@ -119,4 +119,15 @@ describe("page consistency static guards", () => {
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
     expect(trending).toContain("sanitizeHungarianPublicText(p.summary)");
   });
+
+  it("keeps public search on the accepted Hungarian catalog, not query accent language guesses", () => {
+    const search = read("src/lib/search.ts");
+
+    expect(search).toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+    expect(search).toContain("accepted Hungarian podcasts");
+    expect(search).toContain("ASCII Hungarian queries");
+    expect(search).toContain("language_decision");
+    expect(search).not.toContain('tq.like("podcasts.language"');
+    expect(search).not.toContain('aq.like("podcasts.language"');
+  });
 });

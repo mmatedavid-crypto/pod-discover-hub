@@ -3,7 +3,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export const EPISODE_SELECT =
-  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language)";
+  "id,title,slug,published_at,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)";
 
 // Detect a query's likely language. Returns ISO-639-1 code or null when ambiguous.
 // Hungarian-specific accents OR common HU stopwords -> "hu". Basic ASCII Latin -> "en".
@@ -401,15 +401,12 @@ function scoreEpisode(
 async function runSplitOr(
   filterPairs: { text: string; arr: string }[],
   perQueryLimit: number,
-  lang?: "hu" | "en" | null,
 ): Promise<any[]> {
   const queries = filterPairs.flatMap(({ text, arr }) => {
     const tq = supabase.from("episodes").select(EPISODE_SELECT).or(text).limit(perQueryLimit);
     const aq = supabase.from("episodes").select(EPISODE_SELECT).or(arr).limit(perQueryLimit);
-    if (lang) {
-      tq.like("podcasts.language", `${lang}%`);
-      aq.like("podcasts.language", `${lang}%`);
-    }
+    tq.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" });
+    aq.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" });
     return [tq, aq];
   });
   const results = await Promise.all(queries.map(async (q) => {
@@ -421,19 +418,19 @@ async function runSplitOr(
   return Array.from(map.values());
 }
 
-async function queryByGroups(termGroups: string[][], lang?: "hu" | "en" | null): Promise<any[]> {
+async function queryByGroups(termGroups: string[][]): Promise<any[]> {
   // One pair per group. Note: each group becomes its own pair of queries; we
   // don't AND them server-side. The scorer enforces multi-term semantics later.
   const pairs = termGroups.map((variants) => ({
     text: textOrFilter(variants),
     arr: arrayOrFilter(variants),
   }));
-  return runSplitOr(pairs, 300, lang);
+  return runSplitOr(pairs, 300);
 }
 
-async function queryPerTerm(terms: string[], lang?: "hu" | "en" | null): Promise<any[]> {
+async function queryPerTerm(terms: string[]): Promise<any[]> {
   const pairs = terms.map((t) => ({ text: textOrFilter([t]), arr: arrayOrFilter([t]) }));
-  return runSplitOr(pairs, 150, lang);
+  return runSplitOr(pairs, 150);
 }
 
 export type SearchScope = "all" | "category";
@@ -453,7 +450,7 @@ export async function searchEpisodes(opts: {
   scope?: SearchScope;             // default "all"
   categoryName?: string | null;    // when present and scope="category", category-aware grouping
   limit?: number;
-  /** Override detected query language. Pass null to disable language filtering. */
+  /** Kept for API compatibility; public search is HU-catalog-only. */
   language?: "hu" | "en" | null;
 }): Promise<SearchResult & { detectedLanguage: "hu" | "en" | null }> {
   const { rawQuery } = opts;
@@ -465,8 +462,9 @@ export async function searchEpisodes(opts: {
   const effective = norm.normalized || rawQuery;
   const suggestion = norm.changed ? norm.normalized : null;
   const { terms, strict } = parseQuery(effective);
-  // Language gate: keep HU and EN podcast pools separate. Detect from raw query
-  // (so accents survive normalization). Caller may override via opts.language.
+  // Detection is informational only. Public Podiverzum search always runs on
+  // accepted Hungarian podcasts; ASCII Hungarian queries like "fradi" or "444"
+  // must not get routed to an English pool.
   const detectedLanguage = opts.language === null
     ? null
     : (opts.language ?? detectQueryLanguage(rawQuery));
@@ -486,14 +484,14 @@ export async function searchEpisodes(opts: {
   const exactGroups = terms.map(expandSimple);
   if (intentAliases.length) intentAliases.forEach((a) => { if (!terms.some((t) => t.toLowerCase() === a.toLowerCase())) exactGroups.push([a]); });
 
-  let raw = await queryByGroups(exactGroups, detectedLanguage);
+  let raw = await queryByGroups(exactGroups);
   let fallbackUsed = false;
   if (raw.length === 0) {
-    raw = await queryPerTerm([...terms, ...intentAliases], detectedLanguage);
+    raw = await queryPerTerm([...terms, ...intentAliases]);
     if (raw.length > 0) fallbackUsed = true;
   } else if (terms.length >= 3 && raw.length < 8) {
     // Broaden candidate pool so the 2-of-N partial fallback has rows to score against.
-    const extra = await queryPerTerm([...terms, ...intentAliases], detectedLanguage);
+    const extra = await queryPerTerm([...terms, ...intentAliases]);
     if (extra.length) {
       const map = new Map<string, any>();
       raw.forEach((e: any) => map.set(e.id, e));
@@ -509,7 +507,7 @@ export async function searchEpisodes(opts: {
   const isSingleBroadConcept = terms.length === 1 && !!SEMANTIC_MAP[terms[0].toLowerCase()];
   if (semanticTerms.length && (raw.length < lowResultThreshold || isSingleBroadConcept)) {
     const semGroups = [semanticTerms]; // one OR group of related ideas
-    const semRaw = await queryByGroups(semGroups, detectedLanguage);
+    const semRaw = await queryByGroups(semGroups);
     if (semRaw.length) {
       const map = new Map<string, any>();
       raw.forEach((e: any) => map.set(e.id, e));
@@ -522,7 +520,8 @@ export async function searchEpisodes(opts: {
   // Filter dead/inactive feeds.
   raw = raw.filter((e: any) => {
     const st = e.podcasts?.rss_status;
-    return st !== "failed" && st !== "inactive";
+    const decision = String(e.podcasts?.language_decision || "");
+    return st !== "failed" && st !== "inactive" && decision !== "reject_foreign" && decision !== "confirmed_foreign" && decision !== "reject_non_hungarian";
   });
 
   // Step 4/5 — score & sort.
