@@ -35,14 +35,14 @@ const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
   { pattern: /\bközös nevező\b/i, reason: `"közös nevező" — erőltetett átkötés` },
   { pattern: /\bugyanabba a leckébe\b/i, reason: `"ugyanabba a leckébe fut bele" — túl nagy átkötés` },
   { pattern: /\ba rendszer lebuk/i, reason: `"a rendszer lebukik" — publicisztikai vezércikk-hang` },
+  { pattern: /\bhatalmi repedés/i, reason: `"hatalmi repedés" — publicisztikai metafora` },
+  { pattern: /\bnem díszlet\b/i, reason: `"nem díszlet" — publicisztikai keret` },
   { pattern: /\b(a )?rendszer(ek)? ára\b/i, reason: `"a rendszerek ára" — költői metafora` },
   { pattern: /\brendszerszint/i, reason: `"rendszerszintű" — publicisztikai általánosítás` },
   { pattern: /\bizgalmas\b/i, reason: `"izgalmas" üres jelző` },
-  { pattern: /\bérdekes\b/i, reason: `"érdekes" üres jelző` },
   { pattern: /\blebilincsel/i, reason: `"lebilincselő" üres jelző` },
   { pattern: /\bmagával ragad/i, reason: `"magával ragadó" üres jelző` },
   { pattern: /\bkiderül,?\s+hogyan\b/i, reason: `"kiderül, hogyan" üres bevezető` },
-  { pattern: /\bszó esik arról\b/i, reason: `"szó esik arról" üres bevezető` },
   { pattern: /\baz egyszeri magyar (hallgató|ember)\b/i, reason: `"az egyszeri magyar hallgató" klisé` },
   { pattern: /\bmindannyiunk\b/i, reason: `"mindannyiunk" patetikus` },
   { pattern: /\bmagunkhoz köt\b/i, reason: `"magunkhoz köt" magyartalan` },
@@ -51,8 +51,8 @@ const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
   { pattern: /\b\d{1,2}:\d{2}(?::\d{2})?\b/, reason: `epizód-timestamp (pl. "1:09:46") — soha ne tedd a szövegbe` },
 ];
 
-// JÓ PÉLDA — nyugodt, szerkesztett heti ajánló. Konkrét témák, nincs nagy metafora, nincs közös tézis.
-const GOOD_INTRO_EXAMPLE = `A héten Magyar Péter kampánystratégiájáról, a MÁV nyári menetrendjéről és egy hosszú Hadházy-interjúról is szó esik. Mellette egy beszélgetés Karikó Katalinnal a kutatói pályáról, és egy adás a magyar női kézilabda-válogatott állapotáról.`;
+// JÓ PÉLDA — nyugodt, szerkesztett heti ajánló. Konkrét témák egymás mellett, nincs közös tézis.
+const GOOD_INTRO_EXAMPLE = `A heti válogatásban most egymástól távoli témák találkoznak: no-till gazdálkodás, kultúrpolitikai viták, egészségügy, futball és Estée Lauder története. Öt epizód, öt világ — a magyar podcastok ezen a héten innen voltak érdekesek.`;
 
 // ROSSZ PÉLDA — publicisztikai vezércikk-hang, nagy metafora, erőltetett közös nevező.
 const BAD_INTRO_EXAMPLE = `A hét során a nagy rendszerek ára látszik: vízumdíjban, klímaszorongásban, kiégésben, önbizalomhiányban. Az adások ugyanabba a leckébe futnak bele — a rendszer lebukik, mi pedig kapkodva próbáljuk megérteni, hova tartunk.`;
