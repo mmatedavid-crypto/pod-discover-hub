@@ -3,8 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { isPlayerPreviewActive } from "@/lib/playerPreview";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getProgress, saveProgress, markPlayCount } from "@/lib/playerProgress";
-import { logPlayerEvent } from "@/lib/playerEvents";
-import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 
 export type SmartPlayerEpisode = {
@@ -69,6 +67,31 @@ const PROGRESS_MARKERS = [
   { pct: 0.5, type: "play_50" as const },
   { pct: 0.75, type: "play_75" as const },
 ];
+
+type PlayerEventPayload = {
+  eventType:
+    | "play_start" | "play_pause" | "play_resume" | "play_seek"
+    | "play_25" | "play_50" | "play_75" | "play_complete"
+    | "playback_error" | "external_open" | "speed_change";
+  episodeId?: string | null;
+  podcastId?: string | null;
+  positionSec?: number;
+  durationSec?: number;
+  playbackRate?: number;
+  meta?: Record<string, unknown>;
+};
+
+function logPlayerEventLater(opts: PlayerEventPayload) {
+  void import("@/lib/playerEvents")
+    .then(({ logPlayerEvent }) => logPlayerEvent(opts))
+    .catch(() => { /* fail-safe */ });
+}
+
+function notifyLiveEventLater(kind: "search_submit" | "swipe_complete" | "play_start", payload: Record<string, unknown>) {
+  void import("@/lib/liveTelegramNotify")
+    .then(({ notifyLiveEvent }) => notifyLiveEvent(kind, payload))
+    .catch(() => { /* fail-safe */ });
+}
 
 export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const [flags, setFlags] = useState<FlagShape>(DEFAULT_FLAGS);
@@ -148,7 +171,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       setError("Playback error");
       setIsPlaying(false);
       setIsLoading(false);
-      logPlayerEvent({
+      logPlayerEventLater({
         eventType: "playback_error",
         episodeId: currentEpisode?.id,
         podcastId: currentEpisode?.podcastId,
@@ -159,7 +182,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       const ep = currentEpisodeRef.current;
       if (ep) {
         saveProgress(ep.id, a.currentTime, a.duration, true);
-        logPlayerEvent({
+        logPlayerEventLater({
           eventType: "play_complete",
           episodeId: ep.id,
           podcastId: ep.podcastId,
@@ -253,7 +276,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       const key = `${id}:${m.type}`;
       if (currentTime / duration >= m.pct && !markedRef.current.has(key)) {
         markedRef.current.add(key);
-        logPlayerEvent({
+        logPlayerEventLater({
           eventType: m.type,
           episodeId: id,
           podcastId: currentEpisode.podcastId,
@@ -320,13 +343,13 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         applyStart(prog.currentTime);
       }
       markPlayCount(ep.id);
-      logPlayerEvent({
+      logPlayerEventLater({
         eventType: "play_start",
         episodeId: ep.id,
         podcastId: ep.podcastId,
         positionSec: a.currentTime,
       });
-      notifyLiveEvent("play_start", {
+      notifyLiveEventLater("play_start", {
         episode_id: ep.id,
         episode_title: ep.title,
         podcast_title: ep.podcastTitle,
@@ -335,7 +358,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     } else if (typeof opts?.startAt === "number" && opts.startAt > 0) {
       try { a.currentTime = Math.max(0, opts.startAt); } catch { /* noop */ }
     } else {
-      logPlayerEvent({
+      logPlayerEventLater({
         eventType: "play_resume",
         episodeId: ep.id,
         podcastId: ep.podcastId,
@@ -354,7 +377,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     interruptedRef.current = false;
     audioRef.current?.pause();
     if (currentEpisode) {
-      logPlayerEvent({
+      logPlayerEventLater({
         eventType: "play_pause",
         episodeId: currentEpisode.id,
         podcastId: currentEpisode.podcastId,
@@ -380,7 +403,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     if (!a) return;
     try { a.currentTime = Math.max(0, sec); } catch { /* noop */ }
     if (currentEpisode) {
-      logPlayerEvent({
+      logPlayerEventLater({
         eventType: "play_seek",
         episodeId: currentEpisode.id,
         podcastId: currentEpisode.podcastId,
@@ -401,7 +424,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     a.playbackRate = r;
     setRateState(r);
     if (currentEpisode) {
-      logPlayerEvent({
+      logPlayerEventLater({
         eventType: "speed_change",
         episodeId: currentEpisode.id,
         podcastId: currentEpisode.podcastId,
