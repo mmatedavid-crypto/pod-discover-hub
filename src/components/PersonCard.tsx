@@ -6,6 +6,12 @@ export interface PersonCardData {
   name: string;
   image_url?: string | null;
   disambiguation_label?: string | null;
+  identity_ambiguous?: boolean | null;
+  manual_approved?: boolean | null;
+  ai_bio_status?: string | null;
+  ai_bio_confidence?: number | null;
+  wikipedia_match_status?: string | null;
+  wikipedia_match_confidence?: number | null;
   episode_count: number;
   podcast_count: number;
   latest_accepted_relevant_episode_at?: string | null;
@@ -15,14 +21,19 @@ export interface PersonCardData {
 }
 
 // Safe Hungarian context line — short, no overconfident claims, omits weak/fallback text.
-function buildContextLine(p: PersonCardData): string | null {
+export function buildPersonCardContextLine(p: PersonCardData): string | null {
   if (p.context_line && p.context_line.trim()) return p.context_line.trim();
   if (p.disambiguation_label && p.disambiguation_label.trim()) return p.disambiguation_label.trim();
+  const ambiguous = Boolean(p.identity_ambiguous) && !p.manual_approved;
+  const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
   const candidates = [p.short_bio, p.ai_bio];
   for (const raw of candidates) {
     if (!raw) continue;
     const t = raw.trim();
     if (!t) continue;
+    if (ambiguous && !trustedWiki) continue;
+    if (raw === p.ai_bio && p.ai_bio_status && p.ai_bio_status !== "completed") continue;
+    if (raw === p.ai_bio && p.ai_bio_confidence != null && Number(p.ai_bio_confidence) < 0.75) continue;
     // Skip the generic Hungarian fallback bio (it adds no value on a card)
     if (/magyar podcast epizódokban előforduló személy/i.test(t)) continue;
     // Take first sentence, cap length
@@ -38,7 +49,7 @@ export default function PersonCard({ p }: { p: PersonCardData }) {
   const isFresh = p.latest_accepted_relevant_episode_at
     ? (Date.now() - new Date(p.latest_accepted_relevant_episode_at).getTime()) < 30 * 24 * 3600 * 1000
     : false;
-  const context = buildContextLine(p);
+  const context = buildPersonCardContextLine(p);
   return (
     <Link
       to={`/szemelyek/${p.slug}`}

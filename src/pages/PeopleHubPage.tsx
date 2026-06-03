@@ -15,6 +15,12 @@ interface PersonRow extends PersonCardData {
   guest_count: number;
   strong_mention_count: number;
   recent_relevant_episode_count_30d: number;
+  identity_ambiguous?: boolean | null;
+  manual_approved?: boolean | null;
+  ai_bio_status?: string | null;
+  ai_bio_confidence?: number | null;
+  wikipedia_match_status?: string | null;
+  wikipedia_match_confidence?: number | null;
   total_count?: number;
 }
 
@@ -103,7 +109,7 @@ export default function PeopleHubPage() {
     (async () => {
       const { data } = await supabase
         .from("people")
-        .select("id, slug, name, image_url, disambiguation_label, short_bio, ai_bio, gated_episode_count, gated_podcast_count, episode_count, podcast_count, latest_accepted_relevant_episode_at, topic_figure_origin, people_hub_score")
+        .select("id, slug, name, image_url, disambiguation_label, short_bio, ai_bio, identity_ambiguous, manual_approved, ai_bio_status, ai_bio_confidence, wikipedia_match_status, wikipedia_match_confidence, gated_episode_count, gated_podcast_count, episode_count, podcast_count, latest_accepted_relevant_episode_at, topic_figure_origin, people_hub_score")
         .eq("persona", "topic_figure")
         .eq("is_public", true)
         .gte("gated_episode_count", 1)
@@ -235,6 +241,12 @@ export default function PeopleHubPage() {
                     latest_accepted_relevant_episode_at: p.latest_accepted_relevant_episode_at ?? null,
                     short_bio: p.short_bio ?? null,
                     ai_bio: p.ai_bio ?? null,
+                    identity_ambiguous: p.identity_ambiguous ?? null,
+                    manual_approved: p.manual_approved ?? null,
+                    ai_bio_status: p.ai_bio_status ?? null,
+                    ai_bio_confidence: p.ai_bio_confidence ?? null,
+                    wikipedia_match_status: p.wikipedia_match_status ?? null,
+                    wikipedia_match_confidence: p.wikipedia_match_confidence ?? null,
                     context_line: p.topic_figure_origin === "international" ? "Nemzetközi szereplő" : "Akiről beszélnek",
                   }}
                 />
@@ -392,6 +404,12 @@ function enrich(p: PersonRow): PersonCardData {
     latest_accepted_relevant_episode_at: p.latest_accepted_relevant_episode_at ?? null,
     short_bio: p.short_bio ?? null,
     ai_bio: p.ai_bio ?? null,
+    identity_ambiguous: p.identity_ambiguous ?? null,
+    manual_approved: p.manual_approved ?? null,
+    ai_bio_status: p.ai_bio_status ?? null,
+    ai_bio_confidence: p.ai_bio_confidence ?? null,
+    wikipedia_match_status: p.wikipedia_match_status ?? null,
+    wikipedia_match_confidence: p.wikipedia_match_confidence ?? null,
     context_line: contextLine,
   };
 }
