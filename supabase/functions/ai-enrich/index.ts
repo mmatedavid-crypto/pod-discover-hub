@@ -2,7 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, recordAiCall } from "../_shared/lovable-ai.ts";
 import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
-import { isHungarianish } from "../_shared/hu-language-guard.ts";
+import { assertHungarianPublicFields } from "../_shared/hu-language-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -196,7 +196,9 @@ Deno.serve(async (req) => {
       }
       const summary = ai.data?.choices?.[0]?.message?.content?.trim() || "";
       if (!summary) return new Response(JSON.stringify({ ok: true, skipped: true, reason: "empty_summary" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (!isHungarianish(summary)) {
+      try {
+        assertHungarianPublicFields({ summary });
+      } catch {
         return new Response(JSON.stringify({ ok: true, skipped: true, reason: "hu_language_guard_failed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       await updateRowWithHashFallback(supabase, "podcasts", id, {
@@ -277,7 +279,9 @@ Deno.serve(async (req) => {
       }
       const args = ai.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       const parsed = args ? JSON.parse(args) : {};
-      if (!isHungarianish(String(parsed.summary || ""))) {
+      try {
+        assertHungarianPublicFields({ summary: parsed.summary });
+      } catch {
         return new Response(JSON.stringify({ ok: true, skipped: true, reason: "hu_language_guard_failed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       await updateRowWithHashFallback(supabase, "episodes", id, {

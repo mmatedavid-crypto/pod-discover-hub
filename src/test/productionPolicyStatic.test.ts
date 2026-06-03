@@ -47,19 +47,31 @@ describe("production policy static guards", () => {
 
   it("keeps public AI text Hungarian-only at the edge and database layer", () => {
     const guard = read("supabase/functions/_shared/hu-language-guard.ts");
+    const aiEnrich = read("supabase/functions/ai-enrich/index.ts");
     const seoRunner = read("supabase/functions/seo-enrich-runner/index.ts");
-    const migration = read("supabase/migrations/20260603131000_stricter_hu_public_ai_text_guard.sql");
+    const migration = read("supabase/migrations/20260603162000_public_ai_language_guard_consolidated.sql");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(guard).toContain("nonHungarianPublicFields");
     expect(guard).toContain("assertHungarianPublicFields");
     expect(guard).toContain("enRatio > 0.12");
+    expect(aiEnrich).toContain("assertHungarianPublicFields({ summary })");
+    expect(aiEnrich).toContain("assertHungarianPublicFields({ summary: parsed.summary })");
     expect(seoRunner).toContain("assertHungarianPublicFields({ seo_title, seo_description, ai_summary })");
 
     expect(migration).toContain("CREATE OR REPLACE FUNCTION public.is_hungarianish_public_ai_text");
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.enforce_hu_episode_public_ai_text");
+    expect(migration).toContain("CREATE TRIGGER trg_enforce_hu_episode_public_ai_text");
+    expect(migration).toContain("CREATE TRIGGER trg_enforce_hu_podcast_public_ai_text");
     expect(migration).toContain("en_ratio > 0.12");
     expect(migration).toContain("public_ai_language_guard_policy");
-    expect(migration).toContain("'version', 2");
-    expect(migration).toContain("non_hu_public_text_repair");
+    expect(migration).toContain("'version', 3");
+    expect(migration).toContain("trg_enforce_hu_episode_public_ai_text");
+    expect(migration).toContain("trg_enforce_hu_podcast_public_ai_text");
+
+    expect(verifier).toContain("episode_trigger_exists");
+    expect(verifier).toContain("podcast_trigger_exists");
+    expect(verifier).toContain("policy_configured_v3");
   });
 
   it("keeps production verifier covering recommendation and people identity policies", () => {

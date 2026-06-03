@@ -14,6 +14,19 @@ describe("Hungarian public output guard", () => {
     })).toThrow(/hu_language_guard_failed:ai_summary/);
   });
 
+  it("rejects English public text even when it contains a Hungarian proper noun", () => {
+    expect(nonHungarianPublicFields({
+      ai_summary: "This episode features Friderikusz Sándor and explores why the interview became an important public conversation.",
+    })).toEqual(["ai_summary"]);
+  });
+
+  it("does not over-block short Hungarian titles", () => {
+    expect(nonHungarianPublicFields({
+      seo_title: "Friderikusz podcast",
+      seo_description: "Friss magyar beszélgetés közéleti és társadalmi témákról.",
+    })).toEqual([]);
+  });
+
   it("accepts natural Hungarian public SEO fields", () => {
     expect(nonHungarianPublicFields({
       seo_title: "Friss közéleti beszélgetés",

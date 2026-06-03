@@ -160,7 +160,27 @@ SELECT jsonb_build_object(
     'sql_guard_function_exists', to_regprocedure('public.is_hungarianish_public_ai_text(text)') IS NOT NULL,
     'episode_trigger_function_exists', to_regprocedure('public.enforce_hu_episode_public_ai_text()') IS NOT NULL,
     'podcast_trigger_function_exists', to_regprocedure('public.enforce_hu_podcast_public_ai_text()') IS NOT NULL,
-    'policy_configured_v2', (SELECT (setting_values->'public_ai_language_guard_policy'->>'version')::int >= 2 FROM settings)
+    'episode_trigger_exists', EXISTS (
+      SELECT 1
+      FROM pg_trigger tr
+      JOIN pg_class c ON c.oid = tr.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname = 'episodes'
+        AND tr.tgname = 'trg_enforce_hu_episode_public_ai_text'
+        AND NOT tr.tgisinternal
+    ),
+    'podcast_trigger_exists', EXISTS (
+      SELECT 1
+      FROM pg_trigger tr
+      JOIN pg_class c ON c.oid = tr.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname = 'podcasts'
+        AND tr.tgname = 'trg_enforce_hu_podcast_public_ai_text'
+        AND NOT tr.tgisinternal
+    ),
+    'policy_configured_v3', (SELECT (setting_values->'public_ai_language_guard_policy'->>'version')::int >= 3 FROM settings)
   ),
   'related_episode_quality', jsonb_build_object(
     'compatibility_function_exists', to_regprocedure('public.recommendation_is_compatible(text,text,double precision,boolean)') IS NOT NULL,
