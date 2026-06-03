@@ -45,6 +45,34 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("keeps publisher article matching wired into best text source", () => {
+    const migration = read("supabase/migrations/20260603164000_article_pipeline_consolidated.sql");
+    const pairer = read("supabase/functions/episode-article-pairer/index.ts");
+    const bestSource = read("supabase/functions/episode-best-text-source-runner/index.ts");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.episode_article_candidates");
+    expect(migration).toContain("CHECK (source_type IN ('rss', 'spotify', 'youtube', 'article'))");
+    expect(migration).toContain("'source_version', 'publisher_sources_v3'");
+    expect(migration).toContain("'policy', 'best_text_source_v2_confirmed_article_youtube_first'");
+    expect(migration).toContain("'article_min_confidence', 0.82");
+    expect(migration).toContain("'run_article_pairer', true");
+    for (const outlet of ["444", "telex", "hvg", "portfolio", "hold", "partizan"]) {
+      expect(migration.toLowerCase()).toContain(outlet);
+    }
+
+    expect(pairer).toContain("scorePublisherArticleMatch");
+    expect(pairer).toContain("episode_article_candidates");
+    expect(pairer).toContain("source_diagnostics");
+    expect(bestSource).toContain('source_type: "article"');
+    expect(bestSource).toContain("article_min_confidence");
+    expect(bestSource).toContain("confirmed_publisher_article_longer_or_rss_short");
+
+    expect(verifier).toContain("source_count_at_least_6");
+    expect(verifier).toContain("best_source_accepts_article");
+    expect(verifier).toContain("best_source_article_policy");
+  });
+
   it("keeps public AI text Hungarian-only at the edge and database layer", () => {
     const guard = read("supabase/functions/_shared/hu-language-guard.ts");
     const aiEnrich = read("supabase/functions/ai-enrich/index.ts");
