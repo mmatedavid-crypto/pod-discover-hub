@@ -44,7 +44,7 @@ export function SmartPlayerBar() {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         role="region"
-        aria-label="Smart Player"
+        aria-label="Podiverzum lejátszó"
       >
         {showPreviewChip && (
           <div className="absolute -top-4 left-3 text-[8px] uppercase tracking-[0.16em] text-muted-foreground bg-card border border-border rounded-t px-1.5 py-0.5">
@@ -143,12 +143,12 @@ export function SmartPlayerBar() {
           <button
             onClick={() => setExpanded(true)}
             className="inline-flex h-9 w-9 sm:h-auto sm:w-auto items-center justify-center gap-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 shrink-0 sm:px-2.5 sm:py-1 text-xs"
-            aria-label={SMART_PLAYER_RECOMMENDATIONS_ENABLED ? "Smart ajánlások" : "Lejátszó részletei"}
+            aria-label={SMART_PLAYER_RECOMMENDATIONS_ENABLED ? "Kapcsolódó epizódok" : "Lejátszó részletei"}
             title={SMART_PLAYER_RECOMMENDATIONS_ENABLED ? "Kapcsolódó epizódok és értékelés" : "Lejátszó részletei és értékelés"}
           >
             <Sparkles className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             <span className="hidden sm:inline font-medium tracking-wide">
-              {SMART_PLAYER_RECOMMENDATIONS_ENABLED ? "Smart" : "Részletek"}
+              {SMART_PLAYER_RECOMMENDATIONS_ENABLED ? "Kapcsolódó" : "Részletek"}
             </span>
           </button>
           <button
@@ -170,14 +170,14 @@ export function SmartPlayerBar() {
           className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col overflow-hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           role="dialog"
-          aria-label="Expanded player"
+          aria-label="Podiverzum lejátszó részletei"
         >
           <PlayerBrandMark className="-right-10 -bottom-20" size={360} opacity={0.035} />
           <div className="flex items-center justify-between p-3 border-b border-border">
             <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ {t("close")}</button>
             <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-accent">
               <Sparkles className="h-3.5 w-3.5" />
-              Smart Player
+              Podiverzum lejátszó
             </div>
             {href ? (
               <Link

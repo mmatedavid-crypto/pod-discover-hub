@@ -164,7 +164,7 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
         <div className="relative mt-6 border-t border-border pt-5">
           <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 text-accent" />
-            <span>Smart Player ajánlások</span>
+            <span>Kapcsolódó epizódok</span>
           </div>
           <SmartDiscoveryPanel episodeIdOverride={episode.id} variant="compact" />
         </div>

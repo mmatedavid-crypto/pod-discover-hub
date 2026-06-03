@@ -1,4 +1,4 @@
-// Locale strings for the Smart Player on podiverzum.hu (Hungarian-only).
+// Locale strings for the Podiverzum player on podiverzum.hu (Hungarian-only).
 
 export type PlayerLocale = "hu";
 
@@ -38,7 +38,7 @@ const HU: Dict = {
   resumeFrom: "Folytatás innen",
   loading: "betöltés…",
   externalOnly: "Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.",
-  playbackError: "Hiba",
+  playbackError: "Lejátszási gond",
   durationUnknown: "--:--",
   fallbackUnavailable: "Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.",
   openOriginal: "Megnyitás külső lejátszóban",

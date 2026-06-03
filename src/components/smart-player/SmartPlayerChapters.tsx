@@ -70,7 +70,7 @@ export function SmartPlayerChapters({ episodeId, compact }: Props) {
             onClick={() => seekTo(chapters[1].start_sec)}
             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20"
           >
-            <FastForward className="h-3 w-3" /> Skip intro
+            <FastForward className="h-3 w-3" /> Bevezető átugrása
           </button>
         )}
       </div>
@@ -79,14 +79,14 @@ export function SmartPlayerChapters({ episodeId, compact }: Props) {
         <div className="rounded-lg border border-dashed border-border/60 bg-card/40 p-3 text-xs text-muted-foreground flex items-center justify-between gap-3">
           <span className="inline-flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5 text-accent" />
-            AI fejezetek nem készültek még ehhez az epizódhoz.
+            Ehhez az epizódhoz még nincsenek fejezetek.
           </span>
           <button
             onClick={generate}
             disabled={generating || tried}
             className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground disabled:opacity-50"
           >
-            {generating ? "Generálás…" : tried ? "Próbálkozva" : "Generálás"}
+            {generating ? "Készül…" : tried ? "Kérés elküldve" : "Fejezetek kérése"}
           </button>
         </div>
       ) : (
