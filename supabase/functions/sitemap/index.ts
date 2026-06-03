@@ -35,6 +35,34 @@ const maxDate = (a?: string | null, b?: string | null) => {
   if (!b) return a || null;
   return new Date(a) >= new Date(b) ? a : b;
 };
+const HU_MAP: Record<string, string> = {
+  á: "a", é: "e", í: "i", ó: "o", ö: "o", ő: "o", ú: "u", ü: "u", ű: "u",
+  Á: "a", É: "e", Í: "i", Ó: "o", Ö: "o", Ő: "o", Ú: "u", Ü: "u", Ű: "u",
+};
+function slugifyHu(s: string) {
+  return String(s || "")
+    .split("")
+    .map((c) => HU_MAP[c] ?? c)
+    .join("")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "podiverzum-heti";
+}
+function isoWeek(dateStr: string) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dn = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - dn);
+  const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return { year: t.getUTCFullYear(), week: Math.ceil((((+t - +ys) / 86400000) + 1) / 7) };
+}
+function hetiSlugOf(p: { week_start: string; title?: string | null }) {
+  const { year, week } = isoWeek(p.week_start);
+  return `${year}-${String(week).padStart(2, "0")}-${slugifyHu(p.title || "podiverzum-heti")}`;
+}
 function wrapUrlset(urls: string[]) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
 }
@@ -104,9 +132,9 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
     urlTag(`${SITE}/partok`, null, "weekly", "0.6"),
     urlTag(`${SITE}/hangulatok`, null, "weekly", "0.7"),
     urlTag(`${SITE}/intelligence`, null, "weekly", "0.5"),
-    urlTag(`${SITE}/uj`, null, "daily", "0.6"),
+    urlTag(`${SITE}/uj-podcastok`, null, "daily", "0.6"),
     urlTag(`${SITE}/napi`, null, "daily", "0.6"),
-    urlTag(`${SITE}/heti-valogatas`, null, "weekly", "0.7"),
+    urlTag(`${SITE}/heti`, null, "weekly", "0.8"),
     urlTag(`${SITE}/rolunk`, null, "monthly", "0.4"),
     urlTag(`${SITE}/modszertan`, null, "monthly", "0.4"),
     urlTag(`${SITE}/kapcsolat`, null, "yearly", "0.3"),
@@ -127,13 +155,13 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
   // Published weekly editorial selections.
   const { data: editorials } = await supabase
     .from("editorial_posts")
-    .select("week_start,published_at,updated_at")
+    .select("week_start,title,published_at,updated_at")
     .eq("status", "published")
     .order("published_at", { ascending: false })
     .limit(200);
   (editorials || []).forEach((p: any) => {
     if (!p.week_start) return;
-    urls.push(urlTag(`${SITE}/heti-valogatas/${esc(p.week_start)}`, maxDate(p.updated_at, p.published_at), "weekly", "0.65"));
+    urls.push(urlTag(`${SITE}/heti/${esc(hetiSlugOf(p))}`, maxDate(p.updated_at, p.published_at), "weekly", "0.65"));
   });
 
   // Indexable topic pages

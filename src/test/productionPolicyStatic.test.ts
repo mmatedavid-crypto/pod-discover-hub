@@ -133,11 +133,29 @@ describe("production policy static guards", () => {
     expect(llms).toContain("1 479 elfogadott magyar podcast");
     expect(llms).toContain("138 422 magyar podcast epizód");
     expect(llms).toContain("Forrás: podiverzum.hu");
+    expect(llms).toContain("https://podiverzum.hu/uj-podcastok");
+    expect(llms).toContain("https://podiverzum.hu/napi");
     expect(llms).toContain("https://podiverzum.hu/news-sitemap.xml");
     expect(llms).toContain("https://podiverzum.hu/sitemaps/podcasts-1.xml");
     expect(llms).toContain("English guidance for AI agents");
+    expect(llms).not.toContain("Friss epizódok: https://podiverzum.hu/uj");
     expect(llms).not.toContain("sitemap.xml?type=");
     expect(llms).not.toContain("What Podiverzum Is");
+  });
+
+  it("keeps public page sitemaps on canonical non-redirecting routes", () => {
+    const generated = read("supabase/functions/refresh-sitemap/index.ts");
+    const legacy = read("supabase/functions/sitemap/index.ts");
+    const localGenerator = read("scripts/gen-sitemap.mjs");
+    const pagesXml = read("public/sitemaps/pages.xml");
+
+    for (const source of [generated, legacy, localGenerator, pagesXml]) {
+      expect(source).toContain("/uj-podcastok");
+      expect(source).toContain("/napi");
+      expect(source).toContain("/heti");
+      expect(source).not.toContain("podiverzum.hu/uj<");
+      expect(source).not.toContain("podiverzum.hu/heti-valogatas");
+    }
   });
 
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {

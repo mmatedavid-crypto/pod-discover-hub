@@ -25,8 +25,8 @@ A szolgáltatás magyar nyelvű oldal. A publikus összefoglalók, SEO szövegek
 - Főoldal: https://podiverzum.hu/
 - Kereső: https://podiverzum.hu/kereses
 - Toplista: https://podiverzum.hu/toplista
-- Friss epizódok: https://podiverzum.hu/uj
-- Napi válogatás: https://podiverzum.hu/napi
+- Új podcastok: https://podiverzum.hu/uj-podcastok
+- Mai válogatás / friss epizódok: https://podiverzum.hu/napi
 - Podiverzum Heti: https://podiverzum.hu/heti
 - Témák: https://podiverzum.hu/temak
 - Személyek: https://podiverzum.hu/szemelyek
