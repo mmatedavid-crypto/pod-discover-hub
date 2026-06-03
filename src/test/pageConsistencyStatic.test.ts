@@ -122,6 +122,7 @@ describe("page consistency static guards", () => {
 
   it("keeps public search on the accepted Hungarian catalog, not query accent language guesses", () => {
     const search = read("src/lib/search.ts");
+    const searchPage = read("src/pages/SearchPage.tsx");
 
     expect(search).toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
     expect(search).toContain("accepted Hungarian podcasts");
@@ -129,5 +130,8 @@ describe("page consistency static guards", () => {
     expect(search).toContain("language_decision");
     expect(search).not.toContain('tq.like("podcasts.language"');
     expect(search).not.toContain('aq.like("podcasts.language"');
+    expect(searchPage).toContain('.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")');
+    expect(searchPage).toContain("reject_non_hungarian");
+    expect(searchPage).toContain("sanitizeHungarianPublicText(p.summary).toLowerCase()");
   });
 });

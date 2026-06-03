@@ -40,8 +40,8 @@ function scorePodcast(p: any, terms: string[], fullPhrase: string): number {
   let s = 0;
   const title = (p.title || "").toLowerCase();
   const displayTitle = (p.display_title || "").toLowerCase();
-  const summary = (p.summary || "").toLowerCase();
-  const desc = (p.description || "").toLowerCase();
+  const summary = sanitizeHungarianPublicText(p.summary).toLowerCase();
+  const desc = sanitizeHungarianPublicText(p.description).toLowerCase();
   const cat = (p.category || "").toLowerCase();
   const phrase = fullPhrase.toLowerCase().trim();
   // Full-phrase title hit: huge boost (e.g. "zsiday viktor" -> "Zsiday Viktor podcast")
@@ -278,7 +278,8 @@ export default function SearchPage() {
       const fullPhrase = initial.trim();
       let pq = supabase
         .from("podcasts")
-        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
+        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,is_hungarian,language_decision")
+        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")
         .limit(60);
       if (fullPhrase.length >= 3) {
         const fp = `%${escapeIlike(fullPhrase)}%`;
@@ -289,7 +290,15 @@ export default function SearchPage() {
         pq = pq.or([`title.ilike.${v}`, `display_title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`].join(","));
       });
       const { data: ps } = await pq;
-      const visiblePs = (ps || []).filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"));
+      const visiblePs = (ps || []).filter((p: any) => {
+        const status = String(p.rss_status || "");
+        const decision = String(p.language_decision || "");
+        return (
+          (p.is_hungarian === true || decision === "accept_hungarian") &&
+          !["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(decision) &&
+          !["failed", "inactive", "blocked", "dead"].includes(status)
+        );
+      });
       const rankedPs = visiblePs
         .map((p) => ({ p, s: scorePodcast(p, terms, fullPhrase) + ((p.podiverzum_rank ?? 0) * 0.5) }))
         .filter((x) => x.s > 0)
