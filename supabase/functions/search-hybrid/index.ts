@@ -497,7 +497,7 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
   const person = await withTimeout(
     supa
       .from("people")
-      .select("id,name,slug,image_url,short_bio,overview_text,wikipedia_description,disambiguation_label,gated_episode_count,episode_count,podcast_count,is_public,normalized_name")
+      .select("id,name,slug,image_url,short_bio,ai_bio,overview_text,wikipedia_description,disambiguation_label,gated_episode_count,episode_count,podcast_count,is_public,normalized_name,identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence")
       .eq("id", personId)
       .eq("is_public", true)
       .maybeSingle()
@@ -515,9 +515,17 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
     name: person.name,
     image_url: person.image_url || null,
     short_bio: person.short_bio || person.overview_text || person.wikipedia_description || null,
+    ai_bio: person.ai_bio || null,
     disambiguation_label: person.disambiguation_label || null,
     gated_episode_count: person.gated_episode_count ?? person.episode_count ?? null,
+    episode_count: person.episode_count ?? null,
     podcast_count: person.podcast_count ?? null,
+    identity_ambiguous: person.identity_ambiguous ?? null,
+    manual_approved: person.manual_approved ?? null,
+    ai_bio_status: person.ai_bio_status ?? null,
+    ai_bio_confidence: person.ai_bio_confidence ?? null,
+    wikipedia_match_status: person.wikipedia_match_status ?? null,
+    wikipedia_match_confidence: person.wikipedia_match_confidence ?? null,
     match_type: anchor ? "catalog_anchor" : "alias",
   };
 }

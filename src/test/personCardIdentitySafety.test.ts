@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPersonCardContextLine } from "@/components/PersonCard";
+import { buildPersonCardContextLine, isUsefulPersonIdentityLabel } from "@/components/PersonCard";
 
 describe("person card identity safety", () => {
   it("does not show stale short_bio for ambiguous unapproved names", () => {
@@ -36,5 +36,17 @@ describe("person card identity safety", () => {
     });
 
     expect(context).toBe("Nemzetközi szereplő");
+  });
+
+  it("does not expose generic machine identity labels", () => {
+    expect(isUsefulPersonIdentityLabel("Nemzetközi téma személy")).toBe(false);
+    expect(buildPersonCardContextLine({
+      slug: "donald-trump",
+      name: "Donald Trump",
+      episode_count: 100,
+      podcast_count: 20,
+      disambiguation_label: "Nemzetközi téma személy",
+      short_bio: "Donald Trump podcast epizódokban előforduló személy.",
+    })).toBeNull();
   });
 });

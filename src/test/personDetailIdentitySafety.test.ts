@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isUsefulPersonIdentityLabel } from "@/pages/PersonDetailPage";
+import { isUsefulPersonIdentityLabel } from "@/components/PersonCard";
 
 describe("person detail identity safety", () => {
   it("hides generic machine labels that do not help identify a person", () => {

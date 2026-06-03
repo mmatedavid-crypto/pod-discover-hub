@@ -11,6 +11,7 @@ import { episodeScore } from "@/lib/episodeRank";
 import { pushRecentSearch } from "@/lib/recentSearches";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 import { SearchStagedLoader } from "@/components/SearchStagedLoader";
+import { buildPersonCardContextLine, type PersonCardData } from "@/components/PersonCard";
 
 type SortKey = "best" | "newest" | "rank";
 
@@ -72,7 +73,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryLabels, setCategoryLabels] = useState<Record<string, string>>({});
-  const [heroPerson, setHeroPerson] = useState<{ name: string; slug: string; image_url: string | null; short_bio: string | null; gated_episode_count: number | null; disambiguation_label?: string | null } | null>(null);
+  const [heroPerson, setHeroPerson] = useState<(PersonCardData & { gated_episode_count: number | null }) | null>(null);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
@@ -110,7 +111,7 @@ export default function SearchPage() {
     (async () => {
       const { data } = await supabase
         .from("people")
-        .select("name,slug,image_url,short_bio,gated_episode_count,is_public,normalized_name")
+        .select("name,slug,image_url,short_bio,ai_bio,gated_episode_count,episode_count,podcast_count,is_public,normalized_name,disambiguation_label,identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence")
         .ilike("normalized_name", `%${phraseNorm.replace(/[%_]/g, " ")}%`)
         .eq("is_public", true)
         .order("gated_episode_count", { ascending: false, nullsFirst: false })
@@ -199,9 +200,18 @@ export default function SearchPage() {
             name: personPin.name,
             slug: personPin.slug,
             image_url: personPin.image_url || null,
-            short_bio: personPin.short_bio || personPin.disambiguation_label || null,
+            short_bio: personPin.short_bio || null,
+            ai_bio: personPin.ai_bio || null,
             gated_episode_count: personPin.gated_episode_count ?? null,
+            episode_count: personPin.gated_episode_count ?? personPin.episode_count ?? 0,
+            podcast_count: personPin.podcast_count ?? 0,
             disambiguation_label: personPin.disambiguation_label || null,
+            identity_ambiguous: personPin.identity_ambiguous ?? null,
+            manual_approved: personPin.manual_approved ?? null,
+            ai_bio_status: personPin.ai_bio_status ?? null,
+            ai_bio_confidence: personPin.ai_bio_confidence ?? null,
+            wikipedia_match_status: personPin.wikipedia_match_status ?? null,
+            wikipedia_match_confidence: personPin.wikipedia_match_confidence ?? null,
           });
         }
         const organizationPin = phase1.data?.organization_pin;
@@ -542,14 +552,11 @@ export default function SearchPage() {
               )}
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">{heroPerson.name}</div>
-                {heroPerson.disambiguation_label && (
-                  <div className="text-xs text-muted-foreground mt-0.5">{heroPerson.disambiguation_label}</div>
-                )}
                 {typeof heroPerson.gated_episode_count === "number" && heroPerson.gated_episode_count > 0 && (
                   <div className="text-xs text-muted-foreground mt-1">{heroPerson.gated_episode_count} epizód</div>
                 )}
-                {heroPerson.short_bio && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{heroPerson.short_bio}</p>
+                {buildPersonCardContextLine(heroPerson) && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{buildPersonCardContextLine(heroPerson)}</p>
                 )}
                 <div className="text-[11px] text-primary font-medium mt-2">Személy oldal megnyitása →</div>
               </div>

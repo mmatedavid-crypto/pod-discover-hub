@@ -9,6 +9,7 @@ import { compareByScore } from "@/lib/episodeRank";
 import PersonAvatar from "@/components/PersonAvatar";
 import { matchesEntitySlug } from "@/lib/entity";
 import { snippet } from "@/lib/text";
+import { isUsefulPersonIdentityLabel } from "@/components/PersonCard";
 
 interface Person {
   id: string; name: string; slug: string;
@@ -69,15 +70,6 @@ function isSafeShortBio(person: Person): boolean {
   const shortBio = String(person.short_bio || "").trim().toLocaleLowerCase("hu-HU");
   const wikiDescription = String(person.wikipedia_description || "").trim().toLocaleLowerCase("hu-HU");
   if (wikiDescription && shortBio.includes(wikiDescription)) return false;
-  return true;
-}
-
-export function isUsefulPersonIdentityLabel(label?: string | null): boolean {
-  const value = String(label || "").replace(/\s+/g, " ").trim().toLocaleLowerCase("hu-HU");
-  if (!value) return false;
-  if (/^(személy|közszereplő|közeleti szereplő|közéleti szereplő)$/i.test(value)) return false;
-  if (/^nemzetközi( téma)? személy$/i.test(value)) return false;
-  if (/^podcast(ok)?ban (előforduló|említett) személy$/i.test(value)) return false;
   return true;
 }
 

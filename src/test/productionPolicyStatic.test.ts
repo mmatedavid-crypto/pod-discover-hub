@@ -203,6 +203,17 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("keeps search person pins identity-safe", () => {
+    const searchPage = read("src/pages/SearchPage.tsx");
+    const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
+
+    expect(searchPage).toContain("buildPersonCardContextLine");
+    expect(searchPage).not.toContain("personPin.short_bio || personPin.disambiguation_label");
+    expect(searchPage).not.toContain("<p className=\"text-sm text-muted-foreground line-clamp-2 mt-1.5\">{heroPerson.short_bio}</p>");
+    expect(searchHybrid).toContain("identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence");
+    expect(searchHybrid).toContain("identity_ambiguous: person.identity_ambiguous");
+  });
+
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
 

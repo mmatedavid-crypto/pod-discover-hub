@@ -21,9 +21,18 @@ export interface PersonCardData {
 }
 
 // Safe Hungarian context line — short, no overconfident claims, omits weak/fallback text.
+export function isUsefulPersonIdentityLabel(label?: string | null): boolean {
+  const value = String(label || "").replace(/\s+/g, " ").trim().toLocaleLowerCase("hu-HU");
+  if (!value) return false;
+  if (/^(személy|közszereplő|közeleti szereplő|közéleti szereplő)$/i.test(value)) return false;
+  if (/^nemzetközi( téma)? személy$/i.test(value)) return false;
+  if (/^podcast(ok)?ban (előforduló|említett) személy$/i.test(value)) return false;
+  return true;
+}
+
 export function buildPersonCardContextLine(p: PersonCardData): string | null {
   if (p.context_line && p.context_line.trim()) return p.context_line.trim();
-  if (p.disambiguation_label && p.disambiguation_label.trim()) return p.disambiguation_label.trim();
+  if (isUsefulPersonIdentityLabel(p.disambiguation_label)) return p.disambiguation_label!.trim();
   const ambiguous = Boolean(p.identity_ambiguous) && !p.manual_approved;
   const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
   const candidates = [p.short_bio, p.ai_bio];
@@ -35,7 +44,7 @@ export function buildPersonCardContextLine(p: PersonCardData): string | null {
     if (raw === p.ai_bio && p.ai_bio_status && p.ai_bio_status !== "completed") continue;
     if (raw === p.ai_bio && p.ai_bio_confidence != null && Number(p.ai_bio_confidence) < 0.75) continue;
     // Skip the generic Hungarian fallback bio (it adds no value on a card)
-    if (/magyar podcast epizódokban előforduló személy/i.test(t)) continue;
+    if (/(magyar\s+)?podcast epizódokban előforduló személy/i.test(t)) continue;
     // Take first sentence, cap length
     const firstSentence = t.split(/(?<=[.!?])\s+/)[0] || t;
     const trimmed = firstSentence.length > 140 ? firstSentence.slice(0, 137).trimEnd() + "…" : firstSentence;
@@ -60,7 +69,7 @@ export default function PersonCard({ p }: { p: PersonCardData }) {
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="font-semibold truncate leading-tight">{p.name}</div>
-            {p.disambiguation_label && !context?.startsWith(p.disambiguation_label) && (
+            {isUsefulPersonIdentityLabel(p.disambiguation_label) && !context?.startsWith(p.disambiguation_label!) && (
               <div className="text-xs text-muted-foreground truncate mt-0.5">{p.disambiguation_label}</div>
             )}
           </div>
