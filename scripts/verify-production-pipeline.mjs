@@ -59,7 +59,9 @@ settings AS (
     'episode_best_text_source_controls',
     'episode_best_text_source_progress',
     'episode_clean_text_controls',
-    'episode_clean_text_progress'
+    'episode_clean_text_progress',
+    'news_sitemap_refresh_controls',
+    'news_sitemap_state'
   )
 ),
 controls AS (
@@ -89,7 +91,9 @@ controls AS (
     'episode_best_text_source_controls', setting_values->'episode_best_text_source_controls',
     'episode_best_text_source_progress', setting_values->'episode_best_text_source_progress',
     'episode_clean_text_controls', setting_values->'episode_clean_text_controls',
-    'episode_clean_text_progress', setting_values->'episode_clean_text_progress'
+    'episode_clean_text_progress', setting_values->'episode_clean_text_progress',
+    'news_sitemap_refresh_controls', setting_values->'news_sitemap_refresh_controls',
+    'news_sitemap_state', setting_values->'news_sitemap_state'
   ) AS summary
   FROM settings
 ),
@@ -131,8 +135,19 @@ SELECT jsonb_build_object(
       WHERE n.nspname = 'public'
         AND t.relname = 'episode_best_text_source'
         AND c.conname = 'episode_best_text_source_source_type_check'
-        AND pg_get_constraintdef(c.oid) ILIKE '%article%'
+      AND pg_get_constraintdef(c.oid) ILIKE '%article%'
     )
+  ),
+  'seo_news_sitemap', jsonb_build_object(
+    'refresh_controls_configured', (SELECT setting_values->'news_sitemap_refresh_controls' IS NOT NULL FROM settings),
+    'refresh_cadence_15m', (SELECT (setting_values->'news_sitemap_refresh_controls'->>'cadence_minutes')::int = 15 FROM settings),
+    'google_submit_hash_gated', (SELECT setting_values->'news_sitemap_refresh_controls'->>'google_submit_policy' = 'submit_only_when_news_sitemap_hash_changes' FROM settings),
+    'state_exists', (SELECT setting_values->'news_sitemap_state' IS NOT NULL FROM settings),
+    'state_has_hash', (SELECT COALESCE(length(setting_values->'news_sitemap_state'->>'hash') > 0, false) FROM settings),
+    'state_has_source_counts', (SELECT setting_values->'news_sitemap_state' ? 'source_counts' FROM settings),
+    'state_not_legacy_google_ping', (SELECT NOT (setting_values->'news_sitemap_state' ? 'google_ping_status') FROM settings),
+    'submit_not_known_404', (SELECT COALESCE((setting_values->'news_sitemap_state'->>'google_submit_status')::int <> 404, true) FROM settings),
+    'submit_policy_recorded', (SELECT setting_values->'news_sitemap_state' ? 'submit_needed' FROM settings)
   ),
   'accepted_hu_episodes_with_description', (SELECT count(*) FROM accepted_hu),
   'clean_text', (SELECT to_jsonb(clean_counts) FROM clean_counts),
@@ -212,6 +227,11 @@ for (const [key, ok] of Object.entries(cleanBackfillGates)) {
 const articlePipeline = snapshot.article_pipeline ?? {};
 for (const [key, ok] of Object.entries(articlePipeline)) {
   if (ok !== true) failures.push(`article_pipeline.${key}`);
+}
+
+const seoNewsSitemap = snapshot.seo_news_sitemap ?? {};
+for (const [key, ok] of Object.entries(seoNewsSitemap)) {
+  if (ok !== true) failures.push(`seo_news_sitemap.${key}`);
 }
 
 const clean = snapshot.clean_text ?? {};
