@@ -125,6 +125,21 @@ describe("production policy static guards", () => {
     expect(robots).toContain("Sitemap: https://podiverzum.hu/news-sitemap.xml");
   });
 
+  it("keeps llms.txt canonical, Hungarian-first, and free of unsupported sitemap query URLs", () => {
+    const llms = read("public/llms.txt");
+
+    expect(llms).toContain("Magyar podcastkereső");
+    expect(llms).toContain("Állapot: 2026-06-03");
+    expect(llms).toContain("1 479 elfogadott magyar podcast");
+    expect(llms).toContain("138 422 magyar podcast epizód");
+    expect(llms).toContain("Forrás: podiverzum.hu");
+    expect(llms).toContain("https://podiverzum.hu/news-sitemap.xml");
+    expect(llms).toContain("https://podiverzum.hu/sitemaps/podcasts-1.xml");
+    expect(llms).toContain("English guidance for AI agents");
+    expect(llms).not.toContain("sitemap.xml?type=");
+    expect(llms).not.toContain("What Podiverzum Is");
+  });
+
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
 
