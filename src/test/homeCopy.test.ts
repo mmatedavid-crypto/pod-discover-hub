@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 
-const { homeAudienceLanes } = await import("../components/home/HomeAudienceLanes");
 const { polishMoodTitle } = await import("../components/MoodCollections");
+const root = process.cwd();
+const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
 
 describe("homepage Hungarian copy", () => {
-  it("does not expose broken one-word discovery lane labels", () => {
-    const bad = new Set(["test", "fej", "élet"]);
-    for (const lane of homeAudienceLanes) {
-      expect(bad.has(lane.title.toLowerCase())).toBe(false);
-      expect(lane.title.length).toBeGreaterThan(6);
-    }
+  it("keeps the homepage focused on listening situations instead of duplicate direction pickers", () => {
+    const index = read("src/pages/Index.tsx");
+    const moods = read("src/components/MoodCollections.tsx");
+
+    expect(index).toContain("<MoodCollections />");
+    expect(index).not.toContain("HomeAudienceLanes");
+    expect(index).not.toContain("Merre indulnál?");
+    expect(moods).toContain("Hallgatási helyzetek");
+    expect(moods).toContain("Mihez van most kedved?");
   });
 
   it("polishes broken mood titles from data before rendering", () => {
