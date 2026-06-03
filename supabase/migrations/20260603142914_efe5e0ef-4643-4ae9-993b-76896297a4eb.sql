@@ -1,0 +1,1 @@
+DELETE FROM public.editorial_posts WHERE id IN ('9ff661af-e951-4907-990d-9b8115fc5030','3565827c-22c2-494c-91a7-ac47473fcd8f');
