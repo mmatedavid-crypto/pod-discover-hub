@@ -6,6 +6,7 @@ import { setSeo } from "@/lib/seo";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import NotFoundState from "@/components/NotFoundState";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 interface Topic {
   id: string; slug: string; name: string; short_name: string | null;
@@ -142,11 +143,12 @@ export default function TopicDetailPage() {
       const epCount = Number((t as any).episode_count || 0);
       const podCount = Number((t as any).podcast_count || 0);
       const countLabel = epCount > 0 ? ` – ${epCount} podcast epizód` : "";
-      const introClean = ((t as any).intro_text || "").replace(/\s+/g, " ").trim();
+      const introClean = sanitizeHungarianPublicText((t as any).intro_text);
       const fallbackDesc = `${topicName} témájú magyar podcast epizódok és beszélgetések${podCount > 0 ? `, ${podCount} műsorból` : ""}. Fedezd fel a kapcsolódó tartalmakat a Podiverzumon.`;
-      const descSource = (t as any).seo_description || introClean || fallbackDesc;
+      const descSource = sanitizeHungarianPublicText((t as any).seo_description) || introClean || fallbackDesc;
+      const titleSource = sanitizeHungarianPublicText((t as any).seo_title) || `${topicName}${countLabel} magyar podcastokból | Podiverzum`;
       setSeo({
-        title: (t as any).seo_title || `${topicName}${countLabel} magyar podcastokból | Podiverzum`,
+        title: titleSource,
         description: descSource.length > 160 ? descSource.slice(0, 157).trimEnd() + "…" : descSource,
         canonical: pageUrl,
         noindex: !(t as any).is_indexable,

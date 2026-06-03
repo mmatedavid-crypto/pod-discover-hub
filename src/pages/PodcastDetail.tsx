@@ -20,6 +20,7 @@ import { PodcastFollow } from "@/components/PodcastFollow";
 import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
@@ -134,22 +135,23 @@ export default function PodcastDetail() {
         setHosts(resolvedHosts);
         setEps(allEps);
 
-        const cleanSummary = stripHtml(data.summary);
-        const cleanDesc = stripHtml(data.description);
+        const cleanSummary = sanitizeHungarianPublicText(data.summary);
+        const cleanDesc = sanitizeHungarianPublicText(data.description);
         const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${data.slug}` : undefined;
         const hostNamesForSeo = resolvedHosts.map((h) => h.name);
         const hostPrefix = hostNamesForSeo.length
           ? `Házigazda: ${hostNamesForSeo.slice(0, 3).join(", ")}${hostNamesForSeo.length > 3 ? "…" : ""}. `
           : "";
-        const baseDesc = data.seo_description || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
+        const baseDesc = sanitizeHungarianPublicText(data.seo_description) || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
         const seoCategory = categoryLabel(data.category) || data.category;
         const isAcceptedHungarian = !isForeignRejected(data) && (data.is_hungarian === true || data.language_decision === "accept_hungarian");
         const noindex = !isAcceptedHungarian || data.rss_status === "failed" || data.rss_status === "inactive";
         const displayName = data.display_title || data.title;
         const epCount = allEps.length;
         const epCountLabel = epCount > 0 ? `${epCount} epizód · ` : "";
-        const seoTitle = data.seo_title
-          ? (/\|\s*Podiverzum\s*$/i.test(data.seo_title) ? data.seo_title : `${data.seo_title} | Podiverzum`)
+        const safeSeoTitle = sanitizeHungarianPublicText(data.seo_title);
+        const seoTitle = safeSeoTitle
+          ? (/\|\s*Podiverzum\s*$/i.test(safeSeoTitle) ? safeSeoTitle : `${safeSeoTitle} | Podiverzum`)
           : `${displayName} – ${epCountLabel}magyar podcast | Podiverzum`;
         const brandSuffix = " Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
         const descCore = (hostPrefix + baseDesc).trim();
@@ -196,7 +198,7 @@ export default function PodcastDetail() {
   const latestEpisode = eps[0] || null;
   const latestAudio = latestEpisode ? detectAudioSource(latestEpisode)?.url || latestEpisode.audio_url || null : null;
   const latestPublished = latestEpisode?.published_at ? relativeTime(latestEpisode.published_at) : null;
-  const description = stripHtml(p.summary || p.description || "");
+  const description = sanitizeHungarianPublicText(p.summary) || sanitizeHungarianPublicText(p.description);
   const externalLinks = [
     p.apple_url ? { href: p.apple_url, label: "Apple", Icon: Apple } : null,
     p.spotify_url ? { href: p.spotify_url, label: "Spotify", Icon: Music } : null,

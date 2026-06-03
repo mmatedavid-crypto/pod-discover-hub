@@ -100,4 +100,23 @@ describe("page consistency static guards", () => {
     expect(prerender).not.toContain('href="/podcastok"');
     expect(prerender).not.toContain("`${SITE}/podcastok`");
   });
+
+  it("keeps public SEO surfaces behind the Hungarian text sanitizer", () => {
+    const podcast = read("src/pages/PodcastDetail.tsx");
+    const category = read("src/pages/CategoryDetail.tsx");
+    const topic = read("src/pages/TopicDetailPage.tsx");
+    const search = read("src/pages/SearchPage.tsx");
+    const trending = read("src/components/TrendingPodcasts.tsx");
+
+    for (const source of [podcast, category, topic, search, trending]) {
+      expect(source).toContain("sanitizeHungarianPublicText");
+    }
+    expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_description)");
+    expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_title)");
+    expect(category).toContain("sanitizeHungarianPublicText(c.seo_title)");
+    expect(category).toContain("sanitizeHungarianPublicText(c.seo_description)");
+    expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");
+    expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
+    expect(trending).toContain("sanitizeHungarianPublicText(p.summary)");
+  });
 });

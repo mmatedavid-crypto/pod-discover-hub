@@ -5,6 +5,7 @@ import { PodcastCover } from "./PodcastCover";
 import { Apple, ArrowRight, Music, Trophy, Youtube } from "lucide-react";
 import { snippet } from "@/lib/text";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type TrendingRow = {
   id: string;
@@ -54,7 +55,7 @@ export function TrendingPodcasts() {
       <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
         {items.map((p, index) => {
           const title = p.display_title || p.title;
-          const desc = snippet(p.summary || p.description, 92);
+          const desc = snippet(sanitizeHungarianPublicText(p.summary) || sanitizeHungarianPublicText(p.description), 92);
           const lead = index === 0;
           const displayCategory = categoryLabel(p.category);
           return (

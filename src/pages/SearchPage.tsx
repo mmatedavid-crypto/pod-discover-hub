@@ -581,9 +581,9 @@ export default function SearchPage() {
                   {(heroPodcast as any).display_title || heroPodcast.title}
                 </div>
                 {heroPodcast.category && <div className="text-xs text-muted-foreground mt-1">{categoryLabels[heroPodcast.category] || heroPodcast.category}</div>}
-                {(heroPodcast.summary || heroPodcast.description) && (
+                {(sanitizeHungarianPublicText(heroPodcast.summary) || sanitizeHungarianPublicText(heroPodcast.description)) && (
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">
-                    {heroPodcast.summary || heroPodcast.description}
+                    {sanitizeHungarianPublicText(heroPodcast.summary) || sanitizeHungarianPublicText(heroPodcast.description)}
                   </p>
                 )}
                 <div className="text-[11px] text-primary font-medium mt-2">Podcast megnyitása →</div>

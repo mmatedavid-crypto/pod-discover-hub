@@ -20,6 +20,7 @@ import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
 import { entityHref } from "@/lib/entity";
 import { compareByScore } from "@/lib/episodeRank";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 export default function CategoryDetail() {
   const { slug } = useParams();
@@ -54,9 +55,11 @@ export default function CategoryDetail() {
       setCat(c);
       setLoading(false);
       if (!c) return;
+      const seoTitle = sanitizeHungarianPublicText(c.seo_title);
+      const seoDescription = sanitizeHungarianPublicText(c.seo_description);
       setSeo({
-        title: c.seo_title || `${c.name} podcastok és epizódok — Podiverzum`,
-        description: c.seo_description || `Válogatás a legjobb ${c.name} podcast epizódokból. A sorrendet a relevancia és a frissesség adja.`,
+        title: seoTitle || `${c.name} podcastok és epizódok — Podiverzum`,
+        description: seoDescription || `Válogatás a legjobb ${c.name} podcast epizódokból. A sorrendet a relevancia és a frissesség adja.`,
         jsonLd: [
           {
             "@context": "https://schema.org",
