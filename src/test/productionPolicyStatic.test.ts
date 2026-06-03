@@ -19,6 +19,8 @@ describe("production policy static guards", () => {
     ]) {
       expect(validator).toContain(secret);
     }
+    expect(validator).toContain("VITE_SUPABASE_URL does not contain SUPABASE_PROJECT_REF");
+    expect(validator).toContain("SUPABASE_READONLY_DATABASE_URL does not contain SUPABASE_PROJECT_REF");
 
     for (const fn of [
       "ai-enrich",
