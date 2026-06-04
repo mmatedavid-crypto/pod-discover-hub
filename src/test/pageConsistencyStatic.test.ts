@@ -135,6 +135,15 @@ describe("page consistency static guards", () => {
     expect(podcastDetail).not.toContain("a(z)");
   });
 
+  it("labels podcast search results as search results, not recommendations", () => {
+    const search = read("src/pages/SearchPage.tsx");
+
+    expect(search).toContain("Podcast találatok");
+    expect(search).toContain("További podcast találatok");
+    expect(search).not.toContain("Kapcsolódó podcastok");
+    expect(search).not.toContain("További kapcsolódó podcastok");
+  });
+
   it("keeps anonymous listeners one click away from their local Podiverzum profile", () => {
     const userMenu = read("src/components/UserMenu.tsx");
 

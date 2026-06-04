@@ -709,7 +709,7 @@ export default function SearchPage() {
             {podcastsList.length > 0 && (
               <section>
                 <h2 className="font-semibold mb-3">
-                  {heroPodcast ? "További kapcsolódó podcastok" : "Kapcsolódó podcastok"} ({podcastsList.length})
+                  {heroPodcast ? "További podcast találatok" : "Podcast találatok"} ({podcastsList.length})
                 </h2>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {podcastsList.map((p) => <PodcastCard key={p.id} p={p} />)}
