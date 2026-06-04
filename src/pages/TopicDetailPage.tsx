@@ -53,7 +53,7 @@ export default function TopicDetailPage() {
       // Episodes mapped to topic, HU-gated. Prefer judge-accepted reviews; union with
       // remaining episode_topic_map rows that have NOT been rejected by the judge.
       const topicId = (t as any).id;
-      const epSelect = "id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
+      const epSelect = "id, title, slug, published_at, ai_summary, summary, description, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
 
       const [{ data: reviewRows }, { data: mapRows }, { data: rejectedRows }, { data: classRows }] = await Promise.all([
         supabase
@@ -61,14 +61,12 @@ export default function TopicDetailPage() {
           .select(`episode_id, confidence, episodes!inner(${epSelect})`)
           .eq("topic_id", topicId)
           .eq("status", "accepted")
-          .eq("episodes.podcasts.is_hungarian", true)
           .eq("episodes.podcasts.language_decision", "accept_hungarian")
           .limit(200),
         supabase
           .from("episode_topic_map")
           .select(`episode_id, confidence, episodes!inner(${epSelect})`)
           .eq("topic_id", topicId)
-          .eq("episodes.podcasts.is_hungarian", true)
           .eq("episodes.podcasts.language_decision", "accept_hungarian")
           .limit(200),
         supabase
@@ -81,7 +79,6 @@ export default function TopicDetailPage() {
           .select(`episode_id, topics, classification_status, confidence, episodes!inner(${epSelect})`)
           .eq("classification_status", "classified")
           .contains("topics", JSON.stringify([{ slug }]) as any)
-          .eq("episodes.podcasts.is_hungarian", true)
           .eq("episodes.podcasts.language_decision", "accept_hungarian")
           .limit(200),
       ]);

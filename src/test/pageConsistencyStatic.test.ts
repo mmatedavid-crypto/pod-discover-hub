@@ -47,9 +47,12 @@ describe("page consistency static guards", () => {
     expect(topic).toContain("Időtálló epizódok");
     expect(topic).toContain("Kapcsolódó személyek");
     expect(topic).toContain("Kapcsolódó témák");
+    expect(topic).toContain("published_at, ai_summary, summary, description");
+    expect(topic).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
     expect(topic).not.toContain("SimilarPodcasts");
     expect(topic).not.toContain("Kiemelt podcastok");
     expect(topic).not.toContain("Hasonló podcastok");
+    expect(topic).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
   });
 
   it("keeps category episode discovery open to accepted Hungarian non-spam shows", () => {
@@ -59,7 +62,10 @@ describe("page consistency static guards", () => {
     expect(category).toContain("p.language_decision !== \"reject_foreign\"");
     expect(category).toContain("const categoryPodcastIds = visible.map");
     expect(category).toContain(".in(\"podcast_id\", categoryPodcastIds)");
+    expect(category).toContain("slug,ai_summary,summary,description");
+    expect(category).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
     expect(category).not.toContain(".in(\"podcast_id\", promotedIds)");
+    expect(category).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
   });
 
   it("keeps mood pages polished and sanitized instead of exposing raw DB labels", () => {
@@ -116,6 +122,7 @@ describe("page consistency static guards", () => {
     expect(startSwipe).toContain("recommendationRows = ((fallbackData || []) as any[]).map");
     expect(startSwipe).toContain("categoryLabel(r.category)");
     expect(startSwipe).toContain("accept_hungarian");
+    expect(startSwipe).not.toContain('.eq("podcasts.is_hungarian", true)');
     expect(startSwipe).toContain("Friss magyar epizódokat készítünk elő a profilodhoz.");
     expect(startSwipe).toContain("Még kevés jelünk van pontos epizódajánláshoz");
     expect(startSwipe).toContain("Finomítom a profilom");

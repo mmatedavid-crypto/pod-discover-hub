@@ -99,7 +99,6 @@ export default function HetiHubPage() {
         const { data: eps } = await supabase
           .from("episodes")
           .select("id,title,display_title,slug,published_at,ai_summary,summary,description,podcasts!inner(slug,title,display_title,is_hungarian,language_decision,rss_status,category)")
-          .eq("podcasts.is_hungarian", true)
           .eq("podcasts.language_decision", "accept_hungarian")
           .neq("podcasts.rss_status", "failed")
           .neq("podcasts.category", "Religion & Spirituality")
