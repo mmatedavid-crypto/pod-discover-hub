@@ -380,7 +380,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
     if (!needle) return eps;
     return eps.filter((e) => {
       const hay = norm(
-        `${e.display_title || ""} ${e.title || ""} ${stripHtml(e.summary || "")} ${stripHtml(e.description || "")}`
+        `${e.display_title || ""} ${e.title || ""} ${pickEpisodeDescription(e, 500)}`
       );
       return hay.includes(needle);
     });

@@ -119,7 +119,7 @@ export default function CategoryDetail() {
         categoryPodcastIds.length
           ? supabase
               .from("episodes")
-              .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
+              .select("id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
               .in("podcast_id", categoryPodcastIds)
               .order("published_at", { ascending: false, nullsFirst: false })
               .limit(180)
