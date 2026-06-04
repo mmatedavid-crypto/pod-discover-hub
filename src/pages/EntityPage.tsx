@@ -54,7 +54,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         setProfile(null);
       }
 
-      const selectCols = `id,title,slug,published_at,summary,description,audio_url,topics,people,mentioned,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured,is_hungarian,language_decision)`;
+      const selectCols = `id,title,slug,published_at,ai_summary,summary,description,audio_url,topics,people,mentioned,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured,is_hungarian,language_decision)`;
 
       let speakerMatches: any[] = [];
       let mentionedMatches: any[] = [];
@@ -154,8 +154,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         return ps &&
           ps.rss_status !== "failed" &&
           ps.rss_status !== "inactive" &&
-          ps.language_decision !== "reject_foreign" &&
-          (ps.is_hungarian === true || ps.language_decision === "accept_hungarian");
+          ps.language_decision === "accept_hungarian";
       };
       const visible = speakerMatches.filter(filterVisible);
       const visibleMentioned = mentionedMatches.filter(filterVisible);

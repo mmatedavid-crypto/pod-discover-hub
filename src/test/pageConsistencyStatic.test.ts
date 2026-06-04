@@ -313,6 +313,8 @@ describe("page consistency static guards", () => {
     const search = read("src/lib/search.ts");
     const searchPage = read("src/pages/SearchPage.tsx");
 
+    expect(search).toContain("published_at,ai_summary,summary,description");
+    expect(search).toContain('${e.ai_summary || ""} ${e.summary || ""}');
     expect(search).toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
     expect(search).toContain("accepted Hungarian podcasts");
     expect(search).toContain("ASCII Hungarian queries");
@@ -322,6 +324,14 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain('.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")');
     expect(searchPage).toContain("reject_non_hungarian");
     expect(searchPage).toContain("sanitizeHungarianPublicText(p.summary).toLowerCase()");
+  });
+
+  it("keeps entity pages on accepted Hungarian episodes with AI-summary-aware cards", () => {
+    const entity = read("src/pages/EntityPage.tsx");
+
+    expect(entity).toContain("published_at,ai_summary,summary,description");
+    expect(entity).toContain('ps.language_decision === "accept_hungarian"');
+    expect(entity).not.toContain("ps.is_hungarian === true || ps.language_decision === \"accept_hungarian\"");
   });
 
   it("keeps public toplist copy Hungarian and reader-facing", () => {
