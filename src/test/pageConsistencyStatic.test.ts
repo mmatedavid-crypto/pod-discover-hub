@@ -211,6 +211,7 @@ describe("page consistency static guards", () => {
   });
 
   it("keeps category links on the Hungarian canonical route", () => {
+    const app = read("src/App.tsx");
     const labels = read("src/lib/categoryLabels.ts");
     const categories = read("src/pages/CategoriesPage.tsx");
     const search = read("src/pages/SearchPage.tsx");
@@ -229,6 +230,9 @@ describe("page consistency static guards", () => {
     expect(labels).toContain("Bűnügyek és rejtélyek");
     expect(labels).toContain("Technológia");
     expect(labels).not.toContain('{ label: "Tech"');
+    expect(app).toContain('<Route path="/categories" element={<Navigate to="/kategoriak" replace />} />');
+    expect(app).toContain('<Route path="/category/:slug" element={<RedirectWithSlug to="/kategoria" />} />');
+    expect(app).not.toContain('<Route path="/category/:slug" element={<CategoryDetail />} />');
     expect(search).toContain("categoryLabel(c)");
     expect(search).toContain("categoryLabel(heroPodcast.category)");
     expect(search).not.toMatch(/categoryLabels\[c\]\s*\|\|\s*c\b/);
@@ -347,6 +351,7 @@ describe("page consistency static guards", () => {
   });
 
   it("keeps SEO fallback and prerender links on canonical Hungarian routes", () => {
+    const app = read("src/App.tsx");
     const notFound = read("src/pages/NotFound.tsx");
     const prerender = read("supabase/functions/prerender/index.ts");
     const episode = read("src/pages/EpisodeDetail.tsx");
@@ -356,6 +361,9 @@ describe("page consistency static guards", () => {
 
     expect(notFound).toContain("nav(`/kereses?q=");
     expect(notFound).not.toContain("nav(`/search?q=");
+    expect(app).toContain("function RedirectPreserveSearch");
+    expect(app).toContain('<Route path="/search" element={<RedirectPreserveSearch to="/kereses" />} />');
+    expect(app).not.toContain('<Route path="/search" element={<SearchPage />} />');
     expect(searchInsights).toContain("/kereses?q=");
     expect(searchInsights).not.toContain("/search?q=");
     expect(prerender).toContain('href="/toplista"');

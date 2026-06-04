@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +12,12 @@ function RedirectWithSlug({ to }: { to: string }) {
   const { slug = "" } = useParams();
   return <Navigate to={`${to}/${slug}`} replace />;
 }
+
+function RedirectPreserveSearch({ to }: { to: string }) {
+  const { search } = useLocation();
+  return <Navigate to={`${to}${search}`} replace />;
+}
+
 function RedirectWithTwoSlugs({ to }: { to: string }) {
   const { slug = "", topicSlug = "" } = useParams();
   return <Navigate to={`${to}/${slug}/temak/${topicSlug}`} replace />;
@@ -122,15 +128,15 @@ const App = () => (
           <Route path="/te-podiverzumod/eredmeny/:slug" element={<TePodiverzumodSharePage />} />
           <Route path="/hallgatoi-profil/:shareId" element={<ListenerProfilePage />} />
           <Route path="/kategoriak" element={<CategoriesPage />} />
-          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/categories" element={<Navigate to="/kategoriak" replace />} />
           <Route path="/kategoria/:slug" element={<CategoryDetail />} />
-          <Route path="/category/:slug" element={<CategoryDetail />} />
+          <Route path="/category/:slug" element={<RedirectWithSlug to="/kategoria" />} />
           <Route path="/podcast/:podcastSlug" element={<PodcastDetail />} />
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
           {/* Wave 3 long-tail: /podcast/:slug/epizodok/:year — humans get the podcast page */}
           <Route path="/podcast/:podcastSlug/epizodok/:year" element={<PodcastDetail />} />
           <Route path="/kereses" element={<SearchPage />} />
-          <Route path="/search" element={<SearchPage />} />
+          <Route path="/search" element={<RedirectPreserveSearch to="/kereses" />} />
           <Route path="/belepes" element={<AuthPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/admin" element={<AdminHubPage />} />
