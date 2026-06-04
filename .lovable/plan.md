@@ -1,76 +1,78 @@
-# Reddit bot: reaktív Podiverzum linker
+## Háromrészes terv
 
-## Mit csinál
+### 1) YouTube pair drain — miért áll? (DIAGNÓZIS + JAVÍTÁS)
 
-Figyeli a r/hungary, r/Magyarorszag és r/podcasts új kommentjeit + posztjait. Ha valaki név szerint említ egy magyar **podcastot, személyt, vagy szervezetet/műsort**, amit a Podiverzum katalógusa ismer, a bot egy rövid, **egyszeri** kommentet ír a megfelelő profil linkjével. Nem posztol új threadet, nem promóz agresszíven, nem válaszol kétszer ugyanott.
+**Találat:** A pairer **nem** akadt el — szabályosan fut, csak **nincs mit párosítania**. Az igazi szűk keresztmetszet **két szinttel feljebb** van:
 
-## Mit kell tőled (egyszeri setup)
+| Réteg | Állapot | Akció |
+|---|---|---|
+| **Channel-scout** (cron 19) | 1446 HU podcastból csak **362-nek (25%) van `youtube_channel_id`** | **Bump:** `15 */2` → `*/30 * * * *`, `channel_batch` 20 → 50, daily YT API quota 9000 → 9500 |
+| **Episode-pairer** (cron 65, deep mode) | `no_candidates: true` — a meglévő 362 channelben nincs friss/újraindexelendő ep, `rescan_after_days=7` | **Lazítás:** `rescan_after_days` 7 → 3, hogy a deep-history backfill (14 822 ep `none` státusszal a paired podcastokban) tényleg újrafutását kapja |
+| **Caption-backfill** (cron 66) | `youtube_transcript_controls.native_only=true` → 353 candidate van a view-ban, jobid 64 lassan fogyasztja (~38/6h) | Ez OK ahogy van — havi 30k credit limit, várjuk meg míg felépül a candidate pool |
 
-1. **Reddit account létrehozása** — menj a reddit.com-ra, regisztrálj egy új accountot (pl. `u/podiverzum_bot`). Várj vele 1–2 napot mielőtt élesítjük, hogy ne nézzen friss spam-accountnak.
-2. **Reddit script app regisztrálása** — `reddit.com/prefs/apps` → "create another app" → válaszd a **"script"** típust → name: `podiverzum-linker` → redirect URI: `http://localhost:8080` (nem használjuk, csak kötelező mező).
-3. A kapott `client_id` (app neve alatti rövid string) + `client_secret` + az új account `username` + `password` — ezeket a végén Lovable secretként beadod.
-4. **Mod-engedély subonként** — a r/hungary és r/Magyarorszag modjainak modmail: kérünk engedélyt a bot futtatására, leírjuk hogy reaktív + csak releváns + egyszeri komment + opt-out parancs van. Ezt te küldöd el; sablon-szöveget adok.
+**Vélelem:** a `none` (124 923 HU ep) többségénél a podcastnak nincs YT-csatornája és **soha nem is lesz** (csak RSS/Spotify-only kiadó). Reálisan a scout bump után **+200-400 új paired channel** várható, ami **+5-8k új paired ep**-t hoz → ebből ~2-3% (~150-250) lesz native-caption.
 
-## Hogyan működik
+### 2) RSS `<podcast:transcript>` tag audit (azonnal indítható build feladat)
 
-**Adatforrás (Podiverzum oldalon):**
-- `podcasts` (HU, `is_indexable=true`) → `/podcast/{slug}`
-- `people` (`is_indexable=true`) → `/szemelyek/{slug}`
-- `organizations` (`is_indexable=true`) → `/ceg/{slug}`
-- `episodes` (top-tier S/A, friss) → `/podcast/{ps}/{ep}` — opcionális, csak ha epizód-cím is egyezik
+**Cél:** kideríteni hány HU epizódhoz van **ingyen transcript URL beépítve a feedbe** (Podcasting 2.0 szabvány, SRT/VTT/JSON). Ez 0 Supadata creditet fogyaszt — ha találunk akár 500-1500 ep-et, az **színtiszta nyereség**.
 
-**Matching logika:**
-- Új `name_alias` materialized view: minden név + ismert aliasok (pl. „Partizán" = „Partizán Podcast"), normalizálva (kisbetű, ékezet-fold, határoló-szóhatár).
-- Reddit szöveg → token-szintű word-boundary regex match. Nincs fuzzy, nincs embedding — **csak pontos név**.
-- Minimum 4 karakter, és nem-szótári név (kiszűrjük a „Index", „Hír", „Hét" stb. típusú zaj-egyezéseket egy stoplistával).
-- Egy szövegben max 2 találat → max 2 link/komment.
+**Lépések:**
+1. Új edge function `rss-transcript-tag-audit`:
+   - Top 200 HU podcast (S+A tier) feed URL-jeit lekéri
+   - XML-t parseolja, keres `<podcast:transcript url="..." type="application/srt|text/vtt|application/json">` tag-eket
+   - Eredmény: `app_settings.rss_transcript_audit` jsonb (`{podcast_id, episodes_with_tag, sample_urls[3], transcript_format}`)
+2. Egyszeri manuális futtatás (~5 perc, ingyen)
+3. Audit-tábla a `/admin/queue-health` mellé: melyik podcast ad transcript URL-t
+4. **HA van értelmes találat (≥100 ep):**
+   - Új cron + runner `rss-transcript-importer`: letölti az SRT/VTT-t, beírja `episode_transcripts`-be `model='rss-native'`
+   - Beleköt a `episode-clean-text-runner`-be és a `embed-episode-chunks`-ba
+5. **HA közel 0:** lezárjuk, megyünk tovább a (3) irányba
 
-**Posztolási szabályok:**
-- 1 komment / Reddit-thread (`submission_id` deduplikálva DB-ben).
-- 1 komment / 90 másodperc globálisan (Reddit rate limit + spam-prevenció).
-- Max 30 komment/nap (állítható).
-- Nem válaszol: deleted/removed kommentre, bot-accountra, saját posztra, 7 napnál régebbi szálra.
-- Ha valaki válaszol "!podiverzum stop"-pal, az adott user-t kitiltjuk (`opt_out` tábla).
-- Komment-sablon:
-  > A [{name}]({url}) erről beszélt — a Podiverzumon megtalálod az epizódjait.
-  >
-  > ^(automatikus link, opt-out: válaszolj „!podiverzum stop")
+**Becsült érték:** ismeretlen, 0-tól 2000 transcriptig terjedhet. Konzervatív tipp: 200-500 (főleg Acast/Buzzsprout-hosztolt podcastoknál).
 
-**Architektúra:**
-- **Edge function `reddit-link-bot`** — egyetlen runner. OAuth password-flow tokent kér, lekér 25 új commentet + 25 új submissiont subonként, matchel, posztol, logol.
-- **Cron jobid X**, `*/5 * * * *` (5 percenként). Ha 0 új találat, marad — ha sokat tilt a rate limit, a queue-health controller mintára auto-pause.
-- **DB:**
-  - `reddit_bot_state` (app_settings JSON: `enabled`, `daily_cap`, `comment_cooldown_s`, `subs`, `last_seen_ids`).
-  - `reddit_bot_log` (mit, mikor, hová posztolt, vagy miért nem — match miss / cooldown / cap / opt_out).
-  - `reddit_bot_opt_out` (user, reason, ts).
-  - `reddit_name_index` matview a katalógusból, naponta frissül.
-- **Admin oldal `/admin/reddit-bot`** — kapcsoló, daily cap slider, utolsó 100 log, opt-out lista, "dry run" mód (matchel + logol, **nem** posztol — első napokban kötelező).
+### 3) "Nem jól gondolkodunk" — alternatív szövegforrás-stratégia
 
-## Mit építek (sorrendben)
+Igazad van, túl szűken néztem. Reframing — **nem mind kell hogy szó-szerinti transcript legyen**, csak olyan szöveg ami:
+- (a) magas-jelű (a podcast tényleges tartalmáról szól, nem promo),
+- (b) ingyen vagy nagyon olcsó,
+- (c) chunkolható → vektorba megy → keresés/entity/topic.
 
-1. Migration: `reddit_bot_state`, `reddit_bot_log`, `reddit_bot_opt_out`, `reddit_name_index` matview + refresh függvény.
-2. Edge function `reddit-link-bot` — Reddit OAuth, polling, match, post, log. Default `dry_run=true`.
-3. Admin oldal a beállításokhoz + log-nézethez.
-4. Secret-prompt: `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USERNAME`, `REDDIT_PASSWORD`, `REDDIT_USER_AGENT` (formátum: `podiverzum-linker/0.1 by u/podiverzum_bot`).
-5. Cron felvétel `*/5 * * * *`, **dry_run=true** marad amíg te a logok alapján rábólintasz.
-6. Modmail-sablon (HU) a r/hungary és r/Magyarorszag modjainak.
+**Négy új ér, prioritás szerint:**
 
-## Mi van a scope-on KÍVÜL (most)
+**A) Podcast-saját weboldal scraping (Firecrawl)** ⭐ legnagyobb potenciál
+- Sok HU kiadónak **van dedikált epizód-oldala leírással/idézetekkel/fejezetekkel** amit az RSS leírás nem tartalmaz: `partizan.hu/episode/...`, `telex.hu/podcasts/...`, `444.hu/podcast/...`, `index.hu/podcast/...`, `mandiner.hu/podcast/...`, `hvg.hu/360/...`, `klubradio.hu/musor/...`, `tilos.hu/episodes/...`
+- Whitelist publisher-onként + URL-pattern, Firecrawl scrape markdown, mentés `episode_chunks` táblába `source='publisher_page'` címkével
+- Költség: Firecrawl per page ~$0.0015 → 5000 ep ≈ $7.50 → **kb. 27 Supadata-credit ára egy 5000 epizódra szóló bővítés**
 
-- Új submission posztolás (heti összefoglaló stb.).
-- Téma/embedding alapú match.
-- Globális r/podcasts angol nyelvű threadek.
-- DM válaszok, livechat.
-- Fizetett promóció / sponsored post.
+**B) YouTube videó-leírás *fejezetekkel* (chapters)** — már félig megvan
+- Az 13 282 paired YT videó leírása már elérhető (clean_text v4+ytdesc óta), de a **chapter timestamp-eket nem külön extrahaljuk**
+- Ezek pont a beszélgetés "miről szól mikor" jelei — embed-chunkba "Chapter @ 12:34 — Magyar Péter Tisza-pártról" formában
+- Költség: **0** (lokális regex/parser), érték: chunk-search precíziós ugrás
+- 1 SQL-job extracrol mindent, ETA 2 óra
 
-## Kockázat
+**C) Apple Podcasts undocumented transcript endpoint**
+- 2024 óta Apple generál auto-transcript-et (saját Whisperjével), megjeleníti a Podcasts.app-ban
+- A `https://podcasts.apple.com/.../id<podcast_id>?...` HTML néha tartalmazza a transcript-tokent, vagy létezik a `transcript.apple.com` host
+- **NEM dokumentált**, de a community már reverse-engineerelte: létezik `https://podcasts.apple.com/api/transcript/v1/...`
+- Kockázat: ToS sértés / IP-ban / unstable
+- **Javaslat:** próba-PoC 10 epizódon, ha működik és bírja a load-ot → ingyen tömeges transcript-forrás. Ha nem, dobjuk.
 
-- **Subreddit ban a legnagyobb veszély**, ha a modok spam-nek látják. Ezért: dry_run első, modmail-engedély kötelező, opt-out parancs, alacsony daily cap (30), és minden link relevancia-magyarázattal.
-- A Reddit script app password-flow régóta megy, de 2FA-s accounton extra setup kell — ezért a bot-account NE legyen 2FA-s, vagy app-jelszót kell generálni.
+**D) Article ↔ Episode pairer kibővítése publisher-oldalakra**
+- A jelenleg futó 5-outlet (Telex/444/HVG/Portfolio/Hold) pairer **csak a hír-cikk-podcast összerendelést csinálja**
+- De a Telex-nek saját podcast-oldala is van **fent A) pontban** — más logikai pipeline, ugyanaz a Firecrawl-infra
+- Egy generikus `publisher-page-scraper` runner mindkettőt kiszolgálja
 
-## Technikai részletek (developereknek)
+---
 
-- Reddit endpoints: `POST https://www.reddit.com/api/v1/access_token` (Basic auth client_id:client_secret, body `grant_type=password&username=...&password=...`), majd `GET https://oauth.reddit.com/r/{sub}/comments?limit=25&sort=new` és `/r/{sub}/new?limit=25`. Posztolás: `POST https://oauth.reddit.com/api/comment` body `thing_id=t1_xxx&text=...`.
-- `User-Agent` header KÖTELEZŐ minden hívásnál, különben 429.
-- Token TTL ~1 óra, in-memory cache a function memóriájában nem elég (új cold start) → tárold `reddit_bot_state.access_token` + `access_token_expires_at`-be.
-- Match normalizálás: `unaccent(lower(text))` + `\b{name}\b` regex; aliasok `people.aliases` + `podcasts.alt_titles` (létezik már).
+## Javasolt sorrend (build módban)
+
+1. **Most:** `rss-transcript-tag-audit` edge function + 1× futtatás (≤1 óra build idő, 0 költség)
+2. **Most:** YT scout bump + pairer rescan_after_days lazítás (10 perc, 1 SQL)
+3. **Eredmény-függő:** ha a (2) audit ad ≥100 transcriptet → `rss-transcript-importer` runner
+4. **Külön kör:** Firecrawl publisher-page scraper PoC (telex.hu + partizan.hu, 100 ep, $0.15)
+5. **Külön kör:** YT chapter-extractor (lokális parser, 0 költség)
+6. **Opcionális PoC:** Apple Podcasts transcript reverse-engineering (high risk, high reward)
+
+## Mit szeretnél most?
+
+Plan-jóváhagyás után automatikusan elindítom az **1+2+5** lépést (alacsony kockázat, ingyen), majd külön döntünk a Firecrawl + Apple PoC-ról az audit eredmény láttán.
