@@ -43,13 +43,25 @@ function hasVerifiedPersonWiki(person: Record<string, unknown>): boolean {
     && Number(person.wikipedia_match_confidence || 0) >= 0.8;
 }
 
+function hasTrustedPersonIdentity(person: Record<string, unknown>): boolean {
+  if (person.manual_approved === true) return true;
+  return hasVerifiedPersonWiki(person);
+}
+
 function isSafeGeneratedPersonBio(person: Record<string, unknown>, text?: string | null): boolean {
   const raw = stripHtml(text);
   if (!raw) return false;
-  if (person.identity_ambiguous && !person.manual_approved && !hasVerifiedPersonWiki(person)) return false;
+  if (person.identity_ambiguous && !hasTrustedPersonIdentity(person)) return false;
   if (person.ai_bio_status && person.ai_bio_status !== "completed") return false;
   if (person.ai_bio_confidence != null && Number(person.ai_bio_confidence) < 0.75) return false;
   return true;
+}
+
+function safePersonImageForPrerender(person: Record<string, unknown>): string | undefined {
+  const image = typeof person.image_url === "string" ? person.image_url.trim() : "";
+  if (!image) return undefined;
+  if (person.identity_ambiguous && !hasTrustedPersonIdentity(person)) return undefined;
+  return image;
 }
 
 function safePersonBioForPrerender(person: Record<string, unknown>): string {
@@ -512,11 +524,15 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_public, is_indexable, ai_review_status, activation_status")
+    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
+  const historicalWithoutEvidence = (person.is_deceased === true || person.is_historical === true)
+    && person.has_archival_evidence !== true
+    && person.manual_approved !== true;
   const noindex = person.is_indexable === false
+    || historicalWithoutEvidence
     || ["needs_human_review", "duplicate_candidate"].includes(person.ai_review_status || "")
     || !["indexable", "manual_approved", null, undefined].includes(person.activation_status);
 
@@ -534,6 +550,8 @@ async function buildPerson(
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
   const bio = safePersonBioForPrerender(person);
+  const trustedIdentity = hasTrustedPersonIdentity(person);
+  const safeImage = safePersonImageForPrerender(person);
   const desc = bio
     ? truncate(bio, 160)
     : truncate(`${person.name} — epizódok és említések a Podiverzumon. Magyar podcastek, AI-összefoglalóval.`, 160);
@@ -545,20 +563,25 @@ async function buildPerson(
     return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
   }).join("");
 
-  const personLd: Record<string, unknown> = {
+  const personLd: Record<string, unknown> = trustedIdentity ? {
     "@context": "https://schema.org",
     "@type": "Person",
     name: person.name,
     url: canonical,
+  } : {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: `${person.name} podcast epizódok`,
+    url: canonical,
   };
-  if (person.image_url) personLd.image = person.image_url;
+  if (safeImage && trustedIdentity) personLd.image = safeImage;
   if (bio) personLd.description = truncate(bio, 500);
 
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
-      ogImage: person.image_url,
+      ogImage: safeImage,
       jsonLd: [personLd],
       noindex,
       bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
@@ -1232,7 +1255,7 @@ async function buildPersonTopic(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, short_bio, is_public")
+    .select("id, name, slug, image_url, ai_bio, short_bio, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_public")
     .eq("slug", personSlug).maybeSingle();
   if (!person || person.is_public === false) return null;
   const { data: topic } = await (supabase as any)
@@ -1289,9 +1312,10 @@ async function buildPersonTopic(
       url: `${SITE}/podcast/${e.podcast.slug}/${e.slug}`, name: e.display_title || e.title,
     })),
   };
+  const safeImage = safePersonImageForPrerender(person);
 
   return new Response(new TextEncoder().encode(shell({
-    title, description: desc, canonical, ogImage: person.image_url, jsonLd: [itemList, breadcrumbs],
+    title, description: desc, canonical, ogImage: safeImage, jsonLd: [itemList, breadcrumbs],
     bodyHtml: `<header><h1>${esc(person.name)} — ${esc(topic.name)}</h1>
 <p>${eps.length} epizód, amelyben <a href="/szemelyek/${esc(personSlug)}">${esc(person.name)}</a> a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témáról beszél vagy említik. Magyar podcastek, AI-összefoglalókkal, relevancia szerint rendezve.</p></header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>

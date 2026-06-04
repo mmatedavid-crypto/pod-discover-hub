@@ -40,4 +40,21 @@ describe("person detail identity safety", () => {
     expect(page).not.toContain('.eq("podcasts.is_hungarian", true)');
     expect(page).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
   });
+
+  it("keeps prerendered person SEO identity-safe for ambiguous or historical names", () => {
+    const prerender = read("supabase/functions/prerender/index.ts");
+
+    expect(prerender).toContain("function hasTrustedPersonIdentity");
+    expect(prerender).toContain("function safePersonImageForPrerender");
+    expect(prerender).toContain("person.identity_ambiguous && !hasTrustedPersonIdentity(person)");
+    expect(prerender).toContain("const historicalWithoutEvidence = (person.is_deceased === true || person.is_historical === true)");
+    expect(prerender).toContain("|| historicalWithoutEvidence");
+    expect(prerender).toContain('trustedIdentity ? {');
+    expect(prerender).toContain('"@type": "Person"');
+    expect(prerender).toContain('"@type": "CollectionPage"');
+    expect(prerender).toContain("if (safeImage && trustedIdentity) personLd.image = safeImage");
+    expect(prerender).toContain("ogImage: safeImage");
+    expect(prerender).not.toContain("ogImage: person.image_url");
+    expect(prerender).not.toContain("if (person.image_url) personLd.image = person.image_url");
+  });
 });
