@@ -47,17 +47,17 @@ export default function MethodologyPage() {
           jelentést keresi — nem csak az egyező betűket.
         </p>
 
-        <h2 className="mt-10 text-xl font-semibold">Személyek, témák, kapcsolódó epizódok</h2>
+        <h2 className="mt-10 text-xl font-semibold">Személyek, témák, felfedezési utak</h2>
         <p>
           Egy jó podcastkereső nem ér véget az első találatnál. Ha megtalálsz egy epizódot, a
-          Podiverzum segít továbbindulni: hasonló témájú beszélgetéseket, kapcsolódó podcastokat,
-          személyeket és témákat mutat.
+          Podiverzum segít továbbindulni: megmutatja a kapcsolódó személyeket, szervezeteket,
+          témákat és azokat az epizódokat, amelyekben ezek újra előkerülnek.
         </p>
         <p>
           A személyek oldalain a releváns epizódok gyűlnek össze egy-egy szereplő köré. A témaoldalak
-          segítenek egy adott témát több műsoron keresztül megismerni. A kapcsolódó epizódok és a
-          hasonló podcastok pedig azt a célt szolgálják, hogy a felfedezés ne álljon meg egyetlen
-          találatnál.
+          segítenek egy adott témát több műsoron keresztül megismerni. A hallgatási helyzetek és
+          személyes ajánlók pedig abban segítenek, hogy ne csak keresni, hanem felfedezni is könnyű
+          legyen.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Magyar tartalomra hangolva</h2>

@@ -238,6 +238,17 @@ describe("page consistency static guards", () => {
     expect(topics).not.toContain("Tech és MI");
   });
 
+  it("does not promise disabled similar-podcast recommendations in public methodology", () => {
+    const methodology = read("src/pages/MethodologyPage.tsx");
+
+    expect(methodology).toContain("Személyek, témák, felfedezési utak");
+    expect(methodology).toContain("kapcsolódó személyeket, szervezeteket");
+    expect(methodology).toContain("hallgatási helyzetek");
+    expect(methodology).not.toContain("kapcsolódó podcastokat");
+    expect(methodology).not.toContain("hasonló podcastok");
+    expect(methodology).not.toContain("hasonló témájú beszélgetéseket");
+  });
+
   it("keeps live analytics route labels canonical for people and moods", () => {
     const live = read("src/pages/AdminLivePage.tsx");
 
