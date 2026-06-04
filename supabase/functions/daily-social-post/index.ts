@@ -1,7 +1,6 @@
-// Editorial X automation for Podiverzum (Hungarian-only).
-// Slot-aware runner — invoked every 30 min by cron. If the current UTC time
-// matches a publishing slot, it picks ONE strong fresh episode, scores it,
-// generates 3 hook variants, runs a quality gate, then posts to X.
+// Historical editorial X automation for Podiverzum (Hungarian-only).
+// HARD DISABLED: automatic social content generation/posting was unused and is
+// intentionally blocked at the edge handler before any AI, media, or X API call.
 //
 // Modes:
 //   POST {}                          → if a slot is active now, pick + post
@@ -26,6 +25,9 @@ const corsHeaders = {
 const SITE_URL = "https://podiverzum.hu";
 const X_API = "https://api.x.com/2";
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const SOCIAL_AUTOMATION_HARD_DISABLED = true;
+const SOCIAL_AUTOMATION_DISABLED_REASON =
+  "Automatic X/TikTok/social content generation is intentionally disabled. Use history only.";
 
 // ---------- Slot definitions ----------
 type SlotKind = "flagship" | "topic" | "discovery";
@@ -933,7 +935,21 @@ function jsonRes(obj: any, status = 200): Response {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method === "GET") {
-    return jsonRes({ ok: true, function: "daily-social-post (editorial)", now: new Date().toISOString(), active_slot: activeSlot(new Date()) });
+    return jsonRes({
+      ok: true,
+      function: "daily-social-post (disabled)",
+      disabled: SOCIAL_AUTOMATION_HARD_DISABLED,
+      reason: SOCIAL_AUTOMATION_DISABLED_REASON,
+      now: new Date().toISOString(),
+    });
+  }
+  if (SOCIAL_AUTOMATION_HARD_DISABLED) {
+    return jsonRes({
+      ok: false,
+      blocked: true,
+      disabled: true,
+      reason: SOCIAL_AUTOMATION_DISABLED_REASON,
+    }, 423);
   }
   try {
     return await main(req);

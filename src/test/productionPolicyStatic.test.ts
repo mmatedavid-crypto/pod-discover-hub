@@ -95,6 +95,27 @@ describe("production policy static guards", () => {
     expect(pairer).toContain('.select("id")');
   });
 
+  it("keeps unused automatic social posting hard-disabled at the edge handler", () => {
+    const fn = read("supabase/functions/daily-social-post/index.ts");
+    const adminPage = read("src/pages/AdminSocialPostsPage.tsx");
+    const migration = read("supabase/migrations/20260531152000_disable_social_automation.sql");
+
+    expect(fn).toContain("const SOCIAL_AUTOMATION_HARD_DISABLED = true");
+    expect(fn).toContain("Automatic X/TikTok/social content generation is intentionally disabled");
+    expect(fn).toContain("function: \"daily-social-post (disabled)\"");
+    expect(fn).toContain("if (SOCIAL_AUTOMATION_HARD_DISABLED)");
+    expect(fn).toContain("return jsonRes({");
+    expect(fn).toContain("}, 423)");
+    expect(fn.indexOf("if (SOCIAL_AUTOMATION_HARD_DISABLED)")).toBeLessThan(fn.indexOf("return await main(req)"));
+
+    expect(adminPage).toContain("const SOCIAL_AUTOMATION_DISABLED = true");
+    expect(adminPage).toContain("Preview disabled");
+    expect(adminPage).toContain("Posting disabled");
+    expect(migration).toContain("'enabled', false");
+    expect(migration).toContain("'allow_manual_posting', false");
+    expect(migration).toContain("'allow_dry_run_preview', false");
+  });
+
   it("keeps legacy clean-text backfill quality-gated instead of globally enabled", () => {
     const migration = read("supabase/migrations/20260603171000_clean_text_backfill_quality_gate_consolidated.sql");
     const runner = read("supabase/functions/episode-clean-text-runner/index.ts");
