@@ -326,6 +326,17 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain("sanitizeHungarianPublicText(p.summary).toLowerCase()");
   });
 
+  it("keeps public podcast discovery fallbacks on the accepted Hungarian decision field", () => {
+    const newest = read("src/pages/NewPodcastsPage.tsx");
+    const recent = read("src/components/RecentlyAddedPodcasts.tsx");
+    const notFound = read("src/pages/NotFound.tsx");
+
+    for (const source of [newest, recent, notFound]) {
+      expect(source).toContain('.eq("language_decision", "accept_hungarian")');
+      expect(source).not.toContain('.eq("is_hungarian", true)');
+    }
+  });
+
   it("keeps entity pages on accepted Hungarian episodes with AI-summary-aware cards", () => {
     const entity = read("src/pages/EntityPage.tsx");
 

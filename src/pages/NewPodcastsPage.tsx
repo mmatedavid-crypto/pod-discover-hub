@@ -16,10 +16,8 @@ export default function NewPodcastsPage() {
 
     supabase
       .from("podcasts")
-      .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at,language")
+      .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at,language,language_decision")
       .not("rss_status", "in", "(failed,inactive)")
-      // HU-only site: accept every Hungarian non-spam podcast; rank only orders elsewhere.
-      .eq("is_hungarian", true)
       .eq("language_decision", "accept_hungarian")
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(60)

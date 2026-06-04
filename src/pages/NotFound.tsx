@@ -21,8 +21,8 @@ export default function NotFound() {
     console.warn("404:", location.pathname);
     supabase
       .from("podcasts")
-      .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status")
-      .eq("is_hungarian", true)
+      .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,language_decision")
+      .eq("language_decision", "accept_hungarian")
       .or("featured.eq.true,rank_label.eq.S")
       .not("rss_status", "in", "(failed,inactive)")
       .order("featured", { ascending: false })
