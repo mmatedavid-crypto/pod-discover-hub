@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 export default function CategoriesPage() {
   const [cats, setCats] = useState<any[]>([]);
@@ -30,16 +31,19 @@ export default function CategoriesPage() {
 
       <div className="container mx-auto py-10 max-w-5xl px-4">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {cats.map((c) => (
-            <Link
-              key={c.id}
-              to={`/kategoria/${c.slug}`}
-              className="block p-5 rounded-lg border border-border bg-card hover:border-accent/40 transition-colors"
-            >
-              <div className="font-medium">{c.name}</div>
-              {c.description && <div className="text-sm text-muted-foreground mt-1">{c.description}</div>}
-            </Link>
-          ))}
+          {cats.map((c) => {
+            const description = sanitizeHungarianPublicText(c.description);
+            return (
+              <Link
+                key={c.id}
+                to={`/kategoria/${c.slug}`}
+                className="block p-5 rounded-lg border border-border bg-card hover:border-accent/40 transition-colors"
+              >
+                <div className="font-medium">{c.name}</div>
+                {description && <div className="text-sm text-muted-foreground mt-1">{description}</div>}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </Layout>

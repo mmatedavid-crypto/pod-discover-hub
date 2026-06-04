@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Building2, Landmark, Newspaper, GraduationCap, Heart, Trophy, Trophy as TrophyIcon, Church, FlaskConical, Radio, Vote, Globe } from "lucide-react";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 export type OrgType =
   | "company"
@@ -69,7 +70,7 @@ function buildContext(o: OrgCardData): string | null {
   const candidates = [o.short_description_hu, o.wikipedia_extract, o.ai_bio];
   for (const raw of candidates) {
     if (!raw) continue;
-    const t = raw.trim();
+    const t = sanitizeHungarianPublicText(raw);
     if (!t) continue;
     const first = t.split(/(?<=[.!?])\s+/)[0] || t;
     const trimmed = first.length > 140 ? first.slice(0, 137).trimEnd() + "…" : first;

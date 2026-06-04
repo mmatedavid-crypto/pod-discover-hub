@@ -632,8 +632,8 @@ export default function SearchPage() {
                 {typeof heroOrganization.gated_episode_count === "number" && heroOrganization.gated_episode_count > 0 && (
                   <div className="text-xs text-muted-foreground mt-1">{heroOrganization.gated_episode_count} epizód</div>
                 )}
-                {heroOrganization.short_bio && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{heroOrganization.short_bio}</p>
+                {sanitizeHungarianPublicText(heroOrganization.short_bio) && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{sanitizeHungarianPublicText(heroOrganization.short_bio)}</p>
                 )}
                 <div className="text-[11px] text-primary font-medium mt-2">Cég / szervezet oldal megnyitása →</div>
               </div>
@@ -656,8 +656,8 @@ export default function SearchPage() {
                 {typeof heroTopic.gated_episode_count === "number" && heroTopic.gated_episode_count > 0 && (
                   <div className="text-xs text-muted-foreground mt-1">{heroTopic.gated_episode_count} epizód</div>
                 )}
-                {heroTopic.short_bio && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{heroTopic.short_bio}</p>
+                {sanitizeHungarianPublicText(heroTopic.short_bio) && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">{sanitizeHungarianPublicText(heroTopic.short_bio)}</p>
                 )}
                 <div className="text-[11px] text-primary font-medium mt-2">Téma oldal megnyitása →</div>
               </div>

@@ -394,8 +394,11 @@ describe("page consistency static guards", () => {
     const search = read("src/pages/SearchPage.tsx");
     const trending = read("src/components/TrendingPodcasts.tsx");
     const episode = read("src/pages/EpisodeDetail.tsx");
+    const categories = read("src/pages/CategoriesPage.tsx");
+    const orgCard = read("src/components/OrgCard.tsx");
+    const personCard = read("src/components/PersonCard.tsx");
 
-    for (const source of [podcast, category, topic, search, trending, episode]) {
+    for (const source of [podcast, category, topic, search, trending, episode, categories, orgCard, personCard]) {
       expect(source).toContain("sanitizeHungarianPublicText");
     }
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_description)");
@@ -410,7 +413,13 @@ describe("page consistency static guards", () => {
     expect(category).toContain("slug,ai_summary,summary,description,published_at");
     expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
+    expect(search).toContain("sanitizeHungarianPublicText(heroOrganization.short_bio)");
+    expect(search).toContain("sanitizeHungarianPublicText(heroTopic.short_bio)");
+    expect(categories).toContain("const description = sanitizeHungarianPublicText(c.description)");
     expect(trending).toContain("sanitizeHungarianPublicText(p.summary)");
+    expect(orgCard).toContain("const t = sanitizeHungarianPublicText(raw)");
+    expect(personCard).toContain("const contextLine = sanitizeHungarianPublicText(p.context_line)");
+    expect(personCard).toContain("const identityLabel = sanitizeHungarianPublicText(p.disambiguation_label)");
     expect(episode).toContain("const description = sanitizeHungarianPublicText(e.description)");
     expect(episode).toContain("id,title,display_title,slug,published_at,ai_summary,summary,description");
     expect(episode).toContain("extractKeyMoments(sanitizeHungarianPublicText(data?.e?.description)");

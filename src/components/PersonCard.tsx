@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import PersonAvatar from "./PersonAvatar";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 export interface PersonCardData {
   slug: string;
@@ -31,14 +32,16 @@ export function isUsefulPersonIdentityLabel(label?: string | null): boolean {
 }
 
 export function buildPersonCardContextLine(p: PersonCardData): string | null {
-  if (p.context_line && p.context_line.trim()) return p.context_line.trim();
-  if (isUsefulPersonIdentityLabel(p.disambiguation_label)) return p.disambiguation_label!.trim();
+  const contextLine = sanitizeHungarianPublicText(p.context_line);
+  if (contextLine) return contextLine;
+  const identityLabel = sanitizeHungarianPublicText(p.disambiguation_label);
+  if (isUsefulPersonIdentityLabel(identityLabel)) return identityLabel;
   const ambiguous = Boolean(p.identity_ambiguous) && !p.manual_approved;
   const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
   const candidates = [p.short_bio, p.ai_bio];
   for (const raw of candidates) {
     if (!raw) continue;
-    const t = raw.trim();
+    const t = sanitizeHungarianPublicText(raw);
     if (!t) continue;
     if (ambiguous && !trustedWiki) continue;
     if (raw === p.ai_bio && p.ai_bio_status && p.ai_bio_status !== "completed") continue;
@@ -59,6 +62,7 @@ export default function PersonCard({ p }: { p: PersonCardData }) {
     ? (Date.now() - new Date(p.latest_accepted_relevant_episode_at).getTime()) < 30 * 24 * 3600 * 1000
     : false;
   const context = buildPersonCardContextLine(p);
+  const identityLabel = sanitizeHungarianPublicText(p.disambiguation_label);
   return (
     <Link
       to={`/szemelyek/${p.slug}`}
@@ -69,8 +73,8 @@ export default function PersonCard({ p }: { p: PersonCardData }) {
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="font-semibold truncate leading-tight">{p.name}</div>
-            {isUsefulPersonIdentityLabel(p.disambiguation_label) && !context?.startsWith(p.disambiguation_label!) && (
-              <div className="text-xs text-muted-foreground truncate mt-0.5">{p.disambiguation_label}</div>
+            {isUsefulPersonIdentityLabel(identityLabel) && !context?.startsWith(identityLabel) && (
+              <div className="text-xs text-muted-foreground truncate mt-0.5">{identityLabel}</div>
             )}
           </div>
           {isFresh && (
