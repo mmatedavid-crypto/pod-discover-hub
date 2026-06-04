@@ -52,6 +52,13 @@ export default function DailyBriefPage() {
     setSeo({
       title: "Mai válogatás – friss magyar podcast epizódok | Podiverzum",
       description: "Friss podcast epizódok, témák és szereplők — minőség, aktualitás és relevancia alapján rendezve.",
+      canonical: "https://podiverzum.hu/napi",
+      ogType: "article",
+      image: ogImageUrl({
+        kind: "site",
+        title: "Mai válogatás",
+        subtitle: "Friss magyar podcast epizódok",
+      }),
     });
   }, []);
 
