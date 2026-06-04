@@ -88,13 +88,7 @@ export default function ToplistaAllTimePage() {
             Minden idők legnézettebb magyar podcast epizódjai
           </h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            A magyar podcast YouTube-csatornáin valaha mért legtöbb megtekintést elért epizódok.
-            A rangsort a YouTube hivatalos megtekintésszáma adja, az Apple és Spotify
-            jelenlét jelvényként látszik.{" "}
-            <span className="text-xs">
-              (Megj.: a Spotify és Apple nyilvánosan nem ad meg lejátszás-számot, így itt csak a YouTube
-              valós play count szerepel.)
-            </span>
+            A YouTube-on mért legtöbb megtekintést elért magyar podcast epizódok rangsora.
           </p>
 
           <div className="flex flex-wrap gap-2 pt-2">
