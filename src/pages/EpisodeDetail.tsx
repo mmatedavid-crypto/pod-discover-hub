@@ -273,6 +273,12 @@ export default function EpisodeDetail() {
                     {relativeTime(e.published_at)}
                   </span>
                 )}
+                {formatDurationHu(e.duration_seconds) && (
+                  <span className="inline-flex items-center gap-1.5" title="Epizód hossza">
+                    <Clock className="h-4 w-4" />
+                    {formatDurationHu(e.duration_seconds)}
+                  </span>
+                )}
                 {understanding?.headline && (
                   <span className="inline-flex items-center gap-1.5">
                     <Sparkles className="h-4 w-4 text-primary" />
