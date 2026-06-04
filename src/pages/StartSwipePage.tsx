@@ -268,6 +268,67 @@ function recHaystack(r: RecEp): string {
   ].filter(Boolean).join(" ").toLowerCase();
 }
 
+const INTEREST_GROUPS: Record<string, string[]> = {
+  tech: ["tech", "technológia", "technologia", "mi", "ai", "mesterséges intelligencia", "mesterséges", "startup", "jövő", "jovo", "digitalis", "digitális"],
+  business: ["gazdaság", "gazdasag", "pénz", "penz", "pénzügy", "penzugy", "üzlet", "uzlet", "business", "befektetés", "befektetes", "tőzsde", "tozsde", "vállalkozás", "vallalkozas", "karrier"],
+  public_affairs: ["közélet", "kozelet", "politika", "hírek", "hirek", "társadalom", "tarsadalom", "geopolitika", "közbeszéd", "kozbeszed"],
+  culture: ["kultúra", "kultura", "film", "mozi", "sorozat", "zene", "könyv", "konyv", "irodalom", "színház", "szinhaz"],
+  science: ["tudomány", "tudomany", "űr", "ur", "kutatás", "kutatas", "természet", "termeszet"],
+  mind: ["pszichológia", "pszichologia", "mentális", "mentalis", "önismeret", "onismeret", "lélek", "lelek"],
+  health: ["egészség", "egeszseg", "életmód", "eletmod", "orvos", "sport", "edzés", "edzes"],
+  crime: ["bűnügy", "bunugy", "true crime", "krimi", "nyomozás", "nyomozas"],
+  travel: ["utazás", "utazas", "világ", "vilag", "külföld", "kulfold"],
+  food: ["gasztronómia", "gasztronomia", "kaja", "étel", "etel", "főzés", "fozes"],
+  humor: ["humor", "standup", "stand-up", "szórakozás", "szorakozas"],
+};
+
+function normalizeInterest(value: string | null | undefined): string {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function interestGroupsForText(value: string | null | undefined): string[] {
+  const text = normalizeInterest(value);
+  if (!text) return [];
+  const groups: string[] = [];
+  for (const [group, terms] of Object.entries(INTEREST_GROUPS)) {
+    if (terms.some((term) => text.includes(normalizeInterest(term)))) groups.push(group);
+  }
+  return groups;
+}
+
+function expandTasteTags(tags: string[]): string[] {
+  const out = new Set<string>();
+  for (const tag of tags) {
+    const normalized = normalizeInterest(tag);
+    if (!normalized || normalized.length < 3) continue;
+    out.add(normalized);
+    for (const group of interestGroupsForText(normalized)) {
+      out.add(group);
+      for (const term of INTEREST_GROUPS[group] || []) out.add(normalizeInterest(term));
+    }
+  }
+  return Array.from(out).filter((tag) => tag.length >= 3);
+}
+
+function episodeInterestKeys(r: RecEp): Set<string> {
+  const values = [
+    r.category || "",
+    ...(r.topics || []),
+    recHaystack(r),
+  ];
+  const keys = new Set<string>();
+  for (const value of values) {
+    const normalized = normalizeInterest(value);
+    if (normalized.length >= 3) keys.add(normalized);
+    for (const group of interestGroupsForText(value)) keys.add(group);
+  }
+  return keys;
+}
+
 function isBulletinLike(r: RecEp): boolean {
   const hay = recHaystack(r);
   return BULLETIN_LIKE_RX.test(hay) || /^\s*\d{1,2}\s*[-–—]\s+/.test(r.title || "");
@@ -616,6 +677,7 @@ export default function StartSwipePage() {
         .map(([tag]) => tag)
         .filter((tag) => tag.length >= 3)
         .slice(0, 8);
+      const expandedFallbackTags = expandTasteTags(fallbackTags).slice(0, 24);
 
       let fallbackQuery = supabase
         .from("episodes")
@@ -626,7 +688,7 @@ export default function StartSwipePage() {
         .not("podcasts.rss_status", "in", "(failed,inactive,deleted)")
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(80);
-      if (fallbackTags.length > 0) fallbackQuery = fallbackQuery.overlaps("topics", fallbackTags);
+      if (expandedFallbackTags.length > 0) fallbackQuery = fallbackQuery.overlaps("topics", expandedFallbackTags);
 
       const { data: fallbackDataRaw } = await fallbackQuery;
       let fallbackData = fallbackDataRaw || [];
@@ -678,21 +740,30 @@ export default function StartSwipePage() {
       (tagW.geopolitika || 0);
     const allowsNews = newsSignal >= 4;
     const allowsBulletins = newsSignal >= 7;
+    const expandedTagW: Record<string, number> = {};
+    const expandedAntiW: Record<string, number> = {};
+    for (const [tag, weight] of Object.entries(tagW)) {
+      for (const expanded of expandTasteTags([tag])) {
+        expandedTagW[expanded] = Math.max(expandedTagW[expanded] || 0, weight);
+      }
+    }
+    for (const [tag, weight] of Object.entries(antiW)) {
+      for (const expanded of expandTasteTags([tag])) {
+        expandedAntiW[expanded] = Math.max(expandedAntiW[expanded] || 0, weight);
+      }
+    }
 
     // Re-rank: vector + positive tag overlap − anti-tag penalty + small freshness nudge.
     const now = Date.now();
     const rows = recommendationRows.map(r => {
-      const epTags = new Set<string>([
-        ...(r.topics || []).map(t => t.toLowerCase()),
-        ...(r.category ? [r.category.toLowerCase()] : []),
-      ]);
+      const epTags = episodeInterestKeys(r);
       let overlap = 0;
       let antiOverlap = 0;
       const matched: Array<{ tag: string; w: number }> = [];
       for (const t of epTags) {
-        const w = tagW[t];
+        const w = expandedTagW[t] || tagW[t];
         if (w) { overlap += w; matched.push({ tag: t, w }); }
-        const aw = antiW[t];
+        const aw = expandedAntiW[t] || antiW[t];
         if (aw) antiOverlap += aw;
       }
       const normOverlap = Math.min(1, overlap / (maxW * 2));

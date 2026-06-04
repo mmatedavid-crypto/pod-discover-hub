@@ -45,13 +45,22 @@ describe("page consistency static guards", () => {
 
   it("keeps Te Podiverzumod recommendations useful even when vector matching is unavailable", () => {
     const startSwipe = read("src/pages/StartSwipePage.tsx");
+    const tasteRecommend = read("supabase/functions/taste-recommend/index.ts");
 
-    expect(startSwipe).toContain("fallbackQuery.overlaps(\"topics\", fallbackTags)");
+    expect(startSwipe).toContain("INTEREST_GROUPS");
+    expect(startSwipe).toContain("expandTasteTags(fallbackTags)");
+    expect(startSwipe).toContain("episodeInterestKeys(r)");
+    expect(startSwipe).toContain("fallbackQuery.overlaps(\"topics\", expandedFallbackTags)");
+    expect(startSwipe).toContain("expandedFallbackTags");
     expect(startSwipe).toContain("recommendationRows = ((fallbackData || []) as any[]).map");
     expect(startSwipe).toContain("accept_hungarian");
     expect(startSwipe).toContain("Friss magyar epizódokat készítünk elő a profilodhoz.");
     expect(startSwipe).not.toContain("Nem sikerült lekérni az ajánlásokat");
     expect(startSwipe).not.toContain("Most nem sikerült lekérni az ajánlásokat");
+
+    expect(tasteRecommend).toContain("INTEREST_GROUPS");
+    expect(tasteRecommend).toContain("expandTasteTags(likedTopics)");
+    expect(tasteRecommend).toContain("episodeInterestKeys({ title, podcastTitle, category, topics })");
   });
 
   it("keeps category links on the Hungarian canonical route", () => {
