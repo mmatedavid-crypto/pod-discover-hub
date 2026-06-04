@@ -5,20 +5,14 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body, null, 2), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  new Response(JSON.stringify(body, null, 2), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 type LinkRow = {
   episode_id: string;
-  podcast_id: string;
   youtube_video_id: string | null;
-  youtube_title: string | null;
   youtube_description: string | null;
   youtube_duration_seconds: number | null;
   match_score: number | null;
-  validation_reason: any;
 };
 
 function parseTime(raw: string): number | null {
@@ -33,8 +27,9 @@ function cleanTitle(raw: string): string {
   return raw
     .replace(/https?:\/\/\S+/gi, "")
     .replace(/www\.\S+/gi, "")
-    .replace(/^\s*[-–—•|)\].:]+\s*/, "")
     .replace(/[⁠\u200b\u200c\u200d]/g, "")
+    .replace(/^\s*[-–—•|)\].:]+\s*/, "")
+    .replace(/\s*[:：]\s*$/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
@@ -65,6 +60,18 @@ function extractChapters(description: string, durationSeconds: number | null): A
     .slice(0, 40);
 }
 
+async function loadExistingEpisodeIds(admin: any): Promise<Set<string>> {
+  const set = new Set<string>();
+  for (let offset = 0; offset < 500000; offset += 1000) {
+    const { data, error } = await admin.from("episode_chapters").select("episode_id").range(offset, offset + 999);
+    if (error) throw error;
+    if (!data?.length) break;
+    for (const row of data) set.add(String(row.episode_id));
+    if (data.length < 1000) break;
+  }
+  return set;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const startedAt = Date.now();
@@ -79,77 +86,69 @@ Deno.serve(async (req) => {
     const force = body.force === true;
     if (ctrl.enabled === false && !force) return json({ ok: true, paused: true });
 
-    const limit = Math.max(1, Math.min(300, Number(body.limit || ctrl.batch || 100)));
+    const limit = Math.max(1, Math.min(500, Number(body.limit || ctrl.batch || 200)));
     const dry = body.dry === true;
     const minChapters = Math.max(2, Math.min(12, Number(body.min_chapters || ctrl.min_chapters || 3)));
     const minMatchScore = Math.max(0, Math.min(1, Number(body.min_match_score || ctrl.min_match_score || 0.84)));
+    const pageSize = Math.max(100, Math.min(1000, Number(body.page_size || ctrl.page_size || 1000)));
+    const maxPages = Math.max(1, Math.min(80, Number(body.max_pages || ctrl.max_pages || 20)));
 
-    const { data: existingRows } = await admin.from("episode_chapters").select("episode_id").limit(200000);
-    const existing = new Set((existingRows || []).map((r: any) => String(r.episode_id)));
-
-    const { data: links, error } = await admin
-      .from("episode_youtube_links")
-      .select("episode_id,podcast_id,youtube_video_id,youtube_title,youtube_description,youtube_duration_seconds,match_score,validation_reason")
-      .eq("status", "confirmed")
-      .contains("validation_reason", { policy: "youtube_episode_match_v3" })
-      .not("youtube_description", "is", null)
-      .gte("match_score", minMatchScore)
-      .order("updated_at", { ascending: false, nullsFirst: false })
-      .limit(Math.max(limit * 10, 1000));
-    if (error) throw error;
-
+    const existing = await loadExistingEpisodeIds(admin);
     const rows: any[] = [];
     const samples: any[] = [];
     let scanned = 0;
     let eligible = 0;
-    for (const link of (links || []) as LinkRow[]) {
-      scanned++;
-      if (existing.has(link.episode_id)) continue;
-      const chapters = extractChapters(link.youtube_description || "", link.youtube_duration_seconds);
-      if (chapters.length < minChapters) continue;
-      eligible++;
-      chapters.forEach((c, idx) => rows.push({
-        episode_id: link.episode_id,
-        idx,
-        start_sec: c.start_sec,
-        title: c.title,
-        summary: null,
-        generated_at: new Date().toISOString(),
-      }));
-      if (samples.length < 5) samples.push({ episode_id: link.episode_id, youtube_video_id: link.youtube_video_id, chapter_count: chapters.length, first: chapters.slice(0, 3) });
-      if (eligible >= limit) break;
+    let pages = 0;
+
+    for (let offset = 0; pages < maxPages && eligible < limit; offset += pageSize) {
+      pages++;
+      const { data: links, error } = await admin
+        .from("episode_youtube_links")
+        .select("episode_id,youtube_video_id,youtube_description,youtube_duration_seconds,match_score")
+        .eq("status", "confirmed")
+        .contains("validation_reason", { policy: "youtube_episode_match_v3" })
+        .not("youtube_description", "is", null)
+        .gte("match_score", minMatchScore)
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      if (!links?.length) break;
+
+      for (const link of links as LinkRow[]) {
+        scanned++;
+        if (existing.has(link.episode_id)) continue;
+        const chapters = extractChapters(link.youtube_description || "", link.youtube_duration_seconds);
+        if (chapters.length < minChapters) continue;
+        eligible++;
+        existing.add(link.episode_id);
+        chapters.forEach((c, idx) => rows.push({
+          episode_id: link.episode_id,
+          idx,
+          start_sec: c.start_sec,
+          title: c.title,
+          summary: null,
+          generated_at: new Date().toISOString(),
+        }));
+        if (samples.length < 5) samples.push({ episode_id: link.episode_id, youtube_video_id: link.youtube_video_id, chapter_count: chapters.length, first: chapters.slice(0, 3) });
+        if (eligible >= limit) break;
+      }
+      if (links.length < pageSize) break;
     }
 
     if (!dry && rows.length) {
       for (let i = 0; i < rows.length; i += 500) {
-        const { error: upErr } = await admin.from("episode_chapters").upsert(rows.slice(i, i + 500), { onConflict: "episode_id,idx" });
-        if (upErr) throw upErr;
+        const { error } = await admin.from("episode_chapters").upsert(rows.slice(i, i + 500), { onConflict: "episode_id,idx" });
+        if (error) throw error;
       }
     }
 
     await admin.from("app_settings").upsert({
       key: "youtube_chapters_progress",
-      value: {
-        last_run_at: new Date().toISOString(),
-        scanned,
-        eligible_episodes: eligible,
-        chapter_rows: rows.length,
-        dry,
-        runtime_ms: Date.now() - startedAt,
-      },
+      value: { last_run_at: new Date().toISOString(), scanned, eligible_episodes: eligible, chapter_rows: rows.length, dry, pages, runtime_ms: Date.now() - startedAt },
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
-    return json({
-      ok: true,
-      dry,
-      scanned,
-      eligible_episodes: eligible,
-      chapter_rows: rows.length,
-      inserted_rows: dry ? 0 : rows.length,
-      elapsed_ms: Date.now() - startedAt,
-      samples,
-    });
+    return json({ ok: true, dry, pages, scanned, eligible_episodes: eligible, chapter_rows: rows.length, inserted_rows: dry ? 0 : rows.length, elapsed_ms: Date.now() - startedAt, samples });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("youtube-chapters-runner error", msg);
