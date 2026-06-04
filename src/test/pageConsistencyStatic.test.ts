@@ -5,6 +5,15 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
 
 describe("page consistency static guards", () => {
+  it("keeps heavyweight public pages out of the global app shell", () => {
+    const app = read("src/App.tsx");
+
+    expect(app).toContain('const Index = lazy(() => import("./pages/Index.tsx"))');
+    expect(app).toContain('const NotFound = lazy(() => import("./pages/NotFound.tsx"))');
+    expect(app).not.toContain('import Index from "./pages/Index.tsx"');
+    expect(app).not.toContain('import NotFound from "./pages/NotFound.tsx"');
+  });
+
   it("keeps topic detail pages focused on episodes, people and related topics, not podcast-channel recommendations", () => {
     const topic = read("src/pages/TopicDetailPage.tsx");
 

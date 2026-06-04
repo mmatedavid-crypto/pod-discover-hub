@@ -16,14 +16,13 @@ function RedirectWithTwoSlugs({ to }: { to: string }) {
   const { slug = "", topicSlug = "" } = useParams();
   return <Navigate to={`${to}/${slug}/temak/${topicSlug}`} replace />;
 }
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
-
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 
+const Index = lazy(() => import("./pages/Index.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const StartSwipePage = lazy(() => import("./pages/StartSwipePage.tsx"));
 const StartLandingPage = lazy(() => import("./pages/StartLandingPage.tsx"));
 const TePodiverzumodSharePage = lazy(() => import("./pages/TePodiverzumodSharePage.tsx"));
