@@ -55,6 +55,13 @@ describe("page consistency static guards", () => {
     expect(topic).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
   });
 
+  it("keeps homepage episode rails AI-summary aware", () => {
+    const home = read("src/pages/Index.tsx");
+
+    expect(home).toContain("ai_summary: r.ai_summary");
+    expect(home).toContain("episode_id,title,display_title,slug,ai_summary,summary,description");
+  });
+
   it("keeps category episode discovery open to accepted Hungarian non-spam shows", () => {
     const category = read("src/pages/CategoryDetail.tsx");
 

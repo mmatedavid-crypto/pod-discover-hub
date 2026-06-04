@@ -351,6 +351,7 @@ const Index = () => {
             title: r.title,
             display_title: r.display_title,
             slug: r.slug,
+            ai_summary: r.ai_summary,
             summary: r.summary,
             description: r.description,
             published_at: r.published_at,
@@ -377,7 +378,7 @@ const Index = () => {
           const [feedRes, evergreenRes] = await Promise.all([
             supabase
               .from("mv_homepage_feed" as any)
-              .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+              .select("episode_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
               .lte("pod_rank", 6)
               .order("published_at", { ascending: false, nullsFirst: false })
               .limit(HOMEPAGE_EPISODE_LIMIT),
@@ -486,7 +487,7 @@ const Index = () => {
       try {
         const { data, error } = await supabase
           .from("mv_homepage_feed" as any)
-          .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+          .select("episode_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
           .in("podcast_category", LIGHT_CATEGORIES)
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(120);
@@ -497,6 +498,7 @@ const Index = () => {
           title: r.title,
           display_title: r.display_title,
           slug: r.slug,
+          ai_summary: r.ai_summary,
           summary: r.summary,
           description: r.description,
           published_at: r.published_at,
