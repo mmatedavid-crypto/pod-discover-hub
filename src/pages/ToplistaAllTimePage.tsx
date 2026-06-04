@@ -147,9 +147,6 @@ export default function ToplistaAllTimePage() {
                     <div className="absolute top-2 left-2 bg-background/95 backdrop-blur rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1">
                       <Trophy className="h-3 w-3" /> #{i + 1}
                     </div>
-                    <div className="absolute bottom-2 right-2 bg-foreground/90 text-background rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1">
-                      <Eye className="h-3 w-3" /> {formatViews(r.view_count)}
-                    </div>
                   </div>
                   <div className="p-3 space-y-1">
                     <p className="text-xs text-muted-foreground line-clamp-1">{r.podcast_title}</p>
@@ -196,25 +193,12 @@ export default function ToplistaAllTimePage() {
                           {r.rank_label ? <span className="ml-2 opacity-70">· {r.rank_label}</span> : null}
                         </p>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <div className="text-sm font-semibold tabular-nums flex items-center gap-1 justify-end">
-                          <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                          {formatViews(r.view_count)}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
-                          <Youtube className="h-3 w-3" /> YouTube
-                        </div>
-                      </div>
                     </Link>
                   </li>
                 );
               })}
             </ol>
 
-            <p className="text-xs text-muted-foreground pt-4">
-              Adatforrás: YouTube Data API megtekintés-szám. A lista folyamatosan bővül, ahogy
-              egyre több magyar podcast YouTube-epizódjához rendelünk play count-ot.
-            </p>
           </>
         )}
       </div>
