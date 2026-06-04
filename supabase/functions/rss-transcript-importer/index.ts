@@ -276,8 +276,12 @@ Deno.serve(async (req) => {
             transcript: text,
             content_hash: hash,
             cost_usd: 0,
-          }, { onConflict: "episode_id" });
-          if (upErr) { stat.fetch_errors++; totalFetchErrors++; continue; }
+          }, { onConflict: "episode_id,model" });
+          if (upErr) {
+            stat.fetch_errors++; totalFetchErrors++;
+            if (samples.length < 5) samples.push({ podcast: title, ep: epId, error: upErr.message });
+            continue;
+          }
 
           stat.inserted++;
           totalInserted++;
