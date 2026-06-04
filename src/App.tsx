@@ -22,6 +22,11 @@ function RedirectWithTwoSlugs({ to }: { to: string }) {
   const { slug = "", topicSlug = "" } = useParams();
   return <Navigate to={`${to}/${slug}/temak/${topicSlug}`} replace />;
 }
+
+function RedirectTopicYear({ to }: { to: string }) {
+  const { slug = "", year = "" } = useParams();
+  return <Navigate to={`${to}/${slug}/${year}`} replace />;
+}
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
@@ -171,9 +176,13 @@ const App = () => (
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<RedirectWithSlug to="/temak" />} />
+          <Route path="/tema/:slug/:year" element={<RedirectTopicYear to="/temak" />} />
           <Route path="/topic/:slug" element={<RedirectWithSlug to="/temak" />} />
+          <Route path="/topic/:slug/:year" element={<RedirectTopicYear to="/temak" />} />
           <Route path="/szemely/:slug" element={<RedirectWithSlug to="/szemelyek" />} />
+          <Route path="/szemely/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/szemelyek" />} />
           <Route path="/person/:slug" element={<RedirectWithSlug to="/szemelyek" />} />
+          <Route path="/person/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/szemelyek" />} />
           <Route path="/ceg/:slug" element={<EntityPage kind="company" />} />
           <Route path="/ceg/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />
           <Route path="/company/:slug" element={<RedirectWithSlug to="/ceg" />} />

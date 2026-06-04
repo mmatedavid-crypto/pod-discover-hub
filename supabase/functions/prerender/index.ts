@@ -1554,8 +1554,8 @@ Deno.serve(async (req) => {
         return r ?? notFound(path);
       }
     }
-    // Wave 3: /temak/:topic/:year
-    if (parts[0] === "temak" && parts.length === 3) {
+    // Wave 3: /temak/:topic/:year, with legacy /tema|topic/:topic/:year fallback.
+    if ((parts[0] === "temak" || parts[0] === "tema" || parts[0] === "topic") && parts.length === 3) {
       const year = looksLikeYear(parts[2]);
       if (year) {
         const r = await buildTopicYear(supabase, parts[1], year);
@@ -1570,13 +1570,13 @@ Deno.serve(async (req) => {
         return r ?? notFound(path);
       }
     }
-    // Wave 3: /szemelyek/:slug/temak/:topic
-    if (parts[0] === "szemelyek" && parts.length === 4 && parts[2] === "temak") {
+    // Wave 3: /szemelyek/:slug/temak/:topic, with legacy /szemely|person fallback.
+    if ((parts[0] === "szemelyek" || parts[0] === "szemely" || parts[0] === "person") && parts.length === 4 && parts[2] === "temak") {
       const r = await buildPersonTopic(supabase, parts[1], parts[3]);
       return r ?? notFound(path);
     }
-    // Wave 3: /ceg/:slug/temak/:topic, with legacy /szervezetek/:slug/temak/:topic fallback.
-    if ((parts[0] === "ceg" || parts[0] === "szervezetek") && parts.length === 4 && parts[2] === "temak") {
+    // Wave 3: /ceg/:slug/temak/:topic, with legacy /szervezetek|company|part fallback.
+    if ((parts[0] === "ceg" || parts[0] === "szervezetek" || parts[0] === "company" || parts[0] === "part") && parts.length === 4 && parts[2] === "temak") {
       const r = await buildOrgTopic(supabase, parts[1], parts[3]);
       return r ?? notFound(path);
     }
