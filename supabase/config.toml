@@ -7,3 +7,5 @@ project_id = "yoxewklaybougzpmzvkg"
     verify_jwt = true
   [functions.reddit-link-bot]
     verify_jwt = false
+  [functions.report-episode-duration]
+    verify_jwt = false
