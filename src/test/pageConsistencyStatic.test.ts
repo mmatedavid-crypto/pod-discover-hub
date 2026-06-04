@@ -320,8 +320,10 @@ describe("page consistency static guards", () => {
 
     expect(app).toContain('<Route path="/szervezetek/:slug" element={<RedirectWithSlug to="/ceg" />} />');
     expect(app).toContain('<Route path="/szervezetek/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
+    expect(app).toContain('<Route path="/company/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
     expect(app).toContain('<Route path="/part/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
     expect(app).not.toContain('<Route path="/szervezetek/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />');
+    expect(app).not.toContain('<Route path="/company/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />');
     expect(autocomplete).toContain("return `/ceg/${slug}`");
     expect(autocomplete).not.toContain("`/part/${slug}`");
     expect(orgCard).toContain("return `/ceg/${o.slug}`");

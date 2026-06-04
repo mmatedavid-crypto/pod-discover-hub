@@ -177,6 +177,7 @@ const App = () => (
           <Route path="/ceg/:slug" element={<EntityPage kind="company" />} />
           <Route path="/ceg/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />
           <Route path="/company/:slug" element={<RedirectWithSlug to="/ceg" />} />
+          <Route path="/company/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />
           <Route path="/ticker/:slug" element={<EntityPage kind="ticker" />} />
           <Route path="/hozzavalo/:slug" element={<EntityPage kind="ingredient" />} />
           <Route path="/ingredient/:slug" element={<RedirectWithSlug to="/hozzavalo" />} />
