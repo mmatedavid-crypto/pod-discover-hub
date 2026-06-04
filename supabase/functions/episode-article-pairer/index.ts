@@ -96,19 +96,8 @@ async function fetchFeedItems(source: SourceConfig, ctrl: Record<string, unknown
     .slice(0, limit);
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
-  const startedAt = Date.now();
+async function runPairer(admin: ReturnType<typeof createClient>, body: Record<string, unknown>, ctrl: Record<string, unknown>, startedAt: number) {
   try {
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const guard = await checkBackgroundJobsAllowed(admin, "episode-article-pairer");
-    if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
-
-    const body = await req.json().catch(() => ({}));
-    const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "episode_article_pairer_controls").maybeSingle();
-    const ctrl = (ctrlRow?.value || {}) as Record<string, unknown>;
-    if (ctrl.enabled === false && !body.force) return json({ ok: true, paused: true });
-
     const sources = (Array.isArray(ctrl.sources) ? ctrl.sources : []) as SourceConfig[];
     const limit = Math.max(10, Math.min(500, Number(body.limit || ctrl.batch_limit || 120)));
     const autoConfirm = Number(ctrl.auto_confirm_threshold || 0.82);
