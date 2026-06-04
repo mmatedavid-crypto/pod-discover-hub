@@ -148,7 +148,12 @@ export default function ToplistaAllTimePage() {
                         loading={i === 0 ? "eager" : "lazy"}
                       />
                     ) : (
-                      <PodcastCover src={r.episode_image || r.podcast_image} alt={r.episode_title} size="lg" />
+                      <img
+                        src={r.episode_image || r.podcast_image || ""}
+                        alt={r.episode_title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     )}
                     <div className="absolute top-2 left-2 bg-background/95 backdrop-blur rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1">
                       <Trophy className="h-3 w-3" /> #{i + 1}
