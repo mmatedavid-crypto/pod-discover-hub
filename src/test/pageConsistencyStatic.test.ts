@@ -62,6 +62,22 @@ describe("page consistency static guards", () => {
     expect(category).not.toContain(".in(\"podcast_id\", promotedIds)");
   });
 
+  it("keeps mood pages polished and sanitized instead of exposing raw DB labels", () => {
+    const homeMoods = read("src/components/MoodCollections.tsx");
+    const moods = read("src/pages/MoodsPage.tsx");
+    const moodDetail = read("src/pages/MoodCollectionPage.tsx");
+
+    for (const source of [homeMoods, moods, moodDetail]) {
+      expect(source).toContain("sanitizeHungarianPublicText");
+      expect(source).toContain("polishMoodTitle");
+    }
+    expect(moodDetail).toContain("const pageTitle = polishMoodTitle");
+    expect(moodDetail).toContain("{pageTitle}</h1>");
+    expect(moodDetail).not.toContain("{mood.title}</h1>");
+    expect(moods).not.toContain("{m.description}</div>");
+    expect(homeMoods).not.toContain("c.short_description || c.description || \"\"");
+  });
+
   it("keeps public copy aligned with the internal player experience", () => {
     const terms = read("src/pages/TermsPage.tsx");
     const about = read("src/pages/AboutPage.tsx");

@@ -6,6 +6,7 @@ import {
   Dumbbell, Car, Smile, Radio, Briefcase, LineChart, BookOpen, Film, MessageCircle, Zap,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type Card = {
   slug: string;
@@ -122,7 +123,7 @@ export function MoodCollections() {
               </div>
               <div className="mt-3 font-semibold leading-tight">{polishMoodTitle(c.title, c.slug)}</div>
               <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-                {c.short_description || c.description || ""}
+                {sanitizeHungarianPublicText(c.short_description) || sanitizeHungarianPublicText(c.description)}
               </div>
               {c.reason_label && (
                 <div className="mt-2 inline-flex items-center text-[10px] uppercase tracking-[0.12em] text-primary/80">

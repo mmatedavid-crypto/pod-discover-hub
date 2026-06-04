@@ -5,6 +5,7 @@ import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 import { polishMoodTitle } from "@/components/MoodCollections";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type Mood = {
   slug: string;
@@ -34,6 +35,7 @@ export default function MoodsPage() {
   const Card = ({ m }: { m: Mood }) => {
     const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
     const title = polishMoodTitle(m.title, m.slug);
+    const description = sanitizeHungarianPublicText(m.description);
     return (
       <Link
         to={`/hangulatok/${m.slug}`}
@@ -46,8 +48,8 @@ export default function MoodsPage() {
         </div>
         <div className="mt-3 font-semibold leading-tight">{title}</div>
         <div className="text-[11px] text-muted-foreground mt-0.5">{m.mood}</div>
-        {m.description && (
-          <div className="text-xs text-muted-foreground mt-2 line-clamp-2">{m.description}</div>
+        {description && (
+          <div className="text-xs text-muted-foreground mt-2 line-clamp-2">{description}</div>
         )}
       </Link>
     );

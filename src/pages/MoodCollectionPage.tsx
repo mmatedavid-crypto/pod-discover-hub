@@ -6,6 +6,8 @@ import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { ArrowLeft, ArrowRight, ChevronRight, Sparkles } from "lucide-react";
+import { polishMoodTitle } from "@/components/MoodCollections";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 const SITE = "https://podiverzum.hu";
 
@@ -39,18 +41,21 @@ export default function MoodCollectionPage() {
         return;
       }
       const canonical = `${SITE}/hangulatok/${(m as any).slug}`;
+      const pageTitle = polishMoodTitle((m as any).title, (m as any).slug);
+      const shortDescription = sanitizeHungarianPublicText((m as any).short_description);
+      const longDescription = sanitizeHungarianPublicText((m as any).description);
       setSeo({
-        title: `${(m as any).title} — hallgatási helyzet | Podiverzum`,
+        title: `${pageTitle} — hallgatási helyzet | Podiverzum`,
         description:
-          (m as any).short_description ||
-          (m as any).description ||
-          `Magyar podcast epizódok ehhez a hallgatási helyzethez: ${(m as any).title}.`,
+          shortDescription ||
+          longDescription ||
+          `Magyar podcast epizódok ehhez a hallgatási helyzethez: ${pageTitle}.`,
         canonical,
         noindex: !(m as any).is_indexable,
         jsonLd: breadcrumbJsonLd([
           { name: "Podiverzum", url: SITE },
           { name: "Hallgatási helyzetek", url: `${SITE}/hangulatok` },
-          { name: (m as any).title, url: canonical },
+          { name: pageTitle, url: canonical },
         ]),
       });
 
@@ -110,8 +115,10 @@ export default function MoodCollectionPage() {
     );
 
   const accent = mood.accent_hsl ? `hsl(${mood.accent_hsl})` : "hsl(var(--primary))";
+  const pageTitle = polishMoodTitle(mood.title, mood.slug);
+  const description = sanitizeHungarianPublicText(mood.description) || sanitizeHungarianPublicText(mood.short_description);
   const subtitle =
-    mood.short_description || "Magyar podcast epizódok ehhez a hallgatási helyzethez.";
+    sanitizeHungarianPublicText(mood.short_description) || "Magyar podcast epizódok ehhez a hallgatási helyzethez.";
 
   return (
     <Layout>
@@ -125,7 +132,7 @@ export default function MoodCollectionPage() {
           <ChevronRight className="h-3 w-3" />
           <Link to="/hangulatok" className="hover:text-foreground">Hallgatási helyzetek</Link>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground">{mood.title}</span>
+          <span className="text-foreground">{pageTitle}</span>
         </nav>
 
         <div
@@ -140,10 +147,12 @@ export default function MoodCollectionPage() {
           >
             <Sparkles className="h-3 w-3" /> Hallgatási helyzet
           </div>
-          <h1 className="text-3xl sm:text-4xl font-semibold">{mood.title}</h1>
-          <p className="text-muted-foreground mt-2">
-            {mood.description || mood.short_description}
-          </p>
+          <h1 className="text-3xl sm:text-4xl font-semibold">{pageTitle}</h1>
+          {description && (
+            <p className="text-muted-foreground mt-2">
+              {description}
+            </p>
+          )}
         </div>
 
         {episodes.length > 0 ? (
@@ -175,10 +184,10 @@ export default function MoodCollectionPage() {
                       <Sparkles className="h-4 w-4" style={{ color: a }} />
                       <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
                     </div>
-                    <div className="mt-2 font-medium text-sm leading-tight">{r.title}</div>
-                    {r.short_description && (
+                    <div className="mt-2 font-medium text-sm leading-tight">{polishMoodTitle(r.title, r.slug)}</div>
+                    {sanitizeHungarianPublicText(r.short_description) && (
                       <div className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
-                        {r.short_description}
+                        {sanitizeHungarianPublicText(r.short_description)}
                       </div>
                     )}
                   </Link>
