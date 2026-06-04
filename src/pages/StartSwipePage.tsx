@@ -1590,11 +1590,11 @@ function ResultView({
         });
         setShowShareHint(true);
       } else if (outcome === "error") {
-        toast.error("Hoppá, valami félrement.");
+        toast.error("A böngésző nem engedte a megosztást. Próbáld a Link másolása gombot.");
       }
     } catch (e) {
       console.error("[share] error", e);
-      toast.error("Hoppá, valami félrement.");
+      toast.error("A megosztás most nem indult el. Próbáld a Link másolása gombot.");
     } finally {
       setBusy(null);
     }
