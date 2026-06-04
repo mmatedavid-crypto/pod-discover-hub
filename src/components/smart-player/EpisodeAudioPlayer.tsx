@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { EpisodeMarks } from "@/components/EpisodeMarks";
 import { ShareMomentButton } from "./ShareMomentCard";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type Props = {
   episode: {
@@ -99,10 +100,13 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
         <div className="flex gap-4">
           {img && (
             <img
-              src={img}
+              src={optimizedImageUrl(img, { width: 96, height: 96 }) || img}
+              srcSet={imageSrcSet(img, [64, 96, 128])}
+              sizes="80px"
               alt=""
               className="h-20 w-20 rounded-lg object-cover shrink-0 border border-border"
               loading="lazy"
+              decoding="async"
             />
           )}
           <div className="min-w-0 flex-1">

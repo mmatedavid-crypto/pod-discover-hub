@@ -7,6 +7,7 @@ import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/rec
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type Row = {
   episode_id: string;
@@ -205,10 +206,13 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
               >
                 {r.podcast_image_url && (
                   <img
-                    src={r.podcast_image_url}
+                    src={optimizedImageUrl(r.podcast_image_url, { width: 240, height: 120 }) || r.podcast_image_url}
+                    srcSet={imageSrcSet(r.podcast_image_url, [180, 240, 320])}
+                    sizes="220px"
                     alt=""
                     className="h-24 w-full rounded-md object-cover border border-border"
                     loading="lazy"
+                    decoding="async"
                   />
                 )}
                 <Link
@@ -255,10 +259,13 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
               >
                 {r.podcast_image_url && (
                   <img
-                    src={r.podcast_image_url}
+                    src={optimizedImageUrl(r.podcast_image_url, { width: 64, height: 64 }) || r.podcast_image_url}
+                    srcSet={imageSrcSet(r.podcast_image_url, [48, 64, 96])}
+                    sizes="48px"
                     alt=""
                     className="h-12 w-12 rounded-md object-cover shrink-0 border border-border"
                     loading="lazy"
+                    decoding="async"
                   />
                 )}
                 <div className="min-w-0 flex-1">
