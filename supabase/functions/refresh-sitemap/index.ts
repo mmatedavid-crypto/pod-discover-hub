@@ -17,7 +17,9 @@ const corsHeaders = {
 
 const SITE = 'https://podiverzum.hu';
 const BUCKET = 'sitemaps';
-const CHUNK = 45000;
+// Keep episode sitemap shards comfortably below Google limits and CDN/origin
+// timeout-sensitive ~10 MB responses. 25k URLs is ~5–6 MB uncompressed.
+const CHUNK = 25000;
 const PAGE = 1000;
 
 const esc = (s: unknown) => String(s ?? '')
