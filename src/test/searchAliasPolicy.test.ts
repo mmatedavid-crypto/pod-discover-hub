@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { expandSimple, MATCH_LABEL, normalizeQuery } from "@/lib/search";
+
+const root = process.cwd();
+const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
 
 describe("Hungarian search alias policy", () => {
   it("expands important Hungarian brand, ticker and sports aliases", () => {
@@ -20,5 +24,17 @@ describe("Hungarian search alias policy", () => {
   it("keeps known Hungarian ticker-like aliases stable during normalization", () => {
     expect(normalizeQuery("MTEL").normalized).toBe("mtel");
     expect(normalizeQuery("MTELEKOM").normalized).toBe("mtelekom");
+  });
+
+  it("keeps edge hybrid search on the same built-in Hungarian alias layer", () => {
+    const synonyms = read("supabase/functions/_shared/search-synonyms.ts");
+    const understand = read("supabase/functions/_shared/search-understand.ts");
+
+    expect(synonyms).toContain('fradi: ["FTC", "Ferencváros", "Ferencvárosi Torna Club", "labdarúgás"]');
+    expect(synonyms).toContain('mtel: ["Magyar Telekom", "Telekom", "MTELEKOM"]');
+    expect(synonyms).toContain('labdarugas: ["labdarúgás", "foci", "futball", "magyar foci"]');
+    expect(synonyms).toContain("builtinExpansions");
+    expect(understand).toContain("Fradi / FTC / Ferencváros");
+    expect(understand).toContain("MTELEKOM/MTEL");
   });
 });
