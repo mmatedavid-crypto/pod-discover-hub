@@ -217,8 +217,22 @@ export default function PersonDetailPage() {
       });
       const topNames = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n]) => n);
       if (topNames.length > 0) {
-        const { data: rel } = await supabase.from("people").select("slug, name").eq("is_public", true).in("name", topNames);
-        setRelated((rel || []) as any);
+        const { data: rel } = await supabase
+          .from("people")
+          .select("slug, name, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence")
+          .eq("is_public", true)
+          .eq("is_indexable", true)
+          .in("name", topNames);
+        const safeRelated = ((rel || []) as any[]).filter((r) => {
+          const trustedWiki = r.wikipedia_match_status === "verified" && Number(r.wikipedia_match_confidence || 0) >= 0.8;
+          if (r.activation_status === "inactive") return false;
+          if (["hide", "reject"].includes(r.ai_recommended_action || "")) return false;
+          if (["needs_human_review", "duplicate_candidate"].includes(r.ai_review_status || "")) return false;
+          if (r.identity_status === "split_resolved") return false;
+          if (r.identity_ambiguous && !r.manual_approved && !trustedWiki) return false;
+          return true;
+        });
+        setRelated(safeRelated.map((r) => ({ slug: r.slug, name: r.name })) as any);
       }
 
       setLoading(false);

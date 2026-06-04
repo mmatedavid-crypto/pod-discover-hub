@@ -41,6 +41,21 @@ describe("person detail identity safety", () => {
     expect(page).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
   });
 
+  it("keeps related person links identity-safe and indexable", () => {
+    const page = read("src/pages/PersonDetailPage.tsx");
+
+    expect(page).toContain("Kapcsolódó személyek");
+    expect(page).toContain(".select(\"slug, name, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence\")");
+    expect(page).toContain('.eq("is_indexable", true)');
+    expect(page).toContain("const safeRelated = ((rel || []) as any[]).filter");
+    expect(page).toContain('r.activation_status === "inactive"');
+    expect(page).toContain('["hide", "reject"].includes(r.ai_recommended_action || "")');
+    expect(page).toContain('["needs_human_review", "duplicate_candidate"].includes(r.ai_review_status || "")');
+    expect(page).toContain('r.identity_status === "split_resolved"');
+    expect(page).toContain("r.identity_ambiguous && !r.manual_approved && !trustedWiki");
+    expect(page).not.toContain('from("people").select("slug, name").eq("is_public", true).in("name", topNames)');
+  });
+
   it("keeps prerendered person SEO identity-safe for ambiguous or historical names", () => {
     const prerender = read("supabase/functions/prerender/index.ts");
 
