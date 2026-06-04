@@ -24,4 +24,21 @@ describe("episode thumbnail loading policy", () => {
     expect(detail).toContain('sizes="(max-width: 640px) 64px, 80px"');
     expect(detail).not.toContain("imageWidths={[96, 160, 240]}");
   });
+
+  it("keeps all-time toplist thumbnails optimized and non-empty", () => {
+    const page = read("src/pages/ToplistaAllTimePage.tsx");
+
+    expect(page).toContain('import { imageSrcSet, optimizedImageUrl } from "@/lib/image"');
+    expect(page).toContain("function optimizedRowImage");
+    expect(page).toContain("function rowImageSrcSet");
+    expect(page).toContain("if (r.youtube_video_id) return undefined");
+    expect(page).toContain("fetchPriority={i === 0 ? \"high\" : \"auto\"}");
+    expect(page).toContain('sizes="(max-width: 768px) 100vw, 33vw"');
+    expect(page).toContain('sizes="56px"');
+    expect(page).toContain("width={480}");
+    expect(page).toContain("height={270}");
+    expect(page).toContain("width={56}");
+    expect(page).toContain("height={56}");
+    expect(page).not.toContain('src={r.episode_image || r.podcast_image || ""}');
+  });
 });

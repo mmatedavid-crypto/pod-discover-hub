@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy } from "lucide-react";
 import { breadcrumbJsonLd, setSeo } from "@/lib/seo";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type Row = {
   episode_id: string;
@@ -26,6 +27,28 @@ type Mode = "all" | "per-podcast";
 
 const PAGE_SIZE = 100;
 
+function youtubeThumbnail(videoId: string | null, size: "podium" | "list"): string | null {
+  if (!videoId) return null;
+  const file = size === "podium" ? "mqdefault.jpg" : "default.jpg";
+  return `https://i.ytimg.com/vi/${videoId}/${file}`;
+}
+
+function rowImage(r: Row, size: "podium" | "list"): string | null {
+  return youtubeThumbnail(r.youtube_video_id, size) || r.episode_image || r.podcast_image || null;
+}
+
+function optimizedRowImage(r: Row, size: "podium" | "list"): string | null {
+  const src = rowImage(r, size);
+  if (!src) return null;
+  return optimizedImageUrl(src, size === "podium" ? { width: 480, height: 270 } : { width: 96, height: 96 }) || src;
+}
+
+function rowImageSrcSet(r: Row, size: "podium" | "list"): string | undefined {
+  if (r.youtube_video_id) return undefined;
+  const src = rowImage(r, size);
+  if (!src) return undefined;
+  return imageSrcSet(src, size === "podium" ? [320, 480, 640] : [56, 80, 96]);
+}
 
 export default function ToplistaAllTimePage() {
   const [params, setParams] = useSearchParams();
@@ -138,44 +161,47 @@ export default function ToplistaAllTimePage() {
           <>
             {/* Podium */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {topThree.map((r, i) => (
-                <Link
-                  key={r.episode_id}
-                  to={`/podcast/${r.podcast_slug}/${r.episode_slug}`}
-                  className="group rounded-xl border bg-card hover:bg-muted/40 transition overflow-hidden"
-                >
-                  <div className="aspect-video relative bg-muted">
-                    {r.youtube_video_id ? (
-                      <img
-                        src={`https://i.ytimg.com/vi/${r.youtube_video_id}/hqdefault.jpg`}
-                        alt={r.episode_title}
-                        className="w-full h-full object-cover"
-                        loading={i === 0 ? "eager" : "lazy"}
-                      />
-                    ) : (
-                      <img
-                        src={r.episode_image || r.podcast_image || ""}
-                        alt={r.episode_title}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    )}
-                    <div className="absolute top-2 left-2 bg-background/95 backdrop-blur rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1">
-                      <Trophy className="h-3 w-3" /> #{i + 1}
+              {topThree.map((r, i) => {
+                const img = optimizedRowImage(r, "podium");
+                return (
+                  <Link
+                    key={r.episode_id}
+                    to={`/podcast/${r.podcast_slug}/${r.episode_slug}`}
+                    className="group rounded-xl border bg-card hover:bg-muted/40 transition overflow-hidden"
+                  >
+                    <div className="aspect-video relative bg-muted">
+                      {img && (
+                        <img
+                          src={img}
+                          srcSet={rowImageSrcSet(r, "podium")}
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          alt={r.episode_title}
+                          className="w-full h-full object-cover"
+                          loading={i === 0 ? "eager" : "lazy"}
+                          fetchPriority={i === 0 ? "high" : "auto"}
+                          decoding="async"
+                          width={480}
+                          height={270}
+                        />
+                      )}
+                      <div className="absolute top-2 left-2 bg-background/95 backdrop-blur rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1">
+                        <Trophy className="h-3 w-3" /> #{i + 1}
+                      </div>
                     </div>
-                  </div>
-                  <div className="p-3 space-y-1">
-                    <p className="text-xs text-muted-foreground line-clamp-1">{r.podcast_title}</p>
-                    <p className="text-sm font-medium line-clamp-2 group-hover:underline">{r.episode_title}</p>
-                  </div>
-                </Link>
-              ))}
+                    <div className="p-3 space-y-1">
+                      <p className="text-xs text-muted-foreground line-clamp-1">{r.podcast_title}</p>
+                      <p className="text-sm font-medium line-clamp-2 group-hover:underline">{r.episode_title}</p>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
 
             {/* List */}
             <ol className="space-y-2">
               {rows.slice(3).map((r, idx) => {
                 const rank = idx + 4;
+                const img = optimizedRowImage(r, "list");
                 return (
                   <li key={r.episode_id}>
                     <Link
@@ -186,19 +212,17 @@ export default function ToplistaAllTimePage() {
                         {rank}
                       </div>
                       <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden bg-muted">
-                        {r.youtube_video_id ? (
+                        {img && (
                           <img
-                            src={`https://i.ytimg.com/vi/${r.youtube_video_id}/default.jpg`}
+                            src={img}
+                            srcSet={rowImageSrcSet(r, "list")}
+                            sizes="56px"
                             alt=""
                             className="w-full h-full object-cover"
                             loading="lazy"
-                          />
-                        ) : (
-                          <img
-                            src={r.episode_image || r.podcast_image || ""}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
+                            decoding="async"
+                            width={56}
+                            height={56}
                           />
                         )}
                       </div>
