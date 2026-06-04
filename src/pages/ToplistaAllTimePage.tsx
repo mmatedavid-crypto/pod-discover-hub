@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
-import { Youtube, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 
 type Row = {
   episode_id: string;
