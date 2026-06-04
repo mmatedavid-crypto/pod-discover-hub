@@ -106,7 +106,8 @@ async function submitGoogleSearchConsoleSitemap(feedpath: string): Promise<Googl
     return { attempted: false, ok: false, status: null as number | null, reason: 'missing_lovable_gsc_connector_credentials' };
   }
 
-  const siteUrl = Deno.env.get('GOOGLE_SEARCH_CONSOLE_SITE_URL') || `${SITE}/`;
+  // GSC property identifier — hardcoded; not a secret. Domain property for podiverzum.hu.
+  const siteUrl = Deno.env.get('GOOGLE_SEARCH_CONSOLE_SITE_URL') || 'sc-domain:podiverzum.hu';
   const endpoint = `https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}`;
   const res = await fetch(endpoint, {
     method: 'PUT',
