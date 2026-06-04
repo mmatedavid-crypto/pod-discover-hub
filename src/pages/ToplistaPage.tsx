@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PodcastCover } from "@/components/PodcastCover";
 import { Apple, Music, Youtube } from "lucide-react";
 import { Helmet } from "react-helmet-async";
+import { categoryLabel } from "@/lib/categoryLabels";
 
 type Row = {
   id: string;
@@ -103,6 +104,7 @@ export default function ToplistaPage() {
           <ol className="divide-y divide-border rounded-lg border border-border overflow-hidden bg-card">
             {filtered.map((p, idx) => {
               const title = p.display_title || p.title;
+              const displayCategory = categoryLabel(p.category);
               return (
                 <li key={p.id}>
                   <Link
@@ -117,9 +119,9 @@ export default function ToplistaPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-medium leading-snug line-clamp-2">{title}</div>
-                      {p.category && (
+                      {displayCategory && (
                         <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
-                          {p.category}
+                          {displayCategory}
                         </div>
                       )}
                       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">

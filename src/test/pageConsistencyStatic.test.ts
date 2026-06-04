@@ -286,4 +286,15 @@ describe("page consistency static guards", () => {
     expect(toplist).not.toContain("view-delta");
     expect(toplist).not.toContain("platform-bias index");
   });
+
+  it("keeps public podcast category labels translated from source taxonomy", () => {
+    const toplist = read("src/pages/ToplistaPage.tsx");
+    const myUniverse = read("src/pages/EnPodiverzumomPage.tsx");
+
+    for (const source of [toplist, myUniverse]) {
+      expect(source).toContain("categoryLabel");
+      expect(source).toContain("displayCategory");
+      expect(source).not.toContain("{p.category}</div>");
+    }
+  });
 });

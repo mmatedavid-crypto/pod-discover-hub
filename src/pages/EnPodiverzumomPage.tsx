@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { setSeo } from "@/lib/seo";
 import RecommendedForYou from "@/components/taste/RecommendedForYou";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { categoryLabel } from "@/lib/categoryLabels";
 
 const MOOD_OPTIONS = [
   "Reggel fókusz",
@@ -296,29 +297,34 @@ function FollowedPodcasts() {
   if (items.length === 0) return <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Még nem követsz egy podcastot sem. Bármely podcast-oldalon nyomd meg a 🔔 gombot.</div>;
   return (
     <ul className="grid sm:grid-cols-2 gap-3">
-      {items.map((p) => (
-        <li key={p.id}>
-          <Link to={`/podcast/${p.slug}`} className="flex gap-3 p-3 rounded-xl border border-border bg-card hover:border-primary/40 transition-colors">
-            {p.image_url && (
-              <img
-                src={optimizedImageUrl(p.image_url, { width: 80, height: 80 }) || p.image_url}
-                srcSet={imageSrcSet(p.image_url, [56, 80, 112])}
-                sizes="56px"
-                alt=""
-                loading="lazy"
-                decoding="async"
-                width={80}
-                height={80}
-                className="h-14 w-14 rounded-md object-cover shrink-0"
-              />
-            )}
-            <div className="min-w-0">
-              <div className="text-sm font-medium line-clamp-1">{p.display_title || p.title}</div>
-              {p.category && <div className="text-xs text-muted-foreground mt-0.5">{p.category}</div>}
-            </div>
-          </Link>
-        </li>
-      ))}
+      {items.map((p) => {
+        const displayCategory = categoryLabel(p.category);
+        return (
+          <li key={p.id}>
+            <Link to={`/podcast/${p.slug}`} className="flex gap-3 p-3 rounded-xl border border-border bg-card hover:border-primary/40 transition-colors">
+              {p.image_url && (
+                <img
+                  src={optimizedImageUrl(p.image_url, { width: 80, height: 80 }) || p.image_url}
+                  srcSet={imageSrcSet(p.image_url, [56, 80, 112])}
+                  sizes="56px"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  width={80}
+                  height={80}
+                  className="h-14 w-14 rounded-md object-cover shrink-0"
+                />
+              )}
+              <div className="min-w-0">
+                <div className="text-sm font-medium line-clamp-1">{p.display_title || p.title}</div>
+                {displayCategory && (
+                  <div className="text-xs text-muted-foreground mt-0.5">{displayCategory}</div>
+                )}
+              </div>
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }
