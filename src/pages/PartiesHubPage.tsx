@@ -95,7 +95,7 @@ export default function PartiesHubPage() {
             {total > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
                 {isSearching
-                  ? `${total.toLocaleString("hu-HU")} találat a(z) „${debouncedQ}” keresésre.`
+                  ? `„${debouncedQ}” keresésre ${total.toLocaleString("hu-HU")} találat.`
                   : `${total.toLocaleString("hu-HU")} párt a katalógusban.`}
               </p>
             )}

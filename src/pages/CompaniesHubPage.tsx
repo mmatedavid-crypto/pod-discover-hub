@@ -172,7 +172,7 @@ export default function CompaniesHubPage() {
             </h2>
             {isSearching && (
               <p className="text-xs text-muted-foreground mt-1">
-                {total.toLocaleString("hu-HU")} találat a(z) „{debouncedQ}” keresésre.
+                „{debouncedQ}” keresésre {total.toLocaleString("hu-HU")} találat.
               </p>
             )}
           </div>

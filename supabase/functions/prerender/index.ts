@@ -939,11 +939,11 @@ ${hubCrossLinks(kind)}`,
       .order("gated_episode_count", { ascending: false })
       .limit(120);
     const rows = (data ?? []) as Array<Record<string, any>>;
-    const title = "Személyek és podcast vendégek — Podiverzum";
-    const desc = "Magyar közélet, üzlet, kultúra szereplői és podcast vendégek. Kiket említenek a leggyakrabban a magyar podcastek?";
+    const title = "Személyek és podcastvendégek — Podiverzum";
+    const desc = "Magyar közélet, üzlet és kultúra szereplői, podcastvendégek és gyakran említett nevek. Kiket említenek a leggyakrabban a magyar podcastek?";
     const intro = `<p>A <strong>Podiverzum</strong> több mint <strong>${rows.length}+ személyt</strong> indexel a magyar podcast-világból: vendégeket, említett közéleti szereplőket, vállalkozókat, művészeket, sportolókat, tudósokat és szakértőket. Minden személynél megtalálod, mely epizódokban szerepelt vagy említették — kontextussal és AI-összefoglalókkal.</p>
 <p>A személyek mögött <strong>Wikipedia-megerősítés</strong> és AI-elemzés áll: egyértelműen azonosítjuk a közéleti szereplőket, így nem keverednek össze a hasonló nevű személyek. Politikusoknál külön jelöljük a parlamenti szerepet és párthovatartozást — lásd a <a href="/partok">Pártok</a> hubot. Üzletembereknél a kapcsolódó <a href="/szervezetek">cégeket és intézményeket</a> is feltüntetjük.</p>
-<p>Ha kíváncsi vagy, hány podcastben szerepelt valaki az elmúlt időszakban, mely műsorok hívják vissza rendszeresen, vagy milyen <a href="/temak">témákban</a> nyilatkozott — itt egy kattintással mindezt megtalálod. A lista az említések száma szerint csökkenő sorrendben mutatja a legaktívabb szereplőket.</p>`;
+<p>Ha kíváncsi vagy, mely podcastokban szerepelt valaki az elmúlt időszakban, mely műsorok hívják vissza rendszeresen, vagy milyen <a href="/temak">témákban</a> nyilatkozott — itt egy kattintással mindezt megtalálod. A lista az említések száma szerint csökkenő sorrendben mutatja a legaktívabb szereplőket.</p>`;
     const listHtml = rows.map((p) => {
       const u = `${SITE}/szemelyek/${p.slug}`;
       const bio = truncate(stripHtml(p.short_description_hu || p.short_bio), 160);
@@ -1367,7 +1367,7 @@ async function buildOrgTopic(
 
   const canonical = `${SITE}/ceg/${orgSlug}/temak/${topicSlug}`;
   const title = `${org.name} és a ${topic.name} — Podiverzum`;
-  const desc = truncate(`${eps.length} magyar podcast epizód, amely a(z) ${org.name} szervezetet a ${topic.name} témakörben említi.`, 160);
+  const desc = truncate(`${eps.length} magyar podcast epizód ${org.name} és ${topic.name} témakörben.`, 160);
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
@@ -1394,7 +1394,7 @@ async function buildOrgTopic(
   return new Response(new TextEncoder().encode(shell({
     title, description: desc, canonical, ogImage: org.logo_url, jsonLd: [itemList, breadcrumbs],
     bodyHtml: `<header><h1>${esc(org.name)} — ${esc(topic.name)}</h1>
-<p>${eps.length} epizód a(z) <a href="/ceg/${esc(orgSlug)}">${esc(org.name)}</a> szervezetről a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témakörben. Magyar podcastek, AI-összefoglalókkal.</p></header>
+<p>${eps.length} epizód <a href="/ceg/${esc(orgSlug)}">${esc(org.name)}</a> és <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> kapcsolatáról. Magyar podcastek, AI-összefoglalókkal.</p></header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>
 <aside><h2>Tovább</h2><ul>
 <li><a href="/ceg/${esc(orgSlug)}">${esc(org.name)} — főoldal</a></li>
@@ -1440,7 +1440,7 @@ async function buildTopicCross(
 
   const canonical = `${SITE}/temak/${slugA}-es-${slugB}`;
   const title = `${a.name} és ${b.name} — közös epizódok | Podiverzum`;
-  const desc = truncate(`${eps.length} magyar podcast epizód, amely egyszerre érinti a(z) ${a.name} és ${b.name} témákat.`, 160);
+  const desc = truncate(`${eps.length} magyar podcast epizód ${a.name} és ${b.name} közös témájában.`, 160);
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;

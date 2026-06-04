@@ -283,7 +283,7 @@ export default function PeopleHubPage() {
               </h2>
               {isSearching && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  {totalAll.toLocaleString("hu-HU")} találat a(z) „{debouncedQ}” keresésre.
+                  „{debouncedQ}” keresésre {totalAll.toLocaleString("hu-HU")} találat.
                 </p>
               )}
               {isAlpha && (

@@ -152,6 +152,27 @@ describe("page consistency static guards", () => {
     expect(podcastDetail).not.toContain("a(z)");
   });
 
+  it("keeps public Hungarian copy free of awkward a-z placeholders", () => {
+    const peopleHub = read("src/pages/PeopleHubPage.tsx");
+    const companiesHub = read("src/pages/CompaniesHubPage.tsx");
+    const partiesHub = read("src/pages/PartiesHubPage.tsx");
+    const episodeDetail = read("src/pages/EpisodeDetail.tsx");
+    const prerender = read("supabase/functions/prerender/index.ts");
+
+    for (const source of [peopleHub, companiesHub, partiesHub, episodeDetail, prerender]) {
+      expect(source).not.toContain("a(z)");
+      expect(source).not.toContain("podcastben");
+      expect(source).not.toContain("podcast vendégek");
+    }
+    expect(peopleHub).toContain("„{debouncedQ}” keresésre {totalAll.toLocaleString");
+    expect(companiesHub).toContain("„{debouncedQ}” keresésre {total.toLocaleString");
+    expect(partiesHub).toContain("„${debouncedQ}” keresésre");
+    expect(episodeDetail).toContain("podcast epizódja — Podiverzum");
+    expect(prerender).toContain("Személyek és podcastvendégek");
+    expect(prerender).toContain("${org.name} és ${topic.name} témakörben");
+    expect(prerender).toContain("${a.name} és ${b.name} közös témájában");
+  });
+
   it("labels podcast search results as search results, not recommendations", () => {
     const search = read("src/pages/SearchPage.tsx");
 

@@ -112,7 +112,7 @@ export default function EpisodeDetail() {
       const bestDesc = pickEpisodeDescription(e, 320);
       const safeSeoDescription = sanitizeHungarianPublicText(e.seo_description);
       const safeSeoTitle = sanitizeHungarianPublicText(e.seo_title);
-      const metaDesc = (safeSeoDescription || bestDesc || `Epizód a(z) ${p.display_title || p.title} podcastből — Podiverzum.`).slice(0, 160);
+      const metaDesc = (safeSeoDescription || bestDesc || `${p.display_title || p.title} podcast epizódja — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
