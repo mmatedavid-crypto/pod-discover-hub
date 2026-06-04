@@ -4,8 +4,8 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { PodcastCover } from "@/components/PodcastCover";
 import { Apple, Music, Youtube } from "lucide-react";
-import { Helmet } from "react-helmet-async";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { breadcrumbJsonLd, setSeo } from "@/lib/seo";
 
 type Row = {
   id: string;
@@ -27,6 +27,30 @@ export default function ToplistaPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+
+  useEffect(() => {
+    const canonical = "https://podiverzum.hu/toplista";
+    setSeo({
+      title: "Magyar podcast toplista — Apple, Spotify, YouTube fúzió | Podiverzum",
+      description: "Az első magyar abszolút podcast toplista: az Apple Podcasts, Spotify és YouTube toplistáit fúzionáljuk egyetlen rangsorba. Naponta frissül.",
+      canonical,
+      jsonLd: [
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Magyar podcast toplista",
+          description: "Apple, Spotify és YouTube toplistákból készülő magyar podcast rangsor.",
+          url: canonical,
+          inLanguage: "hu-HU",
+          isAccessibleForFree: true,
+        },
+        breadcrumbJsonLd([
+          { name: "Podiverzum", url: "https://podiverzum.hu/" },
+          { name: "Toplista", url: canonical },
+        ]),
+      ],
+    });
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -58,15 +82,6 @@ export default function ToplistaPage() {
 
   return (
     <Layout>
-      <Helmet>
-        <title>Magyar podcast toplista — Apple, Spotify, YouTube fúzió | Podiverzum</title>
-        <meta
-          name="description"
-          content="Az első magyar abszolút podcast toplista: az Apple Podcasts, Spotify és YouTube top listáit fúzionáljuk egyetlen rangsorba. Naponta frissül."
-        />
-        <link rel="canonical" href="https://podiverzum.hu/toplista" />
-      </Helmet>
-
       <div className="container mx-auto py-8 space-y-6">
         <header className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">Magyar podcast toplista</h1>

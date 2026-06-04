@@ -351,6 +351,8 @@ describe("page consistency static guards", () => {
     const prerender = read("supabase/functions/prerender/index.ts");
     const episode = read("src/pages/EpisodeDetail.tsx");
     const searchInsights = read("src/pages/AdminSearchInsightsPage.tsx");
+    const toplist = read("src/pages/ToplistaPage.tsx");
+    const toplistAllTime = read("src/pages/ToplistaAllTimePage.tsx");
 
     expect(notFound).toContain("nav(`/kereses?q=");
     expect(notFound).not.toContain("nav(`/search?q=");
@@ -366,6 +368,15 @@ describe("page consistency static guards", () => {
       expect(source).toContain("isAccessibleForFree: true");
     }
     expect(episode).not.toContain("url: typeof window !== \"undefined\" ? window.location.href : undefined");
+    for (const source of [toplist, toplistAllTime]) {
+      expect(source).toContain("setSeo({");
+      expect(source).toContain('"@type": "CollectionPage"');
+      expect(source).toContain('inLanguage: "hu-HU"');
+      expect(source).toContain("isAccessibleForFree: true");
+      expect(source).not.toContain("react-helmet-async");
+      expect(source).not.toContain("<Helmet>");
+      expect(source).not.toContain("/podcastok/");
+    }
   });
 
   it("keeps public SEO surfaces behind the Hungarian text sanitizer", () => {

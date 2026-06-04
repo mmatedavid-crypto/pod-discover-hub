@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy } from "lucide-react";
+import { breadcrumbJsonLd, setSeo } from "@/lib/seo";
 
 type Row = {
   episode_id: string;
@@ -32,6 +32,31 @@ export default function ToplistaAllTimePage() {
   const mode: Mode = params.get("mode") === "per-podcast" ? "per-podcast" : "all";
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const canonical = "https://podiverzum.hu/toplista/all-time";
+    setSeo({
+      title: "Minden idők legnézettebb magyar podcast epizódjai | Podiverzum",
+      description: "A YouTube-on legtöbbet megnézett magyar podcast epizódok minden idők rangsora. Friderikusztól Partizánig, a rekordinterjúk egy helyen.",
+      canonical,
+      jsonLd: [
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Minden idők legnézettebb magyar podcast epizódjai",
+          description: "A YouTube-on legtöbbet megnézett magyar podcast epizódok rangsora.",
+          url: canonical,
+          inLanguage: "hu-HU",
+          isAccessibleForFree: true,
+        },
+        breadcrumbJsonLd([
+          { name: "Podiverzum", url: "https://podiverzum.hu/" },
+          { name: "Toplista", url: "https://podiverzum.hu/toplista" },
+          { name: "Minden idők", url: canonical },
+        ]),
+      ],
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,15 +89,6 @@ export default function ToplistaAllTimePage() {
 
   return (
     <Layout>
-      <Helmet>
-        <title>Minden idők legnézettebb magyar podcast epizódjai | Podiverzum</title>
-        <meta
-          name="description"
-          content="A YouTube-on legtöbbet megnézett magyar podcast epizódok minden idők rangsora. Friderikusztól Partizánig — a rekord interjúk egy helyen."
-        />
-        <link rel="canonical" href="https://podiverzum.hu/toplista/all-time" />
-      </Helmet>
-
       <div className="container mx-auto py-8 space-y-8">
         <header className="space-y-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -125,7 +141,7 @@ export default function ToplistaAllTimePage() {
               {topThree.map((r, i) => (
                 <Link
                   key={r.episode_id}
-                  to={`/podcastok/${r.podcast_slug}/${r.episode_slug}`}
+                  to={`/podcast/${r.podcast_slug}/${r.episode_slug}`}
                   className="group rounded-xl border bg-card hover:bg-muted/40 transition overflow-hidden"
                 >
                   <div className="aspect-video relative bg-muted">
@@ -163,7 +179,7 @@ export default function ToplistaAllTimePage() {
                 return (
                   <li key={r.episode_id}>
                     <Link
-                      to={`/podcastok/${r.podcast_slug}/${r.episode_slug}`}
+                      to={`/podcast/${r.podcast_slug}/${r.episode_slug}`}
                       className="flex items-center gap-3 sm:gap-4 p-3 rounded-lg border hover:bg-muted/40 transition"
                     >
                       <div className="w-8 text-right text-sm font-semibold text-muted-foreground tabular-nums">
