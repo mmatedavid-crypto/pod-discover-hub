@@ -103,7 +103,7 @@ export function MoodCollections() {
           to="/hangulatok"
           className="shrink-0 text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 whitespace-nowrap"
         >
-          Összes hangulat <ArrowRight className="h-3 w-3" />
+          Összes helyzet <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
       <div className={`grid grid-cols-2 gap-2.5 sm:grid-cols-3 ${desktopGridClass}`}>

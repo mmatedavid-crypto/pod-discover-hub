@@ -15,6 +15,8 @@ describe("homepage Hungarian copy", () => {
     expect(index).not.toContain("Merre indulnál?");
     expect(moods).toContain("Hallgatási helyzetek");
     expect(moods).toContain("Mihez van most kedved?");
+    expect(moods).toContain("Összes helyzet");
+    expect(moods).not.toContain("Összes hangulat");
   });
 
   it("polishes broken mood titles from data before rendering", () => {

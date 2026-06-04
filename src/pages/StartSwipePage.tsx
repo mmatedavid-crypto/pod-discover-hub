@@ -1786,8 +1786,13 @@ function ResultView({
           </div>
         )}
         {!recsLoading && !recsError && (!recs || recs.length === 0) && (
-          <div className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">
-            Még tanuljuk az ízlésedet — swipe-olj párat újra.
+          <div className="rounded-2xl border border-border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Még kevés jelünk van pontos epizódajánláshoz. Adj pár erősebb választ, és friss magyar adásokból válogatunk neked.
+            </p>
+            <Button onClick={onReset} variant="secondary" className="mt-4">
+              Finomítom a profilom
+            </Button>
           </div>
         )}
       </div>

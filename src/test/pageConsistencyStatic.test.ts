@@ -90,8 +90,12 @@ describe("page consistency static guards", () => {
     expect(startSwipe).toContain("recommendationRows = ((fallbackData || []) as any[]).map");
     expect(startSwipe).toContain("accept_hungarian");
     expect(startSwipe).toContain("Friss magyar epizódokat készítünk elő a profilodhoz.");
+    expect(startSwipe).toContain("Még kevés jelünk van pontos epizódajánláshoz");
+    expect(startSwipe).toContain("Finomítom a profilom");
+    expect(startSwipe).toContain("Indítsd az első ajánlást");
     expect(startSwipe).not.toContain("Nem sikerült lekérni az ajánlásokat");
     expect(startSwipe).not.toContain("Most nem sikerült lekérni az ajánlásokat");
+    expect(startSwipe).not.toContain("Podcastok nekem");
 
     expect(tasteRecommend).toContain("INTEREST_GROUPS");
     expect(tasteRecommend).toContain("expandTasteTags(likedTopics)");
