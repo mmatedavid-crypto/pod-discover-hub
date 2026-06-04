@@ -51,12 +51,17 @@ describe("page consistency static guards", () => {
     expect(topic).toContain("Időtálló epizódok");
     expect(topic).toContain("Kapcsolódó személyek");
     expect(topic).toContain("Kapcsolódó témák");
+    expect(topic).toContain(".select(\"slug, name, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence\")");
+    expect(topic).toContain('.eq("is_indexable", true)');
+    expect(topic).toContain("const safePeople = ((ppl || []) as any[]).filter");
+    expect(topic).toContain("p.identity_ambiguous && !p.manual_approved && !trustedWiki");
     expect(topic).toContain("published_at, ai_summary, summary, description");
     expect(topic).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
     expect(topic).not.toContain("SimilarPodcasts");
     expect(topic).not.toContain("Kiemelt podcastok");
     expect(topic).not.toContain("Hasonló podcastok");
     expect(topic).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
+    expect(topic).not.toContain('.from("people")\\n          .select("slug, name")');
   });
 
   it("keeps homepage episode rails AI-summary aware", () => {

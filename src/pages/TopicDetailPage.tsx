@@ -127,10 +127,20 @@ export default function TopicDetailPage() {
       if (topNames.length > 0) {
         const { data: ppl } = await supabase
           .from("people")
-          .select("slug, name")
+          .select("slug, name, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence")
           .eq("is_public", true)
+          .eq("is_indexable", true)
           .in("name", topNames);
-        setPeople((ppl || []) as any);
+        const safePeople = ((ppl || []) as any[]).filter((p) => {
+          const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
+          if (p.activation_status === "inactive") return false;
+          if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
+          if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
+          if (p.identity_status === "split_resolved") return false;
+          if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
+          return true;
+        });
+        setPeople(safePeople.map((p) => ({ slug: p.slug, name: p.name })) as any);
       }
 
       setLoading(false);
