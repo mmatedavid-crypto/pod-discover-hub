@@ -64,7 +64,7 @@ function hasPodcastPersonEvidence(person: Person | any): boolean {
 function isTemporalTopicOnlyPerson(person: Person | any): boolean {
   if (!person || person.has_archival_evidence === true || person.manual_approved === true) return false;
   if (person.is_deceased === true || person.is_historical === true || person.persona === "historical") return true;
-  if ((person.date_of_death || person.is_living === false) && !hasPodcastPersonEvidence(person)) return true;
+  if ((person.date_of_death || person.is_living === false) && (hasVerifiedWiki(person) || !hasPodcastPersonEvidence(person))) return true;
   return false;
 }
 

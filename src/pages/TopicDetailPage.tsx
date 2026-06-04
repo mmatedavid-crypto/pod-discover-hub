@@ -23,7 +23,8 @@ function hasPodcastPersonEvidence(person: any): boolean {
 function isUnsafeTemporalPerson(person: any): boolean {
   if (!person || person.has_archival_evidence === true || person.manual_approved === true) return false;
   if (person.is_deceased === true || person.is_historical === true || person.persona === "historical") return true;
-  if ((person.date_of_death || person.is_living === false) && !hasPodcastPersonEvidence(person)) return true;
+  const trustedWiki = person.wikipedia_match_status === "verified" && Number(person.wikipedia_match_confidence || 0) >= 0.8;
+  if ((person.date_of_death || person.is_living === false) && (trustedWiki || !hasPodcastPersonEvidence(person))) return true;
   return false;
 }
 

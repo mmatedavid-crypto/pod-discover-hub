@@ -331,7 +331,7 @@ describe("production policy static guards", () => {
     expect(searchHybrid).toContain("identity_ambiguous: person.identity_ambiguous");
     expect(searchHybrid).toContain("is_deceased: person.is_deceased");
     expect(searchHybrid).toContain('p.persona === "historical"');
-    expect(searchHybrid).toContain("p.date_of_death || p.is_living === false");
+    expect(searchHybrid).toContain("((p.date_of_death || p.is_living === false) && (trustedWiki || !hasPodcastPersonEvidence))");
     expect(autocomplete).toContain("function isSafePublicPerson");
     expect(autocomplete).toContain("filter(isSafePublicPerson)");
     expect(autocomplete).toContain("if (!isSafePublicPerson(person)) continue");
@@ -358,6 +358,7 @@ describe("production policy static guards", () => {
 
   it("demotes temporal topic-only people at the database policy layer", () => {
     const migration = read("supabase/migrations/20260604232000_temporal_person_public_guard.sql");
+    const strictMigration = read("supabase/migrations/20260604235000_strict_deceased_person_profile_guard.sql");
 
     expect(migration).toContain("temporal_topic_only_guard_v1");
     expect(migration).toContain("p.is_deceased IS TRUE");
@@ -368,6 +369,15 @@ describe("production policy static guards", () => {
     expect(migration).toContain("is_public = false");
     expect(migration).toContain("is_indexable = false");
     expect(migration).toContain("is_browsable_in_people_hub = false");
+    expect(strictMigration).toContain("strict_deceased_person_guard_v2");
+    expect(strictMigration).toContain("p.date_of_death IS NOT NULL");
+    expect(strictMigration).toContain("p.is_living IS FALSE");
+    expect(strictMigration).toContain("p.wikipedia_match_status = 'verified'");
+    expect(strictMigration).toContain("COALESCE(p.wikipedia_match_confidence, 0) >= 0.8");
+    expect(strictMigration).toContain("COALESCE(p.participant_count, 0) + COALESCE(p.host_count, 0) + COALESCE(p.guest_count, 0) = 0");
+    expect(strictMigration).toContain("bad placeholder death dates");
+    expect(strictMigration).toContain("DROP FUNCTION IF EXISTS public.list_people_hub");
+    expect(strictMigration).toContain("DROP FUNCTION IF EXISTS public.list_people_alpha");
   });
 
   it("extracts Wikidata temporal metadata before publishing person identities", () => {
