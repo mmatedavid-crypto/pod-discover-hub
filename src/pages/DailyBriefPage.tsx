@@ -104,6 +104,64 @@ export default function DailyBriefPage() {
     return out;
   }, [ranked]);
 
+  // Per-day NewsArticle + ItemList JSON-LD once the top picks are loaded
+  useEffect(() => {
+    if (!top5.length) return;
+    const canonical = "https://podiverzum.hu/napi";
+    const today = new Date().toISOString().slice(0, 10);
+    const title = `Mai válogatás – ${today} | Podiverzum`;
+    const description = `A nap ${top5.length} legjobb magyar podcast epizódja — minőség, aktualitás és relevancia alapján rendezve.`;
+    const heroImage = top5[0]?.podcasts?.image_url || ogImageUrl({ kind: "site", title: "Mai válogatás", subtitle: today });
+    setSeo({
+      title,
+      description,
+      canonical,
+      ogType: "article",
+      image: heroImage,
+      jsonLd: [
+        {
+          "@context": "https://schema.org",
+          "@type": "NewsArticle",
+          headline: `Mai válogatás – friss magyar podcast epizódok (${today})`,
+          description,
+          url: canonical,
+          mainEntityOfPage: canonical,
+          inLanguage: "hu-HU",
+          datePublished: new Date().toISOString(),
+          dateModified: new Date().toISOString(),
+          image: [heroImage],
+          articleSection: "Napi válogatás",
+          author: {
+            "@type": "Organization",
+            name: "Podiverzum szerkesztőség",
+            url: "https://podiverzum.hu",
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "Podiverzum",
+            url: "https://podiverzum.hu",
+            logo: { "@type": "ImageObject", url: "https://podiverzum.hu/icon-512.png" },
+          },
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: "Mai top epizódok",
+          itemListElement: top5.map((e, idx) => ({
+            "@type": "ListItem",
+            position: idx + 1,
+            url: `https://podiverzum.hu/podcast/${e.podcasts?.slug}/${e.slug}`,
+            name: e.display_title || e.title,
+          })),
+        },
+        breadcrumbJsonLd([
+          { name: "Podiverzum", url: "https://podiverzum.hu/" },
+          { name: "Mai válogatás", url: canonical },
+        ]),
+      ],
+    });
+  }, [top5]);
+
   const restByCategory = useMemo(() => {
     const grouped: Record<string, EpisodeLite[]> = {};
     const seenIds = new Set(top5.map((e) => e.id));
