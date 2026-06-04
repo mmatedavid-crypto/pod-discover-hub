@@ -1,78 +1,61 @@
-## Háromrészes terv
+## Spotify auto-transcript scraping — ez a "jól gondolkodás"
 
-### 1) YouTube pair drain — miért áll? (DIAGNÓZIS + JAVÍTÁS)
+### Mit néztél te a Telex Afterben?
+A **Spotify app saját auto-generált felirata** — nem RSS-ből jön, nem az Anchor-ból, hanem maga a Spotify generálja **2024 eleje óta minden Spotify Podcasters/Anchor-hosztolt show-ra automatikusan**. Ezt a Supadata, RSS audit, YT-caption pipeline **mind nem látja**, mert a Spotify saját zárt rendszerében van.
 
-**Találat:** A pairer **nem** akadt el — szabályosan fut, csak **nincs mit párosítania**. Az igazi szűk keresztmetszet **két szinttel feljebb** van:
+### Miért érdekes
+- **45 908 HU epizódnak már megvan a `spotify_episode_id`** (`episode_spotify_meta` táblában, a 2026-05-28-i Spotify-drain óta)
+- 771 / 1446 HU podcastunk Anchor/Spotify/Megaphone-hosztolt → ezek **mindegyikére várhatóan generál transcript-et a Spotify**
+- A Spotify Web Player **dokumentálatlan, de stabil** privát endpointján keresztül ezek lekérhetők: `spclient.wg.spotify.com/transcript-read-along/v2/episode/{id}`
+- Anonymous access token: `open.spotify.com/get_access_token` → 1 órás Bearer token, IP-alapú
+- **0 Ft, 0 Supadata credit**
+- Konzervatív tipp hit-rate-re: **30-50% (~14k-22k transcript)** — minden Anchor-hosztolton hit, RSS-only kiadóknál (Libsyn/Buzzsprout/Omny stb.) nincs
 
-| Réteg | Állapot | Akció |
+### Kockázatok
+| Kockázat | Súly | Mitigáció |
 |---|---|---|
-| **Channel-scout** (cron 19) | 1446 HU podcastból csak **362-nek (25%) van `youtube_channel_id`** | **Bump:** `15 */2` → `*/30 * * * *`, `channel_batch` 20 → 50, daily YT API quota 9000 → 9500 |
-| **Episode-pairer** (cron 65, deep mode) | `no_candidates: true` — a meglévő 362 channelben nincs friss/újraindexelendő ep, `rescan_after_days=7` | **Lazítás:** `rescan_after_days` 7 → 3, hogy a deep-history backfill (14 822 ep `none` státusszal a paired podcastokban) tényleg újrafutását kapja |
-| **Caption-backfill** (cron 66) | `youtube_transcript_controls.native_only=true` → 353 candidate van a view-ban, jobid 64 lassan fogyasztja (~38/6h) | Ez OK ahogy van — havi 30k credit limit, várjuk meg míg felépül a candidate pool |
+| Spotify ToS sértés (unauthorized API) | Közepes | Per-show throttle (1 req/sec), User-Agent rotáció, kis volumen indulásnál |
+| IP-ban / 429 / 403 | Közepes | Cloudflare worker proxy front (már van!), exponential backoff, runner auto-pause |
+| Endpoint változás (a reverse-engineered URL meghal) | Alacsony | Pipeline-watchdog észreveszi (error rate ↑), versionezett URL string egy helyen, könnyen javítható |
+| Geo-block | Alacsony | Supabase edge functions EU-ban futnak, ami Spotify-nak OK |
 
-**Vélelem:** a `none` (124 923 HU ep) többségénél a podcastnak nincs YT-csatornája és **soha nem is lesz** (csak RSS/Spotify-only kiadó). Reálisan a scout bump után **+200-400 új paired channel** várható, ami **+5-8k új paired ep**-t hoz → ebből ~2-3% (~150-250) lesz native-caption.
+### A terv
 
-### 2) RSS `<podcast:transcript>` tag audit (azonnal indítható build feladat)
+#### Fázis 1 — PoC (1-2h build, 0 Ft)
+1. Új edge function `spotify-transcript-poc`:
+   - Spotify anon access token grab
+   - 20 véletlen Telex After / Telex Podcast / Partizán Anchor-hosztolt ep-en kipróbál
+   - Visszaadja: per-episode `{has_transcript, status_code, language, char_count, sample_segments[3]}`
+   - **Nem ír semmit DB-be**, csak diagnosztika
+2. Egyszeri manuális futtatás → kiderül a hit-rate és a formátum
+3. Döntés: ha hit-rate ≥20%, megy Fázis 2; ha alacsonyabb, dobjuk
 
-**Cél:** kideríteni hány HU epizódhoz van **ingyen transcript URL beépítve a feedbe** (Podcasting 2.0 szabvány, SRT/VTT/JSON). Ez 0 Supadata creditet fogyaszt — ha találunk akár 500-1500 ep-et, az **színtiszta nyereség**.
+#### Fázis 2 — Production runner (ha PoC jó, +3-4h build)
+4. `spotify-transcript-runner` edge function:
+   - Tier-prioritást követi (S=100, A=80, B=60)
+   - Per-run: 25 ep, 1 req/sec rate-limit, batch token refresh
+   - Sikeres fetch → `episode_transcripts(model='spotify-native', language, transcript, segments)` insert
+   - 404 → `app_settings.spotify_transcript_skip` listára (don't retry)
+   - 429/403 → exponential backoff + auto-pause via pipeline-watchdog
+5. Új cron job `*/5 * * * *`, indulás `enabled=false`, manuális kapcsoló admin felületen
+6. Új `app_settings.spotify_transcript_controls`: `{enabled, batch, delay_ms, daily_cap, paused_at, paused_reason}`
+7. Pipeline-watchdog registry-be felvenni (cost=0, csak error-rate és liveness alapján auto-pause)
+8. Queue-health-controller-be felvenni (auto-pause/resume pending alapján)
 
-**Lépések:**
-1. Új edge function `rss-transcript-tag-audit`:
-   - Top 200 HU podcast (S+A tier) feed URL-jeit lekéri
-   - XML-t parseolja, keres `<podcast:transcript url="..." type="application/srt|text/vtt|application/json">` tag-eket
-   - Eredmény: `app_settings.rss_transcript_audit` jsonb (`{podcast_id, episodes_with_tag, sample_urls[3], transcript_format}`)
-2. Egyszeri manuális futtatás (~5 perc, ingyen)
-3. Audit-tábla a `/admin/queue-health` mellé: melyik podcast ad transcript URL-t
-4. **HA van értelmes találat (≥100 ep):**
-   - Új cron + runner `rss-transcript-importer`: letölti az SRT/VTT-t, beírja `episode_transcripts`-be `model='rss-native'`
-   - Beleköt a `episode-clean-text-runner`-be és a `embed-episode-chunks`-ba
-5. **HA közel 0:** lezárjuk, megyünk tovább a (3) irányba
+#### Fázis 3 — Downstream beillesztés (ingyen, automatikus)
+9. `episode-clean-text-runner` updateje: ha van `spotify-native` transcript ÉS hossza > yt_desc/rss → előnyben részesít (`cleaner_method='spotify_native'`)
+10. `embed-episode-chunks-runner` automatikusan újrachunkol minden új transcript-tel rendelkező ep-et
+11. `entity-backfill-runner` újrafutása ezeken az ep-eken (~13-22k drain ~6-12h, $3-5)
 
-**Becsült érték:** ismeretlen, 0-tól 2000 transcriptig terjedhet. Konzervatív tipp: 200-500 (főleg Acast/Buzzsprout-hosztolt podcastoknál).
+### Mit nyerünk
+- **Search-pool drasztikus növelés**: 135k chunk → várható +200k-400k chunk
+- **Entity precision**: jelenleg sok ep-nél csak címből/leírásból van entity → transcript-ből 10-50x annyi mention
+- **Topic discovery**: bottom-up extractor (cron 54) sokkal pontosabb mintát kap
+- **Person mentionek**: Magyar Péter, Karácsony, Orbán stb. nem-cím epizódokban is felbukkannak
 
-### 3) "Nem jól gondolkodunk" — alternatív szövegforrás-stratégia
+### Sorrend (jóváhagyás után)
+1. **Most:** `spotify-transcript-poc` edge function build + futtatás 20 ep-en (15 perc)
+2. **Eredmény alapján:** Fázis 2 build (ha hit≥20%)
+3. **Külön döntés:** RSS importer (a 173 ingyen transcripthez) és YT chapter-extractor megy-e párhuzamosan vagy később
 
-Igazad van, túl szűken néztem. Reframing — **nem mind kell hogy szó-szerinti transcript legyen**, csak olyan szöveg ami:
-- (a) magas-jelű (a podcast tényleges tartalmáról szól, nem promo),
-- (b) ingyen vagy nagyon olcsó,
-- (c) chunkolható → vektorba megy → keresés/entity/topic.
-
-**Négy új ér, prioritás szerint:**
-
-**A) Podcast-saját weboldal scraping (Firecrawl)** ⭐ legnagyobb potenciál
-- Sok HU kiadónak **van dedikált epizód-oldala leírással/idézetekkel/fejezetekkel** amit az RSS leírás nem tartalmaz: `partizan.hu/episode/...`, `telex.hu/podcasts/...`, `444.hu/podcast/...`, `index.hu/podcast/...`, `mandiner.hu/podcast/...`, `hvg.hu/360/...`, `klubradio.hu/musor/...`, `tilos.hu/episodes/...`
-- Whitelist publisher-onként + URL-pattern, Firecrawl scrape markdown, mentés `episode_chunks` táblába `source='publisher_page'` címkével
-- Költség: Firecrawl per page ~$0.0015 → 5000 ep ≈ $7.50 → **kb. 27 Supadata-credit ára egy 5000 epizódra szóló bővítés**
-
-**B) YouTube videó-leírás *fejezetekkel* (chapters)** — már félig megvan
-- Az 13 282 paired YT videó leírása már elérhető (clean_text v4+ytdesc óta), de a **chapter timestamp-eket nem külön extrahaljuk**
-- Ezek pont a beszélgetés "miről szól mikor" jelei — embed-chunkba "Chapter @ 12:34 — Magyar Péter Tisza-pártról" formában
-- Költség: **0** (lokális regex/parser), érték: chunk-search precíziós ugrás
-- 1 SQL-job extracrol mindent, ETA 2 óra
-
-**C) Apple Podcasts undocumented transcript endpoint**
-- 2024 óta Apple generál auto-transcript-et (saját Whisperjével), megjeleníti a Podcasts.app-ban
-- A `https://podcasts.apple.com/.../id<podcast_id>?...` HTML néha tartalmazza a transcript-tokent, vagy létezik a `transcript.apple.com` host
-- **NEM dokumentált**, de a community már reverse-engineerelte: létezik `https://podcasts.apple.com/api/transcript/v1/...`
-- Kockázat: ToS sértés / IP-ban / unstable
-- **Javaslat:** próba-PoC 10 epizódon, ha működik és bírja a load-ot → ingyen tömeges transcript-forrás. Ha nem, dobjuk.
-
-**D) Article ↔ Episode pairer kibővítése publisher-oldalakra**
-- A jelenleg futó 5-outlet (Telex/444/HVG/Portfolio/Hold) pairer **csak a hír-cikk-podcast összerendelést csinálja**
-- De a Telex-nek saját podcast-oldala is van **fent A) pontban** — más logikai pipeline, ugyanaz a Firecrawl-infra
-- Egy generikus `publisher-page-scraper` runner mindkettőt kiszolgálja
-
----
-
-## Javasolt sorrend (build módban)
-
-1. **Most:** `rss-transcript-tag-audit` edge function + 1× futtatás (≤1 óra build idő, 0 költség)
-2. **Most:** YT scout bump + pairer rescan_after_days lazítás (10 perc, 1 SQL)
-3. **Eredmény-függő:** ha a (2) audit ad ≥100 transcriptet → `rss-transcript-importer` runner
-4. **Külön kör:** Firecrawl publisher-page scraper PoC (telex.hu + partizan.hu, 100 ep, $0.15)
-5. **Külön kör:** YT chapter-extractor (lokális parser, 0 költség)
-6. **Opcionális PoC:** Apple Podcasts transcript reverse-engineering (high risk, high reward)
-
-## Mit szeretnél most?
-
-Plan-jóváhagyás után automatikusan elindítom az **1+2+5** lépést (alacsony kockázat, ingyen), majd külön döntünk a Firecrawl + Apple PoC-ról az audit eredmény láttán.
+Megyek a PoC-val?
