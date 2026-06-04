@@ -1961,6 +1961,7 @@ export type Database = {
           ai_summary: string | null
           ai_summary_source: string | null
           apple_url: string | null
+          audio_probe_attempted_at: string | null
           audio_url: string | null
           clean_text_status: string
           companies: string[] | null
@@ -2019,6 +2020,7 @@ export type Database = {
           ai_summary?: string | null
           ai_summary_source?: string | null
           apple_url?: string | null
+          audio_probe_attempted_at?: string | null
           audio_url?: string | null
           clean_text_status?: string
           companies?: string[] | null
@@ -2077,6 +2079,7 @@ export type Database = {
           ai_summary?: string | null
           ai_summary_source?: string | null
           apple_url?: string | null
+          audio_probe_attempted_at?: string | null
           audio_url?: string | null
           clean_text_status?: string
           companies?: string[] | null
