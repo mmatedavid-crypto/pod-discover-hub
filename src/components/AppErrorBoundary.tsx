@@ -23,12 +23,32 @@ export class AppErrorBoundary extends Component<Props, State> {
     console.error("[AppErrorBoundary]", error, info);
   }
 
-  private handleReset = () => {
+  private handleReload = () => {
+    window.location.reload();
+  };
+
+  private handleRepair = () => {
     try {
-      // Clear any persisted state that could be causing the crash on
-      // returning visitors (taste swipe profile, player progress, etc.).
-      window.localStorage.clear();
-      window.sessionStorage.clear();
+      [
+        "podiverzum_taste_v1",
+        "podiverzum:recent-episodes:v1",
+        "podiverzum:recent_searches",
+        "podiverzum_player_progress_v1",
+        "podiverzum_player_preview",
+        "podiverzum_autoplay_mode",
+        "pv_auth_redirect",
+        "podi:hasSearched",
+      ].forEach((key) => window.localStorage.removeItem(key));
+      [
+        "podiverzum_pending_archetype",
+        "pv_email_capture_done",
+        "pv_anon_sid",
+        "pv_sid",
+        "pv_source_profile_id",
+        "pv_utm_snapshot",
+        "pv_landing_variant",
+        "podi:weather:bp:v2",
+      ].forEach((key) => window.sessionStorage.removeItem(key));
     } catch {
       /* ignore */
     }
@@ -66,24 +86,41 @@ export class AppErrorBoundary extends Component<Props, State> {
             Valami félrement a betöltésnél
           </h1>
           <p style={{ fontSize: 14, opacity: 0.75, marginBottom: 24, lineHeight: 1.5 }}>
-            Úgy tűnik, egy korábbi munkamenet adata akadt el a böngésződben.
-            Töröld a helyi adatokat és próbáld újra.
+            Az oldal egyik része nem töltött be rendesen. Először próbáld újratölteni,
+            és csak akkor töröljük a Podiverzum helyi állapotait, ha a hiba visszatér.
           </p>
-          <button
-            onClick={this.handleReset}
-            style={{
-              display: "inline-block",
-              padding: "12px 20px",
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "#fff",
-              color: "#0a0a0f",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Frissítés és vissza a főoldalra
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button
+              onClick={this.handleReload}
+              style={{
+                display: "inline-block",
+                padding: "12px 20px",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "#fff",
+                color: "#0a0a0f",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Oldal újratöltése
+            </button>
+            <button
+              onClick={this.handleRepair}
+              style={{
+                display: "inline-block",
+                padding: "10px 16px",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.22)",
+                background: "transparent",
+                color: "#fff",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              Podiverzum helyi állapot törlése
+            </button>
+          </div>
         </div>
       </div>
     );
