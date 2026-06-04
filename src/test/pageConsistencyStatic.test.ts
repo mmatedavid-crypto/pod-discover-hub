@@ -70,8 +70,10 @@ describe("page consistency static guards", () => {
     expect(startSwipe).toContain("await navigator.share(opts)");
     expect(startSwipe).toContain("return (await copyText(opts.url)) ? \"copied\" : \"error\"");
     expect(startSwipe).toContain("const outcome = await shareProfileLink");
+    expect(startSwipe).toContain('await import("@/lib/receiptImage")');
     expect(startSwipe).toContain("const blob = await renderReceiptPng(receiptRef.current, \"story\")");
     expect(startSwipe).not.toContain("shareReceipt");
+    expect(startSwipe).not.toContain('from "@/lib/receiptImage"');
 
     const shareBlock = startSwipe.slice(
       startSwipe.indexOf("const handleShare = async () => {"),

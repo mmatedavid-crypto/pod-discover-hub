@@ -19,7 +19,6 @@ import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 import { ListenerReceipt } from "@/components/receipt/ListenerReceipt";
 import { profileForArchetypeId, buildReceiptNumber } from "@/lib/listenerProfiles";
-import { renderReceiptPng, downloadReceipt } from "@/lib/receiptImage";
 import { trackProfileEvent, captureSourceProfileFromUrl, getSourceProfileId } from "@/lib/profileEvents";
 import { Download, Link2 } from "lucide-react";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
@@ -1604,6 +1603,7 @@ function ResultView({
     try {
       const created = await ensureShare();
       if (!receiptRef.current) return;
+      const { renderReceiptPng, downloadReceipt } = await import("@/lib/receiptImage");
       const blob = await renderReceiptPng(receiptRef.current, "story");
       downloadReceipt(blob, `podiverzum-${listenerProfile.id}.png`);
       trackProfileEvent("profile_image_downloaded", {
