@@ -99,13 +99,20 @@ async function fetchFeedItems(source: SourceConfig, ctrl: Record<string, unknown
 async function runPairer(admin: ReturnType<typeof createClient>, body: Record<string, unknown>, ctrl: Record<string, unknown>, startedAt: number) {
   try {
     const sources = (Array.isArray(ctrl.sources) ? ctrl.sources : []) as SourceConfig[];
-    const limit = Math.max(10, Math.min(500, Number(body.limit || ctrl.batch_limit || 120)));
+    const limit = Math.max(10, Math.min(200, Number(body.limit || ctrl.batch_limit || 60)));
     const autoConfirm = Number(ctrl.auto_confirm_threshold || 0.82);
     const needsReview = Number(ctrl.needs_review_threshold || 0.68);
     const recentEpisodeDays = Math.max(7, Math.min(365, Number(ctrl.recent_episode_days || 45)));
     const recentArticleDays = Math.max(7, Math.min(365, Number(ctrl.recent_article_days || 60)));
-    const fetchArticleHtml = ctrl.fetch_article_html !== false;
-    let fetchesLeft = Math.max(0, Math.min(80, Number(ctrl.max_article_fetches_per_run || 25)));
+    const fetchArticleHtml = ctrl.fetch_article_html === true; // default OFF to stay under CPU budget
+    let fetchesLeft = fetchArticleHtml ? Math.max(0, Math.min(20, Number(ctrl.max_article_fetches_per_run || 8))) : 0;
+
+    // Round-robin one source per invocation to stay under Edge Function CPU limit.
+    const { data: progRow } = await admin.from("app_settings").select("value").eq("key", "episode_article_pairer_progress").maybeSingle();
+    const prevProgress = (progRow?.value || {}) as Record<string, unknown>;
+    const cursor = Number(prevProgress.source_cursor || 0);
+    const sourceIdx = sources.length ? cursor % sources.length : 0;
+    const activeSources = sources.length ? [sources[sourceIdx]] : [];
 
     const inserted: Record<string, number> = {};
     const sourceDiagnostics: SourceDiagnostics = {};
@@ -115,11 +122,11 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
     let confirmedCandidates = 0;
     let verifiedUpsertRows = 0;
 
-    for (const source of sources) {
+    for (const source of activeSources) {
       const items = (await fetchFeedItems(source, ctrl, sourceDiagnostics)).filter((item) => {
         if (!item.published_at) return true;
         return new Date(item.published_at).getTime() > Date.now() - recentArticleDays * 86_400_000;
-      });
+      }).slice(0, 60);
       scannedArticles += items.length;
       if (!items.length) continue;
 
@@ -203,6 +210,8 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
     const progress = {
       last_run_at: new Date().toISOString(),
       parser_policy: "regex_xml_no_domparser_v2",
+      source_cursor: sources.length ? (sourceIdx + 1) % sources.length : 0,
+      processed_outlet: activeSources[0]?.outlet || null,
       scanned_articles: scannedArticles,
       scanned_episodes: scannedEpisodes,
       selected_candidates: selectedCandidates,
