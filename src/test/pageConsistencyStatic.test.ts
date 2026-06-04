@@ -206,6 +206,8 @@ describe("page consistency static guards", () => {
     expect(labels).toContain("Vallás és spiritualitás");
     expect(labels).toContain("Kultúra és társadalom");
     expect(labels).toContain("Bűnügyek és rejtélyek");
+    expect(labels).toContain("Technológia");
+    expect(labels).not.toContain('{ label: "Tech"');
     expect(search).toContain("categoryLabel(c)");
     expect(search).toContain("categoryLabel(heroPodcast.category)");
     expect(search).not.toMatch(/categoryLabels\[c\]\s*\|\|\s*c\b/);
@@ -216,6 +218,24 @@ describe("page consistency static guards", () => {
     expect(analytics).toContain('return "/szemelyek/:slug"');
     expect(analytics).toContain('return "/ceg/:slug"');
     expect(analytics).toContain('return "/hangulatok/:slug"');
+  });
+
+  it("keeps public-facing generic UI copy Hungarian", () => {
+    const about = read("src/pages/AboutPage.tsx");
+    const carousel = read("src/components/ui/carousel.tsx");
+    const home = read("src/pages/Index.tsx");
+    const topics = read("src/pages/TopicsHubPage.tsx");
+
+    expect(about).toContain("Találd meg. Hallgasd meg.");
+    expect(about).not.toContain("Find it. Hear it.");
+    expect(carousel).toContain("Előző elem");
+    expect(carousel).toContain("Következő elem");
+    expect(carousel).not.toContain("Previous slide");
+    expect(carousel).not.toContain("Next slide");
+    expect(home).toContain("Technológia és MI");
+    expect(topics).toContain('tech: "Technológia és MI"');
+    expect(home).not.toContain("Tech és MI");
+    expect(topics).not.toContain("Tech és MI");
   });
 
   it("keeps live analytics route labels canonical for people and moods", () => {

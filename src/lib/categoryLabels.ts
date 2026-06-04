@@ -4,7 +4,7 @@ const CATEGORY_TO_HU: Record<string, { label: string; slug: string }> = {
   "News & Politics": { label: "Hírek és politika", slug: "hirek" },
   "Business & Finance": { label: "Üzlet és gazdaság", slug: "uzlet" },
   Finance: { label: "Pénzügy és befektetés", slug: "penzugy" },
-  Technology: { label: "Tech", slug: "tech" },
+  Technology: { label: "Technológia", slug: "tech" },
   "Science & Ideas": { label: "Tudomány", slug: "tudomany" },
   "Self-Improvement": { label: "Önfejlesztés", slug: "onfejlesztes" },
   "Psychology & Relationships": { label: "Önfejlesztés", slug: "onfejlesztes" },

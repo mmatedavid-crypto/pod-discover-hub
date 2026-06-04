@@ -25,7 +25,7 @@ export default function AboutPage() {
     <Layout>
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Rólunk</div>
-        <h1 className="text-3xl font-semibold mb-2">Find it. Hear it.</h1>
+        <h1 className="text-3xl font-semibold mb-2">Találd meg. Hallgasd meg.</h1>
         <p className="text-muted-foreground !mt-2">
           A Podiverzum egy MI-alapú kereső, amellyel a magyar podcastok világa kereshetővé,
           érthetővé és könnyen áttekinthetővé válik.

@@ -187,7 +187,7 @@ const CATEGORY_COPY: Record<string, { title: string; subtitle: string }> = {
   "News": { title: "Értsd meg a világot", subtitle: "Közélet, hírek és háttérbeszélgetések emberi tempóban." },
   "Business": { title: "Pénz és karrier", subtitle: "Gazdaság, vállalkozás, befektetés és munka." },
   "Health & Fitness": { title: "Lélek és egészség", subtitle: "Pszichológia, önismeret, egészség és életmód." },
-  "Technology": { title: "Tech és MI", subtitle: "Technológia, mesterséges intelligencia és startup világ." },
+  "Technology": { title: "Technológia és MI", subtitle: "Technológia, mesterséges intelligencia és startup világ." },
   "Society & Culture": { title: "Sztorik és interjúk", subtitle: "Emberi történetek, kultúra és hosszabb beszélgetések." },
   "Comedy": { title: "Kikapcsolódás", subtitle: "Humor, könnyebb beszélgetések és szórakozás." },
   "Religion & Spirituality": { title: "Hit és spiritualitás", subtitle: "Vallási és lelki tartalmak külön válogatva." },
