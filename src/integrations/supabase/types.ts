@@ -8278,6 +8278,30 @@ export type Database = {
           token: string
         }[]
       }
+      top_episodes_all_time: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_one_per_podcast?: boolean
+          p_podcast_slug?: string
+        }
+        Returns: {
+          chart_appearances: number
+          episode_id: string
+          episode_image: string
+          episode_slug: string
+          episode_title: string
+          podcast_id: string
+          podcast_image: string
+          podcast_slug: string
+          podcast_title: string
+          popularity_score: number
+          published_at: string
+          rank_label: string
+          view_count: number
+          youtube_video_id: string
+        }[]
+      }
       unaccent: { Args: { "": string }; Returns: string }
       update_page_event_dwell: {
         Args: { _dwell_ms: number; _id: string }
