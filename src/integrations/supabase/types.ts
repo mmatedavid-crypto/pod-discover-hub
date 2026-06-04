@@ -6523,6 +6523,7 @@ export type Database = {
           summary: string | null
           title: string | null
           topics: string[] | null
+          youtube_view_count: number | null
         }
         Relationships: []
       }
