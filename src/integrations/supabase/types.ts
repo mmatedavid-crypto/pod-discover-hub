@@ -1968,6 +1968,7 @@ export type Database = {
           description: string | null
           detected_language: string | null
           display_title: string | null
+          duration_seconds: number | null
           entity_extraction_evidence: Json
           episode_rank: number
           episode_rank_label: string | null
@@ -2025,6 +2026,7 @@ export type Database = {
           description?: string | null
           detected_language?: string | null
           display_title?: string | null
+          duration_seconds?: number | null
           entity_extraction_evidence?: Json
           episode_rank?: number
           episode_rank_label?: string | null
@@ -2082,6 +2084,7 @@ export type Database = {
           description?: string | null
           detected_language?: string | null
           display_title?: string | null
+          duration_seconds?: number | null
           entity_extraction_evidence?: Json
           episode_rank?: number
           episode_rank_label?: string | null
