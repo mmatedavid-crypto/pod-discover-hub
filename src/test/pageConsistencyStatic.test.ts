@@ -271,4 +271,14 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain("reject_non_hungarian");
     expect(searchPage).toContain("sanitizeHungarianPublicText(p.summary).toLowerCase()");
   });
+
+  it("keeps public toplist copy Hungarian and reader-facing", () => {
+    const toplist = read("src/pages/ToplistaPage.tsx");
+
+    expect(toplist).toContain("toplista-mutató");
+    expect(toplist).toContain("mutató {p.trending_score.toFixed(3)}");
+    expect(toplist).not.toContain("score {p.trending_score.toFixed(3)}");
+    expect(toplist).not.toContain("score = Σ 1/rank");
+    expect(toplist).not.toContain("a magasabb score");
+  });
 });

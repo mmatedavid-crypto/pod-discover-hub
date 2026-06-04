@@ -71,7 +71,8 @@ export default function ToplistaPage() {
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">Magyar podcast toplista</h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
             Az Apple Podcasts, Spotify és YouTube hivatalos magyar top listáit fúzionáljuk egyetlen rangsorba
-            reciprokrang-fúzióval (score = Σ 1/rank). Naponta frissül.
+            reciprokrang-fúzióval: minél több platformon áll jól egy műsor, annál erősebb a toplista-mutatója.
+            Naponta frissül.
           </p>
           {snapshotLabel && (
             <p className="text-xs text-muted-foreground">Friss snapshot: {snapshotLabel}</p>
@@ -138,7 +139,7 @@ export default function ToplistaPage() {
                       </div>
                     </div>
                     <div className="hidden sm:block text-right text-xs text-muted-foreground tabular-nums shrink-0">
-                      score {p.trending_score.toFixed(3)}
+                      mutató {p.trending_score.toFixed(3)}
                     </div>
                   </Link>
                 </li>
@@ -152,7 +153,7 @@ export default function ToplistaPage() {
           <p>
             Forrás: Apple Podcasts HU top 100, Spotify HU top 50 (podcastcharts.byspotify.com), YouTube
             HU podcast csatornák view-delta rangsora. Minden műsorra összegezzük a források reciprok
-            rangját — a magasabb score azt jelenti, hogy a műsor egyszerre több platformon is előkelőbb
+            rangját — a magasabb toplista-mutató azt jelenti, hogy a műsor egyszerre több platformon is előkelőbb
             helyen szerepel. A snapshotok napi rendszerességgel készülnek, így rövidesen heti/havi
             mozgásokat is publikálunk (új belépők, kiesők, platform-bias index).
           </p>
