@@ -533,9 +533,20 @@ ${newsItems.join('\n')}
           if (!e.slug) continue;
           const ps = podMap.get(String(e.podcast_id));
           if (!ps) continue;
-          const pr = ps.rank === 'S' ? '0.7' : ps.rank === 'A' ? '0.6' : '0.5';
           const lm = [e.updated_at, e.published_at].filter(Boolean).sort().pop();
-          current.push(tag(`${SITE}/podcast/${esc(ps.slug)}/${esc(e.slug)}`, lm, 'monthly', pr));
+          // Fresh-episode crawl boost: episodes published within the last 7
+          // days get priority 0.9 + changefreq=hourly so Googlebot revisits
+          // them while the topic is still hot. Older episodes fall back to
+          // tier-based priority (S=0.7, A=0.6, else 0.5) with monthly cadence.
+          const ageDays = e.published_at
+            ? (Date.now() - new Date(e.published_at).getTime()) / 86400000
+            : Infinity;
+          const isFresh = ageDays <= 7;
+          const pr = isFresh
+            ? '0.9'
+            : ps.rank === 'S' ? '0.7' : ps.rank === 'A' ? '0.6' : '0.5';
+          const cf = isFresh ? 'hourly' : 'monthly';
+          current.push(tag(`${SITE}/podcast/${esc(ps.slug)}/${esc(e.slug)}`, lm, cf, pr));
           total++;
           if (current.length >= CHUNK) await flush();
         }
