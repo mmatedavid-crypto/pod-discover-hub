@@ -141,6 +141,7 @@ SELECT jsonb_build_object(
       AND setting_values->'episode_best_text_source_controls' ? 'article_min_confidence' FROM settings),
     'pairer_has_run', (SELECT COALESCE(length(setting_values->'episode_article_pairer_progress'->>'last_run_at') > 0, false) FROM settings),
     'pairer_scanned_articles', (SELECT COALESCE((setting_values->'episode_article_pairer_progress'->>'scanned_articles')::int > 0, false) FROM settings),
+    'pairer_uses_regex_xml_parser', (SELECT COALESCE(setting_values->'episode_article_pairer_progress'->>'parser_policy' = 'regex_xml_no_domparser_v2', false) FROM settings),
     'pairer_records_write_verification', (SELECT COALESCE(setting_values->'episode_article_pairer_progress' ? 'verified_upsert_rows', false) FROM settings),
     'pairer_records_total_candidates', (SELECT COALESCE(setting_values->'episode_article_pairer_progress' ? 'total_article_candidates', false) FROM settings),
     'pairer_no_domparser_error', (SELECT COALESCE((setting_values->'episode_article_pairer_progress'->'source_diagnostics')::text NOT ILIKE '%DOMParser is not defined%', false) FROM settings),

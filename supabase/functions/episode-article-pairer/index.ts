@@ -213,6 +213,7 @@ Deno.serve(async (req) => {
 
     const progress = {
       last_run_at: new Date().toISOString(),
+      parser_policy: "regex_xml_no_domparser_v2",
       scanned_articles: scannedArticles,
       scanned_episodes: scannedEpisodes,
       selected_candidates: selectedCandidates,
