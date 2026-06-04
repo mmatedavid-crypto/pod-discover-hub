@@ -26,11 +26,6 @@ type Mode = "all" | "per-podcast";
 
 const PAGE_SIZE = 100;
 
-const formatViews = (n: number) => {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1) + "k";
-  return String(n);
-};
 
 export default function ToplistaAllTimePage() {
   const [params, setParams] = useSearchParams();
