@@ -61,6 +61,7 @@ describe("production policy static guards", () => {
       "20260603162000_public_ai_language_guard_consolidated.sql",
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260604001000_recommendation_compatibility_v4.sql",
+      "20260604091642_reassert_recommendation_compatibility_v4.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "episode-article-pairer",
       "refresh-sitemap",

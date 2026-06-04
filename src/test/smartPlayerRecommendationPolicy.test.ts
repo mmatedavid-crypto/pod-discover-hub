@@ -36,16 +36,19 @@ describe("smart player recommendation policy", () => {
   });
 
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
-    const migration = read("supabase/migrations/20260603165000_related_episode_quality_consolidated.sql");
+    const migration = read("supabase/migrations/20260604091642_reassert_recommendation_compatibility_v4.sql");
 
     expect(migration).toContain("recommendation_is_compatible");
     expect(migration).toContain("recommendation_text_group");
     expect(migration).toContain("p_source_group = 'religion'");
     expect(migration).toContain("p_candidate_group = 'religion'");
     expect(migration).toContain("THEN false");
+    expect(migration).toContain("p_source_group <> 'general' AND p_candidate_group <> 'general' AND p_source_group <> p_candidate_group");
+    expect(migration).toContain("THEN p_has_topic_bridge");
     expect(migration).toContain("'related_episode_quality_policy'");
     expect(migration).toContain("'religion_cross_group', 'hard_block'");
-    expect(migration).toContain("'version', 3");
+    expect(migration).toContain("'different_specific_groups', 'explicit_bridge_required'");
+    expect(migration).toContain("'version', 4");
     expect(migration).toContain("public_affairs_override_terms");
     expect(migration).toContain("orbán");
     expect(migration).toContain("puzsér");
