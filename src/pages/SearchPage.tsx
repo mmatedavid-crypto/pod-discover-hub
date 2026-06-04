@@ -64,6 +64,11 @@ function scorePodcast(p: any, terms: string[], fullPhrase: string): number {
   return s;
 }
 
+function sanitizeSearchAnswer(answer: string): string {
+  const clean = sanitizeHungarianPublicText(answer);
+  return clean.length >= 20 ? clean : "";
+}
+
 export default function SearchPage() {
   const [params, setParams] = useSearchParams();
   const initial = params.get("q") || "";
@@ -359,7 +364,7 @@ export default function SearchPage() {
                 try {
                   const p = JSON.parse(js);
                   const c = p?.choices?.[0]?.delta?.content;
-                  if (c) { acc += c; setAiAnswer(acc); }
+                  if (c) { acc += c; setAiAnswer(sanitizeSearchAnswer(acc)); }
                 } catch { buf = line + "\n" + buf; break; }
               }
             }
@@ -663,15 +668,15 @@ export default function SearchPage() {
         {initial && !loading && (aiAnswer || aiAnswerLoading) && (
           <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">MI-összefoglaló</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">Találati összkép</span>
               {aiAnswerLoading && (
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
               )}
             </div>
             <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-              {aiAnswer || <span className="text-muted-foreground">Összefoglaló készül a legjobb epizódok alapján…</span>}
+              {aiAnswer || <span className="text-muted-foreground">Áttekintés készül a legerősebb epizódok alapján...</span>}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-2">MI-alapú összefoglaló, amely pontatlanságokat tartalmazhat. A szövegben lévő számok a találati lista epizódjaira utalnak.</p>
+            <p className="text-[10px] text-muted-foreground mt-2">Automatikus összegzés a találati lista alapján; hallgatás előtt nézd meg az epizód részleteit.</p>
           </div>
         )}
 

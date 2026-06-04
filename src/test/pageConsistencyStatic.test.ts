@@ -415,6 +415,18 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain("sanitizeHungarianPublicText(p.summary).toLowerCase()");
   });
 
+  it("keeps the search AI overview Hungarian, guarded, and user-facing", () => {
+    const searchPage = read("src/pages/SearchPage.tsx");
+
+    expect(searchPage).toContain("function sanitizeSearchAnswer(answer: string)");
+    expect(searchPage).toContain("setAiAnswer(sanitizeSearchAnswer(acc))");
+    expect(searchPage).toContain("Találati összkép");
+    expect(searchPage).toContain("Áttekintés készül a legerősebb epizódok alapján");
+    expect(searchPage).toContain("Automatikus összegzés a találati lista alapján");
+    expect(searchPage).not.toContain("MI-összefoglaló");
+    expect(searchPage).not.toContain("MI-alapú összefoglaló");
+  });
+
   it("keeps public podcast discovery fallbacks on the accepted Hungarian decision field", () => {
     const newest = read("src/pages/NewPodcastsPage.tsx");
     const recent = read("src/components/RecentlyAddedPodcasts.tsx");
