@@ -278,6 +278,7 @@ describe("page consistency static guards", () => {
   it("keeps SEO fallback and prerender links on canonical Hungarian routes", () => {
     const notFound = read("src/pages/NotFound.tsx");
     const prerender = read("supabase/functions/prerender/index.ts");
+    const episode = read("src/pages/EpisodeDetail.tsx");
     const searchInsights = read("src/pages/AdminSearchInsightsPage.tsx");
 
     expect(notFound).toContain("nav(`/kereses?q=");
@@ -288,6 +289,12 @@ describe("page consistency static guards", () => {
     expect(prerender).toContain("`${SITE}/toplista`");
     expect(prerender).not.toContain('href="/podcastok"');
     expect(prerender).not.toContain("`${SITE}/podcastok`");
+    for (const source of [episode, prerender]) {
+      expect(source).toContain("mainEntityOfPage: canonical");
+      expect(source).toContain('inLanguage: "hu-HU"');
+      expect(source).toContain("isAccessibleForFree: true");
+    }
+    expect(episode).not.toContain("url: typeof window !== \"undefined\" ? window.location.href : undefined");
   });
 
   it("keeps public SEO surfaces behind the Hungarian text sanitizer", () => {

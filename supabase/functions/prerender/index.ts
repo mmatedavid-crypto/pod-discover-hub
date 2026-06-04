@@ -383,10 +383,12 @@ async function buildEpisode(
     "@type": "PodcastEpisode",
     name: ep.display_title || ep.title,
     url: canonical,
+    mainEntityOfPage: canonical,
     datePublished: ep.published_at || undefined,
     description: longText || undefined,
     image: ep.image_url || pod.image_url || undefined,
-    inLanguage: pod.language || "hu",
+    inLanguage: "hu-HU",
+    isAccessibleForFree: true,
     associatedMedia: ep.audio_url
       ? { "@type": "MediaObject", contentUrl: ep.audio_url }
       : undefined,
@@ -394,6 +396,7 @@ async function buildEpisode(
       "@type": "PodcastSeries",
       name: pod.display_title || pod.title,
       url: `${SITE}/podcast/${pod.slug}`,
+      inLanguage: "hu-HU",
     },
   };
   const breadcrumbs = {
