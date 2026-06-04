@@ -312,11 +312,16 @@ describe("page consistency static guards", () => {
   });
 
   it("keeps organization detail links on the canonical company route", () => {
+    const app = read("src/App.tsx");
     const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
     const orgCard = read("src/components/OrgCard.tsx");
     const report = read("src/pages/PodcastReport2026.tsx");
     const prerender = read("supabase/functions/prerender/index.ts");
 
+    expect(app).toContain('<Route path="/szervezetek/:slug" element={<RedirectWithSlug to="/ceg" />} />');
+    expect(app).toContain('<Route path="/szervezetek/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
+    expect(app).toContain('<Route path="/part/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
+    expect(app).not.toContain('<Route path="/szervezetek/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />');
     expect(autocomplete).toContain("return `/ceg/${slug}`");
     expect(autocomplete).not.toContain("`/part/${slug}`");
     expect(orgCard).toContain("return `/ceg/${o.slug}`");

@@ -219,7 +219,7 @@ const App = () => (
           <Route path="/szemelyek/:slug/temak/:topicSlug" element={<PersonDetailPage />} />
           <Route path="/szervezetek" element={<OrganizationsIndexPage />} />
           <Route path="/szervezetek/:slug" element={<RedirectWithSlug to="/ceg" />} />
-          <Route path="/szervezetek/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />
+          <Route path="/szervezetek/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />
           <Route path="/part/:slug" element={<RedirectWithSlug to="/ceg" />} />
           <Route path="/part/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />
           <Route path="/entitasok" element={<Navigate to="/szervezetek" replace />} />
