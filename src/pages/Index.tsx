@@ -204,6 +204,7 @@ const Index = () => {
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [categoryRailEps, setCategoryRailEps] = useState<Record<string, EpisodeLite[]>>({});
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
+  const [lightEps, setLightEps] = useState<EpisodeLite[]>([]);
   const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
     { label: "MNB kamatdöntés", query: "MNB kamatdöntés" },
     { label: "magyar gazdaság", query: "magyar gazdaság" },
