@@ -25,6 +25,23 @@ export function detectQueryLanguage(raw: string): "hu" | "en" | null {
 
 // High-confidence simple synonyms — small, safe expansion.
 const BUILTIN_SYNONYMS: Record<string, string[]> = {
+  // Hungarian market aliases. These are intentionally high-confidence only:
+  // brand/ticker/common-name variants that users actually type.
+  telekom: ["Magyar Telekom", "MTELEKOM", "MTEL"],
+  "magyar telekom": ["Telekom", "MTELEKOM", "MTEL"],
+  mtelekom: ["Magyar Telekom", "Telekom", "MTEL"],
+  mtel: ["Magyar Telekom", "Telekom", "MTELEKOM"],
+  otp: ["OTP Bank", "OTP Nyrt", "bankszektor"],
+  mol: ["MOL Nyrt", "olajipar", "energia"],
+  richter: ["Richter Gedeon", "Gedeon Richter", "gyógyszeripar"],
+  "4ig": ["4iG", "4iG Nyrt", "informatika"],
+  fradi: ["FTC", "Ferencváros", "Ferencvárosi Torna Club"],
+  ftc: ["Fradi", "Ferencváros", "Ferencvárosi Torna Club"],
+  ferencváros: ["Fradi", "FTC", "Ferencvárosi Torna Club"],
+  foci: ["labdarúgás", "futball", "magyar foci"],
+  futball: ["labdarúgás", "foci", "magyar futball"],
+  labdarúgás: ["foci", "futball", "magyar foci"],
+  labdarugas: ["labdarúgás", "foci", "futball"],
   food: ["cooking", "cuisine"],
   italy: ["italian", "rome"],
   ai: ["artificial intelligence", "machine learning"],
@@ -55,6 +72,7 @@ const TYPO_FIX: Record<string, string> = {
   narcicistic: "narcissistic", colonisation: "colonization",
   tourisim: "tourism", toursim: "tourism", europ: "europe",
   itlay: "italy", spcaex: "spacex",
+  mtelekom: "mtelekom", mtel: "mtel", labdarugas: "labdarugas",
 };
 
 const PHRASE_ALIASES: Array<[RegExp, string]> = [
@@ -186,14 +204,14 @@ export function parseQuery(q: string): { terms: string[]; strict: boolean } {
   return { terms: uniq(terms), strict };
 }
 
-function expandSimple(term: string): string[] {
+export function expandSimple(term: string): string[] {
   const t = term.toLowerCase();
   const out: string[] = [term];
-  if (BUILTIN_SYNONYMS[t]) BUILTIN_SYNONYMS[t].slice(0, 2).forEach((s) => out.push(s));
+  if (BUILTIN_SYNONYMS[t]) BUILTIN_SYNONYMS[t].slice(0, 4).forEach((s) => out.push(s));
   else for (const [k, vs] of Object.entries(BUILTIN_SYNONYMS)) if (vs.includes(t)) { out.push(k); break; }
   // Add singular/plural variants (conservative).
   pluralVariants(term).forEach((v) => { if (!out.includes(v)) out.push(v); });
-  return uniq(out).slice(0, 4);
+  return uniq(out).slice(0, 6);
 }
 
 function semanticExpansion(terms: string[], cap = 8): string[] {
@@ -644,11 +662,11 @@ export async function searchEpisodes(opts: {
 }
 
 export const MATCH_LABEL: Record<MatchType, string> = {
-  exact_title: "exact match",
-  title: "title match",
-  entity: "topic match",
-  podcast: "podcast match",
-  description: "description match",
-  semantic: "related idea",
-  broader: "broader match",
+  exact_title: "Pontos cím",
+  title: "Címben találtuk",
+  entity: "Téma vagy szereplő",
+  podcast: "Műsoregyezés",
+  description: "Leírás alapján",
+  semantic: "Kapcsolódó ötlet",
+  broader: "Tágabb találat",
 };
