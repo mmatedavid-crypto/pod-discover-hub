@@ -31,6 +31,18 @@ function isAcceptedHungarianPodcast(p: any): boolean {
   return p.is_hungarian === true || decision === "accept_hungarian";
 }
 
+function isSafePublicPerson(p: any): boolean {
+  if (!p || p.is_public !== true || p.is_indexable !== true) return false;
+  if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
+  if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
+  if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
+  if (p.identity_status === "split_resolved") return false;
+  if ((p.is_deceased === true || p.is_historical === true) && p.has_archival_evidence !== true && p.manual_approved !== true) return false;
+  const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
+  if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
+  return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
+}
+
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
   return new Promise((resolve) => {
     const t = setTimeout(() => { console.warn(`${label} timeout ${ms}ms`); resolve(null); }, ms);
@@ -478,7 +490,7 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
     const aliasRows = await withTimeout(
       supa
         .from("person_aliases")
-        .select("person_id,confidence,people!inner(id,is_public)")
+        .select("person_id,confidence,people!inner(id,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,gated_episode_count,episode_count)")
         .eq("normalized_alias", qNorm)
         .eq("status", "accepted")
         .gte("confidence", 0.7)
@@ -497,17 +509,16 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
   const person = await withTimeout(
     supa
       .from("people")
-      .select("id,name,slug,image_url,short_bio,ai_bio,overview_text,wikipedia_description,disambiguation_label,gated_episode_count,episode_count,podcast_count,is_public,normalized_name,identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence")
+      .select("id,name,slug,image_url,short_bio,ai_bio,overview_text,wikipedia_description,disambiguation_label,gated_episode_count,episode_count,podcast_count,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,normalized_name,identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence")
       .eq("id", personId)
       .eq("is_public", true)
+      .eq("is_indexable", true)
       .maybeSingle()
       .then((r: any) => r.data),
     timeoutMs,
     "person_pin_meta",
   );
-  if (!person?.slug || !person?.name) return null;
-  const count = Number(person.gated_episode_count ?? person.episode_count ?? 0);
-  if (count < 1) return null;
+  if (!person?.slug || !person?.name || !isSafePublicPerson(person)) return null;
 
   return {
     id: person.id,
@@ -517,6 +528,12 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
     short_bio: person.short_bio || person.overview_text || person.wikipedia_description || null,
     ai_bio: person.ai_bio || null,
     disambiguation_label: person.disambiguation_label || null,
+    is_public: person.is_public ?? null,
+    is_indexable: person.is_indexable ?? null,
+    activation_status: person.activation_status ?? null,
+    ai_recommended_action: person.ai_recommended_action ?? null,
+    ai_review_status: person.ai_review_status ?? null,
+    identity_status: person.identity_status ?? null,
     gated_episode_count: person.gated_episode_count ?? person.episode_count ?? null,
     episode_count: person.episode_count ?? null,
     podcast_count: person.podcast_count ?? null,
@@ -526,6 +543,9 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
     ai_bio_confidence: person.ai_bio_confidence ?? null,
     wikipedia_match_status: person.wikipedia_match_status ?? null,
     wikipedia_match_confidence: person.wikipedia_match_confidence ?? null,
+    is_deceased: person.is_deceased ?? null,
+    is_historical: person.is_historical ?? null,
+    has_archival_evidence: person.has_archival_evidence ?? null,
     match_type: anchor ? "catalog_anchor" : "alias",
   };
 }
@@ -671,13 +691,15 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
   const infix = `%${qNorm}%`;
   const tasks = [
     supa.from("people")
-      .select("id,name,slug,gated_episode_count,episode_count,normalized_name")
+      .select("id,name,slug,gated_episode_count,episode_count,normalized_name,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence")
       .eq("is_public", true)
+      .eq("is_indexable", true)
+      .in("activation_status", ["indexable", "manual_approved"])
       .or(`normalized_name.eq.${qNorm},normalized_name.ilike.${prefix}`)
       .order("gated_episode_count", { ascending: false, nullsFirst: false })
       .limit(4),
     supa.from("person_aliases")
-      .select("person_id,alias,confidence,people!inner(id,name,slug,is_public,gated_episode_count,episode_count)")
+      .select("person_id,alias,confidence,people!inner(id,name,slug,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,gated_episode_count,episode_count)")
       .eq("normalized_alias", qNorm)
       .eq("status", "accepted")
       .gte("confidence", 0.7)
@@ -712,12 +734,12 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
   if (earlyPodcastPin?.title) {
     out.push({ kind: "podcast", id: earlyPodcastPin.podcast_id || null, name: earlyPodcastPin.title, slug: earlyPodcastPin.slug || null, score: 1000 });
   }
-  for (const row of (settled[0] as any).data || []) {
+  for (const row of ((settled[0] as any).data || []).filter(isSafePublicPerson)) {
     out.push({ kind: "person", id: row.id || null, name: row.name, slug: row.slug || null, score: 700 + Number(row.gated_episode_count || row.episode_count || 0) });
   }
   for (const row of (settled[1] as any).data || []) {
     const p = row.people;
-    if (p?.name) out.push({ kind: "person", id: p.id || row.person_id || null, name: p.name, slug: p.slug || null, score: 760 + Number(p.gated_episode_count || p.episode_count || 0) });
+    if (p?.name && isSafePublicPerson(p)) out.push({ kind: "person", id: p.id || row.person_id || null, name: p.name, slug: p.slug || null, score: 760 + Number(p.gated_episode_count || p.episode_count || 0) });
   }
   for (const row of (settled[2] as any).data || []) {
     out.push({ kind: "organization", id: row.id || null, name: row.name, slug: row.slug || null, score: 650 + Number(row.gated_episode_count || 0) });

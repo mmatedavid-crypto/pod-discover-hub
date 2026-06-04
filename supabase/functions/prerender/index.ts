@@ -48,6 +48,17 @@ function hasTrustedPersonIdentity(person: Record<string, unknown>): boolean {
   return hasVerifiedPersonWiki(person);
 }
 
+function isSafePublicPerson(person: Record<string, unknown>): boolean {
+  if (!person || person.is_public === false || person.is_indexable === false) return false;
+  if (!["indexable", "manual_approved", null, undefined].includes(person.activation_status as any)) return false;
+  if (["hide", "reject"].includes(String(person.ai_recommended_action || ""))) return false;
+  if (["needs_human_review", "duplicate_candidate"].includes(String(person.ai_review_status || ""))) return false;
+  if (person.identity_status === "split_resolved") return false;
+  if ((person.is_deceased === true || person.is_historical === true) && person.has_archival_evidence !== true && person.manual_approved !== true) return false;
+  if (person.identity_ambiguous && !hasTrustedPersonIdentity(person)) return false;
+  return Number(person.gated_episode_count || person.episode_count || 0) >= 1;
+}
+
 function isSafeGeneratedPersonBio(person: Record<string, unknown>, text?: string | null): boolean {
   const raw = stripHtml(text);
   if (!raw) return false;
@@ -531,6 +542,7 @@ async function buildPerson(
   const historicalWithoutEvidence = (person.is_deceased === true || person.is_historical === true)
     && person.has_archival_evidence !== true
     && person.manual_approved !== true;
+  if (historicalWithoutEvidence) return null;
   const noindex = person.is_indexable === false
     || historicalWithoutEvidence
     || ["needs_human_review", "duplicate_candidate"].includes(person.ai_review_status || "")
@@ -933,12 +945,16 @@ ${hubCrossLinks(kind)}`,
   if (kind === "szemelyek") {
     const { data } = await (supabase as any)
       .from("people")
-      .select("name, slug, short_bio, short_description_hu, image_url, gated_episode_count")
+      .select("name, slug, short_bio, short_description_hu, image_url, gated_episode_count, episode_count, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence")
+      .eq("is_public", true)
       .eq("is_indexable", true)
+      .in("activation_status", ["indexable", "manual_approved"])
       .gt("gated_episode_count", 0)
       .order("gated_episode_count", { ascending: false })
-      .limit(120);
-    const rows = (data ?? []) as Array<Record<string, any>>;
+      .limit(160);
+    const rows = ((data ?? []) as Array<Record<string, any>>)
+      .filter(isSafePublicPerson)
+      .slice(0, 120);
     const title = "Személyek és podcastvendégek — Podiverzum";
     const desc = "Magyar közélet, üzlet és kultúra szereplői, podcastvendégek és gyakran említett nevek. Kiket említenek a leggyakrabban a magyar podcastek?";
     const intro = `<p>A <strong>Podiverzum</strong> több mint <strong>${rows.length}+ személyt</strong> indexel a magyar podcast-világból: vendégeket, említett közéleti szereplőket, vállalkozókat, művészeket, sportolókat, tudósokat és szakértőket. Minden személynél megtalálod, mely epizódokban szerepelt vagy említették — kontextussal és AI-összefoglalókkal.</p>
@@ -1255,9 +1271,9 @@ async function buildPersonTopic(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, short_bio, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_public")
+    .select("id, name, slug, image_url, ai_bio, short_bio, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, is_deceased, is_historical, has_archival_evidence, gated_episode_count, episode_count")
     .eq("slug", personSlug).maybeSingle();
-  if (!person || person.is_public === false) return null;
+  if (!person || !isSafePublicPerson(person)) return null;
   const { data: topic } = await (supabase as any)
     .from("topics")
     .select("id, name, slug, is_public")

@@ -16,6 +16,18 @@ import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { categoryLabel } from "@/lib/categoryLabels";
 
 type SortKey = "best" | "newest" | "rank";
+type SearchPersonData = PersonCardData & {
+  gated_episode_count: number | null;
+  is_public?: boolean | null;
+  is_indexable?: boolean | null;
+  activation_status?: string | null;
+  ai_recommended_action?: string | null;
+  ai_review_status?: string | null;
+  identity_status?: string | null;
+  is_deceased?: boolean | null;
+  is_historical?: boolean | null;
+  has_archival_evidence?: boolean | null;
+};
 
 const EXAMPLES = [
   "MNB kamatdöntés",
@@ -69,6 +81,18 @@ function sanitizeSearchAnswer(answer: string): string {
   return clean.length >= 20 ? clean : "";
 }
 
+function isSafeSearchPerson(p: any): boolean {
+  if (!p || p.is_public !== true || p.is_indexable !== true) return false;
+  if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
+  if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
+  if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
+  if (p.identity_status === "split_resolved") return false;
+  if ((p.is_deceased === true || p.is_historical === true) && p.has_archival_evidence !== true && p.manual_approved !== true) return false;
+  const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
+  if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
+  return Number(p.gated_episode_count ?? p.episode_count ?? 0) >= 1;
+}
+
 export default function SearchPage() {
   const [params, setParams] = useSearchParams();
   const initial = params.get("q") || "";
@@ -80,7 +104,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryLabels, setCategoryLabels] = useState<Record<string, string>>({});
-  const [heroPerson, setHeroPerson] = useState<(PersonCardData & { gated_episode_count: number | null }) | null>(null);
+  const [heroPerson, setHeroPerson] = useState<SearchPersonData | null>(null);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
@@ -119,15 +143,18 @@ export default function SearchPage() {
     (async () => {
       const { data } = await supabase
         .from("people")
-        .select("name,slug,image_url,short_bio,ai_bio,gated_episode_count,episode_count,podcast_count,is_public,normalized_name,disambiguation_label,identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence")
+        .select("name,slug,image_url,short_bio,ai_bio,gated_episode_count,episode_count,podcast_count,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,normalized_name,disambiguation_label,identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence")
         .ilike("normalized_name", `%${phraseNorm.replace(/[%_]/g, " ")}%`)
         .eq("is_public", true)
+        .eq("is_indexable", true)
+        .in("activation_status", ["indexable", "manual_approved"])
         .order("gated_episode_count", { ascending: false, nullsFirst: false })
         .limit(5);
       if (cancelled || !data?.length) return;
-      const best = (data as any[]).find((p) => (p.normalized_name || "") === phraseNorm)
-        || (data as any[]).find((p) => (p.normalized_name || "").includes(phraseNorm))
-        || data[0];
+      const safeRows = (data as any[]).filter(isSafeSearchPerson);
+      const best = safeRows.find((p) => (p.normalized_name || "") === phraseNorm)
+        || safeRows.find((p) => (p.normalized_name || "").includes(phraseNorm))
+        || safeRows[0];
       if (best && (best.gated_episode_count ?? 0) >= 1) setHeroPerson(best as any);
     })();
     return () => { cancelled = true; };
@@ -204,7 +231,7 @@ export default function SearchPage() {
           });
         }
         const personPin = phase1.data?.person_pin;
-        if (personPin?.slug) {
+        if (personPin?.slug && isSafeSearchPerson(personPin)) {
           setHeroPerson({
             name: personPin.name,
             slug: personPin.slug,
@@ -214,6 +241,12 @@ export default function SearchPage() {
             gated_episode_count: personPin.gated_episode_count ?? null,
             episode_count: personPin.gated_episode_count ?? personPin.episode_count ?? 0,
             podcast_count: personPin.podcast_count ?? 0,
+            is_public: personPin.is_public ?? null,
+            is_indexable: personPin.is_indexable ?? null,
+            activation_status: personPin.activation_status ?? null,
+            ai_recommended_action: personPin.ai_recommended_action ?? null,
+            ai_review_status: personPin.ai_review_status ?? null,
+            identity_status: personPin.identity_status ?? null,
             disambiguation_label: personPin.disambiguation_label || null,
             identity_ambiguous: personPin.identity_ambiguous ?? null,
             manual_approved: personPin.manual_approved ?? null,
@@ -221,6 +254,9 @@ export default function SearchPage() {
             ai_bio_confidence: personPin.ai_bio_confidence ?? null,
             wikipedia_match_status: personPin.wikipedia_match_status ?? null,
             wikipedia_match_confidence: personPin.wikipedia_match_confidence ?? null,
+            is_deceased: personPin.is_deceased ?? null,
+            is_historical: personPin.is_historical ?? null,
+            has_archival_evidence: personPin.has_archival_evidence ?? null,
           });
         }
         const organizationPin = phase1.data?.organization_pin;

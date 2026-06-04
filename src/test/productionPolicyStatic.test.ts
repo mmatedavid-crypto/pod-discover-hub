@@ -313,12 +313,38 @@ describe("production policy static guards", () => {
   it("keeps search person pins identity-safe", () => {
     const searchPage = read("src/pages/SearchPage.tsx");
     const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
+    const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
+    const sitemap = read("supabase/functions/sitemap/index.ts");
+    const refreshSitemap = read("supabase/functions/refresh-sitemap/index.ts");
+    const prerender = read("supabase/functions/prerender/index.ts");
 
     expect(searchPage).toContain("buildPersonCardContextLine");
+    expect(searchPage).toContain("function isSafeSearchPerson");
+    expect(searchPage).toContain("personPin?.slug && isSafeSearchPerson(personPin)");
+    expect(searchPage).toContain('.in("activation_status", ["indexable", "manual_approved"])');
     expect(searchPage).not.toContain("personPin.short_bio || personPin.disambiguation_label");
     expect(searchPage).not.toContain("<p className=\"text-sm text-muted-foreground line-clamp-2 mt-1.5\">{heroPerson.short_bio}</p>");
+    expect(searchHybrid).toContain("function isSafePublicPerson");
+    expect(searchHybrid).toContain("!person?.slug || !person?.name || !isSafePublicPerson(person)");
+    expect(searchHybrid).toContain("filter(isSafePublicPerson)");
     expect(searchHybrid).toContain("identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence");
     expect(searchHybrid).toContain("identity_ambiguous: person.identity_ambiguous");
+    expect(searchHybrid).toContain("is_deceased: person.is_deceased");
+    expect(autocomplete).toContain("function isSafePublicPerson");
+    expect(autocomplete).toContain("filter(isSafePublicPerson)");
+    expect(autocomplete).toContain("if (!isSafePublicPerson(person)) continue");
+    expect(sitemap).toContain("function isSafePersonSitemapRow");
+    expect(refreshSitemap).toContain("function isSafePersonSitemapRow");
+    expect(prerender).toContain("function isSafePublicPerson");
+    expect(prerender).toContain("if (historicalWithoutEvidence) return null");
+    expect(prerender).toContain(".filter(isSafePublicPerson)");
+    for (const source of [searchPage, searchHybrid, autocomplete, sitemap, refreshSitemap, prerender]) {
+      expect(source).toContain("is_deceased");
+      expect(source).toContain("is_historical");
+      expect(source).toContain("has_archival_evidence");
+      expect(source).toContain("manual_approved");
+      expect(source).toContain("identity_ambiguous");
+    }
   });
 
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {

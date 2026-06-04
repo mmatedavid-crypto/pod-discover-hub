@@ -24,6 +24,18 @@ import { pickEpisodeDescription } from "@/lib/episodeText";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
+function isSafeHostPerson(p: any): boolean {
+  if (!p || p.is_public !== true || p.is_indexable !== true) return false;
+  if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
+  if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
+  if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
+  if (p.identity_status === "split_resolved") return false;
+  if ((p.is_deceased === true || p.is_historical === true) && p.has_archival_evidence !== true && p.manual_approved !== true) return false;
+  const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
+  if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
+  return true;
+}
+
 async function fetchAllEpisodes(podcastId: string) {
   const PAGE = 1000;
   let from = 0;
@@ -47,29 +59,29 @@ async function fetchHosts(podcastId: string, manualNames: string[]): Promise<Hos
   const [aiRes, manualRes, mentionsRes] = await Promise.all([
     supabase
       .from("person_podcast_map")
-      .select("people:person_id(id, slug, name, image_url)")
+      .select("people:person_id(id, slug, name, image_url, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence)")
       .eq("podcast_id", podcastId)
       .eq("role", "host"),
     manualNames.length
-      ? supabase.from("people").select("id, slug, name, image_url").in("name", manualNames)
+      ? supabase.from("people").select("id, slug, name, image_url, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence").in("name", manualNames)
       : Promise.resolve({ data: [] as any[] }),
     // AI per-episode host mentions — aggregate to find recurring hosts
     supabase
       .from("person_episode_mentions")
-      .select("person_id, people:person_id(id, slug, name, image_url)")
+      .select("person_id, people:person_id(id, slug, name, image_url, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence)")
       .eq("podcast_id", podcastId)
       .eq("mention_type", "host")
       .limit(2000),
   ]);
   const aiHosts = ((aiRes.data || []) as any[])
     .map((r) => r.people)
-    .filter(Boolean) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
-  const manualPeople = (manualRes.data || []) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
+    .filter(isSafeHostPerson) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
+  const manualPeople = ((manualRes.data || []) as any[]).filter(isSafeHostPerson) as Array<{ id: string; slug: string; name: string; image_url: string | null }>;
 
   // Aggregate mentions: only keep people with 2+ host-episodes → clearly the host
   const mentionTally = new Map<string, { count: number; person: any }>();
   for (const row of ((mentionsRes.data || []) as any[])) {
-    if (!row.person_id || !row.people) continue;
+    if (!row.person_id || !isSafeHostPerson(row.people)) continue;
     const cur = mentionTally.get(row.person_id) || { count: 0, person: row.people };
     cur.count++;
     mentionTally.set(row.person_id, cur);

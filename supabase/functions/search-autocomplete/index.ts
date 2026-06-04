@@ -50,6 +50,18 @@ function norm(s: string): string {
   return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
 }
 
+function isSafePublicPerson(p: any): boolean {
+  if (!p || p.is_public !== true || p.is_indexable !== true) return false;
+  if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
+  if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
+  if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
+  if (p.identity_status === "split_resolved") return false;
+  if ((p.is_deceased === true || p.is_historical === true) && p.has_archival_evidence !== true && p.manual_approved !== true) return false;
+  const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
+  if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
+  return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const json = (b: unknown, s = 200) =>
@@ -94,14 +106,16 @@ Deno.serve(async (req) => {
         .gte("confidence", 0.7)
         .limit(8),
       supa.from("people")
-        .select("name,slug,image_url,gated_episode_count,is_indexable,disambiguation_label,normalized_name")
+        .select("name,slug,image_url,gated_episode_count,episode_count,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,disambiguation_label,normalized_name")
         .eq("is_public", true)
+        .eq("is_indexable", true)
+        .in("activation_status", ["indexable", "manual_approved"])
         .or(`name.ilike.${prefixStar},normalized_name.ilike.${prefixStar}`)
         .order("gated_episode_count", { ascending: false })
         .limit(8),
       // Alias lookup — surfaces canonical people via known aliases (e.g. "Zsiday" → "Zsiday Viktor")
       supa.from("person_aliases")
-        .select("alias, confidence, people!inner(name,slug,image_url,is_public,gated_episode_count)")
+        .select("alias, confidence, people!inner(name,slug,image_url,gated_episode_count,episode_count,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence)")
         .ilike("normalized_alias", prefix)
         .gte("confidence", 0.7)
         .limit(5),
@@ -214,6 +228,7 @@ Deno.serve(async (req) => {
     // This prevents "Magyar Péter" query from being outranked by similarly-spelled "Magyari Péter"
     // just because the latter has more gated episodes.
     const peopleRanked = (persRes.data || [])
+      .filter(isSafePublicPerson)
       .map((p: any) => {
         const n = String(p.name || "");
         const nn = String(p.normalized_name || norm(n));
@@ -245,7 +260,7 @@ Deno.serve(async (req) => {
     );
     for (const row of (aliasRes.data || []) as any[]) {
       const person = row.people;
-      if (!person || !person.is_public) continue;
+      if (!isSafePublicPerson(person)) continue;
       const slug = String(person.slug || "");
       if (!slug || personSlugsSeen.has(slug)) continue;
       personSlugsSeen.add(slug);

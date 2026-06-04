@@ -76,6 +76,17 @@ describe("page consistency static guards", () => {
     expect(peopleHub).toContain('["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")');
   });
 
+  it("keeps podcast host person links identity-safe", () => {
+    const podcastDetail = read("src/pages/PodcastDetail.tsx");
+
+    expect(podcastDetail).toContain("function isSafeHostPerson");
+    expect(podcastDetail).toContain("filter(isSafeHostPerson)");
+    expect(podcastDetail).toContain("if (!row.person_id || !isSafeHostPerson(row.people)) continue");
+    expect(podcastDetail).toContain("identity_ambiguous, manual_approved");
+    expect(podcastDetail).toContain("is_deceased, is_historical, has_archival_evidence");
+    expect(podcastDetail).not.toContain('select("id, slug, name, image_url").in("name", manualNames)');
+  });
+
   it("keeps homepage episode rails AI-summary aware", () => {
     const home = read("src/pages/Index.tsx");
 

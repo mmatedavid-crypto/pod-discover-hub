@@ -25,6 +25,17 @@ function urlTag(loc: string, lastmod?: string | null, changefreq = "daily", prio
   return `<url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 }
 function esc(s: string) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function isSafePersonSitemapRow(p: any): boolean {
+  if (!p?.slug || p.is_public !== true || p.is_indexable !== true) return false;
+  if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
+  if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
+  if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
+  if (p.identity_status === "split_resolved") return false;
+  if ((p.is_deceased === true || p.is_historical === true) && p.has_archival_evidence !== true && p.manual_approved !== true) return false;
+  const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
+  if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
+  return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
+}
 import { slugify as sharedSlugify } from "../_shared/slug.ts";
 function entSlug(kind: string, v: string) {
   if (kind === "ticker") return v.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();
@@ -174,15 +185,14 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
   let from = 0;
   while (true) {
     const { data: people } = await supabase
-      .from("people").select("slug, updated_at, ai_recommended_action, ai_review_status")
+      .from("people").select("slug, updated_at, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence, gated_episode_count, episode_count")
       .eq("is_public", true).eq("is_indexable", true)
       .in("activation_status", ["indexable","manual_approved"])
       .order("episode_count", { ascending: false })
       .range(from, from + 999);
     if (!people || people.length === 0) break;
     (people as any[]).forEach((p) => {
-      if (["hide","reject"].includes(p.ai_recommended_action || "")) return;
-      if (["needs_human_review","duplicate_candidate"].includes(p.ai_review_status || "")) return;
+      if (!isSafePersonSitemapRow(p)) return;
       urls.push(urlTag(`${SITE}/szemelyek/${esc(p.slug)}`, p.updated_at, "weekly", "0.6"));
     });
     if (people.length < 1000) break;
