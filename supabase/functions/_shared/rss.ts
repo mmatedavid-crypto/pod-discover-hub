@@ -131,6 +131,7 @@ function parseRssItem(item: string, channelImage: string): FeedItem {
     getAttr(item, "media:thumbnail", "url") ||
     getAttr(item, "media:content", "url") ||
     channelImage;
+  const duration_seconds = parseItunesDuration(getTag(item, "itunes:duration"));
   return {
     title,
     guid: guid || link || "",
@@ -139,8 +140,10 @@ function parseRssItem(item: string, channelImage: string): FeedItem {
     description: stripHtml(desc),
     audio_url: audio,
     image,
+    duration_seconds,
   };
 }
+
 
 function parseAtomEntry(entry: string, channelImage: string): FeedItem {
   const title = getTag(entry, "title");
