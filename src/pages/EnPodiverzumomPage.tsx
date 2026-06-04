@@ -294,7 +294,19 @@ function FollowedPodcasts() {
   }, [user]);
 
   if (items === null) return <div className="text-muted-foreground text-sm p-4"><Loader2 className="h-4 w-4 animate-spin inline" /></div>;
-  if (items.length === 0) return <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Még nem követsz egy podcastot sem. Bármely podcast-oldalon nyomd meg a 🔔 gombot.</div>;
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+        <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <Bell className="h-4 w-4" />
+        </div>
+        <div className="font-medium text-foreground">Még nem követsz podcastot.</div>
+        <p className="mt-1">
+          Nyiss meg egy műsort, és kapcsold be a követést, hogy itt gyűljenek a kedvenceid.
+        </p>
+      </div>
+    );
+  }
   return (
     <ul className="grid sm:grid-cols-2 gap-3">
       {items.map((p) => {

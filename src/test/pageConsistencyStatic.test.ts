@@ -297,4 +297,14 @@ describe("page consistency static guards", () => {
       expect(source).not.toContain("{p.category}</div>");
     }
   });
+
+  it("keeps empty personal library states aligned with the icon system", () => {
+    const myUniverse = read("src/pages/EnPodiverzumomPage.tsx");
+
+    expect(myUniverse).toContain("<Bell className=\"h-4 w-4\" />");
+    expect(myUniverse).toContain("Még nem követsz podcastot.");
+    expect(myUniverse).toContain("kapcsold be a követést");
+    expect(myUniverse).not.toContain("🔔");
+    expect(myUniverse).not.toContain("nyomd meg a");
+  });
 });
