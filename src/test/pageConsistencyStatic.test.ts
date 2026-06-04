@@ -51,9 +51,11 @@ describe("page consistency static guards", () => {
     expect(topic).toContain("Időtálló epizódok");
     expect(topic).toContain("Kapcsolódó személyek");
     expect(topic).toContain("Kapcsolódó témák");
-    expect(topic).toContain(".select(\"slug, name, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence\")");
+    expect(topic).toContain("function isUnsafeTemporalPerson");
+    expect(topic).toContain("is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count");
     expect(topic).toContain('.eq("is_indexable", true)');
     expect(topic).toContain("const safePeople = ((ppl || []) as any[]).filter");
+    expect(topic).toContain("if (isUnsafeTemporalPerson(p)) return false");
     expect(topic).toContain("p.identity_ambiguous && !p.manual_approved && !trustedWiki");
     expect(topic).toContain("published_at, ai_summary, summary, description");
     expect(topic).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
