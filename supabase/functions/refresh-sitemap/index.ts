@@ -226,6 +226,7 @@ Deno.serve(async (req) => {
       const pages = [
         tag(`${SITE}/`, now, 'daily', '1.0'),
         tag(`${SITE}/toplista`, now, 'daily', '0.9'),
+        tag(`${SITE}/toplista/all-time`, now, 'weekly', '0.9'),
         tag(`${SITE}/szemelyek`, now, 'daily', '0.9'),
         tag(`${SITE}/szervezetek`, now, 'daily', '0.9'),
         tag(`${SITE}/cegek`, now, 'daily', '0.8'),
