@@ -12,7 +12,33 @@ export interface FeedItem {
   description: string;
   audio_url: string;
   image: string;
+  duration_seconds: number | null;
 }
+
+/**
+ * Parse an itunes:duration value. Accepts:
+ *   - "HH:MM:SS" or "H:MM:SS"
+ *   - "MM:SS" or "M:SS"
+ *   - plain seconds: "3725", "3725.0"
+ * Returns null if missing or unparseable.
+ */
+export function parseItunesDuration(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const n = Math.round(parseFloat(s));
+    return n > 0 && n < 86400 * 7 ? n : null;
+  }
+  const parts = s.split(":").map((p) => parseInt(p, 10));
+  if (parts.some((n) => !Number.isFinite(n) || n < 0)) return null;
+  let secs = 0;
+  if (parts.length === 3) secs = parts[0] * 3600 + parts[1] * 60 + parts[2];
+  else if (parts.length === 2) secs = parts[0] * 60 + parts[1];
+  else return null;
+  return secs > 0 && secs < 86400 * 7 ? secs : null;
+}
+
 
 function decodeEntities(s: string): string {
   return s
