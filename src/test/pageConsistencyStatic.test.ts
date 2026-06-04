@@ -104,11 +104,18 @@ describe("page consistency static guards", () => {
     const terms = read("src/pages/TermsPage.tsx");
     const about = read("src/pages/AboutPage.tsx");
     const methodology = read("src/pages/MethodologyPage.tsx");
+    const podcastCard = read("src/components/PodcastCard.tsx");
+    const podcastDetail = read("src/pages/PodcastDetail.tsx");
 
     expect(terms).toContain("saját lejátszóban");
     expect(terms).toContain("eredeti kiadói hangforrás");
     expect(about).toContain("Saját playerrel indítjuk a hallgatást");
     expect(methodology).toContain("A saját lejátszó az eredeti kiadói hangforrást használja");
+    expect(podcastCard).toContain("Megnyitás <ArrowRight");
+    expect(podcastCard).toContain('aria-label="Külső platformok"');
+    expect(podcastCard).toContain('className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-secondary hover:text-foreground"');
+    expect(podcastDetail).toContain("Legfrissebb epizód");
+    expect(podcastDetail).toContain('aria-label="Külső platformok"');
 
     expect(terms).not.toContain("a lejátszáshoz az epizód eredeti platformjára irányít át");
     expect(terms).not.toContain("A meghallgatáshoz a Podiverzum az eredeti kiadó");
