@@ -122,6 +122,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const currentEpisodeRef = useRef<SmartPlayerEpisode | null>(null);
   const autoplayNextRef = useRef<((ep: SmartPlayerEpisode) => void) | null>(null);
   const autoplayHistoryRef = useRef<Set<string>>(new Set());
+  // Crowdsourced duration backfill: session-level dedup.
+  const reportedDurationRef = useRef<Set<string>>(new Set());
   // Tracks whether the most recent pause came from a user action (button,
   // mediaSession, stop) vs. an OS-level interruption (incoming call, route
   // change, headphones unplug, app backgrounded by another media app).
@@ -149,7 +151,32 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     audioRef.current = a;
 
     const onTime = () => setCurrentTime(a.currentTime);
-    const onDur = () => setDuration(a.duration || 0);
+    const onDur = () => {
+      const d = a.duration || 0;
+      setDuration(d);
+      // Crowdsourced backfill: ha az aktuális epizódhoz nincs ismert hossz,
+      // a böngésző által felfedezett értéket elküldjük (session-szintű dedup).
+      try {
+        const ep = currentEpisodeRef.current;
+        if (ep && Number.isFinite(d) && d >= 10 && d <= 43200) {
+          if (!reportedDurationRef.current.has(ep.id)) {
+            reportedDurationRef.current.add(ep.id);
+            void fetch(
+              `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/report-episode-duration`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                },
+                body: JSON.stringify({ episode_id: ep.id, duration_seconds: Math.round(d) }),
+                keepalive: true,
+              },
+            ).catch(() => {});
+          }
+        }
+      } catch {}
+    };
     const onPlay = () => {
       setIsPlaying(true);
       interruptedRef.current = false;
