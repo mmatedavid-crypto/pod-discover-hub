@@ -14,6 +14,18 @@ describe("page consistency static guards", () => {
     expect(app).not.toContain('import NotFound from "./pages/NotFound.tsx"');
   });
 
+  it("keeps stable vendor libraries in cacheable build chunks", () => {
+    const vite = read("vite.config.ts");
+
+    expect(vite).toContain("manualChunks(id)");
+    expect(vite).toContain('return "vendor-react"');
+    expect(vite).toContain('return "vendor-supabase"');
+    expect(vite).toContain('return "vendor-query"');
+    expect(vite).toContain('return "vendor-ui"');
+    expect(vite).toContain('return "vendor-icons"');
+    expect(vite).toContain('return "vendor-motion"');
+  });
+
   it("keeps topic detail pages focused on episodes, people and related topics, not podcast-channel recommendations", () => {
     const topic = read("src/pages/TopicDetailPage.tsx");
 
