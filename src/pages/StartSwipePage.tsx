@@ -1538,7 +1538,13 @@ function ResultView({
       result_title: listenerProfile.name,
       result_subtitle: listenerProfile.recommendedDirection,
       result_description: `${listenerProfile.name} — ${listenerProfile.traits.join(" · ")}`,
-      tags: listenerProfile.traits,
+      tags: Array.from(new Set([
+        ...listenerProfile.traits,
+        ...topInterests,
+        ...topInterestLabels,
+        ...topMoodKeys,
+        ...topicStars.slice(0, 4).map(s => s.label),
+      ])),
       aura_colors: aura.colors.slice(0, 4),
     };
     const res = await fetch(SHARE_FN_URL, {

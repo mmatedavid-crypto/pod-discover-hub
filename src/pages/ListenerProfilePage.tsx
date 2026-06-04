@@ -12,6 +12,7 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListenerReceipt } from "@/components/receipt/ListenerReceipt";
+import { ShareRecommendedEpisodes } from "@/components/share/ShareRecommendedEpisodes";
 import {
   LISTENER_PROFILES,
   profileById,
@@ -183,6 +184,12 @@ export default function ListenerProfilePage() {
                 seed={share.share_id}
               />
             </div>
+
+            <ShareRecommendedEpisodes
+              tags={share.tags}
+              shareId={share.share_id}
+              autoplayTop
+            />
 
             <div className="mt-10 rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-6 text-center md:p-8">
               <div className="text-[10px] uppercase tracking-[0.25em] text-primary">

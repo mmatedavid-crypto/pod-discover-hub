@@ -28,6 +28,91 @@ type Props = {
 
 const LIMIT = 3;
 const PREVIEW_SECONDS = 25;
+const NEWS_LIKE_RX = /\b(hírek|hír|hírösszefoglaló|hírháttér|hírpercek|krónika|infostart|napi hírek|reggeli hírek|esti hírek|friss hírek|news|bulletin)\b/i;
+const BULLETIN_LIKE_RX = /\b(hírek röviden|röviden|hírpercek|hírgyors|napi hírek|friss hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírösszefoglaló|infostart hírek|percben|perces hír|bulletin)\b/i;
+const INTEREST_GROUPS: Record<string, string[]> = {
+  tech: ["tech", "technológia", "technologia", "mi", "ai", "mesterséges intelligencia", "startup", "jövő", "jovo", "digitális", "digitalis"],
+  business: ["gazdaság", "gazdasag", "pénz", "penz", "pénzügy", "penzugy", "üzlet", "uzlet", "business", "befektetés", "befektetes", "tőzsde", "tozsde", "vállalkozás", "vallalkozas", "karrier"],
+  public_affairs: ["közélet", "kozelet", "politika", "hírek", "hirek", "társadalom", "tarsadalom", "geopolitika", "közbeszéd", "kozbeszed"],
+  culture: ["kultúra", "kultura", "film", "mozi", "sorozat", "zene", "könyv", "konyv", "irodalom", "színház", "szinhaz"],
+  science: ["tudomány", "tudomany", "űr", "ur", "kutatás", "kutatas", "természet", "termeszet"],
+  mind: ["pszichológia", "pszichologia", "mentális", "mentalis", "önismeret", "onismeret", "lélek", "lelek"],
+  health: ["egészség", "egeszseg", "életmód", "eletmod", "orvos", "sport", "edzés", "edzes"],
+  crime: ["bűnügy", "bunugy", "true crime", "krimi", "nyomozás", "nyomozas"],
+  travel: ["utazás", "utazas", "világ", "vilag", "külföld", "kulfold"],
+  food: ["gasztronómia", "gasztronomia", "kaja", "étel", "etel", "főzés", "fozes"],
+  humor: ["humor", "standup", "stand-up", "szórakozás", "szorakozas"],
+};
+
+function normalizeInterest(value: string | null | undefined): string {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function interestGroupsForText(value: string | null | undefined): string[] {
+  const text = normalizeInterest(value);
+  if (!text) return [];
+  const groups: string[] = [];
+  for (const [group, terms] of Object.entries(INTEREST_GROUPS)) {
+    if (terms.some((term) => text.includes(normalizeInterest(term)))) groups.push(group);
+  }
+  return groups;
+}
+
+function expandTasteTags(tags: string[]): Set<string> {
+  const out = new Set<string>();
+  for (const tag of tags) {
+    const normalized = normalizeInterest(tag);
+    if (!normalized || normalized.length < 3) continue;
+    out.add(normalized);
+    for (const group of interestGroupsForText(normalized)) {
+      out.add(group);
+      for (const term of INTEREST_GROUPS[group] || []) out.add(normalizeInterest(term));
+    }
+  }
+  return out;
+}
+
+function rowHaystack(r: Row): string {
+  return [
+    r.title,
+    r.display_title,
+    r.podcast_title,
+    r.podcast_display_title,
+    ...(r.topics || []),
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function rowInterestKeys(r: Row): Set<string> {
+  const keys = new Set<string>();
+  for (const value of [rowHaystack(r), ...(r.topics || [])]) {
+    const normalized = normalizeInterest(value);
+    if (normalized.length >= 3) keys.add(normalized);
+    for (const group of interestGroupsForText(value)) keys.add(group);
+  }
+  return keys;
+}
+
+function isBulletinLike(r: Row): boolean {
+  return BULLETIN_LIKE_RX.test(rowHaystack(r)) || /^\s*\d{1,2}\s*[-–—]\s+/.test(r.title || "");
+}
+
+function isNewsLike(r: Row): boolean {
+  return isBulletinLike(r) || NEWS_LIKE_RX.test(rowHaystack(r));
+}
+
+function newsPolicyForTags(tags: string[]): { allowNews: boolean; allowBulletins: boolean } {
+  const expanded = expandTasteTags(tags);
+  const signal = ["public_affairs", "kozelet", "közélet", "politika", "hirek", "hírek", "geopolitika"]
+    .filter((key) => expanded.has(normalizeInterest(key))).length;
+  return {
+    allowNews: signal >= 3,
+    allowBulletins: signal >= 5,
+  };
+}
 
 /**
  * Recommended episodes shown on the public share page.
@@ -70,19 +155,29 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
 
       if (cancelled || !data.length) return;
 
-      const tagSet = new Set((tags ?? []).map((t) => t.toLowerCase()));
-      const scored = (data as any[]).map((r) => {
-        const epTopics: string[] = (r.topics ?? []).map((t: string) => String(t).toLowerCase());
-        const overlap = tagSet.size ? epTopics.filter((t) => tagSet.has(t)).length : 0;
-        return { r, overlap };
+      const inputTags = tags ?? [];
+      const tagSet = expandTasteTags(inputTags);
+      const newsPolicy = newsPolicyForTags(inputTags);
+      const scored = (data as Row[]).map((r, index) => {
+        const keys = rowInterestKeys(r);
+        let overlap = 0;
+        for (const key of keys) if (tagSet.has(key)) overlap += 1;
+        const bulletinPenalty = isBulletinLike(r) ? (newsPolicy.allowBulletins ? -10 : -80) : 0;
+        const newsPenalty = isNewsLike(r) ? (newsPolicy.allowNews ? -3 : -30) : 0;
+        const audioPenalty = r.audio_url ? 0 : -100;
+        const orderScore = Math.max(0, 8 - index / 2);
+        return { r, score: overlap * 20 + orderScore + bulletinPenalty + newsPenalty + audioPenalty };
       });
-      scored.sort((a, b) => b.overlap - a.overlap);
+      scored.sort((a, b) => b.score - a.score);
 
       const picked: Row[] = [];
       const seenPodcasts = new Set<string>();
       for (const s of scored) {
         if (picked.length >= LIMIT) break;
         if (seenPodcasts.has(s.r.podcast_id)) continue;
+        if (!s.r.audio_url) continue;
+        if (!newsPolicy.allowBulletins && isBulletinLike(s.r)) continue;
+        if (!newsPolicy.allowNews && isNewsLike(s.r)) continue;
         picked.push(s.r as Row);
         seenPodcasts.add(s.r.podcast_id);
       }

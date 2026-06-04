@@ -191,6 +191,8 @@ describe("page consistency static guards", () => {
 
   it("keeps Te Podiverzumod sharing link-first so PNG rendering cannot break sharing", () => {
     const startSwipe = read("src/pages/StartSwipePage.tsx");
+    const listenerProfile = read("src/pages/ListenerProfilePage.tsx");
+    const shareRecs = read("src/components/share/ShareRecommendedEpisodes.tsx");
 
     expect(startSwipe).toContain("async function shareProfileLink");
     expect(startSwipe).toContain("await navigator.share(opts)");
@@ -206,6 +208,15 @@ describe("page consistency static guards", () => {
     expect(startSwipe).toContain('lazy(() => import("@/components/SoftAuthCTA")');
     expect(startSwipe).not.toContain('import { EmailCaptureCard }');
     expect(startSwipe).not.toContain('import { SoftAuthCTA }');
+    expect(startSwipe).toContain("...topInterests");
+    expect(startSwipe).toContain("...topInterestLabels");
+    expect(listenerProfile).toContain('import { ShareRecommendedEpisodes } from "@/components/share/ShareRecommendedEpisodes"');
+    expect(listenerProfile).toContain("<ShareRecommendedEpisodes");
+    expect(listenerProfile).toContain("autoplayTop");
+    expect(shareRecs).toContain("function newsPolicyForTags");
+    expect(shareRecs).toContain("expandTasteTags(inputTags)");
+    expect(shareRecs).toContain("!newsPolicy.allowNews && isNewsLike");
+    expect(shareRecs).toContain("!newsPolicy.allowBulletins && isBulletinLike");
 
     const shareBlock = startSwipe.slice(
       startSwipe.indexOf("const handleShare = async () => {"),
