@@ -80,10 +80,23 @@ export default function PersonDetailPage() {
       setNotFound(false);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin")
+        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
+      const historicalWithoutEvidence = Boolean(pp)
+        && (pp.is_deceased === true || pp.is_historical === true)
+        && pp.has_archival_evidence !== true
+        && pp.manual_approved !== true;
+      const hiddenCompanyEponym = Boolean(pp)
+        && typeof pp.editorial_notes === "string"
+        && pp.editorial_notes.includes("hidden_as_company_eponym_without_podcast_person_evidence");
+      if (historicalWithoutEvidence || hiddenCompanyEponym) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+
       const blocked = !pp || !pp.is_public || pp.activation_status === "inactive"
         || ["hide","reject"].includes(pp.ai_recommended_action || "")
         || ["needs_human_review","duplicate_candidate"].includes(pp.ai_review_status || "")

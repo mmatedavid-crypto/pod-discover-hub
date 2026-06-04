@@ -56,6 +56,18 @@ describe("person detail identity safety", () => {
     expect(page).not.toContain('from("people").select("slug, name").eq("is_public", true).in("name", topNames)');
   });
 
+  it("does not resurrect hidden historical or company-eponym people through fallback arrays", () => {
+    const page = read("src/pages/PersonDetailPage.tsx");
+
+    expect(page).toContain("editorial_notes");
+    expect(page).toContain("const historicalWithoutEvidence = Boolean(pp)");
+    expect(page).toContain("const hiddenCompanyEponym = Boolean(pp)");
+    expect(page).toContain("hidden_as_company_eponym_without_podcast_person_evidence");
+    expect(page).toContain("if (historicalWithoutEvidence || hiddenCompanyEponym)");
+    expect(page).toContain("setNotFound(true)");
+    expect(page).toContain('id: `fallback-${decodedSlug}`');
+  });
+
   it("keeps prerendered person SEO identity-safe for ambiguous or historical names", () => {
     const prerender = read("supabase/functions/prerender/index.ts");
 
