@@ -136,6 +136,7 @@ export default function EpisodeDetail() {
             name: e.title,
             description: safeSeoDescription || bestDesc || undefined,
             datePublished: e.published_at || undefined,
+            timeRequired: toIsoDuration(e.duration_seconds) || undefined,
             url: canonical,
             mainEntityOfPage: canonical,
             image: e.image_url || p.image_url || undefined,
@@ -149,7 +150,13 @@ export default function EpisodeDetail() {
               url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
               webFeed: p.rss_url || undefined,
             },
-            associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
+            associatedMedia: e.audio_url
+              ? {
+                  "@type": "AudioObject",
+                  contentUrl: e.audio_url,
+                  duration: toIsoDuration(e.duration_seconds) || undefined,
+                }
+              : undefined,
             hasPart: moments.length
               ? moments.map((m) => ({
                   "@type": "Clip",
