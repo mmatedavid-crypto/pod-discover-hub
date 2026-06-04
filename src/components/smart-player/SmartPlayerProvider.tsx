@@ -149,7 +149,32 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     audioRef.current = a;
 
     const onTime = () => setCurrentTime(a.currentTime);
-    const onDur = () => setDuration(a.duration || 0);
+    const onDur = () => {
+      const d = a.duration || 0;
+      setDuration(d);
+      // Crowdsourced backfill: ha az aktuális epizódhoz nincs ismert hossz,
+      // a böngésző által felfedezett értéket elküldjük (session-szintű dedup).
+      try {
+        const ep = currentEpisodeRef.current;
+        if (ep && Number.isFinite(d) && d >= 10 && d <= 43200 && !ep.durationSec) {
+          if (!reportedDurationRef.current.has(ep.id)) {
+            reportedDurationRef.current.add(ep.id);
+            void fetch(
+              `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/report-episode-duration`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                },
+                body: JSON.stringify({ episode_id: ep.id, duration_seconds: Math.round(d) }),
+                keepalive: true,
+              },
+            ).catch(() => {});
+          }
+        }
+      } catch {}
+    };
     const onPlay = () => {
       setIsPlaying(true);
       interruptedRef.current = false;
