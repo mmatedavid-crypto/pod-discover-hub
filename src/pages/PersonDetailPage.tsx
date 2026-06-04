@@ -36,15 +36,6 @@ interface Person {
   ai_bio_confidence?: number | null;
 }
 
-function huFallbackBio(name: string): string {
-  return `${name} magyar podcast epizódokban előforduló személy. Az alábbi epizódokban kapcsolódó beszélgetések, interjúk vagy említések találhatók.`;
-}
-
-function isFallbackBio(name: string, text?: string | null): boolean {
-  const value = (text || "").trim();
-  return !value || value === huFallbackBio(name) || value.includes("magyar podcast epizódokban előforduló személy");
-}
-
 function hasVerifiedWiki(person: Pick<Person, "wikipedia_match_status">): boolean {
   return person.wikipedia_match_status === "verified";
 }
@@ -53,23 +44,6 @@ function isAmbiguousWithoutTrustedIdentity(person: Person): boolean {
   if (!person.identity_ambiguous) return false;
   if (person.manual_approved) return false;
   if (hasVerifiedWiki(person) && Number(person.wikipedia_match_confidence || 0) >= 0.8) return false;
-  return true;
-}
-
-function isSafeGeneratedBio(person: Person, text?: string | null): boolean {
-  if (person.ai_bio_status && person.ai_bio_status !== "completed") return false;
-  if (isAmbiguousWithoutTrustedIdentity(person)) return false;
-  if (person.ai_bio_confidence != null && Number(person.ai_bio_confidence) < 0.75) return false;
-  return !isFallbackBio(person.name, text);
-}
-
-function isSafeShortBio(person: Person): boolean {
-  if (isFallbackBio(person.name, person.short_bio)) return false;
-  if (isAmbiguousWithoutTrustedIdentity(person)) return false;
-  if (hasVerifiedWiki(person)) return true;
-  const shortBio = String(person.short_bio || "").trim().toLocaleLowerCase("hu-HU");
-  const wikiDescription = String(person.wikipedia_description || "").trim().toLocaleLowerCase("hu-HU");
-  if (wikiDescription && shortBio.includes(wikiDescription)) return false;
   return true;
 }
 
@@ -251,11 +225,6 @@ export default function PersonDetailPage() {
 
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
       const verifiedWiki = (p as any).wikipedia_match_status === "verified" && Number((p as any).wikipedia_match_confidence || 0) >= 0.8;
-      const personForBio = p as any as Person;
-      const bio = (isSafeGeneratedBio(personForBio, (p as any).ai_bio) && (p as any).ai_bio)
-        || (isSafeShortBio(personForBio) && (p as any).short_bio)
-        || (verifiedWiki ? ((p as any).wikipedia_extract || (p as any).wikipedia_description || null) : null)
-        || (!isAmbiguousWithoutTrustedIdentity(personForBio) ? ((p as any).short_description_hu || (p as any).overview_text || null) : null);
       const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
       const thinPage = epList.length < 2;
 
@@ -275,7 +244,7 @@ export default function PersonDetailPage() {
           "@context": "https://schema.org",
           "@type": "Person",
           name: (p as any).name,
-          description: bio || undefined,
+          description: safeDesc,
           url: pageUrl,
           sameAs: (p as any).wikipedia_url ? [(p as any).wikipedia_url] : undefined,
         });
@@ -291,7 +260,7 @@ export default function PersonDetailPage() {
       const personName = (p as any).name;
       const epCount = epList.length;
       const epLabel = epCount > 0 ? ` – ${epCount} podcast epizódban hallható` : "";
-      const descBase = bio?.trim() || safeDesc;
+      const descBase = safeDesc;
       const descSuffix = epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amelyben ${personName} szerepel.` : "";
       const fullDesc = `${descBase}${descSuffix}`.trim();
       setSeo({
@@ -342,15 +311,7 @@ export default function PersonDetailPage() {
   const hasArchivalSection = segments.archival.length > 0;
   const distinctSections = [hasParticipants, hasSubjects, hasMentions, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
-  const verifiedWiki = hasVerifiedWiki(person) && Number(person.wikipedia_match_confidence || 0) >= 0.8;
-  const bioText =
-    (isSafeGeneratedBio(person, person.ai_bio) && person.ai_bio?.trim()) ||
-    (isSafeShortBio(person) && person.short_bio?.trim()) ||
-    (verifiedWiki && person.wikipedia_extract && person.wikipedia_extract.trim()) ||
-    (!isAmbiguousWithoutTrustedIdentity(person) && person.short_description_hu && person.short_description_hu.trim()) ||
-    (!isAmbiguousWithoutTrustedIdentity(person) && person.overview_text && person.overview_text.trim()) ||
-    null;
-  const introText = bioText || personCollectionIntro(person.name, eps.length);
+  const introText = personCollectionIntro(person.name, eps.length);
   const avatarUrl = isAmbiguousWithoutTrustedIdentity(person)
     ? null
     : person.image_url || person.image_original_url || null;
@@ -386,16 +347,10 @@ export default function PersonDetailPage() {
               {identityLabel && (
                 <div className="text-sm text-muted-foreground mt-1">{identityLabel}</div>
               )}
-              {verifiedWiki && !bioText && person.wikipedia_description && (
-                <div className="text-sm text-muted-foreground mt-1 italic">{person.wikipedia_description}</div>
-              )}
               <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{snippet(introText, 320)}</p>
-              {person.wikipedia_url && person.wikipedia_match_status === "verified" && (
+              {avatarUrl && person.image_license && (
                 <div className="text-xs text-muted-foreground mt-3 flex flex-wrap gap-x-3 gap-y-1">
-                  <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">Forrás: Wikipedia</a>
-                  {avatarUrl && person.image_license && (
-                    <span>Fotó: {person.image_attribution || "Wikimedia Commons"}</span>
-                  )}
+                  <span>Fotó: {person.image_attribution || "Wikimedia Commons"}</span>
                 </div>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5 max-w-xl">

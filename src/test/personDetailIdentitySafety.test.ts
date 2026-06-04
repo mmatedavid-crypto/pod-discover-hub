@@ -22,8 +22,13 @@ describe("person detail identity safety", () => {
 
     expect(page).toContain("personCollectionIntro");
     expect(page).toContain("Podcastokban");
+    expect(page).toContain("const introText = personCollectionIntro(person.name, eps.length)");
+    expect(page).toContain("description: safeDesc");
     expect(page).not.toContain('text-primary">Személy</div>');
     expect(page).not.toContain("(eps.length > 0 ? huFallbackBio(person.name) : null)");
+    expect(page).not.toContain("Forrás: Wikipedia");
+    expect(page).not.toContain("const bioText =");
+    expect(page).not.toContain("description: bio || undefined");
   });
 
   it("keeps person episode lists open to accepted Hungarian shows and AI-summary aware", () => {
