@@ -150,4 +150,81 @@ describe("recommendationGuards", () => {
 
     expect(rows[0].title).toBe("Mi történik Mészáros Lőrinc cégeivel?");
   });
+
+  it("does not bridge public affairs to business by vector score alone", () => {
+    const source = {
+      title: "Mészáros Lőrinc tündöklése és részvényeinek látványos zuhanása",
+      podcastTitle: "Puzsér Róbert",
+      category: "Society & Culture",
+      topics: ["közélet", "politika"],
+      people: ["Mészáros Lőrinc"],
+      companies: [],
+    };
+
+    const candidate = {
+      title: "Árfolyamok, részvények és befektetési ötletek",
+      podcastTitle: "Üzleti podcast",
+      category: "Business",
+      topics: ["befektetés", "tőzsde"],
+      people: [],
+      companies: [],
+      similarity: 0.96,
+    };
+
+    expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
+  });
+
+  it("allows public affairs and business only with an explicit shared entity bridge", () => {
+    const source = {
+      title: "Mészáros Lőrinc részvényeinek látványos zuhanása",
+      podcastTitle: "Puzsér Róbert",
+      category: "Society & Culture",
+      topics: ["közélet", "politika"],
+      people: ["Mészáros Lőrinc"],
+      companies: ["Opus"],
+    };
+
+    const candidate = {
+      title: "Opus és a magyar tőzsde mozgása",
+      podcastTitle: "Üzleti podcast",
+      category: "Business",
+      topics: ["tőzsde"],
+      people: [],
+      companies: ["Opus"],
+      similarity: 0.41,
+    };
+
+    expect(isSafeRelatedEpisode(source, candidate)).toBe(true);
+  });
+
+  it("blocks sport and kids jumps without an explicit bridge even at very high similarity", () => {
+    const source = {
+      title: "Magyar Péter és a kormány gazdaságpolitikája",
+      podcastTitle: "Közéleti műsor",
+      category: "News & Politics",
+      topics: ["közélet", "politika"],
+      people: ["Magyar Péter"],
+      companies: [],
+    };
+
+    expect(isSafeRelatedEpisode(source, {
+      title: "Válogatott meccs előzetes",
+      podcastTitle: "Foci podcast",
+      category: "Sports",
+      topics: ["futball"],
+      people: [],
+      companies: [],
+      similarity: 0.98,
+    })).toBe(false);
+
+    expect(isSafeRelatedEpisode(source, {
+      title: "Esti mese gyerekeknek",
+      podcastTitle: "Meserádió",
+      category: "Kids & Family",
+      topics: ["mese"],
+      people: [],
+      companies: [],
+      similarity: 0.98,
+    })).toBe(false);
+  });
 });

@@ -35,9 +35,12 @@ const GROUPS = {
   },
   related_episode_quality: {
     label: "Related episode quality guard",
-    migrations: ["supabase/migrations/20260603165000_related_episode_quality_consolidated.sql"],
+    migrations: [
+      "supabase/migrations/20260603165000_related_episode_quality_consolidated.sql",
+      "supabase/migrations/20260604001000_recommendation_compatibility_v4.sql",
+    ],
     functions: [],
-    why: "Smart player / hasonló epizód ne ajánljon vallási tartalmat közéleti botrányhoz csak kulcsszóegyezés miatt.",
+    why: "Smart player / hasonló epizód ne ajánljon más szerkesztési világot puszta vektor alapján; explicit téma/személy/cég híd kell.",
   },
   people_hub_identity_safety: {
     label: "People hub identity safety",

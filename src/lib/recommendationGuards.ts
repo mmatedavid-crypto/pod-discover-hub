@@ -18,14 +18,16 @@ const CHILDREN_RE =
   /\b(kids|family|children|child|bedtime|story|stories|mese|meseradio|meseradio|meserádió|gyerek|gyermek|gyerekek|ovis|ovodas|óvodás|altato|altató|tunder|tündér|baba|babak|babák|csaladi mese|esti mese)\b/i;
 
 const BUSINESS_RE =
-  /\b(uzlet|üzlet|business|gazdasag|gazdaság|penz|pénz|tozsde|tőzsde|befektetes|befektetés|milliardos|milliárdos|ceg|cég|vallalkozas|vállalkozás|ingatlan|karrier|menedzsment)\b/i;
+  /\b(uzlet|üzlet|business|gazdasag|gazdaság|penz|pénz|tozsde|tőzsde|befektetes|befektetés|milliardos|milliárdos|ceg|cég|vallalkozas|vállalkozás|ingatlan|karrier|menedzsment|reszveny|részvény|arfolyam|árfolyam|bank|startup)\b/i;
 
 const PUBLIC_AFFAIRS_RE =
-  /\b(kozelet|közélet|politika|politics|hirek|hírek|tarsadalom|társadalom|interju|interjú|kozbeszed|közbeszéd|orban|orbán|meszaros|mészáros|fidesz|tisza|kormany|kormány|parlament|part|párt|valasztas|választás|puzser|puzsér)\b/i;
+  /\b(kozelet|közélet|politika|politics|hirek|hírek|tarsadalom|társadalom|interju|interjú|kozbeszed|közbeszéd|orban|orbán|meszaros|mészáros|fidesz|tisza|kormany|kormány|parlament|part|párt|valasztas|választás|puzser|puzsér|miniszter|ellenzek|ellenzék|onkormanyzat|önkormányzat|hatalom|ner|oligarcha)\b/i;
 
 const HEALTH_RE = /\b(egeszseg|egészség|orvos|pszicho|mentalis|mentális|eletmod|életmód|sport)\b/i;
 const RELIGION_RE =
   /\b(religion|spirituality|spiritual|faith|christian|church|sermon|prayer|gospel|vallas|vallás|hit|kereszteny|keresztény|isten|biblia|egyhaz|egyház|istentisztelet|igehirdetes|igehirdetés|prédikáció|predikacio|katolikus|reformatus|református|baptista|evangelium|evangélium|ahitat|áhítat)\b/i;
+const SPORTS_RE = /\b(sport|foci|futball|labdarugas|labdarúgás|nb1|valogatott|válogatott|meccs|bl|forma-1|formula|kosar|kézilabda|kezilabda|tenisz|cycling|bringa)\b/i;
+const ENTERTAINMENT_RE = /\b(film|mozi|sorozat|zene|kultura|kultúra|szinhaz|színház|standup|stand-up|humor|gaming|jatek|játék|celebrity|bulvar|bulvár)\b/i;
 
 function normalizeText(value: string | null | undefined): string {
   return (value || "")
@@ -52,10 +54,14 @@ function haystack(ctx: RecommendationContext): string {
 function group(ctx: RecommendationContext): string {
   const text = haystack(ctx);
   if (CHILDREN_RE.test(text)) return "children";
-  if (BUSINESS_RE.test(text)) return "business";
+  // Public-affairs has to win over words like "Isten" or "részvény" when the
+  // episode is about power, politics or public figures.
   if (PUBLIC_AFFAIRS_RE.test(text)) return "public_affairs";
-  if (HEALTH_RE.test(text)) return "health";
   if (RELIGION_RE.test(text)) return "religion";
+  if (BUSINESS_RE.test(text)) return "business";
+  if (SPORTS_RE.test(text)) return "sports";
+  if (HEALTH_RE.test(text)) return "health";
+  if (ENTERTAINMENT_RE.test(text)) return "entertainment";
   return "general";
 }
 
@@ -120,18 +126,25 @@ export function isSafeRelatedEpisode(
   if ((sourceGroup === "religion") !== (candidateGroup === "religion")) return false;
 
   if (sourceGroup !== "general" && candidateGroup !== "general" && sourceGroup !== candidateGroup) {
-    return bridged || similarity >= 0.72;
+    // Different editorial worlds need an explicit topic/person/company bridge.
+    // Pure vector score is not trusted enough here: bad descriptions and shared
+    // generic words can otherwise connect politics, sermons, sport and kids.
+    return bridged;
   }
 
   if (sourceGroup !== "general" && candidateGroup === "general") {
-    return bridged || similarity >= 0.66;
+    return bridged || similarity >= 0.74;
   }
 
   if (candidateGroup !== "general" && sourceGroup === "general") {
-    return bridged || similarity >= 0.66;
+    return bridged || similarity >= 0.74;
   }
 
-  return bridged || similarity >= 0.56 || sourceGroup === candidateGroup;
+  if (sourceGroup !== "general" && sourceGroup === candidateGroup) {
+    return bridged || similarity >= 0.58;
+  }
+
+  return bridged || similarity >= 0.62;
 }
 
 export function filterSafeRelatedEpisodes<T extends RecommendationCandidate>(

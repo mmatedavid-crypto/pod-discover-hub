@@ -207,11 +207,14 @@ SELECT jsonb_build_object(
     'compatibility_function_exists', to_regprocedure('public.recommendation_is_compatible(text,text,double precision,boolean)') IS NOT NULL,
     'text_group_function_exists', to_regprocedure('public.recommendation_text_group(text,text,text,text[])') IS NOT NULL,
     'topic_bridge_function_exists', to_regprocedure('public.recommendation_has_topic_bridge(text[],text[])') IS NOT NULL,
-    'policy_configured_v3', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 3 FROM settings),
+    'policy_configured_v4', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 4 FROM settings),
     'religion_cross_group_hard_block_recorded', (SELECT setting_values->'related_episode_quality_policy'->>'religion_cross_group' = 'hard_block' FROM settings),
+    'different_specific_groups_require_bridge_recorded', (SELECT setting_values->'related_episode_quality_policy'->>'different_specific_groups' = 'explicit_bridge_required' FROM settings),
     'political_context_override_recorded', (SELECT setting_values->'related_episode_quality_policy' ? 'public_affairs_override_terms' FROM settings),
     'public_affairs_title_with_isten_runtime_grouped', false,
-    'religion_cross_group_runtime_blocked', false
+    'religion_cross_group_runtime_blocked', false,
+    'cross_world_vector_without_bridge_blocked', false,
+    'cross_world_with_entity_bridge_allowed', false
   ),
   'people_hub_identity_safety', jsonb_build_object(
     'policy_configured_v2', (SELECT (setting_values->'people_hub_identity_safety_policy'->>'version')::int >= 2 FROM settings),
@@ -317,6 +320,10 @@ if (snapshot.related_episode_quality?.compatibility_function_exists === true) {
       SELECT jsonb_build_object(
         'religion_cross_group_runtime_blocked',
         public.recommendation_is_compatible('public_affairs', 'religion', 0.99::double precision, true) = false,
+        'cross_world_vector_without_bridge_blocked',
+        public.recommendation_is_compatible('public_affairs', 'business', 0.96::double precision, false) = false,
+        'cross_world_with_entity_bridge_allowed',
+        public.recommendation_is_compatible('public_affairs', 'business', 0.41::double precision, true) = true,
         'public_affairs_title_with_isten_runtime_grouped',
         public.recommendation_text_group(
           'Mészáros Lőrinc tündöklése és részvényeinek látványos zuhanása: Isten, Orbán, Andi és a balszerencse',
@@ -335,6 +342,8 @@ if (snapshot.related_episode_quality?.compatibility_function_exists === true) {
     snapshot.related_episode_quality = {
       ...snapshot.related_episode_quality,
       religion_cross_group_runtime_blocked: false,
+      cross_world_vector_without_bridge_blocked: false,
+      cross_world_with_entity_bridge_allowed: false,
       public_affairs_title_with_isten_runtime_grouped: false,
       runtime_check_error: e instanceof Error ? e.message : String(e),
     };
