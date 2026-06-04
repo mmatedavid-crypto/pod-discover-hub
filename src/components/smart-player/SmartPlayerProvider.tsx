@@ -122,6 +122,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const currentEpisodeRef = useRef<SmartPlayerEpisode | null>(null);
   const autoplayNextRef = useRef<((ep: SmartPlayerEpisode) => void) | null>(null);
   const autoplayHistoryRef = useRef<Set<string>>(new Set());
+  // Crowdsourced duration backfill: session-level dedup.
+  const reportedDurationRef = useRef<Set<string>>(new Set());
   // Tracks whether the most recent pause came from a user action (button,
   // mediaSession, stop) vs. an OS-level interruption (incoming call, route
   // change, headphones unplug, app backgrounded by another media app).
@@ -156,7 +158,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       // a böngésző által felfedezett értéket elküldjük (session-szintű dedup).
       try {
         const ep = currentEpisodeRef.current;
-        if (ep && Number.isFinite(d) && d >= 10 && d <= 43200 && !ep.durationSec) {
+        if (ep && Number.isFinite(d) && d >= 10 && d <= 43200) {
           if (!reportedDurationRef.current.has(ep.id)) {
             reportedDurationRef.current.add(ep.id);
             void fetch(
