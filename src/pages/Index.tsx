@@ -563,9 +563,11 @@ const Index = () => {
 
   useEffect(() => {
     auditHomepageRail("most_erdemes", trendingEps);
+    auditHomepageRail("kikapcsolodas", lightEps);
     auditHomepageRail("idotallo", evergreenEps);
     Object.entries(epsByCat).forEach(([name, items]) => auditHomepageRail(`category:${name}`, items));
-  }, [trendingEps, evergreenEps, epsByCat]);
+  }, [trendingEps, lightEps, evergreenEps, epsByCat]);
+
 
   return (
     <Layout>
