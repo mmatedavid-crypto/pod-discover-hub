@@ -31,7 +31,10 @@ function parseTime(raw: string): number | null {
 
 function cleanTitle(raw: string): string {
   return raw
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/www\.\S+/gi, "")
     .replace(/^\s*[-–—•|)\].:]+\s*/, "")
+    .replace(/[⁠\u200b\u200c\u200d]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
