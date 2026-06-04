@@ -72,6 +72,7 @@ const CompaniesHubPage = lazy(() => import("./pages/CompaniesHubPage.tsx"));
 const PodcastReport2026 = lazy(() => import("./pages/PodcastReport2026.tsx"));
 const PartiesHubPage = lazy(() => import("./pages/PartiesHubPage.tsx"));
 const ToplistaPage = lazy(() => import("./pages/ToplistaPage.tsx"));
+const ToplistaAllTimePage = lazy(() => import("./pages/ToplistaAllTimePage.tsx"));
 const IntelligencePage = lazy(() => import("./pages/IntelligencePage.tsx"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage.tsx"));
 const TermsPage = lazy(() => import("./pages/TermsPage.tsx"));
@@ -225,6 +226,7 @@ const App = () => (
           <Route path="/b2b" element={<Navigate to="/intelligence" replace />} />
           <Route path="/mediafigyeles" element={<Navigate to="/intelligence" replace />} />
           <Route path="/toplista" element={<ToplistaPage />} />
+          <Route path="/toplista/all-time" element={<ToplistaAllTimePage />} />
           <Route path="/toplist" element={<Navigate to="/toplista" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
