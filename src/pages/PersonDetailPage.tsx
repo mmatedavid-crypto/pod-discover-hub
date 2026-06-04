@@ -73,6 +73,13 @@ function isSafeShortBio(person: Person): boolean {
   return true;
 }
 
+function personCollectionIntro(name: string, count: number): string {
+  if (count > 0) {
+    return `${name} kapcsolódó magyar podcast epizódjai egy helyen: beszélgetések, interjúk és említések a Podiverzum katalógusából.`;
+  }
+  return `${name} kapcsolódó magyar podcast epizódjai hamarosan megjelennek a Podiverzum katalógusában.`;
+}
+
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
@@ -344,7 +351,8 @@ export default function PersonDetailPage() {
     (verifiedWiki && person.wikipedia_extract && person.wikipedia_extract.trim()) ||
     (!isAmbiguousWithoutTrustedIdentity(person) && person.short_description_hu && person.short_description_hu.trim()) ||
     (!isAmbiguousWithoutTrustedIdentity(person) && person.overview_text && person.overview_text.trim()) ||
-    (eps.length > 0 ? huFallbackBio(person.name) : null);
+    null;
+  const introText = bioText || personCollectionIntro(person.name, eps.length);
   const avatarUrl = isAmbiguousWithoutTrustedIdentity(person)
     ? null
     : person.image_url || person.image_original_url || null;
@@ -375,7 +383,7 @@ export default function PersonDetailPage() {
           <div className="flex flex-col sm:flex-row items-start gap-6">
             <PersonAvatar name={person.name} size="xl" imageUrl={avatarUrl} />
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Személy</div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Podcastokban</div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{person.name}</h1>
               {identityLabel && (
                 <div className="text-sm text-muted-foreground mt-1">{identityLabel}</div>
@@ -383,9 +391,7 @@ export default function PersonDetailPage() {
               {verifiedWiki && !bioText && person.wikipedia_description && (
                 <div className="text-sm text-muted-foreground mt-1 italic">{person.wikipedia_description}</div>
               )}
-              {bioText && (
-                <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{snippet(bioText, 320)}</p>
-              )}
+              <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{snippet(introText, 320)}</p>
               {person.wikipedia_url && person.wikipedia_match_status === "verified" && (
                 <div className="text-xs text-muted-foreground mt-3 flex flex-wrap gap-x-3 gap-y-1">
                   <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">Forrás: Wikipedia</a>
