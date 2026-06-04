@@ -96,7 +96,7 @@ export function PersonalizedHomeRails() {
               </div>
               <h2 className="text-xl sm:text-2xl font-semibold">Neked ajánljuk</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                A hallgatási előzményeid alapján szemantikailag legközelebbi epizódok.
+                A korábbi hallgatásaidhoz és érdeklődéseidhez közel álló epizódok.
               </p>
             </div>
           </div>

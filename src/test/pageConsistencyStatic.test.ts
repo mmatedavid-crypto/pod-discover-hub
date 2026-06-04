@@ -215,6 +215,7 @@ describe("page consistency static guards", () => {
     const bar = read("src/components/smart-player/SmartPlayerBar.tsx");
     const similar = read("src/components/SimilarEpisodes.tsx");
     const config = read("src/components/smart-player/recommendationsConfig.ts");
+    const personalizedHome = read("src/components/home/PersonalizedHomeRails.tsx");
 
     expect(related).toContain("Tartalmi kapcsolat");
     expect(related).toContain("Keressük a kapcsolódó epizódokat");
@@ -222,8 +223,10 @@ describe("page consistency static guards", () => {
     expect(bar).toContain("Kapcsolódó epizódok és értékelés");
     expect(config).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED = false");
     expect(similar).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null");
+    expect(personalizedHome).toContain("A korábbi hallgatásaidhoz és érdeklődéseidhez közel álló epizódok.");
+    expect(personalizedHome).not.toContain("szemantikailag");
 
-    for (const source of [related, discovery, bar]) {
+    for (const source of [related, discovery, bar, personalizedHome]) {
       expect(source).not.toContain("AI vektor");
       expect(source).not.toContain("vektor-index");
       expect(source).not.toContain("AI ajánlások");
