@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from "framer-motion";
 import { Heart, X, Sparkles, RotateCcw, ArrowRight, Share2, Play, Star, ThumbsUp } from "lucide-react";
@@ -13,8 +13,6 @@ import { ARCHETYPES, pickArchetype, archetypeConfidence } from "@/lib/tasteArche
 import { buildAura, buildConstellation, buildVerdict, buildPdvCode, buildElement } from "@/lib/podiverzumProfile";
 import { isCompletedTasteProgress, shouldCompleteTasteProfile, tasteProgressCopy } from "@/lib/tasteCompletion";
 import { toast } from "sonner";
-import { SoftAuthCTA } from "@/components/SoftAuthCTA";
-import { EmailCaptureCard } from "@/components/EmailCaptureCard";
 import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 import { ListenerReceipt } from "@/components/receipt/ListenerReceipt";
@@ -81,6 +79,9 @@ type SwipeAction = "like" | "skip" | "super";
 const STORAGE_KEY = "podiverzum_taste_v1";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://yoxewklaybougzpmzvkg.supabase.co";
 const SHARE_FN_URL = `${SUPABASE_URL}/functions/v1/te-podiverzumod-share`;
+
+const EmailCaptureCard = lazy(() => import("@/components/EmailCaptureCard").then((m) => ({ default: m.EmailCaptureCard })));
+const SoftAuthCTA = lazy(() => import("@/components/SoftAuthCTA").then((m) => ({ default: m.SoftAuthCTA })));
 
 type Persisted = {
   sessionId: string;
@@ -1854,23 +1855,25 @@ function ResultView({
         </div>
       )}
 
-      <EmailCaptureCard archetypeSlug={archetype.id} />
+      <Suspense fallback={null}>
+        <EmailCaptureCard archetypeSlug={archetype.id} />
 
-      <SoftAuthCTA
-        archetypeSlug={archetype.id}
-        archetypeResult={{
-          name: archetype.name,
-          result_type: listenerProfile.id,
-          result_title: listenerProfile.name,
-          result_subtitle: listenerProfile.recommendedDirection,
-          result_description: `${listenerProfile.name} — ${listenerProfile.traits.join(" · ")}`,
-          tags: topInterestLabels,
-          element: element.key,
-          aura: aura.essence,
-          topInterests,
-          pdvCode,
-        }}
-      />
+        <SoftAuthCTA
+          archetypeSlug={archetype.id}
+          archetypeResult={{
+            name: archetype.name,
+            result_type: listenerProfile.id,
+            result_title: listenerProfile.name,
+            result_subtitle: listenerProfile.recommendedDirection,
+            result_description: `${listenerProfile.name} — ${listenerProfile.traits.join(" · ")}`,
+            tags: topInterestLabels,
+            element: element.key,
+            aura: aura.essence,
+            topInterests,
+            pdvCode,
+          }}
+        />
+      </Suspense>
 
       <div className="text-center text-xs text-muted-foreground">
         {liked.length} ❤ {superLiked.length > 0 && <>· <span className="text-primary">{superLiked.length} ⭐</span> </>}· {disliked.length} ❌ — a profilod helyben tárolódik

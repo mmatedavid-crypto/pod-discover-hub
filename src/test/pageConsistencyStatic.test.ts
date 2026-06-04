@@ -74,6 +74,10 @@ describe("page consistency static guards", () => {
     expect(startSwipe).toContain("const blob = await renderReceiptPng(receiptRef.current, \"story\")");
     expect(startSwipe).not.toContain("shareReceipt");
     expect(startSwipe).not.toContain('from "@/lib/receiptImage"');
+    expect(startSwipe).toContain('lazy(() => import("@/components/EmailCaptureCard")');
+    expect(startSwipe).toContain('lazy(() => import("@/components/SoftAuthCTA")');
+    expect(startSwipe).not.toContain('import { EmailCaptureCard }');
+    expect(startSwipe).not.toContain('import { SoftAuthCTA }');
 
     const shareBlock = startSwipe.slice(
       startSwipe.indexOf("const handleShare = async () => {"),
