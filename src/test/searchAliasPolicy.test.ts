@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { expandSimple, MATCH_LABEL, normalizeQuery } from "@/lib/search";
+import { canonicalEntityValue, entitySlug, matchesEntitySlug } from "@/lib/entity";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
@@ -13,6 +14,16 @@ describe("Hungarian search alias policy", () => {
     expect(expandSimple("ftc")).toEqual(expect.arrayContaining(["Fradi", "Ferencváros"]));
     expect(expandSimple("foci")).toEqual(expect.arrayContaining(["labdarúgás", "futball"]));
     expect(expandSimple("labdarugas")).toEqual(expect.arrayContaining(["labdarúgás", "foci", "futball"]));
+  });
+
+  it("canonicalizes important Hungarian organization aliases for public entity links", () => {
+    expect(canonicalEntityValue("company", "MTEL")).toBe("Magyar Telekom");
+    expect(canonicalEntityValue("company", "MTELEKOM")).toBe("Magyar Telekom");
+    expect(canonicalEntityValue("company", "Fradi")).toBe("Ferencvárosi Torna Club");
+    expect(canonicalEntityValue("company", "FTC")).toBe("Ferencvárosi Torna Club");
+    expect(entitySlug("company", "Fradi")).toBe("ferencvarosi-torna-club");
+    expect(matchesEntitySlug("company", "FTC", "ferencvarosi-torna-club")).toBe(true);
+    expect(matchesEntitySlug("company", "MTEL", "magyar-telekom")).toBe(true);
   });
 
   it("keeps public match labels Hungarian", () => {

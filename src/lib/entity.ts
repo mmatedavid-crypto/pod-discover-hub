@@ -137,9 +137,47 @@ const TOPIC_ALIASES: Record<string, string> = {
   "true crime": "True crime",
 };
 
+const COMPANY_ALIASES: Record<string, string> = {
+  telekom: "Magyar Telekom",
+  "magyar telekom": "Magyar Telekom",
+  mtelekom: "Magyar Telekom",
+  mtel: "Magyar Telekom",
+  "magyar telekom nyrt": "Magyar Telekom",
+  "deutsche telekom magyarorszag": "Magyar Telekom",
+  ftc: "Ferencvárosi Torna Club",
+  fradi: "Ferencvárosi Torna Club",
+  ferencvaros: "Ferencvárosi Torna Club",
+  "ferencvarosi torna club": "Ferencvárosi Torna Club",
+  "ferencvarosi tc": "Ferencvárosi Torna Club",
+  otp: "OTP Bank",
+  "otp bank": "OTP Bank",
+  "otp nyrt": "OTP Bank",
+  mol: "MOL",
+  "mol nyrt": "MOL",
+  "mol magyar olaj": "MOL",
+  richter: "Richter Gedeon",
+  "richter gedeon": "Richter Gedeon",
+  "gedeon richter": "Richter Gedeon",
+  "4ig": "4iG",
+  "4ig nyrt": "4iG",
+  mav: "MÁV",
+  "mav csoport": "MÁV",
+  "mav-start": "MÁV",
+  "mav start": "MÁV",
+  bkk: "BKK",
+  "budapesti kozlekedesi kozpont": "BKK",
+  "budapesti közlekedési központ": "BKK",
+  mvm: "MVM",
+  "mvm csoport": "MVM",
+  "magyar villamos muvek": "MVM",
+  "magyar villamos művek": "MVM",
+};
+
 export function canonicalEntityValue(kind: EntityKind, value: string): string {
-  if (kind !== "topic") return value.trim();
-  return TOPIC_ALIASES[norm(value)] || value.trim();
+  const clean = value.trim();
+  if (kind === "topic") return TOPIC_ALIASES[norm(value)] || clean;
+  if (kind === "company") return COMPANY_ALIASES[norm(value)] || clean;
+  return clean;
 }
 
 export function entitySlug(kind: EntityKind, value: string): string {
