@@ -58,6 +58,7 @@ describe("production policy static guards", () => {
       "20260603164000_article_pipeline_consolidated.sql",
       "20260603111500_news_sitemap_fast_refresh_cron.sql",
       "20260603221000_news_sitemap_gsc_connector_gateway.sql",
+      "20260604094229_reassert_news_sitemap_gsc_connector.sql",
       "20260603162000_public_ai_language_guard_consolidated.sql",
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260604001000_recommendation_compatibility_v4.sql",
@@ -118,9 +119,11 @@ describe("production policy static guards", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
     const migration = read("supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql");
     const connectorMigration = read("supabase/migrations/20260603221000_news_sitemap_gsc_connector_gateway.sql");
+    const connectorReassertMigration = read("supabase/migrations/20260604094229_reassert_news_sitemap_gsc_connector.sql");
 
     expect(fn).toContain("submitGoogleSearchConsoleSitemap");
     expect(fn).toContain("https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/");
+    expect(fn).toContain("method: 'POST'");
     expect(fn).toContain("LOVABLE_API_KEY");
     expect(fn).toContain("GOOGLE_SEARCH_CONSOLE_API_KEY");
     expect(fn).toContain("X-Connection-Api-Key");
@@ -166,6 +169,10 @@ describe("production policy static guards", () => {
     expect(connectorMigration).toContain("GOOGLE_SEARCH_CONSOLE_API_KEY");
     expect(connectorMigration).toContain("requires_google_secrets");
     expect(connectorMigration).not.toContain("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY");
+    expect(connectorReassertMigration).toContain("lovable_google_search_console_connector_gateway");
+    expect(connectorReassertMigration).toContain("requires_connector_secrets");
+    expect(connectorReassertMigration).toContain("- 'requires_google_secrets'");
+    expect(connectorReassertMigration).not.toContain("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY");
   });
 
   it("keeps root sitemap XMLs served through the Cloudflare worker with fresh news cache", () => {

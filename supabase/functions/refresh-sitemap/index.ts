@@ -110,7 +110,7 @@ async function submitGoogleSearchConsoleSitemap(feedpath: string): Promise<Googl
   const siteUrl = Deno.env.get('GOOGLE_SEARCH_CONSOLE_SITE_URL') || 'sc-domain:podiverzum.hu';
   const endpoint = `https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}`;
   const res = await fetch(endpoint, {
-    method: 'PUT',
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${lovableKey}`,
       'X-Connection-Api-Key': connectionKey,

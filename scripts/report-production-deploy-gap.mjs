@@ -23,6 +23,7 @@ const GROUPS = {
     migrations: [
       "supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql",
       "supabase/migrations/20260603221000_news_sitemap_gsc_connector_gateway.sql",
+      "supabase/migrations/20260604094229_reassert_news_sitemap_gsc_connector.sql",
     ],
     functions: ["refresh-sitemap"],
     why: "15 percenként friss news sitemap, Google submit csak új news URL esetén.",
