@@ -270,6 +270,9 @@ describe("page consistency static guards", () => {
     }
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_description)");
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_title)");
+    expect(podcast).toContain("pickEpisodeDescription(e, 220)");
+    expect(podcast).toContain("id,title,display_title,slug,published_at,ai_summary,summary,description");
+    expect(podcast).not.toContain("snippet(stripHtml(e.summary || e.description), 220)");
     expect(category).toContain("sanitizeHungarianPublicText(c.seo_title)");
     expect(category).toContain("sanitizeHungarianPublicText(c.seo_description)");
     expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");

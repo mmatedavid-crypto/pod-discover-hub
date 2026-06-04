@@ -20,6 +20,7 @@ import { PodcastFollow } from "@/components/PodcastFollow";
 import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { pickEpisodeDescription } from "@/lib/episodeText";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
@@ -30,7 +31,7 @@ async function fetchAllEpisodes(podcastId: string) {
   for (let i = 0; i < 20; i++) {
     const { data, error } = await supabase
       .from("episodes")
-      .select("id,title,display_title,slug,published_at,summary,description,audio_url,image_url,episode_url,topics,people,companies,tickers,ingredients")
+      .select("id,title,display_title,slug,published_at,ai_summary,summary,description,audio_url,image_url,episode_url,topics,people,companies,tickers,ingredients")
       .eq("podcast_id", podcastId)
       .order("published_at", { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1);
@@ -442,6 +443,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               const thumb = e.image_url || podcast.image_url || null;
               const isCurrent = currentEpisode?.id === e.id;
               const isThisPlaying = isCurrent && isPlaying;
+              const publicDescription = pickEpisodeDescription(e, 220);
               const handlePlay = () => {
                 if (!playerAudioUrl) return;
                 if (isCurrent) {
@@ -500,8 +502,8 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
                         <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-2 items-center">
                           {e.published_at && <span title={new Date(e.published_at).toLocaleString()}>{relativeTime(e.published_at)}</span>}
                         </div>
-                        {(e.summary || e.description) && (
-                          <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">{snippet(stripHtml(e.summary || e.description), 220)}</p>
+                        {publicDescription && (
+                          <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">{publicDescription}</p>
                         )}
                       </Link>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
