@@ -70,23 +70,40 @@ Deno.serve(async (req) => {
   try {
     const supa = createClient(SB_URL, SB_SR)
 
-    // Pull a diverse sample: Telex After + Telex Podcast + Partizán + a few random HU shows with spotify_episode_id
-    const { data: samples, error } = await supa
+    // Two-step fetch since FK not declared
+    const { data: meta, error: e1 } = await supa
       .from('episode_spotify_meta')
-      .select('episode_id, spotify_episode_id, episodes!inner(id, title, podcast_id, podcasts!inner(id, title, language, rss_url))')
+      .select('episode_id, spotify_episode_id')
       .not('spotify_episode_id', 'is', null)
-      .limit(40)
+      .limit(200)
+    if (e1) throw e1
 
-    if (error) throw error
+    const epIds = (meta ?? []).map((m: any) => m.episode_id)
+    const { data: eps, error: e2 } = await supa
+      .from('episodes')
+      .select('id, title, podcast_id, podcasts!inner(id, title, language)')
+      .in('id', epIds)
+      .ilike('podcasts.language', 'hu%')
+      .limit(200)
+    if (e2) throw e2
 
-    // Filter HU podcasts and dedupe per podcast (max 4 per show), prioritize Telex/Partizán
-    const huOnly = (samples ?? []).filter((s: any) => (s.episodes?.podcasts?.language || '').toLowerCase().startsWith('hu'))
+    const metaById: Record<string, string> = {}
+    for (const m of meta ?? []) metaById[m.episode_id] = m.spotify_episode_id
+
+    // dedupe per podcast (max 3), prefer Telex / Partizán
+    const preferred = (t: string) => /telex|partizán|partizan|444|index|mindset|24\.hu/i.test(t || '')
+    const sorted = (eps ?? []).sort((a: any, b: any) =>
+      Number(preferred(b.podcasts?.title)) - Number(preferred(a.podcasts?.title))
+    )
     const perPodcast: Record<string, number> = {}
     const picks: any[] = []
-    for (const s of huOnly) {
-      const pid = s.episodes.podcast_id
+    for (const e of sorted) {
+      const pid = e.podcast_id
       perPodcast[pid] = (perPodcast[pid] || 0) + 1
-      if (perPodcast[pid] <= 3) picks.push(s)
+      if (perPodcast[pid] <= 3) picks.push({
+        episodes: e,
+        spotify_episode_id: metaById[e.id],
+      })
       if (picks.length >= 20) break
     }
 
