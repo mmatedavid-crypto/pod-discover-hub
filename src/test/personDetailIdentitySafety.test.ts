@@ -25,4 +25,14 @@ describe("person detail identity safety", () => {
     expect(page).not.toContain('text-primary">Személy</div>');
     expect(page).not.toContain("(eps.length > 0 ? huFallbackBio(person.name) : null)");
   });
+
+  it("keeps person episode lists open to accepted Hungarian shows and AI-summary aware", () => {
+    const page = read("src/pages/PersonDetailPage.tsx");
+
+    expect(page).toContain("published_at, ai_summary, summary, description");
+    expect(page).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(page).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
+    expect(page).not.toContain('.eq("podcasts.is_hungarian", true)');
+    expect(page).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
+  });
 });

@@ -115,12 +115,11 @@ export default function PersonDetailPage() {
         || ["needs_human_review","duplicate_candidate"].includes(pp.ai_review_status || "")
         || ["split_resolved"].includes(pp.identity_status || "");
       if (blocked) {
-        const selectCols = "id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
+        const selectCols = "id, title, slug, published_at, ai_summary, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
         const { data: fallbackRows } = await supabase
           .from("episodes")
           .select(selectCols)
           .or("people.not.is.null,mentioned.not.is.null")
-          .eq("podcasts.is_hungarian", true)
           .eq("podcasts.language_decision", "accept_hungarian")
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(1600);
@@ -205,9 +204,8 @@ export default function PersonDetailPage() {
 
       const { data: mentions } = await supabase
         .from("person_episode_mentions")
-        .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, slug, published_at, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
+        .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, slug, published_at, ai_summary, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision))")
         .eq("person_id", (p as any).id)
-        .eq("episodes.podcasts.is_hungarian", true)
         .eq("episodes.podcasts.language_decision", "accept_hungarian")
         .limit(500);
 
