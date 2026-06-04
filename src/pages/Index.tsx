@@ -756,9 +756,22 @@ const Index = () => {
           </section>
         )}
 
+        {lightEps.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight">Kikapcsolódás</h2>
+                <p className="text-xs text-muted-foreground mt-1">Humor, popkultúra, zene, sport, gasztro és könnyebb beszélgetések — amikor csak feltöltődni szeretnél.</p>
+              </div>
+            </div>
+            <EpisodeList items={lightEps} scrollAlways />
+          </section>
+        )}
+
         <Suspense fallback={null}>
           <MoodCollections />
         </Suspense>
+
 
 
 
