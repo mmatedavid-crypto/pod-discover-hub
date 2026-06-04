@@ -205,6 +205,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
       episode_url: it.link || null,
       image_url: it.image || null,
       guid: it.guid || null,
+      duration_seconds: it.duration_seconds ?? null,
     });
   }
 
