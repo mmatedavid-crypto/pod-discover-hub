@@ -26,6 +26,20 @@ describe("page consistency static guards", () => {
     expect(vite).toContain('return "vendor-motion"');
   });
 
+  it("keeps the homepage focused and avoids obsolete duplicate topic/media rails", () => {
+    const index = read("src/pages/Index.tsx");
+    const shortcuts = read("src/components/home/HomeDiscoveryShortcuts.tsx");
+
+    expect(index).toContain("<TrendingPodcasts />");
+    expect(index).toContain("<HomeDiscoveryShortcuts />");
+    expect(index).toContain("Most érdemes meghallgatni");
+    expect(index).not.toContain("HomeTopicsSection");
+    expect(index).not.toContain("HomeCurrentSignals");
+    expect(index).not.toContain("HomeMediaSignals");
+    expect(shortcuts).not.toContain("Podcast témák szerint");
+    expect(shortcuts).not.toContain("Médiafigyelés");
+  });
+
   it("keeps topic detail pages focused on episodes, people and related topics, not podcast-channel recommendations", () => {
     const topic = read("src/pages/TopicDetailPage.tsx");
 
