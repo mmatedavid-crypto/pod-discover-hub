@@ -369,6 +369,7 @@ describe("page consistency static guards", () => {
   it("keeps SEO fallback and prerender links on canonical Hungarian routes", () => {
     const app = read("src/App.tsx");
     const notFound = read("src/pages/NotFound.tsx");
+    const notFoundState = read("src/components/NotFoundState.tsx");
     const prerender = read("supabase/functions/prerender/index.ts");
     const episode = read("src/pages/EpisodeDetail.tsx");
     const searchInsights = read("src/pages/AdminSearchInsightsPage.tsx");
@@ -377,6 +378,12 @@ describe("page consistency static guards", () => {
 
     expect(notFound).toContain("nav(`/kereses?q=");
     expect(notFound).not.toContain("nav(`/search?q=");
+    expect(notFoundState).toContain("useNavigate");
+    expect(notFoundState).toContain("nav(`/kereses?q=");
+    expect(notFoundState).toContain("Keress podcastot, személyt vagy témát");
+    expect(notFoundState).toContain('to="/toplista"');
+    expect(notFoundState).toContain('to="/temak"');
+    expect(notFoundState).not.toContain("nav(`/search?q=");
     expect(app).toContain("function RedirectPreserveSearch");
     expect(app).toContain('<Route path="/search" element={<RedirectPreserveSearch to="/kereses" />} />');
     expect(app).not.toContain('<Route path="/search" element={<SearchPage />} />');
