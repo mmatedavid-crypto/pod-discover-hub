@@ -83,9 +83,9 @@ export default function CategoryDetail() {
         : [c.name];
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language")
+        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language,is_hungarian,language_decision")
         .in("category", taxKeys)
-        .eq("is_hungarian", true)
+        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
         .limit(80);
@@ -94,7 +94,10 @@ export default function CategoryDetail() {
         return !hs || hs === "healthy" || hs === "recovered_rss_url";
       };
       const visible = (ps || []).filter((p: any) =>
-        goodHealth(p) && p.rss_status !== "failed" && p.rss_status !== "inactive"
+        goodHealth(p) &&
+        p.rss_status !== "failed" &&
+        p.rss_status !== "inactive" &&
+        p.language_decision !== "reject_foreign"
       );
       const ids0 = visible.map((p: any) => p.id);
       const epCountMap: Record<string, number> = {};
@@ -108,15 +111,18 @@ export default function CategoryDetail() {
       const promotedPodcasts = (high.length >= 6 ? high : [...high, ...mid, ...low]).slice(0, 12);
       setPodcasts(promotedPodcasts);
 
-      const promotedIds = promotedPodcasts.map((p: any) => p.id);
+      // Episode discovery must not be gated by the promoted-podcast tier.
+      // Rank can order/highlight, but every accepted Hungarian non-spam show in
+      // the category should be eligible for the fresh episode list.
+      const categoryPodcastIds = visible.map((p: any) => p.id);
       const [{ data: eps }, { data: overrides }, { data: classifiedRows }] = await Promise.all([
-        promotedIds.length
+        categoryPodcastIds.length
           ? supabase
               .from("episodes")
               .select("id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
-              .in("podcast_id", promotedIds)
+              .in("podcast_id", categoryPodcastIds)
               .order("published_at", { ascending: false, nullsFirst: false })
-              .limit(120)
+              .limit(180)
           : Promise.resolve({ data: [] as any[] }),
         supabase
           .from("episode_category_overrides")

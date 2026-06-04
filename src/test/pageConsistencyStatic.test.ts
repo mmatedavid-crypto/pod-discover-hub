@@ -52,6 +52,16 @@ describe("page consistency static guards", () => {
     expect(topic).not.toContain("Hasonló podcastok");
   });
 
+  it("keeps category episode discovery open to accepted Hungarian non-spam shows", () => {
+    const category = read("src/pages/CategoryDetail.tsx");
+
+    expect(category).toContain(".or(\"is_hungarian.eq.true,language_decision.eq.accept_hungarian\")");
+    expect(category).toContain("p.language_decision !== \"reject_foreign\"");
+    expect(category).toContain("const categoryPodcastIds = visible.map");
+    expect(category).toContain(".in(\"podcast_id\", categoryPodcastIds)");
+    expect(category).not.toContain(".in(\"podcast_id\", promotedIds)");
+  });
+
   it("keeps public copy aligned with the internal player experience", () => {
     const terms = read("src/pages/TermsPage.tsx");
     const about = read("src/pages/AboutPage.tsx");
