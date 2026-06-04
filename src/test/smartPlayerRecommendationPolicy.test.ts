@@ -12,6 +12,7 @@ describe("smart player recommendation policy", () => {
     const provider = read("src/components/smart-player/SmartPlayerProvider.tsx");
     const bar = read("src/components/smart-player/SmartPlayerBar.tsx");
     const episodePlayer = read("src/components/smart-player/EpisodeAudioPlayer.tsx");
+    const similarPodcasts = read("src/components/SimilarPodcasts.tsx");
     const chapters = read("src/components/smart-player/SmartPlayerChapters.tsx");
     const locale = read("src/lib/playerLocale.ts");
 
@@ -25,6 +26,8 @@ describe("smart player recommendation policy", () => {
     expect(episodePlayer).toContain("{SMART_PLAYER_RECOMMENDATIONS_ENABLED && (");
     expect(episodePlayer).toContain("Kapcsolódó epizódok");
     expect(episodePlayer).toContain("<SmartDiscoveryPanel episodeIdOverride={episode.id} variant=\"compact\" />");
+    expect(similarPodcasts).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED");
+    expect(similarPodcasts).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null");
     expect(bar).toContain("Podiverzum lejátszó");
     expect(chapters).toContain("Bevezető átugrása");
     expect(chapters).toContain("Ehhez az epizódhoz még nincsenek fejezetek.");

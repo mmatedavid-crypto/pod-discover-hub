@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PodcastCard, PodcastLite } from "./PodcastCard";
 import { Sparkles } from "lucide-react";
+import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "@/components/smart-player/recommendationsConfig";
 
 type Row = PodcastLite & {
   similarity: number;
@@ -13,6 +14,8 @@ type Row = PodcastLite & {
 const MIN_RESULTS = 3;
 
 export function SimilarPodcasts({ podcastId, limit = 8 }: { podcastId: string; limit?: number }) {
+  if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null;
+
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
