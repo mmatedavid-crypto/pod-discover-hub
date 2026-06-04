@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { setSeo } from "@/lib/seo";
+import { setSeo, breadcrumbJsonLd, ogImageUrl } from "@/lib/seo";
 import { compareByScore } from "@/lib/episodeRank";
 import { Sparkles, Clock } from "lucide-react";
 import { TrendingEntities } from "@/components/TrendingEntities";
