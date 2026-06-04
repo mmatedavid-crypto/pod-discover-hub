@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder, Building2, Sparkles } from "lucide-react";
+import { Search, Menu, Mic, User, Hash, Folder, Building2, Sparkles } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
@@ -95,19 +95,6 @@ export function SiteHeader() {
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/szemelyek" className={linkCls}>Személyek</NavLink>
         </nav>
-        {isHome && (
-          <NavLink
-            to="/kategoriak"
-            className="ml-auto hidden lg:inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LayoutGrid className="h-4 w-4" />
-            Podcast kategóriák
-          </NavLink>
-        )}
-
-
-
-
         <div ref={wrapRef} className={`lg:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden lg:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submitQuery(q); }}

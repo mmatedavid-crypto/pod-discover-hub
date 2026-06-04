@@ -29,15 +29,19 @@ describe("page consistency static guards", () => {
   it("keeps the homepage focused and avoids obsolete duplicate topic/media rails", () => {
     const index = read("src/pages/Index.tsx");
     const shortcuts = read("src/components/home/HomeDiscoveryShortcuts.tsx");
+    const header = read("src/components/SiteHeader.tsx");
 
     expect(index).toContain("<TrendingPodcasts />");
     expect(index).toContain("<HomeDiscoveryShortcuts />");
     expect(index).toContain("Most érdemes meghallgatni");
+    expect(index).toContain("pickDiverseHomepageCategories(populated, 3)");
+    expect(index).toContain("categoryDiversityGroup");
     expect(index).not.toContain("HomeTopicsSection");
     expect(index).not.toContain("HomeCurrentSignals");
     expect(index).not.toContain("HomeMediaSignals");
     expect(shortcuts).not.toContain("Podcast témák szerint");
     expect(shortcuts).not.toContain("Médiafigyelés");
+    expect(header).not.toContain('className="ml-auto hidden lg:inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"');
   });
 
   it("keeps topic detail pages focused on episodes, people and related topics, not podcast-channel recommendations", () => {

@@ -197,6 +197,40 @@ function homeCategoryCopy(category: string, fallback: string) {
   return CATEGORY_COPY[category] || { title: fallback, subtitle: "Válogatás a kategória friss epizódjaiból." };
 }
 
+function categoryDiversityGroup(category: { name?: string | null; slug?: string | null; taxonomy_keys?: unknown }): string {
+  const hay = [
+    category.name,
+    category.slug,
+    ...(Array.isArray(category.taxonomy_keys) ? category.taxonomy_keys : []),
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (/religion|spiritual|vallas|vallás|hit|spiritualitas|spiritualitás/.test(hay)) return "soul";
+  if (/health|fitness|pszicho|onfejleszt|önfejleszt|eletmod|életmód|egeszseg|egészség/.test(hay)) return "soul";
+  if (/news|politic|kozelet|közélet|h[ií]r|tarsadalom|társadalom/.test(hay)) return "public_affairs";
+  if (/business|finance|gazdas|p[eé]nz|befektet|karrier|vallalkoz|vállalkoz/.test(hay)) return "business";
+  if (/tech|technology|startup|ai|mi|tudomany|tudomány/.test(hay)) return "future";
+  if (/culture|kultura|kultúra|society|story|interju|interjú|arts|book|irodalom/.test(hay)) return "culture";
+  if (/comedy|humor|film|music|zene|sport|food|gasztro|crime|bűn|bun/.test(hay)) return "light";
+  return "other";
+}
+
+function pickDiverseHomepageCategories<T extends { name?: string | null; slug?: string | null; taxonomy_keys?: unknown }>(items: T[], limit: number): T[] {
+  const picked: T[] = [];
+  const groupCounts = new Map<string, number>();
+  for (const item of items) {
+    const group = categoryDiversityGroup(item);
+    if ((groupCounts.get(group) || 0) >= 1) continue;
+    picked.push(item);
+    groupCounts.set(group, 1);
+    if (picked.length >= limit) return picked;
+  }
+  for (const item of items) {
+    if (picked.includes(item)) continue;
+    picked.push(item);
+    if (picked.length >= limit) return picked;
+  }
+  return picked;
+}
+
 const Index = () => {
   const [q, setQ] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
@@ -800,9 +834,9 @@ const Index = () => {
           };
           const populated = cats
             .filter((c: any) => c.slug !== "trending" && itemsForCat(c).length > 0)
-            .sort((a: any, b: any) => itemsForCat(b).length - itemsForCat(a).length)
-            .slice(0, 3);
-          return populated.map((c: any) => {
+            .sort((a: any, b: any) => itemsForCat(b).length - itemsForCat(a).length);
+          const visibleCategories = pickDiverseHomepageCategories(populated, 3);
+          return visibleCategories.map((c: any) => {
             const items = itemsForCat(c);
             const copy = homeCategoryCopy(c.name, c.name);
             return (
