@@ -13,6 +13,8 @@
 
 const PRERENDER_ENDPOINT =
   "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/prerender";
+const SITEMAP_CACHE_TTL_SECONDS = 900;
+const NEWS_SITEMAP_CACHE_TTL_SECONDS = 300;
 const ROBOTS_TXT = `# Podiverzum robots policy.
 # Served directly by the Cloudflare Worker so Cloudflare Managed robots rules
 # cannot inject contradictory AI crawler blocks.
@@ -194,10 +196,14 @@ export default {
       [/^\/person\/([^/]+)\/?$/, "/szemelyek/$1"],
       [/^\/szemely\/([^/]+)\/?$/, "/szemelyek/$1"],
       [/^\/company\/([^/]+)\/?$/, "/ceg/$1"],
+      [/^\/szervezetek\/([^/]+)\/?$/, "/ceg/$1"],
+      [/^\/part\/([^/]+)\/?$/, "/ceg/$1"],
       [/^\/ingredient\/([^/]+)\/?$/, "/hozzavalo/$1"],
       [/^\/moods\/([^/]+)\/?$/, "/hangulatok/$1"],
       [/^\/mood\/([^/]+)\/?$/, "/hangulatok/$1"],
       [/^\/hangulat\/([^/]+)\/?$/, "/hangulatok/$1"],
+      [/^\/search\/?$/, "/kereses"],
+      [/^\/categories\/?$/, "/kategoriak"],
       [/^\/entitasok\/?$/, "/szervezetek"],
       [/^\/privacy\/?$/, "/adatvedelem"],
       [/^\/terms\/?$/, "/feltetelek"],
@@ -205,10 +211,15 @@ export default {
       [/^\/methodology\/?$/, "/modszertan"],
       [/^\/uj\/?$/, "/uj-podcastok"],
       [/^\/new\/?$/, "/uj-podcastok"],
+      [/^\/podcastok\/?$/, "/toplista"],
       [/^\/mai-valogatas\/?$/, "/napi"],
       [/^\/daily\/?$/, "/napi"],
+      [/^\/heti-valogatas(\/[^/]+)?\/?$/, "/heti"],
       [/^\/contact\/?$/, "/kapcsolat"],
       [/^\/moods\/?$/, "/hangulatok"],
+      [/^\/b2b\/?$/, "/intelligence"],
+      [/^\/mediafigyeles\/?$/, "/intelligence"],
+      [/^\/toplist\/?$/, "/toplista"],
     ];
     for (const [re, target] of ALIAS_REDIRECTS) {
       const m = url.pathname.match(re);
@@ -251,7 +262,9 @@ export default {
     }
 
     // Sitemap proxy → Supabase Storage `sitemaps` bucket.
-    // `refresh-sitemap` edge function regenerates these daily (pg_cron 04:30 UTC).
+    // `refresh-sitemap` edge function regenerates lite sitemaps every 15 minutes;
+    // news-sitemap gets a shorter edge cache so fresh publisher episodes can
+    // reach Google quickly without hammering Storage.
     if ((request.method === "GET" || request.method === "HEAD") &&
         (url.pathname === "/sitemap.xml" ||
          url.pathname === "/news-sitemap.xml" ||
@@ -261,10 +274,13 @@ export default {
         : url.pathname === "/news-sitemap.xml"
           ? "news-sitemap.xml"
           : url.pathname.replace(/^\/sitemaps\//, "");
+      const cacheTtl = url.pathname === "/news-sitemap.xml"
+        ? NEWS_SITEMAP_CACHE_TTL_SECONDS
+        : SITEMAP_CACHE_TTL_SECONDS;
       const storageUrl = `https://yoxewklaybougzpmzvkg.supabase.co/storage/v1/object/public/sitemaps/${objectPath}`;
       try {
         const upstream = await fetch(storageUrl, {
-          cf: { cacheTtl: 3600, cacheEverything: true },
+          cf: { cacheTtl, cacheEverything: true },
           headers: { "User-Agent": "podiverzum-cf-worker" },
         });
         if (!upstream.ok) {
@@ -290,7 +306,7 @@ export default {
           status: 200,
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "public, max-age=3600, s-maxage=3600",
+            "Cache-Control": `public, max-age=${cacheTtl}, s-maxage=${cacheTtl}`,
             "X-Served-By": "worker-sitemap-proxy",
           },
         });
