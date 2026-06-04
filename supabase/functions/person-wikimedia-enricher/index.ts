@@ -107,6 +107,53 @@ function tokenize(s: string): Set<string> {
   );
 }
 
+function firstClaimValue(entity: any, property: string): any | null {
+  return entity?.claims?.[property]?.[0]?.mainsnak?.datavalue?.value ?? null;
+}
+
+function parseWikidataDate(value: any): string | null {
+  const raw = typeof value?.time === "string" ? value.time : "";
+  const m = raw.match(/^[+-](\d{4,})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const [, year, month, day] = m;
+  if (year.length !== 4) return null;
+  return `${year}-${month}-${day}`;
+}
+
+function entityHasClaimId(entity: any, property: string, qid: string): boolean {
+  return (entity?.claims?.[property] || []).some((c: any) => c?.mainsnak?.datavalue?.value?.id === qid);
+}
+
+function temporalMetadataFromWikidata(entity: any, person: any): Record<string, unknown> {
+  const deathDate = parseWikidataDate(firstClaimValue(entity, "P570"));
+  const birthDate = parseWikidataDate(firstClaimValue(entity, "P569"));
+  const isHuman = entityHasClaimId(entity, "P31", "Q5");
+  const hasPodcastRole = Number(person?.participant_count || 0) + Number(person?.host_count || 0) + Number(person?.guest_count || 0) > 0;
+  const update: Record<string, unknown> = {};
+
+  if (birthDate) update.date_of_birth = birthDate;
+  if (deathDate) {
+    update.date_of_death = deathDate;
+    update.is_living = false;
+    update.is_deceased = true;
+    update.is_historical = true;
+    update.persona = "historical";
+    update.entity_type = "historical_person";
+  } else if (isHuman) {
+    update.is_living = true;
+    update.entity_type = hasPodcastRole ? "podcast_participant" : "living_person";
+  }
+
+  if (Object.keys(update).length > 0) update.temporal_metadata = {
+    source: "wikidata_claims",
+    has_p31_human: isHuman,
+    date_of_birth: birthDate,
+    date_of_death: deathDate,
+  };
+
+  return update;
+}
+
 function scoreCandidate(person: any, entity: any, summary: any): { score: number; evidence: any } {
   const evidence: any = { signals: [] };
   let score = 0;
@@ -221,6 +268,19 @@ async function processPerson(admin: any, personId: string): Promise<any> {
                           : null;
       update.wikipedia_extract = bestSummary?.extract?.slice(0, 1200) || null;
       update.wikipedia_description = bestSummary?.description || bestEntity?.descriptions?.hu?.value || bestEntity?.descriptions?.en?.value || null;
+      if (matchStatus === "verified") {
+        const temporal = temporalMetadataFromWikidata(bestEntity, p);
+        const temporalEvidence = temporal.temporal_metadata;
+        delete temporal.temporal_metadata;
+        Object.assign(update, temporal);
+        if (temporalEvidence) {
+          update.wikipedia_match_evidence = {
+            ...(update.wikipedia_match_evidence || {}),
+            temporal_metadata: temporalEvidence,
+          };
+          update.wiki_match_reason = `${update.wiki_match_reason}:temporal_metadata_v1`;
+        }
+      }
     }
 
     // Image: only for verified
@@ -330,6 +390,18 @@ Deno.serve(async (req) => {
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
       .limit(limit * 2);
 
+    const { data: temporalRows, error: temporalErr } = await applyOrder(
+      admin.from("people").select(baseSelect)
+        .eq("is_public", true)
+        .in("activation_status", ["indexable","manual_approved","public_noindex"])
+        .eq("wikipedia_match_status", "verified")
+        .not("wikidata_id", "is", null)
+        .is("is_living", null)
+    );
+    if (temporalErr) console.error("temporal metadata query error", temporalErr);
+
+    let combined: any[] = temporalRows || [];
+
     const { data: uncheckedRows, error: uncheckedErr } = await applyOrder(
       admin.from("people").select(baseSelect)
         .eq("is_public", true)
@@ -338,7 +410,7 @@ Deno.serve(async (req) => {
     );
     if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
 
-    let combined: any[] = uncheckedRows || [];
+    combined = combined.concat(uncheckedRows || []);
 
     if (combined.length < limit) {
       const { data: staleRows } = await applyOrder(
@@ -372,7 +444,7 @@ Deno.serve(async (req) => {
       !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
     ).slice(0, limit);
     ids = filtered.map((r: any) => r.id);
-    console.log(`[person-wiki] candidates: unchecked=${uncheckedRows?.length || 0} combined=${combined.length} processing=${ids.length}`);
+    console.log(`[person-wiki] candidates: temporal=${temporalRows?.length || 0} unchecked=${uncheckedRows?.length || 0} combined=${combined.length} processing=${ids.length}`);
   }
 
   const results: any[] = [];

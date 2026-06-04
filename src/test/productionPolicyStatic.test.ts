@@ -370,6 +370,28 @@ describe("production policy static guards", () => {
     expect(migration).toContain("is_browsable_in_people_hub = false");
   });
 
+  it("extracts Wikidata temporal metadata before publishing person identities", () => {
+    const enricher = read("supabase/functions/person-wikimedia-enricher/index.ts");
+    const policy = read("supabase/migrations/20260604233500_person_wikidata_temporal_metadata_policy.sql");
+
+    expect(enricher).toContain('firstClaimValue(entity, "P570")');
+    expect(enricher).toContain('firstClaimValue(entity, "P569")');
+    expect(enricher).toContain('entityHasClaimId(entity, "P31", "Q5")');
+    expect(enricher).toContain("function temporalMetadataFromWikidata");
+    expect(enricher).toContain("update.date_of_death = deathDate");
+    expect(enricher).toContain("update.is_living = false");
+    expect(enricher).toContain("update.is_deceased = true");
+    expect(enricher).toContain("update.is_historical = true");
+    expect(enricher).toContain('update.persona = "historical"');
+    expect(enricher).toContain('update.entity_type = "historical_person"');
+    expect(enricher).toContain('eq("wikipedia_match_status", "verified")');
+    expect(enricher).toContain('.is("is_living", null)');
+    expect(enricher).toContain("temporal=");
+    expect(policy).toContain("person_wikidata_temporal_metadata_policy");
+    expect(policy).toContain("P570");
+    expect(policy).toContain("No AI call");
+  });
+
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
 
