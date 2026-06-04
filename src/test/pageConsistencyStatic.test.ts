@@ -179,9 +179,14 @@ describe("page consistency static guards", () => {
     expect(tasteRecommend).toContain("INTEREST_GROUPS");
     expect(tasteRecommend).toContain("expandTasteTags(likedTopics)");
     expect(tasteRecommend).toContain("episodeInterestKeys({ title, podcastTitle, category, topics })");
-    expect(tasteRecommend).toContain("rankHydratedForTaste(hydrated, likedTopics)");
+    expect(tasteRecommend).toContain("const newsPolicy = newsPolicyForTopics(likedTopics)");
+    expect(tasteRecommend).toContain("diversifyRecommendations(ranked, FINAL_LIMIT, newsPolicy)");
     expect(tasteRecommend).toContain("const noEvidencePenalty = topicOverlap === 0 ? -5 : 0");
     expect(tasteRecommend).toContain("const bulletinPenalty = isBulletinLike({ title, podcastTitle }) ? -10 : 0");
+    expect(tasteRecommend).toContain("maxBulletin: newsPolicy.allowBulletins ? 1 : 0");
+    expect(tasteRecommend).toContain("maxNews: newsPolicy.allowNews ? 2 : 0");
+    expect(tasteRecommend).toContain("newsPolicy.allowBulletins ? -8 : -40");
+    expect(startSwipe).toContain("hírek röviden|röviden|hírpercek");
   });
 
   it("keeps Te Podiverzumod sharing link-first so PNG rendering cannot break sharing", () => {

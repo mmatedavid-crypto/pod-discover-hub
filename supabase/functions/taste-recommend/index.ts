@@ -55,8 +55,8 @@ const PERSONALIZED_CANDIDATE_LIMIT = 80;
 const FALLBACK_CANDIDATE_LIMIT = 180;
 const PERSONALIZED_FRESHNESS_DAYS = 180;
 
-const NEWS_LIKE_RX = /\b(hírek|hír|hírösszefoglaló|hírháttér|hírpercek|krónika|infostart|napi hírek|reggeli hírek|esti hírek|news|bulletin)\b/i;
-const BULLETIN_LIKE_RX = /\b(hírek röviden|hírpercek|hírgyors|napi hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírösszefoglaló|infostart hírek|percben|perces hír|bulletin)\b/i;
+const NEWS_LIKE_RX = /\b(hírek|hír|hírösszefoglaló|hírháttér|hírpercek|krónika|infostart|napi hírek|reggeli hírek|esti hírek|friss hírek|news|bulletin)\b/i;
+const BULLETIN_LIKE_RX = /\b(hírek röviden|röviden|hírpercek|hírgyors|napi hírek|friss hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírösszefoglaló|infostart hírek|percben|perces hír|bulletin)\b/i;
 const INTEREST_GROUPS: Record<string, string[]> = {
   tech: ["tech", "technológia", "technologia", "mi", "ai", "mesterséges intelligencia", "startup", "jövő", "jovo", "digitális", "digitalis"],
   business: ["gazdaság", "gazdasag", "pénz", "penz", "pénzügy", "penzugy", "üzlet", "uzlet", "business", "befektetés", "befektetes", "tőzsde", "tozsde", "vállalkozás", "vallalkozas", "karrier"],
@@ -127,6 +127,23 @@ function isBulletinLike(input: { title?: string | null; podcastTitle?: string | 
 function isNewsLike(input: { title?: string | null; podcastTitle?: string | null }): boolean {
   const hay = `${input.title || ""} ${input.podcastTitle || ""}`.toLowerCase();
   return isBulletinLike(input) || NEWS_LIKE_RX.test(hay);
+}
+
+function newsSignalFromTopics(likedTopics: string[]): number {
+  const expanded = expandTasteTags(likedTopics);
+  let signal = 0;
+  for (const key of ["public_affairs", "kozelet", "közélet", "politika", "hirek", "hírek", "geopolitika"]) {
+    if (expanded.has(normalizeInterest(key))) signal += 1;
+  }
+  return signal;
+}
+
+function newsPolicyForTopics(likedTopics: string[]): { allowNews: boolean; allowBulletins: boolean } {
+  const signal = newsSignalFromTopics(likedTopics);
+  return {
+    allowNews: signal >= 3,
+    allowBulletins: signal >= 5,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -208,7 +225,8 @@ Deno.serve(async (req) => {
 
     const hydrated = await hydrateEpisodes(admin, episodeIds);
     const ranked = rankHydratedForTaste(hydrated, likedTopics);
-    let ordered = diversifyRecommendations(ranked, FINAL_LIMIT);
+    const newsPolicy = newsPolicyForTopics(likedTopics);
+    let ordered = diversifyRecommendations(ranked, FINAL_LIMIT, newsPolicy);
     let backfilledCount = 0;
 
     if (ordered.length < FINAL_LIMIT) {
@@ -228,6 +246,7 @@ Deno.serve(async (req) => {
       ordered = diversifyRecommendations(
         rankHydratedForTaste([...ordered, ...backfilled], likedTopics),
         FINAL_LIMIT,
+        newsPolicy,
       );
     }
 
@@ -298,20 +317,24 @@ async function hydrateEpisodes(admin: ReturnType<typeof createClient>, episodeId
     });
 }
 
-function diversifyRecommendations(rows: HydratedEpisode[], limit: number): HydratedEpisode[] {
+function diversifyRecommendations(
+  rows: HydratedEpisode[],
+  limit: number,
+  newsPolicy: { allowNews: boolean; allowBulletins: boolean },
+): HydratedEpisode[] {
   const strict = pickDiverse(rows, limit, {
     maxPerPodcast: 1,
     maxPerCategory: 4,
-    maxNews: 2,
-    maxBulletin: 1,
+    maxNews: newsPolicy.allowNews ? 2 : 0,
+    maxBulletin: newsPolicy.allowBulletins ? 1 : 0,
   });
   if (strict.length >= limit) return strict;
 
   return pickDiverse(rows, limit, {
     maxPerPodcast: 2,
     maxPerCategory: 5,
-    maxNews: 3,
-    maxBulletin: 1,
+    maxNews: newsPolicy.allowNews ? 3 : 0,
+    maxBulletin: newsPolicy.allowBulletins ? 1 : 0,
   });
 }
 
@@ -415,6 +438,7 @@ async function loadBackfillEpisodeIds(
   }
 
   const expandedLikedTopics = expandTasteTags(likedTopics);
+  const newsPolicy = newsPolicyForTopics(likedTopics);
   const scored = (data ?? [])
     .filter((r) => !seen.has(r.id) && !exclude.has(r.id) && (Array.isArray(r.podcasts) ? r.podcasts[0] : r.podcasts)?.language_decision !== "reject_foreign")
     .map((r) => {
@@ -431,8 +455,8 @@ async function loadBackfillEpisodeIds(
         if (expandedLikedTopics.has(key)) topicOverlap += 1;
       }
       const rankScore = rankWeight(podcast?.rank_label);
-      const bulletinPenalty = isBulletinLike({ title, podcastTitle }) ? -8 : 0;
-      const newsPenalty = isNewsLike({ title, podcastTitle }) ? -3 : 0;
+      const bulletinPenalty = isBulletinLike({ title, podcastTitle }) ? (newsPolicy.allowBulletins ? -8 : -40) : 0;
+      const newsPenalty = isNewsLike({ title, podcastTitle }) ? (newsPolicy.allowNews ? -3 : -18) : 0;
       const recencyScore = r.published_at
         ? Math.max(0, 4 - (Date.now() - new Date(r.published_at).getTime()) / (30 * 86400_000))
         : 0;

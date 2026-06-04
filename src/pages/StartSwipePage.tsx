@@ -269,8 +269,8 @@ function primaryReason(r: RecEp): string {
   return "Az ízlésprofilod alapján";
 }
 
-const NEWS_LIKE_RX = /\b(hírek|hír|hírösszefoglaló|hírháttér|hírpercek|krónika|infostart|napi hírek|reggeli hírek|esti hírek|news|bulletin)\b/i;
-const BULLETIN_LIKE_RX = /\b(hírek röviden|hírpercek|hírgyors|napi hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírösszefoglaló|infostart hírek|percben|perces hír|bulletin)\b/i;
+const NEWS_LIKE_RX = /\b(hírek|hír|hírösszefoglaló|hírháttér|hírpercek|krónika|infostart|napi hírek|reggeli hírek|esti hírek|friss hírek|news|bulletin)\b/i;
+const BULLETIN_LIKE_RX = /\b(hírek röviden|röviden|hírpercek|hírgyors|napi hírek|friss hírek|reggeli hírek|déli hírek|esti hírek|éjszakai hírek|hírösszefoglaló|infostart hírek|percben|perces hír|bulletin)\b/i;
 
 function recHaystack(r: RecEp): string {
   return [
