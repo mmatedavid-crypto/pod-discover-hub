@@ -86,6 +86,11 @@ describe("page consistency static guards", () => {
     }
     expect(moodDetail).toContain("const pageTitle = polishMoodTitle");
     expect(moodDetail).toContain("{pageTitle}</h1>");
+    expect(homeMoods).toContain('test: "Mozgás és egészség"');
+    expect(homeMoods).toContain('fej: "Gondolatok és tudás"');
+    expect(homeMoods).toContain('élet: "Lélek és élethelyzetek"');
+    expect(homeMoods).toContain("Hallgatási helyzetek</h2>");
+    expect(homeMoods).not.toContain("Mihez van most kedved?</h2>");
     expect(moodDetail).not.toContain("{mood.title}</h1>");
     expect(moods).not.toContain("{m.description}</div>");
     expect(homeMoods).not.toContain("c.short_description || c.description || \"\"");
@@ -142,6 +147,9 @@ describe("page consistency static guards", () => {
     expect(tasteRecommend).toContain("INTEREST_GROUPS");
     expect(tasteRecommend).toContain("expandTasteTags(likedTopics)");
     expect(tasteRecommend).toContain("episodeInterestKeys({ title, podcastTitle, category, topics })");
+    expect(tasteRecommend).toContain("rankHydratedForTaste(hydrated, likedTopics)");
+    expect(tasteRecommend).toContain("const noEvidencePenalty = topicOverlap === 0 ? -5 : 0");
+    expect(tasteRecommend).toContain("const bulletinPenalty = isBulletinLike({ title, podcastTitle }) ? -10 : 0");
   });
 
   it("keeps Te Podiverzumod sharing link-first so PNG rendering cannot break sharing", () => {

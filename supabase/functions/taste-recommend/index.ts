@@ -207,7 +207,8 @@ Deno.serve(async (req) => {
     }
 
     const hydrated = await hydrateEpisodes(admin, episodeIds);
-    let ordered = diversifyRecommendations(hydrated, FINAL_LIMIT);
+    const ranked = rankHydratedForTaste(hydrated, likedTopics);
+    let ordered = diversifyRecommendations(ranked, FINAL_LIMIT);
     let backfilledCount = 0;
 
     if (ordered.length < FINAL_LIMIT) {
@@ -224,7 +225,10 @@ Deno.serve(async (req) => {
       );
       backfilledCount = backfillIds.length;
       const backfilled = await hydrateEpisodes(admin, backfillIds);
-      ordered = diversifyRecommendations([...ordered, ...backfilled], FINAL_LIMIT);
+      ordered = diversifyRecommendations(
+        rankHydratedForTaste([...ordered, ...backfilled], likedTopics),
+        FINAL_LIMIT,
+      );
     }
 
     return json({
@@ -309,6 +313,37 @@ function diversifyRecommendations(rows: HydratedEpisode[], limit: number): Hydra
     maxNews: 3,
     maxBulletin: 1,
   });
+}
+
+function rankHydratedForTaste(rows: HydratedEpisode[], likedTopics: string[]): HydratedEpisode[] {
+  const expandedLikedTopics = expandTasteTags(likedTopics);
+  if (expandedLikedTopics.size === 0) return rows;
+
+  return rows
+    .map((row, index) => {
+      const title = row.title;
+      const podcastTitle = row.podcast?.title || "";
+      const category = row.podcast?.category || null;
+      const interestKeys = episodeInterestKeys({ title, podcastTitle, category, topics: row.topics });
+      let topicOverlap = 0;
+      for (const key of interestKeys) {
+        if (expandedLikedTopics.has(key)) topicOverlap += 1;
+      }
+      const rankScore = rankWeight(row.podcast?.rank_label);
+      const bulletinPenalty = isBulletinLike({ title, podcastTitle }) ? -10 : 0;
+      const newsPenalty = isNewsLike({ title, podcastTitle }) ? -4 : 0;
+      const noEvidencePenalty = topicOverlap === 0 ? -5 : 0;
+      const recencyScore = row.published_at
+        ? Math.max(0, 3 - (Date.now() - new Date(row.published_at).getTime()) / (45 * 86400_000))
+        : 0;
+      const vectorOrderScore = Math.max(0, 4 - index / 12);
+      return {
+        row,
+        score: topicOverlap * 14 + rankScore + recencyScore + vectorOrderScore + bulletinPenalty + newsPenalty + noEvidencePenalty,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.row);
 }
 
 function pickDiverse(
