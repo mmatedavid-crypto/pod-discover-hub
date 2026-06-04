@@ -135,22 +135,17 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* empty */ }
   const limit = Math.max(1, Math.min(500, body.limit ?? 250));
 
-  // Pull HU episodes that still need duration. Cycle through never-probed AND retry old failures.
-  const { data: eps, error } = await supabase.rpc("pick_mp3_probe_batch", { _limit: limit });
-  let candidates: { id: string; audio_url: string }[] = (eps as any) || [];
-
-  if (error || !candidates.length) {
-    // Fallback: ad-hoc select if RPC missing.
-    const { data: rows } = await supabase
-      .from("episodes")
-      .select("id, audio_url, podcast_id, podcasts!inner(language)")
-      .is("duration_seconds", null)
-      .not("audio_url", "is", null)
-      .ilike("podcasts.language", "hu%")
-      .is("audio_probe_attempted_at", null)
-      .limit(limit);
-    candidates = (rows as any[] || []).map((r) => ({ id: r.id, audio_url: r.audio_url }));
-  }
+  // Pull HU episodes that still need duration (never-probed first; failures get reset separately).
+  const { data: rows } = await supabase
+    .from("episodes")
+    .select("id, audio_url, podcast_id, podcasts!inner(language)")
+    .is("duration_seconds", null)
+    .not("audio_url", "is", null)
+    .ilike("podcasts.language", "hu%")
+    .is("audio_probe_attempted_at", null)
+    .limit(limit);
+  const candidates: { id: string; audio_url: string }[] = (rows as any[] || [])
+    .map((r) => ({ id: r.id, audio_url: r.audio_url }));
 
   if (!candidates.length) {
     return new Response(JSON.stringify({ ok: true, processed: 0, filled: 0, note: "no_candidates" }), {
