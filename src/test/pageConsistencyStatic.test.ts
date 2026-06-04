@@ -276,9 +276,14 @@ describe("page consistency static guards", () => {
     const toplist = read("src/pages/ToplistaPage.tsx");
 
     expect(toplist).toContain("toplista-mutató");
+    expect(toplist).toContain("Friss mérés");
+    expect(toplist).toContain("platformok közötti eltérések");
     expect(toplist).toContain("mutató {p.trending_score.toFixed(3)}");
     expect(toplist).not.toContain("score {p.trending_score.toFixed(3)}");
     expect(toplist).not.toContain("score = Σ 1/rank");
     expect(toplist).not.toContain("a magasabb score");
+    expect(toplist).not.toContain("Friss snapshot");
+    expect(toplist).not.toContain("view-delta");
+    expect(toplist).not.toContain("platform-bias index");
   });
 });

@@ -75,7 +75,7 @@ export default function ToplistaPage() {
             Naponta frissül.
           </p>
           {snapshotLabel && (
-            <p className="text-xs text-muted-foreground">Friss snapshot: {snapshotLabel}</p>
+            <p className="text-xs text-muted-foreground">Friss mérés: {snapshotLabel}</p>
           )}
         </header>
 
@@ -151,11 +151,11 @@ export default function ToplistaPage() {
         <section className="mt-10 pt-6 border-t border-border text-xs text-muted-foreground space-y-2 max-w-2xl">
           <h2 className="text-sm font-semibold text-foreground">Módszertan</h2>
           <p>
-            Forrás: Apple Podcasts HU top 100, Spotify HU top 50 (podcastcharts.byspotify.com), YouTube
-            HU podcast csatornák view-delta rangsora. Minden műsorra összegezzük a források reciprok
+            Forrás: Apple Podcasts magyar top 100, Spotify magyar top 50 (podcastcharts.byspotify.com), YouTube
+            magyar podcastcsatornák nézettségi mozgása. Minden műsorra összegezzük a források reciprok
             rangját — a magasabb toplista-mutató azt jelenti, hogy a műsor egyszerre több platformon is előkelőbb
-            helyen szerepel. A snapshotok napi rendszerességgel készülnek, így rövidesen heti/havi
-            mozgásokat is publikálunk (új belépők, kiesők, platform-bias index).
+            helyen szerepel. A mérések napi rendszerességgel készülnek, így rövidesen heti/havi
+            mozgásokat is publikálunk: új belépők, kiesők és platformok közötti eltérések.
           </p>
         </section>
       </div>
