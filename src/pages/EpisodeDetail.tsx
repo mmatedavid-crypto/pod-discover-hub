@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, CalendarDays, ArrowLeft, Sparkles } from "lucide-react";
+import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, CalendarDays, ArrowLeft, Sparkles, Clock } from "lucide-react";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
+import { formatDurationHu, toIsoDuration } from "@/lib/duration";
 import NotFoundState from "@/components/NotFoundState";
 import { pickEpisodeDescription } from "@/lib/episodeText";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
@@ -135,6 +136,7 @@ export default function EpisodeDetail() {
             name: e.title,
             description: safeSeoDescription || bestDesc || undefined,
             datePublished: e.published_at || undefined,
+            timeRequired: toIsoDuration(e.duration_seconds) || undefined,
             url: canonical,
             mainEntityOfPage: canonical,
             image: e.image_url || p.image_url || undefined,
@@ -148,7 +150,13 @@ export default function EpisodeDetail() {
               url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
               webFeed: p.rss_url || undefined,
             },
-            associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
+            associatedMedia: e.audio_url
+              ? {
+                  "@type": "AudioObject",
+                  contentUrl: e.audio_url,
+                  duration: toIsoDuration(e.duration_seconds) || undefined,
+                }
+              : undefined,
             hasPart: moments.length
               ? moments.map((m) => ({
                   "@type": "Clip",
@@ -263,6 +271,12 @@ export default function EpisodeDetail() {
                   <span className="inline-flex items-center gap-1.5" title={new Date(e.published_at).toLocaleString()}>
                     <CalendarDays className="h-4 w-4" />
                     {relativeTime(e.published_at)}
+                  </span>
+                )}
+                {formatDurationHu(e.duration_seconds) && (
+                  <span className="inline-flex items-center gap-1.5" title="Epizód hossza">
+                    <Clock className="h-4 w-4" />
+                    {formatDurationHu(e.duration_seconds)}
                   </span>
                 )}
                 {understanding?.headline && (

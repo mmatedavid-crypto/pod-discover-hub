@@ -195,7 +195,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     if (isDup) duplicates++; else newCount++;
     if (isDup && !upsertDuplicates) continue;
 
-    rowsToUpsert.push({
+    const row: any = {
       podcast_id: podcast.id,
       title: it.title,
       slug,
@@ -205,7 +205,14 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
       episode_url: it.link || null,
       image_url: it.image || null,
       guid: it.guid || null,
-    });
+    };
+    // Only write duration when the feed actually provides itunes:duration —
+    // otherwise an upsert would wipe out values we already backfilled from
+    // Spotify / YouTube / transcript sources.
+    if (it.duration_seconds && it.duration_seconds > 0) {
+      row.duration_seconds = it.duration_seconds;
+    }
+    rowsToUpsert.push(row);
   }
 
   if (rowsToUpsert.length) {
