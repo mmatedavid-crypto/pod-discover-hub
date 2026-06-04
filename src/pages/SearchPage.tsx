@@ -13,6 +13,7 @@ import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 import { SearchStagedLoader } from "@/components/SearchStagedLoader";
 import { buildPersonCardContextLine, type PersonCardData } from "@/components/PersonCard";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { categoryLabel } from "@/lib/categoryLabels";
 
 type SortKey = "best" | "newest" | "rank";
 
@@ -483,7 +484,7 @@ export default function SearchPage() {
                   <span className="text-muted-foreground ml-2">Kategória:</span>
                   <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>Mind</button>
                   {categories.slice(0, 8).map((c) => (
-                    <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{categoryLabels[c] || c}</button>
+                    <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{categoryLabels[c] || categoryLabel(c)}</button>
                   ))}
                 </>
               )}
@@ -589,7 +590,7 @@ export default function SearchPage() {
                 <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">
                   {(heroPodcast as any).display_title || heroPodcast.title}
                 </div>
-                {heroPodcast.category && <div className="text-xs text-muted-foreground mt-1">{categoryLabels[heroPodcast.category] || heroPodcast.category}</div>}
+                {heroPodcast.category && <div className="text-xs text-muted-foreground mt-1">{categoryLabels[heroPodcast.category] || categoryLabel(heroPodcast.category)}</div>}
                 {(sanitizeHungarianPublicText(heroPodcast.summary) || sanitizeHungarianPublicText(heroPodcast.description)) && (
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">
                     {sanitizeHungarianPublicText(heroPodcast.summary) || sanitizeHungarianPublicText(heroPodcast.description)}

@@ -88,6 +88,7 @@ describe("page consistency static guards", () => {
     expect(startSwipe).toContain("fallbackQuery.overlaps(\"topics\", expandedFallbackTags)");
     expect(startSwipe).toContain("expandedFallbackTags");
     expect(startSwipe).toContain("recommendationRows = ((fallbackData || []) as any[]).map");
+    expect(startSwipe).toContain("categoryLabel(r.category)");
     expect(startSwipe).toContain("accept_hungarian");
     expect(startSwipe).toContain("Friss magyar epizódokat készítünk elő a profilodhoz.");
     expect(startSwipe).toContain("Még kevés jelünk van pontos epizódajánláshoz");
@@ -96,6 +97,7 @@ describe("page consistency static guards", () => {
     expect(startSwipe).not.toContain("Nem sikerült lekérni az ajánlásokat");
     expect(startSwipe).not.toContain("Most nem sikerült lekérni az ajánlásokat");
     expect(startSwipe).not.toContain("Podcastok nekem");
+    expect(startSwipe).not.toContain("Irány: ${r.category}");
 
     expect(tasteRecommend).toContain("INTEREST_GROUPS");
     expect(tasteRecommend).toContain("expandTasteTags(likedTopics)");
@@ -129,6 +131,7 @@ describe("page consistency static guards", () => {
   it("keeps category links on the Hungarian canonical route", () => {
     const labels = read("src/lib/categoryLabels.ts");
     const categories = read("src/pages/CategoriesPage.tsx");
+    const search = read("src/pages/SearchPage.tsx");
     const home = read("src/pages/Index.tsx");
     const detail = read("src/pages/CategoryDetail.tsx");
     const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
@@ -142,6 +145,10 @@ describe("page consistency static guards", () => {
     expect(labels).toContain("Vallás és spiritualitás");
     expect(labels).toContain("Kultúra és társadalom");
     expect(labels).toContain("Bűnügyek és rejtélyek");
+    expect(search).toContain("categoryLabel(c)");
+    expect(search).toContain("categoryLabel(heroPodcast.category)");
+    expect(search).not.toMatch(/categoryLabels\[c\]\s*\|\|\s*c\b/);
+    expect(search).not.toMatch(/categoryLabels\[heroPodcast\.category\]\s*\|\|\s*heroPodcast\.category\b/);
     expect(analytics).toContain('return "/kategoria/:slug"');
     expect(analytics).toContain('return "/kereses"');
     expect(analytics).toContain('return "/temak/:slug"');

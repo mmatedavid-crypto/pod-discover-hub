@@ -21,6 +21,7 @@ import { trackProfileEvent, captureSourceProfileFromUrl, getSourceProfileId } fr
 import { Download, Link2 } from "lucide-react";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { categoryLabel } from "@/lib/categoryLabels";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -263,7 +264,8 @@ function tagLabel(tag: string): string {
 function primaryReason(r: RecEp): string {
   const reasons = (r.reasons || []).map(tagLabel).filter(Boolean);
   if (reasons.length) return `Passzol: ${reasons.slice(0, 2).join(" + ")}`;
-  if (r.category) return `Irány: ${r.category}`;
+  const displayCategory = categoryLabel(r.category);
+  if (displayCategory) return `Irány: ${displayCategory}`;
   return "Az ízlésprofilod alapján";
 }
 
