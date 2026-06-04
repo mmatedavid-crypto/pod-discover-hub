@@ -362,6 +362,12 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("episode_trigger_exists");
     expect(verifier).toContain("podcast_trigger_exists");
     expect(verifier).toContain("policy_configured_v3");
+    expect(verifier).toContain("episode_ai_summary_data_clean");
+    expect(verifier).toContain("episode_seo_title_data_clean");
+    expect(verifier).toContain("episode_seo_description_data_clean");
+    expect(verifier).toContain("podcast_seo_title_data_clean");
+    expect(verifier).toContain("podcast_seo_description_data_clean");
+    expect(verifier).toContain("NOT public.is_hungarianish_public_ai_text");
   });
 
   it("keeps production verifier covering recommendation and people identity policies", () => {
