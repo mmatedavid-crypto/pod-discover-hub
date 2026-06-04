@@ -366,6 +366,26 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("keeps podcast category guard from misclassifying obvious religious channels", () => {
+    const runner = read("supabase/functions/categorize-podcast-runner/index.ts");
+    const migration = read("supabase/migrations/20260604224500_religion_category_guard_v2.sql");
+
+    expect(runner).toContain("function deterministicCategoryOverride");
+    expect(runner).toContain("RELIGION_STRONG_TITLE_RX");
+    expect(runner).toContain("deterministic-category-guard-v2");
+    expect(runner).toContain("deterministic_count");
+    expect(runner).toContain("website_url, rss_url, category, shadow_rank_tier");
+    for (const term of ["zarandok", "maria ut", "gyulekezet", "baptista", "istentisztelet", "predikacio", "igehirdetes", "biblia"]) {
+      expect(runner).toContain(term);
+      expect(migration).toContain(term);
+    }
+    expect(migration).toContain("podcast_category_guard_policy");
+    expect(migration).toContain("deterministic_category_guard_v2");
+    expect(migration).toContain("Zarándok.ma");
+    expect(migration).toContain("titleish !~");
+    expect(migration).toContain("orban");
+  });
+
   it("keeps publisher article matching wired into best text source", () => {
     const migration = read("supabase/migrations/20260603164000_article_pipeline_consolidated.sql");
     const pairer = read("supabase/functions/episode-article-pairer/index.ts");

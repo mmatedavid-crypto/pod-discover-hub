@@ -86,6 +86,31 @@ const TOOL = {
   },
 };
 
+function foldHu(s: unknown): string {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const RELIGION_STRONG_TITLE_RX = /\b(zarandok|maria ut|golgota|gyulekezet|baptista|adventista|katolikus|reformatus|evangelikus|istentisztelet|predikacio|igehirdetes|biblia|ahitat|evangelium|teologia|plebania|templom|lelki gyakorlat|lelkigyakorlat|hit gyulekezete|kereszteny)\b/;
+const RELIGION_WEAK_SIGNAL_RX = /\b(vallas|hit|isten|ima|imadsag|lelki|szentiras|pap|puspok|atya|jezus|krisztus|egyhazi|egyhaz)\b/;
+const RELIGION_FALSE_CONTEXT_RX = /\b(isten[, ]+orban|orban|politika|valasztas|reszveny|tozsde|befektetes|milliardos|film|zene|etterem|bor|kave|gasztro)\b/;
+
+function deterministicCategoryOverride(p: any): { slug: string; confidence: number; reason: string } | null {
+  const titleish = foldHu([p.title, p.display_title, p.slug, p.website_url, p.rss_url].filter(Boolean).join(" "));
+  const desc = foldHu(p.description || "");
+  if (RELIGION_STRONG_TITLE_RX.test(titleish)) {
+    return { slug: "religion-spirituality", confidence: 0.96, reason: "strong_religion_title_or_url_signal" };
+  }
+  if (RELIGION_STRONG_TITLE_RX.test(desc) && RELIGION_WEAK_SIGNAL_RX.test(desc) && !RELIGION_FALSE_CONTEXT_RX.test(titleish)) {
+    return { slug: "religion-spirituality", confidence: 0.88, reason: "multiple_religion_description_signals" };
+  }
+  return null;
+}
+
 import { callGeminiOpenAI } from "../_shared/google-gemini-direct.ts";
 
 async function callAI(model: string, prompt: string, targetId?: string) {
@@ -152,7 +177,7 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
 
-    let processed = 0, succeeded = 0, failed = 0, rate_limited = 0, low_conf_count = 0;
+    let processed = 0, succeeded = 0, failed = 0, rate_limited = 0, low_conf_count = 0, deterministic_count = 0;
     let stop = false;
     let total_claimed = 0, drain_loops = 0;
 
@@ -164,6 +189,29 @@ Deno.serve(async (req) => {
       if (spend >= dailyBudget) { stop = true; return; }
       processed++;
       try {
+        const override = deterministicCategoryOverride(p);
+        if (override) {
+          await admin.from("podcasts").update({
+            category: SLUG_TO_NAME[override.slug],
+            ai_category_confidence: override.confidence,
+            ai_category_alt: p.category || null,
+            ai_category_at: new Date().toISOString(),
+            ai_category_model: "deterministic-category-guard-v2",
+            ai_category_needs_review: false,
+            shadow_rank_components: {
+              ...(p.shadow_rank_components || {}),
+              category_repair: {
+                version: "deterministic_category_guard_v2",
+                old_category: p.category || null,
+                reason: override.reason,
+              },
+            },
+          }).eq("id", p.id);
+          deterministic_count++;
+          succeeded++;
+          return;
+        }
+
         const ai = await callAI(model, buildPrompt(p), p.id);
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
@@ -221,7 +269,7 @@ Deno.serve(async (req) => {
         if (need <= 0) break;
         let q = admin
           .from("podcasts")
-          .select("id, title, display_title, description, shadow_rank_tier, ai_category_confidence")
+          .select("id, title, display_title, slug, description, website_url, rss_url, category, shadow_rank_tier, shadow_rank_components, ai_category_confidence")
           .eq("shadow_rank_tier", tier)
           .eq("is_hungarian", true)
           .order("podiverzum_rank", { ascending: false, nullsFirst: false })
@@ -303,7 +351,7 @@ Deno.serve(async (req) => {
 
     return json({
       ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed,
-      rate_limited, low_conf_count, concurrency, batch, spend_usd: spend,
+      rate_limited, low_conf_count, deterministic_count, concurrency, batch, spend_usd: spend,
       remaining: totalRemaining, next_schedule, elapsed_ms: Date.now() - startedAt,
     });
   } catch (e: any) {
