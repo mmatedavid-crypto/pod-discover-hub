@@ -78,6 +78,14 @@ export default function ToplistaPage() {
           {snapshotLabel && (
             <p className="text-xs text-muted-foreground">Friss mérés: {snapshotLabel}</p>
           )}
+          <div className="pt-2">
+            <Link
+              to="/toplista/all-time"
+              className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-foreground bg-foreground text-background hover:opacity-90 transition"
+            >
+              🏆 Minden idők legnézettebb epizódjai →
+            </Link>
+          </div>
         </header>
 
         <div className="flex flex-wrap gap-2">
