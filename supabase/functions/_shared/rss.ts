@@ -156,6 +156,7 @@ function parseAtomEntry(entry: string, channelImage: string): FeedItem {
     getAttr(entry, "itunes:image", "href") ||
     getAttr(entry, "media:thumbnail", "url") ||
     channelImage;
+  const duration_seconds = parseItunesDuration(getTag(entry, "itunes:duration"));
   return {
     title,
     guid: guid || link,
@@ -164,8 +165,10 @@ function parseAtomEntry(entry: string, channelImage: string): FeedItem {
     description: stripHtml(desc),
     audio_url: audio,
     image,
+    duration_seconds,
   };
 }
+
 
 export function parseFeed(xml: string, fallbackImage?: string): FeedItem[] {
   const isAtom = /<feed\b[^>]*xmlns\s*=\s*["']http:\/\/www\.w3\.org\/2005\/Atom/i.test(xml) ||
