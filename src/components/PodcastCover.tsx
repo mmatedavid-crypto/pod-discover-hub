@@ -30,19 +30,34 @@ type Props = {
   size?: "sm" | "md" | "lg";
   loading?: "eager" | "lazy";
   fetchPriority?: "high" | "low" | "auto";
+  imageSize?: number;
+  imageWidths?: number[];
+  sizes?: string;
 };
 
 export const PodcastCover = forwardRef<HTMLDivElement, Props>(function PodcastCover(
-  { title, src, className = "", size = "md", loading = "lazy", fetchPriority = "auto" },
+  {
+    title,
+    src,
+    className = "",
+    size = "md",
+    loading = "lazy",
+    fetchPriority = "auto",
+    imageSize,
+    imageWidths,
+    sizes,
+  },
   ref,
 ) {
   const [broken, setBroken] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const showImg = src && !broken;
   const sizeCls = size === "sm" ? "text-xs" : size === "lg" ? "text-3xl" : "text-base";
-  const pixelSize = size === "sm" ? 96 : size === "lg" ? 320 : 192;
+  const pixelSize = imageSize || (size === "sm" ? 96 : size === "lg" ? 320 : 192);
+  const responsiveWidths = imageWidths || (size === "lg" ? [192, 320, 480] : [64, 96, 128]);
+  const imageSizes = sizes || (size === "lg" ? "(max-width: 640px) 160px, 320px" : "(max-width: 640px) 64px, 96px");
   const optimizedSrc = optimizedImageUrl(src, { width: pixelSize, height: pixelSize });
-  const srcSet = imageSrcSet(src, size === "lg" ? [192, 320, 480] : [80, 128, 192]);
+  const srcSet = imageSrcSet(src, responsiveWidths);
   return (
     <div
       ref={ref}
@@ -60,7 +75,7 @@ export const PodcastCover = forwardRef<HTMLDivElement, Props>(function PodcastCo
         <img
           src={optimizedSrc || (src as string)}
           srcSet={srcSet}
-          sizes={size === "lg" ? "(max-width: 640px) 160px, 320px" : "(max-width: 640px) 64px, 96px"}
+          sizes={imageSizes}
           alt={title}
           loading={loading}
           fetchPriority={fetchPriority}

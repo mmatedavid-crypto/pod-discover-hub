@@ -468,6 +468,9 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
                         title={e.display_title || e.title || podcast.display_title || podcast.title}
                         src={thumb}
                         size="sm"
+                        imageSize={96}
+                        imageWidths={[64, 96, 160]}
+                        sizes="(max-width: 640px) 64px, 80px"
                         loading={i < 4 ? "eager" : "lazy"}
                         fetchPriority={i < 4 ? "high" : "auto"}
                         className="h-full rounded-none border-0"

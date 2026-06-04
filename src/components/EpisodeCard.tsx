@@ -115,6 +115,9 @@ export function EpisodeCard({
             title={podTitle}
             src={p.image_url}
             size="sm"
+            imageSize={80}
+            imageWidths={[64, 96, 128]}
+            sizes="(max-width: 640px) 64px, 80px"
             loading={imagePriority ? "eager" : "lazy"}
             fetchPriority={imagePriority ? "high" : "auto"}
           />
@@ -282,6 +285,9 @@ function EpisodeRailCard({
               title={podTitle}
               src={p.image_url}
               size="sm"
+              imageSize={48}
+              imageWidths={[48, 64, 96]}
+              sizes="96px"
               loading="lazy"
               fetchPriority="low"
               className="h-full rounded-none border-0"
@@ -293,6 +299,9 @@ function EpisodeRailCard({
               title={podTitle}
               src={p.image_url}
               size="sm"
+              imageSize={80}
+              imageWidths={[64, 96, 128]}
+              sizes="(max-width: 640px) 64px, 80px"
               loading={imagePriority ? "eager" : "lazy"}
               fetchPriority={imagePriority ? "high" : "auto"}
             />
