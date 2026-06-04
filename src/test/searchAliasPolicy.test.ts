@@ -61,6 +61,9 @@ describe("Hungarian search alias policy", () => {
     expect(orgAliasMigration).toContain("'Richter Gedeon', 1.00");
     expect(orgAliasMigration).toContain("hidden_as_company_eponym_without_podcast_person_evidence");
     expect(personExtractor).toContain("ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST");
+    expect(personExtractor).toContain("organizationNameNorms");
+    expect(personExtractor).toContain('from("canonical_entity_aliases")');
+    expect(personExtractor).toContain('from("organization_aliases")');
     expect(personExtractor).toContain('"richter gedeon"');
   });
 });

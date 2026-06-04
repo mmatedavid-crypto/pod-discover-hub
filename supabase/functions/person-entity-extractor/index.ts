@@ -113,6 +113,51 @@ Deno.serve(async (req) => {
       aliasMap.set(a.normalized_alias, arr);
     });
 
+    // Organization aliases that must not become public person pages. This covers
+    // company eponyms and brand/legal names such as "Richter Gedeon", "Magyar
+    // Telekom" or "Ferencvárosi Torna Club" even when an upstream AI extractor
+    // mistakenly emits them in a people/mentioned array.
+    const organizationNameNorms = new Set<string>(ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST);
+    function addOrgAliasNorm(raw: unknown) {
+      const value = String(raw || "").trim();
+      if (!value) return;
+      organizationNameNorms.add(normalize(value));
+    }
+    for (let fromOrgAlias = 0; ; fromOrgAlias += 1000) {
+      const { data: page, error: aliasErr } = await supabase
+        .from("canonical_entity_aliases")
+        .select("normalized_alias, alias, canonical_name")
+        .eq("entity_kind", "organization")
+        .eq("status", "active")
+        .range(fromOrgAlias, fromOrgAlias + 999);
+      if (aliasErr) {
+        errors.push(`organization_alias_cache: ${aliasErr.message}`);
+        break;
+      }
+      (page || []).forEach((row: any) => {
+        addOrgAliasNorm(row.normalized_alias);
+        addOrgAliasNorm(row.alias);
+        addOrgAliasNorm(row.canonical_name);
+      });
+      if (!page || page.length < 1000) break;
+    }
+    for (let fromOrgAlias = 0; ; fromOrgAlias += 1000) {
+      const { data: page, error: aliasErr } = await supabase
+        .from("organization_aliases")
+        .select("normalized_alias, alias")
+        .eq("status", "accepted")
+        .range(fromOrgAlias, fromOrgAlias + 999);
+      if (aliasErr) {
+        errors.push(`organization_alias_table_cache: ${aliasErr.message}`);
+        break;
+      }
+      (page || []).forEach((row: any) => {
+        addOrgAliasNorm(row.normalized_alias);
+        addOrgAliasNorm(row.alias);
+      });
+      if (!page || page.length < 1000) break;
+    }
+
     // Cache all existing people. Supabase/PostgREST returns 1k rows by default,
     // which is not enough for this catalog; a partial cache creates new UUIDs
     // for already-known slugs and then the people_slug_key unique index rejects
@@ -170,7 +215,7 @@ Deno.serve(async (req) => {
       if (!cleaned) return null;
       const norm = normalize(cleaned);
       if (norm.length < 3) return null;
-      if (ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST.has(norm)) return null;
+      if (organizationNameNorms.has(norm)) return null;
       // Reject single first names / single tokens unless from hosts list
       if (!isLikelyFullName(cleaned)) return null;
       const useContext = contextBucket !== "unknown" && isCollisionProneName(cleaned);
