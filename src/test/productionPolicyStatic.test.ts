@@ -410,6 +410,7 @@ describe("production policy static guards", () => {
   it("keeps production verifier covering recommendation and people identity policies", () => {
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
+    const peopleHubFilterMigration = read("supabase/migrations/20260604213000_people_hub_identity_safe_filters.sql");
     const prerender = read("supabase/functions/prerender/index.ts");
 
     expect(verifier).toContain("related_episode_quality_policy");
@@ -435,6 +436,15 @@ describe("production policy static guards", () => {
     expect(peopleMigration).toContain("prerender_bio_rule");
     expect(peopleMigration).toContain("identity_ambiguous boolean");
     expect(peopleMigration).toContain("wikipedia_match_confidence numeric");
+    expect(peopleHubFilterMigration).toContain("CREATE OR REPLACE FUNCTION public.list_people_hub");
+    expect(peopleHubFilterMigration).toContain("CREATE OR REPLACE FUNCTION public.list_people_alpha");
+    expect(peopleHubFilterMigration).toContain("CREATE OR REPLACE FUNCTION public.people_alpha_letter_counts");
+    expect(peopleHubFilterMigration).toContain("p.is_indexable = true");
+    expect(peopleHubFilterMigration).toContain("COALESCE(p.activation_status, 'indexable') IN ('indexable', 'manual_approved')");
+    expect(peopleHubFilterMigration).toContain("COALESCE(p.ai_recommended_action, '') NOT IN ('hide', 'reject')");
+    expect(peopleHubFilterMigration).toContain("COALESCE(p.ai_review_status, '') NOT IN ('needs_human_review', 'duplicate_candidate')");
+    expect(peopleHubFilterMigration).toContain("COALESCE(p.identity_status, '') <> 'split_resolved'");
+    expect(peopleHubFilterMigration).toContain("COALESCE(p.identity_ambiguous, false) = true");
 
     expect(prerender).toContain("safePersonBioForPrerender");
     expect(prerender).toContain("isSafeGeneratedPersonBio");

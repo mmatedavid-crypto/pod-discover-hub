@@ -21,6 +21,11 @@ interface PersonRow extends PersonCardData {
   ai_bio_confidence?: number | null;
   wikipedia_match_status?: string | null;
   wikipedia_match_confidence?: number | null;
+  is_indexable?: boolean | null;
+  activation_status?: string | null;
+  ai_recommended_action?: string | null;
+  ai_review_status?: string | null;
+  identity_status?: string | null;
   total_count?: number;
 }
 
@@ -45,6 +50,17 @@ async function fetchPeople(limit: number, offset: number, search: string | null)
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 type SortMode = "relevance" | "alpha";
+
+function isSafePeopleHubPerson(p: Partial<PersonRow>): boolean {
+  const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
+  if (p.is_indexable === false) return false;
+  if (p.activation_status === "inactive") return false;
+  if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
+  if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
+  if (p.identity_status === "split_resolved") return false;
+  if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
+  return true;
+}
 
 async function fetchPeopleAlpha(letter: string | null, limit: number, offset: number) {
   const { data, error } = await supabase.rpc("list_people_alpha", {
@@ -86,7 +102,7 @@ export default function PeopleHubPage() {
     (async () => {
       setLoadingTop(true);
       const { rows } = await fetchPeople(TOP_LIMIT, 0, null);
-      setTop(rows);
+      setTop(rows.filter(isSafePeopleHubPerson));
       setLoadingTop(false);
       setSeo({
         title: "Személyek magyar podcastokban — Podiverzum",
@@ -109,13 +125,14 @@ export default function PeopleHubPage() {
     (async () => {
       const { data } = await supabase
         .from("people")
-        .select("id, slug, name, image_url, disambiguation_label, short_bio, ai_bio, identity_ambiguous, manual_approved, ai_bio_status, ai_bio_confidence, wikipedia_match_status, wikipedia_match_confidence, gated_episode_count, gated_podcast_count, episode_count, podcast_count, latest_accepted_relevant_episode_at, topic_figure_origin, people_hub_score")
+        .select("id, slug, name, image_url, disambiguation_label, short_bio, ai_bio, identity_ambiguous, manual_approved, ai_bio_status, ai_bio_confidence, wikipedia_match_status, wikipedia_match_confidence, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, gated_episode_count, gated_podcast_count, episode_count, podcast_count, latest_accepted_relevant_episode_at, topic_figure_origin, people_hub_score")
         .eq("persona", "topic_figure")
         .eq("is_public", true)
+        .eq("is_indexable", true)
         .gte("gated_episode_count", 1)
         .order("people_hub_score", { ascending: false })
         .limit(18);
-      setTopicFigures((data || []) as any[]);
+      setTopicFigures(((data || []) as any[]).filter(isSafePeopleHubPerson));
     })();
   }, []);
 
@@ -146,7 +163,7 @@ export default function PeopleHubPage() {
 
       if (sortMode === "alpha" && !search) {
         const { rows, total } = await fetchPeopleAlpha(letter, PAGE_SIZE, page * PAGE_SIZE);
-        setList(rows);
+        setList(rows.filter(isSafePeopleHubPerson));
         setTotalAll(total);
         setLoadingList(false);
         return;
@@ -154,7 +171,7 @@ export default function PeopleHubPage() {
 
       const offset = search ? page * PAGE_SIZE : page * PAGE_SIZE + (page === 0 ? TOP_LIMIT : TOP_LIMIT);
       const { rows, total } = await fetchPeople(PAGE_SIZE, offset, search);
-      setList(rows);
+      setList(rows.filter(isSafePeopleHubPerson));
       setTotalAll(total);
       setLoadingList(false);
     })();

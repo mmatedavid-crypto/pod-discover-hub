@@ -64,6 +64,18 @@ describe("page consistency static guards", () => {
     expect(topic).not.toContain('.from("people")\\n          .select("slug, name")');
   });
 
+  it("keeps the people hub identity-safe across top, alpha and topic-figure rails", () => {
+    const peopleHub = read("src/pages/PeopleHubPage.tsx");
+
+    expect(peopleHub).toContain("function isSafePeopleHubPerson");
+    expect(peopleHub).toContain("setTop(rows.filter(isSafePeopleHubPerson))");
+    expect(peopleHub).toContain("setList(rows.filter(isSafePeopleHubPerson))");
+    expect(peopleHub).toContain("setTopicFigures(((data || []) as any[]).filter(isSafePeopleHubPerson))");
+    expect(peopleHub).toContain(".eq(\"is_indexable\", true)");
+    expect(peopleHub).toContain("p.identity_ambiguous && !p.manual_approved && !trustedWiki");
+    expect(peopleHub).toContain('["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")');
+  });
+
   it("keeps homepage episode rails AI-summary aware", () => {
     const home = read("src/pages/Index.tsx");
 
