@@ -3,7 +3,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
-import { PodcastCover } from "@/components/PodcastCover";
 import { Youtube, Trophy, Eye } from "lucide-react";
 
 type Row = {
@@ -188,7 +187,12 @@ export default function ToplistaAllTimePage() {
                             loading="lazy"
                           />
                         ) : (
-                          <PodcastCover src={r.episode_image || r.podcast_image} alt="" size={100} />
+                          <img
+                            src={r.episode_image || r.podcast_image || ""}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
