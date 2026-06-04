@@ -21,6 +21,7 @@ describe("Hungarian search alias policy", () => {
     expect(canonicalEntityValue("company", "MTELEKOM")).toBe("Magyar Telekom");
     expect(canonicalEntityValue("company", "Fradi")).toBe("Ferencvárosi Torna Club");
     expect(canonicalEntityValue("company", "FTC")).toBe("Ferencvárosi Torna Club");
+    expect(canonicalEntityValue("company", "Richter Gedeon")).toBe("Richter Gedeon Nyrt.");
     expect(entitySlug("company", "Fradi")).toBe("ferencvarosi-torna-club");
     expect(matchesEntitySlug("company", "FTC", "ferencvarosi-torna-club")).toBe(true);
     expect(matchesEntitySlug("company", "MTEL", "magyar-telekom")).toBe(true);
@@ -40,6 +41,9 @@ describe("Hungarian search alias policy", () => {
   it("keeps edge hybrid search on the same built-in Hungarian alias layer", () => {
     const synonyms = read("supabase/functions/_shared/search-synonyms.ts");
     const understand = read("supabase/functions/_shared/search-understand.ts");
+    const orgRunner = read("supabase/functions/organizations-backfill-runner/index.ts");
+    const personExtractor = read("supabase/functions/person-entity-extractor/index.ts");
+    const orgAliasMigration = read("supabase/migrations/20260604204500_extend_high_value_organization_aliases.sql");
 
     expect(synonyms).toContain('fradi: ["FTC", "Ferencváros", "Ferencvárosi Torna Club", "labdarúgás"]');
     expect(synonyms).toContain('mtel: ["Magyar Telekom", "Telekom", "MTELEKOM"]');
@@ -47,5 +51,16 @@ describe("Hungarian search alias policy", () => {
     expect(synonyms).toContain("builtinExpansions");
     expect(understand).toContain("Fradi / FTC / Ferencváros");
     expect(understand).toContain("MTELEKOM/MTEL");
+    expect(orgRunner).toContain("HIGH_VALUE_ORG_ALIASES");
+    expect(orgRunner).toContain('aliases: ["telekom", "magyar telekom", "mtelekom", "mtel"');
+    expect(orgRunner).toContain('aliases: ["ftc", "fradi", "ferencváros"');
+    expect(orgAliasMigration).toContain("'Telekom', 0.99");
+    expect(orgAliasMigration).toContain("'MTELEKOM', 0.99");
+    expect(orgAliasMigration).toContain("'Fradi', 0.99");
+    expect(orgAliasMigration).toContain("'FTC', 0.99");
+    expect(orgAliasMigration).toContain("'Richter Gedeon', 1.00");
+    expect(orgAliasMigration).toContain("hidden_as_company_eponym_without_podcast_person_evidence");
+    expect(personExtractor).toContain("ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST");
+    expect(personExtractor).toContain('"richter gedeon"');
   });
 });

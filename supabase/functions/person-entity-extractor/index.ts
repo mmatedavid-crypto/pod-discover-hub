@@ -37,6 +37,16 @@ const CONTEXT_LABEL: Record<string, string> = {
   tech: "technológia",
   health: "egészség",
 };
+
+// Historical founders/eponyms that are common organization names in podcast
+// metadata. They should resolve to organization/company entities, not public
+// person pages, unless a future archival-evidence path explicitly whitelists
+// them.
+const ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST = new Set([
+  "richter gedeon",
+  "gedeon richter",
+]);
+
 function isLikelyFullName(name: string): boolean {
   const parts = name.trim().split(/\s+/);
   if (parts.length < 2) return false;
@@ -160,6 +170,7 @@ Deno.serve(async (req) => {
       if (!cleaned) return null;
       const norm = normalize(cleaned);
       if (norm.length < 3) return null;
+      if (ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST.has(norm)) return null;
       // Reject single first names / single tokens unless from hosts list
       if (!isLikelyFullName(cleaned)) return null;
       const useContext = contextBucket !== "unknown" && isCollisionProneName(cleaned);

@@ -32,6 +32,18 @@ const PARTY_WHITELIST: { name: string; aliases: string[]; color?: string; priori
   { name: "Mü", aliases: ["mü", "munkáspárt", "magyar munkáspárt"], color: "#990000", priority: 50 },
 ];
 
+const HIGH_VALUE_ORG_ALIASES: { name: string; aliases: string[]; type: string; priority?: number }[] = [
+  { name: "Magyar Telekom", type: "company", priority: 95, aliases: ["telekom", "magyar telekom", "mtelekom", "mtel", "magyar telekom nyrt", "magyar telekom nyrt.", "telekom hu", "telekom hungary", "t-mobile hungary"] },
+  { name: "Ferencvárosi Torna Club", type: "sport_team", priority: 95, aliases: ["ftc", "fradi", "ferencváros", "ferencvaros", "ferencvárosi torna club", "ferencvarosi torna club", "ferencvárosi tc", "ferencvarosi tc", "ferencvárosi torna klub", "ftc-telekom", "fradi.hu"] },
+  { name: "OTP Bank", type: "company", priority: 90, aliases: ["otp", "otp bank", "otp nyrt", "otp bank nyrt", "otp bank nyrt."] },
+  { name: "MOL", type: "company", priority: 90, aliases: ["mol", "mol nyrt", "mol nyrt.", "mol magyar olaj"] },
+  { name: "Richter Gedeon Nyrt.", type: "company", priority: 88, aliases: ["richter", "richter gedeon", "gedeon richter", "richter gedeon nyrt", "richter gedeon nyrt."] },
+  { name: "4iG", type: "company", priority: 86, aliases: ["4ig", "4ig nyrt", "4ig nyrt."] },
+  { name: "MÁV", type: "institution", priority: 84, aliases: ["mav", "máv", "mav csoport", "máv csoport", "mav-start", "máv-start", "mav start"] },
+  { name: "BKK", type: "institution", priority: 84, aliases: ["bkk", "budapesti közlekedési központ", "budapesti kozlekedesi kozpont"] },
+  { name: "MVM", type: "company", priority: 84, aliases: ["mvm", "mvm csoport", "magyar villamos művek", "magyar villamos muvek"] },
+];
+
 function normalize(name: string): string {
   return name
     .toLowerCase()
@@ -59,6 +71,14 @@ function detectPartyOverride(name: string): { name: string; color?: string; prio
   const norm = normalize(name);
   for (const p of PARTY_WHITELIST) {
     if (p.aliases.includes(norm)) return p;
+  }
+  return null;
+}
+
+function detectHighValueOrgOverride(name: string): { name: string; type: string; priority?: number } | null {
+  const norm = normalize(name);
+  for (const org of HIGH_VALUE_ORG_ALIASES) {
+    if (org.aliases.map(normalize).includes(norm)) return org;
   }
   return null;
 }
@@ -111,6 +131,40 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Seed high-value Hungarian organization aliases used by search/SEO/entity pages.
+    // This prevents common names such as "Telekom", "MTEL", "Fradi" or "FTC"
+    // from creating separate organization rows during the backfill.
+    for (const org of HIGH_VALUE_ORG_ALIASES) {
+      const slug = slugify(org.name);
+      const { data: existing } = await admin
+        .from("organizations")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      let orgId = existing?.id;
+      if (!orgId) {
+        const { data: created } = await admin.from("organizations").insert({
+          slug,
+          name: org.name,
+          normalized_name: normalize(org.name),
+          org_type: org.type,
+          manually_seeded: true,
+          editorial_priority: true,
+          editorial_priority_level: org.priority || 80,
+        }).select("id").single();
+        orgId = created?.id;
+        if (orgId) seeded++;
+      }
+      if (orgId) {
+        for (const a of org.aliases) {
+          await admin.from("organization_aliases").upsert(
+            { organization_id: orgId, alias: a, normalized_alias: normalize(a), source: "high_value_alias_seed", status: "accepted", confidence: 0.98 },
+            { onConflict: "normalized_alias", ignoreDuplicates: false } as any,
+          );
+        }
+      }
+    }
+
     if (seedOnly) {
       return json({ ok: true, seeded });
     }
@@ -157,10 +211,12 @@ Deno.serve(async (req) => {
         if (!rawName) continue;
         let type = ORG_TYPES.has(item.type) ? item.type : "other";
         const partyOverride = detectPartyOverride(rawName);
-        const canonicalName = partyOverride?.name || rawName;
+        const orgOverride = partyOverride ? null : detectHighValueOrgOverride(rawName);
+        const canonicalName = partyOverride?.name || orgOverride?.name || rawName;
         const normalized = normalize(canonicalName);
         if (!normalized) continue;
         if (partyOverride) type = "party";
+        else if (orgOverride && ORG_TYPES.has(orgOverride.type)) type = orgOverride.type;
 
         let orgId = orgCache.get(normalized);
         if (!orgId) {
