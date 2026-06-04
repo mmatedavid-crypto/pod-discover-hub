@@ -141,6 +141,7 @@ describe("production policy static guards", () => {
     const migration = read("supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql");
     const connectorMigration = read("supabase/migrations/20260603221000_news_sitemap_gsc_connector_gateway.sql");
     const connectorReassertMigration = read("supabase/migrations/20260604094229_reassert_news_sitemap_gsc_connector.sql");
+    const staticFallback = read("public/news-sitemap.xml");
 
     expect(fn).toContain("submitGoogleSearchConsoleSitemap");
     expect(fn).toContain("https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/");
@@ -194,6 +195,11 @@ describe("production policy static guards", () => {
     expect(connectorReassertMigration).toContain("requires_connector_secrets");
     expect(connectorReassertMigration).toContain("- 'requires_google_secrets'");
     expect(connectorReassertMigration).not.toContain("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY");
+
+    expect(staticFallback).toContain('xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"');
+    expect(staticFallback).not.toContain("<url>");
+    expect(staticFallback).not.toContain("podiverzum.hu/heti</loc>");
+    expect(staticFallback).not.toContain("<news:publication_date>");
   });
 
   it("keeps root sitemap XMLs served through the Cloudflare worker with fresh news cache", () => {
