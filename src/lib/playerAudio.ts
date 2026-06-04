@@ -45,12 +45,12 @@ export function evaluateAudioEligibility(
   try { u = new URL(raw); } catch { return { ok: false, reason: "invalid_url" }; }
   if (!/^https?:$/.test(u.protocol)) return { ok: false, reason: "non_http" };
   const extHit = AUDIO_EXT.test(u.pathname) || AUDIO_EXT.test(raw);
-  const directHost = hostMatches(u.hostname, DIRECT_AUDIO_HOST_SUFFIXES);
   // A real audio extension on the path means it's a direct stream even if
-  // the host (e.g. feeds.soundcloud.com) is part of a "bad" platform domain.
+  // the host (e.g. feeds.soundcloud.com) is part of a platform domain.
   if (!extHit && hostMatches(u.hostname, BAD_HOST_SUFFIXES)) {
     return { ok: false, reason: "non_direct_audio_url" };
   }
+  const directHost = hostMatches(u.hostname, DIRECT_AUDIO_HOST_SUFFIXES);
   if (!extHit && !directHost) {
     return { ok: false, reason: "non_direct_audio_url" };
   }
