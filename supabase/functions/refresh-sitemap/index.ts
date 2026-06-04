@@ -87,7 +87,14 @@ function isSafePersonSitemapRow(p: any): boolean {
   if (['hide', 'reject'].includes(p.ai_recommended_action || '')) return false;
   if (['needs_human_review', 'duplicate_candidate'].includes(p.ai_review_status || '')) return false;
   if (p.identity_status === 'split_resolved') return false;
-  if ((p.is_deceased === true || p.is_historical === true) && p.has_archival_evidence !== true && p.manual_approved !== true) return false;
+  const hasPodcastPersonEvidence = Number(p.participant_count || 0) + Number(p.host_count || 0) + Number(p.guest_count || 0) > 0;
+  const temporalTopicOnly = p.has_archival_evidence !== true && p.manual_approved !== true && (
+    p.is_deceased === true
+    || p.is_historical === true
+    || p.persona === 'historical'
+    || ((p.date_of_death || p.is_living === false) && !hasPodcastPersonEvidence)
+  );
+  if (temporalTopicOnly) return false;
   const trustedWiki = p.wikipedia_match_status === 'verified' && Number(p.wikipedia_match_confidence || 0) >= 0.8;
   if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
   return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
@@ -419,7 +426,7 @@ ${newsItems.join('\n')}
       const peopleUrls: string[] = [];
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await sb.from('people')
-          .select('slug,updated_at,latest_episode_at,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,gated_episode_count,episode_count')
+          .select('slug,updated_at,latest_episode_at,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,is_topic_only,date_of_death,is_living,participant_count,host_count,guest_count,gated_episode_count,episode_count')
           .eq('is_public', true)
           .eq('is_indexable', true)
           .in('activation_status', ['indexable', 'manual_approved'])

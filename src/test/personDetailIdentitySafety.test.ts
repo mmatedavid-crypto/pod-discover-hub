@@ -45,13 +45,14 @@ describe("person detail identity safety", () => {
     const page = read("src/pages/PersonDetailPage.tsx");
 
     expect(page).toContain("Kapcsolódó személyek");
-    expect(page).toContain(".select(\"slug, name, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence\")");
+    expect(page).toContain("persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count");
     expect(page).toContain('.eq("is_indexable", true)');
     expect(page).toContain("const safeRelated = ((rel || []) as any[]).filter");
     expect(page).toContain('r.activation_status === "inactive"');
     expect(page).toContain('["hide", "reject"].includes(r.ai_recommended_action || "")');
     expect(page).toContain('["needs_human_review", "duplicate_candidate"].includes(r.ai_review_status || "")');
     expect(page).toContain('r.identity_status === "split_resolved"');
+    expect(page).toContain("if (isTemporalTopicOnlyPerson(r)) return false");
     expect(page).toContain("r.identity_ambiguous && !r.manual_approved && !trustedWiki");
     expect(page).not.toContain('from("people").select("slug, name").eq("is_public", true).in("name", topNames)');
   });
@@ -60,7 +61,10 @@ describe("person detail identity safety", () => {
     const page = read("src/pages/PersonDetailPage.tsx");
 
     expect(page).toContain("editorial_notes");
-    expect(page).toContain("const historicalWithoutEvidence = Boolean(pp)");
+    expect(page).toContain("function isTemporalTopicOnlyPerson");
+    expect(page).toContain("const historicalWithoutEvidence = isTemporalTopicOnlyPerson(pp)");
+    expect(page).toContain('person.persona === "historical"');
+    expect(page).toContain("person.date_of_death || person.is_living === false");
     expect(page).toContain("const hiddenCompanyEponym = Boolean(pp)");
     expect(page).toContain("hidden_as_company_eponym_without_podcast_person_evidence");
     expect(page).toContain("if (historicalWithoutEvidence || hiddenCompanyEponym)");
@@ -74,7 +78,8 @@ describe("person detail identity safety", () => {
     expect(prerender).toContain("function hasTrustedPersonIdentity");
     expect(prerender).toContain("function safePersonImageForPrerender");
     expect(prerender).toContain("person.identity_ambiguous && !hasTrustedPersonIdentity(person)");
-    expect(prerender).toContain("const historicalWithoutEvidence = (person.is_deceased === true || person.is_historical === true)");
+    expect(prerender).toContain('person.persona === "historical"');
+    expect(prerender).toContain("person.date_of_death || person.is_living === false");
     expect(prerender).toContain("|| historicalWithoutEvidence");
     expect(prerender).toContain('trustedIdentity ? {');
     expect(prerender).toContain('"@type": "Person"');

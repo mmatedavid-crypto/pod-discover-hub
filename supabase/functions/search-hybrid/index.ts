@@ -37,7 +37,14 @@ function isSafePublicPerson(p: any): boolean {
   if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
   if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
   if (p.identity_status === "split_resolved") return false;
-  if ((p.is_deceased === true || p.is_historical === true) && p.has_archival_evidence !== true && p.manual_approved !== true) return false;
+  const hasPodcastPersonEvidence = Number(p.participant_count || 0) + Number(p.host_count || 0) + Number(p.guest_count || 0) > 0;
+  const temporalTopicOnly = p.has_archival_evidence !== true && p.manual_approved !== true && (
+    p.is_deceased === true
+    || p.is_historical === true
+    || p.persona === "historical"
+    || ((p.date_of_death || p.is_living === false) && !hasPodcastPersonEvidence)
+  );
+  if (temporalTopicOnly) return false;
   const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
   if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
   return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
@@ -490,7 +497,7 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
     const aliasRows = await withTimeout(
       supa
         .from("person_aliases")
-        .select("person_id,confidence,people!inner(id,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,gated_episode_count,episode_count)")
+        .select("person_id,confidence,people!inner(id,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,is_topic_only,date_of_death,is_living,participant_count,host_count,guest_count,gated_episode_count,episode_count)")
         .eq("normalized_alias", qNorm)
         .eq("status", "accepted")
         .gte("confidence", 0.7)
@@ -509,7 +516,7 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
   const person = await withTimeout(
     supa
       .from("people")
-      .select("id,name,slug,image_url,short_bio,ai_bio,overview_text,wikipedia_description,disambiguation_label,gated_episode_count,episode_count,podcast_count,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,normalized_name,identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence")
+      .select("id,name,slug,image_url,short_bio,ai_bio,overview_text,wikipedia_description,disambiguation_label,gated_episode_count,episode_count,podcast_count,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,normalized_name,identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,is_topic_only,date_of_death,is_living,participant_count,host_count,guest_count")
       .eq("id", personId)
       .eq("is_public", true)
       .eq("is_indexable", true)
@@ -691,7 +698,7 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
   const infix = `%${qNorm}%`;
   const tasks = [
     supa.from("people")
-      .select("id,name,slug,gated_episode_count,episode_count,normalized_name,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence")
+      .select("id,name,slug,gated_episode_count,episode_count,normalized_name,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,is_topic_only,date_of_death,is_living,participant_count,host_count,guest_count")
       .eq("is_public", true)
       .eq("is_indexable", true)
       .in("activation_status", ["indexable", "manual_approved"])
@@ -699,7 +706,7 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
       .order("gated_episode_count", { ascending: false, nullsFirst: false })
       .limit(4),
     supa.from("person_aliases")
-      .select("person_id,alias,confidence,people!inner(id,name,slug,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,gated_episode_count,episode_count)")
+      .select("person_id,alias,confidence,people!inner(id,name,slug,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,is_topic_only,date_of_death,is_living,participant_count,host_count,guest_count,gated_episode_count,episode_count)")
       .eq("normalized_alias", qNorm)
       .eq("status", "accepted")
       .gte("confidence", 0.7)

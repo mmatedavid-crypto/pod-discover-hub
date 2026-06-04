@@ -34,6 +34,16 @@ interface Person {
   identity_ambiguous?: boolean | null;
   manual_approved?: boolean | null;
   ai_bio_confidence?: number | null;
+  is_deceased?: boolean | null;
+  is_historical?: boolean | null;
+  has_archival_evidence?: boolean | null;
+  persona?: string | null;
+  is_topic_only?: boolean | null;
+  date_of_death?: string | null;
+  is_living?: boolean | null;
+  participant_count?: number | null;
+  host_count?: number | null;
+  guest_count?: number | null;
 }
 
 function hasVerifiedWiki(person: Pick<Person, "wikipedia_match_status">): boolean {
@@ -45,6 +55,17 @@ function isAmbiguousWithoutTrustedIdentity(person: Person): boolean {
   if (person.manual_approved) return false;
   if (hasVerifiedWiki(person) && Number(person.wikipedia_match_confidence || 0) >= 0.8) return false;
   return true;
+}
+
+function hasPodcastPersonEvidence(person: Person | any): boolean {
+  return Number(person?.participant_count || 0) + Number(person?.host_count || 0) + Number(person?.guest_count || 0) > 0;
+}
+
+function isTemporalTopicOnlyPerson(person: Person | any): boolean {
+  if (!person || person.has_archival_evidence === true || person.manual_approved === true) return false;
+  if (person.is_deceased === true || person.is_historical === true || person.persona === "historical") return true;
+  if ((person.date_of_death || person.is_living === false) && !hasPodcastPersonEvidence(person)) return true;
+  return false;
 }
 
 function personCollectionIntro(name: string, count: number): string {
@@ -80,14 +101,11 @@ export default function PersonDetailPage() {
       setNotFound(false);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes")
+        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes, date_of_death, is_living, participant_count, host_count, guest_count")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
-      const historicalWithoutEvidence = Boolean(pp)
-        && (pp.is_deceased === true || pp.is_historical === true)
-        && pp.has_archival_evidence !== true
-        && pp.manual_approved !== true;
+      const historicalWithoutEvidence = isTemporalTopicOnlyPerson(pp);
       const hiddenCompanyEponym = Boolean(pp)
         && typeof pp.editorial_notes === "string"
         && pp.editorial_notes.includes("hidden_as_company_eponym_without_podcast_person_evidence");
@@ -232,7 +250,7 @@ export default function PersonDetailPage() {
       if (topNames.length > 0) {
         const { data: rel } = await supabase
           .from("people")
-          .select("slug, name, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence")
+          .select("slug, name, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count")
           .eq("is_public", true)
           .eq("is_indexable", true)
           .in("name", topNames);
@@ -242,6 +260,7 @@ export default function PersonDetailPage() {
           if (["hide", "reject"].includes(r.ai_recommended_action || "")) return false;
           if (["needs_human_review", "duplicate_candidate"].includes(r.ai_review_status || "")) return false;
           if (r.identity_status === "split_resolved") return false;
+          if (isTemporalTopicOnlyPerson(r)) return false;
           if (r.identity_ambiguous && !r.manual_approved && !trustedWiki) return false;
           return true;
         });

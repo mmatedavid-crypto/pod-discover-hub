@@ -330,6 +330,8 @@ describe("production policy static guards", () => {
     expect(searchHybrid).toContain("identity_ambiguous,manual_approved,ai_bio_status,ai_bio_confidence,wikipedia_match_status,wikipedia_match_confidence");
     expect(searchHybrid).toContain("identity_ambiguous: person.identity_ambiguous");
     expect(searchHybrid).toContain("is_deceased: person.is_deceased");
+    expect(searchHybrid).toContain('p.persona === "historical"');
+    expect(searchHybrid).toContain("p.date_of_death || p.is_living === false");
     expect(autocomplete).toContain("function isSafePublicPerson");
     expect(autocomplete).toContain("filter(isSafePublicPerson)");
     expect(autocomplete).toContain("if (!isSafePublicPerson(person)) continue");
@@ -342,9 +344,30 @@ describe("production policy static guards", () => {
       expect(source).toContain("is_deceased");
       expect(source).toContain("is_historical");
       expect(source).toContain("has_archival_evidence");
+      expect(source).toContain("persona");
+      expect(source).toContain("is_topic_only");
+      expect(source).toContain("date_of_death");
+      expect(source).toContain("is_living");
+      expect(source).toContain("participant_count");
+      expect(source).toContain("host_count");
+      expect(source).toContain("guest_count");
       expect(source).toContain("manual_approved");
       expect(source).toContain("identity_ambiguous");
     }
+  });
+
+  it("demotes temporal topic-only people at the database policy layer", () => {
+    const migration = read("supabase/migrations/20260604232000_temporal_person_public_guard.sql");
+
+    expect(migration).toContain("temporal_topic_only_guard_v1");
+    expect(migration).toContain("p.is_deceased IS TRUE");
+    expect(migration).toContain("p.is_historical IS TRUE");
+    expect(migration).toContain("p.persona = 'historical'");
+    expect(migration).toContain("p.date_of_death IS NOT NULL OR p.is_living IS FALSE");
+    expect(migration).toContain("COALESCE(p.participant_count, 0) + COALESCE(p.host_count, 0) + COALESCE(p.guest_count, 0) = 0");
+    expect(migration).toContain("is_public = false");
+    expect(migration).toContain("is_indexable = false");
+    expect(migration).toContain("is_browsable_in_people_hub = false");
   });
 
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {

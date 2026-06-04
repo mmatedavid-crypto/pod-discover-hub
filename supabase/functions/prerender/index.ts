@@ -54,7 +54,14 @@ function isSafePublicPerson(person: Record<string, unknown>): boolean {
   if (["hide", "reject"].includes(String(person.ai_recommended_action || ""))) return false;
   if (["needs_human_review", "duplicate_candidate"].includes(String(person.ai_review_status || ""))) return false;
   if (person.identity_status === "split_resolved") return false;
-  if ((person.is_deceased === true || person.is_historical === true) && person.has_archival_evidence !== true && person.manual_approved !== true) return false;
+  const hasPodcastPersonEvidence = Number(person.participant_count || 0) + Number(person.host_count || 0) + Number(person.guest_count || 0) > 0;
+  const temporalTopicOnly = person.has_archival_evidence !== true && person.manual_approved !== true && (
+    person.is_deceased === true
+    || person.is_historical === true
+    || person.persona === "historical"
+    || ((person.date_of_death || person.is_living === false) && !hasPodcastPersonEvidence)
+  );
+  if (temporalTopicOnly) return false;
   if (person.identity_ambiguous && !hasTrustedPersonIdentity(person)) return false;
   return Number(person.gated_episode_count || person.episode_count || 0) >= 1;
 }
@@ -535,11 +542,11 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, is_public, is_indexable, ai_review_status, activation_status")
+    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
-  const historicalWithoutEvidence = (person.is_deceased === true || person.is_historical === true)
+  const historicalWithoutEvidence = (person.is_deceased === true || person.is_historical === true || person.persona === "historical")
     && person.has_archival_evidence !== true
     && person.manual_approved !== true;
   if (historicalWithoutEvidence) return null;
@@ -945,7 +952,7 @@ ${hubCrossLinks(kind)}`,
   if (kind === "szemelyek") {
     const { data } = await (supabase as any)
       .from("people")
-      .select("name, slug, short_bio, short_description_hu, image_url, gated_episode_count, episode_count, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence")
+      .select("name, slug, short_bio, short_description_hu, image_url, gated_episode_count, episode_count, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count")
       .eq("is_public", true)
       .eq("is_indexable", true)
       .in("activation_status", ["indexable", "manual_approved"])
@@ -1271,7 +1278,7 @@ async function buildPersonTopic(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, short_bio, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, is_deceased, is_historical, has_archival_evidence, gated_episode_count, episode_count")
+    .select("id, name, slug, image_url, ai_bio, short_bio, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, gated_episode_count, episode_count")
     .eq("slug", personSlug).maybeSingle();
   if (!person || !isSafePublicPerson(person)) return null;
   const { data: topic } = await (supabase as any)
