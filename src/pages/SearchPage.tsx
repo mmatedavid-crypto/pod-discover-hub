@@ -91,6 +91,7 @@ export default function SearchPage() {
   const [pinnedPodcast, setPinnedPodcast] = useState<any | null>(null);
   const [heroOrganization, setHeroOrganization] = useState<any | null>(null);
   const [heroTopic, setHeroTopic] = useState<any | null>(null);
+  const [degradedSearch, setDegradedSearch] = useState<"timeout" | "fallback" | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
 
@@ -150,6 +151,7 @@ export default function SearchPage() {
     setPinnedPodcast(null);
     setHeroOrganization(null);
     setHeroTopic(null);
+    setDegradedSearch(null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
@@ -230,6 +232,7 @@ export default function SearchPage() {
         if (cancelled) return;
         console.warn("search-hybrid failed, falling back to legacy", err);
         usedFallback = true;
+        setDegradedSearch((err as Error)?.message === "search_timeout" ? "timeout" : "fallback");
         const result = await searchEpisodes({ rawQuery: initial, scope: "all", limit: 80 });
         if (cancelled) return;
         if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
@@ -707,6 +710,13 @@ export default function SearchPage() {
                 )}
                 {confidence === "low" && (
                   <p className="text-xs text-muted-foreground -mt-1 mb-3">Kevés erős egyezést találtunk — próbálj konkrétabb nevet vagy témát.</p>
+                )}
+                {degradedSearch && (
+                  <p className="text-xs text-muted-foreground -mt-1 mb-3">
+                    {degradedSearch === "timeout"
+                      ? "A mélyebb keresés most lassú volt, ezért gyorsított találatokat mutatunk. Próbáld újra később a pontosabb rendezésért."
+                      : "A mélyebb keresés most nem válaszolt, ezért tartalék találati listát mutatunk."}
+                  </p>
                 )}
                 <EpisodeList items={episodes} terms={flatTerms} showEntities />
               </section>

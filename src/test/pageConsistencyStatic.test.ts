@@ -464,6 +464,10 @@ describe("page consistency static guards", () => {
 
     expect(searchPage).toContain("function sanitizeSearchAnswer(answer: string)");
     expect(searchPage).toContain("setAiAnswer(sanitizeSearchAnswer(acc))");
+    expect(searchPage).toContain('const [degradedSearch, setDegradedSearch] = useState<"timeout" | "fallback" | null>(null)');
+    expect(searchPage).toContain('setDegradedSearch((err as Error)?.message === "search_timeout" ? "timeout" : "fallback")');
+    expect(searchPage).toContain("A mélyebb keresés most lassú volt");
+    expect(searchPage).toContain("tartalék találati listát mutatunk");
     expect(searchPage).toContain("Találati összkép");
     expect(searchPage).toContain("Áttekintés készül a legerősebb epizódok alapján");
     expect(searchPage).toContain("Automatikus összegzés a találati lista alapján");
