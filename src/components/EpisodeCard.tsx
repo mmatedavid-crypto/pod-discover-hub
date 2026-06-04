@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { PodcastCover } from "./PodcastCover";
 import { Brain, Info, Play } from "lucide-react";
@@ -58,6 +58,18 @@ function HL({ text, terms }: { text: string; terms?: string[] }) {
         : <span key={i}>{p.s}</span>)}
     </>
   );
+}
+
+function railBackdropStyle(title: string): CSSProperties {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return {
+    background:
+      `radial-gradient(circle at 20% 20%, hsl(${hue} 55% 42% / 0.38), transparent 42%), ` +
+      `radial-gradient(circle at 82% 18%, hsl(${(hue + 72) % 360} 50% 48% / 0.28), transparent 38%), ` +
+      `linear-gradient(135deg, hsl(${hue} 28% 16%), hsl(${(hue + 36) % 360} 26% 10%))`,
+  };
 }
 
 function EpisodeMarksSlot({ episodeId }: { episodeId: string }) {
@@ -280,19 +292,7 @@ function EpisodeRailCard({
     <article className="group h-full overflow-hidden rounded-lg border border-border/70 bg-card/80 shadow-sm transition-all hover:border-primary/50 hover:bg-card">
       <Link to={`/podcast/${p.slug}/${e.slug}`} className="block">
         <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
-          <div className="absolute inset-0 scale-110 opacity-35 blur-xl">
-            <PodcastCover
-              title={podTitle}
-              src={p.image_url}
-              size="sm"
-              imageSize={48}
-              imageWidths={[48, 64, 96]}
-              sizes="96px"
-              loading="lazy"
-              fetchPriority="low"
-              className="h-full rounded-none border-0"
-            />
-          </div>
+          <div className="absolute inset-0 opacity-90" style={railBackdropStyle(podTitle)} />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/45 to-transparent" />
           <div className="absolute left-3 top-3 w-16 rounded-md shadow-lg ring-1 ring-border/70 sm:w-20">
             <PodcastCover

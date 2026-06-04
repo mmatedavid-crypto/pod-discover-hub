@@ -5,14 +5,14 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
 
 describe("episode thumbnail loading policy", () => {
-  it("keeps blurred rail backgrounds cheap and low priority", () => {
+  it("keeps rail backgrounds decorative instead of loading a second thumbnail", () => {
     const card = read("src/components/EpisodeCard.tsx");
 
-    expect(card).toContain('size="sm"');
-    expect(card).toContain("imageSize={48}");
-    expect(card).toContain("imageWidths={[48, 64, 96]}");
-    expect(card).toContain('sizes="96px"');
-    expect(card).toContain('fetchPriority="low"');
+    expect(card).toContain("function railBackdropStyle");
+    expect(card).toContain("style={railBackdropStyle(podTitle)}");
+    expect(card).not.toContain("imageSize={48}");
+    expect(card).not.toContain("imageWidths={[48, 64, 96]}");
+    expect(card).not.toContain('sizes="96px"');
     expect(card).not.toContain('size="lg" className="h-full rounded-none border-0"');
   });
 
