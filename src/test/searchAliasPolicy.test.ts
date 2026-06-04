@@ -41,6 +41,7 @@ describe("Hungarian search alias policy", () => {
   it("keeps edge hybrid search on the same built-in Hungarian alias layer", () => {
     const synonyms = read("supabase/functions/_shared/search-synonyms.ts");
     const understand = read("supabase/functions/_shared/search-understand.ts");
+    const entityBackfill = read("supabase/functions/entity-backfill-runner/index.ts");
     const orgRunner = read("supabase/functions/organizations-backfill-runner/index.ts");
     const personExtractor = read("supabase/functions/person-entity-extractor/index.ts");
     const orgAliasMigration = read("supabase/migrations/20260604204500_extend_high_value_organization_aliases.sql");
@@ -65,5 +66,10 @@ describe("Hungarian search alias policy", () => {
     expect(personExtractor).toContain('from("canonical_entity_aliases")');
     expect(personExtractor).toContain('from("organization_aliases")');
     expect(personExtractor).toContain('"richter gedeon"');
+    expect(entityBackfill).toContain("organizationNameNorms");
+    expect(entityBackfill).toContain("Organization, company, team, party and institution names must never go into people or mentioned");
+    expect(entityBackfill).toContain('from("canonical_entity_aliases")');
+    expect(entityBackfill).toContain('from("organization_aliases")');
+    expect(entityBackfill).toContain("organizationNameNorms.has(normalizeForMatch(name))");
   });
 });

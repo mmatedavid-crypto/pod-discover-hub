@@ -213,6 +213,49 @@ Deno.serve(async (req) => {
     let runCalls = 0;
     if (mySpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend: mySpend });
 
+    // Organization aliases must not leak into people/mentioned. This catches
+    // AI mistakes such as "Richter Gedeon" (company eponym) or "Magyar Telekom"
+    // being returned as a person-like entity.
+    const organizationNameNorms = new Set<string>();
+    function addOrgAliasNorm(raw: unknown) {
+      const value = String(raw || "").trim();
+      if (!value) return;
+      organizationNameNorms.add(normalizeForMatch(value));
+    }
+    for (let fromOrgAlias = 0; ; fromOrgAlias += 1000) {
+      const { data: page, error: aliasErr } = await admin
+        .from("canonical_entity_aliases")
+        .select("normalized_alias, alias, canonical_name")
+        .eq("entity_kind", "organization")
+        .eq("status", "active")
+        .range(fromOrgAlias, fromOrgAlias + 999);
+      if (aliasErr) {
+        console.warn("organization_alias_cache", aliasErr.message);
+        break;
+      }
+      (page || []).forEach((row: any) => {
+        addOrgAliasNorm(row.normalized_alias);
+        addOrgAliasNorm(row.alias);
+        addOrgAliasNorm(row.canonical_name);
+      });
+      if (!page || page.length < 1000) break;
+    }
+    for (let fromOrgAlias = 0; ; fromOrgAlias += 1000) {
+      const { data: page, error: aliasErr } = await admin
+        .from("organization_aliases")
+        .select("normalized_alias, alias")
+        .eq("status", "accepted")
+        .range(fromOrgAlias, fromOrgAlias + 999);
+      if (aliasErr) {
+        console.warn("organization_alias_table_cache", aliasErr.message);
+        break;
+      }
+      (page || []).forEach((row: any) => {
+        addOrgAliasNorm(row.normalized_alias);
+        addOrgAliasNorm(row.alias);
+      });
+      if (!page || page.length < 1000) break;
+    }
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
     let stop = false;
@@ -257,7 +300,7 @@ Deno.serve(async (req) => {
         const hostLine = podHosts.length
           ? `Show hosts (DO NOT include any of these names in 'people' or 'mentioned'): ${podHosts.join(", ")}\n`
           : "";
-        const userPrompt = `${hostLine}Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract only evidence-backed entities. people/person_mentions speaker = speakers only; mentioned = talked-about but absent. organizations = named orgs with precise type and evidence. Ignore footer/social/listen links.`;
+        const userPrompt = `${hostLine}Show: ${podName}\nEpisode: ${ep.display_title || ep.title}\nDescription: ${desc || "(none)"}\n\nExtract only evidence-backed entities. people/person_mentions speaker = speakers only; mentioned = talked-about but absent. organizations = named orgs with precise type and evidence. Organization, company, team, party and institution names must never go into people or mentioned, even when named after a person. Examples: Richter Gedeon, Magyar Telekom, FTC/Fradi, OTP, MOL are organizations when used as brands/companies/teams. Ignore footer/social/listen links.`;
         const aiRes = await callGeminiOpenAI({
           model,
           messages: [
@@ -289,6 +332,7 @@ Deno.serve(async (req) => {
             const rawName = String(item?.name || "").replace(/\s+/g, " ").trim().slice(0, 100);
             const name = canonicalPersonName(rawName);
             if (!name || !isLikelyFullName(name)) continue;
+            if (organizationNameNorms.has(normalizeForMatch(name)) || organizationNameNorms.has(normalizeForMatch(rawName))) continue;
             if (hostNorms.has(normalizeForMatch(name))) continue;
             if (!includesLiteral(sourceText, rawName) && !includesLiteral(sourceText, name)) continue;
             const evidence = evidenceSnippet(sourceText, rawName, item?.evidence) || evidenceSnippet(sourceText, name, item?.evidence);
@@ -305,12 +349,14 @@ Deno.serve(async (req) => {
         } else {
           for (const rawName of filterHosts(cleanArr(parsed.people), podHosts)) {
             const name = canonicalPersonName(rawName);
+            if (organizationNameNorms.has(normalizeForMatch(name)) || organizationNameNorms.has(normalizeForMatch(rawName))) continue;
             if (!isLikelyFullName(name) || (!includesLiteral(sourceText, rawName) && !includesLiteral(sourceText, name))) continue;
             const evidence = evidenceSnippet(sourceText, rawName) || evidenceSnippet(sourceText, name);
             if (evidence) personEvidence.push({ name, role: "speaker", confidence: 0.8, evidence, source: "entity_backfill_v4_fallback" });
           }
           for (const rawName of filterHosts(cleanArr(parsed.mentioned), podHosts)) {
             const name = canonicalPersonName(rawName);
+            if (organizationNameNorms.has(normalizeForMatch(name)) || organizationNameNorms.has(normalizeForMatch(rawName))) continue;
             if (!isLikelyFullName(name) || (!includesLiteral(sourceText, rawName) && !includesLiteral(sourceText, name))) continue;
             const evidence = evidenceSnippet(sourceText, rawName) || evidenceSnippet(sourceText, name);
             if (evidence) personEvidence.push({ name, role: "mentioned", confidence: 0.68, evidence, source: "entity_backfill_v4_fallback" });
