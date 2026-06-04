@@ -123,6 +123,18 @@ describe("page consistency static guards", () => {
     expect(methodology).not.toContain("nem streameljük");
   });
 
+  it("keeps podcast detail search copy natural and channel-scoped", () => {
+    const podcastDetail = read("src/pages/PodcastDetail.tsx");
+
+    expect(podcastDetail).toContain("const podcastTitle = podcast.display_title || podcast.title");
+    expect(podcastDetail).toContain("keress kifejezetten ebben a csatornában");
+    expect(podcastDetail).toContain("Keresés csak ebben a csatornában:");
+    expect(podcastDetail).toContain("Csak a „{podcastTitle}” epizódjai között keres.");
+    expect(podcastDetail).toContain("Nincs találat a „{q}” keresésre ebben a műsorban.");
+    expect(podcastDetail).not.toContain("podcastben");
+    expect(podcastDetail).not.toContain("a(z)");
+  });
+
   it("keeps anonymous listeners one click away from their local Podiverzum profile", () => {
     const userMenu = read("src/components/UserMenu.tsx");
 

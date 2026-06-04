@@ -370,6 +370,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
   const [q, setQ] = useState("");
   const { play, toggle, currentEpisode, isPlaying } = useSmartPlayer();
   const podcastSlug = podcast.slug;
+  const podcastTitle = podcast.display_title || podcast.title;
   const norm = (s: string) =>
     (s || "")
       .toLowerCase()
@@ -393,7 +394,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Epizódok</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Böngészd a műsor friss és régebbi adásait, vagy keress csak ezen a csatornán belül.
+            Böngészd a műsor friss és régebbi adásait, vagy keress kifejezetten ebben a csatornában.
           </p>
         </div>
         <div className="w-full sm:w-[360px]">
@@ -403,8 +404,8 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder={`Keresés csak a(z) „${podcast.display_title || podcast.title}” csatornán…`}
-              aria-label={`Keresés csak a(z) ${podcast.display_title || podcast.title} csatornán`}
+              placeholder={`Keresés csak ebben a csatornában: „${podcastTitle}”…`}
+              aria-label={`Keresés csak ebben a csatornában: ${podcastTitle}`}
               className="w-full pl-8 pr-8 py-2.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             {q && (
@@ -419,7 +420,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
             )}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground text-right">
-            Keresés csak a(z) „{podcast.display_title || podcast.title}” csatornán
+            Csak a „{podcastTitle}” epizódjai között keres.
           </p>
         </div>
       </div>
@@ -428,7 +429,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
         <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
       ) : filtered.length === 0 ? (
         <div className="text-muted-foreground text-sm border border-dashed border-border rounded-lg p-6 text-center">
-          Nincs találat a(z) „{q}" keresésre ebben a podcastben.
+          Nincs találat a „{q}” keresésre ebben a műsorban.
         </div>
       ) : (
         <>
