@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EpisodeList, EpisodeLite } from "./EpisodeCard";
 import { Sparkles } from "lucide-react";
 import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
+import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "@/components/smart-player/recommendationsConfig";
 
 type Row = {
   episode_id: string;
@@ -113,6 +114,8 @@ async function hydrateRows(rows: Row[]): Promise<Row[]> {
 }
 
 export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; limit?: number }) {
+  if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null;
+
   const [items, setItems] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(true);
 

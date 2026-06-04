@@ -201,11 +201,15 @@ describe("page consistency static guards", () => {
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
     const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
     const bar = read("src/components/smart-player/SmartPlayerBar.tsx");
+    const similar = read("src/components/SimilarEpisodes.tsx");
+    const config = read("src/components/smart-player/recommendationsConfig.ts");
 
     expect(related).toContain("Tartalmi kapcsolat");
     expect(related).toContain("Keressük a kapcsolódó epizódokat");
     expect(discovery).toContain("Keressük a kapcsolódó epizódokat");
     expect(bar).toContain("Kapcsolódó epizódok és értékelés");
+    expect(config).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED = false");
+    expect(similar).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null");
 
     for (const source of [related, discovery, bar]) {
       expect(source).not.toContain("AI vektor");
