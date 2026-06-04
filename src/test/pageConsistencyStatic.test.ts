@@ -63,6 +63,24 @@ describe("page consistency static guards", () => {
     expect(tasteRecommend).toContain("episodeInterestKeys({ title, podcastTitle, category, topics })");
   });
 
+  it("keeps Te Podiverzumod sharing link-first so PNG rendering cannot break sharing", () => {
+    const startSwipe = read("src/pages/StartSwipePage.tsx");
+
+    expect(startSwipe).toContain("async function shareProfileLink");
+    expect(startSwipe).toContain("await navigator.share(opts)");
+    expect(startSwipe).toContain("return (await copyText(opts.url)) ? \"copied\" : \"error\"");
+    expect(startSwipe).toContain("const outcome = await shareProfileLink");
+    expect(startSwipe).toContain("const blob = await renderReceiptPng(receiptRef.current, \"story\")");
+    expect(startSwipe).not.toContain("shareReceipt");
+
+    const shareBlock = startSwipe.slice(
+      startSwipe.indexOf("const handleShare = async () => {"),
+      startSwipe.indexOf("const handleDownload = async () => {"),
+    );
+    expect(shareBlock).toContain("shareProfileLink");
+    expect(shareBlock).not.toContain("renderReceiptPng");
+  });
+
   it("keeps category links on the Hungarian canonical route", () => {
     const labels = read("src/lib/categoryLabels.ts");
     const categories = read("src/pages/CategoriesPage.tsx");

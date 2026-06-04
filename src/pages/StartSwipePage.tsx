@@ -19,7 +19,7 @@ import { trackLandingEvent, snapshotUtmFromUrl } from "@/lib/landingEvents";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
 import { ListenerReceipt } from "@/components/receipt/ListenerReceipt";
 import { profileForArchetypeId, buildReceiptNumber } from "@/lib/listenerProfiles";
-import { renderReceiptPng, shareReceipt, downloadReceipt } from "@/lib/receiptImage";
+import { renderReceiptPng, downloadReceipt } from "@/lib/receiptImage";
 import { trackProfileEvent, captureSourceProfileFromUrl, getSourceProfileId } from "@/lib/profileEvents";
 import { Download, Link2 } from "lucide-react";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
@@ -167,6 +167,18 @@ async function copyText(text: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function shareProfileLink(opts: { title: string; text: string; url: string }): Promise<"shared" | "copied" | "cancelled" | "error"> {
+  try {
+    if (navigator.share) {
+      await navigator.share(opts);
+      return "shared";
+    }
+  } catch (e: any) {
+    if (e?.name === "AbortError") return "cancelled";
+  }
+  return (await copyText(opts.url)) ? "copied" : "error";
 }
 
 function stableHash(input: string): number {
@@ -1560,13 +1572,7 @@ function ResultView({
         return;
       }
       const { url, share_id } = created;
-      if (!receiptRef.current) {
-        toast.error("A profil még tölt, próbáld újra egy másodperc múlva.");
-        return;
-      }
-      const blob = await renderReceiptPng(receiptRef.current, "story");
-      const outcome = await shareReceipt({
-        blob,
+      const outcome = await shareProfileLink({
         title: `${listenerProfile.name} lettem a Podiverzumon`,
         text: "Pár döntésből kiderül, milyen podcast-hallgató vagy. Neked mi jön ki?",
         url,
