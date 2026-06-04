@@ -466,7 +466,66 @@ const Index = () => {
         setLoaded(true);
       }
     })();
+
+    // Dedicated "Kikapcsolódás" rail — always shown, aggregates light/entertainment
+    // categories that otherwise get squeezed out by News/Business/Tech in the
+    // top-3 dynamic rotation.
+    (async () => {
+      const LIGHT_CATEGORIES = [
+        "Comedy",
+        "Film, TV & Pop Culture",
+        "Music",
+        "Sports",
+        "True Crime & Paranormal",
+        "Food",
+        "Books & Literature Fiction & Audio Drama",
+        "Fiction & Audio Drama",
+        "Kids & Family",
+        "Arts",
+      ];
+      try {
+        const { data, error } = await supabase
+          .from("mv_homepage_feed" as any)
+          .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+          .in("podcast_category", LIGHT_CATEGORIES)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(120);
+        if (error || !data) return;
+        const mapped: FeedEpisode[] = (data as any[]).map((r: any) => ({
+          id: r.episode_id,
+          podcast_id: r.podcast_id,
+          title: r.title,
+          display_title: r.display_title,
+          slug: r.slug,
+          summary: r.summary,
+          description: r.description,
+          published_at: r.published_at,
+          audio_url: r.audio_url,
+          topics: r.topics,
+          freshness_bucket: r.freshness_bucket,
+          podcasts: {
+            slug: r.podcast_slug,
+            title: r.podcast_title,
+            display_title: r.podcast_display_title,
+            image_url: r.podcast_image_url,
+            category: r.podcast_category,
+            podiverzum_rank: r.podiverzum_rank,
+            rank_label: r.rank_label,
+            rss_status: r.rss_status,
+            featured: r.featured,
+          } as any,
+        }));
+        // Filter out news/bulletin (shouldn't appear in these categories anyway, but belt+braces)
+        const clean = mapped.filter((e) => !isNewsLikeEpisode(e) && !isBulletinLikeEpisode(e));
+        // Editorial sort: tier+rank+freshness; max 1 per podcast for max variety on this rail.
+        const sorted = clean.slice().sort(compareByHomepageScore);
+        setLightEps(diversifyByPodcast(sorted, 8, 1));
+      } catch (e) {
+        console.warn("Light rail fetch failed", e);
+      }
+    })();
   }, []);
+
 
   const epsByCat = useMemo(() => {
     if (Object.keys(categoryRailEps).length > 0) return categoryRailEps;
