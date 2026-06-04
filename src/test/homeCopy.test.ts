@@ -14,7 +14,7 @@ describe("homepage Hungarian copy", () => {
     expect(index).not.toContain("HomeAudienceLanes");
     expect(index).not.toContain("Merre indulnál?");
     expect(moods).toContain("Hallgatási helyzetek");
-    expect(moods).toContain("Mihez van most kedved?");
+    expect(moods).not.toContain("Mihez van most kedved?");
     expect(moods).toContain("Összes helyzet");
     expect(moods).not.toContain("Összes hangulat");
   });
@@ -35,7 +35,7 @@ describe("homepage Hungarian copy", () => {
 
     expect(archetypes).toContain("MI, technológia, jövőkép");
     expect(listenerProfiles).toContain("MI, technológia, jövőkép");
-    expect(topicsHub).toContain('tech: "Tech és MI"');
+    expect(topicsHub).toContain('tech: "Technológia és MI"');
     expect(topicDetail).toContain("MI-elemzés");
     expect(companiesHub).toContain("Még rendszerezzük az epizódokban említett cégeket");
     expect(startSwipe).toContain('ai: "MI"');
@@ -46,5 +46,21 @@ describe("homepage Hungarian copy", () => {
       expect(source).not.toContain("AI-elemzés");
       expect(source).not.toContain("a említett");
     }
+  });
+
+  it("keeps homepage category and mood card labels in safe Hungarian", () => {
+    const index = read("src/pages/Index.tsx");
+    const moods = read("src/components/MoodCollections.tsx");
+
+    expect(index).toContain("categoryLabel(category)");
+    expect(index).toContain("Válogatott epizódok");
+    expect(index).toContain("Friss, odaillő epizódok ebben a témakörben.");
+    expect(index).toContain('"News & Politics"');
+    expect(index).toContain('"Business & Finance"');
+    expect(index).toContain('"Health, Fitness & Longevity"');
+    expect(index).not.toContain('title: fallback');
+
+    expect(moods).toContain("const reasonLabel = sanitizeHungarianPublicText(c.reason_label)");
+    expect(moods).not.toContain("{c.reason_label}");
   });
 });

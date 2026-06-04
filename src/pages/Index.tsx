@@ -5,6 +5,7 @@ import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
 import { setSeo } from "@/lib/seo";
+import { categoryLabel } from "@/lib/categoryLabels";
 // Homepage-local editorial scoring (does NOT touch lib/episodeRank used elsewhere).
 //
 // Goal (post HU_v1 cutover): popular/strong shows (S/A + high podiverzum_rank)
@@ -185,16 +186,25 @@ function homepageReasonFor(ep: FeedEpisode): string {
 
 const CATEGORY_COPY: Record<string, { title: string; subtitle: string }> = {
   "News": { title: "Értsd meg a világot", subtitle: "Közélet, hírek és háttérbeszélgetések emberi tempóban." },
+  "News & Politics": { title: "Értsd meg a világot", subtitle: "Közélet, hírek és háttérbeszélgetések emberi tempóban." },
   "Business": { title: "Pénz és karrier", subtitle: "Gazdaság, vállalkozás, befektetés és munka." },
+  "Business & Finance": { title: "Pénz és karrier", subtitle: "Gazdaság, vállalkozás, befektetés és munka." },
+  "Finance": { title: "Pénzügy és befektetés", subtitle: "Piacok, vagyon, döntések és gazdasági háttér." },
   "Health & Fitness": { title: "Lélek és egészség", subtitle: "Pszichológia, önismeret, egészség és életmód." },
+  "Health, Fitness & Longevity": { title: "Lélek és egészség", subtitle: "Pszichológia, önismeret, egészség és életmód." },
   "Technology": { title: "Technológia és MI", subtitle: "Technológia, mesterséges intelligencia és startup világ." },
   "Society & Culture": { title: "Sztorik és interjúk", subtitle: "Emberi történetek, kultúra és hosszabb beszélgetések." },
   "Comedy": { title: "Kikapcsolódás", subtitle: "Humor, könnyebb beszélgetések és szórakozás." },
   "Religion & Spirituality": { title: "Hit és spiritualitás", subtitle: "Vallási és lelki tartalmak külön válogatva." },
+  "Sports": { title: "Sport és verseny", subtitle: "Futball, teljesítmény, háttérsztorik és sportkultúra." },
 };
 
 function homeCategoryCopy(category: string, fallback: string) {
-  return CATEGORY_COPY[category] || { title: fallback, subtitle: "Válogatás a kategória friss epizódjaiból." };
+  const label = categoryLabel(category) || categoryLabel(fallback) || "Válogatott epizódok";
+  const safeTitle = /[&]|news|business|health|fitness|society|culture|religion|spirituality|technology|sports|comedy/i.test(label)
+    ? "Válogatott epizódok"
+    : label;
+  return CATEGORY_COPY[category] || CATEGORY_COPY[fallback] || { title: safeTitle, subtitle: "Friss, odaillő epizódok ebben a témakörben." };
 }
 
 function categoryDiversityGroup(category: { name?: string | null; slug?: string | null; taxonomy_keys?: unknown }): string {

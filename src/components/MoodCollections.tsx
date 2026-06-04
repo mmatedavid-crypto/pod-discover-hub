@@ -111,6 +111,7 @@ export function MoodCollections() {
         {cards.map((c) => {
           const Icon = ICONS[c.slug] || Sparkles;
           const href = `/hangulatok/${c.slug}`;
+          const reasonLabel = sanitizeHungarianPublicText(c.reason_label);
           return (
             <Link
               key={c.slug}
@@ -125,9 +126,9 @@ export function MoodCollections() {
               <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
                 {sanitizeHungarianPublicText(c.short_description) || sanitizeHungarianPublicText(c.description)}
               </div>
-              {c.reason_label && (
+              {reasonLabel && (
                 <div className="mt-2 inline-flex items-center text-[10px] uppercase tracking-[0.12em] text-primary/80">
-                  {c.reason_label}
+                  {reasonLabel}
                 </div>
               )}
               {!!c.representative_episode_count && (
