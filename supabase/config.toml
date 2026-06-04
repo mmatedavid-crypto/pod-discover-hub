@@ -9,3 +9,5 @@ project_id = "yoxewklaybougzpmzvkg"
     verify_jwt = false
   [functions.report-episode-duration]
     verify_jwt = false
+  [functions.mp3-duration-probe]
+    verify_jwt = false
