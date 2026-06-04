@@ -220,10 +220,39 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
-    return json({ ok: true, ...progress });
+    return progress;
   } catch (e) {
     const msg = e instanceof Error ? `${e.message}${e.stack ? ` :: ${e.stack.split("\n").slice(0, 3).join(" | ")}` : ""}` : String(e);
     console.error("episode-article-pairer error:", msg);
-    return json({ ok: false, error: msg }, 500);
+    try {
+      await admin.from("app_settings").upsert({
+        key: "episode_article_pairer_progress",
+        value: { last_run_at: new Date().toISOString(), parser_policy: "regex_xml_no_domparser_v2", error: msg, runtime_ms: Date.now() - startedAt },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+    } catch (_) { /* swallow */ }
+    return { ok: false, error: msg };
   }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  const startedAt = Date.now();
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const guard = await checkBackgroundJobsAllowed(admin, "episode-article-pairer");
+  if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
+  const body = await req.json().catch(() => ({}));
+  const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "episode_article_pairer_controls").maybeSingle();
+  const ctrl = (ctrlRow?.value || {}) as Record<string, unknown>;
+  if (ctrl.enabled === false && !body.force) return json({ ok: true, paused: true });
+
+  // Run heavy work in background to avoid WORKER_RESOURCE_LIMIT on sync responses.
+  // @ts-ignore EdgeRuntime is supabase edge runtime global
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(runPairer(admin, body, ctrl, startedAt));
+    return json({ ok: true, dispatched: true, parser_policy: "regex_xml_no_domparser_v2" });
+  }
+  const result = await runPairer(admin, body, ctrl, startedAt);
+  return json({ ok: true, ...result });
 });
