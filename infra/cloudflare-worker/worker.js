@@ -299,8 +299,20 @@ export default {
               },
             });
           }
-          // Fall back to repo-shipped sitemap so we never 404 on Google.
-          return fetch(request);
+          // NEVER fall through to the SPA — it returns index.html (text/html)
+          // and Google Search Console marks the sitemap as "Couldn't fetch".
+          // Return a 503 with XML content-type so Google retries and keeps
+          // the previously indexed version.
+          const stub = `<?xml version="1.0" encoding="UTF-8"?>\n<!-- upstream ${upstream.status} for ${objectPath} -->\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>\n`;
+          return new Response(request.method === "HEAD" ? null : stub, {
+            status: 503,
+            headers: {
+              "Content-Type": "application/xml; charset=utf-8",
+              "Cache-Control": "public, max-age=60, s-maxage=60",
+              "Retry-After": "300",
+              "X-Served-By": "worker-sitemap-upstream-error",
+            },
+          });
         }
         return new Response(request.method === "HEAD" ? null : upstream.body, {
           status: 200,
@@ -311,7 +323,16 @@ export default {
           },
         });
       } catch (_e) {
-        return fetch(request);
+        const stub = `<?xml version="1.0" encoding="UTF-8"?>\n<!-- worker fetch failed for ${objectPath} -->\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>\n`;
+        return new Response(request.method === "HEAD" ? null : stub, {
+          status: 503,
+          headers: {
+            "Content-Type": "application/xml; charset=utf-8",
+            "Cache-Control": "public, max-age=60, s-maxage=60",
+            "Retry-After": "300",
+            "X-Served-By": "worker-sitemap-fetch-error",
+          },
+        });
       }
     }
 
