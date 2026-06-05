@@ -329,7 +329,7 @@ async function buildAdaptivePlan(admin: ReturnType<typeof createClient>, ctrl: a
       enabled: false,
       phase: manual ? "manual" : "legacy",
       batch: pilot || Number(ctrl.podcast_batch || 10),
-      maxVideos: Math.max(20, Math.min(pilot ? 150 : 500, requestedMaxVideos)),
+      maxVideos: Math.max(20, Math.min(pilot ? 150 : 2000, requestedMaxVideos)),
       episodeLimit: Math.max(20, Math.min(2000, requestedEpisodeLimit)),
       timeBudgetMs: Math.max(30000, Math.min(170000, Number(ctrl.time_budget_ms || 145000))),
       maxAiCallsPerRun: Math.max(0, Math.min(500, Number(ctrl.max_ai_calls_per_run ?? 80))),
