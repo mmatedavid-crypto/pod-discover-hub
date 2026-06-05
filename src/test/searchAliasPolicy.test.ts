@@ -44,8 +44,10 @@ describe("Hungarian search alias policy", () => {
     const entityBackfill = read("supabase/functions/entity-backfill-runner/index.ts");
     const orgRunner = read("supabase/functions/organizations-backfill-runner/index.ts");
     const personExtractor = read("supabase/functions/person-entity-extractor/index.ts");
+    const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
     const orgAliasMigration = read("supabase/migrations/20260604204500_extend_high_value_organization_aliases.sql");
     const eponymMigration = read("supabase/migrations/20260604211500_company_eponym_person_safety.sql");
+    const collisionMigration = read("supabase/migrations/20260605123000_organization_person_name_collision_guard.sql");
 
     expect(synonyms).toContain('fradi: ["FTC", "Ferencváros", "Ferencvárosi Torna Club", "labdarúgás"]');
     expect(synonyms).toContain('mtel: ["Magyar Telekom", "Telekom", "MTELEKOM"]');
@@ -77,5 +79,18 @@ describe("Hungarian search alias policy", () => {
     expect(entityBackfill).toContain('from("canonical_entity_aliases")');
     expect(entityBackfill).toContain('from("organization_aliases")');
     expect(entityBackfill).toContain("organizationNameNorms.has(normalizeForMatch(name))");
+    expect(searchHybrid).toContain("function hasAcceptedOrganizationAlias");
+    expect(searchHybrid).toContain("function hasStrongPersonEvidence");
+    expect(searchHybrid).toContain("if (orgAliasConflict && !hasStrongPersonEvidence(person)) return null");
+    expect(searchHybrid).toContain("exactOrganizationAliasHit");
+    expect(searchHybrid).toContain("if (exactOrganizationAliasHit && !hasStrongPersonEvidence(row)) continue");
+    expect(searchHybrid).toContain("if (exactOrganizationAliasHit && !hasStrongPersonEvidence(p)) continue");
+    expect(collisionMigration).toContain("organization_person_name_collision_policy");
+    expect(collisionMigration).toContain("Accepted organization aliases take precedence over unapproved person rows");
+    expect(collisionMigration).toContain("organization_person_name_collision_guard_v1");
+    expect(collisionMigration).toContain("COALESCE(p.manual_approved, false) = false");
+    expect(collisionMigration).toContain("COALESCE(p.has_archival_evidence, false) = false");
+    expect(collisionMigration).toContain("cp.person_evidence = 0");
+    expect(collisionMigration).toContain("cp.person_evidence > 0");
   });
 });

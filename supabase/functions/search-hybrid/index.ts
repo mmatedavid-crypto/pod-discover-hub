@@ -50,6 +50,16 @@ function isSafePublicPerson(p: any): boolean {
   return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
 }
 
+function hasStrongPersonEvidence(p: any): boolean {
+  if (!p) return false;
+  if (p.manual_approved === true || p.has_archival_evidence === true) return true;
+  return (
+    Number(p.participant_count || 0)
+    + Number(p.host_count || 0)
+    + Number(p.guest_count || 0)
+  ) >= 2;
+}
+
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
   return new Promise((resolve) => {
     const t = setTimeout(() => { console.warn(`${label} timeout ${ms}ms`); resolve(null); }, ms);
@@ -67,6 +77,22 @@ function foldText(s: string): string {
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function hasAcceptedOrganizationAlias(supa: ReturnType<typeof createClient>, qNorm: string, timeoutMs = 650): Promise<boolean> {
+  if (qNorm.length < 2 || qNorm.length > 80) return false;
+  const aliasRows = await withTimeout(
+    supa
+      .from("organization_aliases")
+      .select("organization_id,organizations!inner(id,is_public,is_indexable)")
+      .eq("normalized_alias", qNorm)
+      .eq("status", "accepted")
+      .limit(1)
+      .then((r: any) => r.data),
+    timeoutMs,
+    "org_alias_conflict_table",
+  );
+  return Boolean(Array.isArray(aliasRows) && aliasRows.some((r: any) => r?.organizations?.is_indexable !== false && r?.organizations?.is_public !== false));
 }
 
 function nameTokenHit(hay: string, token: string): boolean {
@@ -526,6 +552,8 @@ async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: st
     "person_pin_meta",
   );
   if (!person?.slug || !person?.name || !isSafePublicPerson(person)) return null;
+  const orgAliasConflict = await hasAcceptedOrganizationAlias(supa, qNorm, Math.min(timeoutMs, 650)).catch(() => false);
+  if (orgAliasConflict && !hasStrongPersonEvidence(person)) return null;
 
   return {
     id: person.id,
@@ -737,15 +765,21 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
   ];
 
   const settled = await Promise.all(tasks.map((p) => p.catch((error: any) => ({ data: [], error }))));
+  const exactOrganizationAliasHit = ((settled[3] as any).data || []).some((row: any) => {
+    const o = row.organizations;
+    return o?.name && o.is_indexable !== false;
+  });
   const out: CatalogAnchor[] = [];
   if (earlyPodcastPin?.title) {
     out.push({ kind: "podcast", id: earlyPodcastPin.podcast_id || null, name: earlyPodcastPin.title, slug: earlyPodcastPin.slug || null, score: 1000 });
   }
   for (const row of ((settled[0] as any).data || []).filter(isSafePublicPerson)) {
+    if (exactOrganizationAliasHit && !hasStrongPersonEvidence(row)) continue;
     out.push({ kind: "person", id: row.id || null, name: row.name, slug: row.slug || null, score: 700 + Number(row.gated_episode_count || row.episode_count || 0) });
   }
   for (const row of (settled[1] as any).data || []) {
     const p = row.people;
+    if (exactOrganizationAliasHit && !hasStrongPersonEvidence(p)) continue;
     if (p?.name && isSafePublicPerson(p)) out.push({ kind: "person", id: p.id || row.person_id || null, name: p.name, slug: p.slug || null, score: 760 + Number(p.gated_episode_count || p.episode_count || 0) });
   }
   for (const row of (settled[2] as any).data || []) {
