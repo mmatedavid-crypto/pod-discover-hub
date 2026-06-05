@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -201,6 +202,25 @@ function makeDeployPlan(groups) {
   return { migrations, functions, workers, preflight, verification };
 }
 
+function artifactExists(relPath) {
+  return fs.existsSync(path.join(repoRoot, relPath));
+}
+
+function checkDeployArtifacts(plan) {
+  const migrations = plan.migrations.map((file) => ({ file, exists: artifactExists(file) }));
+  const functions = plan.functions.map((name) => {
+    const file = `supabase/functions/${name}/index.ts`;
+    return { name, file, exists: artifactExists(file) };
+  });
+  const workers = plan.workers.map((file) => ({ file, exists: artifactExists(file) }));
+  const missing = [
+    ...migrations.filter((item) => !item.exists).map((item) => item.file),
+    ...functions.filter((item) => !item.exists).map((item) => item.file),
+    ...workers.filter((item) => !item.exists).map((item) => item.file),
+  ];
+  return { ok: missing.length === 0, migrations, functions, workers, missing };
+}
+
 function makeLovablePrompt(plan, groups) {
   if (!groups.length) {
     return [
@@ -216,6 +236,11 @@ function makeLovablePrompt(plan, groups) {
     "Failed deploy areas:",
     ...groups.map((group) => `- ${group.key}: ${group.failures.join(", ")}`),
   ];
+
+  if (!plan.artifacts.ok) {
+    lines.push("", "Missing deploy artifacts; stop and fix these repo references before deploy:");
+    lines.push(...plan.artifacts.missing.map((item) => `- ${item}`));
+  }
 
   if (plan.migrations.length) {
     lines.push("", "Before applying migrations, run preflight:");
@@ -241,6 +266,7 @@ function makeLovablePrompt(plan, groups) {
 }
 
 const deployPlan = makeDeployPlan(groups);
+deployPlan.artifacts = checkDeployArtifacts(deployPlan);
 const report = {
   ok: failures.length === 0,
   generated_at: new Date().toISOString(),

@@ -49,9 +49,13 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("migration_gates");
     expect(reporter).toContain("suspicious_temporal_participants");
     expect(reporter).toContain("makeDeployPlan");
+    expect(reporter).toContain("checkDeployArtifacts");
+    expect(reporter).toContain("artifactExists");
     expect(reporter).toContain("makeLovablePrompt");
     expect(reporter).toContain("deploy_plan");
     expect(reporter).toContain("lovable_prompt");
+    expect(reporter).toContain("supabase/functions/${name}/index.ts");
+    expect(reporter).toContain("Missing deploy artifacts; stop and fix these repo references before deploy:");
     expect(reporter).toContain("node scripts/preflight-migrations.mjs ${migrations.join(\" \")}");
     expect(reporter).toContain("Please pull latest main and close the current Podiverzum production deploy gap.");
     expect(reporter).toContain("Before applying migrations, run preflight:");
