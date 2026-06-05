@@ -54,13 +54,12 @@ function isSafePublicPerson(person: Record<string, unknown>): boolean {
   if (["hide", "reject"].includes(String(person.ai_recommended_action || ""))) return false;
   if (["needs_human_review", "duplicate_candidate"].includes(String(person.ai_review_status || ""))) return false;
   if (person.identity_status === "split_resolved") return false;
-  const hasPodcastPersonEvidence = Number(person.participant_count || 0) + Number(person.host_count || 0) + Number(person.guest_count || 0) > 0;
-  const trustedWiki = hasVerifiedPersonWiki(person);
   const temporalTopicOnly = person.has_archival_evidence !== true && person.manual_approved !== true && (
     person.is_deceased === true
     || person.is_historical === true
     || person.persona === "historical"
-    || ((person.date_of_death || person.is_living === false) && (trustedWiki || !hasPodcastPersonEvidence))
+    || Boolean(person.date_of_death)
+    || person.is_living === false
   );
   if (temporalTopicOnly) return false;
   if (person.identity_ambiguous && !hasTrustedPersonIdentity(person)) return false;
@@ -547,7 +546,13 @@ async function buildPerson(
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
-  const historicalWithoutEvidence = (person.is_deceased === true || person.is_historical === true || person.persona === "historical")
+  const historicalWithoutEvidence = (
+      person.is_deceased === true
+      || person.is_historical === true
+      || person.persona === "historical"
+      || Boolean(person.date_of_death)
+      || person.is_living === false
+    )
     && person.has_archival_evidence !== true
     && person.manual_approved !== true;
   if (historicalWithoutEvidence) return null;

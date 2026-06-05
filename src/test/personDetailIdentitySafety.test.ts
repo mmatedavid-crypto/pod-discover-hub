@@ -64,7 +64,8 @@ describe("person detail identity safety", () => {
     expect(page).toContain("function isTemporalTopicOnlyPerson");
     expect(page).toContain("const historicalWithoutEvidence = isTemporalTopicOnlyPerson(pp)");
     expect(page).toContain('person.persona === "historical"');
-    expect(page).toContain("(person.date_of_death || person.is_living === false) && (hasVerifiedWiki(person) || !hasPodcastPersonEvidence(person))");
+    expect(page).toContain("if (person.date_of_death || person.is_living === false) return true");
+    expect(page).not.toContain("(person.date_of_death || person.is_living === false) && (hasVerifiedWiki(person) || !hasPodcastPersonEvidence(person))");
     expect(page).not.toContain("person.date_of_death || person.is_living === false) && !hasPodcastPersonEvidence");
     expect(page).toContain("const hiddenCompanyEponym = Boolean(pp)");
     expect(page).toContain("hidden_as_company_eponym_without_podcast_person_evidence");
@@ -80,7 +81,9 @@ describe("person detail identity safety", () => {
     expect(prerender).toContain("function safePersonImageForPrerender");
     expect(prerender).toContain("person.identity_ambiguous && !hasTrustedPersonIdentity(person)");
     expect(prerender).toContain('person.persona === "historical"');
-    expect(prerender).toContain("((person.date_of_death || person.is_living === false) && (trustedWiki || !hasPodcastPersonEvidence))");
+    expect(prerender).toContain("|| Boolean(person.date_of_death)");
+    expect(prerender).toContain("|| person.is_living === false");
+    expect(prerender).not.toContain("trustedWiki || !hasPodcastPersonEvidence");
     expect(prerender).toContain("|| historicalWithoutEvidence");
     expect(prerender).toContain('trustedIdentity ? {');
     expect(prerender).toContain('"@type": "Person"');

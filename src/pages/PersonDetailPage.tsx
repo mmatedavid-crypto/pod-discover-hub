@@ -57,14 +57,10 @@ function isAmbiguousWithoutTrustedIdentity(person: Person): boolean {
   return true;
 }
 
-function hasPodcastPersonEvidence(person: Person | any): boolean {
-  return Number(person?.participant_count || 0) + Number(person?.host_count || 0) + Number(person?.guest_count || 0) > 0;
-}
-
 function isTemporalTopicOnlyPerson(person: Person | any): boolean {
   if (!person || person.has_archival_evidence === true || person.manual_approved === true) return false;
   if (person.is_deceased === true || person.is_historical === true || person.persona === "historical") return true;
-  if ((person.date_of_death || person.is_living === false) && (hasVerifiedWiki(person) || !hasPodcastPersonEvidence(person))) return true;
+  if (person.date_of_death || person.is_living === false) return true;
   return false;
 }
 
