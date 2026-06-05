@@ -38,7 +38,7 @@ function run(nodePath, args) {
 const args = process.argv.slice(2);
 const viteArgs = args.length ? args : ["build"];
 
-if (!canLoadRollupNative() && process.execPath !== bundledNode) {
+if (!canLoadRollupNative() && process.execPath !== bundledNode && fs.existsSync(bundledNode)) {
   run(bundledNode, viteArgs);
 }
 
