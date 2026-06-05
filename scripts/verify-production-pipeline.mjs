@@ -398,9 +398,12 @@ if (snapshot.article_pipeline?.table_exists === true) {
       FROM totals, by_outlet;
     `);
     snapshot.article_candidates = JSON.parse(articleResult.rows?.[0]?.counts ?? "{}");
+    const totalArticleCandidates = Number(snapshot.article_candidates?.total || 0);
+    const progressArticleCandidates = Number(snapshot.controls?.episode_article_pairer_progress?.total_article_candidates || 0);
     snapshot.article_pipeline = {
       ...snapshot.article_pipeline,
-      article_candidates_started: Number(snapshot.article_candidates?.total || 0) > 0,
+      article_candidates_started: Math.max(totalArticleCandidates, progressArticleCandidates) > 0,
+      article_candidates_readable_by_verifier: totalArticleCandidates > 0 || progressArticleCandidates === 0,
     };
   } catch (e) {
     snapshot.article_candidates = { error: e instanceof Error ? e.message : String(e) };
