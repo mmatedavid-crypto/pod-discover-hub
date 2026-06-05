@@ -55,6 +55,16 @@ const GROUPS = {
     functions: [],
     why: "Smart player / hasonló epizód ne ajánljon más szerkesztési világot puszta vektor alapján; explicit téma/személy/cég híd kell.",
   },
+  downstream_embedding_quality: {
+    label: "Clean-text-first downstream embeddings",
+    migrations: [
+      "supabase/migrations/20260531200000_pipeline_health_snapshot_v1.sql",
+      "supabase/migrations/20260531220000_v4_clean_text_family_downstream_gates.sql",
+      "supabase/migrations/20260605231000_reassert_downstream_embedding_clean_text_family.sql",
+    ],
+    functions: ["embed-episode-runner", "embed-episode-chunks-runner"],
+    why: "A kereső, ajánló és B2B monitoring vektorai csak promoválható deterministic_v4-family clean textből épüljenek, ne nyers RSS/YouTube leírásból.",
+  },
   smart_player_recommendation_surface: {
     label: "Smart-player recommendation surface lock",
     migrations: ["supabase/migrations/20260605224000_lock_smart_player_recommendation_surface.sql"],

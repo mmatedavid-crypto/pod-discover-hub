@@ -51,6 +51,7 @@ describe("production policy static guards", () => {
       "seo_news_sitemap",
       "public_ai_language_guard",
       "related_episode_quality",
+      "downstream_embedding_quality",
       "smart_player_recommendation_surface",
       "search_quality_benchmark",
       "entity_monitoring_benchmark",
@@ -78,6 +79,8 @@ describe("production policy static guards", () => {
       "20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql",
       "20260605214000_reassert_related_quality_policy_v5_settings.sql",
       "20260605215000_reassert_related_public_affairs_override_terms.sql",
+      "20260531220000_v4_clean_text_family_downstream_gates.sql",
+      "20260605231000_reassert_downstream_embedding_clean_text_family.sql",
       "20260605224000_lock_smart_player_recommendation_surface.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260605220000_entity_monitoring_search_benchmark_policy.sql",
@@ -86,6 +89,8 @@ describe("production policy static guards", () => {
       "20260605200000_reassert_temporal_person_public_guard.sql",
       "20260605213000_reassert_strict_temporal_person_guard_v6.sql",
       "episode-article-pairer",
+      "embed-episode-runner",
+      "embed-episode-chunks-runner",
       "refresh-sitemap",
       "search-golden-refresh",
       "search-benchmark-runner",
@@ -200,6 +205,45 @@ describe("production policy static guards", () => {
     expect(pairer).toContain("processed_outlets");
     expect(pairer).toContain("best_rejected_scores");
     expect(pairer).toContain('.select("id")');
+  });
+
+  it("keeps downstream embeddings clean-text-first in production verification", () => {
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
+    const downstreamGate = read("supabase/migrations/20260531220000_v4_clean_text_family_downstream_gates.sql");
+    const reassertGate = read("supabase/migrations/20260605231000_reassert_downstream_embedding_clean_text_family.sql");
+    const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
+    const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
+
+    expect(verifier).toContain("downstream_embedding_quality");
+    expect(verifier).toContain("text_policy_embedding_requires_clean_text");
+    expect(verifier).toContain("text_policy_accepts_v4_family");
+    expect(verifier).toContain("legacy_embed_policy_v4_family_clean_text_only");
+    expect(verifier).toContain("select_embed_episode_candidates_clean_text_source");
+    expect(verifier).toContain("select_embed_episode_candidates_v4_family_filter");
+    expect(verifier).toContain("select_embed_chunks_candidates_clean_text_contract");
+    expect(verifier).toContain("select_embed_chunks_candidates_v4_family_filter");
+    expect(verifier).toContain("failures.push(`downstream_embedding_quality.${key}`)");
+
+    expect(reporter).toContain("Clean-text-first downstream embeddings");
+    expect(reporter).toContain("20260531220000_v4_clean_text_family_downstream_gates.sql");
+    expect(reporter).toContain("20260605231000_reassert_downstream_embedding_clean_text_family.sql");
+    expect(reporter).toContain("embed-episode-runner");
+    expect(reporter).toContain("embed-episode-chunks-runner");
+
+    for (const migration of [downstreamGate, reassertGate]) {
+      expect(migration).toContain("ct.cleaned_text AS description");
+      expect(migration).toContain("ct.cleaner_method LIKE 'deterministic_v4%'");
+      expect(migration).toContain("'embedding_requires_clean_text', true");
+      expect(migration).toContain("'deterministic_v4_family_clean_text_only'");
+    }
+    expect(reassertGate).toContain("20260605231000_reassert_downstream_embedding_clean_text_family");
+
+    expect(episodeRunner).toContain("select_embed_episode_candidates");
+    expect(episodeRunner).toContain("validateEmbeddingInput");
+    expect(episodeRunner).toContain("skipped_last_run");
+    expect(chunkRunner).toContain("requires_promoted_deterministic_v4_clean_text");
+    expect(chunkRunner).toContain("source_policy: \"best_source_then_deterministic_v4_clean_text_then_embedding\"");
   });
 
   it("keeps unused automatic social posting hard-disabled at the edge handler", () => {

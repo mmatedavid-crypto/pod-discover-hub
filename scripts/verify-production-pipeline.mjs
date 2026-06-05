@@ -112,13 +112,14 @@ controls AS (
 ),
 rpc_shapes AS (
   SELECT
-    pg_get_function_result(p.oid) AS result
+    p.proname,
+    pg_get_function_result(p.oid) AS result,
+    pg_get_functiondef(p.oid) AS definition
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
-    AND p.proname = 'select_embed_chunks_candidates'
+    AND p.proname IN ('select_embed_chunks_candidates', 'select_embed_episode_candidates')
     AND pg_get_function_arguments(p.oid) = '_model text, _limit integer'
-  LIMIT 1
 )
 SELECT jsonb_build_object(
   'generated_at', now(),
@@ -126,7 +127,7 @@ SELECT jsonb_build_object(
     'pipeline_health_rpc', to_regprocedure('public.get_pipeline_health_snapshot_v1()') IS NOT NULL,
     'text_processing_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'text_processing_policy'),
     'legacy_embed_episode_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'),
-    'embed_chunks_returns_clean_text', COALESCE((SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%' FROM rpc_shapes), false),
+    'embed_chunks_returns_clean_text', COALESCE((SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%' FROM rpc_shapes WHERE proname = 'select_embed_chunks_candidates'), false),
     'canonical_alias_table', to_regclass('public.canonical_entity_aliases') IS NOT NULL,
     'canonical_alias_normalizer', to_regprocedure('public.normalize_entity_alias(text)') IS NOT NULL,
     'canonical_alias_resolver', to_regprocedure('public.resolve_canonical_entity_alias(text,text)') IS NOT NULL,
@@ -322,6 +323,33 @@ SELECT jsonb_build_object(
     'religion_cross_group_runtime_blocked', false,
     'cross_world_vector_without_bridge_blocked', false,
     'cross_world_with_entity_bridge_allowed', false
+  ),
+  'downstream_embedding_quality', jsonb_build_object(
+    'text_policy_embedding_requires_clean_text', (SELECT COALESCE((setting_values->'text_processing_policy'->>'embedding_requires_clean_text')::boolean, false) FROM settings),
+    'text_policy_accepts_v4_family', (SELECT setting_values->'text_processing_policy'->>'accepted_cleaner_method_prefix' = 'deterministic_v4' FROM settings),
+    'legacy_embed_policy_v4_family_clean_text_only', COALESCE((SELECT value->>'policy' = 'deterministic_v4_family_clean_text_only' FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'), false),
+    'select_embed_episode_candidates_clean_text_source', COALESCE((
+      SELECT definition ILIKE '%ct.cleaned_text AS description%'
+      FROM rpc_shapes
+      WHERE proname = 'select_embed_episode_candidates'
+    ), false),
+    'select_embed_episode_candidates_v4_family_filter', COALESCE((
+      SELECT definition ILIKE '%ct.cleaner_method LIKE ''deterministic_v4%%''%'
+        OR definition ILIKE '%ct.cleaner_method ~~ ''deterministic_v4%%''%'
+      FROM rpc_shapes
+      WHERE proname = 'select_embed_episode_candidates'
+    ), false),
+    'select_embed_chunks_candidates_clean_text_contract', COALESCE((
+      SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%'
+      FROM rpc_shapes
+      WHERE proname = 'select_embed_chunks_candidates'
+    ), false),
+    'select_embed_chunks_candidates_v4_family_filter', COALESCE((
+      SELECT definition ILIKE '%ct.cleaner_method LIKE ''deterministic_v4%%''%'
+        OR definition ILIKE '%ct.cleaner_method ~~ ''deterministic_v4%%''%'
+      FROM rpc_shapes
+      WHERE proname = 'select_embed_chunks_candidates'
+    ), false)
   ),
   'people_hub_identity_safety', jsonb_build_object(
     'policy_configured_v2', (SELECT (setting_values->'people_hub_identity_safety_policy'->>'version')::int >= 2 FROM settings),
@@ -593,6 +621,11 @@ for (const [key, ok] of Object.entries(publicAiLanguageGuard)) {
 const relatedEpisodeQuality = snapshot.related_episode_quality ?? {};
 for (const [key, ok] of Object.entries(relatedEpisodeQuality)) {
   if (ok !== true) failures.push(`related_episode_quality.${key}`);
+}
+
+const downstreamEmbeddingQuality = snapshot.downstream_embedding_quality ?? {};
+for (const [key, ok] of Object.entries(downstreamEmbeddingQuality)) {
+  if (ok !== true) failures.push(`downstream_embedding_quality.${key}`);
 }
 
 const peopleHubIdentitySafety = snapshot.people_hub_identity_safety ?? {};
