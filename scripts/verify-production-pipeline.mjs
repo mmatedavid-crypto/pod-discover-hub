@@ -127,7 +127,7 @@ SELECT jsonb_build_object(
     'canonical_alias_normalizer', to_regprocedure('public.normalize_entity_alias(text)') IS NOT NULL,
     'canonical_alias_resolver', to_regprocedure('public.resolve_canonical_entity_alias(text,text)') IS NOT NULL,
     'canonical_alias_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'canonical_alias_policy'),
-    'temporal_person_guard_policy_v5', COALESCE((SELECT (value->>'version')::int >= 5 FROM public.app_settings WHERE key = 'temporal_person_public_guard_policy'), false),
+    'temporal_person_guard_policy_v6', COALESCE((SELECT (value->>'version')::int >= 6 FROM public.app_settings WHERE key = 'temporal_person_public_guard_policy'), false),
     'no_public_unapproved_dead_or_historical_people', NOT EXISTS (
       SELECT 1
       FROM public.people p
@@ -138,14 +138,8 @@ SELECT jsonb_build_object(
           p.is_deceased IS TRUE
           OR p.is_historical IS TRUE
           OR p.persona = 'historical'
-          OR (
-            (p.date_of_death IS NOT NULL OR p.is_living IS FALSE)
-            AND (
-              COALESCE(p.participant_count, 0)
-              + COALESCE(p.host_count, 0)
-              + COALESCE(p.guest_count, 0)
-            ) = 0
-          )
+          OR p.date_of_death IS NOT NULL
+          OR p.is_living IS FALSE
         )
     ),
     'no_public_unapproved_suspicious_temporal_participants', NOT EXISTS (

@@ -432,6 +432,7 @@ describe("production policy static guards", () => {
     const strictMigration = read("supabase/migrations/20260605004500_strict_dead_person_no_podcast_profile_guard.sql");
     const collisionMigration = read("supabase/migrations/20260605013000_dead_person_name_collision_fail_closed.sql");
     const reassertMigration = read("supabase/migrations/20260605200000_reassert_temporal_person_public_guard.sql");
+    const strictReassertMigration = read("supabase/migrations/20260605213000_reassert_strict_temporal_person_guard_v6.sql");
     const verifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(migration).toContain("temporal_topic_only_guard_v1");
@@ -459,7 +460,13 @@ describe("production policy static guards", () => {
     expect(reassertMigration).toContain("demoted_temporal_people_count");
     expect(reassertMigration).toContain("participant_collision_rule");
     expect(reassertMigration).toContain("status = 'rejected'");
-    expect(verifier).toContain("temporal_person_guard_policy_v5");
+    expect(strictReassertMigration).toContain("strict_temporal_person_guard_v6");
+    expect(strictReassertMigration).toContain("participant counters can be title/subject collisions");
+    expect(strictReassertMigration).toContain("p.date_of_death IS NOT NULL");
+    expect(strictReassertMigration).toContain("p.is_living IS FALSE");
+    expect(strictReassertMigration).not.toContain("date_of_death IS NOT NULL\n        AND");
+    expect(strictReassertMigration).toContain("'version', 6");
+    expect(verifier).toContain("temporal_person_guard_policy_v6");
     expect(verifier).toContain("no_public_unapproved_dead_or_historical_people");
     expect(verifier).toContain("no_public_unapproved_suspicious_temporal_participants");
   });
