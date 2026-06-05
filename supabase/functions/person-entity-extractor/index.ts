@@ -38,13 +38,24 @@ const CONTEXT_LABEL: Record<string, string> = {
   health: "egészség",
 };
 
-// Historical founders/eponyms that are common organization names in podcast
-// metadata. They should resolve to organization/company entities, not public
-// person pages, unless a future archival-evidence path explicitly whitelists
-// them.
+// Historical/eponym names that appear as topics or organization names in
+// podcast metadata. They are not ordinary podcast participants unless a future
+// archival-evidence path explicitly whitelists them.
 const ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST = new Set([
   "richter gedeon",
   "gedeon richter",
+]);
+const HISTORICAL_TOPIC_ONLY_PERSON_BLOCKLIST = new Set([
+  "ady endre",
+  "antall jozsef",
+  "horthy miklos",
+  "jozsef attila",
+  "kadar janos",
+  "matyas kiraly",
+  "moricz zsigmond",
+  "nagy imre",
+  "petofi sandor",
+  "rakosi matyas",
 ]);
 
 function isLikelyFullName(name: string): boolean {
@@ -117,11 +128,14 @@ Deno.serve(async (req) => {
     // company eponyms and brand/legal names such as "Richter Gedeon", "Magyar
     // Telekom" or "Ferencvárosi Torna Club" even when an upstream AI extractor
     // mistakenly emits them in a people/mentioned array.
-    const organizationNameNorms = new Set<string>(ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST);
+    const blockedPersonNameNorms = new Set<string>([
+      ...ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST,
+      ...HISTORICAL_TOPIC_ONLY_PERSON_BLOCKLIST,
+    ]);
     function addOrgAliasNorm(raw: unknown) {
       const value = String(raw || "").trim();
       if (!value) return;
-      organizationNameNorms.add(normalize(value));
+      blockedPersonNameNorms.add(normalize(value));
     }
     for (let fromOrgAlias = 0; ; fromOrgAlias += 1000) {
       const { data: page, error: aliasErr } = await supabase
@@ -166,7 +180,7 @@ Deno.serve(async (req) => {
     for (let fromExisting = 0; ; fromExisting += 1000) {
       const { data: page, error: existingError } = await supabase
         .from("people")
-        .select("id, slug, normalized_name, canonical_identity_key")
+        .select("id, slug, name, normalized_name, canonical_identity_key, manual_approved, has_archival_evidence, is_deceased, is_historical, persona, date_of_death, is_living")
         .order("id", { ascending: true })
         .range(fromExisting, fromExisting + 999);
       if (existingError) {
@@ -185,6 +199,19 @@ Deno.serve(async (req) => {
       if (p.normalized_name) peopleByNorm.set(p.normalized_name, p.id);
       if (p.canonical_identity_key) peopleByIdentity.set(p.canonical_identity_key, p.id);
       if (p.id && p.slug) peopleSlugById.set(p.id, p.slug);
+      const temporalWithoutApproval = p.manual_approved !== true
+        && p.has_archival_evidence !== true
+        && (
+          p.is_deceased === true
+          || p.is_historical === true
+          || p.persona === "historical"
+          || p.date_of_death
+          || p.is_living === false
+        );
+      if (temporalWithoutApproval) {
+        if (p.normalized_name) blockedPersonNameNorms.add(p.normalized_name);
+        if (p.name) blockedPersonNameNorms.add(normalize(p.name));
+      }
     });
 
     // Mention accumulator: person_id -> { episodes: Map<ep, {type,confidence,source,podcast_id,published_at}>, podcasts: Map<pod, {role, count, latest}> }
@@ -215,7 +242,7 @@ Deno.serve(async (req) => {
       if (!cleaned) return null;
       const norm = normalize(cleaned);
       if (norm.length < 3) return null;
-      if (organizationNameNorms.has(norm)) return null;
+      if (blockedPersonNameNorms.has(norm)) return null;
       // Reject single first names / single tokens unless from hosts list
       if (!isLikelyFullName(cleaned)) return null;
       const useContext = contextBucket !== "unknown" && isCollisionProneName(cleaned);

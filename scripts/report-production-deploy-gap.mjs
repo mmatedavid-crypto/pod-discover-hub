@@ -53,9 +53,12 @@ const GROUPS = {
   },
   people_hub_identity_safety: {
     label: "People hub identity safety",
-    migrations: ["supabase/migrations/20260603170000_people_identity_safety_consolidated.sql"],
-    functions: ["prerender"],
-    why: "Névazonosságoknál ne kerüljenek hamis életrajzok SEO/prerender oldalra.",
+    migrations: [
+      "supabase/migrations/20260603170000_people_identity_safety_consolidated.sql",
+      "supabase/migrations/20260605200000_reassert_temporal_person_public_guard.sql",
+    ],
+    functions: ["prerender", "person-entity-extractor"],
+    why: "Névazonosságoknál és halott/történelmi személyeknél ne kerüljenek hamis életrajzok vagy nem létező podcast-szereplő profilok SEO/prerender oldalra.",
   },
   edge_worker_seo: {
     label: "Cloudflare edge SEO policy",

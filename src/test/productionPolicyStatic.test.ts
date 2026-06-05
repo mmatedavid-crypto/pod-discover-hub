@@ -67,12 +67,14 @@ describe("production policy static guards", () => {
       "20260605003000_recommendation_compatibility_v5_entity_bridge.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
+      "20260605200000_reassert_temporal_person_public_guard.sql",
       "episode-article-pairer",
       "refresh-sitemap",
       "search-golden-refresh",
       "search-benchmark-runner",
       "ai-enrich",
       "prerender",
+      "person-entity-extractor",
       "infra/cloudflare-worker/worker.js",
       ".lovable/cloudflare-worker.js",
     ]) {
@@ -413,6 +415,8 @@ describe("production policy static guards", () => {
     const migration = read("supabase/migrations/20260604232000_temporal_person_public_guard.sql");
     const strictMigration = read("supabase/migrations/20260605004500_strict_dead_person_no_podcast_profile_guard.sql");
     const collisionMigration = read("supabase/migrations/20260605013000_dead_person_name_collision_fail_closed.sql");
+    const reassertMigration = read("supabase/migrations/20260605200000_reassert_temporal_person_public_guard.sql");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(migration).toContain("temporal_topic_only_guard_v1");
     expect(migration).toContain("p.is_deceased IS TRUE");
@@ -434,6 +438,14 @@ describe("production policy static guards", () => {
     expect(collisionMigration).toContain("COALESCE(p.guest_count, 0)");
     expect(strictMigration).toContain("DROP FUNCTION IF EXISTS public.list_people_hub");
     expect(strictMigration).toContain("DROP FUNCTION IF EXISTS public.list_people_alpha");
+    expect(reassertMigration).toContain("temporal_person_public_guard_v5");
+    expect(reassertMigration).toContain("cleared_suspicious_temporal_participant_count");
+    expect(reassertMigration).toContain("demoted_temporal_people_count");
+    expect(reassertMigration).toContain("participant_collision_rule");
+    expect(reassertMigration).toContain("status = 'rejected'");
+    expect(verifier).toContain("temporal_person_guard_policy_v5");
+    expect(verifier).toContain("no_public_unapproved_dead_or_historical_people");
+    expect(verifier).toContain("no_public_unapproved_suspicious_temporal_participants");
   });
 
   it("extracts Wikidata temporal metadata before publishing person identities", () => {

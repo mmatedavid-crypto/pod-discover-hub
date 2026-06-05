@@ -65,6 +65,7 @@ settings AS (
     'public_ai_language_guard_policy',
     'related_episode_quality_policy',
     'people_hub_identity_safety_policy',
+    'temporal_person_public_guard_policy',
     'text_processing_policy'
   )
 ),
@@ -100,7 +101,8 @@ controls AS (
     'news_sitemap_state', setting_values->'news_sitemap_state',
     'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy',
     'related_episode_quality_policy', setting_values->'related_episode_quality_policy',
-    'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy'
+    'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy',
+    'temporal_person_public_guard_policy', setting_values->'temporal_person_public_guard_policy'
   ) AS summary
   FROM settings
 ),
@@ -124,7 +126,44 @@ SELECT jsonb_build_object(
     'canonical_alias_table', to_regclass('public.canonical_entity_aliases') IS NOT NULL,
     'canonical_alias_normalizer', to_regprocedure('public.normalize_entity_alias(text)') IS NOT NULL,
     'canonical_alias_resolver', to_regprocedure('public.resolve_canonical_entity_alias(text,text)') IS NOT NULL,
-    'canonical_alias_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'canonical_alias_policy')
+    'canonical_alias_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'canonical_alias_policy'),
+    'temporal_person_guard_policy_v5', COALESCE((SELECT (value->>'version')::int >= 5 FROM public.app_settings WHERE key = 'temporal_person_public_guard_policy'), false),
+    'no_public_unapproved_dead_or_historical_people', NOT EXISTS (
+      SELECT 1
+      FROM public.people p
+      WHERE (p.is_public IS TRUE OR p.is_indexable IS TRUE OR p.is_browsable_in_people_hub IS TRUE)
+        AND COALESCE(p.manual_approved, false) = false
+        AND COALESCE(p.has_archival_evidence, false) = false
+        AND (
+          p.is_deceased IS TRUE
+          OR p.is_historical IS TRUE
+          OR p.persona = 'historical'
+          OR (
+            (p.date_of_death IS NOT NULL OR p.is_living IS FALSE)
+            AND (
+              COALESCE(p.participant_count, 0)
+              + COALESCE(p.host_count, 0)
+              + COALESCE(p.guest_count, 0)
+            ) = 0
+          )
+        )
+    ),
+    'no_public_unapproved_suspicious_temporal_participants', NOT EXISTS (
+      SELECT 1
+      FROM public.people p
+      WHERE (p.is_public IS TRUE OR p.is_indexable IS TRUE OR p.is_browsable_in_people_hub IS TRUE)
+        AND COALESCE(p.manual_approved, false) = false
+        AND COALESCE(p.has_archival_evidence, false) = false
+        AND COALESCE(p.is_deceased, false) = false
+        AND COALESCE(p.is_historical, false) = false
+        AND COALESCE(p.persona, '') <> 'historical'
+        AND (p.date_of_death IS NOT NULL OR p.is_living IS FALSE)
+        AND (
+          COALESCE(p.participant_count, 0)
+          + COALESCE(p.host_count, 0)
+          + COALESCE(p.guest_count, 0)
+        ) > 0
+    )
   ),
   'clean_text_backfill_gates', jsonb_build_object(
     'legacy_v3_requeue_rpc', to_regprocedure('public.requeue_legacy_clean_text_v4_backfill(integer,text[])') IS NOT NULL,

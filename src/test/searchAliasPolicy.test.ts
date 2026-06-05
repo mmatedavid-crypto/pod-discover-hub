@@ -72,10 +72,14 @@ describe("Hungarian search alias policy", () => {
     expect(eponymMigration).toContain("COALESCE(p.has_archival_evidence, false) = false");
     expect(eponymMigration).toContain("COALESCE(p.manual_approved, false) = false");
     expect(personExtractor).toContain("ORG_NAMED_HISTORICAL_PERSON_BLOCKLIST");
-    expect(personExtractor).toContain("organizationNameNorms");
+    expect(personExtractor).toContain("HISTORICAL_TOPIC_ONLY_PERSON_BLOCKLIST");
+    expect(personExtractor).toContain("blockedPersonNameNorms");
     expect(personExtractor).toContain('from("canonical_entity_aliases")');
     expect(personExtractor).toContain('from("organization_aliases")');
     expect(personExtractor).toContain('"richter gedeon"');
+    expect(personExtractor).toContain('"matyas kiraly"');
+    expect(personExtractor).toContain("temporalWithoutApproval");
+    expect(personExtractor).toContain("blockedPersonNameNorms.has(norm)");
     expect(entityBackfill).toContain("organizationNameNorms");
     expect(entityBackfill).toContain("Organization, company, team, party and institution names must never go into people or mentioned");
     expect(entityBackfill).toContain('from("canonical_entity_aliases")');
