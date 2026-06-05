@@ -37,6 +37,18 @@ describe("episode thumbnail loading policy", () => {
     expect(card).not.toContain("src={p.image_url}");
   });
 
+  it("passes homepage rail episode images separately from podcast fallback images", () => {
+    const index = read("src/pages/Index.tsx");
+    const migration = read("supabase/migrations/20260605011500_homepage_rails_episode_images_wrapper.sql");
+
+    expect(index).toContain("get_homepage_rails_with_images_v1");
+    expect(index).toContain("image_url: r.episode_image_url || r.image_url || null");
+    expect(index).toContain("image_url: r.podcast_image_url");
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.get_homepage_rails_with_images_v1");
+    expect(migration).toContain("jsonb_set(x.item, '{episode_image_url}', to_jsonb(e.image_url), true)");
+    expect(migration).toContain("homepage_rails_image_policy");
+  });
+
   it("keeps all-time toplist thumbnails optimized and non-empty", () => {
     const page = read("src/pages/ToplistaAllTimePage.tsx");
 

@@ -378,7 +378,7 @@ const Index = () => {
         const [catsRes, homepageRailsRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
-            .rpc("get_homepage_rails_v1" as never, {
+            .rpc("get_homepage_rails_with_images_v1" as never, {
               _trending_limit: 8,
               _evergreen_limit: 6,
               _category_limit: 6,
@@ -395,6 +395,7 @@ const Index = () => {
             title: r.title,
             display_title: r.display_title,
             slug: r.slug,
+            image_url: r.episode_image_url || r.image_url || null,
             ai_summary: r.ai_summary,
             summary: r.summary,
             description: r.description,
@@ -545,6 +546,7 @@ const Index = () => {
           ai_summary: r.ai_summary,
           summary: r.summary,
           description: r.description,
+          image_url: r.episode_image_url || r.image_url || null,
           published_at: r.published_at,
           audio_url: r.audio_url,
           topics: r.topics,
