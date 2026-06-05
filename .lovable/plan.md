@@ -1,61 +1,150 @@
-## Spotify auto-transcript scraping — ez a "jól gondolkodás"
+## Cél
 
-### Mit néztél te a Telex Afterben?
-A **Spotify app saját auto-generált felirata** — nem RSS-ből jön, nem az Anchor-ból, hanem maga a Spotify generálja **2024 eleje óta minden Spotify Podcasters/Anchor-hosztolt show-ra automatikusan**. Ezt a Supadata, RSS audit, YT-caption pipeline **mind nem látja**, mert a Spotify saját zárt rendszerében van.
+External transcript ingest PoC RSS-audio ASR-rel. **Nincs yt-dlp, nincs YouTube caption scrape, nincs Spotify content ingest.** YT/Spotify max metadata-matching és public RSS link feloldására.
 
-### Miért érdekes
-- **45 908 HU epizódnak már megvan a `spotify_episode_id`** (`episode_spotify_meta` táblában, a 2026-05-28-i Spotify-drain óta)
-- 771 / 1446 HU podcastunk Anchor/Spotify/Megaphone-hosztolt → ezek **mindegyikére várhatóan generál transcript-et a Spotify**
-- A Spotify Web Player **dokumentálatlan, de stabil** privát endpointján keresztül ezek lekérhetők: `spclient.wg.spotify.com/transcript-read-along/v2/episode/{id}`
-- Anonymous access token: `open.spotify.com/get_access_token` → 1 órás Bearer token, IP-alapú
-- **0 Ft, 0 Supadata credit**
-- Konzervatív tipp hit-rate-re: **30-50% (~14k-22k transcript)** — minden Anchor-hosztolton hit, RSS-only kiadóknál (Libsyn/Buzzsprout/Omny stb.) nincs
+## Architektúra (változatlan elv)
 
-### Kockázatok
-| Kockázat | Súly | Mitigáció |
+```text
+Python worker (laptop / VPS)
+  │ Authorization: Bearer EXTERNAL_TRANSCRIPT_TOKEN
+  │
+  ▼
+edge function: external-transcript-ingest
+  ├─ GET  /?claim=N          → következő RSS-audio jobok
+  ├─ POST /                   → transcript + segments upload
+  └─ audit row (source, model, latency_ms, cost_usd, status)
+  │
+  ▼
+public.episode_transcripts  +  public.external_transcript_audit
+```
+
+## Hard stops (kódba égetve)
+
+- Worker csak `audio_url` (RSS) forrást fogadhat. `youtube_video_id` mező a job válaszból kihagyva.
+- Worker `User-Agent: PodiverzumTranscriptWorker/0.1 (research; contact: hello@podiverzum.hu)`.
+- Edge function elutasít minden POST-ot ahol `source != 'rss_audio_asr'`.
+- `public_display` mindig `false` a PoC alatt.
+- Nincs cron, nincs `auto_loop` default, batch hard-limit 20.
+
+## Schema változás (egy migráció)
+
+1. `episode_transcripts` új oszlopok:
+   - `source text` (`rss_audio_asr` | `rss_native` | `manual`)
+   - `rights_status text` default `'rss_public_index_only'`
+   - `public_display boolean` default `false`
+   - `latency_ms integer`
+   - `status text` default `'ok'` (`ok` | `failed` | `skipped`)
+   - `error_reason text`
+2. Új tábla `public.external_transcript_audit`:
+   - `id`, `episode_id`, `model`, `source`, `status`, `error_reason`, `latency_ms`, `cost_usd`, `audio_bytes`, `duration_seconds`, `worker_id`, `created_at`
+   - GRANT service_role only; RLS deny all auth.
+3. Index: `episode_transcripts(episode_id)` ahol `status='ok'`.
+
+## Edge function (`supabase/functions/external-transcript-ingest/index.ts`)
+
+Átírás (a meglévő file lecserélődik):
+
+- Auth: `Authorization: Bearer <EXTERNAL_TRANSCRIPT_TOKEN>` (a régi `x-ingest-token` megszűnik, csak Bearer).
+- `GET ?claim=N` (max 20): HU, tier ∈ {S,A}, `audio_url IS NOT NULL`, nincs `episode_transcripts.status='ok'` sor. Válasz: `episode_id, podcast_id, title, audio_url, duration_seconds`. **YT mezők nincsenek.**
+- `POST`:
+  - body: `{ episode_id, transcript, segments?, model, language, duration_seconds, audio_bytes, latency_ms, cost_usd, source, status, error_reason? }`
+  - whitelist: `source ∈ {rss_audio_asr}`, különben 422
+  - `status='ok'` esetén upsert `episode_transcripts` `(episode_id,model)`-re, `public_display=false`, `rights_status='rss_public_index_only'`
+  - mindig insert `external_transcript_audit`
+- `OPTIONS` CORS, minden hiba JSON.
+
+## Python worker (`scripts/rss-asr-worker.py`)
+
+- Régi `yt-asr-worker.py` **törlés** (`rm`).
+- `requests` + `faster-whisper` + `ffmpeg`. **`yt-dlp` import tiltva.**
+- Folyamat per job:
+  1. `audio_url`-t HEAD/GET-tel letölti `requests.stream`-mel temp fájlba (max 500 MB, timeout 600s).
+  2. ffmpeg-gel mono 16 kHz wav (subprocess).
+  3. `faster-whisper large-v3-turbo` HU, VAD-filter, segmentek megőrizve.
+  4. POST transcript + segments + latency_ms + audio_bytes + `source='rss_audio_asr'`.
+  5. Hiba esetén POST `status='failed'` + `error_reason`.
+- ENV: `PODIVERZUM_URL`, `INGEST_TOKEN`, `WHISPER_DEVICE`, `WHISPER_COMPUTE`, `BATCH=20` (hard cap), `WORKER_ID`.
+- Nincs `LOOP`, egyetlen batch fut, aztán exit. (Cron explicit jóváhagyás után.)
+
+## PoC scope
+
+- 20 ep, HU, tier S/A, `audio_url IS NOT NULL`.
+- Lokálisan (laptop CPU int8) vagy egyszerű Hetzner CX22.
+- Riport: hit rate, átlag audio hossz, ASR sebesség (RTF), karakter/ep, becsült cost/ep (csak áram).
+
+## Setup parancsok (worker gépen, egyszer)
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+python -m pip install -U requests faster-whisper
+# ffmpeg: brew install ffmpeg  |  apt-get install -y ffmpeg
+export PODIVERZUM_URL='https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/external-transcript-ingest'
+export INGEST_TOKEN='<paste from Lovable Cloud secret form>'
+export WORKER_ID="$(hostname)-poc"
+python scripts/rss-asr-worker.py
+```
+
+## Várható eredmény (sample table — kitöltjük futás után)
+
+| metrika | érték |
+|---|---|
+| jobs claimed | 20 |
+| ok | ? |
+| failed (404 / timeout / non-audio) | ? |
+| avg audio min | ? |
+| ASR RTF (CPU int8) | ~0.3–0.6× |
+| avg chars/ep | ? |
+| cost/ep (áram) | ~$0.01 |
+
+## Költség/idő becslés (RSS audio ASR, faster-whisper large-v3-turbo)
+
+CPU (Hetzner CX22, int8, ~0.5× realtime, átlag 45 perc/ep):
+
+| scope | gép-óra | költség (€4/hó VPS arányosítva + áram) |
 |---|---|---|
-| Spotify ToS sértés (unauthorized API) | Közepes | Per-show throttle (1 req/sec), User-Agent rotáció, kis volumen indulásnál |
-| IP-ban / 429 / 403 | Közepes | Cloudflare worker proxy front (már van!), exponential backoff, runner auto-pause |
-| Endpoint változás (a reverse-engineered URL meghal) | Alacsony | Pipeline-watchdog észreveszi (error rate ↑), versionezett URL string egy helyen, könnyen javítható |
-| Geo-block | Alacsony | Supabase edge functions EU-ban futnak, ami Spotify-nak OK |
+| 1k ep | ~375 h | ~€2 VPS + ~€8 áram = ~€10 |
+| 10k ep | ~3750 h (5 hét 1 gépen vagy 1 hét 5 gépen) | ~€20 VPS + ~€80 áram = ~€100 |
+| 50k ep | ~18750 h (10 gép × ~11 nap) | ~€500 |
 
-### A terv
+GPU (RunPod A10G ~5× realtime, $0.39/h):
 
-#### Fázis 1 — PoC (1-2h build, 0 Ft)
-1. Új edge function `spotify-transcript-poc`:
-   - Spotify anon access token grab
-   - 20 véletlen Telex After / Telex Podcast / Partizán Anchor-hosztolt ep-en kipróbál
-   - Visszaadja: per-episode `{has_transcript, status_code, language, char_count, sample_segments[3]}`
-   - **Nem ír semmit DB-be**, csak diagnosztika
-2. Egyszeri manuális futtatás → kiderül a hit-rate és a formátum
-3. Döntés: ha hit-rate ≥20%, megy Fázis 2; ha alacsonyabb, dobjuk
+| scope | GPU-óra | költség |
+|---|---|---|
+| 1k ep | ~150 h | ~$60 |
+| 10k ep | ~1500 h | ~$585 |
+| 50k ep | ~7500 h | ~$2 925 |
 
-#### Fázis 2 — Production runner (ha PoC jó, +3-4h build)
-4. `spotify-transcript-runner` edge function:
-   - Tier-prioritást követi (S=100, A=80, B=60)
-   - Per-run: 25 ep, 1 req/sec rate-limit, batch token refresh
-   - Sikeres fetch → `episode_transcripts(model='spotify-native', language, transcript, segments)` insert
-   - 404 → `app_settings.spotify_transcript_skip` listára (don't retry)
-   - 429/403 → exponential backoff + auto-pause via pipeline-watchdog
-5. Új cron job `*/5 * * * *`, indulás `enabled=false`, manuális kapcsoló admin felületen
-6. Új `app_settings.spotify_transcript_controls`: `{enabled, batch, delay_ms, daily_cap, paused_at, paused_reason}`
-7. Pipeline-watchdog registry-be felvenni (cost=0, csak error-rate és liveness alapján auto-pause)
-8. Queue-health-controller-be felvenni (auto-pause/resume pending alapján)
+Cloud Whisper API (Groq distil-whisper $0.02/h) — összehasonlításra:
 
-#### Fázis 3 — Downstream beillesztés (ingyen, automatikus)
-9. `episode-clean-text-runner` updateje: ha van `spotify-native` transcript ÉS hossza > yt_desc/rss → előnyben részesít (`cleaner_method='spotify_native'`)
-10. `embed-episode-chunks-runner` automatikusan újrachunkol minden új transcript-tel rendelkező ep-et
-11. `entity-backfill-runner` újrafutása ezeken az ep-eken (~13-22k drain ~6-12h, $3-5)
+| scope | költség |
+|---|---|
+| 1k ep | ~$15 |
+| 10k ep | ~$150 |
+| 50k ep | ~$750 |
 
-### Mit nyerünk
-- **Search-pool drasztikus növelés**: 135k chunk → várható +200k-400k chunk
-- **Entity precision**: jelenleg sok ep-nél csak címből/leírásból van entity → transcript-ből 10-50x annyi mention
-- **Topic discovery**: bottom-up extractor (cron 54) sokkal pontosabb mintát kap
-- **Person mentionek**: Magyar Péter, Karácsony, Orbán stb. nem-cím epizódokban is felbukkannak
+PoC után döntés: lokális CPU drain vs Groq API.
 
-### Sorrend (jóváhagyás után)
-1. **Most:** `spotify-transcript-poc` edge function build + futtatás 20 ep-en (15 perc)
-2. **Eredmény alapján:** Fázis 2 build (ha hit≥20%)
-3. **Külön döntés:** RSS importer (a 173 ingyen transcripthez) és YT chapter-extractor megy-e párhuzamosan vagy később
+## Files
 
-Megyek a PoC-val?
+- **módosítás**: `supabase/functions/external-transcript-ingest/index.ts` (Bearer auth, RSS-only, audit insert, no YT fields)
+- **új**: `scripts/rss-asr-worker.py`
+- **törlés**: `scripts/yt-asr-worker.py`
+- **migration**: `episode_transcripts` új oszlopok + `external_transcript_audit` tábla + index
+
+## Required secret
+
+- `EXTERNAL_TRANSCRIPT_TOKEN` (backend only) — generálom én vagy `openssl rand -hex 32`, te bemásolod a Lovable Cloud secret űrlapba.
+
+## Riport (futás után küldöm)
+
+- files changed (lista)
+- schema diff (migráció SQL)
+- env vars (lásd fent)
+- setup parancsok (lásd fent)
+- 20-ep sample table feltöltött metrikákkal
+- frissített 1k/10k/50k költségbecslés a mért RTF alapján
+
+## Mi marad ki tudatosan
+
+- yt-dlp, YouTube caption fetch, Spotify audio/preview ingest, Spotify private endpoint — egyik sem kerül be.
+- Cron, autopilot, public display, full-transcript SEO — csak explicit külön jóváhagyással később.

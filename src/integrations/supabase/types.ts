@@ -1837,13 +1837,19 @@ export type Database = {
           created_at: string
           duration_seconds: number | null
           episode_id: string
+          error_reason: string | null
           id: string
           input_tokens: number | null
           language: string | null
+          latency_ms: number | null
           model: string
           output_tokens: number | null
           podcast_id: string
+          public_display: boolean
+          rights_status: string
           segments: Json | null
+          source: string | null
+          status: string
           transcript: string
           updated_at: string
         }
@@ -1854,13 +1860,19 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           episode_id: string
+          error_reason?: string | null
           id?: string
           input_tokens?: number | null
           language?: string | null
+          latency_ms?: number | null
           model: string
           output_tokens?: number | null
           podcast_id: string
+          public_display?: boolean
+          rights_status?: string
           segments?: Json | null
+          source?: string | null
+          status?: string
           transcript: string
           updated_at?: string
         }
@@ -1871,13 +1883,19 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           episode_id?: string
+          error_reason?: string | null
           id?: string
           input_tokens?: number | null
           language?: string | null
+          latency_ms?: number | null
           model?: string
           output_tokens?: number | null
           podcast_id?: string
+          public_display?: boolean
+          rights_status?: string
           segments?: Json | null
+          source?: string | null
+          status?: string
           transcript?: string
           updated_at?: string
         }
@@ -2167,6 +2185,51 @@ export type Database = {
             referencedColumns: ["podcast_id"]
           },
         ]
+      }
+      external_transcript_audit: {
+        Row: {
+          audio_bytes: number | null
+          cost_usd: number | null
+          created_at: string
+          duration_seconds: number | null
+          episode_id: string | null
+          error_reason: string | null
+          id: string
+          latency_ms: number | null
+          model: string | null
+          source: string
+          status: string
+          worker_id: string | null
+        }
+        Insert: {
+          audio_bytes?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          episode_id?: string | null
+          error_reason?: string | null
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          source: string
+          status: string
+          worker_id?: string | null
+        }
+        Update: {
+          audio_bytes?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          episode_id?: string | null
+          error_reason?: string | null
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          source?: string
+          status?: string
+          worker_id?: string | null
+        }
+        Relationships: []
       }
       growth_runs: {
         Row: {
