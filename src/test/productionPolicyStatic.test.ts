@@ -66,12 +66,14 @@ describe("production policy static guards", () => {
       "20260603221000_news_sitemap_gsc_connector_gateway.sql",
       "20260604094229_reassert_news_sitemap_gsc_connector.sql",
       "20260605212000_reassert_news_sitemap_gsc_put_submit.sql",
+      "20260605214500_clear_news_sitemap_connector_404_state.sql",
       "20260603162000_public_ai_language_guard_consolidated.sql",
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260604001000_recommendation_compatibility_v4.sql",
       "20260604091642_reassert_recommendation_compatibility_v4.sql",
       "20260605003000_recommendation_compatibility_v5_entity_bridge.sql",
       "20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql",
+      "20260605214000_reassert_related_quality_policy_v5_settings.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "20260605200000_reassert_temporal_person_public_guard.sql",
@@ -191,6 +193,7 @@ describe("production policy static guards", () => {
     const connectorMigration = read("supabase/migrations/20260603221000_news_sitemap_gsc_connector_gateway.sql");
     const connectorReassertMigration = read("supabase/migrations/20260604094229_reassert_news_sitemap_gsc_connector.sql");
     const putSubmitMigration = read("supabase/migrations/20260605212000_reassert_news_sitemap_gsc_put_submit.sql");
+    const connector404Migration = read("supabase/migrations/20260605214500_clear_news_sitemap_connector_404_state.sql");
     const staticFallback = read("public/news-sitemap.xml");
 
     expect(fn).toContain("submitGoogleSearchConsoleSitemap");
@@ -200,6 +203,7 @@ describe("production policy static guards", () => {
     expect(fn).toContain("GOOGLE_SEARCH_CONSOLE_API_KEY");
     expect(fn).toContain("X-Connection-Api-Key");
     expect(fn).toContain("missing_lovable_gsc_connector_credentials");
+    expect(fn).toContain("lovable_gsc_connector_route_missing_404");
     expect(fn).not.toContain("GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL");
     expect(fn).not.toContain("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY");
     expect(fn).not.toContain("https://oauth2.googleapis.com/token");
@@ -253,6 +257,9 @@ describe("production policy static guards", () => {
     expect(putSubmitMigration).toContain("'submit_method', 'PUT'");
     expect(putSubmitMigration).toContain("stale_lovable_gsc_submit_404_cleared_after_put_method_fix");
     expect(putSubmitMigration).toContain("'google_submit_status', NULL");
+    expect(connector404Migration).toContain("record_route_missing_without_google_submit_status_404");
+    expect(connector404Migration).toContain("'connector_route_missing_status', 404");
+    expect(connector404Migration).toContain("'google_submit_status', NULL");
 
     expect(staticFallback).toContain('xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"');
     expect(staticFallback).not.toContain("<url>");
@@ -641,6 +648,7 @@ describe("production policy static guards", () => {
   it("keeps production verifier covering recommendation and people identity policies", () => {
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reassertV5 = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
+    const policySettingsV5 = read("supabase/migrations/20260605214000_reassert_related_quality_policy_v5_settings.sql");
     const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
     const peopleHubFilterMigration = read("supabase/migrations/20260604213000_people_hub_identity_safe_filters.sql");
     const prerender = read("supabase/functions/prerender/index.ts");
@@ -670,6 +678,10 @@ describe("production policy static guards", () => {
     expect(reassertV5).toContain("'public_affairs_override_terms'");
     expect(reassertV5).toContain("public.recommendation_has_content_bridge(");
     expect(reassertV5).toContain("GRANT EXECUTE ON FUNCTION public.recommendation_has_content_bridge");
+    expect(policySettingsV5).toContain("'version', 5");
+    expect(policySettingsV5).toContain("'specific_to_general', 'explicit_bridge_required'");
+    expect(policySettingsV5).toContain("'general_to_specific', 'explicit_bridge_required'");
+    expect(policySettingsV5).toContain("20260605214000_reassert_related_quality_policy_v5_settings");
     expect(verifier).toContain("list_people_hub_has_identity_fields");
     expect(verifier).toContain("list_people_alpha_has_identity_fields");
     expect(verifier).toContain("policy_configured_v2");

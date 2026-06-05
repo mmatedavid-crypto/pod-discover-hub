@@ -137,6 +137,14 @@ async function submitGoogleSearchConsoleSitemap(feedpath: string): Promise<Googl
       'X-Connection-Api-Key': connectionKey,
     },
   });
+  if (res.status === 404) {
+    return {
+      attempted: true,
+      ok: false,
+      status: null,
+      reason: 'lovable_gsc_connector_route_missing_404',
+    };
+  }
   return {
     attempted: true,
     ok: res.ok,
