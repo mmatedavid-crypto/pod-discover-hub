@@ -178,7 +178,9 @@ SELECT jsonb_build_object(
   'article_pipeline', jsonb_build_object(
     'table_exists', to_regclass('public.episode_article_candidates') IS NOT NULL,
     'controls_configured', (SELECT setting_values->'episode_article_pairer_controls' IS NOT NULL FROM settings),
-    'sources_v3_configured', (SELECT setting_values->'episode_article_pairer_controls'->>'source_version' = 'publisher_sources_v3' FROM settings),
+    'sources_v3_configured', (SELECT setting_values->'episode_article_pairer_controls'->>'source_version' IN ('publisher_sources_v3', 'publisher_sources_v4') FROM settings),
+    'sources_v4_configured', (SELECT setting_values->'episode_article_pairer_controls'->>'source_version' = 'publisher_sources_v4' FROM settings),
+    'multi_source_run_configured', (SELECT COALESCE((setting_values->'episode_article_pairer_controls'->>'sources_per_run')::int, 1) >= 2 FROM settings),
     'source_count_at_least_6', (SELECT jsonb_array_length(COALESCE(setting_values->'episode_article_pairer_controls'->'sources', '[]'::jsonb)) >= 6 FROM settings),
     'best_source_article_policy', (SELECT setting_values->'episode_best_text_source_controls'->>'policy' = 'best_text_source_v2_confirmed_article_youtube_first'
       AND setting_values->'episode_best_text_source_controls' ? 'article_min_confidence' FROM settings),

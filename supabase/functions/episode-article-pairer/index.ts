@@ -107,15 +107,23 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
     const fetchArticleHtml = ctrl.fetch_article_html === true; // default OFF to stay under CPU budget
     let fetchesLeft = fetchArticleHtml ? Math.max(0, Math.min(20, Number(ctrl.max_article_fetches_per_run || 8))) : 0;
 
-    // Round-robin one source per invocation to stay under Edge Function CPU limit.
+    // Round-robin a small source window per invocation to stay under Edge
+    // Function CPU limits without letting one weak outlet keep the whole
+    // candidate table empty for many runs.
     const { data: progRow } = await admin.from("app_settings").select("value").eq("key", "episode_article_pairer_progress").maybeSingle();
     const prevProgress = (progRow?.value || {}) as Record<string, unknown>;
     const cursor = Number(prevProgress.source_cursor || 0);
     const sourceIdx = sources.length ? cursor % sources.length : 0;
-    const activeSources = sources.length ? [sources[sourceIdx]] : [];
+    const sourcesPerRun = sources.length
+      ? Math.max(1, Math.min(sources.length, Number(body.sources_per_run || ctrl.sources_per_run || 1)))
+      : 0;
+    const activeSources = sources.length
+      ? Array.from({ length: sourcesPerRun }, (_unused, offset) => sources[(sourceIdx + offset) % sources.length])
+      : [];
 
     const inserted: Record<string, number> = {};
     const sourceDiagnostics: SourceDiagnostics = {};
+    const bestRejectedScores: Array<{ outlet: string; article_title: string; score: number; reasons: string[] }> = [];
     let scannedArticles = 0;
     let scannedEpisodes = 0;
     let selectedCandidates = 0;
@@ -158,7 +166,17 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
           const s = scorePublisherArticleMatch(ep, article);
           if (!best || s.score > best.score.score) best = { ep, score: s };
         }
-        if (!best || best.score.score < needsReview) continue;
+        if (!best || best.score.score < needsReview) {
+          if (best && best.score.score > 0) {
+            bestRejectedScores.push({
+              outlet: source.outlet,
+              article_title: article.title.slice(0, 160),
+              score: Number(best.score.score.toFixed(4)),
+              reasons: best.score.reasons,
+            });
+          }
+          continue;
+        }
 
         const status = best.score.score >= autoConfirm ? "confirmed" : "needs_review";
         candidates.push({
@@ -210,8 +228,10 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
     const progress = {
       last_run_at: new Date().toISOString(),
       parser_policy: "regex_xml_no_domparser_v2",
-      source_cursor: sources.length ? (sourceIdx + 1) % sources.length : 0,
+      source_cursor: sources.length ? (sourceIdx + sourcesPerRun) % sources.length : 0,
       processed_outlet: activeSources[0]?.outlet || null,
+      processed_outlets: activeSources.map((source) => source.outlet),
+      sources_per_run: sourcesPerRun,
       scanned_articles: scannedArticles,
       scanned_episodes: scannedEpisodes,
       selected_candidates: selectedCandidates,
@@ -219,6 +239,7 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
       upserted_by_outlet: inserted,
       verified_upsert_rows: verifiedUpsertRows,
       total_article_candidates: totalArticleCandidates || 0,
+      best_rejected_scores: bestRejectedScores.sort((a, b) => b.score - a.score).slice(0, 12),
       source_diagnostics: sourceDiagnostics,
       runtime_ms: Date.now() - startedAt,
       policy: "publisher_article_match_v1",

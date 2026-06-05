@@ -156,6 +156,7 @@ Deno.serve(async (req) => {
       await runStep("article_pairer", () => callFunction("episode-article-pairer", {
         trigger: "database_quality_fast_lane",
         limit: Math.max(10, Math.min(500, Number(controls.article_pairer_limit || DEFAULT_CONTROLS.article_pairer_limit))),
+        sources_per_run: Math.max(1, Math.min(8, Number(controls.article_pairer_sources_per_run || 1))),
       }));
     }
 

@@ -14,7 +14,10 @@ const GROUPS = {
   },
   article_pipeline: {
     label: "Publisher article text pipeline",
-    migrations: ["supabase/migrations/20260603164000_article_pipeline_consolidated.sql"],
+    migrations: [
+      "supabase/migrations/20260603164000_article_pipeline_consolidated.sql",
+      "supabase/migrations/20260605210000_reassert_article_pairer_sources_v4.sql",
+    ],
     functions: ["episode-article-pairer", "episode-best-text-source-runner", "database-quality-fast-lane"],
     why: "Telex/444/Hold/Partizán/HVG/Portfolio cikkekből jobb epizódleírás kerülhet a láncba.",
   },

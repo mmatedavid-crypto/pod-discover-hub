@@ -57,6 +57,7 @@ describe("production policy static guards", () => {
     for (const artifact of [
       "20260603171000_clean_text_backfill_quality_gate_consolidated.sql",
       "20260603164000_article_pipeline_consolidated.sql",
+      "20260605210000_reassert_article_pairer_sources_v4.sql",
       "20260603111500_news_sitemap_fast_refresh_cron.sql",
       "20260603221000_news_sitemap_gsc_connector_gateway.sql",
       "20260604094229_reassert_news_sitemap_gsc_connector.sql",
@@ -121,12 +122,17 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("pairer_no_domparser_error");
     expect(verifier).toContain("DOMParser is not defined");
     expect(verifier).toContain("article_candidates_started");
+    expect(verifier).toContain("sources_v4_configured");
+    expect(verifier).toContain("multi_source_run_configured");
     expect(verifier).toContain("episode_article_pairer_progress");
 
     const pairer = read("supabase/functions/episode-article-pairer/index.ts");
     expect(pairer).toContain('parser_policy: "regex_xml_no_domparser_v2"');
     expect(pairer).toContain("verified_upsert_rows");
     expect(pairer).toContain("total_article_candidates");
+    expect(pairer).toContain("sources_per_run");
+    expect(pairer).toContain("processed_outlets");
+    expect(pairer).toContain("best_rejected_scores");
     expect(pairer).toContain('.select("id")');
   });
 
@@ -527,7 +533,9 @@ describe("production policy static guards", () => {
 
   it("keeps publisher article matching wired into best text source", () => {
     const migration = read("supabase/migrations/20260603164000_article_pipeline_consolidated.sql");
+    const reassertMigration = read("supabase/migrations/20260605210000_reassert_article_pairer_sources_v4.sql");
     const pairer = read("supabase/functions/episode-article-pairer/index.ts");
+    const fastLane = read("supabase/functions/database-quality-fast-lane/index.ts");
     const bestSource = read("supabase/functions/episode-best-text-source-runner/index.ts");
     const verifier = read("scripts/verify-production-pipeline.mjs");
 
@@ -540,10 +548,17 @@ describe("production policy static guards", () => {
     for (const outlet of ["444", "telex", "hvg", "portfolio", "hold", "partizan"]) {
       expect(migration.toLowerCase()).toContain(outlet);
     }
+    expect(reassertMigration).toContain("'source_version', 'publisher_sources_v4'");
+    expect(reassertMigration).toContain("'sources_per_run', 3");
+    expect(reassertMigration).toContain("'outlet', 'qubit'");
+    expect(reassertMigration).toContain("'article_pairer_sources_per_run', 3");
 
     expect(pairer).toContain("scorePublisherArticleMatch");
     expect(pairer).toContain("episode_article_candidates");
     expect(pairer).toContain("source_diagnostics");
+    expect(pairer).toContain("best_rejected_scores");
+    expect(fastLane).toContain("sources_per_run");
+    expect(fastLane).toContain("article_pairer_sources_per_run");
     expect(bestSource).toContain('source_type: "article"');
     expect(bestSource).toContain("article_min_confidence");
     expect(bestSource).toContain("confirmed_publisher_article_longer_or_rss_short");
