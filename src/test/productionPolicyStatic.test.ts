@@ -39,6 +39,7 @@ describe("production policy static guards", () => {
     const reporter = read("scripts/report-production-deploy-gap.mjs");
     const vitestRunner = read("scripts/run-vitest.mjs");
     const viteRunner = read("scripts/run-vite.mjs");
+    const deployDoc = read("docs/production-backend-deploy.md");
     const pkg = read("package.json");
 
     expect(pkg).toContain('"build": "node scripts/run-vite.mjs build"');
@@ -93,6 +94,14 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("Apply these Supabase migrations in order:");
     expect(reporter).toContain("Redeploy these Supabase Edge Functions:");
     expect(reporter).toContain("After deploy, run verification:");
+    expect(deployDoc).toContain("Codex should generate the deploy-gap prompt, but Lovable performs the");
+    expect(deployDoc).toContain("npm run report:production-deploy-gap");
+    expect(deployDoc).toContain("npm run report:production-deploy-prompt");
+    expect(deployDoc).toContain("unmapped verifier failures");
+    expect(deployDoc).toContain("missing migration/function/worker artifacts");
+    expect(deployDoc).toContain("local verification commands (`npm run test`, `npm run build`)");
+    expect(deployDoc).toContain("explicit migration preflight");
+    expect(deployDoc).toContain("Legacy clean-text backfill is quality-gated");
     for (const group of [
       "clean_text_backfill_gates",
       "article_pipeline",
