@@ -71,6 +71,9 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("makeLovablePrompt");
     expect(reporter).toContain("deploy_plan");
     expect(reporter).toContain("lovable_prompt");
+    expect(reporter).toContain('const localChecks = ["npm run test", "npm run build"]');
+    expect(reporter).toContain("local_checks");
+    expect(reporter).toContain("Before deploy, run local verification:");
     expect(reporter).toContain("unmapped_failures");
     expect(reporter).toContain("Unmapped verifier failures; stop and add/repair deploy-gap grouping before deploy:");
     expect(reporter).toContain("none mapped to a known deploy area");

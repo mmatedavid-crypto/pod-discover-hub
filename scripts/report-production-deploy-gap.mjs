@@ -219,6 +219,7 @@ function makeDeployPlan(groups) {
   const migrations = unique(groups.flatMap((group) => group.migrations || []));
   const functions = unique(groups.flatMap((group) => group.functions || []));
   const workers = unique(groups.flatMap((group) => group.worker || []));
+  const localChecks = ["npm run test", "npm run build"];
   const preflight = migrations.length
     ? [`node scripts/preflight-migrations.mjs ${migrations.join(" ")}`]
     : [];
@@ -227,7 +228,7 @@ function makeDeployPlan(groups) {
     "node scripts/verify-production-pipeline.mjs",
     "node scripts/verify-production-edge-seo.mjs",
   ];
-  return { migrations, functions, workers, preflight, verification };
+  return { migrations, functions, workers, local_checks: localChecks, preflight, verification };
 }
 
 function artifactExists(relPath) {
@@ -287,6 +288,9 @@ function makeLovablePrompt(plan, groups, unmappedFailures) {
     lines.push("", "Missing deploy artifacts; stop and fix these repo references before deploy:");
     lines.push(...plan.artifacts.missing.map((item) => `- ${item}`));
   }
+
+  lines.push("", "Before deploy, run local verification:");
+  lines.push(...plan.local_checks.map((cmd) => `- ${cmd}`));
 
   if (plan.migrations.length) {
     lines.push("", "Before applying migrations, run preflight:");
