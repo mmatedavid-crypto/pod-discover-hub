@@ -8130,17 +8130,6 @@ export type Database = {
         Args: { p_candidate_topics: string[]; p_source_topics: string[] }
         Returns: boolean
       }
-      recommendation_has_content_bridge: {
-        Args: {
-          p_candidate_companies: string[]
-          p_candidate_people: string[]
-          p_candidate_topics: string[]
-          p_source_companies: string[]
-          p_source_people: string[]
-          p_source_topics: string[]
-        }
-        Returns: boolean
-      }
       recommendation_is_compatible: {
         Args: {
           p_candidate_group: string
