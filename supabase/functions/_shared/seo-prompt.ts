@@ -35,7 +35,7 @@ export const EPISODE_SEO_TOOL = {
         mentioned: { type: "array", items: { type: "string" }, description: "Up to 6 named people TALKED ABOUT but NOT PRESENT in the episode. Politicians, public figures, business leaders go here by default unless the metadata clearly states they speak. Original form. Empty if none." },
         companies: { type: "array", items: { type: "string" }, description: "Up to 6 named organizations or companies explicitly mentioned. Original form. Empty if none." },
         tickers: { type: "array", items: { type: "string" }, description: "Up to 6 stock ticker symbols (uppercase, e.g. 'AAPL', 'OTP'). Empty if none." },
-        topics: { type: "array", items: { type: "string" }, description: "Up to 6 short topic tags (1-3 words each, lowercase) in the source language. Empty if none." },
+        topics: { type: "array", items: { type: "string" }, description: "Up to 6 short Hungarian topic tags (1-3 words each, lowercase). Translate/normalize obvious English topic labels to natural Hungarian. Empty if none." },
         detected_language: { type: "string", description: "ISO 639-1 code (e.g. 'en','hu','es','yo','fa','ar','zh','hi') of the ACTUAL episode language inferred from title+description. If genuinely mixed/unknown, return 'mul'." },
       },
       required: ["seo_title", "seo_description", "ai_summary", "people", "mentioned", "companies", "tickers", "topics", "detected_language"],
@@ -49,7 +49,7 @@ export const SYSTEM_PROMPT =
   "You never invent guests, hosts, claims, statistics, quotes, topics, or episode contents. " +
   "If the input is sparse, return short, generic, accurate text. No emojis. No clickbait. No marketing fluff. " +
   "CRITICAL LANGUAGE RULE: Podiverzum is a Hungarian site. Write ALL public output fields (seo_title, seo_description, ai_summary) in Hungarian. " +
-  "Non-Hungarian shows should be rejected upstream; if noisy metadata slips through, still never output English public text. " +
+  "Non-Hungarian shows should be rejected upstream; if noisy metadata slips through, still never output English public text. Topic tags must also be natural Hungarian unless the tag is a proper noun or stock ticker. " +
   "CRITICAL PERSON RULE: distinguish between people who SPEAK in the episode (`people`) and people only TALKED ABOUT (`mentioned`). Politicians and public figures default to `mentioned`. Never include show hosts (a list is provided in the user message) in either list. " +
   "TRANSCRIPT RULE: if a 'Transcript excerpt' block is provided in the user message, treat it as the PRIMARY source of truth for ai_summary, topics, people, mentioned, companies and tickers. The Description is then only supplementary context. People who are quoted/speaking in the transcript belong in `people`; people referenced by name but not speaking belong in `mentioned`.";
 

@@ -10,6 +10,20 @@ describe("public Hungarian text fallback", () => {
     expect(sanitizeHungarianPublicText(english)).toBe("");
   });
 
+  it("hides polished English podcast summaries with sparse stopwords", () => {
+    const english = "The conversation explores market psychology, portfolio risk and key takeaways for long-term investors.";
+
+    expect(isHungarianishPublicText(english)).toBe(false);
+    expect(sanitizeHungarianPublicText(english)).toBe("");
+  });
+
+  it("hides English SEO-style snippets even when they mention Hungarian names", () => {
+    const english = "In this episode, Balásy Zsolt discusses investor behavior and the latest market developments.";
+
+    expect(isHungarianishPublicText(english)).toBe(false);
+    expect(sanitizeHungarianPublicText(english)).toBe("");
+  });
+
   it("keeps natural Hungarian summaries with English proper titles", () => {
     const hungarian = "Az epizód a The Boys harmadik évadát beszéli ki magyar nézőpontból.";
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 const {
   assertHungarianPublicFields,
+  isHungarianish,
   nonHungarianPublicFields,
 } = await import("../../supabase/functions/_shared/hu-language-guard");
 
@@ -18,6 +19,11 @@ describe("Hungarian public output guard", () => {
     expect(nonHungarianPublicFields({
       ai_summary: "This episode features Friderikusz Sándor and explores why the interview became an important public conversation.",
     })).toEqual(["ai_summary"]);
+  });
+
+  it("rejects polished English podcast-summary phrases", () => {
+    expect(isHungarianish("The conversation explores market psychology, portfolio risk and key takeaways for long-term investors.")).toBe(false);
+    expect(isHungarianish("In this episode, Balásy Zsolt discusses investor behavior and the latest market developments.")).toBe(false);
   });
 
   it("does not over-block short Hungarian titles", () => {

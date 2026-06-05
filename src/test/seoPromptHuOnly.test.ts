@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-const { episodeUserPrompt, podcastUserPrompt } = await import("../../supabase/functions/_shared/seo-prompt");
+const {
+  EPISODE_SEO_TOOL,
+  SYSTEM_PROMPT,
+  episodeUserPrompt,
+  podcastUserPrompt,
+} = await import("../../supabase/functions/_shared/seo-prompt");
 
 describe("SEO prompt language policy", () => {
   it("always asks for Hungarian podcast SEO output even when RSS language is wrong", () => {
@@ -27,5 +32,11 @@ describe("SEO prompt language policy", () => {
     expect(prompt).toContain("ai_summary");
     expect(prompt).toContain("Hungarian only");
     expect(prompt).not.toContain("English (en)");
+  });
+
+  it("requires Hungarian topic tags, not source-language topic leakage", () => {
+    expect(JSON.stringify(EPISODE_SEO_TOOL)).toContain("Hungarian topic tags");
+    expect(JSON.stringify(EPISODE_SEO_TOOL)).not.toContain("in the source language");
+    expect(SYSTEM_PROMPT).toContain("Topic tags must also be natural Hungarian");
   });
 });

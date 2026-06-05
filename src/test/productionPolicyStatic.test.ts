@@ -506,6 +506,7 @@ describe("production policy static guards", () => {
     const aiEnrich = read("supabase/functions/ai-enrich/index.ts");
     const seoRunner = read("supabase/functions/seo-enrich-runner/index.ts");
     const migration = read("supabase/migrations/20260603162000_public_ai_language_guard_consolidated.sql");
+    const phraseMigration = read("supabase/migrations/20260605010000_public_ai_language_guard_v4_english_phrase_detection.sql");
     const verifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(guard).toContain("nonHungarianPublicFields");
@@ -528,6 +529,13 @@ describe("production policy static guards", () => {
     expect(migration).toContain("'repair_job_source', 'migration_20260603162000'");
     expect(migration).toContain("trg_enforce_hu_episode_public_ai_text");
     expect(migration).toContain("trg_enforce_hu_podcast_public_ai_text");
+    expect(guard).toContain("EN_PUBLIC_TEXT_PHRASES");
+    expect(phraseMigration).toContain("'version', 4");
+    expect(phraseMigration).toContain("tmp_non_hu_episode_public_text_v4");
+    expect(phraseMigration).toContain("non_hu_public_text_repair_episode_v4");
+    expect(phraseMigration).toContain("english_phrase_guard");
+    expect(phraseMigration).toContain("this[[:space:]]+episode");
+    expect(phraseMigration).toContain("key[[:space:]]+(takeaways|themes|insights)");
 
     expect(verifier).toContain("episode_trigger_exists");
     expect(verifier).toContain("podcast_trigger_exists");

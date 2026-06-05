@@ -4,8 +4,23 @@
 //   import { isHungarianish, ensureHungarian } from "../_shared/hu-language-guard.ts";
 
 const HU_DIACRITICS = /[őűáéíóúöüÖÜÓŐÚÉÁŰÍ]/g;
+const EN_PUBLIC_TEXT_PHRASES = [
+  /\bthis\s+episode\b/i,
+  /\bin\s+this\s+episode\b/i,
+  /\bthe\s+episode\b/i,
+  /\bthe\s+conversation\b/i,
+  /\bthis\s+conversation\b/i,
+  /\bhosted\s+by\b/i,
+  /\bfeatures?\s+(a\s+)?(conversation|discussion|interview)\b/i,
+  /\bexplores?\s+(how|why|what|the)\b/i,
+  /\bdiscuss(?:es|ing)?\s+(the|how|why|what)\b/i,
+  /\blisteners?\s+(will|can|learn|hear)\b/i,
+  /\bkey\s+(takeaways|themes|insights)\b/i,
+  /\blatest\s+(market|news|trends|developments)\b/i,
+  /\bwhat\s+(investors|listeners|viewers|audiences)\s+should\b/i,
+];
 const EN_STOPWORDS = new Set([
-  "the","and","of","to","in","is","for","on","with","that","this","are","was","were","by","from","as","at","an","be","or","it","its","their","they","you","we","our","your","has","have","had","but","not","which","also","more","than","these","those","about","when","what","who","how","why",
+  "the","and","of","to","in","is","for","on","with","that","this","are","was","were","by","from","as","at","an","be","or","it","its","their","they","you","we","our","your","has","have","had","but","not","which","also","more","than","these","those","about","when","what","who","how","why","episode","discusses","explores","features","conversation","interview","host","guest","listeners","summary",
 ]);
 const HU_STOPWORDS = new Set([
   "és","hogy","a","az","nem","van","ezt","ezek","ehhez","azt","azok","is","de","ha","vagy","ami","amely","amikor","mert","míg","mint","csak","még","már","így","úgy","ezért","ezzel","azzal","arra","erről","arról","kapcsolatban","alapján","szerint","közben","közül","között","kapcsolat","például","találtunk","epizód","epizódok","podcast",
@@ -21,6 +36,7 @@ export function huScore(text: string): { ok: boolean; huRatio: number; enRatio: 
     else if (EN_STOPWORDS.has(w)) en++;
   }
   const dia = (t.match(HU_DIACRITICS) || []).length;
+  const phraseHits = EN_PUBLIC_TEXT_PHRASES.filter((rx) => rx.test(String(text || ""))).length;
   const diaPer100 = (dia / Math.max(t.length, 1)) * 100;
   const huRatio = hu / total;
   const enRatio = en / total;
@@ -30,7 +46,11 @@ export function huScore(text: string): { ok: boolean; huRatio: number; enRatio: 
   // - Clearly NOT Hungarian: EN stopwords > 6% AND HU stopwords < 1% AND diacritic
   //   density < 1.0/100ch (was 0.3 — too lenient, missed English text with 1 Hungarian name).
   // - Also NOT Hungarian: EN stopwords > 12% regardless of diacritics (very strong EN signal).
-  const notHu = (enRatio > 0.06 && huRatio < 0.01 && diaPer100 < 1.0) || enRatio > 0.12;
+  const hasMeaningfulHungarianSignal = huRatio >= 0.02 || diaPer100 >= 1.2;
+  const phraseBasedNotHu =
+    (phraseHits >= 2 && !hasMeaningfulHungarianSignal)
+    || (phraseHits >= 1 && enRatio > 0.05 && !hasMeaningfulHungarianSignal);
+  const notHu = phraseBasedNotHu || (enRatio > 0.06 && huRatio < 0.01 && diaPer100 < 1.0) || enRatio > 0.12;
   const ok = !notHu;
   return { ok, huRatio, enRatio, diaPer100, totalWords: total };
 }
