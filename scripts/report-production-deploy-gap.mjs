@@ -62,6 +62,7 @@ const GROUPS = {
     migrations: [
       "supabase/migrations/20260603170000_people_identity_safety_consolidated.sql",
       "supabase/migrations/20260605200000_reassert_temporal_person_public_guard.sql",
+      "supabase/migrations/20260605213000_reassert_strict_temporal_person_guard_v6.sql",
     ],
     functions: ["prerender", "person-entity-extractor"],
     why: "Névazonosságoknál és halott/történelmi személyeknél ne kerüljenek hamis életrajzok vagy nem létező podcast-szereplő profilok SEO/prerender oldalra.",
@@ -123,8 +124,22 @@ const failures = [
 ];
 const failedGroups = new Map();
 
+function groupKeyForFailure(failure) {
+  const key = String(failure).split(".")[0];
+  if (key === "migration_gates" && String(failure).includes("temporal_person")) {
+    return "people_hub_identity_safety";
+  }
+  if (key === "migration_gates" && String(failure).includes("dead_or_historical_people")) {
+    return "people_hub_identity_safety";
+  }
+  if (key === "migration_gates" && String(failure).includes("suspicious_temporal_participants")) {
+    return "people_hub_identity_safety";
+  }
+  return key;
+}
+
 for (const failure of failures) {
-  const group = String(failure).split(".")[0];
+  const group = groupKeyForFailure(failure);
   if (!GROUPS[group]) continue;
   if (!failedGroups.has(group)) failedGroups.set(group, []);
   failedGroups.get(group).push(failure);

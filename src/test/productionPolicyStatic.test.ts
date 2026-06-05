@@ -42,6 +42,9 @@ describe("production policy static guards", () => {
     expect(pkg).toContain('"report:production-deploy-gap": "node scripts/report-production-deploy-gap.mjs"');
     expect(reporter).toContain("verify-production-pipeline.mjs");
     expect(reporter).toContain("verify-production-edge-seo.mjs");
+    expect(reporter).toContain("groupKeyForFailure");
+    expect(reporter).toContain("migration_gates");
+    expect(reporter).toContain("suspicious_temporal_participants");
     for (const group of [
       "clean_text_backfill_gates",
       "article_pipeline",
@@ -72,6 +75,7 @@ describe("production policy static guards", () => {
       "20260605001000_search_quality_weekly_automation.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "20260605200000_reassert_temporal_person_public_guard.sql",
+      "20260605213000_reassert_strict_temporal_person_guard_v6.sql",
       "episode-article-pairer",
       "refresh-sitemap",
       "search-golden-refresh",
