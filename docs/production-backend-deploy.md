@@ -38,7 +38,8 @@ The prompt is generated from the current production verifiers and includes:
 - the source commit Lovable must confirm after pulling latest `main`;
 - unmapped verifier failures, if any, as a stop condition;
 - missing migration/function/worker artifacts, if any, as a stop condition;
-- local verification commands (`npm run test`, `npm run build`);
+- local verification commands (`node scripts/run-vitest.mjs`,
+  `node scripts/run-vite.mjs build`);
 - explicit migration preflight for the pending migration list;
 - Supabase migration and Edge Function redeploy lists;
 - post-deploy verification commands.

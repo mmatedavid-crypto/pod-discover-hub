@@ -219,7 +219,7 @@ function makeDeployPlan(groups) {
   const migrations = unique(groups.flatMap((group) => group.migrations || []));
   const functions = unique(groups.flatMap((group) => group.functions || []));
   const workers = unique(groups.flatMap((group) => group.worker || []));
-  const localChecks = ["npm run test", "npm run build"];
+  const localChecks = ["node scripts/run-vitest.mjs", "node scripts/run-vite.mjs build"];
   const preflight = migrations.length
     ? [`node scripts/preflight-migrations.mjs ${migrations.join(" ")}`]
     : [];

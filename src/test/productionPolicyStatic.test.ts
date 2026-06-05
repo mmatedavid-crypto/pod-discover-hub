@@ -80,7 +80,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("makeLovablePrompt");
     expect(reporter).toContain("deploy_plan");
     expect(reporter).toContain("lovable_prompt");
-    expect(reporter).toContain('const localChecks = ["npm run test", "npm run build"]');
+    expect(reporter).toContain('const localChecks = ["node scripts/run-vitest.mjs", "node scripts/run-vite.mjs build"]');
     expect(reporter).toContain("local_checks");
     expect(reporter).toContain("Before deploy, run local verification:");
     expect(reporter).toContain("unmapped_failures");
@@ -99,7 +99,8 @@ describe("production policy static guards", () => {
     expect(deployDoc).toContain("npm run report:production-deploy-prompt");
     expect(deployDoc).toContain("unmapped verifier failures");
     expect(deployDoc).toContain("missing migration/function/worker artifacts");
-    expect(deployDoc).toContain("local verification commands (`npm run test`, `npm run build`)");
+    expect(deployDoc).toContain("local verification commands (`node scripts/run-vitest.mjs`");
+    expect(deployDoc).toContain("`node scripts/run-vite.mjs build`)");
     expect(deployDoc).toContain("explicit migration preflight");
     expect(deployDoc).toContain("Legacy clean-text backfill is quality-gated");
     for (const group of [
@@ -638,6 +639,17 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("temporal_person_guard_policy_v6");
     expect(verifier).toContain("no_public_unapproved_dead_or_historical_people");
     expect(verifier).toContain("no_public_unapproved_suspicious_temporal_participants");
+  });
+
+  it("keeps person entity page copy safe for deceased or historical subjects", () => {
+    const entityPage = read("src/pages/EntityPage.tsx");
+
+    expect(entityPage).toContain("róla vagy hozzá kapcsolódóan szerepel az epizód adatai között");
+    expect(entityPage).toContain("Legújabb kapcsolódó epizódok");
+    expect(entityPage).toContain("Epizódok, ahol szó esik róla");
+    expect(entityPage).toContain("nincs jelen ezekben az epizódokban");
+    expect(entityPage).not.toContain("vele készült");
+    expect(entityPage).not.toContain("vendégként szerepel");
   });
 
   it("extracts Wikidata temporal metadata before publishing person identities", () => {
