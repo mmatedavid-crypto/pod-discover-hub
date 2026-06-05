@@ -181,12 +181,68 @@ const groups = Array.from(failedGroups.entries()).map(([key, groupFailures]) => 
   failures: groupFailures,
 }));
 
+function unique(items) {
+  return Array.from(new Set(items.filter(Boolean)));
+}
+
+function makeDeployPlan(groups) {
+  const migrations = unique(groups.flatMap((group) => group.migrations || []));
+  const functions = unique(groups.flatMap((group) => group.functions || []));
+  const workers = unique(groups.flatMap((group) => group.worker || []));
+  const verification = [
+    "node scripts/report-production-deploy-gap.mjs",
+    "node scripts/verify-production-pipeline.mjs",
+    "node scripts/verify-production-edge-seo.mjs",
+  ];
+  return { migrations, functions, workers, verification };
+}
+
+function makeLovablePrompt(plan, groups) {
+  if (!groups.length) {
+    return [
+      "Please pull latest main.",
+      "",
+      "Production backend, pipeline, and edge SEO gates are green. No Supabase migration or function redeploy is required from the deploy-gap report.",
+    ].join("\n");
+  }
+
+  const lines = [
+    "Please pull latest main and close the current Podiverzum production deploy gap.",
+    "",
+    "Failed deploy areas:",
+    ...groups.map((group) => `- ${group.key}: ${group.failures.join(", ")}`),
+  ];
+
+  if (plan.migrations.length) {
+    lines.push("", "Apply these Supabase migrations in order:");
+    lines.push(...plan.migrations.map((migration) => `- ${migration}`));
+  }
+
+  if (plan.functions.length) {
+    lines.push("", "Redeploy these Supabase Edge Functions:");
+    lines.push(...plan.functions.map((fn) => `- ${fn}`));
+  }
+
+  if (plan.workers.length) {
+    lines.push("", "Sync/deploy these Cloudflare worker files:");
+    lines.push(...plan.workers.map((worker) => `- ${worker}`));
+  }
+
+  lines.push("", "After deploy, run verification:");
+  lines.push(...plan.verification.map((cmd) => `- ${cmd}`));
+
+  return lines.join("\n");
+}
+
+const deployPlan = makeDeployPlan(groups);
 const report = {
   ok: failures.length === 0,
   generated_at: new Date().toISOString(),
   failure_count: failures.length,
   deploy_gap_group_count: groups.length,
   groups,
+  deploy_plan: deployPlan,
+  lovable_prompt: makeLovablePrompt(deployPlan, groups),
   raw_failures: failures,
   edge: {
     ok: Boolean(edgeResult.ok),

@@ -45,6 +45,14 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("groupKeyForFailure");
     expect(reporter).toContain("migration_gates");
     expect(reporter).toContain("suspicious_temporal_participants");
+    expect(reporter).toContain("makeDeployPlan");
+    expect(reporter).toContain("makeLovablePrompt");
+    expect(reporter).toContain("deploy_plan");
+    expect(reporter).toContain("lovable_prompt");
+    expect(reporter).toContain("Please pull latest main and close the current Podiverzum production deploy gap.");
+    expect(reporter).toContain("Apply these Supabase migrations in order:");
+    expect(reporter).toContain("Redeploy these Supabase Edge Functions:");
+    expect(reporter).toContain("After deploy, run verification:");
     for (const group of [
       "clean_text_backfill_gates",
       "article_pipeline",
