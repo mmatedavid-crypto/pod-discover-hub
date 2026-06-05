@@ -40,8 +40,11 @@ describe("production policy static guards", () => {
     const pkg = read("package.json");
 
     expect(pkg).toContain('"report:production-deploy-gap": "node scripts/report-production-deploy-gap.mjs"');
+    expect(pkg).toContain('"report:production-deploy-prompt": "node scripts/report-production-deploy-gap.mjs --lovable-prompt"');
     expect(reporter).toContain("verify-production-pipeline.mjs");
     expect(reporter).toContain("verify-production-edge-seo.mjs");
+    expect(reporter).toContain("process.argv.includes(\"--lovable-prompt\")");
+    expect(reporter).toContain("process.argv.includes(\"--prompt\")");
     expect(reporter).toContain("groupKeyForFailure");
     expect(reporter).toContain("migration_gates");
     expect(reporter).toContain("suspicious_temporal_participants");

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
+const promptOnly = process.argv.includes("--lovable-prompt") || process.argv.includes("--prompt");
 
 const GROUPS = {
   clean_text_backfill_gates: {
@@ -249,6 +250,11 @@ const report = {
     failure_count: Array.isArray(edgeResult.failures) ? edgeResult.failures.length : 0,
   },
 };
+
+if (promptOnly) {
+  console.log(report.lovable_prompt);
+  process.exit(0);
+}
 
 console.log(JSON.stringify(report, null, 2));
 if (!report.ok) process.exit(1);
