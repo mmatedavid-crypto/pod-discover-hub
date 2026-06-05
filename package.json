@@ -18,6 +18,7 @@
     "report:production-deploy-gap": "node scripts/report-production-deploy-gap.mjs",
     "report:production-deploy-prompt": "node scripts/report-production-deploy-gap.mjs --lovable-prompt",
     "preflight:migrations": "node scripts/preflight-migrations.mjs",
+    "test:codex": "node scripts/run-vitest.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
