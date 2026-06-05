@@ -137,6 +137,14 @@ describe("production policy static guards", () => {
     expect(migration).toContain("deceased/historical figures are topic/entity-context goldens");
     expect(migration).toContain("q.query_type = 'person'");
     expect(migration).toContain("SET query_type = 'topic'");
+    expect(migration).toContain("INSERT INTO public.search_golden_queries");
+    expect(migration).toContain("company_brand_alias");
+    expect(migration).toContain("Puzsér Róbert");
+    expect(migration).toContain("Orosz Gergő");
+    expect(migration).toContain("OTP részvény árfolyam");
+    expect(migration).toContain("MOL Nyrt");
+    expect(migration).toContain("Tisza párt támogatottság");
+    expect(migration).toContain("Európai Unió támogatások");
     expect(migration).toContain("p.is_deceased IS TRUE");
     expect(migration).toContain("p.is_historical IS TRUE");
     expect(migration).toContain("p.date_of_death IS NOT NULL");
@@ -147,6 +155,8 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("active_entity_query_types_at_least_3");
     expect(verifier).toContain("deceased_person_handling_recorded");
     expect(verifier).toContain("person_scope_rule_recorded");
+    expect(verifier).toContain("company_brand_alias_required_recorded");
+    expect(verifier).toContain("company_brand_alias_goldens_present");
     expect(verifier).toContain("no_deceased_or_historical_person_monitoring_goldens");
     expect(verifier).toContain("JOIN public.people p ON lower(p.name) = lower(q.expected_entity)");
     expect(verifier).toContain("entity_monitoring_benchmark.${key}");

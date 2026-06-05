@@ -340,6 +340,7 @@ SELECT jsonb_build_object(
     'requires_expected_entity_recorded', (SELECT COALESCE((setting_values->'entity_monitoring_benchmark_policy'->>'requires_expected_entity')::boolean, false) FROM settings),
     'deceased_person_handling_recorded', (SELECT COALESCE(setting_values->'entity_monitoring_benchmark_policy' ? 'deceased_person_handling', false) FROM settings),
     'person_scope_rule_recorded', (SELECT COALESCE(setting_values->'entity_monitoring_benchmark_policy' ? 'person_scope_rule', false) FROM settings),
+    'company_brand_alias_required_recorded', (SELECT COALESCE(setting_values->'entity_monitoring_benchmark_policy'->'required_query_types' ? 'company_brand_alias', false) FROM settings),
     'active_entity_golden_queries_at_least_40', (
       SELECT count(*) >= 40
       FROM public.search_golden_queries
@@ -378,6 +379,10 @@ SELECT jsonb_build_object(
     'organization_monitoring_goldens_present', EXISTS (
       SELECT 1 FROM public.search_golden_queries
       WHERE COALESCE(active, true) = true AND expected_entity IS NOT NULL AND query_type IN ('company_brand', 'company_brand_alias')
+    ),
+    'company_brand_alias_goldens_present', EXISTS (
+      SELECT 1 FROM public.search_golden_queries
+      WHERE COALESCE(active, true) = true AND expected_entity IS NOT NULL AND query_type = 'company_brand_alias'
     ),
     'topic_monitoring_goldens_present', EXISTS (
       SELECT 1 FROM public.search_golden_queries
