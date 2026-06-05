@@ -30,19 +30,27 @@ function isoWeek(dateStr: string): { year: number; week: number } {
   return { year: target.getUTCFullYear(), week };
 }
 
-function kebab(s: string): string {
-  return (s || "")
+const HU_MAP: Record<string, string> = {
+  á: "a", é: "e", í: "i", ó: "o", ö: "o", ő: "o", ú: "u", ü: "u", ű: "u",
+  Á: "a", É: "e", Í: "i", Ó: "o", Ö: "o", Ő: "o", Ú: "u", Ü: "u", Ű: "u",
+};
+
+function slugifyHu(s: string): string {
+  return String(s || "")
+    .split("")
+    .map((c) => HU_MAP[c] ?? c)
+    .join("")
     .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
+    .slice(0, 60) || "podiverzum-heti";
 }
 
 function hetiSlug(p: { week_start: string; title: string | null }): string {
   const { year, week } = isoWeek(p.week_start);
-  const tail = kebab(p.title || "podiverzum-heti") || "podiverzum-heti";
-  return `${year}-${String(week).padStart(2, "0")}-${tail}`;
+  return `${year}-${String(week).padStart(2, "0")}-${slugifyHu(p.title || "podiverzum-heti")}`;
 }
 
 Deno.serve(async (_req) => {

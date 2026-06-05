@@ -196,6 +196,10 @@ describe("production policy static guards", () => {
     expect(fn).toContain("const googleSubmitPolicy = 'submit_only_when_news_sitemap_has_new_urls'");
     expect(fn).toContain("const hasReliablePreviousUrlBaseline = previousStateHasUrls || previousKnownUrls.length > 0");
     expect(fn).toContain("const shouldSubmitToGoogle = hasReliablePreviousUrlBaseline && newUrls.length > 0 && realNewsItemCount > 0");
+    const freshEpisodesBlock = fn.slice(fn.indexOf("const { data: freshEpisodes"), fn.indexOf("const perPodcast = new Map"));
+    expect(freshEpisodesBlock).toContain(".eq('podcasts.language_decision', 'accept_hungarian')");
+    expect(freshEpisodesBlock).toContain("RSS is_hungarian is noisy");
+    expect(freshEpisodesBlock).not.toContain(".eq('podcasts.is_hungarian', true)");
     expect(fn).toContain("baseline_saved_without_submit");
     expect(fn).toContain("previous_url_baseline_reliable");
     expect(fn).toContain("if (shouldSubmitToGoogle)");
@@ -330,6 +334,7 @@ describe("production policy static guards", () => {
   it("keeps public page sitemaps on canonical non-redirecting routes", () => {
     const generated = read("supabase/functions/refresh-sitemap/index.ts");
     const legacy = read("supabase/functions/sitemap/index.ts");
+    const hetiRss = read("supabase/functions/heti-rss/index.ts");
     const localGenerator = read("scripts/gen-sitemap.mjs");
     const pagesXml = read("public/sitemaps/pages.xml");
 
@@ -340,6 +345,20 @@ describe("production policy static guards", () => {
       expect(source).not.toContain("podiverzum.hu/uj<");
       expect(source).not.toContain("podiverzum.hu/heti-valogatas");
     }
+
+    const podcastSitemapBlock = legacy.slice(legacy.indexOf("async function buildPodcasts"), legacy.indexOf("async function buildEpisodesByMonth"));
+    const episodeSitemapBlock = legacy.slice(legacy.indexOf("async function buildEpisodesByMonth"), legacy.indexOf("async function buildEntitiesByMonth"));
+    const entitySitemapBlock = legacy.slice(legacy.indexOf("async function buildEntitiesByMonth"), legacy.indexOf("async function handler"));
+    for (const block of [podcastSitemapBlock, episodeSitemapBlock, entitySitemapBlock]) {
+      expect(block).toContain('language_decision", "accept_hungarian"');
+      expect(block).not.toContain('is_hungarian", true');
+      expect(block).not.toContain('podcasts.is_hungarian", true');
+    }
+
+    expect(hetiRss).toContain("const HU_MAP");
+    expect(hetiRss).toContain("function slugifyHu");
+    expect(hetiRss).toContain(".slice(0, 60) || \"podiverzum-heti\"");
+    expect(hetiRss).not.toContain(".slice(0, 80)");
   });
 
   it("keeps search person pins identity-safe", () => {

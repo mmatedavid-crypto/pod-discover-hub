@@ -296,7 +296,7 @@ Deno.serve(async (req) => {
         .from('episodes')
         .select('slug,title,display_title,published_at,podcasts!inner(slug,title,display_title,category,rank_label,is_hungarian,language_decision,rss_status)')
         .gte('published_at', new Date(NEWS_CUTOFF).toISOString())
-        .eq('podcasts.is_hungarian', true)
+        // Canonical HU gate: language_decision is curated/AI-reviewed, RSS is_hungarian is noisy.
         .eq('podcasts.language_decision', 'accept_hungarian')
         .order('published_at', { ascending: false })
         .limit(1200);
