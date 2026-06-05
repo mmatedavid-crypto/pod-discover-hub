@@ -48,6 +48,7 @@ describe("production policy static guards", () => {
       "seo_news_sitemap",
       "public_ai_language_guard",
       "related_episode_quality",
+      "search_quality_benchmark",
       "people_hub_identity_safety",
       "edge_worker_seo",
     ]) {
@@ -63,9 +64,12 @@ describe("production policy static guards", () => {
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260604001000_recommendation_compatibility_v4.sql",
       "20260604091642_reassert_recommendation_compatibility_v4.sql",
+      "20260605001000_search_quality_weekly_automation.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "episode-article-pairer",
       "refresh-sitemap",
+      "search-golden-refresh",
+      "search-benchmark-runner",
       "ai-enrich",
       "prerender",
       "infra/cloudflare-worker/worker.js",
@@ -73,6 +77,33 @@ describe("production policy static guards", () => {
     ]) {
       expect(reporter).toContain(artifact);
     }
+  });
+
+  it("keeps search golden refresh and benchmark on a weekly automated quality loop", () => {
+    const migration = read("supabase/migrations/20260605001000_search_quality_weekly_automation.sql");
+    const goldenRunner = read("supabase/functions/search-golden-refresh/index.ts");
+    const benchmarkRunner = read("supabase/functions/search-benchmark-runner/index.ts");
+
+    expect(migration).toContain("search_golden_refresh_controls");
+    expect(migration).toContain("search_benchmark_controls");
+    expect(migration).toContain("podiverzum-search-golden-refresh-weekly");
+    expect(migration).toContain("podiverzum-search-benchmark-runner-30min");
+    expect(migration).toContain("weekly_drain");
+    expect(migration).toContain("fetch failures excluded from quality metrics");
+
+    expect(goldenRunner).toContain("refresh_search_golden_queries_from_catalog");
+    expect(goldenRunner).toContain("refresh_search_golden_queries_from_external_demand");
+    expect(goldenRunner).toContain("search_golden_refresh_progress");
+
+    expect(benchmarkRunner).toContain("Weekly search benchmark");
+    expect(benchmarkRunner).toContain("batch_size");
+    expect(benchmarkRunner).toContain("search-hybrid");
+    expect(benchmarkRunner).toContain("AUTO_WEEKLY_SCORED");
+    expect(benchmarkRunner).toContain('raw_meta?.status !== "fetch_error"');
+    expect(benchmarkRunner).toContain("search_benchmark_progress");
+    expect(benchmarkRunner).toContain("precision_at_3");
+    expect(benchmarkRunner).toContain("ndcg_at_10");
+    expect(benchmarkRunner).toContain("false_positive_rate");
   });
 
   it("keeps publisher article pipeline verification tied to runtime output", () => {

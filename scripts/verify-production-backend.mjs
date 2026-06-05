@@ -43,6 +43,8 @@ const functionChecks = [
   "person-entity-extractor",
   "organizations-backfill-runner",
   "hu-formula-v2-shadow",
+  "search-golden-refresh",
+  "search-benchmark-runner",
 ];
 
 let failures = 0;

@@ -44,6 +44,12 @@ const GROUPS = {
     functions: [],
     why: "Smart player / hasonló epizód ne ajánljon más szerkesztési világot puszta vektor alapján; explicit téma/személy/cég híd kell.",
   },
+  search_quality_benchmark: {
+    label: "Weekly search quality benchmark",
+    migrations: ["supabase/migrations/20260605001000_search_quality_weekly_automation.sql"],
+    functions: ["search-golden-refresh", "search-benchmark-runner"],
+    why: "Golden lista hetente frissül katalógus/demand/toplista jelekből, majd batchelt benchmark méri a kereső minőségét.",
+  },
   people_hub_identity_safety: {
     label: "People hub identity safety",
     migrations: ["supabase/migrations/20260603170000_people_identity_safety_consolidated.sql"],
