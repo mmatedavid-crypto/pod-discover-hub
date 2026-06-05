@@ -64,6 +64,7 @@ settings AS (
     'news_sitemap_state',
     'public_ai_language_guard_policy',
     'related_episode_quality_policy',
+    'recommendation_diagnostics_policy',
     'entity_monitoring_benchmark_policy',
     'smart_player_recommendation_surface_policy',
     'people_hub_identity_safety_policy',
@@ -103,6 +104,7 @@ controls AS (
     'news_sitemap_state', setting_values->'news_sitemap_state',
     'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy',
     'related_episode_quality_policy', setting_values->'related_episode_quality_policy',
+    'recommendation_diagnostics_policy', setting_values->'recommendation_diagnostics_policy',
     'entity_monitoring_benchmark_policy', setting_values->'entity_monitoring_benchmark_policy',
     'smart_player_recommendation_surface_policy', setting_values->'smart_player_recommendation_surface_policy',
     'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy',
@@ -113,13 +115,18 @@ controls AS (
 rpc_shapes AS (
   SELECT
     p.proname,
+    oidvectortypes(p.proargtypes) AS args,
     pg_get_function_result(p.oid) AS result,
     pg_get_functiondef(p.oid) AS definition
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
-    AND p.proname IN ('select_embed_chunks_candidates', 'select_embed_episode_candidates')
-    AND pg_get_function_arguments(p.oid) = '_model text, _limit integer'
+    AND (
+      (p.proname IN ('select_embed_chunks_candidates', 'select_embed_episode_candidates')
+        AND pg_get_function_arguments(p.oid) = '_model text, _limit integer')
+      OR (p.proname IN ('get_related_episodes_by_embedding', 'similar_episodes')
+        AND oidvectortypes(p.proargtypes) IN ('uuid, integer, boolean', 'uuid, integer'))
+    )
 )
 SELECT jsonb_build_object(
   'generated_at', now(),
@@ -315,6 +322,28 @@ SELECT jsonb_build_object(
     'content_bridge_function_exists', to_regprocedure('public.recommendation_has_content_bridge(text[],text[],text[],text[],text[],text[])') IS NOT NULL,
     'policy_configured_v4', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 4 FROM settings),
     'policy_configured_v5', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 5 FROM settings),
+    'diagnostics_policy_configured_v1', (SELECT (setting_values->'recommendation_diagnostics_policy'->>'version')::int >= 1 FROM settings),
+    'diagnostics_related_reason_required', (SELECT COALESCE((setting_values->'recommendation_diagnostics_policy'->>'related_reason_required')::boolean, false) FROM settings),
+    'related_rpc_returns_related_reason', COALESCE((
+      SELECT result ILIKE '%related_reason text%'
+      FROM rpc_shapes
+      WHERE proname = 'get_related_episodes_by_embedding'
+        AND args = 'uuid, integer, boolean'
+    ), false),
+    'similar_rpc_returns_related_reason', COALESCE((
+      SELECT result ILIKE '%related_reason text%'
+      FROM rpc_shapes
+      WHERE proname = 'similar_episodes'
+        AND args = 'uuid, integer'
+    ), false),
+    'similar_rpc_builds_diagnostic_reason', COALESCE((
+      SELECT definition ILIKE '%Kapcsolódó személyek alapján.%'
+        AND definition ILIKE '%Kapcsolódó szervezet vagy márka alapján.%'
+        AND definition ILIKE '%Hasonló témák:%'
+      FROM rpc_shapes
+      WHERE proname = 'similar_episodes'
+        AND args = 'uuid, integer'
+    ), false),
     'religion_cross_group_hard_block_recorded', (SELECT setting_values->'related_episode_quality_policy'->>'religion_cross_group' = 'hard_block' FROM settings),
     'different_specific_groups_require_bridge_recorded', (SELECT setting_values->'related_episode_quality_policy'->>'different_specific_groups' = 'explicit_bridge_required' FROM settings),
     'specific_to_general_bridge_required_recorded', (SELECT setting_values->'related_episode_quality_policy'->>'specific_to_general' = 'explicit_bridge_required' FROM settings),

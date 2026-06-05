@@ -45,6 +45,8 @@ describe("smart player recommendation policy", () => {
     expect(related).toContain("image_url: r.image_url");
     expect(related).toContain("imageUrl: r.image_url || r.podcast_image_url");
     expect(related).toContain("r.image_url || r.podcast_image_url");
+    expect(related).toContain("related_reason?: string | null");
+    expect(related).toContain("sanitizeHungarianPublicText(r.related_reason)");
     expect(related).toContain("Erős tartalmi kapcsolat más magyar műsorból");
     expect(related).not.toContain("epizód-index");
     expect(related).not.toContain("% tartalmi");
@@ -56,6 +58,7 @@ describe("smart player recommendation policy", () => {
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
     const migration = read("supabase/migrations/20260605003000_recommendation_compatibility_v5_entity_bridge.sql");
     const reassertMigration = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
+    const diagnosticsMigration = read("supabase/migrations/20260605232000_reassert_similar_episode_diagnostics.sql");
     const surfaceLock = read("supabase/migrations/20260605224000_lock_smart_player_recommendation_surface.sql");
 
     expect(migration).toContain("recommendation_is_compatible");
@@ -75,6 +78,12 @@ describe("smart player recommendation policy", () => {
     expect(reassertMigration).toContain("'public_affairs_override_terms'");
     expect(reassertMigration).toContain("production drift left the");
     expect(reassertMigration).toContain("GRANT EXECUTE ON FUNCTION public.recommendation_has_content_bridge");
+    expect(diagnosticsMigration).toContain("recommendation_diagnostics_policy");
+    expect(diagnosticsMigration).toContain("related_reason text");
+    expect(diagnosticsMigration).toContain("Kapcsolódó személyek alapján.");
+    expect(diagnosticsMigration).toContain("Kapcsolódó szervezet vagy márka alapján.");
+    expect(diagnosticsMigration).toContain("Hasonló témák:");
+    expect(diagnosticsMigration).toContain("public_surface_locked_until_quality_trusted");
 
     expect(surfaceLock).toContain("smart_player_recommendation_surface_policy");
     expect(surfaceLock).toContain("'enabled', false");

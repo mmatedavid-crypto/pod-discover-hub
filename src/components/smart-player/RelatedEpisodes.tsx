@@ -30,6 +30,7 @@ type Row = {
   podcast_display_title: string | null;
   podcast_image_url: string | null;
   podcast_category?: string | null;
+  related_reason?: string | null;
 };
 
 const MAX = 5;
@@ -43,6 +44,8 @@ function snippet(r: Row): string {
 }
 
 function reason(r: Row): string {
+  const explicit = sanitizeHungarianPublicText(r.related_reason);
+  if (explicit) return explicit;
   const sim = r.similarity || 0;
   if (sim >= 0.7) return "Erős tartalmi kapcsolat más magyar műsorból";
   if (sim >= 0.55) return "Rokon téma más műsorból";
