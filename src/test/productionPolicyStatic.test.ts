@@ -62,6 +62,7 @@ describe("production policy static guards", () => {
       "20260603111500_news_sitemap_fast_refresh_cron.sql",
       "20260603221000_news_sitemap_gsc_connector_gateway.sql",
       "20260604094229_reassert_news_sitemap_gsc_connector.sql",
+      "20260605212000_reassert_news_sitemap_gsc_put_submit.sql",
       "20260603162000_public_ai_language_guard_consolidated.sql",
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260604001000_recommendation_compatibility_v4.sql",
@@ -185,11 +186,12 @@ describe("production policy static guards", () => {
     const migration = read("supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql");
     const connectorMigration = read("supabase/migrations/20260603221000_news_sitemap_gsc_connector_gateway.sql");
     const connectorReassertMigration = read("supabase/migrations/20260604094229_reassert_news_sitemap_gsc_connector.sql");
+    const putSubmitMigration = read("supabase/migrations/20260605212000_reassert_news_sitemap_gsc_put_submit.sql");
     const staticFallback = read("public/news-sitemap.xml");
 
     expect(fn).toContain("submitGoogleSearchConsoleSitemap");
     expect(fn).toContain("https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/");
-    expect(fn).toContain("method: 'POST'");
+    expect(fn).toContain("method: 'PUT'");
     expect(fn).toContain("LOVABLE_API_KEY");
     expect(fn).toContain("GOOGLE_SEARCH_CONSOLE_API_KEY");
     expect(fn).toContain("X-Connection-Api-Key");
@@ -220,6 +222,7 @@ describe("production policy static guards", () => {
     expect(fn).toContain("real_news_item_count");
     expect(fn).toContain("source_counts");
     expect(fn).toContain("google_submit_policy");
+    expect(fn).toContain("google_submit_method");
     expect(fn).toContain("google_submit_status");
     expect(fn).not.toContain("www.google.com/ping");
     expect(fn).not.toContain("google_ping_status");
@@ -243,6 +246,9 @@ describe("production policy static guards", () => {
     expect(connectorReassertMigration).toContain("requires_connector_secrets");
     expect(connectorReassertMigration).toContain("- 'requires_google_secrets'");
     expect(connectorReassertMigration).not.toContain("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY");
+    expect(putSubmitMigration).toContain("'submit_method', 'PUT'");
+    expect(putSubmitMigration).toContain("stale_lovable_gsc_submit_404_cleared_after_put_method_fix");
+    expect(putSubmitMigration).toContain("'google_submit_status', NULL");
 
     expect(staticFallback).toContain('xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"');
     expect(staticFallback).not.toContain("<url>");
