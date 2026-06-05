@@ -206,6 +206,7 @@ Deno.serve(async (req) => {
     else candQ = candQ.limit(Math.max(batch * 4, 80));
     const { data: cands, error: cErr } = await candQ;
     if (cErr) throw cErr;
+    console.log(`[ytt] candidates=${cands?.length || 0} requireCap=${requireYoutubeCaptionAvailable} reqGain=${requireDescriptionGain}`);
     if (!cands?.length) return json({ ok: true, no_candidates: true });
 
     const uniqueByVideo = new Map<string, Candidate>();
