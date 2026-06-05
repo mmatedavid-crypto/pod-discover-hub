@@ -190,12 +190,15 @@ function makeDeployPlan(groups) {
   const migrations = unique(groups.flatMap((group) => group.migrations || []));
   const functions = unique(groups.flatMap((group) => group.functions || []));
   const workers = unique(groups.flatMap((group) => group.worker || []));
+  const preflight = migrations.length
+    ? [`node scripts/preflight-migrations.mjs ${migrations.join(" ")}`]
+    : [];
   const verification = [
     "node scripts/report-production-deploy-gap.mjs",
     "node scripts/verify-production-pipeline.mjs",
     "node scripts/verify-production-edge-seo.mjs",
   ];
-  return { migrations, functions, workers, verification };
+  return { migrations, functions, workers, preflight, verification };
 }
 
 function makeLovablePrompt(plan, groups) {
@@ -215,6 +218,8 @@ function makeLovablePrompt(plan, groups) {
   ];
 
   if (plan.migrations.length) {
+    lines.push("", "Before applying migrations, run preflight:");
+    lines.push(...plan.preflight.map((cmd) => `- ${cmd}`));
     lines.push("", "Apply these Supabase migrations in order:");
     lines.push(...plan.migrations.map((migration) => `- ${migration}`));
   }

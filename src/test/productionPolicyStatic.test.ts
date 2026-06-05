@@ -52,7 +52,9 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("makeLovablePrompt");
     expect(reporter).toContain("deploy_plan");
     expect(reporter).toContain("lovable_prompt");
+    expect(reporter).toContain("node scripts/preflight-migrations.mjs ${migrations.join(\" \")}");
     expect(reporter).toContain("Please pull latest main and close the current Podiverzum production deploy gap.");
+    expect(reporter).toContain("Before applying migrations, run preflight:");
     expect(reporter).toContain("Apply these Supabase migrations in order:");
     expect(reporter).toContain("Redeploy these Supabase Edge Functions:");
     expect(reporter).toContain("After deploy, run verification:");
