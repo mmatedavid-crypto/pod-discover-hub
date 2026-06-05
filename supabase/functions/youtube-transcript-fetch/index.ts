@@ -194,17 +194,31 @@ Deno.serve(async (req) => {
 
     // Pick only strict v3-confirmed YouTube matches. Older "paired" episode
     // rows are deliberately ignored to avoid burning Supadata credits on weak matches.
-    let candQ = admin
-      .from("episode_youtube_links")
-      .select("episode_id,podcast_id,youtube_video_id,youtube_description,youtube_duration_seconds,youtube_caption_available,match_score,validation_reason")
-      .eq("status", "confirmed")
-      .contains("validation_reason", { policy: MATCH_POLICY })
-      .gte("match_score", minMatchScore)
-      .order("match_score", { ascending: false });
-    if (requireYoutubeCaptionAvailable) candQ = candQ.eq("youtube_caption_available", true);
-    if (episodeIdParam) candQ = candQ.eq("episode_id", episodeIdParam);
-    else candQ = candQ.limit(Math.max(batch * 4, 80));
-    const { data: cands, error: cErr } = await candQ;
+    // Use RPC with DB-level anti-join so we never re-pick already terminal videos
+    // (transcribed/no_captions/permanent_error/started). Without this, the runner
+    // kept fetching the same top-N by score that were all already attempted and
+    // returned all_done while thousands of lower-score pairs sat untouched.
+    let cands: Candidate[] | null = null;
+    let cErr: any = null;
+    if (episodeIdParam) {
+      const r = await admin
+        .from("episode_youtube_links")
+        .select("episode_id,podcast_id,youtube_video_id,youtube_description,youtube_duration_seconds,youtube_caption_available,match_score,validation_reason")
+        .eq("status", "confirmed")
+        .contains("validation_reason", { policy: MATCH_POLICY })
+        .gte("match_score", minMatchScore)
+        .eq("episode_id", episodeIdParam);
+      cands = (r.data as any) || null;
+      cErr = r.error;
+    } else {
+      const r = await admin.rpc("pending_youtube_transcript_candidates", {
+        p_limit: Math.max(batch * 4, 80),
+        p_min_match_score: minMatchScore,
+        p_require_caption: requireYoutubeCaptionAvailable,
+      });
+      cands = (r.data as any) || null;
+      cErr = r.error;
+    }
     if (cErr) throw cErr;
     console.log(`[ytt] candidates=${cands?.length || 0} requireCap=${requireYoutubeCaptionAvailable} reqGain=${requireDescriptionGain}`);
     if (!cands?.length) return json({ ok: true, no_candidates: true });
