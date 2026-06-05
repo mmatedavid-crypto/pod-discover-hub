@@ -64,6 +64,7 @@ settings AS (
     'news_sitemap_state',
     'public_ai_language_guard_policy',
     'related_episode_quality_policy',
+    'entity_monitoring_benchmark_policy',
     'people_hub_identity_safety_policy',
     'temporal_person_public_guard_policy',
     'text_processing_policy'
@@ -101,6 +102,7 @@ controls AS (
     'news_sitemap_state', setting_values->'news_sitemap_state',
     'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy',
     'related_episode_quality_policy', setting_values->'related_episode_quality_policy',
+    'entity_monitoring_benchmark_policy', setting_values->'entity_monitoring_benchmark_policy',
     'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy',
     'temporal_person_public_guard_policy', setting_values->'temporal_person_public_guard_policy'
   ) AS summary
@@ -333,6 +335,55 @@ SELECT jsonb_build_object(
         AND pg_get_function_result(p.oid) ILIKE '%wikipedia_match_confidence numeric%'
     )
   ),
+  'entity_monitoring_benchmark', jsonb_build_object(
+    'policy_configured_v1', (SELECT (setting_values->'entity_monitoring_benchmark_policy'->>'version')::int >= 1 FROM settings),
+    'requires_expected_entity_recorded', (SELECT COALESCE((setting_values->'entity_monitoring_benchmark_policy'->>'requires_expected_entity')::boolean, false) FROM settings),
+    'deceased_person_handling_recorded', (SELECT COALESCE(setting_values->'entity_monitoring_benchmark_policy' ? 'deceased_person_handling', false) FROM settings),
+    'person_scope_rule_recorded', (SELECT COALESCE(setting_values->'entity_monitoring_benchmark_policy' ? 'person_scope_rule', false) FROM settings),
+    'active_entity_golden_queries_at_least_40', (
+      SELECT count(*) >= 40
+      FROM public.search_golden_queries
+      WHERE COALESCE(active, true) = true
+        AND expected_entity IS NOT NULL
+        AND query_type IN ('person', 'company_brand', 'company_brand_alias', 'topic')
+    ),
+    'active_entity_query_types_at_least_3', (
+      SELECT count(DISTINCT query_type) >= 3
+      FROM public.search_golden_queries
+      WHERE COALESCE(active, true) = true
+        AND expected_entity IS NOT NULL
+        AND query_type IN ('person', 'company_brand', 'company_brand_alias', 'topic')
+    ),
+    'person_monitoring_goldens_present', EXISTS (
+      SELECT 1 FROM public.search_golden_queries
+      WHERE COALESCE(active, true) = true AND expected_entity IS NOT NULL AND query_type = 'person'
+    ),
+    'no_deceased_or_historical_person_monitoring_goldens', NOT EXISTS (
+      SELECT 1
+      FROM public.search_golden_queries q
+      JOIN public.people p ON lower(p.name) = lower(q.expected_entity)
+      WHERE COALESCE(q.active, true) = true
+        AND q.query_type = 'person'
+        AND q.expected_entity IS NOT NULL
+        AND COALESCE(p.manual_approved, false) = false
+        AND COALESCE(p.has_archival_evidence, false) = false
+        AND (
+          p.is_deceased IS TRUE
+          OR p.is_historical IS TRUE
+          OR p.persona = 'historical'
+          OR p.date_of_death IS NOT NULL
+          OR p.is_living IS FALSE
+        )
+    ),
+    'organization_monitoring_goldens_present', EXISTS (
+      SELECT 1 FROM public.search_golden_queries
+      WHERE COALESCE(active, true) = true AND expected_entity IS NOT NULL AND query_type IN ('company_brand', 'company_brand_alias')
+    ),
+    'topic_monitoring_goldens_present', EXISTS (
+      SELECT 1 FROM public.search_golden_queries
+      WHERE COALESCE(active, true) = true AND expected_entity IS NOT NULL AND query_type = 'topic'
+    )
+  ),
   'accepted_hu_episodes_with_description', (SELECT count(*) FROM accepted_hu),
   'clean_text', (SELECT to_jsonb(clean_counts) FROM clean_counts),
   'best_text_source', (SELECT to_jsonb(best_source_counts) FROM best_source_counts),
@@ -512,6 +563,11 @@ for (const [key, ok] of Object.entries(relatedEpisodeQuality)) {
 const peopleHubIdentitySafety = snapshot.people_hub_identity_safety ?? {};
 for (const [key, ok] of Object.entries(peopleHubIdentitySafety)) {
   if (ok !== true) failures.push(`people_hub_identity_safety.${key}`);
+}
+
+const entityMonitoringBenchmark = snapshot.entity_monitoring_benchmark ?? {};
+for (const [key, ok] of Object.entries(entityMonitoringBenchmark)) {
+  if (ok !== true) failures.push(`entity_monitoring_benchmark.${key}`);
 }
 
 const clean = snapshot.clean_text ?? {};

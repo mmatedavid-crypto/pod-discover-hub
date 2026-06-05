@@ -52,6 +52,7 @@ describe("production policy static guards", () => {
       "public_ai_language_guard",
       "related_episode_quality",
       "search_quality_benchmark",
+      "entity_monitoring_benchmark",
       "people_hub_identity_safety",
       "edge_worker_seo",
     ]) {
@@ -76,6 +77,7 @@ describe("production policy static guards", () => {
       "20260605214000_reassert_related_quality_policy_v5_settings.sql",
       "20260605215000_reassert_related_public_affairs_override_terms.sql",
       "20260605001000_search_quality_weekly_automation.sql",
+      "20260605220000_entity_monitoring_search_benchmark_policy.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "20260605200000_reassert_temporal_person_public_guard.sql",
       "20260605213000_reassert_strict_temporal_person_guard_v6.sql",
@@ -83,6 +85,7 @@ describe("production policy static guards", () => {
       "refresh-sitemap",
       "search-golden-refresh",
       "search-benchmark-runner",
+      "search-hybrid",
       "ai-enrich",
       "prerender",
       "person-entity-extractor",
@@ -118,6 +121,38 @@ describe("production policy static guards", () => {
     expect(benchmarkRunner).toContain("precision_at_3");
     expect(benchmarkRunner).toContain("ndcg_at_10");
     expect(benchmarkRunner).toContain("false_positive_rate");
+  });
+
+  it("keeps entity monitoring benchmark scoped away from dead-person podcast targets", () => {
+    const migration = read("supabase/migrations/20260605220000_entity_monitoring_search_benchmark_policy.sql");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
+
+    expect(migration).toContain("entity_monitoring_benchmark_policy");
+    expect(migration).toContain("required_query_types");
+    expect(migration).toContain("company_brand_alias");
+    expect(migration).toContain("requires_expected_entity");
+    expect(migration).toContain("person_scope_rule");
+    expect(migration).toContain("deceased_person_handling");
+    expect(migration).toContain("deceased/historical figures are topic/entity-context goldens");
+    expect(migration).toContain("q.query_type = 'person'");
+    expect(migration).toContain("SET query_type = 'topic'");
+    expect(migration).toContain("p.is_deceased IS TRUE");
+    expect(migration).toContain("p.is_historical IS TRUE");
+    expect(migration).toContain("p.date_of_death IS NOT NULL");
+    expect(migration).toContain("p.is_living IS FALSE");
+
+    expect(verifier).toContain("entity_monitoring_benchmark");
+    expect(verifier).toContain("active_entity_golden_queries_at_least_40");
+    expect(verifier).toContain("active_entity_query_types_at_least_3");
+    expect(verifier).toContain("deceased_person_handling_recorded");
+    expect(verifier).toContain("person_scope_rule_recorded");
+    expect(verifier).toContain("no_deceased_or_historical_person_monitoring_goldens");
+    expect(verifier).toContain("JOIN public.people p ON lower(p.name) = lower(q.expected_entity)");
+    expect(verifier).toContain("entity_monitoring_benchmark.${key}");
+
+    expect(reporter).toContain("Entity monitoring benchmark");
+    expect(reporter).toContain("elhunyt/történelmi személy ne maradjon podcast-person monitoring target");
   });
 
   it("keeps publisher article pipeline verification tied to runtime output", () => {

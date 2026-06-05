@@ -60,6 +60,12 @@ const GROUPS = {
     functions: ["search-golden-refresh", "search-benchmark-runner"],
     why: "Golden lista hetente frissül katalógus/demand/toplista jelekből, majd batchelt benchmark méri a kereső minőségét.",
   },
+  entity_monitoring_benchmark: {
+    label: "Entity monitoring benchmark",
+    migrations: ["supabase/migrations/20260605220000_entity_monitoring_search_benchmark_policy.sql"],
+    functions: ["search-golden-refresh", "search-benchmark-runner", "search-hybrid"],
+    why: "B2B személy/cég/téma monitoring csak entitás-címkézett golden lekérdezéseken mérve legyen megbízható; elhunyt/történelmi személy ne maradjon podcast-person monitoring target.",
+  },
   people_hub_identity_safety: {
     label: "People hub identity safety",
     migrations: [
