@@ -50,6 +50,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("rev-parse");
     expect(reporter).toContain("source_revision");
     expect(reporter).toContain("After pulling, confirm the repo is at commit");
+    expect(reporter).toContain("Local source tree is dirty; commit and push the local changes before asking Lovable to deploy:");
     expect(reporter).toContain("groupKeyForFailure");
     expect(reporter).toContain("migration_gates");
     expect(reporter).toContain("suspicious_temporal_participants");

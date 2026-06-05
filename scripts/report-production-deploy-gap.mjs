@@ -278,6 +278,11 @@ function makeLovablePrompt(plan, groups, unmappedFailures) {
     lines.push(...unmappedFailures.map((failure) => `- ${failure}`));
   }
 
+  if (plan.source_revision?.dirty === true) {
+    lines.push("", "Local source tree is dirty; commit and push the local changes before asking Lovable to deploy:");
+    lines.push("- git status --short");
+  }
+
   if (!plan.artifacts.ok) {
     lines.push("", "Missing deploy artifacts; stop and fix these repo references before deploy:");
     lines.push(...plan.artifacts.missing.map((item) => `- ${item}`));
