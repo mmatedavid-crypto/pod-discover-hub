@@ -56,13 +56,13 @@ function isSafePublicPerson(p: any): boolean {
   if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
   if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
   if (p.identity_status === "split_resolved") return false;
-  const hasPodcastPersonEvidence = Number(p.participant_count || 0) + Number(p.host_count || 0) + Number(p.guest_count || 0) > 0;
   const trustedWiki = p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
   const temporalTopicOnly = p.has_archival_evidence !== true && p.manual_approved !== true && (
     p.is_deceased === true
     || p.is_historical === true
     || p.persona === "historical"
-    || ((p.date_of_death || p.is_living === false) && (trustedWiki || !hasPodcastPersonEvidence))
+    || p.date_of_death
+    || p.is_living === false
   );
   if (temporalTopicOnly) return false;
   if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;

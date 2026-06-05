@@ -154,6 +154,14 @@ function temporalMetadataFromWikidata(entity: any, person: any): Record<string, 
   return update;
 }
 
+function wikidataDeathDate(entity: any): string | null {
+  return parseWikidataDate(firstClaimValue(entity, "P570"));
+}
+
+function hasPodcastPersonEvidence(person: any): boolean {
+  return Number(person?.participant_count || 0) + Number(person?.host_count || 0) + Number(person?.guest_count || 0) > 0;
+}
+
 function scoreCandidate(person: any, entity: any, summary: any): { score: number; evidence: any } {
   const evidence: any = { signals: [] };
   let score = 0;
@@ -248,17 +256,40 @@ async function processPerson(admin: any, personId: string): Promise<any> {
     // Relaxed thresholds (2026-05-21 Phase 2): verified 0.75→0.65, needs_review 0.5→0.4.
     // If this row was already manually/previously verified with a Wikidata id, image refreshes must not downgrade it.
     const wasVerifiedSameEntity = p.wikipedia_match_status === "verified" && p.wikidata_id && best?.id === p.wikidata_id;
-    const matchStatus = wasVerifiedSameEntity ? "verified" : bestScore >= 0.65 ? "verified" : bestScore >= 0.4 ? "needs_review" : "no_match";
+    let matchStatus = wasVerifiedSameEntity ? "verified" : bestScore >= 0.65 ? "verified" : bestScore >= 0.4 ? "needs_review" : "no_match";
+    const deadExternalIdentity = Boolean(bestEntity && wikidataDeathDate(bestEntity));
+    const deadNameCollisionRisk = matchStatus === "verified"
+      && deadExternalIdentity
+      && hasPodcastPersonEvidence(p)
+      && p.manual_approved !== true
+      && p.has_archival_evidence !== true;
+    if (deadNameCollisionRisk) matchStatus = "needs_review";
     const update: any = {
       wikipedia_match_status: matchStatus,
       wikipedia_match_confidence: bestScore,
-      wikipedia_match_evidence: { ...bestEvidence, qid: best?.id || null },
+      wikipedia_match_evidence: { ...bestEvidence, qid: best?.id || null, dead_name_collision_risk: deadNameCollisionRisk || undefined },
       wiki_match_run_at: new Date().toISOString(),
       wiki_match_reason: `wikimedia_matcher:${matchStatus}:${bestScore.toFixed(2)}:${(bestEvidence?.signals || []).join(",").slice(0, 180)}`,
       image_checked_at: new Date().toISOString(),
     };
+    if (deadNameCollisionRisk) {
+      update.ai_review_status = "needs_human_review";
+      update.ai_recommended_action = "review";
+      update.identity_ambiguous = true;
+      update.disambiguation_context = "Halott Wikidata-találat ütközik podcast-szereplő bizonyítékkal; kézi identitásellenőrzés szükséges.";
+      update.wikidata_id = null;
+      update.wikipedia_title = null;
+      update.wikipedia_url = null;
+      update.wikipedia_extract = null;
+      update.wikipedia_description = null;
+      update.image_status = p.image_url ? "needs_review" : "none";
+      update.image_original_url = null;
+      update.image_attribution = null;
+      update.image_license = null;
+      update.wiki_match_reason = `${update.wiki_match_reason}:dead_name_collision_fail_closed_v1`;
+    }
 
-    if (bestEntity) {
+    if (bestEntity && !deadNameCollisionRisk) {
       const huTitle = bestEntity?.sitelinks?.huwiki?.title || null;
       const enTitle = bestEntity?.sitelinks?.enwiki?.title || null;
       update.wikidata_id = best.id;

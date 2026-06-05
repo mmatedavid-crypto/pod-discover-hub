@@ -363,7 +363,9 @@ describe("production policy static guards", () => {
     expect(searchHybrid).toContain("identity_ambiguous: person.identity_ambiguous");
     expect(searchHybrid).toContain("is_deceased: person.is_deceased");
     expect(searchHybrid).toContain('p.persona === "historical"');
-    expect(searchHybrid).toContain("((p.date_of_death || p.is_living === false) && (trustedWiki || !hasPodcastPersonEvidence))");
+    expect(searchHybrid).toContain("|| p.date_of_death");
+    expect(searchHybrid).toContain("|| p.is_living === false");
+    expect(searchHybrid).not.toContain("trustedWiki || !hasPodcastPersonEvidence");
     expect(autocomplete).toContain("function isSafePublicPerson");
     expect(autocomplete).toContain("filter(isSafePublicPerson)");
     expect(autocomplete).toContain("if (!isSafePublicPerson(person)) continue");
@@ -390,7 +392,8 @@ describe("production policy static guards", () => {
 
   it("demotes temporal topic-only people at the database policy layer", () => {
     const migration = read("supabase/migrations/20260604232000_temporal_person_public_guard.sql");
-    const strictMigration = read("supabase/migrations/20260604235000_strict_deceased_person_profile_guard.sql");
+    const strictMigration = read("supabase/migrations/20260605004500_strict_dead_person_no_podcast_profile_guard.sql");
+    const collisionMigration = read("supabase/migrations/20260605013000_dead_person_name_collision_fail_closed.sql");
 
     expect(migration).toContain("temporal_topic_only_guard_v1");
     expect(migration).toContain("p.is_deceased IS TRUE");
@@ -401,13 +404,15 @@ describe("production policy static guards", () => {
     expect(migration).toContain("is_public = false");
     expect(migration).toContain("is_indexable = false");
     expect(migration).toContain("is_browsable_in_people_hub = false");
-    expect(strictMigration).toContain("strict_deceased_person_guard_v2");
+    expect(strictMigration).toContain("strict_dead_person_no_podcast_profile_guard_v3");
     expect(strictMigration).toContain("p.date_of_death IS NOT NULL");
     expect(strictMigration).toContain("p.is_living IS FALSE");
-    expect(strictMigration).toContain("p.wikipedia_match_status = 'verified'");
-    expect(strictMigration).toContain("COALESCE(p.wikipedia_match_confidence, 0) >= 0.8");
-    expect(strictMigration).toContain("COALESCE(p.participant_count, 0) + COALESCE(p.host_count, 0) + COALESCE(p.guest_count, 0) = 0");
-    expect(strictMigration).toContain("bad placeholder death dates");
+    expect(strictMigration).not.toContain("bad placeholder death dates");
+    expect(collisionMigration).toContain("dead_person_name_collision_fail_closed_v1");
+    expect(collisionMigration).toContain("ai_review_status = 'needs_human_review'");
+    expect(collisionMigration).toContain("deceased external identity cannot be assumed to be the podcast participant");
+    expect(collisionMigration).toContain("COALESCE(p.participant_count, 0)");
+    expect(collisionMigration).toContain("COALESCE(p.guest_count, 0)");
     expect(strictMigration).toContain("DROP FUNCTION IF EXISTS public.list_people_hub");
     expect(strictMigration).toContain("DROP FUNCTION IF EXISTS public.list_people_alpha");
   });
@@ -420,6 +425,9 @@ describe("production policy static guards", () => {
     expect(enricher).toContain('firstClaimValue(entity, "P569")');
     expect(enricher).toContain('entityHasClaimId(entity, "P31", "Q5")');
     expect(enricher).toContain("function temporalMetadataFromWikidata");
+    expect(enricher).toContain("deadNameCollisionRisk");
+    expect(enricher).toContain("Halott Wikidata-találat ütközik podcast-szereplő bizonyítékkal");
+    expect(enricher).toContain("dead_name_collision_fail_closed_v1");
     expect(enricher).toContain("update.date_of_death = deathDate");
     expect(enricher).toContain("update.is_living = false");
     expect(enricher).toContain("update.is_deceased = true");
