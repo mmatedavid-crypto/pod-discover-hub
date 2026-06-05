@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
     const todo = unique.filter((c) => {
       if (have.has(c.episode_id)) return false;
       if (blockedVideos.has(c.youtube_video_id)) return false;
-      if (c.youtube_caption_available !== true) return false;
+      if (requireYoutubeCaptionAvailable && c.youtube_caption_available !== true) return false;
       if (!requireDescriptionGain) return true;
       const rssLen = Number(rssLenByEp.get(c.episode_id) || 0);
       const ytDescLen = String(c.youtube_description || "").trim().length;
