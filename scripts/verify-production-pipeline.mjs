@@ -422,15 +422,6 @@ if (snapshot.related_episode_quality?.compatibility_function_exists === true) {
         public.recommendation_is_compatible('public_affairs', 'general', 0.97::double precision, false) = false,
         'general_to_specific_without_bridge_blocked',
         public.recommendation_is_compatible('general', 'business', 0.97::double precision, false) = false,
-        'content_bridge_runtime_allows_shared_company',
-        public.recommendation_has_content_bridge(
-          ARRAY['közélet']::text[],
-          ARRAY['tőzsde']::text[],
-          ARRAY['Mészáros Lőrinc']::text[],
-          ARRAY[]::text[],
-          ARRAY['Opus']::text[],
-          ARRAY['Opus']::text[]
-        ) = true,
         'public_affairs_title_with_isten_runtime_grouped',
         public.recommendation_text_group(
           'Mészáros Lőrinc tündöklése és részvényeinek látványos zuhanása: Isten, Orbán, Andi és a balszerencse',
@@ -453,6 +444,35 @@ if (snapshot.related_episode_quality?.compatibility_function_exists === true) {
       cross_world_with_entity_bridge_allowed: false,
       public_affairs_title_with_isten_runtime_grouped: false,
       runtime_check_error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+if (snapshot.related_episode_quality?.content_bridge_function_exists === true) {
+  try {
+    const bridgeResult = runReadonlyQuery(`
+      SELECT jsonb_build_object(
+        'content_bridge_runtime_allows_shared_company',
+        public.recommendation_has_content_bridge(
+          ARRAY['közélet']::text[],
+          ARRAY['tőzsde']::text[],
+          ARRAY['Mészáros Lőrinc']::text[],
+          ARRAY[]::text[],
+          ARRAY['Opus']::text[],
+          ARRAY['Opus']::text[]
+        ) = true
+      ) AS checks;
+    `);
+    const checks = JSON.parse(bridgeResult.rows?.[0]?.checks ?? "{}");
+    snapshot.related_episode_quality = {
+      ...snapshot.related_episode_quality,
+      ...checks,
+    };
+  } catch (e) {
+    snapshot.related_episode_quality = {
+      ...snapshot.related_episode_quality,
+      content_bridge_runtime_allows_shared_company: false,
+      content_bridge_runtime_check_error: e instanceof Error ? e.message : String(e),
     };
   }
 }

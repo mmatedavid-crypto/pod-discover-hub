@@ -648,6 +648,7 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("related_episode_quality_policy");
     expect(verifier).toContain("people_hub_identity_safety_policy");
     expect(verifier).toContain("snapshot.related_episode_quality?.compatibility_function_exists === true");
+    expect(verifier).toContain("snapshot.related_episode_quality?.content_bridge_function_exists === true");
     expect(verifier).toContain("text_group_function_exists");
     expect(verifier).toContain("topic_bridge_function_exists");
     expect(verifier).toContain("content_bridge_function_exists");
@@ -660,6 +661,7 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("recommendation_is_compatible('public_affairs', 'business', 0.41::double precision, true) = true");
     expect(verifier).toContain("recommendation_is_compatible('public_affairs', 'general', 0.97::double precision, false) = false");
     expect(verifier).toContain("recommendation_has_content_bridge");
+    expect(verifier).toContain("content_bridge_runtime_check_error");
     expect(verifier).toContain("public_affairs_title_with_isten_runtime_grouped");
     expect(verifier).toContain("Mészáros Lőrinc tündöklése");
     expect(reassertV5).toContain("recommendation_has_content_bridge");
