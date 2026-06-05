@@ -21,7 +21,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const EPISODE_SELECT =
-  "id,title,slug,published_at,summary,description,ai_summary,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)";
+  "id,title,display_title,slug,image_url,published_at,summary,description,ai_summary,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)";
 
 function isAcceptedHungarianPodcast(p: any): boolean {
   if (!p) return false;

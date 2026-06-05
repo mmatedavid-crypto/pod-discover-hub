@@ -103,7 +103,7 @@ describe("page consistency static guards", () => {
     expect(category).toContain("p.language_decision !== \"reject_foreign\"");
     expect(category).toContain("const categoryPodcastIds = visible.map");
     expect(category).toContain(".in(\"podcast_id\", categoryPodcastIds)");
-    expect(category).toContain("slug,ai_summary,summary,description");
+    expect(category).toContain("slug,image_url,ai_summary,summary,description");
     expect(category).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
     expect(category).not.toContain(".in(\"podcast_id\", promotedIds)");
     expect(category).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
@@ -507,7 +507,7 @@ describe("page consistency static guards", () => {
     expect(podcast).not.toContain("snippet(stripHtml(e.summary || e.description), 220)");
     expect(category).toContain("sanitizeHungarianPublicText(c.seo_title)");
     expect(category).toContain("sanitizeHungarianPublicText(c.seo_description)");
-    expect(category).toContain("slug,ai_summary,summary,description,published_at");
+    expect(category).toContain("slug,image_url,ai_summary,summary,description,published_at");
     expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
     expect(search).toContain("sanitizeHungarianPublicText(heroOrganization.short_bio)");
@@ -518,7 +518,7 @@ describe("page consistency static guards", () => {
     expect(personCard).toContain("const contextLine = sanitizeHungarianPublicText(p.context_line)");
     expect(personCard).toContain("const identityLabel = sanitizeHungarianPublicText(p.disambiguation_label)");
     expect(episode).toContain("const description = sanitizeHungarianPublicText(e.description)");
-    expect(episode).toContain("id,title,display_title,slug,published_at,ai_summary,summary,description");
+    expect(episode).toContain("id,title,display_title,slug,image_url,published_at,ai_summary,summary,description");
     expect(episode).toContain("extractKeyMoments(sanitizeHungarianPublicText(data?.e?.description)");
     expect(episode).not.toContain("const description = stripHtml(e.description)");
   });

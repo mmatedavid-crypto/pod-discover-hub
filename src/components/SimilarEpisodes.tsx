@@ -44,6 +44,7 @@ function rowToEpisode(r: Row): EpisodeLite {
     description: r.description,
     published_at: r.published_at,
     audio_url: r.audio_url,
+    image_url: r.image_url,
     topics: r.topics,
     people: r.people,
     mentioned: r.mentioned,
@@ -97,7 +98,7 @@ async function hydrateRows(rows: Row[]): Promise<Row[]> {
   if (!ids.length) return rows;
   const { data } = await supabase
     .from("episodes")
-    .select("id,topics,people,mentioned,companies")
+    .select("id,image_url,topics,people,mentioned,companies")
     .in("id", ids);
   const byId = new Map((data || []).map((r: any) => [r.id, r]));
   return rows.map((row) => {
@@ -105,6 +106,7 @@ async function hydrateRows(rows: Row[]): Promise<Row[]> {
     if (!full) return row;
     return {
       ...row,
+      image_url: full.image_url || row.image_url || null,
       topics: full.topics || row.topics || [],
       people: full.people || [],
       mentioned: full.mentioned || [],

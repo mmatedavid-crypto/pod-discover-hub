@@ -37,9 +37,10 @@ function toEp(r: RpcRow): EpisodeLite {
       slug: r.podcast_slug || "",
       title: r.podcast_title || "",
       display_title: r.podcast_title || undefined,
-      image_url: r.podcast_image_url || r.image_url,
+      image_url: r.podcast_image_url || null,
       category: undefined,
     } as any,
+    image_url: r.image_url || null,
   } as EpisodeLite;
 }
 

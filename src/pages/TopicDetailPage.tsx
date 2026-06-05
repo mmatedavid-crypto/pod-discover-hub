@@ -60,7 +60,7 @@ export default function TopicDetailPage() {
       // Episodes mapped to topic, HU-gated. Prefer judge-accepted reviews; union with
       // remaining episode_topic_map rows that have NOT been rejected by the judge.
       const topicId = (t as any).id;
-      const epSelect = "id, title, slug, published_at, ai_summary, summary, description, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
+      const epSelect = "id, title, display_title, slug, image_url, published_at, ai_summary, summary, description, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, is_hungarian, language_decision)";
 
       const [{ data: reviewRows }, { data: mapRows }, { data: rejectedRows }, { data: classRows }] = await Promise.all([
         supabase

@@ -49,6 +49,41 @@ describe("episode thumbnail loading policy", () => {
     expect(migration).toContain("homepage_rails_image_policy");
   });
 
+  it("requests episode images on public EpisodeList data sources", () => {
+    const search = read("src/lib/search.ts");
+    const category = read("src/pages/CategoryDetail.tsx");
+    const daily = read("src/pages/DailyBriefPage.tsx");
+    const entity = read("src/pages/EntityPage.tsx");
+    const episodeDetail = read("src/pages/EpisodeDetail.tsx");
+    const person = read("src/pages/PersonDetailPage.tsx");
+    const topic = read("src/pages/TopicDetailPage.tsx");
+    const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
+
+    expect(search).toContain("id,title,display_title,slug,image_url");
+    expect(searchHybrid).toContain("id,title,display_title,slug,image_url");
+    expect(category).toContain("id,title,display_title,slug,image_url");
+    expect(category).toContain("episodes!inner(id,title,display_title,slug,image_url");
+    expect(daily).toContain("id,title,display_title,slug,image_url");
+    expect(daily).toContain("image_url: r.image_url");
+    expect(entity).toContain("id,title,display_title,slug,image_url");
+    expect(episodeDetail).toContain("id,title,display_title,slug,image_url");
+    expect(person).toContain("id, title, display_title, slug, image_url");
+    expect(topic).toContain("id, title, display_title, slug, image_url");
+  });
+
+  it("keeps personalized and related episode images distinct from podcast images", () => {
+    const personalized = read("src/components/home/PersonalizedHomeRails.tsx");
+    const similar = read("src/components/SimilarEpisodes.tsx");
+    const mood = read("src/pages/MoodCollectionPage.tsx");
+
+    expect(personalized).toContain("image_url: r.podcast_image_url || null");
+    expect(personalized).toContain("image_url: r.image_url || null");
+    expect(personalized).not.toContain("image_url: r.podcast_image_url || r.image_url");
+    expect(similar).toContain("image_url: r.image_url");
+    expect(similar).toContain("id,image_url,topics,people,mentioned,companies");
+    expect(mood).toContain("image_url: r.image_url || null");
+  });
+
   it("keeps all-time toplist thumbnails optimized and non-empty", () => {
     const page = read("src/pages/ToplistaAllTimePage.tsx");
 

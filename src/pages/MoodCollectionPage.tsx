@@ -83,6 +83,7 @@ export default function MoodCollectionPage() {
         description: r.description,
         published_at: r.published_at,
         audio_url: r.audio_url,
+        image_url: r.image_url || null,
         topics: r.topics,
         podcasts: {
           slug: r.podcast_slug,
