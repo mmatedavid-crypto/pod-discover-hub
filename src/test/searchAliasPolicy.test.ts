@@ -48,6 +48,8 @@ describe("Hungarian search alias policy", () => {
     const orgAliasMigration = read("supabase/migrations/20260604204500_extend_high_value_organization_aliases.sql");
     const eponymMigration = read("supabase/migrations/20260604211500_company_eponym_person_safety.sql");
     const collisionMigration = read("supabase/migrations/20260605123000_organization_person_name_collision_guard.sql");
+    const canonicalReassertMigration = read("supabase/migrations/20260605190000_reassert_canonical_entity_alias_registry.sql");
+    const productionVerifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(synonyms).toContain('fradi: ["FTC", "Ferencváros", "Ferencvárosi Torna Club", "labdarúgás"]');
     expect(synonyms).toContain('mtel: ["Magyar Telekom", "Telekom", "MTELEKOM"]');
@@ -92,5 +94,14 @@ describe("Hungarian search alias policy", () => {
     expect(collisionMigration).toContain("COALESCE(p.has_archival_evidence, false) = false");
     expect(collisionMigration).toContain("cp.person_evidence = 0");
     expect(collisionMigration).toContain("cp.person_evidence > 0");
+    expect(canonicalReassertMigration).toContain("CREATE OR REPLACE FUNCTION public.normalize_entity_alias");
+    expect(canonicalReassertMigration).toContain("CREATE TABLE IF NOT EXISTS public.canonical_entity_aliases");
+    expect(canonicalReassertMigration).toContain("organization_aliases_projection");
+    expect(canonicalReassertMigration).toContain("topic_aliases_projection");
+    expect(canonicalReassertMigration).toContain("canonical_aliases_reassert_20260605");
+    expect(productionVerifier).toContain("canonical_alias_table");
+    expect(productionVerifier).toContain("canonical_alias_normalizer");
+    expect(productionVerifier).toContain("canonical_alias_resolver");
+    expect(productionVerifier).toContain("canonical_alias_policy");
   });
 });

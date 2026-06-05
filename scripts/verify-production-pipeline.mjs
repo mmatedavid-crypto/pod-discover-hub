@@ -120,7 +120,11 @@ SELECT jsonb_build_object(
     'pipeline_health_rpc', to_regprocedure('public.get_pipeline_health_snapshot_v1()') IS NOT NULL,
     'text_processing_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'text_processing_policy'),
     'legacy_embed_episode_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'),
-    'embed_chunks_returns_clean_text', COALESCE((SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%' FROM rpc_shapes), false)
+    'embed_chunks_returns_clean_text', COALESCE((SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%' FROM rpc_shapes), false),
+    'canonical_alias_table', to_regclass('public.canonical_entity_aliases') IS NOT NULL,
+    'canonical_alias_normalizer', to_regprocedure('public.normalize_entity_alias(text)') IS NOT NULL,
+    'canonical_alias_resolver', to_regprocedure('public.resolve_canonical_entity_alias(text,text)') IS NOT NULL,
+    'canonical_alias_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'canonical_alias_policy')
   ),
   'clean_text_backfill_gates', jsonb_build_object(
     'legacy_v3_requeue_rpc', to_regprocedure('public.requeue_legacy_clean_text_v4_backfill(integer,text[])') IS NOT NULL,
