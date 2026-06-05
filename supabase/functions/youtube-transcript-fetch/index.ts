@@ -165,7 +165,11 @@ Deno.serve(async (req) => {
     const preferredLang = ctrl.preferred_lang || "hu";
     const transcriptMode = "native";
     const nativeOnly = ctrl.native_only !== false;
-    const requireYoutubeCaptionAvailable = true;
+    // Driven by ctrl so we can flip without redeploy. YouTube's
+    // contentDetails.caption flag lies about auto-generated captions (~98%
+    // false negatives), so the default is now FALSE — let Supadata decide
+    // and rely on youtube_transcript_attempts to never re-bill the same video.
+    const requireYoutubeCaptionAvailable = ctrl.require_youtube_caption_available === true;
     const requireDescriptionGain = ctrl.require_description_gain === true;
     const minMatchScore = Number(ctrl.min_match_score ?? 0.84);
     const minDescriptionGainChars = Number(ctrl.min_description_gain_chars ?? 300);
@@ -202,6 +206,7 @@ Deno.serve(async (req) => {
     else candQ = candQ.limit(Math.max(batch * 4, 80));
     const { data: cands, error: cErr } = await candQ;
     if (cErr) throw cErr;
+    console.log(`[ytt] candidates=${cands?.length || 0} requireCap=${requireYoutubeCaptionAvailable} reqGain=${requireDescriptionGain}`);
     if (!cands?.length) return json({ ok: true, no_candidates: true });
 
     const uniqueByVideo = new Map<string, Candidate>();
@@ -240,13 +245,14 @@ Deno.serve(async (req) => {
     const todo = unique.filter((c) => {
       if (have.has(c.episode_id)) return false;
       if (blockedVideos.has(c.youtube_video_id)) return false;
-      if (c.youtube_caption_available !== true) return false;
+      if (requireYoutubeCaptionAvailable && c.youtube_caption_available !== true) return false;
       if (!requireDescriptionGain) return true;
       const rssLen = Number(rssLenByEp.get(c.episode_id) || 0);
       const ytDescLen = String(c.youtube_description || "").trim().length;
       return rssLen < shortRssChars || ytDescLen >= Math.max(minYoutubeDescriptionChars, rssLen + minDescriptionGainChars);
     }).slice(0, maxCallsPerRun);
-    if (!todo.length) return json({ ok: true, all_done: true, scanned: cands.length });
+    console.log(`[ytt] unique=${unique.length} have=${have.size} blocked=${blockedVideos.size} todo=${todo.length} maxCalls=${maxCallsPerRun}`);
+    if (!todo.length) return json({ ok: true, all_done: true, scanned: cands.length, unique: unique.length, have: have.size, blocked: blockedVideos.size });
 
     let ok = 0, no_captions = 0, errors = 0, callsMade = 0, skipped_existing_attempt = 0;
     const errorDetails: any[] = [];
