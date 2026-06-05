@@ -248,6 +248,54 @@ export type Database = {
         }
         Relationships: []
       }
+      canonical_entity_aliases: {
+        Row: {
+          alias: string
+          canonical_name: string
+          canonical_slug: string
+          created_at: string
+          entity_kind: string
+          id: string
+          language: string
+          normalized_alias: string
+          notes: string | null
+          source: string
+          status: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          alias: string
+          canonical_name: string
+          canonical_slug: string
+          created_at?: string
+          entity_kind: string
+          id?: string
+          language?: string
+          normalized_alias: string
+          notes?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          alias?: string
+          canonical_name?: string
+          canonical_slug?: string
+          created_at?: string
+          entity_kind?: string
+          id?: string
+          language?: string
+          normalized_alias?: string
+          notes?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           active: boolean
@@ -1736,6 +1784,13 @@ export type Database = {
             referencedRelation: "topics"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "episode_topic_map_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "v_canonical_topic_aliases"
+            referencedColumns: ["topic_id"]
+          },
         ]
       }
       episode_topic_relevance_reviews: {
@@ -1826,6 +1881,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "topics"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etrr_topic_fk"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "v_canonical_topic_aliases"
+            referencedColumns: ["topic_id"]
           },
         ]
       }
@@ -4715,6 +4777,13 @@ export type Database = {
             referencedRelation: "topics"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "podcast_topic_map_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "v_canonical_topic_aliases"
+            referencedColumns: ["topic_id"]
+          },
         ]
       }
       podcast_youtube_candidates: {
@@ -6069,6 +6138,13 @@ export type Database = {
             referencedRelation: "topics"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "topic_aliases_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "v_canonical_topic_aliases"
+            referencedColumns: ["topic_id"]
+          },
         ]
       }
       topic_figure_seed: {
@@ -6253,6 +6329,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "topics"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_parent_topic_id_fkey"
+            columns: ["parent_topic_id"]
+            isOneToOne: false
+            referencedRelation: "v_canonical_topic_aliases"
+            referencedColumns: ["topic_id"]
           },
         ]
       }
@@ -6903,6 +6986,20 @@ export type Database = {
           result_type?: string | null
           share_id?: string | null
           tags?: string[] | null
+        }
+        Relationships: []
+      }
+      v_canonical_topic_aliases: {
+        Row: {
+          alias: string | null
+          canonical_name: string | null
+          canonical_slug: string | null
+          domain: string | null
+          normalized_alias: string | null
+          source: string | null
+          topic_id: string | null
+          updated_at: string | null
+          weight: number | null
         }
         Relationships: []
       }
@@ -7971,6 +8068,7 @@ export type Database = {
         }
         Returns: number
       }
+      normalize_entity_alias: { Args: { input: string }; Returns: string }
       normalize_podcast_title: { Args: { s: string }; Returns: string }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
       pending_youtube_transcript_candidates: {
@@ -8102,6 +8200,16 @@ export type Database = {
       requeue_legacy_clean_text_v4_backfill: {
         Args: { _limit?: number; _tiers?: string[] }
         Returns: Json
+      }
+      resolve_canonical_entity_alias: {
+        Args: { p_alias: string; p_entity_kind: string }
+        Returns: {
+          canonical_name: string
+          canonical_slug: string
+          entity_kind: string
+          normalized_alias: string
+          weight: number
+        }[]
       }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
