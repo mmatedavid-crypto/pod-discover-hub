@@ -165,7 +165,11 @@ Deno.serve(async (req) => {
     const preferredLang = ctrl.preferred_lang || "hu";
     const transcriptMode = "native";
     const nativeOnly = ctrl.native_only !== false;
-    const requireYoutubeCaptionAvailable = true;
+    // Driven by ctrl so we can flip without redeploy. YouTube's
+    // contentDetails.caption flag lies about auto-generated captions (~98%
+    // false negatives), so the default is now FALSE — let Supadata decide
+    // and rely on youtube_transcript_attempts to never re-bill the same video.
+    const requireYoutubeCaptionAvailable = ctrl.require_youtube_caption_available === true;
     const requireDescriptionGain = ctrl.require_description_gain === true;
     const minMatchScore = Number(ctrl.min_match_score ?? 0.84);
     const minDescriptionGainChars = Number(ctrl.min_description_gain_chars ?? 300);
