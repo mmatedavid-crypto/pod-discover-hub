@@ -248,6 +248,45 @@ export type Database = {
         }
         Relationships: []
       }
+      canonical_alias_backfill_log: {
+        Row: {
+          action: string
+          canonical_name: string
+          canonical_slug: string
+          current_name: string
+          current_slug: string | null
+          entity_id: string
+          entity_kind: string
+          id: string
+          note: string | null
+          run_at: string
+        }
+        Insert: {
+          action: string
+          canonical_name: string
+          canonical_slug: string
+          current_name: string
+          current_slug?: string | null
+          entity_id: string
+          entity_kind: string
+          id?: string
+          note?: string | null
+          run_at?: string
+        }
+        Update: {
+          action?: string
+          canonical_name?: string
+          canonical_slug?: string
+          current_name?: string
+          current_slug?: string | null
+          entity_id?: string
+          entity_kind?: string
+          id?: string
+          note?: string | null
+          run_at?: string
+        }
+        Relationships: []
+      }
       canonical_entity_aliases: {
         Row: {
           alias: string
@@ -7481,6 +7520,25 @@ export type Database = {
           inserted_count: number
           person_count: number
           sample: Json
+        }[]
+      }
+      canonical_alias_backfill_apply: {
+        Args: { p_dry?: boolean; p_kinds?: string[] }
+        Returns: {
+          collisions: number
+          entity_kind: string
+          noop: number
+          renamed: number
+        }[]
+      }
+      canonical_alias_backfill_dryrun: {
+        Args: { p_kinds?: string[] }
+        Returns: {
+          entity_kind: string
+          sample: Json
+          total_rows: number
+          would_collide: number
+          would_rename: number
         }[]
       }
       claim_ai_jobs: {
