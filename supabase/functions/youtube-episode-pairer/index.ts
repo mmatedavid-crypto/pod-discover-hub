@@ -449,6 +449,24 @@ Deno.serve(async (req) => {
     const useClaimRpc = ctrl.claim_rpc_enabled === true;
     const { data: pods, error: pErr, claim_path: claimPath, claim_error: claimError } = await claimPodcasts(admin, plan, tiers, podcastIdParam, batch, useClaimRpc);
     if (pErr) throw pErr;
+
+    // Multi-channel: when a podcast is manually targeted, also pair against
+    // every other CONFIRMED channel from podcast_youtube_candidates.
+    if (podcastIdParam && pods?.length) {
+      const basePod = pods[0];
+      const { data: extraChans } = await admin
+        .from("podcast_youtube_candidates")
+        .select("youtube_channel_id")
+        .eq("podcast_id", podcastIdParam)
+        .eq("status", "confirmed");
+      const seen = new Set<string>([basePod.youtube_channel_id]);
+      for (const c of extraChans || []) {
+        const cid = (c as any).youtube_channel_id;
+        if (!cid || seen.has(cid)) continue;
+        seen.add(cid);
+        pods.push({ ...basePod, youtube_channel_id: cid });
+      }
+    }
     if (!pods?.length) {
       if (!dry) {
         await admin.from("app_settings").upsert({
