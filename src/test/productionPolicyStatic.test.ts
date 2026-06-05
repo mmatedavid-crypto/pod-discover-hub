@@ -78,6 +78,7 @@ describe("production policy static guards", () => {
       "20260605215000_reassert_related_public_affairs_override_terms.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260605220000_entity_monitoring_search_benchmark_policy.sql",
+      "20260605223000_reassert_entity_monitoring_benchmark_goldens.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "20260605200000_reassert_temporal_person_public_guard.sql",
       "20260605213000_reassert_strict_temporal_person_guard_v6.sql",
@@ -124,7 +125,10 @@ describe("production policy static guards", () => {
   });
 
   it("keeps entity monitoring benchmark scoped away from dead-person podcast targets", () => {
-    const migration = read("supabase/migrations/20260605220000_entity_monitoring_search_benchmark_policy.sql");
+    const migration = [
+      read("supabase/migrations/20260605220000_entity_monitoring_search_benchmark_policy.sql"),
+      read("supabase/migrations/20260605223000_reassert_entity_monitoring_benchmark_goldens.sql"),
+    ].join("\n");
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
 
