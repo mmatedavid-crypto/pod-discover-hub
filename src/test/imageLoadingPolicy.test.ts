@@ -73,12 +73,18 @@ describe("episode thumbnail loading policy", () => {
 
   it("keeps personalized and related episode images distinct from podcast images", () => {
     const personalized = read("src/components/home/PersonalizedHomeRails.tsx");
+    const recommendedForYou = read("src/components/taste/RecommendedForYou.tsx");
     const similar = read("src/components/SimilarEpisodes.tsx");
     const mood = read("src/pages/MoodCollectionPage.tsx");
+    const tasteRecommend = read("supabase/functions/taste-recommend/index.ts");
 
     expect(personalized).toContain("image_url: r.podcast_image_url || null");
     expect(personalized).toContain("image_url: r.image_url || null");
     expect(personalized).not.toContain("image_url: r.podcast_image_url || r.image_url");
+    expect(tasteRecommend).toContain("slug, image_url, published_at");
+    expect(tasteRecommend).toContain("image_url: e.image_url");
+    expect(recommendedForYou).toContain("image_url: string | null");
+    expect(recommendedForYou).toContain("ep.image_url || ep.podcast?.image_url");
     expect(similar).toContain("image_url: r.image_url");
     expect(similar).toContain("id,image_url,topics,people,mentioned,companies");
     expect(mood).toContain("image_url: r.image_url || null");

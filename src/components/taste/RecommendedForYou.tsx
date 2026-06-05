@@ -9,6 +9,7 @@ type RecEpisode = {
   id: string;
   slug: string;
   title: string;
+  image_url: string | null;
   published_at: string | null;
   podcast: {
     id: string;
@@ -112,10 +113,10 @@ export default function RecommendedForYou() {
             key={ep.id}
             className="group relative flex gap-3 rounded-xl border border-border/40 bg-background/60 p-3 transition hover:border-border"
           >
-            {ep.podcast?.image_url ? (
+            {(ep.image_url || ep.podcast?.image_url) ? (
               <img
-                src={optimizedImageUrl(ep.podcast.image_url, { width: 96, height: 96 }) || ep.podcast.image_url}
-                srcSet={imageSrcSet(ep.podcast.image_url, [64, 96, 128])}
+                src={optimizedImageUrl(ep.image_url || ep.podcast?.image_url, { width: 96, height: 96 }) || ep.image_url || ep.podcast?.image_url || ""}
+                srcSet={imageSrcSet(ep.image_url || ep.podcast?.image_url, [64, 96, 128])}
                 sizes="64px"
                 alt=""
                 loading="lazy"

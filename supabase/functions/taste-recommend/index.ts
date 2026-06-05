@@ -20,6 +20,7 @@ type EpisodeRow = {
   title: string;
   display_title: string | null;
   slug: string;
+  image_url: string | null;
   published_at: string | null;
   topics?: string[] | null;
 };
@@ -38,6 +39,7 @@ type HydratedEpisode = {
   id: string;
   slug: string;
   title: string;
+  image_url: string | null;
   published_at: string | null;
   topics: string[];
   podcast: {
@@ -273,7 +275,7 @@ async function hydrateEpisodes(admin: ReturnType<typeof createClient>, episodeId
 
   const { data: episodes, error: epErr } = await admin
     .from("episodes")
-    .select("id, podcast_id, title, display_title, slug, published_at, topics")
+    .select("id, podcast_id, title, display_title, slug, image_url, published_at, topics")
     .in("id", ids);
   if (epErr) {
     console.error("hydrate episodes error", epErr);
@@ -301,6 +303,7 @@ async function hydrateEpisodes(admin: ReturnType<typeof createClient>, episodeId
         id: e.id,
         slug: e.slug,
         title: e.display_title || e.title,
+        image_url: e.image_url,
         published_at: e.published_at,
         topics: Array.isArray(e.topics) ? e.topics.filter((t): t is string => typeof t === "string") : [],
         podcast: p
