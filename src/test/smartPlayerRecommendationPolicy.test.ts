@@ -55,6 +55,7 @@ describe("smart player recommendation policy", () => {
 
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
     const migration = read("supabase/migrations/20260605003000_recommendation_compatibility_v5_entity_bridge.sql");
+    const reassertMigration = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
 
     expect(migration).toContain("recommendation_is_compatible");
     expect(migration).toContain("recommendation_has_content_bridge");
@@ -69,5 +70,9 @@ describe("smart player recommendation policy", () => {
     expect(migration).toContain("'specific_to_general', 'explicit_bridge_required'");
     expect(migration).toContain("'bridge_sources', jsonb_build_array('topics', 'people', 'mentioned', 'companies')");
     expect(migration).toContain("'version', 5");
+    expect(reassertMigration).toContain("recommendation_has_content_bridge");
+    expect(reassertMigration).toContain("'public_affairs_override_terms'");
+    expect(reassertMigration).toContain("production drift left the");
+    expect(reassertMigration).toContain("GRANT EXECUTE ON FUNCTION public.recommendation_has_content_bridge");
   });
 });

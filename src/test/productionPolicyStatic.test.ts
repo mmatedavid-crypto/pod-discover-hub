@@ -65,6 +65,7 @@ describe("production policy static guards", () => {
       "20260604001000_recommendation_compatibility_v4.sql",
       "20260604091642_reassert_recommendation_compatibility_v4.sql",
       "20260605003000_recommendation_compatibility_v5_entity_bridge.sql",
+      "20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "20260605200000_reassert_temporal_person_public_guard.sql",
@@ -601,6 +602,7 @@ describe("production policy static guards", () => {
 
   it("keeps production verifier covering recommendation and people identity policies", () => {
     const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reassertV5 = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
     const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
     const peopleHubFilterMigration = read("supabase/migrations/20260604213000_people_hub_identity_safe_filters.sql");
     const prerender = read("supabase/functions/prerender/index.ts");
@@ -622,6 +624,12 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("recommendation_has_content_bridge");
     expect(verifier).toContain("public_affairs_title_with_isten_runtime_grouped");
     expect(verifier).toContain("Mészáros Lőrinc tündöklése");
+    expect(reassertV5).toContain("recommendation_has_content_bridge");
+    expect(reassertV5).toContain("20260605203000_reassert_recommendation_compatibility_v5_content_bridge");
+    expect(reassertV5).toContain("'version', 5");
+    expect(reassertV5).toContain("'public_affairs_override_terms'");
+    expect(reassertV5).toContain("public.recommendation_has_content_bridge(");
+    expect(reassertV5).toContain("GRANT EXECUTE ON FUNCTION public.recommendation_has_content_bridge");
     expect(verifier).toContain("list_people_hub_has_identity_fields");
     expect(verifier).toContain("list_people_alpha_has_identity_fields");
     expect(verifier).toContain("policy_configured_v2");
