@@ -148,6 +148,30 @@ function runEdgeVerifier() {
   }
 }
 
+function runGit(args) {
+  try {
+    return execFileSync("git", args, {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function getSourceRevision() {
+  const commit = runGit(["rev-parse", "HEAD"]);
+  const branch = runGit(["rev-parse", "--abbrev-ref", "HEAD"]);
+  const status = runGit(["status", "--porcelain"]);
+  return {
+    branch,
+    commit,
+    short_commit: commit ? commit.slice(0, 7) : null,
+    dirty: status === null ? null : status.length > 0,
+  };
+}
+
 const result = runPipelineVerifier();
 const edgeResult = runEdgeVerifier();
 const failures = [
@@ -236,6 +260,9 @@ function makeLovablePrompt(plan, groups, unmappedFailures) {
 
   const lines = [
     "Please pull latest main and close the current Podiverzum production deploy gap.",
+    plan.source_revision?.short_commit
+      ? `After pulling, confirm the repo is at commit ${plan.source_revision.short_commit} (${plan.source_revision.commit}) before deploy.`
+      : "After pulling, confirm the repo is on the latest main commit before deploy.",
     "",
     "Failed deploy areas:",
   ];
@@ -280,6 +307,7 @@ function makeLovablePrompt(plan, groups, unmappedFailures) {
 }
 
 const deployPlan = makeDeployPlan(groups);
+deployPlan.source_revision = getSourceRevision();
 deployPlan.artifacts = checkDeployArtifacts(deployPlan);
 const report = {
   ok: failures.length === 0,
