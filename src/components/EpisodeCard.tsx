@@ -22,6 +22,7 @@ export type EpisodeLite = {
   ai_summary?: string | null;
   summary?: string | null;
   description?: string | null;
+  image_url?: string | null;
   published_at?: string | null;
   audio_url?: string | null;
   // episode_rank intentionally removed (Formula C v3 cleanup; legacy frozen field)
@@ -91,6 +92,8 @@ export function EpisodeCard({
   const desc = snippet(pickEpisodeDescription(e, 260), 220, terms);
   const understanding = getEpisodeUnderstanding(e);
   const categoryName = categoryLabel(p.category);
+  const coverImage = e.image_url || p.image_url || null;
+  const coverTitle = e.image_url ? epTitle : podTitle;
   const { play } = useSmartPlayer();
   const playable = detectAudioSource({ audio_url: e.audio_url });
   const playerAudioUrl = playable?.url || e.audio_url || null;
@@ -105,7 +108,7 @@ export function EpisodeCard({
       podcastTitle: podTitle,
       podcastSlug: p.slug,
       episodeSlug: e.slug,
-      imageUrl: p.image_url || null,
+      imageUrl: coverImage,
       audioUrl: playerAudioUrl,
       externalUrl: e.audio_url || null,
     }, { resume: true });
@@ -124,8 +127,8 @@ export function EpisodeCard({
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-16 sm:w-20">
         <div className="overflow-hidden rounded-md ring-1 ring-border/70 shadow-sm">
           <PodcastCover
-            title={podTitle}
-            src={p.image_url}
+            title={coverTitle}
+            src={coverImage}
             size="sm"
             imageSize={80}
             imageWidths={[64, 96, 128]}
@@ -260,6 +263,8 @@ function EpisodeRailCard({
   const desc = snippet(pickEpisodeDescription(e, 210), 170, terms);
   const understanding = getEpisodeUnderstanding(e);
   const categoryName = categoryLabel(p.category);
+  const coverImage = e.image_url || p.image_url || null;
+  const coverTitle = e.image_url ? epTitle : podTitle;
   const { play } = useSmartPlayer();
   const playable = detectAudioSource({ audio_url: e.audio_url });
   const playerAudioUrl = playable?.url || e.audio_url || null;
@@ -274,7 +279,7 @@ function EpisodeRailCard({
       podcastTitle: podTitle,
       podcastSlug: p.slug,
       episodeSlug: e.slug,
-      imageUrl: p.image_url || null,
+      imageUrl: coverImage,
       audioUrl: playerAudioUrl,
       externalUrl: e.audio_url || null,
     }, { resume: true });
@@ -296,8 +301,8 @@ function EpisodeRailCard({
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/45 to-transparent" />
           <div className="absolute left-3 top-3 w-16 rounded-md shadow-lg ring-1 ring-border/70 sm:w-20">
             <PodcastCover
-              title={podTitle}
-              src={p.image_url}
+              title={coverTitle}
+              src={coverImage}
               size="sm"
               imageSize={80}
               imageWidths={[64, 96, 128]}

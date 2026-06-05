@@ -25,6 +25,18 @@ describe("episode thumbnail loading policy", () => {
     expect(detail).not.toContain("imageWidths={[96, 160, 240]}");
   });
 
+  it("uses episode thumbnails before podcast fallback in shared episode cards", () => {
+    const card = read("src/components/EpisodeCard.tsx");
+
+    expect(card).toContain("image_url?: string | null");
+    expect(card).toContain("const coverImage = e.image_url || p.image_url || null");
+    expect(card).toContain("const coverTitle = e.image_url ? epTitle : podTitle");
+    expect(card).toContain("imageUrl: coverImage");
+    expect(card).toContain("src={coverImage}");
+    expect(card).not.toContain("imageUrl: p.image_url || null");
+    expect(card).not.toContain("src={p.image_url}");
+  });
+
   it("keeps all-time toplist thumbnails optimized and non-empty", () => {
     const page = read("src/pages/ToplistaAllTimePage.tsx");
 
