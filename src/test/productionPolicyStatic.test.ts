@@ -51,6 +51,7 @@ describe("production policy static guards", () => {
       "seo_news_sitemap",
       "public_ai_language_guard",
       "related_episode_quality",
+      "smart_player_recommendation_surface",
       "search_quality_benchmark",
       "entity_monitoring_benchmark",
       "people_hub_identity_safety",
@@ -76,6 +77,7 @@ describe("production policy static guards", () => {
       "20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql",
       "20260605214000_reassert_related_quality_policy_v5_settings.sql",
       "20260605215000_reassert_related_public_affairs_override_terms.sql",
+      "20260605224000_lock_smart_player_recommendation_surface.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260605220000_entity_monitoring_search_benchmark_policy.sql",
       "20260605223000_reassert_entity_monitoring_benchmark_goldens.sql",
@@ -698,6 +700,7 @@ describe("production policy static guards", () => {
   it("keeps production verifier covering recommendation and people identity policies", () => {
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reassertV5 = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
+    const surfaceLock = read("supabase/migrations/20260605224000_lock_smart_player_recommendation_surface.sql");
     const policySettingsV5 = read("supabase/migrations/20260605214000_reassert_related_quality_policy_v5_settings.sql");
     const publicAffairsOverrideTerms = read("supabase/migrations/20260605215000_reassert_related_public_affairs_override_terms.sql");
     const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
@@ -711,6 +714,12 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("text_group_function_exists");
     expect(verifier).toContain("topic_bridge_function_exists");
     expect(verifier).toContain("content_bridge_function_exists");
+    expect(verifier).toContain("smart_player_recommendation_surface_policy");
+    expect(verifier).toContain("smart_player_recommendation_surface");
+    expect(verifier).toContain("related_public_rpc_anon_revoked");
+    expect(verifier).toContain("similar_public_rpc_anon_revoked");
+    expect(verifier).toContain("discover_public_rpc_anon_revoked");
+    expect(verifier).toContain("service_role_execute_retained");
     expect(verifier).toContain("policy_configured_v4");
     expect(verifier).toContain("policy_configured_v5");
     expect(verifier).toContain("different_specific_groups_require_bridge_recorded");
@@ -729,6 +738,13 @@ describe("production policy static guards", () => {
     expect(reassertV5).toContain("'public_affairs_override_terms'");
     expect(reassertV5).toContain("public.recommendation_has_content_bridge(");
     expect(reassertV5).toContain("GRANT EXECUTE ON FUNCTION public.recommendation_has_content_bridge");
+    expect(surfaceLock).toContain("smart_player_recommendation_surface_policy");
+    expect(surfaceLock).toContain("'enabled', false");
+    expect(surfaceLock).toContain("'quality_gate_required_before_public_enable', true");
+    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.get_related_episodes_by_embedding(uuid, integer, boolean) FROM PUBLIC, anon, authenticated");
+    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.similar_episodes(uuid, integer) FROM PUBLIC, anon, authenticated");
+    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.smart_player_discover(uuid, integer) FROM PUBLIC, anon, authenticated");
+    expect(surfaceLock).toContain("GRANT EXECUTE ON FUNCTION public.smart_player_discover(uuid, integer) TO service_role");
     expect(policySettingsV5).toContain("'version', 5");
     expect(policySettingsV5).toContain("'specific_to_general', 'explicit_bridge_required'");
     expect(policySettingsV5).toContain("'general_to_specific', 'explicit_bridge_required'");

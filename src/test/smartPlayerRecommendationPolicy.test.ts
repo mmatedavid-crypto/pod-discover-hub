@@ -56,6 +56,7 @@ describe("smart player recommendation policy", () => {
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
     const migration = read("supabase/migrations/20260605003000_recommendation_compatibility_v5_entity_bridge.sql");
     const reassertMigration = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
+    const surfaceLock = read("supabase/migrations/20260605224000_lock_smart_player_recommendation_surface.sql");
 
     expect(migration).toContain("recommendation_is_compatible");
     expect(migration).toContain("recommendation_has_content_bridge");
@@ -74,5 +75,13 @@ describe("smart player recommendation policy", () => {
     expect(reassertMigration).toContain("'public_affairs_override_terms'");
     expect(reassertMigration).toContain("production drift left the");
     expect(reassertMigration).toContain("GRANT EXECUTE ON FUNCTION public.recommendation_has_content_bridge");
+
+    expect(surfaceLock).toContain("smart_player_recommendation_surface_policy");
+    expect(surfaceLock).toContain("'enabled', false");
+    expect(surfaceLock).toContain("quality_gate_required_before_public_enable");
+    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.get_related_episodes_by_embedding(uuid, integer, boolean) FROM PUBLIC, anon, authenticated");
+    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.similar_episodes(uuid, integer) FROM PUBLIC, anon, authenticated");
+    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.smart_player_discover(uuid, integer) FROM PUBLIC, anon, authenticated");
+    expect(surfaceLock).toContain("GRANT EXECUTE ON FUNCTION public.get_related_episodes_by_embedding(uuid, integer, boolean) TO service_role");
   });
 });

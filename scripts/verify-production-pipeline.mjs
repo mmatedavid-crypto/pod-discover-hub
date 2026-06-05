@@ -65,6 +65,7 @@ settings AS (
     'public_ai_language_guard_policy',
     'related_episode_quality_policy',
     'entity_monitoring_benchmark_policy',
+    'smart_player_recommendation_surface_policy',
     'people_hub_identity_safety_policy',
     'temporal_person_public_guard_policy',
     'text_processing_policy'
@@ -103,6 +104,7 @@ controls AS (
     'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy',
     'related_episode_quality_policy', setting_values->'related_episode_quality_policy',
     'entity_monitoring_benchmark_policy', setting_values->'entity_monitoring_benchmark_policy',
+    'smart_player_recommendation_surface_policy', setting_values->'smart_player_recommendation_surface_policy',
     'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy',
     'temporal_person_public_guard_policy', setting_values->'temporal_person_public_guard_policy'
   ) AS summary
@@ -389,6 +391,22 @@ SELECT jsonb_build_object(
       WHERE COALESCE(active, true) = true AND expected_entity IS NOT NULL AND query_type = 'topic'
     )
   ),
+  'smart_player_recommendation_surface', jsonb_build_object(
+    'policy_configured_v1', (SELECT (setting_values->'smart_player_recommendation_surface_policy'->>'version')::int >= 1 FROM settings),
+    'disabled_until_quality_trusted', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'enabled')::boolean, true) = false FROM settings),
+    'quality_gate_required_recorded', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'quality_gate_required_before_public_enable')::boolean, false) FROM settings),
+    'related_public_rpc_anon_revoked', NOT has_function_privilege('anon', 'public.get_related_episodes_by_embedding(uuid, integer, boolean)', 'EXECUTE'),
+    'related_public_rpc_authenticated_revoked', NOT has_function_privilege('authenticated', 'public.get_related_episodes_by_embedding(uuid, integer, boolean)', 'EXECUTE'),
+    'similar_public_rpc_anon_revoked', NOT has_function_privilege('anon', 'public.similar_episodes(uuid, integer)', 'EXECUTE'),
+    'similar_public_rpc_authenticated_revoked', NOT has_function_privilege('authenticated', 'public.similar_episodes(uuid, integer)', 'EXECUTE'),
+    'discover_public_rpc_anon_revoked', NOT has_function_privilege('anon', 'public.smart_player_discover(uuid, integer)', 'EXECUTE'),
+    'discover_public_rpc_authenticated_revoked', NOT has_function_privilege('authenticated', 'public.smart_player_discover(uuid, integer)', 'EXECUTE'),
+    'service_role_execute_retained', (
+      has_function_privilege('service_role', 'public.get_related_episodes_by_embedding(uuid, integer, boolean)', 'EXECUTE')
+      AND has_function_privilege('service_role', 'public.similar_episodes(uuid, integer)', 'EXECUTE')
+      AND has_function_privilege('service_role', 'public.smart_player_discover(uuid, integer)', 'EXECUTE')
+    )
+  ),
   'accepted_hu_episodes_with_description', (SELECT count(*) FROM accepted_hu),
   'clean_text', (SELECT to_jsonb(clean_counts) FROM clean_counts),
   'best_text_source', (SELECT to_jsonb(best_source_counts) FROM best_source_counts),
@@ -573,6 +591,11 @@ for (const [key, ok] of Object.entries(peopleHubIdentitySafety)) {
 const entityMonitoringBenchmark = snapshot.entity_monitoring_benchmark ?? {};
 for (const [key, ok] of Object.entries(entityMonitoringBenchmark)) {
   if (ok !== true) failures.push(`entity_monitoring_benchmark.${key}`);
+}
+
+const smartPlayerRecommendationSurface = snapshot.smart_player_recommendation_surface ?? {};
+for (const [key, ok] of Object.entries(smartPlayerRecommendationSurface)) {
+  if (ok !== true) failures.push(`smart_player_recommendation_surface.${key}`);
 }
 
 const clean = snapshot.clean_text ?? {};

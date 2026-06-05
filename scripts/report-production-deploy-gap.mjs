@@ -54,6 +54,12 @@ const GROUPS = {
     functions: [],
     why: "Smart player / hasonló epizód ne ajánljon más szerkesztési világot puszta vektor alapján; explicit téma/személy/cég híd kell.",
   },
+  smart_player_recommendation_surface: {
+    label: "Smart-player recommendation surface lock",
+    migrations: ["supabase/migrations/20260605224000_lock_smart_player_recommendation_surface.sql"],
+    functions: [],
+    why: "A cross-podcast smart-player ajánlások UI-ban le vannak tiltva; az anon/authenticated RPC execute jog is legyen visszavonva, amíg a minőségkapuk nem bizonyítottan zöldek.",
+  },
   search_quality_benchmark: {
     label: "Weekly search quality benchmark",
     migrations: ["supabase/migrations/20260605001000_search_quality_weekly_automation.sql"],
