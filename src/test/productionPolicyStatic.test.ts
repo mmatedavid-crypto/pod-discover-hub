@@ -48,12 +48,17 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("groupKeyForFailure");
     expect(reporter).toContain("migration_gates");
     expect(reporter).toContain("suspicious_temporal_participants");
+    expect(reporter).toContain("const unmappedFailures = []");
+    expect(reporter).toContain("unmappedFailures.push(failure)");
     expect(reporter).toContain("makeDeployPlan");
     expect(reporter).toContain("checkDeployArtifacts");
     expect(reporter).toContain("artifactExists");
     expect(reporter).toContain("makeLovablePrompt");
     expect(reporter).toContain("deploy_plan");
     expect(reporter).toContain("lovable_prompt");
+    expect(reporter).toContain("unmapped_failures");
+    expect(reporter).toContain("Unmapped verifier failures; stop and add/repair deploy-gap grouping before deploy:");
+    expect(reporter).toContain("none mapped to a known deploy area");
     expect(reporter).toContain("supabase/functions/${name}/index.ts");
     expect(reporter).toContain("Missing deploy artifacts; stop and fix these repo references before deploy:");
     expect(reporter).toContain("node scripts/preflight-migrations.mjs ${migrations.join(\" \")}");

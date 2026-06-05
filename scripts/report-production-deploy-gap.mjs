@@ -155,6 +155,7 @@ const failures = [
   ...(Array.isArray(edgeResult.failures) ? edgeResult.failures.map((failure) => `edge_worker_seo.${failure}`) : []),
 ];
 const failedGroups = new Map();
+const unmappedFailures = [];
 
 function groupKeyForFailure(failure) {
   const key = String(failure).split(".")[0];
@@ -172,7 +173,10 @@ function groupKeyForFailure(failure) {
 
 for (const failure of failures) {
   const group = groupKeyForFailure(failure);
-  if (!GROUPS[group]) continue;
+  if (!GROUPS[group]) {
+    unmappedFailures.push(failure);
+    continue;
+  }
   if (!failedGroups.has(group)) failedGroups.set(group, []);
   failedGroups.get(group).push(failure);
 }
@@ -221,8 +225,8 @@ function checkDeployArtifacts(plan) {
   return { ok: missing.length === 0, migrations, functions, workers, missing };
 }
 
-function makeLovablePrompt(plan, groups) {
-  if (!groups.length) {
+function makeLovablePrompt(plan, groups, unmappedFailures) {
+  if (!groups.length && !unmappedFailures.length) {
     return [
       "Please pull latest main.",
       "",
@@ -234,8 +238,18 @@ function makeLovablePrompt(plan, groups) {
     "Please pull latest main and close the current Podiverzum production deploy gap.",
     "",
     "Failed deploy areas:",
-    ...groups.map((group) => `- ${group.key}: ${group.failures.join(", ")}`),
   ];
+
+  if (groups.length) {
+    lines.push(...groups.map((group) => `- ${group.key}: ${group.failures.join(", ")}`));
+  } else {
+    lines.push("- none mapped to a known deploy area");
+  }
+
+  if (unmappedFailures.length) {
+    lines.push("", "Unmapped verifier failures; stop and add/repair deploy-gap grouping before deploy:");
+    lines.push(...unmappedFailures.map((failure) => `- ${failure}`));
+  }
 
   if (!plan.artifacts.ok) {
     lines.push("", "Missing deploy artifacts; stop and fix these repo references before deploy:");
@@ -273,8 +287,9 @@ const report = {
   failure_count: failures.length,
   deploy_gap_group_count: groups.length,
   groups,
+  unmapped_failures: unmappedFailures,
   deploy_plan: deployPlan,
-  lovable_prompt: makeLovablePrompt(deployPlan, groups),
+  lovable_prompt: makeLovablePrompt(deployPlan, groups, unmappedFailures),
   raw_failures: failures,
   edge: {
     ok: Boolean(edgeResult.ok),
