@@ -64,6 +64,7 @@ describe("production policy static guards", () => {
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260604001000_recommendation_compatibility_v4.sql",
       "20260604091642_reassert_recommendation_compatibility_v4.sql",
+      "20260605003000_recommendation_compatibility_v5_entity_bridge.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "episode-article-pairer",
@@ -550,11 +551,16 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("snapshot.related_episode_quality?.compatibility_function_exists === true");
     expect(verifier).toContain("text_group_function_exists");
     expect(verifier).toContain("topic_bridge_function_exists");
+    expect(verifier).toContain("content_bridge_function_exists");
     expect(verifier).toContain("policy_configured_v4");
+    expect(verifier).toContain("policy_configured_v5");
     expect(verifier).toContain("different_specific_groups_require_bridge_recorded");
+    expect(verifier).toContain("specific_to_general_bridge_required_recorded");
     expect(verifier).toContain("recommendation_is_compatible('public_affairs', 'religion', 0.99::double precision, true) = false");
     expect(verifier).toContain("recommendation_is_compatible('public_affairs', 'business', 0.96::double precision, false) = false");
     expect(verifier).toContain("recommendation_is_compatible('public_affairs', 'business', 0.41::double precision, true) = true");
+    expect(verifier).toContain("recommendation_is_compatible('public_affairs', 'general', 0.97::double precision, false) = false");
+    expect(verifier).toContain("recommendation_has_content_bridge");
     expect(verifier).toContain("public_affairs_title_with_isten_runtime_grouped");
     expect(verifier).toContain("Mészáros Lőrinc tündöklése");
     expect(verifier).toContain("list_people_hub_has_identity_fields");

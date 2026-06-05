@@ -227,4 +227,73 @@ describe("recommendationGuards", () => {
       similarity: 0.98,
     })).toBe(false);
   });
+
+  it("does not use a general candidate as filler for a specific episode without an explicit bridge", () => {
+    const source = {
+      title: "Mészáros Lőrinc és a magyar tőzsde",
+      podcastTitle: "Közéleti műsor",
+      category: "News & Politics",
+      topics: ["közélet", "politika"],
+      people: ["Mészáros Lőrinc"],
+      companies: [],
+    };
+
+    const candidate = {
+      title: "Heti beszélgetés érdekes történetekről",
+      podcastTitle: "Beszélgetések",
+      category: "Society & Culture",
+      topics: [],
+      people: [],
+      companies: [],
+      similarity: 0.97,
+    };
+
+    expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
+  });
+
+  it("blocks vague general-to-general vector neighbours unless the similarity is exceptionally strong", () => {
+    const source = {
+      title: "Egy hosszú beszélgetés a hét fontos kérdéseiről",
+      podcastTitle: "Beszélgetések",
+      category: "Society & Culture",
+      topics: [],
+      people: [],
+      companies: [],
+    };
+
+    const candidate = {
+      title: "Mai adás: történetek és gondolatok",
+      podcastTitle: "Másik beszélgetés",
+      category: "Society & Culture",
+      topics: [],
+      people: [],
+      companies: [],
+      similarity: 0.79,
+    };
+
+    expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
+  });
+
+  it("allows general episodes when there is an explicit shared person bridge", () => {
+    const source = {
+      title: "Életútinterjú",
+      podcastTitle: "Beszélgetések",
+      category: "Society & Culture",
+      topics: [],
+      people: ["Schmied Andi"],
+      companies: [],
+    };
+
+    const candidate = {
+      title: "Egy másik beszélgetés",
+      podcastTitle: "Portré",
+      category: "Society & Culture",
+      topics: [],
+      people: ["Schmied Andi"],
+      companies: [],
+      similarity: 0.35,
+    };
+
+    expect(isSafeRelatedEpisode(source, candidate)).toBe(true);
+  });
 });

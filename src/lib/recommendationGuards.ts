@@ -133,18 +133,18 @@ export function isSafeRelatedEpisode(
   }
 
   if (sourceGroup !== "general" && candidateGroup === "general") {
-    return bridged || similarity >= 0.74;
+    return bridged;
   }
 
   if (candidateGroup !== "general" && sourceGroup === "general") {
-    return bridged || similarity >= 0.74;
+    return bridged;
   }
 
   if (sourceGroup !== "general" && sourceGroup === candidateGroup) {
-    return bridged || similarity >= 0.58;
+    return bridged || similarity >= 0.70;
   }
 
-  return bridged || similarity >= 0.62;
+  return bridged || similarity >= 0.82;
 }
 
 export function filterSafeRelatedEpisodes<T extends RecommendationCandidate>(

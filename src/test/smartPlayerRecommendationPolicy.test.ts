@@ -39,10 +39,10 @@ describe("smart player recommendation policy", () => {
   });
 
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
-    const migration = read("supabase/migrations/20260604091642_reassert_recommendation_compatibility_v4.sql");
+    const migration = read("supabase/migrations/20260605003000_recommendation_compatibility_v5_entity_bridge.sql");
 
     expect(migration).toContain("recommendation_is_compatible");
-    expect(migration).toContain("recommendation_text_group");
+    expect(migration).toContain("recommendation_has_content_bridge");
     expect(migration).toContain("p_source_group = 'religion'");
     expect(migration).toContain("p_candidate_group = 'religion'");
     expect(migration).toContain("THEN false");
@@ -51,9 +51,8 @@ describe("smart player recommendation policy", () => {
     expect(migration).toContain("'related_episode_quality_policy'");
     expect(migration).toContain("'religion_cross_group', 'hard_block'");
     expect(migration).toContain("'different_specific_groups', 'explicit_bridge_required'");
-    expect(migration).toContain("'version', 4");
-    expect(migration).toContain("public_affairs_override_terms");
-    expect(migration).toContain("orbán");
-    expect(migration).toContain("puzsér");
+    expect(migration).toContain("'specific_to_general', 'explicit_bridge_required'");
+    expect(migration).toContain("'bridge_sources', jsonb_build_array('topics', 'people', 'mentioned', 'companies')");
+    expect(migration).toContain("'version', 5");
   });
 });

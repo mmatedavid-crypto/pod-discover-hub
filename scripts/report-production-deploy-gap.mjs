@@ -40,6 +40,7 @@ const GROUPS = {
       "supabase/migrations/20260603165000_related_episode_quality_consolidated.sql",
       "supabase/migrations/20260604001000_recommendation_compatibility_v4.sql",
       "supabase/migrations/20260604091642_reassert_recommendation_compatibility_v4.sql",
+      "supabase/migrations/20260605003000_recommendation_compatibility_v5_entity_bridge.sql",
     ],
     functions: [],
     why: "Smart player / hasonló epizód ne ajánljon más szerkesztési világot puszta vektor alapján; explicit téma/személy/cég híd kell.",
