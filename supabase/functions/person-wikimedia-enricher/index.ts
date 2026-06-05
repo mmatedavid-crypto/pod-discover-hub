@@ -289,7 +289,26 @@ async function processPerson(admin: any, personId: string): Promise<any> {
       update.wiki_match_reason = `${update.wiki_match_reason}:dead_name_collision_fail_closed_v1`;
     }
 
-    if (bestEntity && !deadNameCollisionRisk) {
+    if (matchStatus !== "verified") {
+      update.wikidata_id = null;
+      update.wikipedia_title = null;
+      update.wikipedia_url = null;
+      update.wikipedia_extract = null;
+      update.wikipedia_description = null;
+      if (p.short_bio && (p.wikidata_id || p.wikipedia_title || p.wikipedia_description || p.wikipedia_extract)) {
+        update.short_bio = null;
+      }
+      if (p.image_source === "wikimedia" || p.image_original_url || p.image_attribution || p.image_license) {
+        update.image_url = null;
+        update.image_status = "needs_review";
+        update.image_original_url = null;
+        update.image_attribution = null;
+        update.image_license = null;
+      }
+      update.wiki_match_reason = `${update.wiki_match_reason}:unverified_public_wiki_fields_cleared_v1`;
+    }
+
+    if (bestEntity && !deadNameCollisionRisk && matchStatus === "verified") {
       const huTitle = bestEntity?.sitelinks?.huwiki?.title || null;
       const enTitle = bestEntity?.sitelinks?.enwiki?.title || null;
       update.wikidata_id = best.id;

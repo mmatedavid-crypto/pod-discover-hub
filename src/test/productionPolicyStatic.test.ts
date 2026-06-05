@@ -420,6 +420,7 @@ describe("production policy static guards", () => {
   it("extracts Wikidata temporal metadata before publishing person identities", () => {
     const enricher = read("supabase/functions/person-wikimedia-enricher/index.ts");
     const policy = read("supabase/migrations/20260604233500_person_wikidata_temporal_metadata_policy.sql");
+    const staleCleanup = read("supabase/migrations/20260605121000_clear_stale_unverified_person_external_identity.sql");
 
     expect(enricher).toContain('firstClaimValue(entity, "P570")');
     expect(enricher).toContain('firstClaimValue(entity, "P569")');
@@ -437,9 +438,20 @@ describe("production policy static guards", () => {
     expect(enricher).toContain('eq("wikipedia_match_status", "verified")');
     expect(enricher).toContain('.is("is_living", null)');
     expect(enricher).toContain("temporal=");
+    expect(enricher).toContain('if (matchStatus !== "verified")');
+    expect(enricher).toContain("update.wikidata_id = null");
+    expect(enricher).toContain("update.wikipedia_title = null");
+    expect(enricher).toContain("unverified_public_wiki_fields_cleared_v1");
+    expect(enricher).toContain('bestEntity && !deadNameCollisionRisk && matchStatus === "verified"');
     expect(policy).toContain("person_wikidata_temporal_metadata_policy");
     expect(policy).toContain("P570");
     expect(policy).toContain("No AI call");
+    expect(staleCleanup).toContain("clear_stale_unverified_person_external_identity_v1");
+    expect(staleCleanup).toContain("p.wikipedia_match_status IS DISTINCT FROM 'verified'");
+    expect(staleCleanup).toContain("wikidata_id = NULL");
+    expect(staleCleanup).toContain("wikipedia_title = NULL");
+    expect(staleCleanup).toContain("known_collision_szabo_laszlo_v2");
+    expect(staleCleanup).toContain("unrelated film-director wiki identity must not be used");
   });
 
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
