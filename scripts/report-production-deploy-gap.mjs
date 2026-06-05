@@ -235,6 +235,27 @@ function artifactExists(relPath) {
   return fs.existsSync(path.join(repoRoot, relPath));
 }
 
+function countPreflightChecksForMigration(relPath) {
+  const file = path.join(repoRoot, relPath);
+  if (!fs.existsSync(file)) return 0;
+  const sql = fs.readFileSync(file, "utf8");
+  const returnsTableMatches = sql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.[a-zA-Z0-9_]+\s*\([\s\S]*?\)\s*RETURNS\s+TABLE\s*\(/gi) || [];
+  const insertColumnMatches = sql.match(/INSERT\s+INTO\s+public\.[a-zA-Z0-9_]+\s*\([\s\S]*?\)\s*(?:VALUES|SELECT|WITH)/gi) || [];
+  return returnsTableMatches.length + insertColumnMatches.length;
+}
+
+function makePreflightEvidence(plan) {
+  const expectedCheckedCount = plan.migrations.reduce(
+    (sum, migration) => sum + countPreflightChecksForMigration(migration),
+    0,
+  );
+  return {
+    expected_ok: true,
+    min_checked_count: expectedCheckedCount,
+    expected_findings: [],
+  };
+}
+
 function checkDeployArtifacts(plan) {
   const migrations = plan.migrations.map((file) => ({ file, exists: artifactExists(file) }));
   const functions = plan.functions.map((name) => {
@@ -295,6 +316,9 @@ function makeLovablePrompt(plan, groups, unmappedFailures) {
   if (plan.migrations.length) {
     lines.push("", "Before applying migrations, run preflight:");
     lines.push(...plan.preflight.map((cmd) => `- ${cmd}`));
+    lines.push(
+      `Preflight must report ok=true, checked_count>=${plan.preflight_evidence.min_checked_count}, findings=[]. Stop if it reports fewer checks or any finding.`,
+    );
     lines.push("", "Apply these Supabase migrations in order:");
     lines.push(...plan.migrations.map((migration) => `- ${migration}`));
   }
@@ -318,6 +342,7 @@ function makeLovablePrompt(plan, groups, unmappedFailures) {
 const deployPlan = makeDeployPlan(groups);
 deployPlan.source_revision = getSourceRevision();
 deployPlan.artifacts = checkDeployArtifacts(deployPlan);
+deployPlan.preflight_evidence = makePreflightEvidence(deployPlan);
 const report = {
   ok: failures.length === 0,
   generated_at: new Date().toISOString(),

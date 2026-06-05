@@ -78,6 +78,8 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("makeDeployPlan");
     expect(reporter).toContain("checkDeployArtifacts");
     expect(reporter).toContain("artifactExists");
+    expect(reporter).toContain("countPreflightChecksForMigration");
+    expect(reporter).toContain("makePreflightEvidence");
     expect(reporter).toContain("makeLovablePrompt");
     expect(reporter).toContain("deploy_plan");
     expect(reporter).toContain("lovable_prompt");
@@ -90,6 +92,8 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("supabase/functions/${name}/index.ts");
     expect(reporter).toContain("Missing deploy artifacts; stop and fix these repo references before deploy:");
     expect(reporter).toContain("node scripts/preflight-migrations.mjs ${migrations.join(\" \")}");
+    expect(reporter).toContain("Preflight must report ok=true, checked_count>=");
+    expect(reporter).toContain("Stop if it reports fewer checks or any finding.");
     expect(reporter).toContain("Please pull latest main and close the current Podiverzum production deploy gap.");
     expect(reporter).toContain("Before applying migrations, run preflight:");
     expect(reporter).toContain("Apply these Supabase migrations in order:");
@@ -104,6 +108,7 @@ describe("production policy static guards", () => {
     expect(deployDoc).toContain("`node scripts/run-vite.mjs build`)");
     expect(deployDoc).toContain("explicit migration preflight");
     expect(deployDoc).toContain("public-table insert column checks");
+    expect(deployDoc).toContain("expected `checked_count` evidence threshold");
     expect(preflight).toContain("function parseInsertColumns");
     expect(preflight).toContain("information_schema.columns");
     expect(preflight).toContain("insert_references_missing_columns");

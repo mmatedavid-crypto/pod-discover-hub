@@ -41,7 +41,8 @@ The prompt is generated from the current production verifiers and includes:
 - local verification commands (`node scripts/run-vitest.mjs`,
   `node scripts/run-vite.mjs build`);
 - explicit migration preflight for the pending migration list, including
-  `RETURNS TABLE` shape checks and public-table insert column checks;
+  `RETURNS TABLE` shape checks, public-table insert column checks, and an
+  expected `checked_count` evidence threshold;
 - Supabase migration and Edge Function redeploy lists;
 - post-deploy verification commands.
 
