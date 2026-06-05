@@ -435,9 +435,18 @@ describe("page consistency static guards", () => {
     expect(entity).toContain("Minden magyar podcast epizód, amely ehhez kapcsolódik");
     expect(entity).toContain("Legújabb kapcsolódó epizódok");
     expect(entity).toContain("Epizódok, ahol szó esik róla");
+    expect(entity).toContain("episode_id, role, confidence, source_evidence");
+    expect(entity).toContain("organizationEvidenceReason");
+    expect(entity).toContain("entityEvidenceReason");
+    expect(entity).toContain("why_matched: organizationEvidenceReason");
+    expect(entity).toContain("why_matched: entityEvidenceReason");
+    expect(entity).toContain("Entitásbizonyíték:");
+    expect(entity).toContain("róla vagy hozzá kapcsolódóan");
     expect(entity).not.toContain("Minden magyar podcast epizód, amiben");
     expect(entity).not.toContain("Legújabb epizódok, ahol megszólal");
     expect(entity).not.toContain("label={kind === \"person\" ? \"Megszólal\"");
+    expect(entity).not.toContain("fő személyként");
+    expect(entity).not.toContain("szereplőként");
   });
 
   it("keeps SEO fallback and prerender links on canonical Hungarian routes", () => {

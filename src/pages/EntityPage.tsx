@@ -12,6 +12,32 @@ import { snippet } from "@/lib/text";
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
 
+function confidencePct(value: unknown): string | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return `${Math.round(Math.min(1, Math.max(0, n)) * 100)}%`;
+}
+
+function organizationEvidenceReason(row: any): string {
+  const role = row?.role === "primary" ? "fő témaként" : "említésként";
+  const pct = confidencePct(row?.confidence);
+  return pct
+    ? `Szervezeti találat: ${role} jelölve, ${pct} biztonsággal.`
+    : `Szervezeti találat: ${role} jelölve.`;
+}
+
+function entityEvidenceReason(kind: EntityKind, value: string, mode: "subject" | "mentioned" = "subject"): string {
+  if (kind === "person") {
+    return mode === "mentioned"
+      ? `Entitásbizonyíték: ${value} említésként szerepel az epizód adatai között.`
+      : `Entitásbizonyíték: ${value} róla vagy hozzá kapcsolódóan szerepel az epizód adatai között.`;
+  }
+  if (kind === "topic") return `Entitásbizonyíték: ${value} témaként szerepel az epizódban.`;
+  if (kind === "ticker") return `Entitásbizonyíték: ${value} tickerként szerepel az epizódban.`;
+  if (kind === "ingredient") return `Entitásbizonyíték: ${value} kulcsszóként szerepel az epizódban.`;
+  return `Entitásbizonyíték: ${value} szervezetként szerepel az epizódban.`;
+}
+
 interface EntityProfile {
   slug: string;
   display_name: string;
@@ -96,16 +122,27 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
           const { data: mapRows } = await supabase
             .from("episode_organization_map")
-            .select("episode_id")
+            .select("episode_id, role, confidence, source_evidence")
             .eq("organization_id", org.id)
             .limit(800);
+          const evidenceByEpisode = new Map<string, any>();
+          (mapRows || []).forEach((r: any) => {
+            if (!r?.episode_id) return;
+            const prev = evidenceByEpisode.get(r.episode_id);
+            if (!prev || Number(r.confidence || 0) > Number(prev.confidence || 0)) {
+              evidenceByEpisode.set(r.episode_id, r);
+            }
+          });
           const epIds = Array.from(new Set((mapRows || []).map((r: any) => r.episode_id))).filter(Boolean);
           if (epIds.length) {
             const { data: epRows } = await supabase
               .from("episodes")
               .select(selectCols)
               .in("id", epIds);
-            speakerMatches = epRows || [];
+            speakerMatches = (epRows || []).map((e: any) => ({
+              ...e,
+              why_matched: organizationEvidenceReason(evidenceByEpisode.get(e.id)),
+            }));
           }
         } else {
           // Fallback: no canonical org row — fall back to legacy slug match across
@@ -120,7 +157,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             const arr: string[] = e[col] || [];
             const hit = arr.find((v) => matchesEntitySlug(kind, v, decoded));
             if (hit) {
-              speakerMatches.push(e);
+              speakerMatches.push({ ...e, why_matched: entityEvidenceReason(kind, hit) });
               if (exemplar === decoded) exemplar = hit;
             }
           });
@@ -140,10 +177,10 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           const mentionedArr: string[] = kind === "person" ? (e.mentioned || []) : [];
           const hitMentioned = mentionedArr.find((v) => matchesEntitySlug(kind, v, decoded));
           if (hitPeople) {
-            speakerMatches.push(e);
+            speakerMatches.push({ ...e, why_matched: entityEvidenceReason(kind, hitPeople) });
             if (exemplar === decoded) exemplar = hitPeople;
           } else if (hitMentioned) {
-            mentionedMatches.push(e);
+            mentionedMatches.push({ ...e, why_matched: entityEvidenceReason(kind, hitMentioned, "mentioned") });
             if (exemplar === decoded) exemplar = hitMentioned;
           }
         });
