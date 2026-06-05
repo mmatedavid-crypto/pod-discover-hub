@@ -38,7 +38,15 @@ describe("production policy static guards", () => {
   it("keeps production deploy gap reporting actionable by pipeline area", () => {
     const reporter = read("scripts/report-production-deploy-gap.mjs");
     const vitestRunner = read("scripts/run-vitest.mjs");
+    const viteRunner = read("scripts/run-vite.mjs");
     const pkg = read("package.json");
+
+    expect(pkg).toContain('"build": "node scripts/run-vite.mjs build"');
+    expect(pkg).toContain('"build:dev": "node scripts/run-vite.mjs build --mode development"');
+    expect(viteRunner).toContain("canLoadRollupNative");
+    expect(viteRunner).toContain("@rollup/rollup-darwin-arm64");
+    expect(viteRunner).toContain(".cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node");
+    expect(viteRunner).toContain('const viteArgs = args.length ? args : ["build"]');
 
     expect(pkg).toContain('"test:codex": "node scripts/run-vitest.mjs"');
     expect(pkg).toContain('"test": "node scripts/run-vitest.mjs"');
