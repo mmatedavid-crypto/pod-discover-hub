@@ -134,13 +134,8 @@ Deno.serve(async (req) => {
       .upsert(row, { onConflict: "episode_id,model" });
     if (upErr) return jerr(upErr.message, 500);
 
-    // Lightweight audit row in youtube_transcript_attempts (best-effort).
-    await supabase.from("youtube_transcript_attempts").insert({
-      episode_id,
-      status: "imported",
-      source,
-      note: `model=${model} chars=${transcript.length}`,
-    }).then(() => {}, () => {});
+    // (Audit table has a strict status CHECK; skip writing to it from external ingest.)
+    void source;
 
     return new Response(JSON.stringify({ ok: true, episode_id, chars: transcript.length }), {
       headers: { ...cors, "Content-Type": "application/json" },
