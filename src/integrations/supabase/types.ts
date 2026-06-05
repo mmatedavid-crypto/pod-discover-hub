@@ -7973,6 +7973,23 @@ export type Database = {
       }
       normalize_podcast_title: { Args: { s: string }; Returns: string }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
+      pending_youtube_transcript_candidates: {
+        Args: {
+          p_limit?: number
+          p_min_match_score?: number
+          p_require_caption?: boolean
+        }
+        Returns: {
+          episode_id: string
+          match_score: number
+          podcast_id: string
+          validation_reason: Json
+          youtube_caption_available: boolean
+          youtube_description: string
+          youtube_duration_seconds: number
+          youtube_video_id: string
+        }[]
+      }
       people_alpha_letter_counts: {
         Args: never
         Returns: {
