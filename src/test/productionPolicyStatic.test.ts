@@ -703,6 +703,18 @@ describe("production policy static guards", () => {
     expect(staleCleanup).toContain("unrelated film-director wiki identity must not be used");
   });
 
+  it("keeps person bio generation closed for unapproved deceased or historical names", () => {
+    const generator = read("supabase/functions/person-bio-generator/index.ts");
+
+    expect(generator).toContain("function isUnapprovedTemporalTopicOnlyPerson");
+    expect(generator).toContain('skipped: "temporal_topic_only_person"');
+    expect(generator).toContain('p.persona === "historical"');
+    expect(generator).toContain("Boolean(p.date_of_death)");
+    expect(generator).toContain("p.is_living === false");
+    expect(generator).toContain("Puszta tally alapján nem állítható, hogy vendég vagy műsorvezető volt");
+    expect(generator).toContain("TILOS vendégként, interjúalanyként vagy műsorvezetőként bemutatni");
+  });
+
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
 

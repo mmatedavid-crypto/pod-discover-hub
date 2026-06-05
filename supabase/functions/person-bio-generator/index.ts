@@ -121,7 +121,7 @@ Szabályok:
 - HÁROM bio-típust fogadunk el:
   (A) WIKIPEDIA-ALAPÚ bio: minden tényállítást (foglalkozás, születés/halál, nemzetiség, szervezet, korszak, szerep) a Wikipedia extract/leírás KIFEJEZETTEN támogatnia kell.
   (B) EPIZÓD-LEÍRÁS-ALAPÚ bio (nincs Wikipedia, de a podcast-epizódok leírásai explicit megnevezik a személy nevét és foglalkozását/szerepét egy mondatban — pl. "X Y közgazdász", "Z W tájépítész", "az ELTE oktatója"). Ezek a foglalkozás-állítások ELFOGADHATÓK, ha a megadott epizód-evidence blokkban szóról szóra megtalálhatók.
-  (C) OBSZERVÁCIÓS bio (sem Wikipedia, sem releváns leírás): csak azt állíthatja, hogy a személy magyar podcastokban szerepel/szerepelt vendégként/műsorvezetőként/témaként. Konkrét szám, szerep (host/guest/subject) megengedett, ha a tally támogatja. ÉLETRAJZI tény NEM megengedett.
+  (C) OBSZERVÁCIÓS bio (sem Wikipedia, sem releváns leírás): csak azt állíthatja, hogy a személy neve magyar podcast epizódok témáiban vagy említéseiben előfordul. Puszta tally alapján nem állítható, hogy vendég vagy műsorvezető volt; ehhez explicit szerep-evidence kell. ÉLETRAJZI tény NEM megengedett.
 - Pass=true ha a bio (A), (B) vagy (C) szabályainak megfelel ÉS magyar nyelvű ÉS 20–500 karakter között van ÉS nem a szó szerinti "magyar podcast epizódokban előforduló személy" sablon.
 - Hipotetikus, "valószínűleg", reklámszerű, politikai értékelés → pass=false.
 - Légy szigorú a hallucinációra (kitalált tény), de NE bukdoss el azért, mert nincs Wikipedia — (B) és (C) érvényes bio.
@@ -209,6 +209,15 @@ function hasVerifiedWikiSource(p: any): boolean {
     && Boolean(p.wikipedia_extract || p.wikipedia_description);
 }
 
+function isUnapprovedTemporalTopicOnlyPerson(p: any): boolean {
+  if (p.manual_approved || p.has_archival_evidence) return false;
+  return p.is_deceased === true
+    || p.is_historical === true
+    || p.persona === "historical"
+    || Boolean(p.date_of_death)
+    || p.is_living === false;
+}
+
 function pickOverviewStyleLine(host: number, guest: number, subject: number, mentioned: number): string {
   if (host > 0 && host >= guest && host >= subject) return "host";
   if (guest > 0 && guest >= subject) return "guest";
@@ -221,6 +230,7 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
   if (!p) return { id: personId, skipped: "not_found" };
   // Activation/review gate
   if (!p.is_public || p.activation_status === "inactive") return { id: personId, skipped: "inactive" };
+  if (isUnapprovedTemporalTopicOnlyPerson(p)) return { id: personId, skipped: "temporal_topic_only_person" };
   if (["hide","reject","merge"].includes(p.ai_recommended_action || "")) return { id: personId, skipped: "ai_blocked" };
   if (["needs_human_review","duplicate_candidate"].includes(p.ai_review_status || "")) return { id: personId, skipped: "review_pending" };
 
@@ -339,9 +349,10 @@ SZABÁLYOK:
 - ÉLETRAJZI tényt csak akkor használj, ha (a) Wikipedia explicit tartalmazza VAGY (b) legalább egy epizód CÍME vagy LEÍRÁSA explicit megnevezi a nevet és a foglalkozást/szerepet ugyanazon mondatban. Szóról szóra alátámaszthatóság kötelező.
 - Ha Wikipedia VAN (verified vagy egyértelműen ráillő jelölt), kezdj életrajzi mondattal, majd 1 mondat podcast-kontextus.
 - Ha NINCS Wikipedia, de van [+szerep] evidence: kezdd a foglalkozással/szereppel ("Schmied Andi közgazdász, …"), majd 1 mondat hogy mely podcastokban / milyen témákban szólal meg.
-- Ha SEM Wikipedia SEM szerep-evidence nincs, írj OBSZERVÁCIÓS bio-t konkrét podcast-címekkel és a tally alapján vendég/műsorvezető/téma minőséggel.
+- Ha SEM Wikipedia SEM szerep-evidence nincs, írj OBSZERVÁCIÓS bio-t konkrét podcast-címekkel és téma/említés minőséggel. Ilyenkor TILOS vendégként, interjúalanyként vagy műsorvezetőként bemutatni.
 - SOHA ne találj ki életrajzi adatot. "Valószínűleg", "úgy tudni", reklám, politikai értékelés TILOS.
 - SOHA ne nevezd "műsorvezetőnek", ha a tally.host=0.
+- SOHA ne állítsd, hogy vendégként vagy műsorvezetőként szerepel, ha nincs explicit [+szerep] evidence vagy verified podcast-role adat.
 - ABSZOLÚT TILOS visszaadni vagy parafrázálni: "magyar podcast epizódokban előforduló személy" / "magyar podcast adásokban megjelenő személy" / "az alábbi epizódokban kapcsolódó beszélgetések". Konkrét szerepet, foglalkozást VAGY podcast-címet KÖTELEZŐ említened.
 - Csak a bio szövegét add vissza, semmi mást.`;
 
