@@ -41,6 +41,8 @@ describe("production policy static guards", () => {
     const pkg = read("package.json");
 
     expect(pkg).toContain('"test:codex": "node scripts/run-vitest.mjs"');
+    expect(pkg).toContain('"test": "node scripts/run-vitest.mjs"');
+    expect(pkg).toContain('"test:watch": "node scripts/run-vitest.mjs --watch"');
     expect(vitestRunner).toContain("canLoadRollupNative");
     expect(vitestRunner).toContain("@rollup/rollup-darwin-arm64");
     expect(vitestRunner).toContain(".cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node");

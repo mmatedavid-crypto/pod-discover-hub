@@ -19,8 +19,8 @@
     "report:production-deploy-prompt": "node scripts/report-production-deploy-gap.mjs --lovable-prompt",
     "preflight:migrations": "node scripts/preflight-migrations.mjs",
     "test:codex": "node scripts/run-vitest.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "node scripts/run-vitest.mjs",
+    "test:watch": "node scripts/run-vitest.mjs --watch"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
