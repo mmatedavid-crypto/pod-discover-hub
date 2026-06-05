@@ -64,6 +64,7 @@ describe("production policy static guards", () => {
       "20260603164000_article_pipeline_consolidated.sql",
       "20260605210000_reassert_article_pairer_sources_v4.sql",
       "20260605211000_episode_article_candidates_readonly_policy.sql",
+      "20260605225000_reassert_article_pairer_brand_anchor_patterns.sql",
       "20260603111500_news_sitemap_fast_refresh_cron.sql",
       "20260603221000_news_sitemap_gsc_connector_gateway.sql",
       "20260604094229_reassert_news_sitemap_gsc_connector.sql",
@@ -185,6 +186,9 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("article_candidates_readable_by_verifier");
     expect(verifier).toContain("episode_article_pairer_progress?.total_article_candidates");
     expect(verifier).toContain("sources_v4_configured");
+    expect(verifier).toContain("brand_anchor_pattern_policy_recorded");
+    expect(verifier).toContain("pattern_safety_version_recorded");
+    expect(verifier).toContain("no_generic_article_pairer_title_patterns");
     expect(verifier).toContain("multi_source_run_configured");
     expect(verifier).toContain("episode_article_pairer_progress");
 
@@ -613,6 +617,7 @@ describe("production policy static guards", () => {
   it("keeps publisher article matching wired into best text source", () => {
     const migration = read("supabase/migrations/20260603164000_article_pipeline_consolidated.sql");
     const reassertMigration = read("supabase/migrations/20260605210000_reassert_article_pairer_sources_v4.sql");
+    const strictPatternsMigration = read("supabase/migrations/20260605225000_reassert_article_pairer_brand_anchor_patterns.sql");
     const readonlyPolicyMigration = read("supabase/migrations/20260605211000_episode_article_candidates_readonly_policy.sql");
     const pairer = read("supabase/functions/episode-article-pairer/index.ts");
     const fastLane = read("supabase/functions/database-quality-fast-lane/index.ts");
@@ -632,6 +637,16 @@ describe("production policy static guards", () => {
     expect(reassertMigration).toContain("'sources_per_run', 3");
     expect(reassertMigration).toContain("'outlet', 'qubit'");
     expect(reassertMigration).toContain("'article_pairer_sources_per_run', 3");
+    expect(strictPatternsMigration).toContain("'pattern_safety_version', 'brand_anchor_no_topic_words_v1'");
+    expect(strictPatternsMigration).toContain("'patterns_policy', 'brand_or_show_name_only_no_topic_words'");
+    expect(strictPatternsMigration).toContain("'blocked_generic_title_patterns'");
+    expect(strictPatternsMigration).toContain("'podcast_title_patterns', jsonb_build_array('hvg', 'fülke')");
+    expect(strictPatternsMigration).toContain("'podcast_title_patterns', jsonb_build_array('portfolio', 'portfolio checklist')");
+    expect(strictPatternsMigration).toContain("'podcast_title_patterns', jsonb_build_array('hold', 'hold after hours', 'holdblog')");
+    expect(strictPatternsMigration).toContain("'podcast_title_patterns', jsonb_build_array('telex', 'telex after', 'nyomozó podcast', 'ízfokozó', 'telex filmklub')");
+    expect(strictPatternsMigration).not.toContain("jsonb_build_array('hvg', 'fülke', 'közélet'");
+    expect(strictPatternsMigration).not.toContain("jsonb_build_array('portfolio', 'checklist'");
+    expect(strictPatternsMigration).not.toContain("jsonb_build_array('hold', 'hold after hours', 'holdblog', 'after hours'");
     expect(readonlyPolicyMigration).toContain("current_user = 'readonly_codex'");
     expect(readonlyPolicyMigration).toContain("episode_article_candidate_readonly_policy");
 
@@ -646,6 +661,7 @@ describe("production policy static guards", () => {
     expect(bestSource).toContain("confirmed_publisher_article_longer_or_rss_short");
 
     expect(verifier).toContain("source_count_at_least_6");
+    expect(verifier).toContain("no_generic_article_pairer_title_patterns");
     expect(verifier).toContain("best_source_accepts_article");
     expect(verifier).toContain("best_source_article_policy");
   });

@@ -178,6 +178,18 @@ SELECT jsonb_build_object(
     'controls_configured', (SELECT setting_values->'episode_article_pairer_controls' IS NOT NULL FROM settings),
     'sources_v3_configured', (SELECT setting_values->'episode_article_pairer_controls'->>'source_version' IN ('publisher_sources_v3', 'publisher_sources_v4') FROM settings),
     'sources_v4_configured', (SELECT setting_values->'episode_article_pairer_controls'->>'source_version' = 'publisher_sources_v4' FROM settings),
+    'brand_anchor_pattern_policy_recorded', (SELECT setting_values->'episode_article_pairer_controls'->>'patterns_policy' = 'brand_or_show_name_only_no_topic_words' FROM settings),
+    'pattern_safety_version_recorded', (SELECT setting_values->'episode_article_pairer_controls'->>'pattern_safety_version' = 'brand_anchor_no_topic_words_v1' FROM settings),
+    'no_generic_article_pairer_title_patterns', NOT EXISTS (
+      SELECT 1
+      FROM settings,
+      LATERAL jsonb_array_elements(COALESCE(setting_values->'episode_article_pairer_controls'->'sources', '[]'::jsonb)) source,
+      LATERAL jsonb_array_elements_text(COALESCE(source->'podcast_title_patterns', '[]'::jsonb)) pattern(value)
+      WHERE lower(pattern.value) = ANY (ARRAY[
+        'téma', 'közélet', 'gazdaság', 'tech', 'tudomány',
+        'biznisz', 'forint', 'tőzsde', 'befektetés', 'checklist', 'after'
+      ])
+    ),
     'multi_source_run_configured', (SELECT COALESCE((setting_values->'episode_article_pairer_controls'->>'sources_per_run')::int, 1) >= 2 FROM settings),
     'source_count_at_least_6', (SELECT jsonb_array_length(COALESCE(setting_values->'episode_article_pairer_controls'->'sources', '[]'::jsonb)) >= 6 FROM settings),
     'best_source_article_policy', (SELECT setting_values->'episode_best_text_source_controls'->>'policy' = 'best_text_source_v2_confirmed_article_youtube_first'
