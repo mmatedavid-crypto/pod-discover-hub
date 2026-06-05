@@ -251,7 +251,8 @@ Deno.serve(async (req) => {
       const ytDescLen = String(c.youtube_description || "").trim().length;
       return rssLen < shortRssChars || ytDescLen >= Math.max(minYoutubeDescriptionChars, rssLen + minDescriptionGainChars);
     }).slice(0, maxCallsPerRun);
-    if (!todo.length) return json({ ok: true, all_done: true, scanned: cands.length });
+    console.log(`[ytt] unique=${unique.length} have=${have.size} blocked=${blockedVideos.size} todo=${todo.length} maxCalls=${maxCallsPerRun}`);
+    if (!todo.length) return json({ ok: true, all_done: true, scanned: cands.length, unique: unique.length, have: have.size, blocked: blockedVideos.size });
 
     let ok = 0, no_captions = 0, errors = 0, callsMade = 0, skipped_existing_attempt = 0;
     const errorDetails: any[] = [];
