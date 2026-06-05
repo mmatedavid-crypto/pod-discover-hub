@@ -38,6 +38,21 @@ describe("smart player recommendation policy", () => {
     expect(chapters).not.toContain("AI fejezetek");
   });
 
+  it("keeps dormant related episodes ready for safe consumer-facing reactivation", () => {
+    const related = read("src/components/smart-player/RelatedEpisodes.tsx");
+
+    expect(related).toContain("id,podcast_id,title,display_title,slug,image_url");
+    expect(related).toContain("image_url: r.image_url");
+    expect(related).toContain("imageUrl: r.image_url || r.podcast_image_url");
+    expect(related).toContain("r.image_url || r.podcast_image_url");
+    expect(related).toContain("Erős tartalmi kapcsolat más magyar műsorból");
+    expect(related).not.toContain("epizód-index");
+    expect(related).not.toContain("% tartalmi");
+    expect(related).not.toContain("% hasonlóság");
+    expect(related).not.toContain("imageUrl: r.podcast_image_url");
+    expect(related).not.toContain("src={optimizedImageUrl(r.podcast_image_url");
+  });
+
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
     const migration = read("supabase/migrations/20260605003000_recommendation_compatibility_v5_entity_bridge.sql");
 

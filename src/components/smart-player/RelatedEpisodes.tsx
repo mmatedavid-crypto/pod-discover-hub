@@ -21,6 +21,7 @@ type Row = {
   description: string | null;
   published_at: string | null;
   audio_url: string | null;
+  image_url?: string | null;
   topics?: string[] | null;
   people?: string[] | null;
   companies?: string[] | null;
@@ -42,9 +43,9 @@ function snippet(r: Row): string {
 }
 
 function reason(r: Row): string {
-  const sim = Math.round((r.similarity || 0) * 100);
-  if (sim >= 70) return `${sim}% tartalmi egyezés az epizód-index alapján`;
-  if (sim >= 55) return `${sim}% hasonlóság, rokon téma más műsorból`;
+  const sim = r.similarity || 0;
+  if (sim >= 0.7) return "Erős tartalmi kapcsolat más magyar műsorból";
+  if (sim >= 0.55) return "Rokon téma más műsorból";
   return "Rokon téma más műsorból";
 }
 
@@ -112,7 +113,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
 
       // Fallback when no episode embedding: explicit shared topics / people / category only.
       const sel =
-        "id,podcast_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,rss_status,is_hungarian,rank_label)";
+        "id,podcast_id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,rss_status,is_hungarian,rank_label)";
 
       const probes: any[] = [];
       if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
@@ -140,6 +141,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         description: r.description,
         published_at: r.published_at,
         audio_url: r.audio_url,
+        image_url: r.image_url,
         topics: r.topics,
         people: r.people,
         companies: r.companies,
@@ -196,7 +198,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
               podcastTitle: r.podcast_display_title || r.podcast_title,
               podcastSlug: r.podcast_slug,
               episodeSlug: r.slug,
-              imageUrl: r.podcast_image_url,
+              imageUrl: r.image_url || r.podcast_image_url,
               audioUrl: r.audio_url!,
             };
             return (
@@ -204,10 +206,10 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
                 key={r.episode_id}
                 className="snap-start shrink-0 w-[220px] rounded-xl border border-border bg-card/60 hover:bg-card transition-colors p-3 flex flex-col gap-2"
               >
-                {r.podcast_image_url && (
+                {(r.image_url || r.podcast_image_url) && (
                   <img
-                    src={optimizedImageUrl(r.podcast_image_url, { width: 240, height: 120 }) || r.podcast_image_url}
-                    srcSet={imageSrcSet(r.podcast_image_url, [180, 240, 320])}
+                    src={optimizedImageUrl(r.image_url || r.podcast_image_url, { width: 240, height: 120 }) || r.image_url || r.podcast_image_url || ""}
+                    srcSet={imageSrcSet(r.image_url || r.podcast_image_url, [180, 240, 320])}
                     sizes="220px"
                     alt=""
                     className="h-24 w-full rounded-md object-cover border border-border"
@@ -249,7 +251,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
               podcastTitle: r.podcast_display_title || r.podcast_title,
               podcastSlug: r.podcast_slug,
               episodeSlug: r.slug,
-              imageUrl: r.podcast_image_url,
+              imageUrl: r.image_url || r.podcast_image_url,
               audioUrl: r.audio_url!,
             };
             return (
@@ -257,10 +259,10 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
                 key={r.episode_id}
                 className="group flex items-start gap-3 rounded-lg border border-border bg-card/60 hover:bg-card transition-colors p-2.5"
               >
-                {r.podcast_image_url && (
+                {(r.image_url || r.podcast_image_url) && (
                   <img
-                    src={optimizedImageUrl(r.podcast_image_url, { width: 64, height: 64 }) || r.podcast_image_url}
-                    srcSet={imageSrcSet(r.podcast_image_url, [48, 64, 96])}
+                    src={optimizedImageUrl(r.image_url || r.podcast_image_url, { width: 64, height: 64 }) || r.image_url || r.podcast_image_url || ""}
+                    srcSet={imageSrcSet(r.image_url || r.podcast_image_url, [48, 64, 96])}
                     sizes="48px"
                     alt=""
                     className="h-12 w-12 rounded-md object-cover shrink-0 border border-border"
