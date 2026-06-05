@@ -62,6 +62,22 @@ function parseCreateFunctions(sql) {
   return out;
 }
 
+function parseInsertColumns(sql) {
+  const out = [];
+  const rx = /INSERT\s+INTO\s+public\.([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*(?:VALUES|SELECT|WITH)/gi;
+  let match;
+  while ((match = rx.exec(sql))) {
+    const [, table, rawColumns] = match;
+    const columns = rawColumns
+      .split(",")
+      .map((part) => part.trim().replace(/^"|"$/g, ""))
+      .filter((part) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(part));
+    if (!columns.length) continue;
+    out.push({ table, columns });
+  }
+  return out;
+}
+
 function runReadonlyQuery(sql) {
   const out = execFileSync(
     process.execPath,
@@ -96,6 +112,21 @@ function loadProductionFunction(name, argsForLookup) {
   return result.rows?.[0] || null;
 }
 
+const columnCache = new Map();
+function loadProductionColumns(table) {
+  if (!process.env.DATABASE_URL) return null;
+  if (columnCache.has(table)) return columnCache.get(table);
+  const result = runReadonlyQuery(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = '${sqlLiteral(table)}';
+  `);
+  const columns = new Set((result.rows || []).map((row) => row.column_name));
+  columnCache.set(table, columns);
+  return columns;
+}
+
 const files = listMigrationFiles();
 const findings = [];
 const checked = [];
@@ -104,9 +135,10 @@ for (const file of files) {
   const rel = path.relative(repoRoot, file);
   const sql = fs.readFileSync(file, "utf8");
   const functions = parseCreateFunctions(sql);
+  const insertColumns = parseInsertColumns(sql);
   for (const fn of functions) {
     if (!fn.result.toUpperCase().startsWith("TABLE(")) continue;
-    checked.push({ file: rel, name: fn.name, args: fn.argsForLookup, has_prior_drop: fn.hasPriorDrop });
+    checked.push({ type: "returns_table_shape", file: rel, name: fn.name, args: fn.argsForLookup, has_prior_drop: fn.hasPriorDrop });
     const production = loadProductionFunction(fn.name, fn.argsForLookup);
     if (!production) continue;
     const nextResult = normalizeWhitespace(fn.result);
@@ -119,6 +151,20 @@ for (const file of files) {
         issue: "returns_table_shape_changes_without_prior_drop",
         current_result: currentResult,
         migration_result: nextResult,
+      });
+    }
+  }
+  for (const insert of insertColumns) {
+    checked.push({ type: "insert_columns", file: rel, table: insert.table, columns: insert.columns });
+    const productionColumns = loadProductionColumns(insert.table);
+    if (!productionColumns) continue;
+    const missingColumns = insert.columns.filter((column) => !productionColumns.has(column));
+    if (missingColumns.length) {
+      findings.push({
+        file: rel,
+        table: insert.table,
+        issue: "insert_references_missing_columns",
+        missing_columns: missingColumns,
       });
     }
   }

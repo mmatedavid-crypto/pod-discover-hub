@@ -40,6 +40,7 @@ describe("production policy static guards", () => {
     const vitestRunner = read("scripts/run-vitest.mjs");
     const viteRunner = read("scripts/run-vite.mjs");
     const deployDoc = read("docs/production-backend-deploy.md");
+    const preflight = read("scripts/preflight-migrations.mjs");
     const pkg = read("package.json");
 
     expect(pkg).toContain('"build": "node scripts/run-vite.mjs build"');
@@ -102,6 +103,10 @@ describe("production policy static guards", () => {
     expect(deployDoc).toContain("local verification commands (`node scripts/run-vitest.mjs`");
     expect(deployDoc).toContain("`node scripts/run-vite.mjs build`)");
     expect(deployDoc).toContain("explicit migration preflight");
+    expect(deployDoc).toContain("public-table insert column checks");
+    expect(preflight).toContain("function parseInsertColumns");
+    expect(preflight).toContain("information_schema.columns");
+    expect(preflight).toContain("insert_references_missing_columns");
     expect(deployDoc).toContain("Legacy clean-text backfill is quality-gated");
     for (const group of [
       "clean_text_backfill_gates",

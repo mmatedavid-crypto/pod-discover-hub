@@ -40,7 +40,8 @@ The prompt is generated from the current production verifiers and includes:
 - missing migration/function/worker artifacts, if any, as a stop condition;
 - local verification commands (`node scripts/run-vitest.mjs`,
   `node scripts/run-vite.mjs build`);
-- explicit migration preflight for the pending migration list;
+- explicit migration preflight for the pending migration list, including
+  `RETURNS TABLE` shape checks and public-table insert column checks;
 - Supabase migration and Edge Function redeploy lists;
 - post-deploy verification commands.
 
