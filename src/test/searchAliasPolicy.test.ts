@@ -49,6 +49,7 @@ describe("Hungarian search alias policy", () => {
     const eponymMigration = read("supabase/migrations/20260604211500_company_eponym_person_safety.sql");
     const collisionMigration = read("supabase/migrations/20260605123000_organization_person_name_collision_guard.sql");
     const canonicalReassertMigration = read("supabase/migrations/20260605190000_reassert_canonical_entity_alias_registry.sql");
+    const safeOrgMergeMigration = read("supabase/migrations/20260606001000_reassert_safe_organization_merge_rpc.sql");
     const productionVerifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(synonyms).toContain('fradi: ["FTC", "Ferencváros", "Ferencvárosi Torna Club", "labdarúgás"]');
@@ -103,9 +104,20 @@ describe("Hungarian search alias policy", () => {
     expect(canonicalReassertMigration).toContain("organization_aliases_projection");
     expect(canonicalReassertMigration).toContain("topic_aliases_projection");
     expect(canonicalReassertMigration).toContain("canonical_aliases_reassert_20260605");
+    expect(safeOrgMergeMigration).toContain("CREATE OR REPLACE FUNCTION public.merge_organizations");
+    expect(safeOrgMergeMigration).toContain("safe_merge_v2");
+    expect(safeOrgMergeMigration).toContain("REVOKE EXECUTE ON FUNCTION public.merge_organizations(uuid, uuid, text) FROM PUBLIC, anon, authenticated");
+    expect(safeOrgMergeMigration).toContain("GRANT EXECUTE ON FUNCTION public.merge_organizations(uuid, uuid, text) TO service_role");
+    expect(safeOrgMergeMigration).toContain("canonical_alias_merge_policy");
+    expect(safeOrgMergeMigration).toContain("DELETE FROM episode_organization_map");
+    expect(safeOrgMergeMigration).toContain("UPDATE episode_organization_map SET organization_id = p_dst");
+    expect(safeOrgMergeMigration).toContain("action = ANY (ARRAY['renamed','collision_skipped','noop','merged'])");
     expect(productionVerifier).toContain("canonical_alias_table");
     expect(productionVerifier).toContain("canonical_alias_normalizer");
     expect(productionVerifier).toContain("canonical_alias_resolver");
     expect(productionVerifier).toContain("canonical_alias_policy");
+    expect(productionVerifier).toContain("canonical_org_merge_rpc");
+    expect(productionVerifier).toContain("canonical_org_merge_service_role_only");
+    expect(productionVerifier).toContain("canonical_org_merge_policy_v2");
   });
 });

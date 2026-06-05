@@ -139,6 +139,13 @@ SELECT jsonb_build_object(
     'canonical_alias_normalizer', to_regprocedure('public.normalize_entity_alias(text)') IS NOT NULL,
     'canonical_alias_resolver', to_regprocedure('public.resolve_canonical_entity_alias(text,text)') IS NOT NULL,
     'canonical_alias_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'canonical_alias_policy'),
+    'canonical_org_merge_rpc', to_regprocedure('public.merge_organizations(uuid,uuid,text)') IS NOT NULL,
+    'canonical_org_merge_service_role_only', (
+      has_function_privilege('service_role', 'public.merge_organizations(uuid, uuid, text)', 'EXECUTE')
+      AND NOT has_function_privilege('anon', 'public.merge_organizations(uuid, uuid, text)', 'EXECUTE')
+      AND NOT has_function_privilege('authenticated', 'public.merge_organizations(uuid, uuid, text)', 'EXECUTE')
+    ),
+    'canonical_org_merge_policy_v2', COALESCE((SELECT (value->>'version')::int >= 2 FROM public.app_settings WHERE key = 'canonical_alias_merge_policy'), false),
     'temporal_person_guard_policy_v6', COALESCE((SELECT (value->>'version')::int >= 6 FROM public.app_settings WHERE key = 'temporal_person_public_guard_policy'), false),
     'no_public_unapproved_dead_or_historical_people', NOT EXISTS (
       SELECT 1

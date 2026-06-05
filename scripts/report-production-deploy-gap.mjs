@@ -89,6 +89,12 @@ const GROUPS = {
     functions: ["search-golden-refresh", "search-benchmark-runner", "search-hybrid"],
     why: "B2B személy/cég/téma monitoring csak entitás-címkézett golden lekérdezéseken mérve legyen megbízható; elhunyt/történelmi személy ne maradjon podcast-person monitoring target.",
   },
+  canonical_alias_backfill: {
+    label: "Canonical alias backfill and reviewed organization merges",
+    migrations: ["supabase/migrations/20260606001000_reassert_safe_organization_merge_rpc.sql"],
+    functions: [],
+    why: "A canonical alias registry csak akkor javít meglévő szervezeti duplikátumokat, ha a review-zott ütközések biztonságos merge RPC-n mennek át.",
+  },
   people_hub_identity_safety: {
     label: "People hub identity safety",
     migrations: [
@@ -183,6 +189,9 @@ const unmappedFailures = [];
 
 function groupKeyForFailure(failure) {
   const key = String(failure).split(".")[0];
+  if (key === "migration_gates" && String(failure).includes("canonical_org_merge")) {
+    return "canonical_alias_backfill";
+  }
   if (key === "migration_gates" && String(failure).includes("temporal_person")) {
     return "people_hub_identity_safety";
   }

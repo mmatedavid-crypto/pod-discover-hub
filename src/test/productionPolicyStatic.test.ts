@@ -72,6 +72,9 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("Local source tree is dirty; commit and push the local changes before asking Lovable to deploy:");
     expect(reporter).toContain("groupKeyForFailure");
     expect(reporter).toContain("migration_gates");
+    expect(reporter).toContain("canonical_org_merge");
+    expect(reporter).toContain("canonical_alias_backfill");
+    expect(reporter).toContain("20260606001000_reassert_safe_organization_merge_rpc.sql");
     expect(reporter).toContain("suspicious_temporal_participants");
     expect(reporter).toContain("const unmappedFailures = []");
     expect(reporter).toContain("unmappedFailures.push(failure)");
@@ -123,6 +126,7 @@ describe("production policy static guards", () => {
       "smart_player_recommendation_surface",
       "search_quality_benchmark",
       "entity_monitoring_benchmark",
+      "canonical_alias_backfill",
       "people_hub_identity_safety",
       "edge_worker_seo",
     ]) {
