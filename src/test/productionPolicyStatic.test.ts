@@ -74,6 +74,7 @@ describe("production policy static guards", () => {
       "20260605003000_recommendation_compatibility_v5_entity_bridge.sql",
       "20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql",
       "20260605214000_reassert_related_quality_policy_v5_settings.sql",
+      "20260605215000_reassert_related_public_affairs_override_terms.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "20260605200000_reassert_temporal_person_public_guard.sql",
@@ -649,6 +650,7 @@ describe("production policy static guards", () => {
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reassertV5 = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
     const policySettingsV5 = read("supabase/migrations/20260605214000_reassert_related_quality_policy_v5_settings.sql");
+    const publicAffairsOverrideTerms = read("supabase/migrations/20260605215000_reassert_related_public_affairs_override_terms.sql");
     const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
     const peopleHubFilterMigration = read("supabase/migrations/20260604213000_people_hub_identity_safe_filters.sql");
     const prerender = read("supabase/functions/prerender/index.ts");
@@ -682,6 +684,9 @@ describe("production policy static guards", () => {
     expect(policySettingsV5).toContain("'specific_to_general', 'explicit_bridge_required'");
     expect(policySettingsV5).toContain("'general_to_specific', 'explicit_bridge_required'");
     expect(policySettingsV5).toContain("20260605214000_reassert_related_quality_policy_v5_settings");
+    expect(publicAffairsOverrideTerms).toContain("'public_affairs_override_terms'");
+    expect(publicAffairsOverrideTerms).toContain("public_affairs_override_terms_reasserted_by");
+    expect(publicAffairsOverrideTerms).toContain("20260605215000_reassert_related_public_affairs_override_terms");
     expect(verifier).toContain("list_people_hub_has_identity_fields");
     expect(verifier).toContain("list_people_alpha_has_identity_fields");
     expect(verifier).toContain("policy_configured_v2");
