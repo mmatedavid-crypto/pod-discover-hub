@@ -88,8 +88,7 @@ Deno.serve(async (req) => {
     for (const hint of pos.slice(0, 8)) {
       const { data } = await admin
         .from("episodes")
-        .select("id, title, description, ai_summary, search_text, podcast_id, podcasts!inner(is_hungarian, language_decision)")
-        .eq("podcasts.is_hungarian", true)
+        .select("id, title, description, ai_summary, search_text, podcast_id, podcasts!inner(language_decision)")
         .eq("podcasts.language_decision", "accept_hungarian")
         .or(`title.ilike.%${hint}%,description.ilike.%${hint}%,ai_summary.ilike.%${hint}%,search_text.ilike.%${hint}%`)
         .limit(40);
@@ -129,9 +128,8 @@ Deno.serve(async (req) => {
     {
       const { data } = await admin
         .from("episode_topic_map")
-        .select("episode_id, episodes!inner(id, title, description, ai_summary, podcast_id, podcasts!inner(is_hungarian, language_decision))")
+        .select("episode_id, episodes!inner(id, title, description, ai_summary, podcast_id, podcasts!inner(language_decision))")
         .eq("topic_id", t.id)
-        .eq("episodes.podcasts.is_hungarian", true)
         .eq("episodes.podcasts.language_decision", "accept_hungarian")
         .limit(200);
       for (const r of (data || [])) {
@@ -150,10 +148,9 @@ Deno.serve(async (req) => {
         const sinceISO = new Date(Date.now() - 365 * 86400_000).toISOString();
         const { data } = await admin
           .from("episodes")
-          .select("id, title, description, ai_summary, podcast_id, podcasts!inner(is_hungarian, language_decision)")
+          .select("id, title, description, ai_summary, podcast_id, podcasts!inner(language_decision)")
           .in("podcast_id", pids)
           .gt("published_at", sinceISO)
-          .eq("podcasts.is_hungarian", true)
           .eq("podcasts.language_decision", "accept_hungarian")
           .limit(120);
         for (const e of (data || [])) {

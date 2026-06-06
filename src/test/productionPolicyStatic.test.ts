@@ -834,6 +834,9 @@ describe("production policy static guards", () => {
     expect(runner).toContain("deterministic-category-guard-v2");
     expect(runner).toContain("deterministic_count");
     expect(runner).toContain("website_url, rss_url, category, shadow_rank_tier");
+    expect(runner).toContain('.eq("language_decision", "accept_hungarian")');
+    expect(runner).not.toContain('.eq("is_hungarian", true)');
+    expect(runner).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
     for (const term of ["zarandok", "maria ut", "gyulekezet", "baptista", "istentisztelet", "predikacio", "igehirdetes", "biblia"]) {
       expect(runner).toContain(term);
       expect(migration).toContain(term);
@@ -843,6 +846,24 @@ describe("production policy static guards", () => {
     expect(migration).toContain("Zarándok.ma");
     expect(migration).toContain("titleish !~");
     expect(migration).toContain("orban");
+  });
+
+  it("uses accepted language decisions for topic taxonomy pipelines without the legacy RSS HU flag", () => {
+    const files = [
+      "supabase/functions/categorize-podcast-runner/index.ts",
+      "supabase/functions/episode-topic-extractor/index.ts",
+      "supabase/functions/topic-candidates-runner/index.ts",
+      "supabase/functions/topic-judge-runner/index.ts",
+    ];
+
+    for (const file of files) {
+      const source = read(file);
+      expect(source).toContain('language_decision", "accept_hungarian"');
+      expect(source).not.toContain("is_hungarian");
+      expect(source).not.toContain("is_hungarian.eq.true");
+      expect(source).not.toContain('eq("podcasts.is_hungarian", true)');
+      expect(source).not.toContain('eq("episodes.podcasts.is_hungarian", true)');
+    }
   });
 
   it("keeps publisher article matching wired into best text source", () => {

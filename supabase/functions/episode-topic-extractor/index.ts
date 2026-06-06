@@ -164,11 +164,10 @@ Deno.serve(async (req) => {
       // extraction itself is gated below on promoted deterministic_v4 clean text.
       const { data: epsRaw, error: selErr } = await admin
         .from("episodes")
-        .select("id, title, podcast_id, podcasts!inner(rank_label, language, is_hungarian, language_decision)")
+        .select("id, title, podcast_id, podcasts!inner(rank_label, language, language_decision)")
         .eq("topic_extraction_status", "pending")
         .eq("clean_text_status", "done")
         .in("podcasts.rank_label", tierFilter)
-        .eq("podcasts.is_hungarian", true)
         .eq("podcasts.language_decision", "accept_hungarian")
         .limit(batchSize);
       if (selErr) return json({ ok: false, error: selErr.message }, 500);

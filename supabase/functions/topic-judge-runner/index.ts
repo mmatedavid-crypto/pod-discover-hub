@@ -185,10 +185,9 @@ Döntsd el, hogy az EPIZÓD-szintű tartalom valóban a TÉMÁROL szól-e.`;
     if (mySpend >= dailyBudget) break;
 
     let q = admin.from("episode_topic_relevance_reviews")
-      .select("id, candidate_source, topic_id, topics!inner(id, name, slug, description, intro_text, positive_hints, negative_hints), episodes!inner(id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, category, is_hungarian, language_decision))")
+      .select("id, candidate_source, topic_id, topics!inner(id, name, slug, description, intro_text, positive_hints, negative_hints), episodes!inner(id, title, display_title, description, ai_summary, podcast_id, podcasts!inner(title, display_title, category, language_decision))")
       .eq("status", "needs_review")
       .eq("reviewed_by", "rule")
-      .eq("episodes.podcasts.is_hungarian", true)
       .eq("episodes.podcasts.language_decision", "accept_hungarian");
     if (priorityTopicIds.length) q = q.in("topic_id", priorityTopicIds);
     const { data: rows, error } = await q.order("created_at", { ascending: true }).limit(batch);

@@ -269,9 +269,9 @@ Deno.serve(async (req) => {
         if (need <= 0) break;
         let q = admin
           .from("podcasts")
-          .select("id, title, display_title, slug, description, website_url, rss_url, category, shadow_rank_tier, shadow_rank_components, ai_category_confidence")
+          .select("id, title, display_title, slug, description, website_url, rss_url, category, shadow_rank_tier, shadow_rank_components, ai_category_confidence, language_decision")
           .eq("shadow_rank_tier", tier)
-          .eq("is_hungarian", true)
+          .eq("language_decision", "accept_hungarian")
           .order("podiverzum_rank", { ascending: false, nullsFirst: false })
           .limit(need * 3); // overfetch — we filter+dedupe below
         if (recategorize) {
@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
         .select("id", { count: "exact", head: true })
         .is("category", null)
         .in("shadow_rank_tier", ["S","A","B","C"])
-        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+        .eq("language_decision", "accept_hungarian");
       totalRemaining = Number(remaining || 0);
       // Stepped backoff (2026-05-12): rate_limit no longer crashes cadence to */30 —
       // we slow down ONE notch instead, so a transient 429 doesn't kill throughput
