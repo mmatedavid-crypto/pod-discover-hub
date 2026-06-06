@@ -1,0 +1,1 @@
+ALTER VIEW public.v_canonical_topic_aliases SET (security_invoker = true);
