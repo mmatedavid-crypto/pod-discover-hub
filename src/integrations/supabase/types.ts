@@ -8117,10 +8117,12 @@ export type Database = {
         Args: { _canonical_id: string; _duplicate_id: string; _reason?: string }
         Returns: Json
       }
-      merge_organizations: {
-        Args: { p_dst: string; p_note?: string; p_src: string }
-        Returns: Json
-      }
+      merge_organizations:
+        | {
+            Args: { p_dst: string; p_note?: string; p_src: string }
+            Returns: Json
+          }
+        | { Args: { dst_id: string; src_id: string }; Returns: Json }
       move_to_dlq: {
         Args: {
           dlq_name: string
