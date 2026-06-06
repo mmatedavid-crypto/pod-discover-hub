@@ -83,8 +83,7 @@ Deno.serve(async (req) => {
 
     const { data: rows, error: queueErr } = await admin
       .from("episodes")
-      .select("id,podcast_id,title,display_title,published_at,podcasts!inner(title,display_title,rank_label,podiverzum_rank,is_hungarian,language_decision,rss_status)")
-      .eq("podcasts.is_hungarian", true)
+      .select("id,podcast_id,title,display_title,published_at,podcasts!inner(title,display_title,rank_label,podiverzum_rank,language_decision,rss_status)")
       .eq("podcasts.language_decision", "accept_hungarian")
       .not("podcasts.rss_status", "in", "(failed,inactive)")
       .or("episode_rank.is.null,episode_rank.neq.1,episode_rank_label.not.is.null")

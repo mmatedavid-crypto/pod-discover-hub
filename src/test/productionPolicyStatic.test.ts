@@ -812,6 +812,24 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("uses accepted language decisions for entity intelligence pipelines without the legacy RSS HU flag", () => {
+    const files = [
+      "supabase/functions/entity-profile-runner/index.ts",
+      "supabase/functions/entity-backfill-runner/index.ts",
+      "supabase/functions/organization-ai-reviewer/index.ts",
+      "supabase/functions/data-repair-apply-runner/index.ts",
+      "supabase/functions/intelligence-reprocess-admin/index.ts",
+    ];
+
+    for (const file of files) {
+      const source = read(file);
+      expect(source).toContain('language_decision", "accept_hungarian"');
+      expect(source).not.toContain("is_hungarian");
+      expect(source).not.toContain('eq("podcasts.is_hungarian", true)');
+      expect(source).not.toContain('eq("episodes.podcasts.is_hungarian", true)');
+    }
+  });
+
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
 

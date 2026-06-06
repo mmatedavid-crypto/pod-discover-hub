@@ -162,9 +162,8 @@ async function collectEvidence(admin: any, org: any) {
   const [aliasesQ, mapQ, dupQ] = await Promise.all([
     admin.from("organization_aliases").select("alias").eq("organization_id", org.id).limit(15),
     admin.from("episode_organization_map")
-      .select("role, confidence, episodes!inner(title, description, podcasts!inner(title, language, is_hungarian, language_decision))")
+      .select("role, confidence, episodes!inner(title, description, podcasts!inner(title, language, language_decision))")
       .eq("organization_id", org.id)
-      .eq("episodes.podcasts.is_hungarian", true)
       .eq("episodes.podcasts.language_decision", "accept_hungarian")
       .limit(15),
     admin.from("organizations")

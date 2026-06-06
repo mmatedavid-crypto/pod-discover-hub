@@ -112,10 +112,10 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > 30_000) break; // cap aggregation to 30s
       const { data: page, error } = await admin
         .from("episodes")
-        .select("id, people, podcast_id, published_at, podcasts!inner(language)")
+        .select("id, people, podcast_id, published_at, podcasts!inner(language, language_decision)")
         .not("people", "is", null)
         .gte("published_at", twoYearsAgo)
-        .eq("podcasts.is_hungarian", true)
+        .eq("podcasts.language_decision", "accept_hungarian")
         .order("published_at", { ascending: false, nullsFirst: false })
         .range(from, from + PAGE - 1);
       if (error) throw error;
