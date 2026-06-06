@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     if (explicitIds.length > 0) {
       q = q.in("id", explicitIds);
     } else {
-      q = q.eq("is_hungarian", true).eq("rss_status", "active")
+      q = q.eq("language_decision", "accept_hungarian").eq("rss_status", "active")
         .is("pi_backfill_completed_at", null)
         .in("rank_label", tierFilter);
       if (!force) q = q.is("pi_backfill_peeked_at", null);
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
     const { count: remaining } = await supabase
       .from("podcasts")
       .select("id", { count: "exact", head: true })
-      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .eq("rss_status", "active")
       .is("pi_backfill_completed_at", null)
       .in("rank_label", tierFilter)

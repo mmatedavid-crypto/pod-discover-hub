@@ -386,6 +386,23 @@ describe("production policy static guards", () => {
     expect(verifier).not.toContain("legacy_v3_backfill_enabled', (SELECT");
   });
 
+  it("uses accepted language decisions for PI and deep archive backfills without the legacy RSS HU flag", () => {
+    const files = [
+      "supabase/functions/pi-episode-backfill/index.ts",
+      "supabase/functions/pi-backfill-peek/index.ts",
+      "supabase/functions/pi-language-recheck/index.ts",
+      "supabase/functions/hungarian-deep-archive-backfill/index.ts",
+    ];
+
+    for (const file of files) {
+      const source = read(file);
+      expect(source).toContain('language_decision", "accept_hungarian"');
+      expect(source).not.toContain('eq("is_hungarian", true)');
+      expect(source).not.toContain("is_hungarian.eq.true");
+      expect(source).not.toContain("is_hungarian=true AND language_decision");
+    }
+  });
+
   it("keeps news sitemap submission new-url-gated through Google Search Console", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
     const migration = read("supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql");

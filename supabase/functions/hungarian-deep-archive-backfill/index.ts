@@ -1,5 +1,5 @@
 // HU deep archive backfill orchestrator.
-// - HU-strict at SQL level (is_hungarian=true AND language_decision='accept_hungarian').
+// - HU-strict at SQL level via language_decision='accept_hungarian'.
 // - Per-podcast: run RSS exhaustion (fetch-one) if full_backfill_completed_at IS NULL,
 //   then PI archive sweep if pi_backfill_completed_at IS NULL.
 // - Budget-aware: max podcasts per run, max new episodes per run, per-domain throttle,
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
     // Candidate pool.
     let q = admin.from("podcasts")
       .select("id, title, slug, rss_url, rank_label, podiverzum_rank, full_backfill_completed_at, pi_backfill_completed_at, pi_backfill_approved")
-      .eq("is_hungarian", true).eq("language_decision", "accept_hungarian")
+      .eq("language_decision", "accept_hungarian")
       .eq("rss_status", "active").not("rss_url", "is", null);
     if (!forceRefresh) q = q.or("full_backfill_completed_at.is.null,pi_backfill_completed_at.is.null");
     q = q.order("podiverzum_rank", { ascending: false, nullsFirst: false }).limit(maxPods * 3);
@@ -324,10 +324,10 @@ Deno.serve(async (req) => {
 
     const [{ count: rssPending }, { count: piPending }] = await Promise.all([
       admin.from("podcasts").select("id", { count: "exact", head: true })
-        .eq("is_hungarian", true).eq("language_decision", "accept_hungarian")
+        .eq("language_decision", "accept_hungarian")
         .eq("rss_status", "active").is("full_backfill_completed_at", null),
       admin.from("podcasts").select("id", { count: "exact", head: true })
-        .eq("is_hungarian", true).eq("language_decision", "accept_hungarian")
+        .eq("language_decision", "accept_hungarian")
         .eq("rss_status", "active").is("pi_backfill_completed_at", null),
     ]);
 
