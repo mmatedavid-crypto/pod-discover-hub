@@ -54,8 +54,9 @@ const GROUPS = {
       "supabase/migrations/20260605214000_reassert_related_quality_policy_v5_settings.sql",
       "supabase/migrations/20260605215000_reassert_related_public_affairs_override_terms.sql",
       "supabase/migrations/20260605232000_reassert_similar_episode_diagnostics.sql",
+      "supabase/migrations/20260606005000_personalized_home_rails_reason_policy.sql",
     ],
-    functions: [],
+    functions: ["personalized-home-rails"],
     why: "Smart player / hasonló epizód ne ajánljon más szerkesztési világot puszta vektor alapján; explicit téma/személy/cég híd kell.",
   },
   downstream_embedding_quality: {

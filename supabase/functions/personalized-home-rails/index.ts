@@ -4,6 +4,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
+const MIN_DIAGNOSTIC_REASON_CHARS = 12;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -61,11 +63,14 @@ Deno.serve(async (req) => {
         p_episode_id: s.id,
         p_limit: 8,
       });
-      if (sim && sim.length) {
+      const safeItems = ((sim || []) as any[])
+        .filter(hasDiagnosticRelatedReason)
+        .slice(0, 8);
+      if (safeItems.length) {
         rails.push({
           key: `seed:${s.id}`,
           label: `Mert hallgattad: ${s.title}`,
-          items: sim,
+          items: safeItems,
         });
       }
     }
@@ -73,12 +78,22 @@ Deno.serve(async (req) => {
     return json({
       main: { label: "Neked ajánljuk", items: mainRows || [] },
       rails,
+      policy: {
+        surface: "personalized-home-rails",
+        seed_rails_source: "similar_episodes",
+        related_reason_required_for_seed_rails: true,
+      },
     });
   } catch (e) {
     console.error("personalized-home-rails error", e);
     return json({ error: "internal_error", message: String((e as Error)?.message || e) }, 500);
   }
 });
+
+function hasDiagnosticRelatedReason(row: any): boolean {
+  const reason = String(row?.related_reason || "").trim();
+  return reason.length >= MIN_DIAGNOSTIC_REASON_CHARS;
+}
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
