@@ -1378,12 +1378,18 @@ export type Database = {
           char_start: number
           chunk_count: number
           chunk_idx: number
+          chunking_method: string
           content: string
           content_hash: string
           embedding: string
           episode_id: string
           model: string
           podcast_id: string
+          segment_end_idx: number | null
+          segment_start_idx: number | null
+          source_transcript_model: string | null
+          timestamp_end_seconds: number | null
+          timestamp_start_seconds: number | null
           updated_at: string
         }
         Insert: {
@@ -1391,12 +1397,18 @@ export type Database = {
           char_start?: number
           chunk_count: number
           chunk_idx: number
+          chunking_method?: string
           content: string
           content_hash: string
           embedding: string
           episode_id: string
           model: string
           podcast_id: string
+          segment_end_idx?: number | null
+          segment_start_idx?: number | null
+          source_transcript_model?: string | null
+          timestamp_end_seconds?: number | null
+          timestamp_start_seconds?: number | null
           updated_at?: string
         }
         Update: {
@@ -1404,12 +1416,18 @@ export type Database = {
           char_start?: number
           chunk_count?: number
           chunk_idx?: number
+          chunking_method?: string
           content?: string
           content_hash?: string
           embedding?: string
           episode_id?: string
           model?: string
           podcast_id?: string
+          segment_end_idx?: number | null
+          segment_start_idx?: number | null
+          source_transcript_model?: string | null
+          timestamp_end_seconds?: number | null
+          timestamp_start_seconds?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -8315,8 +8333,14 @@ export type Database = {
         Returns: {
           best_source: string
           chunk_idx: number
+          chunking_method: string
           episode_id: string
+          segment_end_idx: number
+          segment_start_idx: number
           similarity: number
+          source_transcript_model: string
+          timestamp_end_seconds: number
+          timestamp_start_seconds: number
         }[]
       }
       search_episodes_hybrid: {
@@ -8391,6 +8415,9 @@ export type Database = {
           tickers: string[]
           title: string
           topics: string[]
+          transcript_hash: string
+          transcript_model: string
+          transcript_segments: Json
         }[]
       }
       select_embed_episode_candidates: {
