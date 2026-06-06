@@ -11,6 +11,7 @@ import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { pickEpisodeDescription } from "@/lib/episodeText";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 const EpisodeMarks = lazy(() => import("./EpisodeMarks").then((m) => ({ default: m.EpisodeMarks })));
 
@@ -361,19 +362,21 @@ function EpisodeRailCard({
       <Link to={`/podcast/${p.slug}/${e.slug}`} className="block">
         <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
           <div className="absolute inset-0 opacity-90" style={railBackdropStyle(podTitle)} />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/45 to-transparent" />
-          <div className="absolute left-3 top-3 w-16 rounded-md shadow-lg ring-1 ring-border/70 sm:w-20">
-            <PodcastCover
-              title={coverTitle}
-              src={coverImage}
-              size="sm"
-              imageSize={80}
-              imageWidths={[64, 96, 128]}
-              sizes="(max-width: 640px) 64px, 80px"
+          {coverImage && (
+            <img
+              src={optimizedImageUrl(coverImage, { width: 480, height: 300 }) || coverImage}
+              srcSet={imageSrcSet(coverImage, [320, 480, 640])}
+              sizes="(max-width: 640px) 80vw, 340px"
+              alt={coverTitle}
               loading={imagePriority ? "eager" : "lazy"}
               fetchPriority={imagePriority ? "high" : "auto"}
+              decoding="async"
+              width={480}
+              height={300}
+              className="absolute inset-0 h-full w-full object-cover"
             />
-          </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
           {playerAudioUrl && (
             <button
               type="button"
@@ -385,7 +388,7 @@ function EpisodeRailCard({
             </button>
           )}
           <div className="absolute bottom-3 left-3 right-16">
-            <div className="text-[11px] font-medium text-foreground/80 line-clamp-1">{podTitle}</div>
+            <div className="text-[11px] font-medium text-foreground/90 line-clamp-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">{podTitle}</div>
             {fr === "new" && (
               <div className="mt-1 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ÚJ
