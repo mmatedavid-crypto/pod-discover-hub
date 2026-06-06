@@ -23,6 +23,9 @@ const MODEL = "openai/gpt-5.5";
 const FALLBACK_MODEL = "google/gemini-2.5-pro";
 const DEFAULT_MIN_TEXT_CHARS = 180;
 const SOURCE_TEXT_CHARS = 3500;
+const INDEXNOW_KEY = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a";
+const INDEXNOW_HOST = "podiverzum.hu";
+const INDEXNOW_WINDOW_SECONDS = 60 * 60;
 
 // Tiltott klisék / tükörfordítások / publicisztikai keretek — post-validáció szűri, 1 javító kört kérünk a modelltől.
 const BANNED_PHRASES: { pattern: RegExp; reason: string }[] = [
@@ -476,6 +479,124 @@ function weekRange(): { start: Date; end: Date; label: string } {
   return { start, end, label };
 }
 
+const HU_MAP: Record<string, string> = {
+  á: "a", é: "e", í: "i", ó: "o", ö: "o", ő: "o",
+  ú: "u", ü: "u", ű: "u",
+  Á: "a", É: "e", Í: "i", Ó: "o", Ö: "o", Ő: "o",
+  Ú: "u", Ü: "u", Ű: "u",
+};
+
+function slugifyHu(input: string): string {
+  const ascii = String(input || "")
+    .split("")
+    .map((c) => HU_MAP[c] ?? c)
+    .join("")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+  return ascii
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "podiverzum-heti";
+}
+
+function isoWeek(dateStr: string): { year: number; week: number } {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dayNum = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((+target - +yearStart) / 86400000 + 1) / 7);
+  return { year: target.getUTCFullYear(), week };
+}
+
+function hetiSlug(post: { week_start: string; title?: string | null }): string {
+  const { year, week } = isoWeek(post.week_start);
+  return `${year}-${String(week).padStart(2, "0")}-${slugifyHu(post.title || "podiverzum-heti")}`;
+}
+
+async function submitIndexNowForPublishedHeti(admin: any, post: any): Promise<Record<string, unknown>> {
+  if (!post || post.status !== "published" || !post.week_start) {
+    return { skipped: "not_published_heti_article" };
+  }
+
+  const url = `${SITE_URL}/heti/${hetiSlug(post)}`;
+  const now = new Date();
+  const requestBody = {
+    host: INDEXNOW_HOST,
+    key: INDEXNOW_KEY,
+    urlList: [url],
+  };
+
+  const { data } = await admin
+    .from("app_settings")
+    .select("value")
+    .eq("key", "indexnow_controls")
+    .maybeSingle();
+  const current = (data?.value || {}) as Record<string, any>;
+  const lastPings = (current.last_pings || {}) as Record<string, string>;
+  const lastAt = lastPings[url] ? new Date(lastPings[url]).getTime() : 0;
+  if (lastAt && now.getTime() - lastAt < INDEXNOW_WINDOW_SECONDS * 1000) {
+    return {
+      skipped: "duplicate_window",
+      url,
+      key_file_url: `${SITE_URL}/${INDEXNOW_KEY}.txt`,
+      request_body: requestBody,
+      last_ping_at: lastPings[url],
+      duplicate_window_seconds: INDEXNOW_WINDOW_SECONDS,
+    };
+  }
+
+  let responseStatus: number | null = null;
+  let responseText = "";
+  try {
+    const res = await fetch("https://api.indexnow.org/indexnow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+    responseStatus = res.status;
+    responseText = (await res.text()).slice(0, 500);
+  } catch (e) {
+    responseText = e instanceof Error ? e.message : String(e);
+  }
+
+  const nextPings = {
+    ...lastPings,
+    [url]: now.toISOString(),
+  };
+  const nextValue = {
+    ...current,
+    enabled: true,
+    host: INDEXNOW_HOST,
+    key: INDEXNOW_KEY,
+    key_file_url: `${SITE_URL}/${INDEXNOW_KEY}.txt`,
+    trigger: "weekly-editorial-post",
+    url_policy: "published_heti_articles_only",
+    duplicate_window_seconds: INDEXNOW_WINDOW_SECONDS,
+    last_request_body: requestBody,
+    last_response_status: responseStatus,
+    last_response_text: responseText,
+    last_response_at: now.toISOString(),
+    last_pings: nextPings,
+  };
+  await admin.from("app_settings").upsert({
+    key: "indexnow_controls",
+    value: nextValue,
+    updated_at: now.toISOString(),
+  });
+
+  return {
+    ok: responseStatus != null && responseStatus >= 200 && responseStatus < 300,
+    url,
+    key_file_url: `${SITE_URL}/${INDEXNOW_KEY}.txt`,
+    request_body: requestBody,
+    response_status: responseStatus,
+    response_text: responseText,
+    duplicate_window_seconds: INDEXNOW_WINDOW_SECONDS,
+  };
+}
+
 // Csak akkor enged át idézetet, ha az tényleg megtalálható a forrásszövegben.
 // Normalizál: kisbetű, ékezet-tűrés, írásjelek/whitespace ki, majd substring-match.
 // Min. 25 karakter tartalmi hossz (rövidebb idézet túl könnyen véletlenül egyezik / túl gyenge).
@@ -570,10 +691,12 @@ Deno.serve(async (req) => {
           .select()
           .single();
         if (pubErr) throw new Error(`publish existing editorial: ${pubErr.message}`);
+        const indexnow = await submitIndexNowForPublishedHeti(admin, published);
         return json({
           ok: true,
           reused_existing: true,
           published_existing: true,
+          indexnow,
           post_id: published.id,
           status: published.status,
           week_start: published.week_start,
@@ -706,7 +829,11 @@ Deno.serve(async (req) => {
       .single();
     if (insErr) throw new Error(`save draft: ${insErr.message}`);
 
-    return json({ ok: true, post_id: saved.id, ...payload });
+    const indexnow = saved.status === "published"
+      ? await submitIndexNowForPublishedHeti(admin, saved)
+      : { skipped: "draft_not_published" };
+
+    return json({ ok: true, post_id: saved.id, indexnow, ...payload });
   } catch (e: any) {
     console.error("weekly-editorial-post error:", e?.message);
     return json({ ok: false, error: e?.message || "unknown" }, 500);

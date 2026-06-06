@@ -585,6 +585,42 @@ describe("production policy static guards", () => {
     expect(robots).not.toContain("User-agent: ClaudeBot\nDisallow: /");
   });
 
+  it("keeps IndexNow minimal, stable, and scoped to published Heti articles", () => {
+    const worker = read("infra/cloudflare-worker/worker.js");
+    const lovableWorker = read(".lovable/cloudflare-worker.js");
+    const weeklyEditorialPost = read("supabase/functions/weekly-editorial-post/index.ts");
+    const refreshSitemap = read("supabase/functions/refresh-sitemap/index.ts");
+    const key = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a";
+
+    for (const source of [worker, lovableWorker]) {
+      expect(source).toContain(`const INDEXNOW_KEY = "${key}"`);
+      expect(source).toContain("const INDEXNOW_KEY_PATH = `/${INDEXNOW_KEY}.txt`");
+      expect(source).toContain("url.pathname === INDEXNOW_KEY_PATH");
+      expect(source).toContain("worker-indexnow-key");
+      expect(source).toContain("request.method === \"HEAD\" ? null : INDEXNOW_KEY");
+      expect(source.indexOf("www.podiverzum.hu")).toBeLessThan(source.indexOf("worker-indexnow-key"));
+    }
+
+    expect(weeklyEditorialPost).toContain(`const INDEXNOW_KEY = "${key}"`);
+    expect(weeklyEditorialPost).toContain('const INDEXNOW_HOST = "podiverzum.hu"');
+    expect(weeklyEditorialPost).toContain("const INDEXNOW_WINDOW_SECONDS = 60 * 60");
+    expect(weeklyEditorialPost).toContain("https://api.indexnow.org/indexnow");
+    expect(weeklyEditorialPost).toContain("method: \"POST\"");
+    expect(weeklyEditorialPost).toContain("host: INDEXNOW_HOST");
+    expect(weeklyEditorialPost).toContain("key: INDEXNOW_KEY");
+    expect(weeklyEditorialPost).toContain("urlList: [url]");
+    expect(weeklyEditorialPost).toContain("`${SITE_URL}/heti/${hetiSlug(post)}`");
+    expect(weeklyEditorialPost).toContain("post.status !== \"published\"");
+    expect(weeklyEditorialPost).toContain("not_published_heti_article");
+    expect(weeklyEditorialPost).toContain("indexnow_controls");
+    expect(weeklyEditorialPost).toContain("duplicate_window");
+    expect(weeklyEditorialPost).toContain("published_heti_articles_only");
+    expect(weeklyEditorialPost).toContain("last_request_body");
+    expect(weeklyEditorialPost).toContain("last_response_status");
+
+    expect(refreshSitemap.toLowerCase()).not.toContain("indexnow");
+  });
+
   it("keeps SEO alias routes redirected at the Cloudflare edge", () => {
     const worker = read("infra/cloudflare-worker/worker.js");
     const verifier = read("scripts/verify-production-edge-seo.mjs");

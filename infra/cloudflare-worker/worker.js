@@ -15,6 +15,8 @@ const PRERENDER_ENDPOINT =
   "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/prerender";
 const SITEMAP_CACHE_TTL_SECONDS = 900;
 const NEWS_SITEMAP_CACHE_TTL_SECONDS = 300;
+const INDEXNOW_KEY = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a";
+const INDEXNOW_KEY_PATH = `/${INDEXNOW_KEY}.txt`;
 const ROBOTS_TXT = `# Podiverzum robots policy.
 # Served directly by the Cloudflare Worker so Cloudflare Managed robots rules
 # cannot inject contradictory AI crawler blocks.
@@ -184,6 +186,18 @@ export default {
           Location: target,
           "Cache-Control": "public, max-age=86400",
           "X-Redirect": "www-to-apex-301",
+        },
+      });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") &&
+        url.pathname === INDEXNOW_KEY_PATH) {
+      return new Response(request.method === "HEAD" ? null : INDEXNOW_KEY, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=86400, s-maxage=86400",
+          "X-Served-By": "worker-indexnow-key",
         },
       });
     }
