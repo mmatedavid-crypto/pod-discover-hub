@@ -110,6 +110,14 @@ describe("page consistency static guards", () => {
     expect(category).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
   });
 
+  it("keeps the live index bar on accepted Hungarian episodes", () => {
+    const liveIndex = read("src/components/LiveIndexBar.tsx");
+
+    expect(liveIndex).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(liveIndex).not.toContain('or("is_hungarian.eq.true,language_decision.eq.accept_hungarian"');
+    expect(liveIndex).not.toContain('language_decision !== "reject_foreign"');
+  });
+
   it("keeps mood pages polished and sanitized instead of exposing raw DB labels", () => {
     const homeMoods = read("src/components/MoodCollections.tsx");
     const moods = read("src/pages/MoodsPage.tsx");
