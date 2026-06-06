@@ -11,6 +11,7 @@ import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { pickEpisodeDescription } from "@/lib/episodeText";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 const EpisodeMarks = lazy(() => import("./EpisodeMarks").then((m) => ({ default: m.EpisodeMarks })));
 
