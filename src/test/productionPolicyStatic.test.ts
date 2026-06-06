@@ -161,6 +161,7 @@ describe("production policy static guards", () => {
       "20260603170000_people_identity_safety_consolidated.sql",
       "20260605200000_reassert_temporal_person_public_guard.sql",
       "20260605213000_reassert_strict_temporal_person_guard_v6.sql",
+      "20260606003000_person_bio_temporal_policy_v2.sql",
       "episode-article-pairer",
       "embed-episode-runner",
       "embed-episode-chunks-runner",
@@ -171,6 +172,7 @@ describe("production policy static guards", () => {
       "ai-enrich",
       "prerender",
       "person-entity-extractor",
+      "person-bio-generator",
       "infra/cloudflare-worker/worker.js",
       ".lovable/cloudflare-worker.js",
     ]) {
@@ -651,6 +653,7 @@ describe("production policy static guards", () => {
     expect(strictReassertMigration).not.toContain("date_of_death IS NOT NULL\n        AND");
     expect(strictReassertMigration).toContain("'version', 6");
     expect(verifier).toContain("temporal_person_guard_policy_v6");
+    expect(verifier).toContain("person_bio_temporal_policy_v2");
     expect(verifier).toContain("no_public_unapproved_dead_or_historical_people");
     expect(verifier).toContain("no_public_unapproved_suspicious_temporal_participants");
   });
@@ -705,6 +708,8 @@ describe("production policy static guards", () => {
 
   it("keeps person bio generation closed for unapproved deceased or historical names", () => {
     const generator = read("supabase/functions/person-bio-generator/index.ts");
+    const migration = read("supabase/migrations/20260606003000_person_bio_temporal_policy_v2.sql");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
 
     expect(generator).toContain("function isUnapprovedTemporalTopicOnlyPerson");
     expect(generator).toContain('skipped: "temporal_topic_only_person"');
@@ -713,6 +718,10 @@ describe("production policy static guards", () => {
     expect(generator).toContain("p.is_living === false");
     expect(generator).toContain("Puszta tally alapján nem állítható, hogy vendég vagy műsorvezető volt");
     expect(generator).toContain("TILOS vendégként, interjúalanyként vagy műsorvezetőként bemutatni");
+    expect(migration).toContain("person_bio_generation_policy");
+    expect(migration).toContain("'version', 2");
+    expect(migration).toContain("person-bio-generator");
+    expect(reporter).toContain("person_bio_temporal_policy");
   });
 
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {

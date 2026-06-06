@@ -69,6 +69,7 @@ settings AS (
     'smart_player_recommendation_surface_policy',
     'people_hub_identity_safety_policy',
     'temporal_person_public_guard_policy',
+    'person_bio_generation_policy',
     'text_processing_policy'
   )
 ),
@@ -108,7 +109,8 @@ controls AS (
     'entity_monitoring_benchmark_policy', setting_values->'entity_monitoring_benchmark_policy',
     'smart_player_recommendation_surface_policy', setting_values->'smart_player_recommendation_surface_policy',
     'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy',
-    'temporal_person_public_guard_policy', setting_values->'temporal_person_public_guard_policy'
+    'temporal_person_public_guard_policy', setting_values->'temporal_person_public_guard_policy',
+    'person_bio_generation_policy', setting_values->'person_bio_generation_policy'
   ) AS summary
   FROM settings
 ),
@@ -147,6 +149,7 @@ SELECT jsonb_build_object(
     ),
     'canonical_org_merge_policy_v2', COALESCE((SELECT (value->>'version')::int >= 2 FROM public.app_settings WHERE key = 'canonical_alias_merge_policy'), false),
     'temporal_person_guard_policy_v6', COALESCE((SELECT (value->>'version')::int >= 6 FROM public.app_settings WHERE key = 'temporal_person_public_guard_policy'), false),
+    'person_bio_temporal_policy_v2', COALESCE((SELECT (value->>'version')::int >= 2 AND value->>'edge_function' = 'person-bio-generator' FROM public.app_settings WHERE key = 'person_bio_generation_policy'), false),
     'no_public_unapproved_dead_or_historical_people', NOT EXISTS (
       SELECT 1
       FROM public.people p
