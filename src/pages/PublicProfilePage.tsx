@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Heart, ArrowRight } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type Profile = {
   user_id: string;
@@ -24,6 +25,16 @@ type EpRow = {
   podcasts: { slug: string; title: string; display_title: string | null; image_url: string | null } | null;
 };
 
+function publicProfileText(value: unknown, minLength = 2): string {
+  const clean = sanitizeHungarianPublicText(String(value || ""));
+  return clean.length >= minLength ? clean : "";
+}
+
+function publicProfileTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return [];
+  return tags.map((tag) => publicProfileText(tag, 2)).filter(Boolean).slice(0, 8);
+}
+
 export default function PublicProfilePage() {
   const { username } = useParams<{ username: string }>();
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
@@ -40,9 +51,10 @@ export default function PublicProfilePage() {
         .maybeSingle();
       if (!data) { setProfile(null); return; }
       setProfile(data as Profile);
+      const seoDescription = publicProfileText((data.archetype_result as any)?.result_description, 20);
       setSeo({
         title: `${data.display_name || data.username} Podiverzuma`,
-        description: (data.archetype_result as any)?.result_description?.slice(0, 160) || "Egy hallgató személyes podcast-profilja a Podiverzumon.",
+        description: seoDescription.slice(0, 160) || "Egy hallgató személyes podcast-profilja a Podiverzumon.",
       });
       const { data: marks } = await supabase
         .from("user_episode_marks")
@@ -68,6 +80,10 @@ export default function PublicProfilePage() {
   if (profile === null) return <NotFoundState title="Ez a profil nem nyilvános" message="Lehet hogy nem létezik, vagy a tulajdonosa privátra állította." />;
 
   const archetype = profile.archetype_result;
+  const archetypeTitle = publicProfileText(archetype?.result_title) || profile.archetype_slug || "Podiverzum-profil";
+  const archetypeSubtitle = publicProfileText(archetype?.result_subtitle);
+  const archetypeDescription = publicProfileText(archetype?.result_description, 20);
+  const archetypeTags = publicProfileTags(archetype?.tags);
 
   return (
     <Layout>
@@ -91,12 +107,12 @@ export default function PublicProfilePage() {
             <div className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.2em] text-primary">
               <Sparkles className="h-3.5 w-3.5" /> Archetípus
             </div>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight">{archetype.result_title}</h2>
-            {archetype.result_subtitle && <div className="text-sm text-muted-foreground mt-1">{archetype.result_subtitle}</div>}
-            {archetype.result_description && <p className="mt-4 text-sm leading-relaxed">{archetype.result_description}</p>}
-            {Array.isArray(archetype.tags) && archetype.tags.length > 0 && (
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight">{archetypeTitle}</h2>
+            {archetypeSubtitle && <div className="text-sm text-muted-foreground mt-1">{archetypeSubtitle}</div>}
+            {archetypeDescription && <p className="mt-4 text-sm leading-relaxed">{archetypeDescription}</p>}
+            {archetypeTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-4">
-                {archetype.tags.map((t: string) => (
+                {archetypeTags.map((t) => (
                   <span key={t} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">{t}</span>
                 ))}
               </div>

@@ -505,8 +505,9 @@ describe("page consistency static guards", () => {
     const categories = read("src/pages/CategoriesPage.tsx");
     const orgCard = read("src/components/OrgCard.tsx");
     const personCard = read("src/components/PersonCard.tsx");
+    const publicProfile = read("src/pages/PublicProfilePage.tsx");
 
-    for (const source of [podcast, category, topic, search, trending, episode, categories, orgCard, personCard]) {
+    for (const source of [podcast, category, topic, search, trending, episode, categories, orgCard, personCard, publicProfile]) {
       expect(source).toContain("sanitizeHungarianPublicText");
     }
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_description)");
@@ -532,6 +533,12 @@ describe("page consistency static guards", () => {
     expect(episode).toContain("id,title,display_title,slug,image_url,published_at,ai_summary,summary,description");
     expect(episode).toContain("extractKeyMoments(sanitizeHungarianPublicText(data?.e?.description)");
     expect(episode).not.toContain("const description = stripHtml(e.description)");
+    expect(publicProfile).toContain("function publicProfileText(value: unknown");
+    expect(publicProfile).toContain("const seoDescription = publicProfileText");
+    expect(publicProfile).toContain("const archetypeDescription = publicProfileText");
+    expect(publicProfile).toContain("const archetypeTags = publicProfileTags");
+    expect(publicProfile).not.toContain("archetype.result_description && <p");
+    expect(publicProfile).not.toContain("{archetype.result_title}");
   });
 
   it("keeps public search on the accepted Hungarian catalog, not query accent language guesses", () => {
