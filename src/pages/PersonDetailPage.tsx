@@ -72,6 +72,26 @@ function personCollectionIntro(name: string, count: number): string {
   return `${name} kapcsolódó magyar podcast epizódjai hamarosan megjelennek a Podiverzum katalógusában.`;
 }
 
+function firstSeoSentence(value?: string | null): string {
+  const text = snippet(sanitizeHungarianPublicText(value), 240).replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  return text.match(/^(.{40,220}?[.!?])(?:\s|$)/)?.[1]?.trim() || text;
+}
+
+function safePersonSeoLead(person: Person | any): string {
+  if (!person || isAmbiguousWithoutTrustedIdentity(person as Person)) return "";
+  const aiBioSafe = person.ai_bio_status === "published" && Number(person.ai_bio_confidence || 0) >= 0.75
+    ? person.ai_bio
+    : null;
+  return firstSeoSentence(
+    person.overview_text
+      || person.short_description_hu
+      || person.wikipedia_description
+      || person.short_bio
+      || aiBioSafe,
+  );
+}
+
 function safePersonIdentityLabel(label?: string | null): string | null {
   if (!isUsefulPersonIdentityLabel(label || null)) return null;
   return sanitizeHungarianPublicText(label || "") || null;
@@ -307,12 +327,18 @@ export default function PersonDetailPage() {
 
       const personName = (p as any).name;
       const epCount = epList.length;
-      const epLabel = epCount > 0 ? ` – ${epCount} kapcsolódó podcast epizód` : "";
-      const descBase = safeDesc;
-      const descSuffix = epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amely ${personName} nevéhez kapcsolódik.` : "";
+      const hasParticipantSeoEvidence = epList.some((e) => e.role_type === "participant");
+      const personSeoRelation = hasParticipantSeoEvidence && !isTemporalTopicOnlyPerson(p) ? "hallható" : "kapcsolódik";
+      const titleTail = epCount > 0
+        ? ` – ${epCount} podcast epizódban ${personSeoRelation}`
+        : " podcast epizódok és említések";
+      const descBase = safePersonSeoLead(p) || safeDesc;
+      const descSuffix = epCount > 0
+        ? ` Megnézhető ${epCount} podcast epizód, amelyben ${personName} ${personSeoRelation}.`
+        : "";
       const fullDesc = `${descBase}${descSuffix}`.trim();
       setSeo({
-        title: `${personName}${epLabel} | Podiverzum`,
+        title: `${personName}${titleTail} | Podiverzum`,
         description: fullDesc.length > 160 ? fullDesc.slice(0, 157).trimEnd() + "…" : fullDesc,
         canonical: pageUrl,
         noindex: !(p as any).is_indexable || thinPage,

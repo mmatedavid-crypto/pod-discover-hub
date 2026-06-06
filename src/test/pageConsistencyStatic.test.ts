@@ -494,6 +494,7 @@ describe("page consistency static guards", () => {
   it("keeps entity pages careful about person evidence", () => {
     const entity = read("src/pages/EntityPage.tsx");
     const personDetail = read("src/pages/PersonDetailPage.tsx");
+    const topic = read("src/pages/TopicDetailPage.tsx");
     const prerender = read("supabase/functions/prerender/index.ts");
 
     expect(entity).toContain("Minden magyar podcast epizód, amely ehhez kapcsolódik");
@@ -513,7 +514,13 @@ describe("page consistency static guards", () => {
     expect(entity).not.toContain("szereplőként");
     expect(personDetail).not.toContain("podcast epizódok, interjúk és említések");
     expect(personDetail).not.toContain("podcast epizódban hallható");
-    expect(personDetail).toContain("kapcsolódó podcast epizód");
+    expect(personDetail).toContain("const hasParticipantSeoEvidence = epList.some((e) => e.role_type === \"participant\")");
+    expect(personDetail).toContain("const personSeoRelation = hasParticipantSeoEvidence && !isTemporalTopicOnlyPerson(p) ? \"hallható\" : \"kapcsolódik\"");
+    expect(personDetail).toContain("` – ${epCount} podcast epizódban ${personSeoRelation}`");
+    expect(personDetail).toContain("kapcsolódó magyar podcast epizód");
+    expect(personDetail).toContain("safePersonSeoLead(p) || safeDesc");
+    expect(entity).toContain("const companyEpLabel = total > 0 ? ` – ${total} podcast epizódban említve` : \"\"");
+    expect(topic).toContain("const titleSource = `${topicName}${countLabel} magyar podcastokból | Podiverzum`");
     expect(prerender).not.toContain("podcast epizódok és interjúk");
     expect(prerender).toContain("podcast epizódok és említések");
   });

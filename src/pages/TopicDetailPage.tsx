@@ -161,7 +161,7 @@ export default function TopicDetailPage() {
       const introClean = sanitizeHungarianPublicText((t as any).intro_text);
       const fallbackDesc = `${topicName} témájú magyar podcast epizódok és beszélgetések${podCount > 0 ? `, ${podCount} műsorból` : ""}. Fedezd fel a kapcsolódó tartalmakat a Podiverzumon.`;
       const descSource = sanitizeHungarianPublicText((t as any).seo_description) || introClean || fallbackDesc;
-      const titleSource = sanitizeHungarianPublicText((t as any).seo_title) || `${topicName}${countLabel} magyar podcastokból | Podiverzum`;
+      const titleSource = `${topicName}${countLabel} magyar podcastokból | Podiverzum`;
       setSeo({
         title: titleSource,
         description: descSource.length > 160 ? descSource.slice(0, 157).trimEnd() + "…" : descSource,

@@ -238,17 +238,18 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
       const finalName = prof?.display_name || exemplar;
       const epLabel = total > 0 ? ` – ${total} podcast epizód` : "";
+      const companyEpLabel = total > 0 ? ` – ${total} podcast epizódban említve` : "";
       const fallbackCompany = `${finalName} említései ${total > 0 ? `${total} ` : ""}magyar podcast epizódban. Kapcsolódó műsorok, beszélgetések és témák a Podiverzumon.`;
       const fallbackTopic = `Magyar podcast epizódok ${finalName} témában${total > 0 ? `, ${total} találat` : ""}. A Podiverzum a műsorok minősége és frissessége szerint rangsorol.`;
       const fallbackPerson = `Magyar podcast epizódok és említések: ${finalName}${total > 0 ? ` – ${total} kapcsolódó epizód` : ""}. Fedezd fel a Podiverzumon.`;
       const profileBio = safeEntityBio(prof?.bio);
       const seoDesc = profileBio
-        ? profileBio.split(/\.\s+/)[0].slice(0, 160)
+        ? `${profileBio.split(/\.\s+/)[0].slice(0, 130)}${total > 0 ? ` Megnézhető ${total} kapcsolódó podcast epizód.` : ""}`
         : kind === "company" ? fallbackCompany
         : kind === "topic" ? fallbackTopic
         : fallbackPerson;
       const title =
-        kind === "company" ? `${finalName}${epLabel} | Podiverzum` :
+        kind === "company" ? `${finalName}${companyEpLabel || epLabel} | Podiverzum` :
         kind === "topic" ? `${finalName}${epLabel} magyar podcastokból | Podiverzum` :
         `${finalName}${epLabel} | Podiverzum`;
       setSeo({
