@@ -10,6 +10,7 @@ import { detectAudioSource } from "@/lib/playerAudio";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { pickEpisodeDescription } from "@/lib/episodeText";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 const EpisodeMarks = lazy(() => import("./EpisodeMarks").then((m) => ({ default: m.EpisodeMarks })));
 
@@ -83,6 +84,11 @@ function EpisodeMarksSlot({ episodeId }: { episodeId: string }) {
   );
 }
 
+function safeEpisodeCardPublicText(value: unknown, minLength = 2): string {
+  const clean = sanitizeHungarianPublicText(String(value || ""));
+  return clean.length >= minLength ? clean : "";
+}
+
 export function EpisodeCard({
   e, showTopics = false, terms, showEntities = false, imagePriority = false,
 }: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean; imagePriority?: boolean }) {
@@ -97,6 +103,8 @@ export function EpisodeCard({
   const { play } = useSmartPlayer();
   const playable = detectAudioSource({ audio_url: e.audio_url });
   const playerAudioUrl = playable?.url || e.audio_url || null;
+  const safeWhyMatched = safeEpisodeCardPublicText(e.why_matched, 12);
+  const safeHomepageReason = safeEpisodeCardPublicText(e.homepageReason);
   const handlePlay = (ev: React.MouseEvent) => {
     ev.preventDefault();
     ev.stopPropagation();
@@ -167,8 +175,8 @@ export function EpisodeCard({
           {e.matchBadge && (
             <span className="px-1.5 py-0.5 rounded-md border border-border bg-secondary text-[10px] font-medium text-foreground/80">{e.matchBadge}</span>
           )}
-          {e.homepageReason && (
-            <span className="px-1.5 py-0.5 rounded-md border border-primary/35 bg-primary/10 text-[10px] font-medium text-primary">{e.homepageReason}</span>
+          {safeHomepageReason && (
+            <span className="px-1.5 py-0.5 rounded-md border border-primary/35 bg-primary/10 text-[10px] font-medium text-primary">{safeHomepageReason}</span>
           )}
           {understanding && (
             <span
@@ -180,13 +188,13 @@ export function EpisodeCard({
             </span>
           )}
         </div>
-        {e.why_matched && (
+        {safeWhyMatched && (
           <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/40 bg-primary/10 text-foreground leading-snug">
             <span className="font-semibold text-primary mr-1">Miért releváns:</span>
-            {e.why_matched}
+            {safeWhyMatched}
           </p>
         )}
-        {!e.why_matched && understanding && (
+        {!safeWhyMatched && understanding && (
           <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-foreground/85 leading-snug line-clamp-2">
             <span className="font-semibold text-primary mr-1">A lényeg:</span>
             {understanding.headline}
@@ -268,6 +276,7 @@ function EpisodeRailCard({
   const { play } = useSmartPlayer();
   const playable = detectAudioSource({ audio_url: e.audio_url });
   const playerAudioUrl = playable?.url || e.audio_url || null;
+  const safeHomepageReason = safeEpisodeCardPublicText(e.homepageReason);
   const handlePlay = (ev: React.MouseEvent) => {
     ev.preventDefault();
     ev.stopPropagation();
@@ -349,9 +358,9 @@ function EpisodeRailCard({
               Podiverzum szerint
             </span>
           )}
-          {e.homepageReason && (
+          {safeHomepageReason && (
             <span className="rounded-md border border-primary/35 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-              {e.homepageReason}
+              {safeHomepageReason}
             </span>
           )}
         </div>

@@ -411,6 +411,7 @@ describe("page consistency static guards", () => {
     const similar = read("src/components/SimilarEpisodes.tsx");
     const config = read("src/components/smart-player/recommendationsConfig.ts");
     const personalizedHome = read("src/components/home/PersonalizedHomeRails.tsx");
+    const episodeCard = read("src/components/EpisodeCard.tsx");
 
     expect(related).toContain("Tartalmi kapcsolat");
     expect(related).toContain("Keressük a kapcsolódó epizódokat");
@@ -419,6 +420,11 @@ describe("page consistency static guards", () => {
     expect(config).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED = false");
     expect(similar).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null");
     expect(similar).toContain("sanitizeHungarianPublicText(r.related_reason)");
+    expect(episodeCard).toContain("function safeEpisodeCardPublicText");
+    expect(episodeCard).toContain("const safeWhyMatched = safeEpisodeCardPublicText(e.why_matched, 12)");
+    expect(episodeCard).toContain("const safeHomepageReason = safeEpisodeCardPublicText(e.homepageReason)");
+    expect(episodeCard).not.toContain("{e.why_matched}");
+    expect(episodeCard).not.toContain("{e.homepageReason}");
     expect(similar).not.toContain("relatedReasonFromSimilarity");
     expect(personalizedHome).toContain("A korábbi hallgatásaidhoz és érdeklődéseidhez közel álló epizódok.");
     expect(personalizedHome).not.toContain("szemantikailag");
