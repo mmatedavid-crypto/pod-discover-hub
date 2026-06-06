@@ -83,9 +83,8 @@ async function processPerson(admin: any, p: any) {
   // Get a few episode titles as context
   const { data: mentions } = await admin
     .from("person_episode_mentions")
-    .select("mention_type, episodes!inner(title, podcasts!inner(title, is_hungarian, language_decision))")
+    .select("mention_type, episodes!inner(title, podcasts!inner(title, language_decision))")
     .eq("person_id", p.id)
-    .eq("episodes.podcasts.is_hungarian", true)
     .eq("episodes.podcasts.language_decision", "accept_hungarian")
     .limit(15);
   const epContext = (mentions || []).map((m: any, i: number) =>

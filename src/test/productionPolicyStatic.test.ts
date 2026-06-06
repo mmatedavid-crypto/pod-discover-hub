@@ -788,6 +788,24 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("person_bio_input_hash_policy_v3");
   });
 
+  it("uses accepted language decisions for person evidence pipelines without the legacy RSS HU flag", () => {
+    const files = [
+      "supabase/functions/person-entity-extractor/index.ts",
+      "supabase/functions/person-bio-generator/index.ts",
+      "supabase/functions/person-ai-reviewer/index.ts",
+      "supabase/functions/person-relevance-judge/index.ts",
+      "supabase/functions/person-wiki-review-runner/index.ts",
+    ];
+
+    for (const file of files) {
+      const source = read(file);
+      expect(source).toContain('language_decision", "accept_hungarian"');
+      expect(source).not.toContain("is_hungarian");
+      expect(source).not.toContain('eq("podcasts.is_hungarian", true)');
+      expect(source).not.toContain('eq("episodes.podcasts.is_hungarian", true)');
+    }
+  });
+
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
 

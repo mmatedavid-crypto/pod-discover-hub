@@ -1,8 +1,7 @@
 // person-ai-reviewer
 // Reviews extracted people for quality, recommends activation action, applies only
 // safe automatic downgrades. Uses Lovable AI Gateway (google/gemini-2.5-flash).
-// HU-only: all evidence is collected from podcasts.is_hungarian=true AND
-// language_decision='accept_hungarian'.
+// HU-only: all evidence is collected from podcasts.language_decision='accept_hungarian'.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
@@ -187,15 +186,13 @@ async function collectEvidence(admin: any, person: PersonRow) {
   const [aliasesQ, mentionsQ, podMapQ, dupQ] = await Promise.all([
     admin.from("person_aliases").select("alias").eq("person_id", person.id).limit(15),
     admin.from("person_episode_mentions")
-      .select("mention_type, confidence, evidence, episodes!inner(title, description, podcasts!inner(title, is_hungarian, language_decision))")
+      .select("mention_type, confidence, evidence, episodes!inner(title, description, podcasts!inner(title, language_decision))")
       .eq("person_id", person.id)
-      .eq("episodes.podcasts.is_hungarian", true)
       .eq("episodes.podcasts.language_decision", "accept_hungarian")
       .limit(20),
     admin.from("person_podcast_map")
-      .select("role, episode_count, podcasts!inner(title, is_hungarian, language_decision)")
+      .select("role, episode_count, podcasts!inner(title, language_decision)")
       .eq("person_id", person.id)
-      .eq("podcasts.is_hungarian", true)
       .eq("podcasts.language_decision", "accept_hungarian")
       .limit(15),
     admin.from("people")

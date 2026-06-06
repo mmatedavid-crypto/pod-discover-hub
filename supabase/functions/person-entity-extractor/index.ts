@@ -282,8 +282,7 @@ Deno.serve(async (req) => {
     while (scanned < limit) {
       const { data: eps, error } = await supabase
         .from("episodes")
-        .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, is_hungarian, language_decision, hosts, title)")
-        .eq("podcasts.is_hungarian", true)
+        .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, language_decision, hosts, title)")
         .eq("podcasts.language_decision", "accept_hungarian")
         .order("published_at", { ascending: false, nullsFirst: false })
         .range(from, from + PAGE - 1);
@@ -546,15 +545,13 @@ Deno.serve(async (req) => {
       for (const t of (topicIds || []) as any[]) {
         const { count: epCount } = await supabase
           .from("episode_topic_map")
-          .select("episode_id, episodes!inner(podcast_id, podcasts!inner(is_hungarian, language_decision))", { count: "exact", head: true })
+          .select("episode_id, episodes!inner(podcast_id, podcasts!inner(language_decision))", { count: "exact", head: true })
           .eq("topic_id", t.id)
-          .eq("episodes.podcasts.is_hungarian", true)
           .eq("episodes.podcasts.language_decision", "accept_hungarian");
         const { count: podCount } = await supabase
           .from("podcast_topic_map")
-          .select("podcast_id, podcasts!inner(is_hungarian, language_decision)", { count: "exact", head: true })
+          .select("podcast_id, podcasts!inner(language_decision)", { count: "exact", head: true })
           .eq("topic_id", t.id)
-          .eq("podcasts.is_hungarian", true)
           .eq("podcasts.language_decision", "accept_hungarian");
         const indexable = (podCount || 0) >= 5 || (epCount || 0) >= 15;
         await supabase.from("topics").update({

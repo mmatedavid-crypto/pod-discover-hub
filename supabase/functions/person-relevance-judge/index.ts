@@ -44,9 +44,8 @@ async function countPendingHU(supabase: any, personIds?: string[] | null): Promi
   // The reaper resets stale in_progress → pending on the next invocation.
   let q = supabase
     .from("person_episode_mentions")
-    .select("id, podcasts!person_episode_mentions_podcast_id_fkey!inner(is_hungarian, language_decision)", { count: "exact", head: true })
+    .select("id, podcasts!person_episode_mentions_podcast_id_fkey!inner(language_decision)", { count: "exact", head: true })
     .in("relevance_status", ["pending", "in_progress"])
-    .eq("podcasts.is_hungarian", true)
     .eq("podcasts.language_decision", "accept_hungarian");
   if (personIds && personIds.length) q = q.in("person_id", personIds);
   const { count } = await q;
@@ -245,7 +244,7 @@ Deno.serve(async (req) => {
     const claimedIds: string[] = (claimed as any[]).map((r: any) => (typeof r === "string" ? r : r.id));
     let q = supabase
       .from("person_episode_mentions")
-      .select("id, person_id, episode_id, mention_type, confidence, evidence, source_evidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, is_hungarian, language_decision), episodes!inner(title, summary, ai_summary)")
+      .select("id, person_id, episode_id, mention_type, confidence, evidence, source_evidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, language_decision), episodes!inner(title, summary, ai_summary)")
       .in("id", claimedIds);
     if (targetPersonIds) q = q.in("person_id", targetPersonIds);
     const { data: rows, error } = await q;
