@@ -415,13 +415,13 @@ ${newsItems.join('\n')}
       const podcasts: string[] = [];
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await sb.from('podcasts')
-          .select('slug,updated_at,ai_enriched_at,rank_label,language_decision,is_hungarian')
-          .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian')
+          .select('slug,updated_at,ai_enriched_at,rank_label,language_decision')
+          .eq('language_decision', 'accept_hungarian')
           .order('id').range(from, from + PAGE - 1);
         if (error) throw error;
         if (!data?.length) break;
         for (const p of data) {
-          if (!p.slug || p.language_decision === 'reject_foreign') continue;
+          if (!p.slug) continue;
           const t = p.rank_label;
           const pr = t === 'S' ? '0.9' : t === 'A' ? '0.8' : t === 'B' ? '0.7' : t === 'C' ? '0.6' : '0.5';
           const lm = [p.updated_at, p.ai_enriched_at].filter(Boolean).sort().pop();
@@ -522,13 +522,13 @@ ${newsItems.join('\n')}
       const podMap = new Map<string, { slug: string; rank: string | null }>();
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await sb.from('podcasts')
-          .select('id,slug,rank_label,is_hungarian,language_decision')
-          .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian')
+          .select('id,slug,rank_label,language_decision')
+          .eq('language_decision', 'accept_hungarian')
           .order('id').range(from, from + PAGE - 1);
         if (error) throw error;
         if (!data?.length) break;
         for (const p of data) {
-          if (!p.slug || p.language_decision === 'reject_foreign') continue;
+          if (!p.slug) continue;
           podMap.set(String(p.id), { slug: p.slug, rank: p.rank_label });
         }
         if (data.length < PAGE) break;

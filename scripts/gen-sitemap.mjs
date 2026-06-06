@@ -70,18 +70,17 @@ const pages = [
 fs.writeFileSync('public/sitemaps/pages.xml', wrap(pages));
 console.log('pages.xml:', pages.length, 'urls');
 
-// ---- podcasts (ALL HU; only drop explicit reject_foreign) ----
+// ---- podcasts (curated HU only; RSS is_hungarian is noisy) ----
 let from = 0, podcasts = [];
 while (true) {
   const { data, error } = await sb.from('podcasts')
-    .select('slug,updated_at,ai_enriched_at,rank_label,language_decision,is_hungarian')
-    .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian')
+    .select('slug,updated_at,ai_enriched_at,rank_label,language_decision')
+    .eq('language_decision', 'accept_hungarian')
     .order('id').range(from, from + 999);
   if (error) throw error;
   if (!data?.length) break;
   for (const p of data) {
     if (!p.slug) continue;
-    if (p.language_decision === 'reject_foreign') continue;
     const t = p.rank_label;
     const pr = t === 'S' ? '0.9' : t === 'A' ? '0.8' : t === 'B' ? '0.7' : t === 'C' ? '0.6' : '0.5';
     const lm = [p.updated_at, p.ai_enriched_at].filter(Boolean).sort().pop();
@@ -152,13 +151,13 @@ while (true) {
 }
 const topicFiles = writeChunks('topics', topicUrls);
 
-// ---- episodes (ALL HU; no recency cap, no ai_summary filter) ----
+// ---- episodes (curated HU only; no recency cap, no ai_summary filter) ----
 const epUrls = [];
 from = 0;
 while (true) {
   const { data, error } = await sb.from('episodes')
-    .select('slug,published_at,updated_at,podcasts!inner(slug,is_hungarian,language_decision,rank_label)')
-    .or('is_hungarian.eq.true,language_decision.eq.accept_hungarian', { foreignTable: 'podcasts' })
+    .select('slug,published_at,updated_at,podcasts!inner(slug,language_decision,rank_label)')
+    .eq('podcasts.language_decision', 'accept_hungarian')
     .order('id')
     .range(from, from + 999);
   if (error) throw error;
@@ -166,7 +165,6 @@ while (true) {
   for (const e of data) {
     if (!e.slug || !e.podcasts?.slug) continue;
     const ps = e.podcasts;
-    if (ps.language_decision === 'reject_foreign') continue;
     const pr = ps.rank_label === 'S' ? '0.7' : ps.rank_label === 'A' ? '0.6' : '0.5';
     const lm = [e.updated_at, e.published_at].filter(Boolean).sort().pop();
     epUrls.push(tag(`${SITE}/podcast/${esc(ps.slug)}/${esc(e.slug)}`, lm, 'monthly', pr));

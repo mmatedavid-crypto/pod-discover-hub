@@ -567,11 +567,24 @@ describe("production policy static guards", () => {
     const podcastSitemapBlock = legacy.slice(legacy.indexOf("async function buildPodcasts"), legacy.indexOf("async function buildEpisodesByMonth"));
     const episodeSitemapBlock = legacy.slice(legacy.indexOf("async function buildEpisodesByMonth"), legacy.indexOf("async function buildEntitiesByMonth"));
     const entitySitemapBlock = legacy.slice(legacy.indexOf("async function buildEntitiesByMonth"), legacy.indexOf("async function handler"));
+    const generatedPodcastsBlock = generated.slice(generated.indexOf("// podcasts"), generated.indexOf("// people"));
+    const generatedEpisodesPodcastBlock = generated.slice(generated.indexOf("const podMap = new Map"), generated.indexOf("// Stream episodes"));
+    const localPodcastsBlock = localGenerator.slice(localGenerator.indexOf("// ---- podcasts"), localGenerator.indexOf("// ---- people"));
+    const localEpisodesBlock = localGenerator.slice(localGenerator.indexOf("// ---- episodes"), localGenerator.indexOf("// ---- sitemap.xml"));
     for (const block of [podcastSitemapBlock, episodeSitemapBlock, entitySitemapBlock]) {
       expect(block).toContain('language_decision", "accept_hungarian"');
       expect(block).not.toContain('is_hungarian", true');
       expect(block).not.toContain('podcasts.is_hungarian", true');
     }
+    for (const block of [generatedPodcastsBlock, generatedEpisodesPodcastBlock, localPodcastsBlock, localEpisodesBlock]) {
+      expect(block).toContain("accept_hungarian");
+      expect(block).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+      expect(block).not.toContain("language_decision === 'reject_foreign'");
+    }
+    expect(generatedPodcastsBlock).toContain(".eq('language_decision', 'accept_hungarian')");
+    expect(generatedEpisodesPodcastBlock).toContain(".eq('language_decision', 'accept_hungarian')");
+    expect(localPodcastsBlock).toContain(".eq('language_decision', 'accept_hungarian')");
+    expect(localEpisodesBlock).toContain(".eq('podcasts.language_decision', 'accept_hungarian')");
 
     expect(hetiRss).toContain("const HU_MAP");
     expect(hetiRss).toContain("function slugifyHu");
@@ -602,6 +615,8 @@ describe("production policy static guards", () => {
     expect(searchHybrid).toContain('p.persona === "historical"');
     expect(searchHybrid).toContain("|| p.date_of_death");
     expect(searchHybrid).toContain("|| p.is_living === false");
+    expect(searchHybrid).toContain('return p.language_decision === "accept_hungarian";');
+    expect(searchHybrid).not.toContain('return p.is_hungarian === true || decision === "accept_hungarian";');
     expect(searchHybrid).not.toContain("trustedWiki || !hasPodcastPersonEvidence");
     expect(autocomplete).toContain("function isSafePublicPerson");
     expect(autocomplete).toContain("filter(isSafePublicPerson)");

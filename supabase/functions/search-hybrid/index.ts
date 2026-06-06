@@ -26,9 +26,7 @@ const EPISODE_SELECT =
 function isAcceptedHungarianPodcast(p: any): boolean {
   if (!p) return false;
   if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
-  const decision = String(p.language_decision || "");
-  if (["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(decision)) return false;
-  return p.is_hungarian === true || decision === "accept_hungarian";
+  return p.language_decision === "accept_hungarian";
 }
 
 function isSafePublicPerson(p: any): boolean {
