@@ -642,6 +642,18 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("keeps prerender SEO surfaces on accepted Hungarian podcast decisions", () => {
+    const prerender = read("supabase/functions/prerender/index.ts");
+
+    expect(prerender).toContain("function isAcceptedHungarianPrerenderPodcast");
+    expect(prerender).toContain('return p.language_decision === "accept_hungarian";');
+    expect(prerender).toContain('.eq("language_decision", "accept_hungarian")');
+    expect(prerender).not.toContain("is_hungarian");
+    expect(prerender).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+    expect(prerender).not.toContain('language_decision !== "reject_foreign"');
+    expect(prerender).not.toContain("language_decision !== 'reject_foreign'");
+  });
+
   it("demotes temporal topic-only people at the database policy layer", () => {
     const migration = read("supabase/migrations/20260604232000_temporal_person_public_guard.sql");
     const strictMigration = read("supabase/migrations/20260605004500_strict_dead_person_no_podcast_profile_guard.sql");

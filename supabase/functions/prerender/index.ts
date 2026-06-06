@@ -472,6 +472,12 @@ function slugify(v: string, kind: string) {
     .slice(0, 80);
 }
 
+function isAcceptedHungarianPrerenderPodcast(p: any): boolean {
+  if (!p) return false;
+  if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
+  return p.language_decision === "accept_hungarian";
+}
+
 async function buildCategory(
   supabase: ReturnType<typeof createClient>,
   slug: string,
@@ -488,12 +494,12 @@ async function buildCategory(
     .from("podcasts")
     .select("title, display_title, slug, summary, image_url, language_decision")
     .eq("category", cat.name)
-    .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")
+    .eq("language_decision", "accept_hungarian")
     .eq("rss_status", "active")
     .order("podiverzum_rank", { ascending: false })
     .limit(50);
 
-  const list = ((pods ?? []) as Array<Record<string, any>>).filter((p) => p.language_decision !== "reject_foreign");
+  const list = (pods ?? []) as Array<Record<string, any>>;
   const title = cat.seo_title || `${cat.name} podcastek — Podiverzum`;
   const desc =
     cat.seo_description ||
@@ -563,14 +569,14 @@ async function buildPerson(
 
   const { data: rows } = await (supabase as any)
     .from("person_episode_mentions")
-    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, is_hungarian, language_decision))`)
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, language_decision))`)
     .eq("person_id", person.id)
     .order("created_at", { ascending: false })
     .limit(80);
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
+    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast))
     .slice(0, 40);
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
@@ -631,14 +637,14 @@ async function buildTopic(
 
   const { data: rows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
     .eq("topic_id", topic.id)
     .order("confidence", { ascending: false })
     .limit(120);
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
+    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast))
     .slice(0, 40);
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
@@ -695,14 +701,14 @@ async function buildOrganization(
 
   const { data: rows } = await (supabase as any)
     .from("episode_organization_map")
-    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
     .eq("organization_id", org.id)
     .order("confidence", { ascending: false })
     .limit(120);
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
+    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast))
     .slice(0, 40);
 
   const canonical = `${SITE}/ceg/${slug}`;
@@ -758,10 +764,10 @@ async function buildMoodCollection(
   if (episodeIds.length) {
     const { data } = await (supabase as any)
       .from("episodes")
-      .select(`title, display_title, slug, ai_summary, published_at, image_url, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision)`)
+      .select(`title, display_title, slug, ai_summary, published_at, image_url, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision)`)
       .in("id", episodeIds.slice(0, 60));
     eps = ((data ?? []) as Array<any>)
-      .filter((e) => e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
+      .filter((e) => isAcceptedHungarianPrerenderPodcast(e.podcast))
       .slice(0, 40);
   }
 
@@ -816,13 +822,13 @@ async function buildLegacyEntity(
 
   const { data } = await (supabase as any)
     .from("episodes")
-    .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, is_hungarian, language_decision, rss_status)`)
+    .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language_decision, rss_status)`)
     .contains(arrayCol, [matchValue])
     .order("published_at", { ascending: false })
     .limit(60);
 
   let rows = (data ?? []) as Array<Record<string, any>>;
-  rows = rows.filter((r: any) => r.podcast?.is_hungarian === true && r.podcast?.language_decision === "accept_hungarian");
+  rows = rows.filter((r: any) => isAcceptedHungarianPrerenderPodcast(r.podcast));
   if (!rows.length) return null;
 
   const human = slug.replace(/-/g, " ");
@@ -920,7 +926,6 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
     const { data } = await (supabase as any)
       .from("podcasts")
       .select("title, display_title, slug, summary, description, image_url, category, podiverzum_rank, rank_label")
-      .eq("is_hungarian", true)
       .eq("language_decision", "accept_hungarian")
       .eq("rss_status", "active")
       .order("podiverzum_rank", { ascending: false })
@@ -1147,7 +1152,7 @@ async function buildTopicYear(
   const { from, to } = yearBounds(year);
   const { data: rows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
+    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
     .eq("topic_id", topic.id)
     .gte("episodes.published_at", from)
     .lt("episodes.published_at", to)
@@ -1156,7 +1161,7 @@ async function buildTopicYear(
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
+    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast))
     .slice(0, 50);
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
@@ -1208,9 +1213,9 @@ async function buildPodcastYear(
 ) {
   const { data: pod } = await supabase
     .from("podcasts")
-    .select("id, title, display_title, slug, description, summary, image_url, language")
+    .select("id, title, display_title, slug, description, summary, image_url, language, language_decision, rss_status")
     .eq("slug", podcastSlug).maybeSingle();
-  if (!pod) return null;
+  if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null;
 
   const { from, to } = yearBounds(year);
   const { data } = await supabase
@@ -1296,13 +1301,13 @@ async function buildPersonTopic(
   // Fetch topic episodes (with podcast join) first — bounded by topic relevance.
   const { data: tRows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
+    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
     .eq("topic_id", topic.id)
     .order("confidence", { ascending: false })
     .limit(500);
   const topicEps = ((tRows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian");
+    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast));
   if (topicEps.length === 0) return null;
   const topicEpIds = topicEps.map((e) => e.id);
 
@@ -1375,13 +1380,13 @@ async function buildOrgTopic(
   // Same inverted strategy as person/topic.
   const { data: tRows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
+    .select(`episode_id, confidence, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
     .eq("topic_id", topic.id)
     .order("confidence", { ascending: false })
     .limit(500);
   const topicEps = ((tRows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian");
+    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast));
   if (topicEps.length === 0) return null;
   const topicEpIds = topicEps.map((e) => e.id);
 
@@ -1455,7 +1460,7 @@ async function buildTopicCross(
 
   const { data: bRows } = await (supabase as any)
     .from("episode_topic_map")
-    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, is_hungarian, language_decision))`)
+    .select(`episode_id, confidence, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
     .eq("topic_id", b.id)
     .in("episode_id", Array.from(aSet).slice(0, 1500))
     .order("confidence", { ascending: false })
@@ -1463,7 +1468,7 @@ async function buildTopicCross(
 
   const eps = ((bRows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && e.podcast?.is_hungarian === true && e.podcast?.language_decision === "accept_hungarian")
+    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast))
     .slice(0, 40);
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
