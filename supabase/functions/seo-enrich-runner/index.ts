@@ -21,9 +21,7 @@ const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, h
 import { callGeminiOpenAI } from "../_shared/google-gemini-direct.ts";
 
 function isAcceptedHungarian(meta: any): boolean {
-  const decision = String(meta?.language_decision || "");
-  if (["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(decision)) return false;
-  return meta?.is_hungarian === true || decision === "accept_hungarian";
+  return meta?.language_decision === "accept_hungarian";
 }
 
 async function callAI(model: string, messages: any[], tools: any[], toolName: string, targetId?: string, kind?: string) {
@@ -117,11 +115,11 @@ Deno.serve(async (req) => {
         let prompt = job.result?.prompt as string | undefined;
         if (!prompt) {
           if (isPodcast) {
-            const { data: p } = await admin.from("podcasts").select("title,display_title,description,category,language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle();
+            const { data: p } = await admin.from("podcasts").select("title,display_title,description,category,language,language_decision").eq("id", job.target_id).maybeSingle();
             if (!p) throw new Error("target_missing");
             prompt = podcastUserPrompt(p as any);
           } else {
-            const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title,language,is_hungarian,language_decision,hosts)").eq("id", job.target_id).maybeSingle();
+            const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title,language,language_decision,hosts)").eq("id", job.target_id).maybeSingle();
             if (!e) throw new Error("target_missing");
             const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
             const podLanguage = ((e as any).podcasts?.language) || null;
@@ -180,8 +178,8 @@ Deno.serve(async (req) => {
         // we fail the job (don't write English output to the DB).
         {
           const { data: langTarget } = isPodcast
-            ? await admin.from("podcasts").select("language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle()
-            : await admin.from("episodes").select("podcasts!inner(language,is_hungarian,language_decision)").eq("id", job.target_id).maybeSingle();
+            ? await admin.from("podcasts").select("language,language_decision").eq("id", job.target_id).maybeSingle()
+            : await admin.from("episodes").select("podcasts!inner(language,language_decision)").eq("id", job.target_id).maybeSingle();
           const huSource = isAcceptedHungarian(isPodcast ? langTarget : (langTarget as any)?.podcasts);
           if (huSource) {
             const sample = `${parsed.seo_title || ""} ${parsed.seo_description || ""} ${parsed.ai_summary || ""}`.trim();
@@ -223,7 +221,7 @@ Deno.serve(async (req) => {
           const seo_title = trim(String(parsed.seo_title || ""), 65);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
           assertHungarianPublicFields({ seo_title, seo_description });
-          const { data: pLang } = await admin.from("podcasts").select("language,is_hungarian,language_decision").eq("id", job.target_id).maybeSingle();
+          const { data: pLang } = await admin.from("podcasts").select("language,language_decision").eq("id", job.target_id).maybeSingle();
           const update: any = { seo_title, seo_description, ai_enriched_at: new Date().toISOString() };
           // Never let a model-side detected language overwrite our accepted-Hungarian decision.
           if (detectedLang && detectedLang !== "mul" && !isAcceptedHungarian(pLang)) update.language = detectedLang;
@@ -253,7 +251,7 @@ Deno.serve(async (req) => {
           let epPodcastId: string | null = null;
           let epPodcastMeta: any = null;
           {
-            const { data: ep2 } = await admin.from("episodes").select("podcast_id, podcasts!inner(hosts,language,is_hungarian,language_decision)").eq("id", job.target_id).maybeSingle();
+            const { data: ep2 } = await admin.from("episodes").select("podcast_id, podcasts!inner(hosts,language,language_decision)").eq("id", job.target_id).maybeSingle();
             epPodcastId = (ep2 as any)?.podcast_id || null;
             epHosts = ((ep2 as any)?.podcasts?.hosts) || [];
             epPodcastMeta = (ep2 as any)?.podcasts || null;

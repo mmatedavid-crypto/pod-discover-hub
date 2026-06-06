@@ -879,6 +879,7 @@ describe("production policy static guards", () => {
   it("keeps public AI text Hungarian-only at the edge and database layer", () => {
     const guard = read("supabase/functions/_shared/hu-language-guard.ts");
     const aiEnrich = read("supabase/functions/ai-enrich/index.ts");
+    const seoEnqueue = read("supabase/functions/seo-enrich-enqueue/index.ts");
     const seoRunner = read("supabase/functions/seo-enrich-runner/index.ts");
     const migration = read("supabase/migrations/20260603162000_public_ai_language_guard_consolidated.sql");
     const phraseMigration = read("supabase/migrations/20260605010000_public_ai_language_guard_v4_english_phrase_detection.sql");
@@ -890,6 +891,14 @@ describe("production policy static guards", () => {
     expect(aiEnrich).toContain("assertHungarianPublicFields({ summary })");
     expect(aiEnrich).toContain("assertHungarianPublicFields({ summary: parsed.summary })");
     expect(seoRunner).toContain("assertHungarianPublicFields({ seo_title, seo_description, ai_summary })");
+    expect(seoEnqueue).toContain('language_decision", "accept_hungarian"');
+    expect(seoRunner).toContain('return meta?.language_decision === "accept_hungarian";');
+    for (const source of [seoEnqueue, seoRunner]) {
+      expect(source).not.toContain("is_hungarian");
+      expect(source).not.toContain("reject_foreign");
+      expect(source).not.toContain("confirmed_foreign");
+      expect(source).not.toContain("reject_non_hungarian");
+    }
 
     expect(migration).toContain("CREATE OR REPLACE FUNCTION public.is_hungarianish_public_ai_text");
     expect(migration).toContain("CREATE OR REPLACE FUNCTION public.enforce_hu_episode_public_ai_text");
