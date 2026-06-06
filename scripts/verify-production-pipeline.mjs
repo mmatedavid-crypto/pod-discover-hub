@@ -150,6 +150,7 @@ SELECT jsonb_build_object(
     'canonical_org_merge_policy_v2', COALESCE((SELECT (value->>'version')::int >= 2 FROM public.app_settings WHERE key = 'canonical_alias_merge_policy'), false),
     'temporal_person_guard_policy_v6', COALESCE((SELECT (value->>'version')::int >= 6 FROM public.app_settings WHERE key = 'temporal_person_public_guard_policy'), false),
     'person_bio_temporal_policy_v2', COALESCE((SELECT (value->>'version')::int >= 2 AND value->>'edge_function' = 'person-bio-generator' FROM public.app_settings WHERE key = 'person_bio_generation_policy'), false),
+    'person_bio_unchanged_input_policy_v3', COALESCE((SELECT (value->>'version')::int >= 3 AND value->>'input_hash_required' = 'true' AND value->>'unchanged_input_skip_before_job' = 'true' FROM public.app_settings WHERE key = 'person_bio_generation_policy'), false),
     'no_public_unapproved_dead_or_historical_people', NOT EXISTS (
       SELECT 1
       FROM public.people p

@@ -162,6 +162,7 @@ describe("production policy static guards", () => {
       "20260605200000_reassert_temporal_person_public_guard.sql",
       "20260605213000_reassert_strict_temporal_person_guard_v6.sql",
       "20260606003000_person_bio_temporal_policy_v2.sql",
+      "20260606004000_person_bio_input_hash_policy_v3.sql",
       "episode-article-pairer",
       "embed-episode-runner",
       "embed-episode-chunks-runner",
@@ -654,6 +655,7 @@ describe("production policy static guards", () => {
     expect(strictReassertMigration).toContain("'version', 6");
     expect(verifier).toContain("temporal_person_guard_policy_v6");
     expect(verifier).toContain("person_bio_temporal_policy_v2");
+    expect(verifier).toContain("person_bio_unchanged_input_policy_v3");
     expect(verifier).toContain("no_public_unapproved_dead_or_historical_people");
     expect(verifier).toContain("no_public_unapproved_suspicious_temporal_participants");
   });
@@ -709,8 +711,18 @@ describe("production policy static guards", () => {
   it("keeps person bio generation closed for unapproved deceased or historical names", () => {
     const generator = read("supabase/functions/person-bio-generator/index.ts");
     const migration = read("supabase/migrations/20260606003000_person_bio_temporal_policy_v2.sql");
+    const inputHashMigration = read("supabase/migrations/20260606004000_person_bio_input_hash_policy_v3.sql");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
 
+    expect(generator).toContain("const PERSON_BIO_INPUT_VERSION");
+    expect(generator).toContain("function stableStringify");
+    expect(generator).toContain("async function sha256");
+    expect(generator).toContain('skipped: "unchanged_input"');
+    expect(generator).toContain('skipped: "recorded_existing_input_hash"');
+    expect(generator).toContain("previousInputHash === inputHash");
+    expect(generator).toContain("cost_usd: 0");
+    expect(generator).toContain("input_hash: inputHash");
+    expect(generator).not.toContain('skipped: "already_done"');
     expect(generator).toContain("function isUnapprovedTemporalTopicOnlyPerson");
     expect(generator).toContain('skipped: "temporal_topic_only_person"');
     expect(generator).toContain('p.persona === "historical"');
@@ -721,7 +733,12 @@ describe("production policy static guards", () => {
     expect(migration).toContain("person_bio_generation_policy");
     expect(migration).toContain("'version', 2");
     expect(migration).toContain("person-bio-generator");
+    expect(inputHashMigration).toContain("'version', 3");
+    expect(inputHashMigration).toContain("'input_hash_required', true");
+    expect(inputHashMigration).toContain("'unchanged_input_skip_before_job', true");
+    expect(inputHashMigration).toContain("'unchanged_input_estimated_cost_usd', 0");
     expect(reporter).toContain("person_bio_temporal_policy");
+    expect(reporter).toContain("person_bio_input_hash_policy_v3");
   });
 
   it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {

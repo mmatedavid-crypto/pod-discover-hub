@@ -16,6 +16,7 @@ const BIO_MODEL = "google/gemini-2.5-flash-lite";
 const AUDIT_MODEL = "google/gemini-2.5-flash-lite";
 const OVERVIEW_MODEL = "google/gemini-2.5-flash-lite";
 const MODEL = BIO_MODEL; // backwards-compat reference
+const PERSON_BIO_INPUT_VERSION = "person-bio-input-v3";
 const BLOCKED_BATCH_MODEL_RE = /(openai\/gpt-5|gpt-5|gemini-.*-pro|\/.*-pro|gemini-3)/i;
 
 type AICallResult = { text: string; cost: number; ok: boolean; error?: string; toolCall?: any };
@@ -24,6 +25,21 @@ function assertCostSafeModel(model: string) {
   if (BLOCKED_BATCH_MODEL_RE.test(model || "")) {
     throw new Error(`blocked_batch_model:${model}`);
   }
+}
+
+function stableStringify(value: unknown): string {
+  if (typeof value === "undefined") return "null";
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`);
+  return `{${entries.join(",")}}`;
+}
+
+async function sha256(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function callAI(
@@ -51,7 +67,7 @@ async function callAI(
     model,
     job_type: "person_bio_generator",
     target_type: "person",
-    prompt_version: "person-bio-v2",
+    prompt_version: "person-bio-v3",
     input_text: user,
     min_input_chars: 120,
     messages: body.messages,
@@ -234,10 +250,6 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
   if (["hide","reject","merge"].includes(p.ai_recommended_action || "")) return { id: personId, skipped: "ai_blocked" };
   if (["needs_human_review","duplicate_candidate"].includes(p.ai_review_status || "")) return { id: personId, skipped: "review_pending" };
 
-  if (!opts.force && p.ai_bio_status === "completed" && p.ai_bio && p.overview_text) {
-    return { id: personId, skipped: "already_done" };
-  }
-
   const { data: aliases } = await admin.from("person_aliases").select("alias").eq("person_id", personId).limit(15);
   const { data: ppm } = await admin
     .from("person_podcast_map")
@@ -276,13 +288,7 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
   const tally = { host: 0, guest: 0, subject: 0, mentioned: 0 } as any;
   epList.forEach((e: any) => { tally[e.mention_type] = (tally[e.mention_type] || 0) + 1; });
   const styleHint = pickOverviewStyleLine(tally.host, tally.guest, tally.subject, tally.mentioned);
-  const isHost = (ppm || []).some((r: any) => r.role === "host");
-
-  const jobInsert = await admin.from("person_enrichment_jobs").insert({
-    person_id: personId, job_type: "ai_bio_overview", status: "running", started_at: new Date().toISOString(),
-    input_snapshot: { ep_count: epList.length, tally, has_wiki: !!p.wikipedia_extract, wiki_status: p.wikipedia_match_status },
-  }).select("id").maybeSingle();
-  const jobId = (jobInsert.data as any)?.id;
+  let jobId: string | undefined;
 
   try {
     const useWiki = hasVerifiedWikiSource(p);
@@ -341,6 +347,82 @@ async function processPerson(admin: any, personId: string, opts: { force?: boole
     const epEvidenceBlob = epTextEvidence.length
       ? epTextEvidence.slice(0, 8).map((s, i) => `[${i + 1}] ${s}`).join("\n")
       : "—";
+
+    const inputSnapshot = {
+      input_version: PERSON_BIO_INPUT_VERSION,
+      models: { bio: BIO_MODEL, overview: OVERVIEW_MODEL, audit: AUDIT_MODEL },
+      person: {
+        id: p.id,
+        name: p.name,
+        normalized_name: p.normalized_name,
+        manual_approved: Boolean(p.manual_approved),
+        has_archival_evidence: Boolean(p.has_archival_evidence),
+        identity_ambiguous: Boolean(p.identity_ambiguous),
+        wikipedia_match_status: p.wikipedia_match_status,
+        wikipedia_match_confidence: Number(p.wikipedia_match_confidence || 0),
+        wikipedia_title: p.wikipedia_title,
+        wikidata_id: p.wikidata_id,
+        wikipedia_description: p.wikipedia_description,
+        wikipedia_extract: p.wikipedia_extract ? String(p.wikipedia_extract).slice(0, 1200) : null,
+        date_of_death: p.date_of_death,
+        is_living: p.is_living,
+        is_deceased: p.is_deceased,
+        is_historical: p.is_historical,
+        persona: p.persona,
+      },
+      aliases: (aliases || []).map((a: any) => a.alias).filter(Boolean).sort(),
+      podcast_roles: (ppm || []).map((r: any) => ({
+        role: r.role,
+        episode_count: Number(r.episode_count || 0),
+        podcast_id: r.podcasts?.id || null,
+        podcast_title: r.podcasts?.title || null,
+      })).sort((a: any, b: any) => `${a.podcast_id}:${a.role}`.localeCompare(`${b.podcast_id}:${b.role}`)),
+      episodes: epList.map((e: any) => ({
+        id: e.id,
+        title: e.title,
+        summary: e.summary,
+        mention_type: e.mention_type,
+      })),
+      tally,
+      role_evidence: epTextEvidence.slice(0, 8),
+      use_wiki: useWiki,
+      has_wiki_candidate: hasWikiCandidate,
+    };
+    const inputHash = await sha256(stableStringify(inputSnapshot));
+    const previousInputHash = p.ai_bio_sources?.input_hash || p.overview_sources?.input_hash || null;
+    if (!opts.force && previousInputHash === inputHash && (p.ai_bio || p.overview_text)) {
+      return { id: personId, skipped: "unchanged_input", input_hash: inputHash, cost_usd: 0 };
+    }
+    if (!opts.force && !previousInputHash && p.ai_bio_status === "completed" && p.ai_bio && p.overview_text) {
+      await admin.from("people").update({
+        ai_bio_sources: {
+          ...(p.ai_bio_sources || {}),
+          input_hash: inputHash,
+          input_version: PERSON_BIO_INPUT_VERSION,
+        },
+        overview_sources: {
+          ...(p.overview_sources || {}),
+          input_hash: inputHash,
+          input_version: PERSON_BIO_INPUT_VERSION,
+        },
+      }).eq("id", personId);
+      return { id: personId, skipped: "recorded_existing_input_hash", input_hash: inputHash, cost_usd: 0 };
+    }
+
+    const jobInsert = await admin.from("person_enrichment_jobs").insert({
+      person_id: personId,
+      job_type: "ai_bio_overview",
+      status: "running",
+      started_at: new Date().toISOString(),
+      input_snapshot: {
+        ...inputSnapshot,
+        input_hash: inputHash,
+        ep_count: epList.length,
+        has_wiki: !!p.wikipedia_extract,
+        wiki_status: p.wikipedia_match_status,
+      },
+    }).select("id").maybeSingle();
+    jobId = (jobInsert.data as any)?.id;
 
     const bioSys = `Magyar nyelvű, neutrális, tényszerű rövid bio-t írsz egy podcast-katalógushoz.
 SZABÁLYOK:
@@ -492,6 +574,8 @@ SZABÁLYOK:
       mention_tally: tally,
       audit: auditResult,
       generator_model: BIO_MODEL,
+      input_hash: inputHash,
+      input_version: PERSON_BIO_INPUT_VERSION,
     };
 
     const totalCost = bioCost + overviewCost + auditCost;

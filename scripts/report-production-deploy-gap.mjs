@@ -102,6 +102,7 @@ const GROUPS = {
       "supabase/migrations/20260605200000_reassert_temporal_person_public_guard.sql",
       "supabase/migrations/20260605213000_reassert_strict_temporal_person_guard_v6.sql",
       "supabase/migrations/20260606003000_person_bio_temporal_policy_v2.sql",
+      "supabase/migrations/20260606004000_person_bio_input_hash_policy_v3.sql",
     ],
     functions: ["prerender", "person-entity-extractor", "person-bio-generator"],
     why: "Névazonosságoknál és halott/történelmi személyeknél ne kerüljenek hamis életrajzok vagy nem létező podcast-szereplő profilok SEO/prerender oldalra.",
@@ -202,7 +203,7 @@ function groupKeyForFailure(failure) {
   if (key === "migration_gates" && String(failure).includes("suspicious_temporal_participants")) {
     return "people_hub_identity_safety";
   }
-  if (key === "migration_gates" && String(failure).includes("person_bio_temporal_policy")) {
+  if (key === "migration_gates" && String(failure).includes("person_bio")) {
     return "people_hub_identity_safety";
   }
   return key;
