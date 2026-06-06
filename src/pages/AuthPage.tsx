@@ -62,12 +62,21 @@ export default function AuthPage() {
         </div>
 
         <button
-          onClick={signInGoogle}
+          onClick={() => signInWith("google")}
           disabled={loading}
           className="mt-8 w-full inline-flex items-center justify-center gap-3 py-2.5 rounded-md border border-border bg-card hover:bg-secondary/60 text-sm font-medium transition-colors disabled:opacity-50"
         >
           <GoogleLogo />
           {loading ? "Átirányítás…" : "Belépés Google-lal"}
+        </button>
+
+        <button
+          onClick={() => signInWith("apple")}
+          disabled={loading}
+          className="mt-3 w-full inline-flex items-center justify-center gap-3 py-2.5 rounded-md bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50"
+        >
+          <AppleLogo />
+          {loading ? "Átirányítás…" : "Belépés Apple-lel"}
         </button>
 
         <p className="text-[11px] text-muted-foreground mt-6 text-center leading-relaxed">
