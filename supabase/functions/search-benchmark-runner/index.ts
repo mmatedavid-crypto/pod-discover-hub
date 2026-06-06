@@ -86,6 +86,16 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
+function entityEvidenceText(r: Record<string, unknown>): string {
+  return [
+    r.people,
+    r.companies,
+    r.topics,
+    r.tickers,
+    r.ingredients,
+  ].flatMap(asStringArray).join(" ");
+}
+
 function foldForMatch(value: string) {
   return String(value || "")
     .toLowerCase()
@@ -107,6 +117,7 @@ function autoScoreTopResults(g: Golden, top: Array<Record<string, unknown>>): Re
       r.podcast_title || "",
       r.podcast_slug || "",
       r.why_matched || "",
+      entityEvidenceText(r),
     ].join(" "));
     const excluded = mustExclude.some((term) => term && blob.includes(term));
     let score = excluded ? 0 : 1;
@@ -278,6 +289,11 @@ Deno.serve(async (req) => {
           podcast_title: e.podcasts?.title || e.podcast_title || "",
           podcast_slug: e.podcasts?.slug || e.podcast_slug || "",
           why_matched: e.why_matched || null,
+          people: Array.isArray(e.people) ? e.people : [],
+          companies: Array.isArray(e.companies) ? e.companies : [],
+          topics: Array.isArray(e.topics) ? e.topics : [],
+          tickers: Array.isArray(e.tickers) ? e.tickers : [],
+          ingredients: Array.isArray(e.ingredients) ? e.ingredients : [],
         }));
         const scores = autoScoreTopResults(g, top);
         const metrics = computeMetrics(top, scores);

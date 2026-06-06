@@ -212,6 +212,11 @@ describe("production policy static guards", () => {
     expect(benchmarkRunner).toContain("precision_at_3");
     expect(benchmarkRunner).toContain("ndcg_at_10");
     expect(benchmarkRunner).toContain("false_positive_rate");
+    expect(benchmarkRunner).toContain("function entityEvidenceText");
+    expect(benchmarkRunner).toContain("entityEvidenceText(r)");
+    for (const field of ["people", "companies", "topics", "tickers", "ingredients"]) {
+      expect(benchmarkRunner).toContain(`${field}: Array.isArray(e.${field}) ? e.${field} : []`);
+    }
   });
 
   it("keeps entity monitoring benchmark scoped away from dead-person podcast targets", () => {
