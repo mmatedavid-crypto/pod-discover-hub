@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { optimizedImageUrl } from "@/lib/image";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
@@ -23,6 +24,20 @@ describe("episode thumbnail loading policy", () => {
     expect(detail).toContain("imageWidths={[64, 96, 160]}");
     expect(detail).toContain('sizes="(max-width: 640px) 64px, 80px"');
     expect(detail).not.toContain("imageWidths={[96, 160, 240]}");
+  });
+
+  it("downsizes Omny episode artwork instead of loading large Portfolio thumbnails", () => {
+    const image = read("src/lib/image.ts");
+    const largeOmny = "https://www.omnycontent.com/d/clips/show/episode/image.jpg?t=1780578252&amp;size=Large";
+
+    expect(image).toContain('url.hostname.includes("omnycontent.com")');
+    expect(image).toContain('url.searchParams.set("size", width <= 160 ? "Small" : width <= 360 ? "Medium" : "Large")');
+    expect(optimizedImageUrl(largeOmny, { width: 96, height: 96 })).toBe(
+      "https://www.omnycontent.com/d/clips/show/episode/image.jpg?t=1780578252&size=Small",
+    );
+    expect(optimizedImageUrl(largeOmny, { width: 280, height: 140 })).toBe(
+      "https://www.omnycontent.com/d/clips/show/episode/image.jpg?t=1780578252&size=Medium",
+    );
   });
 
   it("uses episode thumbnails before podcast fallback in shared episode cards", () => {
