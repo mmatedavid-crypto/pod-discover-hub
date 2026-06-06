@@ -147,6 +147,7 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
     staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 6,
     queryFn: async (): Promise<Row[]> => {
+      if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return [];
       const { data: cur } = await supabase
         .from("episodes")
         .select("id,podcast_id,title,display_title,topics,people,companies,podcasts!inner(title,display_title,category)")

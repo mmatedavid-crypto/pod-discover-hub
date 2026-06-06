@@ -49,6 +49,7 @@ describe("smart player recommendation policy", () => {
     const similar = read("src/components/SimilarEpisodes.tsx");
 
     expect(related).toContain("id,podcast_id,title,display_title,slug,image_url");
+    expect(related).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return []");
     expect(related).toContain("image_url: r.image_url");
     expect(related).toContain("imageUrl: r.image_url || r.podcast_image_url");
     expect(related).toContain("r.image_url || r.podcast_image_url");
@@ -71,6 +72,7 @@ describe("smart player recommendation policy", () => {
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
 
     expect(discovery).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED");
+    expect(discovery).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return []");
     expect(discovery).toContain("podcasts!inner(slug,title,display_title,image_url,category,language_decision,rss_status,rank_label)");
     expect(discovery).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
     expect(discovery).not.toContain('.eq("podcasts.is_hungarian", true)');
