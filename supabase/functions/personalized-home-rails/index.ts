@@ -5,6 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const MIN_DIAGNOSTIC_REASON_CHARS = 12;
+const MIN_MAIN_RAIL_SIMILARITY = 0.18;
+const MAIN_RAIL_REASON = "A korábbi hallgatásaid alapján hasonló témák és hangulat miatt ajánljuk.";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -36,6 +38,10 @@ Deno.serve(async (req) => {
       p_user_id: userId,
       p_limit: 12,
     });
+    const safeMainRows = ((mainRows || []) as any[])
+      .filter(hasMinimumMainRailSimilarity)
+      .map(withMainRailDiagnosticReason)
+      .slice(0, 12);
 
     // 2) Per-seed rails: 3 most-recent distinct seed episodes
     const { data: history } = await admin
@@ -76,10 +82,13 @@ Deno.serve(async (req) => {
     }
 
     return json({
-      main: { label: "Neked ajánljuk", items: mainRows || [] },
+      main: { label: "Neked ajánljuk", items: safeMainRows },
       rails,
       policy: {
         surface: "personalized-home-rails",
+        main_rail_source: "match_episodes_by_user_history",
+        main_rail_min_similarity: MIN_MAIN_RAIL_SIMILARITY,
+        related_reason_required_for_main_rail: true,
         seed_rails_source: "similar_episodes",
         related_reason_required_for_seed_rails: true,
       },
@@ -93,6 +102,17 @@ Deno.serve(async (req) => {
 function hasDiagnosticRelatedReason(row: any): boolean {
   const reason = String(row?.related_reason || "").trim();
   return reason.length >= MIN_DIAGNOSTIC_REASON_CHARS;
+}
+
+function hasMinimumMainRailSimilarity(row: any): boolean {
+  return Number(row?.similarity || 0) >= MIN_MAIN_RAIL_SIMILARITY;
+}
+
+function withMainRailDiagnosticReason(row: any): any {
+  return {
+    ...row,
+    related_reason: String(row?.related_reason || "").trim() || MAIN_RAIL_REASON,
+  };
 }
 
 function json(obj: unknown, status = 200) {

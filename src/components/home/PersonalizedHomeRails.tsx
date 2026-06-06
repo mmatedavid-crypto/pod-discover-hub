@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/Skeletons";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type RpcRow = {
   episode_id: string;
@@ -17,6 +18,7 @@ type RpcRow = {
   podcast_slug: string | null;
   podcast_image_url: string | null;
   similarity?: number;
+  related_reason?: string | null;
 };
 
 type Rail = { key: string; label: string; items: RpcRow[] };
@@ -41,6 +43,7 @@ function toEp(r: RpcRow): EpisodeLite {
       category: undefined,
     } as any,
     image_url: r.image_url || null,
+    why_matched: sanitizeHungarianPublicText(r.related_reason),
   } as EpisodeLite;
 }
 

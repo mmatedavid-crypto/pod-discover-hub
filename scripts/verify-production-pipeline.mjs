@@ -336,6 +336,7 @@ SELECT jsonb_build_object(
     'diagnostics_policy_configured_v1', (SELECT (setting_values->'recommendation_diagnostics_policy'->>'version')::int >= 1 FROM settings),
     'diagnostics_related_reason_required', (SELECT COALESCE((setting_values->'recommendation_diagnostics_policy'->>'related_reason_required')::boolean, false) FROM settings),
     'personalized_home_rails_seed_reason_policy_v2', (SELECT (setting_values->'recommendation_diagnostics_policy'->>'version')::int >= 2 AND COALESCE((setting_values->'recommendation_diagnostics_policy'->>'personalized_home_rails_seed_reason_required')::boolean, false) FROM settings),
+    'personalized_home_rails_main_reason_policy_v3', (SELECT (setting_values->'recommendation_diagnostics_policy'->>'version')::int >= 3 AND COALESCE((setting_values->'recommendation_diagnostics_policy'->>'personalized_home_rails_main_reason_required')::boolean, false) AND COALESCE((setting_values->'recommendation_diagnostics_policy'->>'personalized_home_rails_main_min_similarity')::numeric, 0) >= 0.18 FROM settings),
     'related_rpc_returns_related_reason', COALESCE((
       SELECT result ILIKE '%related_reason text%'
       FROM rpc_shapes

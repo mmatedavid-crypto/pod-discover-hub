@@ -153,6 +153,7 @@ describe("production policy static guards", () => {
       "20260605215000_reassert_related_public_affairs_override_terms.sql",
       "20260605232000_reassert_similar_episode_diagnostics.sql",
       "20260606005000_personalized_home_rails_reason_policy.sql",
+      "20260606011000_personalized_home_main_rail_reason_policy.sql",
       "20260531220000_v4_clean_text_family_downstream_gates.sql",
       "20260605231000_reassert_downstream_embedding_clean_text_family.sql",
       "20260605224000_lock_smart_player_recommendation_surface.sql",
@@ -899,7 +900,9 @@ describe("production policy static guards", () => {
     const publicAffairsOverrideTerms = read("supabase/migrations/20260605215000_reassert_related_public_affairs_override_terms.sql");
     const recommendationDiagnostics = read("supabase/migrations/20260605232000_reassert_similar_episode_diagnostics.sql");
     const homeRailPolicy = read("supabase/migrations/20260606005000_personalized_home_rails_reason_policy.sql");
+    const homeRailMainPolicy = read("supabase/migrations/20260606011000_personalized_home_main_rail_reason_policy.sql");
     const homeRails = read("supabase/functions/personalized-home-rails/index.ts");
+    const personalizedHome = read("src/components/home/PersonalizedHomeRails.tsx");
     const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
     const peopleHubFilterMigration = read("supabase/migrations/20260604213000_people_hub_identity_safe_filters.sql");
     const prerender = read("supabase/functions/prerender/index.ts");
@@ -915,6 +918,7 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("diagnostics_policy_configured_v1");
     expect(verifier).toContain("diagnostics_related_reason_required");
     expect(verifier).toContain("personalized_home_rails_seed_reason_policy_v2");
+    expect(verifier).toContain("personalized_home_rails_main_reason_policy_v3");
     expect(verifier).toContain("related_rpc_returns_related_reason");
     expect(verifier).toContain("similar_rpc_returns_related_reason");
     expect(verifier).toContain("similar_rpc_builds_diagnostic_reason");
@@ -963,11 +967,22 @@ describe("production policy static guards", () => {
     expect(homeRailPolicy).toContain("'version', 2");
     expect(homeRailPolicy).toContain("'personalized_home_rails_seed_reason_required', true");
     expect(homeRailPolicy).toContain("'personalized_home_rails_seed_source', 'similar_episodes'");
+    expect(homeRailMainPolicy).toContain("'version', 3");
+    expect(homeRailMainPolicy).toContain("'personalized_home_rails_main_reason_required', true");
+    expect(homeRailMainPolicy).toContain("'personalized_home_rails_main_source', 'match_episodes_by_user_history'");
+    expect(homeRailMainPolicy).toContain("'personalized_home_rails_main_min_similarity', 0.18");
     expect(homeRails).toContain("function hasDiagnosticRelatedReason");
     expect(homeRails).toContain(".filter(hasDiagnosticRelatedReason)");
+    expect(homeRails).toContain("function hasMinimumMainRailSimilarity");
+    expect(homeRails).toContain(".filter(hasMinimumMainRailSimilarity)");
+    expect(homeRails).toContain("withMainRailDiagnosticReason");
+    expect(homeRails).toContain("related_reason_required_for_main_rail: true");
+    expect(homeRails).toContain('main_rail_source: "match_episodes_by_user_history"');
     expect(homeRails).toContain("related_reason_required_for_seed_rails: true");
     expect(homeRails).toContain('seed_rails_source: "similar_episodes"');
     expect(homeRails).not.toContain("items: sim");
+    expect(personalizedHome).toContain("sanitizeHungarianPublicText(r.related_reason)");
+    expect(personalizedHome).toContain("why_matched:");
     expect(verifier).toContain("list_people_hub_has_identity_fields");
     expect(verifier).toContain("list_people_alpha_has_identity_fields");
     expect(verifier).toContain("policy_configured_v2");
