@@ -4,6 +4,7 @@ import { EpisodeList, EpisodeLite } from "./EpisodeCard";
 import { Sparkles } from "lucide-react";
 import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "@/components/smart-player/recommendationsConfig";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type Row = {
   episode_id: string;
@@ -49,7 +50,7 @@ function rowToEpisode(r: Row): EpisodeLite {
     people: r.people,
     mentioned: r.mentioned,
     companies: r.companies,
-    why_matched: r.related_reason || relatedReasonFromSimilarity(r.similarity),
+    why_matched: sanitizeHungarianPublicText(r.related_reason),
     podcasts: {
       slug: r.podcast_slug,
       title: r.podcast_title,
@@ -59,12 +60,6 @@ function rowToEpisode(r: Row): EpisodeLite {
       podiverzum_rank: r.podiverzum_rank ?? undefined,
     },
   };
-}
-
-function relatedReasonFromSimilarity(similarity: number): string {
-  if (similarity >= 0.72) return "Erős tartalmi hasonlóság az epizód metaadatai alapján.";
-  if (similarity >= 0.6) return "Hasonló témájú epizód más magyar műsorból.";
-  return "Tartalmilag rokon epizód.";
 }
 
 const MIN_RESULTS = 3;
@@ -91,6 +86,10 @@ function rowToCandidate(row: Row) {
     people: [...(row.people || []), ...(row.mentioned || [])],
     companies: row.companies || [],
   };
+}
+
+function hasSafeRelatedReason(row: Row): boolean {
+  return sanitizeHungarianPublicText(row.related_reason).length >= 12;
 }
 
 async function hydrateRows(rows: Row[]): Promise<Row[]> {
@@ -145,7 +144,7 @@ export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; l
         if (cancelled) return;
         const safeRows = filterSafeRelatedEpisodes(
           sourceFromEpisode(cur),
-          hydrated.map(rowToCandidate),
+          hydrated.filter(hasSafeRelatedReason).map(rowToCandidate),
           limit,
         ) as Row[];
         setItems(safeRows.map(rowToEpisode));

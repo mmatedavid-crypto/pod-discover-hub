@@ -418,6 +418,8 @@ describe("page consistency static guards", () => {
     expect(bar).toContain("Kapcsolódó epizódok és értékelés");
     expect(config).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED = false");
     expect(similar).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null");
+    expect(similar).toContain("sanitizeHungarianPublicText(r.related_reason)");
+    expect(similar).not.toContain("relatedReasonFromSimilarity");
     expect(personalizedHome).toContain("A korábbi hallgatásaidhoz és érdeklődéseidhez közel álló epizódok.");
     expect(personalizedHome).not.toContain("szemantikailag");
 

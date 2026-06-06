@@ -40,6 +40,7 @@ describe("smart player recommendation policy", () => {
 
   it("keeps dormant related episodes ready for safe consumer-facing reactivation", () => {
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
+    const similar = read("src/components/SimilarEpisodes.tsx");
 
     expect(related).toContain("id,podcast_id,title,display_title,slug,image_url");
     expect(related).toContain("image_url: r.image_url");
@@ -53,6 +54,10 @@ describe("smart player recommendation policy", () => {
     expect(related).not.toContain("% hasonlóság");
     expect(related).not.toContain("imageUrl: r.podcast_image_url");
     expect(related).not.toContain("src={optimizedImageUrl(r.podcast_image_url");
+    expect(similar).toContain("sanitizeHungarianPublicText(r.related_reason)");
+    expect(similar).toContain("function hasSafeRelatedReason");
+    expect(similar).toContain("hydrated.filter(hasSafeRelatedReason)");
+    expect(similar).not.toContain("relatedReasonFromSimilarity");
   });
 
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
