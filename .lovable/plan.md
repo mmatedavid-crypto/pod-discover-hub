@@ -1,150 +1,75 @@
 ## Cél
+3 dolgot rendbe teszünk egy menetben:
+- **(2+3)** A Codex által épített canonical-alias registry-t és az `organizations` táblát összerakjuk: 17 ismert duplikátumot biztonságosan összevonunk + a sérült variánsokat alias-ként eltesszük, hogy a jövőbeli AI-extraction is normalizáljon.
+- **(4)** YouTube transcript drain rövid bump: 4592 `confirmed` pár még nincs lefuttatva.
 
-External transcript ingest PoC RSS-audio ASR-rel. **Nincs yt-dlp, nincs YouTube caption scrape, nincs Spotify content ingest.** YT/Spotify max metadata-matching és public RSS link feloldására.
+---
 
-## Architektúra (változatlan elv)
+## 1. Org-merge SQL függvény (migráció)
+
+Új `public.merge_organizations(src_id uuid, dst_id uuid)` — SECURITY DEFINER, admin-only, tranzakcióban:
 
 ```text
-Python worker (laptop / VPS)
-  │ Authorization: Bearer EXTERNAL_TRANSCRIPT_TOKEN
-  │
-  ▼
-edge function: external-transcript-ingest
-  ├─ GET  /?claim=N          → következő RSS-audio jobok
-  ├─ POST /                   → transcript + segments upload
-  └─ audit row (source, model, latency_ms, cost_usd, status)
-  │
-  ▼
-public.episode_transcripts  +  public.external_transcript_audit
+1. UPDATE episode_organization_map SET organization_id = dst WHERE organization_id = src
+   ON CONFLICT (episode_id, organization_id) DO NOTHING
+2. DELETE duplikátumokat az ütközések után
+3. UPDATE minden FK-tábla (ha van további reference) → dst
+4. DELETE FROM organizations WHERE id = src
+5. Audit log app_settings.org_merge_log JSON tömbbe (timestamp, src_slug, dst_slug, episode_count_moved)
+RETURNS jsonb: { moved, deleted_dupes, deleted_org }
 ```
 
-## Hard stops (kódba égetve)
+Mellé `audit_org_merge_candidates()` RPC, ami visszadobja a táblát (pl. többszörös név-variánsok normalizált alak alapján), hogy jövőre dry-runolni lehessen mielőtt mergelnénk.
 
-- Worker csak `audio_url` (RSS) forrást fogadhat. `youtube_video_id` mező a job válaszból kihagyva.
-- Worker `User-Agent: PodiverzumTranscriptWorker/0.1 (research; contact: hello@podiverzum.hu)`.
-- Edge function elutasít minden POST-ot ahol `source != 'rss_audio_asr'`.
-- `public_display` mindig `false` a PoC alatt.
-- Nincs cron, nincs `auto_loop` default, batch hard-limit 20.
+## 2. 17 duplikátum összevonása (insert tool)
 
-## Schema változás (egy migráció)
+A `/mnt/documents/canonical_alias_org_merge_candidates.csv` 17 sora alapján:
 
-1. `episode_transcripts` új oszlopok:
-   - `source text` (`rss_audio_asr` | `rss_native` | `manual`)
-   - `rights_status text` default `'rss_public_index_only'`
-   - `public_display boolean` default `false`
-   - `latency_ms integer`
-   - `status text` default `'ok'` (`ok` | `failed` | `skipped`)
-   - `error_reason text`
-2. Új tábla `public.external_transcript_audit`:
-   - `id`, `episode_id`, `model`, `source`, `status`, `error_reason`, `latency_ms`, `cost_usd`, `audio_bytes`, `duration_seconds`, `worker_id`, `created_at`
-   - GRANT service_role only; RLS deny all auth.
-3. Index: `episode_transcripts(episode_id)` ahol `status='ok'`.
-
-## Edge function (`supabase/functions/external-transcript-ingest/index.ts`)
-
-Átírás (a meglévő file lecserélődik):
-
-- Auth: `Authorization: Bearer <EXTERNAL_TRANSCRIPT_TOKEN>` (a régi `x-ingest-token` megszűnik, csak Bearer).
-- `GET ?claim=N` (max 20): HU, tier ∈ {S,A}, `audio_url IS NOT NULL`, nincs `episode_transcripts.status='ok'` sor. Válasz: `episode_id, podcast_id, title, audio_url, duration_seconds`. **YT mezők nincsenek.**
-- `POST`:
-  - body: `{ episode_id, transcript, segments?, model, language, duration_seconds, audio_bytes, latency_ms, cost_usd, source, status, error_reason? }`
-  - whitelist: `source ∈ {rss_audio_asr}`, különben 422
-  - `status='ok'` esetén upsert `episode_transcripts` `(episode_id,model)`-re, `public_display=false`, `rights_status='rss_public_index_only'`
-  - mindig insert `external_transcript_audit`
-- `OPTIONS` CORS, minden hiba JSON.
-
-## Python worker (`scripts/rss-asr-worker.py`)
-
-- Régi `yt-asr-worker.py` **törlés** (`rm`).
-- `requests` + `faster-whisper` + `ffmpeg`. **`yt-dlp` import tiltva.**
-- Folyamat per job:
-  1. `audio_url`-t HEAD/GET-tel letölti `requests.stream`-mel temp fájlba (max 500 MB, timeout 600s).
-  2. ffmpeg-gel mono 16 kHz wav (subprocess).
-  3. `faster-whisper large-v3-turbo` HU, VAD-filter, segmentek megőrizve.
-  4. POST transcript + segments + latency_ms + audio_bytes + `source='rss_audio_asr'`.
-  5. Hiba esetén POST `status='failed'` + `error_reason`.
-- ENV: `PODIVERZUM_URL`, `INGEST_TOKEN`, `WHISPER_DEVICE`, `WHISPER_COMPUTE`, `BATCH=20` (hard cap), `WORKER_ID`.
-- Nincs `LOOP`, egyetlen batch fut, aztán exit. (Cron explicit jóváhagyás után.)
-
-## PoC scope
-
-- 20 ep, HU, tier S/A, `audio_url IS NOT NULL`.
-- Lokálisan (laptop CPU int8) vagy egyszerű Hetzner CX22.
-- Riport: hit rate, átlag audio hossz, ASR sebesség (RTF), karakter/ep, becsült cost/ep (csak áram).
-
-## Setup parancsok (worker gépen, egyszer)
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-python -m pip install -U requests faster-whisper
-# ffmpeg: brew install ffmpeg  |  apt-get install -y ffmpeg
-export PODIVERZUM_URL='https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/external-transcript-ingest'
-export INGEST_TOKEN='<paste from Lovable Cloud secret form>'
-export WORKER_ID="$(hostname)-poc"
-python scripts/rss-asr-worker.py
+```text
+BCE                          → Budapesti Corvinus Egyetem
+Corvinus Egyetem             → Budapesti Corvinus Egyetem
+Budapesti Közlekedési Központ → BKK
+Ferencváros, FTC-Telekom, Ferencvárosi TC, Ferencvárosi Torna Club, fradi.hu → Ferencvárosi Torna Klub
+MÁV, MÁV-csoport, MÁV-START  → Magyar Államvasutak (MÁV)
+MVM Csoport                  → MVM
+OTP                          → OTP Bank
+Richter                      → Richter Gedeon Nyrt.
+Telekom, Telekom HU, Telekom Hungary → Magyar Telekom
 ```
 
-## Várható eredmény (sample table — kitöltjük futás után)
+Mindegyik `SELECT merge_organizations(src.id, dst.id)` hívás. Tranzakcióban, hogy bármelyik hiba esetén rollback.
 
-| metrika | érték |
-|---|---|
-| jobs claimed | 20 |
-| ok | ? |
-| failed (404 / timeout / non-audio) | ? |
-| avg audio min | ? |
-| ASR RTF (CPU int8) | ~0.3–0.6× |
-| avg chars/ep | ? |
-| cost/ep (áram) | ~$0.01 |
+## 3. Alias-seed (insert tool)
 
-## Költség/idő becslés (RSS audio ASR, faster-whisper large-v3-turbo)
+A 17 sérült variáns mind alias-ként felkerül a `canonical_entity_aliases`-be (`source='manual_merge_20260606'`, `weight=20`), hogy a future AI extraction is normalizálja:
 
-CPU (Hetzner CX22, int8, ~0.5× realtime, átlag 45 perc/ep):
+```text
+('BCE', 'budapesti-corvinus-egyetem', 'Budapesti Corvinus Egyetem')
+('FTC', 'ferencvarosi-torna-klub', 'Ferencvárosi Torna Klub')
+('Fradi', 'ferencvarosi-torna-klub', 'Ferencvárosi Torna Klub')
+('fradi.hu', 'ferencvarosi-torna-klub', 'Ferencvárosi Torna Klub')
+('Telekom', 'magyar-telekom', 'Magyar Telekom')
+...
+```
 
-| scope | gép-óra | költség (€4/hó VPS arányosítva + áram) |
-|---|---|---|
-| 1k ep | ~375 h | ~€2 VPS + ~€8 áram = ~€10 |
-| 10k ep | ~3750 h (5 hét 1 gépen vagy 1 hét 5 gépen) | ~€20 VPS + ~€80 áram = ~€100 |
-| 50k ep | ~18750 h (10 gép × ~11 nap) | ~€500 |
+## 4. Post-merge ellenőrzés
+- `recompute_org_gated_counts()` futtatása (gating újraszámol a megnövelt epizód-count miatt).
+- Riport: hány epizód-org kapcsolat mozdult, mely org-ok mozdultak indexable-ba.
 
-GPU (RunPod A10G ~5× realtime, $0.39/h):
+## 5. YouTube cron drain bump (insert tool, cron schema)
 
-| scope | GPU-óra | költség |
-|---|---|---|
-| 1k ep | ~150 h | ~$60 |
-| 10k ep | ~1500 h | ~$585 |
-| 50k ep | ~7500 h | ~$2 925 |
+- Cron 64 (`youtube-transcript-fetch`): `*/30` → **`*/5`** 48 óra erejéig (4592 confirmed unattempted pair feldolgozása).
+- Budget már védve: `monthly_credit_limit=30000`, watchdog `$25/nap × 1.1`.
+- 48h múlva auto-revert nincs — manuálisan kell visszacsavarni `*/30`-ra (memory note frissítve).
 
-Cloud Whisper API (Groq distil-whisper $0.02/h) — összehasonlításra:
+## Technikai részletek (fejlesztőknek)
 
-| scope | költség |
-|---|---|
-| 1k ep | ~$15 |
-| 10k ep | ~$150 |
-| 50k ep | ~$750 |
+- Migráció: `merge_organizations` fn + `audit_org_merge_candidates` view.
+- Insert ops: merge-hívások, alias-INSERT (ON CONFLICT DO NOTHING), cron UPDATE.
+- Nincs frontend változás.
+- Memory update a merge után: org count, indexable count, plus 2026-06-06 alias-backfill bejegyzés.
 
-PoC után döntés: lokális CPU drain vs Groq API.
-
-## Files
-
-- **módosítás**: `supabase/functions/external-transcript-ingest/index.ts` (Bearer auth, RSS-only, audit insert, no YT fields)
-- **új**: `scripts/rss-asr-worker.py`
-- **törlés**: `scripts/yt-asr-worker.py`
-- **migration**: `episode_transcripts` új oszlopok + `external_transcript_audit` tábla + index
-
-## Required secret
-
-- `EXTERNAL_TRANSCRIPT_TOKEN` (backend only) — generálom én vagy `openssl rand -hex 32`, te bemásolod a Lovable Cloud secret űrlapba.
-
-## Riport (futás után küldöm)
-
-- files changed (lista)
-- schema diff (migráció SQL)
-- env vars (lásd fent)
-- setup parancsok (lásd fent)
-- 20-ep sample table feltöltött metrikákkal
-- frissített 1k/10k/50k költségbecslés a mért RTF alapján
-
-## Mi marad ki tudatosan
-
-- yt-dlp, YouTube caption fetch, Spotify audio/preview ingest, Spotify private endpoint — egyik sem kerül be.
-- Cron, autopilot, public display, full-transcript SEO — csak explicit külön jóváhagyással később.
+## Mit NEM csinálunk most
+- Nem bővítjük a registry-t széles körben (csak ez a 17 + a hozzájuk tartozó aliasok). A nagyobb seed-bővítés (pl. `BKV`, `MTI`, `MTVA` rövidítések) külön kör — előbb mérjük, hogy ez a 17 mennyit javít.
+- Nem nyúlunk a `people` táblához (a person-duplikátumok külön audit-ot kapnak).
+- Nem futtatjuk a YT cron-t `*/2`-re vagy alá (cost védelem).
