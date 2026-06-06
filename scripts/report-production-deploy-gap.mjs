@@ -34,6 +34,7 @@ const GROUPS = {
       "supabase/migrations/20260604094229_reassert_news_sitemap_gsc_connector.sql",
       "supabase/migrations/20260605212000_reassert_news_sitemap_gsc_put_submit.sql",
       "supabase/migrations/20260605214500_clear_news_sitemap_connector_404_state.sql",
+      "supabase/migrations/20260606021000_guard_news_sitemap_connector_404_state.sql",
     ],
     functions: ["refresh-sitemap"],
     why: "15 percenként friss news sitemap, Google submit csak új news URL esetén.",

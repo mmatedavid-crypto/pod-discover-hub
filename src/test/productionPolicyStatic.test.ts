@@ -143,6 +143,7 @@ describe("production policy static guards", () => {
       "20260604094229_reassert_news_sitemap_gsc_connector.sql",
       "20260605212000_reassert_news_sitemap_gsc_put_submit.sql",
       "20260605214500_clear_news_sitemap_connector_404_state.sql",
+      "20260606021000_guard_news_sitemap_connector_404_state.sql",
       "20260603162000_public_ai_language_guard_consolidated.sql",
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260604001000_recommendation_compatibility_v4.sql",
@@ -476,6 +477,7 @@ describe("production policy static guards", () => {
     const connectorReassertMigration = read("supabase/migrations/20260604094229_reassert_news_sitemap_gsc_connector.sql");
     const putSubmitMigration = read("supabase/migrations/20260605212000_reassert_news_sitemap_gsc_put_submit.sql");
     const connector404Migration = read("supabase/migrations/20260605214500_clear_news_sitemap_connector_404_state.sql");
+    const connector404GuardMigration = read("supabase/migrations/20260606021000_guard_news_sitemap_connector_404_state.sql");
     const staticFallback = read("public/news-sitemap.xml");
 
     expect(fn).toContain("submitGoogleSearchConsoleSitemap");
@@ -543,6 +545,12 @@ describe("production policy static guards", () => {
     expect(connector404Migration).toContain("record_route_missing_without_google_submit_status_404");
     expect(connector404Migration).toContain("'connector_route_missing_status', 404");
     expect(connector404Migration).toContain("'google_submit_status', NULL");
+    expect(connector404GuardMigration).toContain("guard_news_sitemap_state_connector_404");
+    expect(connector404GuardMigration).toContain("trg_guard_news_sitemap_state_connector_404");
+    expect(connector404GuardMigration).toContain("BEFORE INSERT OR UPDATE OF value ON public.app_settings");
+    expect(connector404GuardMigration).toContain("connector_route_missing_status");
+    expect(connector404GuardMigration).toContain("db_guard_records_route_missing_without_google_submit_status_404");
+    expect(connector404GuardMigration).toContain("'google_submit_status', NULL");
 
     expect(staticFallback).toContain('xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"');
     expect(staticFallback).not.toContain("<url>");
