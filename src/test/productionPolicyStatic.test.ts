@@ -1043,6 +1043,10 @@ describe("production policy static guards", () => {
     expect(pairer).toContain("episode_article_candidates");
     expect(pairer).toContain("source_diagnostics");
     expect(pairer).toContain("best_rejected_scores");
+    expect(pairer).toContain("DEFAULT_BLOCKED_GENERIC_TITLE_PATTERNS");
+    expect(pairer).toContain("safePodcastTitlePatterns");
+    expect(pairer).toContain('runtime_pattern_policy: "brand_anchor_no_topic_words_v2"');
+    expect(pairer).toContain("blocked_generic_patterns_filtered");
     expect(pairer).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
     expect(pairer).not.toContain("is_hungarian");
     expect(pairer).not.toContain('eq("podcasts.is_hungarian", true)');

@@ -32,6 +32,53 @@ type SourceDiagnostics = Record<string, {
   listings: Record<string, { ok: boolean; items: number; error?: string }>;
 }>;
 
+const DEFAULT_BLOCKED_GENERIC_TITLE_PATTERNS = [
+  "téma",
+  "közélet",
+  "gazdaság",
+  "tech",
+  "tudomány",
+  "biznisz",
+  "forint",
+  "tőzsde",
+  "befektetés",
+  "checklist",
+  "after",
+];
+
+function normalizeTitlePattern(pattern: string): string {
+  return pattern.trim().toLocaleLowerCase("hu-HU");
+}
+
+function blockedGenericTitlePatterns(ctrl: Record<string, unknown>): Set<string> {
+  const configured = Array.isArray(ctrl.blocked_generic_title_patterns)
+    ? ctrl.blocked_generic_title_patterns.filter((pattern): pattern is string => typeof pattern === "string")
+    : DEFAULT_BLOCKED_GENERIC_TITLE_PATTERNS;
+  return new Set(configured.map(normalizeTitlePattern));
+}
+
+function safePodcastTitlePatterns(
+  source: SourceConfig,
+  ctrl: Record<string, unknown>,
+): { patterns: string[]; filtered: string[] } {
+  const rawPatterns = (source.podcast_title_patterns || [source.outlet])
+    .filter((pattern): pattern is string => typeof pattern === "string")
+    .map((pattern) => pattern.trim())
+    .filter(Boolean);
+  const blocked = blockedGenericTitlePatterns(ctrl);
+  const filtered: string[] = [];
+  const patterns = rawPatterns.filter((pattern) => {
+    if (!blocked.has(normalizeTitlePattern(pattern))) return true;
+    filtered.push(pattern);
+    return false;
+  });
+
+  return {
+    patterns: patterns.length ? patterns : [source.outlet],
+    filtered,
+  };
+}
+
 async function fetchArticleText(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "PodiverzumBot/1.0" } });
   if (!res.ok) return "";
@@ -129,6 +176,7 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
     let selectedCandidates = 0;
     let confirmedCandidates = 0;
     let verifiedUpsertRows = 0;
+    let blockedGenericPatternsFiltered = 0;
 
     for (const source of activeSources) {
       const items = (await fetchFeedItems(source, ctrl, sourceDiagnostics)).filter((item) => {
@@ -138,7 +186,9 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
       scannedArticles += items.length;
       if (!items.length) continue;
 
-      const patterns = (source.podcast_title_patterns || [source.outlet]).map((p) => `%${p}%`);
+      const safePatterns = safePodcastTitlePatterns(source, ctrl);
+      blockedGenericPatternsFiltered += safePatterns.filtered.length;
+      const patterns = safePatterns.patterns.map((p) => `%${p}%`);
       const orFilter = patterns.map((p) => `title.ilike.${p},display_title.ilike.${p}`).join(",");
       const { data: episodes, error: epErr } = await admin
         .from("episodes")
@@ -240,6 +290,8 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
       total_article_candidates: totalArticleCandidates || 0,
       best_rejected_scores: bestRejectedScores.sort((a, b) => b.score - a.score).slice(0, 12),
       source_diagnostics: sourceDiagnostics,
+      runtime_pattern_policy: "brand_anchor_no_topic_words_v2",
+      blocked_generic_patterns_filtered: blockedGenericPatternsFiltered,
       runtime_ms: Date.now() - startedAt,
       policy: "publisher_article_match_v1",
     };
