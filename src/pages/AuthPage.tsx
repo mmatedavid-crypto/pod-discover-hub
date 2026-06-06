@@ -30,13 +30,13 @@ export default function AuthPage() {
     });
   }, [nav, redirectTo]);
 
-  const signInGoogle = async () => {
+  const signInWith = async (provider: "google" | "apple") => {
     setLoading(true);
     // FONTOS: a Lovable OAuth broker csak a sima origin redirect_uri-t engedi.
     // A belső célt localStorage-ben adjuk át, és a session listener
     // route-olja a usert ide a sikeres callback után.
     try { localStorage.setItem("pv_auth_redirect", redirectTo); } catch { /* ignore */ }
-    const result = await lovable.auth.signInWithOAuth("google", {
+    const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
     });
     if (result.error) {
@@ -62,12 +62,21 @@ export default function AuthPage() {
         </div>
 
         <button
-          onClick={signInGoogle}
+          onClick={() => signInWith("google")}
           disabled={loading}
           className="mt-8 w-full inline-flex items-center justify-center gap-3 py-2.5 rounded-md border border-border bg-card hover:bg-secondary/60 text-sm font-medium transition-colors disabled:opacity-50"
         >
           <GoogleLogo />
           {loading ? "Átirányítás…" : "Belépés Google-lal"}
+        </button>
+
+        <button
+          onClick={() => signInWith("apple")}
+          disabled={loading}
+          className="mt-3 w-full inline-flex items-center justify-center gap-3 py-2.5 rounded-md bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50"
+        >
+          <AppleLogo />
+          {loading ? "Átirányítás…" : "Belépés Apple-lel"}
         </button>
 
         <p className="text-[11px] text-muted-foreground mt-6 text-center leading-relaxed">
@@ -86,6 +95,14 @@ function GoogleLogo() {
       <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.6 8.4 6.3 14.7z" />
       <path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.2c-2 1.4-4.6 2.4-7.3 2.4-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.5 39.5 16.2 44 24 44z" />
       <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l6.3 5.2c-.4.4 6.7-4.9 6.7-14.8 0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
+
+function AppleLogo() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M17.05 12.04c-.02-2.13 1.74-3.16 1.82-3.21-.99-1.45-2.54-1.65-3.09-1.67-1.32-.13-2.57.78-3.24.78-.67 0-1.7-.76-2.79-.74-1.44.02-2.76.83-3.5 2.12-1.49 2.59-.38 6.42 1.07 8.52.71 1.03 1.55 2.19 2.65 2.15 1.06-.04 1.46-.69 2.74-.69 1.28 0 1.64.69 2.76.67 1.14-.02 1.86-1.05 2.56-2.08.81-1.2 1.14-2.36 1.16-2.42-.03-.01-2.22-.85-2.24-3.43zM14.93 5.6c.58-.71.97-1.69.86-2.66-.84.04-1.86.56-2.46 1.26-.53.62-1 1.62-.88 2.57.94.07 1.9-.47 2.48-1.17z"/>
     </svg>
   );
 }
