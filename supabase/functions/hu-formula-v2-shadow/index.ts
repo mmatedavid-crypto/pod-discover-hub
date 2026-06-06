@@ -251,7 +251,7 @@ Deno.serve(async (req) => {
         const { data, error } = await supabase
           .from("podcasts")
           .select(selectCols)
-          .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain")
+          .in("language_decision", ["accept_hungarian", "review_uncertain"])
           .range(from, from + pageSize - 1);
         if (error) throw error;
         if (!data?.length) break;
@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
       let q = supabase
         .from("podcasts")
         .select(selectCols)
-        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian,language_decision.eq.review_uncertain")
+        .in("language_decision", ["accept_hungarian", "review_uncertain"])
         .order("rank_updated_at", { ascending: true, nullsFirst: true })
         .limit(limit);
       if (onlyUnscored) q = q.is("shadow_rank_components->hu_v2", null);

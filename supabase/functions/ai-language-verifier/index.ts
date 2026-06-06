@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
       q = q.is("language_decision", null).in("rank_label", ["S", "A", "B", "C", "D", "E"]).order("rank_label", { ascending: true });
     } else {
       // accepted: re-verify the heuristic-accepted set, oldest checked first
-      q = q.eq("is_hungarian", true).eq("language_decision", "accept_hungarian").order("language_checked_at", { ascending: true, nullsFirst: true });
+      q = q.eq("language_decision", "accept_hungarian").order("language_checked_at", { ascending: true, nullsFirst: true });
     }
 
     const { data: rows, error } = await q;

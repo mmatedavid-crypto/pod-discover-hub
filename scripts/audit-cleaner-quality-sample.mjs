@@ -30,8 +30,7 @@ select
 from public.episodes e
 join public.podcasts p on p.id=e.podcast_id
 join public.episode_clean_text ct on ct.episode_id=e.id
-where p.is_hungarian=true
-  and p.language_decision='accept_hungarian'
+where p.language_decision='accept_hungarian'
   and ct.cleaner_method='deterministic_v3'
   and length(coalesce(e.description,e.summary,'')) between 300 and 6000
   and (

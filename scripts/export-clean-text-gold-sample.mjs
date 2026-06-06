@@ -88,8 +88,7 @@ with base as (
     order by yl.match_score desc nulls last, yl.updated_at desc nulls last
     limit 1
   ) yt on true
-  where p.is_hungarian = true
-    and p.language_decision = 'accept_hungarian'
+  where p.language_decision = 'accept_hungarian'
     and coalesce(e.description, e.summary, '') <> ''
     and ${predicate}
 ), diverse as (

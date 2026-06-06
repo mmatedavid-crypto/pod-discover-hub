@@ -15,8 +15,7 @@ WITH accepted_hu AS (
   SELECT e.id
   FROM public.episodes e
   JOIN public.podcasts p ON p.id = e.podcast_id
-  WHERE p.is_hungarian = true
-    AND p.language_decision = 'accept_hungarian'
+  WHERE p.language_decision = 'accept_hungarian'
     AND COALESCE(e.description, '') <> ''
 ),
 clean_counts AS (
@@ -281,7 +280,7 @@ SELECT jsonb_build_object(
       SELECT 1
       FROM public.episodes e
       JOIN public.podcasts p ON p.id = e.podcast_id
-      WHERE (p.is_hungarian = true OR p.language_decision = 'accept_hungarian')
+      WHERE p.language_decision = 'accept_hungarian'
         AND e.ai_summary IS NOT NULL
         AND length(trim(e.ai_summary)) >= 20
         AND NOT public.is_hungarianish_public_ai_text(e.ai_summary)
@@ -291,7 +290,7 @@ SELECT jsonb_build_object(
       SELECT 1
       FROM public.episodes e
       JOIN public.podcasts p ON p.id = e.podcast_id
-      WHERE (p.is_hungarian = true OR p.language_decision = 'accept_hungarian')
+      WHERE p.language_decision = 'accept_hungarian'
         AND e.seo_title IS NOT NULL
         AND length(trim(e.seo_title)) >= 20
         AND NOT public.is_hungarianish_public_ai_text(e.seo_title)
@@ -301,7 +300,7 @@ SELECT jsonb_build_object(
       SELECT 1
       FROM public.episodes e
       JOIN public.podcasts p ON p.id = e.podcast_id
-      WHERE (p.is_hungarian = true OR p.language_decision = 'accept_hungarian')
+      WHERE p.language_decision = 'accept_hungarian'
         AND e.seo_description IS NOT NULL
         AND length(trim(e.seo_description)) >= 20
         AND NOT public.is_hungarianish_public_ai_text(e.seo_description)
@@ -310,7 +309,7 @@ SELECT jsonb_build_object(
     'podcast_seo_title_data_clean', NOT EXISTS (
       SELECT 1
       FROM public.podcasts p
-      WHERE (p.is_hungarian = true OR p.language_decision = 'accept_hungarian')
+      WHERE p.language_decision = 'accept_hungarian'
         AND p.seo_title IS NOT NULL
         AND length(trim(p.seo_title)) >= 20
         AND NOT public.is_hungarianish_public_ai_text(p.seo_title)
@@ -319,7 +318,7 @@ SELECT jsonb_build_object(
     'podcast_seo_description_data_clean', NOT EXISTS (
       SELECT 1
       FROM public.podcasts p
-      WHERE (p.is_hungarian = true OR p.language_decision = 'accept_hungarian')
+      WHERE p.language_decision = 'accept_hungarian'
         AND p.seo_description IS NOT NULL
         AND length(trim(p.seo_description)) >= 20
         AND NOT public.is_hungarianish_public_ai_text(p.seo_description)

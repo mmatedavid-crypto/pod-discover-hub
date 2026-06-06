@@ -940,6 +940,32 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("uses accepted language decisions for language rechecks and clean-text samples", () => {
+    const acceptedOnlyFiles = [
+      "supabase/functions/rss-hunter/index.ts",
+      "supabase/functions/ai-language-verifier/index.ts",
+      "scripts/export-clean-text-gold-sample.mjs",
+      "scripts/export-clean-text-routing-canary.mjs",
+      "scripts/audit-cleaner-quality-sample.mjs",
+      "scripts/verify-production-pipeline.mjs",
+    ];
+    const shadow = read("supabase/functions/hu-formula-v2-shadow/index.ts");
+
+    for (const file of acceptedOnlyFiles) {
+      const source = read(file);
+      expect(source).toContain("accept_hungarian");
+      expect(source).not.toContain('.eq("is_hungarian", true)');
+      expect(source).not.toContain("is_hungarian.eq.true");
+      expect(source).not.toContain("p.is_hungarian = true");
+      expect(source).not.toContain("p.is_hungarian=true");
+      expect(source).not.toContain("(p.is_hungarian = true OR p.language_decision = 'accept_hungarian')");
+    }
+
+    expect(shadow).toContain('.in("language_decision", ["accept_hungarian", "review_uncertain"])');
+    expect(shadow).not.toContain("is_hungarian.eq.true");
+    expect(shadow).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+  });
+
   it("keeps publisher article matching wired into best text source", () => {
     const migration = read("supabase/migrations/20260603164000_article_pipeline_consolidated.sql");
     const reassertMigration = read("supabase/migrations/20260605210000_reassert_article_pairer_sources_v4.sql");
