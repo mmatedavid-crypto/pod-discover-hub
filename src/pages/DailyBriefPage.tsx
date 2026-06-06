@@ -69,7 +69,7 @@ export default function DailyBriefPage() {
       const since = new Date(Date.now() - 72 * 3600_000).toISOString();
       const { data } = await supabase
         .from("episodes")
-        .select(`id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)`)
+        .select(`id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,language_decision)`)
         .gte("published_at", since)
         .eq("podcasts.language_decision", "accept_hungarian")
         .not("podcasts.rss_status", "in", "(failed,inactive)")

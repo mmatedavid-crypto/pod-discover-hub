@@ -83,7 +83,7 @@ export default function CategoryDetail() {
         : [c.name];
       const { data: ps } = await supabase
         .from("podcasts")
-        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language,is_hungarian,language_decision")
+        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language,language_decision")
         .in("category", taxKeys)
         .eq("language_decision", "accept_hungarian")
         .order("featured", { ascending: false })
@@ -129,7 +129,7 @@ export default function CategoryDetail() {
           .eq("category_slug", slug),
         supabase
           .from("episode_ai_classifications")
-          .select("episode_id, primary_category, secondary_categories, episodes!inner(id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,is_hungarian,language_decision))")
+          .select("episode_id, primary_category, secondary_categories, episodes!inner(id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,language_decision))")
           .eq("classification_status", "classified")
           .or(`primary_category.eq.${slug},secondary_categories.cs.${JSON.stringify([slug])}`)
           .eq("episodes.podcasts.language_decision", "accept_hungarian")

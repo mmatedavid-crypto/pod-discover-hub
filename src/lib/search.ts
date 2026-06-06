@@ -3,7 +3,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export const EPISODE_SELECT =
-  "id,title,display_title,slug,image_url,published_at,ai_summary,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)";
+  "id,title,display_title,slug,image_url,published_at,ai_summary,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,language_decision)";
 
 // Detect a query's likely language. Returns ISO-639-1 code or null when ambiguous.
 // Hungarian-specific accents OR common HU stopwords -> "hu". Basic ASCII Latin -> "en".

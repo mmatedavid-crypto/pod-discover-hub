@@ -413,7 +413,8 @@ describe("production policy static guards", () => {
     expect(fn).toContain("const shouldSubmitToGoogle = hasReliablePreviousUrlBaseline && newUrls.length > 0 && realNewsItemCount > 0");
     const freshEpisodesBlock = fn.slice(fn.indexOf("const { data: freshEpisodes"), fn.indexOf("const perPodcast = new Map"));
     expect(freshEpisodesBlock).toContain(".eq('podcasts.language_decision', 'accept_hungarian')");
-    expect(freshEpisodesBlock).toContain("RSS is_hungarian is noisy");
+    expect(freshEpisodesBlock).toContain("RSS HU flag is noisy");
+    expect(freshEpisodesBlock).not.toContain("is_hungarian");
     expect(freshEpisodesBlock).not.toContain(".eq('podcasts.is_hungarian', true)");
     expect(fn).toContain("baseline_saved_without_submit");
     expect(fn).toContain("previous_url_baseline_reliable");
@@ -577,6 +578,7 @@ describe("production policy static guards", () => {
     const localEpisodesBlock = localGenerator.slice(localGenerator.indexOf("// ---- episodes"), localGenerator.indexOf("// ---- sitemap.xml"));
     for (const block of [podcastSitemapBlock, episodeSitemapBlock, entitySitemapBlock]) {
       expect(block).toContain('language_decision", "accept_hungarian"');
+      expect(block).not.toContain("is_hungarian");
       expect(block).not.toContain('is_hungarian", true');
       expect(block).not.toContain('podcasts.is_hungarian", true');
     }
@@ -620,6 +622,7 @@ describe("production policy static guards", () => {
     expect(searchHybrid).toContain("|| p.date_of_death");
     expect(searchHybrid).toContain("|| p.is_living === false");
     expect(searchHybrid).toContain('return p.language_decision === "accept_hungarian";');
+    expect(searchHybrid).not.toContain("is_hungarian");
     expect(searchHybrid).not.toContain('return p.is_hungarian === true || decision === "accept_hungarian";');
     expect(searchHybrid).not.toContain("trustedWiki || !hasPodcastPersonEvidence");
     expect(autocomplete).toContain("function isSafePublicPerson");

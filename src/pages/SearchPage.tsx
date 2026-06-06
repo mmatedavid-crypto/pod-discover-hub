@@ -338,7 +338,7 @@ export default function SearchPage() {
       const fullPhrase = initial.trim();
       let pq = supabase
         .from("podcasts")
-        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,is_hungarian,language_decision")
+        .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,language_decision")
         .eq("language_decision", "accept_hungarian")
         .limit(60);
       if (fullPhrase.length >= 3) {

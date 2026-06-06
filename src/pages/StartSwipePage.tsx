@@ -695,7 +695,7 @@ export default function StartSwipePage() {
 
       let fallbackQuery = supabase
         .from("episodes")
-        .select("episode_id:id,podcast_id,title,display_title,slug,image_url,ai_summary,audio_url,published_at,topics,podcasts!inner(slug,title,display_title,image_url,category,is_hungarian,language_decision,rss_status)")
+        .select("episode_id:id,podcast_id,title,display_title,slug,image_url,ai_summary,audio_url,published_at,topics,podcasts!inner(slug,title,display_title,image_url,category,language_decision,rss_status)")
         .not("audio_url", "is", null)
         .eq("podcasts.language_decision", "accept_hungarian")
         .not("podcasts.rss_status", "in", "(failed,inactive,deleted)")
@@ -708,7 +708,7 @@ export default function StartSwipePage() {
       if (fallbackData.length === 0 && fallbackTags.length > 0) {
         const { data: broadFallbackData } = await supabase
           .from("episodes")
-          .select("episode_id:id,podcast_id,title,display_title,slug,image_url,ai_summary,audio_url,published_at,topics,podcasts!inner(slug,title,display_title,image_url,category,is_hungarian,language_decision,rss_status)")
+          .select("episode_id:id,podcast_id,title,display_title,slug,image_url,ai_summary,audio_url,published_at,topics,podcasts!inner(slug,title,display_title,image_url,category,language_decision,rss_status)")
           .not("audio_url", "is", null)
           .eq("podcasts.language_decision", "accept_hungarian")
           .not("podcasts.rss_status", "in", "(failed,inactive,deleted)")

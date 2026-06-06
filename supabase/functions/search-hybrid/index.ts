@@ -21,7 +21,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const EPISODE_SELECT =
-  "id,title,display_title,slug,image_url,published_at,summary,description,ai_summary,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)";
+  "id,title,display_title,slug,image_url,published_at,summary,description,ai_summary,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,language_decision)";
 
 function isAcceptedHungarianPodcast(p: any): boolean {
   if (!p) return false;
@@ -491,7 +491,7 @@ async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: strin
   if (!pinAllowed) return null;
 
   const [{ data: pinMeta }, { data: pinEps }] = await Promise.all([
-    supa.from("podcasts").select("image_url,description,summary,rss_status,is_hungarian,language_decision").eq("id", top.podcast_id).maybeSingle(),
+    supa.from("podcasts").select("image_url,description,summary,rss_status,language_decision").eq("id", top.podcast_id).maybeSingle(),
     supa.from("episodes").select(EPISODE_SELECT).eq("podcast_id", top.podcast_id)
       .order("published_at", { ascending: false, nullsFirst: false }).limit(Math.max(8, Math.min(30, limit))),
   ]);

@@ -68,12 +68,17 @@ describe("smart player recommendation policy", () => {
 
   it("keeps dormant smart discovery fallback on the accepted Hungarian catalog", () => {
     const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
+    const related = read("src/components/smart-player/RelatedEpisodes.tsx");
 
     expect(discovery).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED");
     expect(discovery).toContain("podcasts!inner(slug,title,display_title,image_url,category,language_decision,rss_status,rank_label)");
     expect(discovery).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
     expect(discovery).not.toContain('.eq("podcasts.is_hungarian", true)');
     expect(discovery).not.toContain("category,is_hungarian,rss_status");
+    expect(related).toContain("language_decision,rank_label");
+    expect(related).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(related).toContain('row.podcasts?.language_decision !== "accept_hungarian"');
+    expect(related).not.toContain("is_hungarian");
   });
 
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {

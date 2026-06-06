@@ -18,7 +18,6 @@ type Item = {
     rss_status: string;
     rank_label: string | null;
     language?: string | null;
-    is_hungarian?: boolean | null;
     language_decision?: string | null;
   } | null;
 
@@ -40,7 +39,7 @@ export default function LiveIndexBar() {
       try {
         const { data, error } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,rank_label,language,is_hungarian,language_decision)")
+          .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,rank_label,language,language_decision)")
           .eq("podcasts.language_decision", "accept_hungarian")
           .not("title", "is", null)
           .order("created_at", { ascending: false })

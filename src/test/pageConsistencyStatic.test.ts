@@ -105,6 +105,7 @@ describe("page consistency static guards", () => {
     expect(category).toContain("slug,image_url,ai_summary,summary,description");
     expect(category).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
     expect(category).not.toContain(".or(\"is_hungarian.eq.true,language_decision.eq.accept_hungarian\")");
+    expect(category).not.toContain("is_hungarian");
     expect(category).not.toContain("p.language_decision !== \"reject_foreign\"");
     expect(category).not.toContain(".in(\"podcast_id\", promotedIds)");
     expect(category).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
@@ -114,6 +115,7 @@ describe("page consistency static guards", () => {
     const liveIndex = read("src/components/LiveIndexBar.tsx");
 
     expect(liveIndex).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(liveIndex).not.toContain("is_hungarian");
     expect(liveIndex).not.toContain('or("is_hungarian.eq.true,language_decision.eq.accept_hungarian"');
     expect(liveIndex).not.toContain('language_decision !== "reject_foreign"');
   });
@@ -601,6 +603,8 @@ describe("page consistency static guards", () => {
     expect(search).not.toContain('aq.like("podcasts.language"');
     expect(searchPage).toContain('.eq("language_decision", "accept_hungarian")');
     expect(searchPage).toContain('decision === "accept_hungarian"');
+    expect(search).not.toContain("is_hungarian");
+    expect(searchPage).not.toContain("is_hungarian");
     expect(search).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
     expect(searchPage).not.toContain('.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")');
     expect(autocomplete).not.toContain('.eq("is_hungarian", true)');
@@ -642,6 +646,7 @@ describe("page consistency static guards", () => {
       expect(source).not.toContain('.eq("is_hungarian", true)');
     }
     expect(daily).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(daily).not.toContain("is_hungarian");
     expect(daily).not.toContain('or("is_hungarian.eq.true,language_decision.eq.accept_hungarian"');
     expect(daily).not.toContain('language_decision !== "reject_foreign"');
     expect(dailyExtras).toContain('.eq("podcasts.language_decision", "accept_hungarian")');

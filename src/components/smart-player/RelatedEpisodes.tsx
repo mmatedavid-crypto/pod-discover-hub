@@ -116,12 +116,12 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
 
       // Fallback when no episode embedding: explicit shared topics / people / category only.
       const sel =
-        "id,podcast_id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,rss_status,is_hungarian,rank_label)";
+        "id,podcast_id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,rss_status,language_decision,rank_label)";
 
       const probes: any[] = [];
-      if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
-      if (people.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).overlaps("people", people.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
-      if (category) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.category", category).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
+      if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.language_decision", "accept_hungarian").overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
+      if (people.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.language_decision", "accept_hungarian").overlaps("people", people.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
+      if (category) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.language_decision", "accept_hungarian").eq("podcasts.category", category).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
       // Intentionally NO same-podcast probe: Smart Player surfaces cross-podcast discovery only.
 
       const results = await Promise.all(probes);
@@ -129,6 +129,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       results.forEach((r: any) => (r?.data || []).forEach((row: any) => {
         if (!row.audio_url) return;
         if (row.podcasts?.rss_status === "failed" || row.podcasts?.rss_status === "inactive") return;
+        if (row.podcasts?.language_decision !== "accept_hungarian") return;
         if (!candidates.has(row.id)) candidates.set(row.id, row);
       }));
 

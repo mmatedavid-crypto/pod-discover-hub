@@ -238,7 +238,7 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   while (true) {
     const { data: pods, error } = await supabase
       .from("podcasts")
-      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components,language,language_decision,is_hungarian")
+      .select("slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components,language,language_decision")
       // Canonical HU gate — RSS language metadata is unreliable.
       .eq("language_decision", "accept_hungarian")
       .order("id", { ascending: true })
@@ -268,7 +268,7 @@ async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: eps, error } = await supabase
       .from("episodes")
-      .select("slug,updated_at,ai_enriched_at,published_at,ai_summary,description,podcasts!inner(slug,rss_status,language,language_decision,is_hungarian)")
+      .select("slug,updated_at,ai_enriched_at,published_at,ai_summary,description,podcasts!inner(slug,rss_status,language,language_decision)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
       // Canonical HU gate on parent podcast.
@@ -306,7 +306,7 @@ async function buildEntitiesByMonth(supabase: ReturnType<typeof createClient>, y
   while (true) {
     const { data: chunk, error } = await supabase
       .from("episodes")
-      .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status,language,language_decision,is_hungarian)")
+      .select("updated_at,topics,people,companies,tickers,ingredients,podcasts!inner(rss_status,language,language_decision)")
       .gte("published_at", b.start)
       .lt("published_at", b.end)
       // Canonical HU gate on parent podcast; do not trust noisy RSS language metadata.
