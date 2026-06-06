@@ -166,6 +166,7 @@ describe("production policy static guards", () => {
       "20260605213000_reassert_strict_temporal_person_guard_v6.sql",
       "20260606003000_person_bio_temporal_policy_v2.sql",
       "20260606004000_person_bio_input_hash_policy_v3.sql",
+      "20260606015000_person_bio_topic_only_no_job_policy_v4.sql",
       "episode-article-pairer",
       "personalized-home-rails",
       "embed-episode-runner",
@@ -836,7 +837,9 @@ describe("production policy static guards", () => {
     const generator = read("supabase/functions/person-bio-generator/index.ts");
     const migration = read("supabase/migrations/20260606003000_person_bio_temporal_policy_v2.sql");
     const inputHashMigration = read("supabase/migrations/20260606004000_person_bio_input_hash_policy_v3.sql");
+    const noJobMigration = read("supabase/migrations/20260606015000_person_bio_topic_only_no_job_policy_v4.sql");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(generator).toContain("const PERSON_BIO_INPUT_VERSION");
     expect(generator).toContain("function stableStringify");
@@ -849,6 +852,8 @@ describe("production policy static guards", () => {
     expect(generator).not.toContain('skipped: "already_done"');
     expect(generator).toContain("function isUnapprovedTemporalTopicOnlyPerson");
     expect(generator).toContain('skipped: "temporal_topic_only_person"');
+    expect(generator).toContain("!isUnapprovedTemporalTopicOnlyPerson(r)");
+    expect(generator).toContain("manual_approved, has_archival_evidence, is_deceased, is_historical, persona, date_of_death, is_living");
     expect(generator).toContain('p.persona === "historical"');
     expect(generator).toContain("Boolean(p.date_of_death)");
     expect(generator).toContain("p.is_living === false");
@@ -861,8 +866,14 @@ describe("production policy static guards", () => {
     expect(inputHashMigration).toContain("'input_hash_required', true");
     expect(inputHashMigration).toContain("'unchanged_input_skip_before_job', true");
     expect(inputHashMigration).toContain("'unchanged_input_estimated_cost_usd', 0");
+    expect(noJobMigration).toContain("'version', 4");
+    expect(noJobMigration).toContain("'skip_before_enrichment_job', true");
+    expect(noJobMigration).toContain("'skip_before_ai_call', true");
+    expect(noJobMigration).toContain("'dead_without_podcast_role_policy', 'topic_only_no_generated_podcast_persona'");
+    expect(verifier).toContain("person_bio_topic_only_no_job_policy_v4");
     expect(reporter).toContain("person_bio_temporal_policy");
     expect(reporter).toContain("person_bio_input_hash_policy_v3");
+    expect(reporter).toContain("person_bio_topic_only_no_job_policy_v4");
   });
 
   it("uses accepted language decisions for person evidence pipelines without the legacy RSS HU flag", () => {

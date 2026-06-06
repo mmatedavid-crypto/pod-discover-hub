@@ -150,6 +150,15 @@ SELECT jsonb_build_object(
     'temporal_person_guard_policy_v6', COALESCE((SELECT (value->>'version')::int >= 6 FROM public.app_settings WHERE key = 'temporal_person_public_guard_policy'), false),
     'person_bio_temporal_policy_v2', COALESCE((SELECT (value->>'version')::int >= 2 AND value->>'edge_function' = 'person-bio-generator' FROM public.app_settings WHERE key = 'person_bio_generation_policy'), false),
     'person_bio_unchanged_input_policy_v3', COALESCE((SELECT (value->>'version')::int >= 3 AND value->>'input_hash_required' = 'true' AND value->>'unchanged_input_skip_before_job' = 'true' FROM public.app_settings WHERE key = 'person_bio_generation_policy'), false),
+    'person_bio_topic_only_no_job_policy_v4', COALESCE((
+      SELECT (value->>'version')::int >= 4
+        AND value->>'edge_function' = 'person-bio-generator'
+        AND value->>'dead_without_podcast_role_policy' = 'topic_only_no_generated_podcast_persona'
+        AND value->>'skip_before_enrichment_job' = 'true'
+        AND value->>'skip_before_ai_call' = 'true'
+      FROM public.app_settings
+      WHERE key = 'person_bio_generation_policy'
+    ), false),
     'no_public_unapproved_dead_or_historical_people', NOT EXISTS (
       SELECT 1
       FROM public.people p

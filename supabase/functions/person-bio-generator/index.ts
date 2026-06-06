@@ -679,7 +679,7 @@ Deno.serve(async (req) => {
     // Eligibility: is_public + (is_indexable OR episode_count>=3 OR (podcast_count>=1 AND host) OR strong_mention_count>=2)
     const { data } = await admin
       .from("people")
-      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, is_indexable, ai_bio_status, activation_status, ai_recommended_action, ai_review_status")
+      .select("id, episode_count, podcast_count, strong_mention_count, latest_episode_at, is_indexable, ai_bio_status, activation_status, ai_recommended_action, ai_review_status, manual_approved, has_archival_evidence, is_deceased, is_historical, persona, date_of_death, is_living")
       .eq("is_public", true)
       .in("activation_status", ["indexable","manual_approved","public_noindex"])
       .or("is_indexable.eq.true,episode_count.gte.3,strong_mention_count.gte.2")
@@ -691,6 +691,7 @@ Deno.serve(async (req) => {
       .limit(limit * 3);
     const filtered = (data || []).filter((r: any) =>
       (force || !["completed","audited_fail","insufficient_evidence","needs_review","error"].includes(r.ai_bio_status || "")) &&
+      !isUnapprovedTemporalTopicOnlyPerson(r) &&
       !["hide","reject","merge"].includes(r.ai_recommended_action || "") &&
       !["needs_human_review","duplicate_candidate"].includes(r.ai_review_status || "")
     ).slice(0, limit);
