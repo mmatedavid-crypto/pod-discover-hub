@@ -31,6 +31,12 @@ describe("smart player recommendation policy", () => {
     expect(bar).toContain("Podiverzum lejátszó");
     expect(chapters).toContain("Bevezető átugrása");
     expect(chapters).toContain("Ehhez az epizódhoz még nincsenek fejezetek.");
+    expect(chapters).toContain("function safeChapterText");
+    expect(chapters).toContain("sanitizeHungarianPublicText");
+    expect(chapters).toContain("const title = safeChapterText(c.title) || `Fejezet ${i + 1}`");
+    expect(chapters).toContain("const summary = safeChapterText(c.summary, 12)");
+    expect(chapters).not.toContain("{c.title}");
+    expect(chapters).not.toContain("{c.summary}");
     expect(locale).toContain('playbackError: "Lejátszási gond"');
     expect(bar).not.toContain("Smart ajánlások");
     expect(episodePlayer).not.toContain("Smart Player ajánlások");

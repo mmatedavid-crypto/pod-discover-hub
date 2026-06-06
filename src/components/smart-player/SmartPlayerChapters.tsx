@@ -2,10 +2,16 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { ListTree, Sparkles, FastForward } from "lucide-react";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type Chapter = { idx: number; start_sec: number; title: string; summary: string | null };
 
 type Props = { episodeId: string; compact?: boolean };
+
+function safeChapterText(value: unknown, minLength = 2): string {
+  const clean = sanitizeHungarianPublicText(String(value || ""));
+  return clean.length >= minLength ? clean : "";
+}
 
 export function SmartPlayerChapters({ episodeId, compact }: Props) {
   const { currentTime, seekTo, currentEpisode } = useSmartPlayer();
@@ -93,6 +99,8 @@ export function SmartPlayerChapters({ episodeId, compact }: Props) {
         <ul className="space-y-1">
           {chapters.map((c, i) => {
             const active = i === activeIdx;
+            const title = safeChapterText(c.title) || `Fejezet ${i + 1}`;
+            const summary = safeChapterText(c.summary, 12);
             return (
               <li key={c.idx}>
                 <button
@@ -116,11 +124,11 @@ export function SmartPlayerChapters({ episodeId, compact }: Props) {
                         active ? "text-foreground font-medium" : "text-foreground/90"
                       }`}
                     >
-                      {c.title}
+                      {title}
                     </span>
-                    {c.summary && (
+                    {summary && (
                       <span className="block text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
-                        {c.summary}
+                        {summary}
                       </span>
                     )}
                   </span>
