@@ -229,7 +229,9 @@ describe("page consistency static guards", () => {
     expect(companiesHub).toContain("„{debouncedQ}” keresésre {total.toLocaleString");
     expect(partiesHub).toContain("„${debouncedQ}” keresésre");
     expect(episodeDetail).toContain("podcast epizódja — Podiverzum");
-    expect(prerender).toContain("Személyek és podcastvendégek");
+    expect(prerender).toContain("Személyek magyar podcastokban");
+    expect(prerender).not.toContain("Személyek és podcastvendégek");
+    expect(prerender).not.toContain("podcastvendégek és gyakran említett nevek");
     expect(prerender).toContain("${org.name} és ${topic.name} témakörben");
     expect(prerender).toContain("${a.name} és ${b.name} közös témájában");
   });
@@ -491,6 +493,8 @@ describe("page consistency static guards", () => {
 
   it("keeps entity pages careful about person evidence", () => {
     const entity = read("src/pages/EntityPage.tsx");
+    const personDetail = read("src/pages/PersonDetailPage.tsx");
+    const prerender = read("supabase/functions/prerender/index.ts");
 
     expect(entity).toContain("Minden magyar podcast epizód, amely ehhez kapcsolódik");
     expect(entity).toContain("Legújabb kapcsolódó epizódok");
@@ -507,6 +511,11 @@ describe("page consistency static guards", () => {
     expect(entity).not.toContain("label={kind === \"person\" ? \"Megszólal\"");
     expect(entity).not.toContain("fő személyként");
     expect(entity).not.toContain("szereplőként");
+    expect(personDetail).not.toContain("podcast epizódok, interjúk és említések");
+    expect(personDetail).not.toContain("podcast epizódban hallható");
+    expect(personDetail).toContain("kapcsolódó podcast epizód");
+    expect(prerender).not.toContain("podcast epizódok és interjúk");
+    expect(prerender).toContain("podcast epizódok és említések");
   });
 
   it("keeps SEO fallback and prerender links on canonical Hungarian routes", () => {

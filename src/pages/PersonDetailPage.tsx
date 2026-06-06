@@ -67,7 +67,7 @@ function isTemporalTopicOnlyPerson(person: Person | any): boolean {
 
 function personCollectionIntro(name: string, count: number): string {
   if (count > 0) {
-    return `${name} kapcsolódó magyar podcast epizódjai egy helyen: beszélgetések, interjúk és említések a Podiverzum katalógusából.`;
+    return `${name} kapcsolódó magyar podcast epizódjai egy helyen: róla szóló adások, kontextusok és említések a Podiverzum katalógusából.`;
   }
   return `${name} kapcsolódó magyar podcast epizódjai hamarosan megjelennek a Podiverzum katalógusában.`;
 }
@@ -192,8 +192,8 @@ export default function PersonDetailPage() {
 
         const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
         setSeo({
-          title: `${exemplar} podcast epizódok, interjúk és említések | Podiverzum`,
-          description: `${exemplar} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen.`,
+          title: `${exemplar} podcast epizódok és említések | Podiverzum`,
+          description: `${exemplar} témájú magyar podcast epizódok, róla szóló adások és említések egy helyen.`,
           canonical: pageUrl,
           noindex: sorted.length < 5,
           jsonLd: sorted.length < 5 ? undefined : [
@@ -273,7 +273,7 @@ export default function PersonDetailPage() {
 
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
       const verifiedWiki = (p as any).wikipedia_match_status === "verified" && Number((p as any).wikipedia_match_confidence || 0) >= 0.8;
-      const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, beszélgetések, interjúk és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
+      const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, róla szóló adások és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
       const thinPage = epList.length < 2;
 
       const jsonLd: any[] = [
@@ -307,9 +307,9 @@ export default function PersonDetailPage() {
 
       const personName = (p as any).name;
       const epCount = epList.length;
-      const epLabel = epCount > 0 ? ` – ${epCount} podcast epizódban hallható` : "";
+      const epLabel = epCount > 0 ? ` – ${epCount} kapcsolódó podcast epizód` : "";
       const descBase = safeDesc;
-      const descSuffix = epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amelyben ${personName} szerepel.` : "";
+      const descSuffix = epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amely ${personName} nevéhez kapcsolódik.` : "";
       const fullDesc = `${descBase}${descSuffix}`.trim();
       setSeo({
         title: `${personName}${epLabel} | Podiverzum`,

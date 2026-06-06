@@ -586,7 +586,7 @@ async function buildPerson(
   const desc = bio
     ? truncate(bio, 160)
     : truncate(`${person.name} — epizódok és említések a Podiverzumon. Magyar podcastek, AI-összefoglalóval.`, 160);
-  const title = `${person.name} podcast epizódok és interjúk | Podiverzum`;
+  const title = `${person.name} podcast epizódok és említések | Podiverzum`;
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
@@ -973,11 +973,11 @@ ${hubCrossLinks(kind)}`,
     const rows = ((data ?? []) as Array<Record<string, any>>)
       .filter(isSafePublicPerson)
       .slice(0, 120);
-    const title = "Személyek és podcastvendégek — Podiverzum";
-    const desc = "Magyar közélet, üzlet és kultúra szereplői, podcastvendégek és gyakran említett nevek. Kiket említenek a leggyakrabban a magyar podcastek?";
-    const intro = `<p>A <strong>Podiverzum</strong> több mint <strong>${rows.length}+ személyt</strong> indexel a magyar podcast-világból: vendégeket, említett közéleti szereplőket, vállalkozókat, művészeket, sportolókat, tudósokat és szakértőket. Minden személynél megtalálod, mely epizódokban szerepelt vagy említették — kontextussal és AI-összefoglalókkal.</p>
+    const title = "Személyek magyar podcastokban — Podiverzum";
+    const desc = "Magyar közélet, üzlet és kultúra szereplői, megszólalók és gyakran említett nevek. Kikről beszélnek a leggyakrabban a magyar podcastek?";
+    const intro = `<p>A <strong>Podiverzum</strong> több mint <strong>${rows.length}+ személyt</strong> indexel a magyar podcast-világból: megszólalókat, említett közéleti szereplőket, vállalkozókat, művészeket, sportolókat, tudósokat és szakértőket. Minden személynél megtalálod, mely epizódok kapcsolódnak hozzá — kontextussal és AI-összefoglalókkal.</p>
 <p>A személyek mögött <strong>Wikipedia-megerősítés</strong> és AI-elemzés áll: egyértelműen azonosítjuk a közéleti szereplőket, így nem keverednek össze a hasonló nevű személyek. Politikusoknál külön jelöljük a parlamenti szerepet és párthovatartozást — lásd a <a href="/partok">Pártok</a> hubot. Üzletembereknél a kapcsolódó <a href="/szervezetek">cégeket és intézményeket</a> is feltüntetjük.</p>
-<p>Ha kíváncsi vagy, mely podcastokban szerepelt valaki az elmúlt időszakban, mely műsorok hívják vissza rendszeresen, vagy milyen <a href="/temak">témákban</a> nyilatkozott — itt egy kattintással mindezt megtalálod. A lista az említések száma szerint csökkenő sorrendben mutatja a legaktívabb szereplőket.</p>`;
+<p>Ha kíváncsi vagy, mely podcastokban kapcsolódik valaki az elmúlt időszak témáihoz, mely műsorokban szólalt meg, vagy milyen <a href="/temak">témákban</a> említették — itt egy kattintással mindezt megtalálod. A lista az említések és szerepeltetések száma szerint csökkenő sorrendben mutatja a legaktívabb szereplőket.</p>`;
     const listHtml = rows.map((p) => {
       const u = `${SITE}/szemelyek/${p.slug}`;
       const bio = truncate(stripHtml(p.short_description_hu || p.short_bio), 160);
