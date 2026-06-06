@@ -99,12 +99,13 @@ describe("page consistency static guards", () => {
   it("keeps category episode discovery open to accepted Hungarian non-spam shows", () => {
     const category = read("src/pages/CategoryDetail.tsx");
 
-    expect(category).toContain(".or(\"is_hungarian.eq.true,language_decision.eq.accept_hungarian\")");
-    expect(category).toContain("p.language_decision !== \"reject_foreign\"");
+    expect(category).toContain('.eq("language_decision", "accept_hungarian")');
     expect(category).toContain("const categoryPodcastIds = visible.map");
     expect(category).toContain(".in(\"podcast_id\", categoryPodcastIds)");
     expect(category).toContain("slug,image_url,ai_summary,summary,description");
     expect(category).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
+    expect(category).not.toContain(".or(\"is_hungarian.eq.true,language_decision.eq.accept_hungarian\")");
+    expect(category).not.toContain("p.language_decision !== \"reject_foreign\"");
     expect(category).not.toContain(".in(\"podcast_id\", promotedIds)");
     expect(category).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
   });

@@ -85,7 +85,7 @@ export default function CategoryDetail() {
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language,is_hungarian,language_decision")
         .in("category", taxKeys)
-        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")
+        .eq("language_decision", "accept_hungarian")
         .order("featured", { ascending: false })
         .order("podiverzum_rank", { ascending: false })
         .limit(80);
@@ -96,8 +96,7 @@ export default function CategoryDetail() {
       const visible = (ps || []).filter((p: any) =>
         goodHealth(p) &&
         p.rss_status !== "failed" &&
-        p.rss_status !== "inactive" &&
-        p.language_decision !== "reject_foreign"
+        p.rss_status !== "inactive"
       );
       const ids0 = visible.map((p: any) => p.id);
       const epCountMap: Record<string, number> = {};
