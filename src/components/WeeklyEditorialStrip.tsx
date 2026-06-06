@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { hetiSlug } from "@/lib/hetiSlug";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 type Post = {
   id: string;
@@ -13,6 +14,11 @@ type Post = {
   items: Array<{ podcast_name?: string; title?: string }> | null;
   published_at: string | null;
 };
+
+function safeWeeklyText(value: unknown, minLength = 2): string {
+  const clean = sanitizeHungarianPublicText(String(value || ""));
+  return clean.length >= minLength ? clean : "";
+}
 
 export default function WeeklyEditorialStrip() {
   const [post, setPost] = useState<Post | null>(null);
@@ -32,13 +38,14 @@ export default function WeeklyEditorialStrip() {
     })();
   }, []);
 
+  const introLine = safeWeeklyText((post?.intro || "").split("\n").find((l) => l.trim().length > 30), 30);
   const teaser = post
-    ? (post.intro || "").split("\n").find((l) => l.trim().length > 30)?.trim().slice(0, 180) ||
+    ? introLine.slice(0, 180) ||
       `${post.items?.length ?? 0} epizód, amit érdemes meghallgatni a héten.`
     : "A szerkesztett heti válogatás készül. Addig a legfrissebb magyar epizódokból lehet továbbindulni.";
 
   const href = post ? `/heti/${hetiSlug(post)}` : "/heti";
-  const title = post?.title || "A heti válogatás készül";
+  const title = safeWeeklyText(post?.title) || "A heti válogatás készül";
   const description = post
     ? "A hét legérdekesebb magyar podcastjai, témái és idézetei."
     : "Friss magyar podcastok egy helyen, amíg elkészül a következő Podiverzum Heti.";

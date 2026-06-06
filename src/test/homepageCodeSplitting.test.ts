@@ -22,7 +22,12 @@ describe("homepage code splitting", () => {
     const strip = read("src/components/WeeklyEditorialStrip.tsx");
 
     expect(strip).toContain('const href = post ? `/heti/${hetiSlug(post)}` : "/heti"');
-    expect(strip).toContain('const title = post?.title || "A heti válogatás készül"');
+    expect(strip).toContain("function safeWeeklyText");
+    expect(strip).toContain("sanitizeHungarianPublicText");
+    expect(strip).toContain("const title = safeWeeklyText(post?.title) || \"A heti válogatás készül\"");
+    expect(strip).toContain("const introLine = safeWeeklyText");
+    expect(strip).not.toContain("const title = post?.title");
+    expect(strip).not.toContain("post.intro || \"\").split");
     expect(strip).toContain("Friss epizódok a Hetiben");
     expect(strip).not.toContain("if (!post) return null");
   });
