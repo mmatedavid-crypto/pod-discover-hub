@@ -249,6 +249,10 @@ describe("page consistency static guards", () => {
     expect(startSwipe).toContain("categoryLabel(r.category)");
     expect(startSwipe).toContain("accept_hungarian");
     expect(startSwipe).not.toContain('.eq("podcasts.is_hungarian", true)');
+    expect(tasteRecommend).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(tasteRecommend).not.toContain("is_hungarian");
+    expect(tasteRecommend).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+    expect(tasteRecommend).not.toContain('language_decision !== "reject_foreign"');
     expect(startSwipe).toContain("Friss magyar epizódokat készítünk elő a profilodhoz.");
     expect(startSwipe).toContain("Még kevés jelünk van pontos epizódajánláshoz");
     expect(startSwipe).toContain("Finomítom a profilom");
@@ -631,6 +635,7 @@ describe("page consistency static guards", () => {
     const recent = read("src/components/RecentlyAddedPodcasts.tsx");
     const notFound = read("src/pages/NotFound.tsx");
     const daily = read("src/pages/DailyBriefPage.tsx");
+    const dailyExtras = read("supabase/functions/daily-brief-extras/index.ts");
 
     for (const source of [newest, recent, notFound]) {
       expect(source).toContain('.eq("language_decision", "accept_hungarian")');
@@ -639,6 +644,10 @@ describe("page consistency static guards", () => {
     expect(daily).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
     expect(daily).not.toContain('or("is_hungarian.eq.true,language_decision.eq.accept_hungarian"');
     expect(daily).not.toContain('language_decision !== "reject_foreign"');
+    expect(dailyExtras).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(dailyExtras).not.toContain("is_hungarian");
+    expect(dailyExtras).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+    expect(dailyExtras).not.toContain('language_decision !== "reject_foreign"');
   });
 
   it("keeps entity pages on accepted Hungarian episodes with AI-summary-aware cards", () => {

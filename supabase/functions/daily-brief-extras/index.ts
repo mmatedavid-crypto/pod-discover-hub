@@ -56,14 +56,14 @@ Deno.serve(async (req) => {
   const since = new Date(Date.now() - 72 * 3600_000).toISOString();
   const { data: recentEps } = await supa
     .from("episodes")
-    .select("id, slug, title, display_title, ai_summary, summary, podcast_id, podcasts!inner(title, display_title, slug, language, is_hungarian, language_decision, rank_label)")
+    .select("id, slug, title, display_title, ai_summary, summary, podcast_id, podcasts!inner(title, display_title, slug, language, language_decision, rank_label)")
     .gte("published_at", since)
-    .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
+    .eq("podcasts.language_decision", "accept_hungarian")
     .not("ai_summary", "is", null)
     .order("published_at", { ascending: false })
     .limit(25);
 
-  const epsForPrompt = (recentEps || []).filter((e: any) => e.podcasts?.language_decision !== "reject_foreign").map((e: any, i: number) => ({
+  const epsForPrompt = (recentEps || []).map((e: any, i: number) => ({
     idx: i,
     id: e.id,
     title: e.display_title || e.title,
@@ -170,12 +170,12 @@ Csak magyarul.`;
       const orClauses = tokens.map(tk => `display_title.ilike.%${tk}%,ai_summary.ilike.%${tk}%,title.ilike.%${tk}%`).join(",");
       const { data: matches } = await supa
         .from("episodes")
-        .select("id, slug, title, display_title, podcasts!inner(slug, title, display_title, language, is_hungarian, language_decision)")
-        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
+        .select("id, slug, title, display_title, podcasts!inner(slug, title, display_title, language, language_decision)")
+        .eq("podcasts.language_decision", "accept_hungarian")
         .or(orClauses)
         .order("published_at", { ascending: false })
         .limit(2);
-      ev.episodes = (matches || []).filter((m: any) => m.podcasts?.language_decision !== "reject_foreign").map((m: any) => ({
+      ev.episodes = (matches || []).map((m: any) => ({
         id: m.id, slug: m.slug,
         title: m.display_title || m.title,
         podcast_slug: m.podcasts?.slug,

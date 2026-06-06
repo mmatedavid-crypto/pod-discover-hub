@@ -347,6 +347,10 @@ describe("production policy static guards", () => {
     expect(fn).toContain("return jsonRes({");
     expect(fn).toContain("}, 423)");
     expect(fn.indexOf("if (SOCIAL_AUTOMATION_HARD_DISABLED)")).toBeLessThan(fn.indexOf("return await main(req)"));
+    expect(fn).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(fn).not.toContain("is_hungarian");
+    expect(fn).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+    expect(fn).not.toContain('language_decision !== "reject_foreign"');
 
     expect(adminPage).toContain("const SOCIAL_AUTOMATION_DISABLED = true");
     expect(adminPage).toContain("Preview disabled");

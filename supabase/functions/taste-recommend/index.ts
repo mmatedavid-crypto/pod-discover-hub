@@ -428,8 +428,8 @@ async function loadBackfillEpisodeIds(
 
   const { data, error } = await admin
     .from("episodes")
-    .select("id, podcast_id, title, display_title, topics, published_at, podcasts!inner(language, language_decision, is_hungarian, rank_label, category, title, display_title)")
-    .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
+    .select("id, podcast_id, title, display_title, topics, published_at, podcasts!inner(language, language_decision, rank_label, category, title, display_title)")
+    .eq("podcasts.language_decision", "accept_hungarian")
     .not("published_at", "is", null)
     .gt("published_at", new Date(Date.now() - 120 * 86400_000).toISOString())
     .order("published_at", { ascending: false })
@@ -443,7 +443,7 @@ async function loadBackfillEpisodeIds(
   const expandedLikedTopics = expandTasteTags(likedTopics);
   const newsPolicy = newsPolicyForTopics(likedTopics);
   const scored = (data ?? [])
-    .filter((r) => !seen.has(r.id) && !exclude.has(r.id) && (Array.isArray(r.podcasts) ? r.podcasts[0] : r.podcasts)?.language_decision !== "reject_foreign")
+    .filter((r) => !seen.has(r.id) && !exclude.has(r.id))
     .map((r) => {
       const topics: string[] = Array.isArray(r.topics)
         ? r.topics.filter((t): t is string => typeof t === "string")
