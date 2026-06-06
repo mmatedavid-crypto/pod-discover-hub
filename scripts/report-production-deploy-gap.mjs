@@ -70,6 +70,7 @@ const GROUPS = {
       "supabase/migrations/20260531220000_v4_clean_text_family_downstream_gates.sql",
       "supabase/migrations/20260605231000_reassert_downstream_embedding_clean_text_family.sql",
       "supabase/migrations/20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql",
+      "supabase/migrations/20260606174000_timestamp_aware_episode_chunks.sql",
     ],
     functions: ["embed-episode-runner", "embed-episode-chunks-runner"],
     why: "A kereső, ajánló és B2B monitoring vektorai csak promoválható deterministic_v4-family clean textből épüljenek, ne nyers RSS/YouTube leírásból.",

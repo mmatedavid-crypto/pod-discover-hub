@@ -55,6 +55,188 @@ function validateEmbeddingInput(text: string): string | null {
   return null;
 }
 
+type TimedSegment = {
+  idx: number;
+  start: number | null;
+  end: number | null;
+  text: string;
+  word_count: number;
+  char_start: number;
+  char_end: number;
+};
+
+type ChunkSlice = {
+  content: string;
+  char_start: number;
+  char_end: number;
+  timestamp_start_seconds: number | null;
+  timestamp_end_seconds: number | null;
+  segment_start_idx: number | null;
+  segment_end_idx: number | null;
+  source_transcript_model: string | null;
+  chunking_method: "segment_timestamp_v2" | "char_window_v1";
+};
+
+function num(v: unknown): number | null {
+  const n = typeof v === "number" ? v : v != null ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+function segmentTime(s: any): { start: number | null; end: number | null } {
+  const start = num(s?.start ?? s?.start_seconds ?? s?.startTime ?? s?.offset);
+  const explicitEnd = num(s?.end ?? s?.end_seconds ?? s?.endTime);
+  const duration = num(s?.duration ?? s?.dur);
+  const scale = start != null && start > 10_000 ? 1000 : 1;
+  const scaledStart = start == null ? null : start / scale;
+  if (explicitEnd != null) return { start: scaledStart, end: explicitEnd / (explicitEnd > 10_000 ? 1000 : 1) };
+  if (scaledStart != null && duration != null) {
+    const scaledDuration = duration / (duration > 10_000 ? 1000 : 1);
+    return { start: scaledStart, end: scaledStart + scaledDuration };
+  }
+  return { start: scaledStart, end: null };
+}
+
+function wordCount(text: string): number {
+  return (text.match(/\S+/g) || []).length;
+}
+
+function normalizeForAlign(text: string): string {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseTimedSegments(raw: unknown, cleanedText: string): TimedSegment[] {
+  if (!Array.isArray(raw)) return [];
+  const cleanedNorm = normalizeForAlign(cleanedText);
+  if (cleanedNorm.length < 80) return [];
+  let cursor = 0;
+  let charCursor = 0;
+  let aligned = 0;
+  const out: TimedSegment[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const row = raw[i] as any;
+    const text = String(row?.text ?? row?.transcript ?? row?.content ?? "").replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    const wc = wordCount(text);
+    if (wc === 0) continue;
+    const norm = normalizeForAlign(text);
+    if (norm.length < 4) continue;
+    const found = cleanedNorm.indexOf(norm, cursor);
+    if (found >= 0) {
+      cursor = found + norm.length;
+      aligned++;
+    } else {
+      const loose = cleanedNorm.indexOf(norm);
+      if (loose === -1) continue;
+      aligned++;
+    }
+    const { start, end } = segmentTime(row);
+    const charStart = charCursor;
+    charCursor += text.length + 1;
+    out.push({
+      idx: i,
+      start,
+      end,
+      text,
+      word_count: wc,
+      char_start: charStart,
+      char_end: Math.max(charStart, charCursor - 1),
+    });
+  }
+  const timed = out.filter((s) => s.start != null).length;
+  return timed >= 3 && aligned >= 3 ? out : [];
+}
+
+function buildTimedChunk(
+  segments: TimedSegment[],
+  transcriptModel: string | null,
+): ChunkSlice {
+  const content = segments.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
+  const timed = segments.filter((s) => s.start != null || s.end != null);
+  const first = segments[0];
+  const last = segments[segments.length - 1];
+  return {
+    content,
+    char_start: first?.char_start ?? 0,
+    char_end: last?.char_end ?? 0,
+    timestamp_start_seconds: timed.length ? Math.round(Number(timed[0].start ?? timed[0].end ?? 0)) : null,
+    timestamp_end_seconds: timed.length ? Math.round(Number((timed[timed.length - 1].end ?? timed[timed.length - 1].start) ?? 0)) : null,
+    segment_start_idx: first?.idx ?? null,
+    segment_end_idx: last?.idx ?? null,
+    source_transcript_model: transcriptModel,
+    chunking_method: "segment_timestamp_v2",
+  };
+}
+
+function suffixOverlap(segments: TimedSegment[], overlapWords: number): TimedSegment[] {
+  const out: TimedSegment[] = [];
+  let words = 0;
+  for (let i = segments.length - 1; i >= 0; i--) {
+    out.unshift(segments[i]);
+    words += segments[i].word_count;
+    if (words >= overlapWords) break;
+  }
+  return out;
+}
+
+function chunkTimedSegments(raw: unknown, cleanedText: string, transcriptModel: string | null): ChunkSlice[] {
+  const segments = parseTimedSegments(raw, cleanedText);
+  if (segments.length < 3) return [];
+  const minWords = 150;
+  const maxWords = 250;
+  const overlapWords = 50;
+  const slices: ChunkSlice[] = [];
+  let current: TimedSegment[] = [];
+  let words = 0;
+
+  const closeCurrent = () => {
+    if (current.length === 0) return;
+    slices.push(buildTimedChunk(current, transcriptModel));
+    current = suffixOverlap(current, overlapWords);
+    words = current.reduce((sum, s) => sum + s.word_count, 0);
+  };
+
+  for (const seg of segments) {
+    const prev = current[current.length - 1];
+    const gap = prev?.end != null && seg.start != null ? seg.start - prev.end : 0;
+    if (current.length > 0 && words >= minWords && gap >= 3) closeCurrent();
+    current.push(seg);
+    words += seg.word_count;
+    if (words >= maxWords) closeCurrent();
+  }
+
+  if (current.length > 0) {
+    const lastWords = current.reduce((sum, s) => sum + s.word_count, 0);
+    if (lastWords >= 40 || slices.length === 0) slices.push(buildTimedChunk(current, transcriptModel));
+  }
+
+  return slices
+    .filter((s) => s.content.length >= 80)
+    .slice(0, 120);
+}
+
+function buildChunkSlices(e: any, chunkChars: number, chunkOverlap: number): ChunkSlice[] {
+  const cleanedText = String(e.cleaned_text || "").trim();
+  const timed = chunkTimedSegments(e.transcript_segments, cleanedText, e.transcript_model ? String(e.transcript_model) : null);
+  if (timed.length > 0) return timed;
+  return chunkText(cleanedText, chunkChars, chunkOverlap).map((s) => ({
+    content: s.content,
+    char_start: s.char_start,
+    char_end: s.char_end,
+    timestamp_start_seconds: null,
+    timestamp_end_seconds: null,
+    segment_start_idx: null,
+    segment_end_idx: null,
+    source_transcript_model: null,
+    chunking_method: "char_window_v1",
+  }));
+}
+
 async function embed(model: string, text: string): Promise<{ vec: number[]; tokens: number }> {
   const googleModel = model.replace(/^google\//, "");
   // Prefer paid Tier-1 key for drain throughput; fall back to default/free key.
@@ -157,8 +339,8 @@ Deno.serve(async (req) => {
             return;
           }
           const slices = cleanedText.length > 0
-            ? chunkText(cleanedText, chunkChars, chunkOverlap)
-            : [{ content: "", char_start: 0, char_end: 0 }];
+            ? buildChunkSlices(e, chunkChars, chunkOverlap)
+            : [];
           const chunkCount = slices.length;
 
           const rows: any[] = [];
@@ -182,6 +364,12 @@ Deno.serve(async (req) => {
               content_hash: hash,
               char_start: s.char_start,
               char_end: s.char_end,
+              timestamp_start_seconds: s.timestamp_start_seconds,
+              timestamp_end_seconds: s.timestamp_end_seconds,
+              segment_start_idx: s.segment_start_idx,
+              segment_end_idx: s.segment_end_idx,
+              source_transcript_model: s.source_transcript_model,
+              chunking_method: s.chunking_method,
               model,
               embedding: `[${vec.join(",")}]`,
               updated_at: new Date().toISOString(),
@@ -265,6 +453,7 @@ Deno.serve(async (req) => {
       model, chunk_chars: chunkChars, chunk_overlap: chunkOverlap,
       batch_size: batch, concurrency, drain_passes: drainPasses,
       source_policy: "best_source_then_deterministic_v4_clean_text_then_embedding",
+      chunking_policy: "timestamp_aware_v2_segments_when_available_else_char_window_v1",
     };
     await admin.from("app_settings").upsert({
       key: "embed_episode_chunks_progress",

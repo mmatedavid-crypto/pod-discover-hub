@@ -320,6 +320,7 @@ describe("production policy static guards", () => {
     const downstreamGate = read("supabase/migrations/20260531220000_v4_clean_text_family_downstream_gates.sql");
     const reassertGate = read("supabase/migrations/20260605231000_reassert_downstream_embedding_clean_text_family.sql");
     const downstreamV3 = read("supabase/migrations/20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
+    const timestampChunks = read("supabase/migrations/20260606174000_timestamp_aware_episode_chunks.sql");
     const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
 
@@ -333,7 +334,12 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("select_embed_episode_candidates_clean_text_source");
     expect(verifier).toContain("select_embed_episode_candidates_v4_family_filter");
     expect(verifier).toContain("select_embed_chunks_candidates_clean_text_contract");
+    expect(verifier).toContain("select_embed_chunks_candidates_returns_transcript_segments");
+    expect(verifier).toContain("select_embed_chunks_candidates_matches_transcript_hash");
     expect(verifier).toContain("select_embed_chunks_candidates_v4_family_filter");
+    expect(verifier).toContain("episode_chunking_policy_timestamp_aware_v2");
+    expect(verifier).toContain("episode_chunking_policy_keeps_char_fallback");
+    expect(verifier).toContain("embed_chunks_timestamp_columns");
     expect(verifier).toContain("embedding_candidate_rpcs_no_legacy_hu_flag");
     expect(verifier).toContain("failures.push(`downstream_embedding_quality.${key}`)");
 
@@ -341,6 +347,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("20260531220000_v4_clean_text_family_downstream_gates.sql");
     expect(reporter).toContain("20260605231000_reassert_downstream_embedding_clean_text_family.sql");
     expect(reporter).toContain("20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
+    expect(reporter).toContain("20260606174000_timestamp_aware_episode_chunks.sql");
     expect(reporter).toContain("embed-episode-runner");
     expect(reporter).toContain("embed-episode-chunks-runner");
 
@@ -356,6 +363,19 @@ describe("production policy static guards", () => {
     expect(downstreamV3).toContain("select_embed_episode_candidates does not require deterministic_v4-family clean text");
     expect(downstreamV3).toContain("embedding candidate RPCs must use language_decision without legacy is_hungarian positive gates");
     expect(downstreamV3).not.toContain("p.is_hungarian = true");
+    expect(timestampChunks).toContain("timestamp_start_seconds integer");
+    expect(timestampChunks).toContain("timestamp_end_seconds integer");
+    expect(timestampChunks).toContain("segment_start_idx integer");
+    expect(timestampChunks).toContain("segment_end_idx integer");
+    expect(timestampChunks).toContain("source_transcript_model text");
+    expect(timestampChunks).toContain("chunking_method text NOT NULL DEFAULT 'char_window_v1'");
+    expect(timestampChunks).toContain("transcript_model text");
+    expect(timestampChunks).toContain("transcript_segments jsonb");
+    expect(timestampChunks).toContain("transcript_hash text");
+    expect(timestampChunks).toContain("bt.content_hash = ct.source_hash");
+    expect(timestampChunks).toContain("'version', 'timestamp_aware_v2'");
+    expect(timestampChunks).toContain("'fallback', 'char_window_v1'");
+    expect(timestampChunks).toContain("ct.cleaner_method LIKE 'deterministic_v4%'");
 
     expect(episodeRunner).toContain("select_embed_episode_candidates");
     expect(episodeRunner).toContain("validateEmbeddingInput");
@@ -367,6 +387,12 @@ describe("production policy static guards", () => {
     expect(episodeRunner).toContain("skipped_last_run");
     expect(chunkRunner).toContain("requires_promoted_deterministic_v4_clean_text");
     expect(chunkRunner).toContain("source_policy: \"best_source_then_deterministic_v4_clean_text_then_embedding\"");
+    expect(chunkRunner).toContain("function chunkTimedSegments");
+    expect(chunkRunner).toContain("segment_timestamp_v2");
+    expect(chunkRunner).toContain("char_window_v1");
+    expect(chunkRunner).toContain("timestamp_start_seconds: s.timestamp_start_seconds");
+    expect(chunkRunner).toContain("source_transcript_model: s.source_transcript_model");
+    expect(chunkRunner).toContain("chunking_policy: \"timestamp_aware_v2_segments_when_available_else_char_window_v1\"");
   });
 
   it("keeps unused automatic social posting hard-disabled at the edge handler", () => {

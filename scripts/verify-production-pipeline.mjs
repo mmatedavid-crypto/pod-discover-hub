@@ -69,7 +69,8 @@ settings AS (
     'people_hub_identity_safety_policy',
     'temporal_person_public_guard_policy',
     'person_bio_generation_policy',
-    'text_processing_policy'
+    'text_processing_policy',
+    'episode_chunking_policy'
   )
 ),
 controls AS (
@@ -109,7 +110,8 @@ controls AS (
     'smart_player_recommendation_surface_policy', setting_values->'smart_player_recommendation_surface_policy',
     'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy',
     'temporal_person_public_guard_policy', setting_values->'temporal_person_public_guard_policy',
-    'person_bio_generation_policy', setting_values->'person_bio_generation_policy'
+    'person_bio_generation_policy', setting_values->'person_bio_generation_policy',
+    'episode_chunking_policy', setting_values->'episode_chunking_policy'
   ) AS summary
   FROM settings
 ),
@@ -136,6 +138,15 @@ SELECT jsonb_build_object(
     'text_processing_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'text_processing_policy'),
     'legacy_embed_episode_policy', EXISTS (SELECT 1 FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'),
     'embed_chunks_returns_clean_text', COALESCE((SELECT result ILIKE '%cleaned_text text%' AND result ILIKE '%cleaner_method text%' FROM rpc_shapes WHERE proname = 'select_embed_chunks_candidates'), false),
+    'embed_chunks_timestamp_columns', (
+      to_regclass('public.episode_chunks') IS NOT NULL
+      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'episode_chunks' AND column_name = 'timestamp_start_seconds')
+      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'episode_chunks' AND column_name = 'timestamp_end_seconds')
+      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'episode_chunks' AND column_name = 'segment_start_idx')
+      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'episode_chunks' AND column_name = 'segment_end_idx')
+      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'episode_chunks' AND column_name = 'source_transcript_model')
+      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'episode_chunks' AND column_name = 'chunking_method')
+    ),
     'canonical_alias_table', to_regclass('public.canonical_entity_aliases') IS NOT NULL,
     'canonical_alias_normalizer', to_regprocedure('public.normalize_entity_alias(text)') IS NOT NULL,
     'canonical_alias_resolver', to_regprocedure('public.resolve_canonical_entity_alias(text,text)') IS NOT NULL,
@@ -402,12 +413,24 @@ SELECT jsonb_build_object(
       FROM rpc_shapes
       WHERE proname = 'select_embed_chunks_candidates'
     ), false),
+    'select_embed_chunks_candidates_returns_transcript_segments', COALESCE((
+      SELECT result ILIKE '%transcript_model text%' AND result ILIKE '%transcript_segments jsonb%' AND result ILIKE '%transcript_hash text%'
+      FROM rpc_shapes
+      WHERE proname = 'select_embed_chunks_candidates'
+    ), false),
+    'select_embed_chunks_candidates_matches_transcript_hash', COALESCE((
+      SELECT definition ILIKE '%bt.content_hash = ct.source_hash%'
+      FROM rpc_shapes
+      WHERE proname = 'select_embed_chunks_candidates'
+    ), false),
     'select_embed_chunks_candidates_v4_family_filter', COALESCE((
       SELECT definition ILIKE '%ct.cleaner_method LIKE ''deterministic_v4%%''%'
         OR definition ILIKE '%ct.cleaner_method ~~ ''deterministic_v4%%''%'
       FROM rpc_shapes
       WHERE proname = 'select_embed_chunks_candidates'
     ), false),
+    'episode_chunking_policy_timestamp_aware_v2', COALESCE((SELECT setting_values->'episode_chunking_policy'->>'version' = 'timestamp_aware_v2' FROM settings), false),
+    'episode_chunking_policy_keeps_char_fallback', COALESCE((SELECT setting_values->'episode_chunking_policy'->>'fallback' = 'char_window_v1' FROM settings), false),
     'embedding_candidate_rpcs_no_legacy_hu_flag', NOT COALESCE((
       SELECT bool_or(definition ILIKE ('%' || 'p.is_hungarian' || ' = true%'))
       FROM rpc_shapes
