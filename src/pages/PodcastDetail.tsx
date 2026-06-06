@@ -24,6 +24,17 @@ import { pickEpisodeDescription } from "@/lib/episodeText";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
+const PODCAST_SEO_CTA = "Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
+
+function firstSentence(value?: string | null): string {
+  const text = stripHtml(sanitizeHungarianPublicText(value || ""))
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return "";
+  const sentence = text.match(/^(.{40,260}?[.!?])(?:\s|$)/)?.[1]?.trim();
+  return sentence || snippet(text, 180);
+}
+
 function isSafeHostPerson(p: any): boolean {
   if (!p || p.is_public !== true || p.is_indexable !== true) return false;
   if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
@@ -157,24 +168,26 @@ export default function PodcastDetail() {
         const cleanSummary = sanitizeHungarianPublicText(data.summary);
         const cleanDesc = sanitizeHungarianPublicText(data.description);
         const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${data.slug}` : undefined;
+        const displayName = data.display_title || data.title;
         const hostNamesForSeo = resolvedHosts.map((h) => h.name);
-        const hostPrefix = hostNamesForSeo.length
-          ? `Házigazda: ${hostNamesForSeo.slice(0, 3).join(", ")}${hostNamesForSeo.length > 3 ? "…" : ""}. `
+        const hostLine = hostNamesForSeo.length
+          ? `Műsorvezető: ${hostNamesForSeo.slice(0, 3).join(", ")}${hostNamesForSeo.length > 3 ? "…" : ""}.`
           : "";
-        const baseDesc = sanitizeHungarianPublicText(data.seo_description) || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
+        const safeSeoDescription = sanitizeHungarianPublicText(data.seo_description);
+        const baseDesc = firstSentence(cleanDesc || cleanSummary || safeSeoDescription)
+          || `${displayName} podcast epizódjai a Podiverzumon.`;
         const seoCategory = categoryLabel(data.category) || data.category;
         const isAcceptedHungarian = data.language_decision === "accept_hungarian";
         const noindex = !isAcceptedHungarian || data.rss_status === "failed" || data.rss_status === "inactive";
-        const displayName = data.display_title || data.title;
         const epCount = allEps.length;
-        const epCountLabel = epCount > 0 ? `${epCount} epizód · ` : "";
+        const epCountLabel = `${epCount} epizód`;
         const safeSeoTitle = sanitizeHungarianPublicText(data.seo_title);
-        const seoTitle = safeSeoTitle
-          ? (/\|\s*Podiverzum\s*$/i.test(safeSeoTitle) ? safeSeoTitle : `${safeSeoTitle} | Podiverzum`)
-          : `${displayName} – ${epCountLabel}magyar podcast | Podiverzum`;
-        const brandSuffix = " Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
-        const descCore = (hostPrefix + baseDesc).trim();
-        const seoDescription = snippet(`${descCore}${descCore.length < 100 ? brandSuffix : ""}`, 160);
+        const seoTitle = `${displayName} – ${epCountLabel} · podcast | Podiverzum`;
+        const alternateSeoName = safeSeoTitle
+          ? safeSeoTitle.replace(/\s*\|\s*Podiverzum\s*$/i, "").trim()
+          : undefined;
+        const descParts = [baseDesc, hostLine, PODCAST_SEO_CTA].filter(Boolean);
+        const seoDescription = snippet(descParts.join(" "), 180);
         setSeo({
           title: seoTitle,
           description: seoDescription,
@@ -186,7 +199,8 @@ export default function PodcastDetail() {
               "@context": "https://schema.org",
               "@type": "PodcastSeries",
               name: data.title,
-              description: baseDesc,
+              alternateName: alternateSeoName && alternateSeoName !== data.title ? alternateSeoName : undefined,
+              description: safeSeoDescription || cleanSummary || cleanDesc || baseDesc,
               image: data.image_url || undefined,
               url: typeof window !== "undefined" ? window.location.href : undefined,
               webFeed: data.rss_url || undefined,
