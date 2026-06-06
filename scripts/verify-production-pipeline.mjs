@@ -421,6 +421,7 @@ SELECT jsonb_build_object(
   'entity_monitoring_benchmark', jsonb_build_object(
     'policy_configured_v1', (SELECT (setting_values->'entity_monitoring_benchmark_policy'->>'version')::int >= 1 FROM settings),
     'policy_configured_v2', (SELECT (setting_values->'entity_monitoring_benchmark_policy'->>'version')::int >= 2 FROM settings),
+    'policy_configured_v3', (SELECT (setting_values->'entity_monitoring_benchmark_policy'->>'version')::int >= 3 FROM settings),
     'requires_expected_entity_recorded', (SELECT COALESCE((setting_values->'entity_monitoring_benchmark_policy'->>'requires_expected_entity')::boolean, false) FROM settings),
     'deceased_person_handling_recorded', (SELECT COALESCE(setting_values->'entity_monitoring_benchmark_policy' ? 'deceased_person_handling', false) FROM settings),
     'person_scope_rule_recorded', (SELECT COALESCE(setting_values->'entity_monitoring_benchmark_policy' ? 'person_scope_rule', false) FROM settings),
@@ -434,6 +435,13 @@ SELECT jsonb_build_object(
     ),
     'active_entity_golden_queries_at_least_50', (
       SELECT count(*) >= 50
+      FROM public.search_golden_queries
+      WHERE COALESCE(active, true) = true
+        AND expected_entity IS NOT NULL
+        AND query_type IN ('person', 'company_brand', 'company_brand_alias', 'topic')
+    ),
+    'active_entity_golden_queries_at_least_60', (
+      SELECT count(*) >= 60
       FROM public.search_golden_queries
       WHERE COALESCE(active, true) = true
         AND expected_entity IS NOT NULL

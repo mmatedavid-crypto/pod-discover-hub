@@ -217,6 +217,7 @@ describe("production policy static guards", () => {
       read("supabase/migrations/20260605220000_entity_monitoring_search_benchmark_policy.sql"),
       read("supabase/migrations/20260605223000_reassert_entity_monitoring_benchmark_goldens.sql"),
       read("supabase/migrations/20260606010000_expand_entity_monitoring_goldens_v2.sql"),
+      read("supabase/migrations/20260606012000_reassert_entity_monitoring_goldens_v3.sql"),
     ].join("\n");
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
@@ -227,7 +228,11 @@ describe("production policy static guards", () => {
     expect(migration).toContain("requires_expected_entity");
     expect(migration).toContain("person_scope_rule");
     expect(migration).toContain("deceased_person_handling");
+    expect(migration).toContain("'version', 3");
+    expect(migration).toContain("'min_active_entity_queries', 60");
     expect(migration).toContain("'min_active_entity_queries', 50");
+    expect(migration).toContain("entity_monitoring_benchmark_v3 expected at least 60 active entity goldens");
+    expect(migration).toContain("entity_monitoring_benchmark_v3 expected all four active entity query types");
     expect(migration).toContain("deceased/historical figures are topic/entity-context goldens");
     expect(migration).toContain("q.query_type = 'person'");
     expect(migration).toContain("SET query_type = 'topic'");
@@ -241,6 +246,9 @@ describe("production policy static guards", () => {
     expect(migration).toContain("Európai Unió támogatások");
     expect(migration).toContain("MBH Bank");
     expect(migration).toContain("4iG részvény");
+    expect(migration).toContain("Yettel Magyarország");
+    expect(migration).toContain("Aldi akció");
+    expect(migration).toContain("mesterséges intelligencia szabályozás");
     expect(migration).toContain("Petőfi Sándor podcast beszélgetés");
     expect(migration).toContain("Kossuth Lajos történelem");
     expect(migration).toContain("p.is_deceased IS TRUE");
@@ -250,8 +258,10 @@ describe("production policy static guards", () => {
 
     expect(verifier).toContain("entity_monitoring_benchmark");
     expect(verifier).toContain("policy_configured_v2");
+    expect(verifier).toContain("policy_configured_v3");
     expect(verifier).toContain("active_entity_golden_queries_at_least_40");
     expect(verifier).toContain("active_entity_golden_queries_at_least_50");
+    expect(verifier).toContain("active_entity_golden_queries_at_least_60");
     expect(verifier).toContain("active_entity_query_types_at_least_3");
     expect(verifier).toContain("active_entity_query_types_at_least_4");
     expect(verifier).toContain("deceased_person_handling_recorded");
