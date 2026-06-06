@@ -61,6 +61,23 @@ function validateEmbeddingInput(text: string): string | null {
   return null;
 }
 
+async function loadPromotedCleanText(admin: ReturnType<typeof createClient>, episodeId: string) {
+  const { data, error } = await admin
+    .from("episode_clean_text")
+    .select("cleaned_text, cleaner_method, source_hash")
+    .eq("episode_id", episodeId)
+    .like("cleaner_method", "deterministic_v4%")
+    .maybeSingle();
+  if (error) throw error;
+
+  const cleanedText = String(data?.cleaned_text || "").trim();
+  const cleanerMethod = String(data?.cleaner_method || "missing_clean_text");
+  if (!cleanedText || cleanedText.length < 80 || !cleanerMethod.startsWith("deterministic_v4")) {
+    return null;
+  }
+  return { cleanedText, cleanerMethod, sourceHash: data?.source_hash || null };
+}
+
 async function embed(model: string, text: string): Promise<{ vec: number[]; tokens: number }> {
   const googleModel = model.replace(/^google\//, "");
   const apiKey = Deno.env.get("GEMINI_API_KEY");
@@ -136,10 +153,18 @@ Deno.serve(async (req) => {
         if (Date.now() - startedAt > TIME_BUDGET_MS - TIME_RESERVE_MS) { stop = true; return; }
         if (embedSpend >= dailyBudget) { stop = true; return; }
         try {
+          const cleanText = await loadPromotedCleanText(admin, e.id);
+          if (!cleanText) {
+            skipped++;
+            if (errorSamples.length < 5) errorSamples.push({ id: e.id, skipped: "requires_promoted_deterministic_v4_clean_text" });
+            return;
+          }
+          e.description = cleanText.cleanedText;
+
           const skipReason = validateEmbeddingInput(usefulEmbeddingText(e));
           if (skipReason) {
             skipped++;
-            if (errorSamples.length < 5) errorSamples.push({ id: e.id, skipped: skipReason });
+            if (errorSamples.length < 5) errorSamples.push({ id: e.id, skipped: skipReason, cleaned_method: cleanText.cleanerMethod });
             return;
           }
           const content = buildContent(e, model);
@@ -234,6 +259,7 @@ Deno.serve(async (req) => {
       embed_spend_usd_today: embedSpend,
       cron_schedule: recommended,
       model, batch_size: batch, concurrency, drain_passes: drainPasses,
+      source_policy: "verified_deterministic_v4_clean_text_then_embedding",
     };
     await admin.from("app_settings").upsert({
       key: "embed_episode_progress", value: progress as any, updated_at: new Date().toISOString(),

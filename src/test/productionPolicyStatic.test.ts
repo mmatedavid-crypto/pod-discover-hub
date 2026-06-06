@@ -353,6 +353,11 @@ describe("production policy static guards", () => {
 
     expect(episodeRunner).toContain("select_embed_episode_candidates");
     expect(episodeRunner).toContain("validateEmbeddingInput");
+    expect(episodeRunner).toContain("loadPromotedCleanText");
+    expect(episodeRunner).toContain('.from("episode_clean_text")');
+    expect(episodeRunner).toContain('.like("cleaner_method", "deterministic_v4%")');
+    expect(episodeRunner).toContain("requires_promoted_deterministic_v4_clean_text");
+    expect(episodeRunner).toContain('source_policy: "verified_deterministic_v4_clean_text_then_embedding"');
     expect(episodeRunner).toContain("skipped_last_run");
     expect(chunkRunner).toContain("requires_promoted_deterministic_v4_clean_text");
     expect(chunkRunner).toContain("source_policy: \"best_source_then_deterministic_v4_clean_text_then_embedding\"");
