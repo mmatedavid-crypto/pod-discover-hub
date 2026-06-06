@@ -51,6 +51,7 @@ type EpisodeFallbackRow = {
     display_title: string | null;
     image_url: string | null;
     category: string | null;
+    language_decision?: string | null;
   } | null;
 };
 
@@ -164,9 +165,9 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
 
       let q = supabase
         .from("episodes")
-        .select("id,podcast_id,title,display_title,slug,image_url,audio_url,published_at,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,is_hungarian,rss_status,rank_label)")
+        .select("id,podcast_id,title,display_title,slug,image_url,audio_url,published_at,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,language_decision,rss_status,rank_label)")
         .not("audio_url", "is", null)
-        .eq("podcasts.is_hungarian", true)
+        .eq("podcasts.language_decision", "accept_hungarian")
         .not("podcasts.rss_status", "in", "(failed,inactive)")
         .in("podcasts.rank_label", ["S", "A", "B", "C", "D", "E"])
         .order("published_at", { ascending: false, nullsFirst: false })

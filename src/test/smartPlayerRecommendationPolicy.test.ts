@@ -66,6 +66,16 @@ describe("smart player recommendation policy", () => {
     expect(similar).not.toContain("relatedReasonFromSimilarity");
   });
 
+  it("keeps dormant smart discovery fallback on the accepted Hungarian catalog", () => {
+    const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
+
+    expect(discovery).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED");
+    expect(discovery).toContain("podcasts!inner(slug,title,display_title,image_url,category,language_decision,rss_status,rank_label)");
+    expect(discovery).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(discovery).not.toContain('.eq("podcasts.is_hungarian", true)');
+    expect(discovery).not.toContain("category,is_hungarian,rss_status");
+  });
+
   it("keeps the DB compatibility policy hard-blocking religion/non-religion false positives", () => {
     const migration = read("supabase/migrations/20260605003000_recommendation_compatibility_v5_entity_bridge.sql");
     const reassertMigration = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
