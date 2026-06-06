@@ -14,6 +14,7 @@ interface PodcastRow {
   display_title?: string | null;
   slug: string;
   language?: string | null;
+  language_decision?: string | null;
   podiverzum_rank?: number | null;
   rank_label?: string | null;
   hosts: string[];
@@ -46,8 +47,8 @@ export default function AdminHostsPage() {
     setLoading(true);
     let q = supabase
       .from("podcasts")
-      .select("id,title,display_title,slug,language,podiverzum_rank,rank_label,hosts,hosts_source,hosts_updated_at")
-      .eq("is_hungarian", true)
+      .select("id,title,display_title,slug,language,language_decision,podiverzum_rank,rank_label,hosts,hosts_source,hosts_updated_at")
+      .eq("language_decision", "accept_hungarian")
       .order("podiverzum_rank", { ascending: false, nullsFirst: false })
       .limit(200);
     if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);

@@ -191,8 +191,8 @@ if (snapshot.error) {
 
 const { data, error } = await supabase
   .from("episodes")
-  .select("id,title,description,clean_text_status,ai_entities_version,ai_summary,people,mentioned,companies,organizations,topics,tickers,published_at,podcasts!inner(title,display_title,is_hungarian,shadow_rank_tier)")
-  .eq("podcasts.is_hungarian", true)
+  .select("id,title,description,clean_text_status,ai_entities_version,ai_summary,people,mentioned,companies,organizations,topics,tickers,published_at,podcasts!inner(title,display_title,language_decision,shadow_rank_tier)")
+  .eq("podcasts.language_decision", "accept_hungarian")
   .order("published_at", { ascending: false, nullsFirst: false })
   .limit(SAMPLE_LIMIT);
 

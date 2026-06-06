@@ -130,6 +130,21 @@ describe("page consistency static guards", () => {
     expect(stats).not.toContain('.eq("is_hungarian", true)');
   });
 
+  it("keeps admin audit and backfill views on accepted Hungarian decisions", () => {
+    const hosts = read("src/pages/AdminHostsPage.tsx");
+    const piBackfill = read("src/pages/AdminPiBackfillPage.tsx");
+    const intelligenceAudit = read("src/pages/AdminIntelligenceAuditPage.tsx");
+    const auditScript = read("scripts/audit-intelligence.mjs");
+
+    for (const source of [hosts, piBackfill, intelligenceAudit, auditScript]) {
+      expect(source).toContain("language_decision");
+      expect(source).toContain("accept_hungarian");
+      expect(source).not.toContain('.eq("is_hungarian", true)');
+      expect(source).not.toContain('.eq("podcasts.is_hungarian", true)');
+      expect(source).not.toContain("is_hungarian.eq.true");
+    }
+  });
+
   it("keeps mood pages polished and sanitized instead of exposing raw DB labels", () => {
     const homeMoods = read("src/components/MoodCollections.tsx");
     const moods = read("src/pages/MoodsPage.tsx");
