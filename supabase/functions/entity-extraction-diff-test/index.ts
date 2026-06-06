@@ -52,12 +52,12 @@ Deno.serve(async (req) => {
     const model = String(body.model || "google/gemini-2.5-flash");
     assertModelAllowed(model);
 
-    // Sample N random v3 HU eps with clean_text done AND existing organizations.
+    // Sample N random v3 accepted-HU eps with clean_text done AND existing organizations.
     // Use the RPC-friendly two-step fetch to avoid nested-embed errors.
     const { data: epRows, error } = await admin
       .from("episodes")
-      .select("id, title, display_title, organizations, podcast_id, podcasts!inner(title, display_title, hosts, is_hungarian)")
-      .eq("podcasts.is_hungarian", true)
+      .select("id, title, display_title, organizations, podcast_id, podcasts!inner(title, display_title, hosts, language_decision)")
+      .eq("podcasts.language_decision", "accept_hungarian")
       .eq("ai_entities_version", 3)
       .eq("clean_text_status", "done")
       .not("organizations", "is", null)

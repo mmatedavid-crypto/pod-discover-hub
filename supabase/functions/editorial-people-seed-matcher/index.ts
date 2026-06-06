@@ -54,9 +54,8 @@ async function searchEpisodes(admin: any, seed: Seed, terms: string[]): Promise<
     // Episodes: title / ai_summary / description / search_text / people array
     const { data, error } = await admin
       .from("episodes")
-      .select("id, podcast_id, title, ai_summary, summary, description, search_text, people, mentioned, podcasts!inner(is_hungarian, language_decision)")
+      .select("id, podcast_id, title, ai_summary, summary, description, search_text, people, mentioned, podcasts!inner(language_decision)")
       .or(`title.ilike.${v},ai_summary.ilike.${v},description.ilike.${v},search_text.ilike.${v}`)
-      .eq("podcasts.is_hungarian", true)
       .eq("podcasts.language_decision", "accept_hungarian")
       .limit(300);
     if (error) { console.warn("seed search", term, error.message); continue; }

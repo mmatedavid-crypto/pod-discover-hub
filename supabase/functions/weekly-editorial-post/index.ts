@@ -230,10 +230,9 @@ async function pickEpisodes(admin: any, days: number, limit: number, controls: C
     .select(`
       id, title, display_title, slug, published_at, ai_summary, description, summary,
       people, parties, companies, topics,
-      podcasts!inner(id, title, display_title, slug, language, language_decision, is_hungarian, rss_status, category, rank_label, podiverzum_rank, featured, shadow_rank_components)
+      podcasts!inner(id, title, display_title, slug, language, language_decision, rss_status, category, rank_label, podiverzum_rank, featured, shadow_rank_components)
     `)
     .gte("published_at", since)
-    .eq("podcasts.is_hungarian", true)
     .eq("podcasts.language_decision", "accept_hungarian")
     // Toplista-szűrő: csak S/A/B/C tier-ből válogatunk, hogy ne ajánljunk
     // olyan csatornát, amit gyakorlatilag senki nem hallgat. Featured podcast

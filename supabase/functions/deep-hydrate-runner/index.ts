@@ -95,10 +95,9 @@ Deno.serve(async (req) => {
     // imports so they can become evaluable without inheriting legacy rank.
     const { data: candidates, error: cErr } = await admin
       .from("podcasts")
-      .select("id, title, slug, rss_url, image_url, podiverzum_rank, rank_label, shadow_rank_components, rss_status, deep_hydration_status, deep_hydration_target, last_deep_hydrated_at, hydrated_episode_count, full_backfill_completed_at")
+      .select("id, title, slug, rss_url, image_url, podiverzum_rank, rank_label, shadow_rank_components, rss_status, language_decision, deep_hydration_status, deep_hydration_target, last_deep_hydrated_at, hydrated_episode_count, full_backfill_completed_at")
       .in("rank_label", ["S", "A", "B", "C", "D", "E"])
       .in("rss_status", ["active", "not_checked"])
-      .eq("is_hungarian", true)
       .eq("language_decision", "accept_hungarian")
       .is("full_backfill_completed_at", null)
       .order("podiverzum_rank", { ascending: false })
@@ -195,7 +194,6 @@ Deno.serve(async (req) => {
       .from("podcasts").select("id", { count: "exact", head: true })
       .in("rank_label", ["S", "A", "B", "C", "D", "E"])
       .in("rss_status", ["active", "not_checked"])
-      .eq("is_hungarian", true)
       .eq("language_decision", "accept_hungarian")
       .is("full_backfill_completed_at", null);
 
