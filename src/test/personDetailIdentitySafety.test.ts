@@ -23,6 +23,10 @@ describe("person detail identity safety", () => {
     expect(page).toContain("personCollectionIntro");
     expect(page).toContain("Podcastokban");
     expect(page).toContain("const introText = personCollectionIntro(person.name, eps.length)");
+    expect(page).toContain("function safePersonIdentityLabel");
+    expect(page).toContain("sanitizeHungarianPublicText(label || \"\") || null");
+    expect(page).toContain("const identityLabel = safePersonIdentityLabel(person.disambiguation_label)");
+    expect(page).not.toContain("const identityLabel = isUsefulPersonIdentityLabel(person.disambiguation_label)");
     expect(page).toContain("description: safeDesc");
     expect(page).not.toContain('text-primary">Személy</div>');
     expect(page).not.toContain("(eps.length > 0 ? huFallbackBio(person.name) : null)");

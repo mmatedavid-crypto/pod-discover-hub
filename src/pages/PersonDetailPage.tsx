@@ -10,6 +10,7 @@ import PersonAvatar from "@/components/PersonAvatar";
 import { matchesEntitySlug } from "@/lib/entity";
 import { snippet } from "@/lib/text";
 import { isUsefulPersonIdentityLabel } from "@/components/PersonCard";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 interface Person {
   id: string; name: string; slug: string;
@@ -69,6 +70,11 @@ function personCollectionIntro(name: string, count: number): string {
     return `${name} kapcsolódó magyar podcast epizódjai egy helyen: beszélgetések, interjúk és említések a Podiverzum katalógusából.`;
   }
   return `${name} kapcsolódó magyar podcast epizódjai hamarosan megjelennek a Podiverzum katalógusában.`;
+}
+
+function safePersonIdentityLabel(label?: string | null): string | null {
+  if (!isUsefulPersonIdentityLabel(label || null)) return null;
+  return sanitizeHungarianPublicText(label || "") || null;
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -357,9 +363,7 @@ export default function PersonDetailPage() {
   const avatarUrl = isAmbiguousWithoutTrustedIdentity(person)
     ? null
     : person.image_url || person.image_original_url || null;
-  const identityLabel = isUsefulPersonIdentityLabel(person.disambiguation_label)
-    ? person.disambiguation_label
-    : null;
+  const identityLabel = safePersonIdentityLabel(person.disambiguation_label);
 
   const pCount = segments.participants.length;
   const sCount = segments.subjects.length;
