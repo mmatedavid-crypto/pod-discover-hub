@@ -71,14 +71,12 @@ export default function DailyBriefPage() {
         .from("episodes")
         .select(`id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,is_hungarian,language_decision)`)
         .gte("published_at", since)
-        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
+        .eq("podcasts.language_decision", "accept_hungarian")
         .not("podcasts.rss_status", "in", "(failed,inactive)")
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(400);
 
-      const mapped = (data || [])
-        .filter((e: any) => e.podcasts?.language_decision !== "reject_foreign")
-        .map(mapRow);
+      const mapped = (data || []).map(mapRow);
       setEps(mapped);
       setLoading(false);
     })();

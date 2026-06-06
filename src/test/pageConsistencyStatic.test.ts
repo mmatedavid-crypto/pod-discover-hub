@@ -587,11 +587,15 @@ describe("page consistency static guards", () => {
     const newest = read("src/pages/NewPodcastsPage.tsx");
     const recent = read("src/components/RecentlyAddedPodcasts.tsx");
     const notFound = read("src/pages/NotFound.tsx");
+    const daily = read("src/pages/DailyBriefPage.tsx");
 
     for (const source of [newest, recent, notFound]) {
       expect(source).toContain('.eq("language_decision", "accept_hungarian")');
       expect(source).not.toContain('.eq("is_hungarian", true)');
     }
+    expect(daily).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(daily).not.toContain('or("is_hungarian.eq.true,language_decision.eq.accept_hungarian"');
+    expect(daily).not.toContain('language_decision !== "reject_foreign"');
   });
 
   it("keeps entity pages on accepted Hungarian episodes with AI-summary-aware cards", () => {
