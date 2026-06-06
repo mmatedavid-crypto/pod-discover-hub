@@ -6,15 +6,16 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
 
 describe("episode thumbnail loading policy", () => {
-  it("keeps rail backgrounds decorative instead of loading a second thumbnail", () => {
+  it("fills the rail cover with the episode artwork instead of a tiny floating thumbnail", () => {
     const card = read("src/components/EpisodeCard.tsx");
 
     expect(card).toContain("function railBackdropStyle");
     expect(card).toContain("style={railBackdropStyle(podTitle)}");
-    expect(card).not.toContain("imageSize={48}");
-    expect(card).not.toContain("imageWidths={[48, 64, 96]}");
-    expect(card).not.toContain('sizes="96px"');
-    expect(card).not.toContain('size="lg" className="h-full rounded-none border-0"');
+    // Rail cover image fills the 16:10 area.
+    expect(card).toContain('className="absolute inset-0 h-full w-full object-cover"');
+    expect(card).toContain('sizes="(max-width: 640px) 80vw, 340px"');
+    // Old tiny floating thumbnail must not return.
+    expect(card).not.toContain('className="absolute left-3 top-3 w-16 rounded-md shadow-lg ring-1 ring-border/70 sm:w-20"');
   });
 
   it("keeps podcast episode thumbnails near rendered size", () => {
