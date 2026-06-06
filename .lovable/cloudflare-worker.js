@@ -63,6 +63,7 @@ Allow: /
 
 Sitemap: https://podiverzum.hu/sitemap.xml
 Sitemap: https://podiverzum.hu/news-sitemap.xml
+Host: podiverzum.hu
 `;
 
 // Lovable origin host (proxied via Cloudflare). Workers route runs BEFORE
@@ -184,7 +185,7 @@ export default {
         status: 301,
         headers: {
           Location: target,
-          "Cache-Control": "public, max-age=86400",
+          "Cache-Control": "public, max-age=31536000",
           "X-Redirect": "www-to-apex-301",
         },
       });

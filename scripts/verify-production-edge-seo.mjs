@@ -1,6 +1,7 @@
 const SITE = process.env.PUBLIC_SITE_URL || "https://podiverzum.hu";
 
 const redirectChecks = [
+  { url: "https://www.podiverzum.hu/podcast/emazon?utm=test", expectedUrl: "https://podiverzum.hu/podcast/emazon?utm=test", cacheIncludes: "max-age=31536000" },
   ["/search", "/kereses"],
   ["/categories", "/kategoriak"],
   ["/podcastok", "/toplista"],
@@ -30,6 +31,7 @@ const fetchChecks = [
     bodyIncludes: [
       "Sitemap: https://podiverzum.hu/sitemap.xml",
       "Sitemap: https://podiverzum.hu/news-sitemap.xml",
+      "Host: podiverzum.hu",
       "Content-Signal: search=yes,ai-input=yes,ai-train=no",
       "User-agent: GPTBot",
       "User-agent: OAI-SearchBot",
@@ -63,12 +65,17 @@ function sameUrl(actual, expectedPath) {
 const failures = [];
 const results = [];
 
-for (const [path, expectedPath] of redirectChecks) {
-  const res = await fetch(absolute(path), { method: "GET", redirect: "manual" });
+for (const item of redirectChecks) {
+  const [path, expectedPath] = Array.isArray(item) ? item : [item.url, item.expectedUrl];
+  const requestUrl = /^https?:\/\//i.test(path) ? path : absolute(path);
+  const res = await fetch(requestUrl, { method: "GET", redirect: "manual" });
   const location = res.headers.get("location") || "";
-  const ok = res.status === 301 && sameUrl(location, expectedPath);
-  results.push({ kind: "redirect", path, status: res.status, location, ok });
-  if (!ok) failures.push(`redirect ${path} expected 301 -> ${expectedPath}, got ${res.status} ${location}`);
+  const cacheControl = res.headers.get("cache-control") || "";
+  const locationOk = /^https?:\/\//i.test(expectedPath) ? location === expectedPath : sameUrl(location, expectedPath);
+  const cacheOk = !item.cacheIncludes || cacheControl.includes(item.cacheIncludes);
+  const ok = res.status === 301 && locationOk && cacheOk;
+  results.push({ kind: "redirect", path, status: res.status, location, cache_control: cacheControl, ok });
+  if (!ok) failures.push(`redirect ${path} expected 301 -> ${expectedPath}, got ${res.status} ${location}, cache=${cacheControl}`);
 }
 
 for (const check of fetchChecks) {

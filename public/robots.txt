@@ -44,3 +44,4 @@ Allow: /
 
 Sitemap: https://podiverzum.hu/sitemap.xml
 Sitemap: https://podiverzum.hu/news-sitemap.xml
+Host: podiverzum.hu

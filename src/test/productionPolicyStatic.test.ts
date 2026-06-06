@@ -622,13 +622,19 @@ describe("production policy static guards", () => {
     expect(worker).toContain('url.pathname === "/robots.txt"');
     expect(worker).toContain("worker-robots-policy");
     expect(worker).toContain("Content-Signal: search=yes,ai-input=yes,ai-train=no");
+    expect(worker).toContain("Host: podiverzum.hu");
+    expect(worker).toContain('url.hostname === "www.podiverzum.hu"');
+    expect(worker).toContain('"Cache-Control": "public, max-age=31536000"');
     expect(worker).not.toContain("BEGIN Cloudflare Managed");
 
     expect(lovableWorker).toContain('url.pathname === "/robots.txt"');
     expect(lovableWorker).toContain("worker-robots-policy");
+    expect(lovableWorker).toContain("Host: podiverzum.hu");
+    expect(lovableWorker).toContain('"Cache-Control": "public, max-age=31536000"');
 
     expect(robots).toContain("Sitemap: https://podiverzum.hu/sitemap.xml");
     expect(robots).toContain("Sitemap: https://podiverzum.hu/news-sitemap.xml");
+    expect(robots).toContain("Host: podiverzum.hu");
     expect(robots).toContain("Content-Signal: search=yes,ai-input=yes,ai-train=no");
     expect(robots).not.toContain("BEGIN Cloudflare Managed");
     expect(robots).not.toContain("User-agent: GPTBot\nDisallow: /");
@@ -714,6 +720,10 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("redirect: \"manual\"");
     expect(verifier).toContain("worker-sitemap-proxy");
     expect(verifier).toContain("worker-robots-policy");
+    expect(verifier).toContain("https://www.podiverzum.hu/podcast/emazon?utm=test");
+    expect(verifier).toContain("https://podiverzum.hu/podcast/emazon?utm=test");
+    expect(verifier).toContain("max-age=31536000");
+    expect(verifier).toContain("Host: podiverzum.hu");
     expect(verifier).toContain("bodyExcludes");
     expect(verifier).toContain("BEGIN Cloudflare Managed");
     expect(verifier).toContain("max-age=300");
