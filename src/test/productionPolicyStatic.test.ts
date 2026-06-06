@@ -348,6 +348,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("20260605231000_reassert_downstream_embedding_clean_text_family.sql");
     expect(reporter).toContain("20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
     expect(reporter).toContain("20260606174000_timestamp_aware_episode_chunks.sql");
+    expect(reporter).toContain('String(failure).includes("embed_chunks")');
     expect(reporter).toContain("embed-episode-runner");
     expect(reporter).toContain("embed-episode-chunks-runner");
 

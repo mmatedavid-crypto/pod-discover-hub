@@ -216,6 +216,9 @@ function groupKeyForFailure(failure) {
   if (key === "migration_gates" && String(failure).includes("person_bio")) {
     return "people_hub_identity_safety";
   }
+  if (key === "migration_gates" && String(failure).includes("embed_chunks")) {
+    return "downstream_embedding_quality";
+  }
   return key;
 }
 
