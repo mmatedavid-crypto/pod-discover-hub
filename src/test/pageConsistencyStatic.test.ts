@@ -581,10 +581,15 @@ describe("page consistency static guards", () => {
   it("keeps public search on the accepted Hungarian catalog, not query accent language guesses", () => {
     const search = read("src/lib/search.ts");
     const searchPage = read("src/pages/SearchPage.tsx");
+    const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
+    const suggest = read("supabase/functions/search-suggest/index.ts");
 
     expect(search).toContain("published_at,ai_summary,summary,description");
     expect(search).toContain('${e.ai_summary || ""} ${e.summary || ""}');
     expect(search).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(autocomplete).toContain('.eq("language_decision", "accept_hungarian")');
+    expect(autocomplete).toContain('p.language_decision !== "accept_hungarian"');
+    expect(suggest).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
     expect(search).toContain("accepted Hungarian podcasts");
     expect(search).toContain("ASCII Hungarian queries");
     expect(search).toContain("language_decision");
@@ -594,6 +599,10 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain('decision === "accept_hungarian"');
     expect(search).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
     expect(searchPage).not.toContain('.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")');
+    expect(autocomplete).not.toContain('.eq("is_hungarian", true)');
+    expect(autocomplete).not.toContain("podiverzum_rank,rank_label,is_hungarian,language_decision");
+    expect(suggest).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+    expect(suggest).not.toContain('language_decision !== "reject_foreign"');
     expect(searchPage).not.toContain("reject_non_hungarian");
     expect(searchPage).toContain("sanitizeHungarianPublicText(p.summary).toLowerCase()");
     expect(searchPage).toContain("function sanitizeSearchWhy(reason: unknown)");

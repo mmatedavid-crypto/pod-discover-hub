@@ -88,12 +88,11 @@ Deno.serve(async (req) => {
     // Seed with up to 12 episode titles whose search_text contains the prefix.
     const { data: rows } = await supa
       .from("episodes")
-      .select("title, podcasts!inner(language,is_hungarian,language_decision)")
+      .select("title, podcasts!inner(language,language_decision)")
       .ilike("search_text", `%${prefix}%`)
-      .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" })
+      .eq("podcasts.language_decision", "accept_hungarian")
       .limit(12);
     const seed = (rows || [])
-      .filter((r: any) => r.podcasts?.language_decision !== "reject_foreign")
       .map((r: any) => String(r.title || "").slice(0, 100))
       .filter(Boolean);
 

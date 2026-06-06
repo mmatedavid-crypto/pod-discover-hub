@@ -100,7 +100,6 @@ Deno.serve(async (req) => {
     const [podRes, podAliasRes, persRes, aliasRes, topRes, catRes, orgRes, orgAliasRes, qcacheRes] = await Promise.all([
       supa.from("podcasts")
         .select("title,slug,image_url,podiverzum_rank,rank_label,normalized_title")
-        .eq("is_hungarian", true)
         .eq("language_decision", "accept_hungarian")
         .or(`normalized_title.ilike.${nPrefixStar},normalized_title.ilike.${nTokenInfixStar},normalized_title.ilike.${nIlikeStar},title.ilike.${ilikeStar}`)
         .order("podiverzum_rank", { ascending: false, nullsFirst: false })
@@ -108,7 +107,7 @@ Deno.serve(async (req) => {
       // Podcast aliases — surfaces canonical podcasts via known short forms
       // (e.g. "after" → Hold After Hours, "part" → Partizán)
       supa.from("podcast_aliases")
-        .select("alias,confidence,podcasts!inner(title,slug,image_url,podiverzum_rank,rank_label,is_hungarian,language_decision,rss_status)")
+        .select("alias,confidence,podcasts!inner(title,slug,image_url,podiverzum_rank,rank_label,language_decision,rss_status)")
         .or(`normalized_alias.eq.${qNoSpace},normalized_alias.ilike.${nPrefixStar}`)
         .gte("confidence", 0.7)
         .limit(8),
@@ -185,7 +184,7 @@ Deno.serve(async (req) => {
     for (const row of aliasRows) {
       const p = row.podcasts;
       if (!p) continue;
-      if (!p.is_hungarian || p.language_decision !== "accept_hungarian") continue;
+      if (p.language_decision !== "accept_hungarian") continue;
       if (["failed", "inactive", "blocked", "dead"].includes(String(p.rss_status || ""))) continue;
       const slug = String(p.slug || "");
       if (!slug || podSlugsSeen.has(slug)) continue;
