@@ -81,6 +81,11 @@ function sanitizeSearchAnswer(answer: string): string {
   return clean.length >= 20 ? clean : "";
 }
 
+function sanitizeSearchWhy(reason: unknown): string | null {
+  const clean = sanitizeHungarianPublicText(String(reason || ""));
+  return clean.length >= 12 ? clean : null;
+}
+
 function isSafeSearchPerson(p: any): boolean {
   if (!p || p.is_public !== true || p.is_indexable !== true) return false;
   if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
@@ -207,7 +212,10 @@ export default function SearchPage() {
         } else if (sortParam === "rank") {
           eps.sort((a, b) => episodeScore(b) - episodeScore(a));
         }
-        const next = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "Kulcsszavas találat", why_matched: e.why_matched || null }));
+        const next = eps.slice(0, 80).map((e) => {
+          const safeWhy = sanitizeSearchWhy(e.why_matched);
+          return { ...e, matchBadge: safeWhy ? null : "Kulcsszavas találat", why_matched: safeWhy };
+        });
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
         return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked };
       };

@@ -549,6 +549,9 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain('.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")');
     expect(searchPage).toContain("reject_non_hungarian");
     expect(searchPage).toContain("sanitizeHungarianPublicText(p.summary).toLowerCase()");
+    expect(searchPage).toContain("function sanitizeSearchWhy(reason: unknown)");
+    expect(searchPage).toContain("const safeWhy = sanitizeSearchWhy(e.why_matched)");
+    expect(searchPage).toContain("why_matched: safeWhy");
   });
 
   it("keeps the search AI overview Hungarian, guarded, and user-facing", () => {
