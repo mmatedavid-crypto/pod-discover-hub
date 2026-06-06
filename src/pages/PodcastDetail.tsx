@@ -163,7 +163,7 @@ export default function PodcastDetail() {
           : "";
         const baseDesc = sanitizeHungarianPublicText(data.seo_description) || cleanSummary || cleanDesc || `A(z) ${data.title} podcast epizódjai és leírása a Podiverzumon.`;
         const seoCategory = categoryLabel(data.category) || data.category;
-        const isAcceptedHungarian = !isForeignRejected(data) && (data.is_hungarian === true || data.language_decision === "accept_hungarian");
+        const isAcceptedHungarian = data.language_decision === "accept_hungarian";
         const noindex = !isAcceptedHungarian || data.rss_status === "failed" || data.rss_status === "inactive";
         const displayName = data.display_title || data.title;
         const epCount = allEps.length;

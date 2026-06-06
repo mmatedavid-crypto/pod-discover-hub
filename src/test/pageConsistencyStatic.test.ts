@@ -184,6 +184,18 @@ describe("page consistency static guards", () => {
     expect(podcastDetail).not.toContain("a(z)");
   });
 
+  it("keeps podcast and episode detail SEO indexed only for accepted Hungarian shows", () => {
+    const podcastDetail = read("src/pages/PodcastDetail.tsx");
+    const episodeDetail = read("src/pages/EpisodeDetail.tsx");
+
+    expect(podcastDetail).toContain('const isAcceptedHungarian = data.language_decision === "accept_hungarian"');
+    expect(episodeDetail).toContain('const isAcceptedHungarian = p.language_decision === "accept_hungarian"');
+    expect(podcastDetail).toContain("const noindex = !isAcceptedHungarian");
+    expect(episodeDetail).toContain("noindex: !isAcceptedHungarian");
+    expect(podcastDetail).not.toContain('data.is_hungarian === true || data.language_decision === "accept_hungarian"');
+    expect(episodeDetail).not.toContain('p.is_hungarian === true || p.language_decision === "accept_hungarian"');
+  });
+
   it("keeps public Hungarian copy free of awkward a-z placeholders", () => {
     const peopleHub = read("src/pages/PeopleHubPage.tsx");
     const companiesHub = read("src/pages/CompaniesHubPage.tsx");

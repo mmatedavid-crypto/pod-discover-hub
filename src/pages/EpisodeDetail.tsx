@@ -116,7 +116,7 @@ export default function EpisodeDetail() {
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
-      const isAcceptedHungarian = !isForeignRejected && (p.is_hungarian === true || p.language_decision === "accept_hungarian");
+      const isAcceptedHungarian = p.language_decision === "accept_hungarian";
       setSeo({
         title: safeSeoTitle || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
