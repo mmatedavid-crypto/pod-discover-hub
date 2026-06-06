@@ -95,9 +95,8 @@ Deno.serve(async (req) => {
 
       const { data: eps, error: selErr } = await admin
         .from("episodes")
-        .select("id, description, summary, podcasts!inner(is_hungarian,language_decision)")
+        .select("id, description, summary, podcasts!inner(language_decision)")
         .eq("clean_text_status", "pending")
-        .eq("podcasts.is_hungarian", true)
         .eq("podcasts.language_decision", "accept_hungarian")
         .limit(batchLimit);
       if (selErr) return json({ ok: false, error: selErr.message }, 500);

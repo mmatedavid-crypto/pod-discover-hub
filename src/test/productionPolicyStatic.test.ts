@@ -363,6 +363,7 @@ describe("production policy static guards", () => {
   it("keeps legacy clean-text backfill quality-gated instead of globally enabled", () => {
     const migration = read("supabase/migrations/20260603171000_clean_text_backfill_quality_gate_consolidated.sql");
     const runner = read("supabase/functions/episode-clean-text-runner/index.ts");
+    const candidateRunner = read("supabase/functions/episode-clean-text-candidate-runner/index.ts");
     const verifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(migration).toContain("CREATE OR REPLACE FUNCTION public.requeue_legacy_clean_text_v4_backfill");
@@ -375,6 +376,11 @@ describe("production policy static guards", () => {
 
     expect(runner).toContain("ctrl.legacy_v3_backfill_enabled !== true && body.requeue_legacy_v3 !== true");
     expect(runner).toContain("use_best_text_source");
+    for (const source of [runner, candidateRunner]) {
+      expect(source).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+      expect(source).not.toContain("is_hungarian");
+      expect(source).not.toContain('eq("podcasts.is_hungarian", true)');
+    }
 
     expect(verifier).toContain("legacy_v3_backfill_quality_gated");
     expect(verifier).not.toContain("legacy_v3_backfill_enabled', (SELECT");

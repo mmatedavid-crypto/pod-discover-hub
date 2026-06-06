@@ -83,9 +83,8 @@ async function filterAcceptedHungarianEpisodeIds(admin: AdminClient, ids: string
     const slice = ids.slice(i, i + ID_CHUNK_SIZE);
     const { data, error } = await admin
       .from("episodes")
-      .select("id,podcasts!inner(is_hungarian,language_decision)")
+      .select("id,podcasts!inner(language_decision)")
       .in("id", slice)
-      .eq("podcasts.is_hungarian", true)
       .eq("podcasts.language_decision", "accept_hungarian");
     if (error) throw error;
     for (const row of data || []) accepted.add(String(row.id));
@@ -121,8 +120,7 @@ async function loadDirectDrainEpisodeIds(
   if (idSet.size < limit) {
     const { data: possibleMissingClean, error: missingErr } = await admin
       .from("episodes")
-      .select("id,updated_at,podcasts!inner(is_hungarian,language_decision)")
-      .eq("podcasts.is_hungarian", true)
+      .select("id,updated_at,podcasts!inner(language_decision)")
       .eq("podcasts.language_decision", "accept_hungarian")
       .order("updated_at", { ascending: false, nullsFirst: false })
       .limit((limit - idSet.size) * 8);
@@ -196,9 +194,8 @@ Deno.serve(async (req) => {
       const slice = ids.slice(i, i + ID_CHUNK_SIZE);
       const { data: epRows, error: epErr } = await admin
         .from("episodes")
-        .select("id,description,summary,podcasts!inner(is_hungarian,language_decision)")
+        .select("id,description,summary,podcasts!inner(language_decision)")
         .in("id", slice)
-        .eq("podcasts.is_hungarian", true)
         .eq("podcasts.language_decision", "accept_hungarian");
       if (epErr) throw epErr;
       for (const row of (epRows || []) as EpisodeRow[]) episodesAll.push(row);
