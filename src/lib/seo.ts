@@ -21,7 +21,7 @@ function absoluteUrl(url?: string): string {
 
 export function setSeo(opts: SeoOpts) {
   if (typeof document === "undefined") return;
-  document.title = opts.title.slice(0, 70);
+  document.title = opts.title;
 
   const upsertMeta = (selector: string, attrs: Record<string, string>) => {
     let el = document.head.querySelector(selector) as HTMLMetaElement | null;

@@ -563,6 +563,7 @@ describe("page consistency static guards", () => {
   });
 
   it("keeps public SEO surfaces behind the Hungarian text sanitizer", () => {
+    const seo = read("src/lib/seo.ts");
     const podcast = read("src/pages/PodcastDetail.tsx");
     const category = read("src/pages/CategoryDetail.tsx");
     const topic = read("src/pages/TopicDetailPage.tsx");
@@ -577,6 +578,8 @@ describe("page consistency static guards", () => {
     for (const source of [podcast, category, topic, search, trending, episode, categories, orgCard, personCard, publicProfile]) {
       expect(source).toContain("sanitizeHungarianPublicText");
     }
+    expect(seo).toContain("document.title = opts.title");
+    expect(seo).not.toContain("document.title = opts.title.slice(0, 70)");
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_description)");
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_title)");
     expect(podcast).toContain("const seoTitle = `${displayName} – ${epCountLabel} · podcast | Podiverzum`");
