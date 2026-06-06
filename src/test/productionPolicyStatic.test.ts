@@ -311,22 +311,28 @@ describe("production policy static guards", () => {
     const reporter = read("scripts/report-production-deploy-gap.mjs");
     const downstreamGate = read("supabase/migrations/20260531220000_v4_clean_text_family_downstream_gates.sql");
     const reassertGate = read("supabase/migrations/20260605231000_reassert_downstream_embedding_clean_text_family.sql");
+    const downstreamV3 = read("supabase/migrations/20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
     const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
 
     expect(verifier).toContain("downstream_embedding_quality");
     expect(verifier).toContain("text_policy_embedding_requires_clean_text");
     expect(verifier).toContain("text_policy_accepts_v4_family");
+    expect(verifier).toContain("text_policy_v3_clean_text_first");
+    expect(verifier).toContain("text_policy_language_gate_accepts_decision");
     expect(verifier).toContain("legacy_embed_policy_v4_family_clean_text_only");
+    expect(verifier).toContain("legacy_embed_policy_language_gate_accepts_decision");
     expect(verifier).toContain("select_embed_episode_candidates_clean_text_source");
     expect(verifier).toContain("select_embed_episode_candidates_v4_family_filter");
     expect(verifier).toContain("select_embed_chunks_candidates_clean_text_contract");
     expect(verifier).toContain("select_embed_chunks_candidates_v4_family_filter");
+    expect(verifier).toContain("embedding_candidate_rpcs_no_legacy_hu_flag");
     expect(verifier).toContain("failures.push(`downstream_embedding_quality.${key}`)");
 
     expect(reporter).toContain("Clean-text-first downstream embeddings");
     expect(reporter).toContain("20260531220000_v4_clean_text_family_downstream_gates.sql");
     expect(reporter).toContain("20260605231000_reassert_downstream_embedding_clean_text_family.sql");
+    expect(reporter).toContain("20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
     expect(reporter).toContain("embed-episode-runner");
     expect(reporter).toContain("embed-episode-chunks-runner");
 
@@ -337,6 +343,11 @@ describe("production policy static guards", () => {
       expect(migration).toContain("'deterministic_v4_family_clean_text_only'");
     }
     expect(reassertGate).toContain("20260605231000_reassert_downstream_embedding_clean_text_family");
+    expect(downstreamV3).toContain("'version', 'best_source_clean_text_first_v3'");
+    expect(downstreamV3).toContain("'language_gate', 'podcasts.language_decision=accept_hungarian'");
+    expect(downstreamV3).toContain("select_embed_episode_candidates does not require deterministic_v4-family clean text");
+    expect(downstreamV3).toContain("embedding candidate RPCs must use language_decision without legacy is_hungarian positive gates");
+    expect(downstreamV3).not.toContain("p.is_hungarian = true");
 
     expect(episodeRunner).toContain("select_embed_episode_candidates");
     expect(episodeRunner).toContain("validateEmbeddingInput");

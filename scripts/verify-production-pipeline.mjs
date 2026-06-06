@@ -369,7 +369,10 @@ SELECT jsonb_build_object(
   'downstream_embedding_quality', jsonb_build_object(
     'text_policy_embedding_requires_clean_text', (SELECT COALESCE((setting_values->'text_processing_policy'->>'embedding_requires_clean_text')::boolean, false) FROM settings),
     'text_policy_accepts_v4_family', (SELECT setting_values->'text_processing_policy'->>'accepted_cleaner_method_prefix' = 'deterministic_v4' FROM settings),
+    'text_policy_v3_clean_text_first', (SELECT setting_values->'text_processing_policy'->>'version' = 'best_source_clean_text_first_v3' FROM settings),
+    'text_policy_language_gate_accepts_decision', (SELECT setting_values->'text_processing_policy'->>'language_gate' = 'podcasts.language_decision=accept_hungarian' FROM settings),
     'legacy_embed_policy_v4_family_clean_text_only', COALESCE((SELECT value->>'policy' = 'deterministic_v4_family_clean_text_only' FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'), false),
+    'legacy_embed_policy_language_gate_accepts_decision', COALESCE((SELECT value->>'language_gate' = 'podcasts.language_decision=accept_hungarian' FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'), false),
     'select_embed_episode_candidates_clean_text_source', COALESCE((
       SELECT definition ILIKE '%ct.cleaned_text AS description%'
       FROM rpc_shapes
@@ -391,7 +394,12 @@ SELECT jsonb_build_object(
         OR definition ILIKE '%ct.cleaner_method ~~ ''deterministic_v4%%''%'
       FROM rpc_shapes
       WHERE proname = 'select_embed_chunks_candidates'
-    ), false)
+    ), false),
+    'embedding_candidate_rpcs_no_legacy_hu_flag', NOT COALESCE((
+      SELECT bool_or(definition ILIKE ('%' || 'p.is_hungarian' || ' = true%'))
+      FROM rpc_shapes
+      WHERE proname IN ('select_embed_episode_candidates', 'select_embed_chunks_candidates')
+    ), true)
   ),
   'people_hub_identity_safety', jsonb_build_object(
     'policy_configured_v2', (SELECT (setting_values->'people_hub_identity_safety_policy'->>'version')::int >= 2 FROM settings),
