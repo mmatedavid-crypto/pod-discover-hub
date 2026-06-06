@@ -423,8 +423,8 @@ async function runSplitOr(
   const queries = filterPairs.flatMap(({ text, arr }) => {
     const tq = supabase.from("episodes").select(EPISODE_SELECT).or(text).limit(perQueryLimit);
     const aq = supabase.from("episodes").select(EPISODE_SELECT).or(arr).limit(perQueryLimit);
-    tq.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" });
-    aq.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian", { foreignTable: "podcasts" });
+    tq.eq("podcasts.language_decision", "accept_hungarian");
+    aq.eq("podcasts.language_decision", "accept_hungarian");
     return [tq, aq];
   });
   const results = await Promise.all(queries.map(async (q) => {

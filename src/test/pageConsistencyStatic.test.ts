@@ -572,14 +572,17 @@ describe("page consistency static guards", () => {
 
     expect(search).toContain("published_at,ai_summary,summary,description");
     expect(search).toContain('${e.ai_summary || ""} ${e.summary || ""}');
-    expect(search).toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+    expect(search).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
     expect(search).toContain("accepted Hungarian podcasts");
     expect(search).toContain("ASCII Hungarian queries");
     expect(search).toContain("language_decision");
     expect(search).not.toContain('tq.like("podcasts.language"');
     expect(search).not.toContain('aq.like("podcasts.language"');
-    expect(searchPage).toContain('.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")');
-    expect(searchPage).toContain("reject_non_hungarian");
+    expect(searchPage).toContain('.eq("language_decision", "accept_hungarian")');
+    expect(searchPage).toContain('decision === "accept_hungarian"');
+    expect(search).not.toContain("is_hungarian.eq.true,language_decision.eq.accept_hungarian");
+    expect(searchPage).not.toContain('.or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")');
+    expect(searchPage).not.toContain("reject_non_hungarian");
     expect(searchPage).toContain("sanitizeHungarianPublicText(p.summary).toLowerCase()");
     expect(searchPage).toContain("function sanitizeSearchWhy(reason: unknown)");
     expect(searchPage).toContain("const safeWhy = sanitizeSearchWhy(e.why_matched)");

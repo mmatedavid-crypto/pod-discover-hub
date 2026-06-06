@@ -339,7 +339,7 @@ export default function SearchPage() {
       let pq = supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,is_hungarian,language_decision")
-        .or("is_hungarian.eq.true,language_decision.eq.accept_hungarian")
+        .eq("language_decision", "accept_hungarian")
         .limit(60);
       if (fullPhrase.length >= 3) {
         const fp = `%${escapeIlike(fullPhrase)}%`;
@@ -354,8 +354,7 @@ export default function SearchPage() {
         const status = String(p.rss_status || "");
         const decision = String(p.language_decision || "");
         return (
-          (p.is_hungarian === true || decision === "accept_hungarian") &&
-          !["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(decision) &&
+          decision === "accept_hungarian" &&
           !["failed", "inactive", "blocked", "dead"].includes(status)
         );
       });
