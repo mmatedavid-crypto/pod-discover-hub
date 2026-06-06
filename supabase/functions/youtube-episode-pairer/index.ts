@@ -306,7 +306,7 @@ async function countPodcasts(admin: ReturnType<typeof createClient>, tiers: stri
     .select("id", { count: "exact", head: true })
     .eq("youtube_pairing_status", "paired")
     .not("youtube_channel_id", "is", null)
-    .eq("is_hungarian", true)
+    .eq("language_decision", "accept_hungarian")
     .in("shadow_rank_tier", tiers);
   if (filter === "never") q = q.is("youtube_last_episode_pair_at", null);
   if (filter === "stale") q = q.lt("youtube_last_episode_pair_at", cutoffIso);
@@ -393,11 +393,11 @@ async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: Adapt
 
     console.warn("claim_youtube_episode_pair_podcasts fallback", error.message);
     const fallback = await admin.from("podcasts")
-      .select("id, title, youtube_channel_id, shadow_rank_tier")
+      .select("id, title, youtube_channel_id, shadow_rank_tier, language_decision")
       .eq("youtube_pairing_status", "paired")
       .not("youtube_channel_id", "is", null)
       .in("shadow_rank_tier", tiers)
-      .eq("is_hungarian", true)
+      .eq("language_decision", "accept_hungarian")
       .or(`youtube_last_episode_pair_at.is.null,youtube_last_episode_pair_at.lt.${plan.cutoffIso}`)
       .order("youtube_last_episode_pair_at", { ascending: true, nullsFirst: true })
       .limit(batch);
@@ -405,11 +405,11 @@ async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: Adapt
   }
 
   const fallback = await admin.from("podcasts")
-    .select("id, title, youtube_channel_id, shadow_rank_tier")
+    .select("id, title, youtube_channel_id, shadow_rank_tier, language_decision")
     .eq("youtube_pairing_status", "paired")
     .not("youtube_channel_id", "is", null)
     .in("shadow_rank_tier", tiers)
-    .eq("is_hungarian", true)
+    .eq("language_decision", "accept_hungarian")
     .or(`youtube_last_episode_pair_at.is.null,youtube_last_episode_pair_at.lt.${plan.cutoffIso}`)
     .order("youtube_last_episode_pair_at", { ascending: true, nullsFirst: true })
     .limit(batch);

@@ -145,8 +145,8 @@ Deno.serve(async (req) => {
     const rescoutBefore = new Date(Date.now() - rescoutDays * 86400_000).toISOString();
     const { data: pods, error: pErr } = await admin
       .from("podcasts")
-      .select("id, title, description, language, shadow_rank_tier, youtube_channel_id, youtube_pairing_status, youtube_last_scouted_at, source")
-      .eq("is_hungarian", true)
+      .select("id, title, description, language, language_decision, shadow_rank_tier, youtube_channel_id, youtube_pairing_status, youtube_last_scouted_at, source")
+      .eq("language_decision", "accept_hungarian")
       .in("shadow_rank_tier", tiers)
       .neq("youtube_pairing_status", "paired")
       .or(`youtube_last_scouted_at.is.null,youtube_last_scouted_at.lt.${rescoutBefore}`)

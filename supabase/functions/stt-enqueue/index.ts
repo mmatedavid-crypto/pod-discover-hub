@@ -54,8 +54,8 @@ Deno.serve(async (req) => {
     // 1. Pull eligible HU podcasts by tier
     const { data: pods } = await admin
       .from("podcasts")
-      .select("id, shadow_rank_tier")
-      .eq("is_hungarian", true)
+      .select("id, shadow_rank_tier, language_decision")
+      .eq("language_decision", "accept_hungarian")
       .in("shadow_rank_tier", tiers)
       .eq("rss_status", "active")
       .limit(2000);

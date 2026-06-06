@@ -403,6 +403,22 @@ describe("production policy static guards", () => {
     }
   });
 
+  it("uses accepted language decisions for STT and YouTube ingest without the legacy RSS HU flag", () => {
+    const files = [
+      "supabase/functions/stt-enqueue/index.ts",
+      "supabase/functions/stt-runner/index.ts",
+      "supabase/functions/youtube-episode-pairer/index.ts",
+      "supabase/functions/youtube-channel-scout/index.ts",
+    ];
+
+    for (const file of files) {
+      const source = read(file);
+      expect(source).toContain('language_decision", "accept_hungarian"');
+      expect(source).not.toContain('eq("is_hungarian", true)');
+      expect(source).not.toContain("is_hungarian.eq.true");
+    }
+  });
+
   it("keeps news sitemap submission new-url-gated through Google Search Console", () => {
     const fn = read("supabase/functions/refresh-sitemap/index.ts");
     const migration = read("supabase/migrations/20260603111500_news_sitemap_fast_refresh_cron.sql");
