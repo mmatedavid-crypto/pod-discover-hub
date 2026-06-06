@@ -906,6 +906,9 @@ describe("production policy static guards", () => {
     expect(pairer).toContain("episode_article_candidates");
     expect(pairer).toContain("source_diagnostics");
     expect(pairer).toContain("best_rejected_scores");
+    expect(pairer).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(pairer).not.toContain("is_hungarian");
+    expect(pairer).not.toContain('eq("podcasts.is_hungarian", true)');
     expect(fastLane).toContain("sources_per_run");
     expect(fastLane).toContain("article_pairer_sources_per_run");
     expect(bestSource).toContain('source_type: "article"');

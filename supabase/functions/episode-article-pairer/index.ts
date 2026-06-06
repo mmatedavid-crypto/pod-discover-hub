@@ -142,9 +142,8 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
       const orFilter = patterns.map((p) => `title.ilike.${p},display_title.ilike.${p}`).join(",");
       const { data: episodes, error: epErr } = await admin
         .from("episodes")
-        .select("id,podcast_id,title,display_title,description,published_at,podcasts!inner(title,display_title,is_hungarian,language_decision)")
+        .select("id,podcast_id,title,display_title,description,published_at,podcasts!inner(title,display_title,language_decision)")
         .or(orFilter, { foreignTable: "podcasts" })
-        .eq("podcasts.is_hungarian", true)
         .eq("podcasts.language_decision", "accept_hungarian")
         .not("published_at", "is", null)
         .gt("published_at", new Date(Date.now() - recentEpisodeDays * 86_400_000).toISOString())
