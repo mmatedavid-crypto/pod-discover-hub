@@ -8481,6 +8481,7 @@ export type Database = {
           podiverzum_rank: number
           published_at: string
           rank_label: string
+          related_reason: string
           similarity: number
           slug: string
           summary: string
