@@ -1217,7 +1217,8 @@ describe("production policy static guards", () => {
     expect(homeRails).toContain(".filter(hasDiagnosticRelatedReason)");
     expect(homeRails).toContain("function hasMinimumMainRailSimilarity");
     expect(homeRails).toContain(".filter(hasMinimumMainRailSimilarity)");
-    expect(homeRails).toContain("withMainRailDiagnosticReason");
+    expect(homeRails).not.toContain("withMainRailDiagnosticReason");
+    expect(homeRails).not.toContain("MAIN_RAIL_REASON");
     expect(homeRails).toContain("related_reason_required_for_main_rail: true");
     expect(homeRails).toContain('main_rail_source: "match_episodes_by_user_history"');
     expect(homeRails).toContain("related_reason_required_for_seed_rails: true");

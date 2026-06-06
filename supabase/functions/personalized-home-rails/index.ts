@@ -6,7 +6,6 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const MIN_DIAGNOSTIC_REASON_CHARS = 12;
 const MIN_MAIN_RAIL_SIMILARITY = 0.18;
-const MAIN_RAIL_REASON = "A korábbi hallgatásaid alapján hasonló témák és hangulat miatt ajánljuk.";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -40,7 +39,7 @@ Deno.serve(async (req) => {
     });
     const safeMainRows = ((mainRows || []) as any[])
       .filter(hasMinimumMainRailSimilarity)
-      .map(withMainRailDiagnosticReason)
+      .filter(hasDiagnosticRelatedReason)
       .slice(0, 12);
 
     // 2) Per-seed rails: 3 most-recent distinct seed episodes
@@ -106,13 +105,6 @@ function hasDiagnosticRelatedReason(row: any): boolean {
 
 function hasMinimumMainRailSimilarity(row: any): boolean {
   return Number(row?.similarity || 0) >= MIN_MAIN_RAIL_SIMILARITY;
-}
-
-function withMainRailDiagnosticReason(row: any): any {
-  return {
-    ...row,
-    related_reason: String(row?.related_reason || "").trim() || MAIN_RAIL_REASON,
-  };
 }
 
 function json(obj: unknown, status = 200) {
