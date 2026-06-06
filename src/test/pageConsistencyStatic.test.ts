@@ -118,6 +118,16 @@ describe("page consistency static guards", () => {
     expect(liveIndex).not.toContain('language_decision !== "reject_foreign"');
   });
 
+  it("keeps daily public stats on the accepted Hungarian catalog", () => {
+    const stats = read("src/components/DailyStatsStrip.tsx");
+
+    expect(stats).toContain('podcasts!inner(language_decision)');
+    expect(stats).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
+    expect(stats).toContain('.eq("language_decision", "accept_hungarian")');
+    expect(stats).not.toContain('.eq("podcasts.is_hungarian", true)');
+    expect(stats).not.toContain('.eq("is_hungarian", true)');
+  });
+
   it("keeps mood pages polished and sanitized instead of exposing raw DB labels", () => {
     const homeMoods = read("src/components/MoodCollections.tsx");
     const moods = read("src/pages/MoodsPage.tsx");

@@ -18,18 +18,18 @@ export default function DailyStatsStrip() {
       const week = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
 
       const [d24Rows, d24Count, d7, podcastsRes] = await Promise.all([
-        supabase.from("episodes").select("id, podcast_id, podcasts!inner(is_hungarian)", { count: "exact", head: false })
+        supabase.from("episodes").select("id, podcast_id, podcasts!inner(language_decision)", { count: "exact", head: false })
           .gte("published_at", day)
-          .eq("podcasts.is_hungarian", true)
+          .eq("podcasts.language_decision", "accept_hungarian")
           .limit(1000),
-        supabase.from("episodes").select("id, podcasts!inner(is_hungarian)", { count: "exact", head: true })
-          .eq("podcasts.is_hungarian", true)
+        supabase.from("episodes").select("id, podcasts!inner(language_decision)", { count: "exact", head: true })
+          .eq("podcasts.language_decision", "accept_hungarian")
           .gte("published_at", day),
-        supabase.from("episodes").select("id, podcasts!inner(is_hungarian)", { count: "exact", head: true })
-          .eq("podcasts.is_hungarian", true)
+        supabase.from("episodes").select("id, podcasts!inner(language_decision)", { count: "exact", head: true })
+          .eq("podcasts.language_decision", "accept_hungarian")
           .gte("published_at", week),
         supabase.from("podcasts").select("id", { count: "exact", head: true })
-          .eq("is_hungarian", true),
+          .eq("language_decision", "accept_hungarian"),
       ]);
 
       const podcastIds = new Set((d24Rows.data || []).map((r: any) => r.podcast_id));
