@@ -343,7 +343,11 @@ SELECT jsonb_build_object(
     'policy_configured_v4', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 4 FROM settings),
     'policy_configured_v5', (SELECT (setting_values->'related_episode_quality_policy'->>'version')::int >= 5 FROM settings),
     'diagnostics_policy_configured_v1', (SELECT (setting_values->'recommendation_diagnostics_policy'->>'version')::int >= 1 FROM settings),
+    'diagnostics_policy_configured_v4', (SELECT (setting_values->'recommendation_diagnostics_policy'->>'version')::int >= 4 FROM settings),
     'diagnostics_related_reason_required', (SELECT COALESCE((setting_values->'recommendation_diagnostics_policy'->>'related_reason_required')::boolean, false) FROM settings),
+    'diagnostics_reason_sources_recorded', (SELECT COALESCE(setting_values->'recommendation_diagnostics_policy'->'reason_sources' ? 'user_history_centroid', false) FROM settings),
+    'diagnostics_public_surface_lock_recorded', (SELECT COALESCE((setting_values->'recommendation_diagnostics_policy'->>'public_surface_locked_until_quality_trusted')::boolean, false) FROM settings),
+    'diagnostics_reason_min_chars_recorded', (SELECT COALESCE((setting_values->'recommendation_diagnostics_policy'->>'related_reason_min_chars')::int, 0) >= 12 FROM settings),
     'personalized_home_rails_seed_reason_policy_v2', (SELECT (setting_values->'recommendation_diagnostics_policy'->>'version')::int >= 2 AND COALESCE((setting_values->'recommendation_diagnostics_policy'->>'personalized_home_rails_seed_reason_required')::boolean, false) FROM settings),
     'personalized_home_rails_main_reason_policy_v3', (SELECT (setting_values->'recommendation_diagnostics_policy'->>'version')::int >= 3 AND COALESCE((setting_values->'recommendation_diagnostics_policy'->>'personalized_home_rails_main_reason_required')::boolean, false) AND COALESCE((setting_values->'recommendation_diagnostics_policy'->>'personalized_home_rails_main_min_similarity')::numeric, 0) >= 0.18 FROM settings),
     'related_rpc_returns_related_reason', COALESCE((

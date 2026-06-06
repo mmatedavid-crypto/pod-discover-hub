@@ -154,6 +154,7 @@ describe("production policy static guards", () => {
       "20260605232000_reassert_similar_episode_diagnostics.sql",
       "20260606005000_personalized_home_rails_reason_policy.sql",
       "20260606011000_personalized_home_main_rail_reason_policy.sql",
+      "20260606020000_reassert_recommendation_diagnostics_policy_v4.sql",
       "20260531220000_v4_clean_text_family_downstream_gates.sql",
       "20260605231000_reassert_downstream_embedding_clean_text_family.sql",
       "20260605224000_lock_smart_player_recommendation_surface.sql",
@@ -1123,6 +1124,7 @@ describe("production policy static guards", () => {
     const recommendationDiagnostics = read("supabase/migrations/20260605232000_reassert_similar_episode_diagnostics.sql");
     const homeRailPolicy = read("supabase/migrations/20260606005000_personalized_home_rails_reason_policy.sql");
     const homeRailMainPolicy = read("supabase/migrations/20260606011000_personalized_home_main_rail_reason_policy.sql");
+    const recommendationDiagnosticsV4 = read("supabase/migrations/20260606020000_reassert_recommendation_diagnostics_policy_v4.sql");
     const homeRails = read("supabase/functions/personalized-home-rails/index.ts");
     const personalizedHome = read("src/components/home/PersonalizedHomeRails.tsx");
     const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
@@ -1138,7 +1140,11 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("content_bridge_function_exists");
     expect(verifier).toContain("recommendation_diagnostics_policy");
     expect(verifier).toContain("diagnostics_policy_configured_v1");
+    expect(verifier).toContain("diagnostics_policy_configured_v4");
     expect(verifier).toContain("diagnostics_related_reason_required");
+    expect(verifier).toContain("diagnostics_reason_sources_recorded");
+    expect(verifier).toContain("diagnostics_public_surface_lock_recorded");
+    expect(verifier).toContain("diagnostics_reason_min_chars_recorded");
     expect(verifier).toContain("personalized_home_rails_seed_reason_policy_v2");
     expect(verifier).toContain("personalized_home_rails_main_reason_policy_v3");
     expect(verifier).toContain("related_rpc_returns_related_reason");
@@ -1193,6 +1199,11 @@ describe("production policy static guards", () => {
     expect(homeRailMainPolicy).toContain("'personalized_home_rails_main_reason_required', true");
     expect(homeRailMainPolicy).toContain("'personalized_home_rails_main_source', 'match_episodes_by_user_history'");
     expect(homeRailMainPolicy).toContain("'personalized_home_rails_main_min_similarity', 0.18");
+    expect(recommendationDiagnosticsV4).toContain("'version', 4");
+    expect(recommendationDiagnosticsV4).toContain("'related_reason_min_chars', 12");
+    expect(recommendationDiagnosticsV4).toContain("'user_history_centroid'");
+    expect(recommendationDiagnosticsV4).toContain("'public_surface_locked_until_quality_trusted', true");
+    expect(recommendationDiagnosticsV4).toContain("public.app_settings.value || EXCLUDED.value");
     expect(homeRails).toContain("function hasDiagnosticRelatedReason");
     expect(homeRails).toContain(".filter(hasDiagnosticRelatedReason)");
     expect(homeRails).toContain("function hasMinimumMainRailSimilarity");
