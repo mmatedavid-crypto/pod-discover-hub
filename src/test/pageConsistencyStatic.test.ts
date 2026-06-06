@@ -471,7 +471,7 @@ describe("page consistency static guards", () => {
     expect(related).toContain("Keressük a kapcsolódó epizódokat");
     expect(discovery).toContain("Keressük a kapcsolódó epizódokat");
     expect(bar).toContain("Kapcsolódó epizódok és értékelés");
-    expect(config).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED = false");
+    expect(config).toContain("SMART_PLAYER_RECOMMENDATIONS_ENABLED = true");
     expect(similar).toContain("if (!SMART_PLAYER_RECOMMENDATIONS_ENABLED) return null");
     expect(similar).toContain("sanitizeHungarianPublicText(r.related_reason)");
     expect(episodeCard).toContain("function safeEpisodeCardPublicText");

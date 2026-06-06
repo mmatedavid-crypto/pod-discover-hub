@@ -158,7 +158,8 @@ describe("production policy static guards", () => {
       "20260606020000_reassert_recommendation_diagnostics_policy_v4.sql",
       "20260531220000_v4_clean_text_family_downstream_gates.sql",
       "20260605231000_reassert_downstream_embedding_clean_text_family.sql",
-      "20260605224000_lock_smart_player_recommendation_surface.sql",
+      "20260606182358_4bcdca78-0c45-4572-85bc-cf911726cf14.sql",
+      "20260606184000_reassert_smart_player_recommendation_surface_enabled_v2.sql",
       "20260605001000_search_quality_weekly_automation.sql",
       "20260605220000_entity_monitoring_search_benchmark_policy.sql",
       "20260605223000_reassert_entity_monitoring_benchmark_goldens.sql",
@@ -321,8 +322,11 @@ describe("production policy static guards", () => {
     const reassertGate = read("supabase/migrations/20260605231000_reassert_downstream_embedding_clean_text_family.sql");
     const downstreamV3 = read("supabase/migrations/20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
     const timestampChunks = read("supabase/migrations/20260606174000_timestamp_aware_episode_chunks.sql");
+    const timestampChunkSearch = read("supabase/migrations/20260606183000_reassert_timestamp_aware_chunk_search_v2.sql");
     const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
+    const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
+    const episodeCard = read("src/components/EpisodeCard.tsx");
 
     expect(verifier).toContain("downstream_embedding_quality");
     expect(verifier).toContain("text_policy_embedding_requires_clean_text");
@@ -339,6 +343,8 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("select_embed_chunks_candidates_v4_family_filter");
     expect(verifier).toContain("episode_chunking_policy_timestamp_aware_v2");
     expect(verifier).toContain("episode_chunking_policy_keeps_char_fallback");
+    expect(verifier).toContain("episode_chunking_policy_search_contract_v2");
+    expect(verifier).toContain("search_episode_chunks_returns_timestamps");
     expect(verifier).toContain("embed_chunks_timestamp_columns");
     expect(verifier).toContain("embedding_candidate_rpcs_no_legacy_hu_flag");
     expect(verifier).toContain("failures.push(`downstream_embedding_quality.${key}`)");
@@ -348,6 +354,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("20260605231000_reassert_downstream_embedding_clean_text_family.sql");
     expect(reporter).toContain("20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
     expect(reporter).toContain("20260606174000_timestamp_aware_episode_chunks.sql");
+    expect(reporter).toContain("20260606183000_reassert_timestamp_aware_chunk_search_v2.sql");
     expect(reporter).toContain('String(failure).includes("embed_chunks")');
     expect(reporter).toContain("embed-episode-runner");
     expect(reporter).toContain("embed-episode-chunks-runner");
@@ -377,6 +384,16 @@ describe("production policy static guards", () => {
     expect(timestampChunks).toContain("'version', 'timestamp_aware_v2'");
     expect(timestampChunks).toContain("'fallback', 'char_window_v1'");
     expect(timestampChunks).toContain("ct.cleaner_method LIKE 'deterministic_v4%'");
+    expect(timestampChunkSearch).toContain("DROP FUNCTION IF EXISTS public.select_embed_chunks_candidates(text, integer)");
+    expect(timestampChunkSearch).toContain("DROP FUNCTION IF EXISTS public.search_episode_chunks(vector, integer, integer)");
+    expect(timestampChunkSearch).toContain("timestamp_start_seconds integer");
+    expect(timestampChunkSearch).toContain("source_transcript_model text");
+    expect(timestampChunkSearch).toContain("chunking_method text");
+    expect(timestampChunkSearch).toContain("bt.content_hash = ct.source_hash");
+    expect(timestampChunkSearch).toContain("'search_contract_version', 'timestamp_chunk_search_v2'");
+    expect(timestampChunkSearch).toContain("'language_gate', 'podcasts.language_decision=accept_hungarian'");
+    expect(timestampChunkSearch).not.toContain("p.is_hungarian=true");
+    expect(timestampChunkSearch).not.toContain("p.is_hungarian = true");
 
     expect(episodeRunner).toContain("select_embed_episode_candidates");
     expect(episodeRunner).toContain("validateEmbeddingInput");
@@ -394,6 +411,12 @@ describe("production policy static guards", () => {
     expect(chunkRunner).toContain("timestamp_start_seconds: s.timestamp_start_seconds");
     expect(chunkRunner).toContain("source_transcript_model: s.source_transcript_model");
     expect(chunkRunner).toContain("chunking_policy: \"timestamp_aware_v2_segments_when_available_else_char_window_v1\"");
+    expect(searchHybrid).toContain("chunk_match");
+    expect(searchHybrid).toContain("timestamp_start_seconds: c.timestamp_start_seconds");
+    expect(searchHybrid).toContain("chunkMatchMap");
+    expect(episodeCard).toContain("chunk_match?:");
+    expect(episodeCard).toContain("formatSeekTime");
+    expect(episodeCard).toContain("Lejátszás innen");
   });
 
   it("keeps unused automatic social posting hard-disabled at the edge handler", () => {
@@ -1203,7 +1226,7 @@ describe("production policy static guards", () => {
   it("keeps production verifier covering recommendation and people identity policies", () => {
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reassertV5 = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
-    const surfaceLock = read("supabase/migrations/20260605224000_lock_smart_player_recommendation_surface.sql");
+    const surfaceEnable = read("supabase/migrations/20260606184000_reassert_smart_player_recommendation_surface_enabled_v2.sql");
     const policySettingsV5 = read("supabase/migrations/20260605214000_reassert_related_quality_policy_v5_settings.sql");
     const publicAffairsOverrideTerms = read("supabase/migrations/20260605215000_reassert_related_public_affairs_override_terms.sql");
     const recommendationDiagnostics = read("supabase/migrations/20260605232000_reassert_similar_episode_diagnostics.sql");
@@ -1237,9 +1260,15 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("similar_rpc_builds_diagnostic_reason");
     expect(verifier).toContain("smart_player_recommendation_surface_policy");
     expect(verifier).toContain("smart_player_recommendation_surface");
-    expect(verifier).toContain("related_public_rpc_anon_revoked");
-    expect(verifier).toContain("similar_public_rpc_anon_revoked");
-    expect(verifier).toContain("discover_public_rpc_anon_revoked");
+    expect(verifier).toContain("policy_configured_v2");
+    expect(verifier).toContain("enabled_for_public_recommendations");
+    expect(verifier).toContain("public_rpc_execute_recorded");
+    expect(verifier).toContain("accepted_hungarian_catalog_required_recorded");
+    expect(verifier).toContain("consumer_safe_copy_required_recorded");
+    expect(verifier).toContain("related_reason_required_recorded");
+    expect(verifier).toContain("related_public_rpc_anon_granted");
+    expect(verifier).toContain("similar_public_rpc_anon_granted");
+    expect(verifier).toContain("discover_public_rpc_anon_granted");
     expect(verifier).toContain("service_role_execute_retained");
     expect(verifier).toContain("policy_configured_v4");
     expect(verifier).toContain("policy_configured_v5");
@@ -1259,13 +1288,16 @@ describe("production policy static guards", () => {
     expect(reassertV5).toContain("'public_affairs_override_terms'");
     expect(reassertV5).toContain("public.recommendation_has_content_bridge(");
     expect(reassertV5).toContain("GRANT EXECUTE ON FUNCTION public.recommendation_has_content_bridge");
-    expect(surfaceLock).toContain("smart_player_recommendation_surface_policy");
-    expect(surfaceLock).toContain("'enabled', false");
-    expect(surfaceLock).toContain("'quality_gate_required_before_public_enable', true");
-    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.get_related_episodes_by_embedding(uuid, integer, boolean) FROM PUBLIC, anon, authenticated");
-    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.similar_episodes(uuid, integer) FROM PUBLIC, anon, authenticated");
-    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.smart_player_discover(uuid, integer) FROM PUBLIC, anon, authenticated");
-    expect(surfaceLock).toContain("GRANT EXECUTE ON FUNCTION public.smart_player_discover(uuid, integer) TO service_role");
+    expect(surfaceEnable).toContain("smart_player_recommendation_surface_policy");
+    expect(surfaceEnable).toContain("'version', 2");
+    expect(surfaceEnable).toContain("'enabled', true");
+    expect(surfaceEnable).toContain("'public_rpc_execute', true");
+    expect(surfaceEnable).toContain("'accepted_hungarian_catalog_required', true");
+    expect(surfaceEnable).toContain("'consumer_safe_copy_required', true");
+    expect(surfaceEnable).toContain("'related_reason_required', true");
+    expect(surfaceEnable).toContain("GRANT EXECUTE ON FUNCTION public.get_related_episodes_by_embedding(uuid, integer, boolean) TO anon, authenticated, service_role");
+    expect(surfaceEnable).toContain("GRANT EXECUTE ON FUNCTION public.similar_episodes(uuid, integer) TO anon, authenticated, service_role");
+    expect(surfaceEnable).toContain("GRANT EXECUTE ON FUNCTION public.smart_player_discover(uuid, integer) TO anon, authenticated, service_role");
     expect(policySettingsV5).toContain("'version', 5");
     expect(policySettingsV5).toContain("'specific_to_general', 'explicit_bridge_required'");
     expect(policySettingsV5).toContain("'general_to_specific', 'explicit_bridge_required'");

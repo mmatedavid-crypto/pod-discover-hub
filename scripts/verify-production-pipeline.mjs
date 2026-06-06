@@ -127,6 +127,10 @@ rpc_shapes AS (
     AND (
       (p.proname IN ('select_embed_chunks_candidates', 'select_embed_episode_candidates')
         AND pg_get_function_arguments(p.oid) = '_model text, _limit integer')
+      OR (p.proname = 'search_episode_chunks'
+        AND oidvectortypes(p.proargtypes) = 'vector, integer, integer')
+      OR (p.proname = 'embed_chunks_candidate_stats'
+        AND oidvectortypes(p.proargtypes) = 'text')
       OR (p.proname IN ('get_related_episodes_by_embedding', 'similar_episodes')
         AND oidvectortypes(p.proargtypes) IN ('uuid, integer, boolean', 'uuid, integer'))
     )
@@ -431,10 +435,19 @@ SELECT jsonb_build_object(
     ), false),
     'episode_chunking_policy_timestamp_aware_v2', COALESCE((SELECT setting_values->'episode_chunking_policy'->>'version' = 'timestamp_aware_v2' FROM settings), false),
     'episode_chunking_policy_keeps_char_fallback', COALESCE((SELECT setting_values->'episode_chunking_policy'->>'fallback' = 'char_window_v1' FROM settings), false),
+    'episode_chunking_policy_search_contract_v2', COALESCE((SELECT setting_values->'episode_chunking_policy'->>'search_contract_version' = 'timestamp_chunk_search_v2' FROM settings), false),
+    'search_episode_chunks_returns_timestamps', COALESCE((
+      SELECT result ILIKE '%timestamp_start_seconds integer%'
+        AND result ILIKE '%timestamp_end_seconds integer%'
+        AND result ILIKE '%source_transcript_model text%'
+        AND result ILIKE '%chunking_method text%'
+      FROM rpc_shapes
+      WHERE proname = 'search_episode_chunks'
+    ), false),
     'embedding_candidate_rpcs_no_legacy_hu_flag', NOT COALESCE((
       SELECT bool_or(definition ILIKE ('%' || 'p.is_hungarian' || ' = true%'))
       FROM rpc_shapes
-      WHERE proname IN ('select_embed_episode_candidates', 'select_embed_chunks_candidates')
+      WHERE proname IN ('select_embed_episode_candidates', 'select_embed_chunks_candidates', 'embed_chunks_candidate_stats')
     ), true)
   ),
   'people_hub_identity_safety', jsonb_build_object(
@@ -541,15 +554,18 @@ SELECT jsonb_build_object(
     )
   ),
   'smart_player_recommendation_surface', jsonb_build_object(
-    'policy_configured_v1', (SELECT (setting_values->'smart_player_recommendation_surface_policy'->>'version')::int >= 1 FROM settings),
-    'disabled_until_quality_trusted', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'enabled')::boolean, true) = false FROM settings),
-    'quality_gate_required_recorded', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'quality_gate_required_before_public_enable')::boolean, false) FROM settings),
-    'related_public_rpc_anon_revoked', NOT has_function_privilege('anon', 'public.get_related_episodes_by_embedding(uuid, integer, boolean)', 'EXECUTE'),
-    'related_public_rpc_authenticated_revoked', NOT has_function_privilege('authenticated', 'public.get_related_episodes_by_embedding(uuid, integer, boolean)', 'EXECUTE'),
-    'similar_public_rpc_anon_revoked', NOT has_function_privilege('anon', 'public.similar_episodes(uuid, integer)', 'EXECUTE'),
-    'similar_public_rpc_authenticated_revoked', NOT has_function_privilege('authenticated', 'public.similar_episodes(uuid, integer)', 'EXECUTE'),
-    'discover_public_rpc_anon_revoked', NOT has_function_privilege('anon', 'public.smart_player_discover(uuid, integer)', 'EXECUTE'),
-    'discover_public_rpc_authenticated_revoked', NOT has_function_privilege('authenticated', 'public.smart_player_discover(uuid, integer)', 'EXECUTE'),
+    'policy_configured_v2', (SELECT (setting_values->'smart_player_recommendation_surface_policy'->>'version')::int >= 2 FROM settings),
+    'enabled_for_public_recommendations', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'enabled')::boolean, false) = true FROM settings),
+    'public_rpc_execute_recorded', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'public_rpc_execute')::boolean, false) = true FROM settings),
+    'accepted_hungarian_catalog_required_recorded', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'accepted_hungarian_catalog_required')::boolean, false) = true FROM settings),
+    'consumer_safe_copy_required_recorded', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'consumer_safe_copy_required')::boolean, false) = true FROM settings),
+    'related_reason_required_recorded', (SELECT COALESCE((setting_values->'smart_player_recommendation_surface_policy'->>'related_reason_required')::boolean, false) = true FROM settings),
+    'related_public_rpc_anon_granted', has_function_privilege('anon', 'public.get_related_episodes_by_embedding(uuid, integer, boolean)', 'EXECUTE'),
+    'related_public_rpc_authenticated_granted', has_function_privilege('authenticated', 'public.get_related_episodes_by_embedding(uuid, integer, boolean)', 'EXECUTE'),
+    'similar_public_rpc_anon_granted', has_function_privilege('anon', 'public.similar_episodes(uuid, integer)', 'EXECUTE'),
+    'similar_public_rpc_authenticated_granted', has_function_privilege('authenticated', 'public.similar_episodes(uuid, integer)', 'EXECUTE'),
+    'discover_public_rpc_anon_granted', has_function_privilege('anon', 'public.smart_player_discover(uuid, integer)', 'EXECUTE'),
+    'discover_public_rpc_authenticated_granted', has_function_privilege('authenticated', 'public.smart_player_discover(uuid, integer)', 'EXECUTE'),
     'service_role_execute_retained', (
       has_function_privilege('service_role', 'public.get_related_episodes_by_embedding(uuid, integer, boolean)', 'EXECUTE')
       AND has_function_privilege('service_role', 'public.similar_episodes(uuid, integer)', 'EXECUTE')

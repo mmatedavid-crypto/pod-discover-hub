@@ -6,8 +6,8 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
 
 describe("smart player recommendation policy", () => {
-  it("keeps cross-podcast smart recommendations disabled until quality is trusted", () => {
-    expect(SMART_PLAYER_RECOMMENDATIONS_ENABLED).toBe(false);
+  it("keeps cross-podcast smart recommendations enabled behind public copy and quality gates", () => {
+    expect(SMART_PLAYER_RECOMMENDATIONS_ENABLED).toBe(true);
 
     const provider = read("src/components/smart-player/SmartPlayerProvider.tsx");
     const bar = read("src/components/smart-player/SmartPlayerBar.tsx");
@@ -44,7 +44,7 @@ describe("smart player recommendation policy", () => {
     expect(chapters).not.toContain("AI fejezetek");
   });
 
-  it("keeps dormant related episodes ready for safe consumer-facing reactivation", () => {
+  it("keeps related episodes ready for safe consumer-facing recommendations", () => {
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
     const similar = read("src/components/SimilarEpisodes.tsx");
 
@@ -67,7 +67,7 @@ describe("smart player recommendation policy", () => {
     expect(similar).not.toContain("relatedReasonFromSimilarity");
   });
 
-  it("keeps dormant smart discovery fallback on the accepted Hungarian catalog", () => {
+  it("keeps smart discovery fallback on the accepted Hungarian catalog", () => {
     const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
 
@@ -87,7 +87,7 @@ describe("smart player recommendation policy", () => {
     const migration = read("supabase/migrations/20260605003000_recommendation_compatibility_v5_entity_bridge.sql");
     const reassertMigration = read("supabase/migrations/20260605203000_reassert_recommendation_compatibility_v5_content_bridge.sql");
     const diagnosticsMigration = read("supabase/migrations/20260605232000_reassert_similar_episode_diagnostics.sql");
-    const surfaceLock = read("supabase/migrations/20260605224000_lock_smart_player_recommendation_surface.sql");
+    const surfaceEnable = read("supabase/migrations/20260606184000_reassert_smart_player_recommendation_surface_enabled_v2.sql");
 
     expect(migration).toContain("recommendation_is_compatible");
     expect(migration).toContain("recommendation_has_content_bridge");
@@ -113,12 +113,15 @@ describe("smart player recommendation policy", () => {
     expect(diagnosticsMigration).toContain("Hasonló témák:");
     expect(diagnosticsMigration).toContain("public_surface_locked_until_quality_trusted");
 
-    expect(surfaceLock).toContain("smart_player_recommendation_surface_policy");
-    expect(surfaceLock).toContain("'enabled', false");
-    expect(surfaceLock).toContain("quality_gate_required_before_public_enable");
-    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.get_related_episodes_by_embedding(uuid, integer, boolean) FROM PUBLIC, anon, authenticated");
-    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.similar_episodes(uuid, integer) FROM PUBLIC, anon, authenticated");
-    expect(surfaceLock).toContain("REVOKE EXECUTE ON FUNCTION public.smart_player_discover(uuid, integer) FROM PUBLIC, anon, authenticated");
-    expect(surfaceLock).toContain("GRANT EXECUTE ON FUNCTION public.get_related_episodes_by_embedding(uuid, integer, boolean) TO service_role");
+    expect(surfaceEnable).toContain("smart_player_recommendation_surface_policy");
+    expect(surfaceEnable).toContain("'version', 2");
+    expect(surfaceEnable).toContain("'enabled', true");
+    expect(surfaceEnable).toContain("'public_rpc_execute', true");
+    expect(surfaceEnable).toContain("'accepted_hungarian_catalog_required', true");
+    expect(surfaceEnable).toContain("'consumer_safe_copy_required', true");
+    expect(surfaceEnable).toContain("'related_reason_required', true");
+    expect(surfaceEnable).toContain("GRANT EXECUTE ON FUNCTION public.get_related_episodes_by_embedding(uuid, integer, boolean) TO anon, authenticated, service_role");
+    expect(surfaceEnable).toContain("GRANT EXECUTE ON FUNCTION public.similar_episodes(uuid, integer) TO anon, authenticated, service_role");
+    expect(surfaceEnable).toContain("GRANT EXECUTE ON FUNCTION public.smart_player_discover(uuid, integer) TO anon, authenticated, service_role");
   });
 });

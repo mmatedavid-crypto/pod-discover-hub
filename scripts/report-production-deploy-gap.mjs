@@ -71,15 +71,19 @@ const GROUPS = {
       "supabase/migrations/20260605231000_reassert_downstream_embedding_clean_text_family.sql",
       "supabase/migrations/20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql",
       "supabase/migrations/20260606174000_timestamp_aware_episode_chunks.sql",
+      "supabase/migrations/20260606183000_reassert_timestamp_aware_chunk_search_v2.sql",
     ],
     functions: ["embed-episode-runner", "embed-episode-chunks-runner"],
     why: "A kereső, ajánló és B2B monitoring vektorai csak promoválható deterministic_v4-family clean textből épüljenek, ne nyers RSS/YouTube leírásból.",
   },
   smart_player_recommendation_surface: {
-    label: "Smart-player recommendation surface lock",
-    migrations: ["supabase/migrations/20260605224000_lock_smart_player_recommendation_surface.sql"],
+    label: "Smart-player recommendation surface enable",
+    migrations: [
+      "supabase/migrations/20260606182358_4bcdca78-0c45-4572-85bc-cf911726cf14.sql",
+      "supabase/migrations/20260606184000_reassert_smart_player_recommendation_surface_enabled_v2.sql",
+    ],
     functions: [],
-    why: "A cross-podcast smart-player ajánlások UI-ban le vannak tiltva; az anon/authenticated RPC execute jog is legyen visszavonva, amíg a minőségkapuk nem bizonyítottan zöldek.",
+    why: "A cross-podcast smart-player ajánlások már publikusak; az anon/authenticated RPC execute jog és a v2 policy legyen explicit, miközben az accepted-HU és publikus szöveg guardok maradnak.",
   },
   search_quality_benchmark: {
     label: "Weekly search quality benchmark",

@@ -38,6 +38,18 @@ export type EpisodeLite = {
   matchBadge?: string | null;
   /** Optional one-line AI reason why this matched the query. */
   why_matched?: string | null;
+  /** Optional timestamped chunk hit from semantic search. */
+  chunk_match?: {
+    source?: string | null;
+    similarity?: number | null;
+    chunk_idx?: number | null;
+    timestamp_start_seconds?: number | null;
+    timestamp_end_seconds?: number | null;
+    segment_start_idx?: number | null;
+    segment_end_idx?: number | null;
+    source_transcript_model?: string | null;
+    chunking_method?: string | null;
+  } | null;
   /** Optional one-line editorial reason for homepage rails. */
   homepageReason?: string | null;
   podcasts: {
@@ -89,6 +101,16 @@ function safeEpisodeCardPublicText(value: unknown, minLength = 2): string {
   return clean.length >= minLength ? clean : "";
 }
 
+function formatSeekTime(seconds: number): string {
+  const sec = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    : `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export function EpisodeCard({
   e, showTopics = false, terms, showEntities = false, imagePriority = false,
 }: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean; imagePriority?: boolean }) {
@@ -105,6 +127,8 @@ export function EpisodeCard({
   const playerAudioUrl = playable?.url || e.audio_url || null;
   const safeWhyMatched = safeEpisodeCardPublicText(e.why_matched, 12);
   const safeHomepageReason = safeEpisodeCardPublicText(e.homepageReason);
+  const chunkStartRaw = Number(e.chunk_match?.timestamp_start_seconds);
+  const chunkStart = Number.isFinite(chunkStartRaw) && chunkStartRaw >= 0 ? Math.floor(chunkStartRaw) : null;
   const handlePlay = (ev: React.MouseEvent) => {
     ev.preventDefault();
     ev.stopPropagation();
@@ -120,6 +144,22 @@ export function EpisodeCard({
       audioUrl: playerAudioUrl,
       externalUrl: e.audio_url || null,
     }, { resume: true });
+  };
+  const handlePlayFromMatch = (ev: React.MouseEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!playerAudioUrl || chunkStart == null) return;
+    play({
+      id: e.id,
+      title: epTitle,
+      podcastId: undefined,
+      podcastTitle: podTitle,
+      podcastSlug: p.slug,
+      episodeSlug: e.slug,
+      imageUrl: coverImage,
+      audioUrl: playerAudioUrl,
+      externalUrl: e.audio_url || null,
+    }, { startAt: chunkStart });
   };
   const allEnts = showEntities
     ? [
@@ -177,6 +217,11 @@ export function EpisodeCard({
           )}
           {safeHomepageReason && (
             <span className="px-1.5 py-0.5 rounded-md border border-primary/35 bg-primary/10 text-[10px] font-medium text-primary">{safeHomepageReason}</span>
+          )}
+          {chunkStart != null && (
+            <span className="px-1.5 py-0.5 rounded-md border border-primary/35 bg-primary/10 text-[10px] font-medium text-primary">
+              Találat {formatSeekTime(chunkStart)}
+            </span>
           )}
           {understanding && (
             <span
@@ -253,6 +298,15 @@ export function EpisodeCard({
               className="hidden sm:inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
             >
               <Play className="h-3 w-3" /> Lejátszás
+            </button>
+          )}
+          {playerAudioUrl && chunkStart != null && (
+            <button
+              type="button"
+              onClick={handlePlayFromMatch}
+              className="hidden sm:inline-flex items-center gap-1 text-primary hover:text-primary/80 font-medium"
+            >
+              <Play className="h-3 w-3" /> Lejátszás innen
             </button>
           )}
           <EpisodeMarksSlot episodeId={e.id} />

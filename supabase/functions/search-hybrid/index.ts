@@ -1816,6 +1816,17 @@ Deno.serve(async (req) => {
             sem_score: c.similarity || 0,
             hybrid_score: (c.similarity || 0) * 0.92,
             chunk_source: c.best_source,
+            chunk_match: {
+              source: c.best_source || "chunk",
+              similarity: c.similarity || 0,
+              chunk_idx: c.chunk_idx ?? null,
+              timestamp_start_seconds: c.timestamp_start_seconds ?? null,
+              timestamp_end_seconds: c.timestamp_end_seconds ?? null,
+              segment_start_idx: c.segment_start_idx ?? null,
+              segment_end_idx: c.segment_end_idx ?? null,
+              source_transcript_model: c.source_transcript_model ?? null,
+              chunking_method: c.chunking_method ?? null,
+            },
           } as any);
           strictIds.add(c.episode_id);
           chunkAugmented++;
@@ -1841,9 +1852,17 @@ Deno.serve(async (req) => {
 
     const orderMap = new Map<string, number>();
     (rows as any[]).forEach((r, i) => orderMap.set(r.episode_id, i));
+    const chunkMatchMap = new Map<string, any>();
+    (rows as any[]).forEach((r) => {
+      if (r.chunk_match) chunkMatchMap.set(r.episode_id, r.chunk_match);
+    });
     let ordered = (eps || [])
       .filter((e: any) => {
         return isAcceptedHungarianPodcast(e.podcasts);
+      })
+      .map((e: any) => {
+        const chunkMatch = chunkMatchMap.get(e.id);
+        return chunkMatch ? { ...e, chunk_match: chunkMatch } : e;
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
