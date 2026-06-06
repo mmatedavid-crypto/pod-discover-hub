@@ -197,7 +197,8 @@ SELECT jsonb_build_object(
     'sources_v3_configured', (SELECT setting_values->'episode_article_pairer_controls'->>'source_version' IN ('publisher_sources_v3', 'publisher_sources_v4') FROM settings),
     'sources_v4_configured', (SELECT setting_values->'episode_article_pairer_controls'->>'source_version' = 'publisher_sources_v4' FROM settings),
     'brand_anchor_pattern_policy_recorded', (SELECT setting_values->'episode_article_pairer_controls'->>'patterns_policy' = 'brand_or_show_name_only_no_topic_words' FROM settings),
-    'pattern_safety_version_recorded', (SELECT setting_values->'episode_article_pairer_controls'->>'pattern_safety_version' = 'brand_anchor_no_topic_words_v1' FROM settings),
+    'pattern_safety_version_recorded', (SELECT setting_values->'episode_article_pairer_controls'->>'pattern_safety_version' IN ('brand_anchor_no_topic_words_v1', 'brand_anchor_no_topic_words_v2') FROM settings),
+    'pattern_safety_version_v2_recorded', (SELECT setting_values->'episode_article_pairer_controls'->>'pattern_safety_version' = 'brand_anchor_no_topic_words_v2' FROM settings),
     'no_generic_article_pairer_title_patterns', NOT EXISTS (
       SELECT 1
       FROM settings,
