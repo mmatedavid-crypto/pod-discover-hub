@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.merge_organizations(uuid, uuid);
