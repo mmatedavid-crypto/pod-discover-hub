@@ -7682,6 +7682,15 @@ export type Database = {
         }
         Returns: Json
       }
+      get_homepage_rails_with_images_v1: {
+        Args: {
+          _category_limit?: number
+          _evergreen_limit?: number
+          _max_categories?: number
+          _trending_limit?: number
+        }
+        Returns: Json
+      }
       get_mood_episode_recommendations: {
         Args: { p_exclude?: string[]; p_limit?: number; p_mood_slug: string }
         Returns: {
