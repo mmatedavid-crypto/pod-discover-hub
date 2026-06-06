@@ -86,6 +86,7 @@ const GROUPS = {
     migrations: [
       "supabase/migrations/20260605220000_entity_monitoring_search_benchmark_policy.sql",
       "supabase/migrations/20260605223000_reassert_entity_monitoring_benchmark_goldens.sql",
+      "supabase/migrations/20260606010000_expand_entity_monitoring_goldens_v2.sql",
     ],
     functions: ["search-golden-refresh", "search-benchmark-runner", "search-hybrid"],
     why: "B2B személy/cég/téma monitoring csak entitás-címkézett golden lekérdezéseken mérve legyen megbízható; elhunyt/történelmi személy ne maradjon podcast-person monitoring target.",

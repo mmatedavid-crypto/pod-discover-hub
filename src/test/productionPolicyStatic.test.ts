@@ -159,6 +159,7 @@ describe("production policy static guards", () => {
       "20260605001000_search_quality_weekly_automation.sql",
       "20260605220000_entity_monitoring_search_benchmark_policy.sql",
       "20260605223000_reassert_entity_monitoring_benchmark_goldens.sql",
+      "20260606010000_expand_entity_monitoring_goldens_v2.sql",
       "20260603170000_people_identity_safety_consolidated.sql",
       "20260605200000_reassert_temporal_person_public_guard.sql",
       "20260605213000_reassert_strict_temporal_person_guard_v6.sql",
@@ -214,6 +215,7 @@ describe("production policy static guards", () => {
     const migration = [
       read("supabase/migrations/20260605220000_entity_monitoring_search_benchmark_policy.sql"),
       read("supabase/migrations/20260605223000_reassert_entity_monitoring_benchmark_goldens.sql"),
+      read("supabase/migrations/20260606010000_expand_entity_monitoring_goldens_v2.sql"),
     ].join("\n");
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
@@ -224,6 +226,7 @@ describe("production policy static guards", () => {
     expect(migration).toContain("requires_expected_entity");
     expect(migration).toContain("person_scope_rule");
     expect(migration).toContain("deceased_person_handling");
+    expect(migration).toContain("'min_active_entity_queries', 50");
     expect(migration).toContain("deceased/historical figures are topic/entity-context goldens");
     expect(migration).toContain("q.query_type = 'person'");
     expect(migration).toContain("SET query_type = 'topic'");
@@ -235,14 +238,21 @@ describe("production policy static guards", () => {
     expect(migration).toContain("MOL Nyrt");
     expect(migration).toContain("Tisza párt támogatottság");
     expect(migration).toContain("Európai Unió támogatások");
+    expect(migration).toContain("MBH Bank");
+    expect(migration).toContain("4iG részvény");
+    expect(migration).toContain("Petőfi Sándor podcast beszélgetés");
+    expect(migration).toContain("Kossuth Lajos történelem");
     expect(migration).toContain("p.is_deceased IS TRUE");
     expect(migration).toContain("p.is_historical IS TRUE");
     expect(migration).toContain("p.date_of_death IS NOT NULL");
     expect(migration).toContain("p.is_living IS FALSE");
 
     expect(verifier).toContain("entity_monitoring_benchmark");
+    expect(verifier).toContain("policy_configured_v2");
     expect(verifier).toContain("active_entity_golden_queries_at_least_40");
+    expect(verifier).toContain("active_entity_golden_queries_at_least_50");
     expect(verifier).toContain("active_entity_query_types_at_least_3");
+    expect(verifier).toContain("active_entity_query_types_at_least_4");
     expect(verifier).toContain("deceased_person_handling_recorded");
     expect(verifier).toContain("person_scope_rule_recorded");
     expect(verifier).toContain("company_brand_alias_required_recorded");
