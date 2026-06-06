@@ -362,8 +362,12 @@ Deno.serve(async (req) => {
           ok++;
         } catch (e: any) {
           const msg = e?.message || String(e);
-          // 404 from Supadata = no captions exist for this video
-          if (msg.includes("supadata_404") || msg.includes("not_found") || msg.includes("no_captions")) {
+          // 404 from Supadata = no captions exist. 403 age-restricted/auth-required
+          // is also terminal for this pipeline; retrying it every cron run pins the
+          // pending queue forever without producing transcripts.
+          const terminalNoCaptions = msg.includes("supadata_404") || msg.includes("not_found") || msg.includes("no_captions");
+          const terminalForbidden = msg.includes("supadata_403") || msg.includes("age-restricted") || msg.includes("requires authentication");
+          if (terminalNoCaptions) {
             no_captions++;
           } else {
             errors++;
@@ -372,7 +376,7 @@ Deno.serve(async (req) => {
             episode_id: ep.episode_id,
             podcast_id: ep.podcast_id,
             youtube_video_id: ep.youtube_video_id,
-            status: msg.includes("supadata_404") || msg.includes("not_found") || msg.includes("no_captions") ? "no_captions" : "error",
+            status: terminalNoCaptions ? "no_captions" : terminalForbidden ? "permanent_error" : "error",
             match_score: ep.match_score,
             match_policy: MATCH_POLICY,
             error_message: msg.slice(0, 500),
