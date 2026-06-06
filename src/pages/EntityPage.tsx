@@ -8,6 +8,7 @@ import NotFoundState from "@/components/NotFoundState";
 import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entityHref, entitySlug, matchesEntitySlug } from "@/lib/entity";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
 import { snippet } from "@/lib/text";
+import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
@@ -36,6 +37,10 @@ function entityEvidenceReason(kind: EntityKind, value: string, mode: "subject" |
   if (kind === "ticker") return `Entitásbizonyíték: ${value} tickerként szerepel az epizódban.`;
   if (kind === "ingredient") return `Entitásbizonyíték: ${value} kulcsszóként szerepel az epizódban.`;
   return `Entitásbizonyíték: ${value} szervezetként szerepel az epizódban.`;
+}
+
+function safeEntityBio(value?: string | null): string {
+  return sanitizeHungarianPublicText(value || "");
 }
 
 interface EntityProfile {
@@ -236,8 +241,9 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       const fallbackCompany = `${finalName} említései ${total > 0 ? `${total} ` : ""}magyar podcast epizódban. Kapcsolódó műsorok, beszélgetések és témák a Podiverzumon.`;
       const fallbackTopic = `Magyar podcast epizódok ${finalName} témában${total > 0 ? `, ${total} találat` : ""}. A Podiverzum a műsorok minősége és frissessége szerint rangsorol.`;
       const fallbackPerson = `Magyar podcast epizódok és említések: ${finalName}${total > 0 ? ` – ${total} kapcsolódó epizód` : ""}. Fedezd fel a Podiverzumon.`;
-      const seoDesc = prof?.bio
-        ? prof.bio.split(/\.\s+/)[0].slice(0, 160)
+      const profileBio = safeEntityBio(prof?.bio);
+      const seoDesc = profileBio
+        ? profileBio.split(/\.\s+/)[0].slice(0, 160)
         : kind === "company" ? fallbackCompany
         : kind === "topic" ? fallbackTopic
         : fallbackPerson;
@@ -262,7 +268,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             "@context": "https://schema.org",
             "@type": entityType,
             name: finalName,
-            description: prof?.bio || undefined,
+            description: profileBio || undefined,
             url: pageUrl || undefined,
           },
         ],
@@ -281,6 +287,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
   const total = eps.length;
   const rich = total >= RICH_AT;
+  const profileBio = safeEntityBio(profile?.bio);
   const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
   const featuredIds = profile?.featured_episode_ids || [];
   const featuredFromProfile = featuredIds.length
@@ -303,8 +310,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         <div className="container mx-auto py-12 sm:py-14 max-w-5xl relative">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">{ENTITY_LABEL[kind]}</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2 leading-[1.05]">{displayName}</h1>
-          {profile?.bio ? (
-            <p className="text-foreground/85 mt-4 max-w-2xl leading-relaxed">{snippet(profile.bio, 300)}</p>
+          {profileBio ? (
+            <p className="text-foreground/85 mt-4 max-w-2xl leading-relaxed">{snippet(profileBio, 300)}</p>
           ) : (
             <p className="text-muted-foreground mt-3 max-w-2xl">
               Minden magyar podcast epizód, amely ehhez kapcsolódik: <span className="text-foreground font-medium">{displayName}</span>. Minőség, frissesség és relevancia szerint rangsorolva.

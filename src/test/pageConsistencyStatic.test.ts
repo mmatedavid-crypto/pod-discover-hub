@@ -597,6 +597,14 @@ describe("page consistency static guards", () => {
   it("keeps entity pages on accepted Hungarian episodes with AI-summary-aware cards", () => {
     const entity = read("src/pages/EntityPage.tsx");
 
+    expect(entity).toContain("sanitizeHungarianPublicText");
+    expect(entity).toContain("function safeEntityBio");
+    expect(entity).toContain("const profileBio = safeEntityBio(prof?.bio)");
+    expect(entity).toContain("description: profileBio || undefined");
+    expect(entity).toContain("const profileBio = safeEntityBio(profile?.bio)");
+    expect(entity).toContain("snippet(profileBio, 300)");
+    expect(entity).not.toContain("snippet(profile.bio, 300)");
+    expect(entity).not.toContain("description: prof?.bio || undefined");
     expect(entity).toContain("published_at,ai_summary,summary,description");
     expect(entity).toContain('ps.language_decision === "accept_hungarian"');
     expect(entity).not.toContain("ps.is_hungarian === true || ps.language_decision === \"accept_hungarian\"");
