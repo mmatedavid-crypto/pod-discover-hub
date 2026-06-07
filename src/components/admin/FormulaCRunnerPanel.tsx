@@ -35,8 +35,8 @@ export function FormulaCRunnerPanel() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase.rpc("formula_c_status" as any);
-      setStatus((data as any) || null);
+      const { data } = await supabase.rpc("formula_c_status");
+      setStatus((data as unknown as Status) || null);
     } finally {
       setLoading(false);
     }

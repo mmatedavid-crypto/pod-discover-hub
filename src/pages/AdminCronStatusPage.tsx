@@ -47,9 +47,9 @@ export default function AdminCronStatusPage() {
 
   const load = async () => {
     setLoading(true); setErr(null);
-    const { data, error } = await (supabase as any).rpc("get_cron_health");
+    const { data, error } = await supabase.rpc("get_cron_health");
     if (error) setErr(error.message);
-    else setData(data as Health);
+    else setData(data as unknown as Health);
     setLoading(false);
   };
 
