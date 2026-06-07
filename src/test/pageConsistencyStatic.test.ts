@@ -679,6 +679,9 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain('supabase.from("search_events").insert({');
     expect(searchPage).not.toContain("} as any).then(() => {}, () => {})");
     expect(adminInsights).toContain('await supabase\n          .from("search_events")');
+    expect(adminInsights).toContain('import type { Database } from "@/integrations/supabase/types"');
+    expect(adminInsights).toContain('type SearchEvent = Database["public"]["Tables"]["search_events"]["Row"]');
+    expect(adminInsights).toContain("type Row = Pick<SearchEvent");
   });
 
   it("keeps the search AI overview Hungarian, guarded, and user-facing", () => {

@@ -2,31 +2,33 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useNoindex } from "@/lib/useNoindex";
 
-type Row = {
-  id: string;
-  query: string;
-  terms_count: number;
-  result_count: number;
-  fallback_used: boolean;
-  timestamp_match_count: number | null;
-  chunk_augmented_count: number | null;
-  confidence_band: "high" | "medium" | "low" | null;
-  semantic_used: boolean | null;
-  reranked: boolean | null;
-  podcast_pin_slug: string | null;
-  person_pin_slug: string | null;
-  organization_pin_slug: string | null;
-  topic_pin_slug: string | null;
-  catalog_anchors: any[] | null;
-  anchor_episode_candidates: number | null;
-  natural_question: any | null;
-  natural_question_fallback: boolean | null;
-  degraded_for_latency: boolean | null;
-  timing: any | null;
-  created_at: string;
-};
+type SearchEvent = Database["public"]["Tables"]["search_events"]["Row"];
+type Row = Pick<SearchEvent,
+  | "id"
+  | "query"
+  | "terms_count"
+  | "result_count"
+  | "fallback_used"
+  | "timestamp_match_count"
+  | "chunk_augmented_count"
+  | "confidence_band"
+  | "semantic_used"
+  | "reranked"
+  | "podcast_pin_slug"
+  | "person_pin_slug"
+  | "organization_pin_slug"
+  | "topic_pin_slug"
+  | "catalog_anchors"
+  | "anchor_episode_candidates"
+  | "natural_question"
+  | "natural_question_fallback"
+  | "degraded_for_latency"
+  | "timing"
+  | "created_at"
+>;
 
 export default function AdminSearchInsightsPage() {
   useNoindex("Admin · Search insights — Podiverzum");
