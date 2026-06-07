@@ -194,11 +194,11 @@ export default function AdminSearchBenchmarkPage() {
     setRefreshingGoldens(true);
     try {
       const [catalog, external] = await Promise.all([
-        (supabase as any).rpc("refresh_search_golden_queries_from_catalog", {
+        supabase.rpc("refresh_search_golden_queries_from_catalog", {
           p_limit_per_type: 50,
           p_popular_limit: 20,
         }),
-        (supabase as any).rpc("refresh_search_golden_queries_from_external_demand", {
+        supabase.rpc("refresh_search_golden_queries_from_external_demand", {
           p_chart_limit: 100,
           p_seed_limit: 80,
         }),

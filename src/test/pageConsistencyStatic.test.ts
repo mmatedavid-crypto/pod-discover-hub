@@ -726,6 +726,18 @@ describe("page consistency static guards", () => {
     expect(pageViewTracker).not.toContain('(supabase as any).rpc("update_page_event_dwell"');
   });
 
+  it("keeps search benchmark golden refresh RPCs on generated Supabase types", () => {
+    const benchmark = read("src/pages/AdminSearchBenchmarkPage.tsx");
+    const supabaseTypes = read("src/integrations/supabase/types.ts");
+
+    expect(supabaseTypes).toContain("refresh_search_golden_queries_from_catalog");
+    expect(supabaseTypes).toContain("refresh_search_golden_queries_from_external_demand");
+    expect(benchmark).toContain('supabase.rpc("refresh_search_golden_queries_from_catalog"');
+    expect(benchmark).toContain('supabase.rpc("refresh_search_golden_queries_from_external_demand"');
+    expect(benchmark).not.toContain('(supabase as any).rpc("refresh_search_golden_queries_from_catalog"');
+    expect(benchmark).not.toContain('(supabase as any).rpc("refresh_search_golden_queries_from_external_demand"');
+  });
+
   it("keeps the search AI overview Hungarian, guarded, and user-facing", () => {
     const searchPage = read("src/pages/SearchPage.tsx");
 
