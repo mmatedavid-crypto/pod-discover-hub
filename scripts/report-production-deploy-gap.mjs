@@ -64,6 +64,12 @@ const GROUPS = {
     functions: ["personalized-home-rails"],
     why: "Smart player / hasonló epizód ne ajánljon más szerkesztési világot puszta vektor alapján; explicit téma/személy/cég híd kell.",
   },
+  taste_card_embedding_privacy: {
+    label: "Taste card embedding prompt privacy",
+    migrations: ["supabase/migrations/20260607090056_54bd094a-baa5-4ea8-9f43-912e549b12ac.sql"],
+    functions: [],
+    why: "A taste card embeddinghez használt rejtett prompt soha ne legyen olvasható anon/authenticated szerepkörből.",
+  },
   downstream_embedding_quality: {
     label: "Clean-text-first downstream embeddings",
     migrations: [

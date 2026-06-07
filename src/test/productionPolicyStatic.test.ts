@@ -122,6 +122,7 @@ describe("production policy static guards", () => {
       "seo_news_sitemap",
       "public_ai_language_guard",
       "related_episode_quality",
+      "taste_card_embedding_privacy",
       "downstream_embedding_quality",
       "smart_player_recommendation_surface",
       "search_quality_benchmark",
@@ -153,6 +154,7 @@ describe("production policy static guards", () => {
       "20260605214000_reassert_related_quality_policy_v5_settings.sql",
       "20260605215000_reassert_related_public_affairs_override_terms.sql",
       "20260605232000_reassert_similar_episode_diagnostics.sql",
+      "20260607090056_54bd094a-baa5-4ea8-9f43-912e549b12ac.sql",
       "20260606005000_personalized_home_rails_reason_policy.sql",
       "20260606011000_personalized_home_main_rail_reason_policy.sql",
       "20260606020000_reassert_recommendation_diagnostics_policy_v4.sql",
@@ -187,6 +189,28 @@ describe("production policy static guards", () => {
     ]) {
       expect(reporter).toContain(artifact);
     }
+  });
+
+  it("keeps taste card embedding prompts server-only in production verification", () => {
+    const migration = read("supabase/migrations/20260607090056_54bd094a-baa5-4ea8-9f43-912e549b12ac.sql");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
+
+    expect(migration).toContain("REVOKE SELECT (hidden_embedding_prompt) ON public.taste_cards FROM anon");
+    expect(migration).toContain("REVOKE SELECT (hidden_embedding_prompt) ON public.taste_cards FROM authenticated");
+    expect(migration).toContain("REVOKE SELECT (hidden_embedding_prompt) ON public.taste_cards FROM PUBLIC");
+    expect(migration).toContain("has_column_privilege('anon', 'public.taste_cards', 'hidden_embedding_prompt', 'SELECT')");
+    expect(migration).toContain("has_column_privilege('authenticated', 'public.taste_cards', 'hidden_embedding_prompt', 'SELECT')");
+
+    expect(verifier).toContain("taste_card_embedding_privacy");
+    expect(verifier).toContain("hidden_prompt_column_exists");
+    expect(verifier).toContain("anon_cannot_select_hidden_prompt");
+    expect(verifier).toContain("authenticated_cannot_select_hidden_prompt");
+    expect(verifier).toContain("has_column_privilege('anon', 'public.taste_cards', 'hidden_embedding_prompt', 'SELECT')");
+
+    expect(reporter).toContain("taste_card_embedding_privacy");
+    expect(reporter).toContain("Taste card embedding prompt privacy");
+    expect(reporter).toContain("20260607090056_54bd094a-baa5-4ea8-9f43-912e549b12ac.sql");
   });
 
   it("keeps search golden refresh and benchmark on a weekly automated quality loop", () => {

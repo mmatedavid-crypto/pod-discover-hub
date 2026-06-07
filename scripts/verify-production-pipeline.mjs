@@ -414,6 +414,35 @@ SELECT jsonb_build_object(
     'cross_world_vector_without_bridge_blocked', false,
     'cross_world_with_entity_bridge_allowed', false
   ),
+  'taste_card_embedding_privacy', jsonb_build_object(
+    'hidden_prompt_column_exists', EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'taste_cards'
+        AND column_name = 'hidden_embedding_prompt'
+    ),
+    'anon_cannot_select_hidden_prompt', COALESCE((
+      SELECT NOT has_column_privilege('anon', 'public.taste_cards', 'hidden_embedding_prompt', 'SELECT')
+      WHERE EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'taste_cards'
+          AND column_name = 'hidden_embedding_prompt'
+      )
+    ), false),
+    'authenticated_cannot_select_hidden_prompt', COALESCE((
+      SELECT NOT has_column_privilege('authenticated', 'public.taste_cards', 'hidden_embedding_prompt', 'SELECT')
+      WHERE EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'taste_cards'
+          AND column_name = 'hidden_embedding_prompt'
+      )
+    ), false)
+  ),
   'downstream_embedding_quality', jsonb_build_object(
     'text_policy_embedding_requires_clean_text', (SELECT COALESCE((setting_values->'text_processing_policy'->>'embedding_requires_clean_text')::boolean, false) FROM settings),
     'text_policy_accepts_v4_family', (SELECT setting_values->'text_processing_policy'->>'accepted_cleaner_method_prefix' = 'deterministic_v4' FROM settings),
@@ -793,6 +822,11 @@ for (const [key, ok] of Object.entries(publicAiLanguageGuard)) {
 const relatedEpisodeQuality = snapshot.related_episode_quality ?? {};
 for (const [key, ok] of Object.entries(relatedEpisodeQuality)) {
   if (ok !== true) failures.push(`related_episode_quality.${key}`);
+}
+
+const tasteCardEmbeddingPrivacy = snapshot.taste_card_embedding_privacy ?? {};
+for (const [key, ok] of Object.entries(tasteCardEmbeddingPrivacy)) {
+  if (ok !== true) failures.push(`taste_card_embedding_privacy.${key}`);
 }
 
 const downstreamEmbeddingQuality = snapshot.downstream_embedding_quality ?? {};
