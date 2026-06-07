@@ -27,6 +27,18 @@ describe("episode thumbnail loading policy", () => {
     expect(detail).not.toContain("imageWidths={[96, 160, 240]}");
   });
 
+  it("prioritizes first-viewport podcast and episode hero artwork", () => {
+    const podcast = read("src/pages/PodcastDetail.tsx");
+    const episode = read("src/pages/EpisodeDetail.tsx");
+
+    expect(podcast).toContain('size="lg"');
+    expect(podcast).toContain('loading="eager"');
+    expect(podcast).toContain('fetchPriority="high"');
+    expect(episode).toContain('size="lg"');
+    expect(episode).toContain('loading="eager"');
+    expect(episode).toContain('fetchPriority="high"');
+  });
+
   it("downsizes Omny episode artwork instead of loading large Portfolio thumbnails", () => {
     const image = read("src/lib/image.ts");
     const largeOmny = "https://www.omnycontent.com/d/clips/show/episode/image.jpg?t=1780578252&amp;size=Large";

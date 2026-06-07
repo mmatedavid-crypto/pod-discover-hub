@@ -259,7 +259,13 @@ export default function PodcastDetail() {
         <section className="relative overflow-hidden border-b border-border pb-8">
           <div className="grid gap-6 sm:grid-cols-[180px_1fr] lg:grid-cols-[210px_1fr] lg:items-start">
             <div className="mx-auto w-36 sm:mx-0 sm:w-44 lg:w-52">
-              <PodcastCover title={p.display_title || p.title} src={p.image_url} size="lg" />
+              <PodcastCover
+                title={p.display_title || p.title}
+                src={p.image_url}
+                size="lg"
+                loading="eager"
+                fetchPriority="high"
+              />
             </div>
 
             <div className="min-w-0 text-center sm:text-left">

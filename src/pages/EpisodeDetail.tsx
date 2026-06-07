@@ -236,7 +236,13 @@ export default function EpisodeDetail() {
 
           <div className="mt-5 grid gap-5 sm:grid-cols-[132px_1fr] lg:grid-cols-[160px_1fr]">
             <div className="mx-auto w-32 sm:mx-0 sm:w-40">
-              <PodcastCover title={p.display_title || p.title} src={e.image_url || p.image_url} size="lg" />
+              <PodcastCover
+                title={p.display_title || p.title}
+                src={e.image_url || p.image_url}
+                size="lg"
+                loading="eager"
+                fetchPriority="high"
+              />
             </div>
 
             <div className="min-w-0 text-center sm:text-left">
