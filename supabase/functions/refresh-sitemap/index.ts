@@ -291,6 +291,15 @@ Deno.serve(async (req) => {
         newsItems.push(newsTag(loc, publishedAt, title));
       };
 
+      // 1) Pin the weekly editorial hub at the very top of the news sitemap so
+      //    Google sees the flagship column even when many fresh episodes follow.
+      //    Use the most recent published_at as lastmod (or week_start fallback).
+      const latestHetiTop = (hetiRows ?? [])[0] as any;
+      if (latestHetiTop) {
+        const hubLastmod = latestHetiTop.published_at || latestHetiTop.updated_at || latestHetiTop.week_start || new Date().toISOString();
+        addNewsItem(`${SITE}/heti`, hubLastmod, 'Podiverzum Heti — magyar podcastfigyelő', 'Podiverzum Heti Hub');
+      }
+
       (hetiRows ?? [])
         .filter((p: any) => p.published_at && new Date(p.published_at).getTime() >= NEWS_CUTOFF)
         .slice(0, 1000)
@@ -307,27 +316,43 @@ Deno.serve(async (req) => {
         // Canonical HU gate: language_decision is curated/AI-reviewed; the RSS HU flag is noisy.
         .eq('podcasts.language_decision', 'accept_hungarian')
         .order('published_at', { ascending: false })
-        .limit(1200);
+        .limit(1500);
 
+      // 2) Source-diversity caps. Previously trusted=40 / others=12 let Infostart
+      //    eat ~60% of slots. Tighten to give Telex / 444 / HVG / Partizán / etc.
+      //    room to surface across the 1000-URL budget. Two-pass: first a tight
+      //    cap to maximize publisher diversity, then a backfill pass to use
+      //    remaining slots without leaving the sitemap underfilled.
+      const TRUSTED_CAP_PASS1 = 10;
+      const OTHER_CAP_PASS1 = 6;
+      const TRUSTED_CAP_PASS2 = 25;
+      const OTHER_CAP_PASS2 = 12;
       const perPodcast = new Map<string, number>();
-      for (const ep of freshEpisodes ?? []) {
-        if (newsItems.length >= 1000) break;
-        if (!isNewsworthyEpisode(ep)) continue;
-        const p = (ep as any).podcasts || {};
-        if (['failed', 'inactive', 'deleted'].includes(String(p.rss_status || ''))) continue;
-        const key = String(p.slug || '_');
-        const cap = isTrustedNewsPodcast(p) ? 40 : 12;
-        if ((perPodcast.get(key) || 0) >= cap) continue;
-        perPodcast.set(key, (perPodcast.get(key) || 0) + 1);
-        const title = String((ep as any).display_title || (ep as any).title || '').trim();
-        addNewsItem(`${SITE}/podcast/${p.slug}/${(ep as any).slug}`, (ep as any).published_at, title, String(p.display_title || p.title || p.slug || 'podcast'));
+      const runPass = (cap: (trusted: boolean) => number) => {
+        for (const ep of freshEpisodes ?? []) {
+          if (newsItems.length >= 1000) break;
+          if (!isNewsworthyEpisode(ep)) continue;
+          const p = (ep as any).podcasts || {};
+          if (['failed', 'inactive', 'deleted'].includes(String(p.rss_status || ''))) continue;
+          const key = String(p.slug || '_');
+          const limit = cap(isTrustedNewsPodcast(p));
+          if ((perPodcast.get(key) || 0) >= limit) continue;
+          const loc = `${SITE}/podcast/${p.slug}/${(ep as any).slug}`;
+          if (seenNewsUrls.has(loc)) continue;
+          perPodcast.set(key, (perPodcast.get(key) || 0) + 1);
+          const title = String((ep as any).display_title || (ep as any).title || '').trim();
+          addNewsItem(loc, (ep as any).published_at, title, String(p.display_title || p.title || p.slug || 'podcast'));
+        }
+      };
+      runPass((trusted) => (trusted ? TRUSTED_CAP_PASS1 : OTHER_CAP_PASS1));
+      if (newsItems.length < 600) {
+        runPass((trusted) => (trusted ? TRUSTED_CAP_PASS2 : OTHER_CAP_PASS2));
       }
 
       const realNewsItemCount = newsItems.length;
 
-      // Always include the /heti hub as a fallback so the sitemap is never empty
-      // if no article/episode matches the 48h freshness window. Keep the
-      // fallback timestamp stable so it does not trigger Search Console submits.
+      // Final empty-state fallback (should rarely trigger now that the /heti hub
+      // is pinned above). Keep timestamp stable so it does not spam Search Console.
       if (newsItems.length === 0) {
         const latestHeti = (hetiRows ?? [])[0] as any;
         const fallbackDate = latestHeti?.updated_at || latestHeti?.published_at || latestHeti?.week_start || '2026-06-01T00:00:00.000Z';
