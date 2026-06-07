@@ -45,7 +45,7 @@ export default function AdminSearchInsightsPage() {
       setIsAdmin(hasAdmin === true);
       if (hasAdmin === true) {
         const since = new Date(Date.now() - windowDays * 86400_000).toISOString();
-        const { data: r } = await (supabase as any)
+        const { data: r } = await supabase
           .from("search_events")
           .select("id,query,terms_count,result_count,fallback_used,timestamp_match_count,chunk_augmented_count,confidence_band,semantic_used,reranked,podcast_pin_slug,person_pin_slug,organization_pin_slug,topic_pin_slug,catalog_anchors,anchor_episode_candidates,natural_question,natural_question_fallback,degraded_for_latency,timing,created_at")
           .gte("created_at", since)

@@ -638,6 +638,8 @@ describe("page consistency static guards", () => {
     const searchPage = read("src/pages/SearchPage.tsx");
     const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
     const suggest = read("supabase/functions/search-suggest/index.ts");
+    const supabaseTypes = read("src/integrations/supabase/types.ts");
+    const adminInsights = read("src/pages/AdminSearchInsightsPage.tsx");
 
     expect(search).toContain("published_at,ai_summary,summary,description");
     expect(search).toContain('${e.ai_summary || ""} ${e.summary || ""}');
@@ -670,6 +672,13 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain("timestamp_match_count:");
     expect(searchPage).toContain("chunk_augmented_count:");
     expect(searchPage).toContain("időpontos találat");
+    expect(supabaseTypes).toContain("timestamp_match_count: number");
+    expect(supabaseTypes).toContain("chunk_augmented_count: number");
+    expect(supabaseTypes).toContain("semantic_used: boolean | null");
+    expect(supabaseTypes).toContain("catalog_anchors: Json");
+    expect(searchPage).toContain('supabase.from("search_events").insert({');
+    expect(searchPage).not.toContain("} as any).then(() => {}, () => {})");
+    expect(adminInsights).toContain('await supabase\n          .from("search_events")');
   });
 
   it("keeps the search AI overview Hungarian, guarded, and user-facing", () => {

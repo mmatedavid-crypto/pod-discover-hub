@@ -336,7 +336,7 @@ export default function SearchPage() {
           timing: searchDiagnostics?.timing || null,
           viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
           user_id: sess.session?.user.id || null,
-        } as any).then(() => {}, () => {});
+        }).then(() => {}, () => {});
       }
 
       // Podcasts query (separate, simpler). Includes full-phrase title hit.
