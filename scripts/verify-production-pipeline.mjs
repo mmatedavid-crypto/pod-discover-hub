@@ -60,6 +60,8 @@ settings AS (
     'episode_best_text_source_progress',
     'episode_clean_text_controls',
     'episode_clean_text_progress',
+    'spotify_transcript_controls',
+    'spotify_transcript_state',
     'news_sitemap_refresh_controls',
     'news_sitemap_state',
     'public_ai_language_guard_policy',
@@ -102,6 +104,8 @@ controls AS (
     'episode_best_text_source_progress', setting_values->'episode_best_text_source_progress',
     'episode_clean_text_controls', setting_values->'episode_clean_text_controls',
     'episode_clean_text_progress', setting_values->'episode_clean_text_progress',
+    'spotify_transcript_controls', setting_values->'spotify_transcript_controls',
+    'spotify_transcript_state', setting_values->'spotify_transcript_state',
     'news_sitemap_refresh_controls', setting_values->'news_sitemap_refresh_controls',
     'news_sitemap_state', setting_values->'news_sitemap_state',
     'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy',
@@ -468,6 +472,31 @@ SELECT jsonb_build_object(
       WHERE proname IN ('select_embed_episode_candidates', 'select_embed_chunks_candidates', 'embed_chunks_candidate_stats')
     ), true)
   ),
+  'spotify_transcript_pipeline', jsonb_build_object(
+    'controls_present', (SELECT setting_values->'spotify_transcript_controls' IS NOT NULL FROM settings),
+    'controls_default_disabled', COALESCE((SELECT (setting_values->'spotify_transcript_controls'->>'enabled')::boolean = false FROM settings), false),
+    'controls_policy_recorded', (SELECT setting_values->'spotify_transcript_controls'->>'policy' = 'default_disabled_operator_controlled_native_transcript_indexing_v1' FROM settings),
+    'state_present', (SELECT setting_values->'spotify_transcript_state' IS NOT NULL FROM settings),
+    'state_has_skip_and_daily', (SELECT setting_values->'spotify_transcript_state' ? 'skip' AND setting_values->'spotify_transcript_state' ? 'daily' FROM settings),
+    'watchdog_registered', EXISTS (
+      SELECT 1
+      FROM settings,
+      LATERAL jsonb_array_elements(COALESCE(setting_values->'watchdog_state'->'runners', '[]'::jsonb)) r
+      WHERE r->>'name' = 'spotify_transcript_runner'
+        AND r->>'controls_key' = 'spotify_transcript_controls'
+        AND r->>'progress_key' = 'spotify_transcript_progress'
+    ),
+    'cron_policy_recorded', (SELECT
+      setting_values->'spotify_transcript_controls'->>'cron_job' = 'podiverzum-spotify-transcript-runner'
+      AND setting_values->'spotify_transcript_controls'->>'cron_schedule' = '*/5 * * * *'
+    FROM settings),
+    'spotify_meta_available', to_regclass('public.episode_spotify_meta') IS NOT NULL,
+    'episode_transcripts_has_private_display_guard', (
+      to_regclass('public.episode_transcripts') IS NOT NULL
+      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'episode_transcripts' AND column_name = 'rights_status')
+      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'episode_transcripts' AND column_name = 'public_display')
+    )
+  ),
   'people_hub_identity_safety', jsonb_build_object(
     'policy_configured_v2', (SELECT (setting_values->'people_hub_identity_safety_policy'->>'version')::int >= 2 FROM settings),
     'prerender_bio_rule_recorded', (SELECT setting_values->'people_hub_identity_safety_policy' ? 'prerender_bio_rule' FROM settings),
@@ -769,6 +798,11 @@ for (const [key, ok] of Object.entries(relatedEpisodeQuality)) {
 const downstreamEmbeddingQuality = snapshot.downstream_embedding_quality ?? {};
 for (const [key, ok] of Object.entries(downstreamEmbeddingQuality)) {
   if (ok !== true) failures.push(`downstream_embedding_quality.${key}`);
+}
+
+const spotifyTranscriptPipeline = snapshot.spotify_transcript_pipeline ?? {};
+for (const [key, ok] of Object.entries(spotifyTranscriptPipeline)) {
+  if (ok !== true) failures.push(`spotify_transcript_pipeline.${key}`);
 }
 
 const peopleHubIdentitySafety = snapshot.people_hub_identity_safety ?? {};

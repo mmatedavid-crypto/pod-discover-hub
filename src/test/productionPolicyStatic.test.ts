@@ -1195,6 +1195,47 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("pattern_safety_version_v2_recorded");
   });
 
+  it("keeps Spotify native transcript drain operator-controlled and private-display only", () => {
+    const runner = read("supabase/functions/spotify-transcript-runner/index.ts");
+    const migration = read("supabase/migrations/20260607094500_spotify_transcript_runner_controls.sql");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
+
+    expect(runner).toContain('const SPOTIFY_MODEL = "spotify-native"');
+    expect(runner).toContain("spotify_transcript_controls");
+    expect(runner).toContain("ctrl.enabled !== true");
+    expect(runner).toContain("dailyCap");
+    expect(runner).toContain("spotify_transcript_state");
+    expect(runner).toContain("nextSkip");
+    expect(runner).toContain("res.status === 403 || res.status === 429");
+    expect(runner).toContain("enabled: false");
+    expect(runner).toContain('rights_status: "spotify_private_api_index_only"');
+    expect(runner).toContain("public_display: false");
+    expect(runner).toContain("segments: normalized.segments");
+    expect(runner).toContain("content_hash: await sha256(normalized.text)");
+
+    expect(migration).toContain("'spotify_transcript_controls'");
+    expect(migration).toContain("'enabled', false");
+    expect(migration).toContain("'policy', 'default_disabled_operator_controlled_native_transcript_indexing_v1'");
+    expect(migration).toContain("'public_display', false");
+    expect(migration).toContain("'spotify_transcript_state'");
+    expect(migration).toContain("'podiverzum-spotify-transcript-runner'");
+    expect(migration).toContain("'*/5 * * * *'");
+    expect(migration).toContain("'cron_job', 'podiverzum-spotify-transcript-runner'");
+    expect(migration).toContain("'cron_schedule', '*/5 * * * *'");
+    expect(migration).toContain("'name', 'spotify_transcript_runner'");
+
+    expect(verifier).toContain("spotify_transcript_pipeline");
+    expect(verifier).toContain("controls_default_disabled");
+    expect(verifier).toContain("watchdog_registered");
+    expect(verifier).toContain("cron_policy_recorded");
+    expect(verifier).toContain("episode_transcripts_has_private_display_guard");
+
+    expect(reporter).toContain("spotify_transcript_pipeline");
+    expect(reporter).toContain("spotify-transcript-runner");
+    expect(reporter).toContain("20260607094500_spotify_transcript_runner_controls.sql");
+  });
+
   it("keeps public AI text Hungarian-only at the edge and database layer", () => {
     const guard = read("supabase/functions/_shared/hu-language-guard.ts");
     const aiEnrich = read("supabase/functions/ai-enrich/index.ts");

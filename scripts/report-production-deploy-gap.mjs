@@ -78,6 +78,12 @@ const GROUPS = {
     functions: ["episode-best-text-source-runner", "episode-clean-text-runner", "embed-episode-runner", "embed-episode-chunks-runner"],
     why: "A kereső, ajánló és B2B monitoring vektorai csak promoválható deterministic_v4-family clean textből épüljenek, ne nyers RSS/YouTube leírásból.",
   },
+  spotify_transcript_pipeline: {
+    label: "Spotify native transcript drain",
+    migrations: ["supabase/migrations/20260607094500_spotify_transcript_runner_controls.sql"],
+    functions: ["spotify-transcript-runner"],
+    why: "A meglévő Spotify episode id-kből kézzel kapcsolható, daily cap-es native transcript drain adjon időbélyeges bemenetet a clean-text és chunk search láncnak.",
+  },
   smart_player_recommendation_surface: {
     label: "Smart-player recommendation surface enable",
     migrations: [
