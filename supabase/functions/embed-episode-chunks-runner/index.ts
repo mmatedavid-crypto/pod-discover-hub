@@ -1,7 +1,7 @@
 // Multi-chunk episode embedder. Uses promoted episode_clean_text only,
-// then chunks the cleaned text into 2500-char windows (250 overlap),
-// prepends a stable prefix (title + ai_summary + entities), embeds each chunk,
-// upserts into episode_chunks. Adaptive cron via set_embed_episode_chunks_schedule.
+// prefers timestamped transcript segments when their hash matches the clean text,
+// falls back to char windows, prepends stable episode context, embeds each chunk,
+// and upserts into episode_chunks. Adaptive cron via set_embed_episode_chunks_schedule.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chunkText } from "../_shared/episode-text-cleaner.ts";
@@ -193,12 +193,14 @@ function chunkTimedSegments(raw: unknown, cleanedText: string, transcriptModel: 
   const slices: ChunkSlice[] = [];
   let current: TimedSegment[] = [];
   let words = 0;
+  let hasNewContentSinceClose = false;
 
   const closeCurrent = () => {
-    if (current.length === 0) return;
+    if (current.length === 0 || !hasNewContentSinceClose) return;
     slices.push(buildTimedChunk(current, transcriptModel));
     current = suffixOverlap(current, overlapWords);
     words = current.reduce((sum, s) => sum + s.word_count, 0);
+    hasNewContentSinceClose = false;
   };
 
   for (const seg of segments) {
@@ -207,10 +209,11 @@ function chunkTimedSegments(raw: unknown, cleanedText: string, transcriptModel: 
     if (current.length > 0 && words >= minWords && gap >= 3) closeCurrent();
     current.push(seg);
     words += seg.word_count;
+    hasNewContentSinceClose = true;
     if (words >= maxWords) closeCurrent();
   }
 
-  if (current.length > 0) {
+  if (current.length > 0 && hasNewContentSinceClose) {
     const lastWords = current.reduce((sum, s) => sum + s.word_count, 0);
     if (lastWords >= 40 || slices.length === 0) slices.push(buildTimedChunk(current, transcriptModel));
   }

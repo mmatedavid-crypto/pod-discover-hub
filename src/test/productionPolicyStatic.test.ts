@@ -432,6 +432,9 @@ describe("production policy static guards", () => {
     expect(chunkRunner).toContain("function chunkTimedSegments");
     expect(chunkRunner).toContain("segment_timestamp_v2");
     expect(chunkRunner).toContain("char_window_v1");
+    expect(chunkRunner).toContain("hasNewContentSinceClose");
+    expect(chunkRunner).toContain("current.length === 0 || !hasNewContentSinceClose");
+    expect(chunkRunner).toContain("current.length > 0 && hasNewContentSinceClose");
     expect(chunkRunner).toContain("timestamp_start_seconds: s.timestamp_start_seconds");
     expect(chunkRunner).toContain("source_transcript_model: s.source_transcript_model");
     expect(chunkRunner).toContain("chunking_policy: \"timestamp_aware_v2_segments_when_available_else_char_window_v1\"");
