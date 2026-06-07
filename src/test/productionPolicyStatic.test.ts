@@ -351,6 +351,7 @@ describe("production policy static guards", () => {
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
     const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
     const episodeCard = read("src/components/EpisodeCard.tsx");
+    const smartPlayer = read("src/components/smart-player/SmartPlayerProvider.tsx");
 
     expect(verifier).toContain("downstream_embedding_quality");
     expect(verifier).toContain("text_policy_embedding_requires_clean_text");
@@ -444,6 +445,10 @@ describe("production policy static guards", () => {
     expect(episodeCard).toContain("chunk_match?:");
     expect(episodeCard).toContain("formatSeekTime");
     expect(episodeCard).toContain("Lejátszás innen");
+    expect(episodeCard).toContain("aria-label={`Lejátszás innen: ${formatSeekTime(chunkStart)}`}");
+    expect(episodeCard).toContain("sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-primary/40");
+    expect(smartPlayer).toContain("opts.startAt >= 0");
+    expect(smartPlayer).toContain('eventType: "play_seek"');
   });
 
   it("keeps unused automatic social posting hard-disabled at the edge handler", () => {

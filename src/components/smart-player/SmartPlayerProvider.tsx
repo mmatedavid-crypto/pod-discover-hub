@@ -350,6 +350,9 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     if (!a) return;
     setError(null);
     const same = currentEpisode?.id === ep.id;
+    const startAt = typeof opts?.startAt === "number" && Number.isFinite(opts.startAt) && opts.startAt >= 0
+      ? opts.startAt
+      : null;
     if (!same) {
       setCurrentEpisode(ep);
       markedRef.current = new Set();
@@ -358,9 +361,9 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       const applyStart = (sec: number) => {
         try { a.currentTime = Math.max(0, sec); } catch { /* noop */ }
       };
-      if (typeof opts?.startAt === "number" && opts.startAt > 0) {
+      if (startAt != null) {
         // Wait for metadata so currentTime sticks reliably.
-        const target = opts.startAt;
+        const target = startAt;
         const onReady = () => {
           applyStart(target);
           a.removeEventListener("loadedmetadata", onReady);
@@ -382,8 +385,14 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         podcast_title: ep.podcastTitle,
         episode_url: typeof window !== "undefined" ? window.location.href : undefined,
       });
-    } else if (typeof opts?.startAt === "number" && opts.startAt > 0) {
-      try { a.currentTime = Math.max(0, opts.startAt); } catch { /* noop */ }
+    } else if (startAt != null) {
+      try { a.currentTime = Math.max(0, startAt); } catch { /* noop */ }
+      logPlayerEventLater({
+        eventType: "play_seek",
+        episodeId: ep.id,
+        podcastId: ep.podcastId,
+        positionSec: a.currentTime,
+      });
     } else {
       logPlayerEventLater({
         eventType: "play_resume",

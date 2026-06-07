@@ -290,6 +290,17 @@ export function EpisodeCard({
               <Play className="h-3.5 w-3.5" />
             </button>
           )}
+          {playerAudioUrl && chunkStart != null && (
+            <button
+              type="button"
+              onClick={handlePlayFromMatch}
+              aria-label={`Lejátszás innen: ${formatSeekTime(chunkStart)}`}
+              title={`Lejátszás innen: ${formatSeekTime(chunkStart)}`}
+              className="sm:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+            >
+              <Play className="h-3.5 w-3.5" />
+            </button>
+          )}
           {/* Tablet/desktop: text links */}
           <Link to={`/podcast/${p.slug}/${e.slug}`} className="hidden sm:inline text-muted-foreground hover:text-foreground">Részletek</Link>
           {e.audio_url && (
