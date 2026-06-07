@@ -30,12 +30,22 @@ function textQuality(text: string): { score: number; dirty: string[]; len: numbe
   return { score: Math.max(0, lengthScore - dirty.length * 0.12), dirty, len };
 }
 
-function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, article: any | null, ctrl: any) {
+function transcriptRank(model: string): number {
+  if (model === "supadata-youtube") return 100;
+  if (model === "spotify-native") return 96;
+  if (model === "rss_audio_asr") return 92;
+  if (model.startsWith("rss_podcast_transcript_tag:")) return 88;
+  if (model === "supadata-youtube-asr") return 84;
+  return 70;
+}
+
+function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, article: any | null, transcript: any | null, ctrl: any) {
   const gain = Number(ctrl.prefer_external_gain_chars ?? 150);
   const articleGain = Number(ctrl.article_prefer_gain_chars ?? 300);
   const ytMin = Number(ctrl.youtube_min_confidence ?? 0.78);
   const spMin = Number(ctrl.spotify_min_confidence ?? 0.55);
   const articleMin = Number(ctrl.article_min_confidence ?? 0.82);
+  const transcriptMinChars = Number(ctrl.transcript_min_chars ?? 900);
   const rssText = String(ep.description || "").trim();
   const rssQ = textQuality(rssText);
   const candidates: any[] = [];
@@ -49,6 +59,37 @@ function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, arti
       reasons: ["rss_description"],
       quality: rssQ,
       evidence: { rss_len: rssQ.len, dirty: rssQ.dirty },
+    });
+  }
+
+  const transcriptText = String(transcript?.transcript || "").trim();
+  const transcriptQ = textQuality(transcriptText);
+  const transcriptModel = String(transcript?.model || "");
+  if (
+    transcriptText
+    && transcript?.status === "ok"
+    && transcriptText.length >= transcriptMinChars
+    && transcriptQ.score >= 0.45
+    && (transcriptQ.len >= rssQ.len + gain || rssQ.len < 500)
+  ) {
+    candidates.push({
+      source_type: "transcript",
+      source_ref_id: transcript.id,
+      raw_text: transcriptText,
+      source_confidence: Math.min(0.99, 0.78 + transcriptQ.score * 0.12 + transcriptRank(transcriptModel) / 1000),
+      reasons: ["full_transcript_longer_or_rss_thin"],
+      quality: transcriptQ,
+      evidence: {
+        transcript_model: transcriptModel,
+        transcript_source: transcript.source || null,
+        transcript_language: transcript.language || null,
+        transcript_len: transcriptQ.len,
+        rss_len: rssQ.len,
+        content_hash: transcript.content_hash || null,
+        has_segments: Array.isArray(transcript.segments) && transcript.segments.length > 0,
+        segment_count: Array.isArray(transcript.segments) ? transcript.segments.length : null,
+        dirty: transcriptQ.dirty,
+      },
     });
   }
 
@@ -236,6 +277,7 @@ Deno.serve(async (req) => {
     const spotifyByEp = new Map<string, any>();
     const youtubeByEp = new Map<string, any>();
     const articleByEp = new Map<string, any>();
+    const transcriptByEp = new Map<string, any>();
 
     for (let i = 0; i < epIds.length; i += 500) {
       const slice = epIds.slice(i, i + 500);
@@ -284,6 +326,23 @@ Deno.serve(async (req) => {
           articleByEp.set(row.episode_id, row);
         }
       }
+
+      const { data: transcriptRows } = await admin
+        .from("episode_transcripts")
+        .select("id,episode_id,model,source,language,transcript,segments,content_hash,status,updated_at")
+        .in("episode_id", slice)
+        .eq("status", "ok")
+        .order("updated_at", { ascending: false, nullsFirst: false });
+      for (const row of transcriptRows || []) {
+        const prev = transcriptByEp.get(row.episode_id);
+        const currentRank = transcriptRank(String(row.model || ""));
+        const prevRank = transcriptRank(String(prev?.model || ""));
+        const currentLen = String(row.transcript || "").length;
+        const prevLen = String(prev?.transcript || "").length;
+        if (!prev || currentRank > prevRank || (currentRank === prevRank && currentLen > prevLen)) {
+          transcriptByEp.set(row.episode_id, row);
+        }
+      }
     }
 
     const rows: any[] = [];
@@ -294,6 +353,7 @@ Deno.serve(async (req) => {
         spotifyByEp.get(ep.id) || null,
         youtubeByEp.get(ep.id) || null,
         articleByEp.get(ep.id) || null,
+        transcriptByEp.get(ep.id) || null,
         ctrl,
       );
       if (!best) continue;

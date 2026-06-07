@@ -22,6 +22,7 @@ const GROUPS = {
       "supabase/migrations/20260605211000_episode_article_candidates_readonly_policy.sql",
       "supabase/migrations/20260605225000_reassert_article_pairer_brand_anchor_patterns.sql",
       "supabase/migrations/20260606013000_reassert_article_pairer_brand_anchor_patterns_v2.sql",
+      "supabase/migrations/20260607093000_best_text_source_transcript_first.sql",
     ],
     functions: ["episode-article-pairer", "episode-best-text-source-runner", "database-quality-fast-lane"],
     why: "Telex/444/Hold/Partizán/HVG/Portfolio cikkekből jobb epizódleírás kerülhet a láncba.",
@@ -72,8 +73,9 @@ const GROUPS = {
       "supabase/migrations/20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql",
       "supabase/migrations/20260606174000_timestamp_aware_episode_chunks.sql",
       "supabase/migrations/20260606183000_reassert_timestamp_aware_chunk_search_v2.sql",
+      "supabase/migrations/20260607093000_best_text_source_transcript_first.sql",
     ],
-    functions: ["embed-episode-runner", "embed-episode-chunks-runner"],
+    functions: ["episode-best-text-source-runner", "episode-clean-text-runner", "embed-episode-runner", "embed-episode-chunks-runner"],
     why: "A kereső, ajánló és B2B monitoring vektorai csak promoválható deterministic_v4-family clean textből épüljenek, ne nyers RSS/YouTube leírásból.",
   },
   smart_player_recommendation_surface: {

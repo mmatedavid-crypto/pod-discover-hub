@@ -33,7 +33,8 @@ best_source_counts AS (
     count(*) FILTER (WHERE b.source_type = 'article') AS article,
     count(*) FILTER (WHERE b.source_type = 'youtube') AS youtube,
     count(*) FILTER (WHERE b.source_type = 'rss') AS rss,
-    count(*) FILTER (WHERE b.source_type = 'spotify') AS spotify
+    count(*) FILTER (WHERE b.source_type = 'spotify') AS spotify,
+    count(*) FILTER (WHERE b.source_type = 'transcript') AS transcript
   FROM accepted_hu h
   JOIN public.episode_best_text_source b ON b.episode_id = h.id
 ),
@@ -235,8 +236,13 @@ SELECT jsonb_build_object(
     ),
     'multi_source_run_configured', (SELECT COALESCE((setting_values->'episode_article_pairer_controls'->>'sources_per_run')::int, 1) >= 2 FROM settings),
     'source_count_at_least_6', (SELECT jsonb_array_length(COALESCE(setting_values->'episode_article_pairer_controls'->'sources', '[]'::jsonb)) >= 6 FROM settings),
-    'best_source_article_policy', (SELECT setting_values->'episode_best_text_source_controls'->>'policy' = 'best_text_source_v2_confirmed_article_youtube_first'
+    'best_source_article_policy', (SELECT setting_values->'episode_best_text_source_controls'->>'policy' IN (
+        'best_text_source_v2_confirmed_article_youtube_first',
+        'best_text_source_v3_transcript_first_confirmed_article_youtube'
+      )
       AND setting_values->'episode_best_text_source_controls' ? 'article_min_confidence' FROM settings),
+    'best_source_transcript_policy', (SELECT setting_values->'episode_best_text_source_controls'->>'policy' = 'best_text_source_v3_transcript_first_confirmed_article_youtube'
+      AND setting_values->'episode_best_text_source_controls' ? 'transcript_min_chars' FROM settings),
     'pairer_has_run', (SELECT COALESCE(length(setting_values->'episode_article_pairer_progress'->>'last_run_at') > 0, false) FROM settings),
     'pairer_scanned_articles', (SELECT COALESCE((setting_values->'episode_article_pairer_progress'->>'scanned_articles')::int > 0, false) FROM settings),
     'pairer_uses_regex_xml_parser', (SELECT COALESCE(setting_values->'episode_article_pairer_progress'->>'parser_policy' = 'regex_xml_no_domparser_v2', false) FROM settings),
@@ -252,6 +258,16 @@ SELECT jsonb_build_object(
         AND t.relname = 'episode_best_text_source'
         AND c.conname = 'episode_best_text_source_source_type_check'
       AND pg_get_constraintdef(c.oid) ILIKE '%article%'
+    ),
+    'best_source_accepts_transcript', EXISTS (
+      SELECT 1
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      WHERE n.nspname = 'public'
+        AND t.relname = 'episode_best_text_source'
+        AND c.conname = 'episode_best_text_source_source_type_check'
+      AND pg_get_constraintdef(c.oid) ILIKE '%transcript%'
     )
   ),
   'seo_news_sitemap', jsonb_build_object(
@@ -397,7 +413,9 @@ SELECT jsonb_build_object(
   'downstream_embedding_quality', jsonb_build_object(
     'text_policy_embedding_requires_clean_text', (SELECT COALESCE((setting_values->'text_processing_policy'->>'embedding_requires_clean_text')::boolean, false) FROM settings),
     'text_policy_accepts_v4_family', (SELECT setting_values->'text_processing_policy'->>'accepted_cleaner_method_prefix' = 'deterministic_v4' FROM settings),
-    'text_policy_v3_clean_text_first', (SELECT setting_values->'text_processing_policy'->>'version' = 'best_source_clean_text_first_v3' FROM settings),
+    'text_policy_v3_clean_text_first', (SELECT setting_values->'text_processing_policy'->>'version' IN ('best_source_clean_text_first_v3', 'best_source_clean_text_first_v3_transcript_aware') FROM settings),
+    'text_policy_transcript_hash_passthrough', (SELECT COALESCE((setting_values->'text_processing_policy'->>'transcript_source_hash_passthrough')::boolean, false) FROM settings),
+    'text_policy_timestamp_hash_match_recorded', (SELECT COALESCE((setting_values->'text_processing_policy'->>'timestamp_chunking_requires_transcript_hash_match')::boolean, false) FROM settings),
     'text_policy_language_gate_accepts_decision', (SELECT setting_values->'text_processing_policy'->>'language_gate' = 'podcasts.language_decision=accept_hungarian' FROM settings),
     'legacy_embed_policy_v4_family_clean_text_only', COALESCE((SELECT value->>'policy' = 'deterministic_v4_family_clean_text_only' FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'), false),
     'legacy_embed_policy_language_gate_accepts_decision', COALESCE((SELECT value->>'language_gate' = 'podcasts.language_decision=accept_hungarian' FROM public.app_settings WHERE key = 'legacy_embed_episode_policy'), false),

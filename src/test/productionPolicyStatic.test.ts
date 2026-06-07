@@ -1119,9 +1119,11 @@ describe("production policy static guards", () => {
     const strictPatternsMigration = read("supabase/migrations/20260605225000_reassert_article_pairer_brand_anchor_patterns.sql");
     const strictPatternsV2Migration = read("supabase/migrations/20260606013000_reassert_article_pairer_brand_anchor_patterns_v2.sql");
     const readonlyPolicyMigration = read("supabase/migrations/20260605211000_episode_article_candidates_readonly_policy.sql");
+    const transcriptFirstMigration = read("supabase/migrations/20260607093000_best_text_source_transcript_first.sql");
     const pairer = read("supabase/functions/episode-article-pairer/index.ts");
     const fastLane = read("supabase/functions/database-quality-fast-lane/index.ts");
     const bestSource = read("supabase/functions/episode-best-text-source-runner/index.ts");
+    const cleanTextRunner = read("supabase/functions/episode-clean-text-runner/index.ts");
     const verifier = read("scripts/verify-production-pipeline.mjs");
 
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.episode_article_candidates");
@@ -1152,6 +1154,10 @@ describe("production policy static guards", () => {
     expect(strictPatternsMigration).not.toContain("jsonb_build_array('hold', 'hold after hours', 'holdblog', 'after hours'");
     expect(readonlyPolicyMigration).toContain("current_user = 'readonly_codex'");
     expect(readonlyPolicyMigration).toContain("episode_article_candidate_readonly_policy");
+    expect(transcriptFirstMigration).toContain("CHECK (source_type IN ('rss', 'spotify', 'youtube', 'article', 'transcript'))");
+    expect(transcriptFirstMigration).toContain("'policy', 'best_text_source_v3_transcript_first_confirmed_article_youtube'");
+    expect(transcriptFirstMigration).toContain("'transcript_source_hash_passthrough', true");
+    expect(transcriptFirstMigration).toContain("'timestamp_chunking_requires_transcript_hash_match', true");
 
     expect(pairer).toContain("scorePublisherArticleMatch");
     expect(pairer).toContain("episode_article_candidates");
@@ -1169,11 +1175,23 @@ describe("production policy static guards", () => {
     expect(bestSource).toContain('source_type: "article"');
     expect(bestSource).toContain("article_min_confidence");
     expect(bestSource).toContain("confirmed_publisher_article_longer_or_rss_short");
+    expect(bestSource).toContain('source_type: "transcript"');
+    expect(bestSource).toContain("function transcriptRank");
+    expect(bestSource).toContain("full_transcript_longer_or_rss_thin");
+    expect(bestSource).toContain("content_hash: transcript.content_hash || null");
+    expect(bestSource).toContain("has_segments: Array.isArray(transcript.segments)");
+    expect(cleanTextRunner).toContain('best?.source_type === "transcript"');
+    expect(cleanTextRunner).toContain("best.evidence.content_hash");
+    expect(cleanTextRunner).toContain("const source_hash = transcriptHash || await sha256Hex");
 
     expect(verifier).toContain("source_count_at_least_6");
     expect(verifier).toContain("no_generic_article_pairer_title_patterns");
     expect(verifier).toContain("best_source_accepts_article");
+    expect(verifier).toContain("best_source_accepts_transcript");
+    expect(verifier).toContain("best_source_transcript_policy");
     expect(verifier).toContain("best_source_article_policy");
+    expect(verifier).toContain("text_policy_transcript_hash_passthrough");
+    expect(verifier).toContain("text_policy_timestamp_hash_match_recorded");
     expect(verifier).toContain("pattern_safety_version_v2_recorded");
   });
 

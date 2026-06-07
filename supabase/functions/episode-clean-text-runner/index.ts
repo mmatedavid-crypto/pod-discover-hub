@@ -103,13 +103,13 @@ Deno.serve(async (req) => {
       if (!eps || eps.length === 0) break;
 
       const epIds = eps.map((e: any) => e.id);
-      const bestByEp = new Map<string, { source_type: string; raw_text: string }>();
+      const bestByEp = new Map<string, { source_type: string; raw_text: string; evidence?: any }>();
       if (useBestTextSource) {
         for (let i = 0; i < epIds.length; i += ID_CHUNK_SIZE) {
           const slice = epIds.slice(i, i + ID_CHUNK_SIZE);
           const { data: bestRows, error: bestErr } = await admin
             .from("episode_best_text_source")
-            .select("episode_id,source_type,raw_text")
+            .select("episode_id,source_type,raw_text,evidence")
             .in("episode_id", slice);
           if (bestErr && !String(bestErr.message || "").includes("episode_best_text_source")) throw bestErr;
           for (const row of bestRows || []) {
@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
             if (rawText) bestByEp.set(String((row as any).episode_id), {
               source_type: String((row as any).source_type || "rss"),
               raw_text: rawText,
+              evidence: (row as any).evidence || null,
             });
           }
         }
@@ -181,7 +182,10 @@ Deno.serve(async (req) => {
             }
           }
 
-          const source_hash = await sha256Hex(`${appliedMethod}::${raw}`);
+          const transcriptHash = best?.source_type === "transcript" && typeof best?.evidence?.content_hash === "string"
+            ? best.evidence.content_hash
+            : "";
+          const source_hash = transcriptHash || await sha256Hex(`${appliedMethod}::${raw}`);
           upsertRows.push({
             episode_id: (ep as any).id,
             source_hash,
