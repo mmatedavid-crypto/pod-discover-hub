@@ -30,6 +30,17 @@ const SLUG_REDIRECTS: Record<string, string> = {
   futball: "labdarugas",
 };
 
+function topicFallbackIntro(topicName: string, epCount: number, podCount: number): string {
+  const episodePart = epCount > 0 ? `${epCount} magyar podcast epizód` : "magyar podcast epizódok";
+  const podcastPart = podCount > 0 ? ` ${podCount} műsorból` : "";
+  return `${topicName} témában ${episodePart}${podcastPart}: friss és időtálló beszélgetések, kapcsolódó személyek és további témák a Podiverzum katalógusából.`;
+}
+
+function topicIntroText(topic: Pick<Topic, "name" | "intro_text" | "episode_count" | "podcast_count">): string {
+  return sanitizeHungarianPublicText(topic.intro_text)
+    || topicFallbackIntro(topic.name, Number(topic.episode_count || 0), Number(topic.podcast_count || 0));
+}
+
 export default function TopicDetailPage() {
   const { slug: rawSlug = "" } = useParams();
   const nav = useNavigate();
@@ -158,9 +169,8 @@ export default function TopicDetailPage() {
       const epCount = Number((t as any).episode_count || 0);
       const podCount = Number((t as any).podcast_count || 0);
       const countLabel = epCount > 0 ? ` – ${epCount} podcast epizód` : "";
-      const introClean = sanitizeHungarianPublicText((t as any).intro_text);
-      const fallbackDesc = `${topicName} témájú magyar podcast epizódok és beszélgetések${podCount > 0 ? `, ${podCount} műsorból` : ""}. Fedezd fel a kapcsolódó tartalmakat a Podiverzumon.`;
-      const descSource = sanitizeHungarianPublicText((t as any).seo_description) || introClean || fallbackDesc;
+      const introClean = topicIntroText(t as any);
+      const descSource = sanitizeHungarianPublicText((t as any).seo_description) || introClean;
       const titleSource = `${topicName}${countLabel} magyar podcastokból | Podiverzum`;
       setSeo({
         title: titleSource,
@@ -219,6 +229,7 @@ export default function TopicDetailPage() {
   const byDate = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
   const newest = capPerPodcast(byDate, 2, 12);
   const evergreen = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
+  const introText = topicIntroText(topic);
 
   return (
     <Layout>
@@ -231,8 +242,8 @@ export default function TopicDetailPage() {
           </nav>
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Téma</div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{topic.h1 || topic.name}</h1>
-          {topic.intro_text && (
-            <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{topic.intro_text}</p>
+          {introText && (
+            <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{introText}</p>
           )}
           <button
             onClick={() => nav(`/kereses?q=${encodeURIComponent(topic.name)}`)}

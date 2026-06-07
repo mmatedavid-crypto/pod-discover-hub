@@ -521,6 +521,11 @@ describe("page consistency static guards", () => {
     expect(personDetail).toContain("safePersonSeoLead(p) || safeDesc");
     expect(entity).toContain("const companyEpLabel = total > 0 ? ` – ${total} podcast epizódban említve` : \"\"");
     expect(topic).toContain("const titleSource = `${topicName}${countLabel} magyar podcastokból | Podiverzum`");
+    expect(topic).toContain("function topicFallbackIntro");
+    expect(topic).toContain("function topicIntroText");
+    expect(topic).toContain("const introText = topicIntroText(topic)");
+    expect(topic).toContain("{introText && (");
+    expect(topic).not.toContain("{topic.intro_text && (");
     expect(prerender).not.toContain("podcast epizódok és interjúk");
     expect(prerender).toContain("podcast epizódok és említések");
   });
