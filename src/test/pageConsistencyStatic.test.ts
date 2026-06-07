@@ -734,10 +734,14 @@ describe("page consistency static guards", () => {
     expect(benchmark).toContain('type Golden = Database["public"]["Tables"]["search_golden_queries"]["Row"]');
     expect(benchmark).toContain('type Run = Database["public"]["Tables"]["search_benchmark_runs"]["Row"]');
     expect(benchmark).toContain('type BenchmarkResult = Database["public"]["Tables"]["search_benchmark_results"]["Row"]');
+    expect(benchmark).toContain('type CompetitorResult = Database["public"]["Tables"]["search_benchmark_competitors"]["Row"]');
     expect(benchmark).toContain("function toResultRow(row: BenchmarkResult): ResultRow");
+    expect(benchmark).toContain("function toCompetitorRow(row: CompetitorResult): CompetitorRow");
     expect(benchmark).not.toContain("type Golden = {");
     expect(benchmark).not.toContain("type Run = {");
     expect(benchmark).not.toContain("top_results: any[]");
+    expect(benchmark).not.toContain("useState<any[]>([])");
+    expect(benchmark).not.toContain("map((t: any");
     expect(benchmark).not.toContain("(r.data[0] as any).id");
     expect(benchmark).not.toContain("(runIns as any).id");
     expect(benchmark).not.toContain("(r as any).false_positive_rate");

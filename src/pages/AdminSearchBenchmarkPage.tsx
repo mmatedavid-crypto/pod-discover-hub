@@ -10,6 +10,7 @@ import { toast } from "sonner";
 type Golden = Database["public"]["Tables"]["search_golden_queries"]["Row"];
 type Run = Database["public"]["Tables"]["search_benchmark_runs"]["Row"];
 type BenchmarkResult = Database["public"]["Tables"]["search_benchmark_results"]["Row"];
+type CompetitorResult = Database["public"]["Tables"]["search_benchmark_competitors"]["Row"];
 type TopResult = {
   id?: string | null;
   title?: string | null;
@@ -21,6 +22,9 @@ type ResultRow = Omit<BenchmarkResult, "top_results" | "scores" | "raw_meta"> & 
   top_results: TopResult[];
   scores: Record<string, number>;
   raw_meta: Json;
+};
+type CompetitorRow = Omit<CompetitorResult, "top_results"> & {
+  top_results: TopResult[];
 };
 
 function pct(n: number | null | undefined) {
@@ -89,6 +93,13 @@ function toResultRow(row: BenchmarkResult): ResultRow {
     ...row,
     top_results: asTopResults(row.top_results),
     scores: asScoreMap(row.scores),
+  };
+}
+
+function toCompetitorRow(row: CompetitorResult): CompetitorRow {
+  return {
+    ...row,
+    top_results: asTopResults(row.top_results),
   };
 }
 
@@ -706,12 +717,12 @@ function CompetitorSection({ goldens }: { goldens: Golden[] }) {
   const [goldenId, setGoldenId] = useState<string>("");
   const [source, setSource] = useState<string>("spotify");
   const [pasted, setPasted] = useState("");
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<CompetitorRow[]>([]);
 
   async function load() {
     if (!goldenId) return setRows([]);
     const { data } = await supabase.from("search_benchmark_competitors").select("*").eq("golden_id", goldenId).order("collected_at", { ascending: false });
-    setRows(data || []);
+    setRows((data || []).map(toCompetitorRow));
   }
   useEffect(() => { load(); }, [goldenId]);
 
@@ -754,7 +765,7 @@ function CompetitorSection({ goldens }: { goldens: Golden[] }) {
           <div key={r.id} className="rounded-md border border-border p-3 text-sm">
             <div className="font-medium">{r.source} · {new Date(r.collected_at).toLocaleString()}</div>
             <ol className="list-decimal pl-5 mt-1 text-xs text-muted-foreground">
-              {(r.top_results || []).map((t: any, i: number) => <li key={i}>{t.title}</li>)}
+              {r.top_results.map((t, i) => <li key={i}>{t.title}</li>)}
             </ol>
           </div>
         ))}
