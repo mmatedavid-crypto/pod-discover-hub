@@ -123,7 +123,7 @@ export default function AdminRedditBotPage() {
   };
 
   const refreshIndex = async () => {
-    const { error } = await (supabase as any).rpc("refresh_reddit_name_index");
+    const { error } = await supabase.rpc("refresh_reddit_name_index");
     if (error) toast({ title: "Refresh hiba", description: error.message, variant: "destructive" });
     else { toast({ title: "Név-index frissítve" }); load(); }
   };

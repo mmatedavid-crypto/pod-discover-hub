@@ -130,7 +130,7 @@ export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; l
           .select("id,title,display_title,topics,people,mentioned,companies,podcasts!inner(title,display_title,category)")
           .eq("id", episodeId)
           .maybeSingle(),
-        supabase.rpc("get_related_episodes_by_embedding" as any, {
+        supabase.rpc("get_related_episodes_by_embedding", {
           p_episode_id: episodeId,
           p_limit: limit,
           p_downweight_same_podcast: true,

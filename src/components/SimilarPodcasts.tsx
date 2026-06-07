@@ -22,7 +22,7 @@ export function SimilarPodcasts({ podcastId, limit = 8 }: { podcastId: string; l
     let cancelled = false;
     setLoading(true);
     supabase
-      .rpc("get_similar_podcasts_by_embedding" as any, { p_podcast_id: podcastId, p_limit: limit })
+      .rpc("get_similar_podcasts_by_embedding", { p_podcast_id: podcastId, p_limit: limit })
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error || !Array.isArray(data)) setItems([]);

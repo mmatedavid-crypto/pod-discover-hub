@@ -50,7 +50,7 @@ export default function PageViewTracker() {
       const dwell = Date.now() - enterTime.current;
       if (dwell < 500 || dwell > 24 * 3600 * 1000) return;
       try {
-        (supabase as any).rpc("update_page_event_dwell", { _id: id, _dwell_ms: dwell });
+        supabase.rpc("update_page_event_dwell", { _id: id, _dwell_ms: dwell });
       } catch { /* ignore */ }
     }
     const onHide = () => { if (document.visibilityState === "hidden") flush(); };
@@ -74,7 +74,7 @@ export default function PageViewTracker() {
       const prevDwell = Date.now() - enterTime.current;
       if (prevDwell >= 500 && prevDwell <= 24 * 3600 * 1000) {
         try {
-          (supabase as any).rpc("update_page_event_dwell", {
+          supabase.rpc("update_page_event_dwell", {
             _id: currentEventId.current,
             _dwell_ms: prevDwell,
           });

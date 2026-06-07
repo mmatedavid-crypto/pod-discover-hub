@@ -35,7 +35,7 @@ export default function AdminPersonQualityReviewPage() {
   const refreshActivation = async () => {
     if (!isAdmin) return;
     setRunning(true); setLog("Recompute activation…");
-    const { data, error } = await (supabase as any).rpc("refresh_person_activation_status");
+    const { data, error } = await supabase.rpc("refresh_person_activation_status");
     setLog(error ? String(error.message) : JSON.stringify(data, null, 2));
     setRunning(false); load();
   };
