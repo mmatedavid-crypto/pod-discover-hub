@@ -730,6 +730,17 @@ describe("page consistency static guards", () => {
     const benchmark = read("src/pages/AdminSearchBenchmarkPage.tsx");
     const supabaseTypes = read("src/integrations/supabase/types.ts");
 
+    expect(benchmark).toContain('import type { Database, Json } from "@/integrations/supabase/types"');
+    expect(benchmark).toContain('type Golden = Database["public"]["Tables"]["search_golden_queries"]["Row"]');
+    expect(benchmark).toContain('type Run = Database["public"]["Tables"]["search_benchmark_runs"]["Row"]');
+    expect(benchmark).toContain('type BenchmarkResult = Database["public"]["Tables"]["search_benchmark_results"]["Row"]');
+    expect(benchmark).toContain("function toResultRow(row: BenchmarkResult): ResultRow");
+    expect(benchmark).not.toContain("type Golden = {");
+    expect(benchmark).not.toContain("type Run = {");
+    expect(benchmark).not.toContain("top_results: any[]");
+    expect(benchmark).not.toContain("(r.data[0] as any).id");
+    expect(benchmark).not.toContain("(runIns as any).id");
+    expect(benchmark).not.toContain("(r as any).false_positive_rate");
     expect(supabaseTypes).toContain("refresh_search_golden_queries_from_catalog");
     expect(supabaseTypes).toContain("refresh_search_golden_queries_from_external_demand");
     expect(benchmark).toContain('supabase.rpc("refresh_search_golden_queries_from_catalog"');

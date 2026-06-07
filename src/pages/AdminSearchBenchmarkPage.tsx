@@ -2,62 +2,25 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database, Json } from "@/integrations/supabase/types";
 import { useNoindex } from "@/lib/useNoindex";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
-type Golden = {
-  id: string;
-  query: string;
-  query_type: string;
-  expected_intent: string | null;
-  expected_podcast_slug: string | null;
-  expected_entity: string | null;
-  must_include: any;
-  must_exclude: any;
-  notes: string | null;
-  active: boolean;
+type Golden = Database["public"]["Tables"]["search_golden_queries"]["Row"];
+type Run = Database["public"]["Tables"]["search_benchmark_runs"]["Row"];
+type BenchmarkResult = Database["public"]["Tables"]["search_benchmark_results"]["Row"];
+type TopResult = {
+  id?: string | null;
+  title?: string | null;
+  podcast_title?: string | null;
+  podcast_slug?: string | null;
+  why_matched?: string | null;
 };
-
-type Run = {
-  id: string;
-  label: string | null;
-  created_at: string;
-  query_count: number;
-  precision_at_3: number | null;
-  precision_at_5: number | null;
-  ndcg_at_10: number | null;
-  mrr: number | null;
-  zero_result_rate: number | null;
-  intent_accuracy: number | null;
-  latency_p50: number | null;
-  latency_p95: number | null;
-};
-
-type ResultRow = {
-  id: string;
-  run_id: string;
-  golden_id: string;
-  query: string;
-  detected_intent: string | null;
-  confidence_band: string | null;
-  used_vector: boolean | null;
-  used_cohere: boolean | null;
-  used_hyde: boolean | null;
-  used_podcast_pin: boolean | null;
-  used_must_gate: boolean | null;
-  used_fallback: boolean | null;
-  latency_ms: number | null;
-  result_count: number;
-  top_results: any[];
-  raw_meta: any;
+type ResultRow = Omit<BenchmarkResult, "top_results" | "scores" | "raw_meta"> & {
+  top_results: TopResult[];
   scores: Record<string, number>;
-  precision_at_3: number | null;
-  precision_at_5: number | null;
-  ndcg_at_10: number | null;
-  reciprocal_rank: number | null;
-  intent_correct: boolean | null;
-  notes: string | null;
+  raw_meta: Json;
 };
 
 function pct(n: number | null | undefined) {
@@ -80,7 +43,7 @@ function ndcg(scores: number[], k = 10) {
   return dcg(top) / idcg;
 }
 
-function computeMetrics(top: any[], scores: Record<string, number>) {
+function computeMetrics(top: TopResult[], scores: Record<string, number>) {
   // score >=2 considered relevant
   const arr = top.map((_, i) => scores[String(i)] ?? null);
   const filled = arr.map((v) => (v == null ? 0 : v));
@@ -93,10 +56,40 @@ function computeMetrics(top: any[], scores: Record<string, number>) {
   return { p3, p5, ndcg: ng, rr };
 }
 
-function asStringArray(value: any): string[] {
+function asStringArray(value: Json): string[] {
   return Array.isArray(value)
     ? value.map((v) => String(v || "").trim()).filter(Boolean)
     : [];
+}
+
+function asScoreMap(value: Json): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, raw]) => [key, Number(raw)])
+      .filter(([, score]) => Number.isFinite(score)),
+  );
+}
+
+function asTopResults(value: Json): TopResult[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, Json> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : null,
+      title: typeof item.title === "string" ? item.title : null,
+      podcast_title: typeof item.podcast_title === "string" ? item.podcast_title : null,
+      podcast_slug: typeof item.podcast_slug === "string" ? item.podcast_slug : null,
+      why_matched: typeof item.why_matched === "string" ? item.why_matched : null,
+    }));
+}
+
+function toResultRow(row: BenchmarkResult): ResultRow {
+  return {
+    ...row,
+    top_results: asTopResults(row.top_results),
+    scores: asScoreMap(row.scores),
+  };
 }
 
 function foldForMatch(value: string) {
@@ -108,7 +101,7 @@ function foldForMatch(value: string) {
     .trim();
 }
 
-function autoScoreTopResults(g: Golden, top: any[]): Record<string, number> {
+function autoScoreTopResults(g: Golden, top: TopResult[]): Record<string, number> {
   const expectedEntity = foldForMatch(g.expected_entity || "");
   const mustInclude = asStringArray(g.must_include).map(foldForMatch);
   const mustExclude = asStringArray(g.must_exclude).map(foldForMatch);
@@ -172,10 +165,10 @@ export default function AdminSearchBenchmarkPage() {
       supabase.from("search_golden_queries").select("*").eq("active", true).order("query_type").order("sort_order").order("query").limit(500),
       supabase.from("search_benchmark_runs").select("*").order("created_at", { ascending: false }).limit(50),
     ]);
-    setGoldens((g.data as Golden[]) || []);
-    setRuns((r.data as Run[]) || []);
+    setGoldens(g.data || []);
+    setRuns(r.data || []);
     if (!activeRunId && r.data && r.data.length) {
-      const id = (r.data[0] as any).id as string;
+      const id = r.data[0].id;
       setActiveRunId(id);
       await loadResults(id);
     }
@@ -187,7 +180,7 @@ export default function AdminSearchBenchmarkPage() {
       .select("*")
       .eq("run_id", runId)
       .order("query");
-    setResults((data as ResultRow[]) || []);
+    setResults((data || []).map(toResultRow));
   }
 
   async function refreshGoldensFromCatalog() {
@@ -229,7 +222,7 @@ export default function AdminSearchBenchmarkPage() {
       setRunning(false);
       return;
     }
-    const runId = (runIns as any).id as string;
+    const runId = runIns.id;
     setActiveRunId(runId);
 
     // Quality-first: low concurrency to avoid edge-fn overload, direct fetch with long
@@ -298,8 +291,16 @@ export default function AdminSearchBenchmarkPage() {
           const { data } = await callWithRetry(g.query);
           const latency = Math.round(performance.now() - t0);
           latencies.push(latency);
-          const eps = (data?.episodes || []) as any[];
-          const top = eps.slice(0, 10).map((e: any) => ({
+          const eps = Array.isArray(data?.episodes) ? data.episodes : [];
+          const top: TopResult[] = eps.slice(0, 10).map((e: {
+            id?: string | null;
+            title?: string | null;
+            display_title?: string | null;
+            podcasts?: { title?: string | null; slug?: string | null } | null;
+            podcast_title?: string | null;
+            podcast_slug?: string | null;
+            why_matched?: string | null;
+          }) => ({
             id: e.id,
             title: e.title || e.display_title || "",
             podcast_title: e.podcasts?.title || e.podcast_title || "",
@@ -428,7 +429,7 @@ export default function AdminSearchBenchmarkPage() {
     // false positive in top 5 = score 0 in top 5 of any scored result, averaged
     const fp = scored.reduce((s, r) => {
       const top5 = (r.top_results || []).slice(0, 5);
-      const bad = top5.filter((_: any, i: number) => (r.scores[String(i)] ?? 0) === 0).length;
+      const bad = top5.filter((_, i) => (r.scores[String(i)] ?? 0) === 0).length;
       return s + bad / Math.max(1, top5.length);
     }, 0) / Math.max(1, scored.length);
     await supabase.from("search_benchmark_runs").update({
@@ -550,7 +551,7 @@ export default function AdminSearchBenchmarkPage() {
                         <td className="px-3 py-2 text-right">{num(r.mrr)}</td>
                         <td className="px-3 py-2 text-right">{pct(r.intent_accuracy)}</td>
                         <td className="px-3 py-2 text-right">{pct(r.zero_result_rate)}</td>
-                        <td className="px-3 py-2 text-right">{pct((r as any).false_positive_rate)}</td>
+                        <td className="px-3 py-2 text-right">{pct(r.false_positive_rate)}</td>
                         <td className="px-3 py-2 text-right">{r.latency_p50 ? `${Math.round(r.latency_p50)}ms` : "—"}</td>
                         <td className="px-3 py-2 text-right">{r.latency_p95 ? `${Math.round(r.latency_p95)}ms` : "—"}</td>
                         <td className="px-3 py-2 text-right">
@@ -671,7 +672,7 @@ function ResultScorer({ r, golden, onScore }: { r: ResultRow; golden?: Golden; o
       {r.top_results.length === 0 && <div className="text-sm text-muted-foreground italic">Zero results.</div>}
 
       <ol className="space-y-2">
-        {r.top_results.map((ep: any, i: number) => {
+        {r.top_results.map((ep, i) => {
           const s = r.scores?.[String(i)];
           return (
             <li key={i} className="rounded-md border border-border p-3 flex items-start gap-3">
