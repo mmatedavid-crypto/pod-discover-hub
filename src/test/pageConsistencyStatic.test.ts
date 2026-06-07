@@ -665,6 +665,9 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain("function sanitizeSearchWhy(reason: unknown)");
     expect(searchPage).toContain("const safeWhy = sanitizeSearchWhy(e.why_matched)");
     expect(searchPage).toContain("why_matched: safeWhy");
+    expect(searchPage).toContain("const [timestampMatchCount, setTimestampMatchCount] = useState(0)");
+    expect(searchPage).toContain("Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))");
+    expect(searchPage).toContain("időpontos találat");
   });
 
   it("keeps the search AI overview Hungarian, guarded, and user-facing", () => {

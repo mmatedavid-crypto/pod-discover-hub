@@ -128,6 +128,7 @@ export default function SearchPage() {
   const [heroOrganization, setHeroOrganization] = useState<any | null>(null);
   const [heroTopic, setHeroTopic] = useState<any | null>(null);
   const [degradedSearch, setDegradedSearch] = useState<"timeout" | "fallback" | null>(null);
+  const [timestampMatchCount, setTimestampMatchCount] = useState(0);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
 
@@ -191,6 +192,7 @@ export default function SearchPage() {
     setHeroOrganization(null);
     setHeroTopic(null);
     setDegradedSearch(null);
+    setTimestampMatchCount(0);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     pushRecentSearch(initial);
@@ -216,6 +218,7 @@ export default function SearchPage() {
           const safeWhy = sanitizeSearchWhy(e.why_matched);
           return { ...e, matchBadge: safeWhy ? null : "Kulcsszavas találat", why_matched: safeWhy };
         });
+        setTimestampMatchCount(next.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length);
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
         return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked };
       };
@@ -299,6 +302,7 @@ export default function SearchPage() {
         semantic = result.semanticUsed;
         usedFallback = result.fallbackUsed || usedFallback;
         setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
+        setTimestampMatchCount(0);
         setEpisodes(mapped);
         setSemanticUsed(semantic);
         setLoading(false);
@@ -747,6 +751,11 @@ export default function SearchPage() {
                   {semanticUsed && (
                     <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
                       kapcsolódó ötletekkel
+                    </span>
+                  )}
+                  {timestampMatchCount > 0 && (
+                    <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary">
+                      {timestampMatchCount} időpontos találat
                     </span>
                   )}
                   {broadened && !semanticUsed && (
