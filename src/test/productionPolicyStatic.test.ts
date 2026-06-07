@@ -1200,6 +1200,9 @@ describe("production policy static guards", () => {
     const migration = read("supabase/migrations/20260607094500_spotify_transcript_runner_controls.sql");
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
+    const adminPage = read("src/pages/AdminSpotifyTranscriptPage.tsx");
+    const app = read("src/App.tsx");
+    const adminHub = read("src/pages/AdminHubPage.tsx");
 
     expect(runner).toContain('const SPOTIFY_MODEL = "spotify-native"');
     expect(runner).toContain("spotify_transcript_controls");
@@ -1234,6 +1237,20 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("spotify_transcript_pipeline");
     expect(reporter).toContain("spotify-transcript-runner");
     expect(reporter).toContain("20260607094500_spotify_transcript_runner_controls.sql");
+
+    expect(app).toContain("AdminSpotifyTranscriptPage");
+    expect(app).toContain('path="/admin/spotify-transcripts"');
+    expect(adminHub).toContain("/admin/spotify-transcripts");
+    expect(adminPage).toContain("spotify_transcript_controls");
+    expect(adminPage).toContain("spotify_transcript_state");
+    expect(adminPage).toContain("spotify_transcript_progress");
+    expect(adminPage).toContain('supabase.functions.invoke("spotify-transcript-runner"');
+    expect(adminPage).toContain("public_display: false");
+    expect(adminPage).toContain("rights_status");
+    expect(adminPage).toContain("batch_size");
+    expect(adminPage).toContain("daily_cap");
+    expect(adminPage).toContain("delay_ms");
+    expect(adminPage).toContain("Pilot 1");
   });
 
   it("keeps public AI text Hungarian-only at the edge and database layer", () => {
