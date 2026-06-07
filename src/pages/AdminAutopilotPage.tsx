@@ -62,7 +62,7 @@ export default function AdminAutopilotPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { nav("/auth"); return; }
-      const { data: hasAdmin } = await (supabase as any).rpc("has_role", { _user_id: user.id, _role: "admin" });
+      const { data: hasAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
       const ok = hasAdmin === true || user.id === TEMP_ADMIN_USER_ID;
       setAllowed(ok);
       setReady(true);

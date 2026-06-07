@@ -72,7 +72,7 @@ export default function AdminRedditBotPage() {
       const { data: s } = await supabase.auth.getSession();
       const uid = s.session?.user.id;
       if (!uid) { nav("/auth"); return; }
-      const { data: hasAdmin } = await (supabase as any).rpc("has_role", { _user_id: uid, _role: "admin" });
+      const { data: hasAdmin } = await supabase.rpc("has_role", { _user_id: uid, _role: "admin" });
       const admin = hasAdmin === true || uid === TEMP_ADMIN_USER_ID;
       setIsAdmin(admin);
       setReady(true);

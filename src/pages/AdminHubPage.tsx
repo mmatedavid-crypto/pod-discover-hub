@@ -56,7 +56,7 @@ export default function AdminHubPage() {
       const uid = data.session?.user.id;
       if (!uid) { nav("/auth"); return; }
       setUserId(uid);
-      const { data: hasAdmin } = await (supabase as any).rpc("has_role", { _user_id: uid, _role: "admin" });
+      const { data: hasAdmin } = await supabase.rpc("has_role", { _user_id: uid, _role: "admin" });
       const admin = hasAdmin === true;
       setIsAdmin(admin);
       setReady(true);

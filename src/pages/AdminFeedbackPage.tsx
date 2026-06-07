@@ -38,7 +38,7 @@ export default function AdminFeedbackPage() {
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user.id;
       if (!uid) { nav("/auth"); return; }
-      const { data: hasAdmin } = await (supabase as any).rpc("has_role", { _user_id: uid, _role: "admin" });
+      const { data: hasAdmin } = await supabase.rpc("has_role", { _user_id: uid, _role: "admin" });
       setIsAdmin(hasAdmin === true);
       if (hasAdmin === true) await refresh();
       setReady(true);

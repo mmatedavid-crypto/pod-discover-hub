@@ -62,7 +62,7 @@ export default function AdminLanguageGatePage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate("/auth?next=/admin/language-gate"); return; }
-      const { data: hasAdmin } = await (supabase as any).rpc("has_role", { _user_id: user.id, _role: "admin" });
+      const { data: hasAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
       if (!hasAdmin) { setIsAdmin(false); return; }
       setIsAdmin(true);
       await loadAll();

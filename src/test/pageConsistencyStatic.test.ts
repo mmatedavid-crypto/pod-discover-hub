@@ -1,8 +1,12 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
+const adminPagePaths = () =>
+  readdirSync(`${root}/src/pages`)
+    .filter((file) => file.startsWith("Admin") && file.endsWith(".tsx"))
+    .map((file) => `src/pages/${file}`);
 
 describe("page consistency static guards", () => {
   it("keeps heavyweight public pages out of the global app shell", () => {
@@ -684,6 +688,13 @@ describe("page consistency static guards", () => {
     expect(adminInsights).toContain("type Row = Pick<SearchEvent");
     expect(adminInsights).toContain('await supabase.rpc("has_role"');
     expect(adminInsights).not.toContain('(supabase as any).rpc("has_role"');
+  });
+
+  it("keeps admin has_role checks on generated Supabase RPC types", () => {
+    for (const path of adminPagePaths()) {
+      const source = read(path);
+      expect(source, path).not.toContain('(supabase as any).rpc("has_role"');
+    }
   });
 
   it("keeps the search AI overview Hungarian, guarded, and user-facing", () => {

@@ -157,7 +157,7 @@ export default function AdminSearchBenchmarkPage() {
         nav("/auth");
         return;
       }
-      const { data: hasAdmin } = await (supabase as any).rpc("has_role", { _user_id: uid, _role: "admin" });
+      const { data: hasAdmin } = await supabase.rpc("has_role", { _user_id: uid, _role: "admin" });
       setIsAdmin(hasAdmin === true);
       if (hasAdmin === true) {
         await refreshAll();
