@@ -289,7 +289,8 @@ function countPreflightChecksForMigration(relPath) {
   const sql = fs.readFileSync(file, "utf8");
   const returnsTableMatches = sql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.[a-zA-Z0-9_]+\s*\([\s\S]*?\)\s*RETURNS\s+TABLE\s*\(/gi) || [];
   const insertColumnMatches = sql.match(/INSERT\s+INTO\s+public\.[a-zA-Z0-9_]+\s*\([\s\S]*?\)\s*(?:VALUES|SELECT|WITH)/gi) || [];
-  return returnsTableMatches.length + insertColumnMatches.length;
+  const customChecks = relPath.endsWith("20260608001000_search_timestamp_match_telemetry.sql") ? 1 : 0;
+  return returnsTableMatches.length + insertColumnMatches.length + customChecks;
 }
 
 function makePreflightEvidence(plan) {

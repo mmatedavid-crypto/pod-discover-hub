@@ -648,6 +648,22 @@ SELECT jsonb_build_object(
       AND has_function_privilege('service_role', 'public.smart_player_discover(uuid, integer)', 'EXECUTE')
     )
   ),
+  'search_quality_benchmark', jsonb_build_object(
+    'timestamp_match_telemetry_column_exists', EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'search_events'
+        AND column_name = 'timestamp_match_count'
+    ),
+    'chunk_augmented_telemetry_column_exists', EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'search_events'
+        AND column_name = 'chunk_augmented_count'
+    )
+  ),
   'accepted_hu_episodes_with_description', (SELECT count(*) FROM accepted_hu),
   'clean_text', (SELECT to_jsonb(clean_counts) FROM clean_counts),
   'best_text_source', (SELECT to_jsonb(best_source_counts) FROM best_source_counts),
@@ -852,6 +868,11 @@ for (const [key, ok] of Object.entries(entityMonitoringBenchmark)) {
 const smartPlayerRecommendationSurface = snapshot.smart_player_recommendation_surface ?? {};
 for (const [key, ok] of Object.entries(smartPlayerRecommendationSurface)) {
   if (ok !== true) failures.push(`smart_player_recommendation_surface.${key}`);
+}
+
+const searchQualityBenchmark = snapshot.search_quality_benchmark ?? {};
+for (const [key, ok] of Object.entries(searchQualityBenchmark)) {
+  if (ok !== true) failures.push(`search_quality_benchmark.${key}`);
 }
 
 const clean = snapshot.clean_text ?? {};

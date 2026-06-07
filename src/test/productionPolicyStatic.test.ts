@@ -221,6 +221,8 @@ describe("production policy static guards", () => {
     const benchmarkRunner = read("supabase/functions/search-benchmark-runner/index.ts");
     const searchPage = read("src/pages/SearchPage.tsx");
     const adminInsights = read("src/pages/AdminSearchInsightsPage.tsx");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
 
     expect(migration).toContain("search_golden_refresh_controls");
     expect(migration).toContain("search_benchmark_controls");
@@ -235,6 +237,11 @@ describe("production policy static guards", () => {
     expect(searchPage).toContain("chunk_augmented_count:");
     expect(adminInsights).toContain("Timestamped searches");
     expect(adminInsights).toContain("Timestamp / chunk retrieval queries");
+    expect(verifier).toContain("search_quality_benchmark");
+    expect(verifier).toContain("timestamp_match_telemetry_column_exists");
+    expect(verifier).toContain("chunk_augmented_telemetry_column_exists");
+    expect(reporter).toContain("20260608001000_search_timestamp_match_telemetry.sql");
+    expect(reporter).toContain('endsWith("20260608001000_search_timestamp_match_telemetry.sql") ? 1 : 0');
 
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_catalog");
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_external_demand");
