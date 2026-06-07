@@ -5,6 +5,8 @@ type ImageOptions = {
 };
 
 const APPLE_ARTWORK_RX = /\/(\d+)x(\d+)(bb|bf|cc)?\.(jpg|jpeg|png|webp)(\?.*)?$/i;
+const SIMPLECAST_SIZE_RX = /\/\d+x\d+\//i;
+const SOUNDCLOUD_SIZE_RX = /-(original|t500x500|t300x300|large|crop|badge)\.(jpg|jpeg|png|webp)$/i;
 
 export function optimizedImageUrl(src?: string | null, opts: ImageOptions = {}) {
   if (!src) return null;
@@ -32,6 +34,36 @@ export function optimizedImageUrl(src?: string | null, opts: ImageOptions = {}) 
 
     if (url.hostname.includes("ytimg.com")) {
       url.pathname = url.pathname.replace(/\/(maxresdefault|sddefault|hqdefault)\.jpg$/i, "/mqdefault.jpg");
+      return url.toString();
+    }
+
+    if (url.hostname.includes("sndcdn.com")) {
+      const soundCloudSize = width <= 160 ? "t300x300" : "t500x500";
+      url.pathname = url.pathname.replace(SOUNDCLOUD_SIZE_RX, `-${soundCloudSize}.$2`);
+      return url.toString();
+    }
+
+    if (url.hostname.endsWith(".imgix.net") || url.hostname === "megaphone.imgix.net") {
+      url.searchParams.delete("max-w");
+      url.searchParams.delete("max-h");
+      url.searchParams.set("w", String(width));
+      url.searchParams.set("h", String(height));
+      url.searchParams.set("fit", "crop");
+      url.searchParams.set("auto", "format,compress");
+      url.searchParams.set("q", String(quality));
+      return url.toString();
+    }
+
+    if (url.hostname === "image.simplecastcdn.com" && SIMPLECAST_SIZE_RX.test(url.pathname)) {
+      url.pathname = url.pathname.replace(SIMPLECAST_SIZE_RX, `/${width}x${height}/`);
+      return url.toString();
+    }
+
+    if (url.hostname === "img.transistorcdn.com") {
+      url.pathname = url.pathname
+        .replace(/\/w:\d+\//i, `/w:${width}/`)
+        .replace(/\/h:\d+\//i, `/h:${height}/`)
+        .replace(/\/q:\d+\//i, `/q:${quality}/`);
       return url.toString();
     }
 

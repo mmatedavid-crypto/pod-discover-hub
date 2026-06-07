@@ -41,6 +41,32 @@ describe("episode thumbnail loading policy", () => {
     );
   });
 
+  it("downsizes major podcast CDN thumbnails instead of loading original artwork", () => {
+    const image = read("src/lib/image.ts");
+    const soundcloud = "http://i1.sndcdn.com/avatars-000204653867-hrztkz-original.jpg";
+    const megaphone = "https://megaphone.imgix.net/podcasts/00126bac-1147-11ef-9b57-4bde938efee0/image/art.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress";
+    const simplecast = "https://image.simplecastcdn.com/images/a/b/3000x3000/show.jpg?aid=rss_feed";
+    const transistor = "https://img.transistorcdn.com/key/rs:fill:0:0:1/w:1400/h:1400/q:60/mb:500000/source.jpg";
+
+    expect(image).toContain('url.hostname.includes("sndcdn.com")');
+    expect(image).toContain('url.hostname.endsWith(".imgix.net")');
+    expect(image).toContain('url.hostname === "image.simplecastcdn.com"');
+    expect(image).toContain('url.hostname === "img.transistorcdn.com"');
+
+    expect(optimizedImageUrl(soundcloud, { width: 96, height: 96 })).toBe(
+      "http://i1.sndcdn.com/avatars-000204653867-hrztkz-t300x300.jpg",
+    );
+    expect(optimizedImageUrl(megaphone, { width: 96, height: 96 })).toBe(
+      "https://megaphone.imgix.net/podcasts/00126bac-1147-11ef-9b57-4bde938efee0/image/art.jpg?ixlib=rails-4.3.1&fit=crop&auto=format%2Ccompress&w=96&h=96&q=78",
+    );
+    expect(optimizedImageUrl(simplecast, { width: 96, height: 96 })).toBe(
+      "https://image.simplecastcdn.com/images/a/b/96x96/show.jpg?aid=rss_feed",
+    );
+    expect(optimizedImageUrl(transistor, { width: 96, height: 96 })).toBe(
+      "https://img.transistorcdn.com/key/rs:fill:0:0:1/w:96/h:96/q:78/mb:500000/source.jpg",
+    );
+  });
+
   it("uses episode thumbnails before podcast fallback in shared episode cards", () => {
     const card = read("src/components/EpisodeCard.tsx");
 
