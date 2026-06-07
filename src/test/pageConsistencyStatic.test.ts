@@ -667,6 +667,8 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain("why_matched: safeWhy");
     expect(searchPage).toContain("const [timestampMatchCount, setTimestampMatchCount] = useState(0)");
     expect(searchPage).toContain("Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))");
+    expect(searchPage).toContain("timestamp_match_count:");
+    expect(searchPage).toContain("chunk_augmented_count:");
     expect(searchPage).toContain("időpontos találat");
   });
 

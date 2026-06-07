@@ -101,9 +101,12 @@ const GROUPS = {
   },
   search_quality_benchmark: {
     label: "Weekly search quality benchmark",
-    migrations: ["supabase/migrations/20260605001000_search_quality_weekly_automation.sql"],
+    migrations: [
+      "supabase/migrations/20260605001000_search_quality_weekly_automation.sql",
+      "supabase/migrations/20260608001000_search_timestamp_match_telemetry.sql",
+    ],
     functions: ["search-golden-refresh", "search-benchmark-runner"],
-    why: "Golden lista hetente frissül katalógus/demand/toplista jelekből, majd batchelt benchmark méri a kereső minőségét.",
+    why: "Golden lista hetente frissül katalógus/demand/toplista jelekből, majd batchelt benchmark és timestampes chunk telemetry méri a kereső minőségét.",
   },
   entity_monitoring_benchmark: {
     label: "Entity monitoring benchmark",

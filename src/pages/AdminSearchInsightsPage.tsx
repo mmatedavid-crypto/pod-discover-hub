@@ -10,6 +10,8 @@ type Row = {
   terms_count: number;
   result_count: number;
   fallback_used: boolean;
+  timestamp_match_count: number | null;
+  chunk_augmented_count: number | null;
   confidence_band: "high" | "medium" | "low" | null;
   semantic_used: boolean | null;
   reranked: boolean | null;
@@ -45,7 +47,7 @@ export default function AdminSearchInsightsPage() {
         const since = new Date(Date.now() - windowDays * 86400_000).toISOString();
         const { data: r } = await (supabase as any)
           .from("search_events")
-          .select("id,query,terms_count,result_count,fallback_used,confidence_band,semantic_used,reranked,podcast_pin_slug,person_pin_slug,organization_pin_slug,topic_pin_slug,catalog_anchors,anchor_episode_candidates,natural_question,natural_question_fallback,degraded_for_latency,timing,created_at")
+          .select("id,query,terms_count,result_count,fallback_used,timestamp_match_count,chunk_augmented_count,confidence_band,semantic_used,reranked,podcast_pin_slug,person_pin_slug,organization_pin_slug,topic_pin_slug,catalog_anchors,anchor_episode_candidates,natural_question,natural_question_fallback,degraded_for_latency,timing,created_at")
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5000);
@@ -64,6 +66,10 @@ export default function AdminSearchInsightsPage() {
     const degraded = rows.filter((r) => r.degraded_for_latency).length;
     const natural = rows.filter((r) => r.natural_question).length;
     const nlqFallback = rows.filter((r) => r.natural_question_fallback).length;
+    const timestamped = rows.filter((r) => Number(r.timestamp_match_count || 0) > 0).length;
+    const timestampedResults = rows.reduce((sum, r) => sum + Number(r.timestamp_match_count || 0), 0);
+    const chunkAugmented = rows.filter((r) => Number(r.chunk_augmented_count || 0) > 0).length;
+    const chunkAugmentedResults = rows.reduce((sum, r) => sum + Number(r.chunk_augmented_count || 0), 0);
     const pins = {
       podcast: rows.filter((r) => r.podcast_pin_slug).length,
       person: rows.filter((r) => r.person_pin_slug).length,
@@ -71,10 +77,10 @@ export default function AdminSearchInsightsPage() {
       topic: rows.filter((r) => r.topic_pin_slug).length,
     };
 
-    const byQuery = new Map<string, { q: string; n: number; zero: number; avg: number; fallback: number; low: number; pin: number; nlq: number; degraded: number }>();
+    const byQuery = new Map<string, { q: string; n: number; zero: number; avg: number; fallback: number; low: number; pin: number; nlq: number; degraded: number; timestamped: number; chunkAugmented: number }>();
     rows.forEach((r) => {
       const k = r.query.trim().toLowerCase();
-      const cur = byQuery.get(k) || { q: r.query, n: 0, zero: 0, avg: 0, fallback: 0, low: 0, pin: 0, nlq: 0, degraded: 0 };
+      const cur = byQuery.get(k) || { q: r.query, n: 0, zero: 0, avg: 0, fallback: 0, low: 0, pin: 0, nlq: 0, degraded: 0, timestamped: 0, chunkAugmented: 0 };
       cur.n++;
       cur.avg += r.result_count;
       if (r.result_count === 0) cur.zero++;
@@ -83,6 +89,8 @@ export default function AdminSearchInsightsPage() {
       if (r.podcast_pin_slug || r.person_pin_slug || r.organization_pin_slug || r.topic_pin_slug) cur.pin++;
       if (r.natural_question) cur.nlq++;
       if (r.degraded_for_latency) cur.degraded++;
+      cur.timestamped += Number(r.timestamp_match_count || 0);
+      cur.chunkAugmented += Number(r.chunk_augmented_count || 0);
       byQuery.set(k, cur);
     });
     const top = Array.from(byQuery.values()).map((x) => ({ ...x, avg: x.avg / x.n })).sort((a, b) => b.n - a.n);
@@ -91,7 +99,8 @@ export default function AdminSearchInsightsPage() {
     const aliasCandidates = top
       .filter((x) => x.n >= 1 && x.pin === 0 && (x.zero > 0 || x.low > 0 || x.avg < 3))
       .slice(0, 50);
-    return { total, zero, fallback, avg, low, degraded, natural, nlqFallback, pins, top, zeroQueries, weakQueries, aliasCandidates };
+    const timestampQueries = top.filter((x) => x.timestamped > 0 || x.chunkAugmented > 0).sort((a, b) => (b.timestamped + b.chunkAugmented) - (a.timestamped + a.chunkAugmented));
+    return { total, zero, fallback, avg, low, degraded, natural, nlqFallback, timestamped, timestampedResults, chunkAugmented, chunkAugmentedResults, pins, top, zeroQueries, weakQueries, aliasCandidates, timestampQueries };
   }, [rows]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -120,6 +129,10 @@ export default function AdminSearchInsightsPage() {
           <Stat label="Latency degraded" value={`${stats.degraded} (${pct(stats.degraded, stats.total)}%)`} />
           <Stat label="Natural questions" value={`${stats.natural} (${pct(stats.natural, stats.total)}%)`} />
           <Stat label="NLQ fallback" value={`${stats.nlqFallback} (${pct(stats.nlqFallback, Math.max(stats.natural, 1))}%)`} />
+          <Stat label="Timestamped searches" value={`${stats.timestamped} (${pct(stats.timestamped, stats.total)}%)`} />
+          <Stat label="Timestamp hits" value={String(stats.timestampedResults)} />
+          <Stat label="Chunk-augmented" value={`${stats.chunkAugmented} (${pct(stats.chunkAugmented, stats.total)}%)`} />
+          <Stat label="Chunk added hits" value={String(stats.chunkAugmentedResults)} />
         </div>
 
         <section>
@@ -156,6 +169,15 @@ export default function AdminSearchInsightsPage() {
         </section>
 
         <section>
+          <h2 className="font-semibold mb-2">Timestamp / chunk retrieval queries</h2>
+          {stats.timestampQueries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No timestamped chunk retrieval in this window yet.</p>
+          ) : (
+            <Table rows={stats.timestampQueries.slice(0, 50)} />
+          )}
+        </section>
+
+        <section>
           <h2 className="font-semibold mb-2">Likely missing aliases / anchors</h2>
           {stats.aliasCandidates.length === 0 ? (
             <p className="text-sm text-muted-foreground">No obvious alias gaps in this window.</p>
@@ -179,7 +201,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Table({ rows }: { rows: { q: string; n: number; zero: number; avg: number; fallback: number; low?: number; pin?: number; nlq?: number; degraded?: number }[] }) {
+function Table({ rows }: { rows: { q: string; n: number; zero: number; avg: number; fallback: number; low?: number; pin?: number; nlq?: number; degraded?: number; timestamped?: number; chunkAugmented?: number }[] }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
@@ -194,6 +216,8 @@ function Table({ rows }: { rows: { q: string; n: number; zero: number; avg: numb
             <th className="text-right px-3 py-2">Pins</th>
             <th className="text-right px-3 py-2">NLQ</th>
             <th className="text-right px-3 py-2">Degraded</th>
+            <th className="text-right px-3 py-2">Time hits</th>
+            <th className="text-right px-3 py-2">Chunk add</th>
           </tr>
         </thead>
         <tbody>
@@ -208,6 +232,8 @@ function Table({ rows }: { rows: { q: string; n: number; zero: number; avg: numb
               <td className="px-3 py-2 text-right">{r.pin || 0}</td>
               <td className="px-3 py-2 text-right">{r.nlq || 0}</td>
               <td className="px-3 py-2 text-right">{r.degraded || 0}</td>
+              <td className="px-3 py-2 text-right">{r.timestamped || 0}</td>
+              <td className="px-3 py-2 text-right">{r.chunkAugmented || 0}</td>
             </tr>
           ))}
         </tbody>

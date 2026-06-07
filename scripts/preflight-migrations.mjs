@@ -134,6 +134,24 @@ const checked = [];
 for (const file of files) {
   const rel = path.relative(repoRoot, file);
   const sql = fs.readFileSync(file, "utf8");
+  if (rel.endsWith("20260608001000_search_timestamp_match_telemetry.sql")) {
+    checked.push({ type: "search_timestamp_match_telemetry_contract", file: rel });
+    const required = [
+      "ADD COLUMN IF NOT EXISTS timestamp_match_count integer NOT NULL DEFAULT 0",
+      "ADD COLUMN IF NOT EXISTS chunk_augmented_count integer NOT NULL DEFAULT 0",
+      "CREATE INDEX IF NOT EXISTS search_events_timestamp_matches_idx",
+      "search_events.timestamp_match_count telemetry column missing",
+      "search_events.chunk_augmented_count telemetry column missing",
+    ];
+    const missing = required.filter((needle) => !sql.includes(needle));
+    if (missing.length) {
+      findings.push({
+        file: rel,
+        issue: "search_timestamp_match_telemetry_contract_missing",
+        missing,
+      });
+    }
+  }
   const functions = parseCreateFunctions(sql);
   const insertColumns = parseInsertColumns(sql);
   for (const fn of functions) {

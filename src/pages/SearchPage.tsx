@@ -319,6 +319,8 @@ export default function SearchPage() {
           terms_count: terms.length,
           result_count: mapped.length,
           fallback_used: usedFallback,
+          timestamp_match_count: mapped.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length,
+          chunk_augmented_count: typeof searchDiagnostics?.chunk_augmented === "number" ? searchDiagnostics.chunk_augmented : 0,
           confidence_band: searchDiagnostics?.confidence_band || null,
           semantic_used: Boolean(searchDiagnostics?.semantic),
           reranked: Boolean(searchDiagnostics?.reranked),

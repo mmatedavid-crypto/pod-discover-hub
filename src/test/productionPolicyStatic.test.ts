@@ -163,6 +163,7 @@ describe("production policy static guards", () => {
       "20260606182358_4bcdca78-0c45-4572-85bc-cf911726cf14.sql",
       "20260606184000_reassert_smart_player_recommendation_surface_enabled_v2.sql",
       "20260605001000_search_quality_weekly_automation.sql",
+      "20260608001000_search_timestamp_match_telemetry.sql",
       "20260605220000_entity_monitoring_search_benchmark_policy.sql",
       "20260605223000_reassert_entity_monitoring_benchmark_goldens.sql",
       "20260606010000_expand_entity_monitoring_goldens_v2.sql",
@@ -215,8 +216,11 @@ describe("production policy static guards", () => {
 
   it("keeps search golden refresh and benchmark on a weekly automated quality loop", () => {
     const migration = read("supabase/migrations/20260605001000_search_quality_weekly_automation.sql");
+    const timestampTelemetry = read("supabase/migrations/20260608001000_search_timestamp_match_telemetry.sql");
     const goldenRunner = read("supabase/functions/search-golden-refresh/index.ts");
     const benchmarkRunner = read("supabase/functions/search-benchmark-runner/index.ts");
+    const searchPage = read("src/pages/SearchPage.tsx");
+    const adminInsights = read("src/pages/AdminSearchInsightsPage.tsx");
 
     expect(migration).toContain("search_golden_refresh_controls");
     expect(migration).toContain("search_benchmark_controls");
@@ -224,6 +228,13 @@ describe("production policy static guards", () => {
     expect(migration).toContain("podiverzum-search-benchmark-runner-30min");
     expect(migration).toContain("weekly_drain");
     expect(migration).toContain("fetch failures excluded from quality metrics");
+    expect(timestampTelemetry).toContain("timestamp_match_count integer NOT NULL DEFAULT 0");
+    expect(timestampTelemetry).toContain("chunk_augmented_count integer NOT NULL DEFAULT 0");
+    expect(timestampTelemetry).toContain("search_events_timestamp_matches_idx");
+    expect(searchPage).toContain("timestamp_match_count:");
+    expect(searchPage).toContain("chunk_augmented_count:");
+    expect(adminInsights).toContain("Timestamped searches");
+    expect(adminInsights).toContain("Timestamp / chunk retrieval queries");
 
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_catalog");
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_external_demand");
