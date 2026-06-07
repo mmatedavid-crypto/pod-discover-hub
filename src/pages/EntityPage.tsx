@@ -43,6 +43,22 @@ function safeEntityBio(value?: string | null): string {
   return sanitizeHungarianPublicText(value || "");
 }
 
+function entityFallbackIntro(kind: EntityKind, name: string, total: number, podcastCount: number): string {
+  if (kind === "company") {
+    const ep = total > 0 ? `${total} magyar podcast epizódban` : "magyar podcast epizódokban";
+    const pods = podcastCount > 0 ? `, ${podcastCount} műsorban` : "";
+    return `${name} említései ${ep}${pods}: kapcsolódó beszélgetések, témák és friss kontextusok a Podiverzum katalógusából.`;
+  }
+  if (kind === "person") {
+    const ep = total > 0 ? `${total} kapcsolódó magyar podcast epizód` : "kapcsolódó magyar podcast epizódok";
+    return `${name} magyar podcastos említései és kapcsolódó epizódjai egy helyen: ${ep}, frissesség és relevancia szerint rendezve.`;
+  }
+  if (kind === "topic") {
+    return `Magyar podcast epizódok ${name} témában: friss és időtálló beszélgetések, kapcsolódó személyekkel és szervezetekkel.`;
+  }
+  return `${name} kapcsolódó magyar podcast epizódjai és említései a Podiverzum katalógusából.`;
+}
+
 interface EntityProfile {
   slug: string;
   display_name: string;
@@ -63,6 +79,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const [profile, setProfile] = useState<EntityProfile | null>(null);
   const [related, setRelated] = useState<{ kind: EntityKind; v: string; n: number }[]>([]);
   const [distinctPodcastCount, setDistinctPodcastCount] = useState(0);
+  const [totalMatchCount, setTotalMatchCount] = useState(0);
 
   useEffect(() => {
     if (!slug) return;
@@ -207,6 +224,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       const sortedM = visibleMentioned.slice().sort(compareByScore);
       setMentionedEps(sortedM.slice(0, 20) as any);
 
+      setTotalMatchCount(visible.length);
       setDistinctPodcastCount(new Set(visible.map((e: any) => e.podcast_id).filter(Boolean)).size);
 
       // Related entities (co-occurring) from speaker matches
@@ -286,9 +304,10 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     />
   );
 
-  const total = eps.length;
+  const total = totalMatchCount || eps.length;
   const rich = total >= RICH_AT;
   const profileBio = safeEntityBio(profile?.bio);
+  const fallbackIntro = entityFallbackIntro(kind, displayName, total, distinctPodcastCount);
   const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
   const featuredIds = profile?.featured_episode_ids || [];
   const featuredFromProfile = featuredIds.length
@@ -315,7 +334,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             <p className="text-foreground/85 mt-4 max-w-2xl leading-relaxed">{snippet(profileBio, 300)}</p>
           ) : (
             <p className="text-muted-foreground mt-3 max-w-2xl">
-              Minden magyar podcast epizód, amely ehhez kapcsolódik: <span className="text-foreground font-medium">{displayName}</span>. Minőség, frissesség és relevancia szerint rangsorolva.
+              {fallbackIntro}
             </p>
           )}
           <div className="mt-6 flex flex-wrap gap-3">
