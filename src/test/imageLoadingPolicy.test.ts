@@ -41,6 +41,19 @@ describe("episode thumbnail loading policy", () => {
     );
   });
 
+  it("warms connections for high-volume podcast image CDNs", () => {
+    const html = read("index.html");
+
+    expect(html).toContain('<link rel="preconnect" href="https://d3t3ozftmdmh3i.cloudfront.net"');
+    expect(html).toContain('<link rel="preconnect" href="https://i1.sndcdn.com"');
+    expect(html).toContain('<link rel="preconnect" href="https://megaphone.imgix.net"');
+    expect(html).toContain('<link rel="preconnect" href="https://storage.buzzsprout.com"');
+    expect(html).toContain('<link rel="preconnect" href="https://image.simplecastcdn.com"');
+    expect(html).toContain('<link rel="preconnect" href="https://www.omnycontent.com"');
+    expect(html).toContain('<link rel="dns-prefetch" href="//pbcdn1.podbean.com"');
+    expect(html).toContain('<link rel="dns-prefetch" href="//media.rss.com"');
+  });
+
   it("downsizes major podcast CDN thumbnails instead of loading original artwork", () => {
     const image = read("src/lib/image.ts");
     const soundcloud = "http://i1.sndcdn.com/avatars-000204653867-hrztkz-original.jpg";
