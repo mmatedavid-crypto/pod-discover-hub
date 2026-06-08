@@ -2380,6 +2380,105 @@ export type Database = {
         }
         Relationships: []
       }
+      gsc_query_daily: {
+        Row: {
+          clicks: number
+          ctr: number
+          date: string
+          fetched_at: string
+          id: number
+          impressions: number
+          page: string
+          position: number
+          query: string
+          site_url: string
+        }
+        Insert: {
+          clicks?: number
+          ctr?: number
+          date: string
+          fetched_at?: string
+          id?: number
+          impressions?: number
+          page: string
+          position?: number
+          query: string
+          site_url: string
+        }
+        Update: {
+          clicks?: number
+          ctr?: number
+          date?: string
+          fetched_at?: string
+          id?: number
+          impressions?: number
+          page?: string
+          position?: number
+          query?: string
+          site_url?: string
+        }
+        Relationships: []
+      }
+      gsc_weekly_insights: {
+        Row: {
+          ai_model: string | null
+          ai_recommendations: Json
+          ai_summary: string | null
+          created_at: string
+          deltas: Json
+          falling_queries: Json
+          id: string
+          raw_meta: Json
+          rising_queries: Json
+          site_url: string
+          striking_distance: Json
+          top_pages: Json
+          top_queries: Json
+          totals: Json
+          week_end: string
+          week_start: string
+          zero_click_high_impr: Json
+        }
+        Insert: {
+          ai_model?: string | null
+          ai_recommendations?: Json
+          ai_summary?: string | null
+          created_at?: string
+          deltas?: Json
+          falling_queries?: Json
+          id?: string
+          raw_meta?: Json
+          rising_queries?: Json
+          site_url: string
+          striking_distance?: Json
+          top_pages?: Json
+          top_queries?: Json
+          totals?: Json
+          week_end: string
+          week_start: string
+          zero_click_high_impr?: Json
+        }
+        Update: {
+          ai_model?: string | null
+          ai_recommendations?: Json
+          ai_summary?: string | null
+          created_at?: string
+          deltas?: Json
+          falling_queries?: Json
+          id?: string
+          raw_meta?: Json
+          rising_queries?: Json
+          site_url?: string
+          striking_distance?: Json
+          top_pages?: Json
+          top_queries?: Json
+          totals?: Json
+          week_end?: string
+          week_start?: string
+          zero_click_high_impr?: Json
+        }
+        Relationships: []
+      }
       hu_archive_backfill_runs: {
         Row: {
           ai_backlog_after: number | null
