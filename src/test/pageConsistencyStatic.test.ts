@@ -607,7 +607,12 @@ describe("page consistency static guards", () => {
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_title)");
     expect(podcast).toContain("const seoTitle = `${displayName} – ${epCountLabel} · podcast | Podiverzum`");
     expect(podcast).toContain("const PODCAST_SEO_CTA = \"Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.\"");
+    expect(podcast).toContain("function podcastSeoDescription(baseDesc: string, entityLines: string[]): string");
+    expect(podcast).toContain("PODCAST_SEO_DESCRIPTION_MAX - ctaBudget");
     expect(podcast).toContain("Műsorvezető: ${hostNamesForSeo.slice(0, 3).join(\", \")}");
+    expect(podcast).toContain("const topOrganizationNamesForSeo = topEntitiesFrom(allEps, \"companies\", \"company\", 3)");
+    expect(podcast).toContain("Gyakori szervezet: ${topOrganizationNamesForSeo.slice(0, 2).join(\", \")}");
+    expect(podcast).toContain("const seoDescription = podcastSeoDescription(baseDesc, [hostLine, organizationLine])");
     expect(podcast).toContain("alternateName: alternateSeoName");
     expect(podcast).not.toContain("? (/\\|\\s*Podiverzum\\s*$/i.test(safeSeoTitle) ? safeSeoTitle");
     expect(podcast).toContain("pickEpisodeDescription(e, 220)");

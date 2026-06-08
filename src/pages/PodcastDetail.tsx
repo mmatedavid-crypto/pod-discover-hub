@@ -25,6 +25,7 @@ import { pickEpisodeDescription } from "@/lib/episodeText";
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
 const PODCAST_SEO_CTA = "Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
+const PODCAST_SEO_DESCRIPTION_MAX = 160;
 
 function firstSentence(value?: string | null): string {
   const text = stripHtml(sanitizeHungarianPublicText(value || ""))
@@ -33,6 +34,13 @@ function firstSentence(value?: string | null): string {
   if (!text) return "";
   const sentence = text.match(/^(.{40,260}?[.!?])(?:\s|$)/)?.[1]?.trim();
   return sentence || snippet(text, 180);
+}
+
+function podcastSeoDescription(baseDesc: string, entityLines: string[]): string {
+  const ctaBudget = PODCAST_SEO_CTA.length + 1;
+  const contextBudget = Math.max(60, PODCAST_SEO_DESCRIPTION_MAX - ctaBudget);
+  const context = snippet([baseDesc, ...entityLines].filter(Boolean).join(" "), contextBudget);
+  return [context, PODCAST_SEO_CTA].filter(Boolean).join(" ").slice(0, PODCAST_SEO_DESCRIPTION_MAX);
 }
 
 function isSafeHostPerson(p: any): boolean {
@@ -173,6 +181,12 @@ export default function PodcastDetail() {
         const hostLine = hostNamesForSeo.length
           ? `Műsorvezető: ${hostNamesForSeo.slice(0, 3).join(", ")}${hostNamesForSeo.length > 3 ? "…" : ""}.`
           : "";
+        const topOrganizationNamesForSeo = topEntitiesFrom(allEps, "companies", "company", 3)
+          .filter((entity) => entity.count >= 2)
+          .map((entity) => entity.value);
+        const organizationLine = topOrganizationNamesForSeo.length
+          ? `Gyakori szervezet: ${topOrganizationNamesForSeo.slice(0, 2).join(", ")}.`
+          : "";
         const safeSeoDescription = sanitizeHungarianPublicText(data.seo_description);
         const baseDesc = firstSentence(cleanDesc || cleanSummary || safeSeoDescription)
           || `${displayName} podcast epizódjai a Podiverzumon.`;
@@ -186,8 +200,7 @@ export default function PodcastDetail() {
         const alternateSeoName = safeSeoTitle
           ? safeSeoTitle.replace(/\s*\|\s*Podiverzum\s*$/i, "").trim()
           : undefined;
-        const descParts = [baseDesc, hostLine, PODCAST_SEO_CTA].filter(Boolean);
-        const seoDescription = snippet(descParts.join(" "), 180);
+        const seoDescription = podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
         setSeo({
           title: seoTitle,
           description: seoDescription,
