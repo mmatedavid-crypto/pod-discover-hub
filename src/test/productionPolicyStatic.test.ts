@@ -253,6 +253,11 @@ describe("production policy static guards", () => {
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_catalog");
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_external_demand");
     expect(goldenRunner).toContain("search_golden_refresh_progress");
+    expect(goldenRunner).toContain('const ENTITY_QUERY_TYPES = ["person", "company_brand", "company_brand_alias", "topic"]');
+    expect(goldenRunner).toContain("const MIN_ENTITY_GOLDENS = 60");
+    expect(goldenRunner).toContain("function loadEntityMonitoringCoverage");
+    expect(goldenRunner).toContain("managed_entity_monitoring_v3_coverage_after_refresh");
+    expect(goldenRunner).toContain("entity_monitoring_coverage: entityMonitoringCoverage");
 
     expect(benchmarkRunner).toContain("Weekly search benchmark");
     expect(benchmarkRunner).toContain("batch_size");
@@ -265,6 +270,10 @@ describe("production policy static guards", () => {
     expect(benchmarkRunner).toContain("false_positive_rate");
     expect(benchmarkRunner).toContain("function entityEvidenceText");
     expect(benchmarkRunner).toContain("entityEvidenceText(r)");
+    expect(benchmarkRunner).toContain('const ENTITY_QUERY_TYPES = ["person", "company_brand", "company_brand_alias", "topic"]');
+    expect(benchmarkRunner).toContain("const MIN_ENTITY_QUERY_TYPES = 4");
+    expect(benchmarkRunner).toContain("function loadEntityMonitoringCoverage");
+    expect(benchmarkRunner).toContain("entity_monitoring_coverage: entityMonitoringCoverage");
     for (const field of ["people", "companies", "topics", "tickers", "ingredients"]) {
       expect(benchmarkRunner).toContain(`${field}: Array.isArray(e.${field}) ? e.${field} : []`);
     }

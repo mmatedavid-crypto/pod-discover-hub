@@ -47,6 +47,10 @@ const DEFAULT_CONTROLS: Required<Controls> = {
   min_days_between_runs: 6,
 };
 
+const ENTITY_QUERY_TYPES = ["person", "company_brand", "company_brand_alias", "topic"];
+const MIN_ENTITY_GOLDENS = 60;
+const MIN_ENTITY_QUERY_TYPES = 4;
+
 function clampInt(value: unknown, fallback: number, min: number, max: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -186,7 +190,40 @@ async function refreshGoldens(supa: ReturnType<typeof createClient>, controls: R
   ]);
   if (catalog.error) throw catalog.error;
   if (external.error) throw external.error;
-  return { catalog: catalog.data, external: external.data };
+  const entityMonitoringCoverage = await loadEntityMonitoringCoverage(supa);
+  return { catalog: catalog.data, external: external.data, entity_monitoring_coverage: entityMonitoringCoverage };
+}
+
+async function loadEntityMonitoringCoverage(supa: ReturnType<typeof createClient>) {
+  const { data, error } = await supa
+    .from("search_golden_queries")
+    .select("query_type, expected_entity")
+    .eq("active", true)
+    .not("expected_entity", "is", null)
+    .in("query_type", ENTITY_QUERY_TYPES);
+
+  if (error) {
+    return {
+      ok: false,
+      policy: "managed_entity_monitoring_v3_coverage_after_refresh",
+      error: error.message,
+      min_entity_goldens: MIN_ENTITY_GOLDENS,
+      min_entity_query_types: MIN_ENTITY_QUERY_TYPES,
+    };
+  }
+
+  const rows = data || [];
+  const queryTypes = Array.from(new Set(rows.map((row: any) => String(row.query_type || "")).filter(Boolean))).sort();
+
+  return {
+    ok: rows.length >= MIN_ENTITY_GOLDENS && queryTypes.length >= MIN_ENTITY_QUERY_TYPES,
+    policy: "managed_entity_monitoring_v3_coverage_after_refresh",
+    active_entity_goldens: rows.length,
+    active_entity_query_types: queryTypes.length,
+    query_types: queryTypes,
+    min_entity_goldens: MIN_ENTITY_GOLDENS,
+    min_entity_query_types: MIN_ENTITY_QUERY_TYPES,
+  };
 }
 
 Deno.serve(async (req) => {
