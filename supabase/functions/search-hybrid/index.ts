@@ -953,7 +953,7 @@ Deno.serve(async (req) => {
       chunk_aug_enabled: false,
       quality_guard_enabled: true,
       // Bumped whenever ranking logic changes — invalidates cached understanding / rerank rows.
-      ranking_version: 2,
+      ranking_version: 5,
       understanding_version: 2,
     };
     try {
