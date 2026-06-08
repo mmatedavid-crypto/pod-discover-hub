@@ -30,6 +30,20 @@ type Row = Pick<SearchEvent,
   | "created_at"
 >;
 
+type QueryStatsRow = {
+  q: string;
+  n: number;
+  zero: number;
+  avg: number;
+  fallback: number;
+  low: number;
+  pin: number;
+  nlq: number;
+  degraded: number;
+  timestamped: number;
+  chunkAugmented: number;
+};
+
 export default function AdminSearchInsightsPage() {
   useNoindex("Admin · Search insights — Podiverzum");
   const nav = useNavigate();
@@ -37,6 +51,7 @@ export default function AdminSearchInsightsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [windowDays, setWindowDays] = useState<1 | 7 | 30>(7);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -79,7 +94,7 @@ export default function AdminSearchInsightsPage() {
       topic: rows.filter((r) => r.topic_pin_slug).length,
     };
 
-    const byQuery = new Map<string, { q: string; n: number; zero: number; avg: number; fallback: number; low: number; pin: number; nlq: number; degraded: number; timestamped: number; chunkAugmented: number }>();
+    const byQuery = new Map<string, QueryStatsRow>();
     rows.forEach((r) => {
       const k = r.query.trim().toLowerCase();
       const cur = byQuery.get(k) || { q: r.query, n: 0, zero: 0, avg: 0, fallback: 0, low: 0, pin: 0, nlq: 0, degraded: 0, timestamped: 0, chunkAugmented: 0 };
@@ -108,6 +123,16 @@ export default function AdminSearchInsightsPage() {
       .slice(0, 50);
     return { total, zero, fallback, avg, low, degraded, natural, nlqFallback, timestamped, timestampedResults, chunkAugmented, chunkAugmentedResults, pins, top, zeroQueries, weakQueries, aliasCandidates, timestampQueries, transcriptCoverageGaps };
   }, [rows]);
+
+  const copyTranscriptCoverageGaps = async () => {
+    const text = stats.transcriptCoverageGaps
+      .map((r) => `${r.q}\tsearches=${r.n}\tzero=${r.zero}\tlow=${r.low}\tavg=${r.avg.toFixed(1)}`)
+      .join("\n");
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  };
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
   if (!isAdmin) return <Layout><div className="container mx-auto py-20">Not authorized.</div></Layout>;
@@ -184,7 +209,18 @@ export default function AdminSearchInsightsPage() {
         </section>
 
         <section>
-          <h2 className="font-semibold mb-2">Transcript coverage gaps</h2>
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <h2 className="font-semibold">Transcript coverage gaps</h2>
+            {stats.transcriptCoverageGaps.length > 0 && (
+              <button
+                type="button"
+                onClick={copyTranscriptCoverageGaps}
+                className="px-2.5 py-1 rounded-md border border-border bg-card text-xs hover:border-primary/40"
+              >
+                {copied ? "Copied" : "Copy backlog"}
+              </button>
+            )}
+          </div>
           {stats.transcriptCoverageGaps.length === 0 ? (
             <p className="text-sm text-muted-foreground">No weak query is missing transcript/chunk retrieval in this window.</p>
           ) : (
@@ -216,7 +252,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Table({ rows }: { rows: { q: string; n: number; zero: number; avg: number; fallback: number; low?: number; pin?: number; nlq?: number; degraded?: number; timestamped?: number; chunkAugmented?: number }[] }) {
+function Table({ rows }: { rows: QueryStatsRow[] }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
