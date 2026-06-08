@@ -317,6 +317,34 @@ Deno.serve(async (req) => {
       if (!error) dailyInserted += chunk.length;
     }
 
+    // 4. Send weekly email digest.
+    let emailStatus: string = "skipped";
+    try {
+      const recipient = (body.recipient_email as string | undefined) || "m.mate.david@gmail.com";
+      const { error: emailErr } = await admin.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "gsc-weekly-insights",
+          recipientEmail: recipient,
+          idempotencyKey: `gsc-weekly-${curStart}-${recipient}`,
+          templateData: {
+            weekStart: curStart,
+            weekEnd: curEnd,
+            totals: curTotals,
+            deltas,
+            summary: aiSummary,
+            actions: aiRecs,
+            striking,
+            rising,
+            falling,
+            adminUrl: "https://podiverzum.hu/admin/gsc-insights",
+          },
+        },
+      });
+      emailStatus = emailErr ? `error: ${emailErr.message}` : "enqueued";
+    } catch (e) {
+      emailStatus = `error: ${(e as Error).message}`;
+    }
+
     return json({
       ok: true,
       week: { start: curStart, end: curEnd },
@@ -324,6 +352,7 @@ Deno.serve(async (req) => {
       deltas,
       ai_actions: aiRecs.length,
       daily_rows: dailyInserted,
+      email: emailStatus,
     });
   } catch (e) {
     return json({ ok: false, error: String((e as Error).message) }, 500);
