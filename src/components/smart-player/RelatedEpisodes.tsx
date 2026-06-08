@@ -7,7 +7,7 @@ import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/rec
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
-import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { imageSrcSet, imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image";
 
 type Row = {
   episode_id: string;
@@ -214,7 +214,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
                 {(r.image_url || r.podcast_image_url) && (
                   <img
                     src={optimizedImageUrl(r.image_url || r.podcast_image_url, { width: 240, height: 120 }) || r.image_url || r.podcast_image_url || ""}
-                    srcSet={imageSrcSet(r.image_url || r.podcast_image_url, [180, 240, 320])}
+                    srcSet={imageSrcSetForAspect(r.image_url || r.podcast_image_url, [180, 240, 320], 2)}
                     sizes="220px"
                     alt=""
                     className="h-24 w-full rounded-md object-cover border border-border"

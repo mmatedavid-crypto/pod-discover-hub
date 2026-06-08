@@ -4,7 +4,7 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy } from "lucide-react";
 import { breadcrumbJsonLd, setSeo } from "@/lib/seo";
-import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { imageSrcSet, imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image";
 
 type Row = {
   episode_id: string;
@@ -47,7 +47,9 @@ function rowImageSrcSet(r: Row, size: "podium" | "list"): string | undefined {
   if (r.youtube_video_id) return undefined;
   const src = rowImage(r, size);
   if (!src) return undefined;
-  return imageSrcSet(src, size === "podium" ? [320, 480, 640] : [56, 80, 96]);
+  return size === "podium"
+    ? imageSrcSetForAspect(src, [320, 480, 640], 16 / 9)
+    : imageSrcSet(src, [56, 80, 96]);
 }
 
 export default function ToplistaAllTimePage() {

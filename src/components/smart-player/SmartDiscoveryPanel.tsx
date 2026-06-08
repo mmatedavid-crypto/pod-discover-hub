@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
-import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image";
 
 type Row = {
   match_kind: "chunk_moment" | "entity_overlap" | "vector_neighbor";
@@ -260,7 +260,7 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
                         {(r.image_url || r.podcast_image_url) && (
                           <img
                             src={optimizedImageUrl(r.image_url || r.podcast_image_url, { width: 280, height: 140 }) || r.image_url || r.podcast_image_url || ""}
-                            srcSet={imageSrcSet(r.image_url || r.podcast_image_url, [200, 280, 360])}
+                            srcSet={imageSrcSetForAspect(r.image_url || r.podcast_image_url, [200, 280, 360], 2)}
                             sizes="240px"
                             alt=""
                             className="h-28 w-full rounded-md object-cover border border-border"

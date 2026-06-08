@@ -21,10 +21,18 @@ describe("episode thumbnail loading policy", () => {
 
   it("requests aspect-matched rail thumbnail variants instead of square crops", () => {
     const image = read("src/lib/image.ts");
+    const smartDiscovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
+    const related = read("src/components/smart-player/RelatedEpisodes.tsx");
+    const toplista = read("src/pages/ToplistaAllTimePage.tsx");
+    const hetiArticle = read("src/pages/HetiArticlePage.tsx");
     const buzzsprout = "https://storage.buzzsprout.com/variants/abc123/cover.jpg";
 
     expect(image).toContain("export function imageSrcSetForAspect");
     expect(image).toContain("const h = Math.max(32, Math.round(w / ratio))");
+    expect(smartDiscovery).toContain("imageSrcSetForAspect(r.image_url || r.podcast_image_url, [200, 280, 360], 2)");
+    expect(related).toContain("imageSrcSetForAspect(r.image_url || r.podcast_image_url, [180, 240, 320], 2)");
+    expect(toplista).toContain("imageSrcSetForAspect(src, [320, 480, 640], 16 / 9)");
+    expect(hetiArticle).toContain("imageSrcSetForAspect(post.cover_image_url, [640, 960, 1280], 16 / 9)");
     expect(imageSrcSetForAspect(buzzsprout, [320, 480, 640], 16 / 10)).toBe(
       "https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=320&h=200&fit=cover&q=78 320w, https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=480&h=300&fit=cover&q=78 480w, https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=640&h=400&fit=cover&q=78 640w",
     );
@@ -274,12 +282,16 @@ describe("episode thumbnail loading policy", () => {
     const hetiArticle = read("src/pages/HetiArticlePage.tsx");
     const orgCard = read("src/components/OrgCard.tsx");
 
-    for (const source of [avatar, hetiArticle, orgCard]) {
+    for (const source of [avatar, orgCard]) {
       expect(source).toContain('import { imageSrcSet, optimizedImageUrl } from "@/lib/image"');
       expect(source).toContain("optimizedImageUrl(");
       expect(source).toContain("imageSrcSet(");
       expect(source).toContain('decoding="async"');
     }
+    expect(hetiArticle).toContain('import { imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image"');
+    expect(hetiArticle).toContain("optimizedImageUrl(");
+    expect(hetiArticle).toContain("imageSrcSetForAspect(");
+    expect(hetiArticle).toContain('decoding="async"');
 
     expect(avatar).toContain("const pixelSize = size === \"xl\" ? 160 : size === \"lg\" ? 112 : size === \"sm\" ? 56 : 80");
     expect(avatar).toContain("optimizedImageUrl(imageUrl, { width: pixelSize, height: pixelSize })");
@@ -289,6 +301,7 @@ describe("episode thumbnail loading policy", () => {
     expect(hetiArticle).toContain('sizes="(max-width: 768px) 100vw, 768px"');
     expect(hetiArticle).toContain('fetchPriority="high"');
     expect(hetiArticle).not.toContain("src={post.cover_image_url}");
+    expect(hetiArticle).not.toContain("imageSrcSet(post.cover_image_url, [640, 960, 1280])");
 
     expect(orgCard).toContain("optimizedImageUrl(o.logo_url, { width: 96, height: 96 })");
     expect(orgCard).toContain("imageSrcSet(o.logo_url, [48, 96, 144])");
@@ -299,10 +312,11 @@ describe("episode thumbnail loading policy", () => {
   it("keeps all-time toplist thumbnails optimized and non-empty", () => {
     const page = read("src/pages/ToplistaAllTimePage.tsx");
 
-    expect(page).toContain('import { imageSrcSet, optimizedImageUrl } from "@/lib/image"');
+    expect(page).toContain('import { imageSrcSet, imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image"');
     expect(page).toContain("function optimizedRowImage");
     expect(page).toContain("function rowImageSrcSet");
     expect(page).toContain("if (r.youtube_video_id) return undefined");
+    expect(page).toContain("imageSrcSetForAspect(src, [320, 480, 640], 16 / 9)");
     expect(page).toContain("fetchPriority={i === 0 ? \"high\" : \"auto\"}");
     expect(page).toContain('sizes="(max-width: 768px) 100vw, 33vw"');
     expect(page).toContain('sizes="56px"');
