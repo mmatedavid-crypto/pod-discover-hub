@@ -7,6 +7,28 @@ type ImageOptions = {
 const APPLE_ARTWORK_RX = /\/(\d+)x(\d+)(bb|bf|cc)?\.(jpg|jpeg|png|webp)(\?.*)?$/i;
 const SIMPLECAST_SIZE_RX = /\/\d+x\d+\//i;
 const SOUNDCLOUD_SIZE_RX = /-(original|t500x500|t300x300|large|crop|badge)\.(jpg|jpeg|png|webp)$/i;
+const IMAGE_PROXY_HOSTS = new Set([
+  "d3t3ozftmdmh3i.cloudfront.net",
+  "d3wo5wojvuv7l.cloudfront.net",
+  "storage.buzzsprout.com",
+  "media.rss.com",
+  "pbcdn1.podbean.com",
+  "artwork.captivate.fm",
+  "static.libsyn.com",
+  "episodes.castos.com",
+  "media.redcircle.com",
+  "i.ibb.co",
+]);
+
+function proxiedImageUrl(url: URL, width: number, height: number, quality: number) {
+  const proxy = new URL("https://images.weserv.nl/");
+  proxy.searchParams.set("url", url.toString());
+  proxy.searchParams.set("w", String(width));
+  proxy.searchParams.set("h", String(height));
+  proxy.searchParams.set("fit", "cover");
+  proxy.searchParams.set("q", String(quality));
+  return proxy.toString();
+}
 
 export function optimizedImageUrl(src?: string | null, opts: ImageOptions = {}) {
   if (!src) return null;
@@ -70,6 +92,10 @@ export function optimizedImageUrl(src?: string | null, opts: ImageOptions = {}) 
     if (url.hostname.includes("omnycontent.com")) {
       url.searchParams.set("size", width <= 160 ? "Small" : width <= 360 ? "Medium" : "Large");
       return url.toString();
+    }
+
+    if (IMAGE_PROXY_HOSTS.has(url.hostname)) {
+      return proxiedImageUrl(url, width, height, quality);
     }
   } catch {
     return normalizedSrc;

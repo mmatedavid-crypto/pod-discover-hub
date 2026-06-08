@@ -76,6 +76,7 @@ describe("episode thumbnail loading policy", () => {
     expect(html).toContain('<link rel="preconnect" href="https://storage.buzzsprout.com"');
     expect(html).toContain('<link rel="preconnect" href="https://image.simplecastcdn.com"');
     expect(html).toContain('<link rel="preconnect" href="https://www.omnycontent.com"');
+    expect(html).toContain('<link rel="preconnect" href="https://images.weserv.nl"');
     expect(html).toContain('<link rel="dns-prefetch" href="//pbcdn1.podbean.com"');
     expect(html).toContain('<link rel="dns-prefetch" href="//media.rss.com"');
   });
@@ -103,6 +104,34 @@ describe("episode thumbnail loading policy", () => {
     );
     expect(optimizedImageUrl(transistor, { width: 96, height: 96 })).toBe(
       "https://img.transistorcdn.com/key/rs:fill:0:0:1/w:96/h:96/q:78/mb:500000/source.jpg",
+    );
+  });
+
+  it("proxies high-volume non-resizable podcast CDN artwork at rendered size", () => {
+    const image = read("src/lib/image.ts");
+    const anchorCloudfront = "https://d3t3ozftmdmh3i.cloudfront.net/staging/podcast_uploaded_nologo/25377869/25377869-1777663099901-c6e6422a4d959.jpg";
+    const buzzsprout = "https://storage.buzzsprout.com/variants/abc123/cover.jpg";
+    const rssCom = "https://media.rss.com/show/2026/cover.jpg";
+    const podbean = "https://pbcdn1.podbean.com/imglogo/ep-logo/pbblog123/show.jpg";
+
+    expect(image).toContain("const IMAGE_PROXY_HOSTS = new Set");
+    expect(image).toContain('"d3t3ozftmdmh3i.cloudfront.net"');
+    expect(image).toContain('"storage.buzzsprout.com"');
+    expect(image).toContain('"media.rss.com"');
+    expect(image).toContain('"pbcdn1.podbean.com"');
+    expect(image).toContain("https://images.weserv.nl/");
+
+    expect(optimizedImageUrl(anchorCloudfront, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fd3t3ozftmdmh3i.cloudfront.net%2Fstaging%2Fpodcast_uploaded_nologo%2F25377869%2F25377869-1777663099901-c6e6422a4d959.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(buzzsprout, { width: 160, height: 160 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=160&h=160&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(rssCom, { width: 80, height: 80 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fmedia.rss.com%2Fshow%2F2026%2Fcover.jpg&w=80&h=80&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(podbean, { width: 80, height: 80 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fpbcdn1.podbean.com%2Fimglogo%2Fep-logo%2Fpbblog123%2Fshow.jpg&w=80&h=80&fit=cover&q=78",
     );
   });
 
