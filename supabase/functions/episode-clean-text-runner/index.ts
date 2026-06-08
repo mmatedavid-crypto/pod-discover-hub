@@ -56,13 +56,13 @@ Deno.serve(async (req) => {
     // Cap at 75s to stay under 120s edge fn limit with buffer.
     const timeBudgetMs = Math.max(5_000, Math.min(75_000, (Number(ctrl.time_budget_seconds ?? 60)) * 1000));
     const minChars = Number(ctrl.min_description_chars ?? 40);
-    const method = String(ctrl.method_version ?? "deterministic_v3");
+    const method = String(ctrl.method_version ?? "deterministic_v4");
     const useBestTextSource = ctrl.use_best_text_source !== false;
     const requeueResult = await maybeRequeueLegacyV3(admin, ctrl, body, batchLimit);
 
     // ---- AI-trim gate (LIVE 2026-05-31) ----
     // Bucket-routes yt_dominant / over_trimmed_v3 / sponsor_heavy to flash-lite few-shot.
-    // v3 still runs first; AI-trim only OVERWRITES cleaned_text when guards pass.
+    // v4 still runs first; AI-trim only OVERWRITES cleaned_text when guards pass.
     const aiTrimEnabled = ctrl.ai_trim_enabled === true;
     const aiTrimModel = String(ctrl.ai_trim_model ?? "google/gemini-3.1-flash-lite-preview");
     const aiTrimBudget = Number(ctrl.ai_trim_daily_budget_usd ?? 5);

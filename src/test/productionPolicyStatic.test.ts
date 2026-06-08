@@ -387,6 +387,7 @@ describe("production policy static guards", () => {
     const downstreamV3 = read("supabase/migrations/20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
     const timestampChunks = read("supabase/migrations/20260606174000_timestamp_aware_episode_chunks.sql");
     const timestampChunkSearch = read("supabase/migrations/20260606183000_reassert_timestamp_aware_chunk_search_v2.sql");
+    const cleanRunner = read("supabase/functions/episode-clean-text-runner/index.ts");
     const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
     const transcriptChunker = read("supabase/functions/_shared/transcript-chunker.ts");
@@ -460,6 +461,9 @@ describe("production policy static guards", () => {
     expect(timestampChunkSearch).toContain("'language_gate', 'podcasts.language_decision=accept_hungarian'");
     expect(timestampChunkSearch).not.toContain("p.is_hungarian=true");
     expect(timestampChunkSearch).not.toContain("p.is_hungarian = true");
+
+    expect(cleanRunner).toContain('const method = String(ctrl.method_version ?? "deterministic_v4")');
+    expect(cleanRunner).not.toContain('ctrl.method_version ?? "deterministic_v3"');
 
     expect(episodeRunner).toContain("select_embed_episode_candidates");
     expect(episodeRunner).toContain("validateEmbeddingInput");
