@@ -1324,6 +1324,8 @@ describe("production policy static guards", () => {
 
     expect(migration).toContain("'spotify_transcript_controls'");
     expect(migration).toContain("'enabled', false");
+    expect(migration).toContain("'candidate_scan_limit', 2500");
+    expect(migration).toContain("'candidate_scan_limit', COALESCE(public.app_settings.value->'candidate_scan_limit', '2500'::jsonb)");
     expect(migration).toContain("'policy', 'default_disabled_operator_controlled_native_transcript_indexing_v1'");
     expect(migration).toContain("'public_display', false");
     expect(migration).toContain("'spotify_transcript_state'");
