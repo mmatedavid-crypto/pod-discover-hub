@@ -588,6 +588,8 @@ describe("page consistency static guards", () => {
     const podcast = read("src/pages/PodcastDetail.tsx");
     const category = read("src/pages/CategoryDetail.tsx");
     const topic = read("src/pages/TopicDetailPage.tsx");
+    const person = read("src/pages/PersonDetailPage.tsx");
+    const entity = read("src/pages/EntityPage.tsx");
     const search = read("src/pages/SearchPage.tsx");
     const trending = read("src/components/TrendingPodcasts.tsx");
     const episode = read("src/pages/EpisodeDetail.tsx");
@@ -596,7 +598,7 @@ describe("page consistency static guards", () => {
     const personCard = read("src/components/PersonCard.tsx");
     const publicProfile = read("src/pages/PublicProfilePage.tsx");
 
-    for (const source of [podcast, category, topic, search, trending, episode, categories, orgCard, personCard, publicProfile]) {
+    for (const source of [podcast, category, topic, person, entity, search, trending, episode, categories, orgCard, personCard, publicProfile]) {
       expect(source).toContain("sanitizeHungarianPublicText");
     }
     expect(seo).toContain("document.title = opts.title");
@@ -617,6 +619,14 @@ describe("page consistency static guards", () => {
     expect(category).toContain("sanitizeHungarianPublicText(c.seo_description)");
     expect(category).toContain("slug,image_url,ai_summary,summary,description,published_at");
     expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");
+    expect(topic).toContain("const titleSource = `${topicName}${countLabel} magyar podcastokból | Podiverzum`");
+    expect(topic).toContain("topicFallbackIntro(topic.name");
+    expect(person).toContain("const personSeoRelation = hasParticipantSeoEvidence && !isTemporalTopicOnlyPerson(p) ? \"hallható\" : \"kapcsolódik\"");
+    expect(person).toContain("` – ${epCount} podcast epizódban ${personSeoRelation}`");
+    expect(person).toContain("Megnézhető ${epCount} podcast epizód, amelyben ${personName} ${personSeoRelation}.");
+    expect(person).toContain("`${exemplar} – ${fallbackEpCount} podcast epizódban ${fallbackRelation} | Podiverzum`");
+    expect(entity).toContain("kind === \"company\" ? `${finalName}${companyEpLabel || epLabel} | Podiverzum`");
+    expect(entity).toContain("fallbackCompany");
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
     expect(search).toContain("sanitizeHungarianPublicText(heroOrganization.short_bio)");
     expect(search).toContain("sanitizeHungarianPublicText(heroTopic.short_bio)");

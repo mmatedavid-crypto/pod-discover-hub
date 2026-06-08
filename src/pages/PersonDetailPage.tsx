@@ -211,12 +211,20 @@ export default function PersonDetailPage() {
         setLoading(false);
 
         const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
+        const fallbackEpCount = sorted.length;
+        const fallbackRelation = sorted.some((e: any) => e.role_type === "participant" || e.mention_type === "participant")
+          ? "hallható"
+          : "említve";
         setSeo({
-          title: `${exemplar} podcast epizódok és említések | Podiverzum`,
-          description: `${exemplar} témájú magyar podcast epizódok, róla szóló adások és említések egy helyen.`,
+          title: fallbackEpCount > 0
+            ? `${exemplar} – ${fallbackEpCount} podcast epizódban ${fallbackRelation} | Podiverzum`
+            : `${exemplar} podcast epizódok és említések | Podiverzum`,
+          description: fallbackEpCount > 0
+            ? `Megnézhető ${fallbackEpCount} podcast epizód, amelyben ${exemplar} ${fallbackRelation}. Kapcsolódó műsorok és említések a Podiverzumon.`
+            : `${exemplar} témájú magyar podcast epizódok, róla szóló adások és említések egy helyen.`,
           canonical: pageUrl,
-          noindex: sorted.length < 5,
-          jsonLd: sorted.length < 5 ? undefined : [
+          noindex: fallbackEpCount < 5,
+          jsonLd: fallbackEpCount < 5 ? undefined : [
             {
               "@context": "https://schema.org",
               "@type": "CollectionPage",
