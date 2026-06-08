@@ -225,6 +225,31 @@ describe("episode thumbnail loading policy", () => {
     expect(smartPlayer).not.toContain("<img src={ep.imageUrl}");
   });
 
+  it("optimizes public profile, account avatar and share-card artwork", () => {
+    const publicProfile = read("src/pages/PublicProfilePage.tsx");
+    const userMenu = read("src/components/UserMenu.tsx");
+    const shareMoment = read("src/components/smart-player/ShareMomentCard.tsx");
+
+    for (const source of [publicProfile, userMenu, shareMoment]) {
+      expect(source).toContain('import { imageSrcSet, optimizedImageUrl } from "@/lib/image"');
+      expect(source).toContain("optimizedImageUrl(");
+      expect(source).toContain("imageSrcSet(");
+      expect(source).toContain('decoding="async"');
+    }
+
+    expect(publicProfile).toContain("optimizedImageUrl(profile.avatar_url, { width: 96, height: 96 })");
+    expect(publicProfile).toContain("optimizedImageUrl(e.podcasts.image_url, { width: 64, height: 64 })");
+    expect(publicProfile).not.toContain("<img src={profile.avatar_url}");
+    expect(publicProfile).not.toContain("<img src={e.podcasts.image_url}");
+
+    expect(userMenu).toContain("optimizedImageUrl(profile.avatar_url, { width: 56, height: 56 })");
+    expect(userMenu).not.toContain("<img src={profile.avatar_url}");
+
+    expect(shareMoment).toContain("optimizedImageUrl(episode.imageUrl, { width: 128, height: 128 })");
+    expect(shareMoment).toContain('crossOrigin="anonymous"');
+    expect(shareMoment).not.toContain("src={episode.imageUrl}");
+  });
+
   it("keeps all-time toplist thumbnails optimized and non-empty", () => {
     const page = read("src/pages/ToplistaAllTimePage.tsx");
 

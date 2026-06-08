@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Share2, X, Download, Link2, Check } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 export function ShareMomentButton({ className = "" }: { className?: string }) {
   const { currentEpisode, currentTime } = useSmartPlayer();
@@ -146,9 +147,13 @@ function ShareMomentModal({
           <div className="flex gap-4 mt-5">
             {episode?.imageUrl ? (
               <img
-                src={episode.imageUrl}
+                src={optimizedImageUrl(episode.imageUrl, { width: 128, height: 128 }) || episode.imageUrl}
+                srcSet={imageSrcSet(episode.imageUrl, [80, 128, 160])}
+                sizes="80px"
                 alt=""
                 crossOrigin="anonymous"
+                loading="lazy"
+                decoding="async"
                 className="h-20 w-20 rounded-lg object-cover border border-white/10"
               />
             ) : (

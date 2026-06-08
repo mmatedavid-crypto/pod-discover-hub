@@ -6,6 +6,7 @@ import { Sparkles, Heart, ArrowRight } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import NotFoundState from "@/components/NotFoundState";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type Profile = {
   user_id: string;
@@ -90,7 +91,15 @@ export default function PublicProfilePage() {
       <div className="container mx-auto max-w-2xl py-10 sm:py-16">
         <div className="flex items-center gap-4">
           {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-primary/30" />
+            <img
+              src={optimizedImageUrl(profile.avatar_url, { width: 96, height: 96 }) || profile.avatar_url}
+              srcSet={imageSrcSet(profile.avatar_url, [64, 96, 128])}
+              sizes="64px"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-16 w-16 rounded-full object-cover ring-2 ring-primary/30"
+            />
           ) : (
             <div className="h-16 w-16 rounded-full bg-primary/15 text-primary flex items-center justify-center text-2xl font-semibold ring-2 ring-primary/30">
               {(profile.display_name || profile.username || "?").charAt(0).toUpperCase()}
@@ -127,7 +136,17 @@ export default function PublicProfilePage() {
               {favs.map((e) => (
                 <li key={e.id}>
                   <Link to={`/podcast/${e.podcasts?.slug}/${e.slug}`} className="flex items-center gap-3 p-3 hover:bg-secondary/40">
-                    {e.podcasts?.image_url && <img src={e.podcasts.image_url} alt="" className="h-12 w-12 rounded-md object-cover shrink-0" />}
+                    {e.podcasts?.image_url && (
+                      <img
+                        src={optimizedImageUrl(e.podcasts.image_url, { width: 64, height: 64 }) || e.podcasts.image_url}
+                        srcSet={imageSrcSet(e.podcasts.image_url, [48, 64, 96])}
+                        sizes="48px"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-12 w-12 rounded-md object-cover shrink-0"
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium line-clamp-1">{e.display_title || e.title}</div>
                       <div className="text-xs text-muted-foreground line-clamp-1">{e.podcasts?.display_title || e.podcasts?.title}</div>

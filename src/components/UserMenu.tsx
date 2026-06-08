@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { isCompletedTasteProgress } from "@/lib/tasteCompletion";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 const TASTE_STORAGE_KEY = "podiverzum_taste_v1";
 
@@ -74,7 +75,15 @@ export function UserMenu() {
           className="inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-primary/40 bg-primary/10 text-primary overflow-hidden transition-colors hover:border-primary/70"
         >
           {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+            <img
+              src={optimizedImageUrl(profile.avatar_url, { width: 56, height: 56 }) || profile.avatar_url}
+              srcSet={imageSrcSet(profile.avatar_url, [40, 56, 80])}
+              sizes="36px"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
           ) : (
             <span className="text-xs font-semibold">{initial}</span>
           )}
