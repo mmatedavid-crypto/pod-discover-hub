@@ -2,6 +2,8 @@
 
 Podiverzum.hu is a Hungarian podcast discovery platform and weekly podcast monitor.
 
+Publisher: PREAG Zrt. (Precíziós Agrokémia Zrt.; company no. 13-10-042640; tax no. 26558534-2-13; 2636 Tésa, Ady Endre utca 11.).
+
 Important sections:
 - https://podiverzum.hu/heti — Podiverzum Heti, Hungarian podcast weekly
 - https://podiverzum.hu/heti/rss.xml — RSS feed

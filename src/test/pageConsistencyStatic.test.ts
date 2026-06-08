@@ -388,6 +388,38 @@ describe("page consistency static guards", () => {
     expect(topics).not.toContain("Tech és MI");
   });
 
+  it("keeps the site publisher visible with the public PREAG name and legal company data", () => {
+    const publisher = read("src/lib/sitePublisher.ts");
+    const index = read("index.html");
+    const home = read("src/pages/Index.tsx");
+    const about = read("src/pages/AboutPage.tsx");
+    const terms = read("src/pages/TermsPage.tsx");
+    const privacy = read("src/pages/PrivacyPage.tsx");
+    const contact = read("src/pages/ContactPage.tsx");
+    const footer = read("src/components/SiteFooter.tsx");
+    const llms = read("public/llms.txt");
+
+    for (const source of [publisher, index, llms]) {
+      expect(source).toContain("PREAG Zrt.");
+      expect(source).toContain("26558534-2-13");
+      expect(source).toContain("13-10-042640");
+      expect(source).toContain("2636");
+      expect(source).toContain("Tésa");
+      expect(source).toContain("Ady Endre utca 11.");
+    }
+
+    expect(publisher).toContain("Precíziós Agrokémia Zártkörűen Működő Részvénytársaság");
+    expect(index).toContain('"publisher"');
+    expect(index).toContain('"legalName": "Precíziós Agrokémia Zártkörűen Működő Részvénytársaság"');
+    expect(home).toContain("publisher: sitePublisherJsonLd()");
+    expect(about).toContain("A Podiverzum kiadója");
+    expect(terms).toContain("A szolgáltatás kiadója");
+    expect(privacy).toContain("Adatkezelő:");
+    expect(privacy).toContain("publisher: sitePublisherJsonLd()");
+    expect(contact).toContain("Kiadó:");
+    expect(footer).toContain("Kiadó: {SITE_PUBLISHER.displayName}");
+  });
+
   it("does not promise disabled similar-podcast recommendations in public methodology", () => {
     const methodology = read("src/pages/MethodologyPage.tsx");
 

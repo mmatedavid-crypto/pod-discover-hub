@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { BrandMark } from "./Brand";
+import { SITE_PUBLISHER } from "@/lib/sitePublisher";
 
 const EXPLORE = [
   { to: "/napi", label: "Mai válogatás" },
@@ -105,7 +106,7 @@ export function SiteFooter() {
         </div>
         <div className="mt-10 pt-6 border-t border-border/70 flex flex-col gap-2 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} Podiverzum</span>
-          <span className="opacity-70">Nyilvános RSS-csatornákból indexelve.</span>
+          <span className="opacity-70">Kiadó: {SITE_PUBLISHER.displayName}. Nyilvános RSS-csatornákból indexelve.</span>
         </div>
       </div>
     </footer>

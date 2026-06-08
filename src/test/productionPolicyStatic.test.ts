@@ -887,6 +887,7 @@ describe("production policy static guards", () => {
 
     expect(llms).toContain("# Podiverzum.hu");
     expect(llms).toContain("Podiverzum.hu is a Hungarian podcast discovery platform and weekly podcast monitor.");
+    expect(llms).toContain("Publisher: PREAG Zrt.");
     expect(llms).toContain("Important sections:");
     expect(llms).toContain("https://podiverzum.hu/heti — Podiverzum Heti, Hungarian podcast weekly");
     expect(llms).toContain("https://podiverzum.hu/heti/rss.xml — RSS feed");
@@ -1107,6 +1108,7 @@ describe("production policy static guards", () => {
     const migration = read("supabase/migrations/20260606003000_person_bio_temporal_policy_v2.sql");
     const inputHashMigration = read("supabase/migrations/20260606004000_person_bio_input_hash_policy_v3.sql");
     const noJobMigration = read("supabase/migrations/20260606015000_person_bio_topic_only_no_job_policy_v4.sql");
+    const noJobFinalMigration = read("supabase/migrations/20260608011000_reassert_person_bio_topic_only_no_job_policy_v4_final.sql");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
     const verifier = read("scripts/verify-production-pipeline.mjs");
 
@@ -1139,10 +1141,16 @@ describe("production policy static guards", () => {
     expect(noJobMigration).toContain("'skip_before_enrichment_job', true");
     expect(noJobMigration).toContain("'skip_before_ai_call', true");
     expect(noJobMigration).toContain("'dead_without_podcast_role_policy', 'topic_only_no_generated_podcast_persona'");
+    expect(noJobFinalMigration).toContain("'skip_before_enrichment_job', true");
+    expect(noJobFinalMigration).toContain("'skip_before_ai_call', true");
+    expect(noJobFinalMigration).toContain("'dead_without_podcast_role_policy', 'topic_only_no_generated_podcast_persona'");
+    expect(noJobFinalMigration).toContain("public.app_settings.value");
+    expect(noJobFinalMigration).toContain("20260608011000_reassert_person_bio_topic_only_no_job_policy_v4_final");
     expect(verifier).toContain("person_bio_topic_only_no_job_policy_v4");
     expect(reporter).toContain("person_bio_temporal_policy");
     expect(reporter).toContain("person_bio_input_hash_policy_v3");
     expect(reporter).toContain("person_bio_topic_only_no_job_policy_v4");
+    expect(reporter).toContain("20260608011000_reassert_person_bio_topic_only_no_job_policy_v4_final.sql");
   });
 
   it("uses accepted language decisions for person evidence pipelines without the legacy RSS HU flag", () => {

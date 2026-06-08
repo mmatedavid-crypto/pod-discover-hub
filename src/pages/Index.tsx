@@ -6,6 +6,7 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 // Homepage-local editorial scoring (does NOT touch lib/episodeRank used elsewhere).
 //
 // Goal (post HU_v1 cutover): popular/strong shows (S/A + high podiverzum_rank)
@@ -350,6 +351,7 @@ const Index = () => {
           alternateName: "Podiverzum.hu",
           url: "https://podiverzum.hu/",
           inLanguage: "hu-HU",
+          publisher: sitePublisherJsonLd(),
           potentialAction: {
             "@type": "SearchAction",
             target: "https://podiverzum.hu/kereses?q={search_term_string}",
@@ -362,6 +364,7 @@ const Index = () => {
           name: "Podiverzum",
           url: "https://podiverzum.hu/",
           logo: "https://podiverzum.hu/icon-512.png",
+          publisher: sitePublisherJsonLd(),
         },
         {
           "@context": "https://schema.org",

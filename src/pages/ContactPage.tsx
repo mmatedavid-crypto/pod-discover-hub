@@ -2,6 +2,7 @@ import Layout from "@/components/Layout";
 import { useEffect } from "react";
 import { setSeo } from "@/lib/seo";
 import { Mail } from "lucide-react";
+import { publisherAddressLine, SITE_PUBLISHER, sitePublisherJsonLd } from "@/lib/sitePublisher";
 
 const EMAIL = "hello@podiverzum.hu";
 
@@ -24,6 +25,13 @@ export default function ContactPage() {
       title: "Kapcsolat — Podiverzum",
       description:
         "Írj a Podiverzum csapatának: hallgatói visszajelzés, podcast-kiadói kérés vagy üzleti megkeresés.",
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "ContactPage",
+        name: "Kapcsolat",
+        url: "https://podiverzum.hu/kapcsolat",
+        publisher: sitePublisherJsonLd(),
+      },
     });
   }, []);
 
@@ -35,6 +43,11 @@ export default function ContactPage() {
         <p className="text-muted-foreground">
           Visszajelzéssel, kiadói kéréssel vagy üzleti megkereséssel itt érsz el minket:{" "}
           <a href={`mailto:${EMAIL}`} className="text-primary hover:underline">{EMAIL}</a>.
+        </p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Kiadó: <strong className="text-foreground">{SITE_PUBLISHER.displayName}</strong>.
+          Jogi név: {SITE_PUBLISHER.legalName}. Székhely: {publisherAddressLine()}.
+          Cégjegyzékszám: {SITE_PUBLISHER.companyRegisterNumber}. Adószám: {SITE_PUBLISHER.taxId}.
         </p>
 
         <div className="mt-8 grid gap-3 sm:gap-4">

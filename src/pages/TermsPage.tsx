@@ -1,12 +1,20 @@
 import Layout from "@/components/Layout";
 import { useEffect } from "react";
 import { setSeo } from "@/lib/seo";
+import { publisherAddressLine, SITE_PUBLISHER, sitePublisherJsonLd } from "@/lib/sitePublisher";
 
 export default function TermsPage() {
   useEffect(() => {
     setSeo({
       title: "Felhasználási feltételek — Podiverzum",
       description: "A Podiverzum használati feltételei. A szolgáltatás magyar podcast epizódok keresését teszi lehetővé nyilvános RSS-hírcsatornák alapján.",
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: "Felhasználási feltételek",
+        url: "https://podiverzum.hu/feltetelek",
+        publisher: sitePublisherJsonLd(),
+      },
     });
   }, []);
 
@@ -17,6 +25,13 @@ export default function TermsPage() {
         <p className="text-xs text-muted-foreground mb-8">Utoljára frissítve: {new Date().toLocaleDateString("hu-HU")}</p>
 
         <p>A Podiverzum egy kereső magyar podcast epizódokhoz. Az oldal használatával elfogadod az alábbi feltételeket.</p>
+
+        <h2 className="mt-8 text-xl font-semibold">Kiadó</h2>
+        <p>
+          A szolgáltatás kiadója: <strong>{SITE_PUBLISHER.displayName}</strong>.
+          Jogi név: {SITE_PUBLISHER.legalName}. Székhely: {publisherAddressLine()}.
+          Cégjegyzékszám: {SITE_PUBLISHER.companyRegisterNumber}. Adószám: {SITE_PUBLISHER.taxId}.
+        </p>
 
         <h2 className="mt-8 text-xl font-semibold">A szolgáltatásról</h2>
         <p>A Podiverzum segít releváns podcast epizódokat találni témák, személyek, cégek és más kifejezések alapján. A podcasttartalom – beleértve a hanganyagot, a leírásokat és a borítóképeket – az eredeti alkotók és kiadók tulajdona. A Podiverzum <strong>nyilvánosan elérhető RSS-hírcsatornákat</strong> indexel, és ahol technikailag lehetséges, saját lejátszóban indítja el az epizódot az eredeti kiadói hangforrás használatával.</p>

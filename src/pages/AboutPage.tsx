@@ -2,6 +2,7 @@ import Layout from "@/components/Layout";
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { setSeo } from "@/lib/seo";
+import { publisherAddressLine, SITE_PUBLISHER, sitePublisherJsonLd } from "@/lib/sitePublisher";
 
 export default function AboutPage() {
   useEffect(() => {
@@ -16,6 +17,7 @@ export default function AboutPage() {
         url: "https://podiverzum.hu",
         description:
           "MI-alapú magyar podcastkereső. Keress epizódokat témák, személyek, cégek vagy ötletek alapján.",
+        publisher: sitePublisherJsonLd(),
         sameAs: [],
       },
     });
@@ -116,6 +118,13 @@ export default function AboutPage() {
           A katalógus napról napra bővül. A kereső, a rangsorolás és a tematikus oldalak
           folyamatosan javulnak, ahogy egyre több podcast epizód kerül az indexünkbe,
           melyeket részletesen feldolgozunk és összekapcsolunk.
+        </p>
+
+        <h2 className="mt-10 text-xl font-semibold">Kiadó</h2>
+        <p>
+          A Podiverzum kiadója: <strong>{SITE_PUBLISHER.displayName}</strong>.
+          Jogi név: {SITE_PUBLISHER.legalName}. Székhely: {publisherAddressLine()}.
+          Cégjegyzékszám: {SITE_PUBLISHER.companyRegisterNumber}. Adószám: {SITE_PUBLISHER.taxId}.
         </p>
 
         <div className="not-prose mt-12 flex flex-wrap gap-3">

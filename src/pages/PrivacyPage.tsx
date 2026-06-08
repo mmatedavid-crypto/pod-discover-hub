@@ -1,12 +1,20 @@
 import Layout from "@/components/Layout";
 import { useEffect } from "react";
 import { setSeo } from "@/lib/seo";
+import { publisherAddressLine, SITE_PUBLISHER, sitePublisherJsonLd } from "@/lib/sitePublisher";
 
 export default function PrivacyPage() {
   useEffect(() => {
     setSeo({
       title: "Adatvédelem — Podiverzum",
       description: "A Podiverzum adatkezelési elvei: anonim analitika, opcionális visszajelzés, az IP-címek rögzítése és a személyes adatok továbbadása nélkül.",
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: "Adatvédelem",
+        url: "https://podiverzum.hu/adatvedelem",
+        publisher: sitePublisherJsonLd(),
+      },
     });
   }, []);
 
@@ -17,6 +25,13 @@ export default function PrivacyPage() {
         <p className="text-xs text-muted-foreground mb-8">Utolsó frissítés: {new Date().toLocaleDateString("hu-HU")}</p>
 
         <p>A Podiverzum egy podcastkereső. Célunk, hogy a lehető legkevesebb személyes adatot gyűjtsük. Ezen az oldalon bemutatjuk, mit és miért rögzítünk.</p>
+
+        <h2 className="mt-8 text-xl font-semibold">Adatkezelő</h2>
+        <p>
+          Adatkezelő: <strong>{SITE_PUBLISHER.displayName}</strong>.
+          Jogi név: {SITE_PUBLISHER.legalName}. Székhely: {publisherAddressLine()}.
+          Cégjegyzékszám: {SITE_PUBLISHER.companyRegisterNumber}. Adószám: {SITE_PUBLISHER.taxId}.
+        </p>
 
         <h2 className="mt-8 text-xl font-semibold">Mit indexelünk</h2>
         <p>A Podiverzum <strong>nyilvános podcast RSS-hírcsatornákat</strong> indexel. Hangfájlokat nem tárolunk. Az eredeti hanganyagok és adatok a podcasterek és szolgáltatóik tulajdona.</p>

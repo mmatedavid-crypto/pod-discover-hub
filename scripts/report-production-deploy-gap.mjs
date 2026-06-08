@@ -144,6 +144,7 @@ const GROUPS = {
       "supabase/migrations/20260606003000_person_bio_temporal_policy_v2.sql",
       "supabase/migrations/20260606004000_person_bio_input_hash_policy_v3.sql",
       "supabase/migrations/20260606015000_person_bio_topic_only_no_job_policy_v4.sql",
+      "supabase/migrations/20260608011000_reassert_person_bio_topic_only_no_job_policy_v4_final.sql",
     ],
     functions: ["prerender", "person-entity-extractor", "person-bio-generator"],
     why: "Névazonosságoknál és halott/történelmi személyeknél ne kerüljenek hamis életrajzok vagy nem létező podcast-szereplő profilok SEO/prerender oldalra.",
