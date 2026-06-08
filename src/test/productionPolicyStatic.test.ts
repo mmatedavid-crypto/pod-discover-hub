@@ -1353,6 +1353,12 @@ describe("production policy static guards", () => {
     expect(adminPage).toContain("const todayState = state.daily?.[todayKey] || state");
     expect(adminPage).toContain("Daily written");
     expect(adminPage).toContain("todayState.written");
+    expect(adminPage).toContain("downstream_best_text_source?:");
+    expect(adminPage).toContain("const downstream = progress.downstream_best_text_source");
+    expect(adminPage).toContain("Pilot mode");
+    expect(adminPage).toContain("bypasses paused drain only for explicit admin click");
+    expect(adminPage).toContain("Written IDs");
+    expect(adminPage).toContain("e.message || e.error || e.preview");
     expect(adminPage).toContain("Pilot 1");
   });
 

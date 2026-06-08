@@ -63,7 +63,16 @@ type SpotifyProgress = {
   model?: string;
   policy?: string;
   status_counts?: Record<string, number>;
-  error_samples?: Array<{ episode_id?: string; spotify_episode_id?: string; status?: string; message?: string }>;
+  downstream_best_text_source?: {
+    ok?: boolean;
+    status?: number;
+    skipped?: boolean;
+    reason?: string;
+    error?: string;
+    body?: unknown;
+  } | null;
+  written_episode_ids?: string[];
+  error_samples?: Array<{ episode_id?: string; spotify_episode_id?: string; status?: string | number; message?: string; preview?: string; error?: string }>;
 };
 
 const defaultControls: SpotifyControls = {
@@ -175,6 +184,10 @@ export default function AdminSpotifyTranscriptPage() {
   const errorSamples = progress.error_samples || [];
   const todayKey = new Date().toISOString().slice(0, 10);
   const todayState = state.daily?.[todayKey] || state;
+  const downstream = progress.downstream_best_text_source;
+  const downstreamStatus = downstream
+    ? downstream.skipped ? `skipped: ${downstream.reason || "-"}` : downstream.ok ? `ok${downstream.status ? ` · ${downstream.status}` : ""}` : `error: ${downstream.error || downstream.status || "-"}`
+    : "-";
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
   if (!isAdmin) return <Layout><div className="container mx-auto py-20"><h1 className="text-2xl font-semibold">Not authorized</h1></div></Layout>;
@@ -246,6 +259,8 @@ export default function AdminSpotifyTranscriptPage() {
                 <Info label="Policy" value={controls.policy || defaultControls.policy || "-"} />
                 <Info label="Paused at" value={controls.paused_at ? new Date(controls.paused_at).toLocaleString("hu-HU") : "-"} />
                 <Info label="Paused reason" value={controls.paused_reason || "-"} />
+                <Info label="Pilot mode" value="Manual 1-episode smoke test; bypasses paused drain only for explicit admin click." />
+                <Info label="Downstream" value={downstreamStatus} />
               </div>
 
               <Button onClick={() => saveControls()} disabled={saving}>
@@ -266,6 +281,7 @@ export default function AdminSpotifyTranscriptPage() {
               <Info label="Daily skipped" value={String(todayState.skipped ?? 0)} />
               <Info label="Daily errors" value={String(todayState.errors ?? 0)} />
               <Info label="Last run" value={progress.last_run_at ? new Date(progress.last_run_at).toLocaleString("hu-HU") : "-"} />
+              <Info label="Written IDs" value={progress.written_episode_ids?.length ? `${progress.written_episode_ids.length} recent` : "-"} />
             </CardContent>
           </Card>
         </div>
@@ -298,7 +314,7 @@ export default function AdminSpotifyTranscriptPage() {
                     <TableCell className="font-mono text-xs">{e.episode_id || "-"}</TableCell>
                     <TableCell className="font-mono text-xs">{e.spotify_episode_id || "-"}</TableCell>
                     <TableCell><Badge variant="secondary">{e.status || "error"}</Badge></TableCell>
-                    <TableCell className="text-sm">{e.message || "-"}</TableCell>
+                    <TableCell className="max-w-xl truncate text-sm">{e.message || e.error || e.preview || "-"}</TableCell>
                   </TableRow>
                 ))}
                 {!errorSamples.length && (
