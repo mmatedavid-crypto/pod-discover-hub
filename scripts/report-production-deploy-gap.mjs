@@ -399,6 +399,13 @@ function makeLovablePrompt(plan, groups, unmappedFailures) {
   if (plan.workers.length) {
     lines.push("", "Sync/deploy these Cloudflare worker files:");
     lines.push(...plan.workers.map((worker) => `- ${worker}`));
+    lines.push(
+      "",
+      "Cloudflare edge SEO acceptance criteria after worker deploy:",
+      "- www.podiverzum.hu/* returns 301 to apex with Cache-Control including max-age=31536000",
+      "- /robots.txt is served by worker-robots-policy and contains Host: podiverzum.hu",
+      "- /cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a.txt returns only the IndexNow key with worker-indexnow-key",
+    );
   }
 
   lines.push("", "After deploy, run verification:");

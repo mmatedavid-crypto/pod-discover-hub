@@ -103,6 +103,10 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("Redeploy these Supabase Edge Functions:");
     expect(reporter).toContain('functions: ["weekly-editorial-post"]');
     expect(reporter).toContain("IndexNow Heti ping");
+    expect(reporter).toContain("Cloudflare edge SEO acceptance criteria after worker deploy:");
+    expect(reporter).toContain("www.podiverzum.hu/* returns 301 to apex with Cache-Control including max-age=31536000");
+    expect(reporter).toContain("/robots.txt is served by worker-robots-policy and contains Host: podiverzum.hu");
+    expect(reporter).toContain("returns only the IndexNow key with worker-indexnow-key");
     expect(reporter).toContain("After deploy, run verification:");
     expect(deployDoc).toContain("Codex should generate the deploy-gap prompt, but Lovable performs the");
     expect(deployDoc).toContain("npm run report:production-deploy-gap");
