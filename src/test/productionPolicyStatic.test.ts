@@ -723,6 +723,10 @@ describe("production policy static guards", () => {
     expect(weeklyEditorialPost).toContain("published_heti_articles_only");
     expect(weeklyEditorialPost).toContain("last_request_body");
     expect(weeklyEditorialPost).toContain("last_response_status");
+    expect(weeklyEditorialPost).toContain("last_successful_pings");
+    expect(weeklyEditorialPost).toContain("last_attempts");
+    expect(weeklyEditorialPost).toContain('duplicate_window_source: "last_successful_pings"');
+    expect(weeklyEditorialPost).toContain("const ok = responseStatus != null && responseStatus >= 200 && responseStatus < 300");
 
     expect(refreshSitemap.toLowerCase()).not.toContain("indexnow");
   });

@@ -534,15 +534,16 @@ async function submitIndexNowForPublishedHeti(admin: any, post: any): Promise<Re
     .eq("key", "indexnow_controls")
     .maybeSingle();
   const current = (data?.value || {}) as Record<string, any>;
-  const lastPings = (current.last_pings || {}) as Record<string, string>;
-  const lastAt = lastPings[url] ? new Date(lastPings[url]).getTime() : 0;
+  const lastSuccessfulPings = (current.last_successful_pings || current.last_pings || {}) as Record<string, string>;
+  const lastAttempts = (current.last_attempts || {}) as Record<string, string>;
+  const lastAt = lastSuccessfulPings[url] ? new Date(lastSuccessfulPings[url]).getTime() : 0;
   if (lastAt && now.getTime() - lastAt < INDEXNOW_WINDOW_SECONDS * 1000) {
     return {
       skipped: "duplicate_window",
       url,
       key_file_url: `${SITE_URL}/${INDEXNOW_KEY}.txt`,
       request_body: requestBody,
-      last_ping_at: lastPings[url],
+      last_ping_at: lastSuccessfulPings[url],
       duplicate_window_seconds: INDEXNOW_WINDOW_SECONDS,
     };
   }
@@ -561,10 +562,11 @@ async function submitIndexNowForPublishedHeti(admin: any, post: any): Promise<Re
     responseText = e instanceof Error ? e.message : String(e);
   }
 
-  const nextPings = {
-    ...lastPings,
-    [url]: now.toISOString(),
-  };
+  const ok = responseStatus != null && responseStatus >= 200 && responseStatus < 300;
+  const nextAttempts = { ...lastAttempts, [url]: now.toISOString() };
+  const nextSuccessfulPings = ok
+    ? { ...lastSuccessfulPings, [url]: now.toISOString() }
+    : lastSuccessfulPings;
   const nextValue = {
     ...current,
     enabled: true,
@@ -578,7 +580,9 @@ async function submitIndexNowForPublishedHeti(admin: any, post: any): Promise<Re
     last_response_status: responseStatus,
     last_response_text: responseText,
     last_response_at: now.toISOString(),
-    last_pings: nextPings,
+    last_attempts: nextAttempts,
+    last_successful_pings: nextSuccessfulPings,
+    last_pings: nextSuccessfulPings,
   };
   await admin.from("app_settings").upsert({
     key: "indexnow_controls",
@@ -587,12 +591,13 @@ async function submitIndexNowForPublishedHeti(admin: any, post: any): Promise<Re
   });
 
   return {
-    ok: responseStatus != null && responseStatus >= 200 && responseStatus < 300,
+    ok,
     url,
     key_file_url: `${SITE_URL}/${INDEXNOW_KEY}.txt`,
     request_body: requestBody,
     response_status: responseStatus,
     response_text: responseText,
+    duplicate_window_source: "last_successful_pings",
     duplicate_window_seconds: INDEXNOW_WINDOW_SECONDS,
   };
 }
