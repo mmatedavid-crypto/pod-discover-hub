@@ -1282,6 +1282,15 @@ describe("production policy static guards", () => {
     expect(runner).toContain("public_display: false");
     expect(runner).toContain("segments: normalized.segments");
     expect(runner).toContain("content_hash: await sha256(normalized.text)");
+    expect(runner).toContain("async function invokeBestTextSourceRunner");
+    expect(runner).toContain("/functions/v1/episode-best-text-source-runner");
+    expect(runner).toContain('source: "spotify_transcript_runner"');
+    expect(runner).toContain("writtenEpisodeIds.push(c.episode_id)");
+    expect(runner).toContain("ctrl.auto_best_text_source === false");
+    expect(runner).toContain("try {\n        downstreamBestTextSource = await invokeBestTextSourceRunner(writtenEpisodeIds);");
+    expect(runner).toContain("downstreamBestTextSource = { ok: false, error: e?.message || String(e) }");
+    expect(runner).toContain("downstream_best_text_source: downstreamBestTextSource");
+    expect(runner).toContain("written_episode_ids: writtenEpisodeIds.slice(-50)");
 
     expect(migration).toContain("'spotify_transcript_controls'");
     expect(migration).toContain("'enabled', false");

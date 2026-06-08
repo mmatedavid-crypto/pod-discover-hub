@@ -149,6 +149,35 @@ async function fetchSpotifyTranscript(spotifyEpisodeId: string, accessToken: str
   return { status: r.status, parsed, raw_preview: raw.slice(0, 240) };
 }
 
+async function invokeBestTextSourceRunner(episodeIds: string[]) {
+  if (!episodeIds.length) return null;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!supabaseUrl || !serviceRoleKey) return { ok: false, skipped: true, reason: "missing_supabase_env" };
+  const endpoint = `${supabaseUrl.replace(/\/$/, "")}/functions/v1/episode-best-text-source-runner`;
+  const r = await timeoutFetch(20_000)(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${serviceRoleKey}`,
+      "Content-Type": "application/json",
+      "User-Agent": UA,
+    },
+    body: JSON.stringify({
+      ids: episodeIds,
+      force: true,
+      source: "spotify_transcript_runner",
+    }),
+  });
+  const text = await r.text();
+  let body: any = null;
+  try { body = JSON.parse(text); } catch { body = { preview: text.slice(0, 240) }; }
+  return {
+    ok: r.ok,
+    status: r.status,
+    body,
+  };
+}
+
 function tierWeight(tier: string | null): number {
   if (tier === "S") return 100;
   if (tier === "A") return 80;
@@ -246,6 +275,7 @@ Deno.serve(async (req) => {
     const statusCounts: Record<string, number> = {};
     const errorSamples: any[] = [];
     const nextSkip = { ...(state.skip || {}) };
+    const writtenEpisodeIds: string[] = [];
 
     for (const c of picks) {
       if (Date.now() - startedAt > timeBudgetMs - 5_000) break;
@@ -294,6 +324,7 @@ Deno.serve(async (req) => {
               updated_at: new Date().toISOString(),
             }, { onConflict: "episode_id,model" });
             written++;
+            writtenEpisodeIds.push(c.episode_id);
           }
         }
       } catch (e: any) {
@@ -301,6 +332,17 @@ Deno.serve(async (req) => {
         if (errorSamples.length < 5) errorSamples.push({ spotify_episode_id: c.spotify_episode_id, error: e?.message || String(e) });
       }
       await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    let downstreamBestTextSource: any = ctrl.auto_best_text_source === false
+      ? { ok: true, skipped: true, reason: "disabled_by_spotify_transcript_controls" }
+      : null;
+    if (ctrl.auto_best_text_source !== false) {
+      try {
+        downstreamBestTextSource = await invokeBestTextSourceRunner(writtenEpisodeIds);
+      } catch (e: any) {
+        downstreamBestTextSource = { ok: false, error: e?.message || String(e) };
+      }
     }
 
     const nextState = {
@@ -321,6 +363,8 @@ Deno.serve(async (req) => {
       errors_last_run: errors,
       status_counts: statusCounts,
       error_samples: errorSamples,
+      written_episode_ids: writtenEpisodeIds.slice(-50),
+      downstream_best_text_source: downstreamBestTextSource,
       batch_size: batch,
       delay_ms: delayMs,
       daily_cap: dailyCap,
