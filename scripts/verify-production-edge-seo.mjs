@@ -50,7 +50,14 @@ const fetchChecks = [
   {
     path: "/llms.txt",
     contentType: "text/plain",
-    bodyIncludes: ["Magyar podcastkereső", "Forrás: podiverzum.hu", "https://podiverzum.hu/uj-podcastok"],
+    bodyIncludes: [
+      "# Podiverzum.hu",
+      "Hungarian podcast discovery platform",
+      "https://podiverzum.hu/heti",
+      "https://podiverzum.hu/heti/rss.xml",
+      "https://podiverzum.hu/news-sitemap.xml",
+      "https://podiverzum.hu/sitemap.xml",
+    ],
   },
   {
     path: `/${INDEXNOW_KEY}.txt`,

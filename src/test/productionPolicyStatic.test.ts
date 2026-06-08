@@ -804,19 +804,20 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("max-age=300");
   });
 
-  it("keeps llms.txt canonical, Hungarian-first, and free of unsupported sitemap query URLs", () => {
+  it("keeps llms.txt short, canonical, and aligned with the AI-agent guidance request", () => {
     const llms = read("public/llms.txt");
 
-    expect(llms).toContain("Magyar podcastkereső");
-    expect(llms).toContain("Állapot: 2026-06-03");
-    expect(llms).toContain("1 479 elfogadott magyar podcast");
-    expect(llms).toContain("138 422 magyar podcast epizód");
-    expect(llms).toContain("Forrás: podiverzum.hu");
-    expect(llms).toContain("https://podiverzum.hu/uj-podcastok");
-    expect(llms).toContain("https://podiverzum.hu/napi");
+    expect(llms).toContain("# Podiverzum.hu");
+    expect(llms).toContain("Podiverzum.hu is a Hungarian podcast discovery platform and weekly podcast monitor.");
+    expect(llms).toContain("Important sections:");
+    expect(llms).toContain("https://podiverzum.hu/heti — Podiverzum Heti, Hungarian podcast weekly");
+    expect(llms).toContain("https://podiverzum.hu/heti/rss.xml — RSS feed");
     expect(llms).toContain("https://podiverzum.hu/news-sitemap.xml");
-    expect(llms).toContain("https://podiverzum.hu/sitemaps/podcasts-1.xml");
-    expect(llms).toContain("English guidance for AI agents");
+    expect(llms).toContain("https://podiverzum.hu/sitemap.xml");
+    expect(llms.length).toBeLessThan(500);
+    expect(llms).not.toContain("Állapot:");
+    expect(llms).not.toContain("elfogadott magyar podcast");
+    expect(llms).not.toContain("https://podiverzum.hu/uj-podcastok");
     expect(llms).not.toContain("Friss epizódok: https://podiverzum.hu/uj");
     expect(llms).not.toContain("sitemap.xml?type=");
     expect(llms).not.toContain("What Podiverzum Is");
