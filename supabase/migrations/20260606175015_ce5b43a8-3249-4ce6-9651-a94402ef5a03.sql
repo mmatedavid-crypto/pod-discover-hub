@@ -114,6 +114,8 @@ INSERT INTO public.app_settings (key, value, updated_at) VALUES (
 ON CONFLICT (key) DO UPDATE SET value = public.app_settings.value || EXCLUDED.value, updated_at=now();
 
 -- ===== downstream embedding clean_text family =====
+DROP FUNCTION IF EXISTS public.select_embed_chunks_candidates(text, integer);
+
 CREATE OR REPLACE FUNCTION public.select_embed_chunks_candidates(_model text, _limit integer)
 RETURNS TABLE(id uuid, podcast_id uuid, title text, display_title text, ai_summary text, description text,
   cleaned_text text, clean_source_hash text, cleaner_method text,

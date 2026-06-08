@@ -441,6 +441,7 @@ describe("production policy static guards", () => {
     const chunkSearchSnippet = read("supabase/migrations/20260608002000_reassert_chunk_search_content_snippet.sql");
     const transcriptHashGuards = read("supabase/migrations/20260608005000_reassert_text_processing_transcript_hash_guards.sql");
     const cleanTextBackfillFreeze = read("supabase/migrations/20260608006000_reassert_clean_text_backfill_freeze_status.sql");
+    const downstreamV4Final = read("supabase/migrations/20260608191000_reassert_downstream_embedding_policy_v4_final.sql");
     const cleanRunner = read("supabase/functions/episode-clean-text-runner/index.ts");
     const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
@@ -481,6 +482,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("20260608002000_reassert_chunk_search_content_snippet.sql");
     expect(reporter).toContain("20260608005000_reassert_text_processing_transcript_hash_guards.sql");
     expect(reporter).toContain("20260608006000_reassert_clean_text_backfill_freeze_status.sql");
+    expect(reporter).toContain("20260608191000_reassert_downstream_embedding_policy_v4_final.sql");
     expect(reporter).toContain('String(failure).includes("embed_chunks")');
     expect(reporter).toContain("embed-episode-runner");
     expect(reporter).toContain("embed-episode-chunks-runner");
@@ -532,6 +534,18 @@ describe("production policy static guards", () => {
     expect(cleanTextBackfillFreeze).toContain("'clean_text_backfill_status', 'frozen_pending_quality_proof'");
     expect(cleanTextBackfillFreeze).toContain("'legacy_v3_backfill', 'manual_canary_only_until_quality_proof'");
     expect(cleanTextBackfillFreeze).toContain("public.app_settings.value || EXCLUDED.value");
+    expect(downstreamV4Final).toContain("'version', 'best_source_clean_text_first_v4_final'");
+    expect(downstreamV4Final).toContain("ct.cleaned_text AS description");
+    expect(downstreamV4Final).toContain("ct.cleaner_method LIKE 'deterministic_v4%'");
+    expect(downstreamV4Final).toContain("p.language_decision = 'accept_hungarian'");
+    expect(downstreamV4Final).toContain("'language_gate', 'podcasts.language_decision=accept_hungarian'");
+    expect(downstreamV4Final).toContain("'transcript_source_hash_passthrough', true");
+    expect(downstreamV4Final).toContain("'timestamp_chunking_requires_transcript_hash_match', true");
+    expect(downstreamV4Final).toContain("'clean_text_backfill_status', 'frozen_pending_quality_proof'");
+    expect(downstreamV4Final).toContain("'legacy_v3_backfill', 'manual_canary_only_until_quality_proof'");
+    expect(downstreamV4Final).toContain("select_embed_episode_candidates must not use legacy is_hungarian positive gates");
+    expect(downstreamV4Final).not.toContain("p.is_hungarian = true");
+    expect(downstreamV4Final).not.toContain("p.is_hungarian=true");
 
     expect(cleanRunner).toContain('const method = String(ctrl.method_version ?? "deterministic_v4")');
     expect(cleanRunner).not.toContain('ctrl.method_version ?? "deterministic_v3"');
