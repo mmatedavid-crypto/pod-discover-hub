@@ -954,7 +954,7 @@ Deno.serve(async (req) => {
       quality_guard_enabled: true,
       // Bumped whenever ranking logic changes — invalidates cached understanding / rerank rows.
       ranking_version: 6,
-      understanding_version: 2,
+      understanding_version: 4,
     };
     try {
       const { data: cfgRow } = await supaPre.from("app_settings").select("value").eq("key", "search_engine").maybeSingle();
