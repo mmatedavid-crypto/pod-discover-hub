@@ -5,6 +5,7 @@ import Layout from "@/components/Layout";
 import { breadcrumbJsonLd, ogImageUrl, setSeo } from "@/lib/seo";
 import { hetiSlug, parseHetiSlug, isoWeekToMonday, isoWeek } from "@/lib/hetiSlug";
 import { Quote, Calendar, ArrowRight, ArrowLeft, User } from "lucide-react";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 const SITE_URL = "https://podiverzum.hu";
 
@@ -286,10 +287,16 @@ export default function HetiArticlePage() {
 
         {post?.cover_image_url && (
           <img
-            src={post.cover_image_url}
+            src={optimizedImageUrl(post.cover_image_url, { width: 960, height: 540 }) || post.cover_image_url}
+            srcSet={imageSrcSet(post.cover_image_url, [640, 960, 1280])}
+            sizes="(max-width: 768px) 100vw, 768px"
             alt={post.title || fallbackTitle}
             className="w-full rounded-lg border border-border mb-8"
             loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            width={960}
+            height={540}
           />
         )}
 

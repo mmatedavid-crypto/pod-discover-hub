@@ -1,4 +1,5 @@
 // Person avatar — Wikimedia image when available, monogram fallback.
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 const SIZE_MAP: Record<string, { box: string; text: string }> = {
   sm: { box: "h-10 w-10", text: "text-xs" },
@@ -23,12 +24,18 @@ export default function PersonAvatar({
   imageUrl?: string | null;
 }) {
   const { box, text } = SIZE_MAP[size] || SIZE_MAP.md;
+  const pixelSize = size === "xl" ? 160 : size === "lg" ? 112 : size === "sm" ? 56 : 80;
   if (imageUrl) {
     return (
       <img
-        src={imageUrl}
+        src={optimizedImageUrl(imageUrl, { width: pixelSize, height: pixelSize }) || imageUrl}
+        srcSet={imageSrcSet(imageUrl, [Math.max(40, pixelSize - 32), pixelSize, pixelSize + 48])}
+        sizes={`${pixelSize}px`}
         alt={name}
         loading="lazy"
+        decoding="async"
+        width={pixelSize}
+        height={pixelSize}
         className={`${box} ${className} rounded-full object-cover border border-border/80 shrink-0 bg-card`}
       />
     );

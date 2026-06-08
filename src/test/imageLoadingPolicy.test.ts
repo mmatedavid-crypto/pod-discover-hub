@@ -250,6 +250,27 @@ describe("episode thumbnail loading policy", () => {
     expect(shareMoment).not.toContain("src={episode.imageUrl}");
   });
 
+  it("optimizes person avatars and Heti article covers on public pages", () => {
+    const avatar = read("src/components/PersonAvatar.tsx");
+    const hetiArticle = read("src/pages/HetiArticlePage.tsx");
+
+    for (const source of [avatar, hetiArticle]) {
+      expect(source).toContain('import { imageSrcSet, optimizedImageUrl } from "@/lib/image"');
+      expect(source).toContain("optimizedImageUrl(");
+      expect(source).toContain("imageSrcSet(");
+      expect(source).toContain('decoding="async"');
+    }
+
+    expect(avatar).toContain("const pixelSize = size === \"xl\" ? 160 : size === \"lg\" ? 112 : size === \"sm\" ? 56 : 80");
+    expect(avatar).toContain("optimizedImageUrl(imageUrl, { width: pixelSize, height: pixelSize })");
+    expect(avatar).not.toContain("src={imageUrl}");
+
+    expect(hetiArticle).toContain("optimizedImageUrl(post.cover_image_url, { width: 960, height: 540 })");
+    expect(hetiArticle).toContain('sizes="(max-width: 768px) 100vw, 768px"');
+    expect(hetiArticle).toContain('fetchPriority="high"');
+    expect(hetiArticle).not.toContain("src={post.cover_image_url}");
+  });
+
   it("keeps all-time toplist thumbnails optimized and non-empty", () => {
     const page = read("src/pages/ToplistaAllTimePage.tsx");
 
