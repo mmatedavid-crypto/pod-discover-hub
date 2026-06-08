@@ -415,6 +415,7 @@ describe("production policy static guards", () => {
     const timestampChunkSearch = read("supabase/migrations/20260606183000_reassert_timestamp_aware_chunk_search_v2.sql");
     const chunkSearchSnippet = read("supabase/migrations/20260608002000_reassert_chunk_search_content_snippet.sql");
     const transcriptHashGuards = read("supabase/migrations/20260608005000_reassert_text_processing_transcript_hash_guards.sql");
+    const cleanTextBackfillFreeze = read("supabase/migrations/20260608006000_reassert_clean_text_backfill_freeze_status.sql");
     const cleanRunner = read("supabase/functions/episode-clean-text-runner/index.ts");
     const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
@@ -454,6 +455,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("20260606183000_reassert_timestamp_aware_chunk_search_v2.sql");
     expect(reporter).toContain("20260608002000_reassert_chunk_search_content_snippet.sql");
     expect(reporter).toContain("20260608005000_reassert_text_processing_transcript_hash_guards.sql");
+    expect(reporter).toContain("20260608006000_reassert_clean_text_backfill_freeze_status.sql");
     expect(reporter).toContain('String(failure).includes("embed_chunks")');
     expect(reporter).toContain("embed-episode-runner");
     expect(reporter).toContain("embed-episode-chunks-runner");
@@ -502,6 +504,9 @@ describe("production policy static guards", () => {
     expect(transcriptHashGuards).toContain("'timestamp_chunking_requires_transcript_hash_match', true");
     expect(transcriptHashGuards).toContain("'language_gate', 'podcasts.language_decision=accept_hungarian'");
     expect(transcriptHashGuards).toContain("public.app_settings.value || EXCLUDED.value");
+    expect(cleanTextBackfillFreeze).toContain("'clean_text_backfill_status', 'frozen_pending_quality_proof'");
+    expect(cleanTextBackfillFreeze).toContain("'legacy_v3_backfill', 'manual_canary_only_until_quality_proof'");
+    expect(cleanTextBackfillFreeze).toContain("public.app_settings.value || EXCLUDED.value");
 
     expect(cleanRunner).toContain('const method = String(ctrl.method_version ?? "deterministic_v4")');
     expect(cleanRunner).not.toContain('ctrl.method_version ?? "deterministic_v3"');
