@@ -562,25 +562,28 @@ async function buildCategory(
 ) {
   const { data: cat } = await supabase
     .from("categories")
-    .select("name, slug, description, seo_title, seo_description")
+    .select("name, slug, description, seo_title, seo_description, taxonomy_keys")
     .eq("slug", slug)
     .maybeSingle();
   if (!cat) return null;
 
+  const taxKeys = Array.isArray((cat as any).taxonomy_keys) && (cat as any).taxonomy_keys.length
+    ? (cat as any).taxonomy_keys
+    : [cat.name];
   const { data: pods } = await supabase
     .from("podcasts")
     .select("title, display_title, slug, summary, image_url, language_decision")
-    .eq("category", cat.name)
+    .in("category", taxKeys)
     .eq("language_decision", "accept_hungarian")
     .eq("rss_status", "active")
     .order("podiverzum_rank", { ascending: false })
     .limit(50);
 
   const list = (pods ?? []) as Array<Record<string, any>>;
-  const title = cat.seo_title || `${cat.name} podcastek — Podiverzum`;
+  const title = cat.seo_title || `${cat.name} podcastok és epizódok — Podiverzum`;
   const desc =
     cat.seo_description ||
-    truncate(stripHtml(cat.description) || `A legjobb ${cat.name} podcastek a Podiverzumon.`, 160);
+    truncate(stripHtml(cat.description) || `Válogatás a legjobb ${cat.name} podcast epizódokból. A sorrendet a relevancia és a frissesség adja.`, 160);
   const canonical = `${SITE}/${urlPrefix}/${cat.slug}`;
   const ogImage = list[0]?.image_url ?? null;
 
