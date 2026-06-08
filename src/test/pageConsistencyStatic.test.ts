@@ -672,10 +672,17 @@ describe("page consistency static guards", () => {
     expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");
     expect(topic).toContain("const titleSource = `${topicName}${countLabel} magyar podcastokból | Podiverzum`");
     expect(topic).toContain("topicFallbackIntro(topic.name");
+    expect(prerender).toContain("const title = `${topic.name}${countLabel} magyar podcastokból | Podiverzum`");
+    expect(prerender).toContain("`${topic.name} témában ${epCount > 0 ? `${epCount} magyar podcast epizód` : \"magyar podcast epizódok\"}");
+    expect(prerender).not.toContain("const title = topic.seo_title || `${topic.name} — epizódok a Podiverzumon`");
     expect(person).toContain("const personSeoRelation = hasParticipantSeoEvidence && !isTemporalTopicOnlyPerson(p) ? \"hallható\" : \"kapcsolódik\"");
     expect(person).toContain("` – ${epCount} podcast epizódban ${personSeoRelation}`");
     expect(person).toContain("Megnézhető ${epCount} podcast epizód, amelyben ${personName} ${personSeoRelation}.");
     expect(person).toContain("`${exemplar} – ${fallbackEpCount} podcast epizódban ${fallbackRelation} | Podiverzum`");
+    expect(prerender).toContain("const relation = !historicalWithoutEvidence");
+    expect(prerender).toContain("`Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}.");
+    expect(prerender).toContain("`${person.name} – ${epCount} podcast epizódban ${relation} | Podiverzum`");
+    expect(prerender).not.toContain("const title = `${person.name} podcast epizódok és említések | Podiverzum`");
     expect(entity).toContain("kind === \"company\" ? `${finalName}${companyEpLabel || epLabel} | Podiverzum`");
     expect(entity).toContain("fallbackCompany");
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");

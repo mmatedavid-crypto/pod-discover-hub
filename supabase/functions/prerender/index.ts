@@ -657,10 +657,18 @@ async function buildPerson(
   const bio = safePersonBioForPrerender(person);
   const trustedIdentity = hasTrustedPersonIdentity(person);
   const safeImage = safePersonImageForPrerender(person);
+  const epCount = eps.length;
+  const relation = !historicalWithoutEvidence && (Number(person.participant_count || 0) > 0 || Number(person.host_count || 0) > 0 || Number(person.guest_count || 0) > 0)
+    ? "hallható"
+    : "kapcsolódik";
   const desc = bio
     ? truncate(bio, 160)
-    : truncate(`${person.name} — epizódok és említések a Podiverzumon. Magyar podcastek, AI-összefoglalóval.`, 160);
-  const title = `${person.name} podcast epizódok és említések | Podiverzum`;
+    : epCount > 0
+      ? truncate(`Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}. Kapcsolódó műsorok és említések a Podiverzumon.`, 160)
+      : truncate(`${person.name} kapcsolódó magyar podcast epizódjai hamarosan megjelennek a Podiverzum katalógusában.`, 160);
+  const title = epCount > 0
+    ? `${person.name} – ${epCount} podcast epizódban ${relation} | Podiverzum`
+    : `${person.name} podcast epizódok és említések | Podiverzum`;
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
@@ -722,9 +730,11 @@ async function buildTopic(
     .slice(0, 40);
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
-  const title = topic.seo_title || `${topic.name} — epizódok a Podiverzumon`;
+  const epCount = eps.length;
+  const countLabel = epCount > 0 ? ` – ${epCount} podcast epizód` : "";
+  const title = `${topic.name}${countLabel} magyar podcastokból | Podiverzum`;
   const desc = topic.seo_description
-    || truncate(stripHtml(topic.intro_text || topic.description) || `Magyar podcast epizódok ${topic.name} témakörben.`, 160);
+    || truncate(stripHtml(topic.intro_text || topic.description) || `${topic.name} témában ${epCount > 0 ? `${epCount} magyar podcast epizód` : "magyar podcast epizódok"}: friss és időtálló beszélgetések a Podiverzum katalógusából.`, 160);
   const ogImage = eps[0]?.podcast?.image_url ?? null;
 
   const html = eps.map((e) => {
