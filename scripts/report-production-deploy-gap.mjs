@@ -24,6 +24,7 @@ const GROUPS = {
       "supabase/migrations/20260606013000_reassert_article_pairer_brand_anchor_patterns_v2.sql",
       "supabase/migrations/20260607093000_best_text_source_transcript_first.sql",
       "supabase/migrations/20260608010000_reassert_best_text_source_transcript_first_policy.sql",
+      "supabase/migrations/20260608192000_reassert_article_pipeline_policy_v5_final.sql",
     ],
     functions: ["episode-article-pairer", "episode-best-text-source-runner", "database-quality-fast-lane"],
     why: "Telex/444/Hold/Partizán/HVG/Portfolio cikkekből jobb epizódleírás kerülhet a láncba.",

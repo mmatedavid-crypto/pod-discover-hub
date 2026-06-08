@@ -402,6 +402,8 @@ describe("production policy static guards", () => {
 
   it("keeps publisher article pipeline verification tied to runtime output", () => {
     const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
+    const articlePipelineFinal = read("supabase/migrations/20260608192000_reassert_article_pipeline_policy_v5_final.sql");
 
     expect(verifier).toContain("pairer_has_run");
     expect(verifier).toContain("pairer_scanned_articles");
@@ -419,6 +421,17 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("no_generic_article_pairer_title_patterns");
     expect(verifier).toContain("multi_source_run_configured");
     expect(verifier).toContain("episode_article_pairer_progress");
+    expect(reporter).toContain("20260608192000_reassert_article_pipeline_policy_v5_final.sql");
+    expect(articlePipelineFinal).toContain("'source_version', 'publisher_sources_v4'");
+    expect(articlePipelineFinal).toContain("'pattern_safety_version', 'brand_anchor_no_topic_words_v2'");
+    expect(articlePipelineFinal).toContain("'patterns_policy', 'brand_or_show_name_only_no_topic_words'");
+    expect(articlePipelineFinal).toContain("'policy', 'best_text_source_v3_transcript_first_confirmed_article_youtube'");
+    expect(articlePipelineFinal).toContain("'transcript_min_chars', 900");
+    expect(articlePipelineFinal).toContain("'article_min_confidence', 0.82");
+    expect(articlePipelineFinal).toContain("source_type IN ('rss', 'spotify', 'youtube', 'article', 'transcript')");
+    expect(articlePipelineFinal).toContain("article pairer found % blocked generic title patterns");
+    expect(articlePipelineFinal).toContain("article pairer expected at least 6 sources");
+    expect(articlePipelineFinal).toContain("episode_best_text_source source_type constraint must accept article and transcript");
 
     const pairer = read("supabase/functions/episode-article-pairer/index.ts");
     expect(pairer).toContain('parser_policy: "regex_xml_no_domparser_v2"');
