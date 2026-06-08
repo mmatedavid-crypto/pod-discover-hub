@@ -633,6 +633,7 @@ describe("page consistency static guards", () => {
     const orgCard = read("src/components/OrgCard.tsx");
     const personCard = read("src/components/PersonCard.tsx");
     const publicProfile = read("src/pages/PublicProfilePage.tsx");
+    const prerender = read("supabase/functions/prerender/index.ts");
 
     for (const source of [podcast, category, topic, person, entity, search, trending, episode, categories, orgCard, personCard, publicProfile]) {
       expect(source).toContain("sanitizeHungarianPublicText");
@@ -651,6 +652,15 @@ describe("page consistency static guards", () => {
     expect(podcast).toContain("const seoDescription = podcastSeoDescription(baseDesc, [hostLine, organizationLine])");
     expect(podcast).toContain("alternateName: alternateSeoName");
     expect(podcast).not.toContain("? (/\\|\\s*Podiverzum\\s*$/i.test(safeSeoTitle) ? safeSeoTitle");
+    expect(prerender).toContain("const PODCAST_SEO_CTA = \"Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.\"");
+    expect(prerender).toContain("function podcastSeoDescription(baseDesc: string, entityLines: string[]): string");
+    expect(prerender).toContain("if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null");
+    expect(prerender).toContain("select(\"id\", { count: \"exact\", head: true })");
+    expect(prerender).toContain("const title = `${displayName} – ${epCount} epizód · podcast | Podiverzum`");
+    expect(prerender).toContain("Gyakori szervezet: ${topOrganizationNamesForSeo.join(\", \")}");
+    expect(prerender).toContain("const desc = podcastSeoDescription(baseDesc, [organizationLine])");
+    expect(prerender).toContain("numberOfEpisodes: epCount || undefined");
+    expect(prerender).not.toContain("const title = pod.seo_title || `${pod.display_title || pod.title} — Podiverzum`");
     expect(podcast).toContain("pickEpisodeDescription(e, 220)");
     expect(podcast).toContain("${pickEpisodeDescription(e, 500)}");
     expect(podcast).toContain("id,title,display_title,slug,published_at,ai_summary,summary,description");

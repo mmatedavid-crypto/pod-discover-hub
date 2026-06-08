@@ -17,6 +17,9 @@ const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+const PODCAST_SEO_CTA = "Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
+const PODCAST_SEO_DESCRIPTION_MAX = 160;
+
 const SITE_PUBLISHER = {
   displayName: "PREAG Zrt.",
   legalName: "Precíziós Agrokémia Zártkörűen Működő Részvénytársaság",
@@ -51,6 +54,20 @@ const stripHtml = (s?: string | null) =>
 
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
+
+function firstSentence(value?: string | null): string {
+  const text = stripHtml(value).replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const sentence = text.match(/^(.{40,260}?[.!?])(?:\s|$)/)?.[1]?.trim();
+  return sentence || truncate(text, 180);
+}
+
+function podcastSeoDescription(baseDesc: string, entityLines: string[]): string {
+  const ctaBudget = PODCAST_SEO_CTA.length + 1;
+  const contextBudget = Math.max(60, PODCAST_SEO_DESCRIPTION_MAX - ctaBudget);
+  const context = truncate([baseDesc, ...entityLines].filter(Boolean).join(" "), contextBudget);
+  return [context, PODCAST_SEO_CTA].filter(Boolean).join(" ").slice(0, PODCAST_SEO_DESCRIPTION_MAX);
+}
 
 function sitePublisherJsonLd() {
   return {
@@ -321,23 +338,47 @@ async function buildPodcast(
 ) {
   const { data: pod } = await supabase
     .from("podcasts")
-    .select("id, title, display_title, slug, description, summary, image_url, website_url, seo_title, seo_description, language, category")
+    .select("id, title, display_title, slug, description, summary, image_url, website_url, seo_title, seo_description, language, category, language_decision, rss_status")
     .eq("slug", slug)
     .maybeSingle();
-  if (!pod) return null;
+  if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null;
 
-  const { data: epData } = await supabase
-    .from("episodes")
-    .select("title, slug, published_at, ai_summary, summary, description")
-    .eq("podcast_id", pod.id)
-    .order("published_at", { ascending: false })
-    .limit(50);
+  const [{ data: epData }, { count: totalEpisodeCount }] = await Promise.all([
+    supabase
+      .from("episodes")
+      .select("title, slug, published_at, ai_summary, summary, description, companies")
+      .eq("podcast_id", pod.id)
+      .order("published_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("episodes")
+      .select("id", { count: "exact", head: true })
+      .eq("podcast_id", pod.id),
+  ]);
   const eps = (epData ?? []) as Array<Record<string, any>>;
 
-  const title = pod.seo_title || `${pod.display_title || pod.title} — Podiverzum`;
-  const desc =
-    pod.seo_description ||
-    truncate(stripHtml(pod.summary || pod.description) || `${pod.title} podcast a Podiverzumon.`, 160);
+  const displayName = pod.display_title || pod.title;
+  const epCount = totalEpisodeCount ?? eps.length;
+  const title = `${displayName} – ${epCount} epizód · podcast | Podiverzum`;
+  const organizationCounts = new Map<string, number>();
+  for (const ep of eps) {
+    for (const org of Array.isArray(ep.companies) ? ep.companies : []) {
+      const name = String(org || "").trim();
+      if (!name) continue;
+      organizationCounts.set(name, (organizationCounts.get(name) || 0) + 1);
+    }
+  }
+  const topOrganizationNamesForSeo = [...organizationCounts.entries()]
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([name]) => name);
+  const organizationLine = topOrganizationNamesForSeo.length
+    ? `Gyakori szervezet: ${topOrganizationNamesForSeo.join(", ")}.`
+    : "";
+  const baseDesc = firstSentence(pod.description || pod.summary || pod.seo_description)
+    || `${displayName} podcast epizódjai a Podiverzumon.`;
+  const desc = podcastSeoDescription(baseDesc, [organizationLine]);
   const canonical = `${SITE}/podcast/${pod.slug}`;
 
   const epHtml = eps
@@ -351,12 +392,13 @@ async function buildPodcast(
   const series = {
     "@context": "https://schema.org",
     "@type": "PodcastSeries",
-    name: pod.display_title || pod.title,
+    name: displayName,
     url: canonical,
     image: pod.image_url || undefined,
-    description: stripHtml(pod.description || pod.summary) || undefined,
+    description: stripHtml(pod.seo_description || pod.summary || pod.description) || baseDesc,
     inLanguage: pod.language || "hu",
     sameAs: [pod.website_url].filter(Boolean),
+    numberOfEpisodes: epCount || undefined,
   };
   const itemList = {
     "@context": "https://schema.org",
