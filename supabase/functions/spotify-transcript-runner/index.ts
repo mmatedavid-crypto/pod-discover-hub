@@ -350,7 +350,13 @@ Deno.serve(async (req) => {
       skip: Object.fromEntries(Object.entries(nextSkip).slice(-5000)),
       daily: {
         ...(state.daily || {}),
-        [today]: { calls: todayCalls + calls, updated_at: new Date().toISOString() },
+        [today]: {
+          calls: todayCalls + calls,
+          written: Number(state.daily?.[today]?.written || 0) + written,
+          skipped: Number(state.daily?.[today]?.skipped || 0) + skipped,
+          errors: Number(state.daily?.[today]?.errors || 0) + errors,
+          updated_at: new Date().toISOString(),
+        },
       },
     };
     const progress = {

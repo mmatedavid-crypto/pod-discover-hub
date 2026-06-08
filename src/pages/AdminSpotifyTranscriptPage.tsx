@@ -40,6 +40,13 @@ type SpotifyState = {
   written?: number;
   skipped?: number;
   errors?: number;
+  daily?: Record<string, {
+    calls?: number;
+    written?: number;
+    skipped?: number;
+    errors?: number;
+    updated_at?: string;
+  }>;
 };
 
 type SpotifyProgress = {
@@ -166,6 +173,8 @@ export default function AdminSpotifyTranscriptPage() {
 
   const statusCounts = useMemo(() => Object.entries(progress.status_counts || {}).sort(([a], [b]) => a.localeCompare(b)), [progress.status_counts]);
   const errorSamples = progress.error_samples || [];
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayState = state.daily?.[todayKey] || state;
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
   if (!isAdmin) return <Layout><div className="container mx-auto py-20"><h1 className="text-2xl font-semibold">Not authorized</h1></div></Layout>;
@@ -251,11 +260,11 @@ export default function AdminSpotifyTranscriptPage() {
             <CardContent className="space-y-3 text-sm">
               <Info label="Public display" value={String(controls.public_display === true)} />
               <Info label="Rights status" value={controls.rights_status || defaultControls.rights_status || "-"} />
-              <Info label="State date" value={state.date || "-"} />
-              <Info label="Daily calls" value={`${state.calls ?? 0} / ${controls.daily_cap ?? 0}`} />
-              <Info label="Daily written" value={String(state.written ?? 0)} />
-              <Info label="Daily skipped" value={String(state.skipped ?? 0)} />
-              <Info label="Daily errors" value={String(state.errors ?? 0)} />
+              <Info label="State date" value={state.date || todayKey} />
+              <Info label="Daily calls" value={`${todayState.calls ?? 0} / ${controls.daily_cap ?? 0}`} />
+              <Info label="Daily written" value={String(todayState.written ?? 0)} />
+              <Info label="Daily skipped" value={String(todayState.skipped ?? 0)} />
+              <Info label="Daily errors" value={String(todayState.errors ?? 0)} />
               <Info label="Last run" value={progress.last_run_at ? new Date(progress.last_run_at).toLocaleString("hu-HU") : "-"} />
             </CardContent>
           </Card>

@@ -1312,6 +1312,9 @@ describe("production policy static guards", () => {
     expect(runner).toContain("downstreamBestTextSource = { ok: false, error: e?.message || String(e) }");
     expect(runner).toContain("downstream_best_text_source: downstreamBestTextSource");
     expect(runner).toContain("written_episode_ids: writtenEpisodeIds.slice(-50)");
+    expect(runner).toContain("written: Number(state.daily?.[today]?.written || 0) + written");
+    expect(runner).toContain("skipped: Number(state.daily?.[today]?.skipped || 0) + skipped");
+    expect(runner).toContain("errors: Number(state.daily?.[today]?.errors || 0) + errors");
 
     expect(migration).toContain("'spotify_transcript_controls'");
     expect(migration).toContain("'enabled', false");
@@ -1346,6 +1349,10 @@ describe("production policy static guards", () => {
     expect(adminPage).toContain("batch_size");
     expect(adminPage).toContain("daily_cap");
     expect(adminPage).toContain("delay_ms");
+    expect(adminPage).toContain("const todayKey = new Date().toISOString().slice(0, 10)");
+    expect(adminPage).toContain("const todayState = state.daily?.[todayKey] || state");
+    expect(adminPage).toContain("Daily written");
+    expect(adminPage).toContain("todayState.written");
     expect(adminPage).toContain("Pilot 1");
   });
 
