@@ -63,6 +63,30 @@ type SearchHybridMeta = {
   engine: string | null;
   status: "ok";
 };
+type EntityMonitoringCoverage = {
+  ok?: boolean;
+  policy?: string;
+  active_entity_goldens?: number;
+  active_entity_query_types?: number;
+  query_types?: string[];
+  min_entity_goldens?: number;
+  min_entity_query_types?: number;
+  error?: string;
+};
+type RunnerProgress = {
+  ok?: boolean;
+  skipped?: boolean;
+  refreshed_at?: string;
+  last_run_at?: string;
+  completed?: boolean;
+  done?: number;
+  total?: number;
+  remaining?: number;
+  entity_monitoring_coverage?: EntityMonitoringCoverage;
+  refreshed?: {
+    entity_monitoring_coverage?: EntityMonitoringCoverage;
+  };
+};
 
 function pct(n: number | null | undefined) {
   if (n == null) return "—";
@@ -130,6 +154,15 @@ function asSearchHybridResponse(value: unknown): SearchHybridResponse {
   return value as SearchHybridResponse;
 }
 
+function asRunnerProgress(value: unknown): RunnerProgress {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as RunnerProgress;
+}
+
+function coverageFromProgress(progress: RunnerProgress | null): EntityMonitoringCoverage | null {
+  return progress?.entity_monitoring_coverage || progress?.refreshed?.entity_monitoring_coverage || null;
+}
+
 function toResultRow(row: BenchmarkResult): ResultRow {
   return {
     ...row,
@@ -192,6 +225,8 @@ export default function AdminSearchBenchmarkPage() {
   const [running, setRunning] = useState(false);
   const [refreshingGoldens, setRefreshingGoldens] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [goldenRefreshProgress, setGoldenRefreshProgress] = useState<RunnerProgress | null>(null);
+  const [benchmarkProgress, setBenchmarkProgress] = useState<RunnerProgress | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
   const [scoringIdx, setScoringIdx] = useState(0);
 
@@ -214,12 +249,16 @@ export default function AdminSearchBenchmarkPage() {
   }, [nav]);
 
   async function refreshAll() {
-    const [g, r] = await Promise.all([
+    const [g, r, settings] = await Promise.all([
       supabase.from("search_golden_queries").select("*").eq("active", true).order("query_type").order("sort_order").order("query").limit(500),
       supabase.from("search_benchmark_runs").select("*").order("created_at", { ascending: false }).limit(50),
+      supabase.from("app_settings").select("key,value").in("key", ["search_golden_refresh_progress", "search_benchmark_progress"]),
     ]);
     setGoldens(g.data || []);
     setRuns(r.data || []);
+    const byKey = new Map((settings.data || []).map((row) => [row.key, row.value]));
+    setGoldenRefreshProgress(asRunnerProgress(byKey.get("search_golden_refresh_progress")));
+    setBenchmarkProgress(asRunnerProgress(byKey.get("search_benchmark_progress")));
     if (!activeRunId && r.data && r.data.length) {
       const id = r.data[0].id;
       setActiveRunId(id);
@@ -239,19 +278,17 @@ export default function AdminSearchBenchmarkPage() {
   async function refreshGoldensFromCatalog() {
     setRefreshingGoldens(true);
     try {
-      const [catalog, external] = await Promise.all([
-        supabase.rpc("refresh_search_golden_queries_from_catalog", {
-          p_limit_per_type: 50,
-          p_popular_limit: 20,
-        }),
-        supabase.rpc("refresh_search_golden_queries_from_external_demand", {
-          p_chart_limit: 100,
-          p_seed_limit: 80,
-        }),
-      ]);
-      if (catalog.error) throw catalog.error;
-      if (external.error) throw external.error;
-      toast.success(`Golden set frissítve: catalog ${catalog.data?.upserted ?? "?"}, external ${external.data?.upserted ?? "?"}`);
+      const { data, error } = await supabase.functions.invoke("search-golden-refresh", {
+        body: { trigger: "admin_search_benchmark_page" },
+      });
+      if (error) throw error;
+      const payload = asRunnerProgress(data);
+      if (payload.ok === false) throw new Error(String((data as { error?: unknown })?.error || "search_golden_refresh_failed"));
+      const coverage = coverageFromProgress(payload);
+      const coverageText = coverage
+        ? ` · entity ${coverage.active_entity_goldens ?? "?"}/${coverage.min_entity_goldens ?? "?"}, types ${coverage.active_entity_query_types ?? "?"}/${coverage.min_entity_query_types ?? "?"}`
+        : "";
+      toast.success(`Golden set frissítve${coverageText}`);
       await refreshAll();
     } catch (e: any) {
       toast.error(`Golden refresh failed: ${e?.message || e}`);
@@ -509,6 +546,7 @@ export default function AdminSearchBenchmarkPage() {
   if (!isAdmin) return <Layout><div className="container mx-auto py-20">Not authorized.</div></Layout>;
 
   const activeRun = runs.find((r) => r.id === activeRunId);
+  const entityCoverage = coverageFromProgress(benchmarkProgress) || coverageFromProgress(goldenRefreshProgress);
 
   return (
     <Layout>
@@ -566,6 +604,32 @@ export default function AdminSearchBenchmarkPage() {
               <Stat label="Zero-result" value={pct(activeRun?.zero_result_rate)} />
               <Stat label="P95 latency" value={activeRun?.latency_p95 ? `${Math.round(activeRun.latency_p95)}ms` : "—"} />
             </div>
+
+            <section className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">Entity monitoring coverage</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Managed B2B entity goldens after the latest automated refresh or weekly benchmark refresh.
+                  </p>
+                </div>
+                <span className={`rounded-full px-2 py-1 text-xs font-medium ${entityCoverage?.ok ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}`}>
+                  {entityCoverage ? (entityCoverage.ok ? "OK" : "Needs attention") : "No progress yet"}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                <Stat label="Entity goldens" value={entityCoverage ? `${entityCoverage.active_entity_goldens ?? "?"}/${entityCoverage.min_entity_goldens ?? "?"}` : "—"} />
+                <Stat label="Query types" value={entityCoverage ? `${entityCoverage.active_entity_query_types ?? "?"}/${entityCoverage.min_entity_query_types ?? "?"}` : "—"} />
+                <Stat label="Golden refresh" value={goldenRefreshProgress?.refreshed_at ? new Date(goldenRefreshProgress.refreshed_at).toLocaleString() : "—"} />
+                <Stat label="Benchmark" value={benchmarkProgress?.last_run_at ? new Date(benchmarkProgress.last_run_at).toLocaleString() : "—"} />
+              </div>
+              {entityCoverage?.query_types?.length ? (
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  {entityCoverage.query_types.map((type) => <span key={type} className="rounded-full bg-secondary px-2 py-1">{type}</span>)}
+                </div>
+              ) : null}
+              {entityCoverage?.error ? <p className="mt-3 text-xs text-destructive">{entityCoverage.error}</p> : null}
+            </section>
 
             <section>
               <h2 className="font-semibold mb-2">Run history</h2>

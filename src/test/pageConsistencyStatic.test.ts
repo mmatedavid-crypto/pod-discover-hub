@@ -736,7 +736,7 @@ describe("page consistency static guards", () => {
     expect(pageViewTracker).not.toContain('(supabase as any).rpc("update_page_event_dwell"');
   });
 
-  it("keeps search benchmark golden refresh RPCs on generated Supabase types", () => {
+  it("keeps search benchmark golden refresh typed and coverage-visible", () => {
     const benchmark = read("src/pages/AdminSearchBenchmarkPage.tsx");
     const supabaseTypes = read("src/integrations/supabase/types.ts");
 
@@ -747,6 +747,11 @@ describe("page consistency static guards", () => {
     expect(benchmark).toContain('type CompetitorResult = Database["public"]["Tables"]["search_benchmark_competitors"]["Row"]');
     expect(benchmark).toContain("type SearchHybridResponse = {");
     expect(benchmark).toContain("function asSearchHybridResponse(value: unknown): SearchHybridResponse");
+    expect(benchmark).toContain("type EntityMonitoringCoverage = {");
+    expect(benchmark).toContain("function coverageFromProgress(progress: RunnerProgress | null): EntityMonitoringCoverage | null");
+    expect(benchmark).toContain('supabase.functions.invoke("search-golden-refresh"');
+    expect(benchmark).toContain("Entity monitoring coverage");
+    expect(benchmark).toContain("active_entity_goldens");
     expect(benchmark).toContain("function toResultRow(row: BenchmarkResult): ResultRow");
     expect(benchmark).toContain("function toCompetitorRow(row: CompetitorResult): CompetitorRow");
     expect(benchmark).not.toContain("type Golden = {");
@@ -764,8 +769,10 @@ describe("page consistency static guards", () => {
     expect(benchmark).toContain("import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY");
     expect(supabaseTypes).toContain("refresh_search_golden_queries_from_catalog");
     expect(supabaseTypes).toContain("refresh_search_golden_queries_from_external_demand");
-    expect(benchmark).toContain('supabase.rpc("refresh_search_golden_queries_from_catalog"');
-    expect(benchmark).toContain('supabase.rpc("refresh_search_golden_queries_from_external_demand"');
+    expect(benchmark).toContain('supabase.functions.invoke("search-golden-refresh"');
+    expect(benchmark).toContain('body: { trigger: "admin_search_benchmark_page" }');
+    expect(benchmark).not.toContain('supabase.rpc("refresh_search_golden_queries_from_catalog"');
+    expect(benchmark).not.toContain('supabase.rpc("refresh_search_golden_queries_from_external_demand"');
     expect(benchmark).not.toContain('(supabase as any).rpc("refresh_search_golden_queries_from_catalog"');
     expect(benchmark).not.toContain('(supabase as any).rpc("refresh_search_golden_queries_from_external_demand"');
   });
