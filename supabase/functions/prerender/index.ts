@@ -558,7 +558,7 @@ function isAcceptedHungarianPrerenderPodcast(p: any): boolean {
 async function buildCategory(
   supabase: ReturnType<typeof createClient>,
   slug: string,
-  urlPrefix: string = "category",
+  urlPrefix: string = "kategoria",
 ) {
   const { data: cat } = await supabase
     .from("categories")
@@ -1767,7 +1767,7 @@ Deno.serve(async (req) => {
       return r ?? notFound(path);
     }
     if ((parts[0] === "category" || parts[0] === "kategoria") && parts.length === 2) {
-      const r = await buildCategory(supabase, parts[1], parts[0]);
+      const r = await buildCategory(supabase, parts[1], "kategoria");
       return r ?? notFound(path);
     }
     if (parts[0] === "hangulatok" && parts.length === 2) {

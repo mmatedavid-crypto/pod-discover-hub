@@ -932,6 +932,7 @@ describe("production policy static guards", () => {
     for (const pair of [
       ['/^\\/search\\/?$/', '"/kereses"'],
       ['/^\\/categories\\/?$/', '"/kategoriak"'],
+      ['/^\\/category\\/([^/]+)\\/?$/', '"/kategoria/$1"'],
       ['/^\\/podcastok\\/?$/', '"/toplista"'],
       ['/^\\/toplist\\/?$/', '"/toplista"'],
       ['/^\\/b2b\\/?$/', '"/intelligence"'],

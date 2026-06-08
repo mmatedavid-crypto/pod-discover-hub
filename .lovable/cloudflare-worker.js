@@ -219,6 +219,7 @@ export default {
       [/^\/hangulat\/([^/]+)\/?$/, "/hangulatok/$1"],
       [/^\/search\/?$/, "/kereses"],
       [/^\/categories\/?$/, "/kategoriak"],
+      [/^\/category\/([^/]+)\/?$/, "/kategoria/$1"],
       [/^\/entitasok\/?$/, "/szervezetek"],
       [/^\/privacy\/?$/, "/adatvedelem"],
       [/^\/terms\/?$/, "/feltetelek"],

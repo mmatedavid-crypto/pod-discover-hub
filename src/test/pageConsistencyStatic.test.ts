@@ -352,6 +352,9 @@ describe("page consistency static guards", () => {
     const detail = read("src/pages/CategoryDetail.tsx");
     const autocomplete = read("supabase/functions/search-autocomplete/index.ts");
     const analytics = read("src/pages/AdminAnalyticsPage.tsx");
+    const prerender = read("supabase/functions/prerender/index.ts");
+    const worker = read("infra/cloudflare-worker/worker.js");
+    const lovableWorker = read(".lovable/cloudflare-worker.js");
 
     for (const source of [labels, categories, home, detail, autocomplete]) {
       expect(source).toContain("/kategoria/");
@@ -366,6 +369,12 @@ describe("page consistency static guards", () => {
     expect(app).toContain('<Route path="/categories" element={<Navigate to="/kategoriak" replace />} />');
     expect(app).toContain('<Route path="/category/:slug" element={<RedirectWithSlug to="/kategoria" />} />');
     expect(app).not.toContain('<Route path="/category/:slug" element={<CategoryDetail />} />');
+    for (const workerSource of [worker, lovableWorker]) {
+      expect(workerSource).toContain('[/^\\/category\\/([^/]+)\\/?$/, "/kategoria/$1"]');
+    }
+    expect(prerender).toContain('urlPrefix: string = "kategoria"');
+    expect(prerender).toContain('buildCategory(supabase, parts[1], "kategoria")');
+    expect(prerender).not.toContain("buildCategory(supabase, parts[1], parts[0])");
     expect(search).toContain("categoryLabel(c)");
     expect(search).toContain("categoryLabel(heroPodcast.category)");
     expect(search).not.toMatch(/categoryLabels\[c\]\s*\|\|\s*c\b/);
