@@ -1507,6 +1507,7 @@ describe("production policy static guards", () => {
     const homeRailPolicy = read("supabase/migrations/20260606005000_personalized_home_rails_reason_policy.sql");
     const homeRailMainPolicy = read("supabase/migrations/20260606011000_personalized_home_main_rail_reason_policy.sql");
     const recommendationDiagnosticsV4 = read("supabase/migrations/20260606020000_reassert_recommendation_diagnostics_policy_v4.sql");
+    const recommendationDiagnosticsFinalV4 = read("supabase/migrations/20260608009000_reassert_recommendation_diagnostics_policy_v4_final.sql");
     const homeRails = read("supabase/functions/personalized-home-rails/index.ts");
     const personalizedHome = read("src/components/home/PersonalizedHomeRails.tsx");
     const peopleMigration = read("supabase/migrations/20260603170000_people_identity_safety_consolidated.sql");
@@ -1595,6 +1596,11 @@ describe("production policy static guards", () => {
     expect(recommendationDiagnosticsV4).toContain("'user_history_centroid'");
     expect(recommendationDiagnosticsV4).toContain("'public_surface_locked_until_quality_trusted', true");
     expect(recommendationDiagnosticsV4).toContain("public.app_settings.value || EXCLUDED.value");
+    expect(recommendationDiagnosticsFinalV4).toContain("'related_reason_min_chars', 12");
+    expect(recommendationDiagnosticsFinalV4).toContain("'user_history_centroid'");
+    expect(recommendationDiagnosticsFinalV4).toContain("'public_surface_locked_until_quality_trusted', true");
+    expect(recommendationDiagnosticsFinalV4).toContain("'smart_player_public_enable_requires'");
+    expect(recommendationDiagnosticsFinalV4).toContain("public.app_settings.value || EXCLUDED.value");
     expect(homeRails).toContain("function hasDiagnosticRelatedReason");
     expect(homeRails).toContain(".filter(hasDiagnosticRelatedReason)");
     expect(homeRails).toContain("function hasMinimumMainRailSimilarity");
