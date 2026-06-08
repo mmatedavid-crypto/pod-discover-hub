@@ -200,6 +200,31 @@ describe("episode thumbnail loading policy", () => {
     expect(mood).toContain("image_url: r.image_url || null");
   });
 
+  it("optimizes search hero and smart player artwork instead of using raw feed images", () => {
+    const searchPage = read("src/pages/SearchPage.tsx");
+    const smartPlayer = read("src/components/smart-player/SmartPlayerBar.tsx");
+
+    for (const source of [searchPage, smartPlayer]) {
+      expect(source).toContain('import { imageSrcSet, optimizedImageUrl } from "@/lib/image"');
+      expect(source).toContain("optimizedImageUrl(");
+      expect(source).toContain("imageSrcSet(");
+      expect(source).toContain('decoding="async"');
+    }
+
+    expect(searchPage).toContain("optimizedImageUrl(heroPodcast.image_url, { width: 128, height: 128 })");
+    expect(searchPage).toContain("optimizedImageUrl(heroPerson.image_url, { width: 128, height: 128 })");
+    expect(searchPage).toContain("optimizedImageUrl(heroOrganization.image_url, { width: 128, height: 128 })");
+    expect(searchPage).toContain("optimizedImageUrl(c.image_url, { width: 80, height: 80 })");
+    expect(searchPage).not.toContain("<img src={heroPodcast.image_url}");
+    expect(searchPage).not.toContain("<img src={heroPerson.image_url}");
+    expect(searchPage).not.toContain("<img src={heroOrganization.image_url}");
+    expect(searchPage).not.toContain("<img src={c.image_url}");
+
+    expect(smartPlayer).toContain("optimizedImageUrl(ep.imageUrl, { width: 56, height: 56 })");
+    expect(smartPlayer).toContain("optimizedImageUrl(ep.imageUrl, { width: 320, height: 320 })");
+    expect(smartPlayer).not.toContain("<img src={ep.imageUrl}");
+  });
+
   it("keeps all-time toplist thumbnails optimized and non-empty", () => {
     const page = read("src/pages/ToplistaAllTimePage.tsx");
 

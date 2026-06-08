@@ -14,6 +14,7 @@ import { SearchStagedLoader } from "@/components/SearchStagedLoader";
 import { buildPersonCardContextLine, type PersonCardData } from "@/components/PersonCard";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 type SortKey = "best" | "newest" | "rank";
 type SearchPersonData = PersonCardData & {
@@ -588,7 +589,13 @@ export default function SearchPage() {
                 const inner = (
                   <div className="flex gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/40 transition-colors h-full">
                     {c.image_url && (
-                      <img src={c.image_url} alt={c.title} loading="lazy"
+                      <img
+                        src={optimizedImageUrl(c.image_url, { width: 80, height: 80 }) || c.image_url}
+                        srcSet={imageSrcSet(c.image_url, [56, 80, 112])}
+                        sizes="56px"
+                        alt={c.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-14 h-14 rounded-md object-cover shrink-0 border border-border/60" />
                     )}
                     <div className="min-w-0 flex-1">
@@ -620,7 +627,13 @@ export default function SearchPage() {
               className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
             >
               {heroPerson.image_url ? (
-                <img src={heroPerson.image_url} alt={heroPerson.name} loading="lazy"
+                <img
+                  src={optimizedImageUrl(heroPerson.image_url, { width: 128, height: 128 }) || heroPerson.image_url}
+                  srcSet={imageSrcSet(heroPerson.image_url, [80, 128, 160])}
+                  sizes="(max-width: 640px) 80px, 96px"
+                  alt={heroPerson.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shrink-0 border border-border/60" />
               ) : (
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-muted shrink-0 border border-border/60" />
@@ -647,7 +660,13 @@ export default function SearchPage() {
               className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
             >
               {heroPodcast.image_url && (
-                <img src={heroPodcast.image_url} alt={(heroPodcast as any).display_title || heroPodcast.title} loading="lazy"
+                <img
+                  src={optimizedImageUrl(heroPodcast.image_url, { width: 128, height: 128 }) || heroPodcast.image_url}
+                  srcSet={imageSrcSet(heroPodcast.image_url, [80, 128, 160])}
+                  sizes="(max-width: 640px) 80px, 96px"
+                  alt={(heroPodcast as any).display_title || heroPodcast.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shrink-0 border border-border/60" />
               )}
               <div className="min-w-0 flex-1">
@@ -674,7 +693,13 @@ export default function SearchPage() {
               className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
             >
               {heroOrganization.image_url ? (
-                <img src={heroOrganization.image_url} alt={heroOrganization.name} loading="lazy"
+                <img
+                  src={optimizedImageUrl(heroOrganization.image_url, { width: 128, height: 128 }) || heroOrganization.image_url}
+                  srcSet={imageSrcSet(heroOrganization.image_url, [80, 128, 160])}
+                  sizes="(max-width: 640px) 80px, 96px"
+                  alt={heroOrganization.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-contain shrink-0 border border-border/60 bg-background" />
               ) : (
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-muted shrink-0 border border-border/60 flex items-center justify-center">

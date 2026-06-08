@@ -11,6 +11,7 @@ import { EpisodeMarks } from "@/components/EpisodeMarks";
 import { LikeDislikeButtons } from "@/components/taste/LikeDislikeButtons";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 
 export function SmartPlayerBar() {
@@ -53,7 +54,15 @@ export function SmartPlayerBar() {
         )}
         <div className="container mx-auto px-3 py-2 flex items-center gap-3">
           {ep.imageUrl && (
-            <img src={ep.imageUrl} alt="" className="h-10 w-10 rounded-md object-cover shrink-0 border border-border" />
+            <img
+              src={optimizedImageUrl(ep.imageUrl, { width: 56, height: 56 }) || ep.imageUrl}
+              srcSet={imageSrcSet(ep.imageUrl, [40, 56, 80])}
+              sizes="40px"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-10 w-10 rounded-md object-cover shrink-0 border border-border"
+            />
           )}
           <button
             className="min-w-0 flex-1 text-left"
@@ -191,7 +200,15 @@ export function SmartPlayerBar() {
           </div>
           <div className="flex-1 overflow-auto p-6 flex flex-col items-center gap-5">
             {ep.imageUrl && (
-              <img src={ep.imageUrl} alt="" className="h-56 w-56 rounded-xl object-cover border border-border" />
+              <img
+                src={optimizedImageUrl(ep.imageUrl, { width: 320, height: 320 }) || ep.imageUrl}
+                srcSet={imageSrcSet(ep.imageUrl, [224, 320, 448])}
+                sizes="224px"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-56 w-56 rounded-xl object-cover border border-border"
+              />
             )}
             <div className="text-center max-w-md">
               <div className="text-lg font-semibold">{ep.title}</div>
