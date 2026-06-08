@@ -120,6 +120,7 @@ export default function AdminHubPage() {
         { to: "/admin/analytics", title: "Page Analytics", desc: "Page views, routes, referrers, UTM.", icon: LineChart },
         { to: "/admin/search-insights", title: "Search Insights", desc: "Top queries, zero-results, fallback usage.", icon: SearchIcon, badge: counts.zeroResultToday ? `${counts.zeroResultToday} zero today` : counts.searchToday ? `${counts.searchToday} today` : null, badgeTone: counts.zeroResultToday ? "warn" : "default" },
         { to: "/admin/search-benchmark", title: "Search Benchmark", desc: "Golden query set, precision/NDCG/MRR, competitor scoring.", icon: SearchIcon, badge: "new", badgeTone: "warn" },
+        { to: "/admin/gsc-insights", title: "GSC heti insight", desc: "Google Search Console heti összefoglaló + AI optimalizációs lépések.", icon: LineChart, badge: "new", badgeTone: "warn" },
       ],
     },
     {

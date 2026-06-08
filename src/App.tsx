@@ -75,6 +75,7 @@ const AdminSearchBenchmarkPage = lazy(() => import("./pages/AdminSearchBenchmark
 const AdminDataCoveragePage = lazy(() => import("./pages/AdminDataCoveragePage.tsx"));
 const AdminOutreachPage = lazy(() => import("./pages/AdminOutreachPage.tsx"));
 const AdminIntelligenceAuditPage = lazy(() => import("./pages/AdminIntelligenceAuditPage.tsx"));
+const AdminGscInsightsPage = lazy(() => import("./pages/AdminGscInsightsPage.tsx"));
 const PeopleHubPage = lazy(() => import("./pages/PeopleHubPage.tsx"));
 const PersonDetailPage = lazy(() => import("./pages/PersonDetailPage.tsx"));
 const TopicsHubPage = lazy(() => import("./pages/TopicsHubPage.tsx"));
@@ -175,6 +176,7 @@ const App = () => (
           <Route path="/admin/data-coverage" element={<AdminDataCoveragePage />} />
           <Route path="/admin/intelligence-audit" element={<AdminIntelligenceAuditPage />} />
           <Route path="/admin/outreach" element={<AdminOutreachPage />} />
+          <Route path="/admin/gsc-insights" element={<AdminGscInsightsPage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<RedirectWithSlug to="/temak" />} />
