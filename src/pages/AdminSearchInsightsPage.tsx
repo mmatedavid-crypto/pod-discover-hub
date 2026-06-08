@@ -102,7 +102,11 @@ export default function AdminSearchInsightsPage() {
       .filter((x) => x.n >= 1 && x.pin === 0 && (x.zero > 0 || x.low > 0 || x.avg < 3))
       .slice(0, 50);
     const timestampQueries = top.filter((x) => x.timestamped > 0 || x.chunkAugmented > 0).sort((a, b) => (b.timestamped + b.chunkAugmented) - (a.timestamped + a.chunkAugmented));
-    return { total, zero, fallback, avg, low, degraded, natural, nlqFallback, timestamped, timestampedResults, chunkAugmented, chunkAugmentedResults, pins, top, zeroQueries, weakQueries, aliasCandidates, timestampQueries };
+    const transcriptCoverageGaps = top
+      .filter((x) => (x.zero > 0 || x.low > 0 || x.avg < 3) && x.timestamped === 0 && x.chunkAugmented === 0)
+      .sort((a, b) => (b.zero + b.low + b.degraded + b.n) - (a.zero + a.low + a.degraded + a.n))
+      .slice(0, 50);
+    return { total, zero, fallback, avg, low, degraded, natural, nlqFallback, timestamped, timestampedResults, chunkAugmented, chunkAugmentedResults, pins, top, zeroQueries, weakQueries, aliasCandidates, timestampQueries, transcriptCoverageGaps };
   }, [rows]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -176,6 +180,15 @@ export default function AdminSearchInsightsPage() {
             <p className="text-sm text-muted-foreground">No timestamped chunk retrieval in this window yet.</p>
           ) : (
             <Table rows={stats.timestampQueries.slice(0, 50)} />
+          )}
+        </section>
+
+        <section>
+          <h2 className="font-semibold mb-2">Transcript coverage gaps</h2>
+          {stats.transcriptCoverageGaps.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No weak query is missing transcript/chunk retrieval in this window.</p>
+          ) : (
+            <Table rows={stats.transcriptCoverageGaps} />
           )}
         </section>
 

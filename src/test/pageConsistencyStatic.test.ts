@@ -702,6 +702,9 @@ describe("page consistency static guards", () => {
     expect(adminInsights).toContain('import type { Database } from "@/integrations/supabase/types"');
     expect(adminInsights).toContain('type SearchEvent = Database["public"]["Tables"]["search_events"]["Row"]');
     expect(adminInsights).toContain("type Row = Pick<SearchEvent");
+    expect(adminInsights).toContain("const transcriptCoverageGaps = top");
+    expect(adminInsights).toContain("x.timestamped === 0 && x.chunkAugmented === 0");
+    expect(adminInsights).toContain("Transcript coverage gaps");
     expect(adminInsights).toContain('await supabase.rpc("has_role"');
     expect(adminInsights).not.toContain('(supabase as any).rpc("has_role"');
   });
