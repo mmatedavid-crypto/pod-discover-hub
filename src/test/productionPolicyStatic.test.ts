@@ -1408,6 +1408,7 @@ describe("production policy static guards", () => {
   it("keeps Spotify native transcript drain operator-controlled and private-display only", () => {
     const runner = read("supabase/functions/spotify-transcript-runner/index.ts");
     const migration = read("supabase/migrations/20260607094500_spotify_transcript_runner_controls.sql");
+    const finalMigration = read("supabase/migrations/20260608193000_reassert_spotify_transcript_policy_v2_final.sql");
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
     const adminPage = read("src/pages/AdminSpotifyTranscriptPage.tsx");
@@ -1457,6 +1458,20 @@ describe("production policy static guards", () => {
     expect(migration).toContain("'cron_job', 'podiverzum-spotify-transcript-runner'");
     expect(migration).toContain("'cron_schedule', '*/5 * * * *'");
     expect(migration).toContain("'name', 'spotify_transcript_runner'");
+    expect(finalMigration).toContain("'spotify_transcript_controls'");
+    expect(finalMigration).toContain("'enabled', COALESCE(public.app_settings.value->'enabled', 'false'::jsonb)");
+    expect(finalMigration).toContain("'policy', 'default_disabled_operator_controlled_native_transcript_indexing_v1'");
+    expect(finalMigration).toContain("'cron_job', 'podiverzum-spotify-transcript-runner'");
+    expect(finalMigration).toContain("'cron_schedule', '*/5 * * * *'");
+    expect(finalMigration).toContain("'rights_status', 'spotify_private_api_index_only'");
+    expect(finalMigration).toContain("'public_display', false");
+    expect(finalMigration).toContain("'spotify_transcript_state'");
+    expect(finalMigration).toContain("'skip', COALESCE(public.app_settings.value->'skip', '{}'::jsonb)");
+    expect(finalMigration).toContain("'daily', COALESCE(public.app_settings.value->'daily', '{}'::jsonb)");
+    expect(finalMigration).toContain("'name', 'spotify_transcript_runner'");
+    expect(finalMigration).toContain("'controls_key', 'spotify_transcript_controls'");
+    expect(finalMigration).toContain("'progress_key', 'spotify_transcript_progress'");
+    expect(finalMigration).toContain("spotify_transcript_controls.enabled must default to false");
 
     expect(verifier).toContain("spotify_transcript_pipeline");
     expect(verifier).toContain("controls_default_disabled");
@@ -1467,6 +1482,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("spotify_transcript_pipeline");
     expect(reporter).toContain("spotify-transcript-runner");
     expect(reporter).toContain("20260607094500_spotify_transcript_runner_controls.sql");
+    expect(reporter).toContain("20260608193000_reassert_spotify_transcript_policy_v2_final.sql");
 
     expect(app).toContain("AdminSpotifyTranscriptPage");
     expect(app).toContain('path="/admin/spotify-transcripts"');

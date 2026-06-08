@@ -94,7 +94,10 @@ const GROUPS = {
   },
   spotify_transcript_pipeline: {
     label: "Spotify native transcript drain",
-    migrations: ["supabase/migrations/20260607094500_spotify_transcript_runner_controls.sql"],
+    migrations: [
+      "supabase/migrations/20260607094500_spotify_transcript_runner_controls.sql",
+      "supabase/migrations/20260608193000_reassert_spotify_transcript_policy_v2_final.sql",
+    ],
     functions: ["spotify-transcript-runner"],
     why: "A meglévő Spotify episode id-kből kézzel kapcsolható, daily cap-es native transcript drain adjon időbélyeges bemenetet a clean-text és chunk search láncnak.",
   },
