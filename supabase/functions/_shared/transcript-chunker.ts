@@ -26,9 +26,9 @@ function num(v: unknown): number | null {
 }
 
 function segmentTime(s: any): { start: number | null; end: number | null } {
-  const start = num(s?.start ?? s?.start_seconds ?? s?.startTime ?? s?.offset);
-  const explicitEnd = num(s?.end ?? s?.end_seconds ?? s?.endTime);
-  const duration = num(s?.duration ?? s?.dur);
+  const start = num(s?.start ?? s?.start_seconds ?? s?.startTime ?? s?.startTimeMs ?? s?.start_ms ?? s?.offset);
+  const explicitEnd = num(s?.end ?? s?.end_seconds ?? s?.endTime ?? s?.endTimeMs ?? s?.end_ms);
+  const duration = num(s?.duration ?? s?.durationMs ?? s?.dur);
   const scale = start != null && start > 10_000 ? 1000 : 1;
   const scaledStart = start == null ? null : start / scale;
   if (explicitEnd != null) return { start: scaledStart, end: explicitEnd / (explicitEnd > 10_000 ? 1000 : 1) };
@@ -43,27 +43,52 @@ function wordCount(text: string): number {
   return (text.match(/\S+/g) || []).length;
 }
 
-function normalizeForAlign(text: string): string {
-  return String(text || "")
+const ALIGN_FILLER_WORDS = new Set([
+  "hat",
+  "igen",
+  "igazabol",
+  "na",
+  "oke",
+  "szoval",
+  "tehat",
+  "ugye",
+  "um",
+  "umm",
+  "uh",
+]);
+
+function normalizeForAlign(text: string, removeFillers = false): string {
+  const normalized = String(text || "")
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  if (!removeFillers) return normalized;
+  return normalized
+    .split(" ")
+    .filter((token) => {
+      if (!token) return false;
+      if (/^o{2,}$/.test(token)) return false;
+      return !ALIGN_FILLER_WORDS.has(token);
+    })
+    .join(" ");
 }
 
 export function parseTimedSegments(raw: unknown, cleanedText: string): TimedSegment[] {
   if (!Array.isArray(raw)) return [];
   const cleanedNorm = normalizeForAlign(cleanedText);
+  const cleanedNormWithoutFillers = normalizeForAlign(cleanedText, true);
   if (cleanedNorm.length < 80) return [];
   let cursor = 0;
+  let fillerCursor = 0;
   let charCursor = 0;
   let aligned = 0;
   const out: TimedSegment[] = [];
   for (let i = 0; i < raw.length; i++) {
     const row = raw[i] as any;
-    const text = String(row?.text ?? row?.transcript ?? row?.content ?? "").replace(/\s+/g, " ").trim();
+    const text = String(row?.text ?? row?.body ?? row?.transcript ?? row?.content ?? row?.line ?? "").replace(/\s+/g, " ").trim();
     if (!text) continue;
     const wc = wordCount(text);
     if (wc === 0) continue;
@@ -74,9 +99,16 @@ export function parseTimedSegments(raw: unknown, cleanedText: string): TimedSegm
       cursor = found + norm.length;
       aligned++;
     } else {
-      const loose = cleanedNorm.indexOf(norm);
-      if (loose === -1) continue;
-      aligned++;
+      const compactNorm = normalizeForAlign(text, true);
+      const compactFound = compactNorm.length >= 4 ? cleanedNormWithoutFillers.indexOf(compactNorm, fillerCursor) : -1;
+      if (compactFound >= 0) {
+        fillerCursor = compactFound + compactNorm.length;
+        aligned++;
+      } else {
+        const loose = cleanedNorm.indexOf(norm);
+        if (loose === -1) continue;
+        aligned++;
+      }
     }
     const { start, end } = segmentTime(row);
     const charStart = charCursor;

@@ -53,6 +53,33 @@ describe("transcript chunker", () => {
     expect(chunks[1].timestamp_start_seconds).toBeLessThanOrEqual(raw[2].start);
   });
 
+  it("keeps timestamped chunks when cleaned text removed Hungarian filler words", () => {
+    let startMs = 0;
+    const raw = Array.from({ length: 7 }, (_, idx) => {
+      const body = Array.from({ length: 32 }, (_, i) => `ööö tehát igazából fontos${idx}w${i}`).join(" ");
+      const row = { body, startTimeMs: startMs, endTimeMs: startMs + 8_000 };
+      startMs += 9_000;
+      return row;
+    });
+    const cleaned = raw
+      .map((s) => String(s.body).replace(/\b(ööö|tehát|igazából)\b/g, ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const chunks = chunkTimedSegments(raw, cleaned, "spotify-native");
+
+    expect(chunks.length).toBeGreaterThanOrEqual(2);
+    expect(chunks[0]).toMatchObject({
+      timestamp_start_seconds: 0,
+      timestamp_end_seconds: 17,
+      segment_start_idx: 0,
+      source_transcript_model: "spotify-native",
+      chunking_method: "segment_timestamp_v2",
+    });
+    expect(chunks[0].content).toContain("fontos0w0");
+  });
+
   it("refuses timestamp chunking when segments cannot be aligned to the cleaned text", () => {
     const raw = buildSegments([60, 60, 60]);
     const cleaned = "egeszen mas tisztitott szoveg ".repeat(30);
