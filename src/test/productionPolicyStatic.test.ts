@@ -126,6 +126,7 @@ describe("production policy static guards", () => {
       "clean_text_backfill_gates",
       "article_pipeline",
       "seo_news_sitemap",
+      "gsc_weekly_insights",
       "public_ai_language_guard",
       "related_episode_quality",
       "taste_card_embedding_privacy",
@@ -151,6 +152,8 @@ describe("production policy static guards", () => {
       "20260605212000_reassert_news_sitemap_gsc_put_submit.sql",
       "20260605214500_clear_news_sitemap_connector_404_state.sql",
       "20260606021000_guard_news_sitemap_connector_404_state.sql",
+      "20260608202421_8513ce2e-bc76-4f7e-8906-a70e499e492b.sql",
+      "20260608203000_reassert_gsc_weekly_insights_policy_v1_final.sql",
       "20260603162000_public_ai_language_guard_consolidated.sql",
       "20260603165000_related_episode_quality_consolidated.sql",
       "20260604001000_recommendation_compatibility_v4.sql",
@@ -184,6 +187,7 @@ describe("production policy static guards", () => {
       "embed-episode-runner",
       "embed-episode-chunks-runner",
       "refresh-sitemap",
+      "gsc-weekly-insights",
       "search-golden-refresh",
       "search-benchmark-runner",
       "search-hybrid",
@@ -786,6 +790,62 @@ describe("production policy static guards", () => {
     expect(staticFallback).not.toContain("<url>");
     expect(staticFallback).not.toContain("podiverzum.hu/heti</loc>");
     expect(staticFallback).not.toContain("<news:publication_date>");
+  });
+
+  it("keeps weekly GSC insights deploy-visible and admin-only", () => {
+    const fn = read("supabase/functions/gsc-weekly-insights/index.ts");
+    const migration = read("supabase/migrations/20260608202421_8513ce2e-bc76-4f7e-8906-a70e499e492b.sql");
+    const finalMigration = read("supabase/migrations/20260608203000_reassert_gsc_weekly_insights_policy_v1_final.sql");
+    const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
+    const adminPage = read("src/pages/AdminGscInsightsPage.tsx");
+    const app = read("src/App.tsx");
+    const adminHub = read("src/pages/AdminHubPage.tsx");
+    const supabaseTypes = read("src/integrations/supabase/types.ts");
+
+    expect(fn).toContain("https://connector-gateway.lovable.dev/google_search_console");
+    expect(fn).toContain("LOVABLE_API_KEY");
+    expect(fn).toContain("GOOGLE_SEARCH_CONSOLE_API_KEY");
+    expect(fn).toContain("X-Connection-Api-Key");
+    expect(fn).toContain('job_type: "gsc_weekly_insights"');
+    expect(fn).toContain('prompt_version: "gsc-v1"');
+    expect(fn).toContain("striking_distance");
+    expect(fn).toContain("zero_click_high_impr");
+    expect(fn).toContain('.from("gsc_weekly_insights")');
+    expect(fn).toContain('.from("gsc_query_daily")');
+    expect(fn).not.toContain("GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL");
+    expect(fn).not.toContain("https://oauth2.googleapis.com/token");
+
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.gsc_weekly_insights");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.gsc_query_daily");
+    expect(migration).toContain("ALTER TABLE public.gsc_weekly_insights ENABLE ROW LEVEL SECURITY");
+    expect(migration).toContain("public.has_role(auth.uid(), 'admin')");
+    expect(finalMigration).toContain("'gsc_weekly_insights_controls'");
+    expect(finalMigration).toContain("'policy', 'weekly_gsc_insights_connector_ai_summary_v1'");
+    expect(finalMigration).toContain("'site_url', 'sc-domain:podiverzum.hu'");
+    expect(finalMigration).toContain("'cron_job', 'podiverzum-gsc-weekly-insights'");
+    expect(finalMigration).toContain("'cron_schedule', '10 6 * * 1'");
+    expect(finalMigration).toContain("'requires_connector_secrets', jsonb_build_array('LOVABLE_API_KEY', 'GOOGLE_SEARCH_CONSOLE_API_KEY')");
+    expect(finalMigration).toContain("gsc_weekly_insights_controls policy/cron/secret contract is incomplete");
+    expect(finalMigration).toContain("GSC weekly insights tables must keep RLS enabled");
+
+    expect(verifier).toContain("gsc_weekly_insights_controls");
+    expect(verifier).toContain("gsc_weekly_insights");
+    expect(verifier).toContain("weekly_table_exists");
+    expect(verifier).toContain("daily_table_exists");
+    expect(verifier).toContain("connector_secrets_recorded");
+    expect(verifier).toContain("failures.push(`gsc_weekly_insights.${key}`)");
+    expect(reporter).toContain("gsc_weekly_insights");
+    expect(reporter).toContain("gsc-weekly-insights");
+    expect(reporter).toContain("20260608203000_reassert_gsc_weekly_insights_policy_v1_final.sql");
+
+    expect(app).toContain('path="/admin/gsc-insights"');
+    expect(adminHub).toContain("/admin/gsc-insights");
+    expect(adminPage).toContain('useNoindex("GSC Insights');
+    expect(adminPage).toContain('supabase.functions.invoke("gsc-weekly-insights"');
+    expect(adminPage).toContain('.from("gsc_weekly_insights")');
+    expect(supabaseTypes).toContain("gsc_weekly_insights");
+    expect(supabaseTypes).toContain("gsc_query_daily");
   });
 
   it("keeps root sitemap XMLs served through the Cloudflare worker with fresh news cache", () => {

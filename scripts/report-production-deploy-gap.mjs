@@ -42,6 +42,15 @@ const GROUPS = {
     functions: ["refresh-sitemap"],
     why: "15 percenként friss news sitemap, Google submit csak új news URL esetén.",
   },
+  gsc_weekly_insights: {
+    label: "Weekly Google Search Console insights",
+    migrations: [
+      "supabase/migrations/20260608202421_8513ce2e-bc76-4f7e-8906-a70e499e492b.sql",
+      "supabase/migrations/20260608203000_reassert_gsc_weekly_insights_policy_v1_final.sql",
+    ],
+    functions: ["gsc-weekly-insights"],
+    why: "A GSC adatokból heti, query/URL-szintű SEO insight és konkrét optimalizációs akciólista készüljön, admin-only felületen.",
+  },
   public_ai_language_guard: {
     label: "Hungarian-only public AI text guard",
     migrations: ["supabase/migrations/20260603162000_public_ai_language_guard_consolidated.sql"],

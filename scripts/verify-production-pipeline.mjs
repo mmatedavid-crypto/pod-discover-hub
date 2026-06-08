@@ -62,6 +62,7 @@ settings AS (
     'episode_clean_text_progress',
     'spotify_transcript_controls',
     'spotify_transcript_state',
+    'gsc_weekly_insights_controls',
     'news_sitemap_refresh_controls',
     'news_sitemap_state',
     'public_ai_language_guard_policy',
@@ -108,6 +109,7 @@ controls AS (
     'episode_clean_text_progress', setting_values->'episode_clean_text_progress',
     'spotify_transcript_controls', setting_values->'spotify_transcript_controls',
     'spotify_transcript_state', setting_values->'spotify_transcript_state',
+    'gsc_weekly_insights_controls', setting_values->'gsc_weekly_insights_controls',
     'news_sitemap_refresh_controls', setting_values->'news_sitemap_refresh_controls',
     'news_sitemap_state', setting_values->'news_sitemap_state',
     'public_ai_language_guard_policy', setting_values->'public_ai_language_guard_policy',
@@ -298,6 +300,38 @@ SELECT jsonb_build_object(
       COALESCE((setting_values->'news_sitemap_state'->>'submit_needed')::boolean, false)
       AND COALESCE(setting_values->'news_sitemap_state'->>'google_submit_reason', '') ILIKE 'missing%credentials'
     ) FROM settings)
+  ),
+  'gsc_weekly_insights', jsonb_build_object(
+    'weekly_table_exists', to_regclass('public.gsc_weekly_insights') IS NOT NULL,
+    'daily_table_exists', to_regclass('public.gsc_query_daily') IS NOT NULL,
+    'controls_present', (SELECT setting_values->'gsc_weekly_insights_controls' IS NOT NULL FROM settings),
+    'policy_recorded', (SELECT setting_values->'gsc_weekly_insights_controls'->>'policy' = 'weekly_gsc_insights_connector_ai_summary_v1' FROM settings),
+    'site_url_recorded', (SELECT setting_values->'gsc_weekly_insights_controls'->>'site_url' = 'sc-domain:podiverzum.hu' FROM settings),
+    'cron_policy_recorded', (SELECT
+      setting_values->'gsc_weekly_insights_controls'->>'cron_job' = 'podiverzum-gsc-weekly-insights'
+      AND setting_values->'gsc_weekly_insights_controls'->>'cron_schedule' = '10 6 * * 1'
+    FROM settings),
+    'connector_secrets_recorded', (SELECT
+      setting_values->'gsc_weekly_insights_controls'->'requires_connector_secrets' ? 'LOVABLE_API_KEY'
+      AND setting_values->'gsc_weekly_insights_controls'->'requires_connector_secrets' ? 'GOOGLE_SEARCH_CONSOLE_API_KEY'
+    FROM settings),
+    'admin_route_recorded', (SELECT setting_values->'gsc_weekly_insights_controls'->>'admin_route' = '/admin/gsc-insights' FROM settings),
+    'weekly_table_rls_enabled', EXISTS (
+      SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname = 'gsc_weekly_insights'
+        AND c.relrowsecurity
+    ),
+    'daily_table_rls_enabled', EXISTS (
+      SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname = 'gsc_query_daily'
+        AND c.relrowsecurity
+    )
   ),
   'public_ai_language_guard', jsonb_build_object(
     'sql_guard_function_exists', to_regprocedure('public.is_hungarianish_public_ai_text(text)') IS NOT NULL,
@@ -846,6 +880,11 @@ for (const [key, ok] of Object.entries(articlePipeline)) {
 const seoNewsSitemap = snapshot.seo_news_sitemap ?? {};
 for (const [key, ok] of Object.entries(seoNewsSitemap)) {
   if (ok !== true) failures.push(`seo_news_sitemap.${key}`);
+}
+
+const gscWeeklyInsights = snapshot.gsc_weekly_insights ?? {};
+for (const [key, ok] of Object.entries(gscWeeklyInsights)) {
+  if (ok !== true) failures.push(`gsc_weekly_insights.${key}`);
 }
 
 const publicAiLanguageGuard = snapshot.public_ai_language_guard ?? {};
