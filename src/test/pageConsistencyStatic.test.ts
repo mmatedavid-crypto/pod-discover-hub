@@ -693,6 +693,7 @@ describe("page consistency static guards", () => {
     expect(searchPage).toContain("időpontos találat");
     expect(supabaseTypes).toContain("timestamp_match_count: number");
     expect(supabaseTypes).toContain("chunk_augmented_count: number");
+    expect(supabaseTypes).toContain("content_snippet: string");
     expect(supabaseTypes).toContain("semantic_used: boolean | null");
     expect(supabaseTypes).toContain("catalog_anchors: Json");
     expect(searchPage).toContain('supabase.from("search_events").insert({');

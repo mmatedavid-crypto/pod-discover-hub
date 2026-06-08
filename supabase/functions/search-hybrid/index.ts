@@ -1820,6 +1820,7 @@ Deno.serve(async (req) => {
               source: c.best_source || "chunk",
               similarity: c.similarity || 0,
               chunk_idx: c.chunk_idx ?? null,
+              content_snippet: c.content_snippet ?? null,
               timestamp_start_seconds: c.timestamp_start_seconds ?? null,
               timestamp_end_seconds: c.timestamp_end_seconds ?? null,
               segment_start_idx: c.segment_start_idx ?? null,

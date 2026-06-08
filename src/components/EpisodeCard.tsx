@@ -44,6 +44,7 @@ export type EpisodeLite = {
     source?: string | null;
     similarity?: number | null;
     chunk_idx?: number | null;
+    content_snippet?: string | null;
     timestamp_start_seconds?: number | null;
     timestamp_end_seconds?: number | null;
     segment_start_idx?: number | null;
@@ -128,6 +129,7 @@ export function EpisodeCard({
   const playerAudioUrl = playable?.url || e.audio_url || null;
   const safeWhyMatched = safeEpisodeCardPublicText(e.why_matched, 12);
   const safeHomepageReason = safeEpisodeCardPublicText(e.homepageReason);
+  const safeChunkSnippet = safeEpisodeCardPublicText(e.chunk_match?.content_snippet, 24);
   const chunkStartRaw = Number(e.chunk_match?.timestamp_start_seconds);
   const chunkStart = Number.isFinite(chunkStartRaw) && chunkStartRaw >= 0 ? Math.floor(chunkStartRaw) : null;
   const handlePlay = (ev: React.MouseEvent) => {
@@ -244,6 +246,12 @@ export function EpisodeCard({
           <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-foreground/85 leading-snug line-clamp-2">
             <span className="font-semibold text-primary mr-1">A lényeg:</span>
             {understanding.headline}
+          </p>
+        )}
+        {safeChunkSnippet && (
+          <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-foreground/85 leading-snug line-clamp-2">
+            <span className="font-semibold text-primary mr-1">Transcript találat:</span>
+            <HL text={safeChunkSnippet} terms={terms} />
           </p>
         )}
         {desc && (

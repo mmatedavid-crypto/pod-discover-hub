@@ -80,6 +80,7 @@ const GROUPS = {
       "supabase/migrations/20260606174000_timestamp_aware_episode_chunks.sql",
       "supabase/migrations/20260606183000_reassert_timestamp_aware_chunk_search_v2.sql",
       "supabase/migrations/20260607093000_best_text_source_transcript_first.sql",
+      "supabase/migrations/20260608002000_reassert_chunk_search_content_snippet.sql",
     ],
     functions: ["episode-best-text-source-runner", "episode-clean-text-runner", "embed-episode-runner", "embed-episode-chunks-runner"],
     why: "A kereső, ajánló és B2B monitoring vektorai csak promoválható deterministic_v4-family clean textből épüljenek, ne nyers RSS/YouTube leírásból.",

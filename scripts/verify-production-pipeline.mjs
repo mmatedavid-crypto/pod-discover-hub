@@ -73,7 +73,8 @@ settings AS (
     'temporal_person_public_guard_policy',
     'person_bio_generation_policy',
     'text_processing_policy',
-    'episode_chunking_policy'
+    'episode_chunking_policy',
+    'episode_chunk_search_result_policy'
   )
 ),
 controls AS (
@@ -116,7 +117,8 @@ controls AS (
     'people_hub_identity_safety_policy', setting_values->'people_hub_identity_safety_policy',
     'temporal_person_public_guard_policy', setting_values->'temporal_person_public_guard_policy',
     'person_bio_generation_policy', setting_values->'person_bio_generation_policy',
-    'episode_chunking_policy', setting_values->'episode_chunking_policy'
+    'episode_chunking_policy', setting_values->'episode_chunking_policy',
+    'episode_chunk_search_result_policy', setting_values->'episode_chunk_search_result_policy'
   ) AS summary
   FROM settings
 ),
@@ -487,11 +489,17 @@ SELECT jsonb_build_object(
     'episode_chunking_policy_timestamp_aware_v2', COALESCE((SELECT setting_values->'episode_chunking_policy'->>'version' = 'timestamp_aware_v2' FROM settings), false),
     'episode_chunking_policy_keeps_char_fallback', COALESCE((SELECT setting_values->'episode_chunking_policy'->>'fallback' = 'char_window_v1' FROM settings), false),
     'episode_chunking_policy_search_contract_v2', COALESCE((SELECT setting_values->'episode_chunking_policy'->>'search_contract_version' = 'timestamp_chunk_search_v2' FROM settings), false),
+    'chunk_search_result_policy_content_snippet_v3', COALESCE((SELECT setting_values->'episode_chunk_search_result_policy'->>'version' = 'timestamp_chunk_search_v3_content_snippet' FROM settings), false),
     'search_episode_chunks_returns_timestamps', COALESCE((
       SELECT result ILIKE '%timestamp_start_seconds integer%'
         AND result ILIKE '%timestamp_end_seconds integer%'
         AND result ILIKE '%source_transcript_model text%'
         AND result ILIKE '%chunking_method text%'
+      FROM rpc_shapes
+      WHERE proname = 'search_episode_chunks'
+    ), false),
+    'search_episode_chunks_returns_content_snippet', COALESCE((
+      SELECT result ILIKE '%content_snippet text%'
       FROM rpc_shapes
       WHERE proname = 'search_episode_chunks'
     ), false),

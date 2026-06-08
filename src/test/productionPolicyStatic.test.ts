@@ -387,6 +387,7 @@ describe("production policy static guards", () => {
     const downstreamV3 = read("supabase/migrations/20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
     const timestampChunks = read("supabase/migrations/20260606174000_timestamp_aware_episode_chunks.sql");
     const timestampChunkSearch = read("supabase/migrations/20260606183000_reassert_timestamp_aware_chunk_search_v2.sql");
+    const chunkSearchSnippet = read("supabase/migrations/20260608002000_reassert_chunk_search_content_snippet.sql");
     const cleanRunner = read("supabase/functions/episode-clean-text-runner/index.ts");
     const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
@@ -411,7 +412,9 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("episode_chunking_policy_timestamp_aware_v2");
     expect(verifier).toContain("episode_chunking_policy_keeps_char_fallback");
     expect(verifier).toContain("episode_chunking_policy_search_contract_v2");
+    expect(verifier).toContain("chunk_search_result_policy_content_snippet_v3");
     expect(verifier).toContain("search_episode_chunks_returns_timestamps");
+    expect(verifier).toContain("search_episode_chunks_returns_content_snippet");
     expect(verifier).toContain("embed_chunks_timestamp_columns");
     expect(verifier).toContain("embedding_candidate_rpcs_no_legacy_hu_flag");
     expect(verifier).toContain("failures.push(`downstream_embedding_quality.${key}`)");
@@ -422,6 +425,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("20260606014000_reassert_downstream_embedding_clean_text_family_v3.sql");
     expect(reporter).toContain("20260606174000_timestamp_aware_episode_chunks.sql");
     expect(reporter).toContain("20260606183000_reassert_timestamp_aware_chunk_search_v2.sql");
+    expect(reporter).toContain("20260608002000_reassert_chunk_search_content_snippet.sql");
     expect(reporter).toContain('String(failure).includes("embed_chunks")');
     expect(reporter).toContain("embed-episode-runner");
     expect(reporter).toContain("embed-episode-chunks-runner");
@@ -461,6 +465,11 @@ describe("production policy static guards", () => {
     expect(timestampChunkSearch).toContain("'language_gate', 'podcasts.language_decision=accept_hungarian'");
     expect(timestampChunkSearch).not.toContain("p.is_hungarian=true");
     expect(timestampChunkSearch).not.toContain("p.is_hungarian = true");
+    expect(chunkSearchSnippet).toContain("DROP FUNCTION IF EXISTS public.search_episode_chunks(vector, integer, integer)");
+    expect(chunkSearchSnippet).toContain("CREATE OR REPLACE FUNCTION public.search_episode_chunks");
+    expect(chunkSearchSnippet).toContain("content_snippet text");
+    expect(chunkSearchSnippet).toContain("split_part(ec.content, E'\\nCONTENT:\\n', 2)");
+    expect(chunkSearchSnippet).toContain("'timestamp_chunk_search_v3_content_snippet'");
 
     expect(cleanRunner).toContain('const method = String(ctrl.method_version ?? "deterministic_v4")');
     expect(cleanRunner).not.toContain('ctrl.method_version ?? "deterministic_v3"');
@@ -486,9 +495,13 @@ describe("production policy static guards", () => {
     expect(chunkRunner).toContain("source_transcript_model: s.source_transcript_model");
     expect(chunkRunner).toContain("chunking_policy: \"timestamp_aware_v2_segments_when_available_else_char_window_v1\"");
     expect(searchHybrid).toContain("chunk_match");
+    expect(searchHybrid).toContain("content_snippet: c.content_snippet ?? null");
     expect(searchHybrid).toContain("timestamp_start_seconds: c.timestamp_start_seconds");
     expect(searchHybrid).toContain("chunkMatchMap");
     expect(episodeCard).toContain("chunk_match?:");
+    expect(episodeCard).toContain("content_snippet?: string | null");
+    expect(episodeCard).toContain("const safeChunkSnippet = safeEpisodeCardPublicText(e.chunk_match?.content_snippet, 24)");
+    expect(episodeCard).toContain("Transcript találat:");
     expect(episodeCard).toContain("formatSeekTime");
     expect(episodeCard).toContain("Lejátszás innen");
     expect(episodeCard).toContain("aria-label={`Lejátszás innen: ${formatSeekTime(chunkStart)}`}");
