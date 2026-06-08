@@ -219,6 +219,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
                     alt=""
                     className="h-24 w-full rounded-md object-cover border border-border"
                     loading="lazy"
+                    fetchPriority="low"
                     decoding="async"
                   />
                 )}
@@ -272,6 +273,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
                     alt=""
                     className="h-12 w-12 rounded-md object-cover shrink-0 border border-border"
                     loading="lazy"
+                    fetchPriority="low"
                     decoding="async"
                   />
                 )}

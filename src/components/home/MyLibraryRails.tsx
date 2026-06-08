@@ -35,6 +35,7 @@ function Card({ it, showProgress }: { it: Item; showProgress?: boolean }) {
           sizes="56px"
           alt=""
           loading="lazy"
+          fetchPriority="low"
           decoding="async"
           width={80}
           height={80}

@@ -47,6 +47,7 @@ export function ContinueListening() {
                 sizes="56px"
                 alt=""
                 loading="lazy"
+                fetchPriority="low"
                 decoding="async"
                 width={80}
                 height={80}

@@ -180,7 +180,7 @@ export default function ToplistaAllTimePage() {
                           alt={r.episode_title}
                           className="w-full h-full object-cover"
                           loading={i === 0 ? "eager" : "lazy"}
-                          fetchPriority={i === 0 ? "high" : "auto"}
+                          fetchPriority={i === 0 ? "high" : "low"}
                           decoding="async"
                           width={480}
                           height={270}

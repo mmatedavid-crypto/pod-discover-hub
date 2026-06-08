@@ -120,6 +120,7 @@ export default function RecommendedForYou() {
                 sizes="64px"
                 alt=""
                 loading="lazy"
+                fetchPriority="low"
                 decoding="async"
                 width={96}
                 height={96}

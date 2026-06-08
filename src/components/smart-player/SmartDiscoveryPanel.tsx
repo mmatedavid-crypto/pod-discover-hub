@@ -265,6 +265,7 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
                             alt=""
                             className="h-28 w-full rounded-md object-cover border border-border"
                             loading="lazy"
+                            fetchPriority="low"
                             decoding="async"
                           />
                         )}

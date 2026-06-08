@@ -143,6 +143,7 @@ export default function PublicProfilePage() {
                         sizes="48px"
                         alt=""
                         loading="lazy"
+                        fetchPriority="low"
                         decoding="async"
                         className="h-12 w-12 rounded-md object-cover shrink-0"
                       />

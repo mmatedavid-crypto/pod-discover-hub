@@ -342,7 +342,7 @@ describe("episode thumbnail loading policy", () => {
     expect(page).toContain("function rowImageSrcSet");
     expect(page).toContain("if (r.youtube_video_id) return undefined");
     expect(page).toContain("imageSrcSetForAspect(src, [320, 480, 640], 16 / 9)");
-    expect(page).toContain("fetchPriority={i === 0 ? \"high\" : \"auto\"}");
+    expect(page).toContain("fetchPriority={i === 0 ? \"high\" : \"low\"}");
     expect(page).toContain('sizes="(max-width: 768px) 100vw, 33vw"');
     expect(page).toContain('sizes="56px"');
     expect(page).toContain("width={480}");
@@ -350,5 +350,27 @@ describe("episode thumbnail loading policy", () => {
     expect(page).toContain("width={56}");
     expect(page).toContain("height={56}");
     expect(page).not.toContain('src={r.episode_image || r.podcast_image || ""}');
+  });
+
+  it("keeps repeated episode thumbnails lazy and low priority outside lead artwork", () => {
+    const recommended = read("src/components/taste/RecommendedForYou.tsx");
+    const library = read("src/components/home/MyLibraryRails.tsx");
+    const continueListening = read("src/components/ContinueListening.tsx");
+    const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
+    const related = read("src/components/smart-player/RelatedEpisodes.tsx");
+    const profile = read("src/pages/PublicProfilePage.tsx");
+
+    for (const source of [recommended, library, continueListening, discovery, related, profile]) {
+      expect(source).toContain('loading="lazy"');
+      expect(source).toContain('fetchPriority="low"');
+      expect(source).toContain('decoding="async"');
+    }
+
+    expect(discovery).toContain("imageSrcSetForAspect(r.image_url || r.podcast_image_url, [200, 280, 360], 2)");
+    expect(related).toContain("imageSrcSetForAspect(r.image_url || r.podcast_image_url, [180, 240, 320], 2)");
+    expect(recommended).toContain("imageSrcSet(ep.image_url || ep.podcast?.image_url, [64, 96, 128])");
+    expect(library).toContain("imageSrcSet(img, [56, 80, 112])");
+    expect(continueListening).toContain("imageSrcSet(it.imageUrl, [56, 80, 112])");
+    expect(profile).toContain("imageSrcSet(e.podcasts.image_url, [48, 64, 96])");
   });
 });
