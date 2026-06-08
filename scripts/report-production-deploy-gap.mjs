@@ -141,9 +141,9 @@ const GROUPS = {
   edge_worker_seo: {
     label: "Cloudflare edge SEO policy",
     migrations: [],
-    functions: [],
+    functions: ["weekly-editorial-post"],
     worker: ["infra/cloudflare-worker/worker.js", ".lovable/cloudflare-worker.js"],
-    why: "Robots.txt, AI crawler hozzáférés, canonical alias 301-ek és friss news-sitemap cache a Google/AI ügynököknek.",
+    why: "Robots.txt, AI crawler hozzáférés, canonical alias 301-ek, IndexNow Heti ping és friss news-sitemap cache a Google/AI ügynököknek.",
   },
 };
 

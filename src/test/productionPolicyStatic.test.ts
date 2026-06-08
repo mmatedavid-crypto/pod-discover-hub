@@ -101,6 +101,8 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("Before applying migrations, run preflight:");
     expect(reporter).toContain("Apply these Supabase migrations in order:");
     expect(reporter).toContain("Redeploy these Supabase Edge Functions:");
+    expect(reporter).toContain('functions: ["weekly-editorial-post"]');
+    expect(reporter).toContain("IndexNow Heti ping");
     expect(reporter).toContain("After deploy, run verification:");
     expect(deployDoc).toContain("Codex should generate the deploy-gap prompt, but Lovable performs the");
     expect(deployDoc).toContain("npm run report:production-deploy-gap");
@@ -185,6 +187,7 @@ describe("production policy static guards", () => {
       "prerender",
       "person-entity-extractor",
       "person-bio-generator",
+      "weekly-editorial-post",
       "infra/cloudflare-worker/worker.js",
       ".lovable/cloudflare-worker.js",
     ]) {
