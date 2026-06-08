@@ -181,7 +181,10 @@ export default function CategoryDetail() {
     }
     setSearchLoading(true);
     (async () => {
-      const r = await searchEpisodes({ rawQuery: queryParam, scope: scopeParam, categoryName: cat.name, limit: 60 });
+      const categoryKeys: string[] = Array.isArray(cat.taxonomy_keys) && cat.taxonomy_keys.length
+        ? cat.taxonomy_keys
+        : [cat.name];
+      const r = await searchEpisodes({ rawQuery: queryParam, scope: scopeParam, categoryName: cat.name, categoryKeys, limit: 60 });
       setSemanticUsed(r.semanticUsed);
       setSuggestion(r.suggestion);
       const decorate = (arr: any[]) => arr.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "találat" })) as EpisodeLite[];

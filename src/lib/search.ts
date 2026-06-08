@@ -294,7 +294,7 @@ function scoreEpisode(
   semanticTerms: string[],
   negatives: string[],
   rawQueryLc: string,
-  categoryName: string | null,
+  categoryKeys: string[],
 ): Omit<ScoredEpisode, "inCategory"> & { negativeHit: boolean; bodyOnlyGenericOnly: boolean } {
   let s = 0;
   let hitCount = 0;
@@ -353,7 +353,7 @@ function scoreEpisode(
 
   // Semantic-only terms: lower weight, never alone outranks an exact title hit.
   // In category mode, semantic-only weights are reduced further so direct in-cat matches win.
-  const semScale = categoryName ? 0.6 : 1;
+  const semScale = categoryKeys.length ? 0.6 : 1;
   let semanticHit = false;
   if (semanticTerms.length) {
     for (const t of semanticTerms) {
@@ -393,7 +393,7 @@ function scoreEpisode(
 
   // Category boost — strong only for direct in-category matches (title/entity/body),
   // weak for podcast-only or pure semantic matches.
-  if (categoryName && (e.podcasts?.category || "") === categoryName) {
+  if (isEpisodeInCategoryKeys(e, categoryKeys)) {
     if (titleHitAny || entityHitAny) s += 90;
     else if (bodyHitAny) s += 45;
     else s += 10;
@@ -412,6 +412,18 @@ function scoreEpisode(
     semanticOnly: !titleHitAny && !entityHitAny && !podHitAny && !bodyHitAny && semanticHit,
     matchType, negativeHit, bodyOnlyGenericOnly,
   };
+}
+
+function normalizedCategoryKeys(categoryName?: string | null, categoryKeys?: string[] | null): string[] {
+  return Array.from(new Set([categoryName, ...(categoryKeys || [])]
+    .map((v) => String(v || "").trim().toLowerCase())
+    .filter(Boolean)));
+}
+
+function isEpisodeInCategoryKeys(e: any, categoryKeys: string[]): boolean {
+  if (!categoryKeys.length) return false;
+  const category = String(e.podcasts?.category || "").trim().toLowerCase();
+  return !!category && categoryKeys.includes(category);
 }
 
 // Run text-OR and array-OR as two parallel queries (see textOrFilter note above)
@@ -467,6 +479,7 @@ export async function searchEpisodes(opts: {
   rawQuery: string;
   scope?: SearchScope;             // default "all"
   categoryName?: string | null;    // when present and scope="category", category-aware grouping
+  categoryKeys?: string[] | null;   // taxonomy bucket aliases for category-aware grouping
   limit?: number;
   /** Kept for API compatibility; public search is HU-catalog-only. */
   language?: "hu" | "en" | null;
@@ -474,6 +487,7 @@ export async function searchEpisodes(opts: {
   const { rawQuery } = opts;
   const scope: SearchScope = opts.scope || "all";
   const categoryName = opts.categoryName || null;
+  const categoryKeys = scope === "category" ? normalizedCategoryKeys(categoryName, opts.categoryKeys) : [];
   const limit = opts.limit || 80;
 
   const norm = normalizeQuery(rawQuery);
@@ -545,7 +559,7 @@ export async function searchEpisodes(opts: {
   // Step 4/5 — score & sort.
   const rawQueryLc = effective.toLowerCase();
   const scored = raw
-    .map((e: any) => scoreEpisode(e, exactGroups, semanticUsed ? semanticTerms : [], negatives, rawQueryLc, scope === "category" ? categoryName : null))
+    .map((e: any) => scoreEpisode(e, exactGroups, semanticUsed ? semanticTerms : [], negatives, rawQueryLc, categoryKeys))
     .filter((x) => !x.negativeHit && (x.hitCount > 0 || (semanticUsed && x.matchType === "semantic")));
 
   // Relevance gate: at least one strong hit OR semantic hit (when semantic is allowed).
@@ -598,7 +612,7 @@ export async function searchEpisodes(opts: {
   const decorated: ScoredEpisode[] = chosen.map((x) => ({
     e: x.e, score: x.score, hitCount: x.hitCount, strongHits: x.strongHits, allHit: x.allHit,
     semanticOnly: x.semanticOnly, matchType: x.matchType,
-    inCategory: !!(categoryName && (x.e.podcasts?.category || "") === categoryName),
+    inCategory: isEpisodeInCategoryKeys(x.e, categoryKeys),
   }));
   decorated.sort((a, b) => b.score - a.score);
 
@@ -648,7 +662,7 @@ export async function searchEpisodes(opts: {
   const finalAll = diversify(dedupe(decorated));
   fallbackUsed = fallbackUsed || partialUsed;
 
-  if (categoryName && scope === "category") {
+  if (categoryKeys.length && scope === "category") {
     const inCat = diversify(dedupe(decorated.filter((x) => x.inCategory))).slice(0, limit);
     const outsideRaw = decorated.filter(
       (x) => !x.inCategory && x.score >= 200 &&

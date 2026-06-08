@@ -102,8 +102,16 @@ describe("page consistency static guards", () => {
 
   it("keeps category episode discovery open to accepted Hungarian non-spam shows", () => {
     const category = read("src/pages/CategoryDetail.tsx");
+    const search = read("src/lib/search.ts");
 
     expect(category).toContain('.eq("language_decision", "accept_hungarian")');
+    expect(category).toContain("const taxKeys: string[] = Array.isArray((c as any).taxonomy_keys)");
+    expect(category).toContain("const categoryKeys: string[] = Array.isArray(cat.taxonomy_keys)");
+    expect(category).toContain("categoryName: cat.name, categoryKeys");
+    expect(search).toContain("categoryKeys?: string[] | null");
+    expect(search).toContain("function normalizedCategoryKeys");
+    expect(search).toContain("function isEpisodeInCategoryKeys");
+    expect(search).toContain("inCategory: isEpisodeInCategoryKeys(x.e, categoryKeys)");
     expect(category).toContain("const categoryPodcastIds = visible.map");
     expect(category).toContain(".in(\"podcast_id\", categoryPodcastIds)");
     expect(category).toContain("slug,image_url,ai_summary,summary,description");
