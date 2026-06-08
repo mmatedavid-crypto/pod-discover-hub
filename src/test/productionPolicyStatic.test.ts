@@ -1274,11 +1274,13 @@ describe("production policy static guards", () => {
     const strictPatternsV2Migration = read("supabase/migrations/20260606013000_reassert_article_pairer_brand_anchor_patterns_v2.sql");
     const readonlyPolicyMigration = read("supabase/migrations/20260605211000_episode_article_candidates_readonly_policy.sql");
     const transcriptFirstMigration = read("supabase/migrations/20260607093000_best_text_source_transcript_first.sql");
+    const transcriptFirstFinalMigration = read("supabase/migrations/20260608010000_reassert_best_text_source_transcript_first_policy.sql");
     const pairer = read("supabase/functions/episode-article-pairer/index.ts");
     const fastLane = read("supabase/functions/database-quality-fast-lane/index.ts");
     const bestSource = read("supabase/functions/episode-best-text-source-runner/index.ts");
     const cleanTextRunner = read("supabase/functions/episode-clean-text-runner/index.ts");
     const verifier = read("scripts/verify-production-pipeline.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
 
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.episode_article_candidates");
     expect(migration).toContain("CHECK (source_type IN ('rss', 'spotify', 'youtube', 'article'))");
@@ -1312,6 +1314,12 @@ describe("production policy static guards", () => {
     expect(transcriptFirstMigration).toContain("'policy', 'best_text_source_v3_transcript_first_confirmed_article_youtube'");
     expect(transcriptFirstMigration).toContain("'transcript_source_hash_passthrough', true");
     expect(transcriptFirstMigration).toContain("'timestamp_chunking_requires_transcript_hash_match', true");
+    expect(transcriptFirstFinalMigration).toContain("CHECK (source_type IN ('rss', 'spotify', 'youtube', 'article', 'transcript'))");
+    expect(transcriptFirstFinalMigration).toContain("'policy', 'best_text_source_v3_transcript_first_confirmed_article_youtube'");
+    expect(transcriptFirstFinalMigration).toContain("'article_min_confidence', 0.82");
+    expect(transcriptFirstFinalMigration).toContain("'transcript_min_chars', 900");
+    expect(transcriptFirstFinalMigration).toContain("public.app_settings.value");
+    expect(transcriptFirstFinalMigration).toContain("20260608010000_reassert_best_text_source_transcript_first_policy");
 
     expect(pairer).toContain("scorePublisherArticleMatch");
     expect(pairer).toContain("episode_article_candidates");
@@ -1347,6 +1355,7 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("text_policy_transcript_hash_passthrough");
     expect(verifier).toContain("text_policy_timestamp_hash_match_recorded");
     expect(verifier).toContain("pattern_safety_version_v2_recorded");
+    expect(reporter).toContain("20260608010000_reassert_best_text_source_transcript_first_policy.sql");
   });
 
   it("keeps Spotify native transcript drain operator-controlled and private-display only", () => {
