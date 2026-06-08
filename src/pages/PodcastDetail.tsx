@@ -26,6 +26,8 @@ type HostRow = { id?: string; slug?: string; name: string; image_url?: string | 
 
 const PODCAST_SEO_CTA = "Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
 const PODCAST_SEO_DESCRIPTION_MAX = 160;
+const PODCAST_EPISODE_INITIAL_RENDER_COUNT = 40;
+const PODCAST_EPISODE_RENDER_STEP = 40;
 
 function firstSentence(value?: string | null): string {
   const text = stripHtml(sanitizeHungarianPublicText(value || ""))
@@ -420,6 +422,7 @@ function PodcastStat({ icon, label, value }: { icon: ReactNode; label: string; v
 
 function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
   const [q, setQ] = useState("");
+  const [visibleCount, setVisibleCount] = useState(PODCAST_EPISODE_INITIAL_RENDER_COUNT);
   const { play, toggle, currentEpisode, isPlaying } = useSmartPlayer();
   const podcastSlug = podcast.slug;
   const podcastTitle = podcast.display_title || podcast.title;
@@ -438,6 +441,11 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
       return hay.includes(needle);
     });
   }, [eps, needle]);
+  useEffect(() => {
+    setVisibleCount(PODCAST_EPISODE_INITIAL_RENDER_COUNT);
+  }, [needle, podcast.id]);
+  const visibleEpisodes = filtered.slice(0, visibleCount);
+  const hasMore = visibleEpisodes.length < filtered.length;
 
   return (
     <>
@@ -489,7 +497,7 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
             <div className="text-xs text-muted-foreground mb-2">{filtered.length} találat {eps.length} epizódból</div>
           )}
           <ul className="grid gap-3">
-            {filtered.map((e, i) => {
+            {visibleEpisodes.map((e, i) => {
               const fr = freshnessOf(e.published_at);
               const audioSrc = detectAudioSource(e);
               const playerAudioUrl = audioSrc?.url || e.audio_url || null;
@@ -584,6 +592,20 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               );
             })}
           </ul>
+          {hasMore && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setVisibleCount((count) => count + PODCAST_EPISODE_RENDER_STEP)}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              >
+                További epizódok
+                <span className="text-xs text-muted-foreground">
+                  {visibleEpisodes.length.toLocaleString("hu-HU")} / {filtered.length.toLocaleString("hu-HU")}
+                </span>
+              </button>
+            </div>
+          )}
         </>
       )}
       </section>

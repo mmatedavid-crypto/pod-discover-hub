@@ -51,6 +51,18 @@ describe("episode thumbnail loading policy", () => {
     expect(detail).not.toContain('loading={i < 4 ? "eager" : "lazy"}');
   });
 
+  it("does not render every podcast detail episode thumbnail at once", () => {
+    const detail = read("src/pages/PodcastDetail.tsx");
+
+    expect(detail).toContain("PODCAST_EPISODE_INITIAL_RENDER_COUNT = 40");
+    expect(detail).toContain("PODCAST_EPISODE_RENDER_STEP = 40");
+    expect(detail).toContain("const visibleEpisodes = filtered.slice(0, visibleCount)");
+    expect(detail).toContain("setVisibleCount(PODCAST_EPISODE_INITIAL_RENDER_COUNT)");
+    expect(detail).toContain("További epizódok");
+    expect(detail).toContain("visibleEpisodes.map");
+    expect(detail).not.toContain("filtered.map((e, i)");
+  });
+
   it("limits high-priority episode thumbnail fetches to the lead visible card", () => {
     const card = read("src/components/EpisodeCard.tsx");
 
