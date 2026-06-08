@@ -755,11 +755,15 @@ describe("page consistency static guards", () => {
     expect(benchmark).toContain("function asSearchHybridResponse(value: unknown): SearchHybridResponse");
     expect(benchmark).toContain("chunk_match?: TopResult[\"chunk_match\"]");
     expect(benchmark).toContain("content_snippet?: string | null");
+    expect(benchmark).toContain("similarity?: number | null");
     expect(benchmark).toContain("chunk_augmented?: number | null");
     expect(benchmark).toContain("timestamp_match_count: number");
     expect(benchmark).toContain("chunk_augmented_count: number");
     expect(benchmark).toContain("function asChunkMatch(value: Json | undefined): TopResult[\"chunk_match\"]");
     expect(benchmark).toContain("content_snippet: typeof value.content_snippet === \"string\" ? value.content_snippet : null");
+    expect(benchmark).toContain("similarity: finiteJsonNumber(value.similarity)");
+    expect(benchmark).toContain("content_snippet: typeof e.chunk_match.content_snippet === \"string\" ? e.chunk_match.content_snippet : null");
+    expect(benchmark).toContain("score: Number.isFinite(Number(e.chunk_match.similarity)) ? Number(e.chunk_match.similarity) : Number.isFinite(Number(e.chunk_match.score)) ? Number(e.chunk_match.score) : null");
     expect(benchmark).toContain("chunk_match: asChunkMatch(item.chunk_match)");
     expect(benchmark).toContain("<span className=\"font-medium text-foreground/80\">Transcript:</span>");
     expect(benchmark).toContain("function timestampStatsFromResults(rows: ResultRow[])");

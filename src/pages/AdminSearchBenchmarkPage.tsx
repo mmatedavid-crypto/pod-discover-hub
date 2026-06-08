@@ -21,6 +21,7 @@ type TopResult = {
     content_snippet?: string | null;
     timestamp_start_seconds?: number | null;
     timestamp_end_seconds?: number | null;
+    similarity?: number | null;
     score?: number | null;
     source?: string | null;
   } | null;
@@ -159,6 +160,7 @@ function asChunkMatch(value: Json | undefined): TopResult["chunk_match"] {
   return {
     timestamp_start_seconds: finiteJsonNumber(value.timestamp_start_seconds),
     timestamp_end_seconds: finiteJsonNumber(value.timestamp_end_seconds),
+    similarity: finiteJsonNumber(value.similarity),
     score: finiteJsonNumber(value.score),
     source: typeof value.source === "string" ? value.source : null,
     content_snippet: typeof value.content_snippet === "string" ? value.content_snippet : null,
@@ -445,9 +447,10 @@ export default function AdminSearchBenchmarkPage() {
             podcast_slug: e.podcasts?.slug || e.podcast_slug || "",
             why_matched: e.why_matched || null,
             chunk_match: e.chunk_match ? {
+              content_snippet: typeof e.chunk_match.content_snippet === "string" ? e.chunk_match.content_snippet : null,
               timestamp_start_seconds: Number.isFinite(Number(e.chunk_match.timestamp_start_seconds)) ? Number(e.chunk_match.timestamp_start_seconds) : null,
               timestamp_end_seconds: Number.isFinite(Number(e.chunk_match.timestamp_end_seconds)) ? Number(e.chunk_match.timestamp_end_seconds) : null,
-              score: Number.isFinite(Number(e.chunk_match.score)) ? Number(e.chunk_match.score) : null,
+              score: Number.isFinite(Number(e.chunk_match.similarity)) ? Number(e.chunk_match.similarity) : Number.isFinite(Number(e.chunk_match.score)) ? Number(e.chunk_match.score) : null,
               source: e.chunk_match.source || null,
             } : null,
           }));
