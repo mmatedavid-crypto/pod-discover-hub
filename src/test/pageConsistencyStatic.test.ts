@@ -699,6 +699,12 @@ describe("page consistency static guards", () => {
     expect(personCard).toContain("const identityLabel = sanitizeHungarianPublicText(p.disambiguation_label)");
     expect(episode).toContain("const description = sanitizeHungarianPublicText(e.description)");
     expect(episode).toContain("id,title,display_title,slug,image_url,published_at,ai_summary,summary,description");
+    expect(prerender).toContain("language_decision, rss_status");
+    expect(prerender).toContain("const isAcceptedHungarian = isAcceptedHungarianPrerenderPodcast(pod)");
+    expect(prerender).toContain("const title = safeSeoTitle || `${ep.display_title || ep.title} — ${pod.display_title || pod.title} | Podiverzum`");
+    expect(prerender).toContain("jsonLd: isAcceptedHungarian ? [ld, breadcrumbs] : []");
+    expect(prerender).toContain("noindex: !isAcceptedHungarian");
+    expect(prerender).not.toContain("const title = ep.seo_title || `${ep.display_title || ep.title} — ${pod.display_title || pod.title}`");
     expect(episode).toContain("extractKeyMoments(sanitizeHungarianPublicText(data?.e?.description)");
     expect(episode).not.toContain("const description = stripHtml(e.description)");
     expect(publicProfile).toContain("function publicProfileText(value: unknown");

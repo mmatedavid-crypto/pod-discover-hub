@@ -436,7 +436,7 @@ async function buildEpisode(
 ) {
   const { data: pod } = await supabase
     .from("podcasts")
-    .select("id, title, display_title, slug, image_url, language")
+    .select("id, title, display_title, slug, image_url, language, language_decision, rss_status")
     .eq("slug", podcastSlug)
     .maybeSingle();
   if (!pod) return null;
@@ -457,7 +457,9 @@ async function buildEpisode(
     .maybeSingle();
   const cleanText = stripHtml((cleanRow as any)?.cleaned_text || "");
 
-  const title = ep.seo_title || `${ep.display_title || ep.title} — ${pod.display_title || pod.title}`;
+  const isAcceptedHungarian = isAcceptedHungarianPrerenderPodcast(pod);
+  const safeSeoTitle = stripHtml(ep.seo_title || "");
+  const title = safeSeoTitle || `${ep.display_title || ep.title} — ${pod.display_title || pod.title} | Podiverzum`;
   const desc =
     ep.seo_description ||
     truncate(stripHtml(ep.ai_summary || ep.summary) || cleanText || stripHtml(ep.description) || ep.title, 160);
@@ -519,7 +521,8 @@ async function buildEpisode(
       canonical,
       ogImage: ep.image_url || pod.image_url,
       ogType: "article",
-      jsonLd: [ld, breadcrumbs],
+      jsonLd: isAcceptedHungarian ? [ld, breadcrumbs] : [],
+      noindex: !isAcceptedHungarian,
       bodyHtml: `<article>
 <header>
   <p><a href="${SITE}/podcast/${pod.slug}">${esc(pod.display_title || pod.title)}</a></p>
