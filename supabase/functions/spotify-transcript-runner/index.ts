@@ -25,6 +25,10 @@ type Candidate = {
   published_at: string | null;
 };
 
+type Controls = {
+  candidate_scan_limit?: number;
+};
+
 function timeoutFetch(timeoutMs: number) {
   return async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const controller = new AbortController();
@@ -186,6 +190,12 @@ function tierWeight(tier: string | null): number {
   return 0;
 }
 
+function clampInt(value: unknown, fallback: number, min: number, max: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
@@ -197,7 +207,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "spotify_transcript_controls").maybeSingle();
-    const ctrl = (ctrlRow?.value || {}) as any;
+    const ctrl = (ctrlRow?.value || {}) as Controls & Record<string, any>;
     const pilot = Number(body.pilot || 0);
     if (ctrl.enabled !== true && !pilot && body.force !== true) return json({ ok: true, paused: true });
     if (ctrl.paused_at && !pilot && body.force !== true) return json({ ok: true, paused: true, reason: ctrl.paused_reason || "operator_paused" });
@@ -206,6 +216,12 @@ Deno.serve(async (req) => {
     const delayMs = Math.max(500, Math.min(10_000, Number(body.delay_ms || ctrl.delay_ms || 1000)));
     const dailyCap = Math.max(0, Math.min(5000, Number(ctrl.daily_cap || 100)));
     const timeBudgetMs = Math.max(10_000, Math.min(100_000, Number(ctrl.time_budget_ms || 70_000)));
+    const candidateScanLimit = clampInt(
+      body.candidate_scan_limit ?? ctrl.candidate_scan_limit,
+      Math.max(batch * 250, 2500),
+      Math.max(batch * 50, 500),
+      10_000,
+    );
 
     const { data: stateRow } = await admin.from("app_settings").select("value").eq("key", "spotify_transcript_state").maybeSingle();
     const state = (stateRow?.value || {}) as any;
@@ -221,7 +237,9 @@ Deno.serve(async (req) => {
       .from("episode_spotify_meta")
       .select("episode_id,podcast_id,spotify_episode_id,release_date")
       .not("spotify_episode_id", "is", null)
-      .limit(Math.max(batch * 100, 1000));
+      .order("release_date", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false })
+      .limit(candidateScanLimit);
     if (metaErr) throw metaErr;
 
     const alreadyIds = new Set<string>();
@@ -363,6 +381,9 @@ Deno.serve(async (req) => {
       last_run_at: new Date().toISOString(),
       runtime_ms: Date.now() - startedAt,
       candidates: picks.length,
+      candidate_scan_limit: candidateScanLimit,
+      candidate_scan_rows: metaRows?.length || 0,
+      eligible_candidates: candidates.length,
       calls_last_run: calls,
       written,
       skipped,

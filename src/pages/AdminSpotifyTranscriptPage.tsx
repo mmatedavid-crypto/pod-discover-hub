@@ -24,6 +24,7 @@ type SpotifyControls = {
   delay_ms?: number;
   daily_cap?: number;
   time_budget_ms?: number;
+  candidate_scan_limit?: number;
   policy?: string;
   model?: string;
   cron_job?: string;
@@ -53,6 +54,9 @@ type SpotifyProgress = {
   last_run_at?: string;
   status?: string;
   candidates?: number;
+  candidate_scan_limit?: number;
+  candidate_scan_rows?: number;
+  eligible_candidates?: number;
   calls_last_run?: number;
   written?: number;
   skipped?: number;
@@ -81,6 +85,7 @@ const defaultControls: SpotifyControls = {
   delay_ms: 1000,
   daily_cap: 100,
   time_budget_ms: 70000,
+  candidate_scan_limit: 2500,
   policy: "default_disabled_operator_controlled_native_transcript_indexing_v1",
   model: "spotify-native",
   cron_job: "podiverzum-spotify-transcript-runner",
@@ -252,6 +257,7 @@ export default function AdminSpotifyTranscriptPage() {
                 <NumberField label="Delay ms" value={controls.delay_ms ?? 1000} min={250} step={250} onChange={(v) => setControls({ ...controls, delay_ms: v })} />
                 <NumberField label="Daily cap" value={controls.daily_cap ?? 100} min={1} onChange={(v) => setControls({ ...controls, daily_cap: v })} />
                 <NumberField label="Budget ms" value={controls.time_budget_ms ?? 70000} min={10000} step={5000} onChange={(v) => setControls({ ...controls, time_budget_ms: v })} />
+                <NumberField label="Scan limit" value={controls.candidate_scan_limit ?? 2500} min={500} max={10000} step={500} onChange={(v) => setControls({ ...controls, candidate_scan_limit: v })} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -281,6 +287,7 @@ export default function AdminSpotifyTranscriptPage() {
               <Info label="Daily skipped" value={String(todayState.skipped ?? 0)} />
               <Info label="Daily errors" value={String(todayState.errors ?? 0)} />
               <Info label="Last run" value={progress.last_run_at ? new Date(progress.last_run_at).toLocaleString("hu-HU") : "-"} />
+              <Info label="Candidate scan" value={`${progress.candidate_scan_rows ?? 0}/${progress.candidate_scan_limit ?? controls.candidate_scan_limit ?? 0} rows · ${progress.eligible_candidates ?? 0} eligible`} />
               <Info label="Written IDs" value={progress.written_episode_ids?.length ? `${progress.written_episode_ids.length} recent` : "-"} />
             </CardContent>
           </Card>

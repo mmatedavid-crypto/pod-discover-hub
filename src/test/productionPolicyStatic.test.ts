@@ -1297,6 +1297,12 @@ describe("production policy static guards", () => {
     expect(runner).toContain("dailyCap");
     expect(runner).toContain("spotify_transcript_state");
     expect(runner).toContain("nextSkip");
+    expect(runner).toContain("candidate_scan_limit?: number");
+    expect(runner).toContain("const candidateScanLimit = clampInt");
+    expect(runner).toContain('.order("release_date", { ascending: false, nullsFirst: false })');
+    expect(runner).toContain('.order("updated_at", { ascending: false })');
+    expect(runner).toContain("candidate_scan_rows: metaRows?.length || 0");
+    expect(runner).toContain("eligible_candidates: candidates.length");
     expect(runner).toContain("res.status === 403 || res.status === 429");
     expect(runner).toContain("enabled: false");
     expect(runner).toContain('rights_status: "spotify_private_api_index_only"');
@@ -1349,6 +1355,10 @@ describe("production policy static guards", () => {
     expect(adminPage).toContain("batch_size");
     expect(adminPage).toContain("daily_cap");
     expect(adminPage).toContain("delay_ms");
+    expect(adminPage).toContain("candidate_scan_limit?: number");
+    expect(adminPage).toContain('NumberField label="Scan limit"');
+    expect(adminPage).toContain("Candidate scan");
+    expect(adminPage).toContain("progress.eligible_candidates");
     expect(adminPage).toContain("const todayKey = new Date().toISOString().slice(0, 10)");
     expect(adminPage).toContain("const todayState = state.daily?.[todayKey] || state");
     expect(adminPage).toContain("Daily written");
