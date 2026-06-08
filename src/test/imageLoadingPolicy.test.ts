@@ -227,6 +227,19 @@ describe("episode thumbnail loading policy", () => {
     expect(mood).toContain("image_url: r.image_url || null");
   });
 
+  it("uses episode artwork before podcast fallback in public share recommendations", () => {
+    const shareRecs = read("src/components/share/ShareRecommendedEpisodes.tsx");
+
+    expect(shareRecs).toContain("image_url?: string | null");
+    expect(shareRecs).toContain("episode_image_url?: string | null");
+    expect(shareRecs).toContain('rpc("get_homepage_rails_with_images_v1"');
+    expect(shareRecs).toContain("const coverImage = ep.episode_image_url || ep.image_url || ep.podcast_image_url");
+    expect(shareRecs).toContain("const coverTitle = ep.episode_image_url || ep.image_url ? title : podcastTitle");
+    expect(shareRecs).toContain("src={coverImage}");
+    expect(shareRecs).not.toContain('rpc("get_homepage_rails_v1"');
+    expect(shareRecs).not.toContain("src={ep.podcast_image_url}");
+  });
+
   it("optimizes search hero and smart player artwork instead of using raw feed images", () => {
     const searchPage = read("src/pages/SearchPage.tsx");
     const smartPlayer = read("src/components/smart-player/SmartPlayerBar.tsx");

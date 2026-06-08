@@ -11,6 +11,8 @@ type Row = {
   title: string;
   display_title: string | null;
   slug: string;
+  image_url?: string | null;
+  episode_image_url?: string | null;
   audio_url: string | null;
   topics: string[] | null;
   podcast_id: string;
@@ -129,7 +131,7 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
     (async () => {
       const since30d = new Date(Date.now() - 30 * 86400_000).toISOString();
       const { data: rails } = await supabase
-        .rpc("get_homepage_rails_v1" as never, {
+        .rpc("get_homepage_rails_with_images_v1" as never, {
           _trending_limit: 20,
           _evergreen_limit: 10,
           _category_limit: 0,
@@ -299,6 +301,8 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
           const isPlaying = playingId === ep.episode_id;
           const title = ep.display_title || ep.title;
           const podcastTitle = ep.podcast_display_title || ep.podcast_title;
+          const coverImage = ep.episode_image_url || ep.image_url || ep.podcast_image_url;
+          const coverTitle = ep.episode_image_url || ep.image_url ? title : podcastTitle;
           const isTop = idx === 0;
           return (
             <li
@@ -314,8 +318,8 @@ export function ShareRecommendedEpisodes({ tags, shareId, autoplayTop = false }:
                 aria-label={isPlaying ? `Szünet: ${title}` : `Lejátszás: ${title}`}
               >
                 <PodcastCover
-                  src={ep.podcast_image_url}
-                  title={podcastTitle}
+                  src={coverImage}
+                  title={coverTitle}
                   className="absolute inset-0 h-full w-full"
                 />
                 <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-sm">
