@@ -5656,75 +5656,33 @@ export type Database = {
         Row: {
           confidence_band: string | null
           created_at: string
-          anchor_episode_candidates: number | null
-          catalog_anchors: Json
-          degraded_for_latency: boolean | null
           fallback_used: boolean
           id: string
-          chunk_augmented_count: number
-          natural_question: Json | null
-          natural_question_fallback: boolean | null
-          organization_pin_slug: string | null
-          person_pin_slug: string | null
-          podcast_pin_slug: string | null
           query: string
-          reranked: boolean | null
           result_count: number
-          semantic_used: boolean | null
           terms_count: number
-          timestamp_match_count: number
-          timing: Json | null
-          topic_pin_slug: string | null
           user_id: string | null
           viewport_width: number | null
         }
         Insert: {
           confidence_band?: string | null
           created_at?: string
-          anchor_episode_candidates?: number | null
-          catalog_anchors?: Json
-          degraded_for_latency?: boolean | null
           fallback_used?: boolean
           id?: string
-          chunk_augmented_count?: number
-          natural_question?: Json | null
-          natural_question_fallback?: boolean | null
-          organization_pin_slug?: string | null
-          person_pin_slug?: string | null
-          podcast_pin_slug?: string | null
           query: string
-          reranked?: boolean | null
           result_count?: number
-          semantic_used?: boolean | null
           terms_count?: number
-          timestamp_match_count?: number
-          timing?: Json | null
-          topic_pin_slug?: string | null
           user_id?: string | null
           viewport_width?: number | null
         }
         Update: {
           confidence_band?: string | null
           created_at?: string
-          anchor_episode_candidates?: number | null
-          catalog_anchors?: Json
-          degraded_for_latency?: boolean | null
           fallback_used?: boolean
           id?: string
-          chunk_augmented_count?: number
-          natural_question?: Json | null
-          natural_question_fallback?: boolean | null
-          organization_pin_slug?: string | null
-          person_pin_slug?: string | null
-          podcast_pin_slug?: string | null
           query?: string
-          reranked?: boolean | null
           result_count?: number
-          semantic_used?: boolean | null
           terms_count?: number
-          timestamp_match_count?: number
-          timing?: Json | null
-          topic_pin_slug?: string | null
           user_id?: string | null
           viewport_width?: number | null
         }
@@ -8338,14 +8296,6 @@ export type Database = {
       refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
       refresh_reddit_name_index: { Args: never; Returns: undefined }
-      refresh_search_golden_queries_from_catalog: {
-        Args: { p_limit_per_type?: number; p_popular_limit?: number }
-        Returns: Json
-      }
-      refresh_search_golden_queries_from_external_demand: {
-        Args: { p_chart_limit?: number; p_seed_limit?: number }
-        Returns: Json
-      }
       refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
       requeue_legacy_clean_text_v4_backfill: {
         Args: { _limit?: number; _tiers?: string[] }
@@ -8384,7 +8334,6 @@ export type Database = {
           best_source: string
           chunk_idx: number
           chunking_method: string
-          content_snippet: string
           episode_id: string
           segment_end_idx: number
           segment_start_idx: number
