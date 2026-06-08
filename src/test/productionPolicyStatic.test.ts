@@ -383,6 +383,7 @@ describe("production policy static guards", () => {
     const timestampChunkSearch = read("supabase/migrations/20260606183000_reassert_timestamp_aware_chunk_search_v2.sql");
     const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
+    const transcriptChunker = read("supabase/functions/_shared/transcript-chunker.ts");
     const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
     const episodeCard = read("src/components/EpisodeCard.tsx");
     const smartPlayer = read("src/components/smart-player/SmartPlayerProvider.tsx");
@@ -464,12 +465,13 @@ describe("production policy static guards", () => {
     expect(episodeRunner).toContain("skipped_last_run");
     expect(chunkRunner).toContain("requires_promoted_deterministic_v4_clean_text");
     expect(chunkRunner).toContain("source_policy: \"best_source_then_deterministic_v4_clean_text_then_embedding\"");
-    expect(chunkRunner).toContain("function chunkTimedSegments");
-    expect(chunkRunner).toContain("segment_timestamp_v2");
+    expect(chunkRunner).toContain("import { chunkTimedSegments, type ChunkSlice } from \"../_shared/transcript-chunker.ts\"");
+    expect(transcriptChunker).toContain("export function chunkTimedSegments");
+    expect(transcriptChunker).toContain("segment_timestamp_v2");
     expect(chunkRunner).toContain("char_window_v1");
-    expect(chunkRunner).toContain("hasNewContentSinceClose");
-    expect(chunkRunner).toContain("current.length === 0 || !hasNewContentSinceClose");
-    expect(chunkRunner).toContain("current.length > 0 && hasNewContentSinceClose");
+    expect(transcriptChunker).toContain("hasNewContentSinceClose");
+    expect(transcriptChunker).toContain("current.length === 0 || !hasNewContentSinceClose");
+    expect(transcriptChunker).toContain("current.length > 0 && hasNewContentSinceClose");
     expect(chunkRunner).toContain("timestamp_start_seconds: s.timestamp_start_seconds");
     expect(chunkRunner).toContain("source_transcript_model: s.source_transcript_model");
     expect(chunkRunner).toContain("chunking_policy: \"timestamp_aware_v2_segments_when_available_else_char_window_v1\"");
