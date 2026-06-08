@@ -665,6 +665,7 @@ SELECT jsonb_build_object(
     'search_engine_chunk_aug_default_disabled', COALESCE((SELECT setting_values->'search_engine'->>'chunk_aug_enabled' = 'false' FROM settings), false),
     'search_engine_chunk_aug_policy_recorded', COALESCE((SELECT setting_values->'search_engine'->>'chunk_aug_policy' = 'operator_controlled_after_chunk_quality_verification_v1' FROM settings), false),
     'search_engine_ranking_version_v5', COALESCE((SELECT (setting_values->'search_engine'->>'ranking_version')::int >= 5 FROM settings), false),
+    'search_engine_ranking_version_v6', COALESCE((SELECT (setting_values->'search_engine'->>'ranking_version')::int >= 6 FROM settings), false),
     'timestamp_match_telemetry_column_exists', EXISTS (
       SELECT 1
       FROM information_schema.columns
