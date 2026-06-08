@@ -752,6 +752,7 @@ describe("production policy static guards", () => {
   it("keeps SEO alias routes redirected at the Cloudflare edge", () => {
     const worker = read("infra/cloudflare-worker/worker.js");
     const verifier = read("scripts/verify-production-edge-seo.mjs");
+    const reporter = read("scripts/report-production-deploy-gap.mjs");
     const pkg = read("package.json");
 
     expect(pkg).toContain('"verify:production-edge-seo": "node scripts/verify-production-edge-seo.mjs"');
@@ -801,6 +802,8 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("https://podiverzum.hu/podcast/emazon?utm=test");
     expect(verifier).toContain("max-age=31536000");
     expect(verifier).toContain("Host: podiverzum.hu");
+    expect(reporter).toContain("/llms.txt returns the short Podiverzum.hu AI-agent guidance");
+    expect(reporter).toContain("Heti RSS, news sitemap and full sitemap URLs");
     expect(verifier).toContain("bodyExcludes");
     expect(verifier).toContain("BEGIN Cloudflare Managed");
     expect(verifier).toContain("max-age=300");

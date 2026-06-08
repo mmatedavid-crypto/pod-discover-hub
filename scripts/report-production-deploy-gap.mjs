@@ -404,6 +404,7 @@ function makeLovablePrompt(plan, groups, unmappedFailures) {
       "Cloudflare edge SEO acceptance criteria after worker deploy:",
       "- www.podiverzum.hu/* returns 301 to apex with Cache-Control including max-age=31536000",
       "- /robots.txt is served by worker-robots-policy and contains Host: podiverzum.hu",
+      "- /llms.txt returns the short Podiverzum.hu AI-agent guidance and includes the Heti RSS, news sitemap and full sitemap URLs",
       "- /cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a.txt returns only the IndexNow key with worker-indexnow-key",
     );
   }
