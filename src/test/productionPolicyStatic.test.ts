@@ -274,6 +274,12 @@ describe("production policy static guards", () => {
     expect(benchmarkRunner).toContain("const MIN_ENTITY_QUERY_TYPES = 4");
     expect(benchmarkRunner).toContain("function loadEntityMonitoringCoverage");
     expect(benchmarkRunner).toContain("entity_monitoring_coverage: entityMonitoringCoverage");
+    expect(benchmarkRunner).toContain("function timestampMatchCount");
+    expect(benchmarkRunner).toContain("timestamp_start_seconds");
+    expect(benchmarkRunner).toContain("timestamp_match_count: timestampMatches");
+    expect(benchmarkRunner).toContain("chunk_augmented_count: chunkAugmented");
+    expect(benchmarkRunner).toContain("timestamp_match_count: timestampMatchTotal");
+    expect(benchmarkRunner).toContain("chunk_augmented_count: chunkAugmentedTotal");
     for (const field of ["people", "companies", "topics", "tickers", "ingredients"]) {
       expect(benchmarkRunner).toContain(`${field}: Array.isArray(e.${field}) ? e.${field} : []`);
     }

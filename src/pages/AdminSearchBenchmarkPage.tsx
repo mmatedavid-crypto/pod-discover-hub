@@ -17,6 +17,12 @@ type TopResult = {
   podcast_title?: string | null;
   podcast_slug?: string | null;
   why_matched?: string | null;
+  chunk_match?: {
+    timestamp_start_seconds?: number | null;
+    timestamp_end_seconds?: number | null;
+    score?: number | null;
+    source?: string | null;
+  } | null;
 };
 type ResultRow = Omit<BenchmarkResult, "top_results" | "scores" | "raw_meta"> & {
   top_results: TopResult[];
@@ -34,6 +40,7 @@ type SearchHybridEpisode = {
   podcast_title?: string | null;
   podcast_slug?: string | null;
   why_matched?: string | null;
+  chunk_match?: TopResult["chunk_match"];
 };
 type SearchHybridResponse = {
   episodes?: SearchHybridEpisode[];
@@ -48,6 +55,7 @@ type SearchHybridResponse = {
   fallback_kind?: string | null;
   timing?: Json | null;
   engine?: string | null;
+  chunk_augmented?: number | null;
 };
 type SearchHybridMeta = {
   understanding: SearchHybridResponse["understanding"];
@@ -61,6 +69,8 @@ type SearchHybridMeta = {
   fallback_kind: string | null;
   timing: Json | null;
   engine: string | null;
+  timestamp_match_count: number;
+  chunk_augmented_count: number;
   status: "ok";
 };
 type EntityMonitoringCoverage = {
@@ -82,6 +92,8 @@ type RunnerProgress = {
   done?: number;
   total?: number;
   remaining?: number;
+  timestamp_match_count?: number;
+  chunk_augmented_count?: number;
   entity_monitoring_coverage?: EntityMonitoringCoverage;
   refreshed?: {
     entity_monitoring_coverage?: EntityMonitoringCoverage;
@@ -161,6 +173,32 @@ function asRunnerProgress(value: unknown): RunnerProgress {
 
 function coverageFromProgress(progress: RunnerProgress | null): EntityMonitoringCoverage | null {
   return progress?.entity_monitoring_coverage || progress?.refreshed?.entity_monitoring_coverage || null;
+}
+
+function rawMetaObject(value: Json): Record<string, Json> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, Json> : {};
+}
+
+function timestampStatsFromResults(rows: ResultRow[]) {
+  return rows.reduce((acc, row) => {
+    const meta = rawMetaObject(row.raw_meta);
+    acc.timestampMatches += Number(meta.timestamp_match_count || 0);
+    acc.chunkAugmented += Number(meta.chunk_augmented_count || 0);
+    if (Number(meta.timestamp_match_count || 0) > 0) acc.timestampQueries += 1;
+    if (Number(meta.chunk_augmented_count || 0) > 0) acc.chunkAugmentedQueries += 1;
+    return acc;
+  }, { timestampMatches: 0, timestampQueries: 0, chunkAugmented: 0, chunkAugmentedQueries: 0 });
+}
+
+function formatSeconds(seconds: number | null | undefined) {
+  const n = Number(seconds);
+  if (!Number.isFinite(n) || n < 0) return null;
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  const s = Math.floor(n % 60);
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    : `${m}:${String(s).padStart(2, "0")}`;
 }
 
 function toResultRow(row: BenchmarkResult): ResultRow {
@@ -388,7 +426,15 @@ export default function AdminSearchBenchmarkPage() {
             podcast_title: e.podcasts?.title || e.podcast_title || "",
             podcast_slug: e.podcasts?.slug || e.podcast_slug || "",
             why_matched: e.why_matched || null,
+            chunk_match: e.chunk_match ? {
+              timestamp_start_seconds: Number.isFinite(Number(e.chunk_match.timestamp_start_seconds)) ? Number(e.chunk_match.timestamp_start_seconds) : null,
+              timestamp_end_seconds: Number.isFinite(Number(e.chunk_match.timestamp_end_seconds)) ? Number(e.chunk_match.timestamp_end_seconds) : null,
+              score: Number.isFinite(Number(e.chunk_match.score)) ? Number(e.chunk_match.score) : null,
+              source: e.chunk_match.source || null,
+            } : null,
           }));
+          const timestampMatchCount = top.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length;
+          const chunkAugmentedCount = Number.isFinite(Number(data?.chunk_augmented)) ? Number(data.chunk_augmented) : 0;
           const autoScores = autoScoreTopResults(g, top);
           const autoMetrics = computeMetrics(top, autoScores);
           const detected = data?.understanding?.intent || null;
@@ -404,6 +450,8 @@ export default function AdminSearchBenchmarkPage() {
             fallback_kind: data?.fallback_kind || null,
             timing: data?.timing || null,
             engine: data?.engine || null,
+            timestamp_match_count: timestampMatchCount,
+            chunk_augmented_count: chunkAugmentedCount,
             status: "ok",
           };
           let intent_correct: boolean | null = null;
@@ -547,6 +595,7 @@ export default function AdminSearchBenchmarkPage() {
 
   const activeRun = runs.find((r) => r.id === activeRunId);
   const entityCoverage = coverageFromProgress(benchmarkProgress) || coverageFromProgress(goldenRefreshProgress);
+  const transcriptStats = timestampStatsFromResults(results);
 
   return (
     <Layout>
@@ -603,6 +652,12 @@ export default function AdminSearchBenchmarkPage() {
               <Stat label="Intent acc" value={pct(activeRun?.intent_accuracy)} />
               <Stat label="Zero-result" value={pct(activeRun?.zero_result_rate)} />
               <Stat label="P95 latency" value={activeRun?.latency_p95 ? `${Math.round(activeRun.latency_p95)}ms` : "—"} />
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <Stat label="Timestamp hits" value={String(benchmarkProgress?.timestamp_match_count ?? transcriptStats.timestampMatches)} />
+              <Stat label="Timestamp queries" value={String(transcriptStats.timestampQueries)} />
+              <Stat label="Chunk augmented" value={String(benchmarkProgress?.chunk_augmented_count ?? transcriptStats.chunkAugmented)} />
+              <Stat label="Augmented queries" value={String(transcriptStats.chunkAugmentedQueries)} />
             </div>
 
             <section className="rounded-lg border border-border bg-card p-4">
@@ -783,6 +838,7 @@ function ResultScorer({ r, golden, onScore }: { r: ResultRow; golden?: Golden; o
       <ol className="space-y-2">
         {r.top_results.map((ep, i) => {
           const s = r.scores?.[String(i)];
+          const timestamp = formatSeconds(ep.chunk_match?.timestamp_start_seconds);
           return (
             <li key={i} className="rounded-md border border-border p-3 flex items-start gap-3">
               <div className="text-sm font-mono w-6 text-muted-foreground">{i + 1}.</div>
@@ -790,6 +846,14 @@ function ResultScorer({ r, golden, onScore }: { r: ResultRow; golden?: Golden; o
                 <div className="font-medium truncate">{ep.title}</div>
                 <div className="text-xs text-muted-foreground truncate">{ep.podcast_title}</div>
                 {ep.why_matched && <div className="text-[11px] text-muted-foreground mt-1 italic">{ep.why_matched}</div>}
+                {timestamp && (
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-700 dark:text-emerald-300">
+                      transcript @{timestamp}
+                    </span>
+                    {ep.chunk_match?.source ? <span className="rounded-full bg-secondary px-2 py-0.5">{ep.chunk_match.source}</span> : null}
+                  </div>
+                )}
               </div>
               <div className="flex gap-1">
                 {[0, 1, 2, 3].map((sv) => (

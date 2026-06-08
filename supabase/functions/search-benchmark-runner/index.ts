@@ -146,6 +146,18 @@ function percentile(values: number[], p: number) {
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
 }
 
+function finiteNumber(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function timestampMatchCount(top: Array<Record<string, unknown>>): number {
+  return top.filter((e) => {
+    const chunk = e.chunk_match as Record<string, unknown> | null | undefined;
+    return finiteNumber(chunk?.timestamp_start_seconds) !== null;
+  }).length;
+}
+
 async function callSearch(query: string, timeoutMs: number, maxAttempts: number) {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/search-hybrid`;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -331,7 +343,15 @@ Deno.serve(async (req) => {
           topics: Array.isArray(e.topics) ? e.topics : [],
           tickers: Array.isArray(e.tickers) ? e.tickers : [],
           ingredients: Array.isArray(e.ingredients) ? e.ingredients : [],
+          chunk_match: e.chunk_match ? {
+            timestamp_start_seconds: finiteNumber(e.chunk_match?.timestamp_start_seconds),
+            timestamp_end_seconds: finiteNumber(e.chunk_match?.timestamp_end_seconds),
+            score: finiteNumber(e.chunk_match?.score),
+            source: e.chunk_match?.source || null,
+          } : null,
         }));
+        const timestampMatches = timestampMatchCount(top);
+        const chunkAugmented = finiteNumber(data?.chunk_augmented) || 0;
         const scores = autoScoreTopResults(g, top);
         const metrics = computeMetrics(top, scores);
         const detected = (data?.understanding as any)?.intent || null;
@@ -362,6 +382,8 @@ Deno.serve(async (req) => {
             confidence_band: data?.confidence_band || null,
             timing: data?.timing || null,
             engine: data?.engine || null,
+            timestamp_match_count: timestampMatches,
+            chunk_augmented_count: chunkAugmented,
             weekly_runner: true,
           },
           scores,
@@ -425,6 +447,8 @@ Deno.serve(async (req) => {
     const total = Math.min((goldens || []).length, controls.max_queries_per_week);
     const done = rows.length;
     const remaining = Math.max(0, total - done);
+    const timestampMatchTotal = valid.reduce((sum, r) => sum + Number(r.raw_meta?.timestamp_match_count || 0), 0);
+    const chunkAugmentedTotal = valid.reduce((sum, r) => sum + Number(r.raw_meta?.chunk_augmented_count || 0), 0);
     const result = {
       ok: true,
       run_id: run.id,
@@ -436,6 +460,8 @@ Deno.serve(async (req) => {
       total,
       remaining,
       completed: remaining === 0,
+      timestamp_match_count: timestampMatchTotal,
+      chunk_augmented_count: chunkAugmentedTotal,
       refreshed,
       elapsed_ms: Date.now() - startedAt,
       last_run_at: new Date().toISOString(),

@@ -747,6 +747,15 @@ describe("page consistency static guards", () => {
     expect(benchmark).toContain('type CompetitorResult = Database["public"]["Tables"]["search_benchmark_competitors"]["Row"]');
     expect(benchmark).toContain("type SearchHybridResponse = {");
     expect(benchmark).toContain("function asSearchHybridResponse(value: unknown): SearchHybridResponse");
+    expect(benchmark).toContain("chunk_match?: TopResult[\"chunk_match\"]");
+    expect(benchmark).toContain("chunk_augmented?: number | null");
+    expect(benchmark).toContain("timestamp_match_count: number");
+    expect(benchmark).toContain("chunk_augmented_count: number");
+    expect(benchmark).toContain("function timestampStatsFromResults(rows: ResultRow[])");
+    expect(benchmark).toContain("function formatSeconds(seconds: number | null | undefined)");
+    expect(benchmark).toContain("Timestamp hits");
+    expect(benchmark).toContain("Chunk augmented");
+    expect(benchmark).toContain("transcript @{timestamp}");
     expect(benchmark).toContain("type EntityMonitoringCoverage = {");
     expect(benchmark).toContain("function coverageFromProgress(progress: RunnerProgress | null): EntityMonitoringCoverage | null");
     expect(benchmark).toContain('supabase.functions.invoke("search-golden-refresh"');
