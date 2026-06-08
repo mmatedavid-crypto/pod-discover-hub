@@ -797,10 +797,12 @@ async function buildOrganization(
 
   const canonical = `${SITE}/ceg/${slug}`;
   const bio = stripHtml(org.ai_bio || org.wikipedia_extract || org.short_description_hu || "");
-  const title = `${org.name} podcast említések | Podiverzum`;
+  const epCount = eps.length;
+  const companyEpLabel = epCount > 0 ? ` – ${epCount} podcast epizódban említve` : "";
+  const title = `${org.name}${companyEpLabel || " podcast említések"} | Podiverzum`;
   const desc = bio
-    ? truncate(bio, 160)
-    : truncate(`${org.name} említései magyar podcastokban. Kapcsolódó epizódok, műsorok és témák a Podiverzumon.`, 160);
+    ? truncate(`${firstSentence(bio)}${epCount > 0 ? ` Megnézhető ${epCount} kapcsolódó podcast epizód.` : ""}`, 160)
+    : truncate(`${org.name} említései ${epCount > 0 ? `${epCount} ` : ""}magyar podcast epizódban. Kapcsolódó műsorok, beszélgetések és témák a Podiverzumon.`, 160);
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;

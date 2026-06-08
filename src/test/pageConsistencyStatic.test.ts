@@ -685,6 +685,10 @@ describe("page consistency static guards", () => {
     expect(prerender).not.toContain("const title = `${person.name} podcast epizódok és említések | Podiverzum`");
     expect(entity).toContain("kind === \"company\" ? `${finalName}${companyEpLabel || epLabel} | Podiverzum`");
     expect(entity).toContain("fallbackCompany");
+    expect(prerender).toContain("const companyEpLabel = epCount > 0 ? ` – ${epCount} podcast epizódban említve` : \"\"");
+    expect(prerender).toContain("const title = `${org.name}${companyEpLabel || \" podcast említések\"} | Podiverzum`");
+    expect(prerender).toContain("`${org.name} említései ${epCount > 0 ? `${epCount} ` : \"\"}magyar podcast epizódban.");
+    expect(prerender).not.toContain("const title = `${org.name} podcast említések | Podiverzum`");
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
     expect(search).toContain("sanitizeHungarianPublicText(heroOrganization.short_bio)");
     expect(search).toContain("sanitizeHungarianPublicText(heroTopic.short_bio)");
