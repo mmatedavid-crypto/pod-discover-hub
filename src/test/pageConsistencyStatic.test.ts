@@ -706,7 +706,11 @@ describe("page consistency static guards", () => {
     expect(adminInsights).toContain("const transcriptCoverageGaps = top");
     expect(adminInsights).toContain("x.timestamped === 0 && x.chunkAugmented === 0");
     expect(adminInsights).toContain("const copyTranscriptCoverageGaps = async () =>");
-    expect(adminInsights).toContain("await navigator.clipboard.writeText(text)");
+    expect(adminInsights).toContain("async function copyText(text: string): Promise<boolean>");
+    expect(adminInsights).toContain('document.createElement("textarea")');
+    expect(adminInsights).toContain('document.execCommand("copy")');
+    expect(adminInsights).toContain('setCopyState(ok ? "copied" : "error")');
+    expect(adminInsights).toContain("Copy failed");
     expect(adminInsights).toContain("Copy backlog");
     expect(adminInsights).toContain("Transcript coverage gaps");
     expect(adminInsights).toContain('await supabase.rpc("has_role"');

@@ -44,6 +44,31 @@ type QueryStatsRow = {
   chunkAugmented: number;
 };
 
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* fall through */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function AdminSearchInsightsPage() {
   useNoindex("Admin · Search insights — Podiverzum");
   const nav = useNavigate();
@@ -51,7 +76,7 @@ export default function AdminSearchInsightsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [windowDays, setWindowDays] = useState<1 | 7 | 30>(7);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
 
   useEffect(() => {
     (async () => {
@@ -129,9 +154,9 @@ export default function AdminSearchInsightsPage() {
       .map((r) => `${r.q}\tsearches=${r.n}\tzero=${r.zero}\tlow=${r.low}\tavg=${r.avg.toFixed(1)}`)
       .join("\n");
     if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
+    const ok = await copyText(text);
+    setCopyState(ok ? "copied" : "error");
+    window.setTimeout(() => setCopyState("idle"), 1500);
   };
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -217,7 +242,7 @@ export default function AdminSearchInsightsPage() {
                 onClick={copyTranscriptCoverageGaps}
                 className="px-2.5 py-1 rounded-md border border-border bg-card text-xs hover:border-primary/40"
               >
-                {copied ? "Copied" : "Copy backlog"}
+                {copyState === "copied" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy backlog"}
               </button>
             )}
           </div>
