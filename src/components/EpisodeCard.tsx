@@ -183,7 +183,7 @@ export function EpisodeCard({
             imageWidths={[64, 96, 128]}
             sizes="(max-width: 640px) 64px, 80px"
             loading={imagePriority ? "eager" : "lazy"}
-            fetchPriority={imagePriority ? "high" : "auto"}
+            fetchPriority={imagePriority ? "high" : "low"}
           />
         </div>
       </Link>
@@ -380,7 +380,7 @@ function EpisodeRailCard({
               sizes="(max-width: 640px) 80vw, 340px"
               alt={coverTitle}
               loading={imagePriority ? "eager" : "lazy"}
-              fetchPriority={imagePriority ? "high" : "auto"}
+              fetchPriority={imagePriority ? "high" : "low"}
               decoding="async"
               width={480}
               height={300}
@@ -489,7 +489,7 @@ export function EpisodeList({
               key={e.id}
               className="snap-start shrink-0 w-[78vw] max-w-[340px] sm:w-[340px]"
             >
-              <EpisodeRailCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i < 3} />
+              <EpisodeRailCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i === 0} />
             </div>
           ))}
           <div aria-hidden className="shrink-0 w-2" />
@@ -506,7 +506,7 @@ export function EpisodeList({
     <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:surface overflow-hidden`}>
       {items.map((e, i) => (
         <li key={e.id} className="transition-colors">
-          <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i < 4} />
+          <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i === 0} />
         </li>
       ))}
     </ul>
@@ -524,7 +524,7 @@ export function EpisodeList({
               key={e.id}
               className="snap-start shrink-0 w-[84vw] max-w-[360px] rounded-xl border border-border/60 bg-card/70 overflow-hidden"
             >
-              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i < 3} />
+              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} imagePriority={i === 0} />
             </div>
           ))}
           <div aria-hidden className="shrink-0 w-2" />

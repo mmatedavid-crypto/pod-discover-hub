@@ -24,7 +24,21 @@ describe("episode thumbnail loading policy", () => {
     expect(detail).toContain("imageSize={96}");
     expect(detail).toContain("imageWidths={[64, 96, 160]}");
     expect(detail).toContain('sizes="(max-width: 640px) 64px, 80px"');
+    expect(detail).toContain('loading={i === 0 ? "eager" : "lazy"}');
+    expect(detail).toContain('fetchPriority={i === 0 ? "high" : "low"}');
     expect(detail).not.toContain("imageWidths={[96, 160, 240]}");
+    expect(detail).not.toContain('fetchPriority={i < 4 ? "high" : "auto"}');
+    expect(detail).not.toContain('loading={i < 4 ? "eager" : "lazy"}');
+  });
+
+  it("limits high-priority episode thumbnail fetches to the lead visible card", () => {
+    const card = read("src/components/EpisodeCard.tsx");
+
+    expect(card).toContain('fetchPriority={imagePriority ? "high" : "low"}');
+    expect(card).toContain("imagePriority={i === 0}");
+    expect(card).not.toContain("imagePriority={i < 4}");
+    expect(card).not.toContain("imagePriority={i < 3}");
+    expect(card).not.toContain('fetchPriority={imagePriority ? "high" : "auto"}');
   });
 
   it("prioritizes first-viewport podcast and episode hero artwork", () => {

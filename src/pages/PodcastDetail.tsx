@@ -513,8 +513,8 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
                         imageSize={96}
                         imageWidths={[64, 96, 160]}
                         sizes="(max-width: 640px) 64px, 80px"
-                        loading={i < 4 ? "eager" : "lazy"}
-                        fetchPriority={i < 4 ? "high" : "auto"}
+                        loading={i === 0 ? "eager" : "lazy"}
+                        fetchPriority={i === 0 ? "high" : "low"}
                         className="h-full rounded-none border-0"
                       />
                       <button
