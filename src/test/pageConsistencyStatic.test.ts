@@ -735,6 +735,8 @@ describe("page consistency static guards", () => {
     expect(benchmark).toContain('type Run = Database["public"]["Tables"]["search_benchmark_runs"]["Row"]');
     expect(benchmark).toContain('type BenchmarkResult = Database["public"]["Tables"]["search_benchmark_results"]["Row"]');
     expect(benchmark).toContain('type CompetitorResult = Database["public"]["Tables"]["search_benchmark_competitors"]["Row"]');
+    expect(benchmark).toContain("type SearchHybridResponse = {");
+    expect(benchmark).toContain("function asSearchHybridResponse(value: unknown): SearchHybridResponse");
     expect(benchmark).toContain("function toResultRow(row: BenchmarkResult): ResultRow");
     expect(benchmark).toContain("function toCompetitorRow(row: CompetitorResult): CompetitorRow");
     expect(benchmark).not.toContain("type Golden = {");
@@ -746,6 +748,8 @@ describe("page consistency static guards", () => {
     expect(benchmark).not.toContain("(runIns as any).id");
     expect(benchmark).not.toContain("(r as any).false_positive_rate");
     expect(benchmark).not.toContain("import.meta as any");
+    expect(benchmark).not.toContain("Promise<{ data: any; status: number }>");
+    expect(benchmark).not.toContain("let lastErr: any");
     expect(benchmark).toContain("import.meta.env.VITE_SUPABASE_URL");
     expect(benchmark).toContain("import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY");
     expect(supabaseTypes).toContain("refresh_search_golden_queries_from_catalog");

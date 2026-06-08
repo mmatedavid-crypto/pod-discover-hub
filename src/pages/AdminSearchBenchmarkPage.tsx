@@ -26,6 +26,43 @@ type ResultRow = Omit<BenchmarkResult, "top_results" | "scores" | "raw_meta"> & 
 type CompetitorRow = Omit<CompetitorResult, "top_results"> & {
   top_results: TopResult[];
 };
+type SearchHybridEpisode = {
+  id?: string | null;
+  title?: string | null;
+  display_title?: string | null;
+  podcasts?: { title?: string | null; slug?: string | null } | null;
+  podcast_title?: string | null;
+  podcast_slug?: string | null;
+  why_matched?: string | null;
+};
+type SearchHybridResponse = {
+  episodes?: SearchHybridEpisode[];
+  understanding?: { intent?: string | null; [key: string]: Json | undefined } | null;
+  confidence_band?: string | null;
+  semantic?: boolean | null;
+  reranked?: boolean | null;
+  cohere_used?: boolean | null;
+  hyde_used?: boolean | null;
+  podcast_pin?: Json | null;
+  must_gate?: boolean | null;
+  fallback_kind?: string | null;
+  timing?: Json | null;
+  engine?: string | null;
+};
+type SearchHybridMeta = {
+  understanding: SearchHybridResponse["understanding"];
+  confidence_band: string | null;
+  semantic: boolean | null | undefined;
+  reranked: boolean | null | undefined;
+  cohere_used: boolean | null | undefined;
+  hyde_used: boolean | null | undefined;
+  podcast_pin: Json | null;
+  must_gate: boolean | null | undefined;
+  fallback_kind: string | null;
+  timing: Json | null;
+  engine: string | null;
+  status: "ok";
+};
 
 function pct(n: number | null | undefined) {
   if (n == null) return "—";
@@ -86,6 +123,11 @@ function asTopResults(value: Json): TopResult[] {
       podcast_slug: typeof item.podcast_slug === "string" ? item.podcast_slug : null,
       why_matched: typeof item.why_matched === "string" ? item.why_matched : null,
     }));
+}
+
+function asSearchHybridResponse(value: unknown): SearchHybridResponse {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as SearchHybridResponse;
 }
 
 function toResultRow(row: BenchmarkResult): ResultRow {
@@ -254,7 +296,7 @@ export default function AdminSearchBenchmarkPage() {
     const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
     const { data: { session: authSession } } = await supabase.auth.getSession();
 
-    async function callSearchOnce(query: string): Promise<{ data: any; status: number }> {
+    async function callSearchOnce(query: string): Promise<{ data: SearchHybridResponse; status: number }> {
       const ctrl = new AbortController();
       const tm = setTimeout(() => ctrl.abort(), PER_CALL_TIMEOUT_MS);
       try {
@@ -269,17 +311,17 @@ export default function AdminSearchBenchmarkPage() {
           signal: ctrl.signal,
         });
         const text = await res.text();
-        let data: any = null;
-        try { data = text ? JSON.parse(text) : null; } catch { /* ignore */ }
+        let parsed: unknown = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch { /* ignore */ }
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-        return { data, status: res.status };
+        return { data: asSearchHybridResponse(parsed), status: res.status };
       } finally {
         clearTimeout(tm);
       }
     }
 
     async function callWithRetry(query: string) {
-      let lastErr: any = null;
+      let lastErr: unknown = null;
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
           return await callSearchOnce(query);
@@ -303,15 +345,7 @@ export default function AdminSearchBenchmarkPage() {
           const latency = Math.round(performance.now() - t0);
           latencies.push(latency);
           const eps = Array.isArray(data?.episodes) ? data.episodes : [];
-          const top: TopResult[] = eps.slice(0, 10).map((e: {
-            id?: string | null;
-            title?: string | null;
-            display_title?: string | null;
-            podcasts?: { title?: string | null; slug?: string | null } | null;
-            podcast_title?: string | null;
-            podcast_slug?: string | null;
-            why_matched?: string | null;
-          }) => ({
+          const top: TopResult[] = eps.slice(0, 10).map((e) => ({
             id: e.id,
             title: e.title || e.display_title || "",
             podcast_title: e.podcasts?.title || e.podcast_title || "",
@@ -321,7 +355,7 @@ export default function AdminSearchBenchmarkPage() {
           const autoScores = autoScoreTopResults(g, top);
           const autoMetrics = computeMetrics(top, autoScores);
           const detected = data?.understanding?.intent || null;
-          const meta = {
+          const meta: SearchHybridMeta = {
             understanding: data?.understanding || null,
             confidence_band: data?.confidence_band || null,
             semantic: data?.semantic,
