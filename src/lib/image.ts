@@ -90,7 +90,7 @@ export function optimizedImageUrl(src?: string | null, opts: ImageOptions = {}) 
     }
 
     if (url.hostname.includes("omnycontent.com")) {
-      url.searchParams.set("size", width <= 160 ? "Small" : width <= 360 ? "Medium" : "Large");
+      url.searchParams.set("size", width <= 160 ? "Small" : width <= 720 ? "Medium" : "Large");
       return url.toString();
     }
 

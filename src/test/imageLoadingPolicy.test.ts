@@ -56,14 +56,21 @@ describe("episode thumbnail loading policy", () => {
   it("downsizes Omny episode artwork instead of loading large Portfolio thumbnails", () => {
     const image = read("src/lib/image.ts");
     const largeOmny = "https://www.omnycontent.com/d/clips/show/episode/image.jpg?t=1780578252&amp;size=Large";
+    const portfolioOmny = "https://www.omnycontent.com/d/clips/9c1a4b9e-f661-4da4-8ca4-af3900d468eb/552b480a-d676-4899-a9b8-b39c01049404/0b5ba5c5-26a2-4697-96a7-b45f00d67fdc/image.jpg?t=1780578252&amp;size=Large";
 
     expect(image).toContain('url.hostname.includes("omnycontent.com")');
-    expect(image).toContain('url.searchParams.set("size", width <= 160 ? "Small" : width <= 360 ? "Medium" : "Large")');
+    expect(image).toContain('url.searchParams.set("size", width <= 160 ? "Small" : width <= 720 ? "Medium" : "Large")');
     expect(optimizedImageUrl(largeOmny, { width: 96, height: 96 })).toBe(
       "https://www.omnycontent.com/d/clips/show/episode/image.jpg?t=1780578252&size=Small",
     );
     expect(optimizedImageUrl(largeOmny, { width: 280, height: 140 })).toBe(
       "https://www.omnycontent.com/d/clips/show/episode/image.jpg?t=1780578252&size=Medium",
+    );
+    expect(optimizedImageUrl(portfolioOmny, { width: 640, height: 400 })).toBe(
+      "https://www.omnycontent.com/d/clips/9c1a4b9e-f661-4da4-8ca4-af3900d468eb/552b480a-d676-4899-a9b8-b39c01049404/0b5ba5c5-26a2-4697-96a7-b45f00d67fdc/image.jpg?t=1780578252&size=Medium",
+    );
+    expect(optimizedImageUrl(portfolioOmny, { width: 960, height: 960 })).toBe(
+      "https://www.omnycontent.com/d/clips/9c1a4b9e-f661-4da4-8ca4-af3900d468eb/552b480a-d676-4899-a9b8-b39c01049404/0b5ba5c5-26a2-4697-96a7-b45f00d67fdc/image.jpg?t=1780578252&size=Large",
     );
   });
 
