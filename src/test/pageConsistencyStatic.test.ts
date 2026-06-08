@@ -672,8 +672,13 @@ describe("page consistency static guards", () => {
     expect(prerender).toContain("seo_title, seo_description, taxonomy_keys");
     expect(prerender).toContain("const taxKeys = Array.isArray((cat as any).taxonomy_keys)");
     expect(prerender).toContain(".in(\"category\", taxKeys)");
+    expect(prerender).toContain("const podcastIds = list.map((p) => p.id).filter(Boolean).slice(0, 50)");
+    expect(prerender).toContain(".from(\"episodes\")");
+    expect(prerender).toContain("Friss epizódok");
+    expect(prerender).toContain("<h2>Podcastok</h2>");
     expect(prerender).toContain("const title = cat.seo_title || `${cat.name} podcastok és epizódok — Podiverzum`");
     expect(prerender).toContain("Válogatás a legjobb ${cat.name} podcast epizódokból.");
+    expect(prerender).not.toContain("<main><h2>Podcastek</h2>");
     expect(prerender).not.toContain("const title = cat.seo_title || `${cat.name} podcastek — Podiverzum`");
     expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");
     expect(topic).toContain("const titleSource = `${topicName}${countLabel} magyar podcastokból | Podiverzum`");

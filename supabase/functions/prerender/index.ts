@@ -572,7 +572,7 @@ async function buildCategory(
     : [cat.name];
   const { data: pods } = await supabase
     .from("podcasts")
-    .select("title, display_title, slug, summary, image_url, language_decision")
+    .select("id, title, display_title, slug, summary, image_url, language_decision")
     .in("category", taxKeys)
     .eq("language_decision", "accept_hungarian")
     .eq("rss_status", "active")
@@ -580,6 +580,18 @@ async function buildCategory(
     .limit(50);
 
   const list = (pods ?? []) as Array<Record<string, any>>;
+  const podcastIds = list.map((p) => p.id).filter(Boolean).slice(0, 50);
+  const { data: eps } = podcastIds.length
+    ? await supabase
+        .from("episodes")
+        .select("title, display_title, slug, published_at, ai_summary, summary, podcast:podcasts!inner(title, display_title, slug, language_decision, rss_status)")
+        .in("podcast_id", podcastIds)
+        .eq("podcast.language_decision", "accept_hungarian")
+        .eq("podcast.rss_status", "active")
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(24)
+    : { data: [] };
+  const episodes = (eps ?? []) as Array<Record<string, any>>;
   const title = cat.seo_title || `${cat.name} podcastok és epizódok — Podiverzum`;
   const desc =
     cat.seo_description ||
@@ -594,15 +606,39 @@ async function buildCategory(
       return `<li><a href="${u}"><strong>${esc(p.display_title || p.title)}</strong></a>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
     })
     .join("");
+  const episodeHtml = episodes
+    .map((e) => {
+      const p = Array.isArray(e.podcast) ? e.podcast[0] : e.podcast;
+      if (!p?.slug || !e.slug) return "";
+      const u = `${SITE}/podcast/${p.slug}/${e.slug}`;
+      const s = truncate(stripHtml(e.ai_summary || e.summary), 180);
+      return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(p.display_title || p.title)}</em>${e.published_at ? ` <time datetime="${esc(e.published_at)}">${esc(String(e.published_at).slice(0, 10))}</time>` : ""}${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+    })
+    .filter(Boolean)
+    .join("");
 
+  const episodeItems = episodes
+    .map((e) => {
+      const p = Array.isArray(e.podcast) ? e.podcast[0] : e.podcast;
+      if (!p?.slug || !e.slug) return null;
+      return {
+        url: `${SITE}/podcast/${p.slug}/${e.slug}`,
+        name: e.display_title || e.title,
+      };
+    })
+    .filter(Boolean) as Array<{ url: string; name: string }>;
+  const podcastItems = list.map((p) => ({
+    url: `${SITE}/podcast/${p.slug}`,
+    name: p.display_title || p.title,
+  }));
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    itemListElement: list.map((p, i) => ({
+    itemListElement: [...episodeItems, ...podcastItems].slice(0, 50).map((item, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `${SITE}/podcast/${p.slug}`,
-      name: p.display_title || p.title,
+      url: item.url,
+      name: item.name,
     })),
   };
 
@@ -612,8 +648,8 @@ async function buildCategory(
       canonical,
       ogImage,
       jsonLd: [itemList],
-      bodyHtml: `<header><h1>${esc(cat.name)}</h1>${cat.description ? `<p>${esc(stripHtml(cat.description))}</p>` : ""}</header>
-<main><h2>Podcastek</h2><ul>${html}</ul></main>`,
+      bodyHtml: `<header><h1>${esc(cat.name)}</h1><p>${esc(stripHtml(cat.description) || `Válogatás a legjobb ${cat.name} podcast epizódokból. A sorrendet a relevancia és a frissesség adja.`)}</p></header>
+<main>${episodeHtml ? `<section><h2>Friss epizódok</h2><ul>${episodeHtml}</ul></section>` : ""}<section><h2>Podcastok</h2><ul>${html}</ul></section></main>`,
     })),
     { headers: new Headers(baseHeaders) },
   );
