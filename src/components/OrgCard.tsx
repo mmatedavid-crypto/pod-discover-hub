@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Building2, Landmark, Newspaper, GraduationCap, Heart, Trophy, Trophy as TrophyIcon, Church, FlaskConical, Radio, Vote, Globe } from "lucide-react";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 
 export type OrgType =
   | "company"
@@ -100,9 +101,14 @@ export default function OrgCard({ o }: { o: OrgCardData }) {
       <div className="shrink-0 h-12 w-12 rounded-lg bg-muted/60 border border-border/60 flex items-center justify-center overflow-hidden">
         {o.logo_url ? (
           <img
-            src={o.logo_url}
+            src={optimizedImageUrl(o.logo_url, { width: 96, height: 96 }) || o.logo_url}
+            srcSet={imageSrcSet(o.logo_url, [48, 96, 144])}
+            sizes="48px"
             alt=""
             loading="lazy"
+            decoding="async"
+            width={48}
+            height={48}
             className="h-full w-full object-contain p-1.5"
           />
         ) : (

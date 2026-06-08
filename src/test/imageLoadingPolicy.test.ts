@@ -272,8 +272,9 @@ describe("episode thumbnail loading policy", () => {
   it("optimizes person avatars and Heti article covers on public pages", () => {
     const avatar = read("src/components/PersonAvatar.tsx");
     const hetiArticle = read("src/pages/HetiArticlePage.tsx");
+    const orgCard = read("src/components/OrgCard.tsx");
 
-    for (const source of [avatar, hetiArticle]) {
+    for (const source of [avatar, hetiArticle, orgCard]) {
       expect(source).toContain('import { imageSrcSet, optimizedImageUrl } from "@/lib/image"');
       expect(source).toContain("optimizedImageUrl(");
       expect(source).toContain("imageSrcSet(");
@@ -288,6 +289,11 @@ describe("episode thumbnail loading policy", () => {
     expect(hetiArticle).toContain('sizes="(max-width: 768px) 100vw, 768px"');
     expect(hetiArticle).toContain('fetchPriority="high"');
     expect(hetiArticle).not.toContain("src={post.cover_image_url}");
+
+    expect(orgCard).toContain("optimizedImageUrl(o.logo_url, { width: 96, height: 96 })");
+    expect(orgCard).toContain("imageSrcSet(o.logo_url, [48, 96, 144])");
+    expect(orgCard).toContain('sizes="48px"');
+    expect(orgCard).not.toContain("src={o.logo_url}");
   });
 
   it("keeps all-time toplist thumbnails optimized and non-empty", () => {
