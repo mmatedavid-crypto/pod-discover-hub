@@ -398,8 +398,9 @@ describe("page consistency static guards", () => {
     const contact = read("src/pages/ContactPage.tsx");
     const footer = read("src/components/SiteFooter.tsx");
     const llms = read("public/llms.txt");
+    const prerender = read("supabase/functions/prerender/index.ts");
 
-    for (const source of [publisher, index, llms]) {
+    for (const source of [publisher, index, llms, prerender]) {
       expect(source).toContain("PREAG Zrt.");
       expect(source).toContain("26558534-2-13");
       expect(source).toContain("13-10-042640");
@@ -409,6 +410,9 @@ describe("page consistency static guards", () => {
     }
 
     expect(publisher).toContain("Precíziós Agrokémia Zártkörűen Működő Részvénytársaság");
+    expect(prerender).toContain("function sitePublisherJsonLd()");
+    expect(prerender).toContain('<meta name="publisher" content="${SITE_PUBLISHER.displayName}" />');
+    expect(prerender).toContain("publisher: sitePublisherJsonLd()");
     expect(index).toContain('"publisher"');
     expect(index).toContain('"legalName": "Precíziós Agrokémia Zártkörűen Működő Részvénytársaság"');
     expect(home).toContain("publisher: sitePublisherJsonLd()");

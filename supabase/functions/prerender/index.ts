@@ -17,6 +17,20 @@ const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+const SITE_PUBLISHER = {
+  displayName: "PREAG Zrt.",
+  legalName: "Precíziós Agrokémia Zártkörűen Működő Részvénytársaság",
+  companyRegisterNumber: "13-10-042640",
+  taxId: "26558534-2-13",
+  foundingDate: "2018-10-31",
+  address: {
+    streetAddress: "Ady Endre utca 11.",
+    postalCode: "2636",
+    addressLocality: "Tésa",
+    addressCountry: "HU",
+  },
+} as const;
+
 const baseHeaders: Record<string, string> = {
   "Content-Type": "text/html; charset=utf-8",
   "Cache-Control": "public, max-age=600, s-maxage=86400",
@@ -37,6 +51,21 @@ const stripHtml = (s?: string | null) =>
 
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
+
+function sitePublisherJsonLd() {
+  return {
+    "@type": "Organization",
+    name: SITE_PUBLISHER.displayName,
+    legalName: SITE_PUBLISHER.legalName,
+    identifier: SITE_PUBLISHER.companyRegisterNumber,
+    taxID: SITE_PUBLISHER.taxId,
+    foundingDate: SITE_PUBLISHER.foundingDate,
+    address: {
+      "@type": "PostalAddress",
+      ...SITE_PUBLISHER.address,
+    },
+  };
+}
 
 function hasVerifiedPersonWiki(person: Record<string, unknown>): boolean {
   return person.wikipedia_match_status === "verified"
@@ -132,6 +161,7 @@ return `<!doctype html>
 <meta name="description" content="${esc(opts.description)}" />
 <meta name="robots" content="${opts.noindex ? "noindex,nofollow" : "index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1"}" />
 <meta name="author" content="Podiverzum" />
+<meta name="publisher" content="${SITE_PUBLISHER.displayName}" />
 <meta name="citation_title" content="${esc(opts.title)}" />
 <meta name="citation_language" content="hu" />
 <meta name="citation_online_date" content="2026" />
@@ -247,6 +277,7 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     url: `${SITE}/`,
     inLanguage: "hu-HU",
     isAccessibleForFree: true,
+    publisher: sitePublisherJsonLd(),
     potentialAction: {
       "@type": "SearchAction",
       target: `${SITE}/kereses?q={search_term_string}`,
@@ -259,6 +290,7 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     name: "Podiverzum",
     url: `${SITE}/`,
     logo: `${SITE}/icon-512.png`,
+    publisher: sitePublisherJsonLd(),
     sameAs: [`${SITE}/`],
   };
   const collectionPage = {
