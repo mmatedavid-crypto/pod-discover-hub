@@ -5654,35 +5654,77 @@ export type Database = {
       }
       search_events: {
         Row: {
+          anchor_episode_candidates: number | null
+          catalog_anchors: Json
+          chunk_augmented_count: number
           confidence_band: string | null
           created_at: string
+          degraded_for_latency: boolean | null
           fallback_used: boolean
           id: string
+          natural_question: Json | null
+          natural_question_fallback: boolean | null
+          organization_pin_slug: string | null
+          person_pin_slug: string | null
+          podcast_pin_slug: string | null
           query: string
+          reranked: boolean | null
           result_count: number
+          semantic_used: boolean | null
           terms_count: number
+          timestamp_match_count: number
+          timing: Json | null
+          topic_pin_slug: string | null
           user_id: string | null
           viewport_width: number | null
         }
         Insert: {
+          anchor_episode_candidates?: number | null
+          catalog_anchors?: Json
+          chunk_augmented_count?: number
           confidence_band?: string | null
           created_at?: string
+          degraded_for_latency?: boolean | null
           fallback_used?: boolean
           id?: string
+          natural_question?: Json | null
+          natural_question_fallback?: boolean | null
+          organization_pin_slug?: string | null
+          person_pin_slug?: string | null
+          podcast_pin_slug?: string | null
           query: string
+          reranked?: boolean | null
           result_count?: number
+          semantic_used?: boolean | null
           terms_count?: number
+          timestamp_match_count?: number
+          timing?: Json | null
+          topic_pin_slug?: string | null
           user_id?: string | null
           viewport_width?: number | null
         }
         Update: {
+          anchor_episode_candidates?: number | null
+          catalog_anchors?: Json
+          chunk_augmented_count?: number
           confidence_band?: string | null
           created_at?: string
+          degraded_for_latency?: boolean | null
           fallback_used?: boolean
           id?: string
+          natural_question?: Json | null
+          natural_question_fallback?: boolean | null
+          organization_pin_slug?: string | null
+          person_pin_slug?: string | null
+          podcast_pin_slug?: string | null
           query?: string
+          reranked?: boolean | null
           result_count?: number
+          semantic_used?: boolean | null
           terms_count?: number
+          timestamp_match_count?: number
+          timing?: Json | null
+          topic_pin_slug?: string | null
           user_id?: string | null
           viewport_width?: number | null
         }
