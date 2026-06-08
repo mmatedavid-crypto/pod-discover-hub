@@ -1678,9 +1678,8 @@ ${tagsHtml ? `<section><h2>Címkék</h2><ul>${tagsHtml}</ul></section>` : ""}
 
 // ---------- router ----------
 
-// HU ↔ EN route aliases. The Cloudflare worker forwards the original (likely
-// HU) path; we normalize the entity kind here so all builders share one enum,
-// but pass the original prefix through so canonical/og:url stays HU.
+// HU ↔ EN route aliases. The Cloudflare worker should 301 legacy aliases before
+// prerendering; these mappings keep canonical URLs Hungarian if the worker lags.
 const HU_TO_EN: Record<string, "topic" | "person" | "company" | "ingredient"> = {
   tema: "topic",
   temak: "topic",
@@ -1788,10 +1787,10 @@ Deno.serve(async (req) => {
           ? (parts[0] as any) : null);
       if (enKind) {
         let r: Response | null = null;
-        if (enKind === "person") r = await buildPerson(supabase, parts[1], parts[0]);
-        else if (enKind === "topic") r = await buildTopic(supabase, parts[1], parts[0]);
-        else if (enKind === "company") r = await buildOrganization(supabase, parts[1], parts[0]);
-        else r = await buildLegacyEntity(supabase, enKind as any, parts[1], parts[0]);
+        if (enKind === "person") r = await buildPerson(supabase, parts[1], "szemelyek");
+        else if (enKind === "topic") r = await buildTopic(supabase, parts[1], "temak");
+        else if (enKind === "company") r = await buildOrganization(supabase, parts[1], "ceg");
+        else r = await buildLegacyEntity(supabase, enKind as any, parts[1], "hozzavalo");
         return r ?? notFound(path);
       }
     }

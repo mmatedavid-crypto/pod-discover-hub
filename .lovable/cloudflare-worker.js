@@ -207,12 +207,22 @@ export default {
     // Eliminates "duplicate page, Google chose different canonical" in GSC.
     // NOTE: handles both bots and humans at edge so Google sees real 301s.
     const ALIAS_REDIRECTS = [
-      [/^\/topic\/([^/]+)\/?$/, "/tema/$1"],
+      [/^\/topic\/([^/]+)\/(\d{4})\/?$/, "/temak/$1/$2"],
+      [/^\/tema\/([^/]+)\/(\d{4})\/?$/, "/temak/$1/$2"],
+      [/^\/topic\/([^/]+)\/?$/, "/temak/$1"],
+      [/^\/tema\/([^/]+)\/?$/, "/temak/$1"],
+      [/^\/person\/([^/]+)\/temak\/([^/]+)\/?$/, "/szemelyek/$1/temak/$2"],
+      [/^\/szemely\/([^/]+)\/temak\/([^/]+)\/?$/, "/szemelyek/$1/temak/$2"],
       [/^\/person\/([^/]+)\/?$/, "/szemelyek/$1"],
       [/^\/szemely\/([^/]+)\/?$/, "/szemelyek/$1"],
+      [/^\/company\/([^/]+)\/temak\/([^/]+)\/?$/, "/ceg/$1/temak/$2"],
+      [/^\/szervezetek\/([^/]+)\/temak\/([^/]+)\/?$/, "/ceg/$1/temak/$2"],
+      [/^\/part\/([^/]+)\/temak\/([^/]+)\/?$/, "/ceg/$1/temak/$2"],
       [/^\/company\/([^/]+)\/?$/, "/ceg/$1"],
+      [/^\/cegek\/([^/]+)\/?$/, "/ceg/$1"],
       [/^\/szervezetek\/([^/]+)\/?$/, "/ceg/$1"],
       [/^\/part\/([^/]+)\/?$/, "/ceg/$1"],
+      [/^\/partok\/([^/]+)\/?$/, "/ceg/$1"],
       [/^\/ingredient\/([^/]+)\/?$/, "/hozzavalo/$1"],
       [/^\/moods\/([^/]+)\/?$/, "/hangulatok/$1"],
       [/^\/mood\/([^/]+)\/?$/, "/hangulatok/$1"],
@@ -240,7 +250,7 @@ export default {
     for (const [re, target] of ALIAS_REDIRECTS) {
       const m = url.pathname.match(re);
       if (m) {
-        const dest = target.replace("$1", m[1] || "");
+        const dest = target.replace("$1", m[1] || "").replace("$2", m[2] || "");
         return new Response(null, {
           status: 301,
           headers: {

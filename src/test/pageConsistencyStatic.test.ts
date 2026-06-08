@@ -466,11 +466,23 @@ describe("page consistency static guards", () => {
     const entity = read("src/lib/entity.ts");
     const analytics = read("src/pages/AdminAnalyticsPage.tsx");
     const live = read("src/pages/AdminLivePage.tsx");
+    const prerender = read("supabase/functions/prerender/index.ts");
+    const worker = read("infra/cloudflare-worker/worker.js");
+    const lovableWorker = read(".lovable/cloudflare-worker.js");
 
     expect(entity).toContain('kind === "topic" ? "temak"');
     expect(entity).not.toContain('kind === "topic" ? "tema"');
     expect(app).toContain('<Route path="/tema/:slug/:year" element={<RedirectTopicYear to="/temak" />} />');
     expect(app).toContain('<Route path="/topic/:slug/:year" element={<RedirectTopicYear to="/temak" />} />');
+    for (const workerSource of [worker, lovableWorker]) {
+      expect(workerSource).toContain('[/^\\/topic\\/([^/]+)\\/(\\d{4})\\/?$/, "/temak/$1/$2"]');
+      expect(workerSource).toContain('[/^\\/tema\\/([^/]+)\\/(\\d{4})\\/?$/, "/temak/$1/$2"]');
+      expect(workerSource).toContain('[/^\\/topic\\/([^/]+)\\/?$/, "/temak/$1"]');
+      expect(workerSource).toContain('[/^\\/tema\\/([^/]+)\\/?$/, "/temak/$1"]');
+      expect(workerSource).toContain('target.replace("$1", m[1] || "").replace("$2", m[2] || "")');
+    }
+    expect(prerender).toContain('buildTopic(supabase, parts[1], "temak")');
+    expect(prerender).not.toContain('buildTopic(supabase, parts[1], parts[0])');
     expect(analytics).toContain('return "/temak/:slug"');
     expect(live).toContain('return "/temak/:slug"');
     expect(live).not.toContain('return "/tema/:slug"');
@@ -479,13 +491,21 @@ describe("page consistency static guards", () => {
   it("keeps person topic deep-links on the canonical plural person route", () => {
     const app = read("src/App.tsx");
     const prerender = read("supabase/functions/prerender/index.ts");
+    const worker = read("infra/cloudflare-worker/worker.js");
+    const lovableWorker = read(".lovable/cloudflare-worker.js");
 
     expect(app).toContain('<Route path="/szemely/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/szemelyek" />} />');
     expect(app).toContain('<Route path="/person/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/szemelyek" />} />');
     expect(app).toContain('<Route path="/szemelyek/:slug/temak/:topicSlug" element={<PersonDetailPage />} />');
     expect(app).not.toContain('<Route path="/person/:slug/temak/:topicSlug" element={<PersonDetailPage />} />');
+    for (const workerSource of [worker, lovableWorker]) {
+      expect(workerSource).toContain('[/^\\/person\\/([^/]+)\\/temak\\/([^/]+)\\/?$/, "/szemelyek/$1/temak/$2"]');
+      expect(workerSource).toContain('[/^\\/szemely\\/([^/]+)\\/temak\\/([^/]+)\\/?$/, "/szemelyek/$1/temak/$2"]');
+    }
     expect(prerender).toContain('parts[0] === "szemelyek" || parts[0] === "szemely" || parts[0] === "person"');
     expect(prerender).toContain('const canonical = `${SITE}/szemelyek/${personSlug}/temak/${topicSlug}`');
+    expect(prerender).toContain('buildPerson(supabase, parts[1], "szemelyek")');
+    expect(prerender).not.toContain('buildPerson(supabase, parts[1], parts[0])');
   });
 
   it("keeps organization detail links on the canonical company route", () => {
@@ -494,6 +514,8 @@ describe("page consistency static guards", () => {
     const orgCard = read("src/components/OrgCard.tsx");
     const report = read("src/pages/PodcastReport2026.tsx");
     const prerender = read("supabase/functions/prerender/index.ts");
+    const worker = read("infra/cloudflare-worker/worker.js");
+    const lovableWorker = read(".lovable/cloudflare-worker.js");
 
     expect(app).toContain('<Route path="/szervezetek/:slug" element={<RedirectWithSlug to="/ceg" />} />');
     expect(app).toContain('<Route path="/szervezetek/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
@@ -507,10 +529,20 @@ describe("page consistency static guards", () => {
     expect(orgCard).not.toContain("`/part/${o.slug}`");
     expect(report).toContain("to={`/ceg/${p.slug}`}");
     expect(report).not.toContain("to={`/part/${p.slug}`}");
+    for (const workerSource of [worker, lovableWorker]) {
+      expect(workerSource).toContain('[/^\\/company\\/([^/]+)\\/temak\\/([^/]+)\\/?$/, "/ceg/$1/temak/$2"]');
+      expect(workerSource).toContain('[/^\\/szervezetek\\/([^/]+)\\/temak\\/([^/]+)\\/?$/, "/ceg/$1/temak/$2"]');
+      expect(workerSource).toContain('[/^\\/part\\/([^/]+)\\/temak\\/([^/]+)\\/?$/, "/ceg/$1/temak/$2"]');
+      expect(workerSource).toContain('[/^\\/cegek\\/([^/]+)\\/?$/, "/ceg/$1"]');
+      expect(workerSource).toContain('[/^\\/partok\\/([^/]+)\\/?$/, "/ceg/$1"]');
+    }
     expect(prerender).toContain("`${SITE}/ceg/${o.slug}`");
     expect(prerender).toContain("`${SITE}/ceg/${orgSlug}/temak/${topicSlug}`");
     expect(prerender).toContain('parts[0] === "ceg"');
     expect(prerender).toContain('parts[0] === "ceg" || parts[0] === "szervezetek" || parts[0] === "company" || parts[0] === "part"');
+    expect(prerender).toContain('buildOrganization(supabase, parts[1], "ceg")');
+    expect(prerender).not.toContain('buildOrganization(supabase, parts[1], parts[0])');
+    expect(prerender).toContain('buildLegacyEntity(supabase, enKind as any, parts[1], "hozzavalo")');
     expect(prerender).not.toContain("`${SITE}/szervezetek/${o.slug}`");
     expect(prerender).not.toContain("`${SITE}/szervezetek/${orgSlug}/temak/${topicSlug}`");
   });
