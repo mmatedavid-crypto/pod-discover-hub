@@ -18,6 +18,7 @@ type TopResult = {
   podcast_slug?: string | null;
   why_matched?: string | null;
   chunk_match?: {
+    content_snippet?: string | null;
     timestamp_start_seconds?: number | null;
     timestamp_end_seconds?: number | null;
     score?: number | null;
@@ -160,6 +161,7 @@ function asChunkMatch(value: Json | undefined): TopResult["chunk_match"] {
     timestamp_end_seconds: finiteJsonNumber(value.timestamp_end_seconds),
     score: finiteJsonNumber(value.score),
     source: typeof value.source === "string" ? value.source : null,
+    content_snippet: typeof value.content_snippet === "string" ? value.content_snippet : null,
   };
 }
 
@@ -862,6 +864,11 @@ function ResultScorer({ r, golden, onScore }: { r: ResultRow; golden?: Golden; o
                 <div className="font-medium truncate">{ep.title}</div>
                 <div className="text-xs text-muted-foreground truncate">{ep.podcast_title}</div>
                 {ep.why_matched && <div className="text-[11px] text-muted-foreground mt-1 italic">{ep.why_matched}</div>}
+                {ep.chunk_match?.content_snippet && (
+                  <div className="mt-1 text-[11px] text-muted-foreground line-clamp-2">
+                    <span className="font-medium text-foreground/80">Transcript:</span> {ep.chunk_match.content_snippet}
+                  </div>
+                )}
                 {timestamp && (
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                     <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-700 dark:text-emerald-300">

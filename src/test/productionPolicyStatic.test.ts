@@ -276,6 +276,8 @@ describe("production policy static guards", () => {
     expect(benchmarkRunner).toContain("entity_monitoring_coverage: entityMonitoringCoverage");
     expect(benchmarkRunner).toContain("function timestampMatchCount");
     expect(benchmarkRunner).toContain("timestamp_start_seconds");
+    expect(benchmarkRunner).toContain("content_snippet: typeof e.chunk_match?.content_snippet === \"string\" ? e.chunk_match.content_snippet : null");
+    expect(benchmarkRunner).toContain("score: finiteNumber(e.chunk_match?.similarity) ?? finiteNumber(e.chunk_match?.score)");
     expect(benchmarkRunner).toContain("timestamp_match_count: timestampMatches");
     expect(benchmarkRunner).toContain("chunk_augmented_count: chunkAugmented");
     expect(benchmarkRunner).toContain("timestamp_match_count: timestampMatchTotal");

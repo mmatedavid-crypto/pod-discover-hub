@@ -344,9 +344,10 @@ Deno.serve(async (req) => {
           tickers: Array.isArray(e.tickers) ? e.tickers : [],
           ingredients: Array.isArray(e.ingredients) ? e.ingredients : [],
           chunk_match: e.chunk_match ? {
+            content_snippet: typeof e.chunk_match?.content_snippet === "string" ? e.chunk_match.content_snippet : null,
             timestamp_start_seconds: finiteNumber(e.chunk_match?.timestamp_start_seconds),
             timestamp_end_seconds: finiteNumber(e.chunk_match?.timestamp_end_seconds),
-            score: finiteNumber(e.chunk_match?.score),
+            score: finiteNumber(e.chunk_match?.similarity) ?? finiteNumber(e.chunk_match?.score),
             source: e.chunk_match?.source || null,
           } : null,
         }));
