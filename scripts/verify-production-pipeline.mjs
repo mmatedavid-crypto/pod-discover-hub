@@ -74,7 +74,8 @@ settings AS (
     'person_bio_generation_policy',
     'text_processing_policy',
     'episode_chunking_policy',
-    'episode_chunk_search_result_policy'
+    'episode_chunk_search_result_policy',
+    'search_engine'
   )
 ),
 controls AS (
@@ -657,6 +658,12 @@ SELECT jsonb_build_object(
     )
   ),
   'search_quality_benchmark', jsonb_build_object(
+    'search_engine_config_present', COALESCE((SELECT setting_values ? 'search_engine' FROM settings), false),
+    'search_engine_default_v13', COALESCE((SELECT setting_values->'search_engine'->>'default_engine' = 'v13' FROM settings), false),
+    'search_engine_fallback_v12', COALESCE((SELECT setting_values->'search_engine'->>'fallback_engine' = 'v12' FROM settings), false),
+    'search_engine_quality_guard_enabled', COALESCE((SELECT setting_values->'search_engine'->>'quality_guard_enabled' = 'true' FROM settings), false),
+    'search_engine_chunk_aug_default_disabled', COALESCE((SELECT setting_values->'search_engine'->>'chunk_aug_enabled' = 'false' FROM settings), false),
+    'search_engine_chunk_aug_policy_recorded', COALESCE((SELECT setting_values->'search_engine'->>'chunk_aug_policy' = 'operator_controlled_after_chunk_quality_verification_v1' FROM settings), false),
     'timestamp_match_telemetry_column_exists', EXISTS (
       SELECT 1
       FROM information_schema.columns

@@ -224,6 +224,7 @@ describe("production policy static guards", () => {
   it("keeps search golden refresh and benchmark on a weekly automated quality loop", () => {
     const migration = read("supabase/migrations/20260605001000_search_quality_weekly_automation.sql");
     const timestampTelemetry = read("supabase/migrations/20260608001000_search_timestamp_match_telemetry.sql");
+    const searchEnginePolicy = read("supabase/migrations/20260608003000_reassert_search_engine_chunk_aug_policy.sql");
     const goldenRunner = read("supabase/functions/search-golden-refresh/index.ts");
     const benchmarkRunner = read("supabase/functions/search-benchmark-runner/index.ts");
     const searchPage = read("src/pages/SearchPage.tsx");
@@ -245,10 +246,24 @@ describe("production policy static guards", () => {
     expect(adminInsights).toContain("Timestamped searches");
     expect(adminInsights).toContain("Timestamp / chunk retrieval queries");
     expect(verifier).toContain("search_quality_benchmark");
+    expect(verifier).toContain("search_engine_config_present");
+    expect(verifier).toContain("search_engine_default_v13");
+    expect(verifier).toContain("search_engine_fallback_v12");
+    expect(verifier).toContain("search_engine_quality_guard_enabled");
+    expect(verifier).toContain("search_engine_chunk_aug_default_disabled");
+    expect(verifier).toContain("search_engine_chunk_aug_policy_recorded");
     expect(verifier).toContain("timestamp_match_telemetry_column_exists");
     expect(verifier).toContain("chunk_augmented_telemetry_column_exists");
     expect(reporter).toContain("20260608001000_search_timestamp_match_telemetry.sql");
+    expect(reporter).toContain("20260608003000_reassert_search_engine_chunk_aug_policy.sql");
     expect(reporter).toContain('endsWith("20260608001000_search_timestamp_match_telemetry.sql") ? 1 : 0');
+    expect(searchEnginePolicy).toContain("'search_engine'");
+    expect(searchEnginePolicy).toContain("'default_engine', 'v13'");
+    expect(searchEnginePolicy).toContain("'fallback_engine', 'v12'");
+    expect(searchEnginePolicy).toContain("'quality_guard_enabled', true");
+    expect(searchEnginePolicy).toContain("'chunk_aug_enabled', false");
+    expect(searchEnginePolicy).toContain("'operator_controlled_after_chunk_quality_verification_v1'");
+    expect(searchEnginePolicy).toContain("public.app_settings.value || EXCLUDED.value");
 
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_catalog");
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_external_demand");
