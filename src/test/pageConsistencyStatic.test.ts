@@ -745,6 +745,9 @@ describe("page consistency static guards", () => {
     expect(benchmark).not.toContain("(r.data[0] as any).id");
     expect(benchmark).not.toContain("(runIns as any).id");
     expect(benchmark).not.toContain("(r as any).false_positive_rate");
+    expect(benchmark).not.toContain("import.meta as any");
+    expect(benchmark).toContain("import.meta.env.VITE_SUPABASE_URL");
+    expect(benchmark).toContain("import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY");
     expect(supabaseTypes).toContain("refresh_search_golden_queries_from_catalog");
     expect(supabaseTypes).toContain("refresh_search_golden_queries_from_external_demand");
     expect(benchmark).toContain('supabase.rpc("refresh_search_golden_queries_from_catalog"');

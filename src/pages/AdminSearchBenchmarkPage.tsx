@@ -250,8 +250,8 @@ export default function AdminSearchBenchmarkPage() {
     let intentCorrect = 0;
     let intentTotal = 0;
 
-    const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL as string;
-    const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://yoxewklaybougzpmzvkg.supabase.co";
+    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
     const { data: { session: authSession } } = await supabase.auth.getSession();
 
     async function callSearchOnce(query: string): Promise<{ data: any; status: number }> {
