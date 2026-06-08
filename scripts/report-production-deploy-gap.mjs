@@ -283,11 +283,30 @@ function artifactExists(relPath) {
   return fs.existsSync(path.join(repoRoot, relPath));
 }
 
+function normalizeWhitespace(input) {
+  return String(input || "").replace(/\s+/g, " ").trim();
+}
+
+function parseCreateFunctions(sql) {
+  const out = [];
+  const rx = /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*(?:RETURNS\s+TABLE\s*\(([\s\S]*?)\)|RETURNS\s+([a-zA-Z0-9_.\s\[\]]+))/gi;
+  let match;
+  while ((match = rx.exec(sql))) {
+    const [, name, rawArgs, tableResult, scalarResult] = match;
+    out.push({
+      name,
+      args: normalizeWhitespace(rawArgs),
+      result: tableResult ? `TABLE(${normalizeWhitespace(tableResult)})` : normalizeWhitespace(scalarResult || ""),
+    });
+  }
+  return out;
+}
+
 function countPreflightChecksForMigration(relPath) {
   const file = path.join(repoRoot, relPath);
   if (!fs.existsSync(file)) return 0;
   const sql = fs.readFileSync(file, "utf8");
-  const returnsTableMatches = sql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.[a-zA-Z0-9_]+\s*\([\s\S]*?\)\s*RETURNS\s+TABLE\s*\(/gi) || [];
+  const returnsTableMatches = parseCreateFunctions(sql).filter((fn) => fn.result.toUpperCase().startsWith("TABLE("));
   const insertColumnMatches = sql.match(/INSERT\s+INTO\s+public\.[a-zA-Z0-9_]+\s*\([\s\S]*?\)\s*(?:VALUES|SELECT|WITH)/gi) || [];
   const customChecks = relPath.endsWith("20260608001000_search_timestamp_match_telemetry.sql") ? 1 : 0;
   return returnsTableMatches.length + insertColumnMatches.length + customChecks;
