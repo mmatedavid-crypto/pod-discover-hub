@@ -2380,6 +2380,105 @@ export type Database = {
         }
         Relationships: []
       }
+      gsc_query_daily: {
+        Row: {
+          clicks: number
+          ctr: number
+          date: string
+          fetched_at: string
+          id: number
+          impressions: number
+          page: string
+          position: number
+          query: string
+          site_url: string
+        }
+        Insert: {
+          clicks?: number
+          ctr?: number
+          date: string
+          fetched_at?: string
+          id?: number
+          impressions?: number
+          page: string
+          position?: number
+          query: string
+          site_url: string
+        }
+        Update: {
+          clicks?: number
+          ctr?: number
+          date?: string
+          fetched_at?: string
+          id?: number
+          impressions?: number
+          page?: string
+          position?: number
+          query?: string
+          site_url?: string
+        }
+        Relationships: []
+      }
+      gsc_weekly_insights: {
+        Row: {
+          ai_model: string | null
+          ai_recommendations: Json
+          ai_summary: string | null
+          created_at: string
+          deltas: Json
+          falling_queries: Json
+          id: string
+          raw_meta: Json
+          rising_queries: Json
+          site_url: string
+          striking_distance: Json
+          top_pages: Json
+          top_queries: Json
+          totals: Json
+          week_end: string
+          week_start: string
+          zero_click_high_impr: Json
+        }
+        Insert: {
+          ai_model?: string | null
+          ai_recommendations?: Json
+          ai_summary?: string | null
+          created_at?: string
+          deltas?: Json
+          falling_queries?: Json
+          id?: string
+          raw_meta?: Json
+          rising_queries?: Json
+          site_url: string
+          striking_distance?: Json
+          top_pages?: Json
+          top_queries?: Json
+          totals?: Json
+          week_end: string
+          week_start: string
+          zero_click_high_impr?: Json
+        }
+        Update: {
+          ai_model?: string | null
+          ai_recommendations?: Json
+          ai_summary?: string | null
+          created_at?: string
+          deltas?: Json
+          falling_queries?: Json
+          id?: string
+          raw_meta?: Json
+          rising_queries?: Json
+          site_url?: string
+          striking_distance?: Json
+          top_pages?: Json
+          top_queries?: Json
+          totals?: Json
+          week_end?: string
+          week_start?: string
+          zero_click_high_impr?: Json
+        }
+        Relationships: []
+      }
       hu_archive_backfill_runs: {
         Row: {
           ai_backlog_after: number | null
@@ -8338,14 +8437,6 @@ export type Database = {
       refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
       refresh_reddit_name_index: { Args: never; Returns: undefined }
-      refresh_search_golden_queries_from_catalog: {
-        Args: { p_limit_per_type?: number; p_popular_limit?: number }
-        Returns: Json
-      }
-      refresh_search_golden_queries_from_external_demand: {
-        Args: { p_chart_limit?: number; p_seed_limit?: number }
-        Returns: Json
-      }
       refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
       requeue_legacy_clean_text_v4_backfill: {
         Args: { _limit?: number; _tiers?: string[] }
@@ -8384,7 +8475,6 @@ export type Database = {
           best_source: string
           chunk_idx: number
           chunking_method: string
-          content_snippet: string
           episode_id: string
           segment_end_idx: number
           segment_start_idx: number
