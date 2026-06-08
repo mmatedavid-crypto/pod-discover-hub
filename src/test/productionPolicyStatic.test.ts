@@ -224,10 +224,12 @@ describe("production policy static guards", () => {
   it("keeps search golden refresh and benchmark on a weekly automated quality loop", () => {
     const migration = read("supabase/migrations/20260605001000_search_quality_weekly_automation.sql");
     const timestampTelemetry = read("supabase/migrations/20260608001000_search_timestamp_match_telemetry.sql");
+    const timestampTelemetryLovable = read("supabase/migrations/20260608184421_eeac6b6a-4280-4d98-bd77-7f5921cf5ecc.sql");
     const searchEnginePolicy = read("supabase/migrations/20260608003000_reassert_search_engine_chunk_aug_policy.sql");
     const searchEngineRankingV5 = read("supabase/migrations/20260608004000_reassert_search_engine_ranking_version_v5.sql");
     const searchEngineRankingV6 = read("supabase/migrations/20260608007000_reassert_search_engine_ranking_version_v6.sql");
     const searchEngineUnderstandingV4 = read("supabase/migrations/20260608008000_reassert_search_engine_understanding_version_v4.sql");
+    const searchEngineFinalPolicy = read("supabase/migrations/20260608190000_reassert_search_engine_policy_v7_final.sql");
     const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
     const goldenRunner = read("supabase/functions/search-golden-refresh/index.ts");
     const benchmarkRunner = read("supabase/functions/search-benchmark-runner/index.ts");
@@ -245,6 +247,9 @@ describe("production policy static guards", () => {
     expect(timestampTelemetry).toContain("timestamp_match_count integer NOT NULL DEFAULT 0");
     expect(timestampTelemetry).toContain("chunk_augmented_count integer NOT NULL DEFAULT 0");
     expect(timestampTelemetry).toContain("search_events_timestamp_matches_idx");
+    expect(timestampTelemetryLovable).toContain("timestamp_match_count integer NOT NULL DEFAULT 0");
+    expect(timestampTelemetryLovable).toContain("chunk_augmented_count integer NOT NULL DEFAULT 0");
+    expect(timestampTelemetryLovable).toContain("search_events_timestamp_matches_idx");
     expect(searchPage).toContain("timestamp_match_count:");
     expect(searchPage).toContain("chunk_augmented_count:");
     expect(adminInsights).toContain("Timestamped searches");
@@ -262,12 +267,14 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("timestamp_match_telemetry_column_exists");
     expect(verifier).toContain("chunk_augmented_telemetry_column_exists");
     expect(reporter).toContain("20260608001000_search_timestamp_match_telemetry.sql");
+    expect(reporter).toContain("20260608184421_eeac6b6a-4280-4d98-bd77-7f5921cf5ecc.sql");
     expect(reporter).toContain("20260608003000_reassert_search_engine_chunk_aug_policy.sql");
     expect(reporter).toContain("20260608004000_reassert_search_engine_ranking_version_v5.sql");
     expect(reporter).toContain("20260608007000_reassert_search_engine_ranking_version_v6.sql");
     expect(reporter).toContain("20260608008000_reassert_search_engine_understanding_version_v4.sql");
+    expect(reporter).toContain("20260608190000_reassert_search_engine_policy_v7_final.sql");
     expect(reporter).toContain('functions: ["search-golden-refresh", "search-benchmark-runner", "search-hybrid"]');
-    expect(reporter).toContain('endsWith("20260608001000_search_timestamp_match_telemetry.sql") ? 1 : 0');
+    expect(reporter).toContain("search_timestamp_match_telemetry\\.sql$|20260608184421_eeac6b6a-4280-4d98-bd77-7f5921cf5ecc\\.sql$");
     expect(searchEnginePolicy).toContain("'search_engine'");
     expect(searchEnginePolicy).toContain("'default_engine', 'v13'");
     expect(searchEnginePolicy).toContain("'fallback_engine', 'v12'");
@@ -284,6 +291,11 @@ describe("production policy static guards", () => {
     expect(searchEngineUnderstandingV4).toContain("'understanding_version', 4");
     expect(searchEngineUnderstandingV4).toContain("'anchor_first_catalog_resolution_current_v4'");
     expect(searchEngineUnderstandingV4).toContain("public.app_settings.value || EXCLUDED.value");
+    expect(searchEngineFinalPolicy).toContain("'chunk_aug_enabled', false");
+    expect(searchEngineFinalPolicy).toContain("'ranking_version', 6");
+    expect(searchEngineFinalPolicy).toContain("'understanding_version', 4");
+    expect(searchEngineFinalPolicy).toContain("'operator_controlled_after_chunk_quality_verification_v1'");
+    expect(searchEngineFinalPolicy).toContain("20260608190000_reassert_search_engine_policy_v7_final");
     expect(searchHybrid).toContain("ranking_version: 6");
     expect(searchHybrid).toContain("understanding_version: 4");
 

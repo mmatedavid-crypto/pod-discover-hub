@@ -110,10 +110,12 @@ const GROUPS = {
     migrations: [
       "supabase/migrations/20260605001000_search_quality_weekly_automation.sql",
       "supabase/migrations/20260608001000_search_timestamp_match_telemetry.sql",
+      "supabase/migrations/20260608184421_eeac6b6a-4280-4d98-bd77-7f5921cf5ecc.sql",
       "supabase/migrations/20260608003000_reassert_search_engine_chunk_aug_policy.sql",
       "supabase/migrations/20260608004000_reassert_search_engine_ranking_version_v5.sql",
       "supabase/migrations/20260608007000_reassert_search_engine_ranking_version_v6.sql",
       "supabase/migrations/20260608008000_reassert_search_engine_understanding_version_v4.sql",
+      "supabase/migrations/20260608190000_reassert_search_engine_policy_v7_final.sql",
     ],
     functions: ["search-golden-refresh", "search-benchmark-runner", "search-hybrid"],
     why: "Golden lista hetente frissül katalógus/demand/toplista jelekből, majd batchelt benchmark és timestampes chunk telemetry méri a kereső minőségét.",
@@ -319,7 +321,7 @@ function countPreflightChecksForMigration(relPath) {
   const sql = fs.readFileSync(file, "utf8");
   const returnsTableMatches = parseCreateFunctions(sql).filter((fn) => fn.result.toUpperCase().startsWith("TABLE("));
   const insertColumnMatches = sql.match(/INSERT\s+INTO\s+public\.[a-zA-Z0-9_]+\s*\([\s\S]*?\)\s*(?:VALUES|SELECT|WITH)/gi) || [];
-  const customChecks = relPath.endsWith("20260608001000_search_timestamp_match_telemetry.sql") ? 1 : 0;
+  const customChecks = /search_timestamp_match_telemetry\.sql$|20260608184421_eeac6b6a-4280-4d98-bd77-7f5921cf5ecc\.sql$/.test(relPath) ? 1 : 0;
   return returnsTableMatches.length + insertColumnMatches.length + customChecks;
 }
 

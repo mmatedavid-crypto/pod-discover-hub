@@ -134,7 +134,10 @@ const checked = [];
 for (const file of files) {
   const rel = path.relative(repoRoot, file);
   const sql = fs.readFileSync(file, "utf8");
-  if (rel.endsWith("20260608001000_search_timestamp_match_telemetry.sql")) {
+  if (
+    rel.endsWith("20260608001000_search_timestamp_match_telemetry.sql")
+    || rel.endsWith("20260608184421_eeac6b6a-4280-4d98-bd77-7f5921cf5ecc.sql")
+  ) {
     checked.push({ type: "search_timestamp_match_telemetry_contract", file: rel });
     const required = [
       "ADD COLUMN IF NOT EXISTS timestamp_match_count integer NOT NULL DEFAULT 0",
