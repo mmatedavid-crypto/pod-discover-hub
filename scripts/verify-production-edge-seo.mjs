@@ -1,4 +1,5 @@
 const SITE = process.env.PUBLIC_SITE_URL || "https://podiverzum.hu";
+const INDEXNOW_KEY = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a";
 
 const redirectChecks = [
   { url: "https://www.podiverzum.hu/podcast/emazon?utm=test", expectedUrl: "https://podiverzum.hu/podcast/emazon?utm=test", cacheIncludes: "max-age=31536000" },
@@ -51,6 +52,12 @@ const fetchChecks = [
     contentType: "text/plain",
     bodyIncludes: ["Magyar podcastkereső", "Forrás: podiverzum.hu", "https://podiverzum.hu/uj-podcastok"],
   },
+  {
+    path: `/${INDEXNOW_KEY}.txt`,
+    contentType: "text/plain",
+    bodyEquals: INDEXNOW_KEY,
+    header: ["x-served-by", "worker-indexnow-key"],
+  },
 ];
 
 function absolute(path) {
@@ -85,8 +92,9 @@ for (const check of fetchChecks) {
   const body = await res.text();
   const missingBody = (check.bodyIncludes || []).filter((needle) => !body.includes(needle));
   const forbiddenBody = (check.bodyExcludes || []).filter((needle) => body.includes(needle));
+  const bodyEqualsOk = !("bodyEquals" in check) || body.trim() === check.bodyEquals;
   const headerOk = !check.header || (res.headers.get(check.header[0]) || "") === check.header[1];
-  const ok = res.ok && contentType.includes(check.contentType) && missingBody.length === 0 && forbiddenBody.length === 0 && headerOk;
+  const ok = res.ok && contentType.includes(check.contentType) && missingBody.length === 0 && forbiddenBody.length === 0 && bodyEqualsOk && headerOk;
   results.push({
     kind: "fetch",
     path: check.path,
@@ -96,7 +104,7 @@ for (const check of fetchChecks) {
     ok,
   });
   if (!ok) {
-    failures.push(`fetch ${check.path} failed: status=${res.status}, content-type=${contentType}, missing=${missingBody.join(",")}, forbidden=${forbiddenBody.join(",")}, headerOk=${headerOk}`);
+    failures.push(`fetch ${check.path} failed: status=${res.status}, content-type=${contentType}, missing=${missingBody.join(",")}, forbidden=${forbiddenBody.join(",")}, bodyEqualsOk=${bodyEqualsOk}, headerOk=${headerOk}`);
   }
 }
 

@@ -767,6 +767,11 @@ describe("production policy static guards", () => {
     ]) {
       expect(verifier).toContain(path);
     }
+    expect(verifier).toContain('const INDEXNOW_KEY = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a"');
+    expect(verifier).toContain("path: `/${INDEXNOW_KEY}.txt`");
+    expect(verifier).toContain("bodyEquals: INDEXNOW_KEY");
+    expect(verifier).toContain("bodyEqualsOk");
+    expect(verifier).toContain("worker-indexnow-key");
     expect(verifier).toContain("redirect: \"manual\"");
     expect(verifier).toContain("worker-sitemap-proxy");
     expect(verifier).toContain("worker-robots-policy");
