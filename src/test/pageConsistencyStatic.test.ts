@@ -751,6 +751,8 @@ describe("page consistency static guards", () => {
     expect(benchmark).toContain("chunk_augmented?: number | null");
     expect(benchmark).toContain("timestamp_match_count: number");
     expect(benchmark).toContain("chunk_augmented_count: number");
+    expect(benchmark).toContain("function asChunkMatch(value: Json | undefined): TopResult[\"chunk_match\"]");
+    expect(benchmark).toContain("chunk_match: asChunkMatch(item.chunk_match)");
     expect(benchmark).toContain("function timestampStatsFromResults(rows: ResultRow[])");
     expect(benchmark).toContain("function formatSeconds(seconds: number | null | undefined)");
     expect(benchmark).toContain("Timestamp hits");

@@ -148,6 +148,21 @@ function asScoreMap(value: Json): Record<string, number> {
   );
 }
 
+function finiteJsonNumber(value: Json | undefined): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function asChunkMatch(value: Json | undefined): TopResult["chunk_match"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return {
+    timestamp_start_seconds: finiteJsonNumber(value.timestamp_start_seconds),
+    timestamp_end_seconds: finiteJsonNumber(value.timestamp_end_seconds),
+    score: finiteJsonNumber(value.score),
+    source: typeof value.source === "string" ? value.source : null,
+  };
+}
+
 function asTopResults(value: Json): TopResult[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -158,6 +173,7 @@ function asTopResults(value: Json): TopResult[] {
       podcast_title: typeof item.podcast_title === "string" ? item.podcast_title : null,
       podcast_slug: typeof item.podcast_slug === "string" ? item.podcast_slug : null,
       why_matched: typeof item.why_matched === "string" ? item.why_matched : null,
+      chunk_match: asChunkMatch(item.chunk_match),
     }));
 }
 
