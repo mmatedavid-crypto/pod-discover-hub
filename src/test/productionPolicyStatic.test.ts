@@ -256,6 +256,7 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("chunk_augmented_telemetry_column_exists");
     expect(reporter).toContain("20260608001000_search_timestamp_match_telemetry.sql");
     expect(reporter).toContain("20260608003000_reassert_search_engine_chunk_aug_policy.sql");
+    expect(reporter).toContain('functions: ["search-golden-refresh", "search-benchmark-runner", "search-hybrid"]');
     expect(reporter).toContain('endsWith("20260608001000_search_timestamp_match_telemetry.sql") ? 1 : 0');
     expect(searchEnginePolicy).toContain("'search_engine'");
     expect(searchEnginePolicy).toContain("'default_engine', 'v13'");

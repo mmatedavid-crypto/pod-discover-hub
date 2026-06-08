@@ -107,7 +107,7 @@ const GROUPS = {
       "supabase/migrations/20260608001000_search_timestamp_match_telemetry.sql",
       "supabase/migrations/20260608003000_reassert_search_engine_chunk_aug_policy.sql",
     ],
-    functions: ["search-golden-refresh", "search-benchmark-runner"],
+    functions: ["search-golden-refresh", "search-benchmark-runner", "search-hybrid"],
     why: "Golden lista hetente frissül katalógus/demand/toplista jelekből, majd batchelt benchmark és timestampes chunk telemetry méri a kereső minőségét.",
   },
   entity_monitoring_benchmark: {
