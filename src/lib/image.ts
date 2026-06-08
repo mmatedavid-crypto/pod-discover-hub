@@ -114,3 +114,16 @@ export function imageSrcSet(src?: string | null, widths: number[] = [96, 160, 24
     .filter(Boolean);
   return entries.length ? entries.join(", ") : undefined;
 }
+
+export function imageSrcSetForAspect(src?: string | null, widths: number[] = [320, 480, 640], aspectRatio = 1) {
+  if (!src) return undefined;
+  const ratio = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1;
+  const entries = widths
+    .map((w) => {
+      const h = Math.max(32, Math.round(w / ratio));
+      const url = optimizedImageUrl(src, { width: w, height: h });
+      return url ? `${url} ${w}w` : null;
+    })
+    .filter(Boolean);
+  return entries.length ? entries.join(", ") : undefined;
+}

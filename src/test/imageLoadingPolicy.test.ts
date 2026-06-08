@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { optimizedImageUrl } from "@/lib/image";
+import { imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
@@ -14,8 +14,20 @@ describe("episode thumbnail loading policy", () => {
     // Rail cover image fills the 16:10 area.
     expect(card).toContain('className="absolute inset-0 h-full w-full object-cover"');
     expect(card).toContain('sizes="(max-width: 640px) 80vw, 340px"');
+    expect(card).toContain("imageSrcSetForAspect(coverImage, [320, 480, 640], 16 / 10)");
     // Old tiny floating thumbnail must not return.
     expect(card).not.toContain('className="absolute left-3 top-3 w-16 rounded-md shadow-lg ring-1 ring-border/70 sm:w-20"');
+  });
+
+  it("requests aspect-matched rail thumbnail variants instead of square crops", () => {
+    const image = read("src/lib/image.ts");
+    const buzzsprout = "https://storage.buzzsprout.com/variants/abc123/cover.jpg";
+
+    expect(image).toContain("export function imageSrcSetForAspect");
+    expect(image).toContain("const h = Math.max(32, Math.round(w / ratio))");
+    expect(imageSrcSetForAspect(buzzsprout, [320, 480, 640], 16 / 10)).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=320&h=200&fit=cover&q=78 320w, https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=480&h=300&fit=cover&q=78 480w, https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=640&h=400&fit=cover&q=78 640w",
+    );
   });
 
   it("keeps podcast episode thumbnails near rendered size", () => {

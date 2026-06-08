@@ -11,7 +11,7 @@ import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { pickEpisodeDescription } from "@/lib/episodeText";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
-import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { imageSrcSet, imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image";
 
 const EpisodeMarks = lazy(() => import("./EpisodeMarks").then((m) => ({ default: m.EpisodeMarks })));
 
@@ -384,7 +384,7 @@ function EpisodeRailCard({
           {coverImage && (
             <img
               src={optimizedImageUrl(coverImage, { width: 480, height: 300 }) || coverImage}
-              srcSet={imageSrcSet(coverImage, [320, 480, 640])}
+              srcSet={imageSrcSetForAspect(coverImage, [320, 480, 640], 16 / 10)}
               sizes="(max-width: 640px) 80vw, 340px"
               alt={coverTitle}
               loading={imagePriority ? "eager" : "lazy"}
