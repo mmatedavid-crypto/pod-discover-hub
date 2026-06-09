@@ -8475,6 +8475,7 @@ export type Database = {
           best_source: string
           chunk_idx: number
           chunking_method: string
+          content_snippet: string
           episode_id: string
           segment_end_idx: number
           segment_start_idx: number
