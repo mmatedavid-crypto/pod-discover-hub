@@ -52,6 +52,9 @@ Allow: /
 User-agent: PerplexityBot
 Allow: /
 
+User-agent: DuckDuckBot
+Allow: /
+
 User-agent: ClaudeBot
 Allow: /
 

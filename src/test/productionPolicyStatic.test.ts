@@ -868,6 +868,7 @@ describe("production policy static guards", () => {
     expect(worker).toContain("worker-robots-policy");
     expect(worker).toContain("Content-Signal: search=yes,ai-input=yes,ai-train=no");
     expect(worker).toContain("Host: podiverzum.hu");
+    expect(worker).toContain("User-agent: DuckDuckBot");
     expect(worker).toContain('url.hostname === "www.podiverzum.hu"');
     expect(worker).toContain('"Cache-Control": "public, max-age=31536000"');
     expect(worker).not.toContain("BEGIN Cloudflare Managed");
@@ -875,12 +876,14 @@ describe("production policy static guards", () => {
     expect(lovableWorker).toContain('url.pathname === "/robots.txt"');
     expect(lovableWorker).toContain("worker-robots-policy");
     expect(lovableWorker).toContain("Host: podiverzum.hu");
+    expect(lovableWorker).toContain("User-agent: DuckDuckBot");
     expect(lovableWorker).toContain('"Cache-Control": "public, max-age=31536000"');
 
     expect(robots).toContain("Sitemap: https://podiverzum.hu/sitemap.xml");
     expect(robots).toContain("Sitemap: https://podiverzum.hu/news-sitemap.xml");
     expect(robots).toContain("Host: podiverzum.hu");
     expect(robots).toContain("Content-Signal: search=yes,ai-input=yes,ai-train=no");
+    expect(robots).toContain("User-agent: DuckDuckBot");
     expect(robots).not.toContain("BEGIN Cloudflare Managed");
     expect(robots).not.toContain("User-agent: GPTBot\nDisallow: /");
     expect(robots).not.toContain("User-agent: ClaudeBot\nDisallow: /");
@@ -1002,6 +1005,7 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("https://podiverzum.hu/kategoria/technologia?utm=test");
     expect(verifier).toContain("max-age=31536000");
     expect(verifier).toContain("Host: podiverzum.hu");
+    expect(verifier).toContain("User-agent: DuckDuckBot");
     expect(reporter).toContain("/llms.txt returns the short Podiverzum.hu AI-agent guidance");
     expect(reporter).toContain("Heti RSS, news sitemap and full sitemap URLs");
     expect(verifier).toContain("bodyExcludes");

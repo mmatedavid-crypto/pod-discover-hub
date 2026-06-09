@@ -53,6 +53,7 @@ const fetchChecks = [
       "Content-Signal: search=yes,ai-input=yes,ai-train=no",
       "User-agent: GPTBot",
       "User-agent: OAI-SearchBot",
+      "User-agent: DuckDuckBot",
       "User-agent: ClaudeBot",
     ],
     bodyExcludes: [
