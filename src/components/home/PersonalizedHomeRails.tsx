@@ -21,8 +21,25 @@ type RpcRow = {
   related_reason?: string | null;
 };
 
-type Rail = { key: string; label: string; items: RpcRow[] };
-type Payload = { main: Rail; rails: Rail[] };
+type RecommendationDiagnostics = {
+  candidate_count: number;
+  kept_count: number;
+  dropped?: {
+    low_similarity?: number;
+    missing_related_reason?: number;
+  };
+};
+
+type Rail = { key: string; label: string; items: RpcRow[]; diagnostics?: RecommendationDiagnostics };
+type Payload = {
+  main: Rail;
+  rails: Rail[];
+  diagnostics?: {
+    main?: RecommendationDiagnostics;
+    seed_count?: number;
+    returned_seed_rail_count?: number;
+  };
+};
 
 function toEp(r: RpcRow): EpisodeLite {
   return {

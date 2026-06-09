@@ -577,6 +577,10 @@ describe("page consistency static guards", () => {
     expect(episodeCard).not.toContain("{e.why_matched}");
     expect(episodeCard).not.toContain("{e.homepageReason}");
     expect(similar).not.toContain("relatedReasonFromSimilarity");
+    expect(personalizedHome).toContain("type RecommendationDiagnostics");
+    expect(personalizedHome).toContain("low_similarity?: number");
+    expect(personalizedHome).toContain("missing_related_reason?: number");
+    expect(personalizedHome).toContain("returned_seed_rail_count?: number");
     expect(personalizedHome).toContain("A korábbi hallgatásaidhoz és érdeklődéseidhez közel álló epizódok.");
     expect(personalizedHome).not.toContain("szemantikailag");
 
