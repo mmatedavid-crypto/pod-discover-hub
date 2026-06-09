@@ -68,7 +68,13 @@ export function TrendingPodcasts() {
               ].join(" ")}
             >
               <div className="relative aspect-square overflow-hidden bg-secondary">
-                <PodcastCover title={title} src={p.image_url} size={lead ? "lg" : undefined} />
+                <PodcastCover
+                  title={title}
+                  src={p.image_url}
+                  size={lead ? "lg" : undefined}
+                  loading={lead ? "eager" : "lazy"}
+                  fetchPriority={lead ? "high" : "low"}
+                />
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-background/85 to-transparent" />
                 <div className="absolute left-2 top-2 rounded-md bg-background/80 px-2 py-1 text-[11px] font-semibold text-foreground backdrop-blur">
                   #{index + 1}

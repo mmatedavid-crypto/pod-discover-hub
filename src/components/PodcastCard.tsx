@@ -33,7 +33,7 @@ export function PodcastCard({ p }: { p: PodcastLite }) {
   return (
     <article className="group flex gap-3 p-3 sm:p-4 rounded-xl border border-border/70 bg-card/70 card-lift hover:border-primary/40">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-20">
-        <PodcastCover title={title} src={p.image_url} />
+        <PodcastCover title={title} src={p.image_url} loading="lazy" fetchPriority="low" />
       </Link>
       <div className="min-w-0 flex-1">
         <Link to={`/podcast/${p.slug}`} className="font-medium leading-snug line-clamp-2 group-hover:underline">

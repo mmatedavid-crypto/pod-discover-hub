@@ -373,4 +373,14 @@ describe("episode thumbnail loading policy", () => {
     expect(continueListening).toContain("imageSrcSet(it.imageUrl, [56, 80, 112])");
     expect(profile).toContain("imageSrcSet(e.podcasts.image_url, [48, 64, 96])");
   });
+
+  it("prioritizes only the lead trending podcast cover while keeping list covers low priority", () => {
+    const podcastCard = read("src/components/PodcastCard.tsx");
+    const trending = read("src/components/TrendingPodcasts.tsx");
+
+    expect(podcastCard).toContain('<PodcastCover title={title} src={p.image_url} loading="lazy" fetchPriority="low" />');
+    expect(trending).toContain('loading={lead ? "eager" : "lazy"}');
+    expect(trending).toContain('fetchPriority={lead ? "high" : "low"}');
+    expect(trending).not.toContain('<PodcastCover title={title} src={p.image_url} size={lead ? "lg" : undefined} />');
+  });
 });
