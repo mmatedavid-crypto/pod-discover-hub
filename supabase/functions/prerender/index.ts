@@ -143,6 +143,29 @@ function safePersonBioForPrerender(person: Record<string, unknown>): string {
   );
 }
 
+function firstSeoSentence(value?: string | null): string {
+  const text = truncate(stripHtml(value), 240).replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  return text.match(/^(.{40,220}?[.!?])(?:\s|$)/)?.[1]?.trim() || text;
+}
+
+function safePersonSeoLeadForPrerender(person: Record<string, unknown>): string {
+  if (!person || (person.identity_ambiguous && !hasTrustedPersonIdentity(person))) return "";
+  const aiBioSafe = person.ai_bio_status === "published" && Number(person.ai_bio_confidence || 0) >= 0.75
+    ? String(person.ai_bio || "")
+    : "";
+  return firstSeoSentence(
+    String(
+      person.overview_text
+        || person.short_description_hu
+        || person.wikipedia_description
+        || person.short_bio
+        || aiBioSafe
+        || "",
+    ),
+  );
+}
+
 function htmlResponse(body: string, status = 200) {
   // Build a fresh Headers per response — sharing a plain object can let the
   // gateway override Content-Type to text/plain.
@@ -664,7 +687,7 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
+    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, short_description_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
@@ -697,14 +720,15 @@ async function buildPerson(
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
   const bio = safePersonBioForPrerender(person);
+  const seoLead = safePersonSeoLeadForPrerender(person) || firstSeoSentence(bio);
   const trustedIdentity = hasTrustedPersonIdentity(person);
   const safeImage = safePersonImageForPrerender(person);
   const epCount = eps.length;
   const relation = !historicalWithoutEvidence && (Number(person.participant_count || 0) > 0 || Number(person.host_count || 0) > 0 || Number(person.guest_count || 0) > 0)
     ? "hallható"
     : "kapcsolódik";
-  const desc = bio
-    ? truncate(bio, 160)
+  const desc = seoLead
+    ? truncate(`${seoLead}${epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}.` : ""}`, 160)
     : epCount > 0
       ? truncate(`Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}. Kapcsolódó műsorok és említések a Podiverzumon.`, 160)
       : truncate(`${person.name} kapcsolódó magyar podcast epizódjai hamarosan megjelennek a Podiverzum katalógusában.`, 160);

@@ -776,6 +776,11 @@ describe("page consistency static guards", () => {
     expect(person).toContain("const fallbackDescriptionRelation = \"említve szerepel\"");
     expect(person).toContain("`${exemplar} – ${fallbackEpCount} podcast epizódban ${fallbackRelation} | Podiverzum`");
     expect(prerender).toContain("const relation = !historicalWithoutEvidence");
+    expect(prerender).toContain("function safePersonSeoLeadForPrerender");
+    expect(prerender).toContain("overview_text, short_description_hu");
+    expect(prerender).toContain("const seoLead = safePersonSeoLeadForPrerender(person) || firstSeoSentence(bio)");
+    expect(prerender).toContain("const desc = seoLead");
+    expect(prerender).toContain("`${seoLead}${epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}.` : \"\"}`");
     expect(prerender).toContain("`Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}.");
     expect(prerender).toContain("`${person.name} – ${epCount} podcast epizódban ${relation} | Podiverzum`");
     expect(prerender).not.toContain("const title = `${person.name} podcast epizódok és említések | Podiverzum`");
