@@ -1018,6 +1018,21 @@ describe("production policy static guards", () => {
     ]) {
       expect(verifier).toContain(path);
     }
+    for (const pair of [
+      '["/moods", "/hangulatok"]',
+      '["/moods/reggeli-radio", "/hangulatok/reggeli-radio"]',
+      '["/privacy", "/adatvedelem"]',
+      '["/terms", "/feltetelek"]',
+      '["/about", "/rolunk"]',
+      '["/methodology", "/modszertan"]',
+      '["/contact", "/kapcsolat"]',
+      '["/uj", "/uj-podcastok"]',
+      '["/new", "/uj-podcastok"]',
+      '["/mai-valogatas", "/napi"]',
+      '["/daily", "/napi"]',
+    ]) {
+      expect(verifier).toContain(pair);
+    }
     expect(verifier).toContain('const INDEXNOW_KEY = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a"');
     expect(verifier).toContain("path: `/${INDEXNOW_KEY}.txt`");
     expect(verifier).toContain("bodyEquals: INDEXNOW_KEY");
