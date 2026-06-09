@@ -1552,8 +1552,8 @@ async function buildOrgTopic(
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
   const canonical = `${SITE}/ceg/${orgSlug}/temak/${topicSlug}`;
-  const title = `${org.name} és a ${topic.name} — Podiverzum`;
-  const desc = truncate(`${eps.length} magyar podcast epizód ${org.name} és ${topic.name} témakörben.`, 160);
+  const title = `${org.name} – ${eps.length} podcast epizód ${topic.name} témában | Podiverzum`;
+  const desc = truncate(`${org.name} említései ${eps.length} magyar podcast epizódban ${topic.name} témában. Kapcsolódó műsorok és AI-összefoglalók.`, 160);
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
@@ -1564,7 +1564,7 @@ async function buildOrgTopic(
   const breadcrumbs = {
     "@context": "https://schema.org", "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Szervezetek", item: `${SITE}/szervezetek` },
+      { "@type": "ListItem", position: 1, name: "Cégek és szervezetek", item: `${SITE}/cegek` },
       { "@type": "ListItem", position: 2, name: org.name, item: `${SITE}/ceg/${orgSlug}` },
       { "@type": "ListItem", position: 3, name: topic.name, item: canonical },
     ],
@@ -1580,7 +1580,7 @@ async function buildOrgTopic(
   return new Response(new TextEncoder().encode(shell({
     title, description: desc, canonical, ogImage: org.logo_url, jsonLd: [itemList, breadcrumbs],
     bodyHtml: `<header><h1>${esc(org.name)} — ${esc(topic.name)}</h1>
-<p>${eps.length} epizód <a href="/ceg/${esc(orgSlug)}">${esc(org.name)}</a> és <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> kapcsolatáról. Magyar podcastek, AI-összefoglalókkal.</p></header>
+<p><a href="/ceg/${esc(orgSlug)}">${esc(org.name)}</a> említései ${eps.length} magyar podcast epizódban a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témához kapcsolódva. Magyar podcastek, AI-összefoglalókkal.</p></header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>
 <aside><h2>Tovább</h2><ul>
 <li><a href="/ceg/${esc(orgSlug)}">${esc(org.name)} — főoldal</a></li>

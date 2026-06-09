@@ -252,7 +252,12 @@ describe("page consistency static guards", () => {
     expect(prerender).toContain("Személyek magyar podcastokban");
     expect(prerender).not.toContain("Személyek és podcastvendégek");
     expect(prerender).not.toContain("podcastvendégek és gyakran említett nevek");
-    expect(prerender).toContain("${org.name} és ${topic.name} témakörben");
+    expect(prerender).toContain("`${org.name} – ${eps.length} podcast epizód ${topic.name} témában | Podiverzum`");
+    expect(prerender).toContain("`${org.name} említései ${eps.length} magyar podcast epizódban ${topic.name} témában.");
+    expect(prerender).toContain('name: "Cégek és szervezetek", item: `${SITE}/cegek`');
+    expect(prerender).toContain("${esc(org.name)}</a> említései ${eps.length} magyar podcast epizódban");
+    expect(prerender).not.toContain("${org.name} és ${topic.name} témakörben");
+    expect(prerender).not.toContain("kapcsolatáról. Magyar podcastek");
     expect(prerender).toContain("${a.name} és ${b.name} közös témájában");
   });
 
