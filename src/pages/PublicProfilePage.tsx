@@ -163,7 +163,7 @@ export default function PublicProfilePage() {
           <h3 className="text-xl font-semibold">Készítsd el a saját Podiverzumod</h3>
           <p className="text-sm text-muted-foreground mt-2">60 másodperc, és kiderül te milyen hallgató vagy.</p>
           <Link
-            to="/start"
+            to="/te-podiverzumod"
             className="mt-4 inline-flex items-center gap-2 px-5 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
           >
             <Sparkles className="h-4 w-4" />

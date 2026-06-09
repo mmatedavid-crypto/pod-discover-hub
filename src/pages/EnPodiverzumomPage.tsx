@@ -175,7 +175,7 @@ function ProfilTab({ profile }: { profile: any }) {
           Csináld meg a kártya-felmérést és kiderítjük milyen hallgató vagy.
         </p>
         <Link
-          to="/start"
+          to="/te-podiverzumod"
           className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
         >
           <Sparkles className="h-4 w-4" />
@@ -204,7 +204,7 @@ function ProfilTab({ profile }: { profile: any }) {
           </div>
         )}
         <Link
-          to="/start"
+          to="/te-podiverzumod"
           className="mt-5 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
         >
           Újragondolnám →

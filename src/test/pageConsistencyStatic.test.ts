@@ -703,10 +703,16 @@ describe("page consistency static guards", () => {
 
   it("keeps SEO fallback and prerender links on canonical Hungarian routes", () => {
     const app = read("src/App.tsx");
+    const siteHeader = read("src/components/SiteHeader.tsx");
+    const homeShortcuts = read("src/components/home/HomeDiscoveryShortcuts.tsx");
     const notFound = read("src/pages/NotFound.tsx");
     const notFoundState = read("src/components/NotFoundState.tsx");
     const prerender = read("supabase/functions/prerender/index.ts");
     const episode = read("src/pages/EpisodeDetail.tsx");
+    const indexPage = read("src/pages/Index.tsx");
+    const listenerProfile = read("src/pages/ListenerProfilePage.tsx");
+    const publicProfile = read("src/pages/PublicProfilePage.tsx");
+    const enPodiverzumom = read("src/pages/EnPodiverzumomPage.tsx");
     const searchInsights = read("src/pages/AdminSearchInsightsPage.tsx");
     const toplist = read("src/pages/ToplistaPage.tsx");
     const toplistAllTime = read("src/pages/ToplistaAllTimePage.tsx");
@@ -725,6 +731,13 @@ describe("page consistency static guards", () => {
     expect(app).not.toContain('<Route path="/search" element={<SearchPage />} />');
     expect(app).toContain('<Route path="/vibe" element={<RedirectPreserveSearch to="/te-podiverzumod" />} />');
     expect(app).not.toContain('<Route path="/vibe" element={<StartSwipePage />} />');
+    expect(app).toContain('<Route path="/start" element={<StartLandingPage />} />');
+    for (const source of [siteHeader, homeShortcuts, indexPage, listenerProfile, publicProfile, enPodiverzumom]) {
+      expect(source).toContain("/te-podiverzumod");
+      expect(source).not.toContain('to="/start"');
+      expect(source).not.toContain('href: "/start"');
+      expect(source).not.toContain("`/start?");
+    }
     expect(searchInsights).toContain("/kereses?q=");
     expect(searchInsights).not.toContain("/search?q=");
     expect(prerender).toContain('href="/toplista"');

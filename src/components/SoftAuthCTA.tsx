@@ -14,7 +14,7 @@ type Props = {
 };
 
 /**
- * Soft CTA at the end of /start. Three states:
+ * Soft CTA at the end of the taste-profile flow. Three states:
  *  - logged in + archetype saved: green "elmentve" confirmation
  *  - logged in + not yet saved: auto-save effect + confirmation
  *  - not logged in: elegant card with Google sign-in (passes archetype via sessionStorage)

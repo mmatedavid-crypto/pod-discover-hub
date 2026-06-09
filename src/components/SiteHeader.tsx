@@ -78,7 +78,7 @@ export function SiteHeader() {
       <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
         <BrandMark />
         <nav className="hidden lg:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
-          <NavLink to="/start" className={({ isActive }) =>
+          <NavLink to="/te-podiverzumod" className={({ isActive }) =>
             `relative text-sm font-medium inline-flex items-center gap-1.5 transition-colors text-red-500 hover:text-red-600 after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-px after:bg-red-500 after:transition-all ${
               isActive ? "after:w-full" : "after:w-0 hover:after:w-full"
             }`
@@ -198,7 +198,7 @@ export function SiteHeader() {
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           {/* Mobile-only "Te Podiverzumod" link */}
           <NavLink
-            to="/start"
+            to="/te-podiverzumod"
             className="lg:hidden inline-flex items-center gap-1.5 text-sm font-medium text-red-500 hover:text-red-600 transition-colors whitespace-nowrap"
           >
             <Sparkles className="h-3.5 w-3.5" />

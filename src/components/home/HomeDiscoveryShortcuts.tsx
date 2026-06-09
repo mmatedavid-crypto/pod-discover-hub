@@ -22,7 +22,7 @@ const shortcuts = [
   },
   {
     title: "A Te Podiverzumod",
-    href: "/start",
+    href: "/te-podiverzumod",
     Icon: Sparkles,
     accent: "text-primary bg-primary/10",
   },

@@ -160,7 +160,7 @@ export default function ListenerProfilePage() {
             <p className="text-muted-foreground">{error}</p>
             <Button asChild className="mt-6">
               <Link
-                to="/start"
+                to="/te-podiverzumod"
                 onClick={() =>
                   trackProfileEvent("shared_profile_cta_clicked", {
                     share_id: shareId ?? null,
@@ -203,7 +203,7 @@ export default function ListenerProfilePage() {
               </p>
               <Button asChild size="lg" className="mt-5 w-full md:w-auto">
                 <Link
-                  to={`/start?ref=${encodeURIComponent(share.share_id)}`}
+                  to={`/te-podiverzumod?ref=${encodeURIComponent(share.share_id)}`}
                   onClick={() =>
                     trackProfileEvent("shared_profile_cta_clicked", {
                       share_id: share.share_id,
