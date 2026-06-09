@@ -433,6 +433,8 @@ describe("page consistency static guards", () => {
     const privacy = read("src/pages/PrivacyPage.tsx");
     const contact = read("src/pages/ContactPage.tsx");
     const footer = read("src/components/SiteFooter.tsx");
+    const layout = read("src/components/Layout.tsx");
+    const siteStructuredData = read("src/components/SiteStructuredData.tsx");
     const daily = read("src/pages/DailyBriefPage.tsx");
     const hetiArticle = read("src/pages/HetiArticlePage.tsx");
     const report = read("src/pages/PodcastReport2026.tsx");
@@ -453,9 +455,21 @@ describe("page consistency static guards", () => {
     }
 
     expect(publisher).toContain("Precíziós Agrokémia Zártkörűen Működő Részvénytársaság");
+    expect(publisher).toContain('id: "https://podiverzum.hu/#publisher"');
+    expect(publisher).toContain('siteName: "Podiverzum.hu"');
+    expect(publisher).toContain("function siteIdentityJsonLd()");
+    expect(publisher).toContain('"@type": "WebSite"');
+    expect(publisher).toContain('"@id": "https://podiverzum.hu/#website"');
+    expect(publisher).toContain("SearchAction");
+    expect(publisher).toContain("hello@podiverzum.hu");
     expect(prerender).toContain("function sitePublisherJsonLd()");
+    expect(prerender).toContain("function siteIdentityJsonLd()");
+    expect(prerender).toContain("[siteIdentityJsonLd(), ...opts.jsonLd]");
     expect(prerender).toContain('<meta name="publisher" content="${SITE_PUBLISHER.displayName}" />');
     expect(prerender).toContain("publisher: sitePublisherJsonLd()");
+    expect(layout).toContain("<SiteStructuredData />");
+    expect(siteStructuredData).toContain("siteIdentityJsonLd()");
+    expect(siteStructuredData).toContain('script.dataset.seo = "site-identity"');
     expect(index).toContain('"publisher"');
     expect(index).toContain('"legalName": "Precíziós Agrokémia Zártkörűen Működő Részvénytársaság"');
     expect(home).toContain("publisher: sitePublisherJsonLd()");
@@ -481,6 +495,7 @@ describe("page consistency static guards", () => {
     expect(privacy).toContain("publisher: sitePublisherJsonLd()");
     expect(contact).toContain("Kiadó:");
     expect(footer).toContain("Kiadó: {SITE_PUBLISHER.displayName}");
+    expect(footer).toContain("SITE_PUBLISHER.companyRegisterNumber");
   });
 
   it("does not promise disabled similar-podcast recommendations in public methodology", () => {
