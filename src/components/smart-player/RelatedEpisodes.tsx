@@ -45,11 +45,7 @@ function snippet(r: Row): string {
 
 function reason(r: Row): string {
   const explicit = sanitizeHungarianPublicText(r.related_reason);
-  if (explicit) return explicit;
-  const sim = r.similarity || 0;
-  if (sim >= 0.7) return "Erős tartalmi kapcsolat más magyar műsorból";
-  if (sim >= 0.55) return "Rokon téma más műsorból";
-  return "Rokon téma más műsorból";
+  return explicit;
 }
 
 function sourceFromEpisode(cur: any): RecommendationContext {
@@ -74,6 +70,51 @@ function rowToCandidate(row: Row) {
     people: row.people || [],
     companies: row.companies || [],
   };
+}
+
+function normalizedSet(values?: string[] | null): Set<string> {
+  return new Set(
+    (values || [])
+      .map((value) => sanitizeHungarianPublicText(value).toLocaleLowerCase("hu-HU"))
+      .filter(Boolean),
+  );
+}
+
+function sharedValues(left?: string[] | null, right?: string[] | null, limit = 2): string[] {
+  const rightSet = normalizedSet(right);
+  if (!rightSet.size) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of left || []) {
+    const clean = sanitizeHungarianPublicText(value);
+    const key = clean.toLocaleLowerCase("hu-HU");
+    if (!clean || seen.has(key) || !rightSet.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function fallbackRelatedReason(source: RecommendationContext, row: Row): string | null {
+  const people = sharedValues(source.people, row.people);
+  if (people.length) return `Kapcsolódó személy: ${people.join(", ")}.`;
+
+  const companies = sharedValues(source.companies, row.companies);
+  if (companies.length) return `Kapcsolódó szervezet: ${companies.join(", ")}.`;
+
+  const topics = sharedValues(source.topics, row.topics);
+  if (topics.length) return `Közös téma: ${topics.join(", ")}.`;
+
+  if (source.category && row.podcast_category && source.category === row.podcast_category) {
+    return "Azonos podcast-kategóriából válogatva.";
+  }
+
+  return null;
+}
+
+function hasSafeRelatedReason(row: Row): boolean {
+  return sanitizeHungarianPublicText(row.related_reason).length >= 12;
 }
 
 type Props = {
@@ -112,7 +153,11 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         p_limit: 12,
       });
       if (!rpcErr && rpcData && (rpcData as any[]).length > 0) {
-        return filterSafeRelatedEpisodes(source, (rpcData as Row[]).map(rowToCandidate), 12) as Row[];
+        return filterSafeRelatedEpisodes(
+          source,
+          (rpcData as Row[]).filter(hasSafeRelatedReason).map(rowToCandidate),
+          12,
+        ) as Row[];
       }
 
       // Fallback when no episode embedding: explicit shared topics / people / category only.
@@ -134,29 +179,32 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         if (!candidates.has(row.id)) candidates.set(row.id, row);
       }));
 
-      const rows = Array.from(candidates.values()).map((r) => ({
-        episode_id: r.id,
-        podcast_id: r.podcast_id,
-        similarity: 0,
-        title: r.title,
-        display_title: r.display_title,
-        slug: r.slug,
-        ai_summary: r.ai_summary,
-        summary: r.summary,
-        description: r.description,
-        published_at: r.published_at,
-        audio_url: r.audio_url,
-        image_url: r.image_url,
-        topics: r.topics,
-        people: r.people,
-        companies: r.companies,
-        podcast_slug: r.podcasts?.slug,
-        podcast_title: r.podcasts?.title,
-        podcast_display_title: r.podcasts?.display_title,
-        podcast_image_url: r.podcasts?.image_url,
-        podcast_category: r.podcasts?.category,
-      })) as Row[];
-      return filterSafeRelatedEpisodes(source, rows.map(rowToCandidate), 12) as Row[];
+      const rows = Array.from(candidates.values()).map((r) => {
+        const row = {
+          episode_id: r.id,
+          podcast_id: r.podcast_id,
+          similarity: 0,
+          title: r.title,
+          display_title: r.display_title,
+          slug: r.slug,
+          ai_summary: r.ai_summary,
+          summary: r.summary,
+          description: r.description,
+          published_at: r.published_at,
+          audio_url: r.audio_url,
+          image_url: r.image_url,
+          topics: r.topics,
+          people: r.people,
+          companies: r.companies,
+          podcast_slug: r.podcasts?.slug,
+          podcast_title: r.podcasts?.title,
+          podcast_display_title: r.podcasts?.display_title,
+          podcast_image_url: r.podcasts?.image_url,
+          podcast_category: r.podcasts?.category,
+        } as Row;
+        return { ...row, related_reason: fallbackRelatedReason(source, row) };
+      });
+      return filterSafeRelatedEpisodes(source, rows.filter(hasSafeRelatedReason).map(rowToCandidate), 12) as Row[];
     },
   });
 
