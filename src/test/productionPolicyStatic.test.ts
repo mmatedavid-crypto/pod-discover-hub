@@ -105,7 +105,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("IndexNow Heti ping");
     expect(reporter).toContain("Cloudflare edge SEO acceptance criteria after worker deploy:");
     expect(reporter).toContain("www.podiverzum.hu/* returns 301 to apex with Cache-Control including max-age=31536000");
-    expect(reporter).toContain("legacy category/entity aliases (/category, /topic, /tema, /person, /szemely, /company, /cegek, /partok, /ingredient) return 301");
+    expect(reporter).toContain("legacy category/entity aliases (/category, /topic, /tema, /person, /szemely, /company, /szervezetek, /entitasok, /cegek, /partok, /ingredient) return 301");
     expect(reporter).toContain("/robots.txt is served by worker-robots-policy and contains Host: podiverzum.hu");
     expect(reporter).toContain("returns only the IndexNow key with worker-indexnow-key");
     expect(reporter).toContain("After deploy, run verification:");
@@ -970,6 +970,8 @@ describe("production policy static guards", () => {
       "/topic/keresztenyseg/2026",
       "/person/feledy-botond/temak/kulpolitika",
       "/company/klubradio/temak/kozelet",
+      "/szervezetek",
+      "/entitasok",
       "/cegek/klubradio",
       "/partok/fidesz",
       "/ingredient/paradicsom",

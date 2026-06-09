@@ -16,6 +16,8 @@ const redirectChecks = [
   ["/szemely/feledy-botond/temak/kulpolitika", "/szemelyek/feledy-botond/temak/kulpolitika"],
   ["/company/klubradio", "/ceg/klubradio"],
   ["/company/klubradio/temak/kozelet", "/ceg/klubradio/temak/kozelet"],
+  ["/szervezetek", "/cegek"],
+  ["/entitasok", "/cegek"],
   ["/szervezetek/klubradio/temak/kozelet", "/ceg/klubradio/temak/kozelet"],
   ["/cegek/klubradio", "/ceg/klubradio"],
   ["/partok/fidesz", "/ceg/fidesz"],
