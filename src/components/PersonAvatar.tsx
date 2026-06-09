@@ -17,11 +17,15 @@ export default function PersonAvatar({
   size = "md",
   className = "",
   imageUrl,
+  loading = "lazy",
+  fetchPriority = "low",
 }: {
   name: string;
   size?: keyof typeof SIZE_MAP;
   className?: string;
   imageUrl?: string | null;
+  loading?: "eager" | "lazy";
+  fetchPriority?: "high" | "low" | "auto";
 }) {
   const { box, text } = SIZE_MAP[size] || SIZE_MAP.md;
   const pixelSize = size === "xl" ? 160 : size === "lg" ? 112 : size === "sm" ? 56 : 80;
@@ -32,7 +36,8 @@ export default function PersonAvatar({
         srcSet={imageSrcSet(imageUrl, [Math.max(40, pixelSize - 32), pixelSize, pixelSize + 48])}
         sizes={`${pixelSize}px`}
         alt={name}
-        loading="lazy"
+        loading={loading}
+        fetchPriority={fetchPriority}
         decoding="async"
         width={pixelSize}
         height={pixelSize}

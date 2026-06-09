@@ -419,7 +419,7 @@ export default function PersonDetailPage() {
             <span className="text-foreground">{person.name}</span>
           </nav>
           <div className="flex flex-col sm:flex-row items-start gap-6">
-            <PersonAvatar name={person.name} size="xl" imageUrl={avatarUrl} />
+            <PersonAvatar name={person.name} size="xl" imageUrl={avatarUrl} loading="eager" fetchPriority="high" />
             <div className="min-w-0 flex-1">
               <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Podcastokban</div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{person.name}</h1>

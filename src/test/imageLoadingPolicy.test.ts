@@ -308,6 +308,7 @@ describe("episode thumbnail loading policy", () => {
 
   it("optimizes person avatars and Heti article covers on public pages", () => {
     const avatar = read("src/components/PersonAvatar.tsx");
+    const personDetail = read("src/pages/PersonDetailPage.tsx");
     const hetiArticle = read("src/pages/HetiArticlePage.tsx");
     const orgCard = read("src/components/OrgCard.tsx");
 
@@ -324,6 +325,9 @@ describe("episode thumbnail loading policy", () => {
 
     expect(avatar).toContain("const pixelSize = size === \"xl\" ? 160 : size === \"lg\" ? 112 : size === \"sm\" ? 56 : 80");
     expect(avatar).toContain("optimizedImageUrl(imageUrl, { width: pixelSize, height: pixelSize })");
+    expect(avatar).toContain('fetchPriority = "low"');
+    expect(avatar).toContain("fetchPriority={fetchPriority}");
+    expect(personDetail).toContain('loading="eager" fetchPriority="high"');
     expect(avatar).not.toContain("src={imageUrl}");
 
     expect(hetiArticle).toContain("optimizedImageUrl(post.cover_image_url, { width: 960, height: 540 })");
@@ -363,8 +367,9 @@ describe("episode thumbnail loading policy", () => {
     const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
     const profile = read("src/pages/PublicProfilePage.tsx");
+    const startSwipe = read("src/pages/StartSwipePage.tsx");
 
-    for (const source of [recommended, library, continueListening, discovery, related, profile]) {
+    for (const source of [recommended, library, continueListening, discovery, related, profile, startSwipe]) {
       expect(source).toContain('loading="lazy"');
       expect(source).toContain('fetchPriority="low"');
       expect(source).toContain('decoding="async"');
@@ -376,6 +381,8 @@ describe("episode thumbnail loading policy", () => {
     expect(library).toContain("imageSrcSet(img, [56, 80, 112])");
     expect(continueListening).toContain("imageSrcSet(it.imageUrl, [56, 80, 112])");
     expect(profile).toContain("imageSrcSet(e.podcasts.image_url, [48, 64, 96])");
+    expect(startSwipe).toContain("imageSrcSet(src, [80, 112, 160])");
+    expect(startSwipe).toContain("imageSrcSet(p.image, [128, 160, 240])");
   });
 
   it("prioritizes only the lead trending podcast cover while keeping list covers low priority", () => {

@@ -1744,6 +1744,7 @@ function ResultView({
                         sizes="80px"
                         alt=""
                         loading="lazy"
+                        fetchPriority="low"
                         decoding="async"
                         width={112}
                         height={112}
@@ -1852,6 +1853,7 @@ function ResultView({
                       sizes="128px"
                       alt={p.title}
                       loading="lazy"
+                      fetchPriority="low"
                       decoding="async"
                       width={160}
                       height={160}
