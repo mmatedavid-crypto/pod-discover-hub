@@ -37,6 +37,7 @@ const redirectChecks = [
   ["/daily", "/napi"],
   ["/podcastok", "/toplista"],
   ["/toplist", "/toplista"],
+  ["/vibe", "/te-podiverzumod"],
   ["/b2b", "/intelligence"],
   ["/mediafigyeles", "/intelligence"],
   ["/heti-valogatas", "/heti"],

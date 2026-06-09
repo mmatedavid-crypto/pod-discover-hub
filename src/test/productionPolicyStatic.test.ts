@@ -970,6 +970,7 @@ describe("production policy static guards", () => {
       ['/^\\/b2b\\/?$/', '"/intelligence"'],
       ['/^\\/mediafigyeles\\/?$/', '"/intelligence"'],
       ['/^\\/heti-valogatas(\\/[^/]+)?\\/?$/', '"/heti"'],
+      ['/^\\/vibe\\/?$/', '"/te-podiverzumod"'],
       ['/^\\/szervezetek\\/([^/]+)\\/?$/', '"/ceg/$1"'],
       ['/^\\/part\\/([^/]+)\\/?$/', '"/ceg/$1"'],
     ]) {
@@ -1009,6 +1010,7 @@ describe("production policy static guards", () => {
       "/daily",
       "/podcastok",
       "/toplist",
+      "/vibe",
       "/b2b",
       "/mediafigyeles",
       "/heti-valogatas",
@@ -1033,6 +1035,7 @@ describe("production policy static guards", () => {
       '["/new", "/uj-podcastok"]',
       '["/mai-valogatas", "/napi"]',
       '["/daily", "/napi"]',
+      '["/vibe", "/te-podiverzumod"]',
     ]) {
       expect(verifier).toContain(pair);
     }

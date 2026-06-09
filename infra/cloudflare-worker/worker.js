@@ -247,6 +247,7 @@ export default {
       [/^\/heti-valogatas(\/[^/]+)?\/?$/, "/heti"],
       [/^\/contact\/?$/, "/kapcsolat"],
       [/^\/moods\/?$/, "/hangulatok"],
+      [/^\/vibe\/?$/, "/te-podiverzumod"],
       [/^\/b2b\/?$/, "/intelligence"],
       [/^\/mediafigyeles\/?$/, "/intelligence"],
       [/^\/toplist\/?$/, "/toplista"],
