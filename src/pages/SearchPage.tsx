@@ -595,6 +595,7 @@ export default function SearchPage() {
                         sizes="56px"
                         alt={c.title}
                         loading="lazy"
+                        fetchPriority="low"
                         decoding="async"
                         className="w-14 h-14 rounded-md object-cover shrink-0 border border-border/60" />
                     )}
@@ -632,7 +633,8 @@ export default function SearchPage() {
                   srcSet={imageSrcSet(heroPerson.image_url, [80, 128, 160])}
                   sizes="(max-width: 640px) 80px, 96px"
                   alt={heroPerson.name}
-                  loading="lazy"
+                  loading="eager"
+                  fetchPriority="high"
                   decoding="async"
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shrink-0 border border-border/60" />
               ) : (
@@ -665,7 +667,8 @@ export default function SearchPage() {
                   srcSet={imageSrcSet(heroPodcast.image_url, [80, 128, 160])}
                   sizes="(max-width: 640px) 80px, 96px"
                   alt={(heroPodcast as any).display_title || heroPodcast.title}
-                  loading="lazy"
+                  loading="eager"
+                  fetchPriority="high"
                   decoding="async"
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shrink-0 border border-border/60" />
               )}
@@ -698,7 +701,8 @@ export default function SearchPage() {
                   srcSet={imageSrcSet(heroOrganization.image_url, [80, 128, 160])}
                   sizes="(max-width: 640px) 80px, 96px"
                   alt={heroOrganization.name}
-                  loading="lazy"
+                  loading="eager"
+                  fetchPriority="high"
                   decoding="async"
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-contain shrink-0 border border-border/60 bg-background" />
               ) : (

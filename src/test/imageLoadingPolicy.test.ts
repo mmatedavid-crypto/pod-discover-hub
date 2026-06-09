@@ -266,7 +266,11 @@ describe("episode thumbnail loading policy", () => {
     expect(searchPage).toContain("optimizedImageUrl(heroPodcast.image_url, { width: 128, height: 128 })");
     expect(searchPage).toContain("optimizedImageUrl(heroPerson.image_url, { width: 128, height: 128 })");
     expect(searchPage).toContain("optimizedImageUrl(heroOrganization.image_url, { width: 128, height: 128 })");
+    expect(searchPage).toContain('alt={heroPerson.name}\n                  loading="eager"\n                  fetchPriority="high"');
+    expect(searchPage).toContain('alt={(heroPodcast as any).display_title || heroPodcast.title}\n                  loading="eager"\n                  fetchPriority="high"');
+    expect(searchPage).toContain('alt={heroOrganization.name}\n                  loading="eager"\n                  fetchPriority="high"');
     expect(searchPage).toContain("optimizedImageUrl(c.image_url, { width: 80, height: 80 })");
+    expect(searchPage).toContain('alt={c.title}\n                        loading="lazy"\n                        fetchPriority="low"');
     expect(searchPage).not.toContain("<img src={heroPodcast.image_url}");
     expect(searchPage).not.toContain("<img src={heroPerson.image_url}");
     expect(searchPage).not.toContain("<img src={heroOrganization.image_url}");
