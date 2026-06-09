@@ -195,7 +195,7 @@ export default function PeopleHubPage() {
             Személyek magyar podcastokban
           </h1>
           <p className="text-foreground/80 mt-4 max-w-2xl">
-            Fedezd fel a magyar podcastvilág szereplőit: műsorvezetők, vendégek és gyakran említett közéleti személyek.
+            Fedezd fel a magyar podcastvilág kapcsolódó személyeit: műsorvezetők, tényleges megszólalók és gyakran említett közéleti nevek.
           </p>
           <input
             value={q}

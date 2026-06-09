@@ -237,6 +237,14 @@ describe("page consistency static guards", () => {
       expect(source).not.toContain("podcastben");
       expect(source).not.toContain("podcast vendégek");
     }
+    for (const source of [peopleHub, prerender]) {
+      expect(source).not.toContain("vendégül látnak");
+      expect(source).not.toContain("Vendégek és említett");
+      expect(source).not.toContain("leggyakrabban szereplő <a href=\"/szemelyek\">vendégeket</a>");
+    }
+    expect(peopleHub).toContain("műsorvezetők, tényleges megszólalók és gyakran említett közéleti nevek");
+    expect(prerender).toContain("Műsorvezetők, megszólalók és említett közéleti nevek profiljai.");
+    expect(prerender).toContain("kapcsolódó <a href=\"/szemelyek\">személyeket</a>");
     expect(peopleHub).toContain("„{debouncedQ}” keresésre {totalAll.toLocaleString");
     expect(companiesHub).toContain("„{debouncedQ}” keresésre {total.toLocaleString");
     expect(partiesHub).toContain("„${debouncedQ}” keresésre");
