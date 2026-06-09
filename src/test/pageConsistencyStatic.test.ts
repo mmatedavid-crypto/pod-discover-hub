@@ -723,6 +723,8 @@ describe("page consistency static guards", () => {
     expect(app).toContain("function RedirectPreserveSearch");
     expect(app).toContain('<Route path="/search" element={<RedirectPreserveSearch to="/kereses" />} />');
     expect(app).not.toContain('<Route path="/search" element={<SearchPage />} />');
+    expect(app).toContain('<Route path="/vibe" element={<RedirectPreserveSearch to="/te-podiverzumod" />} />');
+    expect(app).not.toContain('<Route path="/vibe" element={<StartSwipePage />} />');
     expect(searchInsights).toContain("/kereses?q=");
     expect(searchInsights).not.toContain("/search?q=");
     expect(prerender).toContain('href="/toplista"');

@@ -130,7 +130,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/start" element={<StartLandingPage />} />
-          <Route path="/vibe" element={<StartSwipePage />} />
+          <Route path="/vibe" element={<RedirectPreserveSearch to="/te-podiverzumod" />} />
           <Route path="/te-podiverzumod" element={<StartSwipePage />} />
           <Route path="/te-podiverzumod/eredmeny/:slug" element={<TePodiverzumodSharePage />} />
           <Route path="/hallgatoi-profil/:shareId" element={<ListenerProfilePage />} />
