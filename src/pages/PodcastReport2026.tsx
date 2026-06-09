@@ -891,7 +891,7 @@ export default function PodcastReport2026() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MapNode value={STATS.episodeCount.toLocaleString("hu-HU")} label="epizód" />
             <MapNode value={STATS.peopleIndexed.toLocaleString("hu-HU")} label="közszereplő" link="/szemelyek" />
-            <MapNode value={STATS.organizationsIndexed.toLocaleString("hu-HU")} label="szervezet" link="/szervezetek" />
+            <MapNode value={STATS.organizationsIndexed.toLocaleString("hu-HU")} label="szervezet" link="/cegek" />
             <MapNode value={`${top10Topics.length}+`} label="top témák" link="/temak" />
           </div>
         </section>

@@ -595,6 +595,8 @@ describe("page consistency static guards", () => {
     expect(orgCard).not.toContain("`/part/${o.slug}`");
     expect(report).toContain("to={`/ceg/${p.slug}`}");
     expect(report).not.toContain("to={`/part/${p.slug}`}");
+    expect(report).toContain('label="szervezet" link="/cegek"');
+    expect(report).not.toContain('label="szervezet" link="/szervezetek"');
     for (const workerSource of [worker, lovableWorker]) {
       expect(workerSource).toContain('[/^\\/szervezetek\\/?$/, "/cegek"]');
       expect(workerSource).toContain('[/^\\/entitasok\\/?$/, "/cegek"]');
