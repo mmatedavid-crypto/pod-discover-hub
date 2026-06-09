@@ -775,8 +775,15 @@ describe("page consistency static guards", () => {
     expect(topic).toContain("const titleSource = `${topicName}${countLabel} magyar podcastokból | Podiverzum`");
     expect(topic).toContain("topicFallbackIntro(topic.name");
     expect(prerender).toContain("const title = `${topic.name}${countLabel} magyar podcastokból | Podiverzum`");
+    expect(prerender).toContain("const title = `${topic.name} – ${eps.length} podcast epizód ${year}-ból | Podiverzum`");
+    expect(prerender).toContain("`${topic.name} témájú magyar podcast epizódok ${year}-ból: ${eps.length} releváns találat");
+    expect(prerender).toContain("${eps.length} magyar podcast epizód <strong>${year}</strong>-ból");
+    expect(prerender).toContain("const title = `${podTitle} – ${eps.length} epizód ${year}-ból · podcast | Podiverzum`");
+    expect(prerender).toContain("`${podTitle} ${year}-ben megjelent ${eps.length} podcast epizódja");
     expect(prerender).toContain("`${topic.name} témában ${epCount > 0 ? `${epCount} magyar podcast epizód` : \"magyar podcast epizódok\"}");
     expect(prerender).not.toContain("const title = topic.seo_title || `${topic.name} — epizódok a Podiverzumon`");
+    expect(prerender).not.toContain("const title = `${topic.name} ${year} — epizódok a Podiverzumon`");
+    expect(prerender).not.toContain("const title = `${podTitle} epizódok ${year} — Podiverzum`");
     expect(person).toContain("const personSeoRelation = hasParticipantSeoEvidence && !isTemporalTopicOnlyPerson(p) ? \"hallható\" : \"kapcsolódik\"");
     expect(person).toContain("` – ${epCount} podcast epizódban ${personSeoRelation}`");
     expect(person).toContain("Megnézhető ${epCount} podcast epizód, amelyben ${personName} ${personSeoRelation}.");

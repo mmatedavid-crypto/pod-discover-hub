@@ -1318,8 +1318,8 @@ async function buildTopicYear(
   if (eps.length < LONGTAIL_MIN_EPISODES) return null;
 
   const canonical = `${SITE}/temak/${topicSlug}/${year}`;
-  const title = `${topic.name} ${year} — epizódok a Podiverzumon`;
-  const desc = truncate(`Magyar podcast epizódok ${year}-ban ${topic.name} témakörben. ${eps.length} releváns epizód AI-összefoglalókkal.`, 160);
+  const title = `${topic.name} – ${eps.length} podcast epizód ${year}-ból | Podiverzum`;
+  const desc = truncate(`${topic.name} témájú magyar podcast epizódok ${year}-ból: ${eps.length} releváns találat, műsorokkal és összefoglalókkal.`, 160);
   const ogImage = eps[0]?.podcast?.image_url ?? null;
 
   const html = eps.map((e) => {
@@ -1348,7 +1348,7 @@ async function buildTopicYear(
   return new Response(new TextEncoder().encode(shell({
     title, description: desc, canonical, ogImage, jsonLd: [itemList, breadcrumbs],
     bodyHtml: `<header><h1>${esc(topic.name)} — ${year}</h1>
-<p>${eps.length} magyar podcast epizód <strong>${year}</strong>-ban a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témakörben. A lista relevancia szerint van rendezve, minden epizódhoz AI-összefoglalót talál.</p></header>
+<p>${eps.length} magyar podcast epizód <strong>${year}</strong>-ból a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témában. A lista relevancia szerint van rendezve, műsorokkal és rövid összefoglalókkal.</p></header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>
 <aside><h2>Tovább</h2><ul>
 <li><a href="/temak/${esc(topicSlug)}">${esc(topic.name)} — összes epizód</a></li>
@@ -1395,8 +1395,8 @@ async function buildPodcastYear(
 
   const canonical = `${SITE}/podcast/${podcastSlug}/epizodok/${year}`;
   const podTitle = pod.display_title || pod.title;
-  const title = `${podTitle} epizódok ${year} — Podiverzum`;
-  const desc = truncate(`${podTitle} ${year}-ben megjelent ${eps.length} epizódja kronologikusan, AI-összefoglalókkal.`, 160);
+  const title = `${podTitle} – ${eps.length} epizód ${year}-ból · podcast | Podiverzum`;
+  const desc = truncate(`${podTitle} ${year}-ben megjelent ${eps.length} podcast epizódja kronologikus listában, dátumokkal és rövid összefoglalókkal.`, 160);
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${podcastSlug}/${e.slug}`;
@@ -1424,7 +1424,7 @@ async function buildPodcastYear(
   return new Response(new TextEncoder().encode(shell({
     title, description: desc, canonical, ogImage: pod.image_url, jsonLd: [itemList, breadcrumbs],
     bodyHtml: `<header><h1>${esc(podTitle)} — ${year}-es epizódok</h1>
-<p>A <a href="/podcast/${esc(podcastSlug)}">${esc(podTitle)}</a> ${year}-ben ${eps.length} epizódot tett közzé. Az alábbi lista kronologikus sorrendben tartalmazza mind az epizódot, AI-összefoglalóval.</p></header>
+<p>A <a href="/podcast/${esc(podcastSlug)}">${esc(podTitle)}</a> ${year}-ben ${eps.length} epizódot tett közzé. Az alábbi lista kronologikus sorrendben tartalmazza az epizódokat dátummal és rövid összefoglalóval.</p></header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>
 <aside><h2>Tovább</h2><ul>
 <li><a href="/podcast/${esc(podcastSlug)}">${esc(podTitle)} — főoldal</a></li>
