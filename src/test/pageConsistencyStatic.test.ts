@@ -535,6 +535,8 @@ describe("page consistency static guards", () => {
     }
     expect(prerender).toContain('parts[0] === "szemelyek" || parts[0] === "szemely" || parts[0] === "person"');
     expect(prerender).toContain('const canonical = `${SITE}/szemelyek/${personSlug}/temak/${topicSlug}`');
+    expect(prerender).toContain("témához kapcsolódik vagy említésként szerepel");
+    expect(prerender).not.toContain("témáról beszél vagy említik");
     expect(prerender).toContain('buildPerson(supabase, parts[1], "szemelyek")');
     expect(prerender).not.toContain('buildPerson(supabase, parts[1], parts[0])');
   });

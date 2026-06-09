@@ -1475,7 +1475,7 @@ async function buildPersonTopic(
 
   const canonical = `${SITE}/szemelyek/${personSlug}/temak/${topicSlug}`;
   const title = `${person.name} a ${topic.name} témában — Podiverzum`;
-  const desc = truncate(`${eps.length} magyar podcast epizód, amelyben ${person.name} a ${topic.name} témáról beszél vagy említik. AI-összefoglalókkal.`, 160);
+  const desc = truncate(`${eps.length} magyar podcast epizód, amelyben ${person.name} a ${topic.name} témához kapcsolódik vagy említésként szerepel. AI-összefoglalókkal.`, 160);
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
@@ -1503,7 +1503,7 @@ async function buildPersonTopic(
   return new Response(new TextEncoder().encode(shell({
     title, description: desc, canonical, ogImage: safeImage, jsonLd: [itemList, breadcrumbs],
     bodyHtml: `<header><h1>${esc(person.name)} — ${esc(topic.name)}</h1>
-<p>${eps.length} epizód, amelyben <a href="/szemelyek/${esc(personSlug)}">${esc(person.name)}</a> a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témáról beszél vagy említik. Magyar podcastek, AI-összefoglalókkal, relevancia szerint rendezve.</p></header>
+<p>${eps.length} epizód, amelyben <a href="/szemelyek/${esc(personSlug)}">${esc(person.name)}</a> a <a href="/temak/${esc(topicSlug)}">${esc(topic.name)}</a> témához kapcsolódik vagy említésként szerepel. Magyar podcastek, AI-összefoglalókkal, relevancia szerint rendezve.</p></header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>
 <aside><h2>Tovább</h2><ul>
 <li><a href="/szemelyek/${esc(personSlug)}">${esc(person.name)} — minden epizód</a></li>
