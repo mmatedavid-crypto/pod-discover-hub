@@ -6,6 +6,18 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const MIN_DIAGNOSTIC_REASON_CHARS = 12;
 const MIN_MAIN_RAIL_SIMILARITY = 0.18;
+type DropReason = "low_similarity" | "missing_related_reason";
+type RecommendationDiagnostics = {
+  candidate_count: number;
+  kept_count: number;
+  dropped: Record<DropReason, number>;
+};
+type PersonalizedRail = {
+  key: string;
+  label: string;
+  items: any[];
+  diagnostics?: RecommendationDiagnostics;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -37,10 +49,9 @@ Deno.serve(async (req) => {
       p_user_id: userId,
       p_limit: 12,
     });
-    const safeMainRows = ((mainRows || []) as any[])
-      .filter(hasMinimumMainRailSimilarity)
-      .filter(hasDiagnosticRelatedReason)
-      .slice(0, 12);
+    const mainCandidateRows = ((mainRows || []) as any[]);
+    const mainDiagnostics = recommendationDiagnostics(mainCandidateRows, true);
+    const safeMainRows = filterExplainableRecommendations(mainCandidateRows, true).slice(0, 12);
 
     // 2) Per-seed rails: 3 most-recent distinct seed episodes
     const { data: history } = await admin
@@ -62,20 +73,21 @@ Deno.serve(async (req) => {
       if (seeds.length >= 3) break;
     }
 
-    const rails: Array<{ key: string; label: string; items: any[] }> = [];
+    const rails: PersonalizedRail[] = [];
     for (const s of seeds) {
       const { data: sim } = await admin.rpc("similar_episodes", {
         p_episode_id: s.id,
         p_limit: 8,
       });
-      const safeItems = ((sim || []) as any[])
-        .filter(hasDiagnosticRelatedReason)
-        .slice(0, 8);
+      const seedCandidateRows = ((sim || []) as any[]);
+      const seedDiagnostics = recommendationDiagnostics(seedCandidateRows, false);
+      const safeItems = filterExplainableRecommendations(seedCandidateRows, false).slice(0, 8);
       if (safeItems.length) {
         rails.push({
           key: `seed:${s.id}`,
           label: `Mert hallgattad: ${s.title}`,
           items: safeItems,
+          diagnostics: seedDiagnostics,
         });
       }
     }
@@ -91,6 +103,11 @@ Deno.serve(async (req) => {
         seed_rails_source: "similar_episodes",
         related_reason_required_for_seed_rails: true,
       },
+      diagnostics: {
+        main: mainDiagnostics,
+        seed_count: seeds.length,
+        returned_seed_rail_count: rails.length,
+      },
     });
   } catch (e) {
     console.error("personalized-home-rails error", e);
@@ -105,6 +122,37 @@ function hasDiagnosticRelatedReason(row: any): boolean {
 
 function hasMinimumMainRailSimilarity(row: any): boolean {
   return Number(row?.similarity || 0) >= MIN_MAIN_RAIL_SIMILARITY;
+}
+
+function filterExplainableRecommendations(rows: any[], requireMainSimilarity: boolean): any[] {
+  return rows.filter((row) => {
+    if (requireMainSimilarity && !hasMinimumMainRailSimilarity(row)) return false;
+    return hasDiagnosticRelatedReason(row);
+  });
+}
+
+function recommendationDiagnostics(rows: any[], requireMainSimilarity: boolean): RecommendationDiagnostics {
+  const dropped: Record<DropReason, number> = {
+    low_similarity: 0,
+    missing_related_reason: 0,
+  };
+  let kept = 0;
+  for (const row of rows) {
+    if (requireMainSimilarity && !hasMinimumMainRailSimilarity(row)) {
+      dropped.low_similarity++;
+      continue;
+    }
+    if (!hasDiagnosticRelatedReason(row)) {
+      dropped.missing_related_reason++;
+      continue;
+    }
+    kept++;
+  }
+  return {
+    candidate_count: rows.length,
+    kept_count: kept,
+    dropped,
+  };
 }
 
 function json(obj: unknown, status = 200) {
