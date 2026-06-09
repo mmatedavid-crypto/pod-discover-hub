@@ -34,7 +34,23 @@ const IMAGE_PROXY_HOSTS = new Set([
   "medias.podcastics.com",
   "s3.castbox.fm",
   "0.gravatar.com",
+  "audioboom.com",
+  "img.transistor.fm",
+  "static-2.ivoox.com",
+  "assets.podomatic.net",
+  "assets.blubrry.com",
+  "assets.pippa.io",
+  "cdn.simplecast.com",
+  "hosting-media.riverside.com",
+  "images.podigee-cdn.net",
+  "blogger.googleusercontent.com",
 ]);
+const IMAGE_PROXY_HOST_SUFFIXES = [
+  ".files.wordpress.com",
+  ".gravatar.com",
+  ".gitlab.io",
+  ".storage.googleapis.com",
+];
 
 function proxiedImageUrl(url: URL, width: number, height: number, quality: number) {
   const proxy = new URL("https://images.weserv.nl/");
@@ -110,7 +126,7 @@ export function optimizedImageUrl(src?: string | null, opts: ImageOptions = {}) 
       return url.toString();
     }
 
-    if (IMAGE_PROXY_HOSTS.has(url.hostname)) {
+    if (IMAGE_PROXY_HOSTS.has(url.hostname) || IMAGE_PROXY_HOST_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix))) {
       return proxiedImageUrl(url, width, height, quality);
     }
   } catch {

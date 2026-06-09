@@ -157,8 +157,15 @@ describe("episode thumbnail loading policy", () => {
     const klubradio = "https://www.klubradio.hu/data/podcast/cover.jpg";
     const hearthis = "https://img.hearthis.at/c/r/o/_/uploads/123/image.jpg";
     const substack = "https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good/https%3A%2F%2Fexample.com%2Fcover.jpg";
+    const wordpress = "https://popkultcsajoksatobbi.files.wordpress.com/2026/cover.jpg";
+    const gravatar = "https://1.gravatar.com/avatar/abc?s=512&d=retro";
+    const gitlabPages = "https://szelsokozep-feed-06c8bb.gitlab.io/assets/cover.jpg";
+    const googleStorage = "https://ma7media.storage.googleapis.com/podcast/cover.jpg";
+    const audioboom = "https://audioboom.com/i/123456.jpg";
+    const riverside = "https://hosting-media.riverside.com/podcast/cover.jpg";
 
     expect(image).toContain("const IMAGE_PROXY_HOSTS = new Set");
+    expect(image).toContain("const IMAGE_PROXY_HOST_SUFFIXES = [");
     expect(image).toContain('"d3t3ozftmdmh3i.cloudfront.net"');
     expect(image).toContain('"storage.buzzsprout.com"');
     expect(image).toContain('"media.rss.com"');
@@ -180,9 +187,23 @@ describe("episode thumbnail loading policy", () => {
       "medias.podcastics.com",
       "s3.castbox.fm",
       "0.gravatar.com",
+      "audioboom.com",
+      "img.transistor.fm",
+      "static-2.ivoox.com",
+      "assets.podomatic.net",
+      "assets.blubrry.com",
+      "assets.pippa.io",
+      "cdn.simplecast.com",
+      "hosting-media.riverside.com",
+      "images.podigee-cdn.net",
+      "blogger.googleusercontent.com",
     ]) {
       expect(image).toContain(`"${host}"`);
     }
+    for (const suffix of [".files.wordpress.com", ".gravatar.com", ".gitlab.io", ".storage.googleapis.com"]) {
+      expect(image).toContain(`"${suffix}"`);
+    }
+    expect(image).toContain("IMAGE_PROXY_HOST_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix))");
     expect(image).toContain("https://images.weserv.nl/");
 
     expect(optimizedImageUrl(anchorCloudfront, { width: 96, height: 96 })).toBe(
@@ -211,6 +232,24 @@ describe("episode thumbnail loading policy", () => {
     );
     expect(optimizedImageUrl(substack, { width: 96, height: 96 })).toBe(
       "https://images.weserv.nl/?url=https%3A%2F%2Fsubstackcdn.com%2Fimage%2Ffetch%2Fw_1456%2Cc_limit%2Cf_auto%2Cq_auto%3Agood%2Fhttps%253A%252F%252Fexample.com%252Fcover.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(wordpress, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fpopkultcsajoksatobbi.files.wordpress.com%2F2026%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(gravatar, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2F1.gravatar.com%2Favatar%2Fabc%3Fs%3D512%26d%3Dretro&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(gitlabPages, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fszelsokozep-feed-06c8bb.gitlab.io%2Fassets%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(googleStorage, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fma7media.storage.googleapis.com%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(audioboom, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Faudioboom.com%2Fi%2F123456.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(riverside, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fhosting-media.riverside.com%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
     );
   });
 
