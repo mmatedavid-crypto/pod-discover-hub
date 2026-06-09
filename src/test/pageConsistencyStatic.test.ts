@@ -892,6 +892,32 @@ describe("page consistency static guards", () => {
     expect(publicProfile).not.toContain("{archetype.result_title}");
   });
 
+  it("keeps publisher metadata visible in hydrated and prerendered SEO heads", () => {
+    const seo = read("src/lib/seo.ts");
+    const publisher = read("src/lib/sitePublisher.ts");
+    const prerender = read("supabase/functions/prerender/index.ts");
+    const llms = read("public/llms.txt");
+
+    for (const source of [publisher, prerender, llms]) {
+      expect(source).toContain("PREAG Zrt.");
+      expect(source).toContain("Precíziós Agrokémia");
+      expect(source).toContain("13-10-042640");
+      expect(source).toContain("26558534-2-13");
+      expect(source).toContain("2636 Tésa, Ady Endre utca 11.");
+    }
+
+    expect(seo).toContain('meta[name="publisher"]');
+    expect(seo).toContain('meta[name="citation_publisher"]');
+    expect(seo).toContain('meta[name="ai-content-source"]');
+    expect(seo).toContain('meta[name="ai-content-usage"]');
+    expect(seo).toContain("publisher=${SITE_PUBLISHER.displayName}");
+    expect(seo).toContain("brand=${SITE_PUBLISHER.siteName}");
+    expect(seo).toContain('link[rel="alternate"][type="text/plain"][data-seo="llms"]');
+    expect(seo).toContain('absoluteUrl("/llms.txt")');
+    expect(prerender).toContain('<meta name="publisher" content="${SITE_PUBLISHER.displayName}" />');
+    expect(prerender).toContain('<link rel="alternate" type="text/plain" href="${SITE}/llms.txt" title="Podiverzum guidance for AI agents" />');
+  });
+
   it("keeps public search on the accepted Hungarian catalog, not query accent language guesses", () => {
     const search = read("src/lib/search.ts");
     const searchPage = read("src/pages/SearchPage.tsx");

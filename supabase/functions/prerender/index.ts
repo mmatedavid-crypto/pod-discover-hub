@@ -31,6 +31,7 @@ const SITE_PUBLISHER = {
   taxId: "26558534-2-13",
   foundingDate: "2018-10-31",
   email: "hello@podiverzum.hu",
+  registeredSeat: "2636 Tésa, Ady Endre utca 11.",
   address: {
     streetAddress: "Ady Endre utca 11.",
     postalCode: "2636",

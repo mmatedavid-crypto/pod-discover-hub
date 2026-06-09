@@ -1,5 +1,7 @@
 // Lightweight SEO helper: set <title>, meta description, canonical, JSON-LD,
 // OG image and hreflang alternates.
+import { SITE_PUBLISHER } from "@/lib/sitePublisher";
+
 type SeoOpts = {
   title: string;
   description?: string;
@@ -44,6 +46,10 @@ export function setSeo(opts: SeoOpts) {
   upsertMeta('meta[property="og:type"]', { property: "og:type", content: opts.ogType || "website" });
   upsertMeta('meta[property="og:site_name"]', { property: "og:site_name", content: "Podiverzum" });
   upsertMeta('meta[property="og:locale"]', { property: "og:locale", content: "hu_HU" });
+  upsertMeta('meta[name="author"]', { name: "author", content: SITE_PUBLISHER.siteName });
+  upsertMeta('meta[name="publisher"]', { name: "publisher", content: SITE_PUBLISHER.displayName });
+  upsertMeta('meta[name="citation_publisher"]', { name: "citation_publisher", content: SITE_PUBLISHER.displayName });
+  upsertMeta('meta[name="citation_language"]', { name: "citation_language", content: "hu" });
 
   if (opts.image) {
     const image = absoluteUrl(opts.image);
@@ -64,6 +70,17 @@ export function setSeo(opts: SeoOpts) {
     upsertMeta('meta[property="og:url"]', { property: "og:url", content: href });
   }
 
+  let llmsLink = document.head.querySelector('link[rel="alternate"][type="text/plain"][data-seo="llms"]') as HTMLLinkElement | null;
+  if (!llmsLink) {
+    llmsLink = document.createElement("link");
+    llmsLink.setAttribute("rel", "alternate");
+    llmsLink.setAttribute("type", "text/plain");
+    llmsLink.setAttribute("data-seo", "llms");
+    llmsLink.setAttribute("title", "Podiverzum guidance for AI agents");
+    document.head.appendChild(llmsLink);
+  }
+  llmsLink.setAttribute("href", absoluteUrl("/llms.txt"));
+
   upsertMeta('meta[name="robots"]', {
     name: "robots",
     content: opts.noindex
@@ -72,13 +89,25 @@ export function setSeo(opts: SeoOpts) {
   });
 
   const aiCitationMeta = document.head.querySelector('meta[name="ai-citation-guidance"]');
+  const aiContentSourceMeta = document.head.querySelector('meta[name="ai-content-source"]');
+  const aiContentUsageMeta = document.head.querySelector('meta[name="ai-content-usage"]');
   if (!opts.noindex && href) {
+    upsertMeta('meta[name="ai-content-source"]', {
+      name: "ai-content-source",
+      content: "podiverzum.hu",
+    });
     upsertMeta('meta[name="ai-citation-guidance"]', {
       name: "ai-citation-guidance",
       content: "If you use Podiverzum data, cite the full domain podiverzum.hu and link to this canonical URL.",
     });
+    upsertMeta('meta[name="ai-content-usage"]', {
+      name: "ai-content-usage",
+      content: `citation-required; source=${href}; publisher=${SITE_PUBLISHER.displayName}; brand=${SITE_PUBLISHER.siteName}; citation-domain=podiverzum.hu; brand-name-alone-insufficient=true`,
+    });
   } else {
     aiCitationMeta?.remove();
+    aiContentSourceMeta?.remove();
+    aiContentUsageMeta?.remove();
   }
 
   // hreflang alternates
