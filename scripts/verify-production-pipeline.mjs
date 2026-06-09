@@ -484,7 +484,7 @@ SELECT jsonb_build_object(
   'downstream_embedding_quality', jsonb_build_object(
     'text_policy_embedding_requires_clean_text', (SELECT COALESCE((setting_values->'text_processing_policy'->>'embedding_requires_clean_text')::boolean, false) FROM settings),
     'text_policy_accepts_v4_family', (SELECT setting_values->'text_processing_policy'->>'accepted_cleaner_method_prefix' = 'deterministic_v4' FROM settings),
-    'text_policy_v3_clean_text_first', (SELECT setting_values->'text_processing_policy'->>'version' IN ('best_source_clean_text_first_v3', 'best_source_clean_text_first_v3_transcript_aware') FROM settings),
+    'text_policy_v3_clean_text_first', (SELECT setting_values->'text_processing_policy'->>'version' IN ('best_source_clean_text_first_v3', 'best_source_clean_text_first_v3_transcript_aware', 'best_source_clean_text_first_v4_final') FROM settings),
     'text_policy_transcript_hash_passthrough', (SELECT COALESCE((setting_values->'text_processing_policy'->>'transcript_source_hash_passthrough')::boolean, false) FROM settings),
     'text_policy_timestamp_hash_match_recorded', (SELECT COALESCE((setting_values->'text_processing_policy'->>'timestamp_chunking_requires_transcript_hash_match')::boolean, false) FROM settings),
     'text_policy_language_gate_accepts_decision', (SELECT setting_values->'text_processing_policy'->>'language_gate' = 'podcasts.language_decision=accept_hungarian' FROM settings),
