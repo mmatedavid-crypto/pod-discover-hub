@@ -254,6 +254,7 @@ function MarksList({ type, empty }: { type: "favorite" | "listen_later"; empty: 
                 sizes="48px"
                 alt=""
                 loading="lazy"
+                fetchPriority="low"
                 decoding="async"
                 width={64}
                 height={64}
@@ -321,6 +322,7 @@ function FollowedPodcasts() {
                   sizes="56px"
                   alt=""
                   loading="lazy"
+                  fetchPriority="low"
                   decoding="async"
                   width={80}
                   height={80}

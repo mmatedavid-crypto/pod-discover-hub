@@ -59,7 +59,8 @@ export function SmartPlayerBar() {
               srcSet={imageSrcSet(ep.imageUrl, [40, 56, 80])}
               sizes="40px"
               alt=""
-              loading="lazy"
+              loading="eager"
+              fetchPriority="high"
               decoding="async"
               className="h-10 w-10 rounded-md object-cover shrink-0 border border-border"
             />
@@ -206,6 +207,7 @@ export function SmartPlayerBar() {
                 sizes="224px"
                 alt=""
                 loading="lazy"
+                fetchPriority="low"
                 decoding="async"
                 className="h-56 w-56 rounded-xl object-cover border border-border"
               />

@@ -278,6 +278,8 @@ describe("episode thumbnail loading policy", () => {
 
     expect(smartPlayer).toContain("optimizedImageUrl(ep.imageUrl, { width: 56, height: 56 })");
     expect(smartPlayer).toContain("optimizedImageUrl(ep.imageUrl, { width: 320, height: 320 })");
+    expect(smartPlayer).toContain('sizes="40px"\n              alt=""\n              loading="eager"\n              fetchPriority="high"');
+    expect(smartPlayer).toContain('sizes="224px"\n                alt=""\n                loading="lazy"\n                fetchPriority="low"');
     expect(smartPlayer).not.toContain("<img src={ep.imageUrl}");
   });
 
@@ -367,9 +369,10 @@ describe("episode thumbnail loading policy", () => {
     const discovery = read("src/components/smart-player/SmartDiscoveryPanel.tsx");
     const related = read("src/components/smart-player/RelatedEpisodes.tsx");
     const profile = read("src/pages/PublicProfilePage.tsx");
+    const account = read("src/pages/EnPodiverzumomPage.tsx");
     const startSwipe = read("src/pages/StartSwipePage.tsx");
 
-    for (const source of [recommended, library, continueListening, discovery, related, profile, startSwipe]) {
+    for (const source of [recommended, library, continueListening, discovery, related, profile, account, startSwipe]) {
       expect(source).toContain('loading="lazy"');
       expect(source).toContain('fetchPriority="low"');
       expect(source).toContain('decoding="async"');
@@ -380,6 +383,8 @@ describe("episode thumbnail loading policy", () => {
     expect(recommended).toContain("imageSrcSet(ep.image_url || ep.podcast?.image_url, [64, 96, 128])");
     expect(library).toContain("imageSrcSet(img, [56, 80, 112])");
     expect(continueListening).toContain("imageSrcSet(it.imageUrl, [56, 80, 112])");
+    expect(account).toContain("imageSrcSet(e.podcasts.image_url, [48, 64, 96])");
+    expect(account).toContain("imageSrcSet(p.image_url, [56, 80, 112])");
     expect(profile).toContain("imageSrcSet(e.podcasts.image_url, [48, 64, 96])");
     expect(startSwipe).toContain("imageSrcSet(src, [80, 112, 160])");
     expect(startSwipe).toContain("imageSrcSet(p.image, [128, 160, 240])");
