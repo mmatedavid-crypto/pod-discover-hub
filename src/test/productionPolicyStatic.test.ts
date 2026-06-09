@@ -934,11 +934,13 @@ describe("production policy static guards", () => {
 
   it("keeps SEO alias routes redirected at the Cloudflare edge", () => {
     const worker = read("infra/cloudflare-worker/worker.js");
+    const lovableWorker = read(".lovable/cloudflare-worker.js");
     const verifier = read("scripts/verify-production-edge-seo.mjs");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
     const pkg = read("package.json");
 
     expect(pkg).toContain('"verify:production-edge-seo": "node scripts/verify-production-edge-seo.mjs"');
+    expect(lovableWorker).toBe(worker);
 
     for (const pair of [
       ['/^\\/search\\/?$/', '"/kereses"'],
