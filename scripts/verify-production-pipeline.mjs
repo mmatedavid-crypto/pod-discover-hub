@@ -76,7 +76,8 @@ settings AS (
     'text_processing_policy',
     'episode_chunking_policy',
     'episode_chunk_search_result_policy',
-    'search_engine'
+    'search_engine',
+    'watchdog_state'
   )
 ),
 controls AS (
