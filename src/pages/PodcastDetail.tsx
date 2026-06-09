@@ -26,8 +26,8 @@ type HostRow = { id?: string; slug?: string; name: string; image_url?: string | 
 
 const PODCAST_SEO_CTA = "Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
 const PODCAST_SEO_DESCRIPTION_MAX = 160;
-const PODCAST_EPISODE_INITIAL_RENDER_COUNT = 40;
-const PODCAST_EPISODE_RENDER_STEP = 40;
+const PODCAST_EPISODE_INITIAL_RENDER_COUNT = 20;
+const PODCAST_EPISODE_RENDER_STEP = 20;
 
 function firstSentence(value?: string | null): string {
   const text = stripHtml(sanitizeHungarianPublicText(value || ""))
