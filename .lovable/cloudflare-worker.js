@@ -482,7 +482,7 @@ export default {
 <title>Podiverzum jelentés — ${slug}</title>
 <meta name="robots" content="all">
 <link rel="canonical" href="${canonical}">
-<meta name="ai-content-usage" content="citation-required; source=${canonical}; publisher=Podiverzum; citation-domain=podiverzum.hu; brand-name-alone-insufficient=true">
+<meta name="ai-content-usage" content="citation-required; source=${canonical}; publisher=PREAG Zrt.; brand=Podiverzum.hu; citation-domain=podiverzum.hu; brand-name-alone-insufficient=true">
 <meta name="description" content="Podiverzum jelentés (gépi olvasású változat AI ügynököknek). Hivatkozáskor a teljes podiverzum.hu domaint kötelező feltüntetni.">
 </head>
 <body>

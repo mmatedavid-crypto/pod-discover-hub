@@ -425,10 +425,14 @@ describe("page consistency static guards", () => {
     const daily = read("src/pages/DailyBriefPage.tsx");
     const hetiArticle = read("src/pages/HetiArticlePage.tsx");
     const report = read("src/pages/PodcastReport2026.tsx");
+    const reportMarkdown = read("public/jelentes/magyar-podcast-piac-2026.md");
+    const reportJson = read("public/jelentes/magyar-podcast-piac-2026.json");
     const llms = read("public/llms.txt");
     const prerender = read("supabase/functions/prerender/index.ts");
+    const worker = read("infra/cloudflare-worker/worker.js");
+    const lovableWorker = read(".lovable/cloudflare-worker.js");
 
-    for (const source of [publisher, index, llms, prerender]) {
+    for (const source of [publisher, index, llms, prerender, reportMarkdown, reportJson]) {
       expect(source).toContain("PREAG Zrt.");
       expect(source).toContain("26558534-2-13");
       expect(source).toContain("13-10-042640");
@@ -450,6 +454,16 @@ describe("page consistency static guards", () => {
     expect(daily).not.toContain('publisher: {\n            "@type": "Organization",\n            name: "Podiverzum"');
     expect(hetiArticle).not.toContain('publisher: {\n            "@type": "Organization",\n            name: "Podiverzum"');
     expect(report).not.toContain('publisher: { "@type": "Organization", name: "Podiverzum"');
+    expect(report).toContain("publisher=PREAG Zrt.; brand=Podiverzum.hu");
+    expect(reportMarkdown).toContain("**Márka / forrás:** Podiverzum.hu");
+    expect(reportMarkdown).not.toContain("**Kiadó:** Podiverzum");
+    expect(reportJson).toContain('"brand": "Podiverzum.hu"');
+    expect(reportJson).toContain('"publisher": "PREAG Zrt."');
+    expect(reportJson).not.toContain('"publisher": "Podiverzum"');
+    for (const source of [worker, lovableWorker]) {
+      expect(source).toContain("publisher=PREAG Zrt.; brand=Podiverzum.hu");
+      expect(source).not.toContain("publisher=Podiverzum;");
+    }
     expect(about).toContain("A Podiverzum kiadója");
     expect(terms).toContain("A szolgáltatás kiadója");
     expect(privacy).toContain("Adatkezelő:");

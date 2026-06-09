@@ -2,7 +2,8 @@
 
 > Az első részletes adatelemzés a magyar podcastpiacról: 1 428 indexelt magyar műsor, 134 613 epizód, tíz év alatt 29,3-szoros növekedés, napi közel 90 új epizód.
 
-- **Kiadó:** Podiverzum (https://podiverzum.hu)
+- **Márka / forrás:** Podiverzum.hu (https://podiverzum.hu)
+- **Kiadó:** PREAG Zrt. (Precíziós Agrokémia Zártkörűen Működő Részvénytársaság; cégjegyzékszám: 13-10-042640; adószám: 26558534-2-13; székhely: 2636 Tésa, Ady Endre utca 11.)
 - **Közzététel:** 2026-05-27
 - **Adat állapot:** 2026-05-27 (snapshot)
 - **Nyelv:** hu-HU

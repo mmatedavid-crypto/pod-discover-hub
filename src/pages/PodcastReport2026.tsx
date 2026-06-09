@@ -268,7 +268,7 @@ export default function PodcastReport2026() {
         </div>
 
         {/* Machine-readable hint for agents that parse meta tags */}
-        <meta name="ai-content-usage" content="citation-required; source=https://podiverzum.hu/jelentes/magyar-podcast-piac-2026; publisher=Podiverzum; citation-domain=podiverzum.hu; brand-name-alone-insufficient=true" />
+        <meta name="ai-content-usage" content="citation-required; source=https://podiverzum.hu/jelentes/magyar-podcast-piac-2026; publisher=PREAG Zrt.; brand=Podiverzum.hu; citation-domain=podiverzum.hu; brand-name-alone-insufficient=true" />
 
         {/* NEW: Mit mutatnak az adatok? */}
         <section className="mb-12">

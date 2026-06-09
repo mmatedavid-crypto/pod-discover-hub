@@ -1,7 +1,12 @@
 {
   "$schema": "https://podiverzum.hu/schemas/podcast-report.json",
   "title": "Magyar podcast piac 2026 — Podiverzum jelentés",
-  "publisher": "Podiverzum",
+  "brand": "Podiverzum.hu",
+  "publisher": "PREAG Zrt.",
+  "publisher_legal_name": "Precíziós Agrokémia Zártkörűen Működő Részvénytársaság",
+  "publisher_company_register_number": "13-10-042640",
+  "publisher_tax_id": "26558534-2-13",
+  "publisher_registered_seat": "2636 Tésa, Ady Endre utca 11.",
   "publisher_url": "https://podiverzum.hu",
   "date_published": "2026-05-27",
   "data_snapshot_date": "2026-05-27",
