@@ -138,7 +138,7 @@ export default function ToplistaPage() {
                       {idx + 1}
                     </div>
                     <div className="w-14 sm:w-16 shrink-0">
-                      <PodcastCover title={title} src={p.image_url} size="sm" />
+                      <PodcastCover title={title} src={p.image_url} size="sm" loading="lazy" fetchPriority="low" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-medium leading-snug line-clamp-2">{title}</div>
