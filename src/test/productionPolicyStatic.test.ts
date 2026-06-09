@@ -303,6 +303,10 @@ describe("production policy static guards", () => {
     expect(searchEngineFinalPolicy).toContain("20260608190000_reassert_search_engine_policy_v7_final");
     expect(searchHybrid).toContain("ranking_version: 6");
     expect(searchHybrid).toContain("understanding_version: 4");
+    expect(searchHybrid).toContain("v13 is the default engine with v12 as fallback");
+    expect(searchHybrid).toContain("Transcript chunk augmentation");
+    expect(searchHybrid).toContain("operator-controlled through app_settings.search_engine");
+    expect(searchHybrid).toContain("default off until timestamped chunk quality gates are trusted in production");
 
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_catalog");
     expect(goldenRunner).toContain("refresh_search_golden_queries_from_external_demand");

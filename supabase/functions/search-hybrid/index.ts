@@ -1,6 +1,7 @@
-// Search v2 hybrid endpoint: lexical (tsv+trgm) + semantic (vector RRF) + AI re-rank.
-// v13-port from Podiverzum remix. Chunk-augmentation disabled by default
-// (engine v12) — engine=v13 query param available if/when episode_chunks ships.
+// Search hybrid endpoint: lexical (tsv+trgm) + semantic (vector RRF) + AI re-rank.
+// v13 is the default engine with v12 as fallback. Transcript chunk augmentation
+// is implemented but operator-controlled through app_settings.search_engine:
+// default off until timestamped chunk quality gates are trusted in production.
 // POST { q: string, limit?: number, lang?: 'en'|'hu'|null, rerank?: boolean, engine?: string }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { understandQuery, buildExpandedQuery, detectAdjNounTopic, type Understanding } from "../_shared/search-understand.ts";
@@ -1798,7 +1799,8 @@ Deno.serve(async (req) => {
     else if (strictCount >= 3) confidenceBand = "medium";
     else confidenceBand = "low";
 
-    // Chunk augmentation (v13 — disabled by default; episode_chunks not yet shipped)
+    // Chunk augmentation (v13) — implemented, but disabled by default through
+    // app_settings.search_engine until timestamped chunk quality gates are green.
     let chunkAugmented = 0;
     if (FF.chunkAugment && q_embedding && strictRows.length < 30) {
       try {
