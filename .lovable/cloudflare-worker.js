@@ -255,7 +255,7 @@ export default {
           status: 301,
           headers: {
             Location: `https://podiverzum.hu${dest}${url.search}`,
-            "Cache-Control": "public, max-age=86400",
+            "Cache-Control": "public, max-age=31536000",
             "X-Redirect": "alias-to-canonical-301",
           },
         });

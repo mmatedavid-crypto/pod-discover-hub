@@ -952,11 +952,13 @@ describe("production policy static guards", () => {
       expect(worker).toContain(pair[1]);
     }
     expect(worker).toContain('"X-Redirect": "alias-to-canonical-301"');
+    expect(worker).toContain('Location: `https://podiverzum.hu${dest}${url.search}`');
+    expect(worker).toContain('"Cache-Control": "public, max-age=31536000"');
 
     for (const path of [
       "/search",
       "/categories",
-      "/category/technologia",
+      "/category/technologia?utm=test",
       "/topic/keresztenyseg",
       "/tema/keresztenyseg",
       "/topic/keresztenyseg/2026",
@@ -989,6 +991,7 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("worker-robots-policy");
     expect(verifier).toContain("https://www.podiverzum.hu/podcast/emazon?utm=test");
     expect(verifier).toContain("https://podiverzum.hu/podcast/emazon?utm=test");
+    expect(verifier).toContain("https://podiverzum.hu/kategoria/technologia?utm=test");
     expect(verifier).toContain("max-age=31536000");
     expect(verifier).toContain("Host: podiverzum.hu");
     expect(reporter).toContain("/llms.txt returns the short Podiverzum.hu AI-agent guidance");

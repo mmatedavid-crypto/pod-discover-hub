@@ -5,7 +5,7 @@ const redirectChecks = [
   { url: "https://www.podiverzum.hu/podcast/emazon?utm=test", expectedUrl: "https://podiverzum.hu/podcast/emazon?utm=test", cacheIncludes: "max-age=31536000" },
   ["/search", "/kereses"],
   ["/categories", "/kategoriak"],
-  ["/category/technologia", "/kategoria/technologia"],
+  { url: "/category/technologia?utm=test", expectedUrl: "https://podiverzum.hu/kategoria/technologia?utm=test", cacheIncludes: "max-age=31536000" },
   ["/topic/keresztenyseg", "/temak/keresztenyseg"],
   ["/tema/keresztenyseg", "/temak/keresztenyseg"],
   ["/topic/keresztenyseg/2026", "/temak/keresztenyseg/2026"],
