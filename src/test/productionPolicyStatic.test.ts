@@ -1084,6 +1084,7 @@ describe("production policy static guards", () => {
     for (const source of [generated, legacy, localGenerator, pagesXml]) {
       expect(source).toContain("/uj-podcastok");
       expect(source).toContain("/napi");
+      expect(source).toContain("/te-podiverzumod");
       expect(source).toContain("/heti");
       expect(source).toContain("/cegek");
       expect(source).toContain("/toplista/all-time");

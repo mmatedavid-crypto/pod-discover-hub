@@ -22,6 +22,7 @@ import { Download, Link2 } from "lucide-react";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { setSeo } from "@/lib/seo";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -493,6 +494,25 @@ export default function StartSwipePage() {
   const [recsLoading, setRecsLoading] = useState(false);
   const [recsError, setRecsError] = useState<string | null>(null);
   const [lastSwipeFeedback, setLastSwipeFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSeo({
+      title: "A Te Podiverzumod – podcast ízlésprofil | Podiverzum",
+      description:
+        "Pár gyors választásból kiderül, milyen magyar podcastok illenek hozzád. Készíts személyes podcast ízlésprofilt a Podiverzumon.",
+      canonical: "https://podiverzum.hu/te-podiverzumod",
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        name: "A Te Podiverzumod",
+        url: "https://podiverzum.hu/te-podiverzumod",
+        applicationCategory: "EntertainmentApplication",
+        operatingSystem: "Web",
+        inLanguage: "hu-HU",
+        isAccessibleForFree: true,
+      },
+    });
+  }, []);
 
   // Derived collections
   const byId = useMemo(() => {

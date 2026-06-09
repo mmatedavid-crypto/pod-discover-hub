@@ -710,6 +710,7 @@ describe("page consistency static guards", () => {
     const searchInsights = read("src/pages/AdminSearchInsightsPage.tsx");
     const toplist = read("src/pages/ToplistaPage.tsx");
     const toplistAllTime = read("src/pages/ToplistaAllTimePage.tsx");
+    const startSwipe = read("src/pages/StartSwipePage.tsx");
 
     expect(notFound).toContain("nav(`/kereses?q=");
     expect(notFound).not.toContain("nav(`/search?q=");
@@ -734,6 +735,10 @@ describe("page consistency static guards", () => {
       expect(source).toContain("isAccessibleForFree: true");
     }
     expect(episode).not.toContain("url: typeof window !== \"undefined\" ? window.location.href : undefined");
+    expect(startSwipe).toContain('title: "A Te Podiverzumod – podcast ízlésprofil | Podiverzum"');
+    expect(startSwipe).toContain('canonical: "https://podiverzum.hu/te-podiverzumod"');
+    expect(startSwipe).toContain('"@type": "WebApplication"');
+    expect(startSwipe).toContain("isAccessibleForFree: true");
     for (const source of [toplist, toplistAllTime]) {
       expect(source).toContain("setSeo({");
       expect(source).toContain('"@type": "CollectionPage"');
