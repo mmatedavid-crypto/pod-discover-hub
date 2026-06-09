@@ -422,6 +422,9 @@ describe("page consistency static guards", () => {
     const privacy = read("src/pages/PrivacyPage.tsx");
     const contact = read("src/pages/ContactPage.tsx");
     const footer = read("src/components/SiteFooter.tsx");
+    const daily = read("src/pages/DailyBriefPage.tsx");
+    const hetiArticle = read("src/pages/HetiArticlePage.tsx");
+    const report = read("src/pages/PodcastReport2026.tsx");
     const llms = read("public/llms.txt");
     const prerender = read("supabase/functions/prerender/index.ts");
 
@@ -441,6 +444,12 @@ describe("page consistency static guards", () => {
     expect(index).toContain('"publisher"');
     expect(index).toContain('"legalName": "Precíziós Agrokémia Zártkörűen Működő Részvénytársaság"');
     expect(home).toContain("publisher: sitePublisherJsonLd()");
+    expect(daily).toContain("publisher: sitePublisherJsonLd()");
+    expect(hetiArticle).toContain("publisher: sitePublisherJsonLd()");
+    expect(report).toContain("publisher: sitePublisherJsonLd()");
+    expect(daily).not.toContain('publisher: {\n            "@type": "Organization",\n            name: "Podiverzum"');
+    expect(hetiArticle).not.toContain('publisher: {\n            "@type": "Organization",\n            name: "Podiverzum"');
+    expect(report).not.toContain('publisher: { "@type": "Organization", name: "Podiverzum"');
     expect(about).toContain("A Podiverzum kiadója");
     expect(terms).toContain("A szolgáltatás kiadója");
     expect(privacy).toContain("Adatkezelő:");

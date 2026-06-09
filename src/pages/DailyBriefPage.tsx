@@ -12,6 +12,7 @@ import NewspaperMasthead from "@/components/NewspaperMasthead";
 import DailyEditorials from "@/components/DailyEditorials";
 import DailyStatsStrip from "@/components/DailyStatsStrip";
 import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
+import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 
 type Row = any;
 
@@ -135,12 +136,7 @@ export default function DailyBriefPage() {
             name: "Podiverzum szerkesztőség",
             url: "https://podiverzum.hu",
           },
-          publisher: {
-            "@type": "Organization",
-            name: "Podiverzum",
-            url: "https://podiverzum.hu",
-            logo: { "@type": "ImageObject", url: "https://podiverzum.hu/icon-512.png" },
-          },
+          publisher: sitePublisherJsonLd(),
         },
         {
           "@context": "https://schema.org",

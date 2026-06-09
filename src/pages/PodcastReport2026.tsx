@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { toPng } from "html-to-image";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
+import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 
 // ============================================================
 // MAGYAR PODCAST PIAC JELENTÉS 2026
@@ -148,7 +149,7 @@ export default function PodcastReport2026() {
           datePublished: "2026-05-27",
           inLanguage: "hu-HU",
           author: { "@type": "Organization", name: "Podiverzum", url: "https://podiverzum.hu" },
-          publisher: { "@type": "Organization", name: "Podiverzum", url: "https://podiverzum.hu" },
+          publisher: sitePublisherJsonLd(),
           about: "Magyar podcast piac mérete, növekedése, kategóriái és témái — kínálati oldali adatok",
           url: "https://podiverzum.hu/jelentes/magyar-podcast-piac-2026",
         },

@@ -6,6 +6,7 @@ import { breadcrumbJsonLd, ogImageUrl, setSeo } from "@/lib/seo";
 import { hetiSlug, parseHetiSlug, isoWeekToMonday, isoWeek } from "@/lib/hetiSlug";
 import { Quote, Calendar, ArrowRight, ArrowLeft, User } from "lucide-react";
 import { imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image";
+import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 
 const SITE_URL = "https://podiverzum.hu";
 
@@ -161,12 +162,7 @@ export default function HetiArticlePage() {
             name: "Podiverzum szerkesztőség",
             url: SITE_URL,
           },
-          publisher: {
-            "@type": "Organization",
-            name: "Podiverzum",
-            url: SITE_URL,
-            logo: { "@type": "ImageObject", url: `${SITE_URL}/icon-512.png` },
-          },
+          publisher: sitePublisherJsonLd(),
         },
         {
           "@context": "https://schema.org",
