@@ -496,6 +496,8 @@ describe("page consistency static guards", () => {
     expect(contact).toContain("Kiadó:");
     expect(footer).toContain("Kiadó: {SITE_PUBLISHER.displayName}");
     expect(footer).toContain("SITE_PUBLISHER.companyRegisterNumber");
+    expect(footer).toContain('{ to: "/cegek", label: "Cégek és szervezetek" }');
+    expect(footer).not.toContain('{ to: "/szervezetek", label: "Szervezetek" }');
   });
 
   it("does not promise disabled similar-podcast recommendations in public methodology", () => {

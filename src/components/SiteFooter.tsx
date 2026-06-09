@@ -7,7 +7,7 @@ const EXPLORE = [
   { to: "/kategoriak", label: "Podcast kategóriák" },
   { to: "/temak", label: "Témák" },
   { to: "/szemelyek", label: "Személyek" },
-  { to: "/szervezetek", label: "Szervezetek" },
+  { to: "/cegek", label: "Cégek és szervezetek" },
   { to: "/uj-podcastok", label: "Új podcastok" },
   { to: "/modszertan", label: "Módszertan" },
 ];
