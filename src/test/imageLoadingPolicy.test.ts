@@ -163,6 +163,7 @@ describe("episode thumbnail loading policy", () => {
     const googleStorage = "https://ma7media.storage.googleapis.com/podcast/cover.jpg";
     const audioboom = "https://audioboom.com/i/123456.jpg";
     const riverside = "https://hosting-media.riverside.com/podcast/cover.jpg";
+    const konnektor = "https://podcast.konnektor.org/assets/cover.jpg";
 
     expect(image).toContain("const IMAGE_PROXY_HOSTS = new Set");
     expect(image).toContain("const IMAGE_PROXY_HOST_SUFFIXES = [");
@@ -197,6 +198,27 @@ describe("episode thumbnail loading policy", () => {
       "hosting-media.riverside.com",
       "images.podigee-cdn.net",
       "blogger.googleusercontent.com",
+      "bazska.hu",
+      "podcast.konnektor.org",
+      "katolikusradio.hu",
+      "villanyautosok.hu",
+      "beszeljunkorakrol.hu",
+      "golgotakistarcsa.hu",
+      "www.randomgenerator.hu",
+      "klikkplay.hu",
+      "spacebarcast.com",
+      "www.nyugat.hu",
+      "sivaramaswami.media",
+      "onkenyes.hu",
+      "szabotelep.hu",
+      "podmedia.enyim.com",
+      "latszoter.hu",
+      "www.gamer365.hu",
+      "sl.sbs.com.au",
+      "podcasts.fotex.net",
+      "ecigitesztek.hu",
+      "hangtar.szkeptikus.hu",
+      "podkedd.hu",
     ]) {
       expect(image).toContain(`"${host}"`);
     }
@@ -251,6 +273,9 @@ describe("episode thumbnail loading policy", () => {
     );
     expect(optimizedImageUrl(riverside, { width: 96, height: 96 })).toBe(
       "https://images.weserv.nl/?url=https%3A%2F%2Fhosting-media.riverside.com%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78&output=webp",
+    );
+    expect(optimizedImageUrl(konnektor, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fpodcast.konnektor.org%2Fassets%2Fcover.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
   });
 
