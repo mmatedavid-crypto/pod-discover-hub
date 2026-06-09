@@ -34,7 +34,7 @@ describe("episode thumbnail loading policy", () => {
     expect(toplista).toContain("imageSrcSetForAspect(src, [320, 480, 640], 16 / 9)");
     expect(hetiArticle).toContain("imageSrcSetForAspect(post.cover_image_url, [640, 960, 1280], 16 / 9)");
     expect(imageSrcSetForAspect(buzzsprout, [320, 480, 640], 16 / 10)).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=320&h=200&fit=cover&q=78 320w, https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=480&h=300&fit=cover&q=78 480w, https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=640&h=400&fit=cover&q=78 640w",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=320&h=200&fit=cover&q=78&output=webp 320w, https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=480&h=300&fit=cover&q=78&output=webp 480w, https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=640&h=400&fit=cover&q=78&output=webp 640w",
     );
   });
 
@@ -205,51 +205,52 @@ describe("episode thumbnail loading policy", () => {
     }
     expect(image).toContain("IMAGE_PROXY_HOST_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix))");
     expect(image).toContain("https://images.weserv.nl/");
+    expect(image).toContain('proxy.searchParams.set("output", "webp")');
 
     expect(optimizedImageUrl(anchorCloudfront, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fd3t3ozftmdmh3i.cloudfront.net%2Fstaging%2Fpodcast_uploaded_nologo%2F25377869%2F25377869-1777663099901-c6e6422a4d959.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fd3t3ozftmdmh3i.cloudfront.net%2Fstaging%2Fpodcast_uploaded_nologo%2F25377869%2F25377869-1777663099901-c6e6422a4d959.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(buzzsprout, { width: 160, height: 160 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=160&h=160&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fstorage.buzzsprout.com%2Fvariants%2Fabc123%2Fcover.jpg&w=160&h=160&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(rssCom, { width: 80, height: 80 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fmedia.rss.com%2Fshow%2F2026%2Fcover.jpg&w=80&h=80&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fmedia.rss.com%2Fshow%2F2026%2Fcover.jpg&w=80&h=80&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(podbean, { width: 80, height: 80 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fpbcdn1.podbean.com%2Fimglogo%2Fep-logo%2Fpbblog123%2Fshow.jpg&w=80&h=80&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fpbcdn1.podbean.com%2Fimglogo%2Fep-logo%2Fpbblog123%2Fshow.jpg&w=80&h=80&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(tilos, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Ftilos.hu%2Fupload%2Fpodcast%2Fcovers%2Fshow.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Ftilos.hu%2Fupload%2Fpodcast%2Fcovers%2Fshow.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(infostart, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Finfostart.hu%2Fimages%2Fpodcast%2Farena.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Finfostart.hu%2Fimages%2Fpodcast%2Farena.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(klubradio, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fwww.klubradio.hu%2Fdata%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fwww.klubradio.hu%2Fdata%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(hearthis, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fimg.hearthis.at%2Fc%2Fr%2Fo%2F_%2Fuploads%2F123%2Fimage.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fimg.hearthis.at%2Fc%2Fr%2Fo%2F_%2Fuploads%2F123%2Fimage.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(substack, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fsubstackcdn.com%2Fimage%2Ffetch%2Fw_1456%2Cc_limit%2Cf_auto%2Cq_auto%3Agood%2Fhttps%253A%252F%252Fexample.com%252Fcover.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fsubstackcdn.com%2Fimage%2Ffetch%2Fw_1456%2Cc_limit%2Cf_auto%2Cq_auto%3Agood%2Fhttps%253A%252F%252Fexample.com%252Fcover.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(wordpress, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fpopkultcsajoksatobbi.files.wordpress.com%2F2026%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fpopkultcsajoksatobbi.files.wordpress.com%2F2026%2Fcover.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(gravatar, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2F1.gravatar.com%2Favatar%2Fabc%3Fs%3D512%26d%3Dretro&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2F1.gravatar.com%2Favatar%2Fabc%3Fs%3D512%26d%3Dretro&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(gitlabPages, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fszelsokozep-feed-06c8bb.gitlab.io%2Fassets%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fszelsokozep-feed-06c8bb.gitlab.io%2Fassets%2Fcover.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(googleStorage, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fma7media.storage.googleapis.com%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fma7media.storage.googleapis.com%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(audioboom, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Faudioboom.com%2Fi%2F123456.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Faudioboom.com%2Fi%2F123456.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
     expect(optimizedImageUrl(riverside, { width: 96, height: 96 })).toBe(
-      "https://images.weserv.nl/?url=https%3A%2F%2Fhosting-media.riverside.com%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+      "https://images.weserv.nl/?url=https%3A%2F%2Fhosting-media.riverside.com%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78&output=webp",
     );
   });
 

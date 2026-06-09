@@ -59,6 +59,7 @@ function proxiedImageUrl(url: URL, width: number, height: number, quality: numbe
   proxy.searchParams.set("h", String(height));
   proxy.searchParams.set("fit", "cover");
   proxy.searchParams.set("q", String(quality));
+  proxy.searchParams.set("output", "webp");
   return proxy.toString();
 }
 
