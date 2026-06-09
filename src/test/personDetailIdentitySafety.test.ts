@@ -76,11 +76,11 @@ describe("person detail identity safety", () => {
     expect(page).toContain("if (historicalWithoutEvidence || hiddenCompanyEponym)");
     expect(page).toContain("setNotFound(true)");
     expect(page).toContain('id: `fallback-${decodedSlug}`');
-    expect(page).toContain("const fallbackRelation = sorted.some");
-    expect(page).toContain('? "hallható"');
-    expect(page).toContain(': "említve"');
+    expect(page).toContain('const fallbackRelation = "említve"');
+    expect(page).toContain('const fallbackDescriptionRelation = "említve szerepel"');
+    expect(page).not.toContain('const fallbackRelation = sorted.some');
     expect(page).toContain('`${exemplar} – ${fallbackEpCount} podcast epizódban ${fallbackRelation} | Podiverzum`');
-    expect(page).toContain("Megnézhető ${fallbackEpCount} podcast epizód, amelyben ${exemplar} ${fallbackRelation}.");
+    expect(page).toContain("Megnézhető ${fallbackEpCount} podcast epizód, amelyben ${exemplar} ${fallbackDescriptionRelation}.");
   });
 
   it("keeps prerendered person SEO identity-safe for ambiguous or historical names", () => {

@@ -738,6 +738,7 @@ describe("page consistency static guards", () => {
     expect(person).toContain("const personSeoRelation = hasParticipantSeoEvidence && !isTemporalTopicOnlyPerson(p) ? \"hallható\" : \"kapcsolódik\"");
     expect(person).toContain("` – ${epCount} podcast epizódban ${personSeoRelation}`");
     expect(person).toContain("Megnézhető ${epCount} podcast epizód, amelyben ${personName} ${personSeoRelation}.");
+    expect(person).toContain("const fallbackDescriptionRelation = \"említve szerepel\"");
     expect(person).toContain("`${exemplar} – ${fallbackEpCount} podcast epizódban ${fallbackRelation} | Podiverzum`");
     expect(prerender).toContain("const relation = !historicalWithoutEvidence");
     expect(prerender).toContain("`Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}.");
