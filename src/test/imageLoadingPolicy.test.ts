@@ -152,12 +152,37 @@ describe("episode thumbnail loading policy", () => {
     const buzzsprout = "https://storage.buzzsprout.com/variants/abc123/cover.jpg";
     const rssCom = "https://media.rss.com/show/2026/cover.jpg";
     const podbean = "https://pbcdn1.podbean.com/imglogo/ep-logo/pbblog123/show.jpg";
+    const tilos = "https://tilos.hu/upload/podcast/covers/show.jpg";
+    const infostart = "https://infostart.hu/images/podcast/arena.jpg";
+    const klubradio = "https://www.klubradio.hu/data/podcast/cover.jpg";
+    const hearthis = "https://img.hearthis.at/c/r/o/_/uploads/123/image.jpg";
+    const substack = "https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good/https%3A%2F%2Fexample.com%2Fcover.jpg";
 
     expect(image).toContain("const IMAGE_PROXY_HOSTS = new Set");
     expect(image).toContain('"d3t3ozftmdmh3i.cloudfront.net"');
     expect(image).toContain('"storage.buzzsprout.com"');
     expect(image).toContain('"media.rss.com"');
     expect(image).toContain('"pbcdn1.podbean.com"');
+    for (const host of [
+      "tilos.hu",
+      "infostart.hu",
+      "www.klubradio.hu",
+      "img.rtvcdn.si",
+      "img.hearthis.at",
+      "archive.org",
+      "media.rtv.rs",
+      "gdb.rferl.org",
+      "storage.gra.cloud.ovh.net",
+      "substackcdn.com",
+      "media.zencastr.com",
+      "assets.pod.space",
+      "podcaster.hu",
+      "medias.podcastics.com",
+      "s3.castbox.fm",
+      "0.gravatar.com",
+    ]) {
+      expect(image).toContain(`"${host}"`);
+    }
     expect(image).toContain("https://images.weserv.nl/");
 
     expect(optimizedImageUrl(anchorCloudfront, { width: 96, height: 96 })).toBe(
@@ -171,6 +196,21 @@ describe("episode thumbnail loading policy", () => {
     );
     expect(optimizedImageUrl(podbean, { width: 80, height: 80 })).toBe(
       "https://images.weserv.nl/?url=https%3A%2F%2Fpbcdn1.podbean.com%2Fimglogo%2Fep-logo%2Fpbblog123%2Fshow.jpg&w=80&h=80&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(tilos, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Ftilos.hu%2Fupload%2Fpodcast%2Fcovers%2Fshow.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(infostart, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Finfostart.hu%2Fimages%2Fpodcast%2Farena.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(klubradio, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fwww.klubradio.hu%2Fdata%2Fpodcast%2Fcover.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(hearthis, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fimg.hearthis.at%2Fc%2Fr%2Fo%2F_%2Fuploads%2F123%2Fimage.jpg&w=96&h=96&fit=cover&q=78",
+    );
+    expect(optimizedImageUrl(substack, { width: 96, height: 96 })).toBe(
+      "https://images.weserv.nl/?url=https%3A%2F%2Fsubstackcdn.com%2Fimage%2Ffetch%2Fw_1456%2Cc_limit%2Cf_auto%2Cq_auto%3Agood%2Fhttps%253A%252F%252Fexample.com%252Fcover.jpg&w=96&h=96&fit=cover&q=78",
     );
   });
 

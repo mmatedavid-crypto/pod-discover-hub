@@ -18,6 +18,22 @@ const IMAGE_PROXY_HOSTS = new Set([
   "episodes.castos.com",
   "media.redcircle.com",
   "i.ibb.co",
+  "tilos.hu",
+  "infostart.hu",
+  "www.klubradio.hu",
+  "img.rtvcdn.si",
+  "img.hearthis.at",
+  "archive.org",
+  "media.rtv.rs",
+  "gdb.rferl.org",
+  "storage.gra.cloud.ovh.net",
+  "substackcdn.com",
+  "media.zencastr.com",
+  "assets.pod.space",
+  "podcaster.hu",
+  "medias.podcastics.com",
+  "s3.castbox.fm",
+  "0.gravatar.com",
 ]);
 
 function proxiedImageUrl(url: URL, width: number, height: number, quality: number) {
