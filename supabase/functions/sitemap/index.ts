@@ -145,7 +145,6 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
     urlTag(`${SITE}/toplista`, null, "daily", "0.8"),
     urlTag(`${SITE}/temak`, null, "daily", "0.8"),
     urlTag(`${SITE}/szemelyek`, null, "daily", "0.7"),
-    urlTag(`${SITE}/szervezetek`, null, "daily", "0.7"),
     urlTag(`${SITE}/cegek`, null, "daily", "0.7"),
     urlTag(`${SITE}/partok`, null, "weekly", "0.6"),
     urlTag(`${SITE}/hangulatok`, null, "weekly", "0.7"),
@@ -207,7 +206,7 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
   }
 
   // Indexable organization pages. Canonical public detail route is /ceg/:slug;
-  // /szervezetek is the browsing hub. Include parties and sport teams too:
+  // /cegek is the browsing hub. Include parties and sport teams too:
   // these are exactly the "Fradi podcast", "Magyar Telekom podcast" style
   // landing pages Google should discover reliably.
   from = 0;

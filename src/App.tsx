@@ -81,7 +81,6 @@ const PeopleHubPage = lazy(() => import("./pages/PeopleHubPage.tsx"));
 const PersonDetailPage = lazy(() => import("./pages/PersonDetailPage.tsx"));
 const TopicsHubPage = lazy(() => import("./pages/TopicsHubPage.tsx"));
 const TopicDetailPage = lazy(() => import("./pages/TopicDetailPage.tsx"));
-const OrganizationsIndexPage = lazy(() => import("./pages/OrganizationsIndexPage.tsx"));
 const CompaniesHubPage = lazy(() => import("./pages/CompaniesHubPage.tsx"));
 const PodcastReport2026 = lazy(() => import("./pages/PodcastReport2026.tsx"));
 const PartiesHubPage = lazy(() => import("./pages/PartiesHubPage.tsx"));
@@ -233,12 +232,12 @@ const App = () => (
           <Route path="/szemelyek" element={<PeopleHubPage />} />
           <Route path="/szemelyek/:slug" element={<PersonDetailPage />} />
           <Route path="/szemelyek/:slug/temak/:topicSlug" element={<PersonDetailPage />} />
-          <Route path="/szervezetek" element={<OrganizationsIndexPage />} />
+          <Route path="/szervezetek" element={<Navigate to="/cegek" replace />} />
           <Route path="/szervezetek/:slug" element={<RedirectWithSlug to="/ceg" />} />
           <Route path="/szervezetek/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />
           <Route path="/part/:slug" element={<RedirectWithSlug to="/ceg" />} />
           <Route path="/part/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />
-          <Route path="/entitasok" element={<Navigate to="/szervezetek" replace />} />
+          <Route path="/entitasok" element={<Navigate to="/cegek" replace />} />
           <Route path="/cegek" element={<CompaniesHubPage />} />
           <Route path="/partok" element={<PartiesHubPage />} />
           <Route path="/en-podiverzumom" element={<EnPodiverzumomPage />} />

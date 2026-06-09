@@ -561,10 +561,15 @@ describe("page consistency static guards", () => {
     const worker = read("infra/cloudflare-worker/worker.js");
     const lovableWorker = read(".lovable/cloudflare-worker.js");
 
+    expect(app).toContain('<Route path="/szervezetek" element={<Navigate to="/cegek" replace />} />');
+    expect(app).toContain('<Route path="/entitasok" element={<Navigate to="/cegek" replace />} />');
     expect(app).toContain('<Route path="/szervezetek/:slug" element={<RedirectWithSlug to="/ceg" />} />');
     expect(app).toContain('<Route path="/szervezetek/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
     expect(app).toContain('<Route path="/company/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
     expect(app).toContain('<Route path="/part/:slug/temak/:topicSlug" element={<RedirectWithTwoSlugs to="/ceg" />} />');
+    expect(app).not.toContain('<Route path="/szervezetek" element={<OrganizationsIndexPage />} />');
+    expect(app).not.toContain('const OrganizationsIndexPage = lazy(() => import("./pages/OrganizationsIndexPage.tsx"));');
+    expect(app).not.toContain('<Route path="/entitasok" element={<Navigate to="/szervezetek" replace />} />');
     expect(app).not.toContain('<Route path="/szervezetek/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />');
     expect(app).not.toContain('<Route path="/company/:slug/temak/:topicSlug" element={<EntityPage kind="company" />} />');
     expect(autocomplete).toContain("return `/ceg/${slug}`");
@@ -574,11 +579,14 @@ describe("page consistency static guards", () => {
     expect(report).toContain("to={`/ceg/${p.slug}`}");
     expect(report).not.toContain("to={`/part/${p.slug}`}");
     for (const workerSource of [worker, lovableWorker]) {
+      expect(workerSource).toContain('[/^\\/szervezetek\\/?$/, "/cegek"]');
+      expect(workerSource).toContain('[/^\\/entitasok\\/?$/, "/cegek"]');
       expect(workerSource).toContain('[/^\\/company\\/([^/]+)\\/temak\\/([^/]+)\\/?$/, "/ceg/$1/temak/$2"]');
       expect(workerSource).toContain('[/^\\/szervezetek\\/([^/]+)\\/temak\\/([^/]+)\\/?$/, "/ceg/$1/temak/$2"]');
       expect(workerSource).toContain('[/^\\/part\\/([^/]+)\\/temak\\/([^/]+)\\/?$/, "/ceg/$1/temak/$2"]');
       expect(workerSource).toContain('[/^\\/cegek\\/([^/]+)\\/?$/, "/ceg/$1"]');
       expect(workerSource).toContain('[/^\\/partok\\/([^/]+)\\/?$/, "/ceg/$1"]');
+      expect(workerSource).not.toContain('[/^\\/entitasok\\/?$/, "/szervezetek"]');
     }
     expect(prerender).toContain("`${SITE}/ceg/${o.slug}`");
     expect(prerender).toContain("`${SITE}/ceg/${orgSlug}/temak/${topicSlug}`");

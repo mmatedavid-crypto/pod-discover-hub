@@ -943,6 +943,8 @@ describe("production policy static guards", () => {
       ['/^\\/topic\\/([^/]+)\\/(\\d{4})\\/?$/', '"/temak/$1/$2"'],
       ['/^\\/person\\/([^/]+)\\/temak\\/([^/]+)\\/?$/', '"/szemelyek/$1/temak/$2"'],
       ['/^\\/company\\/([^/]+)\\/temak\\/([^/]+)\\/?$/', '"/ceg/$1/temak/$2"'],
+      ['/^\\/szervezetek\\/?$/', '"/cegek"'],
+      ['/^\\/entitasok\\/?$/', '"/cegek"'],
       ['/^\\/cegek\\/([^/]+)\\/?$/', '"/ceg/$1"'],
       ['/^\\/podcastok\\/?$/', '"/toplista"'],
       ['/^\\/toplist\\/?$/', '"/toplista"'],
@@ -1036,6 +1038,9 @@ describe("production policy static guards", () => {
       expect(source).toContain("/uj-podcastok");
       expect(source).toContain("/napi");
       expect(source).toContain("/heti");
+      expect(source).toContain("/cegek");
+      expect(source).not.toContain("podiverzum.hu/szervezetek");
+      expect(source).not.toContain("`${SITE}/szervezetek`");
       expect(source).not.toContain("podiverzum.hu/uj<");
       expect(source).not.toContain("podiverzum.hu/heti-valogatas");
     }
