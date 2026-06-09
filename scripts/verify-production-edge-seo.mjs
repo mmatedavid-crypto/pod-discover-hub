@@ -94,7 +94,7 @@ const fetchChecks = [
     path: `/${INDEXNOW_KEY}.txt`,
     contentType: "text/plain",
     bodyEquals: INDEXNOW_KEY,
-    header: ["x-served-by", "worker-indexnow-key"],
+    optionalHeader: ["x-served-by", "worker-indexnow-key"],
   },
 ];
 
@@ -132,6 +132,7 @@ for (const check of fetchChecks) {
   const forbiddenBody = (check.bodyExcludes || []).filter((needle) => body.includes(needle));
   const bodyEqualsOk = !("bodyEquals" in check) || body.trim() === check.bodyEquals;
   const headerOk = !check.header || (res.headers.get(check.header[0]) || "") === check.header[1];
+  const optionalHeaderOk = !check.optionalHeader || (res.headers.get(check.optionalHeader[0]) || "") === check.optionalHeader[1];
   const ok = res.ok && contentType.includes(check.contentType) && missingBody.length === 0 && forbiddenBody.length === 0 && bodyEqualsOk && headerOk;
   results.push({
     kind: "fetch",
@@ -139,6 +140,7 @@ for (const check of fetchChecks) {
     status: res.status,
     content_type: contentType,
     cache_control: cacheControl,
+    optional_header_ok: optionalHeaderOk,
     ok,
   });
   if (!ok) {

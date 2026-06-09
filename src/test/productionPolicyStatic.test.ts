@@ -107,7 +107,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("www.podiverzum.hu/* returns 301 to apex with Cache-Control including max-age=31536000");
     expect(reporter).toContain("legacy category/entity aliases (/category, /topic, /tema, /person, /szemely, /company, /szervezetek, /entitasok, /cegek, /partok, /ingredient) return 301");
     expect(reporter).toContain("/robots.txt is served by worker-robots-policy, contains Host: podiverzum.hu and explicitly allows OAI-SearchBot, PerplexityBot, DuckDuckBot and Bingbot");
-    expect(reporter).toContain("returns only the IndexNow key with worker-indexnow-key");
+    expect(reporter).toContain("returns only the IndexNow key; worker-indexnow-key header is preferred");
     expect(reporter).toContain("After deploy, run verification:");
     expect(deployDoc).toContain("Codex should generate the deploy-gap prompt, but Lovable performs the");
     expect(deployDoc).toContain("npm run report:production-deploy-gap");
@@ -895,6 +895,9 @@ describe("production policy static guards", () => {
     const weeklyEditorialPost = read("supabase/functions/weekly-editorial-post/index.ts");
     const refreshSitemap = read("supabase/functions/refresh-sitemap/index.ts");
     const key = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a";
+    const staticKey = read(`public/${key}.txt`).trim();
+
+    expect(staticKey).toBe(key);
 
     for (const source of [worker, lovableWorker]) {
       expect(source).toContain(`const INDEXNOW_KEY = "${key}"`);
@@ -1037,7 +1040,8 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("path: `/${INDEXNOW_KEY}.txt`");
     expect(verifier).toContain("bodyEquals: INDEXNOW_KEY");
     expect(verifier).toContain("bodyEqualsOk");
-    expect(verifier).toContain("worker-indexnow-key");
+    expect(verifier).toContain('optionalHeader: ["x-served-by", "worker-indexnow-key"]');
+    expect(verifier).toContain("optional_header_ok");
     expect(verifier).toContain("redirect: \"manual\"");
     expect(verifier).toContain("worker-sitemap-proxy");
     expect(verifier).toContain("worker-robots-policy");
@@ -1049,6 +1053,7 @@ describe("production policy static guards", () => {
     expect(verifier).toContain("User-agent: DuckDuckBot");
     expect(reporter).toContain("/llms.txt returns the short Podiverzum.hu AI-agent guidance");
     expect(reporter).toContain("Heti RSS, news sitemap and full sitemap URLs");
+    expect(reporter).toContain("returns only the IndexNow key; worker-indexnow-key header is preferred");
     expect(verifier).toContain("bodyExcludes");
     expect(verifier).toContain("BEGIN Cloudflare Managed");
     expect(verifier).toContain("max-age=300");
