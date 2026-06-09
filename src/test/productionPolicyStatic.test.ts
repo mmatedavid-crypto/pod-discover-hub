@@ -1086,6 +1086,7 @@ describe("production policy static guards", () => {
       expect(source).toContain("/napi");
       expect(source).toContain("/heti");
       expect(source).toContain("/cegek");
+      expect(source).toContain("/toplista/all-time");
       expect(source).not.toContain("podiverzum.hu/szervezetek");
       expect(source).not.toContain("`${SITE}/szervezetek`");
       expect(source).not.toContain("podiverzum.hu/uj<");

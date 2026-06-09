@@ -143,6 +143,7 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
     urlTag(`${SITE}/`, null, "daily", "1.0"),
     urlTag(`${SITE}/kategoriak`, null, "daily", "0.7"),
     urlTag(`${SITE}/toplista`, null, "daily", "0.8"),
+    urlTag(`${SITE}/toplista/all-time`, null, "weekly", "0.8"),
     urlTag(`${SITE}/temak`, null, "daily", "0.8"),
     urlTag(`${SITE}/szemelyek`, null, "daily", "0.7"),
     urlTag(`${SITE}/cegek`, null, "daily", "0.7"),
