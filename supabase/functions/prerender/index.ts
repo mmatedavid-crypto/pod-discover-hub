@@ -1015,7 +1015,7 @@ function hubCrossLinks(current: HubKind): string {
   const all: Array<{ kind: HubKind; href: string; label: string; blurb: string }> = [
     { kind: "podcastok", href: "/podcastok", label: "Magyar podcastek", blurb: "Aktív műsorok, friss epizódok kategóriákba szervezve." },
     { kind: "szemelyek", href: "/szemelyek", label: "Személyek", blurb: "Műsorvezetők, megszólalók és említett közéleti nevek profiljai." },
-    { kind: "szervezetek", href: "/szervezetek", label: "Szervezetek", blurb: "Cégek, médiumok, intézmények említései." },
+    { kind: "cegek", href: "/cegek", label: "Cégek és szervezetek", blurb: "Cégek, médiumok, intézmények említései." },
     { kind: "partok", href: "/partok", label: "Pártok", blurb: "Magyar politikai pártok a podcastekben." },
     { kind: "temak", href: "/temak", label: "Témák", blurb: "Politika, gazdaság, AI, kultúra és további témakörök." },
   ];
@@ -1072,7 +1072,7 @@ function hubFaqHtml(kind: HubKind): string {
 }
 
 async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind) {
-  const canonical = `${SITE}/${kind === "cegek" ? "szervezetek" : kind}`;
+  const canonical = `${SITE}/${kind === "szervezetek" ? "cegek" : kind}`;
 
   if (kind === "podcastok") {
     const { data } = await (supabase as any)
@@ -1087,7 +1087,7 @@ async function buildHub(supabase: ReturnType<typeof createClient>, kind: HubKind
     const title = "Magyar podcastek listája — Podiverzum";
     const desc = "Fedezd fel a legjobb magyar podcasteket. Aktív műsorok, friss epizódok, AI-összefoglalókkal.";
     const intro = `<p>A <strong>Podiverzum</strong> a teljes magyar podcast-világot egy helyre gyűjti — több mint <strong>1 400 aktív magyar podcastet</strong> és <strong>130 000+ epizódot</strong> indexelünk folyamatosan. Az alábbi listán a legaktívabb ${rows.length} műsor szerepel, minőségi rangsor szerint.</p>
-<p>Minden epizódhoz <strong>AI-összefoglalót</strong> készítünk magyarul, kiemeljük az említett <a href="/szemelyek">személyeket</a> és <a href="/szervezetek">szervezeteket</a>, és témakörökbe rendezzük a tartalmat — politika, gazdaság, AI, sport, kultúra, egészség. Lásd a teljes <a href="/temak">témalistát</a>.</p>
+<p>Minden epizódhoz <strong>AI-összefoglalót</strong> készítünk magyarul, kiemeljük az említett <a href="/szemelyek">személyeket</a> és <a href="/cegek">szervezeteket</a>, és témakörökbe rendezzük a tartalmat — politika, gazdaság, AI, sport, kultúra, egészség. Lásd a teljes <a href="/temak">témalistát</a>.</p>
 <p>A magyar podcastek között megtalálod a legnagyobb hírműsorokat, beszélgetős és interjú-podcasteket, üzleti és tech-műsorokat, kulturális és lifestyle-tartalmakat. A keresőnk nem csak címekre keres — a teljes epizód-tartalomban, az említett személyek és témák szintjén is megtalálja, amit szeretnél hallani.</p>`;
     const listHtml = rows.map((p) => {
       const u = `${SITE}/podcast/${p.slug}`;
@@ -1128,7 +1128,7 @@ ${hubCrossLinks(kind)}`,
     const title = "Személyek magyar podcastokban — Podiverzum";
     const desc = "Magyar közélet, üzlet és kultúra kapcsolódó személyei: műsorvezetők, tényleges megszólalók és gyakran említett nevek. Kikről beszélnek a leggyakrabban a magyar podcastek?";
     const intro = `<p>A <strong>Podiverzum</strong> több mint <strong>${rows.length}+ személyt</strong> indexel a magyar podcast-világból: műsorvezetőket, tényleges megszólalókat, említett közéleti neveket, vállalkozókat, művészeket, sportolókat, tudósokat és szakértőket. Minden személynél megtalálod, mely epizódok kapcsolódnak hozzá — kontextussal és AI-összefoglalókkal.</p>
-<p>A személyek mögött <strong>Wikipedia-megerősítés</strong> és AI-elemzés áll: egyértelműen azonosítjuk a közéleti szereplőket, így nem keverednek össze a hasonló nevű személyek. Politikusoknál külön jelöljük a parlamenti szerepet és párthovatartozást — lásd a <a href="/partok">Pártok</a> hubot. Üzletembereknél a kapcsolódó <a href="/szervezetek">cégeket és intézményeket</a> is feltüntetjük.</p>
+<p>A személyek mögött <strong>Wikipedia-megerősítés</strong> és AI-elemzés áll: egyértelműen azonosítjuk a közéleti szereplőket, így nem keverednek össze a hasonló nevű személyek. Politikusoknál külön jelöljük a parlamenti szerepet és párthovatartozást — lásd a <a href="/partok">Pártok</a> hubot. Üzletembereknél a kapcsolódó <a href="/cegek">cégeket és intézményeket</a> is feltüntetjük.</p>
 <p>Ha kíváncsi vagy, mely podcastokban kapcsolódik valaki az elmúlt időszak témáihoz, hol van tényleges megszólalóként azonosítva, vagy milyen <a href="/temak">témákban</a> említették — itt egy kattintással mindezt megtalálod. A lista az említések és igazolt szerepek száma szerint csökkenő sorrendben mutatja a legaktívabb kapcsolódó személyeket.</p>`;
     const listHtml = rows.map((p) => {
       const u = `${SITE}/szemelyek/${p.slug}`;
@@ -1204,7 +1204,7 @@ ${hubCrossLinks(kind)}`,
     const desc = "Magyar politikai pártok említései és szereplései a magyar podcastekben — Fidesz, Tisza, DK, Momentum, és társaik.";
     const intro = `<p>A magyar közélet pártjai a podcastek tükrében. A <strong>Podiverzum</strong> ${rows.length} pártot indexel — minden parlamenti és parlamenten kívüli releváns magyar pártot. Pártonként megtalálod, mely epizódokban, milyen kontextusban beszéltek róluk az elmúlt időszakban.</p>
 <p>A párt-oldalakon nem csak a friss említéseket látod, hanem azt is, mely <a href="/toplista">műsorok</a> foglalkoznak vele rendszeresen, mely <a href="/szemelyek">közéleti szereplők</a> jelennek meg pártképviselőként vagy elemzőként, és milyen <a href="/temak">témák</a> kapcsolódnak hozzá — például választási kampány, gazdaságpolitika, EU-ügyek vagy belpolitikai konfliktusok.</p>
-<p>Ha egy adott politikai téma — gazdaságpolitika, jogállamiság, választás, EU-tagság, energiapolitika — érdekel, érdemes a <a href="/temak">Témák</a> hubon is körülnézned. A pártokon túl a kapcsolódó <a href="/szervezetek">intézményeket és médiumokat</a> külön szekcióban gyűjtjük.</p>`;
+<p>Ha egy adott politikai téma — gazdaságpolitika, jogállamiság, választás, EU-tagság, energiapolitika — érdekel, érdemes a <a href="/temak">Témák</a> hubon is körülnézned. A pártokon túl a kapcsolódó <a href="/cegek">intézményeket és médiumokat</a> külön szekcióban gyűjtjük.</p>`;
     const listHtml = rows.map((o) => {
       const u = `${SITE}/ceg/${o.slug}`;
       const bio = truncate(stripHtml(o.wikipedia_extract), 200);
@@ -1241,7 +1241,7 @@ ${hubCrossLinks(kind)}`,
     const desc = "Magyar podcast témák és kategóriák — politika, gazdaság, AI, sport, kultúra, egészség és minden más, amiről a magyar podcastek beszélnek.";
     const intro = `<p>A <strong>Podiverzum</strong> ${rows.length} témát indexel a magyar podcast-világból — politika, gazdaság, technológia, AI, sport, kultúra, egészség, oktatás, tudomány, lifestyle és minden más, ami foglalkoztatja a hazai hallgatókat. Minden témánál megtalálod a legrelevánsabb epizódokat, a kapcsolódó <a href="/szemelyek">személyeket</a> és a téma köré szerveződő <a href="/toplista">műsorokat</a>.</p>
 <p>A témákat <strong>AI-elemzés</strong> azonosítja az epizódok tartalmából: nem csak címszavakat keresünk, hanem a teljes szövegkörnyezetet figyelembe vesszük. Így pontosan megtalálod például az "infláció", "mesterséges intelligencia", "magyar foci", "klímaváltozás" vagy "vállalkozói történetek" témákat — még akkor is, ha az epizód címe nem említi szó szerint.</p>
-<p>Politikai vagy közéleti témák érdekelnek? Nézd meg a <a href="/partok">Pártok</a> hubot a párt-szintű bontásért, vagy a <a href="/szervezetek">Szervezetek</a> hubot az intézmények és médiumok említéseiért.</p>`;
+<p>Politikai vagy közéleti témák érdekelnek? Nézd meg a <a href="/partok">Pártok</a> hubot a párt-szintű bontásért, vagy a <a href="/cegek">Cégek és szervezetek</a> hubot az intézmények és médiumok említéseiért.</p>`;
     const listHtml = rows.map((t) => {
       const u = `${SITE}/temak/${t.slug}`;
       const intro2 = truncate(stripHtml(t.intro_text || t.description), 180);

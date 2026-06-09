@@ -245,6 +245,12 @@ describe("page consistency static guards", () => {
     expect(peopleHub).toContain("műsorvezetők, tényleges megszólalók és gyakran említett közéleti nevek");
     expect(prerender).toContain("Műsorvezetők, megszólalók és említett közéleti nevek profiljai.");
     expect(prerender).toContain("kapcsolódó <a href=\"/szemelyek\">személyeket</a>");
+    expect(prerender).toContain('href: "/cegek", label: "Cégek és szervezetek"');
+    expect(prerender).toContain('<a href="/cegek">szervezeteket</a>');
+    expect(prerender).toContain('kapcsolódó <a href="/cegek">cégeket és intézményeket</a>');
+    expect(prerender).toContain('<a href="/cegek">intézményeket és médiumokat</a>');
+    expect(prerender).not.toContain('href: "/szervezetek", label: "Szervezetek"');
+    expect(prerender).not.toContain('<a href="/szervezetek">szervezeteket</a>');
     expect(peopleHub).toContain("„{debouncedQ}” keresésre {totalAll.toLocaleString");
     expect(companiesHub).toContain("„{debouncedQ}” keresésre {total.toLocaleString");
     expect(partiesHub).toContain("„${debouncedQ}” keresésre");
@@ -576,6 +582,8 @@ describe("page consistency static guards", () => {
     }
     expect(prerender).toContain("`${SITE}/ceg/${o.slug}`");
     expect(prerender).toContain("`${SITE}/ceg/${orgSlug}/temak/${topicSlug}`");
+    expect(prerender).toContain('const canonical = `${SITE}/${kind === "szervezetek" ? "cegek" : kind}`');
+    expect(prerender).not.toContain('const canonical = `${SITE}/${kind === "cegek" ? "szervezetek" : kind}`');
     expect(prerender).toContain('parts[0] === "ceg"');
     expect(prerender).toContain('parts[0] === "ceg" || parts[0] === "szervezetek" || parts[0] === "company" || parts[0] === "part"');
     expect(prerender).toContain('buildOrganization(supabase, parts[1], "ceg")');
