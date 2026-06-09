@@ -150,6 +150,63 @@ function isSafePublicPerson(person: Record<string, unknown>): boolean {
   return Number(person.gated_episode_count || person.episode_count || 0) >= 1;
 }
 
+async function podcastHostNamesForPrerender(
+  supabase: ReturnType<typeof createClient>,
+  podcastId: string,
+  manualNames: unknown,
+): Promise<string[]> {
+  const manualHostNames = Array.isArray(manualNames)
+    ? manualNames.map((name) => stripHtml(String(name || ""))).filter(Boolean)
+    : [];
+  const peopleSelect = "id, name, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, gated_episode_count, episode_count";
+  const [mappedRes, manualRes, mentionsRes] = await Promise.all([
+    supabase
+      .from("person_podcast_map")
+      .select(`people:person_id(${peopleSelect})`)
+      .eq("podcast_id", podcastId)
+      .eq("role", "host"),
+    manualHostNames.length
+      ? supabase.from("people").select(peopleSelect).in("name", manualHostNames)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    supabase
+      .from("person_episode_mentions")
+      .select(`person_id, people:person_id(${peopleSelect})`)
+      .eq("podcast_id", podcastId)
+      .eq("mention_type", "host")
+      .limit(2000),
+  ]);
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const pushName = (value: unknown) => {
+    const name = stripHtml(String(value || "")).trim();
+    const key = name.toLocaleLowerCase("hu-HU");
+    if (!name || seen.has(key)) return;
+    seen.add(key);
+    out.push(name);
+  };
+  const manualPeople = ((manualRes.data || []) as Record<string, unknown>[]).filter(isSafePublicPerson);
+  for (const name of manualHostNames) {
+    const matched = manualPeople.find((person) => String(person.name || "").toLocaleLowerCase("hu-HU") === name.toLocaleLowerCase("hu-HU"));
+    pushName(matched?.name || name);
+  }
+  for (const row of ((mappedRes.data || []) as Array<{ people?: Record<string, unknown> }>)) {
+    if (row.people && isSafePublicPerson(row.people)) pushName(row.people.name);
+  }
+
+  const mentionTally = new Map<string, { count: number; person: Record<string, unknown> }>();
+  for (const row of ((mentionsRes.data || []) as Array<{ person_id?: string; people?: Record<string, unknown> }>)) {
+    if (!row.person_id || !row.people || !isSafePublicPerson(row.people)) continue;
+    const cur = mentionTally.get(row.person_id) || { count: 0, person: row.people };
+    cur.count += 1;
+    mentionTally.set(row.person_id, cur);
+  }
+  for (const { person } of [...mentionTally.values()].filter((row) => row.count >= 2).sort((a, b) => b.count - a.count)) {
+    pushName(person.name);
+  }
+  return out.slice(0, 3);
+}
+
 function isSafeGeneratedPersonBio(person: Record<string, unknown>, text?: string | null): boolean {
   const raw = stripHtml(text);
   if (!raw) return false;
@@ -399,12 +456,12 @@ async function buildPodcast(
 ) {
   const { data: pod } = await supabase
     .from("podcasts")
-    .select("id, title, display_title, slug, description, summary, image_url, website_url, seo_title, seo_description, language, category, language_decision, rss_status")
+    .select("id, title, display_title, slug, description, summary, image_url, website_url, seo_title, seo_description, language, category, language_decision, rss_status, hosts")
     .eq("slug", slug)
     .maybeSingle();
   if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null;
 
-  const [{ data: epData }, { count: totalEpisodeCount }] = await Promise.all([
+  const [{ data: epData }, { count: totalEpisodeCount }, hostNamesForSeo] = await Promise.all([
     supabase
       .from("episodes")
       .select("title, slug, published_at, ai_summary, summary, description, companies")
@@ -415,6 +472,7 @@ async function buildPodcast(
       .from("episodes")
       .select("id", { count: "exact", head: true })
       .eq("podcast_id", pod.id),
+    podcastHostNamesForPrerender(supabase, pod.id, pod.hosts),
   ]);
   const eps = (epData ?? []) as Array<Record<string, any>>;
 
@@ -437,9 +495,12 @@ async function buildPodcast(
   const organizationLine = topOrganizationNamesForSeo.length
     ? `Gyakori szervezet: ${topOrganizationNamesForSeo.join(", ")}.`
     : "";
+  const hostLine = hostNamesForSeo.length
+    ? `Műsorvezető: ${hostNamesForSeo.join(", ")}.`
+    : "";
   const baseDesc = firstSentence(pod.description || pod.summary || pod.seo_description)
     || `${displayName} podcast epizódjai a Podiverzumon.`;
-  const desc = podcastSeoDescription(baseDesc, [organizationLine]);
+  const desc = podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
   const canonical = `${SITE}/podcast/${pod.slug}`;
 
   const epHtml = eps
@@ -460,6 +521,9 @@ async function buildPodcast(
     inLanguage: pod.language || "hu",
     sameAs: [pod.website_url].filter(Boolean),
     numberOfEpisodes: epCount || undefined,
+    author: hostNamesForSeo.length
+      ? hostNamesForSeo.map((name) => ({ "@type": "Person", name }))
+      : undefined,
   };
   const itemList = {
     "@context": "https://schema.org",

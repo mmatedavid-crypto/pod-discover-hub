@@ -801,10 +801,17 @@ describe("page consistency static guards", () => {
     expect(prerender).toContain("const PODCAST_SEO_CTA = \"Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.\"");
     expect(prerender).toContain("function podcastSeoDescription(baseDesc: string, entityLines: string[]): string");
     expect(prerender).toContain("if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null");
+    expect(prerender).toContain("async function podcastHostNamesForPrerender");
+    expect(prerender).toContain(".from(\"person_podcast_map\")");
+    expect(prerender).toContain(".from(\"person_episode_mentions\")");
+    expect(prerender).toContain(".eq(\"mention_type\", \"host\")");
+    expect(prerender).toContain("return out.slice(0, 3)");
     expect(prerender).toContain("select(\"id\", { count: \"exact\", head: true })");
     expect(prerender).toContain("const title = `${displayName} – ${epCount} epizód · podcast | Podiverzum`");
+    expect(prerender).toContain("Műsorvezető: ${hostNamesForSeo.join(\", \")}");
     expect(prerender).toContain("Gyakori szervezet: ${topOrganizationNamesForSeo.join(\", \")}");
-    expect(prerender).toContain("const desc = podcastSeoDescription(baseDesc, [organizationLine])");
+    expect(prerender).toContain("const desc = podcastSeoDescription(baseDesc, [hostLine, organizationLine])");
+    expect(prerender).toContain("author: hostNamesForSeo.length");
     expect(prerender).toContain("numberOfEpisodes: epCount || undefined");
     expect(prerender).not.toContain("const title = pod.seo_title || `${pod.display_title || pod.title} — Podiverzum`");
     expect(podcast).toContain("pickEpisodeDescription(e, 220)");
