@@ -23,6 +23,16 @@ type EpRow = {
   } | null;
 };
 
+type EpItem = {
+  id: string;
+  title: string;
+  slug: string;
+  cover: string | null;
+  podSlug: string;
+  podTitle: string;
+  keyword: string;
+};
+
 export function DailyTrendsSection() {
   const [trends, setTrends] = useState<Trend[]>([]);
   const [eps, setEps] = useState<Record<string, EpRow[]>>({});
@@ -56,90 +66,92 @@ export function DailyTrendsSection() {
     })();
   }, []);
 
-  const visible = useMemo(
+  const visibleTrends = useMemo(
     () => trends.filter((t) => (eps[t.id] || []).length > 0),
     [trends, eps]
   );
 
-  if (loading || visible.length === 0) return null;
+  const episodeItems = useMemo<EpItem[]>(() => {
+    const items: EpItem[] = [];
+    for (const t of visibleTrends) {
+      for (const r of eps[t.id] || []) {
+        const ep = r.episodes;
+        if (!ep || !ep.podcasts) continue;
+        items.push({
+          id: ep.id,
+          title: ep.display_title || ep.title,
+          slug: ep.slug,
+          cover: ep.image_url || ep.podcasts.image_url,
+          podSlug: ep.podcasts.slug,
+          podTitle: ep.podcasts.display_title || ep.podcasts.title,
+          keyword: t.keyword,
+        });
+      }
+    }
+    return items;
+  }, [visibleTrends, eps]);
+
+  if (loading || visibleTrends.length === 0) return null;
+
+  // Duplicate lists for seamless marquee loop
+  const trendsLoop = [...visibleTrends, ...visibleTrends];
+  const epsLoop = [...episodeItems, ...episodeItems];
 
   return (
     <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/50 to-card/30 overflow-hidden">
-      <header className="px-5 sm:px-6 pt-5 pb-3 border-b border-border/60">
-        <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-primary mb-1 font-semibold">
+      <header className="px-5 sm:px-6 pt-4 pb-3 flex items-center justify-between gap-3 border-b border-border/60">
+        <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-primary font-semibold">
           <TrendingUp className="h-3.5 w-3.5" /> Napi trendek · Magyarország
         </div>
-        <h2 className="text-xl sm:text-2xl font-semibold">Miről beszél ma a világ?</h2>
-        <p className="text-xs text-muted-foreground mt-1">
-          Google Trends top kulcsszavak — mellettük az adatbázisunk releváns epizódjai.
-        </p>
+        <h2 className="text-sm sm:text-base font-semibold text-muted-foreground">Miről beszél ma a világ?</h2>
       </header>
 
-      <ul className="divide-y divide-border/50">
-        {visible.map((t) => {
-          const rows = eps[t.id] || [];
-          return (
-            <li
-              key={t.id}
-              className="group flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 hover:bg-card/60 transition-colors"
+      {/* Marquee row 1: trends */}
+      <div className="marquee-mask py-2.5 border-b border-border/40">
+        <div className="marquee-track marquee-slow flex items-center gap-2 px-3">
+          {trendsLoop.map((t, i) => (
+            <span
+              key={`${t.id}-${i}`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-semibold whitespace-nowrap shrink-0"
             >
-              {/* Rank + keyword */}
-              <div className="flex items-center gap-2.5 shrink-0 w-[34%] sm:w-[28%] min-w-0">
-                <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-4 text-right">
-                  {String(t.rank ?? "·").padStart(2, "0")}
-                </span>
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                    #{t.keyword}
-                  </div>
-                  {t.traffic && (
-                    <div className="text-[10px] text-muted-foreground tabular-nums truncate">
-                      {t.traffic}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <span className="text-[10px] tabular-nums opacity-70">
+                {String(t.rank ?? "·").padStart(2, "0")}
+              </span>
+              #{t.keyword}
+            </span>
+          ))}
+        </div>
+      </div>
 
-              {/* Episode ticker */}
-              <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  {rows.map((r) => {
-                    if (!r.episodes) return null;
-                    const ep = r.episodes;
-                    const cover = ep.image_url || ep.podcasts?.image_url;
-                    const pod = ep.podcasts?.display_title || ep.podcasts?.title || "";
-                    const title = ep.display_title || ep.title;
-                    return (
-                      <Link
-                        key={ep.id}
-                        to={`/podcast/${ep.podcasts?.slug}/${ep.slug}`}
-                        title={`${title} · ${pod}`}
-                        className="group/ep inline-flex items-center gap-2 max-w-[220px] sm:max-w-[260px] rounded-full border border-border/70 bg-background/70 hover:bg-background hover:border-primary/50 pl-1 pr-3 py-1 shrink-0 transition-colors"
-                      >
-                        {cover ? (
-                          <img
-                            src={cover}
-                            alt=""
-                            loading="lazy"
-                            className="h-6 w-6 rounded-full object-cover shrink-0 ring-1 ring-border/60"
-                          />
-                        ) : (
-                          <span className="h-6 w-6 rounded-full bg-muted shrink-0 inline-flex items-center justify-center">
-                            <Play className="h-3 w-3 text-muted-foreground" />
-                          </span>
-                        )}
-                        <span className="text-xs font-medium truncate group-hover/ep:text-primary">
-                          {title}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {/* Marquee row 2: episodes */}
+      <div className="marquee-mask py-2.5">
+        <div className="marquee-track marquee-slower marquee-reverse flex items-center gap-2 px-3">
+          {epsLoop.map((ep, i) => (
+            <Link
+              key={`${ep.id}-${i}`}
+              to={`/podcast/${ep.podSlug}/${ep.slug}`}
+              title={`${ep.title} · ${ep.podTitle}`}
+              className="group inline-flex items-center gap-2 max-w-[260px] rounded-full border border-border/70 bg-background/70 hover:bg-background hover:border-primary/50 pl-1 pr-3 py-1 shrink-0 transition-colors"
+            >
+              {ep.cover ? (
+                <img
+                  src={ep.cover}
+                  alt=""
+                  loading="lazy"
+                  className="h-6 w-6 rounded-full object-cover shrink-0 ring-1 ring-border/60"
+                />
+              ) : (
+                <span className="h-6 w-6 rounded-full bg-muted shrink-0 inline-flex items-center justify-center">
+                  <Play className="h-3 w-3 text-muted-foreground" />
+                </span>
+              )}
+              <span className="text-xs font-medium truncate group-hover:text-primary">
+                {ep.title}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
