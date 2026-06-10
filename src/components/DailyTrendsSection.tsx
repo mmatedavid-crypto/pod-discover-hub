@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { TrendingUp, ChevronDown, Play } from "lucide-react";
+import { TrendingUp, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
 
 type Trend = {
   id: string;
   keyword: string;
   rank: number | null;
   traffic: string | null;
-  related_queries: string[] | null;
 };
 
-type MatchEp = {
+type EpRow = {
   trend_id: string;
   rank: number;
   episodes: {
@@ -21,149 +19,127 @@ type MatchEp = {
     display_title: string | null;
     slug: string;
     image_url: string | null;
-    ai_summary: string | null;
-    summary: string | null;
-    podcasts: { slug: string; title: string; display_title: string | null } | null;
+    podcasts: { slug: string; title: string; display_title: string | null; image_url: string | null } | null;
   } | null;
 };
 
 export function DailyTrendsSection() {
   const [trends, setTrends] = useState<Trend[]>([]);
-  const [matches, setMatches] = useState<Record<string, MatchEp[]>>({});
-  const [open, setOpen] = useState<string | null>(null);
+  const [eps, setEps] = useState<Record<string, EpRow[]>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       const { data: tData } = await supabase
         .from("daily_trends")
-        .select("id,keyword,rank,traffic,related_queries")
+        .select("id,keyword,rank,traffic")
         .eq("is_active", true)
         .order("rank", { ascending: true, nullsFirst: false })
         .limit(10);
       const tr = (tData || []) as Trend[];
       setTrends(tr);
       if (tr.length) {
-        const ids = tr.map((t) => t.id);
         const { data: mData } = await supabase
           .from("daily_trend_episodes")
           .select(
-            "trend_id,rank,episodes!inner(id,title,display_title,slug,image_url,ai_summary,summary,podcasts!inner(slug,title,display_title))"
+            "trend_id,rank,episodes!inner(id,title,display_title,slug,image_url,podcasts!inner(slug,title,display_title,image_url))"
           )
-          .in("trend_id", ids)
+          .in("trend_id", tr.map((t) => t.id))
           .order("rank", { ascending: true });
-        const grouped: Record<string, MatchEp[]> = {};
+        const grouped: Record<string, EpRow[]> = {};
         for (const r of (mData || []) as any[]) {
-          (grouped[r.trend_id] ||= []).push(r as MatchEp);
+          (grouped[r.trend_id] ||= []).push(r as EpRow);
         }
-        setMatches(grouped);
+        setEps(grouped);
       }
       setLoading(false);
     })();
   }, []);
 
-  const visible = useMemo(() => trends.filter((t) => t.keyword), [trends]);
+  const visible = useMemo(
+    () => trends.filter((t) => (eps[t.id] || []).length > 0),
+    [trends, eps]
+  );
 
   if (loading || visible.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/50 to-card/30 p-5 sm:p-6">
-      <div className="mb-4">
+    <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/50 to-card/30 overflow-hidden">
+      <header className="px-5 sm:px-6 pt-5 pb-3 border-b border-border/60">
         <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-primary mb-1 font-semibold">
           <TrendingUp className="h-3.5 w-3.5" /> Napi trendek · Magyarország
         </div>
         <h2 className="text-xl sm:text-2xl font-semibold">Miről beszél ma a világ?</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          A Google Trends által ma kiemelt magyar témák — hozzájuk kapcsolva a katalógusunk leginkább releváns epizódjai.
+          Google Trends top kulcsszavak — mellettük az adatbázisunk releváns epizódjai.
         </p>
-      </div>
+      </header>
 
-      <div className="flex flex-wrap gap-2">
+      <ul className="divide-y divide-border/50">
         {visible.map((t) => {
-          const isOpen = open === t.id;
-          const eps = matches[t.id] || [];
+          const rows = eps[t.id] || [];
           return (
-            <button
+            <li
               key={t.id}
-              onClick={() => setOpen(isOpen ? null : t.id)}
-              className={cn(
-                "group inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                isOpen
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card/70 hover:border-primary/50 hover:bg-card"
-              )}
+              className="group flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 hover:bg-card/60 transition-colors"
             >
-              <span className="font-medium">#{t.keyword}</span>
-              {t.traffic && (
-                <span className={cn("text-[10px] tabular-nums opacity-70", isOpen && "opacity-90")}>
-                  {t.traffic}
+              {/* Rank + keyword */}
+              <div className="flex items-center gap-2.5 shrink-0 w-[34%] sm:w-[28%] min-w-0">
+                <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-4 text-right">
+                  {String(t.rank ?? "·").padStart(2, "0")}
                 </span>
-              )}
-              {eps.length > 0 && (
-                <ChevronDown
-                  className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")}
-                />
-              )}
-            </button>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                    #{t.keyword}
+                  </div>
+                  {t.traffic && (
+                    <div className="text-[10px] text-muted-foreground tabular-nums truncate">
+                      {t.traffic}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Episode ticker */}
+              <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {rows.map((r) => {
+                    if (!r.episodes) return null;
+                    const ep = r.episodes;
+                    const cover = ep.image_url || ep.podcasts?.image_url;
+                    const pod = ep.podcasts?.display_title || ep.podcasts?.title || "";
+                    const title = ep.display_title || ep.title;
+                    return (
+                      <Link
+                        key={ep.id}
+                        to={`/podcast/${ep.podcasts?.slug}/${ep.slug}`}
+                        title={`${title} · ${pod}`}
+                        className="group/ep inline-flex items-center gap-2 max-w-[220px] sm:max-w-[260px] rounded-full border border-border/70 bg-background/70 hover:bg-background hover:border-primary/50 pl-1 pr-3 py-1 shrink-0 transition-colors"
+                      >
+                        {cover ? (
+                          <img
+                            src={cover}
+                            alt=""
+                            loading="lazy"
+                            className="h-6 w-6 rounded-full object-cover shrink-0 ring-1 ring-border/60"
+                          />
+                        ) : (
+                          <span className="h-6 w-6 rounded-full bg-muted shrink-0 inline-flex items-center justify-center">
+                            <Play className="h-3 w-3 text-muted-foreground" />
+                          </span>
+                        )}
+                        <span className="text-xs font-medium truncate group-hover/ep:text-primary">
+                          {title}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </li>
           );
         })}
-      </div>
-
-      {open && (
-        <div className="mt-5 rounded-xl border border-border/70 bg-background/60 p-4">
-          {(matches[open] || []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Még nincs releváns epizód ehhez a trendhez. Nézz vissza később!
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {(matches[open] || []).map((m) => {
-                if (!m.episodes) return null;
-                const ep = m.episodes;
-                const podSlug = ep.podcasts?.slug;
-                const podTitle = ep.podcasts?.display_title || ep.podcasts?.title || "";
-                const epTitle = ep.display_title || ep.title;
-                const desc = ep.ai_summary || ep.summary || "";
-                return (
-                  <li key={ep.id} className="flex gap-3">
-                    {ep.image_url ? (
-                      <img
-                        src={ep.image_url}
-                        alt=""
-                        loading="lazy"
-                        className="h-16 w-16 rounded-md object-cover shrink-0 bg-muted"
-                      />
-                    ) : (
-                      <div className="h-16 w-16 rounded-md bg-muted shrink-0" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        to={`/podcast/${podSlug}/${ep.slug}`}
-                        className="block font-medium text-sm leading-snug hover:text-primary line-clamp-2"
-                      >
-                        {epTitle}
-                      </Link>
-                      <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                        {podTitle}
-                      </div>
-                      {desc && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{desc}</p>
-                      )}
-                    </div>
-                    <Link
-                      to={`/podcast/${podSlug}/${ep.slug}`}
-                      aria-label="Lejátszás"
-                      className="self-center shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      <Play className="h-4 w-4" />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      )}
+      </ul>
     </section>
   );
 }
