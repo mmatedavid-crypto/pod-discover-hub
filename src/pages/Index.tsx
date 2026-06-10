@@ -150,6 +150,7 @@ const TrendingPodcasts = lazy(() => import("@/components/TrendingPodcasts").then
 const MyLibraryRails = lazy(() => import("@/components/home/MyLibraryRails").then((m) => ({ default: m.MyLibraryRails })));
 const PersonalizedHomeRails = lazy(() => import("@/components/home/PersonalizedHomeRails").then((m) => ({ default: m.PersonalizedHomeRails })));
 const HomeDiscoveryShortcuts = lazy(() => import("@/components/home/HomeDiscoveryShortcuts").then((m) => ({ default: m.HomeDiscoveryShortcuts })));
+const DailyTrendsSection = lazy(() => import("@/components/DailyTrendsSection").then((m) => ({ default: m.DailyTrendsSection })));
 const WeeklyEditorialStrip = lazy(() => import("@/components/WeeklyEditorialStrip"));
 
 const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
