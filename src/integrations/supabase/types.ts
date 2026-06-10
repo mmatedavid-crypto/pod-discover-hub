@@ -413,6 +413,124 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_trend_episodes: {
+        Row: {
+          created_at: string
+          episode_id: string
+          id: string
+          match_source: string | null
+          rank: number
+          score: number | null
+          trend_id: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          id?: string
+          match_source?: string | null
+          rank: number
+          score?: number | null
+          trend_id: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          id?: string
+          match_source?: string | null
+          rank?: number
+          score?: number | null
+          trend_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_trend_episodes_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trend_episodes_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "daily_trend_episodes_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "daily_trend_episodes_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "daily_trend_episodes_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "daily_trend_episodes_trend_id_fkey"
+            columns: ["trend_id"]
+            isOneToOne: false
+            referencedRelation: "daily_trends"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_trends: {
+        Row: {
+          batch_id: string
+          created_at: string
+          fetched_at: string
+          id: string
+          is_active: boolean
+          keyword: string
+          normalized_keyword: string | null
+          rank: number | null
+          region: string
+          related_queries: Json | null
+          source: string
+          traffic: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          is_active?: boolean
+          keyword: string
+          normalized_keyword?: string | null
+          rank?: number | null
+          region?: string
+          related_queries?: Json | null
+          source?: string
+          traffic?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          normalized_keyword?: string | null
+          rank?: number | null
+          region?: string
+          related_queries?: Json | null
+          source?: string
+          traffic?: string | null
+        }
+        Relationships: []
+      }
       discovery_queue: {
         Row: {
           author: string | null
