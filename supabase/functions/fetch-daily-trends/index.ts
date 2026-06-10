@@ -15,10 +15,9 @@ const APIFY_TOKEN = Deno.env.get("APIFY_API_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Apify "Google Trends Scraper" actor. The community actor id used here:
-//   emastra/google-trends-scraper (alias: emastra~google-trends-scraper)
-// Override via body.actor if you license a different actor.
-const DEFAULT_ACTOR = "emastra~google-trends-scraper";
+// Apify "Google Trends Daily Scraper" actor (vnx0/google-trends-scraper).
+// Returns daily trending search terms per geo. Override via body.actor if needed.
+const DEFAULT_ACTOR = "vnx0~google-trends-scraper";
 
 type TrendItem = {
   keyword: string;
@@ -30,17 +29,13 @@ type TrendItem = {
 async function runApifyActor(actor: string): Promise<TrendItem[]> {
   if (!APIFY_TOKEN) throw new Error("APIFY_API_TOKEN missing");
 
-  // Synchronous run-and-get-dataset endpoint — Apify waits up to ~5 min.
   const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&clean=true`;
 
   const input = {
     geo: "HU",
-    country: "HU",
-    region: "HU",
-    timeRange: "now 1-d",
-    category: "",
-    maxItems: 20,
-    type: "daily",
+    language: "hu-HU",
+    timezone: 60,
+    daysBack: 1,
   };
 
   const res = await fetch(url, {
