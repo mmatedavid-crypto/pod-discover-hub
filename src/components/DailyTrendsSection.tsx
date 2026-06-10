@@ -110,15 +110,17 @@ export function DailyTrendsSection() {
       <div className="marquee-mask py-2.5 border-b border-border/40">
         <div className="marquee-track marquee-slow flex items-center gap-2 px-3">
           {trendsLoop.map((t, i) => (
-            <span
+            <Link
               key={`${t.id}-${i}`}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-semibold whitespace-nowrap shrink-0"
+              to={`/kereses?q=${encodeURIComponent(t.keyword)}`}
+              title={`Keresés: ${t.keyword}`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1 text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
             >
               <span className="text-[10px] tabular-nums opacity-70">
                 {String(t.rank ?? "·").padStart(2, "0")}
               </span>
               #{t.keyword}
-            </span>
+            </Link>
           ))}
         </div>
       </div>
