@@ -101,7 +101,7 @@ export function DailyTrendsSection() {
               </div>
 
               {/* Episode ticker */}
-              <div className="flex-1 min-w-0 overflow-x-auto scrollbar-none">
+              <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   {rows.map((r) => {
                     if (!r.episodes) return null;
