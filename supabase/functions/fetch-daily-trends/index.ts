@@ -38,7 +38,7 @@ async function runApifyActor(actor: string): Promise<TrendItem[]> {
     country: "HU",
     region: "HU",
     timeRange: "now 1-d",
-    category: "0",
+    category: "",
     maxItems: 20,
     type: "daily",
   };
