@@ -34,13 +34,11 @@ async function runApifyActor(actor: string): Promise<TrendItem[]> {
   const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&clean=true`;
 
   const input = {
-    // Most Google-Trends actors accept some variant of these. We pass several
-    // common keys so it works across forks without us re-tuning.
     geo: "HU",
     country: "HU",
     region: "HU",
     timeRange: "now 1-d",
-    category: 0,
+    category: "0",
     maxItems: 20,
     type: "daily",
   };
