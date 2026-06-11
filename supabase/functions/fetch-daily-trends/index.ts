@@ -148,19 +148,13 @@ async function matchEpisodesFor(
   const normKw = normalizeForMatch(keyword);
   const tokens = normKw.split(" ").filter((t) => t.length >= 3);
   const isMultiWord = tokens.length >= 2;
-  // Match rules:
-  //  - Single-token keywords (e.g. brand names like "blikk", "shakira") must
-  //    appear in the TITLE — description hits are usually sponsor/ad noise.
-  //  - Multi-word keywords (e.g. "tarr zoltán", "központi nyomozó főügyészség")
-  //    may match title or description, and all tokens must be present.
+  // Strict relevance gate: the keyword (or all its meaningful tokens) must
+  // appear in the TITLE. Description hits are too noisy (sponsor reads,
+  // tangential mentions) and produce trends that look broken to users.
   const phraseMatch = (m: Meta) => {
-    const inTitle = m.title.includes(normKw);
-    if (inTitle) return true;
-    if (!isMultiWord) return false;
-    const allInTitle = tokens.every((t) => m.title.includes(t));
-    if (allInTitle) return true;
-    const inBody = m.body.includes(normKw) || tokens.every((t) => m.body.includes(t));
-    return inBody;
+    if (m.title.includes(normKw)) return true;
+    if (isMultiWord && tokens.every((t) => m.title.includes(t))) return true;
+    return false;
   };
 
   const filtered: { episode_id: string; score: number; source: string }[] = [];
