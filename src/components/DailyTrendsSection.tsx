@@ -120,7 +120,7 @@ export function DailyTrendsSection() {
               t.resolved_kind === "person" && t.resolved_person?.slug
                 ? `/szemelyek/${t.resolved_person.slug}`
                 : t.resolved_kind === "organization" && t.resolved_organization?.slug
-                  ? `/szervezet/${t.resolved_organization.slug}`
+                  ? `/ceg/${t.resolved_organization.slug}`
                   : `/kereses?q=${encodeURIComponent(t.keyword)}`;
             const tip =
               t.resolved_kind === "person"
