@@ -46,11 +46,13 @@ export function DailyTrendsSection() {
     (async () => {
       const { data: tData } = await supabase
         .from("daily_trends")
-        .select("id,keyword,rank,traffic")
+        .select(
+          "id,keyword,rank,traffic,resolved_kind,resolved_person:people!daily_trends_resolved_person_id_fkey(slug,name),resolved_organization:organizations!daily_trends_resolved_organization_id_fkey(slug,name)"
+        )
         .eq("is_active", true)
         .order("rank", { ascending: true, nullsFirst: false })
         .limit(10);
-      const tr = (tData || []) as Trend[];
+      const tr = (tData || []) as unknown as Trend[];
       setTrends(tr);
       if (tr.length) {
         const { data: mData } = await supabase
