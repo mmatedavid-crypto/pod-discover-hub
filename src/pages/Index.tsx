@@ -251,18 +251,8 @@ const Index = () => {
   const [categoryRailEps, setCategoryRailEps] = useState<Record<string, EpisodeLite[]>>({});
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [lightEps, setLightEps] = useState<EpisodeLite[]>([]);
-  const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
-    { label: "MNB kamatdöntés", query: "MNB kamatdöntés" },
-    { label: "magyar gazdaság", query: "magyar gazdaság" },
-    { label: "mesterséges intelligencia", query: "mesterséges intelligencia" },
-    { label: "Hold Alapkezelő", query: "Hold Alapkezelő" },
-    { label: "egészséges életmód", query: "egészséges életmód" },
-    { label: "vállalkozói történetek", query: "vállalkozói történetek" },
-    { label: "politikai háttér", query: "politikai háttér" },
-    { label: "MI szabályozás", query: "MI szabályozás" },
-    { label: "tőzsde", query: "tőzsde" },
-    { label: "Friderikusz", query: "Friderikusz" },
-  ]);
+  // Legacy example chips kept for fallback / future use; currently the hero
+  // shows live trends via <HeroTrendsStrip /> instead.
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [heroPlaceholder, setHeroPlaceholder] = useState(
