@@ -300,29 +300,8 @@ const Index = () => {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  useEffect(() => {
-    supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "search_suggestions")
-      .maybeSingle()
-      .then(({ data }) => {
-        const items = (data?.value as any)?.items;
-        if (Array.isArray(items) && items.length) {
-          const cleaned = items.filter((c: any) => c?.label && c?.query);
-          if (cleaned.length >= 4) setChipPool(cleaned);
-        }
-      });
-  }, []);
+  // (search_suggestions chip pool removed — live trends now occupy this slot)
 
-  // Stable per-week rotation
-  const visibleChips = useMemo(() => {
-    if (!chipPool.length) return [];
-    const week = Math.floor(Date.now() / (7 * 86400_000));
-    const offset = week % chipPool.length;
-    const n = Math.min(5, chipPool.length);
-    return Array.from({ length: n }, (_, i) => chipPool[(offset + i) % chipPool.length]);
-  }, [chipPool]);
 
   useEffect(() => {
     setSeo({
