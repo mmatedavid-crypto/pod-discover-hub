@@ -241,8 +241,9 @@ async function resolveEntity(
   return null;
 }
 
-
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   let body: any = {};
