@@ -343,7 +343,11 @@ Deno.serve(async (req) => {
     let resolvedOrgs = 0;
     for (const t of inserted || []) {
       const matches = await matchEpisodesFor(supabase, t.keyword);
-      if (!matches.length) continue;
+      if (!matches.length) {
+        // No relevant episode → hide this trend from the UI entirely.
+        await supabase.from("daily_trends").update({ is_active: false }).eq("id", t.id);
+        continue;
+      }
       const mapRows = matches.map((m, i) => ({
         trend_id: t.id,
         episode_id: m.episode_id,
