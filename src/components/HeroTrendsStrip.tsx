@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { TrendingUp, Play, ArrowRight } from "lucide-react";
+import { Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type Trend = {
@@ -107,16 +107,7 @@ export function HeroTrendsStrip() {
   const epsLoop = [...episodeItems, ...episodeItems];
 
   return (
-    <div className="mt-3 space-y-1.5">
-      <Link
-        to="/trendek"
-        className="group inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-primary/80 hover:text-primary font-semibold transition-colors"
-      >
-        <TrendingUp className="h-3.5 w-3.5" />
-        Miről beszél ma az ország?
-        <ArrowRight className="h-3 w-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-      </Link>
-
+    <div className="space-y-1.5 py-3 border-y border-border/60 bg-background">
       {/* Row 1: keywords */}
       <div className="marquee-mask -mx-1">
         <div className="marquee-track marquee-slow flex items-center gap-2 px-1">
@@ -150,7 +141,7 @@ export function HeroTrendsStrip() {
               key={`${ep.id}-${i}`}
               to={`/podcast/${ep.podSlug}/${ep.slug}`}
               title={`${ep.title} · ${ep.podTitle}`}
-              className="group inline-flex items-center gap-2 max-w-[260px] rounded-full border border-border/70 bg-background/70 hover:bg-background hover:border-primary/50 pl-1 pr-3 py-1 shrink-0 transition-colors"
+              className="group inline-flex items-center gap-2 max-w-[260px] rounded-full border border-border/70 bg-card/60 hover:bg-card hover:border-primary/50 pl-1 pr-3 py-1 shrink-0 transition-colors"
             >
               {ep.cover ? (
                 <img
