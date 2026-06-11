@@ -14,7 +14,8 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const HOST = "podiverzum.hu";
 const BASE = `https://${HOST}`;
-const KEY = "312da0f92b3be0d7eb17620e8eca4135";
+// Key is served by the Cloudflare worker at /<key>.txt (see .lovable/cloudflare-worker.js).
+const KEY = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a";
 const KEY_LOCATION = `${BASE}/${KEY}.txt`;
 const ENDPOINT = "https://api.indexnow.org/IndexNow";
 const MAX_PER_REQUEST = 10000; // IndexNow hard limit per submission
