@@ -103,7 +103,7 @@ export function DailyTrendsSection() {
         <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-primary font-semibold">
           <TrendingUp className="h-3.5 w-3.5" /> Napi trendek · Magyarország
         </div>
-        <h2 className="text-sm sm:text-base font-semibold text-muted-foreground">Miről beszél ma az ország?</h2>
+        <h2 className="hidden sm:block text-sm sm:text-base font-semibold text-muted-foreground">Miről beszél ma az ország?</h2>
       </header>
 
       {/* Marquee row 1: trends */}
