@@ -739,22 +739,9 @@ const Index = () => {
           )}
           </div>
           {!hasSearched && q.length === 0 && (
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
-              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden sm:flex-nowrap">
-                {visibleChips.map((c, i) => (
-                  <button
-                    key={c.label}
-                    type="button"
-                    onClick={() => nav(`/kereses?q=${encodeURIComponent(c.query)}`)}
-                    className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
-                      i >= 3 ? "!hidden sm:!inline-flex" : ""
-                    } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <Suspense fallback={null}>
+              <HeroTrendsStrip />
+            </Suspense>
           )}
           <div className="mt-4">
             <Link
