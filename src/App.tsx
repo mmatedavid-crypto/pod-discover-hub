@@ -144,6 +144,7 @@ const App = () => (
           {/* Wave 3 long-tail: /podcast/:slug/epizodok/:year — humans get the podcast page */}
           <Route path="/podcast/:podcastSlug/epizodok/:year" element={<PodcastDetail />} />
           <Route path="/kereses" element={<SearchPage />} />
+          <Route path="/trendek" element={<TrendsPage />} />
           <Route path="/search" element={<RedirectPreserveSearch to="/kereses" />} />
           <Route path="/belepes" element={<AuthPage />} />
           <Route path="/auth" element={<AuthPage />} />
