@@ -107,8 +107,8 @@ export function HeroTrendsStrip() {
   const epsLoop = [...episodeItems, ...episodeItems];
 
   return (
-    <div className="space-y-1.5 py-3 border-y border-border/60 bg-background">
-      {/* Row 1: keywords */}
+    <div className="space-y-1.5 pt-2 pb-1 bg-transparent">
+      {/* Row 1: keywords (no top divider — sits directly under the search bar) */}
       <div className="marquee-mask -mx-1">
         <div className="marquee-track marquee-slow flex items-center gap-2 px-1">
           {trendsLoop.map((t, i) => (
