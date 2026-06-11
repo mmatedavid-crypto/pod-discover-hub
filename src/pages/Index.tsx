@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
+import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2, TrendingUp } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { sitePublisherJsonLd } from "@/lib/sitePublisher";
