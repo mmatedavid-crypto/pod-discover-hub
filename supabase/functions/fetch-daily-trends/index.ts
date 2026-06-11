@@ -83,11 +83,22 @@ async function runApifyActor(actor: string): Promise<TrendItem[]> {
   return items;
 }
 
-async function matchEpisodesFor(keyword: string): Promise<
-  { episode_id: string; score: number; source: string }[]
-> {
+function normalizeForMatch(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function matchEpisodesFor(
+  supabase: ReturnType<typeof createClient>,
+  keyword: string,
+): Promise<{ episode_id: string; score: number; source: string }[]> {
   // Use existing internal search-hybrid edge function (bot path returns lexical).
-  // We call it server-side with service auth — fast and avoids re-implementing FTS.
+  let candidates: { id: string; score: number }[] = [];
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/search-hybrid`, {
       method: "POST",
@@ -97,27 +108,65 @@ async function matchEpisodesFor(keyword: string): Promise<
         apikey: SERVICE_KEY,
         "User-Agent": "podiverzum-trends-matcher/1.0",
       },
-      body: JSON.stringify({ q: keyword, limit: 8, rerank: false }),
+      body: JSON.stringify({ q: keyword, limit: 15, rerank: false }),
     });
     if (!res.ok) return [];
     const json = await res.json();
     const rows = json?.episodes || json?.results || json?.items || [];
-    const out: { episode_id: string; score: number; source: string }[] = [];
-    for (const r of rows.slice(0, 3)) {
+    for (const r of rows.slice(0, 15)) {
       const id = r.id || r.episode_id;
       if (!id) continue;
-      out.push({
-        episode_id: id,
+      candidates.push({
+        id,
         score: Number(r.score ?? r.hybrid_score ?? r.rank ?? 0),
-        source: "search-hybrid",
       });
     }
-    return out;
   } catch (e) {
     console.warn("search-hybrid call failed for", keyword, e);
     return [];
   }
+
+  if (!candidates.length) return [];
+
+  // Relevance gate: keyword (or all multi-word tokens) must appear verbatim in
+  // the episode title or description. Search-hybrid often returns weak best-effort
+  // matches even when nothing in the catalog truly covers the trend term —
+  // those would be misleading on the public surface.
+  const { data: epRows } = await supabase
+    .from("episodes")
+    .select("id, title, display_title, description, ai_summary")
+    .in("id", candidates.map((c) => c.id));
+  type Meta = { title: string; body: string };
+  const meta = new Map<string, Meta>();
+  for (const r of (epRows || []) as any[]) {
+    meta.set(r.id, {
+      title: normalizeForMatch([r.display_title, r.title].filter(Boolean).join(" ")),
+      body: normalizeForMatch([r.ai_summary, r.description].filter(Boolean).join(" ")),
+    });
+  }
+
+  const normKw = normalizeForMatch(keyword);
+  const tokens = normKw.split(" ").filter((t) => t.length >= 3);
+  const isMultiWord = tokens.length >= 2;
+  // Strict relevance gate: the keyword (or all its meaningful tokens) must
+  // appear in the TITLE. Description hits are too noisy (sponsor reads,
+  // tangential mentions) and produce trends that look broken to users.
+  const phraseMatch = (m: Meta) => {
+    if (m.title.includes(normKw)) return true;
+    if (isMultiWord && tokens.every((t) => m.title.includes(t))) return true;
+    return false;
+  };
+
+  const filtered: { episode_id: string; score: number; source: string }[] = [];
+  for (const c of candidates) {
+    const m = meta.get(c.id);
+    if (!m || !phraseMatch(m)) continue;
+    filtered.push({ episode_id: c.id, score: c.score, source: "search-hybrid" });
+    if (filtered.length >= 3) break;
+  }
+  return filtered;
 }
+
 
 function normalizeName(s: string): string {
   return s
@@ -293,7 +342,7 @@ Deno.serve(async (req) => {
     let resolvedPeople = 0;
     let resolvedOrgs = 0;
     for (const t of inserted || []) {
-      const matches = await matchEpisodesFor(t.keyword);
+      const matches = await matchEpisodesFor(supabase, t.keyword);
       if (!matches.length) continue;
       const mapRows = matches.map((m, i) => ({
         trend_id: t.id,
