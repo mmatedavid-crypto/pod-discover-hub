@@ -498,6 +498,9 @@ export type Database = {
           rank: number | null
           region: string
           related_queries: Json | null
+          resolved_kind: string | null
+          resolved_organization_id: string | null
+          resolved_person_id: string | null
           source: string
           traffic: string | null
         }
@@ -512,6 +515,9 @@ export type Database = {
           rank?: number | null
           region?: string
           related_queries?: Json | null
+          resolved_kind?: string | null
+          resolved_organization_id?: string | null
+          resolved_person_id?: string | null
           source?: string
           traffic?: string | null
         }
@@ -526,10 +532,98 @@ export type Database = {
           rank?: number | null
           region?: string
           related_queries?: Json | null
+          resolved_kind?: string | null
+          resolved_organization_id?: string | null
+          resolved_person_id?: string | null
           source?: string
           traffic?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "daily_trends_resolved_organization_id_fkey"
+            columns: ["resolved_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_trends_resolved_person_id_fkey"
+            columns: ["resolved_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       discovery_queue: {
         Row: {
