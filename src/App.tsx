@@ -43,6 +43,7 @@ const CategoryDetail = lazy(() => import("./pages/CategoryDetail.tsx"));
 const PodcastDetail = lazy(() => import("./pages/PodcastDetail.tsx"));
 const EpisodeDetail = lazy(() => import("./pages/EpisodeDetail.tsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.tsx"));
+const TrendsPage = lazy(() => import("./pages/TrendsPage.tsx"));
 const AuthPage = lazy(() => import("./pages/AuthPage.tsx"));
 const AdminPage = lazy(() => import("./pages/AdminPage.tsx"));
 const AdminHubPage = lazy(() => import("./pages/AdminHubPage.tsx"));
