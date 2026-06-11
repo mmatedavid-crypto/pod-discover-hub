@@ -614,7 +614,7 @@ const Index = () => {
             A Podiverzum az epizódok tartalma alapján mutatja meg, mit érdemes meghallgatni.
           </p>
           {!hasSearched && q.length === 0 && (
-            <div className="mt-3 animate-fade-up">
+            <div className="mt-5 sm:mt-7 max-w-2xl animate-fade-up">
               <Link
                 to="/trendek"
                 className="group inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-primary/80 hover:text-primary font-semibold transition-colors"
@@ -625,7 +625,7 @@ const Index = () => {
               </Link>
             </div>
           )}
-          <div ref={heroWrapRef} className="mt-5 sm:mt-8 max-w-2xl relative animate-fade-up">
+          <div ref={heroWrapRef} className={`${!hasSearched && q.length === 0 ? "mt-2" : "mt-5 sm:mt-8"} max-w-2xl relative animate-fade-up`}>
           <form
             onSubmit={(e) => { e.preventDefault(); setHeroOpen(false); if (q.trim()) { try { window.localStorage.setItem("podi:hasSearched", "1"); } catch {} setHasSearched(true); nav(`/kereses?q=${encodeURIComponent(q.trim())}`); } }}
             className="relative focus-brand rounded-2xl transition-shadow"
@@ -719,6 +719,13 @@ const Index = () => {
             </div>
           )}
           </div>
+          {!hasSearched && q.length === 0 && (
+            <div className="mt-2 max-w-2xl">
+              <Suspense fallback={null}>
+                <HeroTrendsStrip />
+              </Suspense>
+            </div>
+          )}
           <div className="mt-4">
             <Link
               to="/te-podiverzumod"
@@ -734,11 +741,7 @@ const Index = () => {
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       </section>
 
-      {!hasSearched && q.length === 0 && (
-        <Suspense fallback={null}>
-          <HeroTrendsStrip />
-        </Suspense>
-      )}
+
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <Suspense fallback={null}>
