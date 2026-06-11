@@ -338,7 +338,7 @@ Deno.serve(async (req) => {
     let resolvedPeople = 0;
     let resolvedOrgs = 0;
     for (const t of inserted || []) {
-      const matches = await matchEpisodesFor(t.keyword);
+      const matches = await matchEpisodesFor(supabase, t.keyword);
       if (!matches.length) continue;
       const mapRows = matches.map((m, i) => ({
         trend_id: t.id,
