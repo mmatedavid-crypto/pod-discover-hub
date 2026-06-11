@@ -8,7 +8,11 @@ type Trend = {
   keyword: string;
   rank: number | null;
   traffic: string | null;
+  resolved_kind: string | null;
+  resolved_person: { slug: string; name: string } | null;
+  resolved_organization: { slug: string; name: string } | null;
 };
+
 
 type EpRow = {
   trend_id: string;
