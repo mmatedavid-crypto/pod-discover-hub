@@ -115,19 +115,33 @@ export function DailyTrendsSection() {
       {/* Marquee row 1: trends */}
       <div className="marquee-mask py-2.5 border-b border-border/40">
         <div className="marquee-track marquee-slow flex items-center gap-2 px-3">
-          {trendsLoop.map((t, i) => (
-            <Link
-              key={`${t.id}-${i}`}
-              to={`/kereses?q=${encodeURIComponent(t.keyword)}`}
-              title={`Keresés: ${t.keyword}`}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1 text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
-            >
-              <span className="text-[10px] tabular-nums opacity-70">
-                {String(t.rank ?? "·").padStart(2, "0")}
-              </span>
-              #{t.keyword}
-            </Link>
-          ))}
+          {trendsLoop.map((t, i) => {
+            const href =
+              t.resolved_kind === "person" && t.resolved_person?.slug
+                ? `/szemelyek/${t.resolved_person.slug}`
+                : t.resolved_kind === "organization" && t.resolved_organization?.slug
+                  ? `/szervezet/${t.resolved_organization.slug}`
+                  : `/kereses?q=${encodeURIComponent(t.keyword)}`;
+            const tip =
+              t.resolved_kind === "person"
+                ? `${t.resolved_person?.name ?? t.keyword} oldala`
+                : t.resolved_kind === "organization"
+                  ? `${t.resolved_organization?.name ?? t.keyword} oldala`
+                  : `Keresés: ${t.keyword}`;
+            return (
+              <Link
+                key={`${t.id}-${i}`}
+                to={href}
+                title={tip}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1 text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
+              >
+                <span className="text-[10px] tabular-nums opacity-70">
+                  {String(t.rank ?? "·").padStart(2, "0")}
+                </span>
+                #{t.keyword}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
