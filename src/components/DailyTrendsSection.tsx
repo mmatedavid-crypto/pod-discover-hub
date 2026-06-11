@@ -8,7 +8,11 @@ type Trend = {
   keyword: string;
   rank: number | null;
   traffic: string | null;
+  resolved_kind: string | null;
+  resolved_person: { slug: string; name: string } | null;
+  resolved_organization: { slug: string; name: string } | null;
 };
+
 
 type EpRow = {
   trend_id: string;
@@ -42,11 +46,13 @@ export function DailyTrendsSection() {
     (async () => {
       const { data: tData } = await supabase
         .from("daily_trends")
-        .select("id,keyword,rank,traffic")
+        .select(
+          "id,keyword,rank,traffic,resolved_kind,resolved_person:people!daily_trends_resolved_person_id_fkey(slug,name),resolved_organization:organizations!daily_trends_resolved_organization_id_fkey(slug,name)"
+        )
         .eq("is_active", true)
         .order("rank", { ascending: true, nullsFirst: false })
         .limit(10);
-      const tr = (tData || []) as Trend[];
+      const tr = (tData || []) as unknown as Trend[];
       setTrends(tr);
       if (tr.length) {
         const { data: mData } = await supabase
@@ -109,19 +115,33 @@ export function DailyTrendsSection() {
       {/* Marquee row 1: trends */}
       <div className="marquee-mask py-2.5 border-b border-border/40">
         <div className="marquee-track marquee-slow flex items-center gap-2 px-3">
-          {trendsLoop.map((t, i) => (
-            <Link
-              key={`${t.id}-${i}`}
-              to={`/kereses?q=${encodeURIComponent(t.keyword)}`}
-              title={`Keresés: ${t.keyword}`}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1 text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
-            >
-              <span className="text-[10px] tabular-nums opacity-70">
-                {String(t.rank ?? "·").padStart(2, "0")}
-              </span>
-              #{t.keyword}
-            </Link>
-          ))}
+          {trendsLoop.map((t, i) => {
+            const href =
+              t.resolved_kind === "person" && t.resolved_person?.slug
+                ? `/szemelyek/${t.resolved_person.slug}`
+                : t.resolved_kind === "organization" && t.resolved_organization?.slug
+                  ? `/ceg/${t.resolved_organization.slug}`
+                  : `/kereses?q=${encodeURIComponent(t.keyword)}`;
+            const tip =
+              t.resolved_kind === "person"
+                ? `${t.resolved_person?.name ?? t.keyword} oldala`
+                : t.resolved_kind === "organization"
+                  ? `${t.resolved_organization?.name ?? t.keyword} oldala`
+                  : `Keresés: ${t.keyword}`;
+            return (
+              <Link
+                key={`${t.id}-${i}`}
+                to={href}
+                title={tip}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1 text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
+              >
+                <span className="text-[10px] tabular-nums opacity-70">
+                  {String(t.rank ?? "·").padStart(2, "0")}
+                </span>
+                #{t.keyword}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
