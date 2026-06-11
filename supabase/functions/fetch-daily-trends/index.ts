@@ -136,27 +136,37 @@ async function matchEpisodesFor(
     .from("episodes")
     .select("id, title, display_title, description, ai_summary")
     .in("id", candidates.map((c) => c.id));
-  const meta = new Map<string, string>();
+  type Meta = { title: string; body: string };
+  const meta = new Map<string, Meta>();
   for (const r of (epRows || []) as any[]) {
-    const blob = [r.display_title, r.title, r.ai_summary, r.description]
-      .filter(Boolean)
-      .join(" ");
-    meta.set(r.id, normalizeForMatch(blob));
+    meta.set(r.id, {
+      title: normalizeForMatch([r.display_title, r.title].filter(Boolean).join(" ")),
+      body: normalizeForMatch([r.ai_summary, r.description].filter(Boolean).join(" ")),
+    });
   }
 
   const normKw = normalizeForMatch(keyword);
   const tokens = normKw.split(" ").filter((t) => t.length >= 3);
-  const phraseMatch = (text: string) => {
-    if (!text) return false;
-    if (text.includes(normKw)) return true;
-    if (tokens.length >= 2) return tokens.every((t) => text.includes(t));
-    return false;
+  const isMultiWord = tokens.length >= 2;
+  // Match rules:
+  //  - Single-token keywords (e.g. brand names like "blikk", "shakira") must
+  //    appear in the TITLE — description hits are usually sponsor/ad noise.
+  //  - Multi-word keywords (e.g. "tarr zoltán", "központi nyomozó főügyészség")
+  //    may match title or description, and all tokens must be present.
+  const phraseMatch = (m: Meta) => {
+    const inTitle = m.title.includes(normKw);
+    if (inTitle) return true;
+    if (!isMultiWord) return false;
+    const allInTitle = tokens.every((t) => m.title.includes(t));
+    if (allInTitle) return true;
+    const inBody = m.body.includes(normKw) || tokens.every((t) => m.body.includes(t));
+    return inBody;
   };
 
   const filtered: { episode_id: string; score: number; source: string }[] = [];
   for (const c of candidates) {
-    const text = meta.get(c.id) || "";
-    if (!phraseMatch(text)) continue;
+    const m = meta.get(c.id);
+    if (!m || !phraseMatch(m)) continue;
     filtered.push({ episode_id: c.id, score: c.score, source: "search-hybrid" });
     if (filtered.length >= 3) break;
   }
