@@ -167,6 +167,8 @@ Deno.serve(async (req) => {
 
     // Match episodes for each trend (sequential — keeps load gentle).
     let matched = 0;
+    let resolvedPeople = 0;
+    let resolvedOrgs = 0;
     for (const t of inserted || []) {
       const matches = await matchEpisodesFor(t.keyword);
       if (!matches.length) continue;
@@ -182,10 +184,33 @@ Deno.serve(async (req) => {
         .upsert(mapRows, { onConflict: "trend_id,episode_id" });
       if (mErr) console.warn("upsert match failed", t.keyword, mErr);
       else matched += mapRows.length;
+
+      // Auto-resolve to a Person / Organization entity using the matched episodes.
+      const episodeIds = matches.map((m) => m.episode_id);
+      const resolved = await resolveEntity(supabase, t.keyword, episodeIds);
+      if (resolved) {
+        await supabase
+          .from("daily_trends")
+          .update({
+            resolved_kind: resolved.kind,
+            resolved_person_id: resolved.kind === "person" ? resolved.id : null,
+            resolved_organization_id: resolved.kind === "organization" ? resolved.id : null,
+          })
+          .eq("id", t.id);
+        if (resolved.kind === "person") resolvedPeople++;
+        else resolvedOrgs++;
+      }
     }
 
     return new Response(
-      JSON.stringify({ ok: true, batchId, trends: inserted?.length || 0, episodeLinks: matched }),
+      JSON.stringify({
+        ok: true,
+        batchId,
+        trends: inserted?.length || 0,
+        episodeLinks: matched,
+        resolvedPeople,
+        resolvedOrgs,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
