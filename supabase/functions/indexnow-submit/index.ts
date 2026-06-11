@@ -18,7 +18,10 @@ const BASE = `https://${HOST}`;
 const KEY = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a";
 const KEY_LOCATION = `${BASE}/${KEY}.txt`;
 const ENDPOINT = "https://api.indexnow.org/IndexNow";
-const MAX_PER_REQUEST = 10000; // IndexNow hard limit per submission
+// IndexNow accepts up to 10 000 URLs per request, but new sites often hit a
+// 403 quota on very large first batches. Keep batches small + spaced out.
+const MAX_PER_REQUEST = 100;
+const BATCH_DELAY_MS = 1500;
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
