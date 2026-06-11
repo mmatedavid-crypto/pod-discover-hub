@@ -613,7 +613,19 @@ const Index = () => {
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
             A Podiverzum az epizódok tartalma alapján mutatja meg, mit érdemes meghallgatni.
           </p>
-          <div ref={heroWrapRef} className="mt-6 sm:mt-10 max-w-2xl relative animate-fade-up">
+          {!hasSearched && q.length === 0 && (
+            <div className="mt-3 animate-fade-up">
+              <Link
+                to="/trendek"
+                className="group inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-primary/80 hover:text-primary font-semibold transition-colors"
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                Miről beszél ma az ország?
+                <ArrowRight className="h-3 w-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+              </Link>
+            </div>
+          )}
+          <div ref={heroWrapRef} className="mt-5 sm:mt-8 max-w-2xl relative animate-fade-up">
           <form
             onSubmit={(e) => { e.preventDefault(); setHeroOpen(false); if (q.trim()) { try { window.localStorage.setItem("podi:hasSearched", "1"); } catch {} setHasSearched(true); nav(`/kereses?q=${encodeURIComponent(q.trim())}`); } }}
             className="relative focus-brand rounded-2xl transition-shadow"
