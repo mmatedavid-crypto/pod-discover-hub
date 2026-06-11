@@ -54,7 +54,6 @@ export default function TrendsPage() {
       description:
         "A Google Trends mai magyar kulcsszavai — minden trendhez a katalógusunk leginkább releváns epizódjai.",
       canonical: "https://podiverzum.hu/trendek",
-      robots: "noindex, follow",
     });
   }, []);
 
