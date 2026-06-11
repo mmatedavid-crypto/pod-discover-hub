@@ -719,11 +719,6 @@ const Index = () => {
             </div>
           )}
           </div>
-          {!hasSearched && q.length === 0 && (
-            <Suspense fallback={null}>
-              <HeroTrendsStrip />
-            </Suspense>
-          )}
           <div className="mt-4">
             <Link
               to="/te-podiverzumod"
