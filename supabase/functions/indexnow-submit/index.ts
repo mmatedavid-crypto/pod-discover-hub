@@ -33,7 +33,9 @@ async function submit(urls: string[]) {
   const unique = Array.from(new Set(urls.filter((u) => u.startsWith(BASE))));
   if (!unique.length) return { submitted: 0, batches: 0, statuses: [] };
   const statuses: number[] = [];
-  for (const batch of chunk(unique, MAX_PER_REQUEST)) {
+  const batches = chunk(unique, MAX_PER_REQUEST);
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
     const resp = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -45,11 +47,13 @@ async function submit(urls: string[]) {
       }),
     });
     statuses.push(resp.status);
-    // 200 = accepted, 202 = accepted (will process), 422 = invalid URLs, 429 = rate limit
+    // 200/202 = accepted, 422 = invalid URLs, 429 = rate limit, 403 = key/quota
     if (resp.status >= 400) {
       const text = await resp.text().catch(() => "");
       console.warn("IndexNow batch failed", resp.status, text.slice(0, 300));
+      if (resp.status === 429 || resp.status === 403) break; // back off
     }
+    if (i < batches.length - 1) await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
   }
   return { submitted: unique.length, batches: statuses.length, statuses };
 }
