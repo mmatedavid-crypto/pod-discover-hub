@@ -150,7 +150,7 @@ const TrendingPodcasts = lazy(() => import("@/components/TrendingPodcasts").then
 const MyLibraryRails = lazy(() => import("@/components/home/MyLibraryRails").then((m) => ({ default: m.MyLibraryRails })));
 const PersonalizedHomeRails = lazy(() => import("@/components/home/PersonalizedHomeRails").then((m) => ({ default: m.PersonalizedHomeRails })));
 const HomeDiscoveryShortcuts = lazy(() => import("@/components/home/HomeDiscoveryShortcuts").then((m) => ({ default: m.HomeDiscoveryShortcuts })));
-const DailyTrendsSection = lazy(() => import("@/components/DailyTrendsSection").then((m) => ({ default: m.DailyTrendsSection })));
+const HeroTrendsStrip = lazy(() => import("@/components/HeroTrendsStrip").then((m) => ({ default: m.HeroTrendsStrip })));
 const WeeklyEditorialStrip = lazy(() => import("@/components/WeeklyEditorialStrip"));
 
 const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
@@ -251,18 +251,8 @@ const Index = () => {
   const [categoryRailEps, setCategoryRailEps] = useState<Record<string, EpisodeLite[]>>({});
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [lightEps, setLightEps] = useState<EpisodeLite[]>([]);
-  const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
-    { label: "MNB kamatdöntés", query: "MNB kamatdöntés" },
-    { label: "magyar gazdaság", query: "magyar gazdaság" },
-    { label: "mesterséges intelligencia", query: "mesterséges intelligencia" },
-    { label: "Hold Alapkezelő", query: "Hold Alapkezelő" },
-    { label: "egészséges életmód", query: "egészséges életmód" },
-    { label: "vállalkozói történetek", query: "vállalkozói történetek" },
-    { label: "politikai háttér", query: "politikai háttér" },
-    { label: "MI szabályozás", query: "MI szabályozás" },
-    { label: "tőzsde", query: "tőzsde" },
-    { label: "Friderikusz", query: "Friderikusz" },
-  ]);
+  // Legacy example chips kept for fallback / future use; currently the hero
+  // shows live trends via <HeroTrendsStrip /> instead.
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [heroPlaceholder, setHeroPlaceholder] = useState(
@@ -310,29 +300,8 @@ const Index = () => {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  useEffect(() => {
-    supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "search_suggestions")
-      .maybeSingle()
-      .then(({ data }) => {
-        const items = (data?.value as any)?.items;
-        if (Array.isArray(items) && items.length) {
-          const cleaned = items.filter((c: any) => c?.label && c?.query);
-          if (cleaned.length >= 4) setChipPool(cleaned);
-        }
-      });
-  }, []);
+  // (search_suggestions chip pool removed — live trends now occupy this slot)
 
-  // Stable per-week rotation
-  const visibleChips = useMemo(() => {
-    if (!chipPool.length) return [];
-    const week = Math.floor(Date.now() / (7 * 86400_000));
-    const offset = week % chipPool.length;
-    const n = Math.min(5, chipPool.length);
-    return Array.from({ length: n }, (_, i) => chipPool[(offset + i) % chipPool.length]);
-  }, [chipPool]);
 
   useEffect(() => {
     setSeo({
@@ -739,22 +708,9 @@ const Index = () => {
           )}
           </div>
           {!hasSearched && q.length === 0 && (
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
-              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden sm:flex-nowrap">
-                {visibleChips.map((c, i) => (
-                  <button
-                    key={c.label}
-                    type="button"
-                    onClick={() => nav(`/kereses?q=${encodeURIComponent(c.query)}`)}
-                    className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
-                      i >= 3 ? "!hidden sm:!inline-flex" : ""
-                    } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <Suspense fallback={null}>
+              <HeroTrendsStrip />
+            </Suspense>
           )}
           <div className="mt-4">
             <Link
@@ -773,7 +729,6 @@ const Index = () => {
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <Suspense fallback={null}>
-          <DailyTrendsSection />
           <TrendingPodcasts />
           <HomeDiscoveryShortcuts />
           <WeeklyEditorialStrip />

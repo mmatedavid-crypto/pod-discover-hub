@@ -43,6 +43,7 @@ const CategoryDetail = lazy(() => import("./pages/CategoryDetail.tsx"));
 const PodcastDetail = lazy(() => import("./pages/PodcastDetail.tsx"));
 const EpisodeDetail = lazy(() => import("./pages/EpisodeDetail.tsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.tsx"));
+const TrendsPage = lazy(() => import("./pages/TrendsPage.tsx"));
 const AuthPage = lazy(() => import("./pages/AuthPage.tsx"));
 const AdminPage = lazy(() => import("./pages/AdminPage.tsx"));
 const AdminHubPage = lazy(() => import("./pages/AdminHubPage.tsx"));
@@ -143,6 +144,7 @@ const App = () => (
           {/* Wave 3 long-tail: /podcast/:slug/epizodok/:year — humans get the podcast page */}
           <Route path="/podcast/:podcastSlug/epizodok/:year" element={<PodcastDetail />} />
           <Route path="/kereses" element={<SearchPage />} />
+          <Route path="/trendek" element={<TrendsPage />} />
           <Route path="/search" element={<RedirectPreserveSearch to="/kereses" />} />
           <Route path="/belepes" element={<AuthPage />} />
           <Route path="/auth" element={<AuthPage />} />
