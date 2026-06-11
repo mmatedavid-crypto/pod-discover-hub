@@ -1,0 +1,1 @@
+UPDATE public.daily_trends SET is_active=false WHERE is_active=true AND id NOT IN (SELECT DISTINCT trend_id FROM public.daily_trend_episodes WHERE trend_id IS NOT NULL);
