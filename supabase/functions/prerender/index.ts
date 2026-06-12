@@ -1397,6 +1397,102 @@ ${hubCrossLinks(kind)}`,
   return null;
 }
 
+// ---------- A–Z full index pages (internal link hubs for crawl coverage) ----------
+type AZKind = "szemelyek" | "cegek" | "temak" | "podcastok";
+
+function azFirstLetter(name: string): string {
+  const c = String(name || "?").trim().charAt(0).toUpperCase();
+  if (/[0-9]/.test(c)) return "0–9";
+  if (!/[A-ZÁÉÍÓÖŐÚÜŰ]/.test(c)) return "#";
+  return c
+    .replace(/Á/g, "A").replace(/É/g, "E").replace(/Í/g, "I")
+    .replace(/[ÓÖŐ]/g, "O").replace(/[ÚÜŰ]/g, "U");
+}
+
+async function buildIndexAZ(supabase: ReturnType<typeof createClient>, kind: AZKind) {
+  const meta = {
+    szemelyek: { h1: "Személyek A–Z", title: "Személyek A–Z magyar podcastokban — Podiverzum", desc: "Az összes Podiverzumon indexelt személy ábécérendben — gyors böngészés podcast epizódokhoz.", base: "/szemelyek", path: "/szemelyek/abc" },
+    cegek: { h1: "Szervezetek A–Z", title: "Szervezetek A–Z — Podiverzum", desc: "Cégek, médiumok, intézmények és civil szervezetek ábécérendben, magyar podcastokból.", base: "/ceg", path: "/cegek/abc" },
+    temak: { h1: "Témák A–Z", title: "Témák A–Z — Podiverzum", desc: "A Podiverzum összes témakatalógusa ábécérendben.", base: "/temak", path: "/temak/abc" },
+    podcastok: { h1: "Magyar podcastek A–Z", title: "Magyar podcastek A–Z — Podiverzum", desc: "Az összes aktív magyar podcast ábécérendben.", base: "/podcast", path: "/podcastok/abc" },
+  }[kind];
+  const canonical = `${SITE}${meta.path}`;
+
+  let rows: Array<{ slug: string; name: string; count?: number }> = [];
+  if (kind === "szemelyek") {
+    const { data } = await (supabase as any)
+      .from("people")
+      .select("slug, name, gated_episode_count, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count")
+      .eq("is_public", true).eq("is_indexable", true).gt("gated_episode_count", 0)
+      .order("name", { ascending: true }).limit(5000);
+    rows = ((data ?? []) as any[]).filter(isSafePublicPerson)
+      .map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
+  } else if (kind === "cegek") {
+    const { data } = await (supabase as any)
+      .from("organizations")
+      .select("slug, name, gated_episode_count")
+      .eq("is_indexable", true).gt("gated_episode_count", 0)
+      .order("name", { ascending: true }).limit(5000);
+    rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
+  } else if (kind === "temak") {
+    const { data } = await (supabase as any)
+      .from("topics")
+      .select("slug, name, episode_count")
+      .eq("is_public", true).eq("is_indexable", true)
+      .order("name", { ascending: true }).limit(2000);
+    rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.name, count: r.episode_count }));
+  } else {
+    const { data } = await (supabase as any)
+      .from("podcasts")
+      .select("slug, title, display_title")
+      .eq("language_decision", "accept_hungarian").eq("rss_status", "active")
+      .order("title", { ascending: true }).limit(3000);
+    rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.display_title || r.title }));
+  }
+
+  const groups = new Map<string, Array<{ slug: string; name: string; count?: number }>>();
+  rows.forEach((r) => {
+    const l = azFirstLetter(r.name);
+    if (!groups.has(l)) groups.set(l, []);
+    groups.get(l)!.push(r);
+  });
+  const letters = [...groups.keys()].sort();
+  const letterNav = letters.map((l) => `<a href="#l-${esc(l)}">${esc(l)}</a>`).join(" · ");
+  const sections = letters.map((l) => {
+    const items = groups.get(l)!.map((r) =>
+      `<li><a href="${SITE}${meta.base}/${esc(r.slug)}">${esc(r.name)}</a>${r.count ? ` <em>· ${r.count}</em>` : ""}</li>`
+    ).join("");
+    return `<section id="l-${esc(l)}"><h2>${esc(l)}</h2><ul>${items}</ul></section>`;
+  }).join("\n");
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: meta.h1,
+    numberOfItems: rows.length,
+    itemListElement: rows.slice(0, 1000).map((r, i) => ({
+      "@type": "ListItem", position: i + 1,
+      url: `${SITE}${meta.base}/${r.slug}`, name: r.name,
+    })),
+  };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: meta.h1.replace(" A–Z", ""), item: `${SITE}/${kind === "cegek" ? "cegek" : kind}` },
+      { "@type": "ListItem", position: 3, name: "A–Z", item: canonical },
+    ],
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+    title: meta.title, description: meta.desc, canonical,
+    jsonLd: [itemList, breadcrumb],
+    bodyHtml: `<header><h1>${meta.h1}</h1><p>${esc(meta.desc)}</p><nav aria-label="A–Z">${letterNav}</nav></header>
+<main>${sections}</main>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
 // ---------- Wave 3: long-tail aggregation builders ----------
 // Each route requires a minimum episode count to qualify as a real landing page;
 // otherwise we return null so the worker can fall back to origin (avoids thin content).
