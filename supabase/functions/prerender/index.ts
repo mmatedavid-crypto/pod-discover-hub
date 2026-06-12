@@ -1440,29 +1440,45 @@ async function buildIndexAZ(supabase: ReturnType<typeof createClient>, kind: AZK
     }
     rows = all.map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
   } else if (kind === "cegek") {
-    const { data, error } = await (supabase as any)
-      .from("organizations")
-      .select("slug, name, gated_episode_count")
-      .eq("is_indexable", true).gt("gated_episode_count", 0)
-      .order("name", { ascending: true }).limit(3000);
-    if (error) console.error("buildIndexAZ orgs", error);
-    rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
+    const all: any[] = [];
+    let off = 0;
+    while (off < 10000) {
+      const { data, error } = await (supabase as any)
+        .from("organizations")
+        .select("slug, name, gated_episode_count")
+        .eq("is_indexable", true).gt("gated_episode_count", 0)
+        .order("name", { ascending: true }).range(off, off + 999);
+      if (error) { console.error("AZ orgs page err", off, error); break; }
+      const batch = (data ?? []) as any[];
+      all.push(...batch);
+      if (batch.length < 1000) break;
+      off += 1000;
+    }
+    rows = all.map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
   } else if (kind === "temak") {
     const { data, error } = await (supabase as any)
       .from("topics")
       .select("slug, name, episode_count")
       .eq("is_public", true).eq("is_indexable", true)
       .order("name", { ascending: true }).limit(2000);
-    if (error) console.error("buildIndexAZ topics", error);
+    if (error) console.error("AZ topics", error);
     rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.name, count: r.episode_count }));
   } else {
-    const { data, error } = await (supabase as any)
-      .from("podcasts")
-      .select("slug, title, display_title")
-      .eq("language_decision", "accept_hungarian").eq("rss_status", "active")
-      .order("title", { ascending: true }).limit(3000);
-    if (error) console.error("buildIndexAZ podcasts", error);
-    rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.display_title || r.title }));
+    const all: any[] = [];
+    let off = 0;
+    while (off < 5000) {
+      const { data, error } = await (supabase as any)
+        .from("podcasts")
+        .select("slug, title, display_title")
+        .eq("language_decision", "accept_hungarian").eq("rss_status", "active")
+        .order("title", { ascending: true }).range(off, off + 999);
+      if (error) { console.error("AZ podcasts page err", off, error); break; }
+      const batch = (data ?? []) as any[];
+      all.push(...batch);
+      if (batch.length < 1000) break;
+      off += 1000;
+    }
+    rows = all.map((r) => ({ slug: r.slug, name: r.display_title || r.title }));
   }
 
   const groups = new Map<string, Array<{ slug: string; name: string; count?: number }>>();
