@@ -574,6 +574,7 @@ async function buildPodcast(
 <header><h1>${esc(pod.display_title || pod.title)}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}</header>
 ${longDesc ? `<section><h2>A műsorról</h2><p>${esc(longDesc)}</p></section>` : ""}
 <section><h2>Epizódok</h2><ul>${epHtml}</ul></section>
+${yearArchiveHtml}
 </article>`,
     })),
     { headers: new Headers(baseHeaders) },
