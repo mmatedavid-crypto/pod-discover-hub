@@ -61,6 +61,15 @@ const stripHtml = (s?: string | null) =>
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
 
+function toIsoDuration(seconds?: number | null): string | undefined {
+  const s = Number(seconds);
+  if (!Number.isFinite(s) || s <= 0) return undefined;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  return `PT${h ? `${h}H` : ""}${m ? `${m}M` : ""}${sec ? `${sec}S` : ""}` || "PT0S";
+}
+
 function firstSentence(value?: string | null): string {
   const text = stripHtml(value).replace(/\s+/g, " ").trim();
   if (!text) return "";
