@@ -1972,6 +1972,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // A–Z full index pages for internal link coverage.
+    if (parts.length === 2 && parts[1] === "abc") {
+      const azKinds: Record<string, AZKind> = {
+        szemelyek: "szemelyek",
+        cegek: "cegek",
+        szervezetek: "cegek",
+        temak: "temak",
+        podcastok: "podcastok",
+      };
+      const azKind = azKinds[parts[0]];
+      if (azKind) {
+        const r = await buildIndexAZ(supabase, azKind);
+        return r ?? notFound(path);
+      }
+    }
+
+
     if (parts[0] === "podcast" && parts.length === 2) {
       const r = await buildPodcast(supabase, parts[1]);
       return r ?? notFound(path);
