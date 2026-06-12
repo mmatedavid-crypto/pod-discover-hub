@@ -1420,33 +1420,37 @@ async function buildIndexAZ(supabase: ReturnType<typeof createClient>, kind: AZK
 
   let rows: Array<{ slug: string; name: string; count?: number }> = [];
   if (kind === "szemelyek") {
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("people")
-      .select("slug, name, gated_episode_count, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count")
+      .select("slug, name, gated_episode_count, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, episode_count")
       .eq("is_public", true).eq("is_indexable", true).gt("gated_episode_count", 0)
-      .order("name", { ascending: true }).limit(5000);
+      .order("name", { ascending: true }).limit(3000);
+    if (error) console.error("buildIndexAZ people", error);
     rows = ((data ?? []) as any[]).filter(isSafePublicPerson)
       .map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
   } else if (kind === "cegek") {
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("organizations")
       .select("slug, name, gated_episode_count")
       .eq("is_indexable", true).gt("gated_episode_count", 0)
-      .order("name", { ascending: true }).limit(5000);
+      .order("name", { ascending: true }).limit(3000);
+    if (error) console.error("buildIndexAZ orgs", error);
     rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
   } else if (kind === "temak") {
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("topics")
       .select("slug, name, episode_count")
       .eq("is_public", true).eq("is_indexable", true)
       .order("name", { ascending: true }).limit(2000);
+    if (error) console.error("buildIndexAZ topics", error);
     rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.name, count: r.episode_count }));
   } else {
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("podcasts")
       .select("slug, title, display_title")
       .eq("language_decision", "accept_hungarian").eq("rss_status", "active")
       .order("title", { ascending: true }).limit(3000);
+    if (error) console.error("buildIndexAZ podcasts", error);
     rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.display_title || r.title }));
   }
 
