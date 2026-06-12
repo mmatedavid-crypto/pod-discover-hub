@@ -178,7 +178,7 @@ export default function EpisodeDetail() {
         .select("id,title,display_title,slug,image_url,published_at,ai_summary,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
         .eq("podcast_id", p.id).neq("id", e.id)
         .order("published_at", { ascending: false, nullsFirst: false })
-        .limit(6);
+        .limit(12);
       setMoreFromPod((mp || []) as any);
     })();
   }, [podcastSlug, episodeSlug]);
