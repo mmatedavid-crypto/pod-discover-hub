@@ -121,7 +121,7 @@ export default function TopicDetailPage() {
         if (e && !rejectedSet.has(e.id) && !byId.has(e.id)) byId.set(e.id, e);
       }
       const epList: any[] = [...byId.values()];
-      setEps(epList.sort(compareByScore).slice(0, 40) as any);
+      setEps(epList.sort(compareByScore).slice(0, 200) as any);
 
       // Related topics same domain
       if ((t as any).domain) {
