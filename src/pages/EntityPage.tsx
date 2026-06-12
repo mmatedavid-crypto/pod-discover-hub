@@ -290,6 +290,25 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             description: profileBio || undefined,
             url: pageUrl || undefined,
           },
+          (() => {
+            // BreadcrumbList — gives Google an explicit internal-link path back to the hub.
+            const origin = typeof window !== "undefined" ? window.location.origin : "https://podiverzum.hu";
+            const hub =
+              kind === "company" ? { name: "Szervezetek", path: "/cegek" } :
+              kind === "person"  ? { name: "Személyek",   path: "/szemelyek" } :
+              kind === "topic"   ? { name: "Témák",       path: "/temak" } :
+              kind === "ticker"  ? { name: "Tickerek",    path: "/cegek" } :
+                                    { name: "Hozzávalók", path: "/" };
+            return {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${origin}/` },
+                { "@type": "ListItem", position: 2, name: hub.name, item: `${origin}${hub.path}` },
+                { "@type": "ListItem", position: 3, name: finalName, item: pageUrl || `${origin}${typeof window !== "undefined" ? window.location.pathname : ""}` },
+              ],
+            };
+          })(),
         ],
       });
     })();
