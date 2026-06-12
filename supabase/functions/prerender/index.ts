@@ -462,7 +462,7 @@ async function buildPodcast(
     .maybeSingle();
   if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null;
 
-  const [{ data: epData }, { count: totalEpisodeCount }, hostNamesForSeo] = await Promise.all([
+  const [{ data: epData }, { count: totalEpisodeCount }, { data: yearRowsData }, hostNamesForSeo] = await Promise.all([
     supabase
       .from("episodes")
       .select("title, slug, published_at, ai_summary, summary, description, companies")
@@ -473,8 +473,33 @@ async function buildPodcast(
       .from("episodes")
       .select("id", { count: "exact", head: true })
       .eq("podcast_id", pod.id),
+    supabase
+      .from("episodes")
+      .select("published_at")
+      .eq("podcast_id", pod.id)
+      .not("published_at", "is", null)
+      .order("published_at", { ascending: false })
+      .limit(10000),
     podcastHostNamesForPrerender(supabase, pod.id, pod.hosts),
   ]);
+  // Aggregate episodes per year for the "Évek archívuma" deep-link block — feeds
+  // /podcast/:slug/epizodok/:year prerender, which already exists.
+  const yearTally = new Map<number, number>();
+  for (const row of ((yearRowsData ?? []) as Array<{ published_at?: string | null }>)) {
+    const pub = row.published_at;
+    if (!pub) continue;
+    const y = Number(pub.slice(0, 4));
+    if (!Number.isFinite(y) || y < 2000 || y > 2100) continue;
+    yearTally.set(y, (yearTally.get(y) || 0) + 1);
+  }
+  const yearList = [...yearTally.entries()]
+    .filter(([, count]) => count >= 3)
+    .sort((a, b) => b[0] - a[0]);
+  const yearArchiveHtml = yearList.length
+    ? `<aside><h2>Évek archívuma</h2><ul>${yearList
+        .map(([y, c]) => `<li><a href="/podcast/${esc(pod.slug)}/epizodok/${y}"><strong>${y}</strong></a> · ${c} epizód</li>`)
+        .join("")}</ul></aside>`
+    : "";
   const eps = (epData ?? []) as Array<Record<string, any>>;
 
   const displayName = pod.display_title || pod.title;
