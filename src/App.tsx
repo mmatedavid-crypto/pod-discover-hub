@@ -86,6 +86,7 @@ const CompaniesHubPage = lazy(() => import("./pages/CompaniesHubPage.tsx"));
 const PodcastReport2026 = lazy(() => import("./pages/PodcastReport2026.tsx"));
 const PartiesHubPage = lazy(() => import("./pages/PartiesHubPage.tsx"));
 const ToplistaPage = lazy(() => import("./pages/ToplistaPage.tsx"));
+const IndexAZPage = lazy(() => import("./pages/IndexAZPage.tsx"));
 const ToplistaAllTimePage = lazy(() => import("./pages/ToplistaAllTimePage.tsx"));
 const IntelligencePage = lazy(() => import("./pages/IntelligencePage.tsx"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage.tsx"));
