@@ -1397,6 +1397,133 @@ ${hubCrossLinks(kind)}`,
   return null;
 }
 
+// ---------- A–Z full index pages (internal link hubs for crawl coverage) ----------
+type AZKind = "szemelyek" | "cegek" | "temak" | "podcastok";
+
+function azFirstLetter(name: string): string {
+  const c = String(name || "?").trim().charAt(0).toUpperCase();
+  if (/[0-9]/.test(c)) return "0–9";
+  if (!/[A-ZÁÉÍÓÖŐÚÜŰ]/.test(c)) return "#";
+  return c
+    .replace(/Á/g, "A").replace(/É/g, "E").replace(/Í/g, "I")
+    .replace(/[ÓÖŐ]/g, "O").replace(/[ÚÜŰ]/g, "U");
+}
+
+async function buildIndexAZ(supabase: ReturnType<typeof createClient>, kind: AZKind) {
+  const meta = {
+    szemelyek: { h1: "Személyek A–Z", title: "Személyek A–Z magyar podcastokban — Podiverzum", desc: "Az összes Podiverzumon indexelt személy ábécérendben — gyors böngészés podcast epizódokhoz.", base: "/szemelyek", path: "/szemelyek/abc" },
+    cegek: { h1: "Szervezetek A–Z", title: "Szervezetek A–Z — Podiverzum", desc: "Cégek, médiumok, intézmények és civil szervezetek ábécérendben, magyar podcastokból.", base: "/ceg", path: "/cegek/abc" },
+    temak: { h1: "Témák A–Z", title: "Témák A–Z — Podiverzum", desc: "A Podiverzum összes témakatalógusa ábécérendben.", base: "/temak", path: "/temak/abc" },
+    podcastok: { h1: "Magyar podcastek A–Z", title: "Magyar podcastek A–Z — Podiverzum", desc: "Az összes aktív magyar podcast ábécérendben.", base: "/podcast", path: "/podcastok/abc" },
+  }[kind];
+  const canonical = `${SITE}${meta.path}`;
+
+  let rows: Array<{ slug: string; name: string; count?: number }> = [];
+  if (kind === "szemelyek") {
+    // The is_public=true / is_indexable=true gates are already maintained by
+    // recompute_person_gated_counts() — no need to re-apply isSafePublicPerson.
+    const all: any[] = [];
+    const pageSize = 1000;
+    let off = 0;
+    while (off < 8000) {
+      const { data, error } = await (supabase as any)
+        .from("people")
+        .select("slug, name, gated_episode_count")
+        .eq("is_public", true).eq("is_indexable", true).gt("gated_episode_count", 0)
+        .order("name", { ascending: true, nullsFirst: false })
+        .range(off, off + pageSize - 1);
+      if (error) { console.error("AZ people page err", off, error); break; }
+      const batch = (data ?? []) as any[];
+      all.push(...batch);
+      if (batch.length < pageSize) break;
+      off += pageSize;
+    }
+    rows = all.map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
+  } else if (kind === "cegek") {
+    const all: any[] = [];
+    let off = 0;
+    while (off < 10000) {
+      const { data, error } = await (supabase as any)
+        .from("organizations")
+        .select("slug, name, gated_episode_count")
+        .eq("is_indexable", true).gt("gated_episode_count", 0)
+        .order("name", { ascending: true }).range(off, off + 999);
+      if (error) { console.error("AZ orgs page err", off, error); break; }
+      const batch = (data ?? []) as any[];
+      all.push(...batch);
+      if (batch.length < 1000) break;
+      off += 1000;
+    }
+    rows = all.map((r) => ({ slug: r.slug, name: r.name, count: r.gated_episode_count }));
+  } else if (kind === "temak") {
+    const { data, error } = await (supabase as any)
+      .from("topics")
+      .select("slug, name, episode_count")
+      .eq("is_public", true).eq("is_indexable", true)
+      .order("name", { ascending: true }).limit(2000);
+    if (error) console.error("AZ topics", error);
+    rows = ((data ?? []) as any[]).map((r) => ({ slug: r.slug, name: r.name, count: r.episode_count }));
+  } else {
+    const all: any[] = [];
+    let off = 0;
+    while (off < 5000) {
+      const { data, error } = await (supabase as any)
+        .from("podcasts")
+        .select("slug, title, display_title")
+        .eq("language_decision", "accept_hungarian").eq("rss_status", "active")
+        .order("title", { ascending: true }).range(off, off + 999);
+      if (error) { console.error("AZ podcasts page err", off, error); break; }
+      const batch = (data ?? []) as any[];
+      all.push(...batch);
+      if (batch.length < 1000) break;
+      off += 1000;
+    }
+    rows = all.map((r) => ({ slug: r.slug, name: r.display_title || r.title }));
+  }
+
+  const groups = new Map<string, Array<{ slug: string; name: string; count?: number }>>();
+  rows.forEach((r) => {
+    const l = azFirstLetter(r.name);
+    if (!groups.has(l)) groups.set(l, []);
+    groups.get(l)!.push(r);
+  });
+  const letters = [...groups.keys()].sort();
+  const letterNav = letters.map((l) => `<a href="#l-${esc(l)}">${esc(l)}</a>`).join(" · ");
+  const sections = letters.map((l) => {
+    const items = groups.get(l)!.map((r) =>
+      `<li><a href="${SITE}${meta.base}/${esc(r.slug)}">${esc(r.name)}</a>${r.count ? ` <em>· ${r.count}</em>` : ""}</li>`
+    ).join("");
+    return `<section id="l-${esc(l)}"><h2>${esc(l)}</h2><ul>${items}</ul></section>`;
+  }).join("\n");
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: meta.h1,
+    numberOfItems: rows.length,
+    itemListElement: rows.slice(0, 1000).map((r, i) => ({
+      "@type": "ListItem", position: i + 1,
+      url: `${SITE}${meta.base}/${r.slug}`, name: r.name,
+    })),
+  };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: meta.h1.replace(" A–Z", ""), item: `${SITE}/${kind === "cegek" ? "cegek" : kind}` },
+      { "@type": "ListItem", position: 3, name: "A–Z", item: canonical },
+    ],
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+    title: meta.title, description: meta.desc, canonical,
+    jsonLd: [itemList, breadcrumb],
+    bodyHtml: `<header><h1>${meta.h1}</h1><p>${esc(meta.desc)}</p><nav aria-label="A–Z">${letterNav}</nav></header>
+<main>${sections}</main>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
 // ---------- Wave 3: long-tail aggregation builders ----------
 // Each route requires a minimum episode count to qualify as a real landing page;
 // otherwise we return null so the worker can fall back to origin (avoids thin content).
@@ -1875,6 +2002,23 @@ Deno.serve(async (req) => {
         return r ?? notFound(path);
       }
     }
+
+    // A–Z full index pages for internal link coverage.
+    if (parts.length === 2 && parts[1] === "abc") {
+      const azKinds: Record<string, AZKind> = {
+        szemelyek: "szemelyek",
+        cegek: "cegek",
+        szervezetek: "cegek",
+        temak: "temak",
+        podcastok: "podcastok",
+      };
+      const azKind = azKinds[parts[0]];
+      if (azKind) {
+        const r = await buildIndexAZ(supabase, azKind);
+        return r ?? notFound(path);
+      }
+    }
+
 
     if (parts[0] === "podcast" && parts.length === 2) {
       const r = await buildPodcast(supabase, parts[1]);

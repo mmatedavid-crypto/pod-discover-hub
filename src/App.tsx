@@ -86,6 +86,7 @@ const CompaniesHubPage = lazy(() => import("./pages/CompaniesHubPage.tsx"));
 const PodcastReport2026 = lazy(() => import("./pages/PodcastReport2026.tsx"));
 const PartiesHubPage = lazy(() => import("./pages/PartiesHubPage.tsx"));
 const ToplistaPage = lazy(() => import("./pages/ToplistaPage.tsx"));
+const IndexAZPage = lazy(() => import("./pages/IndexAZPage.tsx"));
 const ToplistaAllTimePage = lazy(() => import("./pages/ToplistaAllTimePage.tsx"));
 const IntelligencePage = lazy(() => import("./pages/IntelligencePage.tsx"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage.tsx"));
@@ -250,6 +251,10 @@ const App = () => (
           <Route path="/mediafigyeles" element={<Navigate to="/intelligence" replace />} />
           <Route path="/toplista" element={<ToplistaPage />} />
           <Route path="/toplista/all-time" element={<ToplistaAllTimePage />} />
+          <Route path="/szemelyek/abc" element={<IndexAZPage kind="szemelyek" />} />
+          <Route path="/cegek/abc" element={<IndexAZPage kind="cegek" />} />
+          <Route path="/temak/abc" element={<IndexAZPage kind="temak" />} />
+          <Route path="/podcastok/abc" element={<IndexAZPage kind="podcastok" />} />
           <Route path="/toplist" element={<Navigate to="/toplista" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

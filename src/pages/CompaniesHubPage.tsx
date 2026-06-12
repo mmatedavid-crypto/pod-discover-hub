@@ -114,6 +114,9 @@ export default function CompaniesHubPage() {
             placeholder="Keress szervezetet…"
             className="mt-6 w-full max-w-md px-3 py-2 rounded-md bg-card border border-border focus:border-primary/60 outline-none text-sm"
           />
+          <div className="mt-3 text-sm">
+            <a href="/cegek/abc" className="text-primary hover:underline">Teljes A–Z lista →</a>
+          </div>
         </div>
       </section>
 

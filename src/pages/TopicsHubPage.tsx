@@ -97,6 +97,9 @@ export default function TopicsHubPage() {
               </span>
             </div>
           )}
+          <div className="mt-4 text-sm">
+            <Link to="/temak/abc" className="text-primary hover:underline">Teljes A–Z lista →</Link>
+          </div>
         </div>
       </section>
 

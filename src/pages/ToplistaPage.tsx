@@ -93,12 +93,18 @@ export default function ToplistaPage() {
           {snapshotLabel && (
             <p className="text-xs text-muted-foreground">Friss mérés: {snapshotLabel}</p>
           )}
-          <div className="pt-2">
+          <div className="pt-2 flex flex-wrap gap-2">
             <Link
               to="/toplista/all-time"
               className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-foreground bg-foreground text-background hover:opacity-90 transition"
             >
               🏆 Minden idők legnézettebb epizódjai →
+            </Link>
+            <Link
+              to="/podcastok/abc"
+              className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-border bg-card hover:border-primary/40 transition"
+            >
+              Összes magyar podcast A–Z →
             </Link>
           </div>
         </header>
