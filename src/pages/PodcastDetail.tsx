@@ -606,6 +606,42 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
               </button>
             </div>
           )}
+          {(() => {
+            // Year archive nav — every year with ≥3 episodes links to /podcast/:slug/epizodok/:year
+            // (existing prerendered route). Gives Google deep-link paths into the full back catalog.
+            const yearTally = new Map<number, number>();
+            for (const e of eps) {
+              const pub = e?.published_at as string | null | undefined;
+              if (!pub) continue;
+              const y = Number(pub.slice(0, 4));
+              if (!Number.isFinite(y) || y < 2000 || y > 2100) continue;
+              yearTally.set(y, (yearTally.get(y) || 0) + 1);
+            }
+            const years = [...yearTally.entries()]
+              .filter(([, count]) => count >= 3)
+              .sort((a, b) => b[0] - a[0]);
+            if (years.length < 2) return null;
+            return (
+              <nav aria-label="Évek archívuma" className="mt-10 border-t border-border pt-6">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Évek archívuma
+                </h2>
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {years.map(([year, count]) => (
+                    <li key={year}>
+                      <Link
+                        to={`/podcast/${podcastSlug}/epizodok/${year}`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                      >
+                        <span className="font-medium">{year}</span>
+                        <span className="text-xs text-muted-foreground">{count} ep.</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            );
+          })()}
         </>
       )}
       </section>
