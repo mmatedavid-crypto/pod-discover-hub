@@ -61,6 +61,15 @@ const stripHtml = (s?: string | null) =>
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
 
+function toIsoDuration(seconds?: number | null): string | undefined {
+  const s = Number(seconds);
+  if (!Number.isFinite(s) || s <= 0) return undefined;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  return `PT${h ? `${h}H` : ""}${m ? `${m}M` : ""}${sec ? `${sec}S` : ""}` || "PT0S";
+}
+
 function firstSentence(value?: string | null): string {
   const text = stripHtml(value).replace(/\s+/g, " ").trim();
   if (!text) return "";
@@ -457,7 +466,7 @@ async function buildPodcast(
 ) {
   const { data: pod } = await supabase
     .from("podcasts")
-    .select("id, title, display_title, slug, description, summary, image_url, website_url, seo_title, seo_description, language, category, language_decision, rss_status, hosts")
+    .select("id, title, display_title, slug, description, summary, image_url, website_url, rss_url, seo_title, seo_description, language, category, language_decision, rss_status, hosts")
     .eq("slug", slug)
     .maybeSingle();
   if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null;
@@ -545,6 +554,7 @@ async function buildPodcast(
     image: pod.image_url || undefined,
     description: stripHtml(pod.seo_description || pod.summary || pod.description) || baseDesc,
     inLanguage: pod.language || "hu",
+    webFeed: pod.rss_url || undefined,
     sameAs: [pod.website_url].filter(Boolean),
     numberOfEpisodes: epCount || undefined,
     author: hostNamesForSeo.length
@@ -588,14 +598,14 @@ async function buildEpisode(
 ) {
   const { data: pod } = await supabase
     .from("podcasts")
-    .select("id, title, display_title, slug, image_url, language, language_decision, rss_status")
+    .select("id, title, display_title, slug, image_url, language, language_decision, rss_status, rss_url")
     .eq("slug", podcastSlug)
     .maybeSingle();
   if (!pod) return null;
 
   const { data: ep } = await supabase
     .from("episodes")
-    .select("id, title, display_title, slug, published_at, audio_url, image_url, ai_summary, summary, description, seo_title, seo_description, topics, people, companies, tickers, ingredients")
+    .select("id, title, display_title, slug, published_at, audio_url, duration_seconds, image_url, ai_summary, summary, description, seo_title, seo_description, topics, people, companies, tickers, ingredients")
     .eq("podcast_id", pod.id)
     .eq("slug", episodeSlug)
     .maybeSingle();
@@ -636,6 +646,7 @@ async function buildEpisode(
     )
     .join("");
 
+  const isoDuration = toIsoDuration(ep.duration_seconds);
   const ld = {
     "@context": "https://schema.org",
     "@type": "PodcastEpisode",
@@ -643,19 +654,32 @@ async function buildEpisode(
     url: canonical,
     mainEntityOfPage: canonical,
     datePublished: ep.published_at || undefined,
+    uploadDate: ep.published_at || undefined,
     description: longText || undefined,
     image: ep.image_url || pod.image_url || undefined,
     inLanguage: "hu-HU",
     isAccessibleForFree: true,
+    timeRequired: isoDuration,
+    duration: isoDuration,
     associatedMedia: ep.audio_url
-      ? { "@type": "MediaObject", contentUrl: ep.audio_url }
+      ? {
+          "@type": "AudioObject",
+          contentUrl: ep.audio_url,
+          duration: isoDuration,
+          encodingFormat: "audio/mpeg",
+        }
       : undefined,
     partOfSeries: {
       "@type": "PodcastSeries",
       name: pod.display_title || pod.title,
       url: `${SITE}/podcast/${pod.slug}`,
+      image: pod.image_url || undefined,
       inLanguage: "hu-HU",
+      webFeed: pod.rss_url || undefined,
     },
+    potentialAction: ep.audio_url
+      ? { "@type": "ListenAction", target: ep.audio_url }
+      : undefined,
   };
   const breadcrumbs = {
     "@context": "https://schema.org",
