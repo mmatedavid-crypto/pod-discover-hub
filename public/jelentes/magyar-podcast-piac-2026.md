@@ -68,34 +68,32 @@ Magyar epizódok megjelenésének éve szerint (1970 előtti és nyilvánvalóan
 
 Áttörési pont: **2020–2021**, járvány + Spotify HU launch, három év alatt megnégyszereződött a termelés. A 2026-os ütem alapján (15 505 epizód 165 nap alatt) az év végére ~34 300 magyar epizód várható.
 
-## Top témák (a katalógus legutóbbi ~3,5 hónapja, 2026-02-19 – 2026-05-30 megjelenésű 3 498 epizód)
+## Top tematikus klaszterek (17 hónap, 2025-01-01 – 2026-06-14, 29 315 címkézett epizódból)
 
-> **Módszertani megjegyzés:** A Podiverzum 2026 májusában indult. A taxonómia-alapú téma-leképezés (topic-judge) első futtatása 2026-05-17 és 05-30 között zajlott, és a katalógus akkor friss, utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) magyar epizódjait dolgozta fel — összesen 3 498 epizódot. A korábbi évek (2015 – 2026 január) epizódjainak visszamenőleges téma-címkézése későbbi feladat; a sorrend és a nagyságrend ezzel változhat. A 12 hónapos vagy 17 hónapos téma-statisztikát ezért szándékosan **nem** közöljük.
+> **Módszertani megjegyzés:** Az AI-pipeline epizódonként szabad-szöveges téma-címkéket nyer ki a leírásból és (ahol van) az átiratból. A 42 132 magyar epizód 70%-án (29 315 ep) van legalább egy téma-címke. Az alábbi top-lista ezeket a nyers címkéket tematikus klaszterekbe csoportosítja — pl. „AI / Mesterséges intelligencia" = az `ai` és `mesterséges intelligencia` címkét viselő epizódok DISTINCT halmaza. Egy epizód több klaszterhez is tartozhat, klaszteren belül egyszer számoljuk.
 
-| # | Téma | Epizódok |
+| # | Tematikus klaszter | Epizódok |
 |---|---|---:|
-| 1 | Biblia | 259 |
-| 2 | Választás | 248 |
-| 3 | Zene | 230 |
-| 4 | Mesterséges intelligencia | 205 |
-| 5 | Film | 170 |
-| 6 | Háború (Ukrajna / Közel-Kelet) | 146 |
-| 7 | Sport általában | 143 |
-| 8 | Gazdaság | 141 |
-| 9 | Önismeret | 134 |
-| 10 | Család | 123 |
-| 11 | Kereszténység | 122 |
-| 12 | Pszichológia | 122 |
-| 13 | Közélet | 118 |
-| 14 | Média | 112 |
-| 15 | Színház | 107 |
-| 16 | Alvás | 105 |
-| 17 | Meditáció | 104 |
-| 18 | AI (külön címke) | 103 |
-| 19 | Kormány | 99 |
-| 20 | Egészség | 94 |
+| 1 | Politika / közélet / választás | 845 |
+| 2 | AI / Mesterséges intelligencia | 762 |
+| 3 | Mentális wellness / önismeret | 658 |
+| 4 | Sport | 558 |
+| 5 | Gazdaság / pénzügy | 551 |
+| 6 | Gyerek / esti mese | 541 |
+| 7 | Zene | 520 |
+| 8 | Vallás / kereszténység | 518 |
+| 9 | Vállalkozás / karrier | 261 |
+| 10 | Klíma / fenntarthatóság | 238 |
+| 11 | Film / sorozat | 231 |
+| 12 | Könyv / irodalom | 221 |
+| 13 | Háború (Ukrajna / Közel-Kelet) | 219 |
+| 14 | Színház / kultúra | 218 |
+| 15 | Egészség | 147 |
+| 16 | Oktatás | 134 |
+| 17 | Család / párkapcsolat | 121 |
+| 18 | Technológia | 103 |
 
-Kiemelés: a 2026 tavaszi kampányidőszak ablakában a **Választás** (248 ep) és az **AI / Mesterséges intelligencia** (205 + 103 ep) együtt is mérhető magyar közéleti tartalmat generál. A vallási és spirituális témák (Biblia 259, Kereszténység 122, Meditáció 104, Önismeret 134) együtt a kanonikusan címkézett blokk jelentős részét adják.
+Az első három klaszter — **politika/közélet/választás (845), AI/Mesterséges intelligencia (762), mentális wellness/önismeret (658)** — együttesen a magyar podcastnyilvánosság hangsúlyait jelzi: erős közéleti-választási diskurzus, párhuzamos AI-mainstreaming, és a self-care/önismeret tematika tartós jelenléte. A klaszikus tematikák (sport, gazdaság, zene, vallás) szorosan utánuk következnek 520–558 epizóddal.
 
 ## Top kategóriák (epizódszám szerint, top 15)
 
