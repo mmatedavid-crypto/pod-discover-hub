@@ -166,7 +166,6 @@ export function EpisodeCard({
   };
   const allEnts = showEntities
     ? [
-        ...(e.topics || []).map((v) => ({ kind: "topic" as const, v })),
         ...(e.people || []).map((v) => ({ kind: "person" as const, v })),
         ...(e.companies || []).map((v) => ({ kind: "company" as const, v })),
         ...(e.tickers || []).map((v) => ({ kind: "ticker" as const, v })),
@@ -259,15 +258,7 @@ export function EpisodeCard({
             <HL text={desc} terms={terms} />
           </p>
         )}
-        {(showTopics && e.topics && e.topics.length > 0) && (
-          <div className="flex flex-wrap gap-1 mt-2.5">
-            {e.topics.slice(0, 5).map((t) => (
-              <Link key={t} to={entityHref("topic", t)} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
-                {t}
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Téma-chipek a régi nyers `episodes.topics` mezőből kivéve — kevert nyelvű, megbízhatatlan adat. Új forrás: topic_clusters (külön plumbing). */}
         {showEntities && allEnts.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2.5">
             {allEnts.map(({ kind, v }) => {
@@ -369,7 +360,6 @@ function EpisodeRailCard({
   };
   const allEnts = showEntities
     ? [
-        ...(e.topics || []).map((v) => ({ kind: "topic" as const, v })),
         ...(e.people || []).map((v) => ({ kind: "person" as const, v })),
         ...(e.companies || []).map((v) => ({ kind: "company" as const, v })),
       ].slice(0, 4)
@@ -451,15 +441,7 @@ function EpisodeRailCard({
             <HL text={desc} terms={terms} />
           </p>
         )}
-        {(showTopics && e.topics && e.topics.length > 0) && (
-          <div className="mt-2.5 flex flex-wrap gap-1">
-            {e.topics.slice(0, 3).map((t) => (
-              <Link key={t} to={entityHref("topic", t)} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
-                {t}
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Téma-chipek kikapcsolva — új forrás: topic_clusters. */}
         {showEntities && allEnts.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1">
             {allEnts.map(({ kind, v }) => {

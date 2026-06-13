@@ -1988,6 +1988,73 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_topic_cluster_map: {
+        Row: {
+          cluster_id: string
+          confidence: number
+          created_at: string
+          episode_id: string
+          source_label: string | null
+        }
+        Insert: {
+          cluster_id: string
+          confidence?: number
+          created_at?: string
+          episode_id: string
+          source_label?: string | null
+        }
+        Update: {
+          cluster_id?: string
+          confidence?: number
+          created_at?: string
+          episode_id?: string
+          source_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_topic_cluster_map_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "topic_clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_topic_cluster_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_topic_cluster_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_topic_cluster_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_topic_cluster_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_topic_cluster_map_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
       episode_topic_map: {
         Row: {
           confidence: number
@@ -6557,6 +6624,48 @@ export type Database = {
           },
         ]
       }
+      topic_clusters: {
+        Row: {
+          canonical_label_hu: string
+          cluster_method: string
+          created_at: string
+          description: string | null
+          episode_count: number
+          id: string
+          is_indexable: boolean
+          is_public: boolean
+          member_labels: string[]
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          canonical_label_hu: string
+          cluster_method?: string
+          created_at?: string
+          description?: string | null
+          episode_count?: number
+          id?: string
+          is_indexable?: boolean
+          is_public?: boolean
+          member_labels?: string[]
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          canonical_label_hu?: string
+          cluster_method?: string
+          created_at?: string
+          description?: string | null
+          episode_count?: number
+          id?: string
+          is_indexable?: boolean
+          is_public?: boolean
+          member_labels?: string[]
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       topic_figure_seed: {
         Row: {
           aliases: string[]
@@ -8637,6 +8746,7 @@ export type Database = {
         }[]
       }
       recompute_person_role_counts: { Args: never; Returns: number }
+      recompute_topic_cluster_counts: { Args: never; Returns: undefined }
       record_episode_interaction: {
         Args: { p_episode_id: string; p_kind: string; p_source?: string }
         Returns: undefined

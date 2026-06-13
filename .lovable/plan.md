@@ -1,75 +1,63 @@
-## Cél
-3 dolgot rendbe teszünk egy menetben:
-- **(2+3)** A Codex által épített canonical-alias registry-t és az `organizations` táblát összerakjuk: 17 ismert duplikátumot biztonságosan összevonunk + a sérült variánsokat alias-ként eltesszük, hogy a jövőbeli AI-extraction is normalizáljon.
-- **(4)** YouTube transcript drain rövid bump: 4592 `confirmed` pár még nincs lefuttatva.
+## Mit csinálunk
 
----
+Két dolog, ahogy kérted:
 
-## 1. Org-merge SQL függvény (migráció)
+1. **Nem hagyjuk benn a zavaros rendszereket még read-only-ként sem.** Az `episodes.topics` tömb (100 270 epizód, kevert angol/magyar RSS+AI szemét) és az `episode_ai_classifications` tábla (131 623 sor, 79-elemes angol/magyar keverék taxonómia) **nem hivatkozható többet sehonnan a frontendből**. Maga az adat törlésre kerül kódból elérhető helyekről, a táblákat csak admin-only marad olvashatóként (RLS lezárás), hogy egy későbbi audithoz visszanézhető legyen — de a UI-ban és a publikus API-kban nem lesznek.
 
-Új `public.merge_organizations(src_id uuid, dst_id uuid)` — SECURITY DEFINER, admin-only, tranzakcióban:
+2. **Az `episode_extracted_topics` (134 774 sor, 28 166 epizód, 115 544 különböző label) klaszterezése.** Ez a rendszer minőségileg messze a legjobb (magyar, specifikus, evidence-alapú: „magyar péter” 121, „orbán viktor” 111, „orosz-ukrán háború” 87, „mesterséges intelligencia” 86, „önismeret” 57…). A baj csak az, hogy a long-tail miatt 115k variáns van. Ezt klaszterezzük le egy **kanonikus magyar témakészletre**, és **ez** lesz az egyetlen publikus tématár.
 
-```text
-1. UPDATE episode_organization_map SET organization_id = dst WHERE organization_id = src
-   ON CONFLICT (episode_id, organization_id) DO NOTHING
-2. DELETE duplikátumokat az ütközések után
-3. UPDATE minden FK-tábla (ha van további reference) → dst
-4. DELETE FROM organizations WHERE id = src
-5. Audit log app_settings.org_merge_log JSON tömbbe (timestamp, src_slug, dst_slug, episode_count_moved)
-RETURNS jsonb: { moved, deleted_dupes, deleted_org }
-```
+## Hogyan klaszterezünk (egyszerű, olcsó, determinisztikus)
 
-Mellé `audit_org_merge_candidates()` RPC, ami visszadobja a táblát (pl. többszörös név-variánsok normalizált alak alapján), hogy jövőre dry-runolni lehessen mielőtt mergelnénk.
+Nem új AI futás kell. Két lépcsős, SQL + egy kicsi script:
 
-## 2. 17 duplikátum összevonása (insert tool)
+**1. lépcső — determinisztikus összevonás (95% lefedettség, $0):**
+- normalizálás (lowercase, ékezet nélkül, szóköz-trim) — már megvan
+- lemmatizáció + szuffixum-levágás (`-ról/-ről/-ban/-ben/-ja/-je/-k` stb.)
+- alias-egyenértékűségek (`ai` = `mesterséges intelligencia` = `mi` = `gpt` = `llm`, `orbán` = `orbán viktor`, `oroszország háborúja` = `orosz-ukrán háború`, stb.)
+- ezek mind beleülnek a meglévő `topic_aliases` táblába
 
-A `/mnt/documents/canonical_alias_org_merge_candidates.csv` 17 sora alapján:
+**2. lépcső — embedding-alapú klaszter a maradékra (~5k label, egyszeri ~$2):**
+- a már meglévő `google/gemini-embedding-001` (768d) modellel a top ~5000 maradék label embedjét legyártjuk
+- agglomeratív klaszterezés cosine ≥ 0.82 küszöbbel
+- minden klaszternek a leggyakoribb label lesz a **kanonikus magyar neve**
+- < 3 epizódot lefedő klaszterek mehetnek „long tail” bucketbe (nem indexálható)
 
-```text
-BCE                          → Budapesti Corvinus Egyetem
-Corvinus Egyetem             → Budapesti Corvinus Egyetem
-Budapesti Közlekedési Központ → BKK
-Ferencváros, FTC-Telekom, Ferencvárosi TC, Ferencvárosi Torna Club, fradi.hu → Ferencvárosi Torna Klub
-MÁV, MÁV-csoport, MÁV-START  → Magyar Államvasutak (MÁV)
-MVM Csoport                  → MVM
-OTP                          → OTP Bank
-Richter                      → Richter Gedeon Nyrt.
-Telekom, Telekom HU, Telekom Hungary → Magyar Telekom
-```
+A végeredmény: ~150-300 kanonikus magyar téma, mindegyikhez slug, leírás, és tényleges, evidence-alapú epizód-lefedettség.
 
-Mindegyik `SELECT merge_organizations(src.id, dst.id)` hívás. Tranzakcióban, hogy bármelyik hiba esetén rollback.
+## Mit írunk át / törlünk
 
-## 3. Alias-seed (insert tool)
+**Adatbázis (migráció):**
+- új `topic_clusters` tábla (cluster_id, canonical_label_hu, slug, episode_count, is_indexable) — ÉS a kötelező GRANT-ek
+- új `episode_topic_cluster_map` (episode_id, cluster_id, confidence) — szintén GRANT-ek
+- `topics` + `episode_topic_map` (a régi 79-elemes kanonikus tábla) marad, de **a klaszter-eredmények ide is feltöltődnek** (egy forrás)
+- RLS lezárás: `episode_ai_classifications` és `episode_extracted_topics` csak `service_role` SELECT — anon/authenticated nem érheti el
+- `episodes.topics` oszlop nem törlődik fizikailag (drága lenne), de a publikus selectekből kivesszük
 
-A 17 sérült variáns mind alias-ként felkerül a `canonical_entity_aliases`-be (`source='manual_merge_20260606'`, `weight=20`), hogy a future AI extraction is normalizálja:
+**Frontend (csak ezek):**
+- `src/components/EpisodeCard.tsx`: téma-chipek forrása `episode_topic_cluster_map` JOIN `topic_clusters`-en — semmi más
+- `src/lib/episodeUnderstanding.ts`: `topics` mező onnan
+- `src/lib/aggregateEntities.ts`: ugyanonnan
+- `src/pages/TopicDetailPage.tsx` + `TopicsHubPage.tsx`: új klaszterek
+- `src/components/PodcastEntitiesCompact.tsx`: ugyanezt használja
+- a `PodcastReport2026.tsx` riport végleges adatai a klaszterekre építve
 
-```text
-('BCE', 'budapesti-corvinus-egyetem', 'Budapesti Corvinus Egyetem')
-('FTC', 'ferencvarosi-torna-klub', 'Ferencvárosi Torna Klub')
-('Fradi', 'ferencvarosi-torna-klub', 'Ferencvárosi Torna Klub')
-('fradi.hu', 'ferencvarosi-torna-klub', 'Ferencvárosi Torna Klub')
-('Telekom', 'magyar-telekom', 'Magyar Telekom')
-...
-```
+**Backend pipelines:**
+- `episode-topic-extractor` marad **leállítva** amíg nincs új ep tömege (~1 hetente futtatjuk csak az új epizódokra, batch)
+- új edge: `topic-cluster-runner` — egyszeri klaszterezés, futtatható kézzel, eredménye perzisztens
+- `episode-ai-classifier` runner archiválva, nem fut többet
 
-## 4. Post-merge ellenőrzés
-- `recompute_org_gated_counts()` futtatása (gating újraszámol a megnövelt epizód-count miatt).
-- Riport: hány epizód-org kapcsolat mozdult, mely org-ok mozdultak indexable-ba.
+## Sorrend, kb. időigény
 
-## 5. YouTube cron drain bump (insert tool, cron schema)
+1. Migráció: `topic_clusters` + `episode_topic_cluster_map` + RLS-zár + GRANT-ek — ~10 perc
+2. `topic-cluster-runner` edge function (determinisztikus szakasz + embedding-szakasz) — ~30 perc
+3. Egyszeri futtatás, eredmény ellenőrzése admin oldalon — ~20 perc (a klaszterezés futása maga ~10-15 perc, ~$2)
+4. Frontend átállítása a fenti 5 fájlban — ~20 perc
+5. Riport (`PodcastReport2026`) regenerálás a klaszter-számokból — ~10 perc
 
-- Cron 64 (`youtube-transcript-fetch`): `*/30` → **`*/5`** 48 óra erejéig (4592 confirmed unattempted pair feldolgozása).
-- Budget már védve: `monthly_credit_limit=30000`, watchdog `$25/nap × 1.1`.
-- 48h múlva auto-revert nincs — manuálisan kell visszacsavarni `*/30`-ra (memory note frissítve).
+**Összesen kb. 1,5 óra munkám, + ~$2 AI költség.** Visszafordítható (a régi táblák megmaradnak), de a UI-ban ettől kezdve **egyetlen** rendszer szolgáltatja a témákat.
 
-## Technikai részletek (fejlesztőknek)
+## Mit nem csinálunk meg
 
-- Migráció: `merge_organizations` fn + `audit_org_merge_candidates` view.
-- Insert ops: merge-hívások, alias-INSERT (ON CONFLICT DO NOTHING), cron UPDATE.
-- Nincs frontend változás.
-- Memory update a merge után: org count, indexable count, plus 2026-06-06 alias-backfill bejegyzés.
-
-## Mit NEM csinálunk most
-- Nem bővítjük a registry-t széles körben (csak ez a 17 + a hozzájuk tartozó aliasok). A nagyobb seed-bővítés (pl. `BKV`, `MTI`, `MTVA` rövidítések) külön kör — előbb mérjük, hogy ez a 17 mennyit javít.
-- Nem nyúlunk a `people` táblához (a person-duplikátumok külön audit-ot kapnak).
-- Nem futtatjuk a YT cron-t `*/2`-re vagy alá (cost védelem).
+- Nem nyúlunk a person/organization rendszerekhez (azok rendben vannak).
+- Nem futtatunk újra Gemini-vel olyat, ami már le van futtatva — pont ezt akarjuk kiküszöbölni.
+- Nem írom át a keresőt vagy a ranking-et, csak a téma-réteget.

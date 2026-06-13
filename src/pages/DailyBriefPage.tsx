@@ -170,7 +170,7 @@ export default function DailyBriefPage() {
       .sort((a, b) => b.list.length - a.list.length);
   }, [ranked, top5]);
 
-  const topTopics = useMemo(() => topEntitiesFrom(eps, "topics", "topic", 8), [eps]);
+  const topTopics: ReturnType<typeof topEntitiesFrom> = []; // 2026-06-13: nyers topics megbízhatatlan; lecserélés topic_clusters-re folyamatban.
   const topPeople = useMemo(() => topEntitiesFrom(eps, "people", "person", 8), [eps]);
 
   return (

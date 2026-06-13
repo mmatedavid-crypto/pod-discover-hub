@@ -394,7 +394,7 @@ export default function PodcastDetail() {
           const epsLite = (eps as any[]).map((e) => ({ ...e, podcasts: { hosts: p.hosts || [] } }));
           const people = topEntitiesFrom(epsLite, "people", "person", 24, { excludeHosts: true, blocklist: ["Csukás István"] });
           const companies = topEntitiesFrom(epsLite, "companies", "company", 24);
-          const topics = topEntitiesFrom(epsLite, "topics", "topic", 24);
+          const topics: ReturnType<typeof topEntitiesFrom> = []; // 2026-06-13: nyers topics kivéve, lecserélés topic_clusters-re folyamatban.
           return <PodcastEntitiesCompact people={people} companies={companies} topics={topics} />;
         })()}
 
