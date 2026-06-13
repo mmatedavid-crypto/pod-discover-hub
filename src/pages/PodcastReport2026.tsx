@@ -526,33 +526,33 @@ export default function PodcastReport2026() {
         {/* Self-help / mental wellness — monthly seasonality */}
         <section className="mb-12">
           <DownloadableFigure filename="onsegito-temak-szezonalitas">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mentális wellness témák — 2026 tavaszi felfutás</h2>
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mentális wellness témák — 17 hónapos havi adat (2025-01 – 2026-05)</h2>
           <p className="mb-3 text-muted-foreground">
             Négy önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás + átirat alapú téma-leképezés).
           </p>
           <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-foreground">
-            <strong>Módszertan:</strong> A téma-pipeline 2026 májusi első futtatása csak a 2026-02-19 – 05-30 közötti megjelenésű magyar epizódokat dolgozta fel, ezért ezekre a címkékre csak ebből az ablakból van havi adat. A 2025-ös évszak-mintázat (újévi hullám) ebből nem rekonstruálható; a korábbi évek visszamenő címkézése későbbi feladat.
+            <strong>Módszertan:</strong> Az AI-pipeline szabad-szöveges téma-címkéiből (alvás, meditáció, önismeret, párkapcsolat) magyar epizódonkénti DISTINCT számolás. Az adat teljes 17 hónapra rendelkezésre áll.
           </div>
 
           {(() => {
             const series = [
               { slug: "alvas",        name: "Alvás",        color: "hsl(220 70% 50%)",
-                data: [10, 29, 31, 35] },
+                data: [3, 3, 3, 2, 2, 1, 1, 1, 1, 4, 1, 3, 18, 16, 10, 15, 17] },
               { slug: "meditacio",    name: "Meditáció",    color: "hsl(160 65% 40%)",
-                data: [10, 30, 32, 32] },
+                data: [0, 1, 2, 4, 2, 1, 3, 2, 1, 0, 5, 0, 22, 22, 18, 15, 15] },
               { slug: "onismeret",    name: "Önismeret",    color: "hsl(330 70% 50%)",
-                data: [15, 45, 47, 27] },
+                data: [10, 6, 8, 12, 12, 11, 15, 15, 11, 9, 23, 12, 9, 10, 15, 15, 13] },
               { slug: "parkapcsolat", name: "Párkapcsolat", color: "hsl(265 60% 55%)",
-                data: [12, 27, 16, 6] },
+                data: [2, 5, 2, 1, 3, 4, 1, 2, 4, 5, 3, 1, 2, 8, 3, 3, 1] },
             ];
-            const months = ["2026-02","2026-03","2026-04","2026-05"];
+            const months = ["2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"];
             const labelMap: Record<string, string> = { "01": "Jan", "02": "Feb", "03": "Már", "04": "Ápr", "05": "Máj", "06": "Jún", "07": "Júl", "08": "Aug", "09": "Szep", "10": "Okt", "11": "Nov", "12": "Dec" };
             const W = 760, H = 280, PL = 36, PR = 12, PT = 16, PB = 44;
             const innerW = W - PL - PR;
             const innerH = H - PT - PB;
             const rawMax = Math.max(...series.flatMap((s) => s.data));
-            const yMax = Math.ceil(rawMax / 10) * 10;
-            const yTicks = Array.from({ length: yMax / 10 + 1 }, (_, i) => i * 10);
+            const yMax = Math.ceil(rawMax / 5) * 5;
+            const yTicks = Array.from({ length: yMax / 5 + 1 }, (_, i) => i * 5);
             const xAt = (i: number) => PL + (i * innerW) / (months.length - 1);
             const yAt = (v: number) => PT + innerH - (v / yMax) * innerH;
             return (
@@ -570,13 +570,13 @@ export default function PodcastReport2026() {
                   })}
                   {series.map((s) =>
                     s.data.map((v, i) => (
-                      <circle key={`${s.slug}-${i}`} cx={xAt(i)} cy={yAt(v)} r="2.5" fill={s.color} />
+                      <circle key={`${s.slug}-${i}`} cx={xAt(i)} cy={yAt(v)} r="2.2" fill={s.color} />
                     ))
                   )}
                   {months.map((m, i) => (
                     <g key={m}>
-                      <text x={xAt(i)} y={H - 24} textAnchor="middle" fontSize="10" fill="hsl(var(--muted-foreground))">{labelMap[m.slice(5)]}</text>
-                      <text x={xAt(i)} y={H - 10} textAnchor="middle" fontSize="9" fill="hsl(var(--muted-foreground))" opacity="0.65">'{m.slice(2, 4)}</text>
+                      <text x={xAt(i)} y={H - 24} textAnchor="middle" fontSize="9" fill="hsl(var(--muted-foreground))">{labelMap[m.slice(5)]}</text>
+                      <text x={xAt(i)} y={H - 10} textAnchor="middle" fontSize="8" fill="hsl(var(--muted-foreground))" opacity="0.65">'{m.slice(2, 4)}</text>
                     </g>
                   ))}
                 </svg>
@@ -589,7 +589,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Februárról márciusra mind a négy téma 2,5–3×-osra ugrik — ez részben a téma-pipeline beüzemelésének eredménye, részben valós tavaszi tartalmi hullám. Az <strong className="text-foreground">alvás</strong> és <strong className="text-foreground">meditáció</strong> stabil 30 körüli havi szinten tartja magát április–májusban, míg a <strong className="text-foreground">párkapcsolat</strong> visszaesik.
+                  Tisztán látszik a <strong className="text-foreground">2026 januári újévi wellness-csúcs</strong>: alvás 1→18 (×18), meditáció 0–5→22 (×4–22) az újév első hetében. Az <strong className="text-foreground">önismeret</strong> címke 2025 novemberében ért csúcsot (23 ep), majd a fókusz az alvás/meditáció felé tolódott. Párkapcsolat-tartalom egész évben gyenge, 1–8 ep/hó között ingadozik.
                 </p>
               </div>
             );
