@@ -28,6 +28,7 @@ import { logPlayerEvent } from "@/lib/playerEvents";
 import { RelatedEpisodes } from "@/components/smart-player/RelatedEpisodes";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { PodcastCover } from "@/components/PodcastCover";
+import { EpisodeClusterChips } from "@/components/EpisodeClusterChips";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
@@ -303,6 +304,9 @@ export default function EpisodeDetail() {
                   {summary}
                 </p>
               )}
+              <div className="mt-4 flex justify-center sm:justify-start">
+                <EpisodeClusterChips episodeId={e.id} limit={6} />
+              </div>
             </div>
           </div>
         </section>
