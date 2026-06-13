@@ -441,15 +441,7 @@ function EpisodeRailCard({
             <HL text={desc} terms={terms} />
           </p>
         )}
-        {(showTopics && e.topics && e.topics.length > 0) && (
-          <div className="mt-2.5 flex flex-wrap gap-1">
-            {e.topics.slice(0, 3).map((t) => (
-              <Link key={t} to={entityHref("topic", t)} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
-                {t}
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Téma-chipek kikapcsolva — új forrás: topic_clusters. */}
         {showEntities && allEnts.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1">
             {allEnts.map(({ kind, v }) => {
