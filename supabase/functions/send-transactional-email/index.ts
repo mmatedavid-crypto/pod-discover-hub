@@ -14,7 +14,7 @@ const SENDER_DOMAIN = "notify.podiverzum.hu"
 // FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
 // When display_from_root is enabled, this can be the root domain for cleaner branding,
 // even though actual sending uses the subdomain above.
-const FROM_DOMAIN = "podiverzum.hu"
+const FROM_DOMAIN = "notify.podiverzum.hu"
 
 // Generate a cryptographically random 32-byte hex token
 function generateToken(): string {
