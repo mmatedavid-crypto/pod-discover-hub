@@ -360,7 +360,6 @@ function EpisodeRailCard({
   };
   const allEnts = showEntities
     ? [
-        ...(e.topics || []).map((v) => ({ kind: "topic" as const, v })),
         ...(e.people || []).map((v) => ({ kind: "person" as const, v })),
         ...(e.companies || []).map((v) => ({ kind: "company" as const, v })),
       ].slice(0, 4)
