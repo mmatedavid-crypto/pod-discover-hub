@@ -534,7 +534,7 @@ export default function PodcastReport2026() {
           </p>
           <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-foreground">
             <strong>Módszertan:</strong> A téma-azonosítási pipeline 2026 februárjában indult el a teljes katalógusra, ezért szezonalitás-elemzés csak ettől az időponttól kezdve elérhető. A 2025-ös hónapokra még nincs strukturált téma-szintű adat — ezt a jövőbeli jelentésekben pótoljuk.
-          </p>
+          </div>
 
           {(() => {
             const series = [
