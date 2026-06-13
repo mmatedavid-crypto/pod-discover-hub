@@ -214,18 +214,31 @@ A csütörtök a legerősebb publikálási nap (5 262 epizód); a hétvégén en
 
 24 hónap összesen: 405 új magyar podcast, átlagosan ~17 / hónap. 2026 első három hónapjában havonta 16–30 új magyar podcast indult; a tavaszi csúcsot (2026-03: 30 új műsor) követően áprilisra és májusra mérséklődött a tempó.
 
-## Mentális wellness témák szezonalitása (2026-02 – 2026-05)
+## Mentális wellness témák szezonalitása (2025-01 – 2026-05, 17 hónap)
 
-> **Módszertani megjegyzés:** A téma-pipeline 2026 májusi első futtatása csak a 2026-02-19 és 05-30 közötti megjelenésű magyar epizódokat dolgozta fel, ezért ezekre a címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) csak ebből az ablakból van havi adat. A 2025-ös évszak-mintázat (újévi hullám) ebből nem rekonstruálható; a korábbi évek epizódjainak visszamenő címkézése későbbi feladat.
+> **Módszertani megjegyzés:** Az AI-pipeline epizódonkénti szabad-szöveges téma-címkéiből (`alvás`, `meditáció`, `önismeret`, `párkapcsolat`) magyar epizódonkénti DISTINCT számolás. Az adat teljes 17 hónapra rendelkezésre áll.
 
 | Hónap | Alvás | Meditáció | Önismeret | Párkapcsolat |
 |---|---:|---:|---:|---:|
-| 2026-02 | 10 | 10 | 15 | 12 |
-| 2026-03 | 29 | 30 | 45 | 27 |
-| 2026-04 | 31 | 32 | 47 | 16 |
-| 2026-05 | 35 | 32 | 27 | 6 |
+| 2025-01 | 3 | 0 | 10 | 2 |
+| 2025-02 | 3 | 1 | 6 | 5 |
+| 2025-03 | 3 | 2 | 8 | 2 |
+| 2025-04 | 2 | 4 | 12 | 1 |
+| 2025-05 | 2 | 2 | 12 | 3 |
+| 2025-06 | 1 | 1 | 11 | 4 |
+| 2025-07 | 1 | 3 | 15 | 1 |
+| 2025-08 | 1 | 2 | 15 | 2 |
+| 2025-09 | 1 | 1 | 11 | 4 |
+| 2025-10 | 4 | 0 | 9 | 5 |
+| 2025-11 | 1 | 5 | 23 | 3 |
+| 2025-12 | 3 | 0 | 12 | 1 |
+| 2026-01 | **18** | **22** | 9 | 2 |
+| 2026-02 | 16 | 22 | 10 | 8 |
+| 2026-03 | 10 | 18 | 15 | 3 |
+| 2026-04 | 15 | 15 | 15 | 3 |
+| 2026-05 | 17 | 15 | 13 | 1 |
 
-A felvevő márciusra konszolidálódik (mindegyik téma 3–4× a februári szintre ugrik), majd a tavaszi időszakban stabil ~30 epizód/hó tempó marad az alvás és meditáció témákban.
+Tisztán látszik a **2026 januári újévi wellness-csúcs**: alvás 1→18 (×18) és meditáció 0–5→22 (×4–22) ugrás az újév első hetében. Az önismeret címke 2025 novemberében ért csúcsot (23 ep), majd 2026 elejére beszorult 9–15-re — ahogy a fókusz az alvás/meditáció felé tolódott. Párkapcsolat-tartalom egész évben gyenge, 1–8 ep/hó között ingadozik.
 
 ## Pártok említései magyar podcastokban (elmúlt 12 hónap, 2025-06-14 – 2026-06-14)
 
