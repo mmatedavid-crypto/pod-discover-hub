@@ -400,10 +400,10 @@ export default function PodcastReport2026() {
             })}
           </div>
           <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
-            2026-ban a Biblia (130) és a Választás 2026 (123) együtt több azonosított epizódtémát adtak, mint a mesterséges intelligencia (92).
+            17 hónap alatt a Biblia (259), a Választás (248) és a Zene (230) vezeti a top listát; az AI és Mesterséges intelligencia címke egyesítve 269 epizódot ad.
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
-            A választási év nyoma is ott van a listán: a kampányidőszakban a <strong className="text-foreground not-italic">választás</strong> témája a top 10 második helyére került (123 epizód), közvetlenül a Biblia mögé.
+            A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">választás</strong> téma (248 epizód) a top 3-ba került, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
           </p>
           </DownloadableFigure>
         </section>
