@@ -371,10 +371,10 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-temak-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
-            A 2026-02-19 – 2026-05-30 ablak (3 498 magyar epizód) top 10 visszatérő, kanonikus témája.
+            A katalógus utolsó ~3,5 hónapjának (2026-02-19 – 2026-05-30 megjelenésű) 3 498 magyar epizódjából a top 10 visszatérő, kanonikus téma.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
-            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — kínálati oldal, nem hallgatottsági adat. A kanonikus, taxonómia-alapú téma-pipeline 2026-02-19 óta él, ezért a számok ebből a 3,4 hónapos ablakból származnak. A 2025-ös és korábbi epizódok visszamenőleges címkézése későbbi backfill-feladat; a sorrend ezzel változhat.
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — kínálati oldal, nem hallgatottsági adat. A Podiverzum 2026 májusában indult; a topic-judge pipeline első futtatása (2026-05-17 – 05-30) a katalógus akkor friss utolsó ~3,5 hónapnyi epizódját címkézte. A korábbi évek visszamenő címkézése későbbi feladat; a sorrend ezzel változhat.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
