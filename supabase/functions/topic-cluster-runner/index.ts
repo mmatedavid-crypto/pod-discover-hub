@@ -138,21 +138,22 @@ Deno.serve(async (req) => {
     const dryRun = !!body.dry_run;
     const minEpisodesPerCluster = Number(body.min_episodes ?? 2);
 
-    // 1) Load all extracted topics (paginated)
+    // 1) Load all extracted topics (paginated; Supabase caps at 1000 per request)
     const all: { episode_id: string; normalized_label: string; raw_label: string; confidence: number }[] = [];
     let from = 0;
-    const PAGE = 5000;
+    const PAGE = 1000;
     while (true) {
       const { data, error } = await admin
         .from("episode_extracted_topics")
         .select("episode_id, normalized_label, raw_label, confidence")
-        .range(from, from + PAGE - 1)
-        .order("episode_id", { ascending: true });
+        .order("episode_id", { ascending: true })
+        .range(from, from + PAGE - 1);
       if (error) return json({ ok: false, error: error.message, stage: "load" }, 500);
       if (!data || data.length === 0) break;
       for (const r of data) all.push(r as any);
       if (data.length < PAGE) break;
       from += PAGE;
+      if (from > 400000) break; // safety
     }
 
     // 2) Cluster: label → key
