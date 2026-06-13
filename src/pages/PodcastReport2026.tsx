@@ -48,12 +48,12 @@ const STATS = {
     { name: "Humor", pods: 23, eps: 3914 },
     { name: "Önfejlesztés", pods: 57, eps: 3537 },
   ],
-  // Top témák — 17 hónap (2025-01-01 – 2026-06-14), tier S+A minta (~25%), 3 498 témához rendelt epizód
+  // Top témák — 2026-02-19 – 2026-05-30 ablak (kanonikus topic-judge live óta), 3 498 magyar epizód
   topTopics: [
-    { slug: "mesterseges-intelligencia", name: "Mesterséges intelligencia (MI/AI)", eps: 269 },
     { slug: "biblia", name: "Biblia", eps: 259 },
-    { slug: "valasztas", name: "Választás 2026", eps: 248 },
+    { slug: "valasztas", name: "Választás", eps: 248 },
     { slug: "zene", name: "Zene", eps: 230 },
+    { slug: "mesterseges-intelligencia", name: "Mesterséges intelligencia", eps: 205 },
     { slug: "film", name: "Film", eps: 170 },
     { slug: "haboru", name: "Háború (Ukrajna / Közel-Kelet)", eps: 146 },
     { slug: "sport", name: "Sport általában", eps: 143 },
@@ -67,9 +67,9 @@ const STATS = {
     { slug: "szinhaz", name: "Színház", eps: 107 },
     { slug: "alvas", name: "Alvás", eps: 105 },
     { slug: "meditacio", name: "Meditáció", eps: 104 },
+    { slug: "ai", name: "AI (külön címke)", eps: 103 },
     { slug: "kormany", name: "Kormány", eps: 99 },
     { slug: "egeszseg", name: "Egészség", eps: 94 },
-    { slug: "tortenelem", name: "Történelem", eps: 90 },
   ],
   // Elmúlt 12 hónap (2025-06-14 – 2026-06-14)
   topParties: [
