@@ -43,7 +43,9 @@ function arr(value: string[] | null | undefined): string[] {
 }
 
 export function getEpisodeUnderstanding(e: EpisodeUnderstandingSource): EpisodeUnderstanding | null {
-  const topics = takeClean(arr(e.topics), 4);
+  // 2026-06-13: A nyers `episodes.topics` mező megbízhatatlan (kevert nyelv, RSS+AI szemét).
+  // Az új téma-rendszer (`topic_clusters`) külön JOIN-on érhető el; itt nem hivatkozzuk.
+  const topics: string[] = [];
   const people = takeClean([...arr(e.people), ...arr(e.mentioned)], 3);
   const companies = takeClean([...arr(e.companies), ...arr(e.organizations)], 3);
   const tickers = takeClean(arr(e.tickers), 2);
@@ -52,7 +54,6 @@ export function getEpisodeUnderstanding(e: EpisodeUnderstandingSource): EpisodeU
   const descriptionLen = String(e.description || "").trim().length;
 
   const chips: UnderstandingChip[] = [
-    ...topics.map((label) => ({ kind: "topic" as const, label })),
     ...people.map((label) => ({ kind: "person" as const, label })),
     ...companies.map((label) => ({ kind: "company" as const, label })),
     ...tickers.map((label) => ({ kind: "ticker" as const, label })),
@@ -63,7 +64,6 @@ export function getEpisodeUnderstanding(e: EpisodeUnderstandingSource): EpisodeU
   if (signalCount < 2) return null;
 
   const leadParts = [
-    topics[0],
     people[0],
     companies[0],
   ].filter(Boolean);
