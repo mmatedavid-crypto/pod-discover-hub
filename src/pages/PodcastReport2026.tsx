@@ -369,22 +369,21 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-temak-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
-            A katalógus utolsó ~3,5 hónapjának (2026-02-19 – 2026-05-30 megjelenésű) 3 498 magyar epizódjából a top 10 visszatérő, kanonikus téma.
+            17 hónap (2025-01-01 – 2026-06-14) 29 315 címkézett magyar epizódjából a top 10 tematikus klaszter.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
-            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — kínálati oldal, nem hallgatottsági adat. A Podiverzum 2026 májusában indult; a topic-judge pipeline első futtatása (2026-05-17 – 05-30) a katalógus akkor friss utolsó ~3,5 hónapnyi epizódját címkézte. A korábbi évek visszamenő címkézése későbbi feladat; a sorrend ezzel változhat.
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — kínálati oldal, nem hallgatottsági adat. Az AI-pipeline epizódonkénti szabad-szöveges téma-címkéiből (a 42 132 magyar epizód 70%-án van címke) klaszterezett DISTINCT számolás. Egy epizód több klaszterhez is tartozhat.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
-              const highlight = ["biblia", "valasztas", "mesterseges-intelligencia"].includes(t.slug);
+              const highlight = ["politika", "mesterseges-intelligencia", "onismeret"].includes(t.slug);
               return (
-                <Link
+                <div
                   key={t.slug}
-                  to={`/temak/${t.slug}`}
-                  className="flex items-center gap-3 group"
+                  className="flex items-center gap-3"
                 >
                   <div className="w-6 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
-                  <div className="w-40 md:w-56 shrink-0 text-sm font-medium text-foreground group-hover:text-primary truncate">{t.name}</div>
+                  <div className="w-40 md:w-56 shrink-0 text-sm font-medium text-foreground truncate">{t.name}</div>
                   <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
                     <div
                       className={`h-full ${highlight ? "bg-primary/80" : "bg-accent/60"}`}
@@ -394,15 +393,15 @@ export default function PodcastReport2026() {
                       {t.eps} ep
                     </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
           <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
-            A katalógus utolsó ~3,5 hónapjának címkézett mintájában a Biblia (259), a Választás (248) és a Zene (230) vezeti a listát; a Mesterséges intelligencia 205 epizóddal a negyedik.
+            Az első három klaszter — politika/közélet/választás (845), AI/Mesterséges intelligencia (762), mentális wellness/önismeret (658) — egyértelműen jelzi a kampányidőszak, az AI-mainstreaming és a self-care párhuzamos dominanciáját.
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
-            A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">választás</strong> téma (248 epizód) a top 3-ban van, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
+            A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">politika/közélet/választás</strong> klaszter (845 epizód) a leggyakoribb, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
           </p>
           </DownloadableFigure>
         </section>
