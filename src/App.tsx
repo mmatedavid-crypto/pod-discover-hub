@@ -82,6 +82,7 @@ const PeopleHubPage = lazy(() => import("./pages/PeopleHubPage.tsx"));
 const PersonDetailPage = lazy(() => import("./pages/PersonDetailPage.tsx"));
 const TopicsHubPage = lazy(() => import("./pages/TopicsHubPage.tsx"));
 const TopicDetailPage = lazy(() => import("./pages/TopicDetailPage.tsx"));
+const TopicClusterDetailPage = lazy(() => import("./pages/TopicClusterDetailPage.tsx"));
 const CompaniesHubPage = lazy(() => import("./pages/CompaniesHubPage.tsx"));
 const PodcastReport2026 = lazy(() => import("./pages/PodcastReport2026.tsx"));
 const PartiesHubPage = lazy(() => import("./pages/PartiesHubPage.tsx"));
@@ -229,6 +230,7 @@ const App = () => (
           <Route path="/moods" element={<Navigate to="/hangulatok" replace />} />
 
           <Route path="/temak" element={<TopicsHubPage />} />
+          <Route path="/temak/k/:slug" element={<TopicClusterDetailPage />} />
           <Route path="/temak/:slug" element={<TopicDetailPage />} />
           {/* Wave 3 long-tail: humans get parent topic page; bots get prerendered filtered view */}
           <Route path="/temak/:slug/:year" element={<TopicDetailPage />} />

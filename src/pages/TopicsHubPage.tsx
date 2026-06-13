@@ -28,17 +28,27 @@ const DOMAIN_LABEL: Record<string, string> = {
 
 export default function TopicsHubPage() {
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [clusters, setClusters] = useState<{ slug: string; canonical_label_hu: string; episode_count: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("topics")
-        .select("id, slug, name, short_name, domain, seo_description, episode_count, podcast_count, is_indexable, priority")
-        .eq("is_public", true)
-        .order("priority", { ascending: false })
-        .order("sort_order", { ascending: true });
+      const [{ data }, { data: cl }] = await Promise.all([
+        supabase
+          .from("topics")
+          .select("id, slug, name, short_name, domain, seo_description, episode_count, podcast_count, is_indexable, priority")
+          .eq("is_public", true)
+          .order("priority", { ascending: false })
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("topic_clusters")
+          .select("slug, canonical_label_hu, episode_count")
+          .eq("is_public", true)
+          .order("episode_count", { ascending: false })
+          .limit(40),
+      ]);
       setTopics((data || []) as any);
+      setClusters((cl || []) as any);
       setLoading(false);
       setSeo({
         title: "Témák a magyar podcastokban — Podiverzum",
@@ -146,6 +156,33 @@ export default function TopicsHubPage() {
             </div>
           </section>
         ))}
+
+        {clusters.length > 0 && (
+          <section>
+            <div className="flex items-center gap-3 mb-5">
+              <span className="h-px flex-1 bg-border" />
+              <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                Felfedezett témák · az epizódokból
+              </h2>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Ezek a témák nem szerkesztőségi kurációból, hanem közvetlenül az epizódok tartalmából kerültek felismerésre.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {clusters.map((c) => (
+                <Link
+                  key={c.slug}
+                  to={`/temak/k/${c.slug}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1.5 text-sm hover:border-primary/40 hover:text-primary transition-colors"
+                >
+                  <span className="truncate max-w-[220px]">{c.canonical_label_hu}</span>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{c.episode_count}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </Layout>
   );
