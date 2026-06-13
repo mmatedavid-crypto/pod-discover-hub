@@ -156,6 +156,33 @@ export default function TopicsHubPage() {
             </div>
           </section>
         ))}
+
+        {clusters.length > 0 && (
+          <section>
+            <div className="flex items-center gap-3 mb-5">
+              <span className="h-px flex-1 bg-border" />
+              <h2 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                Felfedezett témák · az epizódokból
+              </h2>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Ezek a témák nem szerkesztőségi kurációból, hanem közvetlenül az epizódok tartalmából kerültek felismerésre.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {clusters.map((c) => (
+                <Link
+                  key={c.slug}
+                  to={`/temak/k/${c.slug}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1.5 text-sm hover:border-primary/40 hover:text-primary transition-colors"
+                >
+                  <span className="truncate max-w-[220px]">{c.canonical_label_hu}</span>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{c.episode_count}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </Layout>
   );
