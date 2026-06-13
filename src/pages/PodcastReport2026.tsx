@@ -370,10 +370,10 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-temak-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
-            17 hónap (2025-01-01 – 2026-06-14) magyar epizódjaiból kinyert top 10 visszatérő beszélgetési téma.
+            A 2026-02-19 – 2026-05-30 ablak (3 498 magyar epizód) top 10 visszatérő, kanonikus témája.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
-            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — vagyis kínálati oldal. Nem hallgatottsági és nem letöltési adat. A jelenlegi számok a tier S+A magyar podcastok mintáján alapulnak (~25%, 3 498 témához rendelt epizód); a teljes katalógus backfill-je folyamatban — a sorrend és nagyságrend stabilan tartható.
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — kínálati oldal, nem hallgatottsági adat. A kanonikus, taxonómia-alapú téma-pipeline 2026-02-19 óta él, ezért a számok ebből a 3,4 hónapos ablakból származnak. A 2025-ös és korábbi epizódok visszamenőleges címkézése későbbi backfill-feladat; a sorrend ezzel változhat.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
@@ -400,10 +400,10 @@ export default function PodcastReport2026() {
             })}
           </div>
           <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
-            17 hónap alatt a Biblia (259), a Választás (248) és a Zene (230) vezeti a top listát; az AI és Mesterséges intelligencia címke egyesítve 269 epizódot ad.
+            A 3,4 hónapos ablakban a Biblia (259), a Választás (248) és a Zene (230) vezeti a listát; a Mesterséges intelligencia 205 epizóddal a negyedik.
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
-            A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">választás</strong> téma (248 epizód) a top 3-ba került, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
+            A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">választás</strong> téma (248 epizód) a top 3-ban van, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
           </p>
           </DownloadableFigure>
         </section>
