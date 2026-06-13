@@ -370,10 +370,10 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-temak-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
-            Az elmúlt 12 hónap magyar epizódjaiban ez volt a top 10 visszatérő beszélgetési téma.
+            17 hónap (2025-01-01 – 2026-06-14) magyar epizódjaiból kinyert top 10 visszatérő beszélgetési téma.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
-            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — vagyis kínálati oldal. Nem hallgatottsági és nem letöltési adat.
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — vagyis kínálati oldal. Nem hallgatottsági és nem letöltési adat. A jelenlegi számok a tier S+A magyar podcastok mintáján alapulnak (~25%, 3 498 témához rendelt epizód); a teljes katalógus backfill-je folyamatban — a sorrend és nagyságrend stabilan tartható.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
