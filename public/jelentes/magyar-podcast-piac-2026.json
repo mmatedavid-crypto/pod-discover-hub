@@ -155,8 +155,8 @@
   ],
   "wellness_topic_monthly_window": {
     "from": "2026-02-01",
-    "to": "2026-06-14",
-    "method_note": "Lásd top_topics_window megjegyzést — a téma-pipeline 2026 februárjában indult, ezért szezonalitás-elemzés csak ettől az időponttól kezdve elérhető. A 2025-ös hónapokra NINCS strukturált téma-szintű adat."
+    "to": "2026-05-31",
+    "method_note": "A mentális wellness téma-címkék (Alvás, Meditáció, Önismeret, Párkapcsolat) a 2025-ös hónapokra még nem rendelnek epizódokat — ezek a címkék 2026-02-tól termelnek értelmezhető havi adatot. A 2025-ös szezonalitás (újévi hullám stb.) ebből az ablakból nem rekonstruálható."
   },
   "wellness_topic_monthly_2026_02_to_2026_05": {
     "months": ["2026-02","2026-03","2026-04","2026-05"],
