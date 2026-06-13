@@ -218,7 +218,7 @@ A csütörtök a legerősebb publikálási nap (5 262 epizód); a hétvégén en
 
 ## Mentális wellness témák szezonalitása (2026-02 – 2026-05)
 
-> **Módszertani megjegyzés:** A kanonikus téma-pipeline 2026-02-19 óta él, ezért ezekre a címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) 2026 februárjától áll rendelkezésre havi mennyiségű adat. A 2025-ös évszak-mintázat (újévi hullám) ebből az ablakból nem rekonstruálható; a 2025-re visszamenő téma-címkézés későbbi backfill-feladat.
+> **Módszertani megjegyzés:** A téma-pipeline 2026 májusi első futtatása csak a 2026-02-19 és 05-30 közötti megjelenésű magyar epizódokat dolgozta fel, ezért ezekre a címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) csak ebből az ablakból van havi adat. A 2025-ös évszak-mintázat (újévi hullám) ebből nem rekonstruálható; a korábbi évek epizódjainak visszamenő címkézése későbbi feladat.
 
 | Hónap | Alvás | Meditáció | Önismeret | Párkapcsolat |
 |---|---:|---:|---:|---:|
