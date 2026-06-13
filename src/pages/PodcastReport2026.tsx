@@ -282,7 +282,7 @@ export default function PodcastReport2026() {
             <InsightCard
               n={3}
               title="Közélet, kultúra és hit dominál"
-              body="A vezető témák között Biblia, választás, zene, mesterséges intelligencia és háború szerepel."
+              body="A vezető témák között mesterséges intelligencia, Biblia, választás, zene és háború szerepel."
             />
             <InsightCard
               n={4}
