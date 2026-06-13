@@ -68,9 +68,9 @@ Magyar epizódok megjelenésének éve szerint (1970 előtti és nyilvánvalóan
 
 Áttörési pont: **2020–2021**, járvány + Spotify HU launch, három év alatt megnégyszereződött a termelés. A 2026-os ütem alapján (15 505 epizód 165 nap alatt) az év végére ~34 300 magyar epizód várható.
 
-## Top témák (kanonikus taxonómia, 2026-02-19 – 2026-05-30, 3 498 epizód)
+## Top témák (a katalógus legutóbbi ~3,5 hónapja, 2026-02-19 – 2026-05-30 megjelenésű 3 498 epizód)
 
-> **Módszertani megjegyzés:** A kanonikus, taxonómia-alapú téma-leképezés (topic-judge runner) 2026-02-19-én indult élesben, és azóta címkézi az újonnan beérkező magyar epizódokat. Az alábbi sorrend ebből a 3,4 hónapos ablakból, 3 498 címkézett magyar epizódból származik. A 2025-ös és korábbi epizódok visszamenőleges téma-címkézése későbbi backfill-feladat; a sorrend és a nagyságrend ezzel változhat. A 12 hónapos / 17 hónapos téma-statisztikát ezért szándékosan **nem** közöljük.
+> **Módszertani megjegyzés:** A Podiverzum 2026 májusában indult. A taxonómia-alapú téma-leképezés (topic-judge) első futtatása 2026-05-17 és 05-30 között zajlott, és a katalógus akkor friss, utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) magyar epizódjait dolgozta fel — összesen 3 498 epizódot. A korábbi évek (2015 – 2026 január) epizódjainak visszamenőleges téma-címkézése későbbi feladat; a sorrend és a nagyságrend ezzel változhat. A 12 hónapos vagy 17 hónapos téma-statisztikát ezért szándékosan **nem** közöljük.
 
 | # | Téma | Epizódok |
 |---|---|---:|
