@@ -68,9 +68,9 @@ Magyar epizódok megjelenésének éve szerint (1970 előtti és nyilvánvalóan
 
 Áttörési pont: **2020–2021**, járvány + Spotify HU launch, három év alatt megnégyszereződött a termelés. A 2026-os ütem alapján (15 505 epizód 165 nap alatt) az év végére ~34 300 magyar epizód várható.
 
-## Top témák (utolsó 4,5 hónap, 2026-02-01 – 2026-06-14)
+## Top témák (17 hónap, 2025-01-01 – 2026-06-14)
 
-> **Módszertani figyelmeztetés:** A teljes katalógusra kiterjedő téma-azonosítási pipeline 2026 februárjában indult el. Korábbi epizódokra még nincs strukturált téma-leképezés, ezért ez a blokk **NEM 12 hónapot**, hanem ~4,5 hónapot fed le (3 498 azonosított témájú magyar epizód). A számok visszamenőlegesen bővülnek, ahogy a régebbi epizódokat is feldolgozzuk.
+> **Módszertani megjegyzés:** A téma-azonosítás visszamenőlegesen a teljes 17 hónapos időszakra futott a tier S+A magyar podcastokra (~25%-os epizód-minta, 3 498 témához rendelt epizód). A maradék kb. 12 800 epizód téma-extrakciója folyamatban van — a következő frissítésben a számok arányosan emelkedhetnek, a témák sorrendje és nagyságrendje stabilan tartható.
 
 | # | Téma | Epizódok |
 |---|---|---:|
