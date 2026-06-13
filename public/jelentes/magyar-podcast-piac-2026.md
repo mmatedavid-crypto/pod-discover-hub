@@ -68,34 +68,32 @@ Magyar epizódok megjelenésének éve szerint (1970 előtti és nyilvánvalóan
 
 Áttörési pont: **2020–2021**, járvány + Spotify HU launch, három év alatt megnégyszereződött a termelés. A 2026-os ütem alapján (15 505 epizód 165 nap alatt) az év végére ~34 300 magyar epizód várható.
 
-## Top témák (a katalógus legutóbbi ~3,5 hónapja, 2026-02-19 – 2026-05-30 megjelenésű 3 498 epizód)
+## Top tematikus klaszterek (17 hónap, 2025-01-01 – 2026-06-14, 29 315 címkézett epizódból)
 
-> **Módszertani megjegyzés:** A Podiverzum 2026 májusában indult. A taxonómia-alapú téma-leképezés (topic-judge) első futtatása 2026-05-17 és 05-30 között zajlott, és a katalógus akkor friss, utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) magyar epizódjait dolgozta fel — összesen 3 498 epizódot. A korábbi évek (2015 – 2026 január) epizódjainak visszamenőleges téma-címkézése későbbi feladat; a sorrend és a nagyságrend ezzel változhat. A 12 hónapos vagy 17 hónapos téma-statisztikát ezért szándékosan **nem** közöljük.
+> **Módszertani megjegyzés:** Az AI-pipeline epizódonként szabad-szöveges téma-címkéket nyer ki a leírásból és (ahol van) az átiratból. A 42 132 magyar epizód 70%-án (29 315 ep) van legalább egy téma-címke. Az alábbi top-lista ezeket a nyers címkéket tematikus klaszterekbe csoportosítja — pl. „AI / Mesterséges intelligencia" = az `ai` és `mesterséges intelligencia` címkét viselő epizódok DISTINCT halmaza. Egy epizód több klaszterhez is tartozhat, klaszteren belül egyszer számoljuk.
 
-| # | Téma | Epizódok |
+| # | Tematikus klaszter | Epizódok |
 |---|---|---:|
-| 1 | Biblia | 259 |
-| 2 | Választás | 248 |
-| 3 | Zene | 230 |
-| 4 | Mesterséges intelligencia | 205 |
-| 5 | Film | 170 |
-| 6 | Háború (Ukrajna / Közel-Kelet) | 146 |
-| 7 | Sport általában | 143 |
-| 8 | Gazdaság | 141 |
-| 9 | Önismeret | 134 |
-| 10 | Család | 123 |
-| 11 | Kereszténység | 122 |
-| 12 | Pszichológia | 122 |
-| 13 | Közélet | 118 |
-| 14 | Média | 112 |
-| 15 | Színház | 107 |
-| 16 | Alvás | 105 |
-| 17 | Meditáció | 104 |
-| 18 | AI (külön címke) | 103 |
-| 19 | Kormány | 99 |
-| 20 | Egészség | 94 |
+| 1 | Politika / közélet / választás | 845 |
+| 2 | AI / Mesterséges intelligencia | 762 |
+| 3 | Mentális wellness / önismeret | 658 |
+| 4 | Sport | 558 |
+| 5 | Gazdaság / pénzügy | 551 |
+| 6 | Gyerek / esti mese | 541 |
+| 7 | Zene | 520 |
+| 8 | Vallás / kereszténység | 518 |
+| 9 | Vállalkozás / karrier | 261 |
+| 10 | Klíma / fenntarthatóság | 238 |
+| 11 | Film / sorozat | 231 |
+| 12 | Könyv / irodalom | 221 |
+| 13 | Háború (Ukrajna / Közel-Kelet) | 219 |
+| 14 | Színház / kultúra | 218 |
+| 15 | Egészség | 147 |
+| 16 | Oktatás | 134 |
+| 17 | Család / párkapcsolat | 121 |
+| 18 | Technológia | 103 |
 
-Kiemelés: a 2026 tavaszi kampányidőszak ablakában a **Választás** (248 ep) és az **AI / Mesterséges intelligencia** (205 + 103 ep) együtt is mérhető magyar közéleti tartalmat generál. A vallási és spirituális témák (Biblia 259, Kereszténység 122, Meditáció 104, Önismeret 134) együtt a kanonikusan címkézett blokk jelentős részét adják.
+Az első három klaszter — **politika/közélet/választás (845), AI/Mesterséges intelligencia (762), mentális wellness/önismeret (658)** — együttesen a magyar podcastnyilvánosság hangsúlyait jelzi: erős közéleti-választási diskurzus, párhuzamos AI-mainstreaming, és a self-care/önismeret tematika tartós jelenléte. A klaszikus tematikák (sport, gazdaság, zene, vallás) szorosan utánuk következnek 520–558 epizóddal.
 
 ## Top kategóriák (epizódszám szerint, top 15)
 
@@ -216,18 +214,31 @@ A csütörtök a legerősebb publikálási nap (5 262 epizód); a hétvégén en
 
 24 hónap összesen: 405 új magyar podcast, átlagosan ~17 / hónap. 2026 első három hónapjában havonta 16–30 új magyar podcast indult; a tavaszi csúcsot (2026-03: 30 új műsor) követően áprilisra és májusra mérséklődött a tempó.
 
-## Mentális wellness témák szezonalitása (2026-02 – 2026-05)
+## Mentális wellness témák szezonalitása (2025-01 – 2026-05, 17 hónap)
 
-> **Módszertani megjegyzés:** A téma-pipeline 2026 májusi első futtatása csak a 2026-02-19 és 05-30 közötti megjelenésű magyar epizódokat dolgozta fel, ezért ezekre a címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) csak ebből az ablakból van havi adat. A 2025-ös évszak-mintázat (újévi hullám) ebből nem rekonstruálható; a korábbi évek epizódjainak visszamenő címkézése későbbi feladat.
+> **Módszertani megjegyzés:** Az AI-pipeline epizódonkénti szabad-szöveges téma-címkéiből (`alvás`, `meditáció`, `önismeret`, `párkapcsolat`) magyar epizódonkénti DISTINCT számolás. Az adat teljes 17 hónapra rendelkezésre áll.
 
 | Hónap | Alvás | Meditáció | Önismeret | Párkapcsolat |
 |---|---:|---:|---:|---:|
-| 2026-02 | 10 | 10 | 15 | 12 |
-| 2026-03 | 29 | 30 | 45 | 27 |
-| 2026-04 | 31 | 32 | 47 | 16 |
-| 2026-05 | 35 | 32 | 27 | 6 |
+| 2025-01 | 3 | 0 | 10 | 2 |
+| 2025-02 | 3 | 1 | 6 | 5 |
+| 2025-03 | 3 | 2 | 8 | 2 |
+| 2025-04 | 2 | 4 | 12 | 1 |
+| 2025-05 | 2 | 2 | 12 | 3 |
+| 2025-06 | 1 | 1 | 11 | 4 |
+| 2025-07 | 1 | 3 | 15 | 1 |
+| 2025-08 | 1 | 2 | 15 | 2 |
+| 2025-09 | 1 | 1 | 11 | 4 |
+| 2025-10 | 4 | 0 | 9 | 5 |
+| 2025-11 | 1 | 5 | 23 | 3 |
+| 2025-12 | 3 | 0 | 12 | 1 |
+| 2026-01 | **18** | **22** | 9 | 2 |
+| 2026-02 | 16 | 22 | 10 | 8 |
+| 2026-03 | 10 | 18 | 15 | 3 |
+| 2026-04 | 15 | 15 | 15 | 3 |
+| 2026-05 | 17 | 15 | 13 | 1 |
 
-A felvevő márciusra konszolidálódik (mindegyik téma 3–4× a februári szintre ugrik), majd a tavaszi időszakban stabil ~30 epizód/hó tempó marad az alvás és meditáció témákban.
+Tisztán látszik a **2026 januári újévi wellness-csúcs**: alvás 1→18 (×18) és meditáció 0–5→22 (×4–22) ugrás az újév első hetében. Az önismeret címke 2025 novemberében ért csúcsot (23 ep), majd 2026 elejére beszorult 9–15-re — ahogy a fókusz az alvás/meditáció felé tolódott. Párkapcsolat-tartalom egész évben gyenge, 1–8 ep/hó között ingadozik.
 
 ## Pártok említései magyar podcastokban (elmúlt 12 hónap, 2025-06-14 – 2026-06-14)
 
@@ -280,7 +291,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 - **„Magyar podcast" definíció:** RSS feed `language=hu*`, vagy nyelvazonosítás alapján dominánsan magyar tartalom.
 - **Indexelt műsor:** 1 449 magyar RSS feed; 1 373 műsorhoz tartozik legalább egy ismert publikált epizód.
 - **Kategorizálás:** iTunes/Apple taxonómia + belső 21-kategóriás magyar taxonómia.
-- **Téma-azonosítás (kanonikus):** epizód-átiratból (clean text) kinyert beszélgetési témák, kanonikus taxonómiára leképezve. „Téma" ≠ kategória. A Podiverzum 2026 májusában indult; a topic-judge pipeline első futtatása (2026-05-17 – 05-30) a katalógus akkor friss, utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) magyar epizódjait dolgozta fel — 3 498 ep. A korábbi évek visszamenő címkézése későbbi feladat.
+- **Téma-azonosítás:** epizódonként szabad-szöveges téma-címkék az AI-pipeline-tól (leírás + ahol van, átirat alapján). A 17 hónapos ablak 42 132 magyar epizódjának 70%-án (29 315 ep) van legalább egy téma-címke. A top-listához a nyers címkéket tematikus klaszterekbe csoportosítjuk (DISTINCT epizód klaszteren belül).
 - **Közszereplők és szervezetek:** clean-text átiratból, Wikipédia/Wikidata azonosítással. A személy- és szervezet-pipeline a teljes magyar katalóguson fut.
 - **Publikálási ritmus szerinti csoportosítás:** az utolsó 90 nap epizódszáma alapján (≥13 / 4–12 / 1–3 / 0).
 - **Időzóna:** Europe/Budapest.
@@ -290,7 +301,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 
 - A katalógus nem teljes — kis kalózpodcastok, magán Discord-szerverek, YouTube-only streamek nem kerülnek be.
 - Hallgatottsági (letöltés / play) adatokat ez a jelentés nem tartalmaz.
-- A téma-szintű elemzés a katalógus utolsó ~3,5 hónapjának (2026-02-19 – 2026-05-30 megjelenésű) 3 498 magyar epizódjára épül, mert a topic-judge pipeline első futtatása ezt az ablakot dolgozta fel 2026 májusában. A korábbi évek visszamenő címkézése még nem futott le; a top-lista sorrendje és nagyságrendje ezzel változhat.
+- A téma-címkézés 70%-os lefedettségű (29 315 / 42 132 ep); a fennmaradó 30%-on az AI-pipeline még nem futott vagy nem talált értelmezhető címkét. A klaszterekbe-soroláshoz használt szótár nem fed le minden szinonimát, ezért a klaszter-számok inkább alsó becslések.
 - Az automatizált entitás-kinyerés elszórt téves találatokat tartalmazhat (névegyezés, kontextus-tévesztés).
 - A „említés" annyit jelent, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában — nem tartalmi értékelés.
 

@@ -93,36 +93,32 @@
     { "name": "Humor", "y2024": 580, "y2025": 323, "pct": -44 }
   ],
   "top_topics_window": {
-    "from": "2026-02-19",
-    "to": "2026-05-30",
-    "episodes_in_window": 3498,
-    "method_note": "A Podiverzum 2026 májusában indult. A taxonómia-alapú téma-leképezés (topic-judge) első futtatása 2026-05-17 – 05-30 között zajlott, és a katalógus akkor friss, utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) magyar epizódjait dolgozta fel: 3 498 epizódot. A korábbi évek (2015–2026 január) epizódjainak visszamenőleges téma-címkézése későbbi feladat — a sorrend és a nagyságrend ezzel változhat. A 12 hónapos vagy 17 hónapos téma-statisztikát ezért szándékosan NEM közöljük."
+    "from": "2025-01-01",
+    "to": "2026-06-14",
+    "episodes_in_window": 42132,
+    "episodes_with_topic_labels": 29315,
+    "coverage_pct": 70,
+    "method_note": "17 hónapos ablak. Az AI-pipeline epizódonként szabad-szöveges téma-címkéket nyer ki a leírásból és (ahol van) az átiratból (episodes.topics mező). A 42 132 magyar epizód 70%-án (29 315 ep) van legalább egy téma-címke. Az alábbi top-lista ezeket a nyers címkéket tematikus klaszterekbe csoportosítja (pl. AI / Mesterséges intelligencia = ai + mesterséges intelligencia címke distinct epizódjai). Egy epizód több klaszterhez is tartozhat, klaszteren belül DISTINCT számolás."
   },
-  "top_topics_recent_window": [
-    { "slug": "biblia", "name": "Biblia", "episodes": 259 },
-    { "slug": "valasztas", "name": "Választás 2026", "episodes": 248 },
-    { "slug": "zene", "name": "Zene", "episodes": 230 },
-    { "slug": "mesterseges-intelligencia", "name": "Mesterséges intelligencia (MI/AI)", "episodes": 269, "note": "Az AI és Mesterséges intelligencia címkék egyesítve (distinct epizódszám)." },
-    { "slug": "film", "name": "Film", "episodes": 170 },
-    { "slug": "haboru", "name": "Háború (Ukrajna / Közel-Kelet)", "episodes": 146 },
-    { "slug": "sport", "name": "Sport általában", "episodes": 143 },
-    { "slug": "gazdasag", "name": "Gazdaság", "episodes": 141 },
-    { "slug": "onismeret", "name": "Önismeret", "episodes": 134 },
-    { "slug": "csalad", "name": "Család", "episodes": 123 },
-    { "slug": "pszichologia", "name": "Pszichológia", "episodes": 122 },
-    { "slug": "keresztenyseg", "name": "Kereszténység", "episodes": 122 },
-    { "slug": "kozelet", "name": "Közélet", "episodes": 118 },
-    { "slug": "media", "name": "Média", "episodes": 112 },
-    { "slug": "szinhaz", "name": "Színház", "episodes": 107 },
-    { "slug": "alvas", "name": "Alvás", "episodes": 105 },
-    { "slug": "meditacio", "name": "Meditáció", "episodes": 104 },
-    { "slug": "kormany", "name": "Kormány", "episodes": 99 },
-    { "slug": "egeszseg", "name": "Egészség", "episodes": 94 },
-    { "slug": "tortenelem", "name": "Történelem", "episodes": 90 },
-    { "slug": "vallalkozas", "name": "Vállalkozás", "episodes": 90 },
-    { "slug": "kulpolitika", "name": "Külpolitika", "episodes": 74 },
-    { "slug": "kosarlabda", "name": "Kosárlabda", "episodes": 74 },
-    { "slug": "technologia", "name": "Technológia (téma-címke)", "episodes": 73 }
+  "top_topic_clusters_last_17_months": [
+    { "name": "Politika / közélet / választás", "episodes": 845 },
+    { "name": "AI / Mesterséges intelligencia",  "episodes": 762 },
+    { "name": "Mentális wellness / önismeret",    "episodes": 658 },
+    { "name": "Sport",                            "episodes": 558 },
+    { "name": "Gazdaság / pénzügy",               "episodes": 551 },
+    { "name": "Gyerek / esti mese",               "episodes": 541 },
+    { "name": "Zene",                             "episodes": 520 },
+    { "name": "Vallás / kereszténység",           "episodes": 518 },
+    { "name": "Vállalkozás / karrier",            "episodes": 261 },
+    { "name": "Klíma / fenntarthatóság",          "episodes": 238 },
+    { "name": "Film / sorozat",                   "episodes": 231 },
+    { "name": "Könyv / irodalom",                 "episodes": 221 },
+    { "name": "Háború (Ukrajna / Közel-Kelet)",   "episodes": 219 },
+    { "name": "Színház / kultúra",                "episodes": 218 },
+    { "name": "Egészség",                         "episodes": 147 },
+    { "name": "Oktatás",                          "episodes": 134 },
+    { "name": "Család / párkapcsolat",            "episodes": 121 },
+    { "name": "Technológia",                      "episodes": 103 }
   ],
   "publishing_heatmap": {
     "period": "2025-06-14 to 2026-06-14",
@@ -154,17 +150,17 @@
     { "month": "2026-04", "new_shows": 16 }, { "month": "2026-05", "new_shows": 10 }
   ],
   "wellness_topic_monthly_window": {
-    "from": "2026-02-01",
+    "from": "2025-01-01",
     "to": "2026-05-31",
-    "method_note": "A mentális wellness téma-címkék (Alvás, Meditáció, Önismeret, Párkapcsolat) a 2025-ös hónapokra még nem rendelnek epizódokat — ezek a címkék 2026-02-tól termelnek értelmezhető havi adatot. A 2025-ös szezonalitás (újévi hullám stb.) ebből az ablakból nem rekonstruálható."
+    "method_note": "Az AI-pipeline epizódonkénti szabad-szöveges téma-címkéiből (episodes.topics mező) magyar nyelvű (alvás, meditáció, önismeret, párkapcsolat) DISTINCT epizódszámolás. Az adat teljes 17 hónapos időszakra rendelkezésre áll."
   },
-  "wellness_topic_monthly_2026_02_to_2026_05": {
-    "months": ["2026-02","2026-03","2026-04","2026-05"],
+  "wellness_topic_monthly_2025_01_to_2026_05": {
+    "months": ["2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],
     "series": {
-      "alvas":        [10, 29, 31, 35],
-      "meditacio":    [10, 30, 32, 32],
-      "onismeret":    [15, 45, 47, 27],
-      "parkapcsolat": [12, 27, 16, 6]
+      "alvas":        [3, 3, 3, 2, 2, 1, 1, 1, 1, 4, 1, 3, 18, 16, 10, 15, 17],
+      "meditacio":    [0, 1, 2, 4, 2, 1, 3, 2, 1, 0, 5, 0, 22, 22, 18, 15, 15],
+      "onismeret":    [10, 6, 8, 12, 12, 11, 15, 15, 11, 9, 23, 12, 9, 10, 15, 15, 13],
+      "parkapcsolat": [2, 5, 2, 1, 3, 4, 1, 2, 4, 5, 3, 1, 2, 8, 3, 3, 1]
     }
   },
   "party_mentions_last_12_months": [
