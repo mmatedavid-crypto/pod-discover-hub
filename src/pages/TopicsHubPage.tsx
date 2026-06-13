@@ -28,17 +28,27 @@ const DOMAIN_LABEL: Record<string, string> = {
 
 export default function TopicsHubPage() {
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [clusters, setClusters] = useState<{ slug: string; canonical_label_hu: string; episode_count: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("topics")
-        .select("id, slug, name, short_name, domain, seo_description, episode_count, podcast_count, is_indexable, priority")
-        .eq("is_public", true)
-        .order("priority", { ascending: false })
-        .order("sort_order", { ascending: true });
+      const [{ data }, { data: cl }] = await Promise.all([
+        supabase
+          .from("topics")
+          .select("id, slug, name, short_name, domain, seo_description, episode_count, podcast_count, is_indexable, priority")
+          .eq("is_public", true)
+          .order("priority", { ascending: false })
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("topic_clusters")
+          .select("slug, canonical_label_hu, episode_count")
+          .eq("is_public", true)
+          .order("episode_count", { ascending: false })
+          .limit(40),
+      ]);
       setTopics((data || []) as any);
+      setClusters((cl || []) as any);
       setLoading(false);
       setSeo({
         title: "Témák a magyar podcastokban — Podiverzum",
