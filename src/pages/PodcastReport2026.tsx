@@ -48,12 +48,12 @@ const STATS = {
     { name: "Humor", pods: 23, eps: 3914 },
     { name: "Önfejlesztés", pods: 57, eps: 3537 },
   ],
-  // Top témák — 17 hónap (2025-01-01 – 2026-06-14), tier S+A minta (~25%), 3 498 témához rendelt epizód
+  // Top témák — 2026-02-19 – 2026-05-30 ablak (kanonikus topic-judge live óta), 3 498 magyar epizód
   topTopics: [
-    { slug: "mesterseges-intelligencia", name: "Mesterséges intelligencia (MI/AI)", eps: 269 },
     { slug: "biblia", name: "Biblia", eps: 259 },
-    { slug: "valasztas", name: "Választás 2026", eps: 248 },
+    { slug: "valasztas", name: "Választás", eps: 248 },
     { slug: "zene", name: "Zene", eps: 230 },
+    { slug: "mesterseges-intelligencia", name: "Mesterséges intelligencia", eps: 205 },
     { slug: "film", name: "Film", eps: 170 },
     { slug: "haboru", name: "Háború (Ukrajna / Közel-Kelet)", eps: 146 },
     { slug: "sport", name: "Sport általában", eps: 143 },
@@ -67,9 +67,9 @@ const STATS = {
     { slug: "szinhaz", name: "Színház", eps: 107 },
     { slug: "alvas", name: "Alvás", eps: 105 },
     { slug: "meditacio", name: "Meditáció", eps: 104 },
+    { slug: "ai", name: "AI (külön címke)", eps: 103 },
     { slug: "kormany", name: "Kormány", eps: 99 },
     { slug: "egeszseg", name: "Egészség", eps: 94 },
-    { slug: "tortenelem", name: "Történelem", eps: 90 },
   ],
   // Elmúlt 12 hónap (2025-06-14 – 2026-06-14)
   topParties: [
@@ -370,10 +370,10 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-temak-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
-            17 hónap (2025-01-01 – 2026-06-14) magyar epizódjaiból kinyert top 10 visszatérő beszélgetési téma.
+            A 2026-02-19 – 2026-05-30 ablak (3 498 magyar epizód) top 10 visszatérő, kanonikus témája.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
-            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — vagyis kínálati oldal. Nem hallgatottsági és nem letöltési adat. A jelenlegi számok a tier S+A magyar podcastok mintáján alapulnak (~25%, 3 498 témához rendelt epizód); a teljes katalógus backfill-je folyamatban — a sorrend és nagyságrend stabilan tartható.
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — kínálati oldal, nem hallgatottsági adat. A kanonikus, taxonómia-alapú téma-pipeline 2026-02-19 óta él, ezért a számok ebből a 3,4 hónapos ablakból származnak. A 2025-ös és korábbi epizódok visszamenőleges címkézése későbbi backfill-feladat; a sorrend ezzel változhat.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
@@ -400,10 +400,10 @@ export default function PodcastReport2026() {
             })}
           </div>
           <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
-            17 hónap alatt a Biblia (259), a Választás (248) és a Zene (230) vezeti a top listát; az AI és Mesterséges intelligencia címke egyesítve 269 epizódot ad.
+            A 3,4 hónapos ablakban a Biblia (259), a Választás (248) és a Zene (230) vezeti a listát; a Mesterséges intelligencia 205 epizóddal a negyedik.
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
-            A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">választás</strong> téma (248 epizód) a top 3-ba került, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
+            A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">választás</strong> téma (248 epizód) a top 3-ban van, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
           </p>
           </DownloadableFigure>
         </section>
@@ -533,7 +533,7 @@ export default function PodcastReport2026() {
             Négy önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás + átirat alapú téma-leképezés).
           </p>
           <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-foreground">
-            <strong>Módszertan:</strong> A téma-azonosítás visszamenőleg 2025-01-01-ig fut, de ezekre a specifikus címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) 2026 februárjától áll rendelkezésre értelmezhető havi mennyiségű adat. A 2025-ös évszak-mintázat ebből az ablakból nem rekonstruálható.
+            <strong>Módszertan:</strong> A kanonikus téma-pipeline 2026-02-19 óta él, ezért ezekre a címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) 2026 februárjától áll rendelkezésre havi mennyiségű adat. A 2025-ös évszak-mintázat (újévi hullám) ebből az ablakból nem rekonstruálható; a 2025-re visszamenő téma-címkézés későbbi backfill.
           </div>
 
           {(() => {

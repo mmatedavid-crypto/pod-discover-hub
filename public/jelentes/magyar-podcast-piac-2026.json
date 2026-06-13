@@ -93,12 +93,12 @@
     { "name": "Humor", "y2024": 580, "y2025": 323, "pct": -44 }
   ],
   "top_topics_window": {
-    "from": "2025-01-01",
-    "to": "2026-06-14",
+    "from": "2026-02-19",
+    "to": "2026-05-30",
     "episodes_in_window": 3498,
-    "method_note": "17 hónapos ablak (2025-01-01 – 2026-06-14). A téma-azonosítás visszamenőlegesen a teljes időszakra futott, jelenleg a tier S+A magyar podcastok (~25% epizód-minta, 3 498 témához rendelt epizód) alapján. A maradék kb. 12 800 epizód téma-extrakciója folyamatban van, a következő frissítésben a számok arányosan nőhetnek; a témák sorrendje és nagyságrendje stabil."
+    "method_note": "A kanonikus, taxonómia-alapú téma-leképezés (topic-judge runner) 2026-02-19 óta él, és azóta címkézi az újonnan beérkező magyar epizódokat. Az itt közölt számok ebből a 3,4 hónapos ablakból származnak, 3 498 magyar epizódra alkalmazva. A 2025-ös és korábbi epizódok visszamenőleges téma-címkézése (~32 ezer ep) későbbi backfill-feladat; az alábbi sorrend és nagyságrend ezzel változhat, de a piacszerkezeti következtetéseket (vallás, választás, AI és egészség dominancia) korábbi mintáink is alátámasztják."
   },
-  "top_topics_last_17_months": [
+  "top_topics_recent_window": [
     { "slug": "biblia", "name": "Biblia", "episodes": 259 },
     { "slug": "valasztas", "name": "Választás 2026", "episodes": 248 },
     { "slug": "zene", "name": "Zene", "episodes": 230 },
