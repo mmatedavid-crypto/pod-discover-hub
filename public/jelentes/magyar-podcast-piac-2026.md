@@ -68,9 +68,9 @@ Magyar epizódok megjelenésének éve szerint (1970 előtti és nyilvánvalóan
 
 Áttörési pont: **2020–2021**, járvány + Spotify HU launch, három év alatt megnégyszereződött a termelés. A 2026-os ütem alapján (15 505 epizód 165 nap alatt) az év végére ~34 300 magyar epizód várható.
 
-## Top témák (kanonikus taxonómia, 2026-02-19 – 2026-05-30, 3 498 epizód)
+## Top témák (a katalógus legutóbbi ~3,5 hónapja, 2026-02-19 – 2026-05-30 megjelenésű 3 498 epizód)
 
-> **Módszertani megjegyzés:** A kanonikus, taxonómia-alapú téma-leképezés (topic-judge runner) 2026-02-19-én indult élesben, és azóta címkézi az újonnan beérkező magyar epizódokat. Az alábbi sorrend ebből a 3,4 hónapos ablakból, 3 498 címkézett magyar epizódból származik. A 2025-ös és korábbi epizódok visszamenőleges téma-címkézése későbbi backfill-feladat; a sorrend és a nagyságrend ezzel változhat. A 12 hónapos / 17 hónapos téma-statisztikát ezért szándékosan **nem** közöljük.
+> **Módszertani megjegyzés:** A Podiverzum 2026 májusában indult. A taxonómia-alapú téma-leképezés (topic-judge) első futtatása 2026-05-17 és 05-30 között zajlott, és a katalógus akkor friss, utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) magyar epizódjait dolgozta fel — összesen 3 498 epizódot. A korábbi évek (2015 – 2026 január) epizódjainak visszamenőleges téma-címkézése későbbi feladat; a sorrend és a nagyságrend ezzel változhat. A 12 hónapos vagy 17 hónapos téma-statisztikát ezért szándékosan **nem** közöljük.
 
 | # | Téma | Epizódok |
 |---|---|---:|
@@ -218,7 +218,7 @@ A csütörtök a legerősebb publikálási nap (5 262 epizód); a hétvégén en
 
 ## Mentális wellness témák szezonalitása (2026-02 – 2026-05)
 
-> **Módszertani megjegyzés:** A kanonikus téma-pipeline 2026-02-19 óta él, ezért ezekre a címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) 2026 februárjától áll rendelkezésre havi mennyiségű adat. A 2025-ös évszak-mintázat (újévi hullám) ebből az ablakból nem rekonstruálható; a 2025-re visszamenő téma-címkézés későbbi backfill-feladat.
+> **Módszertani megjegyzés:** A téma-pipeline 2026 májusi első futtatása csak a 2026-02-19 és 05-30 közötti megjelenésű magyar epizódokat dolgozta fel, ezért ezekre a címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) csak ebből az ablakból van havi adat. A 2025-ös évszak-mintázat (újévi hullám) ebből nem rekonstruálható; a korábbi évek epizódjainak visszamenő címkézése későbbi feladat.
 
 | Hónap | Alvás | Meditáció | Önismeret | Párkapcsolat |
 |---|---:|---:|---:|---:|
@@ -280,8 +280,8 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 - **„Magyar podcast" definíció:** RSS feed `language=hu*`, vagy nyelvazonosítás alapján dominánsan magyar tartalom.
 - **Indexelt műsor:** 1 449 magyar RSS feed; 1 373 műsorhoz tartozik legalább egy ismert publikált epizód.
 - **Kategorizálás:** iTunes/Apple taxonómia + belső 21-kategóriás magyar taxonómia.
-- **Téma-azonosítás (kanonikus):** epizód-átiratból (clean text) kinyert beszélgetési témák, kanonikus taxonómiára leképezve. „Téma" ≠ kategória. A topic-judge pipeline 2026-02-19 óta él, és azóta beérkezett magyar epizódokat címkéz; a 2025-ös és korábbi epizódok visszamenőleges címkézése későbbi backfill-feladat. A jelentés téma-blokkja ezért szándékosan a 2026-02-19 – 2026-05-30 ablakra (3 498 ep) korlátozódik.
-- **Közszereplők és szervezetek:** clean-text átiratból, Wikipédia/Wikidata azonosítással. A szervezet- és személy-pipeline a teljes magyar katalóguson fut.
+- **Téma-azonosítás (kanonikus):** epizód-átiratból (clean text) kinyert beszélgetési témák, kanonikus taxonómiára leképezve. „Téma" ≠ kategória. A Podiverzum 2026 májusában indult; a topic-judge pipeline első futtatása (2026-05-17 – 05-30) a katalógus akkor friss, utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) magyar epizódjait dolgozta fel — 3 498 ep. A korábbi évek visszamenő címkézése későbbi feladat.
+- **Közszereplők és szervezetek:** clean-text átiratból, Wikipédia/Wikidata azonosítással. A személy- és szervezet-pipeline a teljes magyar katalóguson fut.
 - **Publikálási ritmus szerinti csoportosítás:** az utolsó 90 nap epizódszáma alapján (≥13 / 4–12 / 1–3 / 0).
 - **Időzóna:** Europe/Budapest.
 - **Részletes módszertan:** https://podiverzum.hu/modszertan
@@ -290,7 +290,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 
 - A katalógus nem teljes — kis kalózpodcastok, magán Discord-szerverek, YouTube-only streamek nem kerülnek be.
 - Hallgatottsági (letöltés / play) adatokat ez a jelentés nem tartalmaz.
-- A téma-szintű elemzés a 2026-02-19 – 2026-05-30 ablak 3 498 magyar epizódjára épül, mert a kanonikus téma-pipeline azóta él. A korábbi időszakra a visszamenőleges címkézés még nem futott le; a top-lista sorrendje és nagyságrendje ezzel változhat.
+- A téma-szintű elemzés a katalógus utolsó ~3,5 hónapjának (2026-02-19 – 2026-05-30 megjelenésű) 3 498 magyar epizódjára épül, mert a topic-judge pipeline első futtatása ezt az ablakot dolgozta fel 2026 májusában. A korábbi évek visszamenő címkézése még nem futott le; a top-lista sorrendje és nagyságrendje ezzel változhat.
 - Az automatizált entitás-kinyerés elszórt téves találatokat tartalmazhat (névegyezés, kontextus-tévesztés).
 - A „említés" annyit jelent, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában — nem tartalmi értékelés.
 

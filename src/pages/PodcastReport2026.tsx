@@ -48,7 +48,8 @@ const STATS = {
     { name: "Humor", pods: 23, eps: 3914 },
     { name: "Önfejlesztés", pods: 57, eps: 3537 },
   ],
-  // Top témák — 2026-02-19 – 2026-05-30 ablak (kanonikus topic-judge live óta), 3 498 magyar epizód
+  // Top témák — a topic-judge első futtatása (2026-05-17 – 05-30) a katalógus akkor friss
+  // utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) 3 498 magyar epizódját címkézte
   topTopics: [
     { slug: "biblia", name: "Biblia", eps: 259 },
     { slug: "valasztas", name: "Választás", eps: 248 },
@@ -370,10 +371,10 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-temak-2026">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Miről beszél a magyar podcastnyilvánosság?</h2>
           <p className="mb-2 text-muted-foreground">
-            A 2026-02-19 – 2026-05-30 ablak (3 498 magyar epizód) top 10 visszatérő, kanonikus témája.
+            A katalógus utolsó ~3,5 hónapjának (2026-02-19 – 2026-05-30 megjelenésű) 3 498 magyar epizódjából a top 10 visszatérő, kanonikus téma.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
-            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — kínálati oldal, nem hallgatottsági adat. A kanonikus, taxonómia-alapú téma-pipeline 2026-02-19 óta él, ezért a számok ebből a 3,4 hónapos ablakból származnak. A 2025-ös és korábbi epizódok visszamenőleges címkézése későbbi backfill-feladat; a sorrend ezzel változhat.
+            Fontos: ez <strong className="text-foreground not-italic">a megjelent epizódok</strong> alapján mért témastruktúra — kínálati oldal, nem hallgatottsági adat. A Podiverzum 2026 májusában indult; a topic-judge pipeline első futtatása (2026-05-17 – 05-30) a katalógus akkor friss utolsó ~3,5 hónapnyi epizódját címkézte. A korábbi évek visszamenő címkézése későbbi feladat; a sorrend ezzel változhat.
           </p>
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
@@ -400,7 +401,7 @@ export default function PodcastReport2026() {
             })}
           </div>
           <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
-            A 3,4 hónapos ablakban a Biblia (259), a Választás (248) és a Zene (230) vezeti a listát; a Mesterséges intelligencia 205 epizóddal a negyedik.
+            A katalógus utolsó ~3,5 hónapjának címkézett mintájában a Biblia (259), a Választás (248) és a Zene (230) vezeti a listát; a Mesterséges intelligencia 205 epizóddal a negyedik.
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
             A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">választás</strong> téma (248 epizód) a top 3-ban van, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
@@ -533,7 +534,7 @@ export default function PodcastReport2026() {
             Négy önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás + átirat alapú téma-leképezés).
           </p>
           <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-foreground">
-            <strong>Módszertan:</strong> A kanonikus téma-pipeline 2026-02-19 óta él, ezért ezekre a címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) 2026 februárjától áll rendelkezésre havi mennyiségű adat. A 2025-ös évszak-mintázat (újévi hullám) ebből az ablakból nem rekonstruálható; a 2025-re visszamenő téma-címkézés későbbi backfill.
+            <strong>Módszertan:</strong> A téma-pipeline 2026 májusi első futtatása csak a 2026-02-19 – 05-30 közötti megjelenésű magyar epizódokat dolgozta fel, ezért ezekre a címkékre csak ebből az ablakból van havi adat. A 2025-ös évszak-mintázat (újévi hullám) ebből nem rekonstruálható; a korábbi évek visszamenő címkézése későbbi feladat.
           </div>
 
           {(() => {
