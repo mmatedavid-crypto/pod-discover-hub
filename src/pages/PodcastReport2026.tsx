@@ -533,7 +533,7 @@ export default function PodcastReport2026() {
             Négy önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás + átirat alapú téma-leképezés).
           </p>
           <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-foreground">
-            <strong>Módszertan:</strong> A téma-azonosítási pipeline 2026 februárjában indult el a teljes katalógusra, ezért szezonalitás-elemzés csak ettől az időponttól kezdve elérhető. A 2025-ös hónapokra még nincs strukturált téma-szintű adat — ezt a jövőbeli jelentésekben pótoljuk.
+            <strong>Módszertan:</strong> A téma-azonosítás visszamenőleg 2025-01-01-ig fut, de ezekre a specifikus címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) 2026 februárjától áll rendelkezésre értelmezhető havi mennyiségű adat. A 2025-ös évszak-mintázat ebből az ablakból nem rekonstruálható.
           </div>
 
           {(() => {
