@@ -48,7 +48,7 @@ const STATS = {
     { name: "Humor", pods: 23, eps: 3914 },
     { name: "Önfejlesztés", pods: 57, eps: 3537 },
   ],
-  // Top témák — 2026-02-01 — 2026-06-14 (4,5 hó ablak; a téma-pipeline 2026-02 óta fut)
+  // Top témák — 17 hónap (2025-01-01 – 2026-06-14), tier S+A minta (~25%), 3 498 témához rendelt epizód
   topTopics: [
     { slug: "mesterseges-intelligencia", name: "Mesterséges intelligencia (MI/AI)", eps: 269 },
     { slug: "biblia", name: "Biblia", eps: 259 },
