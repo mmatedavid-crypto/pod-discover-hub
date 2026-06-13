@@ -401,7 +401,7 @@ export default function PodcastReport2026() {
             })}
           </div>
           <p className="text-sm italic text-muted-foreground border-l-2 border-primary pl-3 mb-3">
-            A 3,4 hónapos ablakban a Biblia (259), a Választás (248) és a Zene (230) vezeti a listát; a Mesterséges intelligencia 205 epizóddal a negyedik.
+            A katalógus utolsó ~3,5 hónapjának címkézett mintájában a Biblia (259), a Választás (248) és a Zene (230) vezeti a listát; a Mesterséges intelligencia 205 epizóddal a negyedik.
           </p>
           <p className="text-sm italic text-muted-foreground border-l-2 border-accent pl-3">
             A választási év nyoma egyértelmű: a <strong className="text-foreground not-italic">választás</strong> téma (248 epizód) a top 3-ban van, és a 12 hónapos pártemlítés-adat (Fidesz 388 / Tisza 351) is gyakorlatilag holtversenyt mutat.
