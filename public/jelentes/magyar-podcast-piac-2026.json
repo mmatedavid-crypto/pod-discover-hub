@@ -93,12 +93,12 @@
     { "name": "Humor", "y2024": 580, "y2025": 323, "pct": -44 }
   ],
   "top_topics_window": {
-    "from": "2026-02-01",
+    "from": "2025-01-01",
     "to": "2026-06-14",
     "episodes_in_window": 3498,
-    "method_note": "A téma-azonosítási (topic-extraction) pipeline 2026 februárjában indult el a teljes katalógusra. Korábbi epizódokra nincs strukturált téma-leképezés, ezért ez a blokk 4,5 hónapos ablakot mutat, NEM 12 hónapot. A számok visszamenőlegesen később bővülhetnek, ahogy a régebbi epizódokat is feldolgozzuk."
+    "method_note": "17 hónapos ablak (2025-01-01 – 2026-06-14). A téma-azonosítás visszamenőlegesen a teljes időszakra futott, jelenleg a tier S+A magyar podcastok (~25% epizód-minta, 3 498 témához rendelt epizód) alapján. A maradék kb. 12 800 epizód téma-extrakciója folyamatban van, a következő frissítésben a számok arányosan nőhetnek; a témák sorrendje és nagyságrendje stabil."
   },
-  "top_topics_last_4_5_months": [
+  "top_topics_last_17_months": [
     { "slug": "biblia", "name": "Biblia", "episodes": 259 },
     { "slug": "valasztas", "name": "Választás 2026", "episodes": 248 },
     { "slug": "zene", "name": "Zene", "episodes": 230 },
