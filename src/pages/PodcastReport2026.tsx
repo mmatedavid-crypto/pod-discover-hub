@@ -903,7 +903,7 @@ export default function PodcastReport2026() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi közel 90 új epizód, évi több mint 25 ezer adás, több mint ezernégyszáz indexelt műsor. A nyilvánosság egyre nagyobb része — különösen a fiatalabb, urbánus korosztály — hosszú formátumú beszélgetésekből is tájékozódik.
+              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi átlag ~{STATS.avgEpsPerDay2025} új epizód 2025-ben, évi több mint 26 ezer adás, közel 1 450 indexelt műsor. A nyilvánosság egyre nagyobb része — különösen a fiatalabb, urbánus korosztály — hosszú formátumú beszélgetésekből is tájékozódik.
             </p>
             <p>
               Eközben a podcastok tartalma jórészt <strong>strukturálatlan és nehezen kereshető</strong>: a keresőmotorok és hírarchívumok számára gyakran csak részlegesen látható, és a közéleti viták egy része olyan hosszú formátumú beszélgetésekben zajlik, amelyek eddig nehezen voltak visszakereshetők.
@@ -972,7 +972,7 @@ export default function PodcastReport2026() {
           <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Próbáld ki</div>
           <div className="font-serif text-2xl font-bold text-foreground mb-3">Keress rá bármire a magyar podcast univerzumban</div>
           <p className="mb-4 text-muted-foreground">
-            134 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
+            139 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
           </p>
           <Link
             to="/kereses"
