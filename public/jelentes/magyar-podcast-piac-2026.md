@@ -68,9 +68,9 @@ Magyar epizódok megjelenésének éve szerint (1970 előtti és nyilvánvalóan
 
 Áttörési pont: **2020–2021**, járvány + Spotify HU launch, három év alatt megnégyszereződött a termelés. A 2026-os ütem alapján (15 505 epizód 165 nap alatt) az év végére ~34 300 magyar epizód várható.
 
-## Top témák (utolsó 4,5 hónap, 2026-02-01 – 2026-06-14)
+## Top témák (17 hónap, 2025-01-01 – 2026-06-14)
 
-> **Módszertani figyelmeztetés:** A teljes katalógusra kiterjedő téma-azonosítási pipeline 2026 februárjában indult el. Korábbi epizódokra még nincs strukturált téma-leképezés, ezért ez a blokk **NEM 12 hónapot**, hanem ~4,5 hónapot fed le (3 498 azonosított témájú magyar epizód). A számok visszamenőlegesen bővülnek, ahogy a régebbi epizódokat is feldolgozzuk.
+> **Módszertani megjegyzés:** A téma-azonosítás visszamenőlegesen a teljes 17 hónapos időszakra futott a tier S+A magyar podcastokra (~25%-os epizód-minta, 3 498 témához rendelt epizód). A maradék kb. 12 800 epizód téma-extrakciója folyamatban van — a következő frissítésben a számok arányosan emelkedhetnek, a témák sorrendje és nagyságrendje stabilan tartható.
 
 | # | Téma | Epizódok |
 |---|---|---:|
@@ -216,9 +216,9 @@ A csütörtök a legerősebb publikálási nap (5 262 epizód); a hétvégén en
 
 24 hónap összesen: 405 új magyar podcast, átlagosan ~17 / hónap. 2026 első három hónapjában havonta 16–30 új magyar podcast indult; a tavaszi csúcsot (2026-03: 30 új műsor) követően áprilisra és májusra mérséklődött a tempó.
 
-## Mentális wellness témák szezonalitása
+## Mentális wellness témák szezonalitása (2026-02 – 2026-05)
 
-> **Módszertani figyelmeztetés:** Mint a top-témák blokknál, a téma-szintű mérés csak 2026 februárjában indult, ezért **2025-ös havi adat NINCS** (a korábbi „újévi hullám" megállapítások nem rekonstruálhatók). A 2026 februárjától kezdődő négy hónapon viszont látható az ébredés.
+> **Módszertani megjegyzés:** A teljes katalógusra a téma-azonosítás 2025-ig visszamenőleg fut, de ezekre a specifikus címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) 2026 februárjától áll rendelkezésre értelmezhető havi mennyiségű adat. A 2025-ös évszak-mintázat (újévi hullám) ebből az ablakból nem rekonstruálható.
 
 | Hónap | Alvás | Meditáció | Önismeret | Párkapcsolat |
 |---|---:|---:|---:|---:|
@@ -280,7 +280,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 - **„Magyar podcast" definíció:** RSS feed `language=hu*`, vagy nyelvazonosítás alapján dominánsan magyar tartalom.
 - **Indexelt műsor:** 1 449 magyar RSS feed; 1 373 műsorhoz tartozik legalább egy ismert publikált epizód.
 - **Kategorizálás:** iTunes/Apple taxonómia + belső 21-kategóriás magyar taxonómia.
-- **Téma-azonosítás:** epizód-átiratból (clean text) kinyert beszélgetési témák, normalizálva. „Téma" ≠ kategória. A téma-pipeline 2026 februárjában indult el, ezért a téma-szintű blokkok 2026-02-tól kezdődnek.
+- **Téma-azonosítás:** epizód-átiratból (clean text) kinyert beszélgetési témák, normalizálva. „Téma" ≠ kategória. A téma-azonosítás visszamenőleg 2025-01-01-ig fut; jelen kiadás a tier S+A magyar podcastok mintáján (~25% epizód) készült, a maradék katalógus teljes feldolgozása folyamatban van.
 - **Közszereplők és szervezetek:** clean-text átiratból, Wikipédia/Wikidata azonosítással. A szervezet- és személy-pipeline 2024 közepe óta működik.
 - **Publikálási ritmus szerinti csoportosítás:** az utolsó 90 nap epizódszáma alapján (≥13 / 4–12 / 1–3 / 0).
 - **Időzóna:** Europe/Budapest.
@@ -290,7 +290,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 
 - A katalógus nem teljes — kis kalózpodcastok, magán Discord-szerverek, YouTube-only streamek nem kerülnek be.
 - Hallgatottsági (letöltés / play) adatokat ez a jelentés nem tartalmaz.
-- A téma-azonosítási pipeline 2026 februárjában indult, ezért a téma-szintű elemzések jelenleg ~4,5 hónapos ablakot fednek le. Ez a jövőbeli jelentésekben bővülni fog.
+- A téma-szintű elemzés jelenleg a tier S+A magyar podcastok mintáján alapul (3 498 témához rendelt epizód 2025-01-01 óta). A teljes katalógusra futó backfill után a számok arányosan emelkedhetnek, de a sorrend és a nagyságrend stabilan tartható.
 - Az automatizált entitás-kinyerés elszórt téves találatokat tartalmazhat (névegyezés, kontextus-tévesztés).
 - A „említés" annyit jelent, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában — nem tartalmi értékelés.
 
