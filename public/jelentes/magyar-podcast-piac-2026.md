@@ -280,8 +280,8 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 - **„Magyar podcast" definíció:** RSS feed `language=hu*`, vagy nyelvazonosítás alapján dominánsan magyar tartalom.
 - **Indexelt műsor:** 1 449 magyar RSS feed; 1 373 műsorhoz tartozik legalább egy ismert publikált epizód.
 - **Kategorizálás:** iTunes/Apple taxonómia + belső 21-kategóriás magyar taxonómia.
-- **Téma-azonosítás:** epizód-átiratból (clean text) kinyert beszélgetési témák, normalizálva. „Téma" ≠ kategória. A téma-azonosítás visszamenőleg 2025-01-01-ig fut; jelen kiadás a tier S+A magyar podcastok mintáján (~25% epizód) készült, a maradék katalógus teljes feldolgozása folyamatban van.
-- **Közszereplők és szervezetek:** clean-text átiratból, Wikipédia/Wikidata azonosítással. A szervezet- és személy-pipeline 2024 közepe óta működik.
+- **Téma-azonosítás (kanonikus):** epizód-átiratból (clean text) kinyert beszélgetési témák, kanonikus taxonómiára leképezve. „Téma" ≠ kategória. A topic-judge pipeline 2026-02-19 óta él, és azóta beérkezett magyar epizódokat címkéz; a 2025-ös és korábbi epizódok visszamenőleges címkézése későbbi backfill-feladat. A jelentés téma-blokkja ezért szándékosan a 2026-02-19 – 2026-05-30 ablakra (3 498 ep) korlátozódik.
+- **Közszereplők és szervezetek:** clean-text átiratból, Wikipédia/Wikidata azonosítással. A szervezet- és személy-pipeline a teljes magyar katalóguson fut.
 - **Publikálási ritmus szerinti csoportosítás:** az utolsó 90 nap epizódszáma alapján (≥13 / 4–12 / 1–3 / 0).
 - **Időzóna:** Europe/Budapest.
 - **Részletes módszertan:** https://podiverzum.hu/modszertan
@@ -290,7 +290,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 
 - A katalógus nem teljes — kis kalózpodcastok, magán Discord-szerverek, YouTube-only streamek nem kerülnek be.
 - Hallgatottsági (letöltés / play) adatokat ez a jelentés nem tartalmaz.
-- A téma-szintű elemzés jelenleg a tier S+A magyar podcastok mintáján alapul (3 498 témához rendelt epizód 2025-01-01 óta). A teljes katalógusra futó backfill után a számok arányosan emelkedhetnek, de a sorrend és a nagyságrend stabilan tartható.
+- A téma-szintű elemzés a 2026-02-19 – 2026-05-30 ablak 3 498 magyar epizódjára épül, mert a kanonikus téma-pipeline azóta él. A korábbi időszakra a visszamenőleges címkézés még nem futott le; a top-lista sorrendje és nagyságrendje ezzel változhat.
 - Az automatizált entitás-kinyerés elszórt téves találatokat tartalmazhat (névegyezés, kontextus-tévesztés).
 - A „említés" annyit jelent, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában — nem tartalmi értékelés.
 
