@@ -291,7 +291,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 - **„Magyar podcast" definíció:** RSS feed `language=hu*`, vagy nyelvazonosítás alapján dominánsan magyar tartalom.
 - **Indexelt műsor:** 1 449 magyar RSS feed; 1 373 műsorhoz tartozik legalább egy ismert publikált epizód.
 - **Kategorizálás:** iTunes/Apple taxonómia + belső 21-kategóriás magyar taxonómia.
-- **Téma-azonosítás (kanonikus):** epizód-átiratból (clean text) kinyert beszélgetési témák, kanonikus taxonómiára leképezve. „Téma" ≠ kategória. A Podiverzum 2026 májusában indult; a topic-judge pipeline első futtatása (2026-05-17 – 05-30) a katalógus akkor friss, utolsó ~3,5 hónapnyi (2026-02-19 – 2026-05-30 megjelenésű) magyar epizódjait dolgozta fel — 3 498 ep. A korábbi évek visszamenő címkézése későbbi feladat.
+- **Téma-azonosítás:** epizódonként szabad-szöveges téma-címkék az AI-pipeline-tól (leírás + ahol van, átirat alapján). A 17 hónapos ablak 42 132 magyar epizódjának 70%-án (29 315 ep) van legalább egy téma-címke. A top-listához a nyers címkéket tematikus klaszterekbe csoportosítjuk (DISTINCT epizód klaszteren belül).
 - **Közszereplők és szervezetek:** clean-text átiratból, Wikipédia/Wikidata azonosítással. A személy- és szervezet-pipeline a teljes magyar katalóguson fut.
 - **Publikálási ritmus szerinti csoportosítás:** az utolsó 90 nap epizódszáma alapján (≥13 / 4–12 / 1–3 / 0).
 - **Időzóna:** Europe/Budapest.
@@ -301,7 +301,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 
 - A katalógus nem teljes — kis kalózpodcastok, magán Discord-szerverek, YouTube-only streamek nem kerülnek be.
 - Hallgatottsági (letöltés / play) adatokat ez a jelentés nem tartalmaz.
-- A téma-szintű elemzés a katalógus utolsó ~3,5 hónapjának (2026-02-19 – 2026-05-30 megjelenésű) 3 498 magyar epizódjára épül, mert a topic-judge pipeline első futtatása ezt az ablakot dolgozta fel 2026 májusában. A korábbi évek visszamenő címkézése még nem futott le; a top-lista sorrendje és nagyságrendje ezzel változhat.
+- A téma-címkézés 70%-os lefedettségű (29 315 / 42 132 ep); a fennmaradó 30%-on az AI-pipeline még nem futott vagy nem talált értelmezhető címkét. A klaszterekbe-soroláshoz használt szótár nem fed le minden szinonimát, ezért a klaszter-számok inkább alsó becslések.
 - Az automatizált entitás-kinyerés elszórt téves találatokat tartalmazhat (névegyezés, kontextus-tévesztés).
 - A „említés" annyit jelent, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában — nem tartalmi értékelés.
 
