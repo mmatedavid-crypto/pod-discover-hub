@@ -272,7 +272,7 @@ export default function PodcastReport2026() {
             <InsightCard
               n={1}
               title="A magyar podcast már médiapiaci tényező"
-              body={`Napi közel 90 új magyar epizód, több mint ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
+              body={`Napi átlag ~${STATS.avgEpsPerDay2025} új magyar epizód 2025-ben, több mint ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
             />
             <InsightCard
               n={2}
@@ -328,7 +328,7 @@ export default function PodcastReport2026() {
             })}
             {/* 2026 — actual so far overlaid inside projected envelope */}
             {(() => {
-              const actual2026 = STATS.episodesYear["2026 (eddig, 5 hó)"];
+              const actual2026 = STATS.episodesYear["2026 (eddig, 5,5 hó)"];
               const denom = Math.max(maxYear, projected2026);
               const projectedPct = (projected2026 / denom) * 100;
               const actualPct = (actual2026 / denom) * 100;
