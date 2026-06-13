@@ -280,7 +280,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 - **„Magyar podcast" definíció:** RSS feed `language=hu*`, vagy nyelvazonosítás alapján dominánsan magyar tartalom.
 - **Indexelt műsor:** 1 449 magyar RSS feed; 1 373 műsorhoz tartozik legalább egy ismert publikált epizód.
 - **Kategorizálás:** iTunes/Apple taxonómia + belső 21-kategóriás magyar taxonómia.
-- **Téma-azonosítás:** epizód-átiratból (clean text) kinyert beszélgetési témák, normalizálva. „Téma" ≠ kategória. A téma-pipeline 2026 februárjában indult el, ezért a téma-szintű blokkok 2026-02-tól kezdődnek.
+- **Téma-azonosítás:** epizód-átiratból (clean text) kinyert beszélgetési témák, normalizálva. „Téma" ≠ kategória. A téma-azonosítás visszamenőleg 2025-01-01-ig fut; jelen kiadás a tier S+A magyar podcastok mintáján (~25% epizód) készült, a maradék katalógus teljes feldolgozása folyamatban van.
 - **Közszereplők és szervezetek:** clean-text átiratból, Wikipédia/Wikidata azonosítással. A szervezet- és személy-pipeline 2024 közepe óta működik.
 - **Publikálási ritmus szerinti csoportosítás:** az utolsó 90 nap epizódszáma alapján (≥13 / 4–12 / 1–3 / 0).
 - **Időzóna:** Europe/Budapest.
@@ -290,7 +290,7 @@ Elmúlt 12 hónap: Fidesz 388, Tisza Párt 351 — **gyakorlatilag holtverseny**
 
 - A katalógus nem teljes — kis kalózpodcastok, magán Discord-szerverek, YouTube-only streamek nem kerülnek be.
 - Hallgatottsági (letöltés / play) adatokat ez a jelentés nem tartalmaz.
-- A téma-azonosítási pipeline 2026 februárjában indult, ezért a téma-szintű elemzések jelenleg ~4,5 hónapos ablakot fednek le. Ez a jövőbeli jelentésekben bővülni fog.
+- A téma-szintű elemzés jelenleg a tier S+A magyar podcastok mintáján alapul (3 498 témához rendelt epizód 2025-01-01 óta). A teljes katalógusra futó backfill után a számok arányosan emelkedhetnek, de a sorrend és a nagyságrend stabilan tartható.
 - Az automatizált entitás-kinyerés elszórt téves találatokat tartalmazhat (névegyezés, kontextus-tévesztés).
 - A „említés" annyit jelent, hogy egy név vagy kifejezés szerepel az epizód címében, leírásában vagy átiratában — nem tartalmi értékelés.
 
