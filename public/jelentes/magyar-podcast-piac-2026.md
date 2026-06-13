@@ -216,9 +216,9 @@ A csütörtök a legerősebb publikálási nap (5 262 epizód); a hétvégén en
 
 24 hónap összesen: 405 új magyar podcast, átlagosan ~17 / hónap. 2026 első három hónapjában havonta 16–30 új magyar podcast indult; a tavaszi csúcsot (2026-03: 30 új műsor) követően áprilisra és májusra mérséklődött a tempó.
 
-## Mentális wellness témák szezonalitása
+## Mentális wellness témák szezonalitása (2026-02 – 2026-05)
 
-> **Módszertani figyelmeztetés:** Mint a top-témák blokknál, a téma-szintű mérés csak 2026 februárjában indult, ezért **2025-ös havi adat NINCS** (a korábbi „újévi hullám" megállapítások nem rekonstruálhatók). A 2026 februárjától kezdődő négy hónapon viszont látható az ébredés.
+> **Módszertani megjegyzés:** A teljes katalógusra a téma-azonosítás 2025-ig visszamenőleg fut, de ezekre a specifikus címkékre (Alvás, Meditáció, Önismeret, Párkapcsolat) 2026 februárjától áll rendelkezésre értelmezhető havi mennyiségű adat. A 2025-ös évszak-mintázat (újévi hullám) ebből az ablakból nem rekonstruálható.
 
 | Hónap | Alvás | Meditáció | Önismeret | Párkapcsolat |
 |---|---:|---:|---:|---:|
