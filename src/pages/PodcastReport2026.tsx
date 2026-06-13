@@ -7,106 +7,101 @@ import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 
 // ============================================================
 // MAGYAR PODCAST PIAC JELENTÉS 2026
-// Forrás: Podiverzum belső adatbázis (2026-05-27 állapot)
+// Forrás: Podiverzum belső adatbázis (2026-06-14 állapot)
 // ============================================================
 
 const STATS = {
-  podcastCount: 1428,
-  episodeCount: 134613,
-  podcastsWithEpisodes: 1352,
-  peopleIndexed: 2623,
-  organizationsIndexed: 4137,
+  podcastCount: 1449,
+  episodeCount: 139326,
+  podcastsWithEpisodes: 1373,
+  peopleIndexed: 2617,
+  organizationsIndexed: 4258,
+  episodesLast12mo: 30269,
+  avgEpsPerDay2025: 73,
   episodesYear: {
-    "2015": 880,
-    "2016": 1893,
-    "2017": 1595,
-    "2018": 1768,
-    "2019": 3284,
-    "2020": 7837,
-    "2021": 12783,
-    "2022": 16964,
-    "2023": 20327,
-    "2024": 23916,
-    "2025": 25824,
-    "2026 (eddig, 5 hó)": 13325,
+    "2015": 881,
+    "2016": 1914,
+    "2017": 1597,
+    "2018": 1790,
+    "2019": 3165,
+    "2020": 8067,
+    "2021": 12997,
+    "2022": 17342,
+    "2023": 20716,
+    "2024": 24455,
+    "2025": 26627,
+    "2026 (eddig, 5,5 hó)": 15505,
   } as Record<string, number>,
-  weekday: [
-    { name: "Hétfő", eps: 4867 },
-    { name: "Kedd", eps: 4807 },
-    { name: "Szerda", eps: 4255 },
-    { name: "Csütörtök", eps: 4916 },
-    { name: "Péntek", eps: 4500 },
-    { name: "Szombat", eps: 2436 },
-    { name: "Vasárnap", eps: 2761 },
-  ],
-  // Internal tier names retained for data accuracy; public labels used in UI.
-  tiers: { weekly: 242, monthlyActive: 457, monthly: 626, rare: 39, dead: 64 },
+  // Last-90-day cadence buckets (snapshot 2026-06-14)
+  tiers: { weekly: 164, monthlyActive: 344, monthly: 261, silent90d: 680 },
   topCategories: [
-    { name: "Társadalom és kultúra", pods: 265, eps: 28632 },
-    { name: "Hírek és politika", pods: 124, eps: 14148 },
-    { name: "Vallás és spiritualitás", pods: 126, eps: 12921 },
-    { name: "Film, TV és popkultúra", pods: 102, eps: 11581 },
-    { name: "Sport", pods: 68, eps: 8937 },
-    { name: "Zene", pods: 78, eps: 7598 },
-    { name: "Pénzügy", pods: 41, eps: 6725 },
-    { name: "Üzlet és pénzügy", pods: 103, eps: 6242 },
-    { name: "Technológia", pods: 50, eps: 4819 },
-    { name: "Könyvek és irodalom", pods: 41, eps: 4621 },
-    { name: "Humor", pods: 23, eps: 3783 },
-    { name: "Önfejlesztés", pods: 57, eps: 3301 },
+    { name: "Társadalom és kultúra", pods: 271, eps: 28837 },
+    { name: "Hírek és politika", pods: 128, eps: 14643 },
+    { name: "Vallás és spiritualitás", pods: 129, eps: 13674 },
+    { name: "Film, TV és popkultúra", pods: 101, eps: 11540 },
+    { name: "Sport", pods: 71, eps: 9739 },
+    { name: "Zene", pods: 78, eps: 7681 },
+    { name: "Pénzügy", pods: 41, eps: 6859 },
+    { name: "Üzlet és pénzügy", pods: 103, eps: 6377 },
+    { name: "Technológia", pods: 52, eps: 5186 },
+    { name: "Könyvek és irodalom", pods: 41, eps: 4682 },
+    { name: "Humor", pods: 23, eps: 3914 },
+    { name: "Önfejlesztés", pods: 57, eps: 3537 },
   ],
+  // Top témák — 2026-02-01 — 2026-06-14 (4,5 hó ablak; a téma-pipeline 2026-02 óta fut)
   topTopics: [
-    { slug: "biblia", name: "Biblia", eps: 130 },
-    { slug: "valasztas", name: "Választás 2026", eps: 123 },
-    { slug: "zene", name: "Zene", eps: 110 },
-    { slug: "mesterseges-intelligencia", name: "Mesterséges intelligencia", eps: 92 },
-    { slug: "haboru", name: "Háború (Ukrajna / Közel-Kelet)", eps: 73 },
-    { slug: "keresztenyseg", name: "Kereszténység", eps: 72 },
-    { slug: "alvas", name: "Alvás", eps: 68 },
-    { slug: "film", name: "Film", eps: 65 },
-    { slug: "meditacio", name: "Meditáció", eps: 64 },
-    { slug: "gazdasag", name: "Gazdaság", eps: 62 },
-    { slug: "onismeret", name: "Önismeret", eps: 61 },
-    { slug: "kozelet", name: "Közélet", eps: 54 },
-    { slug: "kosarlabda", name: "Kosárlabda", eps: 54 },
-    { slug: "szinhaz", name: "Színház", eps: 51 },
-    { slug: "pszichologia", name: "Pszichológia", eps: 51 },
-    { slug: "csalad", name: "Család", eps: 50 },
-    { slug: "media", name: "Média", eps: 50 },
-    { slug: "sport", name: "Sport", eps: 46 },
-    { slug: "egeszseg", name: "Egészség", eps: 43 },
-    { slug: "tortenelem", name: "Történelem", eps: 40 },
+    { slug: "mesterseges-intelligencia", name: "Mesterséges intelligencia (MI/AI)", eps: 269 },
+    { slug: "biblia", name: "Biblia", eps: 259 },
+    { slug: "valasztas", name: "Választás 2026", eps: 248 },
+    { slug: "zene", name: "Zene", eps: 230 },
+    { slug: "film", name: "Film", eps: 170 },
+    { slug: "haboru", name: "Háború (Ukrajna / Közel-Kelet)", eps: 146 },
+    { slug: "sport", name: "Sport általában", eps: 143 },
+    { slug: "gazdasag", name: "Gazdaság", eps: 141 },
+    { slug: "onismeret", name: "Önismeret", eps: 134 },
+    { slug: "csalad", name: "Család", eps: 123 },
+    { slug: "pszichologia", name: "Pszichológia", eps: 122 },
+    { slug: "keresztenyseg", name: "Kereszténység", eps: 122 },
+    { slug: "kozelet", name: "Közélet", eps: 118 },
+    { slug: "media", name: "Média", eps: 112 },
+    { slug: "szinhaz", name: "Színház", eps: 107 },
+    { slug: "alvas", name: "Alvás", eps: 105 },
+    { slug: "meditacio", name: "Meditáció", eps: 104 },
+    { slug: "kormany", name: "Kormány", eps: 99 },
+    { slug: "egeszseg", name: "Egészség", eps: 94 },
+    { slug: "tortenelem", name: "Történelem", eps: 90 },
   ],
-  // Elmúlt 12 hónap (2025. jún. – 2026. máj.) — ugyanaz az időszak, mint a havi chart alatta.
+  // Elmúlt 12 hónap (2025-06-14 – 2026-06-14)
   topParties: [
-    { slug: "fidesz", name: "Fidesz", eps: 580 },
-    { slug: "tisza-part", name: "Tisza Párt", eps: 565 },
-    { slug: "mi-hazank", name: "Mi Hazánk", eps: 34 },
-    { slug: "kutyapart", name: "Kutyapárt", eps: 18 },
-    { slug: "momentum", name: "Momentum", eps: 17 },
-    { slug: "parbeszed", name: "Párbeszéd", eps: 6 },
+    { slug: "fidesz", name: "Fidesz", eps: 388 },
+    { slug: "tisza-part", name: "Tisza Párt", eps: 351 },
+    { slug: "dk", name: "Demokratikus Koalíció", eps: 25 },
+    { slug: "kutyapart", name: "Magyar Kétfarkú Kutya Párt", eps: 19 },
+    { slug: "mi-hazank", name: "Mi Hazánk", eps: 18 },
+    { slug: "mszp", name: "Magyar Szocialista Párt", eps: 16 },
+    { slug: "momentum", name: "Momentum", eps: 6 },
   ],
-  // dow rows Mon..Sun, columns: éjszaka(0-5), reggel(6-9), délelőtt(10-13), délután(14-17), este(18-21), késő(22-23)
+  // Heatmap last 12 months (2025-06-14 — 2026-06-14), 30 269 episodes
   heatmap: {
     cols: ["0–5", "6–9", "10–13", "14–17", "18–21", "22–23"],
     rows: [
-      { day: "Hétfő",       vals: [448, 1030, 1119, 1103, 1039, 128] },
-      { day: "Kedd",        vals: [258, 925, 1292, 1070, 1091, 171] },
-      { day: "Szerda",      vals: [287, 973, 1132, 919, 817, 127] },
-      { day: "Csütörtök",   vals: [297, 1082, 1205, 1063, 1178, 91] },
-      { day: "Péntek",      vals: [362, 1103, 1114, 909, 888, 124] },
-      { day: "Szombat",     vals: [182, 563, 585, 551, 467, 88] },
-      { day: "Vasárnap",    vals: [274, 521, 777, 431, 611, 147] },
+      { day: "Hétfő",       vals: [472, 1078, 1169, 1136, 1079, 138] },
+      { day: "Kedd",        vals: [300, 986, 1355, 1131, 1157, 183] },
+      { day: "Szerda",      vals: [305, 1010, 1193, 957, 863, 141] },
+      { day: "Csütörtök",   vals: [325, 1150, 1289, 1155, 1237, 106] },
+      { day: "Péntek",      vals: [392, 1157, 1189, 1010, 943, 140] },
+      { day: "Szombat",     vals: [196, 595, 651, 610, 518, 94] },
+      { day: "Vasárnap",    vals: [287, 541, 792, 445, 648, 146] },
     ],
   },
   // Új podcastok első epizódja szerinti hónap (utolsó 24 hónap, HU feedek).
   newPodsByMonth: [
-    { m: "2024-06", c: 11 }, { m: "2024-07", c: 7 }, { m: "2024-08", c: 6 }, { m: "2024-09", c: 15 },
-    { m: "2024-10", c: 10 }, { m: "2024-11", c: 16 }, { m: "2024-12", c: 13 }, { m: "2025-01", c: 13 },
-    { m: "2025-02", c: 17 }, { m: "2025-03", c: 20 }, { m: "2025-04", c: 17 }, { m: "2025-05", c: 16 },
-    { m: "2025-06", c: 11 }, { m: "2025-07", c: 18 }, { m: "2025-08", c: 15 }, { m: "2025-09", c: 19 },
-    { m: "2025-10", c: 30 }, { m: "2025-11", c: 18 }, { m: "2025-12", c: 18 }, { m: "2026-01", c: 17 },
-    { m: "2026-02", c: 29 }, { m: "2026-03", c: 29 }, { m: "2026-04", c: 14 }, { m: "2026-05", c: 8 },
+    { m: "2024-06", c: 11 }, { m: "2024-07", c: 8 }, { m: "2024-08", c: 8 }, { m: "2024-09", c: 14 },
+    { m: "2024-10", c: 10 }, { m: "2024-11", c: 16 }, { m: "2024-12", c: 14 }, { m: "2025-01", c: 14 },
+    { m: "2025-02", c: 17 }, { m: "2025-03", c: 19 }, { m: "2025-04", c: 14 }, { m: "2025-05", c: 18 },
+    { m: "2025-06", c: 11 }, { m: "2025-07", c: 18 }, { m: "2025-08", c: 15 }, { m: "2025-09", c: 21 },
+    { m: "2025-10", c: 31 }, { m: "2025-11", c: 18 }, { m: "2025-12", c: 18 }, { m: "2026-01", c: 16 },
+    { m: "2026-02", c: 28 }, { m: "2026-03", c: 30 }, { m: "2026-04", c: 16 }, { m: "2026-05", c: 10 },
   ],
 };
 
@@ -114,7 +109,7 @@ const STATS = {
 const huNum = (n: number, digits = 1) => n.toFixed(digits).replace(".", ",");
 const growth10y = huNum(STATS.episodesYear["2025"] / STATS.episodesYear["2015"]);
 const yoy2025 = huNum(((STATS.episodesYear["2025"] - STATS.episodesYear["2024"]) / STATS.episodesYear["2024"]) * 100);
-const projected2026 = Math.round((STATS.episodesYear["2026 (eddig, 5 hó)"] / 147) * 365);
+const projected2026 = Math.round((STATS.episodesYear["2026 (eddig, 5,5 hó)"] / 165) * 365);
 const maxYear = Math.max(...Object.values(STATS.episodesYear));
 const maxCatEps = Math.max(...STATS.topCategories.map((c) => c.eps));
 const totalCatEps = STATS.topCategories.reduce((s, c) => s + c.eps, 0);
@@ -140,13 +135,13 @@ export default function PodcastReport2026() {
   useEffect(() => {
     setSeo({
       title: "Magyar podcast piac 2026 — Podiverzum jelentés",
-      description: `${STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar podcast, ${STATS.episodeCount.toLocaleString("hu-HU")} epizód, napi közel 90 új adás: a Podiverzum.hu első részletes adatelemzése a magyar podcast piacról.`,
+      description: `${STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar podcast, ${STATS.episodeCount.toLocaleString("hu-HU")} epizód, napi átlag ~${STATS.avgEpsPerDay2025} új adás 2025-ben: a Podiverzum.hu részletes adatelemzése a magyar podcast piacról.`,
       jsonLd: [
         {
           "@context": "https://schema.org",
           "@type": "Report",
           name: "Magyar podcast piac 2026 — Podiverzum jelentés",
-          datePublished: "2026-05-27",
+          datePublished: "2026-06-14",
           inLanguage: "hu-HU",
           author: { "@type": "Organization", name: "Podiverzum", url: "https://podiverzum.hu" },
           publisher: sitePublisherJsonLd(),
@@ -172,7 +167,7 @@ export default function PodcastReport2026() {
             Az első részletes adatelemzés a magyar podcastpiacról:{" "}
             <strong className="text-foreground">{STATS.podcastCount.toLocaleString("hu-HU")} indexelt magyar műsor</strong>,{" "}
             <strong className="text-foreground">{STATS.episodeCount.toLocaleString("hu-HU")} epizód</strong>, tíz év alatt{" "}
-            <strong className="text-foreground">{growth10y}-szeres növekedés</strong>, napi közel 90 új epizód.
+            <strong className="text-foreground">{growth10y}-szeres növekedés</strong>, napi átlag ~{STATS.avgEpsPerDay2025} új epizód 2025-ben.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: Podiverzum.hu belső katalógus · Kínálati oldali adatok (nem hallgatottság) · Módszertan a cikk alján
@@ -183,7 +178,7 @@ export default function PodcastReport2026() {
             <HeroMetric value={STATS.podcastCount.toLocaleString("hu-HU")} label="indexelt műsor" />
             <HeroMetric value={STATS.episodeCount.toLocaleString("hu-HU")} label="epizód" />
             <HeroMetric value={`${growth10y}×`} label="növekedés 2015 óta" />
-            <HeroMetric value="~90" label="napi új epizód" />
+            <HeroMetric value={`~${STATS.avgEpsPerDay2025}`} label="napi új epizód (2025)" />
           </div>
 
           {/* Press thesis */}
@@ -277,7 +272,7 @@ export default function PodcastReport2026() {
             <InsightCard
               n={1}
               title="A magyar podcast már médiapiaci tényező"
-              body={`Napi közel 90 új magyar epizód, több mint ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
+              body={`Napi átlag ~${STATS.avgEpsPerDay2025} új magyar epizód 2025-ben, több mint ${STATS.episodeCount.toLocaleString("hu-HU")} indexelt adás.`}
             />
             <InsightCard
               n={2}
@@ -287,7 +282,7 @@ export default function PodcastReport2026() {
             <InsightCard
               n={3}
               title="Közélet, kultúra és hit dominál"
-              body="A vezető témák között Biblia, választás, zene, mesterséges intelligencia és háború szerepel."
+              body="A vezető témák között mesterséges intelligencia, Biblia, választás, zene és háború szerepel."
             />
             <InsightCard
               n={4}
@@ -333,7 +328,7 @@ export default function PodcastReport2026() {
             })}
             {/* 2026 — actual so far overlaid inside projected envelope */}
             {(() => {
-              const actual2026 = STATS.episodesYear["2026 (eddig, 5 hó)"];
+              const actual2026 = STATS.episodesYear["2026 (eddig, 5,5 hó)"];
               const denom = Math.max(maxYear, projected2026);
               const projectedPct = (projected2026 / denom) * 100;
               const actualPct = (actual2026 / denom) * 100;
@@ -469,18 +464,20 @@ export default function PodcastReport2026() {
           </p>
           {(() => {
             const yoy = [
-              { name: "Egészség & életmód",     y24: 261,  y25: 557 },
-              { name: "Étel & ital",            y24: 287,  y25: 514 },
-              { name: "Gyerek & család",        y24: 714,  y25: 1106 },
-              { name: "Zene",                   y24: 1043, y25: 1448 },
-              { name: "Önfejlesztés",           y24: 604,  y25: 786 },
-              { name: "Üzlet & pénzügy",        y24: 1090, y25: 1372 },
-              { name: "Technológia",            y24: 680,  y25: 822 },
-              { name: "Vallás & spiritualitás", y24: 2171, y25: 2353 },
-              { name: "Társadalom & kultúra",   y24: 5163, y25: 5295 },
-              { name: "Sport",                  y24: 1463, y25: 1435 },
-              { name: "Film, TV & popkultúra",  y24: 1849, y25: 1328 },
-              { name: "Oktatás",                y24: 476,  y25: 329 },
+              { name: "Egészség & életmód",     y24: 311,  y25: 607 },
+              { name: "Étel & ital",            y24: 287,  y25: 538 },
+              { name: "Gyerek & család",        y24: 714,  y25: 1118 },
+              { name: "Zene",                   y24: 1043, y25: 1453 },
+              { name: "Önfejlesztés",           y24: 604,  y25: 792 },
+              { name: "Üzlet & pénzügy",        y24: 1106, y25: 1383 },
+              { name: "Technológia",            y24: 724,  y25: 866 },
+              { name: "Pénzügy",                y24: 1610, y25: 1715 },
+              { name: "Vallás & spiritualitás", y24: 2331, y25: 2482 },
+              { name: "Társadalom & kultúra",   y24: 5063, y25: 5329 },
+              { name: "Hírek & politika",       y24: 2823, y25: 2948 },
+              { name: "Sport",                  y24: 1549, y25: 1523 },
+              { name: "Film, TV & popkultúra",  y24: 1857, y25: 1356 },
+              { name: "Oktatás",                y24: 508,  y25: 337 },
               { name: "Humor",                  y24: 580,  y25: 323 },
             ].map((c) => ({ ...c, pct: Math.round(((c.y25 - c.y24) / c.y24) * 100) }))
              .sort((a, b) => b.pct - a.pct);
@@ -523,7 +520,7 @@ export default function PodcastReport2026() {
             );
           })()}
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            A magyar podcastpiac kínálati oldalán 2025-ben az <strong className="text-foreground">egészség / életmód (+113%)</strong> és a <strong className="text-foreground">gasztronómia (+79%)</strong> nőtt a legnagyobbat — utánuk a gyerek &amp; család (+55%), zene (+39%) és önfejlesztés (+30%) tartja a lendületet. Eközben a <strong className="text-foreground">humor (−44%)</strong>, az <strong className="text-foreground">oktatás (−31%)</strong> és a <strong className="text-foreground">film / popkultúra (−28%)</strong> kevesebb új epizódot adott ki, mint 2024-ben. <span className="not-italic">Ez epizódszám-változás, nem hallgatottsági változás.</span>
+            A magyar podcastpiac kínálati oldalán 2025-ben az <strong className="text-foreground">egészség / életmód (+95%)</strong> és a <strong className="text-foreground">gasztronómia (+87%)</strong> nőtt a legnagyobbat — utánuk a gyerek &amp; család (+57%), zene (+39%) és önfejlesztés (+31%) tartja a lendületet. Eközben a <strong className="text-foreground">humor (−44%)</strong>, az <strong className="text-foreground">oktatás (−34%)</strong> és a <strong className="text-foreground">film / popkultúra (−27%)</strong> kevesebb új epizódot adott ki, mint 2024-ben. <span className="not-italic">Ez epizódszám-változás, nem hallgatottsági változás.</span>
           </p>
           </DownloadableFigure>
         </section>
@@ -531,33 +528,33 @@ export default function PodcastReport2026() {
         {/* Self-help / mental wellness — monthly seasonality */}
         <section className="mb-12">
           <DownloadableFigure filename="onsegito-temak-szezonalitas">
-          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Alvás és meditáció: év eleji felfutás látszik</h2>
-          <p className="mb-6 text-muted-foreground">
-            Öt önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás + összefoglaló szöveges illesztés, 2025. jún. – 2026. máj.). Az öt vizsgált téma közül decemberről januárra az alvás és a meditáció mozdul el a legerősebben.
+          <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mentális wellness témák — 2026 tavaszi felfutás</h2>
+          <p className="mb-3 text-muted-foreground">
+            Négy önismereti és mentális wellness téma havi említése magyar podcast-epizódokban (cím + leírás + átirat alapú téma-leképezés).
           </p>
+          <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-foreground">
+            <strong>Módszertan:</strong> A téma-azonosítási pipeline 2026 februárjában indult el a teljes katalógusra, ezért szezonalitás-elemzés csak ettől az időponttól kezdve elérhető. A 2025-ös hónapokra még nincs strukturált téma-szintű adat — ezt a jövőbeli jelentésekben pótoljuk.
+          </div>
 
           {(() => {
             const series = [
               { slug: "alvas",        name: "Alvás",        color: "hsl(220 70% 50%)",
-                data: [6, 3, 7, 13, 12, 7, 19, 44, 46, 37, 37, 40] },
+                data: [10, 29, 31, 35] },
               { slug: "meditacio",    name: "Meditáció",    color: "hsl(160 65% 40%)",
-                data: [10, 10, 14, 12, 22, 19, 10, 45, 41, 36, 39, 38] },
-              { slug: "szorongas",    name: "Szorongás",    color: "hsl(35 90% 50%)",
-                data: [20, 23, 23, 26, 30, 32, 36, 30, 38, 44, 38, 34] },
+                data: [10, 30, 32, 32] },
               { slug: "onismeret",    name: "Önismeret",    color: "hsl(330 70% 50%)",
-                data: [43, 44, 43, 38, 56, 55, 48, 44, 44, 50, 36, 32] },
+                data: [15, 45, 47, 27] },
               { slug: "parkapcsolat", name: "Párkapcsolat", color: "hsl(265 60% 55%)",
-                data: [21, 16, 15, 14, 16, 21, 20, 22, 32, 30, 22, 16] },
-
+                data: [12, 27, 16, 6] },
             ];
-            const months = ["2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"];
+            const months = ["2026-02","2026-03","2026-04","2026-05"];
             const labelMap: Record<string, string> = { "01": "Jan", "02": "Feb", "03": "Már", "04": "Ápr", "05": "Máj", "06": "Jún", "07": "Júl", "08": "Aug", "09": "Szep", "10": "Okt", "11": "Nov", "12": "Dec" };
             const W = 760, H = 280, PL = 36, PR = 12, PT = 16, PB = 44;
             const innerW = W - PL - PR;
             const innerH = H - PT - PB;
             const rawMax = Math.max(...series.flatMap((s) => s.data));
-            const yMax = Math.ceil(rawMax / 20) * 20;
-            const yTicks = Array.from({ length: yMax / 20 + 1 }, (_, i) => i * 20);
+            const yMax = Math.ceil(rawMax / 10) * 10;
+            const yTicks = Array.from({ length: yMax / 10 + 1 }, (_, i) => i * 10);
             const xAt = (i: number) => PL + (i * innerW) / (months.length - 1);
             const yAt = (v: number) => PT + innerH - (v / yMax) * innerH;
             return (
@@ -569,9 +566,6 @@ export default function PodcastReport2026() {
                       <text x={PL - 6} y={yAt(t) + 3} textAnchor="end" fontSize="10" fontFamily="ui-monospace, monospace" fill="hsl(var(--muted-foreground))">{t}</text>
                     </g>
                   ))}
-                  {/* Highlight January band */}
-                  <rect x={xAt(7) - 14} y={PT} width={28} height={innerH} fill="hsl(var(--primary) / 0.06)" />
-                  <text x={xAt(7)} y={PT + 10} textAnchor="middle" fontSize="9" fill="hsl(var(--primary))" fontWeight="600">januári ugrás</text>
                   {series.map((s) => {
                     const d = s.data.map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i)},${yAt(v)}`).join(" ");
                     return <path key={s.slug} d={d} fill="none" stroke={s.color} strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" />;
@@ -597,7 +591,7 @@ export default function PodcastReport2026() {
                   ))}
                 </div>
                 <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-                  A vizsgált öt téma közül decemberről januárra két vonal mozdul el igazán: az <strong className="text-foreground">alvás</strong> 19-ről 44 epizódra (+132%), a <strong className="text-foreground">meditáció</strong> 10-ről 45 epizódra (+350%) ugrik. Ez nem általános „újévi önfejlesztési hullám": az <strong className="text-foreground">önismeret</strong> januárban inkább visszaesik, a <strong className="text-foreground">szorongás</strong> és a <strong className="text-foreground">párkapcsolat</strong> csúcsa pedig nem januárra esik.
+                  Februárról márciusra mind a négy téma 2,5–3×-osra ugrik — ez részben a téma-pipeline beüzemelésének eredménye, részben valós tavaszi tartalmi hullám. Az <strong className="text-foreground">alvás</strong> és <strong className="text-foreground">meditáció</strong> stabil 30 körüli havi szinten tartja magát április–májusban, míg a <strong className="text-foreground">párkapcsolat</strong> visszaesik.
                 </p>
               </div>
             );
@@ -696,7 +690,7 @@ export default function PodcastReport2026() {
             A függőleges tengely {monthBaseline}-tól indul, hogy a havi különbségek láthatók legyenek.
           </p>
           <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-            2026 első három hónapjában havi 29 új magyar podcast indult — ez minden korábbi év átlagát felülmúlja. <span className="not-italic">Új indulás = az első ismert epizód megjelenése az indexelt katalógusban.</span>
+            2026 első három hónapjában havonta 16–30 új magyar podcast indult; a tavaszi csúcsot (2026-03: 30 új műsor) követően áprilisra és májusra mérséklődött a tempó. <span className="not-italic">Új indulás = az első ismert epizód megjelenése az indexelt katalógusban.</span>
           </p>
           </DownloadableFigure>
         </section>
@@ -710,11 +704,11 @@ export default function PodcastReport2026() {
           </p>
           {(() => {
             const buckets = [
-              { label: "Rendszeresen frissülő (≤30 nap)", n: 587, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
-              { label: "Lassuló (30–90 nap)", n: 208, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
-              { label: "Szunnyadó (3–6 hó)", n: 125, color: "bg-muted-foreground/50", note: "lassan kihagy" },
-              { label: "Inaktív (6–12 hó)", n: 89, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
-              { label: "Elcsendesedett (12+ hó)", n: 343, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
+              { label: "Rendszeresen frissülő (≤30 nap)", n: 537, color: "bg-primary", note: "az elmúlt egy hónapban publikált" },
+              { label: "Lassuló (30–90 nap)", n: 232, color: "bg-primary/60", note: "negyedéven belül még jelentkezett" },
+              { label: "Szunnyadó (3–6 hó)", n: 141, color: "bg-muted-foreground/50", note: "lassan kihagy" },
+              { label: "Inaktív (6–12 hó)", n: 106, color: "bg-muted-foreground/35", note: "fél–egy éve nem jelent meg új ep." },
+              { label: "Elcsendesedett (12+ hó)", n: 357, color: "bg-muted-foreground/25", note: "egy éve nincs új epizód" },
             ];
             const total = buckets.reduce((s, b) => s + b.n, 0);
             return (
@@ -757,7 +751,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="publikalasi-heatmap">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Mikor publikálnak a magyar podcastek?</h2>
           <p className="mb-2 text-muted-foreground">
-            <strong className="text-foreground">2025. június – 2026. május</strong> közötti időszak ({(28542).toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar podcastoknak felismerhető heti ritmusa van: összesítésben a csütörtök a legerősebb publikálási nap, a hétköznapi délelőtti és kora délutáni sávokkal.
+            <strong className="text-foreground">2025. június – 2026. június</strong> közötti 12 hónap ({STATS.episodesLast12mo.toLocaleString("hu-HU")} magyar epizód) nap és óra szerinti bontásban. A magyar podcastoknak felismerhető heti ritmusa van: összesítésben a csütörtök a legerősebb publikálási nap, a hétköznapi délelőtti és kora délutáni sávokkal.
           </p>
           <p className="mb-6 text-xs text-muted-foreground italic">
             Időzóna: Europe/Budapest. A publikálási dátum az RSS / publikációs metaadatok alapján.
@@ -788,7 +782,7 @@ export default function PodcastReport2026() {
           <DownloadableFigure filename="top-partok">
           <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Közéleti említések: pártok a magyar podcastokban</h2>
           <p className="mb-6 text-muted-foreground">
-            A számok azt mutatják, hány indexelt magyar epizódban azonosította a rendszer az adott pártot az <strong className="text-foreground">elmúlt 12 hónapban (2025. jún. – 2026. máj.)</strong> — ugyanazon az időszakon, amelyet az alábbi havi grafikon is bont. Ez <strong className="text-foreground">nem támogatottsági, nem szimpátia- és nem hallgatottsági adat</strong>, hanem kínálati metszet a közéleti podcast-térről.
+            A számok azt mutatják, hány indexelt magyar epizódban azonosította a rendszer az adott pártot az <strong className="text-foreground">elmúlt 12 hónapban (2025-06-14 – 2026-06-14)</strong> — ugyanazon az időszakon, amelyet az alábbi havi grafikon is bont. Ez <strong className="text-foreground">nem támogatottsági, nem szimpátia- és nem hallgatottsági adat</strong>, hanem kínálati metszet a közéleti podcast-térről.
           </p>
 
           <div className="max-w-xl">
@@ -817,18 +811,18 @@ export default function PodcastReport2026() {
           {/* Fidesz vs Tisza monthly — line chart */}
           {(() => {
             const partyMonthly = [
-              { m: "2025-06", fidesz: 35, tisza: 20 },
-              { m: "2025-07", fidesz: 24, tisza: 20 },
-              { m: "2025-08", fidesz: 13, tisza: 7 },
-              { m: "2025-09", fidesz: 40, tisza: 36 },
-              { m: "2025-10", fidesz: 47, tisza: 58 },
-              { m: "2025-11", fidesz: 49, tisza: 61 },
-              { m: "2025-12", fidesz: 49, tisza: 40 },
-              { m: "2026-01", fidesz: 46, tisza: 45 },
-              { m: "2026-02", fidesz: 73, tisza: 71 },
-              { m: "2026-03", fidesz: 79, tisza: 69 },
-              { m: "2026-04", fidesz: 93, tisza: 104 },
-              { m: "2026-05", fidesz: 32, tisza: 34 },
+              { m: "2025-06", fidesz: 24, tisza: 12 },
+              { m: "2025-07", fidesz: 13, tisza: 11 },
+              { m: "2025-08", fidesz: 7,  tisza: 5 },
+              { m: "2025-09", fidesz: 30, tisza: 31 },
+              { m: "2025-10", fidesz: 19, tisza: 25 },
+              { m: "2025-11", fidesz: 29, tisza: 31 },
+              { m: "2025-12", fidesz: 31, tisza: 17 },
+              { m: "2026-01", fidesz: 33, tisza: 28 },
+              { m: "2026-02", fidesz: 43, tisza: 42 },
+              { m: "2026-03", fidesz: 63, tisza: 46 },
+              { m: "2026-04", fidesz: 79, tisza: 80 },
+              { m: "2026-05", fidesz: 30, tisza: 29 },
             ];
 
 
@@ -847,7 +841,7 @@ export default function PodcastReport2026() {
               <div className="mt-8 rounded-lg border border-border bg-card p-5">
                 <h3 className="font-serif text-lg font-bold text-foreground mb-1">Fidesz vs Tisza Párt — havi említések az elmúlt 1 évben</h3>
                 <p className="text-xs text-muted-foreground mb-4">
-                  Olyan magyar podcast-epizódok száma havonta, amelyekben az adott pártot a kanonikus szervezet-adatbázisunk azonosítja (2025. jún. – 2026. máj.).
+                  Olyan magyar podcast-epizódok száma havonta, amelyekben az adott pártot a kanonikus szervezet-adatbázisunk azonosítja (2025-06-14 – 2026-06-14).
                 </p>
                 <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
                   {yTicks.map((t) => (
@@ -872,7 +866,7 @@ export default function PodcastReport2026() {
                   <div className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "hsl(345 55% 32%)" }} /> Tisza Párt</div>
                 </div>
                 <p className="mt-4 text-xs italic text-muted-foreground border-l-2 border-primary pl-3">
-                  Az elmúlt 12 hónapban (2025. jún. – 2026. máj.) a két párt podcast-megjelenése feltűnően kiegyensúlyozott: <strong className="not-italic text-foreground">Fidesz 580, Tisza Párt 565 epizód</strong> — gyakorlatilag holtverseny, hónapról hónapra hasonló nagyságrendben futnak a görbék. A kampányidőszakot nézve a magyar podcasttér kínálati oldalról <span className="not-italic font-medium text-foreground">mindkét nagy pólusnak nyitott, kiegyensúlyozott felület</span>. A 2025. augusztusi mélypont a nyári szünet hatása; a 2026. májusi adat csak részhónap (a riport zárónapja: május 27.). <span className="not-italic">Fontos: a számok csak azt mérik, hogy egy-egy pártot hány epizód említ — a megjelenés kontextusát (pozitív, negatív, semleges, kritikus, támogató) ez a riport nem vizsgálja. Ez említésszám, nem támogatottsági és nem hallgatottsági adat.</span>
+                  Az elmúlt 12 hónapban (2025-06-14 – 2026-06-14) a két párt podcast-megjelenése feltűnően kiegyensúlyozott: <strong className="not-italic text-foreground">Fidesz 388, Tisza Párt 351 epizód</strong> — a Tisza a Fidesz 90,5%-án áll, hónapról hónapra hasonló nagyságrendben futnak a görbék. A 2025. augusztusi mélypont a nyári szünet hatása; a kampánycsúcson (2026-04) a Tisza Párt (80) egyetlen hónapban először lép a Fidesz (79) elé. A 2026. májusi adat csak részhónap (a riport zárónapja: 2026. június 14.). <span className="not-italic">Fontos: a számok csak azt mérik, hogy egy-egy pártot hány epizód említ — a megjelenés kontextusát (pozitív, negatív, semleges, kritikus, támogató) ez a riport nem vizsgálja. Ez említésszám, nem támogatottsági és nem hallgatottsági adat.</span>
                 </p>
               </div>
             );
@@ -909,7 +903,7 @@ export default function PodcastReport2026() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi közel 90 új epizód, évi több mint 25 ezer adás, több mint ezernégyszáz indexelt műsor. A nyilvánosság egyre nagyobb része — különösen a fiatalabb, urbánus korosztály — hosszú formátumú beszélgetésekből is tájékozódik.
+              A magyar podcast piac <strong>nem hobbiműfaj többé</strong>: napi átlag ~{STATS.avgEpsPerDay2025} új epizód 2025-ben, évi több mint 26 ezer adás, közel 1 450 indexelt műsor. A nyilvánosság egyre nagyobb része — különösen a fiatalabb, urbánus korosztály — hosszú formátumú beszélgetésekből is tájékozódik.
             </p>
             <p>
               Eközben a podcastok tartalma jórészt <strong>strukturálatlan és nehezen kereshető</strong>: a keresőmotorok és hírarchívumok számára gyakran csak részlegesen látható, és a közéleti viták egy része olyan hosszú formátumú beszélgetésekben zajlik, amelyek eddig nehezen voltak visszakereshetők.
@@ -978,7 +972,7 @@ export default function PodcastReport2026() {
           <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Próbáld ki</div>
           <div className="font-serif text-2xl font-bold text-foreground mb-3">Keress rá bármire a magyar podcast univerzumban</div>
           <p className="mb-4 text-muted-foreground">
-            134 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
+            139 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
           </p>
           <Link
             to="/kereses"
