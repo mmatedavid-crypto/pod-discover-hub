@@ -153,6 +153,18 @@ function shouldPrerender(pathname) {
   if (/^\/jelentes\/[^/]+\/?$/.test(pathname)) return true;
   // Podiverzum Heti weekly column (hub + per-week article)
   if (pathname === "/heti" || /^\/heti\/[^/]+\/?$/.test(pathname)) return true;
+  // Hub / index pages (publikus, indexelendő listák) — Googlebot itt fedezi fel
+  // a mély entity-linkeket. Pontos egyezés trailing-slash toleranciával.
+  const HUB_PATHS = new Set([
+    "/temak", "/szemelyek", "/cegek", "/partok", "/hangulatok",
+    "/kategoriak", "/toplista", "/uj-podcastok", "/napi",
+    "/rolunk", "/sajto", "/modszertan", "/intelligence",
+    "/adatvedelem", "/feltetelek", "/kapcsolat",
+  ]);
+  const stripped = pathname.endsWith("/") && pathname.length > 1
+    ? pathname.slice(0, -1)
+    : pathname;
+  if (HUB_PATHS.has(stripped)) return true;
   return false;
 }
 
