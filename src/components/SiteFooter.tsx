@@ -22,6 +22,7 @@ const BUSINESS = [
 
 const COMPANY = [
   { to: "/rolunk", label: "Rólunk" },
+  { to: "/sajto", label: "Sajtó" },
   { to: "/kapcsolat", label: "Kapcsolat" },
   { to: "/adatvedelem", label: "Adatvédelem" },
   { to: "/feltetelek", label: "Feltételek" },

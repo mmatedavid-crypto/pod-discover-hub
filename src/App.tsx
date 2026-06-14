@@ -210,6 +210,7 @@ const App = () => (
           
           <Route path="/rolunk" element={<AboutPage />} />
           <Route path="/about" element={<Navigate to="/rolunk" replace />} />
+          <Route path="/sajto" element={<PressPage />} />
           <Route path="/modszertan" element={<MethodologyPage />} />
           <Route path="/methodology" element={<Navigate to="/modszertan" replace />} />
           <Route path="/uj-podcastok" element={<NewPodcastsPage />} />
