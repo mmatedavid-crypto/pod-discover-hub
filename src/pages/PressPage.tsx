@@ -15,6 +15,15 @@ const PRESS_ITEMS = [
       "A magyar podcastpiac több mint harmincszorosára nőtt az elmúlt évtizedben: míg 2015-ben mintegy ezer műsor volt elérhető, addig május végére már több mint 36 500 műsor kínálta a műfajra épülő tartalmakat.",
     type: "Hírközlemény",
   },
+  {
+    source: "Híradó",
+    sourceUrl: "https://hirado.hu/belfold/cikk/2026/06/14/tiz-ev-alatt-tobb-mint-harmincszorosara-nott-a-magyar-podcastpiac",
+    title: "Tíz év alatt több mint harmincszorosára nőtt a magyar podcastpiac",
+    date: "2026. 06. 14.",
+    quote:
+      "A magyar podcastpiac tíz év alatt több mint 30-szorosára nőtt – derül ki a Podiverzum.hu első átfogó piaci elemzéséből. Naponta átlagosan 73 új epizód jelenik meg, idén pedig várhatóan több mint 34 ezer új adás készül.",
+    type: "Hír",
+  },
 ];
 
 export default function PressPage() {
