@@ -120,6 +120,17 @@ export default function AboutPage() {
           melyeket részletesen feldolgozunk és összekapcsolunk.
         </p>
 
+        <h2 className="mt-10 text-xl font-semibold">Sajtó</h2>
+        <p>
+          A magyar podcastpiac alakulásáról és a Podiverzumról az MTI is beszámolt.
+        </p>
+        <a
+          href="/sajto"
+          className="inline-block mt-2 text-sm text-primary hover:underline"
+        >
+          Megnézem a sajtómegjelenéseket →
+        </a>
+
         <h2 className="mt-10 text-xl font-semibold">Kiadó</h2>
         <p>
           A Podiverzum kiadója: <strong>{SITE_PUBLISHER.displayName}</strong>.
