@@ -94,6 +94,7 @@ const PrivacyPage = lazy(() => import("./pages/PrivacyPage.tsx"));
 const TermsPage = lazy(() => import("./pages/TermsPage.tsx"));
 const MoodCollectionPage = lazy(() => import("./pages/MoodCollectionPage.tsx"));
 const AboutPage = lazy(() => import("./pages/AboutPage.tsx"));
+const PressPage = lazy(() => import("./pages/PressPage.tsx"));
 const MethodologyPage = lazy(() => import("./pages/MethodologyPage.tsx"));
 const NewPodcastsPage = lazy(() => import("./pages/NewPodcastsPage.tsx"));
 const DailyBriefPage = lazy(() => import("./pages/DailyBriefPage.tsx"));
@@ -210,6 +211,7 @@ const App = () => (
           
           <Route path="/rolunk" element={<AboutPage />} />
           <Route path="/about" element={<Navigate to="/rolunk" replace />} />
+          <Route path="/sajto" element={<PressPage />} />
           <Route path="/modszertan" element={<MethodologyPage />} />
           <Route path="/methodology" element={<Navigate to="/modszertan" replace />} />
           <Route path="/uj-podcastok" element={<NewPodcastsPage />} />
