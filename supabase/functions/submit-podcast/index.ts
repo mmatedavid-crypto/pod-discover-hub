@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       author: author?.slice(0, 255) ?? null,
       status: "pending",
       source: "user_submission",
-      candidate_rank: 1,
+      candidate_rank: 5,
       rank_reason: {
         reason: "user_submission",
         submitter_email: submitter,
