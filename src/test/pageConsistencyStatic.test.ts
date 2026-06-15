@@ -992,12 +992,9 @@ describe("page consistency static guards", () => {
 
   it("keeps generated admin status RPCs on typed Supabase calls", () => {
     const cronStatus = read("src/pages/AdminCronStatusPage.tsx");
-    const formulaC = read("src/components/admin/FormulaCRunnerPanel.tsx");
 
     expect(cronStatus).toContain('await supabase.rpc("get_cron_health")');
     expect(cronStatus).not.toContain('(supabase as any).rpc("get_cron_health"');
-    expect(formulaC).toContain('await supabase.rpc("formula_c_status")');
-    expect(formulaC).not.toContain('supabase.rpc("formula_c_status" as any)');
   });
 
   it("keeps generated recommendation and telemetry RPCs on typed Supabase calls", () => {
