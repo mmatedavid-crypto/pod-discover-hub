@@ -9,6 +9,7 @@ const EXPLORE = [
   { to: "/szemelyek", label: "Személyek" },
   { to: "/cegek", label: "Cégek és szervezetek" },
   { to: "/uj-podcastok", label: "Új podcastok" },
+  { to: "/podcast-bekuldese", label: "Podcast beküldése" },
   { to: "/modszertan", label: "Módszertan" },
 ];
 
