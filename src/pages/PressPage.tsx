@@ -7,6 +7,24 @@ import { Newspaper, ExternalLink } from "lucide-react";
 
 const PRESS_ITEMS = [
   {
+    source: "GS+",
+    sourceUrl: "https://www.gsplus.hu/hir/harmincszorosara-nott-a-magyar-podcastpiac-383688.html",
+    title: "Harmincszorosára nőtt a magyar podcastpiac",
+    date: "2026. 06. 15.",
+    quote:
+      "Néhány éve még rétegműfajnak számított, mára viszont a magyar digitális média egyik leggyorsabban növekvő területévé vált a podcast. A Podiverzum.hu friss, adatalapú elemzése szerint a hazai podcastpiac tíz év alatt 30,2-szeresére bővült, és ha az idei lendület kitart, 2026 minden korábbi rekordot megdönthet.",
+    type: "Hír",
+  },
+  {
+    source: "Profitline",
+    sourceUrl: "https://profitline.hu/tiz-ev-alatt-tobb-mint-30-szorosara-nott-a-magyar-podcastpiac-487908",
+    title: "Tíz év alatt több mint 30-szorosára nőtt a magyar podcastpiac",
+    date: "2026. 06. 14.",
+    quote:
+      "Amit néhány évvel ezelőtt még kevesek hobbijának tartottak, mára a magyar digitális média egyik legdinamikusabban fejlődő területévé vált: a Podiverzum.hu friss elemzése szerint a magyar podcastpiac tíz év alatt 30,2-szeresére bővült, és az idei év minden korábbi rekordot megdönthet.",
+    type: "Hír",
+  },
+  {
     source: "MTI",
     sourceUrl: "https://mti.hu/nemzeti-kozlemenytar/2026/06/14/tiz-ev-alatt-tobb-mint-30-szorosara-nott-magyar-podcastpiac",
     title: "Tíz év alatt több mint 30-szorosára nőtt a magyar podcastpiac",
