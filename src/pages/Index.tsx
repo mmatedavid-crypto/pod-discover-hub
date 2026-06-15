@@ -868,6 +868,22 @@ const Index = () => {
           </section>
         )}
 
+        <section className="sm:rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-6 text-center">
+          <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-2">
+            <Rss className="h-3 w-3" /> Készítőknek
+          </div>
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2">Saját podcasted van?</h2>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+            Küldd be az RSS feedet — pár órán belül felkerül a Podiverzumra, AI-feldolgozással és kereshetően.
+          </p>
+          <Link
+            to="/podcast-bekuldese"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            Beküldöm <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </section>
+
         {loaded && !trendingEps.length && (
           <div className="text-center py-20 text-muted-foreground">
             {loadError
