@@ -202,21 +202,30 @@ Deno.serve(async (req) => {
       resolved.push({ ...b, canonical: canonical || b.key, memberLabels });
     }
 
+    // Free the raw bucket map
+    byKey.clear();
+
     // 3) Filter clusters
-    const eligible = Array.from(byKey.values()).filter((b) => b.episodes.size >= minEpisodesPerCluster);
+    const eligible = resolved.filter((b) => b.episodes.size >= minEpisodesPerCluster);
+    let distinctEps = 0;
+    {
+      const seenEps = new Set<string>();
+      for (const b of eligible) for (const e of b.episodes) seenEps.add(e);
+      distinctEps = seenEps.size;
+    }
     const stats = {
-      total_rows: all.length,
-      raw_keys: byKey.size,
+      total_rows: totalRows,
+      raw_keys: resolved.length,
       eligible_clusters: eligible.length,
       total_episode_assignments: eligible.reduce((a, b) => a + b.episodes.size, 0),
-      distinct_episodes_covered: new Set(eligible.flatMap((b) => Array.from(b.episodes))).size,
+      distinct_episodes_covered: distinctEps,
     };
 
     if (dryRun) {
-      const top = eligible
+      const top = [...eligible]
         .sort((a, b) => b.episodes.size - a.episodes.size)
         .slice(0, 50)
-        .map((b) => ({ canonical: b.canonical, key: b.key, episodes: b.episodes.size, members: b.members.size }));
+        .map((b) => ({ canonical: b.canonical, key: b.key, episodes: b.episodes.size, members: b.memberLabels.length }));
       return json({ ok: true, dry_run: true, stats, top_50: top, runtime_ms: Date.now() - startedAt });
     }
 
@@ -228,7 +237,7 @@ Deno.serve(async (req) => {
     const clusterRows = eligible.map((b) => ({
       slug: slugify(b.canonical) || slugify(b.key),
       canonical_label_hu: b.canonical,
-      member_labels: Array.from(b.members).slice(0, 50),
+      member_labels: b.memberLabels,
       cluster_method: "deterministic_v1",
     }));
     // Dedup slugs
@@ -248,31 +257,29 @@ Deno.serve(async (req) => {
       for (const r of data || []) idBySlug.set(r.slug, r.id);
     }
 
-    // 6) Build map rows. Need slug per cluster — recompute.
-    const mapRows: any[] = [];
+    // 6) Build & stream map rows (don't materialize all in memory)
+    let inserted = 0;
+    let batch: any[] = [];
+    const flush = async () => {
+      if (batch.length === 0) return;
+      const { error } = await admin.from("episode_topic_cluster_map").insert(batch);
+      if (error) throw new Error(`insert_map: ${error.message}`);
+      inserted += batch.length;
+      batch = [];
+    };
     for (let i = 0; i < eligible.length; i++) {
       const b = eligible[i];
       const slug = clusterRows[i].slug;
       const id = idBySlug.get(slug);
       if (!id) continue;
       const avgConf = b.n > 0 ? Math.max(0, Math.min(1, b.confSum / b.n)) : 0.8;
+      const conf = Number(avgConf.toFixed(3));
       for (const epId of b.episodes) {
-        mapRows.push({
-          episode_id: epId,
-          cluster_id: id,
-          source_label: b.canonical,
-          confidence: Number(avgConf.toFixed(3)),
-        });
+        batch.push({ episode_id: epId, cluster_id: id, source_label: b.canonical, confidence: conf });
+        if (batch.length >= 1000) await flush();
       }
     }
-
-    let inserted = 0;
-    for (let i = 0; i < mapRows.length; i += 1000) {
-      const slice = mapRows.slice(i, i + 1000);
-      const { error } = await admin.from("episode_topic_cluster_map").insert(slice);
-      if (error) return json({ ok: false, error: error.message, stage: "insert_map", at: i }, 500);
-      inserted += slice.length;
-    }
+    await flush();
 
     // 7) Recompute counts/indexable
     await admin.rpc("recompute_topic_cluster_counts");
