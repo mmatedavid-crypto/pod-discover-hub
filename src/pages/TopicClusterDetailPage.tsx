@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
@@ -14,6 +14,7 @@ type Cluster = {
   episode_count: number;
   is_public: boolean;
   is_indexable: boolean;
+  redirect_person_slug: string | null;
 };
 
 const EP_SELECT =
@@ -25,6 +26,7 @@ export default function TopicClusterDetailPage() {
   const [eps, setEps] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -32,11 +34,16 @@ export default function TopicClusterDetailPage() {
       setLoading(true);
       const { data: c } = await supabase
         .from("topic_clusters")
-        .select("id, slug, canonical_label_hu, member_labels, episode_count, is_public, is_indexable")
+        .select("id, slug, canonical_label_hu, member_labels, episode_count, is_public, is_indexable, redirect_person_slug")
         .eq("slug", slug)
         .maybeSingle();
+      if (c && (c as any).redirect_person_slug) {
+        setRedirectTo(`/szemelyek/${(c as any).redirect_person_slug}`);
+        return;
+      }
       if (!c || !(c as any).is_public) { setNotFound(true); setLoading(false); return; }
       setCluster(c as any);
+
 
       const { data: mapRows } = await supabase
         .from("episode_topic_cluster_map")
@@ -66,6 +73,7 @@ export default function TopicClusterDetailPage() {
     })();
   }, [slug]);
 
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
   if (notFound) return (<Layout><NotFoundState title="Téma nem található" /></Layout>);
 
   return (
