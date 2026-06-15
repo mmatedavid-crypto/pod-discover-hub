@@ -153,6 +153,35 @@ Deno.serve(async (req) => {
     return jr({ error: "insert_failed", message: insertErr.message }, 500);
   }
 
+  // Fire-and-forget Telegram alert
+  try {
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const tgKey = Deno.env.get("TELEGRAM_API_KEY");
+    const chatId = Deno.env.get("TELEGRAM_ALERT_CHAT_ID");
+    if (lovableKey && tgKey && chatId) {
+      const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const lines = [
+        "📥 <b>Új podcast beküldés</b>",
+        `<b>Cím:</b> ${esc(title)}`,
+        `<b>RSS:</b> ${esc(rssUrl)}`,
+        websiteUrl ? `<b>Web:</b> ${esc(websiteUrl)}` : null,
+        language ? `<b>Nyelv:</b> ${esc(language)}` : null,
+        author ? `<b>Szerző:</b> ${esc(author)}` : null,
+        submitter ? `<b>Beküldő:</b> ${esc(submitter)}` : null,
+        note ? `<b>Megjegyzés:</b> ${esc(note)}` : null,
+      ].filter(Boolean).join("\n");
+      fetch(`https://connector-gateway.lovable.dev/telegram/sendMessage`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableKey}`,
+          "X-Connection-Api-Key": tgKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ chat_id: chatId, text: lines, parse_mode: "HTML", disable_web_page_preview: true }),
+      }).catch(() => {});
+    }
+  } catch { /* ignore */ }
+
   return jr({
     status: "submitted",
     message: "Köszönjük! A feedet hamarosan feldolgozzuk.",
