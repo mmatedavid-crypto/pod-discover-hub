@@ -6624,6 +6624,39 @@ export type Database = {
           },
         ]
       }
+      topic_cluster_staging: {
+        Row: {
+          avg_confidence: number
+          canonical_label_hu: string
+          cluster_method: string
+          created_at: string
+          episode_ids: string[]
+          id: number
+          member_labels: string[]
+          slug: string
+        }
+        Insert: {
+          avg_confidence?: number
+          canonical_label_hu: string
+          cluster_method?: string
+          created_at?: string
+          episode_ids: string[]
+          id?: number
+          member_labels?: string[]
+          slug: string
+        }
+        Update: {
+          avg_confidence?: number
+          canonical_label_hu?: string
+          cluster_method?: string
+          created_at?: string
+          episode_ids?: string[]
+          id?: number
+          member_labels?: string[]
+          slug?: string
+        }
+        Relationships: []
+      }
       topic_clusters: {
         Row: {
           canonical_label_hu: string
@@ -7994,6 +8027,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      apply_topic_cluster_staging: { Args: never; Returns: Json }
       backfill_mentions_from_people_array: {
         Args: { p_dry_run?: boolean; p_person_ids?: string[] }
         Returns: {

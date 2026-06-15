@@ -138,155 +138,140 @@ Deno.serve(async (req) => {
     const dryRun = !!body.dry_run;
     const minEpisodesPerCluster = Number(body.min_episodes ?? 2);
 
-    // 1) Load all extracted topics (paginated; Supabase caps at 1000 per request)
-    const all: { episode_id: string; normalized_label: string; raw_label: string; confidence: number }[] = [];
+    // 1+2) Stream pages and build buckets in one pass (memory-conscious).
+    type Bucket = {
+      key: string;
+      aliasCanonical: string | null;
+      episodes: Set<string>;
+      memberCounts: Map<string, number>;
+      confSum: number;
+      n: number;
+    };
+    const byKey = new Map<string, Bucket>();
+    let totalRows = 0;
     let from = 0;
     const PAGE = 1000;
     while (true) {
       const { data, error } = await admin
         .from("episode_extracted_topics")
-        .select("episode_id, normalized_label, raw_label, confidence")
+        .select("episode_id, normalized_label, confidence")
         .order("episode_id", { ascending: true })
         .range(from, from + PAGE - 1);
-      if (error) return json({ ok: false, error: error.message, stage: "load" }, 500);
+      if (error) return json({ ok: false, error: error.message, stage: "load", at: from }, 500);
       if (!data || data.length === 0) break;
-      for (const r of data) all.push(r as any);
+      for (const row of data) {
+        const lbl = (row.normalized_label || "").trim();
+        if (!lbl) continue;
+        const aliasHit = ALIASES[lbl] || ALIASES[stripAccents(lbl)] || null;
+        const canonical = aliasHit || lbl;
+        const key = aliasHit ? slugify(aliasHit) : clusterKey(canonical);
+        if (!key) continue;
+        let b = byKey.get(key);
+        if (!b) {
+          b = { key, aliasCanonical: aliasHit, episodes: new Set(), memberCounts: new Map(), confSum: 0, n: 0 };
+          byKey.set(key, b);
+        } else if (aliasHit && !b.aliasCanonical) {
+          b.aliasCanonical = aliasHit;
+        }
+        b.episodes.add(row.episode_id);
+        b.memberCounts.set(lbl, (b.memberCounts.get(lbl) || 0) + 1);
+        b.confSum += Number(row.confidence || 0);
+        b.n += 1;
+        totalRows += 1;
+      }
       if (data.length < PAGE) break;
       from += PAGE;
-      if (from > 400000) break; // safety
+      if (from > 400000) break;
     }
 
-    // 2) Cluster: label → key
-    // Build label→canonical via alias overrides + key collapse
-    type Bucket = { canonical: string; key: string; episodes: Set<string>; members: Set<string>; confSum: number; n: number };
-    const byKey = new Map<string, Bucket>();
-    for (const row of all) {
-      const lbl = row.normalized_label.trim();
-      if (!lbl) continue;
-      const aliasHit = ALIASES[lbl] || ALIASES[stripAccents(lbl)];
-      const canonical = aliasHit || lbl;
-      const key = aliasHit ? slugify(aliasHit) : clusterKey(canonical);
-      if (!key) continue;
-      let b = byKey.get(key);
-      if (!b) {
-        b = { canonical, key, episodes: new Set(), members: new Set(), confSum: 0, n: 0 };
-        byKey.set(key, b);
+    // Choose canonical per bucket: alias if present, else most-frequent member label
+    type Resolved = Bucket & { canonical: string; memberLabels: string[] };
+    const resolved: Resolved[] = [];
+    for (const b of byKey.values()) {
+      let canonical = b.aliasCanonical || "";
+      const memberLabels: string[] = [];
+      if (!canonical) {
+        let bestN = 0;
+        for (const [lbl, n] of b.memberCounts) {
+          if (n > bestN) { bestN = n; canonical = lbl; }
+        }
       }
-      b.episodes.add(row.episode_id);
-      b.members.add(lbl);
-      b.confSum += Number(row.confidence || 0);
-      b.n += 1;
-      // Prefer the most common label within the bucket as canonical
-      if (lbl.length < b.canonical.length || (aliasHit && lbl === aliasHit)) {
-        // keep alias-driven canonical
-        if (aliasHit) b.canonical = aliasHit;
-      }
+      // cap member_labels at top 50 by frequency to keep payload bounded
+      const sortedMembers = Array.from(b.memberCounts.entries()).sort((a, c) => c[1] - a[1]);
+      for (let i = 0; i < Math.min(50, sortedMembers.length); i++) memberLabels.push(sortedMembers[i][0]);
+      resolved.push({ ...b, canonical: canonical || b.key, memberLabels });
     }
 
-    // For each bucket, choose canonical as the most frequent member label
-    const memberCount = new Map<string, Map<string, number>>();
-    for (const row of all) {
-      const lbl = row.normalized_label.trim();
-      if (!lbl) continue;
-      const aliasHit = ALIASES[lbl] || ALIASES[stripAccents(lbl)];
-      const canonical = aliasHit || lbl;
-      const key = aliasHit ? slugify(aliasHit) : clusterKey(canonical);
-      if (!key) continue;
-      let m = memberCount.get(key);
-      if (!m) { m = new Map(); memberCount.set(key, m); }
-      m.set(lbl, (m.get(lbl) || 0) + 1);
-    }
-    for (const [key, b] of byKey) {
-      const m = memberCount.get(key);
-      if (!m) continue;
-      // alias overrides take priority — only auto-pick if not aliased
-      const aliasedTo = Array.from(b.members).find((l) => ALIASES[l]);
-      if (aliasedTo) { b.canonical = ALIASES[aliasedTo]; continue; }
-      let best = b.canonical; let bestN = 0;
-      for (const [lbl, n] of m) { if (n > bestN) { best = lbl; bestN = n; } }
-      b.canonical = best;
-    }
+    // Free the raw bucket map
+    byKey.clear();
 
     // 3) Filter clusters
-    const eligible = Array.from(byKey.values()).filter((b) => b.episodes.size >= minEpisodesPerCluster);
+    const eligible = resolved.filter((b) => b.episodes.size >= minEpisodesPerCluster);
+    let distinctEps = 0;
+    {
+      const seenEps = new Set<string>();
+      for (const b of eligible) for (const e of b.episodes) seenEps.add(e);
+      distinctEps = seenEps.size;
+    }
     const stats = {
-      total_rows: all.length,
-      raw_keys: byKey.size,
+      total_rows: totalRows,
+      raw_keys: resolved.length,
       eligible_clusters: eligible.length,
       total_episode_assignments: eligible.reduce((a, b) => a + b.episodes.size, 0),
-      distinct_episodes_covered: new Set(eligible.flatMap((b) => Array.from(b.episodes))).size,
+      distinct_episodes_covered: distinctEps,
     };
 
     if (dryRun) {
-      const top = eligible
+      const top = [...eligible]
         .sort((a, b) => b.episodes.size - a.episodes.size)
         .slice(0, 50)
-        .map((b) => ({ canonical: b.canonical, key: b.key, episodes: b.episodes.size, members: b.members.size }));
+        .map((b) => ({ canonical: b.canonical, key: b.key, episodes: b.episodes.size, members: b.memberLabels.length }));
       return json({ ok: true, dry_run: true, stats, top_50: top, runtime_ms: Date.now() - startedAt });
     }
 
-    // 4) Wipe old clusters (idempotent rebuild)
-    await admin.from("episode_topic_cluster_map").delete().neq("episode_id", "00000000-0000-0000-0000-000000000000");
-    await admin.from("topic_clusters").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    // 4) Wipe staging
+    await admin.from("topic_cluster_staging").delete().neq("id", -1);
 
-    // 5) Insert clusters + capture id mapping
-    const clusterRows = eligible.map((b) => ({
-      slug: slugify(b.canonical) || slugify(b.key),
-      canonical_label_hu: b.canonical,
-      member_labels: Array.from(b.members).slice(0, 50),
-      cluster_method: "deterministic_v1",
-    }));
-    // Dedup slugs
-    const seen = new Map<string, number>();
-    for (const r of clusterRows) {
-      const base = r.slug || "klaszter";
-      const n = (seen.get(base) || 0) + 1;
-      seen.set(base, n);
-      if (n > 1) r.slug = `${base}-${n}`;
-    }
-
-    const idBySlug = new Map<string, string>();
-    for (let i = 0; i < clusterRows.length; i += 500) {
-      const slice = clusterRows.slice(i, i + 500);
-      const { data, error } = await admin.from("topic_clusters").insert(slice).select("id, slug");
-      if (error) return json({ ok: false, error: error.message, stage: "insert_clusters" }, 500);
-      for (const r of data || []) idBySlug.set(r.slug, r.id);
-    }
-
-    // 6) Build map rows. Need slug per cluster — recompute.
-    const mapRows: any[] = [];
-    for (let i = 0; i < eligible.length; i++) {
-      const b = eligible[i];
-      const slug = clusterRows[i].slug;
-      const id = idBySlug.get(slug);
-      if (!id) continue;
+    // 5) Build staging rows (one per cluster, episode_ids as array)
+    // Dedup slugs by appending index when needed (final dedup happens in apply RPC too)
+    const slugSeen = new Map<string, number>();
+    const stagingRows = eligible.map((b) => {
+      let base = slugify(b.canonical) || slugify(b.key) || "klaszter";
+      const n = (slugSeen.get(base) || 0) + 1;
+      slugSeen.set(base, n);
+      const slug = n > 1 ? `${base}-${n}` : base;
       const avgConf = b.n > 0 ? Math.max(0, Math.min(1, b.confSum / b.n)) : 0.8;
-      for (const epId of b.episodes) {
-        mapRows.push({
-          episode_id: epId,
-          cluster_id: id,
-          source_label: b.canonical,
-          confidence: Number(avgConf.toFixed(3)),
-        });
-      }
+      return {
+        slug,
+        canonical_label_hu: b.canonical,
+        member_labels: b.memberLabels,
+        episode_ids: Array.from(b.episodes),
+        avg_confidence: Number(avgConf.toFixed(3)),
+        cluster_method: "deterministic_v1",
+      };
+    });
+
+    let staged = 0;
+    for (let i = 0; i < stagingRows.length; i += 500) {
+      const slice = stagingRows.slice(i, i + 500);
+      const { error } = await admin.from("topic_cluster_staging").insert(slice);
+      if (error) return json({ ok: false, error: error.message, stage: "stage_insert", at: i }, 500);
+      staged += slice.length;
     }
 
-    let inserted = 0;
-    for (let i = 0; i < mapRows.length; i += 1000) {
-      const slice = mapRows.slice(i, i + 1000);
-      const { error } = await admin.from("episode_topic_cluster_map").insert(slice);
-      if (error) return json({ ok: false, error: error.message, stage: "insert_map", at: i }, 500);
-      inserted += slice.length;
+    // 6) Optionally apply immediately (default true)
+    let applied: any = null;
+    if (body.apply !== false) {
+      const { data, error } = await admin.rpc("apply_topic_cluster_staging");
+      if (error) return json({ ok: false, error: error.message, stage: "apply_rpc", staged }, 500);
+      applied = data;
     }
-
-    // 7) Recompute counts/indexable
-    await admin.rpc("recompute_topic_cluster_counts");
 
     return json({
       ok: true,
       stats,
-      inserted_clusters: clusterRows.length,
-      inserted_map_rows: inserted,
+      staged,
+      applied,
       runtime_ms: Date.now() - startedAt,
     });
   } catch (e) {
