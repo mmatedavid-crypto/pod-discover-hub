@@ -229,57 +229,51 @@ Deno.serve(async (req) => {
       return json({ ok: true, dry_run: true, stats, top_50: top, runtime_ms: Date.now() - startedAt });
     }
 
-    // 4) Wipe old clusters (idempotent rebuild)
-    await admin.from("episode_topic_cluster_map").delete().neq("episode_id", "00000000-0000-0000-0000-000000000000");
-    await admin.from("topic_clusters").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    // 4) Wipe staging
+    await admin.from("topic_cluster_staging").delete().neq("id", -1);
 
-    // 5) Insert clusters + capture id mapping
-    const clusterRows = eligible.map((b) => ({
-      slug: slugify(b.canonical) || slugify(b.key),
-      canonical_label_hu: b.canonical,
-      member_labels: b.memberLabels,
-      cluster_method: "deterministic_v1",
-    }));
-    // Dedup slugs
-    const seen = new Map<string, number>();
-    for (const r of clusterRows) {
-      const base = r.slug || "klaszter";
-      const n = (seen.get(base) || 0) + 1;
-      seen.set(base, n);
-      if (n > 1) r.slug = `${base}-${n}`;
-    }
-
-    const idBySlug = new Map<string, string>();
-    for (let i = 0; i < clusterRows.length; i += 500) {
-      const slice = clusterRows.slice(i, i + 500);
-      const { data, error } = await admin.from("topic_clusters").insert(slice).select("id, slug");
-      if (error) return json({ ok: false, error: error.message, stage: "insert_clusters" }, 500);
-      for (const r of data || []) idBySlug.set(r.slug, r.id);
-    }
-
-    // 6) Build & stream map rows (don't materialize all in memory)
-    let inserted = 0;
-    let batch: any[] = [];
-    const flush = async () => {
-      if (batch.length === 0) return;
-      const { error } = await admin.from("episode_topic_cluster_map").insert(batch);
-      if (error) throw new Error(`insert_map: ${error.message}`);
-      inserted += batch.length;
-      batch = [];
-    };
-    for (let i = 0; i < eligible.length; i++) {
-      const b = eligible[i];
-      const slug = clusterRows[i].slug;
-      const id = idBySlug.get(slug);
-      if (!id) continue;
+    // 5) Build staging rows (one per cluster, episode_ids as array)
+    // Dedup slugs by appending index when needed (final dedup happens in apply RPC too)
+    const slugSeen = new Map<string, number>();
+    const stagingRows = eligible.map((b) => {
+      let base = slugify(b.canonical) || slugify(b.key) || "klaszter";
+      const n = (slugSeen.get(base) || 0) + 1;
+      slugSeen.set(base, n);
+      const slug = n > 1 ? `${base}-${n}` : base;
       const avgConf = b.n > 0 ? Math.max(0, Math.min(1, b.confSum / b.n)) : 0.8;
-      const conf = Number(avgConf.toFixed(3));
-      for (const epId of b.episodes) {
-        batch.push({ episode_id: epId, cluster_id: id, source_label: b.canonical, confidence: conf });
-        if (batch.length >= 1000) await flush();
-      }
+      return {
+        slug,
+        canonical_label_hu: b.canonical,
+        member_labels: b.memberLabels,
+        episode_ids: Array.from(b.episodes),
+        avg_confidence: Number(avgConf.toFixed(3)),
+        cluster_method: "deterministic_v1",
+      };
+    });
+
+    let staged = 0;
+    for (let i = 0; i < stagingRows.length; i += 500) {
+      const slice = stagingRows.slice(i, i + 500);
+      const { error } = await admin.from("topic_cluster_staging").insert(slice);
+      if (error) return json({ ok: false, error: error.message, stage: "stage_insert", at: i }, 500);
+      staged += slice.length;
     }
-    await flush();
+
+    // 6) Optionally apply immediately (default true)
+    let applied: any = null;
+    if (body.apply !== false) {
+      const { data, error } = await admin.rpc("apply_topic_cluster_staging");
+      if (error) return json({ ok: false, error: error.message, stage: "apply_rpc", staged }, 500);
+      applied = data;
+    }
+
+    return json({
+      ok: true,
+      stats,
+      staged,
+      applied,
+      runtime_ms: Date.now() - startedAt,
+    });
 
     // 7) Recompute counts/indexable
     await admin.rpc("recompute_topic_cluster_counts");
