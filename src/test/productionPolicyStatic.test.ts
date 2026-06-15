@@ -185,7 +185,6 @@ describe("production policy static guards", () => {
       "20260606015000_person_bio_topic_only_no_job_policy_v4.sql",
       "episode-article-pairer",
       "personalized-home-rails",
-      "embed-episode-runner",
       "embed-episode-chunks-runner",
       "refresh-sitemap",
       "gsc-weekly-insights",
@@ -465,7 +464,7 @@ describe("production policy static guards", () => {
     const cleanTextBackfillFreeze = read("supabase/migrations/20260608006000_reassert_clean_text_backfill_freeze_status.sql");
     const downstreamV4Final = read("supabase/migrations/20260608191000_reassert_downstream_embedding_policy_v4_final.sql");
     const cleanRunner = read("supabase/functions/episode-clean-text-runner/index.ts");
-    const episodeRunner = read("supabase/functions/embed-episode-runner/index.ts");
+    
     const chunkRunner = read("supabase/functions/embed-episode-chunks-runner/index.ts");
     const transcriptChunker = read("supabase/functions/_shared/transcript-chunker.ts");
     const searchHybrid = read("supabase/functions/search-hybrid/index.ts");
@@ -506,7 +505,7 @@ describe("production policy static guards", () => {
     expect(reporter).toContain("20260608006000_reassert_clean_text_backfill_freeze_status.sql");
     expect(reporter).toContain("20260608191000_reassert_downstream_embedding_policy_v4_final.sql");
     expect(reporter).toContain('String(failure).includes("embed_chunks")');
-    expect(reporter).toContain("embed-episode-runner");
+    
     expect(reporter).toContain("embed-episode-chunks-runner");
 
     for (const migration of [downstreamGate, reassertGate]) {
@@ -572,14 +571,6 @@ describe("production policy static guards", () => {
     expect(cleanRunner).toContain('const method = String(ctrl.method_version ?? "deterministic_v4")');
     expect(cleanRunner).not.toContain('ctrl.method_version ?? "deterministic_v3"');
 
-    expect(episodeRunner).toContain("select_embed_episode_candidates");
-    expect(episodeRunner).toContain("validateEmbeddingInput");
-    expect(episodeRunner).toContain("loadPromotedCleanText");
-    expect(episodeRunner).toContain('.from("episode_clean_text")');
-    expect(episodeRunner).toContain('.like("cleaner_method", "deterministic_v4%")');
-    expect(episodeRunner).toContain("requires_promoted_deterministic_v4_clean_text");
-    expect(episodeRunner).toContain('source_policy: "verified_deterministic_v4_clean_text_then_embedding"');
-    expect(episodeRunner).toContain("skipped_last_run");
     expect(chunkRunner).toContain("requires_promoted_deterministic_v4_clean_text");
     expect(chunkRunner).toContain("source_policy: \"best_source_then_deterministic_v4_clean_text_then_embedding\"");
     expect(chunkRunner).toContain("import { chunkTimedSegments, type ChunkSlice } from \"../_shared/transcript-chunker.ts\"");

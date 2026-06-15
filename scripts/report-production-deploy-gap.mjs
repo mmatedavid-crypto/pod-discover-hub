@@ -98,7 +98,7 @@ const GROUPS = {
       "supabase/migrations/20260608006000_reassert_clean_text_backfill_freeze_status.sql",
       "supabase/migrations/20260608191000_reassert_downstream_embedding_policy_v4_final.sql",
     ],
-    functions: ["episode-best-text-source-runner", "episode-clean-text-runner", "embed-episode-runner", "embed-episode-chunks-runner"],
+    functions: ["episode-best-text-source-runner", "episode-clean-text-runner", "embed-episode-chunks-runner"],
     why: "A kereső, ajánló és B2B monitoring vektorai csak promoválható deterministic_v4-family clean textből épüljenek, ne nyers RSS/YouTube leírásból.",
   },
   spotify_transcript_pipeline: {
