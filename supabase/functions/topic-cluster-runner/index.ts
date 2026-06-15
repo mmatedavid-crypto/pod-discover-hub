@@ -138,73 +138,68 @@ Deno.serve(async (req) => {
     const dryRun = !!body.dry_run;
     const minEpisodesPerCluster = Number(body.min_episodes ?? 2);
 
-    // 1) Load all extracted topics (paginated; Supabase caps at 1000 per request)
-    const all: { episode_id: string; normalized_label: string; raw_label: string; confidence: number }[] = [];
+    // 1+2) Stream pages and build buckets in one pass (memory-conscious).
+    type Bucket = {
+      key: string;
+      aliasCanonical: string | null;
+      episodes: Set<string>;
+      memberCounts: Map<string, number>;
+      confSum: number;
+      n: number;
+    };
+    const byKey = new Map<string, Bucket>();
+    let totalRows = 0;
     let from = 0;
     const PAGE = 1000;
     while (true) {
       const { data, error } = await admin
         .from("episode_extracted_topics")
-        .select("episode_id, normalized_label, raw_label, confidence")
+        .select("episode_id, normalized_label, confidence")
         .order("episode_id", { ascending: true })
         .range(from, from + PAGE - 1);
-      if (error) return json({ ok: false, error: error.message, stage: "load" }, 500);
+      if (error) return json({ ok: false, error: error.message, stage: "load", at: from }, 500);
       if (!data || data.length === 0) break;
-      for (const r of data) all.push(r as any);
+      for (const row of data) {
+        const lbl = (row.normalized_label || "").trim();
+        if (!lbl) continue;
+        const aliasHit = ALIASES[lbl] || ALIASES[stripAccents(lbl)] || null;
+        const canonical = aliasHit || lbl;
+        const key = aliasHit ? slugify(aliasHit) : clusterKey(canonical);
+        if (!key) continue;
+        let b = byKey.get(key);
+        if (!b) {
+          b = { key, aliasCanonical: aliasHit, episodes: new Set(), memberCounts: new Map(), confSum: 0, n: 0 };
+          byKey.set(key, b);
+        } else if (aliasHit && !b.aliasCanonical) {
+          b.aliasCanonical = aliasHit;
+        }
+        b.episodes.add(row.episode_id);
+        b.memberCounts.set(lbl, (b.memberCounts.get(lbl) || 0) + 1);
+        b.confSum += Number(row.confidence || 0);
+        b.n += 1;
+        totalRows += 1;
+      }
       if (data.length < PAGE) break;
       from += PAGE;
-      if (from > 400000) break; // safety
+      if (from > 400000) break;
     }
 
-    // 2) Cluster: label → key
-    // Build label→canonical via alias overrides + key collapse
-    type Bucket = { canonical: string; key: string; episodes: Set<string>; members: Set<string>; confSum: number; n: number };
-    const byKey = new Map<string, Bucket>();
-    for (const row of all) {
-      const lbl = row.normalized_label.trim();
-      if (!lbl) continue;
-      const aliasHit = ALIASES[lbl] || ALIASES[stripAccents(lbl)];
-      const canonical = aliasHit || lbl;
-      const key = aliasHit ? slugify(aliasHit) : clusterKey(canonical);
-      if (!key) continue;
-      let b = byKey.get(key);
-      if (!b) {
-        b = { canonical, key, episodes: new Set(), members: new Set(), confSum: 0, n: 0 };
-        byKey.set(key, b);
+    // Choose canonical per bucket: alias if present, else most-frequent member label
+    type Resolved = Bucket & { canonical: string; memberLabels: string[] };
+    const resolved: Resolved[] = [];
+    for (const b of byKey.values()) {
+      let canonical = b.aliasCanonical || "";
+      const memberLabels: string[] = [];
+      if (!canonical) {
+        let bestN = 0;
+        for (const [lbl, n] of b.memberCounts) {
+          if (n > bestN) { bestN = n; canonical = lbl; }
+        }
       }
-      b.episodes.add(row.episode_id);
-      b.members.add(lbl);
-      b.confSum += Number(row.confidence || 0);
-      b.n += 1;
-      // Prefer the most common label within the bucket as canonical
-      if (lbl.length < b.canonical.length || (aliasHit && lbl === aliasHit)) {
-        // keep alias-driven canonical
-        if (aliasHit) b.canonical = aliasHit;
-      }
-    }
-
-    // For each bucket, choose canonical as the most frequent member label
-    const memberCount = new Map<string, Map<string, number>>();
-    for (const row of all) {
-      const lbl = row.normalized_label.trim();
-      if (!lbl) continue;
-      const aliasHit = ALIASES[lbl] || ALIASES[stripAccents(lbl)];
-      const canonical = aliasHit || lbl;
-      const key = aliasHit ? slugify(aliasHit) : clusterKey(canonical);
-      if (!key) continue;
-      let m = memberCount.get(key);
-      if (!m) { m = new Map(); memberCount.set(key, m); }
-      m.set(lbl, (m.get(lbl) || 0) + 1);
-    }
-    for (const [key, b] of byKey) {
-      const m = memberCount.get(key);
-      if (!m) continue;
-      // alias overrides take priority — only auto-pick if not aliased
-      const aliasedTo = Array.from(b.members).find((l) => ALIASES[l]);
-      if (aliasedTo) { b.canonical = ALIASES[aliasedTo]; continue; }
-      let best = b.canonical; let bestN = 0;
-      for (const [lbl, n] of m) { if (n > bestN) { best = lbl; bestN = n; } }
-      b.canonical = best;
+      // cap member_labels at top 50 by frequency to keep payload bounded
+      const sortedMembers = Array.from(b.memberCounts.entries()).sort((a, c) => c[1] - a[1]);
+      for (let i = 0; i < Math.min(50, sortedMembers.length); i++) memberLabels.push(sortedMembers[i][0]);
+      resolved.push({ ...b, canonical: canonical || b.key, memberLabels });
     }
 
     // 3) Filter clusters
