@@ -6,7 +6,7 @@ import Layout from "@/components/Layout";
 import { PodcastCover } from "@/components/PodcastCover";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
-import { FormulaCRunnerPanel } from "@/components/admin/FormulaCRunnerPanel";
+
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
@@ -544,7 +544,7 @@ Header: apikey: <publishable key>`}</pre>
           </div>
         </section>
 
-        <FormulaCRunnerPanel />
+        
 
         {stats?.formulaC && (
           <section className="p-4 rounded-lg border border-border bg-card">
