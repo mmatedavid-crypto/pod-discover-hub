@@ -274,17 +274,6 @@ Deno.serve(async (req) => {
       applied,
       runtime_ms: Date.now() - startedAt,
     });
-
-    // 7) Recompute counts/indexable
-    await admin.rpc("recompute_topic_cluster_counts");
-
-    return json({
-      ok: true,
-      stats,
-      inserted_clusters: clusterRows.length,
-      inserted_map_rows: inserted,
-      runtime_ms: Date.now() - startedAt,
-    });
   } catch (e) {
     console.error("topic-cluster-runner err", e);
     return json({ ok: false, error: e instanceof Error ? e.message : "Unknown" }, 500);
