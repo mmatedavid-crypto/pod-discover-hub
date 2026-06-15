@@ -73,6 +73,7 @@ export default function TopicClusterDetailPage() {
     })();
   }, [slug]);
 
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
   if (notFound) return (<Layout><NotFoundState title="Téma nem található" /></Layout>);
 
   return (
