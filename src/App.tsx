@@ -45,6 +45,7 @@ const EpisodeDetail = lazy(() => import("./pages/EpisodeDetail.tsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.tsx"));
 const TrendsPage = lazy(() => import("./pages/TrendsPage.tsx"));
 const AuthPage = lazy(() => import("./pages/AuthPage.tsx"));
+const SubmitPodcastPage = lazy(() => import("./pages/SubmitPodcastPage.tsx"));
 const AdminPage = lazy(() => import("./pages/AdminPage.tsx"));
 const AdminHubPage = lazy(() => import("./pages/AdminHubPage.tsx"));
 const AdminDiscoveryPage = lazy(() => import("./pages/AdminDiscoveryPage.tsx"));
@@ -151,6 +152,8 @@ const App = () => (
           <Route path="/search" element={<RedirectPreserveSearch to="/kereses" />} />
           <Route path="/belepes" element={<AuthPage />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/podcast-bekuldese" element={<SubmitPodcastPage />} />
+          <Route path="/submit" element={<Navigate to="/podcast-bekuldese" replace />} />
           <Route path="/admin" element={<AdminHubPage />} />
           <Route path="/admin/podcasts" element={<AdminPage />} />
           
