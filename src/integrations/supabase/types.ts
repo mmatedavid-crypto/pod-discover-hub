@@ -8199,6 +8199,7 @@ export type Database = {
       }
       claim_person_judge_batch: { Args: { _limit: number }; Returns: string[] }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
+      count_pipeline_pending: { Args: { kind: string }; Returns: number }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       dedup_episodes_audio_url_batch: {
         Args: { _batch?: number }
