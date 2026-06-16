@@ -7,6 +7,42 @@ import { Newspaper, ExternalLink } from "lucide-react";
 
 const PRESS_ITEMS = [
   {
+    source: "PestCentrum",
+    sourceUrl: "https://pestcentrum.hu/2026/06/15/tiz-ev-alatt-tobb-mint-30-szorosara-nott-a-magyar-podcastpiac/",
+    title: "Tíz év alatt több mint 30-szorosára nőtt a magyar podcastpiac",
+    date: "2026. 06. 15.",
+    quote:
+      "A magyar podcastpiac tíz év alatt több mint 30-szorosára nőtt — derül ki a Podiverzum.hu első átfogó piaci elemzéséből. Naponta átlagosan 73 új epizód jelenik meg, idén pedig várhatóan több mint 34 ezer új adás készül.",
+    type: "Hír",
+  },
+  {
+    source: "Manager Magazin",
+    sourceUrl: "https://www.managermagazin.hu/harmincszoros-novekedes-rekordevet-hozhat-a-magyar-podcastpiac.htm",
+    title: "Harmincszoros növekedés — rekordévet hozhat a magyar podcastpiac",
+    date: "2026. 06. 15.",
+    quote:
+      "A Podiverzum.hu első átfogó piaci elemzése szerint a magyar podcastpiac tíz év alatt 30,2-szeresére bővült, és 2026 minden korábbi rekordot megdönthet.",
+    type: "Hír",
+  },
+  {
+    source: "hír6.hu",
+    sourceUrl: "https://hir6.hu/cikk/182293/tiz_ev_alatt_tobb_mint_harmincszorosara_nott_a_magyar_podcastpiac",
+    title: "Tíz év alatt több mint harmincszorosára nőtt a magyar podcastpiac",
+    date: "2026. 06. 15.",
+    quote:
+      "A magyar podcastpiac több mint harmincszorosára nőtt az elmúlt évtizedben — derül ki a Podiverzum.hu első átfogó piaci elemzéséből. Naponta átlagosan 73 új epizód jelenik meg.",
+    type: "Hír",
+  },
+  {
+    source: "ma7.sk",
+    sourceUrl: "https://ma7.sk/kavezo/tiz-ev-alatt-tobb-mint-30-szorosara-nott-a-magyar-podcastpiac",
+    title: "Tíz év alatt több mint 30-szorosára nőtt a magyar podcastpiac",
+    date: "2026. 06. 15.",
+    quote:
+      "A felvidéki magyar olvasóknak is bemutatja a ma7.sk a Podiverzum.hu első átfogó piaci elemzését: a magyar podcastpiac tíz év alatt több mint harmincszorosára nőtt.",
+    type: "Hír",
+  },
+  {
     source: "GS+",
     sourceUrl: "https://www.gsplus.hu/hir/harmincszorosara-nott-a-magyar-podcastpiac-383688.html",
     title: "Harmincszorosára nőtt a magyar podcastpiac",
