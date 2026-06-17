@@ -13,10 +13,12 @@ type Counts = {
   signups: number;
   shares: number;
   swipe_completions: number;
+  play_starts: number;
   top_paths: { path: string; n: number }[];
   top_referrers: { ref: string; n: number }[];
   top_utm: { src: string; n: number }[];
   device_split: { d: string; n: number }[];
+  top_played: { label: string; n: number }[];
 };
 
 async function collectCounts(admin: ReturnType<typeof createClient>, sinceISO: string): Promise<Counts> {
