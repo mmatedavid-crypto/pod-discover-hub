@@ -94,14 +94,16 @@ Teljes "háborús" epizódszám szerinti top 20, Ukrajna / Irán / Izrael-Gáza 
 
 ## 6. Következő lépések a publikációhoz
 
-- [ ] **Transcript-szintű ellenőrzés** a top 20 podcaston (most csak cím/leírás) → pontosabb kontextus
-- [ ] **Pre/post bontás további metszetekkel:** "béke" mint ellentett téma; gazdaság/infláció felfutása mint "helyettesítő" téma
-- [ ] **Párt-korreláció:** Fidesz/Tisza említések együttmozgása a háborús témával
-- [ ] **2026-03 csúcs mélyebb bontása:** mely podcastok, mely epizódok hajtották
-- [ ] **Vizuális egységesítés:** Podiverzum brand színek, podiverzum.hu kutatási oldal layout
-- [ ] **Sajtó-anyag verzió:** 1 oldal + 3 kulcs grafikon + idézhető megállapítások
-- [ ] **Web-verzió:** interaktív (havi szűrő, podcast szűrő, kontextus toggle)
-- [ ] **Etikai/jogi review:** podcastok név szerinti említése pre/post listán — egyértelműen adatleíró, nem értékítélet
+- [x] **Ráta-alapú megközelítésre váltás** (v3 PDF, 2026-06-17) — vezető grafikon a ráta-vonal, abszolút szám csak kontextus.
+- [ ] **Pre/post bontás rátán is** minden metszetnél (Ukrajna, Közel-Kelet, „ki felejtette el") — a podcast-specifikus arány legyen: adott podcast háborús ep / adott podcast összes ep a periódusban.
+- [ ] **Transcript-szintű ellenőrzés** a top 20 podcaston (most csak cím/leírás) → pontosabb kontextus.
+- [ ] **Pre/post bontás további metszetekkel:** "béke" mint ellentett téma; gazdaság/infláció felfutása mint "helyettesítő" téma.
+- [ ] **Párt-korreláció:** Fidesz/Tisza említések együttmozgása a háborús témával.
+- [ ] **2026-03 csúcs mélyebb bontása:** mely podcastok, mely epizódok hajtották (Gáza vs. Ukrajna belső arány).
+- [ ] **Vizuális egységesítés:** Podiverzum brand színek, podiverzum.hu kutatási oldal layout.
+- [ ] **Sajtó-anyag verzió:** 1 oldal + 3 kulcs grafikon (vezető = ráta) + idézhető megállapítások.
+- [ ] **Web-verzió:** interaktív (havi szűrő, podcast szűrő, kontextus toggle, abszolút↔ráta váltó).
+- [ ] **Etikai/jogi review:** podcastok név szerinti említése pre/post listán — egyértelműen adatleíró, nem értékítélet.
 
 ## 7. Reprodukálhatóság
 
