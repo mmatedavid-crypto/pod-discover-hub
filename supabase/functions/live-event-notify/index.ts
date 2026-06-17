@@ -118,9 +118,18 @@ Deno.serve(async (req) => {
 
     // Dedup key
     const dedupKey = `${kind}:${payload.session_id || ""}:${payload.q || payload.episode_id || payload.share_id || ""}`;
-    if (dedupKey.length > 3 && isDuplicate(dedupKey)) {
-      return json({ ok: true, skipped: "duplicate" });
-    }
+    const dup = dedupKey.length > 3 && isDuplicate(dedupKey);
+
+    // Persist for aggregated reports (even when we skip Telegram for dup/disabled)
+    try {
+      await admin.from("live_events").insert({
+        kind,
+        session_id: payload.session_id ? String(payload.session_id).slice(0, 64) : null,
+        payload,
+      });
+    } catch { /* fail-safe */ }
+
+    if (dup) return json({ ok: true, skipped: "duplicate" });
 
     const text = formatMessage(kind, payload);
     if (!text) return json({ ok: true, skipped: "no_text" });

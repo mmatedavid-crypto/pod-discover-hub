@@ -13,10 +13,12 @@ type Counts = {
   signups: number;
   shares: number;
   swipe_completions: number;
+  play_starts: number;
   top_paths: { path: string; n: number }[];
   top_referrers: { ref: string; n: number }[];
   top_utm: { src: string; n: number }[];
   device_split: { d: string; n: number }[];
+  top_played: { label: string; n: number }[];
 };
 
 async function collectCounts(admin: ReturnType<typeof createClient>, sinceISO: string): Promise<Counts> {
@@ -66,16 +68,36 @@ async function collectCounts(admin: ReturnType<typeof createClient>, sinceISO: s
   // Swipe completions = share rows (each completed swipe creates one share record)
   const swipe_completions = shares ?? 0;
 
+  // Play starts from live_events
+  const { data: playRows } = await admin
+    .from("live_events")
+    .select("payload")
+    .eq("kind", "play_start")
+    .gte("created_at", sinceISO)
+    .limit(10000);
+
+  const playedMap = new Map<string, number>();
+  for (const r of (playRows ?? []) as any[]) {
+    const p = r.payload || {};
+    const ep = String(p.episode_title || "").trim();
+    const pod = String(p.podcast_title || "").trim();
+    if (!ep && !pod) continue;
+    const label = ep ? (pod ? `${ep} — ${pod}` : ep) : pod;
+    playedMap.set(label, (playedMap.get(label) ?? 0) + 1);
+  }
+
   return {
     pageviews: events.length,
     sessions: sessions.size,
     signups: signups ?? 0,
     shares: shares ?? 0,
     swipe_completions,
+    play_starts: playRows?.length ?? 0,
     top_paths: top(pathMap).map(([path, n]) => ({ path, n })),
     top_referrers: top(refMap).map(([ref, n]) => ({ ref, n })),
     top_utm: top(utmMap).map(([src, n]) => ({ src, n })),
     device_split: top(devMap, 4).map(([d, n]) => ({ d, n })),
+    top_played: top(playedMap, 5).map(([label, n]) => ({ label, n })),
   };
 }
 
@@ -90,6 +112,7 @@ function fmt(label: string, since: Date, until: Date, c: Counts): string {
   lines.push("");
   lines.push(`👥 Munkamenetek: <b>${c.sessions}</b>`);
   lines.push(`📄 Oldalmegtekintés: <b>${c.pageviews}</b>`);
+  lines.push(`▶️ Lejátszás indítás: <b>${c.play_starts}</b>`);
   lines.push(`🎴 Swipe befejezés: <b>${c.swipe_completions}</b>`);
   lines.push(`📤 Megosztott eredmény: <b>${c.shares}</b>`);
   lines.push(`✨ Regisztráció: <b>${c.signups}</b>`);
@@ -113,6 +136,11 @@ function fmt(label: string, since: Date, until: Date, c: Counts): string {
     lines.push("");
     lines.push(`<b>UTM kampány</b>`);
     for (const u of c.top_utm) lines.push(`• ${u.src} — ${u.n}`);
+  }
+  if (c.top_played.length) {
+    lines.push("");
+    lines.push(`<b>Top lejátszott epizódok</b>`);
+    for (const p of c.top_played) lines.push(`• ${p.label} — ${p.n}`);
   }
   if (c.device_split.length) {
     lines.push("");
