@@ -137,6 +137,11 @@ function fmt(label: string, since: Date, until: Date, c: Counts): string {
     lines.push(`<b>UTM kampány</b>`);
     for (const u of c.top_utm) lines.push(`• ${u.src} — ${u.n}`);
   }
+  if (c.top_played.length) {
+    lines.push("");
+    lines.push(`<b>Top lejátszott epizódok</b>`);
+    for (const p of c.top_played) lines.push(`• ${p.label} — ${p.n}`);
+  }
   if (c.device_split.length) {
     lines.push("");
     lines.push(`<b>Eszköz/OS</b>: ${c.device_split.map((d) => `${d.d}:${d.n}`).join(" · ")}`);
