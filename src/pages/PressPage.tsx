@@ -7,6 +7,15 @@ import { Newspaper, ExternalLink } from "lucide-react";
 
 const PRESS_ITEMS = [
   {
+    source: "M1 / MédiaKlikk",
+    sourceUrl: "https://mediaklikk.hu/kozelet/video/2026/06/17/ma-delutan-2026-06-17-i-adas-1425",
+    title: "Ma délután 2026.06.17-i adás, 14:25",
+    date: "2026. 06. 17.",
+    quote:
+      "A Podiverzum podcastfigyelő az M1 Ma délután című műsorában szerepelt, ahol a magyar podcastpiac aktuális trendjeiről és a Podiverzum.hu adatalapú elemzéseiről esett szó.",
+    type: "TV-szereplés",
+  },
+  {
     source: "PestCentrum",
     sourceUrl: "https://pestcentrum.hu/2026/06/15/tiz-ev-alatt-tobb-mint-30-szorosara-nott-a-magyar-podcastpiac/",
     title: "Tíz év alatt több mint 30-szorosára nőtt a magyar podcastpiac",
