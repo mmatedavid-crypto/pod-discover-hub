@@ -112,6 +112,7 @@ function fmt(label: string, since: Date, until: Date, c: Counts): string {
   lines.push("");
   lines.push(`👥 Munkamenetek: <b>${c.sessions}</b>`);
   lines.push(`📄 Oldalmegtekintés: <b>${c.pageviews}</b>`);
+  lines.push(`▶️ Lejátszás indítás: <b>${c.play_starts}</b>`);
   lines.push(`🎴 Swipe befejezés: <b>${c.swipe_completions}</b>`);
   lines.push(`📤 Megosztott eredmény: <b>${c.shares}</b>`);
   lines.push(`✨ Regisztráció: <b>${c.signups}</b>`);
