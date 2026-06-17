@@ -3022,6 +3022,30 @@ export type Database = {
         }
         Relationships: []
       }
+      live_events: {
+        Row: {
+          created_at: string
+          id: number
+          kind: string
+          payload: Json | null
+          session_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          kind: string
+          payload?: Json | null
+          session_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          kind?: string
+          payload?: Json | null
+          session_id?: string | null
+        }
+        Relationships: []
+      }
       mood_collections: {
         Row: {
           accent_hsl: string | null
