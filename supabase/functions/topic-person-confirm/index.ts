@@ -258,7 +258,9 @@ Deno.serve(async (req) => {
         .from("app_settings")
         .upsert({ key: "topic_person_confirm_state", value: { last_created_at: cursor, updated_at: new Date().toISOString() } });
 
-      if (rows.length < batchLimit) break;
+      // PostgREST caps responses at ~1000 rows, so don't use rows.length as a "done" signal —
+      // only stop on 0 rows or time budget.
+      if (rows.length === 0) break;
     }
 
     return json({
