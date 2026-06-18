@@ -254,6 +254,7 @@ const App = () => (
           <Route path="/en-podiverzumom" element={<EnPodiverzumomPage />} />
           <Route path="/p/:username" element={<PublicProfilePage />} />
           <Route path="/jelentes/magyar-podcast-piac-2026" element={<PodcastReport2026 />} />
+          <Route path="/jelentes/haboru-mint-tema-2026" element={<HaboruTemaReport />} />
           <Route path="/intelligence" element={<IntelligencePage />} />
           <Route path="/b2b" element={<Navigate to="/intelligence" replace />} />
           <Route path="/mediafigyeles" element={<Navigate to="/intelligence" replace />} />
