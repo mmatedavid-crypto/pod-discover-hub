@@ -169,20 +169,20 @@ export default function HaboruTemaReport() {
           <h2 className="mb-6 font-serif text-2xl md:text-3xl font-bold text-foreground">Mit mutatnak az adatok?</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <InsightCard n={1}
-              title="A ráta a valódi mérőszám"
-              body="A vizsgált 13 hónap alatt a HU katalógus havi kibocsátása 2 170-ről 3 277 epizódra nőtt a 2025-06 és 2026-03 közötti időszakban (+51%). Az abszolút darabszámok félrevezetnek: a háború-tematikájú epizódok havi aránya mutatja meg, mekkora súlyt kapott a téma a teljes magyar podcastkínálatban." />
+              title="A 13 havi átlag-ráta 2,28%"
+              body="2025.06 és 2026.06 között a háború-tematikájú epizódok aránya havi átlagban körülbelül 2,28% volt. A hónapok többsége 1,45% és 2,95% közötti sávban maradt. Az abszolút darabszámok félrevezetnek, mert a katalógus havi kibocsátása 2025-06 és 2026-03 között 2 170-ről 3 277 epizódra nőtt." />
             <InsightCard n={2}
-              title="2026 márciusi csúcs"
-              body={'5,16% — 2026 márciusában minden huszadik magyar epizód háborús témával jelent meg. Ebből 2,29 százalékpont (~44%) Közel-Kelet-kontextus (Gáza/Irán), 1,47 százalékpont tisztán Ukrajna.'} />
+              title="2026 márciusa volt a csúcspont"
+              body="2026-03-ban 3 277 magyar epizódból 169 kapott háború-tematikájú besorolást, ami 5,16%-os rátát jelent. Ugyanebben a hónapban az Ukrajna-ráta 1,47%, a Közel-Kelet-ráta 2,29% volt." />
             <InsightCard n={3}
-              title="A választás körül meredek visszaesés"
-              body={`A választást megelőző márciusi 5,16%-os csúcsról a választást követő májusi 1,56%-os mélypontra ${dropPctVsMarch}%-kal esett a ráta. Az Ukrajna-kontextusú metszet márciusról áprilisra ${ukrDropPct}%-kal csökkent (1,47% → 0,29%).`} />
-            <InsightCard n={4}
-              title="Szinkron visszaesés több szerkesztőségnél"
-              body="A 65 napos szimmetrikus pre/post ablakban a háború-tematikájú epizódot publikáló magyar podcastok száma 87-ről 46-ra esett (−47%). A visszaesés nem egyetlen szerkesztőségi körre korlátozódik." />
+              title="Márciusról májusra −70%"
+              body="A márciusi 5,16%-os csúcsról a májusi 1,56%-os szintre csökkent a háború-ráta. Az Ukrajna-ráta a márciusi 1,47%-ról áprilisra 0,29%-ra esett, ami −80%-os változás." />
+              <InsightCard n={4}
+              title="Kevesebb műsor érintette a témát"
+              body="A 2026.04.12-i választás előtti 65 napban 87 magyar podcast érintette a háború-tematikát, az utána következő 65 napban 46. A két ablakban az aktív műsorok száma 764, illetve 707 volt." />
             <InsightCard n={5}
               title="Nem a kibocsátás esett vissza"
-              body="A teljes magyar podcastkibocsátás 2026 áprilisában (3 144 epizód) és májusában (2 946 epizód) is magas maradt. A téma súlya csökkent a kínálaton belül, nem a megjelenő epizódok száma." wide />
+              body="A teljes magyar podcastkibocsátás 2026 áprilisában (3 144 epizód) és májusában (2 946 epizód) is magas maradt. A változás a téma kínálaton belüli súlyában jelentkezett, nem a megjelenő epizódok számában." wide />
           </div>
         </section>
 
