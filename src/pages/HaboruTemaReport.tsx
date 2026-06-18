@@ -169,20 +169,20 @@ export default function HaboruTemaReport() {
           <h2 className="mb-6 font-serif text-2xl md:text-3xl font-bold text-foreground">Mit mutatnak az adatok?</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <InsightCard n={1}
-              title="A ráta a valódi mérőszám"
-              body="A vizsgált 13 hónap alatt a HU katalógus havi kibocsátása 2 170-ről 3 277 epizódra nőtt a 2025-06 és 2026-03 közötti időszakban (+51%). Az abszolút darabszámok félrevezetnek: a háború-tematikájú epizódok havi aránya mutatja meg, mekkora súlyt kapott a téma a teljes magyar podcastkínálatban." />
+              title="A 13 havi átlag-ráta 2,28%"
+              body="2025.06 és 2026.06 között a háború-tematikájú epizódok aránya havi átlagban körülbelül 2,28% volt. A hónapok többsége 1,45% és 2,95% közötti sávban maradt. Az abszolút darabszámok félrevezetnek, mert a katalógus havi kibocsátása 2025-06 és 2026-03 között 2 170-ről 3 277 epizódra nőtt." />
             <InsightCard n={2}
-              title="2026 márciusi csúcs"
-              body={'5,16% — 2026 márciusában minden huszadik magyar epizód háborús témával jelent meg. Ebből 2,29 százalékpont (~44%) Közel-Kelet-kontextus (Gáza/Irán), 1,47 százalékpont tisztán Ukrajna.'} />
+              title="2026 márciusa volt a csúcspont"
+              body="2026-03-ban 3 277 magyar epizódból 169 kapott háború-tematikájú besorolást, ami 5,16%-os rátát jelent. Ugyanebben a hónapban az Ukrajna-ráta 1,47%, a Közel-Kelet-ráta 2,29% volt." />
             <InsightCard n={3}
-              title="A választás körül meredek visszaesés"
-              body={`A választást megelőző márciusi 5,16%-os csúcsról a választást követő májusi 1,56%-os mélypontra ${dropPctVsMarch}%-kal esett a ráta. Az Ukrajna-kontextusú metszet márciusról áprilisra ${ukrDropPct}%-kal csökkent (1,47% → 0,29%).`} />
-            <InsightCard n={4}
-              title="Szinkron visszaesés több szerkesztőségnél"
-              body="A 65 napos szimmetrikus pre/post ablakban a háború-tematikájú epizódot publikáló magyar podcastok száma 87-ről 46-ra esett (−47%). A visszaesés nem egyetlen szerkesztőségi körre korlátozódik." />
+              title="Márciusról májusra −70%"
+              body="A márciusi 5,16%-os csúcsról a májusi 1,56%-os szintre csökkent a háború-ráta. Az Ukrajna-ráta a márciusi 1,47%-ról áprilisra 0,29%-ra esett, ami −80%-os változás." />
+              <InsightCard n={4}
+              title="Kevesebb műsor érintette a témát"
+              body="A 2026.04.12-i választás előtti 65 napban 87 magyar podcast érintette a háború-tematikát, az utána következő 65 napban 46. A két ablakban az aktív műsorok száma 764, illetve 707 volt." />
             <InsightCard n={5}
               title="Nem a kibocsátás esett vissza"
-              body="A teljes magyar podcastkibocsátás 2026 áprilisában (3 144 epizód) és májusában (2 946 epizód) is magas maradt. A téma súlya csökkent a kínálaton belül, nem a megjelenő epizódok száma." wide />
+              body="A teljes magyar podcastkibocsátás 2026 áprilisában (3 144 epizód) és májusában (2 946 epizód) is magas maradt. A változás a téma kínálaton belüli súlyában jelentkezett, nem a megjelenő epizódok számában." wide />
           </div>
         </section>
 
@@ -191,7 +191,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-rata-2025-06-2026-06">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">A háború tematikus jelenléte a magyar podcastkínálatban (%)</h2>
             <p className="mb-6 text-muted-foreground">
-              13 hónap, 2025-06 – 2026-06. Az érték a háború-tematikájú epizódok aránya a havi összes indexelt magyar epizódhoz képest. A vízszintes átlag {huNum(avgRate)}%. A 2026-03-i csúcs a Gáza/Hamasz-tűzszünet körüli hetekre esik; a 2026-04-i ejtés a választás hónapja.
+              13 hónap, 2025-06 – 2026-06. Az érték a háború-tematikájú epizódok aránya a havi összes indexelt magyar epizódhoz képest; a 13 hónapos átlag {huNum(avgRate)}%. A havi idősor 2025-06-ban 2,77%-kal indult (Irán–Izrael 12 napos háború), 2026-01-ben 1,45%-ra csökkent, 2026-03-ban 5,16%-on tetőzött a Gáza/Hamasz-tűzszünet körüli hetekben, majd 2026-04-ben 1,75%, 2026-05-ben 1,56% volt.
             </p>
             <div className="space-y-1.5">
               {MONTHS.map((row) => {
@@ -221,8 +221,8 @@ export default function HaboruTemaReport() {
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground italic">* 2026-06 részleges hónap (06.01–06.15).</p>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <Callout title="2026-03 — minden 20. epizód háborús témával jelent meg">Gáza/Hamasz-tűzszünet és az orosz–ukrán front párhuzamos felfutása. Közel-Kelet-kontextus nélkül 2,87%; tisztán Ukrajna 1,47% — az utóbbi szintén csúcs.</Callout>
-              <Callout title="2026-05 — választás utáni mélypont">1,56% (a 13 hónap második legalacsonyabb értéke a 2026-01-i 1,45% után), miközben 2 946 epizód jelent meg. A téma tematikus súlya csökkent, nem a kibocsátás.</Callout>
+              <Callout title="Csúcs: 2026. március, 5,16%">2026-03-ban 3 277 epizódból 169 volt háború-tematikájú. A Közel-Kelet-ráta 2,29%, az Ukrajna-ráta 1,47% — utóbbi szintén a 13 hónap maximuma.</Callout>
+              <Callout title="Mélypont a csúcs után: 2026. május, 1,56%">2026-05-ben 2 946 epizódból 46 kapott háború-tematikájú besorolást. A márciusi 5,16%-hoz képest −70%-os csökkenés úgy, hogy a havi kibocsátás érdemben nem változott.</Callout>
             </div>
           </DownloadableFigure>
         </section>
@@ -232,7 +232,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-kontextus-ukrajna-vs-kozelet">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Ukrajna vs. Közel-Kelet kontextus</h2>
             <p className="mb-6 text-muted-foreground">
-              A háború-tematikájú epizódokat aszerint bontjuk, hogy Ukrajnáról vagy a közel-keleti konfliktusról (Irán, Izrael, Gáza) szólnak. Havonta két külön sáv: felül az Ukrajna-ráta, alatta a Közel-Kelet-ráta a teljes magyar epizódkibocsátáshoz viszonyítva. Egy epizód mindkettőben megjelenhet, ezért a két érték nem adódik össze.
+              A kontextusbontás két külön kulcsszótárral készül: Ukrajna, illetve Közel-Kelet (Irán, Izrael, Gáza). Havonta két sáv: felül az Ukrajna-ráta, alatta a Közel-Kelet-ráta a teljes magyar epizódkibocsátáshoz viszonyítva. Egy epizód mindkét kontextusba bekerülhet, ezért a két érték nem összegezhető.
             </p>
             <div className="space-y-3">
               {MONTHS.map((row) => {
@@ -264,7 +264,7 @@ export default function HaboruTemaReport() {
               <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-accent/80" />Közel-Kelet (Irán / Izrael / Gáza)</span>
             </div>
             <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-              Az Ukrajna-ráta 2026 februárjában még 1,26%, márciusban 1,47% — áprilisra 0,29%-ra esik. A visszaesés a választást követő hetekre koncentrálódik.
+              Az Ukrajna-ráta 2026 februárjában 1,26%, márciusban 1,47%, áprilisra 0,29%-ra csökkent. A Közel-Kelet-ráta márciusban érte el a 13 havi maximumát 2,29%-kal.
             </p>
           </DownloadableFigure>
         </section>
@@ -274,7 +274,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-prepost-65-nap-valasztas">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Választás előtt és után — 65 napos szimmetrikus ablak</h2>
             <p className="mb-6 text-muted-foreground">
-              A 2026.04.12-i magyar országgyűlési választás körüli két, azonos hosszúságú időszak összevetése. Ugyanaz a katalógus, ugyanazok a keresési feltételek; csak a megfigyelt időszakok különböznek. A választás napja egyik ablakban sem szerepel.
+              A 2026.04.12-i magyar országgyűlési választás körül két azonos hosszúságú, 65 napos időablak. Ugyanaz a katalógus, ugyanazok a keresési feltételek; csak a megfigyelt időszakok különböznek. A választás napja egyik ablakban sem szerepel.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded border border-border bg-card p-4">
@@ -299,9 +299,9 @@ export default function HaboruTemaReport() {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-              <Callout title={`Háború-ráta: −${PREPOST_WAR_DROP}%`}>{huNum(PREPOST.pre.war_rate)}% → {huNum(PREPOST.post.war_rate)}%. A teljes epizódkibocsátás eközben gyakorlatilag változatlan ({huInt(PREPOST.pre.total)} → {huInt(PREPOST.post.total)} ep).</Callout>
-              <Callout title={`Ukrajna-ráta: −${PREPOST_UKR_DROP}%`}>{huNum(PREPOST.pre.ukr_rate)}% → {huNum(PREPOST.post.ukr_rate)}%. Az ukrán háborús kontextus visszaesése a teljes témáé fölötti.</Callout>
-              <Callout title={`Témát érintő podcastok: −${PREPOST_PODS_DROP}%`}>{PREPOST.pre.pods_with_war} → {PREPOST.post.pods_with_war} szerkesztőség. A visszaesés a kínálat szélességében is megjelenik, nem csak az epizódszámban.</Callout>
+              <Callout title={`Háború-ráta: −${PREPOST_WAR_DROP}%`}>A pre időszak 2,91%-os szintjéről a post időszakban 1,06%-ra. A teljes epizódkibocsátás eközben gyakorlatilag változatlan ({huInt(PREPOST.pre.total)} → {huInt(PREPOST.post.total)} epizód).</Callout>
+              <Callout title={`Ukrajna-ráta: −${PREPOST_UKR_DROP}%`}>Ugyanebben az összevetésben 1,82%-ról 0,71%-ra csökkent — meredekebb visszaesés, mint a teljes háború-rátáé.</Callout>
+              <Callout title={`Témát érintő podcastok: −${PREPOST_PODS_DROP}%`}>87-ről 46 magyar műsorra; az aktív podcastok száma a két ablakban 764, illetve 707 volt.</Callout>
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground italic">
               Ablakok: pre = 2026.02.06–04.11, post = 2026.04.13–06.16, mindkettő 65 nap. A választás napja (2026.04.12) egyik ablakban sincs.
@@ -314,7 +314,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-top-podcastok-2025-06-2026-06">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top podcastok a háborús témában</h2>
             <p className="mb-6 text-muted-foreground">
-              A 13 hónap (2025-06 – 2026-06) háború-tematikájú epizódjai alapján kiemelhető az Ukrajna-specialisták köre, ahol a téma a műsor fő profilja. A zárójeles arány: háború-tematikájú epizód / az adott podcast összes közéleti epizódja.
+              A 13 hónapos mintában a háború mint fő profil az Ukrajna-specialista műsorokra jellemző. A zárójeles arány: háború-tematikájú epizód / az adott podcast összes közéleti epizódja.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {TOP_PODS.map((g) => (
@@ -327,7 +327,7 @@ export default function HaboruTemaReport() {
               ))}
             </div>
             <p className="mt-3 text-xs text-muted-foreground italic">
-              A téma rendszeresen megjelenik mindenes közéleti, gazdasági és intézeti műsorokban is, de ott eseti felütésként, nem a műsor fő profiljaként — ezeket itt számszerűen nem listázzuk.
+              A téma mindenes közéleti, gazdasági és intézeti műsorokban is megjelenik, de ott eseti felütésként, nem a műsor fő profiljaként — ezeket itt számszerűen nem listázzuk.
             </p>
           </DownloadableFigure>
         </section>
@@ -337,13 +337,13 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              Az adatok szerint a háború a kampány utolsó heteiben kiemelt téma volt a magyar podcastkínálatban, majd a választás után gyorsan visszaszorult. A háborús epizódok aránya márciusban 5,16 százalékon tetőzött, májusra 1,56 százalékra esett, ami <strong>70 százalékos csökkenés</strong>. A 65 napos választás előtti és utáni ablakban a ráta 2,91 százalékról 1,06 százalékra mérséklődött, miközben az összes kibocsátás érdemben nem változott.
+              A 13 hónapos idősor alapján a háború-tematika a magyar podcastkínálat kis, de mérhető részét adta. Az átlagos havi háború-ráta körülbelül 2,28% volt, a havi értékek pedig egy kiugró márciusi csúcs köré rendeződtek.
             </p>
             <p>
-              A visszaesés nem egyetlen műsorkörre korlátozódott. Az érintett podcastok száma a 65 napos ablakban <strong>87-ről 46-ra csökkent, 47 százalékkal</strong>. A változás Ukrajna-specialista, közéleti, gazdasági és intézeti műsorokban egyaránt látható.
+              A legmagasabb havi értéket 2026-03 hozta 5,16%-kal. Ezt áprilisban 1,75%, májusban 1,56% követte; a márciusi csúcsról a májusi mélypontig <strong>−70%-os</strong> volt a változás.
             </p>
             <p>
-              A mérés azért lényeges, mert a podcast eddig a magyar médiamérés egyik vakfoltja volt. Az indexelt, cím- és leírásalapú katalógus először teszi visszakereshetővé, hogy a kínálatban mikor és milyen arányban tolódnak el a hangsúlyok. A módszer nem hallgatottságot és nem hatást mér, hanem a publikált epizódok tematikus súlyát a katalóguson belül.
+              A választás körüli 65 napos szimmetrikus ablakban a téma súlya és terjedése egyszerre csökkent. A háború-ráta 2,91%-ról 1,06%-ra (−64%), az Ukrajna-ráta 1,82%-ról 0,71%-ra (−61%), az érintett magyar podcastok száma <strong>87-ről 46-ra</strong> esett. A teljes epizódkibocsátás eközben gyakorlatilag változatlan maradt.
             </p>
           </div>
         </section>
@@ -353,22 +353,22 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-xl font-bold text-foreground">Módszertan</h2>
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
-              <strong className="text-foreground">Tematikus azonosítás:</strong> az epizódok kiadók által megadott címe és leírása alapján. Ezek az epizódok nyilvános, szerkesztett témamegjelölései; az elemzés a podcastkínálatban hangsúlyosan megjelenő témákat méri, nem a teljes hanganyag minden futó említését.
+              <strong className="text-foreground">Tematikus azonosítás:</strong> a kiadók által megadott epizódcím és epizódleírás kulcsszavas illesztésével, regex-alapon. A mérés nem teljes hanganyag-leiratot használ; a publikált, szerkesztett témamegjelöléseket méri.
             </p>
             <p>
-              <strong className="text-foreground">Adatforrás:</strong> a Podiverzum saját, folyamatosan frissített magyar podcast-állománya. A nagyon kis házi műsorok és a kizárólag YouTube-on futó tartalmak maradhatnak ki belőle.
+              <strong className="text-foreground">Adatforrás:</strong> a Podiverzum.hu saját, folyamatosan frissített magyar podcast-katalógusa. A 2026.06.15-i snapshotban körülbelül 1 480 magyar podcast és 139 000 epizód metaadata. A nagyon kis házi műsorok és a kizárólag YouTube-on futó tartalmak kimaradhatnak.
             </p>
             <p>
-              <strong className="text-foreground">Kontextusbontás:</strong> Ukrajna, illetve Közel-Kelet (Irán, Izrael, Gáza) szerinti külön kulcsszavas illesztéssel; egy epizód mindkét kontextusban megjelenhet, ezért a két érték nem összegezhető a teljes rátára.
+              <strong className="text-foreground">Kontextusbontás:</strong> két külön szótár — Ukrajna, illetve Közel-Kelet (Irán, Izrael, Gáza). Egy epizód mindkét kontextusba bekerülhet, ezért a két érték nem összegezhető a teljes rátára.
             </p>
             <p>
               <strong className="text-foreground">Időablak:</strong> 2025-06-01 – 2026-06-15. <strong className="text-foreground">Választási cut:</strong> 2026-04-12 (magyar országgyűlési választás). <strong className="text-foreground">Pre/post ablak:</strong> 65–65 nap, 2026.02.06–04.11 vs. 2026.04.13–06.16; a választás napja egyik ablakban sincs.
             </p>
             <p>
-              <strong className="text-foreground">Vezető mérőszám:</strong> ráta = háborús ep / összes HU epizód az adott időablakban. Indoklás: a katalógus havi kibocsátása 2025-06 (2 170 ep) → 2026-03 (3 277 ep) között +51%-ot bővült, az abszolút darabszámok ezért félrevezetnek.
+              <strong className="text-foreground">Vezető mérőszám:</strong> ráta = háborús ep / összes magyar epizód az adott időablakban. A havi epizódszám 2025-06 (2 170 ep) és 2026-03 (3 277 ep) között +51%-ot bővült, ezért az abszolút darabszámok félrevezetők.
             </p>
             <p>
-              <strong className="text-foreground">Korlátok:</strong> az elemzés a publikált epizódcímet és leírást vizsgálja, a teljes hanganyagot nem. A rossz hangminőségű vagy sok szereplős adásokhoz egyelőre nem készítünk leiratot — a teljes hanganyagra kiterjedő elemzés a következő iterációban érkezik. A számok a 2026-06-15-i pillanatkép alapján reprodukálhatók.
+              <strong className="text-foreground">Korlátok:</strong> kulcsszavas illesztés, így szórványos téves találatok előfordulhatnak. A rossz hangminőségű és sokszereplős adásokhoz egyelőre nem készítünk teljes leiratot, így ezek tartalom-szintű elemzése a következő iterációban érkezik.
             </p>
             <p>
               <strong className="text-foreground">Snapshot:</strong> 2026-06-15. A katalógus folyamatosan bővül, későbbi lekérdezés kissé eltérő számokat adhat.
@@ -398,7 +398,7 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">A jelentésről</h2>
           <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
             <p>
-              A Podiverzum a magyar nyelvű podcastkínálat indexelt katalógusa: 2026 júniusában mintegy 1 480 magyar műsor és 139 ezer epizód cím-, leírás- és metaadat-szintű adatát kezeli. A katalógus elsődleges célja a kereshetőség, másodlagosan a magyar podcast-piac tematikus folyamatainak visszakereshetővé tétele.
+              A Podiverzum.hu magyar nyelvű podcast-katalógus és kereső. A 2026.06.15-i snapshotban körülbelül 1 480 magyar műsor és 139 000 epizód cím-, leírás- és metaadat-szintű adatát kezeli. A katalógus elsődleges célja a kereshetőség, másodlagosan a magyar podcastkínálat tematikus folyamatainak visszakereshetővé tétele. A szolgáltatást a PREAG Zrt. fejleszti és üzemelteti.
             </p>
             <p>
               <strong className="text-foreground">Sajtókapcsolat:</strong> <a href="mailto:sajto@podiverzum.hu" className="underline">sajto@podiverzum.hu</a>
@@ -411,13 +411,13 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">Felelősségkizárás</h2>
           <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
             <p>
-              <strong className="text-foreground">Adatok jellege:</strong> a jelentés a nyilvánosan elérhető magyar podcast-katalógus alapján készült. A számok a 2026-06-15-i pillanatkép adatai; a forrásadatok folyamatosan változnak, későbbi lekérdezés eltérő eredményt adhat. A „háború-tematikájú epizód" a publikált epizódcím és a kiadó által megadott leírás alapján azonosított kategóriát jelenti. Az elemzés nem teljes leirat-alapú tartalomelemzés.
+              <strong className="text-foreground">Adatok jellege:</strong> a jelentés kínálati oldali mérés; nem hallgatottságot, elérést vagy fogyasztási időt mutat. A „háború-tematikájú epizód" a publikált epizódcím és a kiadói leírás alapján azonosított kategória, nem teljes leirat-alapú tartalomelemzés. A számok a 2026-06-15-i snapshot adatai; a forrásadatok folyamatosan változnak, későbbi lekérdezés eltérő eredményt adhat.
             </p>
             <p>
-              <strong className="text-foreground">Automatizált feldolgozás:</strong> a tematikus szűrés és a kontextusbontás kulcsszavas illesztésen alapul, így elszórt téves találatok előfordulhatnak. Korrekciós jelzéseket a <a href="mailto:sajto@podiverzum.hu" className="underline">sajto@podiverzum.hu</a> címen fogadunk.
+              <strong className="text-foreground">Automatizált feldolgozás:</strong> a tematikus szűrés és a kontextusbontás kulcsszavas illesztésen alapul, így szórványos téves találatok előfordulhatnak. Korrekciós jelzéseket a <a href="mailto:sajto@podiverzum.hu" className="underline">sajto@podiverzum.hu</a> címen fogadunk.
             </p>
             <p>
-              <strong className="text-foreground">Felhasználás:</strong> a grafikák szabadon felhasználhatók a forrás (podiverzum.hu) feltüntetésével.
+              <strong className="text-foreground">Felhasználás:</strong> a sajtóanyag és a grafikák szabadon idézhetők a forrás (podiverzum.hu) és a snapshot dátumának feltüntetésével.
             </p>
           </div>
         </section>
