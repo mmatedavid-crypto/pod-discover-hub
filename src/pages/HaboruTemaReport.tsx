@@ -307,7 +307,7 @@ export default function HaboruTemaReport() {
               <Callout title={`Témát érintő podcastok: −${PREPOST_PODS_DROP}%`}>{PREPOST.pre.pods_with_war} → {PREPOST.post.pods_with_war} szerkesztőség. A visszaesés a kínálat szélességében is megjelenik, nem csak az epizódszámban.</Callout>
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground italic">
-              Ablakok: pre = 2026.02.06–04.11, post = 2026.04.13–06.16, mindkettő 65 nap. A választás napja (2026.04.12) egyik ablakban sincs. A számok bárki által reprodukálhatók ugyanazon a katalógusszótövön ({"\\m(háború|háborús|háborúz|haboru)\\M"}).
+              Ablakok: pre = 2026.02.06–04.11, post = 2026.04.13–06.16, mindkettő 65 nap. A választás napja (2026.04.12) egyik ablakban sincs.
             </p>
           </DownloadableFigure>
         </section>
