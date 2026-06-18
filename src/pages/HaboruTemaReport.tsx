@@ -414,7 +414,7 @@ export default function HaboruTemaReport() {
               <strong className="text-foreground">Adatok jellege:</strong> a jelentés a nyilvánosan elérhető magyar podcast-katalógus alapján készült. A számok a 2026-06-15-i pillanatkép adatai; a forrásadatok folyamatosan változnak, későbbi lekérdezés eltérő eredményt adhat. A „háború-tematikájú epizód" a publikált epizódcím és a kiadó által megadott leírás alapján azonosított kategóriát jelenti. Az elemzés nem teljes leirat-alapú tartalomelemzés.
             </p>
             <p>
-              <strong className="text-foreground">Automatizált feldolgozás:</strong> a kontextus-szűrés és a kategorizálás regex-en alapul, így elszórt téves találatok előfordulhatnak. Korrekciós jelzéseket a <a href="mailto:sajto@podiverzum.hu" className="underline">sajto@podiverzum.hu</a> címen fogadunk.
+              <strong className="text-foreground">Automatizált feldolgozás:</strong> a tematikus szűrés és a kontextusbontás kulcsszavas illesztésen alapul, így elszórt téves találatok előfordulhatnak. Korrekciós jelzéseket a <a href="mailto:sajto@podiverzum.hu" className="underline">sajto@podiverzum.hu</a> címen fogadunk.
             </p>
             <p>
               <strong className="text-foreground">Felhasználás:</strong> a grafikák szabadon felhasználhatók a forrás (podiverzum.hu) feltüntetésével.
