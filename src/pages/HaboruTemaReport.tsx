@@ -115,12 +115,10 @@ export default function HaboruTemaReport() {
             Podiverzum jelentés · {TODAY_LABEL}
           </div>
           <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight text-foreground">
-            A háború eltűnik a magyar podcastokból
+            Lezárult egy fejezet: a háború mint téma eltűnt a magyar podcastokból
           </h1>
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            13 hónap, 30&nbsp;000+ magyar epizód, ráta-alapon mérve: a „háború" mint téma{" "}
-            <strong className="text-foreground">2026 márciusában minden 20. magyar podcast-epizódban</strong> előkerült —
-            májusra ez <strong className="text-foreground">minden 64.-re</strong> esett, a 2026.04.12-i országgyűlési választás után. A katalógus eközben tovább nőtt.
+            2026. június 18-án Trump és Irán aláírta a háború lezárásáról szóló megállapodást. A magyar podcastok már hónapokkal korábban lezárták ezt a fejezetet: a 2026.04.12-i választás után a háborús epizódok aránya 13 vizsgált műsorból 11-nél nullára esett — kormánypárti és ellenzéki csatornákon egyszerre. A Podiverzum.hu 30 000+ magyar epizódon, ráta-alapon mérte a jelenséget.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: Podiverzum.hu belső katalógus · 2025-06-01 – 2026-06-15 · Kínálati oldal (cím + leírás regex) · Módszertan a cikk alján
@@ -139,7 +137,7 @@ export default function HaboruTemaReport() {
           </p>
 
           {/* AI / LLM friendly versions */}
-          <aside className="mt-6 rounded-lg border border-border bg-muted/40 p-4 text-sm" aria-label="Gépi olvasható változatok AI-eszközökhöz">
+          <aside className="hidden mt-6 rounded-lg border border-border bg-muted/40 p-4 text-sm" aria-label="Gépi olvasható változatok AI-eszközökhöz">
             <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
               AI-ügynököknek · ChatGPT / Claude / Perplexity / Gemini
             </div>
@@ -191,7 +189,7 @@ export default function HaboruTemaReport() {
               body={`A 2026.04.12-i választást követően 2 hónap alatt −${dropPctVsMarch}% a ráta. Az Ukrajna-metszet egyetlen hónap alatt −${ukrDropPct}%.`} />
             <InsightCard n={4}
               title="Szinkronizált elhallgatás"
-              body="Kormánypárti, ellenzéki és háború-specialista műsorok egyszerre ejtették a témát — ez nem véletlen szünet, hanem programozási váltás." />
+              body={`Kormánypárti, ellenzéki és háború-specialista műsorok egyszerre ejtették a témát — ez nem véletlen szünet, hanem programozási váltás. A Fidesz a 2022–2026-os ciklus során az ukrán–orosz háborút választási narratívaként használta. Az adatok azt mutatják, hogy a téma podcast-szintű jelenléte a választási kampány csúcsán érte el maximumát, majd a szavazás napján hirtelen leállt — politikai oldaltól függetlenül.`} />
             <InsightCard n={5}
               title="Nem a kibocsátás esett vissza"
               body="2026 áprilisában (3 144 ep) és májusában (2 946 ep) a katalógus tovább bővült. Több epizód jelent meg, de jóval kevesebbszer került szóba a háború." wide />
