@@ -232,7 +232,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-kontextus-ukrajna-vs-kozelet">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Ukrajna vs. Közel-Kelet kontextus</h2>
             <p className="mb-6 text-muted-foreground">
-              A háború-tematikájú epizódokat aszerint bontjuk, hogy Ukrajnáról vagy a közel-keleti konfliktusról (Irán, Izrael, Gáza) szólnak. Havonta két külön sáv: felül az Ukrajna-ráta, alatta a Közel-Kelet-ráta a teljes magyar epizódkibocsátáshoz viszonyítva. Egy epizód mindkettőben megjelenhet, ezért a két érték nem adódik össze.
+              A kontextusbontás két külön kulcsszótárral készül: Ukrajna, illetve Közel-Kelet (Irán, Izrael, Gáza). Havonta két sáv: felül az Ukrajna-ráta, alatta a Közel-Kelet-ráta a teljes magyar epizódkibocsátáshoz viszonyítva. Egy epizód mindkét kontextusba bekerülhet, ezért a két érték nem összegezhető.
             </p>
             <div className="space-y-3">
               {MONTHS.map((row) => {
