@@ -178,11 +178,11 @@ export default function HaboruTemaReport() {
               title="2026 márciusi csúcs"
               body={'5,16% — 2026 márciusában minden huszadik magyar epizód háborús témával jelent meg. Ebből 2,29 százalékpont (~44%) Közel-Kelet-kontextus (Gáza/Irán), 1,47 százalékpont tisztán Ukrajna.'} />
             <InsightCard n={3}
-              title="A választás után meredek visszaesés"
-              body={`A 2026.04.12-i választást követően 2 hónap alatt −${dropPctVsMarch}% a ráta. Az Ukrajna-kontextusú metszet egyetlen hónap alatt −${ukrDropPct}% (1,47% → 0,29%).`} />
+              title="A választás körül meredek visszaesés"
+              body={`A választást megelőző márciusi 5,16%-os csúcsról a választást követő májusi 1,56%-os mélypontra ${dropPctVsMarch}%-kal esett a ráta. Az Ukrajna-kontextusú metszet márciusról áprilisra ${ukrDropPct}%-kal csökkent (1,47% → 0,29%).`} />
             <InsightCard n={4}
-              title="Szinkron visszaesés"
-              body="Kormánypárti, ellenzéki és háború-specialista műsorok mintázata egyszerre fordult lefelé. Az ukrán–orosz háború a 2022–2026-os ciklus során vissza-visszatérő narratíva volt; a háború tematikus jelenléte a podcastkínálatban a kampány utolsó heteiben tetőzött, majd a választást követő időszakban meredeken visszaesett. Az időbeli együttmozgás erős, de a számok önmagukban nem bizonyítják az okozati irányt." />
+              title="Szinkron visszaesés több szerkesztőségnél"
+              body="A 65 napos szimmetrikus pre/post ablakban a háború-tematikájú epizódot publikáló magyar podcastok száma 87-ről 46-ra esett (−47%). A visszaesés nem egyetlen szerkesztőségi körre korlátozódik. Az időbeli együttmozgás erős, de a számok önmagukban nem bizonyítják az okozati irányt." />
             <InsightCard n={5}
               title="Nem a kibocsátás esett vissza"
               body={'2026 áprilisában (3 144 ep) és májusában (2 946 ep) a havi kibocsátás magas maradt — nem esett akkorát, mint a háború-tematikájú epizódok aránya. Az összes epizód havi száma magas maradt, miközben jóval kevesebb háború-tematikájú epizód jelent meg.'} wide />
