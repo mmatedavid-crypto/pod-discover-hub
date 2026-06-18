@@ -398,7 +398,7 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">A jelentésről</h2>
           <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
             <p>
-              A Podiverzum a magyar nyelvű podcastkínálat indexelt katalógusa: 2026 júniusában mintegy 1 480 magyar műsor és 139 ezer epizód cím-, leírás- és metaadat-szintű adatát kezeli. A katalógus elsődleges célja a kereshetőség, másodlagosan a magyar podcast-piac tematikus folyamatainak visszakereshetővé tétele.
+              A Podiverzum.hu magyar nyelvű podcast-katalógus és kereső. A 2026.06.15-i snapshotban körülbelül 1 480 magyar műsor és 139 000 epizód cím-, leírás- és metaadat-szintű adatát kezeli. A katalógus elsődleges célja a kereshetőség, másodlagosan a magyar podcastkínálat tematikus folyamatainak visszakereshetővé tétele. A szolgáltatást a PREAG Zrt. fejleszti és üzemelteti.
             </p>
             <p>
               <strong className="text-foreground">Sajtókapcsolat:</strong> <a href="mailto:sajto@podiverzum.hu" className="underline">sajto@podiverzum.hu</a>
