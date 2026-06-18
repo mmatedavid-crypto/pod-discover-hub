@@ -191,7 +191,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-rata-2025-06-2026-06">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">A háború tematikus jelenléte a magyar podcastkínálatban (%)</h2>
             <p className="mb-6 text-muted-foreground">
-              13 hónap, 2025-06 – 2026-06. Az érték a háború-tematikájú epizódok aránya a havi összes indexelt magyar epizódhoz képest. A vízszintes átlag {huNum(avgRate)}%. A 2026-03-i csúcs a Gáza/Hamasz-tűzszünet körüli hetekre esik; a 2026-04-i ejtés a választás hónapja.
+              13 hónap, 2025-06 – 2026-06. Az érték a háború-tematikájú epizódok aránya a havi összes indexelt magyar epizódhoz képest; a 13 hónapos átlag {huNum(avgRate)}%. A havi idősor 2025-06-ban 2,77%-kal indult (Irán–Izrael 12 napos háború), 2026-01-ben 1,45%-ra csökkent, 2026-03-ban 5,16%-on tetőzött a Gáza/Hamasz-tűzszünet körüli hetekben, majd 2026-04-ben 1,75%, 2026-05-ben 1,56% volt.
             </p>
             <div className="space-y-1.5">
               {MONTHS.map((row) => {
