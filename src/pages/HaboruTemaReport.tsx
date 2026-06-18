@@ -318,7 +318,7 @@ export default function HaboruTemaReport() {
               <strong className="text-foreground">Vezető mérőszám:</strong> ráta = háborús ep / havi összes HU epizód. Indoklás: a HU katalógus 2025-06 (2 170 ep) → 2026-03 (3 277 ep) között +51%-ot bővült, az abszolút darabszámok ezért félrevezetnek.
             </p>
             <p>
-              <strong className="text-foreground">Korlátok:</strong> csak cím + leírás regex (transcript-szintű elemzés a következő iterációban); a regex visszahozhat történelmi / szakmai téves találatokat; nem AI-osztályozás. A pre/post podcastszintű bontás (egy korábbi munkaverzió része) a jelen publikációból kimaradt, mert nem azonos hosszúságú ablakokkal és ráta-számítással készült — a következő iterációban podcastonkénti Ukrajna-találat / összes epizód rátával, 65 napos szimmetrikus pre/post ablakkal pótoljuk.
+              <strong className="text-foreground">Korlátok:</strong> csak cím + leírás regex (transcript-szintű elemzés a következő iterációban); a regex visszahozhat történelmi / szakmai téves találatokat; nem AI-osztályozás. A pre/post podcastszintű bontás (egy korábbi munkaverzió része) a jelen publikációból kimaradt, mert nem azonos hosszúságú ablakokkal és ráta-számítással készült — a következő iterációban podcastonkénti háború-tematikájú epizód / összes epizód rátával, 65 napos szimmetrikus pre/post ablakkal pótoljuk.
             </p>
             <p>
               <strong className="text-foreground">Snapshot:</strong> 2026-06-15. A katalógus folyamatosan bővül, későbbi lekérdezés kissé eltérő számokat adhat.
