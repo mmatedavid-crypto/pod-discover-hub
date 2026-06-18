@@ -182,10 +182,10 @@ export default function HaboruTemaReport() {
               body={`A választást megelőző márciusi 5,16%-os csúcsról a választást követő májusi 1,56%-os mélypontra ${dropPctVsMarch}%-kal esett a ráta. Az Ukrajna-kontextusú metszet márciusról áprilisra ${ukrDropPct}%-kal csökkent (1,47% → 0,29%).`} />
             <InsightCard n={4}
               title="Szinkron visszaesés több szerkesztőségnél"
-              body="A 65 napos szimmetrikus pre/post ablakban a háború-tematikájú epizódot publikáló magyar podcastok száma 87-ről 46-ra esett (−47%). A visszaesés nem egyetlen szerkesztőségi körre korlátozódik. Az időbeli együttmozgás erős, de a számok önmagukban nem bizonyítják az okozati irányt." />
+              body="A 65 napos szimmetrikus pre/post ablakban a háború-tematikájú epizódot publikáló magyar podcastok száma 87-ről 46-ra esett (−47%). A visszaesés nem egyetlen szerkesztőségi körre korlátozódik." />
             <InsightCard n={5}
               title="Nem a kibocsátás esett vissza"
-              body={'2026 áprilisában (3 144 ep) és májusában (2 946 ep) a havi kibocsátás magas maradt — nem esett akkorát, mint a háború-tematikájú epizódok aránya. Az összes epizód havi száma magas maradt, miközben jóval kevesebb háború-tematikájú epizód jelent meg.'} wide />
+              body="A teljes magyar podcastkibocsátás 2026 áprilisában (3 144 epizód) és májusában (2 946 epizód) is magas maradt. A téma súlya csökkent a kínálaton belül, nem a megjelenő epizódok száma." wide />
           </div>
         </section>
 
