@@ -348,7 +348,7 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">Felelősségkizárás</h2>
           <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
             <p>
-              <strong className="text-foreground">Adatok jellege:</strong> a jelentés a Podiverzum.hu nyilvánosan elérhető magyar podcast-katalógusa alapján készült. A számok a 2026-06-15-i pillanatkép adatai; a forrásadatok folyamatosan változnak, későbbi lekérdezés eltérő eredményt adhat. Az „említés" itt regex-illesztést jelent epizód-címben vagy -leírásban, nem értékítélet az érintett műsorokról, és nem feltétlenül tükrözi az adott epizód teljes hangzó tartalmát.
+              <strong className="text-foreground">Adatok jellege:</strong> a jelentés a Podiverzum.hu nyilvánosan elérhető magyar podcast-katalógusa alapján készült. A számok a 2026-06-15-i pillanatkép adatai; a forrásadatok folyamatosan változnak, későbbi lekérdezés eltérő eredményt adhat. A „háború-tematikájú epizód" a publikált epizódcím és a kiadó által megadott leírás alapján azonosított kategóriát jelenti. Az elemzés nem teljes leirat-alapú tartalomelemzés.
             </p>
             <p>
               <strong className="text-foreground">Automatizált feldolgozás:</strong> a kontextus-szűrés és a kategorizálás regex-en alapul, így elszórt téves találatok előfordulhatnak. Korrekciós jelzéseket a <a href="mailto:hello@podiverzum.hu" className="underline">hello@podiverzum.hu</a> címen fogadunk.
