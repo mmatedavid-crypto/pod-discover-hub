@@ -110,7 +110,7 @@ export default function HaboruTemaReport() {
             Lezárult egy kampányfejezet. A választás utáni mélypontra 70%-kal visszaesett a háború súlya a magyar podcastokban
           </h1>
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            2026. június 18-án nyilvánosságra került az amerikai–iráni memorandum, amely 60 napos ideiglenes tűzszünetet és további tárgyalásokat irányoz elő. A magyar podcastkínálatban a háború már korábban háttérbe szorult: a választást megelőző márciusi csúcsról (5,16%) a választást követő májusi mélypontra (1,56%) 70%-kal csökkent a háború-tematikájú epizódok aránya. Az elemzés több mint 30 ezer magyar epizód cím- és leírásszintű adatára épül.
+            A június 18-án bejelentett, 60 napos amerikai–iráni ideiglenes tűzszünet és tárgyalási memorandum új aktualitást ad a háborús témák magyar podcastpiaci jelenlétének. A HU-katalógus június 15-i snapshotja szerint a háborús epizódok aránya a márciusi 5,16 százalékos csúcsról májusra 1,56 százalékra esett, ami 70 százalékos csökkenés. Az április 12-i választás körüli, szimmetrikus 65 napos pre/post ablakban a háború-ráta 2,91 százalékról 1,06 százalékra mérséklődött, 64 százalékkal. Ugyanebben az összevetésben a teljes epizódkibocsátás lényegében változatlan maradt. Az adatsor ezért nem a podcasttermelés visszaesését, hanem a háborús téma kínálaton belüli tematikus súlyának csökkenését mutatja, oksági állítás nélkül.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
