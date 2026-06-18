@@ -340,7 +340,7 @@ export default function HaboruTemaReport() {
               Az adatok szerint a háború a kampány utolsó heteiben kiemelt téma volt a magyar podcastkínálatban, majd a választás után gyorsan visszaszorult. A háborús epizódok aránya márciusban 5,16 százalékon tetőzött, májusra 1,56 százalékra esett, ami <strong>70 százalékos csökkenés</strong>. A 65 napos választás előtti és utáni ablakban a ráta 2,91 százalékról 1,06 százalékra mérséklődött, miközben az összes kibocsátás érdemben nem változott.
             </p>
             <p>
-              A visszaesés nem egyetlen műsorkörre korlátozódott. Az érintett podcastok száma a 65 napos ablakban <strong>87-ről 46-ra csökkent, 47 százalékkal</strong>. Az időbeli együttmozgás ukrajnai háborúra szakosodott, közéleti, gazdasági és intézeti műsorokban is látható. Ez tematikus kínálati ráta, nem oksági bizonyíték: az adat nem magyarázza a szerkesztési döntések okát, csak a téma súlyának változását mutatja.
+              A visszaesés nem egyetlen műsorkörre korlátozódott. Az érintett podcastok száma a 65 napos ablakban <strong>87-ről 46-ra csökkent, 47 százalékkal</strong>. A változás Ukrajna-specialista, közéleti, gazdasági és intézeti műsorokban egyaránt látható.
             </p>
             <p>
               A mérés azért lényeges, mert a podcast eddig a magyar médiamérés egyik vakfoltja volt. Az indexelt, cím- és leírásalapú katalógus először teszi visszakereshetővé, hogy a kínálatban mikor és milyen arányban tolódnak el a hangsúlyok. A módszer nem hallgatottságot és nem hatást mér, hanem a publikált epizódok tematikus súlyát a katalóguson belül.
