@@ -221,8 +221,8 @@ export default function HaboruTemaReport() {
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground italic">* 2026-06 részleges hónap (06.01–06.15).</p>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <Callout title="2026-03 — minden 20. epizód háborús témával jelent meg">Gáza/Hamasz-tűzszünet és az orosz–ukrán front párhuzamos felfutása. Közel-Kelet-kontextus nélkül 2,87%; tisztán Ukrajna 1,47% — az utóbbi szintén csúcs.</Callout>
-              <Callout title="2026-05 — választás utáni mélypont">1,56% (a 13 hónap második legalacsonyabb értéke a 2026-01-i 1,45% után), miközben 2 946 epizód jelent meg. A téma tematikus súlya csökkent, nem a kibocsátás.</Callout>
+              <Callout title="Csúcs: 2026. március, 5,16%">2026-03-ban 3 277 epizódból 169 volt háború-tematikájú. A Közel-Kelet-ráta 2,29%, az Ukrajna-ráta 1,47% — utóbbi szintén a 13 hónap maximuma.</Callout>
+              <Callout title="Mélypont a csúcs után: 2026. május, 1,56%">2026-05-ben 2 946 epizódból 46 kapott háború-tematikájú besorolást. A márciusi 5,16%-hoz képest −70%-os csökkenés úgy, hogy a havi kibocsátás érdemben nem változott.</Callout>
             </div>
           </DownloadableFigure>
         </section>
