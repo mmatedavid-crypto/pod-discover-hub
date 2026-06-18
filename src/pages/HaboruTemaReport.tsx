@@ -299,9 +299,9 @@ export default function HaboruTemaReport() {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-              <Callout title={`Háború-ráta: −${PREPOST_WAR_DROP}%`}>{huNum(PREPOST.pre.war_rate)}% → {huNum(PREPOST.post.war_rate)}%. A teljes epizódkibocsátás eközben gyakorlatilag változatlan ({huInt(PREPOST.pre.total)} → {huInt(PREPOST.post.total)} ep).</Callout>
-              <Callout title={`Ukrajna-ráta: −${PREPOST_UKR_DROP}%`}>{huNum(PREPOST.pre.ukr_rate)}% → {huNum(PREPOST.post.ukr_rate)}%. Az ukrán háborús kontextus visszaesése a teljes témáé fölötti.</Callout>
-              <Callout title={`Témát érintő podcastok: −${PREPOST_PODS_DROP}%`}>{PREPOST.pre.pods_with_war} → {PREPOST.post.pods_with_war} szerkesztőség. A visszaesés a kínálat szélességében is megjelenik, nem csak az epizódszámban.</Callout>
+              <Callout title={`Háború-ráta: −${PREPOST_WAR_DROP}%`}>A pre időszak 2,91%-os szintjéről a post időszakban 1,06%-ra. A teljes epizódkibocsátás eközben gyakorlatilag változatlan ({huInt(PREPOST.pre.total)} → {huInt(PREPOST.post.total)} epizód).</Callout>
+              <Callout title={`Ukrajna-ráta: −${PREPOST_UKR_DROP}%`}>Ugyanebben az összevetésben 1,82%-ról 0,71%-ra csökkent — meredekebb visszaesés, mint a teljes háború-rátáé.</Callout>
+              <Callout title={`Témát érintő podcastok: −${PREPOST_PODS_DROP}%`}>87-ről 46 magyar műsorra; az aktív podcastok száma a két ablakban 764, illetve 707 volt.</Callout>
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground italic">
               Ablakok: pre = 2026.02.06–04.11, post = 2026.04.13–06.16, mindkettő 65 nap. A választás napja (2026.04.12) egyik ablakban sincs.
