@@ -314,7 +314,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-top-podcastok-2025-06-2026-06">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top podcastok a háborús témában</h2>
             <p className="mb-6 text-muted-foreground">
-              13 hónap (2025-06 – 2026-06) háború-tematikájú epizód alapján vezető podcastok, kontextus-csoportban. A zárójeles arány: háború-tematikájú ep / az adott podcast összes közéleti ep. A csoportosítás a műfaj/funkció szerinti — politikai oldalbesorolást szándékosan nem teszünk.
+              A 13 hónap (2025-06 – 2026-06) háború-tematikájú epizódjai alapján kiemelhető az Ukrajna-specialisták köre, ahol a téma a műsor fő profilja. A zárójeles arány: háború-tematikájú epizód / az adott podcast összes közéleti epizódja.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {TOP_PODS.map((g) => (
@@ -327,7 +327,7 @@ export default function HaboruTemaReport() {
               ))}
             </div>
             <p className="mt-3 text-xs text-muted-foreground italic">
-              A listából előzetesen kizártuk a regex által visszahozott történelmi / szakmai téves találatokat (pl. TheHistoryGeek, Gépész).
+              A téma rendszeresen megjelenik mindenes közéleti, gazdasági és intézeti műsorokban is, de ott eseti felütésként, nem a műsor fő profiljaként — ezeket itt számszerűen nem listázzuk.
             </p>
           </DownloadableFigure>
         </section>
