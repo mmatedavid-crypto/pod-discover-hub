@@ -110,7 +110,7 @@ export default function HaboruTemaReport() {
             A választás után 64 százalékkal esett vissza a háborús epizódok aránya a magyar podcastokban
           </h1>
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            A választás előtti és utáni, azonos hosszúságú 65 napos időszakban a háború-tematikájú epizódok aránya 2,91%-ról 1,06%-ra csökkent, miközben a teljes magyar podcastkibocsátás lényegében változatlan maradt. A márciusi csúcshoz képest májusra 70%-os volt a visszaesés. Az adatok időbeli változást mutatnak, önmagukban nem bizonyítanak oksági kapcsolatot.
+            A választás előtti és utáni, azonos hosszúságú 65 napos időszakban a háború-tematikájú epizódok aránya 2,91%-ról 1,06%-ra csökkent, miközben a teljes magyar podcastkibocsátás lényegében változatlan maradt. A márciusi csúcshoz képest májusra 70%-os volt a visszaesés.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: <a href="https://podiverzum.hu" className="underline hover:text-foreground">Podiverzum.hu</a> indexelt magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
@@ -121,11 +121,11 @@ export default function HaboruTemaReport() {
             <HeroMetric value={`${huNum(PEAK.rate)}%`} label="2026-03 választás előtti csúcs" />
             <HeroMetric value={`${huNum(LOW.rate)}%`} label="2026-05 választás utáni mélypont" />
             <HeroMetric value={`−${dropPctVsMarch}%`} label="márciusi csúcs → májusi mélypont" />
-            <HeroMetric value={`−${ukrDropPct}%`} label="Ukrajna-ráta márciusról áprilisra" />
+            <HeroMetric value={`−${ukrDropPct}%`} label="Ukrajna-ráta a választás utáni hetekre" />
           </div>
 
           <p className="mt-8 font-serif text-lg md:text-xl italic text-foreground leading-relaxed border-l-2 border-primary pl-4">
-            Az Ukrajna-kontextusú epizódok aránya 2026 márciusáról áprilisra 80%-kal zuhant — a téma a kampány után gyorsan háttérbe szorult.
+            Az Ukrajna-kontextusú epizódok aránya a választás (2026.04.12) után, április második felére a márciusi szint egyötödére esett vissza — a téma a kampány lezárulta után gyorsan háttérbe szorult.
           </p>
 
 
