@@ -329,7 +329,7 @@ export default function HaboruTemaReport() {
         {/* CTA */}
         <section className="rounded-lg border border-border bg-card p-6 text-center print:break-inside-avoid">
           <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Próbáld ki</div>
-          <div className="font-serif text-2xl font-bold text-foreground mb-3">Keress rá a „háború" témára magad</div>
+          <div className="font-serif text-2xl font-bold text-foreground mb-3">Böngéssz háború-tematikájú epizódokat</div>
           <p className="mb-4 text-muted-foreground">
             139 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
           </p>
