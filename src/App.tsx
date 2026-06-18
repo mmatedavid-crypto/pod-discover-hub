@@ -86,6 +86,7 @@ const TopicDetailPage = lazy(() => import("./pages/TopicDetailPage.tsx"));
 const TopicClusterDetailPage = lazy(() => import("./pages/TopicClusterDetailPage.tsx"));
 const CompaniesHubPage = lazy(() => import("./pages/CompaniesHubPage.tsx"));
 const PodcastReport2026 = lazy(() => import("./pages/PodcastReport2026.tsx"));
+const HaboruTemaReport = lazy(() => import("./pages/HaboruTemaReport.tsx"));
 const PartiesHubPage = lazy(() => import("./pages/PartiesHubPage.tsx"));
 const ToplistaPage = lazy(() => import("./pages/ToplistaPage.tsx"));
 const IndexAZPage = lazy(() => import("./pages/IndexAZPage.tsx"));
@@ -253,6 +254,7 @@ const App = () => (
           <Route path="/en-podiverzumom" element={<EnPodiverzumomPage />} />
           <Route path="/p/:username" element={<PublicProfilePage />} />
           <Route path="/jelentes/magyar-podcast-piac-2026" element={<PodcastReport2026 />} />
+          <Route path="/jelentes/haboru-mint-tema-2026" element={<HaboruTemaReport />} />
           <Route path="/intelligence" element={<IntelligencePage />} />
           <Route path="/b2b" element={<Navigate to="/intelligence" replace />} />
           <Route path="/mediafigyeles" element={<Navigate to="/intelligence" replace />} />
