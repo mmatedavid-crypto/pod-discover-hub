@@ -300,7 +300,10 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-xl font-bold text-foreground">Módszertan</h2>
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
-              <strong className="text-foreground">Adatforrás:</strong> Podiverzum HU katalógus, <code>podcasts.language ILIKE 'hu%'</code>, <code>episodes</code> tábla, cím + leírás match. <em>Nem transcript-szintű mérés</em> — egy „háborúról szóló” epizód akkor jelenik meg a számokban, ha a cím vagy leírás tartalmazza a szótövet.
+              <strong className="text-foreground">Tematikus azonosítás:</strong> az epizódok kiadók által megadott címe és leírása alapján. Ezek az epizódok nyilvános, szerkesztett témamegjelölései; az elemzés a podcastkínálatban hangsúlyosan megjelenő témákat méri, nem a teljes hanganyag minden futó említését.
+            </p>
+            <p>
+              <strong className="text-foreground">Adatforrás:</strong> Podiverzum HU katalógus, <code>podcasts.language ILIKE 'hu%'</code>, <code>episodes</code> tábla. <em>Nem transcript-szintű mérés</em> — egy „háborúról szóló” epizód akkor jelenik meg a számokban, ha a cím vagy leírás tartalmazza a szótövet.
             </p>
             <p>
               <strong className="text-foreground">„Háború” match:</strong> <code>\m(háború|háborús|háborúz|haboru)\M</code> szótő, ékezettel és anélkül.
