@@ -337,13 +337,13 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              Az adatok szerint a háború a kampány utolsó heteiben kiemelt téma volt a magyar podcastkínálatban, majd a választás után gyorsan visszaszorult. A háborús epizódok aránya márciusban 5,16 százalékon tetőzött, májusra 1,56 százalékra esett, ami <strong>70 százalékos csökkenés</strong>. A 65 napos választás előtti és utáni ablakban a ráta 2,91 százalékról 1,06 százalékra mérséklődött, miközben az összes kibocsátás érdemben nem változott.
+              A 13 hónapos idősor alapján a háború-tematika a magyar podcastkínálat kis, de mérhető részét adta. Az átlagos havi háború-ráta körülbelül 2,28% volt, a havi értékek pedig egy kiugró márciusi csúcs köré rendeződtek.
             </p>
             <p>
-              A visszaesés nem egyetlen műsorkörre korlátozódott. Az érintett podcastok száma a 65 napos ablakban <strong>87-ről 46-ra csökkent, 47 százalékkal</strong>. A változás Ukrajna-specialista, közéleti, gazdasági és intézeti műsorokban egyaránt látható.
+              A legmagasabb havi értéket 2026-03 hozta 5,16%-kal. Ezt áprilisban 1,75%, májusban 1,56% követte; a márciusi csúcsról a májusi mélypontig <strong>−70%-os</strong> volt a változás.
             </p>
             <p>
-              A mérés azért lényeges, mert a podcast eddig a magyar médiamérés egyik vakfoltja volt. Az indexelt, cím- és leírásalapú katalógus először teszi visszakereshetővé, hogy a kínálatban mikor és milyen arányban tolódnak el a hangsúlyok. A módszer nem hallgatottságot és nem hatást mér, hanem a publikált epizódok tematikus súlyát a katalóguson belül.
+              A választás körüli 65 napos szimmetrikus ablakban a téma súlya és terjedése egyszerre csökkent. A háború-ráta 2,91%-ról 1,06%-ra (−64%), az Ukrajna-ráta 1,82%-ról 0,71%-ra (−61%), az érintett magyar podcastok száma <strong>87-ről 46-ra</strong> esett. A teljes epizódkibocsátás eközben gyakorlatilag változatlan maradt.
             </p>
           </div>
         </section>
