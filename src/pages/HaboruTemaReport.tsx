@@ -411,13 +411,13 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">Felelősségkizárás</h2>
           <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
             <p>
-              <strong className="text-foreground">Adatok jellege:</strong> a jelentés a nyilvánosan elérhető magyar podcast-katalógus alapján készült. A számok a 2026-06-15-i pillanatkép adatai; a forrásadatok folyamatosan változnak, későbbi lekérdezés eltérő eredményt adhat. A „háború-tematikájú epizód" a publikált epizódcím és a kiadó által megadott leírás alapján azonosított kategóriát jelenti. Az elemzés nem teljes leirat-alapú tartalomelemzés.
+              <strong className="text-foreground">Adatok jellege:</strong> a jelentés kínálati oldali mérés; nem hallgatottságot, elérést vagy fogyasztási időt mutat. A „háború-tematikájú epizód" a publikált epizódcím és a kiadói leírás alapján azonosított kategória, nem teljes leirat-alapú tartalomelemzés. A számok a 2026-06-15-i snapshot adatai; a forrásadatok folyamatosan változnak, későbbi lekérdezés eltérő eredményt adhat.
             </p>
             <p>
-              <strong className="text-foreground">Automatizált feldolgozás:</strong> a tematikus szűrés és a kontextusbontás kulcsszavas illesztésen alapul, így elszórt téves találatok előfordulhatnak. Korrekciós jelzéseket a <a href="mailto:sajto@podiverzum.hu" className="underline">sajto@podiverzum.hu</a> címen fogadunk.
+              <strong className="text-foreground">Automatizált feldolgozás:</strong> a tematikus szűrés és a kontextusbontás kulcsszavas illesztésen alapul, így szórványos téves találatok előfordulhatnak. Korrekciós jelzéseket a <a href="mailto:sajto@podiverzum.hu" className="underline">sajto@podiverzum.hu</a> címen fogadunk.
             </p>
             <p>
-              <strong className="text-foreground">Felhasználás:</strong> a grafikák szabadon felhasználhatók a forrás (podiverzum.hu) feltüntetésével.
+              <strong className="text-foreground">Felhasználás:</strong> a sajtóanyag és a grafikák szabadon idézhetők a forrás (podiverzum.hu) és a snapshot dátumának feltüntetésével.
             </p>
           </div>
         </section>
