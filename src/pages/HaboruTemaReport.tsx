@@ -44,9 +44,6 @@ const MONTHS: MonthRow[] = [
 
 const TOP_PODS = [
   { group: "Ukrajna-specialisták", items: ["Frontvonal (21/23)", "Szuverén (12/12)", "Kontroll (23/31)", "PestiSrácok (11/14)"] },
-  { group: "Mindenes politikai/közéleti", items: ["Szélsőközép", "Partizán", "Márki-Zay Péter podcastja", "444", "HVG", "Magyar Hang"] },
-  { group: "Gazdasági lencse", items: ["Portfolio", "Portfolio Checklist", "Klasszis", "Concorde"] },
-  { group: "Intézeti / think tank", items: ["XXI. Század Intézet"] },
 ];
 
 // 65 napos szimmetrikus pre/post ablak a 2026-04-12-i választás körül
