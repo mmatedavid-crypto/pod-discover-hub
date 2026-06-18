@@ -113,7 +113,7 @@ export default function HaboruTemaReport() {
             A választás előtti és utáni, azonos hosszúságú 65 napos időszakban a háború-tematikájú epizódok aránya 2,91%-ról 1,06%-ra csökkent, miközben a teljes magyar podcastkibocsátás lényegében változatlan maradt. A márciusi csúcshoz képest májusra 70%-os volt a visszaesés. Az adatok időbeli változást mutatnak, önmagukban nem bizonyítanak oksági kapcsolatot.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
-            Adatforrás: magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
+            Adatforrás: <a href="https://podiverzum.hu" className="underline hover:text-foreground">Podiverzum.hu</a> indexelt magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
           </div>
 
           {/* Hero metrics */}
