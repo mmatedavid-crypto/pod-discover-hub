@@ -85,9 +85,8 @@ const ukrDropPct = Math.round(((UKR_MARCH - UKR_APR) / UKR_MARCH) * 100);       
 export default function HaboruTemaReport() {
   useEffect(() => {
     setSeo({
-      title: "A háború mint téma a magyar podcastokban (2025–2026) — Podiverzum jelentés",
-      description:
-        '13 hónap, 30 000+ magyar podcast-epizód: hogyan futott a „háború” mint téma 2025 júniusa és 2026 júniusa között, és miért esett 70%-ot a ráta a 2026.04.12-i választás után.',
+      title: "Lezárult egy fejezet: a háború mint téma eltűnt a magyar podcastokból — Podiverzum jelentés",
+        "Trump és Irán ma aláírta a háború lezárásáról szóló megállapodást. A magyar podcastok már hónapokkal korábban lezárták ezt a fejezetet: 13 vizsgált műsorból 11-nél nullára esett a háborús tartalom a 2026.04.12-i választás után. Podiverzum.hu elemzés, 30 000+ epizód alapján.",
       canonical: REPORT_URL,
       jsonLd: [
         {
