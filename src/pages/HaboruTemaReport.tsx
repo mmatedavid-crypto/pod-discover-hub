@@ -235,21 +235,27 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-kontextus-ukrajna-vs-kozelet">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Ukrajna vs. Közel-Kelet kontextus</h2>
             <p className="mb-6 text-muted-foreground">
-              A háború-tematikájú epizódokat kontextus szerint bontjuk. Egy epizód több bucketbe is eshet, ezért a részek nem összegezhetők a totál-rátára.
+              A háború-tematikájú epizódokat aszerint bontjuk, hogy Ukrajnáról vagy a közel-keleti konfliktusról (Irán, Izrael, Gáza) szólnak. Havonta két külön sáv: felül az Ukrajna-ráta, alatta a Közel-Kelet-ráta a teljes magyar epizódkibocsátáshoz viszonyítva. Egy epizód mindkettőben megjelenhet, ezért a két érték nem adódik össze.
             </p>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {MONTHS.map((row) => {
                 const ukrPct = (row.ukr / maxRate) * 100;
                 const mePct = (row.me / maxRate) * 100;
                 return (
-                  <div key={row.m} className="flex items-center gap-3">
-                    <div className="w-20 shrink-0 text-xs font-mono text-muted-foreground">{row.m}{row.partial ? "*" : ""}</div>
-                    <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
-                      <div className="absolute inset-y-0 left-0 bg-primary/70" style={{ width: `${ukrPct}%` }} />
-                      <div className="absolute inset-y-0 bg-accent/70" style={{ width: `${mePct}%`, left: `${ukrPct}%` }} />
-                      <div className="absolute inset-0 flex items-center justify-between px-2 text-[11px] tabular-nums">
-                        <span className="font-semibold text-foreground">UKR {huNum(row.ukr)}%</span>
-                        <span className="font-semibold text-foreground/80">ME {huNum(row.me)}%</span>
+                  <div key={row.m} className="flex items-start gap-3">
+                    <div className="w-20 shrink-0 pt-1 text-xs font-mono text-muted-foreground">{row.m}{row.partial ? "*" : ""}</div>
+                    <div className="flex-1 space-y-1">
+                      <div className="relative h-5 rounded bg-muted overflow-hidden">
+                        <div className="absolute inset-y-0 left-0 bg-primary/70" style={{ width: `${ukrPct}%` }} />
+                        <div className="absolute inset-0 flex items-center px-2 text-[11px] tabular-nums">
+                          <span className="font-semibold text-foreground">UKR {huNum(row.ukr)}%</span>
+                        </div>
+                      </div>
+                      <div className="relative h-5 rounded bg-muted overflow-hidden">
+                        <div className="absolute inset-y-0 left-0 bg-accent/80" style={{ width: `${mePct}%` }} />
+                        <div className="absolute inset-0 flex items-center px-2 text-[11px] tabular-nums">
+                          <span className="font-semibold text-foreground">Közel-Kelet {huNum(row.me)}%</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -258,10 +264,10 @@ export default function HaboruTemaReport() {
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-primary/70" />Ukrajna-kontextus</span>
-              <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-accent/70" />Közel-Kelet (Irán / Izrael / Gáza)</span>
+              <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-accent/80" />Közel-Kelet (Irán / Izrael / Gáza)</span>
             </div>
             <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-              Az Ukrajna-ráta 2026 februárjában még 1,26%, márciusban 1,47% — áprilisra 0,29%-ra esik. Ez egy hónap alatt −{ukrDropPct}%, miközben a teljes kibocsátás ennél jóval kisebb mértékben változott.
+              Az Ukrajna-ráta 2026 februárjában még 1,26%, márciusban 1,47% — áprilisra 0,29%-ra esik. A visszaesés a választást követő hetekre koncentrálódik.
             </p>
           </DownloadableFigure>
         </section>
