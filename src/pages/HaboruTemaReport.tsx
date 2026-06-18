@@ -175,7 +175,7 @@ export default function HaboruTemaReport() {
               body="Kormánypárti, ellenzéki és háború-specialista műsorok mintázata egyszerre fordult lefelé. Az ukrán–orosz háború a 2022–2026-os ciklus során vissza-visszatérő narratíva volt; a podcast-szintű említés a kampány utolsó heteiben tetőzött, majd a választást követő időszakban meredeken visszaesett. Az időbeli együttmozgás erős, de a számok önmagukban nem bizonyítják az okozati irányt." />
             <InsightCard n={5}
               title="Nem a kibocsátás esett vissza"
-              body="2026 áprilisában (3 144 ep) és májusában (2 946 ep) a havi kibocsátás magas maradt — nem esett akkorát, mint a háborús ráta. Több epizód jelent meg, de a „háború" szótő jóval ritkábban került címbe vagy leírásba." wide />
+              body={'2026 áprilisában (3 144 ep) és májusában (2 946 ep) a havi kibocsátás magas maradt — nem esett akkorát, mint a háborús ráta. Több epizód jelent meg, de a „háború” szótő jóval ritkábban került címbe vagy leírásba.'} wide />
           </div>
         </section>
 
