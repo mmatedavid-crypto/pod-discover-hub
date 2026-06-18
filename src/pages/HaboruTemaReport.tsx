@@ -264,7 +264,7 @@ export default function HaboruTemaReport() {
               <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-accent/80" />Közel-Kelet (Irán / Izrael / Gáza)</span>
             </div>
             <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-              Az Ukrajna-ráta 2026 februárjában még 1,26%, márciusban 1,47% — áprilisra 0,29%-ra esik. A visszaesés a választást követő hetekre koncentrálódik.
+              Az Ukrajna-ráta 2026 februárjában 1,26%, márciusban 1,47%, áprilisra 0,29%-ra csökkent. A Közel-Kelet-ráta márciusban érte el a 13 havi maximumát 2,29%-kal.
             </p>
           </DownloadableFigure>
         </section>
