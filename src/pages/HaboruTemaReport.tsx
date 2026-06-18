@@ -87,7 +87,7 @@ export default function HaboruTemaReport() {
     setSeo({
       title: "A háború mint téma a magyar podcastokban (2025–2026) — Podiverzum jelentés",
       description:
-        "13 hónap, 30 000+ magyar podcast-epizód: hogyan futott a „háború" mint téma 2025 júniusa és 2026 júniusa között, és miért esett 70%-ot a ráta a 2026.04.12-i választás után.",
+        '13 hónap, 30 000+ magyar podcast-epizód: hogyan futott a „háború” mint téma 2025 júniusa és 2026 júniusa között, és miért esett 70%-ot a ráta a 2026.04.12-i választás után.',
       canonical: REPORT_URL,
       jsonLd: [
         {
