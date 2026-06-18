@@ -44,10 +44,19 @@ const MONTHS: MonthRow[] = [
 
 const TOP_PODS = [
   { group: "Ukrajna-specialisták", items: ["Frontvonal (21/23)", "Szuverén (12/12)", "Kontroll (23/31)", "PestiSrácok (11/14)"] },
-  { group: "Mindenes politikai/közéleti", items: ["Szélsőközép", "Partizán", "Márki-Zay Péter", "444", "HVG", "Magyar Hang"] },
+  { group: "Mindenes politikai/közéleti", items: ["Szélsőközép", "Partizán", "Márki-Zay Péter podcastja", "444", "HVG", "Magyar Hang"] },
   { group: "Gazdasági lencse", items: ["Portfolio", "Portfolio Checklist", "Klasszis", "Concorde"] },
   { group: "Intézeti / think tank", items: ["XXI. Század Intézet"] },
 ];
+
+// 65 napos szimmetrikus pre/post ablak a 2026-04-12-i választás körül
+const PREPOST = {
+  pre:  { label: "2026.02.06 – 04.11", days: 65, total: 6437, war: 187, war_rate: 2.91, ukr_rate: 1.82, pods_with_war: 87, active_pods: 764 },
+  post: { label: "2026.04.13 – 06.16", days: 65, total: 6590, war: 70,  war_rate: 1.06, ukr_rate: 0.71, pods_with_war: 46, active_pods: 707 },
+};
+const PREPOST_WAR_DROP = Math.round((1 - PREPOST.post.war_rate / PREPOST.pre.war_rate) * 100);
+const PREPOST_UKR_DROP = Math.round((1 - PREPOST.post.ukr_rate / PREPOST.pre.ukr_rate) * 100);
+const PREPOST_PODS_DROP = Math.round((1 - PREPOST.post.pods_with_war / PREPOST.pre.pods_with_war) * 100);
 
 const huNum = (n: number, digits = 2) => n.toFixed(digits).replace(".", ",");
 const huInt = (n: number) => n.toLocaleString("hu-HU");
