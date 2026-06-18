@@ -314,7 +314,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-top-podcastok-2025-06-2026-06">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top podcastok a háborús témában</h2>
             <p className="mb-6 text-muted-foreground">
-              A 13 hónap (2025-06 – 2026-06) háború-tematikájú epizódjai alapján kiemelhető az Ukrajna-specialisták köre, ahol a téma a műsor fő profilja. A zárójeles arány: háború-tematikájú epizód / az adott podcast összes közéleti epizódja.
+              A 13 hónapos mintában a háború mint fő profil az Ukrajna-specialista műsorokra jellemző. A zárójeles arány: háború-tematikájú epizód / az adott podcast összes közéleti epizódja.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {TOP_PODS.map((g) => (
@@ -327,7 +327,7 @@ export default function HaboruTemaReport() {
               ))}
             </div>
             <p className="mt-3 text-xs text-muted-foreground italic">
-              A téma rendszeresen megjelenik mindenes közéleti, gazdasági és intézeti műsorokban is, de ott eseti felütésként, nem a műsor fő profiljaként — ezeket itt számszerűen nem listázzuk.
+              A téma mindenes közéleti, gazdasági és intézeti műsorokban is megjelenik, de ott eseti felütésként, nem a műsor fő profiljaként — ezeket itt számszerűen nem listázzuk.
             </p>
           </DownloadableFigure>
         </section>
