@@ -86,6 +86,7 @@ export default function HaboruTemaReport() {
   useEffect(() => {
     setSeo({
       title: "Lezárult egy fejezet: a háború mint téma eltűnt a magyar podcastokból — Podiverzum jelentés",
+      description:
         "Trump és Irán ma aláírta a háború lezárásáról szóló megállapodást. A magyar podcastok már hónapokkal korábban lezárták ezt a fejezetet: 13 vizsgált műsorból 11-nél nullára esett a háborús tartalom a 2026.04.12-i választás után. Podiverzum.hu elemzés, 30 000+ epizód alapján.",
       canonical: REPORT_URL,
       jsonLd: [
