@@ -225,7 +225,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-kontextus-ukrajna-vs-kozelet">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Ukrajna vs. Közel-Kelet kontextus</h2>
             <p className="mb-6 text-muted-foreground">
-              A „háború"-találatokat kontextus szerint bontjuk (cím + leírás szintjén). Egy epizód több bucketbe is eshet, ezért a részek nem összegezhetők a totál-rátára.
+              A háború-tematikájú epizódokat kontextus szerint bontjuk. Egy epizód több bucketbe is eshet, ezért a részek nem összegezhetők a totál-rátára.
             </p>
             <div className="space-y-2">
               {MONTHS.map((row) => {
