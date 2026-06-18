@@ -77,9 +77,9 @@ const ukrDropPct = Math.round(((UKR_MARCH - UKR_APR) / UKR_MARCH) * 100);       
 export default function HaboruTemaReport() {
   useEffect(() => {
     setSeo({
-      title: "Lezárult egy kampányfejezet? A választás után 70%-kal visszaesett a háború súlya a magyar podcastokban — Podiverzum jelentés",
+      title: "Lezárult egy kampányfejezet. A választás utáni mélypontra 70%-kal visszaesett a háború súlya a magyar podcastokban",
       description:
-        "A Podiverzum adatai szerint a választást követő két hónapban 70%-kal csökkent a háború-tematikájú epizódok aránya a magyar podcastkínálatban.",
+        "A választást megelőző márciusi csúcsról a választást követő májusi mélypontra 70%-kal csökkent a háború-tematikájú epizódok aránya a magyar podcastkínálatban.",
       canonical: REPORT_URL,
       jsonLd: [
         {
@@ -107,26 +107,27 @@ export default function HaboruTemaReport() {
             Podiverzum jelentés · {TODAY_LABEL}
           </div>
           <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight text-foreground">
-            Lezárult egy kampányfejezet? A választás után 70%-kal visszaesett a háború súlya a magyar podcastokban
+            Lezárult egy kampányfejezet. A választás utáni mélypontra 70%-kal visszaesett a háború súlya a magyar podcastokban
           </h1>
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            2026. június 18-án nyilvánosságra került az amerikai–iráni memorandum, amely 60 napos ideiglenes tűzszünetet és további tárgyalásokat irányoz elő. A magyar podcastkínálatban a háború már korábban háttérbe szorult: a választás után két hónap alatt 70%-kal csökkent a háború-tematikájú epizódok aránya. A Podiverzum.hu több mint 30 ezer magyar epizód alapján, ráta-alapon mérte a változást.
+            2026. június 18-án nyilvánosságra került az amerikai–iráni memorandum, amely 60 napos ideiglenes tűzszünetet és további tárgyalásokat irányoz elő. A magyar podcastkínálatban a háború már korábban háttérbe szorult: a választást megelőző márciusi csúcsról (5,16%) a választást követő májusi mélypontra (1,56%) 70%-kal csökkent a háború-tematikájú epizódok aránya. Az elemzés több mint 30 ezer magyar epizód cím- és leírásszintű adatára épül.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
-            Adatforrás: Podiverzum.hu magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
+            Adatforrás: magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
           </div>
 
           {/* Hero metrics */}
           <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <HeroMetric value={`${huNum(PEAK.rate)}%`} label="2026-03 csúcs" />
+            <HeroMetric value={`${huNum(PEAK.rate)}%`} label="2026-03 választás előtti csúcs" />
             <HeroMetric value={`${huNum(LOW.rate)}%`} label="2026-05 választás utáni mélypont" />
-            <HeroMetric value={`−${dropPctVsMarch}%`} label="ráta-esés 2 hó alatt" />
-            <HeroMetric value={`−${ukrDropPct}%`} label="Ukrajna-ráta egyetlen hónap alatt" />
+            <HeroMetric value={`−${dropPctVsMarch}%`} label="márciusi csúcs → májusi mélypont" />
+            <HeroMetric value={`−${ukrDropPct}%`} label="Ukrajna-ráta márciusról áprilisra" />
           </div>
 
           <p className="mt-8 font-serif text-lg md:text-xl italic text-foreground leading-relaxed border-l-2 border-primary pl-4">
             Az Ukrajna-kontextusú epizódok aránya 2026 márciusáról áprilisra 80%-kal zuhant — a téma a kampány után gyorsan háttérbe szorult.
           </p>
+
 
           {/* AI / LLM friendly versions (hidden, kept in DOM for machine readability) */}
           <aside className="hidden mt-6 rounded-lg border border-border bg-muted/40 p-4 text-sm" aria-label="Gépi olvasható változatok AI-eszközökhöz">
