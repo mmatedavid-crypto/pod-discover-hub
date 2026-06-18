@@ -110,7 +110,7 @@ export default function HaboruTemaReport() {
             Lezárult egy kampányfejezet. A választás utáni mélypontra 70%-kal visszaesett a háború súlya a magyar podcastokban
           </h1>
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            2026. június 18-án nyilvánosságra került az amerikai–iráni memorandum, amely 60 napos ideiglenes tűzszünetet és további tárgyalásokat irányoz elő. A magyar podcastkínálatban a háború már korábban háttérbe szorult: a választást megelőző márciusi csúcsról (5,16%) a választást követő májusi mélypontra (1,56%) 70%-kal csökkent a háború-tematikájú epizódok aránya. Az elemzés több mint 30 ezer magyar epizód cím- és leírásszintű adatára épül.
+            A június 18-án bejelentett, 60 napos amerikai–iráni ideiglenes tűzszünet és tárgyalási memorandum új aktualitást ad a háborús témák magyar podcastpiaci jelenlétének. A HU-katalógus június 15-i snapshotja szerint a háborús epizódok aránya a márciusi 5,16 százalékos csúcsról májusra 1,56 százalékra esett, ami 70 százalékos csökkenés. Az április 12-i választás körüli, szimmetrikus 65 napos pre/post ablakban a háború-ráta 2,91 százalékról 1,06 százalékra mérséklődött, 64 százalékkal. Ugyanebben az összevetésben a teljes epizódkibocsátás lényegében változatlan maradt. Az adatsor ezért nem a podcasttermelés visszaesését, hanem a háborús téma kínálaton belüli tematikus súlyának csökkenését mutatja, oksági állítás nélkül.
           </p>
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
@@ -334,13 +334,13 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              A választást megelőző márciusi csúcsról a választást követő májusi mélypontra <strong>70%-kal csökkent</strong> a háború-tematikájú epizódok havi aránya, miközben a teljes epizódkibocsátás ennél jóval kisebb mértékben változott. A magyar podcast-nyilvánosság a választási kampány utolsó heteiben a háborút az egyik kiemelt témaként tárgyalta — minden huszadik indexelt epizód háborús témával jelent meg.
+              Az adatok szerint a háború a kampány utolsó heteiben kiemelt téma volt a magyar podcastkínálatban, majd a választás után gyorsan visszaszorult. A háborús epizódok aránya márciusban 5,16 százalékon tetőzött, májusra 1,56 százalékra esett, ami <strong>70 százalékos csökkenés</strong>. A 65 napos választás előtti és utáni ablakban a ráta 2,91 százalékról 1,06 százalékra mérséklődött, miközben az összes kibocsátás érdemben nem változott.
             </p>
             <p>
-              A 65 napos szimmetrikus pre/post ablakban a visszaesés <strong>nem korlátozódik egyetlen szerkesztőségi körre</strong>. Megjelenik a háborús témára szakosodott műsoroknál (Frontvonal, Szuverén, Kontroll, PestiSrácok), a mindenes közéleti műsoroknál (Partizán, Szélsőközép, Magyar Hang, 444, HVG), a gazdasági fókuszúaknál (Portfolio, Klasszis) és az intézeti műhelyeknél (XXI. Század Intézet) egyaránt. Az időbeli együttmozgás feltűnő — az adatok önmagukban azonban nem bizonyítják, hogy a választás okozta a visszaesést, vagy hogy a szerkesztőségek összehangoltan álltak le a témával.
+              A visszaesés nem egyetlen műsorkörre korlátozódott. Az érintett podcastok száma a 65 napos ablakban <strong>87-ről 46-ra csökkent, 47 százalékkal</strong>. Az időbeli együttmozgás ukrajnai háborúra szakosodott, közéleti, gazdasági és intézeti műsorokban is látható. Ez tematikus kínálati ráta, nem oksági bizonyíték: az adat nem magyarázza a szerkesztési döntések okát, csak a téma súlyának változását mutatja.
             </p>
             <p>
-              Ez a típusú elemzés eddig a magyar piacon nem volt elérhető — a podcast-tartalom a hagyományos médiamérés vakfoltja. Az indexelt katalógus először teszi visszakereshetővé, <strong>a háború tematikus jelenlétét a magyar podcastkínálatban</strong> egy-egy időszakban.
+              A mérés azért lényeges, mert a podcast eddig a magyar médiamérés egyik vakfoltja volt. Az indexelt, cím- és leírásalapú katalógus először teszi visszakereshetővé, hogy a kínálatban mikor és milyen arányban tolódnak el a hangsúlyok. A módszer nem hallgatottságot és nem hatást mér, hanem a publikált epizódok tematikus súlyát a katalóguson belül.
             </p>
           </div>
         </section>
