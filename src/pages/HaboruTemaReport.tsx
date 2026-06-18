@@ -274,7 +274,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-prepost-65-nap-valasztas">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Választás előtt és után — 65 napos szimmetrikus ablak</h2>
             <p className="mb-6 text-muted-foreground">
-              A 2026.04.12-i magyar országgyűlési választás körüli két, azonos hosszúságú időszak összevetése. Ugyanaz a katalógus, ugyanazok a keresési feltételek; csak a megfigyelt időszakok különböznek. A választás napja egyik ablakban sem szerepel.
+              A 2026.04.12-i magyar országgyűlési választás körül két azonos hosszúságú, 65 napos időablak. Ugyanaz a katalógus, ugyanazok a keresési feltételek; csak a megfigyelt időszakok különböznek. A választás napja egyik ablakban sem szerepel.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded border border-border bg-card p-4">
