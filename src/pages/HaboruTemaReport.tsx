@@ -116,7 +116,7 @@ export default function HaboruTemaReport() {
           </div>
 
           <p className="mt-8 font-serif text-lg md:text-xl italic text-foreground leading-relaxed border-l-2 border-primary pl-4">
-            Nem kevesebb adás jelent meg — a háború tematikus súlya csökkent a magyar podcastkínálatban.
+            Az Ukrajna-kontextusú epizódok aránya 2026 márciusáról áprilisra 80%-kal zuhant — a téma a kampány után gyorsan háttérbe szorult.
           </p>
 
           {/* AI / LLM friendly versions (hidden, kept in DOM for machine readability) */}
