@@ -166,7 +166,7 @@ export default function HaboruTemaReport() {
               body="A vizsgált 13 hónap alatt a HU katalógus havi kibocsátása 2 170-ről 3 277 epizódra nőtt a 2025-06 és 2026-03 közötti időszakban (+51%). Az abszolút darabszámok félrevezetnek: a háborús ep / összes ep arány az, ami mutatja, mennyit említjük a témát." />
             <InsightCard n={2}
               title="2026 márciusi csúcs"
-              body="5,16% — minden huszadik indexelt magyar epizód címében vagy leírásában megjelent a „háború" szótő. Ebből 2,29 százalékpont (~44%) Közel-Kelet-kontextus (Gáza/Irán), 1,47 százalékpont tisztán Ukrajna." />
+              body={'5,16% — minden huszadik indexelt magyar epizód címében vagy leírásában megjelent a „háború” szótő. Ebből 2,29 százalékpont (~44%) Közel-Kelet-kontextus (Gáza/Irán), 1,47 százalékpont tisztán Ukrajna.'} />
             <InsightCard n={3}
               title="A választás után meredek visszaesés"
               body={`A 2026.04.12-i választást követően 2 hónap alatt −${dropPctVsMarch}% a ráta. Az Ukrajna-kontextusú metszet egyetlen hónap alatt −${ukrDropPct}% (1,47% → 0,29%).`} />
