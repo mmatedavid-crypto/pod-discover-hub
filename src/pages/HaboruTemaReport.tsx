@@ -261,7 +261,7 @@ export default function HaboruTemaReport() {
           <DownloadableFigure filename="haboru-top-podcastok-2025-06-2026-06">
             <h2 className="mb-2 font-serif text-2xl font-bold text-foreground">Top podcastok a háborús témában</h2>
             <p className="mb-6 text-muted-foreground">
-              13 hónap (2025-06 – 2026-06) háborús cím/leírás-találat alapján vezető podcastok, kontextus-csoportban. A zárójeles arány: háborús ep / az adott podcast összes közéleti ep.
+              13 hónap (2025-06 – 2026-06) háború-tematikájú epizód alapján vezető podcastok, kontextus-csoportban. A zárójeles arány: háború-tematikájú ep / az adott podcast összes közéleti ep.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {TOP_PODS.map((g) => (
