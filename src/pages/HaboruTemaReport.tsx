@@ -284,13 +284,13 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent mindez?</h2>
           <div className="space-y-3 text-foreground">
             <p>
-              A választás után két hónap alatt <strong>70%-kal csökkent</strong> a „háború” szótövet cím vagy leírás szintjén tartalmazó epizódok havi aránya, miközben a teljes epizódkibocsátás ennél jóval kisebb mértékben változott. A magyar podcast-nyilvánosság a választási kampány utolsó heteiben a háborút az egyik vezető témaként tárgyalta — minden huszadik indexelt epizód címe vagy leírása érintette.
+              A választás után két hónap alatt <strong>70%-kal csökkent</strong> a háború-tematikájú epizódok havi aránya, miközben a teljes epizódkibocsátás ennél jóval kisebb mértékben változott. A magyar podcast-nyilvánosság a választási kampány utolsó heteiben a háborút az egyik kiemelt témaként tárgyalta — minden huszadik indexelt epizód háborús témával jelent meg.
             </p>
             <p>
               A mintázat <strong>nem köthető egy politikai oldalhoz</strong>: ugyanúgy érintette a kormányközeli (Szuverén, XXI. Század Intézet, PestiSrácok) és az ellenzéki / független szerkesztőségeket (Partizán, Magyar Hang, Szélsőközép, Jelen). Az időbeli szinkron a feltűnő — az adatok önmagukban azonban nem bizonyítják, hogy a választás okozta a visszaesést, vagy hogy a szerkesztőségek összehangoltan álltak le a témával.
             </p>
             <p>
-              Ez a típusú elemzés eddig a magyar piacon nem volt elérhető — a podcast-tartalom a hagyományos médiamérés vakfoltja. A Podiverzum.hu indexelt katalógusa először teszi visszakereshetővé, <strong>mikor mit említettek a magyar podcastok</strong> egy-egy témáról.
+              Ez a típusú elemzés eddig a magyar piacon nem volt elérhető — a podcast-tartalom a hagyományos médiamérés vakfoltja. A Podiverzum.hu indexelt katalógusa először teszi visszakereshetővé, <strong>a háború tematikus jelenlétét a magyar podcastkínálatban</strong> egy-egy időszakban.
             </p>
           </div>
         </section>
