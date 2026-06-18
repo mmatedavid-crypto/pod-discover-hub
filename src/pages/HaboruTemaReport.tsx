@@ -353,22 +353,22 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-xl font-bold text-foreground">Módszertan</h2>
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
-              <strong className="text-foreground">Tematikus azonosítás:</strong> az epizódok kiadók által megadott címe és leírása alapján. Ezek az epizódok nyilvános, szerkesztett témamegjelölései; az elemzés a podcastkínálatban hangsúlyosan megjelenő témákat méri, nem a teljes hanganyag minden futó említését.
+              <strong className="text-foreground">Tematikus azonosítás:</strong> a kiadók által megadott epizódcím és epizódleírás kulcsszavas illesztésével, regex-alapon. A mérés nem teljes hanganyag-leiratot használ; a publikált, szerkesztett témamegjelöléseket méri.
             </p>
             <p>
-              <strong className="text-foreground">Adatforrás:</strong> a Podiverzum saját, folyamatosan frissített magyar podcast-állománya. A nagyon kis házi műsorok és a kizárólag YouTube-on futó tartalmak maradhatnak ki belőle.
+              <strong className="text-foreground">Adatforrás:</strong> a Podiverzum.hu saját, folyamatosan frissített magyar podcast-katalógusa. A 2026.06.15-i snapshotban körülbelül 1 480 magyar podcast és 139 000 epizód metaadata. A nagyon kis házi műsorok és a kizárólag YouTube-on futó tartalmak kimaradhatnak.
             </p>
             <p>
-              <strong className="text-foreground">Kontextusbontás:</strong> Ukrajna, illetve Közel-Kelet (Irán, Izrael, Gáza) szerinti külön kulcsszavas illesztéssel; egy epizód mindkét kontextusban megjelenhet, ezért a két érték nem összegezhető a teljes rátára.
+              <strong className="text-foreground">Kontextusbontás:</strong> két külön szótár — Ukrajna, illetve Közel-Kelet (Irán, Izrael, Gáza). Egy epizód mindkét kontextusba bekerülhet, ezért a két érték nem összegezhető a teljes rátára.
             </p>
             <p>
               <strong className="text-foreground">Időablak:</strong> 2025-06-01 – 2026-06-15. <strong className="text-foreground">Választási cut:</strong> 2026-04-12 (magyar országgyűlési választás). <strong className="text-foreground">Pre/post ablak:</strong> 65–65 nap, 2026.02.06–04.11 vs. 2026.04.13–06.16; a választás napja egyik ablakban sincs.
             </p>
             <p>
-              <strong className="text-foreground">Vezető mérőszám:</strong> ráta = háborús ep / összes HU epizód az adott időablakban. Indoklás: a katalógus havi kibocsátása 2025-06 (2 170 ep) → 2026-03 (3 277 ep) között +51%-ot bővült, az abszolút darabszámok ezért félrevezetnek.
+              <strong className="text-foreground">Vezető mérőszám:</strong> ráta = háborús ep / összes magyar epizód az adott időablakban. A havi epizódszám 2025-06 (2 170 ep) és 2026-03 (3 277 ep) között +51%-ot bővült, ezért az abszolút darabszámok félrevezetők.
             </p>
             <p>
-              <strong className="text-foreground">Korlátok:</strong> az elemzés a publikált epizódcímet és leírást vizsgálja, a teljes hanganyagot nem. A rossz hangminőségű vagy sok szereplős adásokhoz egyelőre nem készítünk leiratot — a teljes hanganyagra kiterjedő elemzés a következő iterációban érkezik. A számok a 2026-06-15-i pillanatkép alapján reprodukálhatók.
+              <strong className="text-foreground">Korlátok:</strong> kulcsszavas illesztés, így szórványos téves találatok előfordulhatnak. A rossz hangminőségű és sokszereplős adásokhoz egyelőre nem készítünk teljes leiratot, így ezek tartalom-szintű elemzése a következő iterációban érkezik.
             </p>
             <p>
               <strong className="text-foreground">Snapshot:</strong> 2026-06-15. A katalógus folyamatosan bővül, későbbi lekérdezés kissé eltérő számokat adhat.
