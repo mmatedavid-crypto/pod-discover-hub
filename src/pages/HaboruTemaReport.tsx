@@ -74,7 +74,7 @@ const ukrDropPct = Math.round(((UKR_MARCH - UKR_APR) / UKR_MARCH) * 100);       
 export default function HaboruTemaReport() {
   useEffect(() => {
     setSeo({
-      title: "64 százalékkal esett a háborús témák aránya a magyar podcastokban a választás után",
+      title: "A választás után 64 százalékkal kevesebb háborús epizód: témát váltottak a magyar podcastok",
       description:
         "A Podiverzum.hu friss elemzése szerint a 2026. április 12-i választást követő 65 napban 64 százalékkal esett a háborúval foglalkozó epizódok aránya a magyar podcast-kínálatban — miközben a teljes epizódszám gyakorlatilag változatlan maradt.",
       canonical: REPORT_URL,
@@ -82,7 +82,7 @@ export default function HaboruTemaReport() {
         {
           "@context": "https://schema.org",
           "@type": "Report",
-          name: "A háború mint téma a magyar podcast-piacon (2025.06 – 2026.06)",
+          name: "A választás után 64 százalékkal kevesebb háborús epizód: témát váltottak a magyar podcastok",
           datePublished: REPORT_DATE,
           inLanguage: "hu-HU",
           author: { "@type": "Organization", name: "Podiverzum", url: "https://podiverzum.hu" },
@@ -104,7 +104,7 @@ export default function HaboruTemaReport() {
             Podiverzum jelentés · {TODAY_LABEL}
           </div>
           <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight text-foreground">
-            64 százalékkal esett a háborús témák aránya a magyar podcastokban a választás után
+            A választás után 64 százalékkal kevesebb háborús epizód: témát váltottak a magyar podcastok
           </h1>
 
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
