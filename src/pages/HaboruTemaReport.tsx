@@ -111,7 +111,7 @@ export default function HaboruTemaReport() {
             A Podiverzum.hu friss elemzése szerint a 2026. április 12-i választást követő 65 napban 64 százalékkal esett a háborúval foglalkozó epizódok aránya a magyar podcast-kínálatban — miközben a teljes epizódszám gyakorlatilag változatlan maradt. Apropó: tegnap, június 18-án jelentette be JD Vance amerikai alelnök, hogy csütörtökön kezdődik az amerikai–iráni megállapodás 60 napos tárgyalási időszaka. A nemzetközi figyelem tehát épp most fordul a Közel-Kelet felé — a magyar kínálati oldal viszont hetekkel korábban levette napirendjéről a háborút.
           </p>
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
-            A több mint 139 ezer magyar nyelvű podcast-epizód vizsgálatán alapuló kutatás ráta-alapon mérte a változást, vagyis azt nézte, hogy az összes új epizódhoz képest milyen arányban jelent meg a háború mint téma. Az eredmény egyértelmű: a korábban meghatározó konfliktusok fokozatosan háttérbe szorultak.
+            A több mint 139 ezer magyar nyelvű podcast-epizód vizsgálatán alapuló kutatás ráta-alapon mérte a változást, vagyis azt nézte, hogy az összes új epizódhoz képest milyen arányban jelent meg a háború mint téma. Az eredmény egyértelmű: a korábban meghatározó konfliktusok fokozatosan háttérbe szorultak. A mérés kínálati oldali: azt nézi, miről adnak ki epizódot a magyar műsorkészítők, nem azt, mit hallgatnak.
           </p>
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
             Mindez különösen érdekes annak fényében, hogy éppen ma, június 18-án a{" "}
