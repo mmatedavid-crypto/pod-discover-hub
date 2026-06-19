@@ -97,7 +97,7 @@ export default function HaboruTemaReport() {
 
   return (
     <Layout>
-      <article className="mx-auto max-w-3xl px-4 pt-20 pb-8 md:pt-24 md:pb-12">
+      <article className="mx-auto max-w-3xl px-4 pt-24 pb-8 md:pt-28 md:pb-12">
         {/* Header */}
         <header className="mb-10 border-b border-border pb-8">
           <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
@@ -108,7 +108,7 @@ export default function HaboruTemaReport() {
           </h1>
 
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
-            A Podiverzum.hu friss elemzése szerint a 2026. április 12-i választást követő 65 napban 64 százalékkal esett a háborúval foglalkozó epizódok aránya a magyar podcast-kínálatban — miközben a teljes epizódszám gyakorlatilag változatlan maradt. Tegnap jelentette be JD Vance amerikai alelnök, hogy hamarosan elindul az amerikai–iráni megállapodás 60 napos tárgyalási időszaka. A nemzetközi figyelem épp most fordul a Közel-Kelet felé — a magyar kínálati oldal viszont hetekkel korábban levette napirendjéről a háborút.
+            A Podiverzum.hu friss elemzése szerint a 2026. április 12-i választást követő 65 napban 64 százalékkal esett a háborúval foglalkozó epizódok aránya a magyar podcast-kínálatban — miközben a teljes epizódszám gyakorlatilag változatlan maradt. Miközben a világ most a közel-keleti békemegállapodáson dolgozik, a magyar podcast-kínálatban a háborús téma már hetekkel korábban lecsengett.
           </p>
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
             A több mint 139 ezer magyar nyelvű podcast-epizód vizsgálatán alapuló kutatás ráta-alapon mérte a változást, vagyis azt nézte, hogy az összes új epizódhoz képest milyen arányban jelent meg a háború mint téma. Az eredmény egyértelmű: a korábban meghatározó konfliktusok a választás után élesen visszaszorultak a kínálatban. A mérés kínálati oldali: azt nézi, miről adnak ki epizódot a magyar műsorkészítők, nem azt, mit hallgatnak.
