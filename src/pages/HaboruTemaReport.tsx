@@ -74,7 +74,7 @@ const ukrDropPct = Math.round(((UKR_MARCH - UKR_APR) / UKR_MARCH) * 100);       
 export default function HaboruTemaReport() {
   useEffect(() => {
     setSeo({
-      title: "A magyar podcastokban két hónap alatt 70%-kal csökkent a háború téma a választás után",
+      title: "70%-kal zuhant a háborús témák aránya a magyar podcastokban a választások után",
       description:
         "Miközben a világ figyelme ismét a Közel-Keletre irányul, a magyar podcast-hallgatók egyre kevésbé kíváncsiak a háborús témákra. A Podiverzum.hu friss elemzése szerint a 2026-os választás után mindössze két hónap alatt 70 százalékkal csökkent a háborúval foglalkozó podcast-epizódok aránya a magyar kínálatban.",
       canonical: REPORT_URL,
