@@ -240,7 +240,7 @@ export default function HaboruTemaReport() {
               Ami nem változott: a teljes magyar podcast-kibocsátás (6&nbsp;437&nbsp;→&nbsp;6&nbsp;590 epizód) és az aktív podcastok száma (764&nbsp;→&nbsp;707). A piac nem szűkült meg, ugyanannyi epizód jelent meg, mint korábban — csak más témákról.
             </p>
             <p>
-              A havi bontás ugyanezt mutatja. A márciusi csúcshoz képest a háborús epizódok száma áprilisra 67 százalékkal, májusra 73 százalékkal esett vissza. Az Ukrajna-vonal még ennél is meredekebben mozgott: a márciusi 1,47%-os arány áprilisra 0,29%-ra zuhant, ami 80 százalékos visszaesés. A választás utáni hetekben a magyar podcastok gyakorlatilag levették a napirendről az ukrán háborút.
+              A havi bontás ugyanezt mutatja. A választás körüli 65 napos szimmetrikus ablakban a háború-tematikájú epizódok aránya 64 százalékkal csökkent; a visszaesés mögött elsősorban az ukrán front kínálatból való visszahúzódása áll. A márciusi 1,47%-os Ukrajna-arány áprilisra 0,29%-ra zuhant — 80 százalékos visszaesés. A választás utáni hetekben a magyar podcast-kínálat gyakorlatilag levette a napirendről az ukrán háborút.
             </p>
 
           </div>
