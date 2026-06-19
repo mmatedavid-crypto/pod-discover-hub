@@ -347,10 +347,7 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent ez?</h2>
           <div className="space-y-4 text-foreground leading-relaxed">
             <p>
-              A kutatás készítői szerint ez részben a hírfáradtság következménye lehet: több évnyi konfliktus és válsághír után sokan inkább olyan tartalmakat keresnek, amelyek közvetlenebbül kapcsolódnak a saját életükhöz.
-            </p>
-            <p>
-              A háború tehát nem tűnt el a világpolitikából, de a magyar podcastokban már jóval kisebb szerepet játszik. A számok alapján a téma népszerűsége a választás óta valósággal bezuhant: két hónap alatt tízből hét háborús témájú epizód „eltűnt" a kínálatból. Ez pedig jól mutatja, milyen gyorsan változhat a közönség figyelme még a legnagyobb nemzetközi események árnyékában is.
+              A csökkenés a kínálati oldalon mérhető: a magyar műsorkészítők a választás után érezhetően kevesebb háborús epizódot adtak ki. Hogy ezt szerkesztői döntés, a hallgatói kereslet változása vagy a hazai politikai naptár kifutása okozta, a kínálati adatból nem dönthető el. A háború nem tűnt el a világpolitikából, de a magyar podcast-kínálatban a választás óta jóval kisebb szerepet kap: a szimmetrikus ablakban közel kétharmaddal kevesebb háborús epizód jelent meg, a téma pedig néhány Ukrajna-specialista műsorhoz húzódott vissza.
             </p>
           </div>
         </section>
