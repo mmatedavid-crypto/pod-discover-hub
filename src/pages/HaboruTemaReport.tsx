@@ -123,10 +123,6 @@ export default function HaboruTemaReport() {
             >Reuters arról számolt be</a>,
             {" "}hogy JD Vance amerikai alelnök szerint csütörtökön kezdetét veszi az az iráni megállapodásról szóló 60 napos tárgyalási időszak, amelyet egy, Donald Trump elnök és az iráni vezetők által jóváhagyott szándéknyilatkozat rögzít. Az ideiglenes paktum a legnehezebb kérdéseket a későbbi tárgyalásokra hagyja, és a Reuters szerint nincs garancia a végleges rendezésre.
           </p>
-          <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
-          <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
-            A Podiverzum adatai alapján azonban úgy tűnik, hogy a magyar hallgatók érdeklődése már korábban elfordult a frontvonalaktól. A háborús hírek helyét egyre inkább a gazdasági, technológiai, egészségügyi és életmódtémák veszik át.
-          </p>
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: <a href="https://podiverzum.hu" className="underline hover:text-foreground">Podiverzum.hu</a> indexelt magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
           </div>
