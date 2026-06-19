@@ -114,15 +114,7 @@ export default function HaboruTemaReport() {
             A több mint 139 ezer magyar nyelvű podcast-epizód vizsgálatán alapuló kutatás ráta-alapon mérte a változást, vagyis azt nézte, hogy az összes új epizódhoz képest milyen arányban jelent meg a háború mint téma. Az eredmény egyértelmű: a korábban meghatározó konfliktusok fokozatosan háttérbe szorultak. A mérés kínálati oldali: azt nézi, miről adnak ki epizódot a magyar műsorkészítők, nem azt, mit hallgatnak.
           </p>
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
-            Mindez különösen érdekes annak fényében, hogy éppen ma, június 18-án a{" "}
-            <a
-              href="https://www.reuters.com/world/vance-says-60-day-period-iran-deal-begins-thursday-2026-06-18/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-foreground"
-            >Reuters arról számolt be</a>,
-            {" "}hogy JD Vance amerikai alelnök szerint csütörtökön kezdetét veszi az az iráni megállapodásról szóló 60 napos tárgyalási időszak, amelyet egy, Donald Trump elnök és az iráni vezetők által jóváhagyott szándéknyilatkozat rögzít. Az ideiglenes paktum a legnehezebb kérdéseket a későbbi tárgyalásokra hagyja, és a Reuters szerint nincs garancia a végleges rendezésre.
-          </p>
+            A Podiverzum adatai szerint a magyar kínálati oldal már a nemzetközi rendezés előtt levette napirendjéről a háborút — mindenekelőtt az ukrán frontot. A háborús epizódok helyét a kínálatban egyre inkább gazdasági, technológiai, egészségügyi és életmódtémák veszik át.
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: <a href="https://podiverzum.hu" className="underline hover:text-foreground">Podiverzum.hu</a> indexelt magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
           </div>
