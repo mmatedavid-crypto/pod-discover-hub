@@ -347,7 +347,7 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl font-bold text-foreground">Mit jelent ez?</h2>
           <div className="space-y-4 text-foreground leading-relaxed">
             <p>
-              A csökkenés a kínálati oldalon mérhető: a magyar műsorkészítők a választás után érezhetően kevesebb háborús epizódot adtak ki. Hogy ezt szerkesztői döntés, a hallgatói kereslet változása vagy a hazai politikai naptár kifutása okozta, a kínálati adatból nem dönthető el. A háború nem tűnt el a világpolitikából, de a magyar podcast-kínálatban a választás óta jóval kisebb szerepet kap: a szimmetrikus ablakban közel kétharmaddal kevesebb háborús epizód jelent meg, a téma pedig néhány Ukrajna-specialista műsorhoz húzódott vissza.
+              A csökkenés a kínálati oldalon mérhető: a magyar műsorkészítők a választás után érezhetően kevesebb háborús epizódot adtak ki. Hogy ezt szerkesztői döntés, a kereslet oldalának változása vagy a hazai politikai naptár kifutása okozta, a kínálati adatból nem dönthető el. A háború nem tűnt el a világpolitikából, de a magyar podcast-kínálatban a választás óta jóval kisebb szerepet kap: a szimmetrikus ablakban közel kétharmaddal kevesebb háborús epizód jelent meg, a téma pedig néhány Ukrajna-specialista műsorhoz húzódott vissza.
             </p>
           </div>
         </section>
