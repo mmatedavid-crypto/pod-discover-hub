@@ -356,6 +356,36 @@ export default function HaboruTemaReport() {
           Lásd még: <Link to="/jelentes/magyar-podcast-piac-2026" className="underline hover:text-foreground">Magyar podcast piac 2026 — Podiverzum jelentés</Link>
         </section>
 
+        {/* Methodology + downloads — consolidated at the end */}
+        <section className="mt-10 pt-6 border-t border-border print:break-inside-avoid">
+          <h2 className="mb-4 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">Módszertan és letöltések</h2>
+          <div className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+            <p>
+              <strong className="text-foreground">Adatforrás:</strong> a Podiverzum.hu saját, folyamatosan frissített magyar podcast-katalógusa. A 2026.06.15-i snapshotban körülbelül 1 480 magyar podcast és 139 000 epizód metaadata. A nagyon kis házi műsorok és a kizárólag YouTube-on futó tartalmak kimaradhatnak.
+            </p>
+            <p>
+              <strong className="text-foreground">Tematikus azonosítás:</strong> kiadói epizódcím és epizódleírás kulcsszavas illesztésével. Két külön szótár — Ukrajna, illetve Közel-Kelet (Irán, Izrael, Gáza). Egy epizód mindkét kontextusba bekerülhet, ezért a két érték nem összegezhető.
+            </p>
+            <p>
+              <strong className="text-foreground">Vezető mérőszám:</strong> ráta = háború-tematikájú epizód / összes magyar epizód az adott időablakban. A havi kibocsátás 2025-06 és 2026-03 között 2 170 → 3 277 epizódra (+51%) bővült, ezért abszolút darabszámok félrevezetők.
+            </p>
+            <p>
+              <strong className="text-foreground">Időablakok:</strong> teljes minta 2025-06-01 – 2026-06-15; pre/post ablak a választás (2026-04-12) körül 65–65 nap, 2026.02.06–04.11 vs. 2026.04.13–06.16. A választás napja egyik ablakban sincs.
+            </p>
+            <p>
+              <strong className="text-foreground">Korlátok:</strong> a mérés kínálati oldali, nem hallgatottság. A rossz hangminőségű és sokszereplős adásokhoz egyelőre nem készítünk teljes leiratot, ezért most a publikált, szerkesztett témamegjelöléseket méri. Szórványos téves találatok előfordulhatnak.
+            </p>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <a href="/jelentes/haboru-mint-tema-2026.md" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary transition">
+              Markdown (.md)
+            </a>
+            <a href="/jelentes/haboru-mint-tema-2026.json" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary transition">
+              Strukturált adat (.json)
+            </a>
+          </div>
+        </section>
+
         {/* About / boilerplate + contact */}
         <section className="mt-10 pt-6 border-t border-border print:break-inside-avoid">
           <h2 className="mb-3 font-serif text-sm font-bold uppercase tracking-widest text-muted-foreground">A jelentésről</h2>
