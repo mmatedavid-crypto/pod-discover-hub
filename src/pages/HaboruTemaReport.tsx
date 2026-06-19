@@ -162,11 +162,11 @@ export default function HaboruTemaReport() {
         <section className="mb-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InsightCard n={1}
-              title="70%-os arányzuhanás két hónap alatt"
-              body="A 2026-os választás utáni két hónapban a háború-tematikájú epizódok aránya a magyar kínálatban 70 százalékkal csökkent." />
+              title="64%-os arányesés a választás után"
+              body="A 2026.04.12-i választás körüli két azonos, 65 napos ablakban a háború-tematikájú epizódok aránya 64 százalékkal csökkent (2,91% → 1,06%), miközben a teljes kibocsátás nem változott." />
             <InsightCard n={2}
-              title="64%-kal kevesebb háborús epizód"
-              body="A választás előtti és utáni 65 napban a háború-tematikájú epizódok aránya 64 százalékkal csökkent — miközben a teljes kibocsátás nem változott." />
+              title="Az ukrán vonal 80%-kal esett"
+              body="A márciusi 1,47%-os Ukrajna-arány áprilisra 0,29%-ra zuhant — 80 százalékos visszaesés. A Közel-Kelet-arány ezzel szemben a választás után emelkedett." />
 
             <InsightCard n={3}
               title="A téma nem tűnt el, csak visszahúzódott"
