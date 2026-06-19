@@ -419,14 +419,6 @@ export default function HaboruTemaReport() {
   );
 }
 
-function HeroMetric({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4 text-center">
-      <div className="text-2xl md:text-3xl font-bold text-foreground leading-tight tabular-nums">{value}</div>
-      <div className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-    </div>
-  );
-}
 
 function InsightCard({ n, title, body, wide }: { n: number; title: string; body: string; wide?: boolean }) {
   return (
