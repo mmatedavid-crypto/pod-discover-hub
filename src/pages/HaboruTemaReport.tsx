@@ -104,8 +104,9 @@ export default function HaboruTemaReport() {
             Podiverzum jelentés · {TODAY_LABEL}
           </div>
           <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight text-foreground">
-            A magyar podcast-hallgatók már a Trump–Irán megállapodás előtt elfordultak a háborús témáktól
+            A magyar podcast-hallgatók már a Trump–Irán ideiglenes paktum előtt elfordultak a háborús témáktól
           </h1>
+
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
             Miközben a világ figyelme ismét a Közel-Keletre irányul, a magyar podcast-hallgatók egyre kevésbé kíváncsiak a háborús témákra. A{" "}
             <a href="https://podiverzum.hu" className="underline hover:text-foreground">Podiverzum.hu</a>{" "}
@@ -115,8 +116,16 @@ export default function HaboruTemaReport() {
             A több mint 139 ezer magyar nyelvű podcast-epizód vizsgálatán alapuló kutatás ráta-alapon mérte a változást, vagyis azt nézte, hogy az összes új epizódhoz képest milyen arányban jelent meg a háború mint téma. Az eredmény egyértelmű: a korábban meghatározó konfliktusok fokozatosan háttérbe szorultak.
           </p>
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
-            Mindez különösen érdekes annak fényében, hogy éppen ma, június 18-án hozták nyilvánosságra az amerikai–iráni memorandumot, amely egy 60 napos ideiglenes tűzszünetet és további tárgyalásokat irányoz elő a felek között. A megállapodás célja a feszültség csökkentése és a hosszabb távú rendezés előkészítése.
+            Mindez különösen érdekes annak fényében, hogy éppen ma, június 18-án a{" "}
+            <a
+              href="https://www.reuters.com/world/vance-says-60-day-period-iran-deal-begins-thursday-2026-06-18/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
+            >Reuters arról számolt be</a>,
+            {" "}hogy JD Vance amerikai alelnök szerint csütörtökön kezdetét veszi az az iráni megállapodásról szóló 60 napos tárgyalási időszak, amelyet egy, Donald Trump elnök és az iráni vezetők által jóváhagyott szándéknyilatkozat rögzít. Az ideiglenes paktum a legnehezebb kérdéseket a későbbi tárgyalásokra hagyja, és a Reuters szerint nincs garancia a végleges rendezésre.
           </p>
+
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
             A Podiverzum adatai alapján azonban úgy tűnik, hogy a magyar hallgatók érdeklődése már korábban elfordult a frontvonalaktól. A háborús hírek helyét egyre inkább a gazdasági, technológiai, egészségügyi és életmódtémák veszik át.
           </p>
