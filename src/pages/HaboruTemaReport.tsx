@@ -12,7 +12,7 @@ import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 // Mérési egység: cím + leírás regex-illesztés (NEM transcript)
 // ============================================================
 
-const REPORT_DATE = "2026-06-18";
+const REPORT_DATE = "2026-06-19";
 const REPORT_URL = "https://podiverzum.hu/jelentes/haboru-mint-tema-2026";
 
 type MonthRow = {
