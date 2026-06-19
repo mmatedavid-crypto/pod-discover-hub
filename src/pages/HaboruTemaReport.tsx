@@ -112,7 +112,7 @@ export default function HaboruTemaReport() {
             friss elemzése szerint a 2026-os választás után mindössze két hónap alatt 70 százalékkal csökkent a háborúval foglalkozó podcast-epizódok aránya a magyar kínálatban.
           </p>
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
-            A több mint 130 ezer magyar nyelvű podcast-epizód vizsgálatán alapuló kutatás ráta-alapon mérte a változást, vagyis azt nézte, hogy az összes új epizódhoz képest milyen arányban jelent meg a háború mint téma. Az eredmény egyértelmű: a korábban meghatározó konfliktusok fokozatosan háttérbe szorultak.
+            A több mint 139 ezer magyar nyelvű podcast-epizód vizsgálatán alapuló kutatás ráta-alapon mérte a változást, vagyis azt nézte, hogy az összes új epizódhoz képest milyen arányban jelent meg a háború mint téma. Az eredmény egyértelmű: a korábban meghatározó konfliktusok fokozatosan háttérbe szorultak.
           </p>
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
             Mindez különösen érdekes annak fényében, hogy éppen ma, június 18-án hozták nyilvánosságra az amerikai–iráni memorandumot, amely egy 60 napos ideiglenes tűzszünetet és további tárgyalásokat irányoz elő a felek között. A megállapodás célja a feszültség csökkentése és a hosszabb távú rendezés előkészítése.
@@ -169,8 +169,9 @@ export default function HaboruTemaReport() {
               title="70%-os arányzuhanás két hónap alatt"
               body="A 2026-os választás utáni két hónapban a háború-tematikájú epizódok aránya a magyar kínálatban 70 százalékkal csökkent." />
             <InsightCard n={2}
-              title="187-ről 70-re"
-              body="A választás előtti és utáni 65 napban a háborúval foglalkozó epizódok száma 187-ről 70-re esett — miközben a teljes kibocsátás nem változott." />
+              title="64%-kal kevesebb háborús epizód"
+              body="A választás előtti és utáni 65 napban a háború-tematikájú epizódok aránya 64 százalékkal csökkent — miközben a teljes kibocsátás nem változott." />
+
             <InsightCard n={3}
               title="A téma nem tűnt el, csak visszahúzódott"
               body="A háború most már csak néhány Ukrajna-specialista műsorban szerepel; a mainstream podcastokban gyakorlatilag lekerült a napirendről." />
@@ -237,14 +238,15 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl md:text-3xl font-bold text-foreground">A választás előtt és után</h2>
           <div className="space-y-4 text-foreground leading-relaxed mb-8">
             <p>
-              A legfontosabb kérdés az volt: mi történt a választás után? A 2026.&nbsp;április&nbsp;12-i szavazás előtti és utáni 65-65 napban a háború-tematikájú epizódok száma <strong>187-ről 70-re</strong> esett. A témát egyáltalán érintő magyar podcastok száma pedig <strong>87-ről 46-ra</strong> szűkült — vagyis a magyar kínálatban gyakorlatilag felére csökkent azoknak a műsoroknak a köre, amelyek egyáltalán szóltak a háborúról.
+              A legfontosabb kérdés az volt: mi történt a választás után? A 2026.&nbsp;április&nbsp;12-i szavazás előtti és utáni 65-65 napban a háború-tematikájú epizódok aránya <strong>64 százalékkal</strong> csökkent. A témát egyáltalán érintő magyar podcastok száma pedig <strong>47 százalékkal</strong> esett vissza — vagyis a magyar kínálatban gyakorlatilag felére csökkent azoknak a műsoroknak a köre, amelyek egyáltalán szóltak a háborúról.
             </p>
             <p>
               Ami nem változott: a teljes magyar podcast-kibocsátás (6&nbsp;437&nbsp;→&nbsp;6&nbsp;590 epizód) és az aktív podcastok száma (764&nbsp;→&nbsp;707). A piac nem szűkült meg, ugyanannyi epizód jelent meg, mint korábban — csak más témákról.
             </p>
             <p>
-              A havi bontás ugyanezt mutatja. A márciusi 169 háborús epizódról áprilisra 55-re, májusra 46-ra esett vissza a szám. Az Ukrajna-vonal még ennél is meredekebben mozgott: a márciusi 1,47%-os arány áprilisra 0,29%-ra zuhant. A választás utáni hetekben a magyar podcastok gyakorlatilag levették a napirendről az ukrán háborút.
+              A havi bontás ugyanezt mutatja. A márciusi csúcshoz képest a háborús epizódok száma áprilisra 67 százalékkal, májusra 73 százalékkal esett vissza. Az Ukrajna-vonal még ennél is meredekebben mozgott: a márciusi 1,47%-os arány áprilisra 0,29%-ra zuhant, ami 80 százalékos visszaesés. A választás utáni hetekben a magyar podcastok gyakorlatilag levették a napirendről az ukrán háborút.
             </p>
+
           </div>
           <DownloadableFigure filename="haboru-prepost-65-nap-valasztas">
             <h3 className="mb-1 font-serif text-lg font-bold text-foreground">Pre / post — 65 napos szimmetrikus ablak</h3>
@@ -274,8 +276,9 @@ export default function HaboruTemaReport() {
               </div>
             </div>
             <p className="mt-4 text-sm italic text-muted-foreground border-l-2 border-primary pl-3">
-              87 magyar műsorról 46-ra: a témát aktívan tárgyaló podcastok köre majdnem felére szűkült a választás utáni 65 napban.
+              47 százalékkal kevesebb magyar műsor: a témát aktívan tárgyaló podcastok köre majdnem felére szűkült a választás utáni 65 napban.
             </p>
+
           </DownloadableFigure>
         </section>
 
