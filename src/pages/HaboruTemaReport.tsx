@@ -178,10 +178,13 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl md:text-3xl font-bold text-foreground">Egy év, egy görbe</h2>
           <div className="space-y-4 text-foreground leading-relaxed mb-8">
             <p>
-              A magyar podcastkínálatban a háború mint téma 2025 nyarától 2026 nyaráig <strong>egy hullámzó, de alacsony szinten mozgó vonal</strong> volt. A 13 havi átlag {huNum(avgRate)}%, a hónapok többsége 1,5% és 2,9% közötti sávban maradt. Két határozott kiugrás látszik csak: 2025 júniusa az Irán–Izrael 12 napos háború miatt, és 2026 márciusa.
+              13 hónap alatt <strong>748 magyar podcast-epizód</strong> foglalkozott közvetlenül a háborúval — havi átlagban 58, és minden hónapban legalább 25. Ez folyamatos, jól mérhető jelenlét: a téma egyetlen hónapban sem tűnt el, de a hangereje hullámzott. Két látványos kiugrás van: 2025 júniusa az Irán–Izrael 12 napos háború heteiben, és 2026 márciusa.
             </p>
             <p>
-              A márciusi csúcs <strong>{huNum(PEAK.rate)}%-os</strong> rátája egyértelműen a Gáza/Hamasz-tűzszünet hetei köré rendeződött: ekkor 3 277 magyar epizódból 169 érintette a háborút. Ez a teljes 13 hónapos minta legmagasabb havi értéke.
+              A márciusi csúcs egybeesett a magyar országgyűlési választás kampányhajrájával: ezen a hónapon a választást megelőző hetekben jelent meg a 13 hónap legtöbb háború-tematikájú epizódja (169 db). A nemzetközi naptárban ekkor zajlott a Gáza körüli tűzszüneti tárgyalások egy aktívabb szakasza is, de a magyar kínálatban a növekedés súlypontja a kampányidőszak közéleti és külpolitikai műsoraira esett — nem egyetlen külföldi esemény hozta a kiugrást, hanem az, hogy a választás előtti hetekben minden, ami közélet, felerősödött.
+            </p>
+            <p>
+              A 13 hónap mélypontja 2026 januárja (35 háborús epizód) — ez a választás előtti „csendes" hónap, közvetlenül a választási kampány elindulása előtt. A grafikonon végig az látszik, hogy a téma jelen van, de a hangsúlya egyértelműen a hazai politikai naptárt és a nagy nemzetközi eseményeket követi.
             </p>
           </div>
           <DownloadableFigure filename="haboru-rata-2025-06-2026-06">
