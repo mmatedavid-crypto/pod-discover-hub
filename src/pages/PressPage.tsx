@@ -7,6 +7,15 @@ import { Newspaper, ExternalLink } from "lucide-react";
 
 const PRESS_ITEMS = [
   {
+    source: "MTI",
+    sourceUrl: "https://mti.hu/nemzeti-kozlemenytar/2026/06/19/valasztas-utan-64-szazalekkal-kevesebb-haborus-epizod-temat",
+    title: "A választás után 64 százalékkal kevesebb háborús epizód — témát váltottak a magyar podcastok",
+    date: "2026. 06. 19.",
+    quote:
+      "A Podiverzum.hu friss elemzése szerint a 2026. április 12-i magyar országgyűlési választást követő 65 napban 64 százalékkal esett a háborúval foglalkozó epizódok aránya a magyar podcast-kínálatban, miközben a teljes epizódszám gyakorlatilag változatlan maradt.",
+    type: "Hírközlemény",
+  },
+  {
     source: "M1 / MédiaKlikk",
     sourceUrl: "https://mediaklikk.hu/kozelet/video/2026/06/17/ma-delutan-2026-06-17-i-adas-1425",
     title: "Ma délután 2026.06.17-i adás, 14:25",
