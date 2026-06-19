@@ -378,13 +378,13 @@ export default function HaboruTemaReport() {
 
         {/* CTA */}
         <section className="rounded-lg border border-border bg-card p-6 text-center print:break-inside-avoid">
-          <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Próbáld ki</div>
-          <div className="font-serif text-2xl font-bold text-foreground mb-3">Böngéssz háború-tematikájú epizódokat</div>
+          <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Téma oldal</div>
+          <div className="font-serif text-2xl font-bold text-foreground mb-3">Böngéssz a Háború téma alatt</div>
           <p className="mb-4 text-muted-foreground">
-            139 ezer epizódban szemantikus keresés, magyar nyelven, idézhető válaszokkal.
+            A jelentés mögötti epizódok a téma oldalon érhetők el: Ukrajna, Közel-Kelet és kapcsolódó kontextus egy helyen.
           </p>
-          <Link to="/kereses?q=h%C3%A1bor%C3%BA" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition">
-            „háború" keresés indítása →
+          <Link to="/temak/haboru" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition">
+            Háború téma megnyitása →
           </Link>
         </section>
 
