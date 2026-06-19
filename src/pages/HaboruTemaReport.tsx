@@ -104,7 +104,7 @@ export default function HaboruTemaReport() {
             Podiverzum jelentés · {TODAY_LABEL}
           </div>
           <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight text-foreground">
-            70 százalékkal zuhant a háborús témák aránya a magyar podcastokban a választások után
+            64 százalékkal esett a háborús témák aránya a magyar podcastokban a választás után
           </h1>
 
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
