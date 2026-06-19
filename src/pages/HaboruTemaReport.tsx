@@ -230,10 +230,10 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl md:text-3xl font-bold text-foreground">A választás előtt és után</h2>
           <div className="space-y-4 text-foreground leading-relaxed mb-8">
             <p>
-              A márciusi csúcs után a háború súlya a magyar podcastkínálatban gyorsan és látványosan visszaesett. A márciusi {huNum(PEAK.rate)}%-os rátáról áprilisra 1,75%-ra, majd májusra <strong>{huNum(LOW.rate)}%-ra</strong> csökkent. Az Ukrajna-kontextus ugyanezen az úton még meredekebben mozgott: a márciusi 1,47%-ról áprilisra 0,29%-ra — <strong>−{ukrDropPct}%</strong> egyetlen hónap alatt, a választás (2026.04.12) utáni hetekre.
+              A 2026.&nbsp;április&nbsp;12-i választás körüli két azonos hosszúságú, 65 napos ablakban a háború-tematikájú epizódok száma <strong>187-ről 70-re</strong>, a témát egyáltalán érintő magyar podcastok száma pedig <strong>87-ről 46-ra</strong> esett. Ami nem változott: a teljes magyar podcast-kibocsátás (6&nbsp;437&nbsp;→&nbsp;6&nbsp;590 epizód) és az aktív podcastok száma (764&nbsp;→&nbsp;707) — vagyis a piac nem szűkült, ugyanannyi epizód jelent meg, csak más témákról.
             </p>
             <p>
-              A választás körüli két azonos hosszúságú, 65 napos ablakban a kép letisztul: a háború-ráta <strong>2,91%-ról 1,06%-ra</strong> esett (−{PREPOST_WAR_DROP}%), a témát érintő magyar podcastok száma pedig <strong>87-ről 46-ra</strong> csökkent. Mindeközben a teljes magyar epizódkibocsátás gyakorlatilag változatlan maradt ({huInt(PREPOST.pre.total)} → {huInt(PREPOST.post.total)} epizód). Nem a piac fáradt el — a téma vesztett súlyából.
+              A havi bontás ugyanezt mutatja: a márciusi 169 háborús epizódról áprilisra 55-re, májusra 46-ra esett vissza a szám. Az Ukrajna-vonal még ennél is meredekebben mozgott — a márciusi 1,47%-os Ukrajna-ráta áprilisra 0,29%-ra zuhant, vagyis a választás utáni hetekben a magyar podcastok gyakorlatilag levették a napirendről az ukrán háborút.
             </p>
           </div>
           <DownloadableFigure filename="haboru-prepost-65-nap-valasztas">
