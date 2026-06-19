@@ -104,8 +104,9 @@ export default function HaboruTemaReport() {
             Podiverzum jelentés · {TODAY_LABEL}
           </div>
           <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight text-foreground">
-            A magyar podcast-hallgatók már a Trump–Irán megállapodás előtt elfordultak a háborús témáktól
+            A magyar podcast-hallgatók már a Trump–Irán ideiglenes paktum előtt elfordultak a háborús témáktól
           </h1>
+
           <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
             Miközben a világ figyelme ismét a Közel-Keletre irányul, a magyar podcast-hallgatók egyre kevésbé kíváncsiak a háborús témákra. A{" "}
             <a href="https://podiverzum.hu" className="underline hover:text-foreground">Podiverzum.hu</a>{" "}
