@@ -15,6 +15,7 @@ const EXPLORE = [
 
 const RESEARCH = [
   { to: "/jelentes/magyar-podcast-piac-2026", label: "Magyar podcast piac 2026" },
+  { to: "/jelentes/haboru-mint-tema-2026", label: "Háború mint téma 2026" },
 ];
 
 const BUSINESS = [
