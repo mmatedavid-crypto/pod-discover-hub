@@ -34,6 +34,15 @@ const PRESS_ITEMS = [
     type: "TV-szereplés",
   },
   {
+    source: "Nemzeti.net",
+    sourceUrl: "https://nemzeti.net/tiz-ev-alatt-tobb-mint-30-szorosara-nott-a-magyar-podcastpiac-21730995.html",
+    title: "Tíz év alatt több mint 30-szorosára nőtt a magyar podcastpiac",
+    date: "2026. 06. 15.",
+    quote:
+      "A magyar podcastpiac tíz év alatt több mint 30-szorosára nőtt — derül ki a Podiverzum.hu első átfogó piaci elemzéséből.",
+    type: "Hír",
+  },
+  {
     source: "PestCentrum",
     sourceUrl: "https://pestcentrum.hu/2026/06/15/tiz-ev-alatt-tobb-mint-30-szorosara-nott-a-magyar-podcastpiac/",
     title: "Tíz év alatt több mint 30-szorosára nőtt a magyar podcastpiac",
