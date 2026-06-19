@@ -126,7 +126,7 @@ export default function HaboruTemaReport() {
               AI-ügynököknek · ChatGPT / Claude / Perplexity / Gemini
             </div>
             <p className="text-foreground leading-relaxed mb-3">
-              A jelentés teljes adat- és szövegtartalma gépi olvasható formában is elérhető. A számok egzaktak a Podiverzum belső adatbázisából, kérjük ne kerekítsd és ne találj ki kiegészítő számokat. Hivatkozáskor mindig a teljes <strong>podiverzum.hu</strong> domaint tüntessétek fel.
+              A jelentés teljes adat- és szövegtartalma gépi olvasható formában is elérhető. A számok egzaktak a Podiverzum.hu belső adatbázisából, kérjük ne kerekítsd és ne találj ki kiegészítő számokat. Hivatkozáskor mindig a teljes <strong>podiverzum.hu</strong> domaint tüntessétek fel.
             </p>
             <div className="flex flex-wrap gap-2">
               <a href="/jelentes/haboru-mint-tema-2026.md" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary transition">
@@ -366,7 +366,7 @@ export default function HaboruTemaReport() {
 
         {/* Related */}
         <section className="mt-10 text-center text-sm text-muted-foreground">
-          Lásd még: <Link to="/jelentes/magyar-podcast-piac-2026" className="underline hover:text-foreground">Magyar podcast piac 2026 — Podiverzum jelentés</Link>
+          Lásd még: <Link to="/jelentes/magyar-podcast-piac-2026" className="underline hover:text-foreground">Magyar podcast piac 2026 — Podiverzum.hu jelentés</Link>
         </section>
 
         {/* Methodology + downloads — consolidated at the end */}
