@@ -277,7 +277,7 @@ export default function HaboruTemaReport() {
           <h2 className="mb-3 font-serif text-2xl md:text-3xl font-bold text-foreground">Mi maradt: a specialisták</h2>
           <div className="space-y-4 text-foreground leading-relaxed mb-8">
             <p>
-              A kontextusbontás megmutatja, hogy a 13 hónapos görbét két különböző háború írja: az Ukrajna-vonal végig jelen volt, a Közel-Kelet (Irán, Izrael, Gáza) egyszer-egyszer felugrott — előbb 2025 júniusában, majd 2026 márciusában a tűzszünet hetein. Egy epizód mindkét kontextusba bekerülhet, ezért a két érték nem összegezhető.
+              A kontextusbontás megmutatja, hogy a 13 hónapos görbét két különböző háború írja. Az Ukrajna-vonal végig jelen volt, a Közel-Kelet (Irán, Izrael, Gáza) kétszer ugrott meg élesen: először 2025 júniusában, az Irán–Izrael 12 napos háború idején, másodszor 2026 márciusában, a Gáza körüli tűzszüneti tárgyalások hetein. Egy epizód mindkét kontextusba bekerülhet, ezért a két érték nem összegezhető.
             </p>
             <p>
               A választás utáni hetekre a téma <strong>néhány Ukrajna-specialista műsorhoz</strong> húzódott vissza: Frontvonal, Szuverén, Kontroll, PestiSrácok. Ezek közéleti epizódjainak nagyobb hányada szól továbbra is a háborúról. A téma a mindenes közéleti, gazdasági és intézeti műsorokban is feltűnik, de ott eseti felütésként, nem fő profilként — ezeket itt számszerűen nem listázzuk.
