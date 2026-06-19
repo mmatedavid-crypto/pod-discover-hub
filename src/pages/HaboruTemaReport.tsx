@@ -97,7 +97,7 @@ export default function HaboruTemaReport() {
 
   return (
     <Layout>
-      <article className="mx-auto max-w-3xl px-4 pt-24 pb-8 md:pt-28 md:pb-12">
+      <article className="mx-auto max-w-3xl px-4 pt-28 pb-8 md:pt-32 md:pb-12">
         {/* Header */}
         <header className="mb-10 border-b border-border pb-8">
           <div className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
