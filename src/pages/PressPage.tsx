@@ -16,6 +16,15 @@ const PRESS_ITEMS = [
     type: "Hírközlemény",
   },
   {
+    source: "AI Magazin",
+    sourceUrl: "https://aimag.hu/2026/ai-podcast/mesterseges-intelligencia-podcastpiac/",
+    title: "Az AI adta a második legtöbb témát a hazai podcastpiacon",
+    date: "2026. 06. 19.",
+    quote:
+      "A magyar podcastpiac tíz év alatt több mint 30-szorosára nőtt — derül ki a Podiverzum.hu első átfogó piaci elemzéséből. Naponta átlagosan 73 új epizód jelenik meg, idén pedig várhatóan több mint 34 ezer új adás készül. A legnépszerűbb témák: politika, mesterséges intelligencia (AI) és mentális wellness.",
+    type: "Hír",
+  },
+  {
     source: "M1 / MédiaKlikk",
     sourceUrl: "https://mediaklikk.hu/kozelet/video/2026/06/17/ma-delutan-2026-06-17-i-adas-1425",
     title: "Ma délután 2026.06.17-i adás, 14:25",
