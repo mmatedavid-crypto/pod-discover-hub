@@ -115,6 +115,7 @@ export default function HaboruTemaReport() {
           </p>
           <p className="mt-4 text-base md:text-lg text-foreground leading-relaxed">
             A Podiverzum adatai szerint a magyar kínálati oldal már a nemzetközi rendezés előtt levette napirendjéről a háborút — mindenekelőtt az ukrán frontot. A háborús epizódok helyét a kínálatban egyre inkább gazdasági, technológiai, egészségügyi és életmódtémák veszik át.
+          </p>
           <div className="mt-4 text-sm text-muted-foreground">
             Adatforrás: <a href="https://podiverzum.hu" className="underline hover:text-foreground">Podiverzum.hu</a> indexelt magyar podcastkatalógus · 2025.06.01–2026.06.15 · Kínálati tematikus elemzés · Módszertan a cikk végén
           </div>
