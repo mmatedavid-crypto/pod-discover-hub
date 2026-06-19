@@ -158,14 +158,15 @@ export default function HaboruTemaReport() {
         <section className="mb-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InsightCard n={1}
-              title="Kis, de mérhető szelet"
-              body="A háború mint téma 13 hónap alatt havi átlagban a magyar podcastkínálat 2,28%-át adta — jelen volt, de soha nem dominált." />
+              title="Egy év, 748 háborús epizód"
+              body="2025 júniusa és 2026 júniusa között 748 magyar podcast-epizód foglalkozott közvetlenül a háborúval — havi átlagban 58, és minden hónapban legalább 25." />
             <InsightCard n={2}
-              title="Egy márciusi csúcs"
-              body="2026 márciusában a háború-ráta 5,16%-ra ugrott a Gáza/Hamasz-tűzszünet körüli hetekben — ez a 13 hónap maximuma." />
+              title="A kampányhajrá csúcsa"
+              body="2026 márciusában — a magyar országgyűlési választás kampányhajrájában — 169 háborús epizód jelent meg, a 13 hónap legmagasabb értéke." />
             <InsightCard n={3}
               title="A választás után törés"
-              body="A 2026.04.12-i választás előtti és utáni 65 napban a háború-ráta 2,91%-ról 1,06%-ra esett — miközben a kibocsátás nem változott." />
+              body="A 2026.04.12-i választás előtti és utáni 65 napban a háború-tematikájú epizódok száma 187-ről 70-re esett, miközben ugyanannyi magyar epizód jelent meg, mint korábban." />
+
           </div>
         </section>
 
