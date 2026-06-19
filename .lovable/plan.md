@@ -1,63 +1,86 @@
-## Mit csinálunk
+## Cél
 
-Két dolog, ahogy kérted:
+A `/jelentes/haboru-mint-tema-2026` ne adat-falként, hanem **egyetlen ívű sajtócikként** olvasódjon — a „Magyar podcast piac 2026" jelentés szerkezetét és hangját követve. Az adatokon és számokon **nem változtatunk**, csak a sorrenden, a tagoláson, a szövegen és azon, hogy mit emelünk vizuálisan ki.
 
-1. **Nem hagyjuk benn a zavaros rendszereket még read-only-ként sem.** Az `episodes.topics` tömb (100 270 epizód, kevert angol/magyar RSS+AI szemét) és az `episode_ai_classifications` tábla (131 623 sor, 79-elemes angol/magyar keverék taxonómia) **nem hivatkozható többet sehonnan a frontendből**. Maga az adat törlésre kerül kódból elérhető helyekről, a táblákat csak admin-only marad olvashatóként (RLS lezárás), hogy egy későbbi audithoz visszanézhető legyen — de a UI-ban és a publikus API-kban nem lesznek.
+## A jelenlegi probléma
 
-2. **Az `episode_extracted_topics` (134 774 sor, 28 166 epizód, 115 544 különböző label) klaszterezése.** Ez a rendszer minőségileg messze a legjobb (magyar, specifikus, evidence-alapú: „magyar péter” 121, „orbán viktor” 111, „orosz-ukrán háború” 87, „mesterséges intelligencia” 86, „önismeret” 57…). A baj csak az, hogy a long-tail miatt 115k variáns van. Ezt klaszterezzük le egy **kanonikus magyar témakészletre**, és **ez** lesz az egyetlen publikus tématár.
+- 4 hero-metrika + 5 chart szekció + 5 metodikai lábjegyzet egymás után, narratív kapcsolat nélkül.
+- Minden chart önállóan próbál „mindent megmondani" → ismétlődő számok (5,16% / −70% / 2,91% / 1,06% háromszor is megjelennek).
+- A módszertani magyarázatok a fejezetek közé ékelődnek, megakasztják az olvasást.
+- A „Top podcastok" tábla és a kontextus-chart önmagában nem visz előre a sztoriban.
 
-## Hogyan klaszterezünk (egyszerű, olcsó, determinisztikus)
+## Új szerkezet — 3 fejezet, egy ív
 
-Nem új AI futás kell. Két lépcsős, SQL + egy kicsi script:
+```
+HERO
+  H1 + lead (változatlan, már jóváhagyott)
+  → 1 sor under-lead: „Mit látunk 13 hónap adataiban?"
 
-**1. lépcső — determinisztikus összevonás (95% lefedettség, $0):**
-- normalizálás (lowercase, ékezet nélkül, szóköz-trim) — már megvan
-- lemmatizáció + szuffixum-levágás (`-ról/-ről/-ban/-ben/-ja/-je/-k` stb.)
-- alias-egyenértékűségek (`ai` = `mesterséges intelligencia` = `mi` = `gpt` = `llm`, `orbán` = `orbán viktor`, `oroszország háborúja` = `orosz-ukrán háború`, stb.)
-- ezek mind beleülnek a meglévő `topic_aliases` táblába
+[Insight-strip: 3 db kártya, mint a piac-jelentésben]
+  1. „A háború kis, de mérhető szelet" — 13 havi átlag 2,28%
+  2. „Egy márciusi csúcs uralja az évet" — 5,16%, Gáza/tűzszünet hetei
+  3. „A választás után törés jött" — pre 2,91% → post 1,06% (−64%)
 
-**2. lépcső — embedding-alapú klaszter a maradékra (~5k label, egyszeri ~$2):**
-- a már meglévő `google/gemini-embedding-001` (768d) modellel a top ~5000 maradék label embedjét legyártjuk
-- agglomeratív klaszterezés cosine ≥ 0.82 küszöbbel
-- minden klaszternek a leggyakoribb label lesz a **kanonikus magyar neve**
-- < 3 epizódot lefedő klaszterek mehetnek „long tail” bucketbe (nem indexálható)
+FEJEZET 1 — „Egy év, egy görbe" (sztori: a háború súlya hullámzott, de nem dominált)
+  → A 13 hónapos ráta-chart (megtartjuk, ez a fő vizuál)
+  → Alatta 2 rövid bekezdés: mit látunk hullámként, mikor volt csúcs, mikor mély
+  → 1 callout: „2026. március — minden idők csúcsa"
 
-A végeredmény: ~150-300 kanonikus magyar téma, mindegyikhez slug, leírás, és tényleges, evidence-alapú epizód-lefedettség.
+FEJEZET 2 — „A választás előtt és után" (a cikk lényege, ez a hír)
+  → Pre/post 65 napos összevetés (megtartjuk, ez a második fő vizuál)
+  → Új súlyozás: ez a fejezet kapja a legtöbb prózát, mert ez a hír
+  → 2 bekezdés narratíva: a Gáza-tűzszünet körüli márciusi csúcs után
+    áprilisban beomlott az Ukrajna-vonal (−80%), és a választás
+    utáni 65 napban a téma fele annyi műsornál maradt napirenden
+  → 1 callout: „87 → 46 podcast" — ez az emberi szám, nem a ráta
 
-## Mit írunk át / törlünk
+FEJEZET 3 — „Mi maradt: a specialisták" (kontextus + kik viszik tovább)
+  → Ukrajna vs. Közel-Kelet havi chart EGYSZERŰSÍTVE
+    (a 2-soros bar/hónap helyett egy vékony line/area, kevésbé domináns)
+  → Top 3-5 podcast rövid listában (nem nagy táblaként), prózai
+    bevezetővel: „A téma 2026 nyarára néhány Ukrajna-specialista
+    műsorhoz húzódott vissza."
 
-**Adatbázis (migráció):**
-- új `topic_clusters` tábla (cluster_id, canonical_label_hu, slug, episode_count, is_indexable) — ÉS a kötelező GRANT-ek
-- új `episode_topic_cluster_map` (episode_id, cluster_id, confidence) — szintén GRANT-ek
-- `topics` + `episode_topic_map` (a régi 79-elemes kanonikus tábla) marad, de **a klaszter-eredmények ide is feltöltődnek** (egy forrás)
-- RLS lezárás: `episode_ai_classifications` és `episode_extracted_topics` csak `service_role` SELECT — anon/authenticated nem érheti el
-- `episodes.topics` oszlop nem törlődik fizikailag (drága lenne), de a publikus selectekből kivesszük
+ZÁRÁS — „Mit jelent ez?" (1 bekezdés, kb. 5-6 mondat)
+  Egységes prózai konklúzió a jelenlegi 3 különálló Callout helyett.
+  Megfogalmazás: a háború súlya a kínálatban követte a kampány
+  ritmusát, a választás után visszafogottabb téma lett — a Podiverzum
+  katalógusa lehetővé teszi az ilyen elmozdulások mérését.
 
-**Frontend (csak ezek):**
-- `src/components/EpisodeCard.tsx`: téma-chipek forrása `episode_topic_cluster_map` JOIN `topic_clusters`-en — semmi más
-- `src/lib/episodeUnderstanding.ts`: `topics` mező onnan
-- `src/lib/aggregateEntities.ts`: ugyanonnan
-- `src/pages/TopicDetailPage.tsx` + `TopicsHubPage.tsx`: új klaszterek
-- `src/components/PodcastEntitiesCompact.tsx`: ugyanezt használja
-- a `PodcastReport2026.tsx` riport végleges adatai a klaszterekre építve
+CTA (változatlan, már javítva: /temak/haboru)
 
-**Backend pipelines:**
-- `episode-topic-extractor` marad **leállítva** amíg nincs új ep tömege (~1 hetente futtatjuk csak az új epizódokra, batch)
-- új edge: `topic-cluster-runner` — egyszeri klaszterezés, futtatható kézzel, eredménye perzisztens
-- `episode-ai-classifier` runner archiválva, nem fut többet
+A jelentésről (boilerplate, változatlan)
 
-## Sorrend, kb. időigény
+Módszertan + letöltések
+  → Egy összevont, kinyitható szekció a végén (jelenleg 5 lábjegyzet
+    a chart-ok közé szórva — ezeket itt összegyűjtjük).
+  → Letöltés gombok (.md, .json) ide kerülnek a heroból, hogy a hero
+    tisztább legyen.
+```
 
-1. Migráció: `topic_clusters` + `episode_topic_cluster_map` + RLS-zár + GRANT-ek — ~10 perc
-2. `topic-cluster-runner` edge function (determinisztikus szakasz + embedding-szakasz) — ~30 perc
-3. Egyszeri futtatás, eredmény ellenőrzése admin oldalon — ~20 perc (a klaszterezés futása maga ~10-15 perc, ~$2)
-4. Frontend átállítása a fenti 5 fájlban — ~20 perc
-5. Riport (`PodcastReport2026`) regenerálás a klaszter-számokból — ~10 perc
+## Mit törlünk / olvasztunk össze
 
-**Összesen kb. 1,5 óra munkám, + ~$2 AI költség.** Visszafordítható (a régi táblák megmaradnak), de a UI-ban ettől kezdve **egyetlen** rendszer szolgáltatja a témákat.
+- A 4 hero-metrika kártyát (havi átlag / márciusi csúcs / májusi mélypont / pre-post) **kivesszük a heroból** — ezek a számok beépülnek a 3 fejezet prózájába és az insight-stripbe. Hero = H1 + lead + 1 mondat, semmi más.
+- A módszertani kis-lábjegyzeteket a chart-ok alól töröljük; **egyetlen** „Módszertan" szekció lesz a cikk végén.
+- A jelenlegi „Mit jelent mindez?" 3 különálló Callout helyett **egy bekezdés** zárás.
+- Top-podcastok tábla → szöveges felsorolás 3-5 névvel, hogy ne nyomja agyon a 3. fejezetet.
 
-## Mit nem csinálunk meg
+## Mit NEM változtatunk
 
-- Nem nyúlunk a person/organization rendszerekhez (azok rendben vannak).
-- Nem futtatunk újra Gemini-vel olyat, ami már le van futtatva — pont ezt akarjuk kiküszöbölni.
-- Nem írom át a keresőt vagy a ranking-et, csak a téma-réteget.
+- Az összes szám, dátum, százalék, podcast-név.
+- A már jóváhagyott H1 és lead.
+- A CTA célpontja (`/temak/haboru`).
+- A JSON-LD és SEO meta-adatok.
+- A letölthető .md / .json fájlok tartalma.
+- Az AI-ügynök kártya hidden marad.
+
+## Technikai
+
+- Egyetlen fájl: `src/pages/HaboruTemaReport.tsx`.
+- A `DownloadableFigure`, `Callout`, `InsightCard`, `huNum`/`huInt` helperek és a `MONTHS` / `PREPOST` / `TOP_PODS` adat-objektumok érintetlenek — csak újrarendezzük őket.
+- A pre/post chart az új súlyozás miatt vizuálisan picit nagyobb hangsúlyt kap (nem új komponens, csak elsőre kerül a fejezet élére).
+- Az Ukrajna vs. Közel-Kelet chart komponens helyett egy egyszerűbb, kompaktabb vizuál (kis havi sávok két színnel egymás alatt — ugyanaz a `DownloadableFigure` keret).
+
+## Eredmény
+
+Kb. ugyanannyi adat, fele annyi „nézzd a chartot" pillanat, és **egy összefüggő, hírré olvasható szöveg** — pont olyan stílus, mint a piac-jelentés.
