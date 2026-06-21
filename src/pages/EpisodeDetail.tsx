@@ -131,53 +131,84 @@ export default function EpisodeDetail() {
           subtitle: p.display_title || p.title,
           image: e.image_url || p.image_url,
         }),
-        jsonLd: !isAcceptedHungarian ? undefined : [
-          {
+        jsonLd: !isAcceptedHungarian ? undefined : (() => {
+          const publishedIso = e.published_at ? new Date(e.published_at).toISOString() : undefined;
+          const ageHours = e.published_at ? (Date.now() - new Date(e.published_at).getTime()) / 3600000 : Infinity;
+          // Google News surfaces NewsArticle-tagged pages. We mark fresh (≤48h) HU
+          // episodes — the same window used by news-sitemap.xml — as NewsArticle so
+          // the publisher pipeline (sitemap → bot fetch → schema → News index) is
+          // end-to-end consistent. Older episodes stay as PodcastEpisode only.
+          const headline = (e.display_title || e.title || "").toString().slice(0, 110);
+          const articleImage = e.image_url || p.image_url || undefined;
+          const newsArticle = ageHours <= 48 && publishedIso && headline ? [{
             "@context": "https://schema.org",
-            "@type": "PodcastEpisode",
-            name: e.title,
+            "@type": "NewsArticle",
+            headline,
             description: safeSeoDescription || bestDesc || undefined,
-            datePublished: e.published_at || undefined,
-            timeRequired: toIsoDuration(e.duration_seconds) || undefined,
+            datePublished: publishedIso,
+            dateModified: publishedIso,
             url: canonical,
             mainEntityOfPage: canonical,
-            image: e.image_url || p.image_url || undefined,
             inLanguage: "hu-HU",
             isAccessibleForFree: true,
-            partOfSeries: {
-              "@type": "PodcastSeries",
-              name: p.title,
-              inLanguage: "hu-HU",
-              image: p.image_url || undefined,
+            image: articleImage ? [articleImage] : undefined,
+            articleSection: p.display_title || p.title || "Podcast",
+            author: {
+              "@type": "Organization",
+              name: p.display_title || p.title || "Podiverzum",
               url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
-              webFeed: p.rss_url || undefined,
             },
-            associatedMedia: e.audio_url
-              ? {
-                  "@type": "AudioObject",
-                  contentUrl: e.audio_url,
-                  duration: toIsoDuration(e.duration_seconds) || undefined,
-                  encodingFormat: "audio/mpeg",
-                }
-              : undefined,
-            potentialAction: e.audio_url
-              ? { "@type": "ListenAction", target: e.audio_url }
-              : undefined,
-            uploadDate: e.published_at || undefined,
-            hasPart: moments.length
-              ? moments.map((m) => ({
-                  "@type": "Clip",
-                  name: m.label,
-                  startOffset: m.timeSec,
-                }))
-              : undefined,
-          },
-          breadcrumbJsonLd([
-            { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-            { name: p.display_title || p.title, url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : `/podcast/${p.slug}` },
-            { name: e.display_title || e.title, url: typeof window !== "undefined" ? window.location.href : "" },
-          ]),
-        ],
+            publisher: sitePublisherJsonLd(),
+          }] : [];
+          return [
+            ...newsArticle,
+            {
+              "@context": "https://schema.org",
+              "@type": "PodcastEpisode",
+              name: e.title,
+              description: safeSeoDescription || bestDesc || undefined,
+              datePublished: e.published_at || undefined,
+              timeRequired: toIsoDuration(e.duration_seconds) || undefined,
+              url: canonical,
+              mainEntityOfPage: canonical,
+              image: e.image_url || p.image_url || undefined,
+              inLanguage: "hu-HU",
+              isAccessibleForFree: true,
+              partOfSeries: {
+                "@type": "PodcastSeries",
+                name: p.title,
+                inLanguage: "hu-HU",
+                image: p.image_url || undefined,
+                url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
+                webFeed: p.rss_url || undefined,
+              },
+              associatedMedia: e.audio_url
+                ? {
+                    "@type": "AudioObject",
+                    contentUrl: e.audio_url,
+                    duration: toIsoDuration(e.duration_seconds) || undefined,
+                    encodingFormat: "audio/mpeg",
+                  }
+                : undefined,
+              potentialAction: e.audio_url
+                ? { "@type": "ListenAction", target: e.audio_url }
+                : undefined,
+              uploadDate: e.published_at || undefined,
+              hasPart: moments.length
+                ? moments.map((m) => ({
+                    "@type": "Clip",
+                    name: m.label,
+                    startOffset: m.timeSec,
+                  }))
+                : undefined,
+            },
+            breadcrumbJsonLd([
+              { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
+              { name: p.display_title || p.title, url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : `/podcast/${p.slug}` },
+              { name: e.display_title || e.title, url: typeof window !== "undefined" ? window.location.href : "" },
+            ]),
+          ];
+        })(),
       });
 
       const { data: mp } = await supabase
