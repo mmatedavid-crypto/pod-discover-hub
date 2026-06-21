@@ -2067,6 +2067,85 @@ async function buildCategoriesHub(supabase: ReturnType<typeof createClient>) {
   })), { headers: new Headers(baseHeaders) });
 }
 
+// ---------- /toplista hub ----------
+// A /toplista a napi platform-fúziós (Apple + Spotify + YouTube) rangsor — NEM
+// az összes magyar podcast listája. A teljes katalógus a /podcastok/abc A–Z
+// indexen, illetve a /podcastok minőségi rangsorán érhető el.
+
+async function buildToplistaHub(supabase: ReturnType<typeof createClient>) {
+  const { data } = await (supabase as any).rpc("get_trending_podcasts", { p_limit: 100 });
+  const rows = ((data ?? []) as Array<Record<string, any>>).filter((r) => r && r.slug);
+  if (!rows.length) return null;
+
+  const canonical = `${SITE}/toplista`;
+  const title = "Magyar podcast toplista — Apple, Spotify, YouTube fúzió | Podiverzum";
+  const desc = "Az első magyar abszolút podcast toplista: az Apple Podcasts, Spotify és YouTube toplistáit fúzionáljuk egyetlen rangsorba. Naponta frissül.";
+
+  const snapshot = rows[0]?.snapshot_at as string | undefined;
+  const snapshotLabel = snapshot
+    ? new Date(snapshot).toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" })
+    : "";
+
+  const intro = `<p>A <strong>Podiverzum Toplista</strong> az Apple Podcasts, Spotify és YouTube hivatalos napi magyar toplistáit egyetlen rangsorba fúzionálja. A lista <strong>nem</strong> a teljes magyar podcast-katalógus — csak azok a műsorok kerülnek rá, amelyek legalább egy platform toplistáján szerepelnek. A teljes, ${rows.length}-nél jóval nagyobb katalógust a <a href="/podcastok">Magyar podcastek</a> minőségi listán és a <a href="/podcastok/abc">A–Z indexen</a> böngészheted.</p>
+<p>A rangsorolás trending-pontszámon alapul, amely a platformokon elért helyezéseket és a több platformon való jelenlétet súlyozza. Részletes módszertan a <a href="/modszertan">Módszertan</a> oldalon.${snapshotLabel ? ` Utolsó frissítés: <strong>${esc(snapshotLabel)}</strong>.` : ""}</p>`;
+
+  const listHtml = rows.map((p, i) => {
+    const u = `${SITE}/podcast/${p.slug}`;
+    const sources = Array.isArray(p.sources)
+      ? (p.sources as Array<{ source: string; rank: number }>)
+          .map((s) => `${s.source} #${s.rank}`).join(", ")
+      : "";
+    return `<li><a href="${esc(u)}"><strong>${i + 1}. ${esc(p.display_title || p.title)}</strong></a>${p.category ? ` <em>· ${esc(p.category)}</em>` : ""}${sources ? `<p>Platform-helyezések: ${esc(sources)}</p>` : ""}</li>`;
+  }).join("");
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Magyar podcast toplista",
+    numberOfItems: rows.length,
+    itemListElement: rows.map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE}/podcast/${p.slug}`,
+      name: p.display_title || p.title,
+    })),
+  };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Toplista", item: canonical },
+    ],
+  };
+  const collection = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Magyar podcast toplista",
+    description: desc,
+    url: canonical,
+    inLanguage: "hu-HU",
+    isAccessibleForFree: true,
+    ...(snapshot ? { dateModified: snapshot } : {}),
+  };
+
+  return new Response(new TextEncoder().encode(shell({
+    title,
+    description: desc,
+    canonical,
+    jsonLd: [collection, itemList, breadcrumb],
+    bodyHtml: `<header><h1>Magyar podcast toplista</h1>${intro}</header>
+<main><h2>Top ${rows.length} — platform-fúziós rangsor</h2><ol>${listHtml}</ol></main>
+<aside><h2>Tovább a Podiverzumban</h2><ul>
+<li><a href="/podcastok">Magyar podcastek — minőségi rangsor</a></li>
+<li><a href="/podcastok/abc">Teljes A–Z katalógus</a></li>
+<li><a href="/uj-podcastok">Új podcastek</a></li>
+<li><a href="/kategoriak">Kategóriák</a></li>
+<li><a href="/temak">Témák</a></li>
+</ul></aside>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
 // ---------- router ----------
 
 // HU ↔ EN route aliases. The Cloudflare worker should 301 legacy aliases before
