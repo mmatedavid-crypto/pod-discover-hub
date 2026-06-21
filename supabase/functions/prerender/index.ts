@@ -513,7 +513,14 @@ async function buildPodcast(
 
   const displayName = pod.display_title || pod.title;
   const epCount = totalEpisodeCount ?? eps.length;
-  const title = `${displayName} – ${epCount} epizód · podcast | Podiverzum`;
+  // SEO: prioritise "[show name] podcast" keyword pattern in title so Google
+  // can match queries like "Partizán podcast" or "Friderikusz podcast" directly.
+  const nameLower = String(displayName).toLowerCase();
+  const alreadyHasPodcast = /\bpodcast\b/.test(nameLower);
+  const seoNameWithKeyword = alreadyHasPodcast ? displayName : `${displayName} podcast`;
+  const title = epCount
+    ? `${seoNameWithKeyword} – ${epCount} epizód, AI-összefoglalók | Podiverzum`
+    : `${seoNameWithKeyword} – epizódok és AI-összefoglalók | Podiverzum`;
   const organizationCounts = new Map<string, number>();
   for (const ep of eps) {
     for (const org of Array.isArray(ep.companies) ? ep.companies : []) {
@@ -533,8 +540,12 @@ async function buildPodcast(
   const hostLine = hostNamesForSeo.length
     ? `Műsorvezető: ${hostNamesForSeo.join(", ")}.`
     : "";
-  const baseDesc = firstSentence(pod.description || pod.summary || pod.seo_description)
-    || `${displayName} podcast epizódjai a Podiverzumon.`;
+  // Lead with "[show name] podcast" so the meta description matches the
+  // typical Hungarian Google query pattern.
+  const sourceDesc = firstSentence(pod.description || pod.summary || pod.seo_description) || "";
+  const baseDesc = sourceDesc
+    ? `${seoNameWithKeyword} — ${sourceDesc}`
+    : `${seoNameWithKeyword} — minden epizód, AI-összefoglalók és kereshető tartalom a Podiverzumon.`;
   const desc = podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
   const canonical = `${SITE}/podcast/${pod.slug}`;
 
@@ -590,7 +601,7 @@ async function buildPodcast(
       ogImage: pod.image_url,
       jsonLd: [series, itemList, breadcrumb],
       bodyHtml: `<article>
-<header><h1>${esc(pod.display_title || pod.title)}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}</header>
+<header><h1>${esc(pod.display_title || pod.title)}${alreadyHasPodcast ? "" : " podcast"}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}<p><strong>${esc(seoNameWithKeyword)}</strong>${epCount ? ` — ${epCount} epizód` : ""} a Podiverzumon. Hallgasd online, böngészd a kereshető AI-összefoglalókat, az említett személyeket és témákat.</p></header>
 ${longDesc ? `<section><h2>A műsorról</h2><p>${esc(longDesc)}</p></section>` : ""}
 <section><h2>Epizódok</h2><ul>${epHtml}</ul></section>
 ${yearArchiveHtml}
