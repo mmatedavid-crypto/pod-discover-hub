@@ -696,7 +696,9 @@ async function buildEpisode(
       image: pod.image_url || undefined,
       inLanguage: "hu-HU",
       webFeed: pod.rss_url || undefined,
+      publisher: sitePublisherJsonLd(),
     },
+    publisher: sitePublisherJsonLd(),
     potentialAction: ep.audio_url
       ? { "@type": "ListenAction", target: ep.audio_url }
       : undefined,
@@ -706,8 +708,9 @@ async function buildEpisode(
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Kezdőlap", item: SITE },
-      { "@type": "ListItem", position: 2, name: pod.display_title || pod.title, item: `${SITE}/podcast/${pod.slug}` },
-      { "@type": "ListItem", position: 3, name: ep.display_title || ep.title, item: canonical },
+      { "@type": "ListItem", position: 2, name: "Podcastek", item: `${SITE}/toplista` },
+      { "@type": "ListItem", position: 3, name: pod.display_title || pod.title, item: `${SITE}/podcast/${pod.slug}` },
+      { "@type": "ListItem", position: 4, name: ep.display_title || ep.title, item: canonical },
     ],
   };
 
