@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, CalendarDays, ArrowLeft, Sparkles, Clock } from "lucide-react";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
+import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 import { formatDurationHu, toIsoDuration } from "@/lib/duration";
 import NotFoundState from "@/components/NotFoundState";
 import { pickEpisodeDescription } from "@/lib/episodeText";
