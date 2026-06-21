@@ -2182,6 +2182,10 @@ Deno.serve(async (req) => {
         const r = await buildCategoriesHub(supabase);
         return r ?? notFound(path);
       }
+      if (parts[0] === "toplista") {
+        const r = await buildToplistaHub(supabase);
+        return r ?? notFound(path);
+      }
       const hubs: Record<string, HubKind> = {
         podcastok: "podcastok",
         szemelyek: "szemelyek",
