@@ -696,7 +696,9 @@ async function buildEpisode(
       image: pod.image_url || undefined,
       inLanguage: "hu-HU",
       webFeed: pod.rss_url || undefined,
+      publisher: sitePublisherJsonLd(),
     },
+    publisher: sitePublisherJsonLd(),
     potentialAction: ep.audio_url
       ? { "@type": "ListenAction", target: ep.audio_url }
       : undefined,
