@@ -2041,6 +2041,10 @@ Deno.serve(async (req) => {
 
     // Single-segment SEO hubs.
     if (parts.length === 1) {
+      if (parts[0] === "kategoriak") {
+        const r = await buildCategoriesHub(supabase);
+        return r ?? notFound(path);
+      }
       const hubs: Record<string, HubKind> = {
         podcastok: "podcastok",
         szemelyek: "szemelyek",
