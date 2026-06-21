@@ -601,7 +601,7 @@ async function buildPodcast(
       ogImage: pod.image_url,
       jsonLd: [series, itemList, breadcrumb],
       bodyHtml: `<article>
-<header><h1>${esc(pod.display_title || pod.title)}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}</header>
+<header><h1>${esc(pod.display_title || pod.title)}${alreadyHasPodcast ? "" : " podcast"}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}<p><strong>${esc(seoNameWithKeyword)}</strong>${epCount ? ` — ${epCount} epizód` : ""} a Podiverzumon. Hallgasd online, böngészd a kereshető AI-összefoglalókat, az említett személyeket és témákat.</p></header>
 ${longDesc ? `<section><h2>A műsorról</h2><p>${esc(longDesc)}</p></section>` : ""}
 <section><h2>Epizódok</h2><ul>${epHtml}</ul></section>
 ${yearArchiveHtml}
