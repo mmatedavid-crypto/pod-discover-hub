@@ -7,6 +7,15 @@ import { Newspaper, ExternalLink } from "lucide-react";
 
 const PRESS_ITEMS = [
   {
+    source: "Rakéta",
+    sourceUrl: "https://raketa.hu/a-haboruval-foglalkozo-podcastmusorok-szama-jelentosen-csokkent",
+    title: "Egy friss felmérés szerint jelentősen csökkent a háborúval foglalkozó podcastműsorok száma",
+    date: "2026. 06. 21.",
+    quote:
+      "A Podiverzum.hu friss elemzése szerint a 2026. április 12-i magyar országgyűlési választást követő 65 napban 64 százalékkal esett a háborúval foglalkozó epizódok aránya a magyar podcast-kínálatban, miközben a teljes epizódszám gyakorlatilag változatlan maradt.",
+    type: "Hír",
+  },
+  {
     source: "MTI",
     sourceUrl: "https://mti.hu/nemzeti-kozlemenytar/2026/06/19/valasztas-utan-64-szazalekkal-kevesebb-haborus-epizod-temat",
     title: "A választás után 64 százalékkal kevesebb háborús epizód — témát váltottak a magyar podcastok",
