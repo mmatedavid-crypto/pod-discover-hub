@@ -2009,6 +2009,64 @@ ${tagsHtml ? `<section><h2>Címkék</h2><ul>${tagsHtml}</ul></section>` : ""}
   );
 }
 
+// ---------- /kategoriak hub ----------
+
+async function buildCategoriesHub(supabase: ReturnType<typeof createClient>) {
+  const { data } = await (supabase as any)
+    .from("categories")
+    .select("name, slug, description")
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+  const rows = (data ?? []) as Array<{ name: string; slug: string; description: string | null }>;
+  if (!rows.length) return null;
+
+  const canonical = `${SITE}/kategoriak`;
+  const title = "Podcast kategóriák — Podiverzum";
+  const desc = "Böngészd a magyar podcastokat nagy műfaji és tartalmi területek szerint: hírek, üzlet, tech, tudomány, sport, kultúra és sok más.";
+
+  const html = rows.map((c) => {
+    const d = stripHtml(c.description || "");
+    return `<li><a href="/kategoria/${esc(c.slug)}"><strong>${esc(c.name)}</strong></a>${d ? ` — ${esc(truncate(d, 180))}` : ""}</li>`;
+  }).join("");
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Podcast kategóriák",
+    numberOfItems: rows.length,
+    itemListElement: rows.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE}/kategoria/${c.slug}`,
+      name: c.name,
+    })),
+  };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Kategóriák", item: canonical },
+    ],
+  };
+
+  const intro = `<p>A <strong>Podiverzum</strong> ${rows.length} műfaji és tartalmi kategóriába rendezi a magyar podcast-világot. Minden kategórián belül megtalálod a legaktívabb műsorokat és a friss epizódokat. Témánkénti bontásért lásd a <a href="/temak">Témák</a> hubot, közéleti szereplőkért a <a href="/szemelyek">Személyek</a> oldalt.</p>`;
+
+  return new Response(new TextEncoder().encode(shell({
+    title,
+    description: desc,
+    canonical,
+    jsonLd: [itemList, breadcrumb],
+    bodyHtml: `<header><h1>Podcast kategóriák</h1>${intro}</header>
+<main><h2>Összes kategória (${rows.length})</h2><ul>${html}</ul></main>
+<aside><h2>Tovább a Podiverzumban</h2><ul>
+<li><a href="/toplista">Toplista — top magyar podcastek</a></li>
+<li><a href="/temak">Témák hub</a></li>
+<li><a href="/uj-podcastok">Új podcastek</a></li>
+</ul></aside>`,
+  })), { headers: new Headers(baseHeaders) });
+}
+
 // ---------- router ----------
 
 // HU ↔ EN route aliases. The Cloudflare worker should 301 legacy aliases before
