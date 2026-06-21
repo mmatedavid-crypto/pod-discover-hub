@@ -513,7 +513,14 @@ async function buildPodcast(
 
   const displayName = pod.display_title || pod.title;
   const epCount = totalEpisodeCount ?? eps.length;
-  const title = `${displayName} – ${epCount} epizód · podcast | Podiverzum`;
+  // SEO: prioritise "[show name] podcast" keyword pattern in title so Google
+  // can match queries like "Partizán podcast" or "Friderikusz podcast" directly.
+  const nameLower = String(displayName).toLowerCase();
+  const alreadyHasPodcast = /\bpodcast\b/.test(nameLower);
+  const seoNameWithKeyword = alreadyHasPodcast ? displayName : `${displayName} podcast`;
+  const title = epCount
+    ? `${seoNameWithKeyword} – ${epCount} epizód, AI-összefoglalók | Podiverzum`
+    : `${seoNameWithKeyword} – epizódok és AI-összefoglalók | Podiverzum`;
   const organizationCounts = new Map<string, number>();
   for (const ep of eps) {
     for (const org of Array.isArray(ep.companies) ? ep.companies : []) {
@@ -533,8 +540,12 @@ async function buildPodcast(
   const hostLine = hostNamesForSeo.length
     ? `Műsorvezető: ${hostNamesForSeo.join(", ")}.`
     : "";
-  const baseDesc = firstSentence(pod.description || pod.summary || pod.seo_description)
-    || `${displayName} podcast epizódjai a Podiverzumon.`;
+  // Lead with "[show name] podcast" so the meta description matches the
+  // typical Hungarian Google query pattern.
+  const sourceDesc = firstSentence(pod.description || pod.summary || pod.seo_description) || "";
+  const baseDesc = sourceDesc
+    ? `${seoNameWithKeyword} — ${sourceDesc}`
+    : `${seoNameWithKeyword} — minden epizód, AI-összefoglalók és kereshető tartalom a Podiverzumon.`;
   const desc = podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
   const canonical = `${SITE}/podcast/${pod.slug}`;
 
