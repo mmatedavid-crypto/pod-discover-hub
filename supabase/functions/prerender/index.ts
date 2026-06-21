@@ -571,6 +571,15 @@ async function buildPodcast(
       name: e.title,
     })),
   };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Podcastek", item: `${SITE}/toplista` },
+      { "@type": "ListItem", position: 3, name: displayName, item: canonical },
+    ],
+  };
 
   const longDesc = stripHtml(pod.description || pod.summary);
 
@@ -579,7 +588,7 @@ async function buildPodcast(
       description: desc,
       canonical,
       ogImage: pod.image_url,
-      jsonLd: [series, itemList],
+      jsonLd: [series, itemList, breadcrumb],
       bodyHtml: `<article>
 <header><h1>${esc(pod.display_title || pod.title)}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}</header>
 ${longDesc ? `<section><h2>A műsorról</h2><p>${esc(longDesc)}</p></section>` : ""}
