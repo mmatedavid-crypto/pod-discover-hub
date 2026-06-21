@@ -691,13 +691,42 @@ async function buildEpisode(
     ],
   };
 
+  // Google News pipeline: tag fresh (≤48h) HU episodes as NewsArticle so the
+  // news-sitemap → Googlebot fetch → structured-data chain is consistent.
+  // Mirrors the client-side SPA markup in src/pages/EpisodeDetail.tsx so the
+  // prerender (which is what crawlers actually parse) carries the same schema.
+  const publishedMs = ep.published_at ? new Date(ep.published_at).getTime() : NaN;
+  const ageHours = Number.isFinite(publishedMs) ? (Date.now() - publishedMs) / 3600000 : Infinity;
+  const headline = String(ep.display_title || ep.title || "").slice(0, 110);
+  const articleImage = ep.image_url || pod.image_url || undefined;
+  const newsArticle = isAcceptedHungarian && ageHours <= 48 && headline && ep.published_at ? {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline,
+    description: longText || undefined,
+    datePublished: new Date(publishedMs).toISOString(),
+    dateModified: new Date(publishedMs).toISOString(),
+    url: canonical,
+    mainEntityOfPage: canonical,
+    inLanguage: "hu-HU",
+    isAccessibleForFree: true,
+    image: articleImage ? [articleImage] : undefined,
+    articleSection: pod.display_title || pod.title || "Podcast",
+    author: {
+      "@type": "Organization",
+      name: pod.display_title || pod.title || "Podiverzum",
+      url: `${SITE}/podcast/${pod.slug}`,
+    },
+    publisher: sitePublisherJsonLd(),
+  } : null;
+
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage: ep.image_url || pod.image_url,
       ogType: "article",
-      jsonLd: isAcceptedHungarian ? [ld, breadcrumbs] : [],
+      jsonLd: isAcceptedHungarian ? (newsArticle ? [newsArticle, ld, breadcrumbs] : [ld, breadcrumbs]) : [],
       noindex: !isAcceptedHungarian,
       bodyHtml: `<article>
 <header>
