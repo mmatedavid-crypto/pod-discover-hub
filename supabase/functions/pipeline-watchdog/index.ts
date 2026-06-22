@@ -128,7 +128,21 @@ function evaluateRunner(
   }
 
   // RULE 4: stale runner (warn only — runner hasn't reported in cadence × 6)
-  if (progress?.last_run_at) {
+  // Skip if the runner's queue is drained: an idle runner that legitimately backs off
+  // its adaptive cron (e.g. */30) when there's no work should NOT trip stale alerts.
+  const pendingHint =
+    num(progress?.pending_missing) +
+    num(progress?.pending) +
+    num(progress?.pending_count) +
+    num(progress?.queue_pending);
+  const hasPendingField =
+    progress && (
+      "pending_missing" in progress ||
+      "pending" in progress ||
+      "pending_count" in progress ||
+      "queue_pending" in progress
+    );
+  if (progress?.last_run_at && !(hasPendingField && pendingHint === 0)) {
     const last = new Date(progress.last_run_at).getTime();
     const ageMin = (Date.now() - last) / 60000;
     const staleThreshold = Math.max(staleLockMinutes, runner.cadence_minutes * 6);
@@ -142,6 +156,7 @@ function evaluateRunner(
       });
     }
   }
+
 
   return results;
 }
