@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { setSeo } from "@/lib/seo";
 import { publisherAddressLine, SITE_PUBLISHER, sitePublisherJsonLd } from "@/lib/sitePublisher";
+import introVideo from "@/assets/podiverzum-intro.mp4.asset.json";
+import introPoster from "@/assets/podiverzum-intro-poster.jpg.asset.json";
 
 export default function AboutPage() {
   useEffect(() => {
