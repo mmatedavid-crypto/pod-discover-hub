@@ -722,11 +722,14 @@ async function buildEpisode(
   const ageHours = Number.isFinite(publishedMs) ? (Date.now() - publishedMs) / 3600000 : Infinity;
   const headline = String(ep.display_title || ep.title || "").slice(0, 110);
   const articleImage = ep.image_url || pod.image_url || undefined;
+  const podName = pod.display_title || pod.title || "Podiverzum";
   const newsArticle = isAcceptedHungarian && ageHours <= 48 && headline && ep.published_at ? {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     headline,
     description: longText || undefined,
+    // articleBody is a strong Google News structured-data ranking signal.
+    articleBody: longText || headline,
     datePublished: new Date(publishedMs).toISOString(),
     dateModified: new Date(publishedMs).toISOString(),
     url: canonical,
@@ -734,12 +737,14 @@ async function buildEpisode(
     inLanguage: "hu-HU",
     isAccessibleForFree: true,
     image: articleImage ? [articleImage] : undefined,
-    articleSection: pod.display_title || pod.title || "Podcast",
-    author: {
-      "@type": "Organization",
-      name: pod.display_title || pod.title || "Podiverzum",
+    articleSection: podName,
+    // Google News prefers Person-typed authors with a concrete name on the
+    // byline; podcast shows are credited per editorial convention.
+    author: [{
+      "@type": "Person",
+      name: podName,
       url: `${SITE}/podcast/${pod.slug}`,
-    },
+    }],
     publisher: sitePublisherJsonLd(),
   } : null;
 
