@@ -9,18 +9,34 @@ import introPoster from "@/assets/podiverzum-intro-poster.jpg.asset.json";
 
 export default function AboutPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [muted, setMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [needsPlay, setNeedsPlay] = useState(false);
 
-  const toggleMute = () => {
+  useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const next = !muted;
-    v.muted = next;
-    if (!next) {
-      v.volume = 1;
-      v.play().catch(() => {});
+    const promise = v.play();
+    if (promise !== undefined) {
+      promise
+        .then(() => setIsPlaying(true))
+        .catch(() => setNeedsPlay(true));
     }
-    setMuted(next);
+  }, []);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play()
+        .then(() => {
+          setIsPlaying(true);
+          setNeedsPlay(false);
+        })
+        .catch(() => {});
+    } else {
+      v.pause();
+      setIsPlaying(false);
+    }
   };
 
   useEffect(() => {
