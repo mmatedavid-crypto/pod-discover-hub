@@ -1,12 +1,28 @@
 import Layout from "@/components/Layout";
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { publisherAddressLine, SITE_PUBLISHER, sitePublisherJsonLd } from "@/lib/sitePublisher";
 import introVideo from "@/assets/podiverzum-intro.mp4.asset.json";
 import introPoster from "@/assets/podiverzum-intro-poster.jpg.asset.json";
 
 export default function AboutPage() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [muted, setMuted] = useState(true);
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const next = !muted;
+    v.muted = next;
+    if (!next) {
+      v.volume = 1;
+      v.play().catch(() => {});
+    }
+    setMuted(next);
+  };
+
   useEffect(() => {
     setSeo({
       title: "Rólunk — Podiverzum, magyar podcastkereső",
@@ -34,6 +50,7 @@ export default function AboutPage() {
         <figure className="not-prose my-6 mx-auto max-w-[360px]">
           <div className="relative overflow-hidden rounded-2xl ring-1 ring-white/10 bg-black shadow-[0_20px_60px_-20px_hsl(var(--brand-red)/0.45)]">
             <video
+              ref={videoRef}
               src={introVideo.url}
               poster={introPoster.url}
               autoPlay
@@ -42,8 +59,18 @@ export default function AboutPage() {
               playsInline
               preload="metadata"
               aria-label="Podiverzum márkaintro"
-              className="block w-full h-auto"
+              className="block w-full h-auto cursor-pointer"
+              onClick={toggleMute}
             />
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? "Hang bekapcsolása" : "Némítás"}
+              className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/60 backdrop-blur text-white text-xs ring-1 ring-white/20 hover:bg-black/80 transition-colors"
+            >
+              {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              <span>{muted ? "Hang be" : "Némít"}</span>
+            </button>
           </div>
         </figure>
         <p className="text-muted-foreground !mt-2">
