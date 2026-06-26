@@ -8,6 +8,21 @@ import introVideo from "@/assets/podiverzum-intro.mp4.asset.json";
 import introPoster from "@/assets/podiverzum-intro-poster.jpg.asset.json";
 
 export default function AboutPage() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [muted, setMuted] = useState(true);
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const next = !muted;
+    v.muted = next;
+    if (!next) {
+      v.volume = 1;
+      v.play().catch(() => {});
+    }
+    setMuted(next);
+  };
+
   useEffect(() => {
     setSeo({
       title: "Rólunk — Podiverzum, magyar podcastkereső",
