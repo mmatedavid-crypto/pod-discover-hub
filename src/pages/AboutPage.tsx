@@ -30,6 +30,22 @@ export default function AboutPage() {
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Rólunk</div>
         <h1 className="text-3xl font-semibold mb-2">Találd meg. Hallgasd meg.</h1>
+
+        <figure className="not-prose my-6 mx-auto max-w-[360px]">
+          <div className="relative overflow-hidden rounded-2xl ring-1 ring-white/10 bg-black shadow-[0_20px_60px_-20px_hsl(var(--brand-red)/0.45)]">
+            <video
+              src={introVideo.url}
+              poster={introPoster.url}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-label="Podiverzum márkaintro"
+              className="block w-full h-auto"
+            />
+          </div>
+        </figure>
         <p className="text-muted-foreground !mt-2">
           A Podiverzum egy MI-alapú kereső, amellyel a magyar podcastok világa kereshetővé,
           érthetővé és könnyen áttekinthetővé válik.
