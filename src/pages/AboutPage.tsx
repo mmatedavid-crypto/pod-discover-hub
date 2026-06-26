@@ -70,23 +70,42 @@ export default function AboutPage() {
               src={introVideo.url}
               poster={introPoster.url}
               autoPlay
-              muted
               loop
               playsInline
               preload="metadata"
               aria-label="Podiverzum márkaintro"
               className="block w-full h-auto cursor-pointer"
-              onClick={toggleMute}
+              onClick={togglePlay}
+              onPlay={() => {
+                setIsPlaying(true);
+                setNeedsPlay(false);
+              }}
+              onPause={() => setIsPlaying(false)}
             />
-            <button
-              type="button"
-              onClick={toggleMute}
-              aria-label={muted ? "Hang bekapcsolása" : "Némítás"}
-              className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/60 backdrop-blur text-white text-xs ring-1 ring-white/20 hover:bg-black/80 transition-colors"
-            >
-              {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-              <span>{muted ? "Hang be" : "Némít"}</span>
-            </button>
+            {needsPlay && (
+              <button
+                type="button"
+                onClick={togglePlay}
+                aria-label="Intro lejátszása"
+                className="absolute inset-0 flex items-center justify-center bg-black/40 text-white transition-colors hover:bg-black/50"
+              >
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur ring-1 ring-white/20 text-sm font-medium">
+                  <Play className="h-4 w-4 fill-current" />
+                  Lejátszás
+                </span>
+              </button>
+            )}
+            {!needsPlay && (
+              <button
+                type="button"
+                onClick={togglePlay}
+                aria-label={isPlaying ? "Szünet" : "Lejátszás"}
+                className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/60 backdrop-blur text-white text-xs ring-1 ring-white/20 hover:bg-black/80 transition-colors"
+              >
+                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+                <span>{isPlaying ? "Szünet" : "Lejátszás"}</span>
+              </button>
+            )}
           </div>
         </figure>
         <p className="text-muted-foreground !mt-2">
