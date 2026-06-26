@@ -318,6 +318,14 @@ Deno.serve(async (req) => {
           addNewsItem(`${SITE}/heti/${slug}`, p.published_at, title, 'Podiverzum Heti');
         });
 
+      // Anti-spam gate: only include fresh episodes from podcasts that are
+      // currently in our trending top-20. If nobody's clicking on it on the
+      // toplist, dumping it into Google News just looks like spam.
+      const { data: trendingTop = [] } = await sb.rpc('get_trending_podcasts', { p_limit: 20 });
+      const allowedPodcastSlugs = new Set<string>(
+        ((trendingTop as any[]) || []).map((r) => String(r?.slug || '')).filter(Boolean),
+      );
+
       const { data: freshEpisodes = [] } = await sb
         .from('episodes')
         .select('slug,title,display_title,published_at,podcasts!inner(slug,title,display_title,category,rank_label,language_decision,rss_status)')
@@ -327,35 +335,24 @@ Deno.serve(async (req) => {
         .order('published_at', { ascending: false })
         .limit(1500);
 
-      // 2) Source-diversity caps. Previously trusted=40 / others=12 let Infostart
-      //    eat ~60% of slots. Tighten to give Telex / 444 / HVG / Partizán / etc.
-      //    room to surface across the 1000-URL budget. Two-pass: first a tight
-      //    cap to maximize publisher diversity, then a backfill pass to use
-      //    remaining slots without leaving the sitemap underfilled.
-      const TRUSTED_CAP_PASS1 = 10;
-      const OTHER_CAP_PASS1 = 6;
-      const TRUSTED_CAP_PASS2 = 25;
-      const OTHER_CAP_PASS2 = 12;
+      // Per-podcast cap so a single show with 5 episodes in 48h doesn't crowd
+      // out the rest of the top-20. Top-20 × 5 = 100 URL ceiling — small,
+      // focused, click-worthy news sitemap.
+      const PER_PODCAST_CAP = 5;
       const perPodcast = new Map<string, number>();
-      const runPass = (cap: (trusted: boolean) => number) => {
-        for (const ep of freshEpisodes ?? []) {
-          if (newsItems.length >= 1000) break;
-          if (!isNewsworthyEpisode(ep)) continue;
-          const p = (ep as any).podcasts || {};
-          if (['failed', 'inactive', 'deleted'].includes(String(p.rss_status || ''))) continue;
-          const key = String(p.slug || '_');
-          const limit = cap(isTrustedNewsPodcast(p));
-          if ((perPodcast.get(key) || 0) >= limit) continue;
-          const loc = `${SITE}/podcast/${p.slug}/${(ep as any).slug}`;
-          if (seenNewsUrls.has(loc)) continue;
-          perPodcast.set(key, (perPodcast.get(key) || 0) + 1);
-          const title = String((ep as any).display_title || (ep as any).title || '').trim();
-          addNewsItem(loc, (ep as any).published_at, title, String(p.display_title || p.title || p.slug || 'podcast'));
-        }
-      };
-      runPass((trusted) => (trusted ? TRUSTED_CAP_PASS1 : OTHER_CAP_PASS1));
-      if (newsItems.length < 600) {
-        runPass((trusted) => (trusted ? TRUSTED_CAP_PASS2 : OTHER_CAP_PASS2));
+      for (const ep of freshEpisodes ?? []) {
+        if (newsItems.length >= 1000) break;
+        if (!isNewsworthyEpisode(ep)) continue;
+        const p = (ep as any).podcasts || {};
+        if (['failed', 'inactive', 'deleted'].includes(String(p.rss_status || ''))) continue;
+        const key = String(p.slug || '_');
+        if (allowedPodcastSlugs.size > 0 && !allowedPodcastSlugs.has(key)) continue;
+        if ((perPodcast.get(key) || 0) >= PER_PODCAST_CAP) continue;
+        const loc = `${SITE}/podcast/${p.slug}/${(ep as any).slug}`;
+        if (seenNewsUrls.has(loc)) continue;
+        perPodcast.set(key, (perPodcast.get(key) || 0) + 1);
+        const title = String((ep as any).display_title || (ep as any).title || '').trim();
+        addNewsItem(loc, (ep as any).published_at, title, String(p.display_title || p.title || p.slug || 'podcast'));
       }
 
       const realNewsItemCount = newsItems.length;
