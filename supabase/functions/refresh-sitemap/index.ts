@@ -45,7 +45,11 @@ const NEWSWORTHY_CATEGORIES = new Set([
   'Business & Finance',
   'Technology',
   'Science',
+  'Science & Ideas',
   'Sports',
+  'History',
+  'Society & Culture',
+  'Education & Explainer',
 ]);
 const NEWS_EXCLUDED_CATEGORIES = new Set([
   'Religion & Spirituality',
