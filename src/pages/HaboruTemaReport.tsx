@@ -328,15 +328,44 @@ export default function HaboruTemaReport() {
             </div>
           </DownloadableFigure>
 
-          {/* Specialists — compact list */}
+          {/* Specialists — compact list with deep links */}
           <div className="mt-8 rounded border border-border bg-card p-5">
             <div className="text-xs font-mono uppercase tracking-wide text-primary mb-3">Ukrajna-specialista műsorok</div>
-            <p className="text-sm text-foreground leading-relaxed">
-              {TOP_PODS[0].items.join(" · ")}
+            <ul className="text-sm text-foreground leading-relaxed space-y-1">
+              <li><Link to="/podcast/frontvonal" className="font-medium underline hover:text-primary">Frontvonal</Link> <span className="text-muted-foreground">— 21/23 közéleti epizódja érintette a háborút</span></li>
+              <li><Link to="/podcast/szuveren" className="font-medium underline hover:text-primary">Szuverén</Link> <span className="text-muted-foreground">— 12/12</span></li>
+              <li><Link to="/podcast/kontroll-eljott-az-ideje" className="font-medium underline hover:text-primary">Kontroll – Eljött az ideje</Link> <span className="text-muted-foreground">— 23/31</span></li>
+              <li><Link to="/podcast/pestisracok-hu" className="font-medium underline hover:text-primary">PestiSrácok.hu</Link> <span className="text-muted-foreground">— 11/14</span></li>
+            </ul>
+            <p className="mt-3 text-xs text-muted-foreground italic">
+              Bal oldali szám: háború-tematikájú epizód / a podcast összes közéleti epizódja a 13 hónapos mintában. A linkek a műsor saját Podiverzum-oldalára vezetnek, ahol a teljes epizódlista böngészhető.
             </p>
-            <p className="mt-2 text-xs text-muted-foreground italic">
-              Zárójelben: háború-tematikájú epizód / a podcast összes közéleti epizódja a 13 hónapos mintában.
-            </p>
+          </div>
+
+          {/* Related topics — deeper internal link layer */}
+          <div className="mt-6 rounded border border-border bg-card p-5">
+            <div className="text-xs font-mono uppercase tracking-wide text-primary mb-3">Kapcsolódó témák a Podiverzumon</div>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <Link to="/temak/haboru" className="rounded-full border border-border bg-background px-3 py-1 hover:border-primary hover:text-primary transition">Háború</Link>
+              <Link to="/temak/kulpolitika" className="rounded-full border border-border bg-background px-3 py-1 hover:border-primary hover:text-primary transition">Külpolitika</Link>
+              <Link to="/temak/magyar-politika" className="rounded-full border border-border bg-background px-3 py-1 hover:border-primary hover:text-primary transition">Magyar politika</Link>
+              <Link to="/temak/gazdasag" className="rounded-full border border-border bg-background px-3 py-1 hover:border-primary hover:text-primary transition">Gazdaság</Link>
+              <Link to="/temak/mesterseges-intelligencia" className="rounded-full border border-border bg-background px-3 py-1 hover:border-primary hover:text-primary transition">Mesterséges intelligencia</Link>
+              <Link to="/temak" className="rounded-full border border-primary/40 bg-primary/5 px-3 py-1 text-primary hover:bg-primary/10 transition">Összes téma →</Link>
+            </div>
+          </div>
+
+          {/* Discovery — internal link hub */}
+          <div className="mt-6 rounded border border-border bg-card p-5">
+            <div className="text-xs font-mono uppercase tracking-wide text-primary mb-3">További felfedezés</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+              <Link to="/toplista" className="rounded-md border border-border p-2.5 hover:border-primary hover:text-primary transition"><span className="font-semibold text-foreground">Toplista</span><span className="block text-[11px] text-muted-foreground">Legerősebb HU podcastok</span></Link>
+              <Link to="/szemelyek" className="rounded-md border border-border p-2.5 hover:border-primary hover:text-primary transition"><span className="font-semibold text-foreground">Közszereplők</span><span className="block text-[11px] text-muted-foreground">2 600+ azonosított személy</span></Link>
+              <Link to="/partok" className="rounded-md border border-border p-2.5 hover:border-primary hover:text-primary transition"><span className="font-semibold text-foreground">Pártok</span><span className="block text-[11px] text-muted-foreground">Magyar pártok podcast-emlí­tései</span></Link>
+              <Link to="/heti" className="rounded-md border border-border p-2.5 hover:border-primary hover:text-primary transition"><span className="font-semibold text-foreground">Heti válogatás</span><span className="block text-[11px] text-muted-foreground">A hét legfontosabb beszélgetései</span></Link>
+              <Link to="/napi" className="rounded-md border border-border p-2.5 hover:border-primary hover:text-primary transition"><span className="font-semibold text-foreground">Napi brief</span><span className="block text-[11px] text-muted-foreground">A nap legrelevánsabb adásai</span></Link>
+              <Link to="/kereses" className="rounded-md border border-border p-2.5 hover:border-primary hover:text-primary transition"><span className="font-semibold text-foreground">Keresés</span><span className="block text-[11px] text-muted-foreground">139 ezer epizódban</span></Link>
+            </div>
           </div>
         </section>
 

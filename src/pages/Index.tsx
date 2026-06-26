@@ -152,6 +152,7 @@ const PersonalizedHomeRails = lazy(() => import("@/components/home/PersonalizedH
 const HomeDiscoveryShortcuts = lazy(() => import("@/components/home/HomeDiscoveryShortcuts").then((m) => ({ default: m.HomeDiscoveryShortcuts })));
 const HeroTrendsStrip = lazy(() => import("@/components/HeroTrendsStrip").then((m) => ({ default: m.HeroTrendsStrip })));
 const WeeklyEditorialStrip = lazy(() => import("@/components/WeeklyEditorialStrip"));
+const MostFelfedezve = lazy(() => import("@/components/MostFelfedezve").then((m) => ({ default: m.MostFelfedezve })));
 
 const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
   podcast: Mic,
@@ -746,6 +747,7 @@ const Index = () => {
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <Suspense fallback={null}>
           <TrendingPodcasts />
+          <MostFelfedezve />
           <HomeDiscoveryShortcuts />
           <WeeklyEditorialStrip />
           <MyLibraryRails />
