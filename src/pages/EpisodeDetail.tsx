@@ -140,11 +140,15 @@ export default function EpisodeDetail() {
           // end-to-end consistent. Older episodes stay as PodcastEpisode only.
           const headline = (e.display_title || e.title || "").toString().slice(0, 110);
           const articleImage = e.image_url || p.image_url || undefined;
+          const podName = p.display_title || p.title || "Podiverzum";
+          const longBody = safeSeoDescription || bestDesc || undefined;
           const newsArticle = ageHours <= 48 && publishedIso && headline ? [{
             "@context": "https://schema.org",
             "@type": "NewsArticle",
             headline,
-            description: safeSeoDescription || bestDesc || undefined,
+            description: longBody,
+            // articleBody is a strong Google News structured-data signal.
+            articleBody: longBody || headline,
             datePublished: publishedIso,
             dateModified: publishedIso,
             url: canonical,
@@ -152,12 +156,13 @@ export default function EpisodeDetail() {
             inLanguage: "hu-HU",
             isAccessibleForFree: true,
             image: articleImage ? [articleImage] : undefined,
-            articleSection: p.display_title || p.title || "Podcast",
-            author: {
-              "@type": "Organization",
-              name: p.display_title || p.title || "Podiverzum",
+            articleSection: podName,
+            // Google News prefers Person-typed authors with a concrete byline.
+            author: [{
+              "@type": "Person",
+              name: podName,
               url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
-            },
+            }],
             publisher: sitePublisherJsonLd(),
           }] : [];
           return [
