@@ -78,6 +78,7 @@ const AdminDataCoveragePage = lazy(() => import("./pages/AdminDataCoveragePage.t
 const AdminOutreachPage = lazy(() => import("./pages/AdminOutreachPage.tsx"));
 const AdminIntelligenceAuditPage = lazy(() => import("./pages/AdminIntelligenceAuditPage.tsx"));
 const AdminGscInsightsPage = lazy(() => import("./pages/AdminGscInsightsPage.tsx"));
+const AdminIndexingApiPage = lazy(() => import("./pages/AdminIndexingApiPage.tsx"));
 const UnsubscribePage = lazy(() => import("./pages/UnsubscribePage.tsx"));
 const PeopleHubPage = lazy(() => import("./pages/PeopleHubPage.tsx"));
 const PersonDetailPage = lazy(() => import("./pages/PersonDetailPage.tsx"));
@@ -186,6 +187,7 @@ const App = () => (
           <Route path="/admin/intelligence-audit" element={<AdminIntelligenceAuditPage />} />
           <Route path="/admin/outreach" element={<AdminOutreachPage />} />
           <Route path="/admin/gsc-insights" element={<AdminGscInsightsPage />} />
+          <Route path="/admin/indexing-api" element={<AdminIndexingApiPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />

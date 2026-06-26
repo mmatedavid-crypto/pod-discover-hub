@@ -377,13 +377,12 @@ export default function PodcastReport2026() {
           <div className="space-y-2 mb-4">
             {top10Topics.map((t, i) => {
               const highlight = ["politika", "mesterseges-intelligencia", "onismeret"].includes(t.slug);
-              return (
-                <div
-                  key={t.slug}
-                  className="flex items-center gap-3"
-                >
+              const knownTopicSlugs = new Set(["haboru", "gazdasag", "mesterseges-intelligencia", "kulpolitika", "magyar-politika"]);
+              const href = knownTopicSlugs.has(t.slug) ? `/temak/${t.slug}` : null;
+              const inner = (
+                <>
                   <div className="w-6 shrink-0 text-xs font-mono text-muted-foreground">{i + 1}.</div>
-                  <div className="w-40 md:w-56 shrink-0 text-sm font-medium text-foreground truncate">{t.name}</div>
+                  <div className="w-40 md:w-56 shrink-0 text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">{t.name}</div>
                   <div className="flex-1 relative h-6 rounded bg-muted overflow-hidden">
                     <div
                       className={`h-full ${highlight ? "bg-primary/80" : "bg-accent/60"}`}
@@ -393,6 +392,15 @@ export default function PodcastReport2026() {
                       {t.eps} ep
                     </div>
                   </div>
+                </>
+              );
+              return href ? (
+                <Link key={t.slug} to={href} className="flex items-center gap-3 group">
+                  {inner}
+                </Link>
+              ) : (
+                <div key={t.slug} className="flex items-center gap-3">
+                  {inner}
                 </div>
               );
             })}
@@ -964,6 +972,50 @@ export default function PodcastReport2026() {
           </div>
         </section>
 
+
+        {/* Discovery CTA — internal link hubs */}
+        <section className="mb-8 rounded-lg border border-border bg-card p-6 print:break-inside-avoid">
+          <div className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">Fedezd fel a katalógust</div>
+          <h2 className="font-serif text-2xl font-bold text-foreground mb-4">Innen indulj el</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+            <Link to="/toplista" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Toplista →</div>
+              <div className="text-xs text-muted-foreground mt-1">Az aktuálisan legerősebb magyar podcastok rangsora.</div>
+            </Link>
+            <Link to="/heti" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Heti válogatás →</div>
+              <div className="text-xs text-muted-foreground mt-1">Szerkesztett összeállítás a hét legfontosabb beszélgetéseiből.</div>
+            </Link>
+            <Link to="/uj-podcastok" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Új podcastok →</div>
+              <div className="text-xs text-muted-foreground mt-1">Frissen indult magyar műsorok.</div>
+            </Link>
+            <Link to="/szemelyek" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Közszereplők →</div>
+              <div className="text-xs text-muted-foreground mt-1">{STATS.peopleIndexed.toLocaleString("hu-HU")} azonosított személy.</div>
+            </Link>
+            <Link to="/cegek" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Szervezetek →</div>
+              <div className="text-xs text-muted-foreground mt-1">{STATS.organizationsIndexed.toLocaleString("hu-HU")} cég, intézmény, párt.</div>
+            </Link>
+            <Link to="/temak" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Témák →</div>
+              <div className="text-xs text-muted-foreground mt-1">Tematikus klaszterek és időbeli említésgörbék.</div>
+            </Link>
+            <Link to="/jelentes/haboru-mint-tema-2026" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Háború mint téma 2026 →</div>
+              <div className="text-xs text-muted-foreground mt-1">Kapcsolódó jelentés: hogyan változott a háborús téma a választás után.</div>
+            </Link>
+            <Link to="/kategoriak" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Kategóriák →</div>
+              <div className="text-xs text-muted-foreground mt-1">Összes magyar kategória és válogatás.</div>
+            </Link>
+            <Link to="/kereses" className="rounded-md border border-border p-3 hover:border-primary hover:text-primary transition">
+              <div className="font-semibold text-foreground">Keresés →</div>
+              <div className="text-xs text-muted-foreground mt-1">139 ezer epizódban szemantikus keresés.</div>
+            </Link>
+          </div>
+        </section>
 
         {/* Footer CTA */}
         <section className="rounded-lg border border-border bg-card p-6 text-center print:break-inside-avoid">
