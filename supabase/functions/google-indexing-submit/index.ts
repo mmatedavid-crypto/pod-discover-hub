@@ -123,18 +123,24 @@ Deno.serve(async (req) => {
     if (customUrls) {
       for (const u of customUrls) push(u);
     } else {
-      // Prio 1: new HU episodes (≤24h), ANY tier (long-tail welcome)
+      const tierWeight: Record<string, number> = { S: 0, A: 1, B: 2, C: 3, D: 4, E: 5 };
+
+      // Prio 1: new HU episodes (≤24h), tier-weighted (S→E within freshness window)
       const { data: freshEps } = await admin
         .from("episodes")
-        .select("slug, published_at, podcasts!inner(slug, language_decision, language)")
+        .select("slug, published_at, podcasts!inner(slug, language_decision, rank_label)")
         .gte("published_at", new Date(Date.now() - 24 * 3600_000).toISOString())
         .eq("podcasts.language_decision", "accept_hungarian")
-        .order("published_at", { ascending: false })
-        .limit(80);
-      for (const e of (freshEps || []) as any[]) {
-        const ps = e.podcasts;
-        if (e.slug && ps?.slug) push(`${SITE}/podcast/${ps.slug}/${e.slug}`);
-      }
+        .limit(200);
+      const freshSorted = (freshEps || [])
+        .map((e: any) => ({
+          url: e.slug && e.podcasts?.slug ? `${SITE}/podcast/${e.podcasts.slug}/${e.slug}` : null,
+          tier: tierWeight[e.podcasts?.rank_label] ?? 9,
+          pub: e.published_at,
+        }))
+        .filter((r) => r.url)
+        .sort((a, b) => a.tier - b.tier || (b.pub > a.pub ? 1 : -1));
+      for (const r of freshSorted) push(r.url!);
 
       // Prio 2: ≤7d episodes still showing 0 impressions (likely not indexed yet)
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
@@ -160,7 +166,7 @@ Deno.serve(async (req) => {
         indexedSet = new Set((indexed || []).map((r: any) => r.page));
       }
       // Higher-tier first among the not-yet-indexed pool
-      const tierWeight: Record<string, number> = { S: 0, A: 1, B: 2, C: 3, D: 4, E: 5 };
+      // (tierWeight already defined above)
       const notIndexed = (recentEps || [])
         .map((e: any) => ({
           url: `${SITE}/podcast/${e.podcasts.slug}/${e.slug}`,
