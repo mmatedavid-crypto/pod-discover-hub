@@ -54,7 +54,7 @@ export default function ToplistaPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.rpc("get_trending_podcasts", { p_limit: 100 });
+      const { data } = await supabase.rpc("get_trending_podcasts", { p_limit: 50 });
       setRows(((data as any[]) || []) as Row[]);
       setLoading(false);
     })();

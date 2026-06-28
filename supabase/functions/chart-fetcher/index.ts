@@ -416,6 +416,109 @@ Deno.serve(async (req) => {
       }
       result.inserted = inserts.length;
     }
+
+    // ===== INGEST MISSING into pi_feed_staging =====
+    // For Apple/Spotify chart entries that didn't match any podcast in our catalog,
+    // resolve an RSS feed via iTunes (HU storefront) and stage them for pi-dump-process.
+    if (!dryRun) {
+      const unmatched = inserts.filter((i) => !i.podcast_id && (i.source === "apple" || i.source === "spotify"));
+      if (unmatched.length) {
+        const { data: imp } = await supabase.from("pi_dump_imports")
+          .insert({ status: "ingesting", source: "chart_fetcher_missing" })
+          .select("id").single();
+        const importId = imp?.id;
+        const stagingRows: any[] = [];
+        const seen = new Set<string>();
+        const ingestErrors: any[] = [];
+        for (const u of unmatched) {
+          try {
+            let feedUrl: string | null = null;
+            let title = u.raw_name;
+            let author: string | null = u.raw_artist || null;
+            let image: string | null = u.image_url || null;
+            let websiteUrl: string | null = null;
+            if (u.source === "apple" && u.raw_external_id) {
+              const lookup = await fetch(
+                `https://itunes.apple.com/lookup?id=${encodeURIComponent(u.raw_external_id)}&country=hu&entity=podcast`,
+                { headers: { "User-Agent": "Podiverzum/1.0" } },
+              ).then((r) => r.json()).catch(() => null);
+              const r0 = lookup?.results?.[0];
+              if (r0?.feedUrl) {
+                feedUrl = r0.feedUrl;
+                title = r0.collectionName || title;
+                author = r0.artistName || author;
+                image = r0.artworkUrl600 || r0.artworkUrl100 || image;
+                websiteUrl = r0.collectionViewUrl || null;
+              }
+            } else if (u.source === "spotify" && u.raw_name) {
+              const q = encodeURIComponent(u.raw_name);
+              const lookup = await fetch(
+                `https://itunes.apple.com/search?term=${q}&country=hu&media=podcast&entity=podcast&limit=3`,
+                { headers: { "User-Agent": "Podiverzum/1.0" } },
+              ).then((r) => r.json()).catch(() => null);
+              const r0 = lookup?.results?.[0];
+              if (r0?.feedUrl) {
+                feedUrl = r0.feedUrl;
+                title = r0.collectionName || title;
+                author = r0.artistName || author;
+                image = r0.artworkUrl600 || r0.artworkUrl100 || image;
+                websiteUrl = r0.collectionViewUrl || null;
+              }
+            }
+            if (!feedUrl || seen.has(feedUrl)) continue;
+            seen.add(feedUrl);
+            stagingRows.push({
+              import_id: importId,
+              pi_id: null,
+              rss_url: feedUrl,
+              title,
+              website_url: websiteUrl,
+              image_url: image,
+              description: null,
+              language: "hu",
+              author,
+              episode_count: null,
+              newest_item_at: null,
+              last_http_status: null,
+              dead: false,
+            });
+            await new Promise((r) => setTimeout(r, 70));
+          } catch (e) {
+            ingestErrors.push({ src: u.source, name: u.raw_name, err: e instanceof Error ? e.message : "err" });
+          }
+        }
+        let staged = 0;
+        let alreadyInCatalog = 0;
+        if (stagingRows.length) {
+          const urls = stagingRows.map((r) => r.rss_url);
+          const { data: ex } = await supabase.from("podcasts").select("rss_url").in("rss_url", urls);
+          const existing = new Set((ex || []).map((r: any) => r.rss_url));
+          const fresh = stagingRows.filter((r) => !existing.has(r.rss_url));
+          alreadyInCatalog = stagingRows.length - fresh.length;
+          if (fresh.length) {
+            const { count, error } = await supabase.from("pi_feed_staging")
+              .upsert(fresh, { onConflict: "rss_url", ignoreDuplicates: true, count: "exact" });
+            if (error) ingestErrors.push({ upsert_err: error.message });
+            else staged = count ?? fresh.length;
+          }
+        }
+        if (importId) {
+          await supabase.from("pi_dump_imports").update({
+            feeds_received: stagingRows.length,
+            status: staged > 0 ? "processing" : "done",
+            notes: { unmatched: unmatched.length, with_feed: stagingRows.length, already_in_catalog: alreadyInCatalog, errors_sample: ingestErrors.slice(0, 10) },
+            updated_at: new Date().toISOString(),
+          }).eq("id", importId);
+        }
+        result.catalog_ingest = {
+          unmatched: unmatched.length,
+          resolved_feed: stagingRows.length,
+          staged_new: staged,
+          already_in_catalog: alreadyInCatalog,
+          import_id: importId,
+        };
+      }
+    }
     result.elapsed_ms = Date.now() - t0;
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
