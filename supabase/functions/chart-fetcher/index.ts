@@ -92,9 +92,13 @@ async function fetchSpotifyHU(): Promise<{ rank: number; name: string; show_id: 
   const token = await getSpotifyToken();
   const agg = new Map<string, { name: string; image: string | null; languages: string[]; episodes: number; sumRrf: number; appearances: number }>();
   for (const q of SPOTIFY_HU_QUERIES) {
-    const url = `https://api.spotify.com/v1/search?type=show&market=HU&limit=50&q=${encodeURIComponent(q)}`;
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=show&market=HU&limit=50`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) { console.warn("spotify search", q, res.status); continue; }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.warn("spotify search", q, res.status, body.slice(0, 200));
+      continue;
+    }
     const j = await res.json();
     const items: any[] = j?.shows?.items || [];
     items.forEach((it, idx) => {
