@@ -91,40 +91,49 @@ const SPOTIFY_HU_QUERIES = [
 async function fetchSpotifyHU(): Promise<{ rank: number; name: string; show_id: string; image_url: string | null; languages: string[]; total_episodes: number; rrf_score: number; appearances: number }[]> {
   const token = await getSpotifyToken();
   const agg = new Map<string, { name: string; image: string | null; languages: string[]; episodes: number; sumRrf: number; appearances: number }>();
+  // Spotify search show endpoint hard-caps limit at 10; paginate with offset
+  // up to 30 results per query (3 pages) to keep total HTTP calls bounded.
+  const PAGES = [0, 10, 20];
   for (const q of SPOTIFY_HU_QUERIES) {
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=show&market=HU&limit=20`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.warn("spotify search", q, res.status, body.slice(0, 200));
-      continue;
-    }
-    const j = await res.json();
-    const items: any[] = j?.shows?.items || [];
-    items.forEach((it, idx) => {
-      if (!it?.id) return;
-      const langs: string[] = it.languages || [];
-      const isHu = langs.some((l) => typeof l === "string" && l.toLowerCase().startsWith("hu"));
-      if (!isHu) return;
-      const rank = idx + 1;
-      const rrf = 1 / (60 + rank);
-      const cur = agg.get(it.id);
-      if (cur) {
-        cur.sumRrf += rrf;
-        cur.appearances += 1;
-      } else {
-        agg.set(it.id, {
-          name: String(it.name || ""),
-          image: it.images?.[0]?.url || null,
-          languages: langs,
-          episodes: Number(it.total_episodes || 0),
-          sumRrf: rrf,
-          appearances: 1,
-        });
+    for (const offset of PAGES) {
+      const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=show&market=HU&limit=10&offset=${offset}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.warn("spotify search", q, "off", offset, res.status, body.slice(0, 200));
+        // 404 / total exhausted: stop paginating this query
+        if (res.status === 404) break;
+        continue;
       }
-    });
-    await new Promise((r) => setTimeout(r, 120));
+      const j = await res.json();
+      const items: any[] = j?.shows?.items || [];
+      if (items.length === 0) break;
+      items.forEach((it, idx) => {
+        if (!it?.id) return;
+        const langs: string[] = it.languages || [];
+        const isHu = langs.some((l) => typeof l === "string" && l.toLowerCase().startsWith("hu"));
+        if (!isHu) return;
+        const globalRank = offset + idx + 1; // overall query position
+        const rrf = 1 / (60 + globalRank);
+        const cur = agg.get(it.id);
+        if (cur) {
+          cur.sumRrf += rrf;
+          cur.appearances += 1;
+        } else {
+          agg.set(it.id, {
+            name: String(it.name || ""),
+            image: it.images?.[0]?.url || null,
+            languages: langs,
+            episodes: Number(it.total_episodes || 0),
+            sumRrf: rrf,
+            appearances: 1,
+          });
+        }
+      });
+      await new Promise((r) => setTimeout(r, 80));
+    }
   }
+
   return [...agg.entries()]
     .map(([show_id, v]) => ({ show_id, ...v }))
     .sort((a, b) => (b.appearances - a.appearances) || (b.sumRrf - a.sumRrf))
