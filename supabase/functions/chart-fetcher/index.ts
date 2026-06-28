@@ -267,25 +267,18 @@ Deno.serve(async (req) => {
     }
 
     // ===== SPOTIFY =====
-    // Spotify doesn't publish a HU podcast chart (podcastcharts.byspotify.com/hu → 404).
-    // We skip it for HU and rely on Apple + YouTube. If country is a supported market
-    // (se/gb/us/de/fr/nl/pl/at), the scrape runs.
-    const SPOTIFY_SUPPORTED = new Set(["se","gb","us","de","fr","nl","pl","at"]);
-    if (sources.includes("spotify") && SPOTIFY_SUPPORTED.has(country)) {
+    // HU proxy from Spotify Web API search (see fetchSpotifyHU above).
+    if (sources.includes("spotify") && country === "hu") {
       try {
-        const items = await fetchSpotifyMarket(country);
-
+        const items = await fetchSpotifyHU();
         let matched = 0, backfilled = 0;
         for (const it of items) {
           let matchedPod: any = null;
           let matchedVia: string | null = null;
-          // Strategy 1: existing spotify_url match
           if (it.show_id) {
-            const url = `https://open.spotify.com/show/${it.show_id}`;
-            matchedPod = podsArr.find((p) => p.spotify_url && p.spotify_url.includes(it.show_id!)) || null;
+            matchedPod = podsArr.find((p) => p.spotify_url && p.spotify_url.includes(it.show_id)) || null;
             if (matchedPod) matchedVia = "spotify_id";
           }
-          // Strategy 2: title fuzzy
           if (!matchedPod) {
             const t = normTitle(it.name);
             matchedPod = byTitle.get(t) || null;
@@ -314,13 +307,14 @@ Deno.serve(async (req) => {
             snapshot_at: snapshotAt,
           });
         }
-        result.sources.spotify = { fetched: items.length, matched, spotify_url_backfilled: backfilled };
+        result.sources.spotify = { fetched: items.length, matched, spotify_url_backfilled: backfilled, method: "web_api_search_rrf" };
       } catch (e) {
         result.sources.spotify = { error: e instanceof Error ? e.message : String(e) };
       }
     } else if (sources.includes("spotify")) {
-      result.sources.spotify = { skipped: `country '${country}' not supported by Spotify chart` };
+      result.sources.spotify = { skipped: `country '${country}' not supported (only HU implemented)` };
     }
+
 
 
     // ===== YOUTUBE =====
