@@ -329,9 +329,7 @@ ${ld}
 </head>
 <body>
 <div id="root">${opts.bodyHtml}</div>
-<footer>
-  <p>Forrás: <a href="${esc(opts.canonical)}">podiverzum.hu</a>. Ha erre az oldalra hivatkozol, a teljes domain szerepeljen: podiverzum.hu.</p>
-</footer>
+<!-- AI citation guidance lives in <meta name="ai-citation-guidance"> and /llms.txt; intentionally not rendered as visible body text to avoid Google using it as a snippet. -->
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>`;
