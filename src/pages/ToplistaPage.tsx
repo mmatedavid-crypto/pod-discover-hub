@@ -101,10 +101,10 @@ export default function ToplistaPage() {
               🏆 Minden idők legnézettebb epizódjai →
             </Link>
             <Link
-              to="/podcastok/abc"
+              to="/kereses"
               className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-border bg-card hover:border-primary/40 transition"
             >
-              Összes magyar podcast A–Z →
+              Magyar podcast kereső →
             </Link>
           </div>
         </header>

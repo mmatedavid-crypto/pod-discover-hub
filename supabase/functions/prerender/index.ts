@@ -511,14 +511,7 @@ async function buildPodcast(
 
   const displayName = pod.display_title || pod.title;
   const epCount = totalEpisodeCount ?? eps.length;
-  // SEO: prioritise "[show name] podcast" keyword pattern in title so Google
-  // can match queries like "Partizán podcast" or "Friderikusz podcast" directly.
-  const nameLower = String(displayName).toLowerCase();
-  const alreadyHasPodcast = /\bpodcast\b/.test(nameLower);
-  const seoNameWithKeyword = alreadyHasPodcast ? displayName : `${displayName} podcast`;
-  const title = epCount
-    ? `${seoNameWithKeyword} – ${epCount} epizód, AI-összefoglalók | Podiverzum`
-    : `${seoNameWithKeyword} – epizódok és AI-összefoglalók | Podiverzum`;
+  const title = `${displayName} – ${epCount} epizód · podcast | Podiverzum`;
   const organizationCounts = new Map<string, number>();
   for (const ep of eps) {
     for (const org of Array.isArray(ep.companies) ? ep.companies : []) {
@@ -538,12 +531,10 @@ async function buildPodcast(
   const hostLine = hostNamesForSeo.length
     ? `Műsorvezető: ${hostNamesForSeo.join(", ")}.`
     : "";
-  // Lead with "[show name] podcast" so the meta description matches the
-  // typical Hungarian Google query pattern.
   const sourceDesc = firstSentence(pod.description || pod.summary || pod.seo_description) || "";
   const baseDesc = sourceDesc
-    ? `${seoNameWithKeyword} — ${sourceDesc}`
-    : `${seoNameWithKeyword} — minden epizód, AI-összefoglalók és kereshető tartalom a Podiverzumon.`;
+    ? `${displayName} — ${sourceDesc}`
+    : `${displayName} — minden epizód, AI-összefoglalók és kereshető tartalom a Podiverzumon.`;
   const desc = podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
   const canonical = `${SITE}/podcast/${pod.slug}`;
 
@@ -752,7 +743,7 @@ async function buildEpisode(
       canonical,
       ogImage: ep.image_url || pod.image_url,
       ogType: "article",
-      jsonLd: isAcceptedHungarian ? (newsArticle ? [newsArticle, ld, breadcrumbs] : [ld, breadcrumbs]) : [],
+      jsonLd: isAcceptedHungarian ? [ld, breadcrumbs] : [],
       noindex: !isAcceptedHungarian,
       bodyHtml: `<article>
 <header>
@@ -1221,7 +1212,7 @@ type HubKind = "podcastok" | "szemelyek" | "szervezetek" | "cegek" | "partok" | 
 
 function hubCrossLinks(current: HubKind): string {
   const all: Array<{ kind: HubKind; href: string; label: string; blurb: string }> = [
-    { kind: "podcastok", href: "/podcastok", label: "Magyar podcastek", blurb: "Aktív műsorok, friss epizódok kategóriákba szervezve." },
+    { kind: "podcastok", href: "/toplista", label: "Magyar toplista", blurb: "Aktív műsorok, friss epizódok kategóriákba szervezve." },
     { kind: "szemelyek", href: "/szemelyek", label: "Személyek", blurb: "Műsorvezetők, megszólalók és említett közéleti nevek profiljai." },
     { kind: "cegek", href: "/cegek", label: "Cégek és szervezetek", blurb: "Cégek, médiumok, intézmények említései." },
     { kind: "partok", href: "/partok", label: "Pártok", blurb: "Magyar politikai pártok a podcastekben." },
@@ -2095,8 +2086,8 @@ async function buildCategoriesHub(supabase: ReturnType<typeof createClient>) {
 
 // ---------- /toplista hub ----------
 // A /toplista a napi platform-fúziós (Apple + Spotify + YouTube) rangsor — NEM
-// az összes magyar podcast listája. A teljes katalógus a /podcastok/abc A–Z
-// indexen, illetve a /podcastok minőségi rangsorán érhető el.
+// az összes magyar podcast listája. A teljes katalógus A–Z indexen, illetve
+// keresésen keresztül érhető el.
 
 async function buildToplistaHub(supabase: ReturnType<typeof createClient>) {
   const { data } = await (supabase as any).rpc("get_trending_podcasts", { p_limit: 100 });
@@ -2112,7 +2103,7 @@ async function buildToplistaHub(supabase: ReturnType<typeof createClient>) {
     ? new Date(snapshot).toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" })
     : "";
 
-  const intro = `<p>A <strong>Podiverzum Toplista</strong> az Apple Podcasts, Spotify és YouTube hivatalos napi magyar toplistáit egyetlen rangsorba fúzionálja. A lista <strong>nem</strong> a teljes magyar podcast-katalógus — csak azok a műsorok kerülnek rá, amelyek legalább egy platform toplistáján szerepelnek. A teljes, ${rows.length}-nél jóval nagyobb katalógust a <a href="/podcastok">Magyar podcastek</a> minőségi listán és a <a href="/podcastok/abc">A–Z indexen</a> böngészheted.</p>
+  const intro = `<p>A <strong>Podiverzum Toplista</strong> az Apple Podcasts, Spotify és YouTube hivatalos napi magyar toplistáit egyetlen rangsorba fúzionálja. A lista <strong>nem</strong> a teljes magyar podcast-katalógus — csak azok a műsorok kerülnek rá, amelyek legalább egy platform toplistáján szerepelnek. A teljes, ${rows.length}-nél jóval nagyobb katalógust a <a href="/kereses">keresőben</a> és a <a href="/podcastok/abc">A–Z indexen</a> böngészheted.</p>
 <p>A rangsorolás trending-pontszámon alapul, amely a platformokon elért helyezéseket és a több platformon való jelenlétet súlyozza. Részletes módszertan a <a href="/modszertan">Módszertan</a> oldalon.${snapshotLabel ? ` Utolsó frissítés: <strong>${esc(snapshotLabel)}</strong>.` : ""}</p>`;
 
   const listHtml = rows.map((p, i) => {
@@ -2163,7 +2154,7 @@ async function buildToplistaHub(supabase: ReturnType<typeof createClient>) {
     bodyHtml: `<header><h1>Magyar podcast toplista</h1>${intro}</header>
 <main><h2>Top ${rows.length} — platform-fúziós rangsor</h2><ol>${listHtml}</ol></main>
 <aside><h2>Tovább a Podiverzumban</h2><ul>
-<li><a href="/podcastok">Magyar podcastek — minőségi rangsor</a></li>
+<li><a href="/kereses">Magyar podcast kereső</a></li>
 <li><a href="/podcastok/abc">Teljes A–Z katalógus</a></li>
 <li><a href="/uj-podcastok">Új podcastek</a></li>
 <li><a href="/kategoriak">Kategóriák</a></li>

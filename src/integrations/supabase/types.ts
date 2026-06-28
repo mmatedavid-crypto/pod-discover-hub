@@ -8898,6 +8898,14 @@ export type Database = {
         Args: { _limit?: number }
         Returns: Json
       }
+      refresh_search_golden_queries_from_catalog: {
+        Args: { p_limit_per_type?: number; p_popular_limit?: number }
+        Returns: Json
+      }
+      refresh_search_golden_queries_from_external_demand: {
+        Args: { p_chart_limit?: number; p_seed_limit?: number }
+        Returns: Json
+      }
       refresh_homepage_feed: { Args: never; Returns: undefined }
       refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
