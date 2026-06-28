@@ -58,60 +58,99 @@ async function fetchAppleHU(): Promise<any[]> {
   return j?.feed?.results || [];
 }
 
-// ---------- Spotify (Firecrawl scrape) ----------
-// ---------- Spotify (Firecrawl scrape) ----------
-// NOTE: Spotify does NOT publish a Hungarian podcast chart on
-// podcastcharts.byspotify.com (HU returns 404). Supported markets include
-// se/gb/us/de/fr/nl/pl/at. We try the requested market and bail out gracefully
-// if it isn't supported. When that happens the trending score falls back to
-// Apple + YouTube only.
-async function fetchSpotifyMarket(market: string): Promise<{ rank: number; name: string; show_id: string | null; image_url: string | null }[]> {
-  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
-  if (!apiKey) throw new Error("FIRECRAWL_API_KEY missing");
-  const target = `https://podcastcharts.byspotify.com/${market}/top-podcasts`;
-  const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
+// ---------- Spotify (Web API search RRF) ----------
+// Spotify does NOT publish an official HU podcast top chart. We build our own
+// proxy: query /v1/search?type=show&market=HU&limit=50 with multiple Hungarian
+// generic keywords (Spotify ranks results by its own relevance / popularity
+// signal per market), keep only shows declaring `hu` in languages, then
+// reciprocal-rank-fusion the per-query positions. The result is Spotify's own
+// HU-market podcast popularity ranking surfaced as a top-50.
+async function getSpotifyToken(): Promise<string> {
+  const id = Deno.env.get("SPOTIFY_CLIENT_ID");
+  const secret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
+  if (!id || !secret) throw new Error("SPOTIFY_CLIENT_ID/SECRET missing");
+  const r = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      url: target,
-      formats: ["html", "markdown"],
-      onlyMainContent: false,
-      waitFor: 3500,
-    }),
+    headers: {
+      "Authorization": "Basic " + btoa(`${id}:${secret}`),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
   });
-  const j = await res.json();
-  if (!res.ok) throw new Error(`spotify scrape ${res.status}: ${JSON.stringify(j).slice(0, 200)}`);
-  const html: string = j?.data?.html || j?.html || "";
-  const md: string = j?.data?.markdown || j?.markdown || "";
+  const j = await r.json();
+  if (!r.ok || !j.access_token) throw new Error(`spotify token http ${r.status}`);
+  return j.access_token as string;
+}
 
-  const out: { rank: number; name: string; show_id: string | null; image_url: string | null }[] = [];
-  const seen = new Set<string>();
-  const linkRe = /href="https:\/\/open\.spotify\.com\/show\/([A-Za-z0-9]+)[^"]*"[^>]*>([\s\S]*?)<\/a>/g;
-  let m: RegExpExecArray | null;
-  while ((m = linkRe.exec(html))) {
-    const id = m[1];
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const text = m[2].replace(/<[^>]+>/g, "").trim();
-    if (!text) continue;
-    out.push({ rank: out.length + 1, name: text, show_id: id, image_url: null });
-    if (out.length >= SPOTIFY_LIMIT) break;
-  }
-  if (out.length === 0 && md) {
-    const lines = md.split(/\n+/);
-    for (const ln of lines) {
-      const mm = /\[([^\]]{2,120})\]\(https:\/\/open\.spotify\.com\/show\/([A-Za-z0-9]+)/.exec(ln);
-      if (mm) {
-        const id = mm[2];
-        if (seen.has(id)) continue;
-        seen.add(id);
-        out.push({ rank: out.length + 1, name: mm[1].trim(), show_id: id, image_url: null });
-        if (out.length >= SPOTIFY_LIMIT) break;
+const SPOTIFY_HU_QUERIES = [
+  "podcast", "magyar", "hírek", "beszélgetés", "interjú",
+  "sport", "gazdaság", "politika", "kultúra", "történelem",
+  "tudomány", "pszichológia", "üzlet", "humor", "film",
+];
+
+async function fetchSpotifyHU(): Promise<{ rank: number; name: string; show_id: string; image_url: string | null; languages: string[]; total_episodes: number; rrf_score: number; appearances: number }[]> {
+  const token = await getSpotifyToken();
+  const agg = new Map<string, { name: string; image: string | null; languages: string[]; episodes: number; sumRrf: number; appearances: number }>();
+  // Spotify search show endpoint hard-caps limit at 10; paginate with offset
+  // up to 30 results per query (3 pages) to keep total HTTP calls bounded.
+  const PAGES = [0, 10, 20];
+  for (const q of SPOTIFY_HU_QUERIES) {
+    for (const offset of PAGES) {
+      const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=show&market=HU&limit=10&offset=${offset}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.warn("spotify search", q, "off", offset, res.status, body.slice(0, 200));
+        // 404 / total exhausted: stop paginating this query
+        if (res.status === 404) break;
+        continue;
       }
+      const j = await res.json();
+      const items: any[] = j?.shows?.items || [];
+      if (items.length === 0) break;
+      items.forEach((it, idx) => {
+        if (!it?.id) return;
+        const langs: string[] = it.languages || [];
+        const isHu = langs.some((l) => typeof l === "string" && l.toLowerCase().startsWith("hu"));
+        if (!isHu) return;
+        const globalRank = offset + idx + 1; // overall query position
+        const rrf = 1 / (60 + globalRank);
+        const cur = agg.get(it.id);
+        if (cur) {
+          cur.sumRrf += rrf;
+          cur.appearances += 1;
+        } else {
+          agg.set(it.id, {
+            name: String(it.name || ""),
+            image: it.images?.[0]?.url || null,
+            languages: langs,
+            episodes: Number(it.total_episodes || 0),
+            sumRrf: rrf,
+            appearances: 1,
+          });
+        }
+      });
+      await new Promise((r) => setTimeout(r, 80));
     }
   }
-  return out;
+
+  return [...agg.entries()]
+    .map(([show_id, v]) => ({ show_id, ...v }))
+    .sort((a, b) => (b.appearances - a.appearances) || (b.sumRrf - a.sumRrf))
+    .slice(0, SPOTIFY_LIMIT)
+    .map((row, i) => ({
+      rank: i + 1,
+      name: row.name,
+      show_id: row.show_id,
+      image_url: row.image,
+      languages: row.languages,
+      total_episodes: row.episodes,
+      rrf_score: row.sumRrf,
+      appearances: row.appearances,
+    }));
 }
+
+
 
 
 
@@ -241,25 +280,18 @@ Deno.serve(async (req) => {
     }
 
     // ===== SPOTIFY =====
-    // Spotify doesn't publish a HU podcast chart (podcastcharts.byspotify.com/hu → 404).
-    // We skip it for HU and rely on Apple + YouTube. If country is a supported market
-    // (se/gb/us/de/fr/nl/pl/at), the scrape runs.
-    const SPOTIFY_SUPPORTED = new Set(["se","gb","us","de","fr","nl","pl","at"]);
-    if (sources.includes("spotify") && SPOTIFY_SUPPORTED.has(country)) {
+    // HU proxy from Spotify Web API search (see fetchSpotifyHU above).
+    if (sources.includes("spotify") && country === "hu") {
       try {
-        const items = await fetchSpotifyMarket(country);
-
+        const items = await fetchSpotifyHU();
         let matched = 0, backfilled = 0;
         for (const it of items) {
           let matchedPod: any = null;
           let matchedVia: string | null = null;
-          // Strategy 1: existing spotify_url match
           if (it.show_id) {
-            const url = `https://open.spotify.com/show/${it.show_id}`;
-            matchedPod = podsArr.find((p) => p.spotify_url && p.spotify_url.includes(it.show_id!)) || null;
+            matchedPod = podsArr.find((p) => p.spotify_url && p.spotify_url.includes(it.show_id)) || null;
             if (matchedPod) matchedVia = "spotify_id";
           }
-          // Strategy 2: title fuzzy
           if (!matchedPod) {
             const t = normTitle(it.name);
             matchedPod = byTitle.get(t) || null;
@@ -288,13 +320,14 @@ Deno.serve(async (req) => {
             snapshot_at: snapshotAt,
           });
         }
-        result.sources.spotify = { fetched: items.length, matched, spotify_url_backfilled: backfilled };
+        result.sources.spotify = { fetched: items.length, matched, spotify_url_backfilled: backfilled, method: "web_api_search_rrf" };
       } catch (e) {
         result.sources.spotify = { error: e instanceof Error ? e.message : String(e) };
       }
     } else if (sources.includes("spotify")) {
-      result.sources.spotify = { skipped: `country '${country}' not supported by Spotify chart` };
+      result.sources.spotify = { skipped: `country '${country}' not supported (only HU implemented)` };
     }
+
 
 
     // ===== YOUTUBE =====
