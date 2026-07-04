@@ -362,7 +362,7 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     decision = "accept_hungarian";
     finalDetected = "hu";
     path.push("accept:very_strong_hu");
-  } else if (rssLang === "hu" && foreign < 30 && hasHuTextEvidence) {
+  } else if (effectiveRssHu && foreign < 30 && hasHuTextEvidence) {
     decision = "accept_hungarian";
     finalDetected = "hu";
     path.push("accept:rss_hu+text_evidence+low_foreign");
