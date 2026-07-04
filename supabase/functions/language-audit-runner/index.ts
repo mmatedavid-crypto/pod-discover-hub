@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
     let q = admin
       .from("podcasts")
-      .select("id, title, description, language, rss_url, website_url, category, is_hungarian, language_decision, language_checked_at")
+      .select("id, title, description, language, rss_url, website_url, category, is_hungarian, language_decision, language_checked_at, spotify_languages")
       .order("created_at", { ascending: true })
       .limit(limit);
 
@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
         episode_titles: (eps || []).map((e: any) => e.title),
         episode_descriptions: (eps || []).map((e: any) => e.description).slice(0, 4),
         categories: p.category ? [p.category] : [],
+        spotify_languages: p.spotify_languages || [],
       });
 
       scanned++;
