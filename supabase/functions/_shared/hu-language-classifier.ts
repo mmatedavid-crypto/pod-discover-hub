@@ -17,6 +17,12 @@ export interface LanguageCandidate {
   episode_titles?: (string | null | undefined)[] | null;
   episode_descriptions?: (string | null | undefined)[] | null;
   categories?: (string | null | undefined)[] | null;
+  // Spotify's declared show languages (ISO codes, e.g. ["en"], ["hu","en"]).
+  // Passed through from `podcasts.spotify_languages`. When Spotify explicitly
+  // declares ONLY foreign languages, that is a very strong signal that the
+  // RSS <language> tag is wrong (BBC, NPR, and many international feeds
+  // ship `hu` by mistake).
+  spotify_languages?: (string | null | undefined)[] | null;
 }
 
 export interface LanguageResult {
@@ -196,6 +202,16 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
 
   const rssLangRaw = safeStr(c.rss_language).trim().toLowerCase();
   const rssLang = rssLangRaw.replace(/[_-].*$/, ""); // hu-HU -> hu, en_US -> en
+
+  // Spotify-declared languages: if the show explicitly declares foreign-only
+  // languages (no 'hu'), the RSS `<language>hu</language>` tag is almost
+  // certainly wrong (BBC, NPR, etc.). We downgrade the rss=hu trust in that
+  // case and add a foreign hint.
+  const spotifyLangs = (c.spotify_languages || [])
+    .map((v) => safeStr(v).trim().toLowerCase().replace(/[_-].*$/, ""))
+    .filter(Boolean);
+  const spotifySaysHu = spotifyLangs.includes("hu");
+  const spotifyForeignOnly = spotifyLangs.length > 0 && !spotifySaysHu;
 
   const urlHaystack = `${c.rss_url || ""} ${c.website_url || ""}`.toLowerCase();
   const huDomain = matchAnyDomain(urlHaystack, HU_DOMAINS);
