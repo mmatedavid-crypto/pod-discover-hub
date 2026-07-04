@@ -125,7 +125,7 @@ export default function PersonDetailPage() {
       setNotFound(false);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes, date_of_death, is_living, participant_count, host_count, guest_count")
+        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, overview_sources, occupation_labels, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes, date_of_death, is_living, participant_count, host_count, guest_count")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
