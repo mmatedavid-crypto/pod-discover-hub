@@ -250,7 +250,13 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
   // --- Scoring ---
 
   // HU signals
-  if (rssLang === "hu") { hu += 35; path.push("rss=hu:+35"); }
+  // Spotify override: if the show is explicitly listed on Spotify as foreign-only,
+  // the RSS <language>hu</language> tag is almost certainly wrong (this is common
+  // for BBC/NPR-style feeds where podiverzum imported from the Apple `/hu/` URL).
+  // Skip the rss=hu boost and treat as a foreign hint instead.
+  const effectiveRssHu = rssLang === "hu" && !spotifyForeignOnly;
+  if (effectiveRssHu) { hu += 35; path.push("rss=hu:+35"); }
+  else if (rssLang === "hu" && spotifyForeignOnly) { path.push(`rss=hu_ignored:spotify=${spotifyLangs.join(",")}`); }
   if (huDomain) { hu += 20; path.push(`hu_domain:${huDomain}:+20`); }
   if (huAccentRatioVal > 0.015) { hu += Math.min(30, Math.round(huAccentRatioVal * 1000)); path.push(`hu_accent_ratio:${huAccentRatioVal.toFixed(3)}`); }
   hu += Math.min(40, huMatches.count * 3);
@@ -298,6 +304,16 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
   }
 
   if (foreignDomain) { foreign += 25; path.push(`foreign_domain:${foreignDomain}:+25`); }
+
+  // Spotify foreign-only signal: strong hint that the whole show is foreign.
+  // Adds to the foreign score AND counts as positive foreign content so it can
+  // rescue rejections when Hungarian words are absent (e.g. English-only titles).
+  if (spotifyForeignOnly) {
+    foreign += 30;
+    const spotifyLangGuess = spotifyLangs[0] || "en";
+    if (!detected || detected === "unknown") detected = spotifyLangGuess;
+    path.push(`spotify_langs=${spotifyLangs.join(",")}:+30`);
+  }
 
   // NOTE: absence of `.hu` domain and absence of Hungarian accents are NEVER
   // counted as foreign evidence. A Hungarian podcast may live on .fm, .com,
