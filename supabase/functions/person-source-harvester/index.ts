@@ -147,13 +147,19 @@ Reply with JSON: {"score": number, "reason": string}`;
       min_input_chars: 100,
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
       temperature: 0.1,
+      response_format: { type: "json_object" },
     });
     if (!ai.ok) return { score: 0, reason: `ai_error:${ai.error || ai.status}`, cost: 0 };
-    const raw = (ai.text || "").trim().replace(/^```json\s*|\s*```$/g, "").trim();
+    const content = ai.data?.choices?.[0]?.message?.content;
+    let raw = "";
+    if (typeof content === "string") raw = content;
+    else if (Array.isArray(content)) raw = content.map((c: any) => c?.text || "").join("");
+    raw = raw.trim().replace(/^```json\s*|\s*```$/g, "").trim();
     let parsed: any = null;
     try { parsed = JSON.parse(raw); } catch {
-      const m = raw.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} }
+      const m = raw.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch { /* */ } }
     }
+    if (!parsed) return { score: 0, reason: `parse_failed:${raw.slice(0,120)}`, cost: 0 };
     const score = Math.max(0, Math.min(1, Number(parsed?.score) || 0));
     const reason = String(parsed?.reason || "no_reason").slice(0, 300);
     const cost = chatTokenCostUsd(NAME_MATCH_MODEL, ai.input_tokens || 0, ai.output_tokens || 0) || 0;
