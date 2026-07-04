@@ -323,7 +323,7 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
 
   // Positive foreign-content evidence flag — used by all rejection branches
   // below. We only reject when actual foreign-language content is detected.
-  const hasPositiveForeignContent = topForeignScore > 0 || !!foreignDomain;
+  const hasPositiveForeignContent = topForeignScore > 0 || !!foreignDomain || spotifyForeignOnly;
 
   // --- Decision ---
   hu = Math.max(0, Math.min(100, hu));
@@ -346,7 +346,7 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     huMatches.count >= 3 ||                                       // 3+ real HU function words
     (huAccentRatioVal >= 0.02 && huMatches.count >= 1) ||         // HU accents + ≥1 HU word
     (huAccentRatioVal >= 0.04) ||                                 // very dense HU accents
-    (rssLang === "hu" && (huAccentRatioVal >= 0.01 || huMatches.count >= 2 || !!huDomain));
+    (effectiveRssHu && (huAccentRatioVal >= 0.01 || huMatches.count >= 2 || !!huDomain));
 
   // VERY strong HU (dominant native text) — accept even when foreign loanwords
   // push the foreign score high. Bilingual marketing copy with lots of native HU
@@ -354,7 +354,7 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
   const veryStrongHu =
     huMatches.count >= 10 ||
     huAccentRatioVal >= 0.05 ||
-    (rssLang === "hu" && huMatches.count >= 5 && huAccentRatioVal >= 0.03);
+    (effectiveRssHu && huMatches.count >= 5 && huAccentRatioVal >= 0.03);
 
   const hasHuTextEvidence = huAccentRatioVal > 0 || huMatches.count >= 2 || !!huDomain;
 
