@@ -13,6 +13,7 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
       .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at,language,language_decision")
       .not("rss_status", "in", "(failed,inactive)")
       .eq("language_decision", "accept_hungarian")
+      .or("language.is.null,language.ilike.hu%,language.ilike.mag%")
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(limit)
       .then(({ data }) => setItems((data || []) as any));
