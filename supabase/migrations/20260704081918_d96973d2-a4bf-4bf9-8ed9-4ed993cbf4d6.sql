@@ -1,0 +1,1 @@
+DELETE FROM public.podcast_email_subscriptions WHERE email='test-verify@podiverzum.hu';
