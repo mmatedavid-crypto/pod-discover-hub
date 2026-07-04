@@ -342,7 +342,28 @@ async function processCandidate(sb: any, c: Candidate, ctl: Controls, dry: boole
     attempt_count: 1,
   }, { onConflict: "person_id,source_url" });
 
+  if (status === "verified") {
+    await mergeIntoOverviewSources(sb, c.person_id, {
+      type: c.source_type,
+      url: c.source_url,
+      label: (scrape.title || domain || c.source_url).slice(0, 120),
+      confidence: match.score,
+      trust: c.trust_score,
+      added_by: "person-source-harvester",
+      added_at: new Date().toISOString(),
+    });
+  }
+
   return { ok: true, status, cost: firecrawlCost + match.cost };
+}
+
+async function mergeIntoOverviewSources(sb: any, personId: string, entry: any): Promise<void> {
+  const { data: p } = await sb.from("people").select("overview_sources").eq("id", personId).maybeSingle();
+  const existing: any[] = Array.isArray(p?.overview_sources) ? p!.overview_sources : [];
+  const existingUrls = new Set(existing.map((e: any) => e?.url).filter(Boolean));
+  if (existingUrls.has(entry.url)) return;
+  const next = [...existing, entry].slice(-12); // cap at 12 chip max
+  await sb.from("people").update({ overview_sources: next, updated_at: new Date().toISOString() }).eq("id", personId);
 }
 
 async function runBatch(sb: any, opts: { limitPerType?: number; force?: boolean; dryOverride?: boolean } = {}): Promise<any> {
