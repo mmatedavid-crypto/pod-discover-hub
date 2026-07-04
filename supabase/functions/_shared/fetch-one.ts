@@ -235,6 +235,28 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
         return { ok: false, error: upErr.message, new: 0, duplicates: 0, items: items.length };
       }
     }
+
+    // Fire per-subscriber email notifications for newly-added episodes.
+    // Only runs when the podcast has opt-in flag `notify_new_episodes = true`
+    // and only for slugs that were NOT previously in the DB (true new episodes).
+    if (podcast?.notify_new_episodes && newCount > 0) {
+      try {
+        const newSlugs = candidates
+          .filter(({ it, slug }) => {
+            const dup =
+              (it.guid && existingGuids.has(it.guid)) ||
+              (it.link && existingLinks.has(it.link)) ||
+              (it.published && existingTitlePub.has(`${it.title}|${it.published}`));
+            return !dup;
+          })
+          .map((c) => c.slug);
+        if (newSlugs.length > 0) {
+          await notifyPodcastSubscribers(supabase, podcast, newSlugs);
+        }
+      } catch (e) {
+        console.error("notifyPodcastSubscribers failed", (e as Error)?.message);
+      }
+    }
   }
 
   const update: any = {
