@@ -15,6 +15,7 @@ import { ENTITY_COLUMN, EntityKind, ENTITY_LABEL, entityHref } from "@/lib/entit
 import { EpisodeDetailSkeleton } from "@/components/Skeletons";
 import { SimilarEpisodes } from "@/components/SimilarEpisodes";
 import { SharePanel } from "@/components/SharePanel";
+import { PodcastNewEpisodeSubscribe } from "@/components/PodcastNewEpisodeSubscribe";
 import { EpisodeMarks } from "@/components/EpisodeMarks";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { categoryHref, categoryLabel } from "@/lib/categoryLabels";
