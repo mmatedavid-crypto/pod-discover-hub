@@ -115,13 +115,16 @@ export default function EpisodeDetail() {
       const bestDesc = pickEpisodeDescription(e, 320);
       const safeSeoDescription = sanitizeHungarianPublicText(e.seo_description);
       const safeSeoTitle = sanitizeHungarianPublicText(e.seo_title);
-      const metaDesc = (safeSeoDescription || bestDesc || `${p.display_title || p.title} podcast epizódja — Podiverzum.`).slice(0, 160);
+      // Daily-numbered series override (e.g. Fábry Kornél "N. nap:") — bake host name +
+      // day number into <title>/description so we rank #1 on "<host> <N>" queries.
+      const dailySeries = dailySeriesSeo(p.slug, p.title, e.title);
+      const metaDesc = (dailySeries?.description || safeSeoDescription || bestDesc || `${p.display_title || p.title} podcast epizódja — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
       const isAcceptedHungarian = p.language_decision === "accept_hungarian";
       setSeo({
-        title: safeSeoTitle || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
+        title: dailySeries?.title || safeSeoTitle || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
         canonical,
         noindex: !isAcceptedHungarian,
