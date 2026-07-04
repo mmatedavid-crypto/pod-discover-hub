@@ -45,6 +45,8 @@ interface Person {
   participant_count?: number | null;
   host_count?: number | null;
   guest_count?: number | null;
+  overview_sources?: any;
+  occupation_labels?: string[] | null;
 }
 
 function hasVerifiedWiki(person: Pick<Person, "wikipedia_match_status">): boolean {
@@ -123,7 +125,7 @@ export default function PersonDetailPage() {
       setNotFound(false);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes, date_of_death, is_living, participant_count, host_count, guest_count")
+        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, overview_sources, occupation_labels, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes, date_of_death, is_living, participant_count, host_count, guest_count")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
@@ -449,6 +451,50 @@ export default function PersonDetailPage() {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
+        {(() => {
+          const aiBioSafe = person.ai_bio_status === "published" && Number(person.ai_bio_confidence || 0) >= 0.75 ? person.ai_bio : null;
+          const bioText = person.overview_text || aiBioSafe || person.short_bio || person.wikipedia_extract;
+          const paragraphs = bioText ? String(bioText).split(/\n\n+/).map(s => s.trim()).filter(Boolean) : [];
+          const sources: any[] = Array.isArray(person.overview_sources) ? person.overview_sources : [];
+          const occupations: string[] = Array.isArray((person as any).occupation_labels) ? (person as any).occupation_labels : [];
+          if (paragraphs.length === 0 && sources.length === 0 && occupations.length === 0) return null;
+          return (
+            <section className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+              <h2 className="text-xl font-semibold mb-4">Ki ő?</h2>
+              {occupations.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {occupations.map((o) => (
+                    <span key={o} className="px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary border border-primary/20">{o}</span>
+                  ))}
+                </div>
+              )}
+              {paragraphs.length > 0 && (
+                <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert text-foreground/90 leading-relaxed">
+                  {paragraphs.map((p, i) => (
+                    <p key={i} className="mb-4 last:mb-0">{p}</p>
+                  ))}
+                </div>
+              )}
+              {sources.length > 0 && (
+                <div className="mt-6 pt-5 border-t border-border">
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">Külső források</div>
+                  <ul className="flex flex-wrap gap-2">
+                    {sources.map((s: any, i: number) => s?.url ? (
+                      <li key={i}>
+                        <a href={s.url} target="_blank" rel="noopener noreferrer nofollow"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-sm hover:border-primary/50">
+                          <span>{s.label || s.type || s.url}</span>
+                          <span aria-hidden className="opacity-60">↗</span>
+                        </a>
+                      </li>
+                    ) : null)}
+                  </ul>
+                </div>
+              )}
+            </section>
+          );
+        })()}
+
         {eps.length === 0 && <div className="text-muted-foreground">Még nincs releváns epizód.</div>}
 
         {isHistorical && (
