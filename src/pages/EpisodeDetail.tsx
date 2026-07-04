@@ -425,6 +425,15 @@ export default function EpisodeDetail() {
                 <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
               </div>
 
+              {dailySeriesSeo(p.slug, p.title, e.title) && (
+                <div className="mt-4 rounded-xl border border-primary/25 bg-primary/5 p-4">
+                  <div className="text-sm font-medium text-foreground mb-2">
+                    Kérsz e-mailt a következő napi epizódról?
+                  </div>
+                  <PodcastNewEpisodeSubscribe podcastId={p.id} podcastTitle={p.display_title || p.title} />
+                </div>
+              )}
+
               {/* Secondary platform row */}
               {(p.apple_url || p.spotify_url || p.youtube_url) && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
