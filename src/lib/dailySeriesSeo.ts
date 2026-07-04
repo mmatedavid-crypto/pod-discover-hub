@@ -54,10 +54,10 @@ export function dailySeriesSeo(
   const headline = `${cfg.hostName} ${day}. nap: ${rest}`;
   const title = `${headline} — ${cfg.seriesShortName} | Podiverzum`;
   const description = (cfg.descriptionTemplate || "{host} {n}. napi epizódja – {rest}. Hallgasd a {series} podcastot a Podiverzumon.")
-    .replaceAll("{host}", cfg.hostName)
-    .replaceAll("{n}", day)
-    .replaceAll("{rest}", rest)
-    .replaceAll("{series}", cfg.seriesShortName)
+    .replace(/\{host\}/g, cfg.hostName)
+    .replace(/\{n\}/g, day)
+    .replace(/\{rest\}/g, rest)
+    .replace(/\{series\}/g, cfg.seriesShortName)
     .slice(0, 160);
 
   return {
