@@ -80,6 +80,7 @@ const AdminIntelligenceAuditPage = lazy(() => import("./pages/AdminIntelligenceA
 const AdminGscInsightsPage = lazy(() => import("./pages/AdminGscInsightsPage.tsx"));
 const AdminIndexingApiPage = lazy(() => import("./pages/AdminIndexingApiPage.tsx"));
 const UnsubscribePage = lazy(() => import("./pages/UnsubscribePage.tsx"));
+const PodcastUnsubscribePage = lazy(() => import("./pages/PodcastUnsubscribePage.tsx"));
 const PeopleHubPage = lazy(() => import("./pages/PeopleHubPage.tsx"));
 const PersonDetailPage = lazy(() => import("./pages/PersonDetailPage.tsx"));
 const TopicsHubPage = lazy(() => import("./pages/TopicsHubPage.tsx"));
@@ -189,6 +190,7 @@ const App = () => (
           <Route path="/admin/gsc-insights" element={<AdminGscInsightsPage />} />
           <Route path="/admin/indexing-api" element={<AdminIndexingApiPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
+          <Route path="/leiratkozas-podcast" element={<PodcastUnsubscribePage />} />
           
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/tema/:slug" element={<RedirectWithSlug to="/temak" />} />
