@@ -524,6 +524,9 @@ export default function EpisodeDetail() {
           </section>
         )}
 
+        {/* Kapcsolódó epizódok — előre hozva, hogy a social forgalom is lássa a fold közelében. */}
+        <RelatedEpisodes episodeIdOverride={e.id} podcastIdOverride={p.id} variant="compact" />
+
         {description && description !== summary && (
           <section className="mt-6 rounded-lg border border-border bg-card p-4">
             <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Leírás</div>
@@ -541,7 +544,11 @@ export default function EpisodeDetail() {
           </div>
         )}
 
-        <RelatedEpisodes episodeIdOverride={e.id} podcastIdOverride={p.id} variant="compact" />
+        {/* "Ha tetszett, oszd meg" — másodlagos share panel az oldal alján, közvetlenül a similar előtt */}
+        <section className="mt-10 rounded-lg border border-primary/25 bg-primary/5 p-4">
+          <div className="text-sm font-semibold text-foreground mb-2">Tetszett? Oszd meg egy ismerőssel:</div>
+          <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
+        </section>
 
         <SimilarEpisodes episodeId={e.id} />
 
