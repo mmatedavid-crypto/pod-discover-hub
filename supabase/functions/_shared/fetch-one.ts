@@ -252,6 +252,17 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
           .map((c) => c.slug);
         if (newSlugs.length > 0) {
           await notifyPodcastSubscribers(supabase, podcast, newSlugs);
+          // Fire-and-forget instant Google discovery pipeline for whitelisted
+          // podcasts (Fábry Kornél etc.): the goal is to rank #1 on
+          // "<host> <N>. nap"-style queries within minutes of the drop, not
+          // wait for the daily indexing cron. Sends the episode URLs to
+          // Google Indexing API + IndexNow (Bing/Yandex) and refreshes the
+          // episodes sitemap so news-sitemap.xml picks them up too.
+          try {
+            await instantIndexEpisodes(podcast, newSlugs);
+          } catch (e) {
+            console.error("instantIndexEpisodes failed", (e as Error)?.message);
+          }
         }
       } catch (e) {
         console.error("notifyPodcastSubscribers failed", (e as Error)?.message);
@@ -367,4 +378,56 @@ async function notifyPodcastSubscribers(supabase: any, podcast: any, newSlugs: s
       .eq("podcast_id", podcast.id)
       .is("unsubscribed_at", null);
   } catch { /* noop */ }
+}
+
+// ---------------------------------------------------------------------------
+// Instant indexing pipeline for whitelisted podcasts.
+// Fires the moment new episodes are ingested from RSS — no waiting for the
+// daily google-indexing cron. Used for daily-cadence series like the Fábry
+// Kornél "Biblia egy év alatt" podcast where being #1 on Google within an
+// hour of the drop is the whole win.
+// ---------------------------------------------------------------------------
+async function instantIndexEpisodes(podcast: any, newSlugs: string[]) {
+  if (!newSlugs.length) return;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return;
+
+  const urls = newSlugs.map(
+    (slug) => `https://podiverzum.hu/podcast/${podcast.slug}/${slug}`,
+  );
+  const authHeaders = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${serviceKey}`,
+    apikey: serviceKey,
+  };
+
+  // 1) Google Indexing API — direct URL_UPDATED ping. Requires the
+  //    GOOGLE_INDEXING_SA_JSON secret; the function no-ops without it.
+  //    Capped at 200/day per property (Google quota); we send ≤ 5 URLs per
+  //    drop, so the daily budget is never a concern from this path.
+  const googlePromise = fetch(`${supabaseUrl}/functions/v1/google-indexing-submit`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({ urls: urls.slice(0, 10) }),
+  }).catch((e) => console.error("google-indexing-submit failed", (e as Error)?.message));
+
+  // 2) IndexNow — Bing / Yandex / DuckDuckGo. Free, unmetered.
+  const indexnowPromise = fetch(`${supabaseUrl}/functions/v1/indexnow-submit`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({ urls }),
+  }).catch((e) => console.error("indexnow-submit failed", (e as Error)?.message));
+
+  // 3) Refresh the episodes sitemap so news-sitemap.xml sees the new URLs
+  //    on the next crawler visit (Google News favours sitemap-listed items).
+  const sitemapPromise = fetch(
+    `${supabaseUrl}/functions/v1/refresh-sitemap?type=episodes`,
+    { method: "POST", headers: authHeaders },
+  ).catch((e) => console.error("refresh-sitemap failed", (e as Error)?.message));
+
+  await Promise.allSettled([googlePromise, indexnowPromise, sitemapPromise]);
+  console.log(
+    `instantIndexEpisodes: pinged ${urls.length} URL(s) for podcast=${podcast.slug}`,
+  );
 }
