@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "podiverzum-mcp",
+      "version": "0.1.0",
+      "title": "Podiverzum – Magyar podcast katalógus"
+    },
+    "tools": [
+      {
+        "name": "search_podcasts",
+        "title": "Podcast keresés",
+        "description": "Magyar podcastok keresése név/leírás alapján a podiverzum.hu katalógusban. Visszaadja a slug, cím, kategória, rank és publikus URL adatokat.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Keresőkifejezés (podcast név vagy téma)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Max találatszám (alap: 15)."
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_podcast",
+        "title": "Podcast részletek",
+        "description": "Egy podcast teljes adatai slug alapján, a legutóbbi 10 epizóddal együtt.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "slug": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Podcast slug (pl. 'partizan-podcast')."
+            }
+          },
+          "required": [
+            "slug"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_episodes",
+        "title": "Epizód keresés",
+        "description": "Magyar podcast epizódok szemantikus + kulcsszavas keresése (search-hybrid v13). Címre, leírásra és tartalomra keres.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Keresőkifejezés."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "description": "Max találat (alap: 10)."
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_toplist",
+        "title": "Podiverzum toplista",
+        "description": "A Podiverzum aktuális magyar podcast toplistája (Apple + Spotify + YouTube fúzió, RRF-alapú).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Max találatszám (alap: 20)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
