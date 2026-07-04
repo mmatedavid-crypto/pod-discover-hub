@@ -21,3 +21,5 @@ project_id = "yoxewklaybougzpmzvkg"
     verify_jwt = false
   [functions.gsc-weekly-insights]
     verify_jwt = false
+  [functions.podcast-unsubscribe]
+    verify_jwt = false

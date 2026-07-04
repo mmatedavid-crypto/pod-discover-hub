@@ -235,6 +235,28 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
         return { ok: false, error: upErr.message, new: 0, duplicates: 0, items: items.length };
       }
     }
+
+    // Fire per-subscriber email notifications for newly-added episodes.
+    // Only runs when the podcast has opt-in flag `notify_new_episodes = true`
+    // and only for slugs that were NOT previously in the DB (true new episodes).
+    if (podcast?.notify_new_episodes && newCount > 0) {
+      try {
+        const newSlugs = candidates
+          .filter(({ it, slug }) => {
+            const dup =
+              (it.guid && existingGuids.has(it.guid)) ||
+              (it.link && existingLinks.has(it.link)) ||
+              (it.published && existingTitlePub.has(`${it.title}|${it.published}`));
+            return !dup;
+          })
+          .map((c) => c.slug);
+        if (newSlugs.length > 0) {
+          await notifyPodcastSubscribers(supabase, podcast, newSlugs);
+        }
+      } catch (e) {
+        console.error("notifyPodcastSubscribers failed", (e as Error)?.message);
+      }
+    }
   }
 
   const update: any = {
@@ -260,4 +282,89 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   await supabase.from("podcasts").update(update).eq("id", podcast.id);
 
   return { ok: true, new: newCount, duplicates, items: items.length };
+}
+
+// ---------------------------------------------------------------------------
+// Notify email subscribers about newly-added episodes for a podcast.
+// Invoked from the main fetch flow only when `podcast.notify_new_episodes = true`.
+// Fires per-recipient sends via the shared send-transactional-email edge fn,
+// which enqueues to pgmq for retry-safe delivery. Idempotent per (episode, email).
+// ---------------------------------------------------------------------------
+async function notifyPodcastSubscribers(supabase: any, podcast: any, newSlugs: string[]) {
+  if (!newSlugs.length) return;
+
+  // Fetch the newly-added episodes (id, slug, title, description, published_at)
+  const { data: newEps } = await supabase
+    .from("episodes")
+    .select("id, slug, title, description, published_at")
+    .eq("podcast_id", podcast.id)
+    .in("slug", newSlugs);
+  if (!newEps || newEps.length === 0) return;
+
+  // Only notify about episodes published within the last 14 days — protects
+  // against backfills / late-added archive items spamming subscribers.
+  const cutoffMs = Date.now() - 14 * 86400_000;
+  const freshEps = newEps.filter((e: any) => {
+    if (!e.published_at) return true;
+    const t = Date.parse(e.published_at);
+    return Number.isFinite(t) && t >= cutoffMs;
+  });
+  if (freshEps.length === 0) return;
+
+  // Load active subscribers
+  const { data: subs } = await supabase
+    .from("podcast_email_subscriptions")
+    .select("email, unsubscribe_token")
+    .eq("podcast_id", podcast.id)
+    .is("unsubscribed_at", null);
+  if (!subs || subs.length === 0) return;
+
+  const podcastTitle = podcast.display_title || podcast.title || "";
+  const podcastSlug = podcast.slug;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  for (const ep of freshEps) {
+    const episodeUrl = `https://podiverzum.hu/podcast/${podcastSlug}/${ep.slug}`;
+    const publishedAt = ep.published_at ? String(ep.published_at).slice(0, 10) : "";
+
+    for (const sub of subs) {
+      const unsubscribeUrl = `https://podiverzum.hu/leiratkozas-podcast?token=${encodeURIComponent(sub.unsubscribe_token)}`;
+      const idempotencyKey = `new-ep-${ep.id}-${sub.unsubscribe_token.slice(0, 12)}`;
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+          },
+          body: JSON.stringify({
+            templateName: "new-episode-notification",
+            recipientEmail: sub.email,
+            idempotencyKey,
+            templateData: {
+              podcastTitle,
+              episodeTitle: ep.title,
+              episodeUrl,
+              episodeDescription: ep.description || "",
+              publishedAt,
+              unsubscribeUrl,
+            },
+          }),
+        });
+      } catch (e) {
+        console.error("send-transactional-email invoke failed", (e as Error)?.message);
+      }
+    }
+  }
+
+  // Update last_sent_at for observability
+  try {
+    await supabase
+      .from("podcast_email_subscriptions")
+      .update({ last_sent_at: new Date().toISOString() })
+      .eq("podcast_id", podcast.id)
+      .is("unsubscribed_at", null);
+  } catch { /* noop */ }
 }

@@ -4895,6 +4895,75 @@ export type Database = {
           },
         ]
       }
+      podcast_email_subscriptions: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          last_sent_at: string | null
+          podcast_id: string
+          source: string | null
+          unsubscribe_token: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          last_sent_at?: string | null
+          podcast_id: string
+          source?: string | null
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          last_sent_at?: string | null
+          podcast_id?: string
+          source?: string | null
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_email_subscriptions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_email_subscriptions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_email_subscriptions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_email_subscriptions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_email_subscriptions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       podcast_embeddings: {
         Row: {
           content_hash: string
@@ -5362,6 +5431,7 @@ export type Database = {
           next_fetch_at: string | null
           next_rss_hunt_at: string | null
           normalized_title: string | null
+          notify_new_episodes: boolean
           pi_backfill_approved: boolean | null
           pi_backfill_completed_at: string | null
           pi_backfill_dry_run: Json | null
@@ -5484,6 +5554,7 @@ export type Database = {
           next_fetch_at?: string | null
           next_rss_hunt_at?: string | null
           normalized_title?: string | null
+          notify_new_episodes?: boolean
           pi_backfill_approved?: boolean | null
           pi_backfill_completed_at?: string | null
           pi_backfill_dry_run?: Json | null
@@ -5606,6 +5677,7 @@ export type Database = {
           next_fetch_at?: string | null
           next_rss_hunt_at?: string | null
           normalized_title?: string | null
+          notify_new_episodes?: boolean
           pi_backfill_approved?: boolean | null
           pi_backfill_completed_at?: string | null
           pi_backfill_dry_run?: Json | null
