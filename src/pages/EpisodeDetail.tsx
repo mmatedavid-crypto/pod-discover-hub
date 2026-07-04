@@ -142,7 +142,7 @@ export default function EpisodeDetail() {
           // episodes — the same window used by news-sitemap.xml — as NewsArticle so
           // the publisher pipeline (sitemap → bot fetch → schema → News index) is
           // end-to-end consistent. Older episodes stay as PodcastEpisode only.
-          const headline = (e.display_title || e.title || "").toString().slice(0, 110);
+          const headline = (dailySeries?.headline || e.display_title || e.title || "").toString().slice(0, 110);
           const articleImage = e.image_url || p.image_url || undefined;
           const podName = p.display_title || p.title || "Podiverzum";
           const longBody = safeSeoDescription || bestDesc || undefined;
