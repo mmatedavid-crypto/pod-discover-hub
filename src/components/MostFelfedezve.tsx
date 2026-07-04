@@ -43,6 +43,7 @@ export function MostFelfedezve() {
           "id, slug, title, display_title, image_url, published_at, podcasts!inner(slug, title, display_title, image_url, language_decision)",
         )
         .eq("podcasts.language_decision", "accept_hungarian")
+        .or("language.is.null,language.ilike.hu%,language.ilike.mag%", { foreignTable: "podcasts" })
         .gte("published_at", since)
         .order("published_at", { ascending: false })
         .limit(24);
