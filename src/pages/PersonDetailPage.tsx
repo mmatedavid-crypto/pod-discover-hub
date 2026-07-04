@@ -451,6 +451,50 @@ export default function PersonDetailPage() {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
+        {(() => {
+          const aiBioSafe = person.ai_bio_status === "published" && Number(person.ai_bio_confidence || 0) >= 0.75 ? person.ai_bio : null;
+          const bioText = person.overview_text || aiBioSafe || person.short_bio || person.wikipedia_extract;
+          const paragraphs = bioText ? String(bioText).split(/\n\n+/).map(s => s.trim()).filter(Boolean) : [];
+          const sources: any[] = Array.isArray(person.overview_sources) ? person.overview_sources : [];
+          const occupations: string[] = Array.isArray((person as any).occupation_labels) ? (person as any).occupation_labels : [];
+          if (paragraphs.length === 0 && sources.length === 0 && occupations.length === 0) return null;
+          return (
+            <section className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+              <h2 className="text-xl font-semibold mb-4">Ki ő?</h2>
+              {occupations.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {occupations.map((o) => (
+                    <span key={o} className="px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary border border-primary/20">{o}</span>
+                  ))}
+                </div>
+              )}
+              {paragraphs.length > 0 && (
+                <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert text-foreground/90 leading-relaxed">
+                  {paragraphs.map((p, i) => (
+                    <p key={i} className="mb-4 last:mb-0">{p}</p>
+                  ))}
+                </div>
+              )}
+              {sources.length > 0 && (
+                <div className="mt-6 pt-5 border-t border-border">
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">Külső források</div>
+                  <ul className="flex flex-wrap gap-2">
+                    {sources.map((s: any, i: number) => s?.url ? (
+                      <li key={i}>
+                        <a href={s.url} target="_blank" rel="noopener noreferrer nofollow"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-sm hover:border-primary/50">
+                          <span>{s.label || s.type || s.url}</span>
+                          <span aria-hidden className="opacity-60">↗</span>
+                        </a>
+                      </li>
+                    ) : null)}
+                  </ul>
+                </div>
+              )}
+            </section>
+          );
+        })()}
+
         {eps.length === 0 && <div className="text-muted-foreground">Még nincs releváns epizód.</div>}
 
         {isHistorical && (
