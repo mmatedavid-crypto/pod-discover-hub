@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, CalendarDays, ArrowLeft, Sparkles, Clock } from "lucide-react";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
+import { dailySeriesSeo } from "@/lib/dailySeriesSeo";
 import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 import { formatDurationHu, toIsoDuration } from "@/lib/duration";
 import NotFoundState from "@/components/NotFoundState";
@@ -114,13 +115,16 @@ export default function EpisodeDetail() {
       const bestDesc = pickEpisodeDescription(e, 320);
       const safeSeoDescription = sanitizeHungarianPublicText(e.seo_description);
       const safeSeoTitle = sanitizeHungarianPublicText(e.seo_title);
-      const metaDesc = (safeSeoDescription || bestDesc || `${p.display_title || p.title} podcast epizódja — Podiverzum.`).slice(0, 160);
+      // Daily-numbered series override (e.g. Fábry Kornél "N. nap:") — bake host name +
+      // day number into <title>/description so we rank #1 on "<host> <N>" queries.
+      const dailySeries = dailySeriesSeo(p.slug, p.title, e.title);
+      const metaDesc = (dailySeries?.description || safeSeoDescription || bestDesc || `${p.display_title || p.title} podcast epizódja — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
       const isAcceptedHungarian = p.language_decision === "accept_hungarian";
       setSeo({
-        title: safeSeoTitle || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
+        title: dailySeries?.title || safeSeoTitle || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
         canonical,
         noindex: !isAcceptedHungarian,
@@ -138,7 +142,7 @@ export default function EpisodeDetail() {
           // episodes — the same window used by news-sitemap.xml — as NewsArticle so
           // the publisher pipeline (sitemap → bot fetch → schema → News index) is
           // end-to-end consistent. Older episodes stay as PodcastEpisode only.
-          const headline = (e.display_title || e.title || "").toString().slice(0, 110);
+          const headline = (dailySeries?.headline || e.display_title || e.title || "").toString().slice(0, 110);
           const articleImage = e.image_url || p.image_url || undefined;
           const podName = p.display_title || p.title || "Podiverzum";
           const longBody = safeSeoDescription || bestDesc || undefined;
