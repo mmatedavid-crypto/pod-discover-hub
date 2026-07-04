@@ -252,6 +252,17 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
           .map((c) => c.slug);
         if (newSlugs.length > 0) {
           await notifyPodcastSubscribers(supabase, podcast, newSlugs);
+          // Fire-and-forget instant Google discovery pipeline for whitelisted
+          // podcasts (Fábry Kornél etc.): the goal is to rank #1 on
+          // "<host> <N>. nap"-style queries within minutes of the drop, not
+          // wait for the daily indexing cron. Sends the episode URLs to
+          // Google Indexing API + IndexNow (Bing/Yandex) and refreshes the
+          // episodes sitemap so news-sitemap.xml picks them up too.
+          try {
+            await instantIndexEpisodes(podcast, newSlugs);
+          } catch (e) {
+            console.error("instantIndexEpisodes failed", (e as Error)?.message);
+          }
         }
       } catch (e) {
         console.error("notifyPodcastSubscribers failed", (e as Error)?.message);
