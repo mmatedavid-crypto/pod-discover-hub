@@ -301,7 +301,12 @@ export default function PersonDetailPage() {
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
       const verifiedWiki = (p as any).wikipedia_match_status === "verified" && Number((p as any).wikipedia_match_confidence || 0) >= 0.8;
       const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, róla szóló adások és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
-      const thinPage = epList.length < 2;
+      // Backend `is_indexable` már 1+ HU epizódnál true (person-single-ep-indexable,
+      // 2026-05-21) — SEO okból ne írjuk kliensen felül `noindex`-re a "vékony"
+      // (1 epizódos) oldalakat, mert Googlebot JS-t futtat és pont ezekre a
+      // személy-név lekérdezésekre veszítünk pozíciót (GSC 2026-07: 66.7% CTR
+      // amikor személy-oldal megjelenik, de alig jelenik meg).
+      const thinPage = false;
 
       const jsonLd: any[] = [
         {
