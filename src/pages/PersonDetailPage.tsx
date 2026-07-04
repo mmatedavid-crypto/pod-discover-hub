@@ -45,6 +45,8 @@ interface Person {
   participant_count?: number | null;
   host_count?: number | null;
   guest_count?: number | null;
+  overview_sources?: any;
+  occupation_labels?: string[] | null;
 }
 
 function hasVerifiedWiki(person: Pick<Person, "wikipedia_match_status">): boolean {
