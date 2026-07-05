@@ -14,6 +14,12 @@ const cors = {
 
 const SITE = "https://podiverzum.hu";
 const DAILY_QUOTA = 200; // Google's per-property hard cap
+// Slots reserved for instant-index pings (customUrls path) so daily-cadence
+// podcasts like Fábry Kornél's "Biblia egy év alatt" always get a Google
+// Indexing API notification even after the main cron has run. The bulk cron
+// stops at (DAILY_QUOTA − RESERVED_HOT). Custom-URL calls (instant path)
+// can use the full 200 if needed.
+const RESERVED_HOT = 15;
 
 // ---- JWT helpers (Deno-native, no external deps) ----
 function b64url(input: ArrayBuffer | Uint8Array | string): string {
@@ -219,10 +225,18 @@ Deno.serve(async (req) => {
     const state: any = stateRow?.value || {};
     const today = new Date().toISOString().slice(0, 10);
     const todayCount = state.daily?.[today] ?? 0;
-    if (todayCount >= DAILY_QUOTA) {
-      return json({ ok: true, message: "daily_quota_reached", submitted: 0, daily_count: todayCount });
+    // Bulk cron leaves RESERVED_HOT slots free for customUrls (instant path).
+    const effectiveQuota = customUrls ? DAILY_QUOTA : Math.max(0, DAILY_QUOTA - RESERVED_HOT);
+    if (todayCount >= effectiveQuota) {
+      return json({
+        ok: true,
+        message: customUrls ? "daily_quota_reached" : "bulk_quota_reached_reserved_for_hot",
+        submitted: 0,
+        daily_count: todayCount,
+        reserved_hot: RESERVED_HOT,
+      });
     }
-    const remaining = Math.max(0, DAILY_QUOTA - todayCount);
+    const remaining = Math.max(0, effectiveQuota - todayCount);
     const toSend = urls.slice(0, Math.min(remaining, maxUrls));
 
     // ---- Get token + publish ----
