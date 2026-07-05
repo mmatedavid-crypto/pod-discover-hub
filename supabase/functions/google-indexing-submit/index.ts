@@ -225,10 +225,18 @@ Deno.serve(async (req) => {
     const state: any = stateRow?.value || {};
     const today = new Date().toISOString().slice(0, 10);
     const todayCount = state.daily?.[today] ?? 0;
-    if (todayCount >= DAILY_QUOTA) {
-      return json({ ok: true, message: "daily_quota_reached", submitted: 0, daily_count: todayCount });
+    // Bulk cron leaves RESERVED_HOT slots free for customUrls (instant path).
+    const effectiveQuota = customUrls ? DAILY_QUOTA : Math.max(0, DAILY_QUOTA - RESERVED_HOT);
+    if (todayCount >= effectiveQuota) {
+      return json({
+        ok: true,
+        message: customUrls ? "daily_quota_reached" : "bulk_quota_reached_reserved_for_hot",
+        submitted: 0,
+        daily_count: todayCount,
+        reserved_hot: RESERVED_HOT,
+      });
     }
-    const remaining = Math.max(0, DAILY_QUOTA - todayCount);
+    const remaining = Math.max(0, effectiveQuota - todayCount);
     const toSend = urls.slice(0, Math.min(remaining, maxUrls));
 
     // ---- Get token + publish ----
