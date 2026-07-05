@@ -14,6 +14,12 @@ const cors = {
 
 const SITE = "https://podiverzum.hu";
 const DAILY_QUOTA = 200; // Google's per-property hard cap
+// Slots reserved for instant-index pings (customUrls path) so daily-cadence
+// podcasts like Fábry Kornél's "Biblia egy év alatt" always get a Google
+// Indexing API notification even after the main cron has run. The bulk cron
+// stops at (DAILY_QUOTA − RESERVED_HOT). Custom-URL calls (instant path)
+// can use the full 200 if needed.
+const RESERVED_HOT = 15;
 
 // ---- JWT helpers (Deno-native, no external deps) ----
 function b64url(input: ArrayBuffer | Uint8Array | string): string {
