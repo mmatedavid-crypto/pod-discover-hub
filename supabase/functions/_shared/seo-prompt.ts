@@ -30,7 +30,7 @@ export const EPISODE_SEO_TOOL = {
       properties: {
         seo_title: { type: "string", description: "<=65 chars. Episode topic + show name. No emojis or clickbait." },
         seo_description: { type: "string", description: "<=160 chars. Neutral, factual summary suitable for a Google snippet." },
-        ai_summary: { type: "string", description: "1-2 sentences, <=280 chars. Neutral. Only facts present in the input." },
+        ai_summary: { type: "string", description: "3-5 mondat, 400-700 karakter. Semleges, kizárólag a bemenetben szereplő tényekre támaszkodó magyar összefoglaló. Az első mondat a téma+kontextus; a következő 2-4 mondat sorolja a főbb pontokat, vendégeket, említett tényeket. Nem clickbait, nem marketing." },
         people: { type: "array", items: { type: "string" }, description: "Up to 6 named people who SPEAK in the episode (guests, interviewees). NOT hosts. NOT people only mentioned. Use full names in original form (do not translate). Empty if none." },
         mentioned: { type: "array", items: { type: "string" }, description: "Up to 6 named people TALKED ABOUT but NOT PRESENT in the episode. Politicians, public figures, business leaders go here by default unless the metadata clearly states they speak. Original form. Empty if none." },
         companies: { type: "array", items: { type: "string" }, description: "Up to 6 named organizations or companies explicitly mentioned. Original form. Empty if none." },
