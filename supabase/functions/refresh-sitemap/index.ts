@@ -46,10 +46,6 @@ const NEWSWORTHY_CATEGORIES = new Set([
   'Technology',
   'Science',
   'Science & Ideas',
-  'Sports',
-  'History',
-  'Society & Culture',
-  'Education & Explainer',
 ]);
 const NEWS_EXCLUDED_CATEGORIES = new Set([
   'Religion & Spirituality',
@@ -57,8 +53,12 @@ const NEWS_EXCLUDED_CATEGORIES = new Set([
   'Fiction',
   'Music',
   'Sleep',
+  'Sports',
+  'History',
+  'Society & Culture',
+  'Education & Explainer',
 ]);
-const NEWS_TITLE_NOISE_RX = /\b(beköszönés|elköszönés|hangcsapda|játék|adásnapló|esti mese|napi biblia|igeidő|szentmise|áhítat|rövid változat|short version|trailer|előzetes)\b/i;
+const NEWS_TITLE_NOISE_RX = /\b(beköszönés|elköszönés|hangcsapda|játék|adásnapló|esti mese|napi biblia|igeidő|szentmise|áhítat|rövid változat|short version|trailer|előzetes|étel|ételek|konyha|recept|messi|ronaldo|sportemberi|cápákból|befektetővel|tudás|hiedelmeken)\b/i;
 const NEWS_FOREIGN_NOISE_RX = /\b(seo\s*\+\s*ia|venta asistida|ecommerce|masterclass|sunday mood)\b/i;
 
 type GoogleSubmitResult = {
@@ -131,16 +131,47 @@ async function submitGoogleSearchConsoleSitemap(feedpath: string): Promise<Googl
     return { attempted: false, ok: false, status: null as number | null, reason: 'missing_lovable_gsc_connector_credentials' };
   }
 
-  // GSC property identifier — hardcoded; not a secret. Domain property for podiverzum.hu.
-  const siteUrl = Deno.env.get('GOOGLE_SEARCH_CONSOLE_SITE_URL') || 'sc-domain:podiverzum.hu';
-  const endpoint = `https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}`;
-  const res = await fetch(endpoint, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${lovableKey}`,
-      'X-Connection-Api-Key': connectionKey,
-    },
-  });
+  const headers = {
+    Authorization: `Bearer ${lovableKey}`,
+    'X-Connection-Api-Key': connectionKey,
+  };
+
+  async function submitWithSite(siteUrl: string) {
+    const endpoint = `https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps/${encodeURIComponent(feedpath)}`;
+    return await fetch(endpoint, {
+      method: 'PUT',
+      headers,
+    });
+  }
+
+  // GSC property identifier — configurable, but retry from the verified
+  // property list when the configured value is stale (URL-prefix vs domain
+  // property mismatch produced 403s and stopped fresh News submissions).
+  const configuredSiteUrl = Deno.env.get('GOOGLE_SEARCH_CONSOLE_SITE_URL') || 'sc-domain:podiverzum.hu';
+  let res = await submitWithSite(configuredSiteUrl);
+
+  if (res.status === 403 || res.status === 400) {
+    try {
+      const sitesRes = await fetch('https://connector-gateway.lovable.dev/google_search_console/webmasters/v3/sites', {
+        headers,
+      });
+      if (sitesRes.ok) {
+        const sitesJson = await sitesRes.json().catch(() => null) as any;
+        const entries = Array.isArray(sitesJson?.siteEntry) ? sitesJson.siteEntry : [];
+        const candidate = entries
+          .map((entry: any) => String(entry?.siteUrl || ''))
+          .find((siteUrl: string) => siteUrl === 'sc-domain:podiverzum.hu' || siteUrl === 'https://podiverzum.hu/' || siteUrl === 'https://www.podiverzum.hu/');
+        if (candidate && candidate !== configuredSiteUrl) {
+          const retry = await submitWithSite(candidate);
+          if (retry.ok) return { attempted: true, ok: true, status: retry.status, reason: `retry_with_verified_property:${candidate}` };
+          res = retry;
+        }
+      }
+    } catch (_e) {
+      // Keep the original provider status below; the caller records it in app_settings.
+    }
+  }
+
   if (res.status === 404) {
     return {
       attempted: true,
@@ -300,11 +331,11 @@ Deno.serve(async (req) => {
         newsItems.push(newsTag(loc, publishedAt, title));
       };
 
-      // 1) Pin the weekly editorial hub at the very top of the news sitemap so
-      //    Google sees the flagship column even when many fresh episodes follow.
-      //    Use the most recent published_at as lastmod (or week_start fallback).
+      // 1) Include the weekly editorial only while it is truly fresh. Google
+      //    News sitemaps are a 48h recency feed; keeping an old hub here makes
+      //    the sitemap look stale even if regular XML sitemaps still list it.
       const latestHetiTop = (hetiRows ?? [])[0] as any;
-      if (latestHetiTop) {
+      if (latestHetiTop && latestHetiTop.published_at && new Date(latestHetiTop.published_at).getTime() >= NEWS_CUTOFF) {
         const hubLastmod = latestHetiTop.published_at || latestHetiTop.updated_at || latestHetiTop.week_start || new Date().toISOString();
         addNewsItem(`${SITE}/heti`, hubLastmod, 'Podiverzum Heti — magyar podcastfigyelő', 'Podiverzum Heti Hub');
       }
