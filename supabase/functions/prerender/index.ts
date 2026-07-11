@@ -620,22 +620,89 @@ async function buildEpisode(
     .maybeSingle();
   if (!ep) return null;
 
-  const { data: cleanRow } = await supabase
-    .from("episode_clean_text")
-    .select("cleaned_text")
-    .eq("episode_id", ep.id)
-    .like("cleaner_method", "deterministic_v4%")
-    .maybeSingle();
+  // Fetch supporting content in parallel: cleaned deterministic body,
+  // latest transcript excerpt, and sibling episodes for internal linking.
+  // Widens the crawlable body from ~500 chars (title + short ai_summary)
+  // to ~15-25 KB, which addresses thin-content demotion on episode pages.
+  const [{ data: cleanRow }, { data: transcriptRow }, { data: siblingEps }] = await Promise.all([
+    supabase
+      .from("episode_clean_text")
+      .select("cleaned_text")
+      .eq("episode_id", ep.id)
+      .like("cleaner_method", "deterministic_v4%")
+      .maybeSingle(),
+    supabase
+      .from("episode_transcripts")
+      .select("transcript")
+      .eq("episode_id", ep.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("episodes")
+      .select("title, display_title, slug, published_at, ai_summary, summary")
+      .eq("podcast_id", pod.id)
+      .neq("id", ep.id)
+      .order("published_at", { ascending: false })
+      .limit(12),
+  ]);
   const cleanText = stripHtml((cleanRow as any)?.cleaned_text || "");
+  const transcriptText = stripHtml((transcriptRow as any)?.transcript || "");
+  const rawDescText = stripHtml(ep.description);
 
   const isAcceptedHungarian = isAcceptedHungarianPrerenderPodcast(pod);
   const safeSeoTitle = stripHtml(ep.seo_title || "");
   const title = safeSeoTitle || `${ep.display_title || ep.title} — ${pod.display_title || pod.title} | Podiverzum`;
+  const aiSummaryText = stripHtml(ep.ai_summary || ep.summary);
   const desc =
     ep.seo_description ||
-    truncate(stripHtml(ep.ai_summary || ep.summary) || cleanText || stripHtml(ep.description) || ep.title, 160);
+    truncate(aiSummaryText || cleanText || rawDescText || ep.title, 160);
   const canonical = `${SITE}/podcast/${pod.slug}/${ep.slug}`;
-  const longText = stripHtml(ep.ai_summary || ep.summary) || cleanText || stripHtml(ep.description);
+  // longText remains for structured-data descriptions (short-ish, factual).
+  const longText = aiSummaryText || cleanText || rawDescText;
+
+  // === Thick body composition ===
+  // Body source priority for the visible HTML that Googlebot indexes:
+  //   1. Full cleaned text (deterministic v4 — sponsor/CTA noise stripped)
+  //   2. Transcript excerpt (first ~6000 chars)
+  //   3. Raw description
+  // AI summary shown as a lead paragraph on top when present.
+  const bodyPrimary = cleanText.length > 200 ? cleanText
+                    : transcriptText.length > 200 ? transcriptText
+                    : rawDescText;
+  const BODY_MAX = 8000;
+  const bodyChunk = bodyPrimary.length > BODY_MAX
+    ? bodyPrimary.slice(0, BODY_MAX).replace(/\s+\S*$/, "") + "…"
+    : bodyPrimary;
+  const bodyParas = bodyChunk
+    .split(/\n{2,}|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÖŐÚÜŰ])/)
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 30);
+
+  // Chapter/timestamp extraction from raw description
+  // (e.g. "(00:00) Intro" or "01:23 Guest arrives"). Free structured content
+  // that dramatically thickens body and gives Google jump-to markers.
+  const chapterRe = /(?:^|\n|\s)[\(\[]?(\d{1,2}:\d{2}(?::\d{2})?)[\)\]]?\s*[-–—:]?\s*([^\n]{3,140})/g;
+  const chapters: Array<{ ts: string; label: string; sec: number }> = [];
+  const seenTs = new Set<number>();
+  let m: RegExpExecArray | null;
+  const chapterSrc = rawDescText.replace(/\.\s+/g, ".\n");
+  while ((m = chapterRe.exec(chapterSrc)) !== null) {
+    const parts = m[1].split(":").map((n) => parseInt(n, 10));
+    const sec = parts.length === 2 ? parts[0] * 60 + parts[1] : parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (!Number.isFinite(sec) || seenTs.has(sec)) continue;
+    const label = m[2].trim().replace(/^[-–—:]+\s*/, "").replace(/\s+/g, " ");
+    if (!label || /^https?:\/\//i.test(label)) continue;
+    seenTs.add(sec);
+    chapters.push({ ts: m[1], label: label.slice(0, 120), sec });
+    if (chapters.length >= 20) break;
+  }
+  const hasChapters = chapters.length >= 2 && chapters[0].sec <= 600;
+  const chaptersHtml = hasChapters
+    ? `<section><h2>Fejezetek</h2><ol>${chapters
+        .map((c) => `<li><time>${esc(c.ts)}</time> — ${esc(c.label)}</li>`)
+        .join("")}</ol></section>`
+    : "";
 
   const entities: Array<{ k: string; label: string; vals: string[] }> = [
     { k: "topic", label: "Témák", vals: ep.topics ?? [] },
@@ -654,6 +721,20 @@ async function buildEpisode(
           .join("")}</ul>`,
     )
     .join("");
+
+  // Sibling episodes list — cheap internal linking + more unique text per page,
+  // which further lifts thin-content pages under the Helpful Content signal.
+  const siblingsHtml = Array.isArray(siblingEps) && siblingEps.length
+    ? `<section><h2>Több epizód a ${esc(pod.display_title || pod.title)}-ből</h2><ul>${(siblingEps as any[])
+        .slice(0, 10)
+        .map((s) => {
+          const t = s.display_title || s.title || "";
+          const sm = truncate(stripHtml(s.ai_summary || s.summary || ""), 180);
+          const d = s.published_at ? ` <time datetime="${esc(s.published_at)}">${esc(String(s.published_at).slice(0, 10))}</time>` : "";
+          return `<li><a href="${SITE}/podcast/${pod.slug}/${esc(s.slug)}"><strong>${esc(t)}</strong></a>${d}${sm ? `<p>${esc(sm)}</p>` : ""}</li>`;
+        })
+        .join("")}</ul></section>`
+    : "";
 
   const isoDuration = toIsoDuration(ep.duration_seconds);
   const ld = {
@@ -718,7 +799,7 @@ async function buildEpisode(
     headline,
     description: longText || undefined,
     // articleBody is a strong Google News structured-data ranking signal.
-    articleBody: longText || headline,
+    articleBody: bodyChunk || longText || headline,
     datePublished: new Date(publishedMs).toISOString(),
     dateModified: new Date(publishedMs).toISOString(),
     url: canonical,
@@ -737,28 +818,36 @@ async function buildEpisode(
     publisher: sitePublisherJsonLd(),
   } : null;
 
+  const jsonLdList = isAcceptedHungarian
+    ? (newsArticle ? [ld, breadcrumbs, newsArticle] : [ld, breadcrumbs])
+    : [];
+
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage: ep.image_url || pod.image_url,
       ogType: "article",
-      jsonLd: isAcceptedHungarian ? [ld, breadcrumbs] : [],
+      jsonLd: jsonLdList,
       noindex: !isAcceptedHungarian,
       bodyHtml: `<article>
 <header>
   <p><a href="${SITE}/podcast/${pod.slug}">${esc(pod.display_title || pod.title)}</a></p>
   <h1>${esc(ep.display_title || ep.title)}</h1>
-  ${ep.published_at ? `<time datetime="${esc(ep.published_at)}">${esc(ep.published_at.slice(0, 10))}</time>` : ""}
+  ${ep.published_at ? `<time datetime="${esc(ep.published_at)}">${esc(ep.published_at.slice(0, 10))}</time>` : ""}${isoDuration ? ` <span>· ${esc(isoDuration)}</span>` : ""}
 </header>
-${longText ? `<section>${longText.split(/\n+/).map((p) => `<p>${esc(p)}</p>`).join("")}</section>` : ""}
+${aiSummaryText ? `<section><h2>Összefoglaló</h2><p><strong>${esc(aiSummaryText)}</strong></p></section>` : ""}
+${chaptersHtml}
+${bodyParas.length ? `<section><h2>Ebben az epizódban</h2>${bodyParas.map((p) => `<p>${esc(p)}</p>`).join("")}</section>` : (longText ? `<section><p>${esc(longText)}</p></section>` : "")}
 ${entitySection ? `<section><h2>Említett entitások</h2>${entitySection}</section>` : ""}
 ${ep.audio_url ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
+${siblingsHtml}
 </article>`,
     })),
     { headers: new Headers(baseHeaders) },
   );
 }
+
 
 function slugify(v: string, kind: string) {
   if (kind === "ticker") return v.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();
