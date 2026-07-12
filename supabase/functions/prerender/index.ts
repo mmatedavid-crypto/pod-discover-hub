@@ -537,6 +537,9 @@ async function buildPodcast(
     : `${displayName} — minden epizód, AI-összefoglalók és kereshető tartalom a Podiverzumon.`;
   const desc = podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
   const canonical = `${SITE}/podcast/${pod.slug}`;
+  const alreadyHasPodcast = /\bpodcast\b/i.test(displayName);
+  const seoNameWithKeyword = alreadyHasPodcast ? displayName : `${displayName} podcast`;
+
 
   const epHtml = eps
     .map((e) => {
