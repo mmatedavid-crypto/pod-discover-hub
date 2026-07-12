@@ -638,7 +638,7 @@ const Index = () => {
                 className="absolute inset-0 pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 text-base whitespace-pre overflow-hidden pointer-events-none flex items-center"
               >
                 <span className="invisible">{q}</span>
-                <span className="text-muted-foreground/50">{heroGhost}</span>
+                <span className="text-muted-foreground">{heroGhost}</span>
               </div>
             )}
             <input

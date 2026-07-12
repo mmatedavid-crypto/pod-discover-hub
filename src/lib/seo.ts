@@ -23,7 +23,24 @@ function absoluteUrl(url?: string): string {
 
 export function setSeo(opts: SeoOpts) {
   if (typeof document === "undefined") return;
-  document.title = opts.title;
+  // Cap <title> at 60 characters so Google doesn't truncate in SERPs.
+  // If the title contains " | Podiverzum" and overflows, trim the leading
+  // content first (keep the brand suffix) so the truncation is graceful.
+  const rawTitle = opts.title || "Podiverzum";
+  let finalTitle = rawTitle;
+  if (rawTitle.length > 60) {
+    const suffix = " | Podiverzum";
+    if (rawTitle.endsWith(suffix)) {
+      const head = rawTitle.slice(0, rawTitle.length - suffix.length);
+      const budget = 60 - suffix.length - 1; // -1 for ellipsis
+      finalTitle = head.length > budget ? head.slice(0, budget).trimEnd() + "…" + suffix : rawTitle;
+    } else {
+      finalTitle = rawTitle.slice(0, 59).trimEnd() + "…";
+    }
+  }
+  document.title = finalTitle;
+  opts = { ...opts, title: finalTitle };
+
 
   const upsertMeta = (selector: string, attrs: Record<string, string>) => {
     let el = document.head.querySelector(selector) as HTMLMetaElement | null;
