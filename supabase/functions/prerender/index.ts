@@ -1088,13 +1088,22 @@ async function buildPerson(
   };
   if (safeImage && trustedIdentity) personLd.image = safeImage;
   if (bio) personLd.description = truncate(bio, 500);
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Személyek", item: `${SITE}/szemelyek` },
+      { "@type": "ListItem", position: 3, name: person.name, item: canonical },
+    ],
+  };
 
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage: safeImage,
-      jsonLd: [personLd],
+      jsonLd: [personLd, breadcrumb],
       noindex,
       bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
