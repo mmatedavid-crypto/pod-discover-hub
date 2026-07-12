@@ -1235,13 +1235,22 @@ async function buildOrganization(
   };
   if (org.logo_url) orgLd.logo = org.logo_url;
   if (bio) orgLd.description = truncate(bio, 500);
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Cégek és szervezetek", item: `${SITE}/cegek` },
+      { "@type": "ListItem", position: 3, name: org.name, item: canonical },
+    ],
+  };
 
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage: org.logo_url,
-      jsonLd: [orgLd],
+      jsonLd: [orgLd, breadcrumb],
       noindex,
       bodyHtml: `<header><h1>${esc(org.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
