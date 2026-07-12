@@ -1152,13 +1152,22 @@ async function buildTopic(
       name: e.display_title || e.title,
     })),
   };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Témák", item: `${SITE}/temak` },
+      { "@type": "ListItem", position: 3, name: topic.name, item: canonical },
+    ],
+  };
 
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage,
-      jsonLd: [itemList],
+      jsonLd: [itemList, breadcrumb],
       noindex: topic.is_indexable === false,
       bodyHtml: `<header><h1>${esc(topic.name)}</h1>${topic.intro_text ? `<p>${esc(stripHtml(topic.intro_text))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
