@@ -549,6 +549,47 @@ async function buildPodcast(
     })
     .join("");
 
+  // Aggregate topics/people from episode arrays for bot-visible entity chips.
+  // Mirrors the client-side PodcastEntitiesCompact contract (see
+  // src/lib/aggregateEntities.ts): count>=2, top-N by count, dedup per episode.
+  function aggregateEntityLinks(
+    field: "topics" | "people" | "companies",
+    kind: "topic" | "person" | "company",
+  ): string {
+    const route = kind === "topic" ? "temak" : kind === "person" ? "szemelyek" : "ceg";
+    const tally = new Map<string, { value: string; count: number }>();
+    for (const ep of eps) {
+      const arr = Array.isArray((ep as any)[field]) ? ((ep as any)[field] as string[]) : [];
+      const seen = new Set<string>();
+      for (const raw of arr) {
+        const v = String(raw || "").trim();
+        if (!v || v.length < 2) continue;
+        const key = v.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const cur = tally.get(key);
+        if (cur) cur.count++;
+        else tally.set(key, { value: v, count: 1 });
+      }
+    }
+    const items = [...tally.values()]
+      .filter((x) => x.count >= 2)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12);
+    if (!items.length) return "";
+    return items
+      .map((it) => `<li><a href="/${route}/${esc(slugify(it.value, kind))}">${esc(it.value)}</a> <span>(${it.count})</span></li>`)
+      .join("");
+  }
+  const topicsLinks = aggregateEntityLinks("topics", "topic");
+  const peopleLinks = aggregateEntityLinks("people", "person");
+  const orgLinks = aggregateEntityLinks("companies", "company");
+  const entitySectionHtml = [
+    topicsLinks ? `<section><h2>Témák</h2><ul>${topicsLinks}</ul></section>` : "",
+    peopleLinks ? `<section><h2>Személyek</h2><ul>${peopleLinks}</ul></section>` : "",
+    orgLinks ? `<section><h2>Szervezetek</h2><ul>${orgLinks}</ul></section>` : "",
+  ].filter(Boolean).join("");
+
   const series = {
     "@context": "https://schema.org",
     "@type": "PodcastSeries",
