@@ -111,7 +111,7 @@ export function SiteHeader() {
                 className="absolute inset-0 pl-9 pr-12 py-2 text-sm whitespace-pre overflow-hidden pointer-events-none flex items-center"
               >
                 <span className="invisible">{q}</span>
-                <span className="text-muted-foreground/50">{ghost}</span>
+                <span className="text-muted-foreground">{ghost}</span>
               </div>
             )}
             <input
