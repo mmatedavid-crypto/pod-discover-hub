@@ -472,7 +472,7 @@ async function buildPodcast(
   const [{ data: epData }, { count: totalEpisodeCount }, { data: yearRowsData }, hostNamesForSeo] = await Promise.all([
     supabase
       .from("episodes")
-      .select("title, slug, published_at, ai_summary, summary, description, companies")
+      .select("title, slug, published_at, ai_summary, summary, description, companies, people, topics")
       .eq("podcast_id", pod.id)
       .order("published_at", { ascending: false })
       .limit(50),
