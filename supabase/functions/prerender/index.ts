@@ -472,7 +472,7 @@ async function buildPodcast(
   const [{ data: epData }, { count: totalEpisodeCount }, { data: yearRowsData }, hostNamesForSeo] = await Promise.all([
     supabase
       .from("episodes")
-      .select("title, slug, published_at, ai_summary, summary, description, companies")
+      .select("title, slug, published_at, ai_summary, summary, description, companies, people, topics")
       .eq("podcast_id", pod.id)
       .order("published_at", { ascending: false })
       .limit(50),
@@ -549,6 +549,47 @@ async function buildPodcast(
     })
     .join("");
 
+  // Aggregate topics/people from episode arrays for bot-visible entity chips.
+  // Mirrors the client-side PodcastEntitiesCompact contract (see
+  // src/lib/aggregateEntities.ts): count>=2, top-N by count, dedup per episode.
+  function aggregateEntityLinks(
+    field: "topics" | "people" | "companies",
+    kind: "topic" | "person" | "company",
+  ): string {
+    const route = kind === "topic" ? "temak" : kind === "person" ? "szemelyek" : "ceg";
+    const tally = new Map<string, { value: string; count: number }>();
+    for (const ep of eps) {
+      const arr = Array.isArray((ep as any)[field]) ? ((ep as any)[field] as string[]) : [];
+      const seen = new Set<string>();
+      for (const raw of arr) {
+        const v = String(raw || "").trim();
+        if (!v || v.length < 2) continue;
+        const key = v.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const cur = tally.get(key);
+        if (cur) cur.count++;
+        else tally.set(key, { value: v, count: 1 });
+      }
+    }
+    const items = [...tally.values()]
+      .filter((x) => x.count >= 2)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12);
+    if (!items.length) return "";
+    return items
+      .map((it) => `<li><a href="/${route}/${esc(slugify(it.value, kind))}">${esc(it.value)}</a> <span>(${it.count})</span></li>`)
+      .join("");
+  }
+  const topicsLinks = aggregateEntityLinks("topics", "topic");
+  const peopleLinks = aggregateEntityLinks("people", "person");
+  const orgLinks = aggregateEntityLinks("companies", "company");
+  const entitySectionHtml = [
+    topicsLinks ? `<section><h2>Témák</h2><ul>${topicsLinks}</ul></section>` : "",
+    peopleLinks ? `<section><h2>Személyek</h2><ul>${peopleLinks}</ul></section>` : "",
+    orgLinks ? `<section><h2>Szervezetek</h2><ul>${orgLinks}</ul></section>` : "",
+  ].filter(Boolean).join("");
+
   const series = {
     "@context": "https://schema.org",
     "@type": "PodcastSeries",
@@ -596,6 +637,7 @@ async function buildPodcast(
 <header><h1>${esc(pod.display_title || pod.title)}${alreadyHasPodcast ? "" : " podcast"}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}<p><strong>${esc(seoNameWithKeyword)}</strong>${epCount ? ` — ${epCount} epizód` : ""} a Podiverzumon. Hallgasd online, böngészd a kereshető AI-összefoglalókat, az említett személyeket és témákat.</p></header>
 ${longDesc ? `<section><h2>A műsorról</h2><p>${esc(longDesc)}</p></section>` : ""}
 <section><h2>Epizódok</h2><ul>${epHtml}</ul></section>
+${entitySectionHtml}
 ${yearArchiveHtml}
 </article>`,
     })),
@@ -1046,13 +1088,22 @@ async function buildPerson(
   };
   if (safeImage && trustedIdentity) personLd.image = safeImage;
   if (bio) personLd.description = truncate(bio, 500);
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Személyek", item: `${SITE}/szemelyek` },
+      { "@type": "ListItem", position: 3, name: person.name, item: canonical },
+    ],
+  };
 
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage: safeImage,
-      jsonLd: [personLd],
+      jsonLd: [personLd, breadcrumb],
       noindex,
       bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
@@ -1110,13 +1161,22 @@ async function buildTopic(
       name: e.display_title || e.title,
     })),
   };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Témák", item: `${SITE}/temak` },
+      { "@type": "ListItem", position: 3, name: topic.name, item: canonical },
+    ],
+  };
 
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage,
-      jsonLd: [itemList],
+      jsonLd: [itemList, breadcrumb],
       noindex: topic.is_indexable === false,
       bodyHtml: `<header><h1>${esc(topic.name)}</h1>${topic.intro_text ? `<p>${esc(stripHtml(topic.intro_text))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
@@ -1175,13 +1235,22 @@ async function buildOrganization(
   };
   if (org.logo_url) orgLd.logo = org.logo_url;
   if (bio) orgLd.description = truncate(bio, 500);
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Cégek és szervezetek", item: `${SITE}/cegek` },
+      { "@type": "ListItem", position: 3, name: org.name, item: canonical },
+    ],
+  };
 
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage: org.logo_url,
-      jsonLd: [orgLd],
+      jsonLd: [orgLd, breadcrumb],
       noindex,
       bodyHtml: `<header><h1>${esc(org.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
 <main><h2>Epizódok</h2><ul>${html}</ul></main>`,
