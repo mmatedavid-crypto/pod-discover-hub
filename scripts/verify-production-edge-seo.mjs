@@ -154,6 +154,92 @@ if (news?.cache_control && !/(max-age=300|s-maxage=300)/.test(news.cache_control
   failures.push(`news-sitemap cache should be 300s after worker deploy, got: ${news.cache_control}`);
 }
 
+// Prerender checks: verify the Cloudflare Worker + Supabase prerender edge fn
+// actually return page-specific <title>/<meta description>/<link canonical>
+// for real entity pages when hit with a bot UA. If the prerender fn errors,
+// the worker falls through to origin (generic SPA shell) and this catches it.
+const GENERIC_TITLE = "Podiverzum — magyar podcast kereső és ajánló";
+const BOT_UAS = [
+  ["googlebot", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"],
+  ["gptbot", "Mozilla/5.0 (compatible; GPTBot/1.0; +https://openai.com/gptbot)"],
+];
+const prerenderPages = [
+  { path: "/podcast/sztoriban", nameHints: ["sztoriban"] },
+  { path: "/temak/kulpolitika", nameHints: ["külpolitika", "kulpolitika"] },
+  { path: "/szemelyek/feledy-botond", nameHints: ["feledy"] },
+];
+
+function extractTag(html, re) {
+  const m = html.match(re);
+  return m ? m[1].trim() : "";
+}
+
+let genericHomepageDescription = "";
+try {
+  const homeRes = await fetch(absolute("/"), {
+    method: "GET",
+    headers: { "user-agent": BOT_UAS[0][1], "accept": "text/html" },
+  });
+  const homeHtml = await homeRes.text();
+  genericHomepageDescription = (extractTag(homeHtml, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i)
+    || extractTag(homeHtml, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["']/i)).trim();
+} catch (_e) {
+  // if homepage fetch fails, fall back to only comparing against generic title
+}
+
+for (const page of prerenderPages) {
+  for (const [uaLabel, ua] of BOT_UAS) {
+    const url = absolute(page.path);
+    let res, html = "", errorMsg = "";
+    try {
+      res = await fetch(url, { method: "GET", headers: { "user-agent": ua, "accept": "text/html" } });
+      html = await res.text();
+    } catch (err) {
+      errorMsg = String(err?.message || err);
+    }
+    const status = res?.status ?? 0;
+    const contentType = res?.headers.get("content-type") || "";
+    const title = extractTag(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
+    const description = extractTag(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i)
+      || extractTag(html, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["']/i);
+    const canonical = extractTag(html, /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']*)["']/i)
+      || extractTag(html, /<link[^>]+href=["']([^"']*)["'][^>]+rel=["']canonical["']/i);
+
+    const expectedCanonical = url;
+    const titleLower = title.toLowerCase();
+    const titleSpecific = !!title && title !== GENERIC_TITLE
+      && page.nameHints.some((h) => titleLower.includes(h.toLowerCase()));
+    const descSpecific = !!description
+      && (!genericHomepageDescription || description !== genericHomepageDescription);
+    const canonicalOk = !!canonical
+      && (canonical === expectedCanonical || canonical === `${expectedCanonical}/`)
+      && canonical !== "https://podiverzum.hu/"
+      && canonical !== "https://podiverzum.hu";
+
+    const ok = !errorMsg && status === 200 && contentType.includes("text/html")
+      && titleSpecific && descSpecific && canonicalOk;
+
+    results.push({
+      kind: "prerender",
+      path: page.path,
+      ua: uaLabel,
+      status,
+      title,
+      description,
+      canonical,
+      ok,
+    });
+    if (!ok) {
+      failures.push(
+        `prerender ${page.path} (ua=${uaLabel}) failed: status=${status}, err=${errorMsg}, `
+        + `titleSpecific=${titleSpecific} (title="${title}"), descSpecific=${descSpecific} `
+        + `(description="${description}"), canonicalOk=${canonicalOk} `
+        + `(canonical="${canonical}", expected="${expectedCanonical}")`
+      );
+    }
+  }
+}
+
 const output = {
   ok: failures.length === 0,
   generated_at: new Date().toISOString(),
