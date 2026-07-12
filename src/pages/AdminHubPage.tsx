@@ -111,6 +111,7 @@ export default function AdminHubPage() {
         { to: "/admin/podcasts", title: "Podcasts & RSS", desc: "Manage podcasts, bulk refresh, deep hydration.", icon: Database, badge: counts.podcasts },
         { to: "/growth-status", title: "Growth Status", desc: "Public status of recent growth runs.", icon: Activity },
         { to: "/admin/ai-enrichment", title: "AI Enrichment", desc: "SEO meta + ai_summary. Budget, scope, pause/resume.", icon: Sparkles },
+        { to: "/admin/zarandok-poll", title: "Zarándok Biblia Poll", desc: "Fábry Kornél napi bibliapodcast éjféli burst-poll + azonnali Google/Bing ping.", icon: Send, badge: "new", badgeTone: "warn" },
       ],
     },
     {
