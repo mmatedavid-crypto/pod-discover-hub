@@ -5975,6 +5975,111 @@ export type Database = {
         }
         Relationships: []
       }
+      prefetch_targets: {
+        Row: {
+          cadence_pattern: string | null
+          cadence_per_week: number
+          created_at: string
+          episodes_last_60d: number
+          gap_queries: Json
+          gsc_avg_position: number | null
+          gsc_clicks_28d: number
+          gsc_impressions_28d: number
+          gsc_top_queries: Json
+          id: string
+          last_computed_at: string
+          podcast_id: string
+          podcast_slug: string
+          podcast_title: string
+          priority_score: number
+          rank_label: string | null
+          suggested_actions: Json
+          trend_related_queries: Json
+          trend_rising_queries: Json
+          updated_at: string
+        }
+        Insert: {
+          cadence_pattern?: string | null
+          cadence_per_week?: number
+          created_at?: string
+          episodes_last_60d?: number
+          gap_queries?: Json
+          gsc_avg_position?: number | null
+          gsc_clicks_28d?: number
+          gsc_impressions_28d?: number
+          gsc_top_queries?: Json
+          id?: string
+          last_computed_at?: string
+          podcast_id: string
+          podcast_slug: string
+          podcast_title: string
+          priority_score?: number
+          rank_label?: string | null
+          suggested_actions?: Json
+          trend_related_queries?: Json
+          trend_rising_queries?: Json
+          updated_at?: string
+        }
+        Update: {
+          cadence_pattern?: string | null
+          cadence_per_week?: number
+          created_at?: string
+          episodes_last_60d?: number
+          gap_queries?: Json
+          gsc_avg_position?: number | null
+          gsc_clicks_28d?: number
+          gsc_impressions_28d?: number
+          gsc_top_queries?: Json
+          id?: string
+          last_computed_at?: string
+          podcast_id?: string
+          podcast_slug?: string
+          podcast_title?: string
+          priority_score?: number
+          rank_label?: string | null
+          suggested_actions?: Json
+          trend_related_queries?: Json
+          trend_rising_queries?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prefetch_targets_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "prefetch_targets_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "prefetch_targets_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prefetch_targets_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "prefetch_targets_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           archetype_result: Json | null

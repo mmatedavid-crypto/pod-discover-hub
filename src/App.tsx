@@ -80,6 +80,7 @@ const AdminIntelligenceAuditPage = lazy(() => import("./pages/AdminIntelligenceA
 const AdminGscInsightsPage = lazy(() => import("./pages/AdminGscInsightsPage.tsx"));
 const AdminIndexingApiPage = lazy(() => import("./pages/AdminIndexingApiPage.tsx"));
 const AdminZarandokPollPage = lazy(() => import("./pages/AdminZarandokPollPage.tsx"));
+const AdminPrefetchTargetsPage = lazy(() => import("./pages/AdminPrefetchTargetsPage.tsx"));
 const UnsubscribePage = lazy(() => import("./pages/UnsubscribePage.tsx"));
 const PodcastUnsubscribePage = lazy(() => import("./pages/PodcastUnsubscribePage.tsx"));
 const PeopleHubPage = lazy(() => import("./pages/PeopleHubPage.tsx"));
@@ -190,6 +191,7 @@ const App = () => (
           <Route path="/admin/intelligence-audit" element={<AdminIntelligenceAuditPage />} />
           <Route path="/admin/outreach" element={<AdminOutreachPage />} />
           <Route path="/admin/gsc-insights" element={<AdminGscInsightsPage />} />
+          <Route path="/admin/prefetch-targets" element={<AdminPrefetchTargetsPage />} />
           <Route path="/admin/indexing-api" element={<AdminIndexingApiPage />} />
           <Route path="/admin/zarandok-poll" element={<AdminZarandokPollPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
