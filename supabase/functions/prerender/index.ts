@@ -856,7 +856,9 @@ async function buildEpisode(
     potentialAction: ep.audio_url
       ? { "@type": "ListenAction", target: ep.audio_url }
       : undefined,
+    ...(episodePersonMentions.length ? { about: episodePersonMentions } : {}),
   };
+
   const breadcrumbs = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
