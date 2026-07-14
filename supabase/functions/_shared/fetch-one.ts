@@ -184,13 +184,56 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   if (links.length) { (dedupResults[qi++]?.data || []).forEach((r: any) => r.episode_url && existingLinks.add(r.episode_url)); }
   if (pubDates.length) { (dedupResults[qi++]?.data || []).forEach((r: any) => existingTitlePub.add(`${r.title}|${r.published_at}`)); }
 
+  // Prefetch placeholder merge: for podcasts where a `bible-prefetch`-style edge
+  // pre-creates "{N}-nap" rows a few hours before the RSS drops, we merge the
+  // real audio into that placeholder row (keeping its id + slug) so the URL Google
+  // just indexed stays stable. Match by day-number prefix in the incoming title.
+  const dayRe = /^\s*(\d{1,3})\.\s*nap\b/i;
+  const { data: placeholderRows } = await supabase
+    .from("episodes")
+    .select("id, slug, guid")
+    .eq("podcast_id", podcast.id)
+    .eq("is_prefetch_placeholder", true)
+    .is("audio_url", null);
+  const placeholderByDay = new Map<number, { id: string; slug: string }>();
+  for (const r of (placeholderRows || []) as any[]) {
+    const m = String(r.slug || "").match(/^(\d{1,3})-nap/);
+    if (m) placeholderByDay.set(parseInt(m[1], 10), { id: r.id, slug: r.slug });
+  }
+  const consumedPlaceholderIds = new Set<string>();
+
   let newCount = 0, duplicates = 0;
   const rowsToUpsert: any[] = [];
+  const placeholderUpdates: Array<{ id: string; patch: any }> = [];
   for (const { it, slug } of candidates) {
     const isDup =
       (it.guid && existingGuids.has(it.guid)) ||
       (it.link && existingLinks.has(it.link)) ||
       (it.published && existingTitlePub.has(`${it.title}|${it.published}`));
+
+    // Check placeholder match by day number BEFORE dedupe (placeholder guid intentionally
+    // differs from the real RSS guid, so the guid-based dedupe would miss it).
+    const dayMatch = it.title.match(dayRe);
+    const dayNum = dayMatch ? parseInt(dayMatch[1], 10) : null;
+    const ph = dayNum != null ? placeholderByDay.get(dayNum) : undefined;
+    if (ph && !consumedPlaceholderIds.has(ph.id)) {
+      consumedPlaceholderIds.add(ph.id);
+      newCount++;
+      const patch: any = {
+        title: it.title,
+        description: (it.description || "").slice(0, 12000),
+        published_at: it.published,
+        audio_url: it.audio_url || null,
+        episode_url: it.link || null,
+        image_url: it.image || null,
+        guid: it.guid || null,
+        is_prefetch_placeholder: false,
+        display_title: null, // clear the "ma este 01:00-kor" preview title
+      };
+      if (it.duration_seconds && it.duration_seconds > 0) patch.duration_seconds = it.duration_seconds;
+      placeholderUpdates.push({ id: ph.id, patch });
+      continue; // do NOT insert a duplicate row for this episode
+    }
 
     if (isDup) duplicates++; else newCount++;
     if (isDup && !upsertDuplicates) continue;
@@ -213,6 +256,14 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
       row.duration_seconds = it.duration_seconds;
     }
     rowsToUpsert.push(row);
+  }
+
+  // Apply placeholder merges (small N, one UPDATE per row is fine).
+  for (const { id, patch } of placeholderUpdates) {
+    const { error: upErr } = await supabase.from("episodes").update(patch).eq("id", id);
+    if (upErr) {
+      console.warn(`[fetch-one] placeholder merge failed for ${id}: ${upErr.message}`);
+    }
   }
 
   if (rowsToUpsert.length) {
