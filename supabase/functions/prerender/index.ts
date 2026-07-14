@@ -695,6 +695,45 @@ async function buildEpisode(
   const transcriptText = stripHtml((transcriptRow as any)?.transcript || "");
   const rawDescText = stripHtml(ep.description);
 
+  // Person JSON-LD: resolve episode.people[] names to canonical `people` rows,
+  // filter through the same safety gate we use for podcast prerender, and emit
+  // Person nodes with sameAs (Wikipedia/Wikidata). Critical for "<name>" queries.
+  const episodePeopleNames = Array.isArray(ep.people)
+    ? (ep.people as unknown[]).filter((n) => typeof n === "string" && (n as string).trim()).slice(0, 20) as string[]
+    : [];
+  let safeEpisodePeople: Array<Record<string, any>> = [];
+  if (isAcceptedHungarianPrerenderPodcast(pod) && episodePeopleNames.length) {
+    const { data: peopleRows } = await (supabase as any)
+      .from("people")
+      .select("id,name,slug,image_url,wikipedia_url,wikidata_id,wikipedia_match_status,wikipedia_match_confidence,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living,gated_episode_count,episode_count,short_description_hu,wikipedia_description,ai_bio,ai_bio_status,ai_bio_confidence")
+      .in("name", episodePeopleNames);
+    safeEpisodePeople = ((peopleRows || []) as any[]).filter(isSafePublicPerson);
+  }
+  const episodePersonJsonLd = safeEpisodePeople.map((p) => {
+    const sameAs: string[] = [];
+    if (typeof p.wikipedia_url === "string" && p.wikipedia_url) sameAs.push(p.wikipedia_url);
+    if (typeof p.wikidata_id === "string" && p.wikidata_id) sameAs.push(`https://www.wikidata.org/wiki/${p.wikidata_id}`);
+    const url = p.slug ? `${SITE}/szemelyek/${p.slug}` : undefined;
+    const image = safePersonImageForPrerender(p);
+    const bio = safePersonBioForPrerender(p);
+    return {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "@id": url,
+      name: p.name,
+      url,
+      ...(image ? { image } : {}),
+      ...(bio ? { description: String(bio).slice(0, 250) } : {}),
+      ...(sameAs.length ? { sameAs } : {}),
+    };
+  });
+  const episodePersonMentions = safeEpisodePeople.map((p) => ({
+    "@type": "Person",
+    name: p.name,
+    ...(p.slug ? { url: `${SITE}/szemelyek/${p.slug}` } : {}),
+  }));
+
+
   const isAcceptedHungarian = isAcceptedHungarianPrerenderPodcast(pod);
   const safeSeoTitle = stripHtml(ep.seo_title || "");
   const title = safeSeoTitle || `${ep.display_title || ep.title} — ${pod.display_title || pod.title} | Podiverzum`;
