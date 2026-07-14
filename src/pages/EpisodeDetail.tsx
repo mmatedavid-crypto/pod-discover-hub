@@ -242,7 +242,9 @@ export default function EpisodeDetail() {
                     startOffset: m.timeSec,
                   }))
                 : undefined,
+              ...(personMentions.length ? { about: personMentions } : {}),
             },
+            ...personJsonLd,
             breadcrumbJsonLd([
               { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
               { name: p.display_title || p.title, url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : `/podcast/${p.slug}` },
