@@ -431,11 +431,29 @@ export default function EpisodeDetail() {
             ? "Megnyitás külső lejátszóban"
             : "Megnyitás az eredeti oldalon";
 
+          const isPlaceholder = !!e.is_prefetch_placeholder;
+
           return (
             <>
               {/* Primary CTA */}
               <div className="mt-6 flex flex-wrap items-center gap-2">
-                {canInternalPlay ? (
+                {isPlaceholder ? (
+                  <div className="w-full rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
+                    <div className="flex items-center gap-2 text-primary font-semibold text-sm sm:text-base">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+                      </span>
+                      Az új epizód ma este 01:00-kor érkezik
+                    </div>
+                    <p className="mt-2 text-sm text-foreground/80">
+                      Mentsd el ezt az oldalt, vagy kérj e-mailt — amint befut az RSS-en, egy kattintással itt tudod meghallgatni.
+                    </p>
+                    <div className="mt-3">
+                      <PodcastNewEpisodeSubscribe podcastId={p.id} podcastTitle={p.display_title || p.title} />
+                    </div>
+                  </div>
+                ) : canInternalPlay ? (
                   <button
                     onClick={handleInternalPrimary}
                     aria-label={isThisPlaying ? "Szünet" : "Hallgatás"}
@@ -456,11 +474,13 @@ export default function EpisodeDetail() {
                     <span>{externalFallbackLabel}</span>
                   </a>
                 ) : null}
-                <EpisodeMarks episodeId={e.id} />
-                <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
+                {!isPlaceholder && <EpisodeMarks episodeId={e.id} />}
+                {!isPlaceholder && (
+                  <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
+                )}
               </div>
 
-              {dailySeriesSeo(p.slug, p.title, e.title) && (
+              {!isPlaceholder && dailySeriesSeo(p.slug, p.title, e.title) && (
                 <div className="mt-4 rounded-xl border border-primary/25 bg-primary/5 p-4">
                   <div className="text-sm font-medium text-foreground mb-2">
                     Kérsz e-mailt a következő napi epizódról?
