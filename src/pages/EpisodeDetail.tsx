@@ -198,6 +198,7 @@ export default function EpisodeDetail() {
                 url: typeof window !== "undefined" ? `${window.location.origin}/szerkesztoseg` : undefined,
               },
             ],
+            ...(personMentions.length ? { about: personMentions, mentions: personMentions } : {}),
             publisher: sitePublisherJsonLd(),
           }] : [];
           return [
