@@ -124,7 +124,28 @@ export default function EpisodeDetail() {
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://podiverzum.hu";
       const isAcceptedHungarian = p.language_decision === "accept_hungarian";
+
+      // Person JSON-LD: look up the episode's people[] names in the canonical
+      // `people` table, apply the same safety gate as the prerender, and emit
+      // both a top-level Person node (with sameAs → Wikipedia/Wikidata) and a
+      // compact ref that goes into NewsArticle.about / PodcastEpisode.about.
+      // This is the single biggest missing signal on "<person name>" queries.
+      const peopleNames = Array.isArray(e.people)
+        ? (e.people as string[]).filter((n) => typeof n === "string" && n.trim()).slice(0, 20)
+        : [];
+      let safePeople: any[] = [];
+      if (isAcceptedHungarian && peopleNames.length) {
+        const { data: peopleRows } = await supabase
+          .from("people")
+          .select(PERSON_JSONLD_SELECT)
+          .in("name", peopleNames);
+        safePeople = (peopleRows || []).filter(isSafeIndexablePerson);
+      }
+      const personJsonLd = safePeople.map((row) => buildPersonJsonLd(row, origin));
+      const personMentions = safePeople.map((row) => personMentionRef(row, origin));
+
       setSeo({
         title: dailySeries?.title || safeSeoTitle || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
         description: metaDesc,
