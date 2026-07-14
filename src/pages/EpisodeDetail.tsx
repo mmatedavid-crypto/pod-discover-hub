@@ -6,6 +6,7 @@ import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, Calenda
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import { dailySeriesSeo } from "@/lib/dailySeriesSeo";
 import { sitePublisherJsonLd } from "@/lib/sitePublisher";
+import { PERSON_JSONLD_SELECT, isSafeIndexablePerson, buildPersonJsonLd, personMentionRef } from "@/lib/personSchema";
 import { formatDurationHu, toIsoDuration } from "@/lib/duration";
 import NotFoundState from "@/components/NotFoundState";
 import { pickEpisodeDescription } from "@/lib/episodeText";
