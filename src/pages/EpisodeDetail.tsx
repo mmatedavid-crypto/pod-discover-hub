@@ -162,12 +162,20 @@ export default function EpisodeDetail() {
             isAccessibleForFree: true,
             image: articleImage ? [articleImage] : undefined,
             articleSection: podName,
-            // Google News prefers Person-typed authors with a concrete byline.
-            author: [{
-              "@type": "Person",
-              name: podName,
-              url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
-            }],
+            // Google News requires author.@type ∈ {Person, Organization}.
+            // A podcast show is an organizational publication, not a person.
+            author: [
+              {
+                "@type": "Organization",
+                name: podName,
+                url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
+              },
+              {
+                "@type": "Organization",
+                name: "Podiverzum szerkesztőség",
+                url: typeof window !== "undefined" ? `${window.location.origin}/szerkesztoseg` : undefined,
+              },
+            ],
             publisher: sitePublisherJsonLd(),
           }] : [];
           return [
