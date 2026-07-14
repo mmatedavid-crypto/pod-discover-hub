@@ -2399,6 +2399,7 @@ export type Database = {
           image_url: string | null
           ingredients: string[] | null
           institutions: string[]
+          is_prefetch_placeholder: boolean
           language_checked_at: string | null
           language_evidence: Json
           media_outlets: string[]
@@ -2458,6 +2459,7 @@ export type Database = {
           image_url?: string | null
           ingredients?: string[] | null
           institutions?: string[]
+          is_prefetch_placeholder?: boolean
           language_checked_at?: string | null
           language_evidence?: Json
           media_outlets?: string[]
@@ -2517,6 +2519,7 @@ export type Database = {
           image_url?: string | null
           ingredients?: string[] | null
           institutions?: string[]
+          is_prefetch_placeholder?: boolean
           language_checked_at?: string | null
           language_evidence?: Json
           media_outlets?: string[]
