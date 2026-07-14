@@ -11,8 +11,13 @@ type DailySeriesConfig = {
   hostName: string;
   /** Short series label used after the em-dash. */
   seriesShortName: string;
-  /** Optional description template (`{n}` = day number, `{rest}` = title without the "N. nap:" prefix, `{host}` = host name). */
-  descriptionTemplate?: string;
+  /** Description shown while the audio is already live. Action-oriented copy that reads
+   *  well as a Google snippet — starts with a "play" affordance so the user knows they
+   *  can listen right now with one tap. `{n}` = day number, `{rest}` = title tail. */
+  descriptionLive?: string;
+  /** Description shown for a prefetch placeholder (audio hasn't arrived from RSS yet).
+   *  Tells the searcher exactly when it'll go live and that they can bookmark now. */
+  descriptionPlaceholder?: string;
 };
 
 const CONFIGS: DailySeriesConfig[] = [
@@ -20,8 +25,10 @@ const CONFIGS: DailySeriesConfig[] = [
     match: (slug) => slug === "biblia-egy-ev-alatt-podcast-fabry-kornel-puspok-atyaval",
     hostName: "Fábry Kornél",
     seriesShortName: "Biblia egy év alatt",
-    descriptionTemplate:
-      "Fábry Kornél püspök atya {n}. napi elmélkedése – {rest}. Hallgasd a Biblia egy év alatt podcast {n}. napi részét a Podiverzumon.",
+    descriptionLive:
+      "▶ Hallgasd most: Fábry Kornél {n}. nap – {rest}. Egy kattintás és indul a Biblia egy év alatt új epizódja a Podiverzumon.",
+    descriptionPlaceholder:
+      "▶ Fábry Kornél {n}. nap – ma este 01:00-kor érkezik az új Biblia egy év alatt epizód. Nyisd meg most és hallgasd, amint elindul.",
   },
 ];
 
@@ -42,6 +49,7 @@ export function dailySeriesSeo(
   podcastSlug: string | undefined | null,
   podcastTitle: string | undefined | null,
   episodeTitle: string | undefined | null,
+  opts: { isPlaceholder?: boolean } = {},
 ): DailySeriesSeo | null {
   if (!podcastSlug || !episodeTitle) return null;
   const cfg = CONFIGS.find((c) => c.match(podcastSlug, podcastTitle || ""));
@@ -52,8 +60,13 @@ export function dailySeriesSeo(
   const rest = episodeTitle.replace(DAY_RE, "").trim() || cfg.seriesShortName;
 
   const headline = `${cfg.hostName} ${day}. nap: ${rest}`;
-  const title = `${headline} — ${cfg.seriesShortName} | Podiverzum`;
-  const description = (cfg.descriptionTemplate || "{host} {n}. napi epizódja – {rest}. Hallgasd a {series} podcastot a Podiverzumon.")
+  const title = opts.isPlaceholder
+    ? `${cfg.hostName} ${day}. nap – ma este 01:00-kor | ${cfg.seriesShortName}`
+    : `${headline} — ${cfg.seriesShortName} | Podiverzum`;
+  const template = opts.isPlaceholder
+    ? (cfg.descriptionPlaceholder || cfg.descriptionLive || "")
+    : (cfg.descriptionLive || "");
+  const description = template
     .replace(/\{host\}/g, cfg.hostName)
     .replace(/\{n\}/g, day)
     .replace(/\{rest\}/g, rest)
