@@ -119,7 +119,8 @@ export default function EpisodeDetail() {
       const safeSeoTitle = sanitizeHungarianPublicText(e.seo_title);
       // Daily-numbered series override (e.g. Fábry Kornél "N. nap:") — bake host name +
       // day number into <title>/description so we rank #1 on "<host> <N>" queries.
-      const dailySeries = dailySeriesSeo(p.slug, p.title, e.title);
+      const isPlaceholder = !!e.is_prefetch_placeholder;
+      const dailySeries = dailySeriesSeo(p.slug, p.title, e.title, { isPlaceholder });
       const metaDesc = (dailySeries?.description || safeSeoDescription || bestDesc || `${p.display_title || p.title} podcast epizódja — Podiverzum.`).slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
