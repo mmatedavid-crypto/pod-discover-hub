@@ -99,6 +99,7 @@ const PrivacyPage = lazy(() => import("./pages/PrivacyPage.tsx"));
 const TermsPage = lazy(() => import("./pages/TermsPage.tsx"));
 const MoodCollectionPage = lazy(() => import("./pages/MoodCollectionPage.tsx"));
 const AboutPage = lazy(() => import("./pages/AboutPage.tsx"));
+const SzerkesztosegPage = lazy(() => import("./pages/SzerkesztosegPage.tsx"));
 const PressPage = lazy(() => import("./pages/PressPage.tsx"));
 const MethodologyPage = lazy(() => import("./pages/MethodologyPage.tsx"));
 const NewPodcastsPage = lazy(() => import("./pages/NewPodcastsPage.tsx"));
