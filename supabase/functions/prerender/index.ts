@@ -908,12 +908,14 @@ async function buildEpisode(
         url: `${SITE}/szerkesztoseg`,
       },
     ],
+    ...(episodePersonMentions.length ? { about: episodePersonMentions, mentions: episodePersonMentions } : {}),
     publisher: sitePublisherJsonLd(),
   } : null;
 
   const jsonLdList = isAcceptedHungarian
-    ? (newsArticle ? [ld, breadcrumbs, newsArticle] : [ld, breadcrumbs])
+    ? [ld, breadcrumbs, ...(newsArticle ? [newsArticle] : []), ...episodePersonJsonLd]
     : [];
+
 
   return new Response(new TextEncoder().encode(shell({
       title,
