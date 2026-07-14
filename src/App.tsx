@@ -191,6 +191,7 @@ const App = () => (
           <Route path="/admin/intelligence-audit" element={<AdminIntelligenceAuditPage />} />
           <Route path="/admin/outreach" element={<AdminOutreachPage />} />
           <Route path="/admin/gsc-insights" element={<AdminGscInsightsPage />} />
+          <Route path="/admin/prefetch-targets" element={<AdminPrefetchTargetsPage />} />
           <Route path="/admin/indexing-api" element={<AdminIndexingApiPage />} />
           <Route path="/admin/zarandok-poll" element={<AdminZarandokPollPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
