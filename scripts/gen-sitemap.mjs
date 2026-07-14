@@ -67,6 +67,7 @@ const pages = [
   tag(`${SITE}/intelligence`, now, 'weekly', '0.5'),
   tag(`${SITE}/rolunk`, now, 'monthly', '0.4'),
   tag(`${SITE}/modszertan`, now, 'monthly', '0.4'),
+  tag(`${SITE}/szerkesztoseg`, now, 'monthly', '0.5'),
   tag(`${SITE}/kapcsolat`, now, 'yearly', '0.3'),
   tag(`${SITE}/adatvedelem`, now, 'yearly', '0.2'),
   tag(`${SITE}/feltetelek`, now, 'yearly', '0.2'),
