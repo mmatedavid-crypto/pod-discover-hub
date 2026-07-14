@@ -232,9 +232,10 @@ export default function EpisodeDetail() {
                     encodingFormat: "audio/mpeg",
                   }
                 : undefined,
-              potentialAction: e.audio_url
-                ? { "@type": "ListenAction", target: e.audio_url }
-                : undefined,
+              potentialAction: {
+                "@type": "ListenAction",
+                target: e.audio_url || canonical,
+              },
               uploadDate: e.published_at || undefined,
               hasPart: moments.length
                 ? moments.map((m) => ({
