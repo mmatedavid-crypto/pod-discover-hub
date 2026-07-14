@@ -20,6 +20,7 @@ import {
   Send,
   Users,
   Music,
+  TrendingUp,
 } from "lucide-react";
 
 
