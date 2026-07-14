@@ -853,13 +853,22 @@ async function buildEpisode(
     isAccessibleForFree: true,
     image: articleImage ? [articleImage] : undefined,
     articleSection: podName,
-    // Google News prefers Person-typed authors with a concrete name on the
-    // byline; podcast shows are credited per editorial convention.
-    author: [{
-      "@type": "Person",
-      name: podName,
-      url: `${SITE}/podcast/${pod.slug}`,
-    }],
+    // Google News requires author.@type ∈ {Person, Organization}. A podcast
+    // show is an organizational publication, not a person — we credit the
+    // show as an Organization and add the Podiverzum editorial team as a
+    // co-author so Google sees an accountable, named byline.
+    author: [
+      {
+        "@type": "Organization",
+        name: podName,
+        url: `${SITE}/podcast/${pod.slug}`,
+      },
+      {
+        "@type": "Organization",
+        name: "Podiverzum szerkesztőség",
+        url: `${SITE}/szerkesztoseg`,
+      },
+    ],
     publisher: sitePublisherJsonLd(),
   } : null;
 
