@@ -55,7 +55,6 @@ async function fetchCandidates(limit: number): Promise<Candidate[]> {
     .select("id, slug, title, display_title, rank_label")
     .ilike("language", "hu%")
     .in("rank_label", ["S", "A", "B"])
-    .eq("is_public", true)
     .limit(limit * 4);
   if (error) throw error;
   if (!podcasts?.length) return [];
