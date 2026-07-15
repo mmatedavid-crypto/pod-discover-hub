@@ -92,15 +92,15 @@ function buildBody(plan: PlanRow, reflection: string): { html: string; plain: st
   const intro = PERIOD_INTRO[plan.period_hu] || "";
   const html =
     `<p><strong>${plan.day}. nap – Fábry Kornél napi biblia elmélkedése.</strong> ` +
-    `A hangfelvétel ma este 01:00-kor érkezik meg a Zarándok.ma-ról; addig is olvasd el, mi vár rád.</p>` +
+    `A hangfelvétel ma este 01:00-kor érkezik; addig is olvasd el, mi vár rád.</p>` +
     `<p><strong>Korszak:</strong> ${plan.period_hu} — ${intro}</p>` +
     `<p><strong>Napi olvasmány:</strong> ${plan.readings_display} (Szent István Társulat fordítása szerint).</p>` +
     reflection.split(/\n{2,}/).map((p) => `<p>${p.trim()}</p>`).join("") +
     `<p><em>Ma este 01:00-kor Fábry Kornél püspök atya hangján is meghallgathatod ezt az elmélkedést és a napi szentírási szakaszok felolvasását. ` +
-    `A hangfájl automatikusan megjelenik ezen az oldalon, amint a Zarándok.ma közzéteszi.</em></p>`;
+    `A hangfájl automatikusan megjelenik ezen az oldalon, amint elérhetővé válik.</em></p>`;
 
   const plain =
-    `${plan.day}. nap – Fábry Kornél napi biblia elmélkedése. A hangfelvétel ma este 01:00-kor érkezik meg a Zarándok.ma-ról.\n\n` +
+    `${plan.day}. nap – Fábry Kornél napi biblia elmélkedése. A hangfelvétel ma este 01:00-kor érkezik.\n\n` +
     `Korszak: ${plan.period_hu} — ${intro}\n\n` +
     `Napi olvasmány: ${plan.readings_display} (Szent István Társulat fordítása).\n\n` +
     reflection +
