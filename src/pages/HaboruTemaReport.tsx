@@ -58,7 +58,8 @@ const PREPOST_PODS_DROP = Math.round((1 - PREPOST.post.pods_with_war / PREPOST.p
 const huNum = (n: number, digits = 2) => n.toFixed(digits).replace(".", ",");
 const huInt = (n: number) => n.toLocaleString("hu-HU");
 
-const TODAY_LABEL = new Date().toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" });
+// Rögzített publikációs dátum — a kutatás snapshotja, ne frissüljön automatikusan.
+const TODAY_LABEL = "2026. június 17.";
 
 const maxRate = Math.max(...MONTHS.map((r) => r.rate));
 const avgRate = MONTHS.reduce((s, r) => s + r.rate, 0) / MONTHS.length;
