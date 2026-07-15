@@ -1,69 +1,58 @@
 ## Cél
 
-Fábry Kornél napi bibliapodcast (és tágabban a `zarandok.ma` bibliás sorozat) URL-jét **percekkel a WP publikáció után** feltölteni a Podiverzumba és bepingelni a Google/Bing indexbe — anélkül, hogy a lassú podcast RSS-re kellene várnunk.
+A `bible-prefetch` ne üres placeholder-t rakjon ki 18:00 UTC-kor, hanem egy **tartalmas, ~700–1000 szavas oldalt**, amit a Google 7+ órán át indexálhat, mielőtt a Zarándok RSS 01:00 CEST-kor élesedik.
 
-YouTube-ot **kihagyjuk** (nem az igazi).
+## Adatforrások (nem kell fordítanunk)
 
----
+1. **Ascension "The Bible in a Year" hivatalos 365-napos terv** — nyilvános PDF. Napi 2–3 szentírási hivatkozás + Timeline periódus (12 db, pl. "Ősidők", "Pátriárkák", "Egyiptomi rabság", "Sivatagi vándorlás", "Honfoglalás", "Bírák", "Királyság", "Megosztott királyság", "Fogság", "Hazatérés", "Makkabeus", "Messiás").
+2. **Magyar könyv-rövidítések** — Katolikus Egyház hivatalos rendje (Szent István Társulat): `Gen`→`Ter`, `Ex`→`Kiv`, `1 Sam`→`1 Sám`, `Ps`→`Zsolt`, stb. Fixed mapping, ~73 könyv.
+3. **Perikópa szövege** — később, per epizód a zarandok.ma-ról scrape-elhető (`/N-nap-{slug}/`), amint publikálva van. Placeholder-be NEM tesszük (jogi/időbeli okból), csak a hivatkozásokat.
+4. **AI elmélkedés** — Lovable AI Gateway, `google/gemini-3.5-flash`, magyar rendszer-prompt: „katolikus lelki elmélkedés, 350–450 szó, a napi szentírási olvasmányokra". Egyszer generálva, jégre tesszük az adatbázisban.
 
-## Építőelemek
+## Építkezés
 
-### 1) Új edge function: `zarandok-biblia-poll`
+### 1. Új tábla `bible_reading_plan` (migration)
 
-Feladat: lekéri a `zarandok.ma` WordPress REST API-t, összeveti az utolsó látott poszttal, és új találat esetén elindítja az instant-index pipeline-t.
+```
+day          smallint PRIMARY KEY  (1–365)
+readings     text[]                (['Iz 9', 'Iz 10'])
+readings_display text              ('Iz 9–10, 2 Kir 17, Zsolt 78')
+period_hu    text                  ('Fogság')
+period_intro text                  (rövid, ~1 mondat: „Izrael és Júda kettészakadása után…")
+```
 
-- **Forrás:** `https://zarandok.ma/wp-json/wp/v2/posts?_fields=id,slug,date_gmt,modified_gmt,title,link,categories&per_page=5&orderby=date&order=desc`
-- **Szűrés:** csak a "biblia egy év alatt" kategória / slug-minta (`/^\d+-nap-/`).
-- **State:** `app_settings.zarandok_biblia_poll_state` — `{ last_seen_post_id, last_seen_date_gmt, runs:[{at,found,new,pinged}], errors:[] }`.
-- **Ha új post:**
-  1. Megkeresi a podiverzumi kanonikus podcast slug-ot (Fábry Kornél — Biblia egy év alatt), az RSS-ből még hiányzó epizódot **placeholder-ként** beszúrja az `episodes` táblába (title + published_at + external_link mezőkkel; audio_url NULL, majd az RSS ingest utólag pótolja).
-  2. Meghívja a **`instantIndexEpisodes()`** pipeline-t (`google-indexing-submit` + `indexnow-submit` + `refresh-sitemap`) a friss podiverzumi URL-re.
-  3. Logol Telegramra (napi 1 bejegyzés).
+Grants + RLS anon SELECT. Seed insert: 365 sor egy admin-migration-ben (én generálom az Ascension PDF alapján, magyar könyvnevekkel).
 
-### 2) Burst-poll cron ütemezés
+### 2. `bible-prefetch` frissítés
 
-Két ütem, hogy ne pörögjön feleslegesen egész nap:
+- `nextDay` alapján kiolvassa a `bible_reading_plan` sort.
+- Ha nincs sor → mai fallback (mostani placeholder marad).
+- `description` + `ai_summary` felépítése:
+  - **H2**: "N. nap – ma este 01:00-kor" (audio előtt)
+  - Blokk: „Korszak: {period_hu}" + `period_intro`
+  - Blokk: „Napi olvasmány: {readings_display}"
+  - Blokk: AI elmélkedés 350–450 szó (LLM hívás, `google/gemini-3.5-flash`, HU prompt, rendszer: „katolikus atya hangja, első személyű reflekció, nem panasz, hitéleti kontextus")
+  - Utolsó sor: „Ma este 01:00-kor Fábry Kornél püspök atya hangján is meghallgathatod."
+- Mentés az `episodes` sorba (`description`, `ai_summary`, `seo_description`).
+- Ping-ek (Google Indexing, IndexNow, sitemap) marad.
 
-- **Burst window** (23:55–00:15 CEST → 21:55–22:15 UTC nyáron): jobid A, `*/1 21-22 * * *` — percenként.
-- **Ritka fallback** (napközben ha elcsúszna): jobid B, `*/10 * * * *` — 10 percenként.
+### 3. Költség és hatás
 
-Mindkettő a `zarandok-biblia-poll` edge-et hívja. State-ből tudja, hogy már bepingelte a mai napot → no-op.
+- **AI hívás**: ~1500 token/nap × `google/gemini-3.5-flash` ≈ $0.001/nap → elhanyagolható.
+- **Placeholder tartalom**: 700–1000 szó → Google „thin content" nem fogja letiltani, indexálja.
+- **Élesedéskor** a `fetch-one` merge-eli a valódi audio-t + RSS description-t; ekkor az AI-elmélkedést cseréljük a valódi Fábry-tartalomra (vagy megőrizzük extra-blokként — később eldönthető).
 
-### 3) Instant-index pipeline (már megvan, csak összekötjük)
+## Nem szerepel a plan-ban
 
-- `google-indexing-submit` — `{ urls: [podiverzumUrl] }` (a `RESERVED_HOT` slot pont erre való).
-- `indexnow-submit` — `{ urls: [podiverzumUrl] }`.
-- `refresh-sitemap?type=episodes` — hogy a `<lastmod>` frissüljön.
+- SZIT bibliai szöveg beemelése — külön fázis, ha kell (jogi tisztázás után).
+- Zarandok.ma per-nap scraping — később a valódi perikópa-szöveghez, most nem.
+- Múltbeli epizódok visszamenőleges dúsítása — csak jövőbeli placeholderekre.
 
-Az edge function `Promise.allSettled`-del hívja mindhármat.
+## Kérdés hozzád indulás előtt
 
-### 4) Admin panel (könnyű): `/admin/zarandok-poll`
+Az AI elmélkedés hangvétele:
+(a) **Fábry-imitáló** ("Kedves testvéreim, ma este arról olvasunk…") — kockázat: fake identity.  
+(b) **Semleges lelki reflekció** ("A mai olvasmány három szentírási helyet ölel át…") — biztonságosabb, egyértelműen szerkesztőségi.  
+(c) **Kontextus-magyarázó** ("A Fogság korszakának 6. napján járunk…") — tanulmányi jelleg, SEO-erősebb.
 
-Új oldal a state megjelenítéséhez: utolsó látott post, utolsó 20 futás, hibák, "Run now" gomb. Kis dashboard-részlet — nem sok kód.
-
----
-
-## Technikai részletek
-
-- **Podcast azonosítása:** `podcasts` táblában slug-lookup ("biblia-egy-ev-alatt" vagy hasonló). Ha nincs meg, state.errors-ba logol + Telegram alert.
-- **Placeholder episode:** `episodes` insert `{ podcast_id, title, slug (a WP slug-ból), published_at: date_gmt, external_url: link, source: 'zarandok_ma_poll' }`. Ha az RSS ingest később ugyanezt a slug-ot hozná, `onConflict` merge.
-- **Rate limit:** WP REST API cache-t nem néz (a mi 3 kérésünk/nap elhanyagolható), de a burst 20 kérése/nap max.
-- **Nyári/téli időszámítás:** biztonságból mindkét UTC ablakot lefedjük (`21` és `22` óra), max 40 wasted call/év.
-
----
-
-## Files
-
-- **NEW** `supabase/functions/zarandok-biblia-poll/index.ts` — a poll + insert + instant-index.
-- **NEW** `src/pages/AdminZarandokPollPage.tsx` — state dashboard.
-- **EDIT** `src/App.tsx` — új admin route.
-- **EDIT** `src/pages/AdminHubPage.tsx` — link az új oldalra.
-- **SQL migration** — 2 új pg_cron job (burst + fallback).
-
----
-
-## Kimenet
-
-Holnap éjfél után **1–3 percen belül** a WP posztot észleljük, létrehozzuk a Podiverzum epizódot placeholder-ként, és bepingeljük a Google-t + Bing-et — így a mi URL-ünk **egy időben** jelenik meg az indexben a `zarandok.ma` posztjával, nem 6–24 órával később.
-
-Mehet így?
+Alapból (b)+(c) hibrid — jóváhagyod, vagy (a) legyen?
