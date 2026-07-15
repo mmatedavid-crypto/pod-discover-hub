@@ -248,6 +248,33 @@ export type Database = {
         }
         Relationships: []
       }
+      bible_reading_plan: {
+        Row: {
+          created_at: string
+          day: number
+          period_en: string
+          period_hu: string
+          readings: string[]
+          readings_display: string
+        }
+        Insert: {
+          created_at?: string
+          day: number
+          period_en: string
+          period_hu: string
+          readings: string[]
+          readings_display: string
+        }
+        Update: {
+          created_at?: string
+          day?: number
+          period_en?: string
+          period_hu?: string
+          readings?: string[]
+          readings_display?: string
+        }
+        Relationships: []
+      }
       canonical_alias_backfill_log: {
         Row: {
           action: string
