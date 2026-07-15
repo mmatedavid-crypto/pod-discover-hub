@@ -259,12 +259,33 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   }
 
   // Apply placeholder merges (small N, one UPDATE per row is fine).
+  const mergedSlugs: string[] = [];
   for (const { id, patch } of placeholderUpdates) {
     const { error: upErr } = await supabase.from("episodes").update(patch).eq("id", id);
     if (upErr) {
       console.warn(`[fetch-one] placeholder merge failed for ${id}: ${upErr.message}`);
+    } else {
+      const ph = [...placeholderByDay.values()].find((v) => v.id === id);
+      if (ph?.slug) mergedSlugs.push(ph.slug);
     }
   }
+
+  // When a prefetch placeholder just received its real audio, immediately ping
+  // Google Indexing + IndexNow so the now-substantive URL gets re-crawled fast.
+  if (mergedSlugs.length && podcast.slug) {
+    const site = "https://podiverzum.hu";
+    const urls = mergedSlugs.map((s) => `${site}/podcast/${podcast.slug}/${s}`);
+    try {
+      await Promise.allSettled([
+        supabase.functions.invoke("google-indexing-submit", { body: { urls } }),
+        supabase.functions.invoke("indexnow-submit", { body: { urls } }),
+      ]);
+      console.log(`[fetch-one] indexing pinged for merged placeholders: ${urls.join(", ")}`);
+    } catch (e) {
+      console.warn(`[fetch-one] indexing ping failed: ${(e as Error).message}`);
+    }
+  }
+
 
   if (rowsToUpsert.length) {
     // Dedupe within this batch by (podcast_id, slug) — feeds occasionally
