@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
     // 5) Compose body.
     const { html, plain, seo } = buildBody(plan, reflection);
     const title = `${nextDay}. nap: Fábry Kornél napi biblia elmélkedése — ${plan.readings_display}`;
-    const displayTitle = `${nextDay}. nap – olvasd el most, hallgasd meg hamarosan`;
+    const displayTitle = `${nextDay}. nap – ${plan.readings_display}`;
 
     const now = new Date().toISOString();
     const row = {
