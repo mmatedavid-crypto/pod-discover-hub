@@ -92,22 +92,21 @@ function buildBody(plan: PlanRow, reflection: string): { html: string; plain: st
   const intro = PERIOD_INTRO[plan.period_hu] || "";
   const html =
     `<p><strong>${plan.day}. nap – Fábry Kornél napi biblia elmélkedése.</strong> ` +
-    `A hangfelvétel ma este 01:00-kor érkezik; addig is olvasd el, mi vár rád.</p>` +
+    `Olvasd el most az elmélkedést és a mai szentírási szakaszokat — a hangfelvétel néhány óra múlva itt hallgatható lesz.</p>` +
     `<p><strong>Korszak:</strong> ${plan.period_hu} — ${intro}</p>` +
     `<p><strong>Napi olvasmány:</strong> ${plan.readings_display} (Szent István Társulat fordítása szerint).</p>` +
     reflection.split(/\n{2,}/).map((p) => `<p>${p.trim()}</p>`).join("") +
-    `<p><em>Ma este 01:00-kor Fábry Kornél püspök atya hangján is meghallgathatod ezt az elmélkedést és a napi szentírási szakaszok felolvasását. ` +
-    `A hangfájl automatikusan megjelenik ezen az oldalon, amint elérhetővé válik.</em></p>`;
+    `<p><em>A hangfelvétel automatikusan megjelenik ezen az oldalon, amint elérhetővé válik — érdemes visszatérni, vagy feliratkozni az értesítésre.</em></p>`;
 
   const plain =
-    `${plan.day}. nap – Fábry Kornél napi biblia elmélkedése. A hangfelvétel ma este 01:00-kor érkezik.\n\n` +
+    `${plan.day}. nap – Fábry Kornél napi biblia elmélkedése. Olvasd el most; a hangfelvétel hamarosan itt hallgatható lesz.\n\n` +
     `Korszak: ${plan.period_hu} — ${intro}\n\n` +
     `Napi olvasmány: ${plan.readings_display} (Szent István Társulat fordítása).\n\n` +
     reflection +
-    `\n\nMa este 01:00-kor Fábry Kornél püspök atya hangján is meghallgathatod ezt az elmélkedést és a napi szentírási szakaszok felolvasását.`;
+    `\n\nA hangfelvétel automatikusan megjelenik ezen az oldalon, amint elérhetővé válik.`;
 
   const seo =
-    `${plan.day}. nap: ${plan.readings_display}. ${plan.period_hu} korszak. Napi biblia elmélkedés — a hangfájl 01:00-kor érkezik.`
+    `${plan.day}. nap: ${plan.readings_display}. ${plan.period_hu} korszak. Olvasd el a napi elmélkedést — a hangfelvétel hamarosan itt hallgatható.`
       .slice(0, 160);
 
   return { html, plain, seo };
@@ -179,7 +178,7 @@ Deno.serve(async (req) => {
     // 5) Compose body.
     const { html, plain, seo } = buildBody(plan, reflection);
     const title = `${nextDay}. nap: Fábry Kornél napi biblia elmélkedése — ${plan.readings_display}`;
-    const displayTitle = `${nextDay}. nap – ma este 01:00-kor érkezik`;
+    const displayTitle = `${nextDay}. nap – olvasd el most, hallgasd meg hamarosan`;
 
     const now = new Date().toISOString();
     const row = {
