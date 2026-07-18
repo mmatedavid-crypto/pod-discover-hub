@@ -272,11 +272,13 @@ Deno.serve(async (req) => {
           let epHosts: string[] = [];
           let epPodcastId: string | null = null;
           let epPodcastMeta: any = null;
+          let epPublishedAt: string | null = null;
           {
-            const { data: ep2 } = await admin.from("episodes").select("podcast_id, podcasts!inner(hosts,language,language_decision)").eq("id", job.target_id).maybeSingle();
+            const { data: ep2 } = await admin.from("episodes").select("podcast_id, published_at, podcasts!inner(hosts,language,language_decision)").eq("id", job.target_id).maybeSingle();
             epPodcastId = (ep2 as any)?.podcast_id || null;
             epHosts = ((ep2 as any)?.podcasts?.hosts) || [];
             epPodcastMeta = (ep2 as any)?.podcasts || null;
+            epPublishedAt = (ep2 as any)?.published_at || null;
           }
           assertHungarianPublicFields({ seo_title, seo_description, ai_summary });
           const people = filterHosts(cleanArr(parsed.people), epHosts);
@@ -287,8 +289,10 @@ Deno.serve(async (req) => {
           // Source flag: either we fetched a transcript in this run, OR the enqueuer
           // pre-baked the prompt with `source: 'transcript'` in result.
           const fromTranscript = !!(job as any).__has_transcript || job.result?.source === "transcript";
+          // CTR experiment: prefix "🎧▶️ Hallgasd ingyen:" for episodes published on/after cutoff.
+          const seo_description_final = applyCtaPrefix(seo_description, epPublishedAt);
           await admin.from("episodes").update({
-            seo_title, seo_description, ai_summary,
+            seo_title, seo_description: seo_description_final, ai_summary,
             people, mentioned, companies, tickers, topics,
             ai_entities_version: fromTranscript ? 3 : 2,
             ai_summary_source: fromTranscript ? "transcript" : "description",
