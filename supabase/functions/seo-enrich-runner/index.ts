@@ -12,6 +12,28 @@ import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-langu
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj.";
 
+// SEO snippet CTA experiment (A/B against Google SERP CTR).
+// Applies a "🎧▶️ Hallgasd ingyen: " prefix to episode seo_description for episodes
+// with published_at >= this cutoff, so we can measure CTR uplift in GSC by date.
+// Start: 2026-07-18 (today). Extend/remove after measurement.
+const CTA_PREFIX_CUTOFF_ISO = "2026-07-18T00:00:00Z";
+const CTA_PREFIX = "🎧▶️ Hallgasd ingyen: ";
+function applyCtaPrefix(desc: string, publishedAt: string | null | undefined): string {
+  if (!desc) return desc;
+  if (!publishedAt) return desc;
+  if (new Date(publishedAt).getTime() < new Date(CTA_PREFIX_CUTOFF_ISO).getTime()) return desc;
+  // Idempotent: don't double-prefix.
+  if (desc.startsWith("🎧") || desc.startsWith("▶️") || desc.startsWith(CTA_PREFIX)) return desc;
+  const body = desc.replace(/^\s+/, "");
+  // Lowercase first letter so it flows: "Hallgasd ingyen: az epizódban..."
+  const lc = body.length > 0 ? body[0].toLowerCase() + body.slice(1) : body;
+  const combined = CTA_PREFIX + lc;
+  if (combined.length <= 160) return combined;
+  // Trim body to fit within 160 chars including prefix + ellipsis.
+  const budget = 160 - CTA_PREFIX.length - 1; // 1 for ellipsis
+  return CTA_PREFIX + lc.slice(0, budget).replace(/\s+\S*$/, "") + "…";
+}
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -250,11 +272,13 @@ Deno.serve(async (req) => {
           let epHosts: string[] = [];
           let epPodcastId: string | null = null;
           let epPodcastMeta: any = null;
+          let epPublishedAt: string | null = null;
           {
-            const { data: ep2 } = await admin.from("episodes").select("podcast_id, podcasts!inner(hosts,language,language_decision)").eq("id", job.target_id).maybeSingle();
+            const { data: ep2 } = await admin.from("episodes").select("podcast_id, published_at, podcasts!inner(hosts,language,language_decision)").eq("id", job.target_id).maybeSingle();
             epPodcastId = (ep2 as any)?.podcast_id || null;
             epHosts = ((ep2 as any)?.podcasts?.hosts) || [];
             epPodcastMeta = (ep2 as any)?.podcasts || null;
+            epPublishedAt = (ep2 as any)?.published_at || null;
           }
           assertHungarianPublicFields({ seo_title, seo_description, ai_summary });
           const people = filterHosts(cleanArr(parsed.people), epHosts);
@@ -265,8 +289,10 @@ Deno.serve(async (req) => {
           // Source flag: either we fetched a transcript in this run, OR the enqueuer
           // pre-baked the prompt with `source: 'transcript'` in result.
           const fromTranscript = !!(job as any).__has_transcript || job.result?.source === "transcript";
+          // CTR experiment: prefix "🎧▶️ Hallgasd ingyen:" for episodes published on/after cutoff.
+          const seo_description_final = applyCtaPrefix(seo_description, epPublishedAt);
           await admin.from("episodes").update({
-            seo_title, seo_description, ai_summary,
+            seo_title, seo_description: seo_description_final, ai_summary,
             people, mentioned, companies, tickers, topics,
             ai_entities_version: fromTranscript ? 3 : 2,
             ai_summary_source: fromTranscript ? "transcript" : "description",
