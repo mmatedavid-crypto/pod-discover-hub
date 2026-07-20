@@ -609,12 +609,12 @@ export default function StartSwipePage() {
       });
       completedRef.current = true; // only fire once
     };
-    const onVis = () => { if (document.visibilityState === "hidden") fire(); };
+    // NOTE: only listen to `pagehide` — `visibilitychange` fires on every
+    // mobile tab-switch/app-switch and would inflate abandonment stats
+    // massively (a user briefly checking another app looked like a bailout).
     window.addEventListener("pagehide", fire);
-    document.addEventListener("visibilitychange", onVis);
     return () => {
       window.removeEventListener("pagehide", fire);
-      document.removeEventListener("visibilitychange", onVis);
     };
   }, [phase, persisted.seenCardIds.length, persisted.likedCardIds.length, pool, poolError]);
 

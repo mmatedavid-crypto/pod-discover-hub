@@ -60,13 +60,17 @@ async function collectCounts(admin: ReturnType<typeof createClient>, sinceISO: s
     .from("profiles").select("*", { count: "exact", head: true })
     .gte("created_at", sinceISO);
 
-  // Shares (te_podiverzumod_shares created in window)
-  const { count: shares } = await admin
-    .from("te_podiverzumod_shares").select("*", { count: "exact", head: true })
+  // Swipe completions + shares from landing_events (te_podiverzumod_shares
+  // table is deprecated — /hallgatoi-profil funnel now writes into
+  // landing_events only, so we source both counts from there).
+  const { count: swipe_completions } = await admin
+    .from("landing_events").select("*", { count: "exact", head: true })
+    .eq("event_name", "SwipeCompleted")
     .gte("created_at", sinceISO);
-
-  // Swipe completions = share rows (each completed swipe creates one share record)
-  const swipe_completions = shares ?? 0;
+  const { count: shares } = await admin
+    .from("landing_events").select("*", { count: "exact", head: true })
+    .eq("event_name", "ResultShared")
+    .gte("created_at", sinceISO);
 
   // Play starts from live_events
   const { data: playRows } = await admin
@@ -91,7 +95,7 @@ async function collectCounts(admin: ReturnType<typeof createClient>, sinceISO: s
     sessions: sessions.size,
     signups: signups ?? 0,
     shares: shares ?? 0,
-    swipe_completions,
+    swipe_completions: swipe_completions ?? 0,
     play_starts: playRows?.length ?? 0,
     top_paths: top(pathMap).map(([path, n]) => ({ path, n })),
     top_referrers: top(refMap).map(([ref, n]) => ({ ref, n })),
