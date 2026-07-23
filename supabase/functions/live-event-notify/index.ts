@@ -76,6 +76,10 @@ function formatMessage(kind: string, p: any): string | null {
   if (kind === "search_submit") {
     const q = clip(String(p.q || ""), 100);
     if (!q) return null;
+    // Filter out OAuth broker / infra noise: UUID-shaped queries or oauth.* referrers
+    const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(q.trim());
+    const oauthRef = /(^|\/\/)oauth\.|lovable\.app\/?$/i.test(String(p.referrer || ""));
+    if (uuidLike || oauthRef) return null;
     return `🔎 <b>Keresés</b>${sess}\n<code>${escapeHtml(q)}</code>${ref}${utm}`;
   }
   if (kind === "swipe_complete") {
