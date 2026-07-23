@@ -76,11 +76,11 @@ function formatMessage(kind: string, p: any): string | null {
   if (kind === "search_submit") {
     const q = clip(String(p.q || ""), 100);
     if (!q) return null;
-    // Filter out OAuth broker / infra noise: UUID-shaped queries or oauth.* referrers
+    // Tag likely OAuth broker / infra noise so we still see it, but know what it is.
     const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(q.trim());
     const oauthRef = /(^|\/\/)oauth\.|lovable\.app\/?$/i.test(String(p.referrer || ""));
-    if (uuidLike || oauthRef) return null;
-    return `🔎 <b>Keresés</b>${sess}\n<code>${escapeHtml(q)}</code>${ref}${utm}`;
+    const tag = uuidLike || oauthRef ? " <i>(gyanús: OAuth/infra?)</i>" : "";
+    return `🔎 <b>Keresés</b>${sess}${tag}\n<code>${escapeHtml(q)}</code>${ref}${utm}`;
   }
   if (kind === "swipe_complete") {
     const archetype = clip(String(p.archetype || p.result_title || ""), 60);
