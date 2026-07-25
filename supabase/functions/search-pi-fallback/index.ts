@@ -83,9 +83,12 @@ Deno.serve(async (req) => {
     const data = await piRes.json();
     const feeds: any[] = Array.isArray(data.feeds) ? data.feeds : [];
 
-    // 2) prefer HU; allow unknown lang too (AI guard will sort it out later)
+    // 2) HU-only: a pipeline is kiszűri a nem-magyar feedeket, ne mutassunk
+    //    a felhasználónak olyat, ami sose fog megjelenni. Ismeretlen nyelvet
+    //    is elutasítunk (nagy részük EN).
     const ranked = feeds
       .filter((p) => p?.url && p.dead !== 1)
+      .filter((p) => (p.language || "").toLowerCase().startsWith("hu"))
       .map((p) => ({ p, score: qualityScore(p) }))
       .filter((x) => x.score >= 50)
       .sort((a, b) => b.score - a.score);
