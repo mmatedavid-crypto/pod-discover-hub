@@ -563,7 +563,15 @@ export default function SearchPage() {
           const destination = new URL(anchor.href, window.location.origin);
           if (destination.pathname === "/kereses") return;
           navigatingAwayRef.current = true;
-          if (window.scrollY > 0) writeSearchScrollPosition(initial, window.scrollY);
+          if (window.scrollY > 0) {
+            const savedScrollY = window.scrollY;
+            writeSearchScrollPosition(initial, savedScrollY);
+            window.addEventListener("popstate", () => {
+              [100, 400, 800].forEach((delay) => {
+                window.setTimeout(() => window.scrollTo({ top: savedScrollY, behavior: "auto" }), delay);
+              });
+            }, { once: true });
+          }
         }}
       >
         <h1 className="text-3xl font-semibold mb-2">Keresés</h1>
