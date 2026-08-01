@@ -222,11 +222,13 @@ export default function SearchPage() {
       setSuggestion(String(cached.metadata.suggestion || ""));
       setLoading(false);
       setAiAnswerLoading(false);
-      const restoreScroll = () => window.scrollTo({ top: cached.scrollY || 0 });
+      const restoreScroll = () => window.scrollTo({ top: cached.scrollY || 0, behavior: "auto" });
       window.requestAnimationFrame(() => window.requestAnimationFrame(restoreScroll));
       const restoreTimer = window.setTimeout(restoreScroll, 250);
+      const lateRestoreTimer = window.setTimeout(restoreScroll, 600);
       return () => {
         window.clearTimeout(restoreTimer);
+        window.clearTimeout(lateRestoreTimer);
       };
     }
     pushRecentSearch(initial);
@@ -538,7 +540,12 @@ export default function SearchPage() {
 
   return (
     <Layout>
-      <div className="container mx-auto py-10">
+      <div
+        className="container mx-auto py-10"
+        onClickCapture={() => {
+          if (initial) updateSearchResultsCache(initial, { scrollY: window.scrollY });
+        }}
+      >
         <h1 className="text-3xl font-semibold mb-2">Keresés</h1>
         <p className="text-muted-foreground mb-4 text-sm">
           Írj be egy vagy több szót, pl. <em>magyar gazdaság</em>. A <code className="px-1 bg-secondary rounded">+</code> jellel megadhatod, hogy egy szónak szerepelnie kell.
