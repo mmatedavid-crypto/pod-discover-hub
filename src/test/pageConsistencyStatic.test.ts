@@ -283,6 +283,7 @@ describe("page consistency static guards", () => {
     expect(search).toContain("const displayedEpisodes = useMemo");
     expect(search).toContain("readSearchResultsCache(initial)");
     expect(search).toContain("writeSearchResultsCache(initial");
+    expect(search).toContain('window.addEventListener("scroll", rememberScroll, { passive: true })');
     expect(search).toContain("updateSearchResultsCache(initial, { scrollY: window.scrollY })");
     expect(search).toContain("}, [initial]);");
     expect(cache).toContain("window.sessionStorage");
