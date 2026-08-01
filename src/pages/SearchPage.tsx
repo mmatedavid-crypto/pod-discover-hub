@@ -136,6 +136,22 @@ export default function SearchPage() {
 
   useEffect(() => { setQ(initial); }, [initial]);
 
+  useEffect(() => {
+    if (!initial) return;
+    let frame = 0;
+    const rememberScroll = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        updateSearchResultsCache(initial, { scrollY: window.scrollY });
+      });
+    };
+    window.addEventListener("scroll", rememberScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", rememberScroll);
+      window.cancelAnimationFrame(frame);
+    };
+  }, [initial]);
+
   // Load HU category label map (taxonomy_key -> HU name)
   useEffect(() => {
     supabase.from("categories").select("name,taxonomy_keys").then(({ data }) => {
@@ -211,7 +227,6 @@ export default function SearchPage() {
       const restoreTimer = window.setTimeout(restoreScroll, 250);
       return () => {
         window.clearTimeout(restoreTimer);
-        updateSearchResultsCache(initial, { scrollY: window.scrollY });
       };
     }
     pushRecentSearch(initial);
@@ -469,7 +484,6 @@ export default function SearchPage() {
     return () => {
       cancelled = true;
       answerAbortRef.current?.abort();
-      updateSearchResultsCache(initial, { scrollY: window.scrollY });
     };
   }, [initial]);
 
