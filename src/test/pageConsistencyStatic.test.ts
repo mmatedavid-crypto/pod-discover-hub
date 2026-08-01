@@ -284,7 +284,7 @@ describe("page consistency static guards", () => {
     expect(search).toContain("readSearchResultsCache(initial)");
     expect(search).toContain("writeSearchResultsCache(initial");
     expect(search).toContain('window.addEventListener("scroll", rememberScroll, { passive: true })');
-    expect(search).toContain("updateSearchResultsCache(initial, { scrollY: window.scrollY })");
+    expect(search).toContain("writeSearchScrollPosition(initial, window.scrollY)");
     expect(search).toContain("}, [initial]);");
     expect(cache).toContain("window.sessionStorage");
     expect(cache).toContain("CACHE_TTL_MS");
