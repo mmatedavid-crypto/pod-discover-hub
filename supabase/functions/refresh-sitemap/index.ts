@@ -87,7 +87,7 @@ function isNewsworthyEpisode(e: any): boolean {
 
 function isSafePersonSitemapRow(p: any): boolean {
   if (!p?.slug || p.is_public !== true || p.is_indexable !== true) return false;
-  if (!['indexable', 'manual_approved', null, undefined].includes(p.activation_status)) return false;
+  if (!['active', 'indexable', 'manual_approved', null, undefined].includes(p.activation_status)) return false;
   if (['hide', 'reject'].includes(p.ai_recommended_action || '')) return false;
   if (['needs_human_review', 'duplicate_candidate'].includes(p.ai_review_status || '')) return false;
   if (p.identity_status === 'split_resolved') return false;
