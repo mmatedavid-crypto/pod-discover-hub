@@ -87,7 +87,7 @@ function isNewsworthyEpisode(e: any): boolean {
 
 function isSafePersonSitemapRow(p: any): boolean {
   if (!p?.slug || p.is_public !== true || p.is_indexable !== true) return false;
-  if (!['indexable', 'manual_approved', null, undefined].includes(p.activation_status)) return false;
+  if (!['active', 'indexable', 'manual_approved', null, undefined].includes(p.activation_status)) return false;
   if (['hide', 'reject'].includes(p.ai_recommended_action || '')) return false;
   if (['needs_human_review', 'duplicate_candidate'].includes(p.ai_review_status || '')) return false;
   if (p.identity_status === 'split_resolved') return false;
@@ -501,7 +501,7 @@ ${newsItems.join('\n')}
           .select('slug,updated_at,latest_episode_at,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,is_topic_only,date_of_death,is_living,participant_count,host_count,guest_count,gated_episode_count,episode_count')
           .eq('is_public', true)
           .eq('is_indexable', true)
-          .in('activation_status', ['indexable', 'manual_approved'])
+          .in('activation_status', ['active', 'indexable', 'manual_approved'])
           .order('id').range(from, from + PAGE - 1);
         if (error) throw error;
         if (!data?.length) break;
