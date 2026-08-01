@@ -47,23 +47,42 @@ function isAcceptedHungarian(meta: any): boolean {
 }
 
 async function callAI(model: string, messages: any[], tools: any[], toolName: string, targetId?: string, kind?: string) {
+  const job_type = kind === "seo_podcast" ? "seo_podcast" : "seo_episode";
+  const target_type = kind === "seo_podcast" ? "podcast" : "episode";
   const r = await callGeminiOpenAI({
     model,
     messages,
     tools,
     tool_choice: { type: "function", function: { name: toolName } },
-    job_type: kind === "seo_podcast" ? "seo_podcast" : "seo_episode",
-    target_type: kind === "seo_podcast" ? "podcast" : "episode",
+    job_type,
+    target_type,
     target_id: targetId,
     prompt_version: "seo_v2",
   });
-  if (!r.ok) {
-    if (r.status === 429) throw new Error("rate_limited");
-    if (r.status === 402) throw new Error("budget_exhausted_provider");
-    throw new Error(`ai_${r.status || "err"}`);
+  if (r.ok) return r.data;
+
+  // Google direct key pool exhausted (429 quota / 402 billing) — fall back to the
+  // Lovable AI Gateway with the same cheap model so the backlog can keep draining.
+  if (r.status === 429 || r.status === 402 || r.status === 503) {
+    const g = await callLovableAI({
+      model: `google/${model.replace(/^google\//, "")}`,
+      messages,
+      tools,
+      tool_choice: { type: "function", function: { name: toolName } },
+      job_type,
+      target_type,
+      target_id: targetId,
+      prompt_version: "seo_v2_gateway_fallback",
+      skip_input_validation: true,
+    });
+    if (g.ok) return g.data;
+    if (g.status === 429) throw new Error("rate_limited");
+    if (g.status === 402) throw new Error("budget_exhausted_provider");
+    throw new Error(`ai_${g.status || "err"}`);
   }
-  return r.data;
+  throw new Error(`ai_${r.status || "err"}`);
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
