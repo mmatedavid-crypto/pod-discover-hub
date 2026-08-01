@@ -206,8 +206,13 @@ export default function SearchPage() {
       setSuggestion(String(cached.metadata.suggestion || ""));
       setLoading(false);
       setAiAnswerLoading(false);
-      window.requestAnimationFrame(() => window.scrollTo({ top: cached.scrollY || 0 }));
-      return () => updateSearchResultsCache(initial, { scrollY: window.scrollY });
+      const restoreScroll = () => window.scrollTo({ top: cached.scrollY || 0 });
+      window.requestAnimationFrame(() => window.requestAnimationFrame(restoreScroll));
+      const restoreTimer = window.setTimeout(restoreScroll, 250);
+      return () => {
+        window.clearTimeout(restoreTimer);
+        updateSearchResultsCache(initial, { scrollY: window.scrollY });
+      };
     }
     pushRecentSearch(initial);
     notifyLiveEvent("search_submit", { q: initial });
