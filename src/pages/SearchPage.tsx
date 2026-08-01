@@ -146,6 +146,7 @@ export default function SearchPage() {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         if (navigatingAwayRef.current || window.location.pathname !== "/kereses") return;
+        if (window.scrollY === 0) return;
         updateSearchResultsCache(initial, { scrollY: window.scrollY });
       });
     };
