@@ -401,6 +401,7 @@ export default function SearchPage() {
         .map((x) => x.p);
       setPodcasts(rankedPs);
 
+      const previousCache = readSearchResultsCache(initial);
       writeSearchResultsCache(initial, {
         createdAt: Date.now(),
         episodes: mapped,
@@ -417,7 +418,7 @@ export default function SearchPage() {
           degradedSearch,
           timestampMatchCount: mapped.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length,
         },
-        scrollY: 0,
+        scrollY: previousCache?.scrollY || 0,
       });
 
       // PodcastIndex live fallback: if local DB has 0 podcast title matches and the
