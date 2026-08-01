@@ -1092,7 +1092,8 @@ describe("page consistency static guards", () => {
     const searchPage = read("src/pages/SearchPage.tsx");
 
     expect(searchPage).toContain("function sanitizeSearchAnswer(answer: string)");
-    expect(searchPage).toContain("setAiAnswer(sanitizeSearchAnswer(acc))");
+    expect(searchPage).toContain("const nextAnswer = sanitizeSearchAnswer(acc)");
+    expect(searchPage).toContain("setAiAnswer(nextAnswer)");
     expect(searchPage).toContain('const [degradedSearch, setDegradedSearch] = useState<"timeout" | "fallback" | null>(null)');
     expect(searchPage).toContain('setDegradedSearch((err as Error)?.message === "search_timeout" ? "timeout" : "fallback")');
     expect(searchPage).toContain("A mélyebb keresés most lassú volt");
