@@ -276,6 +276,20 @@ describe("page consistency static guards", () => {
     expect(search).not.toContain("További kapcsolódó podcastok");
   });
 
+  it("keeps search results stable while sorting and after back navigation", () => {
+    const search = read("src/pages/SearchPage.tsx");
+    const cache = read("src/lib/searchResultsCache.ts");
+
+    expect(search).toContain("const displayedEpisodes = useMemo");
+    expect(search).toContain("readSearchResultsCache(initial)");
+    expect(search).toContain("writeSearchResultsCache(initial");
+    expect(search).toContain('window.addEventListener("scroll", rememberScroll, { passive: true })');
+    expect(search).toContain("writeSearchScrollPosition(initial, window.scrollY)");
+    expect(search).toContain("}, [initial]);");
+    expect(cache).toContain("window.sessionStorage");
+    expect(cache).toContain("CACHE_TTL_MS");
+  });
+
   it("keeps anonymous listeners one click away from their local Podiverzum profile", () => {
     const userMenu = read("src/components/UserMenu.tsx");
 
@@ -1079,7 +1093,8 @@ describe("page consistency static guards", () => {
     const searchPage = read("src/pages/SearchPage.tsx");
 
     expect(searchPage).toContain("function sanitizeSearchAnswer(answer: string)");
-    expect(searchPage).toContain("setAiAnswer(sanitizeSearchAnswer(acc))");
+    expect(searchPage).toContain("const nextAnswer = sanitizeSearchAnswer(acc)");
+    expect(searchPage).toContain("setAiAnswer(nextAnswer)");
     expect(searchPage).toContain('const [degradedSearch, setDegradedSearch] = useState<"timeout" | "fallback" | null>(null)');
     expect(searchPage).toContain('setDegradedSearch((err as Error)?.message === "search_timeout" ? "timeout" : "fallback")');
     expect(searchPage).toContain("A mélyebb keresés most lassú volt");
