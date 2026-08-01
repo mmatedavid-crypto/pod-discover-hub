@@ -15,7 +15,13 @@ import { buildPersonCardContextLine, type PersonCardData } from "@/components/Pe
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
-import { readSearchResultsCache, updateSearchResultsCache, writeSearchResultsCache } from "@/lib/searchResultsCache";
+import {
+  readSearchResultsCache,
+  readSearchScrollPosition,
+  updateSearchResultsCache,
+  writeSearchResultsCache,
+  writeSearchScrollPosition,
+} from "@/lib/searchResultsCache";
 
 type SortKey = "best" | "newest" | "rank";
 type SearchPersonData = PersonCardData & {
@@ -147,7 +153,7 @@ export default function SearchPage() {
       frame = window.requestAnimationFrame(() => {
         if (navigatingAwayRef.current || window.location.pathname !== "/kereses") return;
         if (window.scrollY === 0) return;
-        updateSearchResultsCache(initial, { scrollY: window.scrollY });
+        writeSearchScrollPosition(initial, window.scrollY);
       });
     };
     window.addEventListener("scroll", rememberScroll, { passive: true });
@@ -227,7 +233,7 @@ export default function SearchPage() {
       setSuggestion(String(cached.metadata.suggestion || ""));
       setLoading(false);
       setAiAnswerLoading(false);
-      const restoreScroll = () => window.scrollTo({ top: cached.scrollY || 0, behavior: "auto" });
+      const restoreScroll = () => window.scrollTo({ top: readSearchScrollPosition(initial), behavior: "auto" });
       window.requestAnimationFrame(() => window.requestAnimationFrame(restoreScroll));
       const restoreTimer = window.setTimeout(restoreScroll, 250);
       const lateRestoreTimer = window.setTimeout(restoreScroll, 600);
@@ -554,7 +560,7 @@ export default function SearchPage() {
           const destination = new URL(anchor.href, window.location.origin);
           if (destination.pathname === "/kereses") return;
           navigatingAwayRef.current = true;
-          updateSearchResultsCache(initial, { scrollY: window.scrollY });
+          writeSearchScrollPosition(initial, window.scrollY);
         }}
       >
         <h1 className="text-3xl font-semibold mb-2">Keresés</h1>
