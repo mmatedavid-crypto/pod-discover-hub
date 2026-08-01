@@ -9,6 +9,7 @@ import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, episodeUserPrompt, filterHosts } from "../_shared/seo-prompt.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj.";
 
@@ -47,28 +48,47 @@ function isAcceptedHungarian(meta: any): boolean {
 }
 
 async function callAI(model: string, messages: any[], tools: any[], toolName: string, targetId?: string, kind?: string) {
+  const job_type = kind === "seo_podcast" ? "seo_podcast" : "seo_episode";
+  const target_type = kind === "seo_podcast" ? "podcast" : "episode";
   const r = await callGeminiOpenAI({
     model,
     messages,
     tools,
     tool_choice: { type: "function", function: { name: toolName } },
-    job_type: kind === "seo_podcast" ? "seo_podcast" : "seo_episode",
-    target_type: kind === "seo_podcast" ? "podcast" : "episode",
+    job_type,
+    target_type,
     target_id: targetId,
     prompt_version: "seo_v2",
   });
-  if (!r.ok) {
-    if (r.status === 429) throw new Error("rate_limited");
-    if (r.status === 402) throw new Error("budget_exhausted_provider");
-    throw new Error(`ai_${r.status || "err"}`);
+  if (r.ok) return r.data;
+
+  // Google direct key pool exhausted (429 quota / 402 billing) — fall back to the
+  // Lovable AI Gateway with the same cheap model so the backlog can keep draining.
+  if (r.status === 429 || r.status === 402 || r.status === 503) {
+    const g = await callLovableAI({
+      model: `google/${model.replace(/^google\//, "")}`,
+      messages,
+      tools,
+      tool_choice: { type: "function", function: { name: toolName } },
+      job_type,
+      target_type,
+      target_id: targetId,
+      prompt_version: "seo_v2_gateway_fallback",
+      skip_input_validation: true,
+    });
+    if (g.ok) return g.data;
+    if (g.status === 429) throw new Error("rate_limited");
+    if (g.status === 402) throw new Error("budget_exhausted_provider");
+    throw new Error(`ai_${g.status || "err"}`);
   }
-  return r.data;
+  throw new Error(`ai_${r.status || "err"}`);
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 110_000;
+  const TIME_BUDGET_MS = 80_000;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

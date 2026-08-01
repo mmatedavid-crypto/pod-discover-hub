@@ -8600,7 +8600,7 @@ export type Database = {
         }[]
       }
       claim_ai_jobs: {
-        Args: { _limit: number; _lock_seconds?: number }
+        Args: { _limit?: number; _lock_seconds?: number }
         Returns: {
           attempts: number
           completed_at: string | null
