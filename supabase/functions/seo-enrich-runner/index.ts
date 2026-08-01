@@ -9,6 +9,7 @@ import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, episodeUserPrompt, filterHosts } from "../_shared/seo-prompt.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
+import { callLovableAI } from "../_shared/lovable-ai.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj.";
 
