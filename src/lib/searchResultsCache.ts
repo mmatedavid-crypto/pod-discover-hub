@@ -63,6 +63,7 @@ export function readSearchScrollPosition(query: string): number {
 }
 
 export function writeSearchScrollPosition(query: string, scrollY: number): void {
+  if (scrollY <= 0) return;
   try {
     window.sessionStorage.setItem(`${SCROLL_PREFIX}${cacheKey(query)}`, String(scrollY));
   } catch {
