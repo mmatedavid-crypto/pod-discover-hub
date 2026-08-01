@@ -145,6 +145,16 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (!initial) return;
+    const restoreScroll = () => {
+      const savedScrollY = readSearchScrollPosition(initial);
+      if (savedScrollY > 0) window.scrollTo({ top: savedScrollY, behavior: "auto" });
+    };
+    const timers = [100, 400, 800].map((delay) => window.setTimeout(restoreScroll, delay));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [initial]);
+
+  useEffect(() => {
+    if (!initial) return;
     navigatingAwayRef.current = false;
     let frame = 0;
     const rememberScroll = () => {
@@ -233,14 +243,7 @@ export default function SearchPage() {
       setSuggestion(String(cached.metadata.suggestion || ""));
       setLoading(false);
       setAiAnswerLoading(false);
-      const restoreScroll = () => window.scrollTo({ top: readSearchScrollPosition(initial), behavior: "auto" });
-      window.requestAnimationFrame(() => window.requestAnimationFrame(restoreScroll));
-      const restoreTimer = window.setTimeout(restoreScroll, 250);
-      const lateRestoreTimer = window.setTimeout(restoreScroll, 600);
-      return () => {
-        window.clearTimeout(restoreTimer);
-        window.clearTimeout(lateRestoreTimer);
-      };
+      return;
     }
     pushRecentSearch(initial);
     notifyLiveEvent("search_submit", { q: initial });
