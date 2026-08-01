@@ -140,8 +140,10 @@ export default function SearchPage() {
     if (!initial) return;
     let frame = 0;
     const rememberScroll = () => {
+      if (window.location.pathname !== "/kereses") return;
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
+        if (window.location.pathname !== "/kereses") return;
         updateSearchResultsCache(initial, { scrollY: window.scrollY });
       });
     };
