@@ -15,6 +15,7 @@ import { buildPersonCardContextLine, type PersonCardData } from "@/components/Pe
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { readSearchResultsCache, updateSearchResultsCache, writeSearchResultsCache } from "@/lib/searchResultsCache";
 
 type SortKey = "best" | "newest" | "rank";
 type SearchPersonData = PersonCardData & {
@@ -183,19 +184,31 @@ export default function SearchPage() {
         : "Keress magyar podcast epizódok között téma, név, cég vagy ötlet alapján.",
       noindex: !initial,
     });
-    setBroadened(false);
+    const cached = initial ? readSearchResultsCache(initial) : null;
+    setBroadened(Boolean(cached?.metadata.broadened));
     setSemanticUsed(false);
     setSuggestion("");
-    setAiAnswer("");
+    setAiAnswer(cached?.aiAnswer || "");
     setPiFallback(null);
-    setConfidence(null);
-    setPinnedPodcast(null);
-    setHeroOrganization(null);
-    setHeroTopic(null);
-    setDegradedSearch(null);
-    setTimestampMatchCount(0);
+    setConfidence((cached?.metadata.confidence as "high" | "medium" | "low" | null) || null);
+    setPinnedPodcast(cached?.metadata.pinnedPodcast || null);
+    setHeroOrganization(cached?.metadata.heroOrganization || null);
+    setHeroTopic(cached?.metadata.heroTopic || null);
+    setDegradedSearch((cached?.metadata.degradedSearch as "timeout" | "fallback" | null) || null);
+    setTimestampMatchCount(Number(cached?.metadata.timestampMatchCount || 0));
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
+    if (cached) {
+      setEpisodes(cached.episodes as EpisodeLite[]);
+      setPodcasts(cached.podcasts as PodcastLite[]);
+      setCategories(cached.categories);
+      setSemanticUsed(Boolean(cached.metadata.semanticUsed));
+      setSuggestion(String(cached.metadata.suggestion || ""));
+      setLoading(false);
+      setAiAnswerLoading(false);
+      window.requestAnimationFrame(() => window.scrollTo({ top: cached.scrollY || 0 }));
+      return () => updateSearchResultsCache(initial, { scrollY: window.scrollY });
+    }
     pushRecentSearch(initial);
     notifyLiveEvent("search_submit", { q: initial });
 
@@ -209,12 +222,6 @@ export default function SearchPage() {
 
       const applyHybridResponse = (data: any) => {
         let eps = (data?.episodes || []) as any[];
-        if (catParam) eps = eps.filter((e) => (e.podcasts?.category || "") === catParam);
-        if (sortParam === "newest") {
-          eps.sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
-        } else if (sortParam === "rank") {
-          eps.sort((a, b) => episodeScore(b) - episodeScore(a));
-        }
         const next = eps.slice(0, 80).map((e) => {
           const safeWhy = sanitizeSearchWhy(e.why_matched);
           return { ...e, matchBadge: safeWhy ? null : "Kulcsszavas találat", why_matched: safeWhy };
@@ -292,13 +299,7 @@ export default function SearchPage() {
         if (cancelled) return;
         if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
         let chosen = result.all;
-        if (catParam) chosen = chosen.filter((x) => (x.e.podcasts?.category || "") === catParam);
-        const ranked =
-          sortParam === "newest"
-            ? chosen.slice().sort((a: any, b: any) => new Date(b.e.published_at || 0).getTime() - new Date(a.e.published_at || 0).getTime()).slice(0, 80)
-            : sortParam === "rank"
-            ? chosen.slice().sort((a: any, b: any) => episodeScore(b.e) - episodeScore(a.e)).slice(0, 80)
-            : chosen.slice(0, 80);
+        const ranked = chosen.slice(0, 80);
         mapped = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "Kulcsszavas találat" }));
         semantic = result.semanticUsed;
         usedFallback = result.fallbackUsed || usedFallback;
@@ -373,6 +374,25 @@ export default function SearchPage() {
         .map((x) => x.p);
       setPodcasts(rankedPs);
 
+      writeSearchResultsCache(initial, {
+        createdAt: Date.now(),
+        episodes: mapped,
+        podcasts: rankedPs,
+        categories: Array.from(new Set(mapped.map((e) => e.podcasts?.category).filter(Boolean) as string[])),
+        metadata: {
+          broadened: usedFallback,
+          semanticUsed: semantic || Boolean(searchDiagnostics?.reranked),
+          suggestion,
+          confidence: searchDiagnostics?.confidence_band || null,
+          pinnedPodcast: searchDiagnostics?.podcast_pin || null,
+          heroOrganization: searchDiagnostics?.organization_pin || null,
+          heroTopic: searchDiagnostics?.topic_pin || null,
+          degradedSearch,
+          timestampMatchCount: mapped.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length,
+        },
+        scrollY: 0,
+      });
+
       // PodcastIndex live fallback: if local DB has 0 podcast title matches and the
       // query looks like a name, ask PI byterm. The fallback fn also stages best
       // matches into pi_feed_staging so the pipeline ingests them in minutes.
@@ -424,7 +444,12 @@ export default function SearchPage() {
                 try {
                   const p = JSON.parse(js);
                   const c = p?.choices?.[0]?.delta?.content;
-                  if (c) { acc += c; setAiAnswer(sanitizeSearchAnswer(acc)); }
+                  if (c) {
+                    acc += c;
+                    const nextAnswer = sanitizeSearchAnswer(acc);
+                    setAiAnswer(nextAnswer);
+                    updateSearchResultsCache(initial, { aiAnswer: nextAnswer });
+                  }
                 } catch { buf = line + "\n" + buf; break; }
               }
             }
@@ -436,10 +461,24 @@ export default function SearchPage() {
         }
       }
     })();
-    return () => { cancelled = true; answerAbortRef.current?.abort(); };
-  }, [initial, sortParam, catParam]);
+    return () => {
+      cancelled = true;
+      answerAbortRef.current?.abort();
+      updateSearchResultsCache(initial, { scrollY: window.scrollY });
+    };
+  }, [initial]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
+  const displayedEpisodes = useMemo(() => {
+    const filtered = catParam
+      ? episodes.filter((episode) => (episode.podcasts?.category || "") === catParam)
+      : episodes;
+    if (sortParam === "newest") {
+      return filtered.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
+    }
+    if (sortParam === "rank") return filtered.slice().sort((a, b) => episodeScore(b) - episodeScore(a));
+    return filtered;
+  }, [episodes, catParam, sortParam]);
 
   const setSort = (s: SortKey) => {
     const next = new URLSearchParams(params);
@@ -559,7 +598,7 @@ export default function SearchPage() {
 
         {initial && loading && <SearchStagedLoader query={initial} />}
 
-        {initial && !loading && podcasts.length === 0 && episodes.length === 0 && !piFallback && !heroPerson && !heroOrganization && !heroTopic && (
+        {initial && !loading && podcasts.length === 0 && displayedEpisodes.length === 0 && !piFallback && !heroPerson && !heroOrganization && !heroTopic && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
             Nem találtunk elég erős egyezést. Próbálj meg más megfogalmazást vagy konkrétabb nevet/témát.
             {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
@@ -768,12 +807,12 @@ export default function SearchPage() {
           </div>
         )}
 
-        {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (
+        {initial && !loading && (podcasts.length > 0 || displayedEpisodes.length > 0) && (
           <div className="mt-8 space-y-10">
-            {episodes.length > 0 && (
+            {displayedEpisodes.length > 0 && (
               <section>
                 <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
-                  Találatok ({episodes.length})
+                  Találatok ({displayedEpisodes.length})
                   {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
                     <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
                       Találatok erre: {suggestion}
@@ -808,7 +847,7 @@ export default function SearchPage() {
                       : "A mélyebb keresés most nem válaszolt, ezért tartalék találati listát mutatunk."}
                   </p>
                 )}
-                <EpisodeList items={episodes} terms={flatTerms} showEntities />
+                <EpisodeList items={displayedEpisodes} terms={flatTerms} showEntities />
               </section>
             )}
             {podcastsList.length > 0 && (

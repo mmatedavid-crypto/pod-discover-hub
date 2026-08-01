@@ -276,6 +276,19 @@ describe("page consistency static guards", () => {
     expect(search).not.toContain("További kapcsolódó podcastok");
   });
 
+  it("keeps search results stable while sorting and after back navigation", () => {
+    const search = read("src/pages/SearchPage.tsx");
+    const cache = read("src/lib/searchResultsCache.ts");
+
+    expect(search).toContain("const displayedEpisodes = useMemo");
+    expect(search).toContain("readSearchResultsCache(initial)");
+    expect(search).toContain("writeSearchResultsCache(initial");
+    expect(search).toContain("updateSearchResultsCache(initial, { scrollY: window.scrollY })");
+    expect(search).toContain("}, [initial]);");
+    expect(cache).toContain("window.sessionStorage");
+    expect(cache).toContain("CACHE_TTL_MS");
+  });
+
   it("keeps anonymous listeners one click away from their local Podiverzum profile", () => {
     const userMenu = read("src/components/UserMenu.tsx");
 
