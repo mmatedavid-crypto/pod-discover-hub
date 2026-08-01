@@ -133,17 +133,19 @@ export default function SearchPage() {
   const [timestampMatchCount, setTimestampMatchCount] = useState(0);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
+  const navigatingAwayRef = useRef(false);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
   useEffect(() => {
     if (!initial) return;
+    navigatingAwayRef.current = false;
     let frame = 0;
     const rememberScroll = () => {
-      if (window.location.pathname !== "/kereses") return;
+      if (navigatingAwayRef.current || window.location.pathname !== "/kereses") return;
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        if (window.location.pathname !== "/kereses") return;
+        if (navigatingAwayRef.current || window.location.pathname !== "/kereses") return;
         updateSearchResultsCache(initial, { scrollY: window.scrollY });
       });
     };
@@ -544,8 +546,13 @@ export default function SearchPage() {
     <Layout>
       <div
         className="container mx-auto py-10"
-        onClickCapture={() => {
-          if (initial) updateSearchResultsCache(initial, { scrollY: window.scrollY });
+        onClickCapture={(event) => {
+          const anchor = (event.target as HTMLElement).closest("a");
+          if (!anchor || !initial) return;
+          const destination = new URL(anchor.href, window.location.origin);
+          if (destination.pathname === "/kereses") return;
+          navigatingAwayRef.current = true;
+          updateSearchResultsCache(initial, { scrollY: window.scrollY });
         }}
       >
         <h1 className="text-3xl font-semibold mb-2">Keresés</h1>
