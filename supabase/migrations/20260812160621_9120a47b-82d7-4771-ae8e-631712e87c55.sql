@@ -1,0 +1,1 @@
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_homepage_feed; REFRESH MATERIALIZED VIEW CONCURRENTLY mv_homepage_evergreen; SELECT public.recompute_person_gated_counts(); SELECT public.recompute_org_gated_counts();
