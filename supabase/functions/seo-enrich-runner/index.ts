@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
             if (!p) throw new Error("target_missing");
             prompt = podcastUserPrompt(p as any);
           } else {
-            const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title,language,language_decision,hosts)").eq("id", job.target_id).maybeSingle();
+            const { data: e } = await admin.from("episodes").select("title,display_title,description,published_at,podcasts!inner(title,display_title,language,language_decision,hosts)").eq("id", job.target_id).maybeSingle();
             if (!e) throw new Error("target_missing");
             const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
             const podLanguage = ((e as any).podcasts?.language) || null;
@@ -188,6 +188,42 @@ Deno.serve(async (req) => {
               .maybeSingle();
             (e as any).clean_text = (ct as any)?.cleaned_text || null;
             if (!(job as any).__has_transcript && String((e as any).clean_text || "").trim().length < 80) {
+              // No transcript AND no usable text. Waiting forever leaves the episode
+              // with NO meta at all (bad for indexing). After a 24h grace period we
+              // write a deterministic, AI-free Hungarian title-based meta instead.
+              const jobAgeMs = Date.now() - new Date(job.created_at || Date.now()).getTime();
+              const huSource = isAcceptedHungarian((e as any).podcasts);
+              const epTitle = String((e as any).display_title || (e as any).title || "").replace(/\s+/g, " ").trim();
+              if (jobAgeMs > 24 * 60 * 60 * 1000 && huSource && epTitle.length >= 3) {
+                const cut = (s: string, max: number) => {
+                  s = s.replace(/\s+/g, " ").trim();
+                  if (s.length <= max) return s;
+                  const c = s.slice(0, max);
+                  const sp = c.lastIndexOf(" ");
+                  return (sp > max * 0.6 ? c.slice(0, sp) : c).replace(/[,;:\-–—\s]+$/, "") + "…";
+                };
+                const fbTitle = cut(podName ? `${epTitle} – ${podName}` : epTitle, 70);
+                const fbDesc = cut(
+                  podName
+                    ? `Hallgasd meg ingyen: ${epTitle} — a ${podName} podcast epizódja a Podiverzumon.`
+                    : `Hallgasd meg ingyen: ${epTitle} — podcast epizód a Podiverzumon.`,
+                  160,
+                );
+                await admin.from("episodes").update({
+                  seo_title: fbTitle,
+                  seo_description: applyCtaPrefix(fbDesc, (e as any).published_at),
+                  ai_enriched_at: new Date().toISOString(),
+                }).eq("id", job.target_id);
+                await admin.from("ai_enrichment_jobs").update({
+                  status: "done",
+                  completed_at: new Date().toISOString(),
+                  cost_usd: 0,
+                  locked_until: null,
+                  last_error: "deterministic_title_fallback_no_text",
+                }).eq("id", job.id);
+                skipped++;
+                return;
+              }
               await admin.from("ai_enrichment_jobs").update({
                 status: "pending",
                 locked_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -196,6 +232,7 @@ Deno.serve(async (req) => {
               skipped++;
               return;
             }
+
             prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts, transcript);
           }
         }
