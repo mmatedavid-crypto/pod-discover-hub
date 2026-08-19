@@ -195,7 +195,9 @@ export default function PodcastDetail() {
           || `${displayName} podcast epizódjai a Podiverzumon.`;
         const seoCategory = categoryLabel(data.category) || data.category;
         const isAcceptedHungarian = data.language_decision === "accept_hungarian";
-        const noindex = !isAcceptedHungarian || data.rss_status === "failed" || data.rss_status === "inactive";
+        // Csak a szándékosan deaktivált műsor kerül ki az indexből; egy hibás
+        // RSS feed nem érvényteleníti a meglévő magyar műsor-oldalt (2026-08-19).
+        const noindex = !isAcceptedHungarian || data.rss_status === "inactive";
         const epCount = allEps.length;
         const epCountLabel = `${epCount} epizód`;
         const safeSeoTitle = sanitizeHungarianPublicText(data.seo_title);
