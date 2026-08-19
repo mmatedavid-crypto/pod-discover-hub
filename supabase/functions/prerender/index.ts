@@ -959,7 +959,11 @@ function slugify(v: string, kind: string) {
 
 function isAcceptedHungarianPrerenderPodcast(p: any): boolean {
   if (!p) return false;
-  if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
+  // Egy időszakosan hibás RSS feed nem érvényteleníti a már meglévő magyar
+  // epizód-oldalakat: csak a szándékosan deaktivált műsorokat vesszük ki az
+  // indexből. (2026-08-19: a `failed` gate 34 700 epizódot tett noindexre,
+  // miközben a sitemap indexelésre küldte őket.)
+  if (p.rss_status === "inactive") return false;
   return p.language_decision === "accept_hungarian";
 }
 
