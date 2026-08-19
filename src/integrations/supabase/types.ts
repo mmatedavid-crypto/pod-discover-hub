@@ -413,6 +413,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ctr_snippet_optimizations: {
+        Row: {
+          clicks: number | null
+          created_at: string
+          ctr: number | null
+          error_message: string | null
+          id: string
+          impressions: number | null
+          model_used: string | null
+          new_seo_description: string | null
+          new_seo_title: string | null
+          old_seo_description: string | null
+          old_seo_title: string | null
+          position: number | null
+          status: string
+          target_id: string | null
+          target_type: string
+          top_queries: Json | null
+          url: string
+          window_days: number | null
+        }
+        Insert: {
+          clicks?: number | null
+          created_at?: string
+          ctr?: number | null
+          error_message?: string | null
+          id?: string
+          impressions?: number | null
+          model_used?: string | null
+          new_seo_description?: string | null
+          new_seo_title?: string | null
+          old_seo_description?: string | null
+          old_seo_title?: string | null
+          position?: number | null
+          status?: string
+          target_id?: string | null
+          target_type: string
+          top_queries?: Json | null
+          url: string
+          window_days?: number | null
+        }
+        Update: {
+          clicks?: number | null
+          created_at?: string
+          ctr?: number | null
+          error_message?: string | null
+          id?: string
+          impressions?: number | null
+          model_used?: string | null
+          new_seo_description?: string | null
+          new_seo_title?: string | null
+          old_seo_description?: string | null
+          old_seo_title?: string | null
+          position?: number | null
+          status?: string
+          target_id?: string | null
+          target_type?: string
+          top_queries?: Json | null
+          url?: string
+          window_days?: number | null
+        }
+        Relationships: []
+      }
       daily_brief_extras: {
         Row: {
           created_at: string

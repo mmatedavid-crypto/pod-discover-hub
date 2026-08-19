@@ -26,8 +26,8 @@ function applyCtaPrefix(desc: string, publishedAt: string | null | undefined): s
   // Idempotent: don't double-prefix.
   if (desc.startsWith("🎧") || desc.startsWith("▶️") || desc.startsWith(CTA_PREFIX)) return desc;
   const body = desc.replace(/^\s+/, "");
-  // Lowercase first letter so it flows: "Hallgasd ingyen: az epizódban..."
-  const lc = body.length > 0 ? body[0].toLowerCase() + body.slice(1) : body;
+  // Keep the original casing: lowercasing broke proper nouns ("fábry Kornél").
+  const lc = body;
   const combined = CTA_PREFIX + lc;
   if (combined.length <= 160) return combined;
   // Trim body to fit within 160 chars including prefix + ellipsis.
