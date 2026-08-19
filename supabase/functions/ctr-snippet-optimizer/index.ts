@@ -75,7 +75,8 @@ function applyCtaPrefix(desc: string): string {
   if (!desc) return desc;
   if (desc.startsWith("🎧") || desc.startsWith("▶️")) return desc;
   const body = desc.replace(/^\s+/, "");
-  const lc = body.length ? body[0].toLowerCase() + body.slice(1) : body;
+  // Keep the original casing: lowercasing broke proper nouns ("fábry Kornél").
+  const lc = body;
   const combined = CTA_PREFIX + lc;
   if (combined.length <= 160) return combined;
   const budget = 160 - CTA_PREFIX.length - 1;
