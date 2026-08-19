@@ -959,7 +959,11 @@ function slugify(v: string, kind: string) {
 
 function isAcceptedHungarianPrerenderPodcast(p: any): boolean {
   if (!p) return false;
-  if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
+  // Egy időszakosan hibás RSS feed nem érvényteleníti a már meglévő magyar
+  // epizód-oldalakat: csak a szándékosan deaktivált műsorokat vesszük ki az
+  // indexből. (2026-08-19: a `failed` gate 34 700 epizódot tett noindexre,
+  // miközben a sitemap indexelésre küldte őket.)
+  if (p.rss_status === "inactive") return false;
   return p.language_decision === "accept_hungarian";
 }
 
@@ -1086,10 +1090,14 @@ async function buildPerson(
     && person.has_archival_evidence !== true
     && person.manual_approved !== true;
   if (historicalWithoutEvidence) return null;
+  // FONTOS: a `recompute_person_gated_counts()` auto-aktiválás `activation_status='active'`-ot
+  // állít be (2026-06-03), ezért csak az EXPLICIT blokkoló státuszok tiltják az indexelést.
+  // Korábbi whitelist ("indexable"/"manual_approved") minden auto-aktivált személyt noindexre tett.
+  const blockedActivation = ["inactive", "public_noindex", "hidden", "rejected"];
   const noindex = person.is_indexable === false
     || historicalWithoutEvidence
     || ["needs_human_review", "duplicate_candidate"].includes(person.ai_review_status || "")
-    || !["indexable", "manual_approved", null, undefined].includes(person.activation_status);
+    || blockedActivation.includes(String(person.activation_status || ""));
 
   const { data: rows } = await (supabase as any)
     .from("person_episode_mentions")
