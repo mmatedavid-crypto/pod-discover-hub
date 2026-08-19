@@ -453,8 +453,8 @@ export default function PersonDetailPage() {
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
         {(() => {
           const aiBioSafe = person.ai_bio_status === "published" && Number(person.ai_bio_confidence || 0) >= 0.75 ? person.ai_bio : null;
-          const bioText = person.overview_text || aiBioSafe || person.short_bio || person.wikipedia_extract;
-          const paragraphs = bioText ? String(bioText).split(/\n\n+/).map(s => s.trim()).filter(Boolean) : [];
+          const verifiedBioText = person.overview_text || aiBioSafe || person.short_bio || person.wikipedia_extract;
+          const paragraphs = verifiedBioText ? String(verifiedBioText).split(/\n\n+/).map(s => s.trim()).filter(Boolean) : [];
           const sources: any[] = Array.isArray(person.overview_sources) ? person.overview_sources : [];
           const occupations: string[] = Array.isArray((person as any).occupation_labels) ? (person as any).occupation_labels : [];
           if (paragraphs.length === 0 && sources.length === 0 && occupations.length === 0) return null;

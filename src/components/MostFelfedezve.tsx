@@ -105,43 +105,38 @@ export function MostFelfedezve() {
           const title = ep.display_title || ep.title;
           return (
             <li key={ep.id} className="snap-start shrink-0 w-[240px] sm:w-[260px]">
-              <Link
-                to={`/podcast/${ep.podcast_slug}/${ep.slug}`}
-                className="group block rounded-xl border border-border/60 bg-card/40 hover:border-primary/40 hover:bg-card/80 transition-colors p-3 h-full"
-              >
-                <div className="flex gap-3">
-                  {cover ? (
-                    <img
-                      src={optimizedImageUrl(cover, { width: 72, height: 72 }) || cover}
-                      srcSet={imageSrcSet(cover, [56, 72, 112])}
-                      sizes="56px"
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      width={56}
-                      height={56}
-                      className="h-14 w-14 rounded-md object-cover bg-muted shrink-0"
-                    />
-                  ) : (
-                    <div className="h-14 w-14 rounded-md bg-muted shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11px] text-muted-foreground truncate">
-                      <Link
-                        to={`/podcast/${ep.podcast_slug}`}
-                        className="hover:text-foreground"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {ep.podcast_title}
-                      </Link>
+              <div className="group rounded-xl border border-border/60 bg-card/40 hover:border-primary/40 hover:bg-card/80 transition-colors p-3 h-full">
+                <Link to={`/podcast/${ep.podcast_slug}/${ep.slug}`} className="block">
+                  <div className="flex gap-3">
+                    {cover ? (
+                      <img
+                        src={optimizedImageUrl(cover, { width: 72, height: 72 }) || cover}
+                        srcSet={imageSrcSet(cover, [56, 72, 112])}
+                        sizes="56px"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        width={56}
+                        height={56}
+                        className="h-14 w-14 rounded-md object-cover bg-muted shrink-0"
+                      />
+                    ) : (
+                      <div className="h-14 w-14 rounded-md bg-muted shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                        {title}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-1">{timeAgo(ep.published_at)}</div>
                     </div>
-                    <div className="text-sm font-medium text-foreground line-clamp-2 leading-snug mt-0.5 group-hover:text-primary transition-colors">
-                      {title}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-1">{timeAgo(ep.published_at)}</div>
                   </div>
+                </Link>
+                <div className="text-[11px] text-muted-foreground truncate mt-2">
+                  <Link to={`/podcast/${ep.podcast_slug}`} className="hover:text-foreground">
+                    {ep.podcast_title}
+                  </Link>
                 </div>
-              </Link>
+              </div>
             </li>
           );
         })}

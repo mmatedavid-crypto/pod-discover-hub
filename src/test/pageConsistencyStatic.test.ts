@@ -798,7 +798,7 @@ describe("page consistency static guards", () => {
     for (const source of [podcast, category, topic, person, entity, search, trending, episode, categories, orgCard, personCard, publicProfile]) {
       expect(source).toContain("sanitizeHungarianPublicText");
     }
-    expect(seo).toContain("document.title = opts.title");
+    expect(seo).toContain("document.title = finalTitle");
     expect(seo).not.toContain("document.title = opts.title.slice(0, 70)");
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_description)");
     expect(podcast).toContain("sanitizeHungarianPublicText(data.seo_title)");
@@ -893,7 +893,8 @@ describe("page consistency static guards", () => {
     expect(prerender).toContain("language_decision, rss_status");
     expect(prerender).toContain("const isAcceptedHungarian = isAcceptedHungarianPrerenderPodcast(pod)");
     expect(prerender).toContain("const title = safeSeoTitle || `${ep.display_title || ep.title} — ${pod.display_title || pod.title} | Podiverzum`");
-    expect(prerender).toContain("jsonLd: isAcceptedHungarian ? [ld, breadcrumbs] : []");
+    expect(prerender).toContain("const jsonLdList = isAcceptedHungarian");
+    expect(prerender).toContain("jsonLd: jsonLdList");
     expect(prerender).toContain("noindex: !isAcceptedHungarian");
     expect(prerender).not.toContain("const title = ep.seo_title || `${ep.display_title || ep.title} — ${pod.display_title || pod.title}`");
     expect(episode).toContain("extractKeyMoments(sanitizeHungarianPublicText(data?.e?.description)");
