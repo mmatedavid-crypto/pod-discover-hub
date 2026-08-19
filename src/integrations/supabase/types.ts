@@ -6568,6 +6568,54 @@ export type Database = {
         }
         Relationships: []
       }
+      search_external_demand_seeds: {
+        Row: {
+          active: boolean
+          created_at: string
+          expected_entity: string | null
+          expected_intent: string | null
+          id: string
+          must_exclude: Json
+          must_include: Json
+          notes: string | null
+          query: string
+          query_type: string
+          source: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          expected_entity?: string | null
+          expected_intent?: string | null
+          id?: string
+          must_exclude?: Json
+          must_include?: Json
+          notes?: string | null
+          query: string
+          query_type?: string
+          source?: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          expected_entity?: string | null
+          expected_intent?: string | null
+          id?: string
+          must_exclude?: Json
+          must_include?: Json
+          notes?: string | null
+          query?: string
+          query_type?: string
+          source?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
       search_golden_queries: {
         Row: {
           active: boolean
@@ -9339,6 +9387,14 @@ export type Database = {
       refresh_people_hub_score: { Args: never; Returns: Json }
       refresh_person_activation_status: { Args: never; Returns: Json }
       refresh_reddit_name_index: { Args: never; Returns: undefined }
+      refresh_search_golden_queries_from_catalog: {
+        Args: { p_limit_per_type?: number; p_popular_limit?: number }
+        Returns: Json
+      }
+      refresh_search_golden_queries_from_external_demand: {
+        Args: { p_chart_limit?: number; p_seed_limit?: number }
+        Returns: Json
+      }
       refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
       requeue_legacy_clean_text_v4_backfill: {
         Args: { _limit?: number; _tiers?: string[] }
