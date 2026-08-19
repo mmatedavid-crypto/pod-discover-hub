@@ -11,6 +11,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
+import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 
@@ -129,7 +130,7 @@ Deno.serve(async (req) => {
     );
 
     const guard = await checkBackgroundJobsAllowed(admin as any, "ctr-snippet-optimizer");
-    if (!guard.allowed) return json({ ok: false, skipped: "background_jobs_disabled", reason: guard.reason });
+    if (guard.blocked) return json({ ok: false, skipped: "background_jobs_disabled", reason: guard.reason });
 
     const url = new URL(req.url);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
@@ -308,7 +309,7 @@ Deno.serve(async (req) => {
           min_input_chars: 60,
         });
         if (!ai.ok) throw new Error(ai.error || `ai_status_${ai.status}`);
-        costUsd += Number((ai as any).estimated_cost_usd || 0);
+        costUsd += chatTokenCostUsd(MODEL, Number(ai.input_tokens || 0), Number(ai.output_tokens || 0));
 
         const args = ai.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
         const parsed = args ? JSON.parse(args) : null;
