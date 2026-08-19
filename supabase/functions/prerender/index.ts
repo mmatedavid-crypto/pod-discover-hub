@@ -1086,10 +1086,14 @@ async function buildPerson(
     && person.has_archival_evidence !== true
     && person.manual_approved !== true;
   if (historicalWithoutEvidence) return null;
+  // FONTOS: a `recompute_person_gated_counts()` auto-aktiválás `activation_status='active'`-ot
+  // állít be (2026-06-03), ezért csak az EXPLICIT blokkoló státuszok tiltják az indexelést.
+  // Korábbi whitelist ("indexable"/"manual_approved") minden auto-aktivált személyt noindexre tett.
+  const blockedActivation = ["inactive", "public_noindex", "hidden", "rejected"];
   const noindex = person.is_indexable === false
     || historicalWithoutEvidence
     || ["needs_human_review", "duplicate_candidate"].includes(person.ai_review_status || "")
-    || !["indexable", "manual_approved", null, undefined].includes(person.activation_status);
+    || blockedActivation.includes(String(person.activation_status || ""));
 
   const { data: rows } = await (supabase as any)
     .from("person_episode_mentions")
