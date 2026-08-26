@@ -25,7 +25,7 @@ import { pickEpisodeDescription } from "@/lib/episodeText";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
-const PODCAST_SEO_CTA = "Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
+const PODCAST_SEO_CTA = "Hallgasd ingyen, regisztráció nélkül a Podiverzumon.";
 const PODCAST_SEO_DESCRIPTION_MAX = 160;
 const PODCAST_EPISODE_INITIAL_RENDER_COUNT = 20;
 const PODCAST_EPISODE_RENDER_STEP = 20;
@@ -40,10 +40,13 @@ function firstSentence(value?: string | null): string {
 }
 
 function podcastSeoDescription(baseDesc: string, entityLines: string[]): string {
-  const ctaBudget = PODCAST_SEO_CTA.length + 1;
+  // Lead with the headphone glyph so the SERP snippet reads as listenable audio,
+  // and keep the CTA short so most of the 160 chars carry real show context.
+  const PREFIX = "🎧 ";
+  const ctaBudget = PODCAST_SEO_CTA.length + 1 + PREFIX.length;
   const contextBudget = Math.max(60, PODCAST_SEO_DESCRIPTION_MAX - ctaBudget);
   const context = snippet([baseDesc, ...entityLines].filter(Boolean).join(" "), contextBudget);
-  return [context, PODCAST_SEO_CTA].filter(Boolean).join(" ").slice(0, PODCAST_SEO_DESCRIPTION_MAX);
+  return (PREFIX + [context, PODCAST_SEO_CTA].filter(Boolean).join(" ")).slice(0, PODCAST_SEO_DESCRIPTION_MAX);
 }
 
 function isSafeHostPerson(p: any): boolean {

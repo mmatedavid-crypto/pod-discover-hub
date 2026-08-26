@@ -17,7 +17,7 @@ const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const PODCAST_SEO_CTA = "Hallgasd meg az összes epizódot a Podiverzumon — magyar podcast katalógus.";
+const PODCAST_SEO_CTA = "Hallgasd ingyen, regisztráció nélkül a Podiverzumon.";
 const PODCAST_SEO_DESCRIPTION_MAX = 160;
 
 const SITE_PUBLISHER = {
@@ -78,10 +78,13 @@ function firstSentence(value?: string | null): string {
 }
 
 function podcastSeoDescription(baseDesc: string, entityLines: string[]): string {
-  const ctaBudget = PODCAST_SEO_CTA.length + 1;
+  // Lead with the headphone glyph so the SERP snippet reads as listenable audio,
+  // and keep the CTA short so most of the 160 chars carry real show context.
+  const PREFIX = "🎧 ";
+  const ctaBudget = PODCAST_SEO_CTA.length + 1 + PREFIX.length;
   const contextBudget = Math.max(60, PODCAST_SEO_DESCRIPTION_MAX - ctaBudget);
   const context = truncate([baseDesc, ...entityLines].filter(Boolean).join(" "), contextBudget);
-  return [context, PODCAST_SEO_CTA].filter(Boolean).join(" ").slice(0, PODCAST_SEO_DESCRIPTION_MAX);
+  return (PREFIX + [context, PODCAST_SEO_CTA].filter(Boolean).join(" ")).slice(0, PODCAST_SEO_DESCRIPTION_MAX);
 }
 
 function sitePublisherJsonLd() {
