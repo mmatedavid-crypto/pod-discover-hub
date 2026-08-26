@@ -202,6 +202,27 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   }
   const consumedPlaceholderIds = new Set<string>();
 
+  // Day-numbered series ("217. nap") must never end up with two URLs for the same
+  // day: an already-merged placeholder plus a fresh RSS insert cannibalised each
+  // other in Google. Index every existing day number so a second pass updates the
+  // canonical row instead of inserting a twin.
+  const { data: dayRows } = await supabase
+    .from("episodes")
+    .select("id, slug, title")
+    .eq("podcast_id", podcast.id)
+    .like("slug", "%-nap%");
+  const existingByDay = new Map<number, { id: string; slug: string }>();
+  for (const r of (dayRows || []) as any[]) {
+    const m = String(r.slug || "").match(/^(\d{1,3})-nap/);
+    if (!m) continue;
+    const n = parseInt(m[1], 10);
+    const prev = existingByDay.get(n);
+    // Prefer the shortest slug ("217-nap") — that is the URL Google already indexed.
+    if (!prev || String(r.slug).length < prev.slug.length) existingByDay.set(n, { id: r.id, slug: r.slug });
+  }
+  const dayUpdateIds = new Set<string>();
+
+
   let newCount = 0, duplicates = 0;
   const rowsToUpsert: any[] = [];
   const placeholderUpdates: Array<{ id: string; patch: any }> = [];
@@ -235,8 +256,32 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
       continue; // do NOT insert a duplicate row for this episode
     }
 
+    // Same day number already exists (e.g. an earlier merged placeholder): refresh that
+    // row instead of creating a duplicate URL for the same reading day.
+    if (dayNum != null) {
+      const twin = existingByDay.get(dayNum);
+      if (twin && !dayUpdateIds.has(twin.id)) {
+        dayUpdateIds.add(twin.id);
+        duplicates++;
+        const patch: any = {
+          title: it.title,
+          description: (it.description || "").slice(0, 12000),
+          published_at: it.published,
+          episode_url: it.link || null,
+          guid: it.guid || null,
+          is_prefetch_placeholder: false,
+        };
+        if (it.audio_url) patch.audio_url = it.audio_url;
+        if (it.image) patch.image_url = it.image;
+        if (it.duration_seconds && it.duration_seconds > 0) patch.duration_seconds = it.duration_seconds;
+        placeholderUpdates.push({ id: twin.id, patch });
+        continue;
+      }
+    }
+
     if (isDup) duplicates++; else newCount++;
     if (isDup && !upsertDuplicates) continue;
+
 
     const row: any = {
       podcast_id: podcast.id,

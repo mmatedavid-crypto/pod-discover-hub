@@ -63,13 +63,16 @@ async function gscQuery(body: unknown): Promise<Row[]> {
   return (j.rows || []) as Row[];
 }
 
-function trim(s: string, max: number): string {
+function trim(s: string, max: number, ellipsis = true): string {
   s = (s || "").replace(/\s+/g, " ").trim();
   if (s.length <= max) return s;
   const cut = s.slice(0, max);
   const sp = cut.lastIndexOf(" ");
-  return (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[,;:\-–—\s]+$/, "") + "…";
+  const base = (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[,;:\-–—\s]+$/, "");
+  // Titles must never end in an ellipsis — Google shows it as a broken headline.
+  return ellipsis ? base + "…" : base;
 }
+
 
 function applyCtaPrefix(desc: string): string {
   if (!desc) return desc;
@@ -137,11 +140,14 @@ Deno.serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const dryRun = body.dry_run === true || url.searchParams.get("dry_run") === "1";
     const days = Math.min(90, Math.max(7, Number(body.days ?? 28)));
-    const limit = Math.min(60, Math.max(1, Number(body.limit ?? 20)));
-    const maxPosition = Number(body.max_position ?? 8);
-    const maxCtr = Number(body.max_ctr ?? 0.05);
-    const minImpressions = Number(body.min_impressions ?? 25);
-    const cooldownDays = Number(body.cooldown_days ?? 45);
+    const limit = Math.min(80, Math.max(1, Number(body.limit ?? 40)));
+    // Wider net: pos <= 15 still earns clicks from a better snippet, and most of our
+    // wasted impressions sit on pages with 10-25 impressions.
+    const maxPosition = Number(body.max_position ?? 15);
+    const maxCtr = Number(body.max_ctr ?? 0.06);
+    const minImpressions = Number(body.min_impressions ?? 10);
+    const cooldownDays = Number(body.cooldown_days ?? 21);
+
 
     // GSC has ~3 day lag.
     const end = new Date();
@@ -243,11 +249,22 @@ Deno.serve(async (req) => {
     }
 
     if (dryRun) {
+      const allPages = [...byPage.entries()]
+        .map(([page, a]) => ({
+          url: page,
+          impressions: a.impressions,
+          clicks: a.clicks,
+          ctr: Number((a.impressions ? a.clicks / a.impressions : 0).toFixed(4)),
+          position: Number((a.impressions ? a.posWeighted / a.impressions : 99).toFixed(2)),
+        }))
+        .sort((x, y) => y.impressions - x.impressions)
+        .slice(0, 120);
       return json({
         ok: true,
         dry_run: true,
         window: { start: isoDate(start), end: isoDate(end) },
         scanned_pages: byPage.size,
+        all_pages: allPages,
         candidates: candidates.map((c) => ({
           url: c.url,
           kind: c.kind,
@@ -259,6 +276,7 @@ Deno.serve(async (req) => {
         })),
       });
     }
+
 
     let updated = 0;
     let failed = 0;
@@ -316,12 +334,14 @@ Deno.serve(async (req) => {
         const parsed = args ? JSON.parse(args) : null;
         if (!parsed) throw new Error("no_tool_call");
 
-        const newTitle = trim(String(parsed.seo_title || ""), 60);
+        const newTitle = trim(String(parsed.seo_title || ""), 60, false);
         let newDesc = trim(String(parsed.seo_description || ""), 150);
         if (newTitle.length < 10 || newDesc.length < 40) throw new Error("output_too_short");
         assertHungarianPublicFields({ seo_title: newTitle, seo_description: newDesc });
         if (!isHungarianish(`${newTitle} ${newDesc}`)) throw new Error("hu_language_guard_failed");
-        if (c.kind === "episode") newDesc = applyCtaPrefix(newDesc);
+        // Audio CTA signals "listenable content" in the SERP for shows too, not just episodes.
+        newDesc = applyCtaPrefix(newDesc);
+
 
         const table = c.kind === "episode" ? "episodes" : "podcasts";
         const { error: upErr } = await admin

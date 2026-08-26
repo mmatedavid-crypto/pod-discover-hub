@@ -29,15 +29,23 @@ export function setSeo(opts: SeoOpts) {
   const rawTitle = opts.title || "Podiverzum";
   let finalTitle = rawTitle;
   if (rawTitle.length > 60) {
+    // Cut on a word boundary and never append an ellipsis — a "…" in the SERP
+    // headline reads as broken and measurably lowers CTR.
+    const cutWord = (s: string, max: number) => {
+      const c = s.slice(0, max);
+      const sp = c.lastIndexOf(" ");
+      return (sp > max * 0.6 ? c.slice(0, sp) : c).replace(/[,;:\-–—\s]+$/, "");
+    };
     const suffix = " | Podiverzum";
     if (rawTitle.endsWith(suffix)) {
       const head = rawTitle.slice(0, rawTitle.length - suffix.length);
-      const budget = 60 - suffix.length - 1; // -1 for ellipsis
-      finalTitle = head.length > budget ? head.slice(0, budget).trimEnd() + "…" + suffix : rawTitle;
+      const budget = 60 - suffix.length;
+      finalTitle = head.length > budget ? cutWord(head, budget) + suffix : rawTitle;
     } else {
-      finalTitle = rawTitle.slice(0, 59).trimEnd() + "…";
+      finalTitle = cutWord(rawTitle, 60);
     }
   }
+
   document.title = finalTitle;
   opts = { ...opts, title: finalTitle };
 

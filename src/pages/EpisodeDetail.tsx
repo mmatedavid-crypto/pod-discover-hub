@@ -100,7 +100,18 @@ export default function EpisodeDetail() {
       const { data: e } = await supabase.from("episodes").select("*").eq("podcast_id", p.id).eq("slug", episodeSlug).maybeSingle();
       setData(e ? { p, e } : { p, e: null });
       setLoading(false);
-      if (!e) return;
+      if (!e) {
+        // Removed/merged episode URL: mark it noindex so Google drops it instead of
+        // treating the shell (with homepage metadata) as a soft 404 duplicate.
+        setSeo({
+          title: "Az epizód nem található | Podiverzum",
+          description: "Ez az epizód már nem elérhető ezen a címen.",
+          canonical: `https://podiverzum.hu/podcast/${p.slug}`,
+          noindex: true,
+        });
+        return;
+      }
+
 
       // Track for "Continue listening" on the homepage
       recordVisit({
