@@ -195,14 +195,17 @@ Deno.serve(async (req) => {
               const huSource = isAcceptedHungarian((e as any).podcasts);
               const epTitle = String((e as any).display_title || (e as any).title || "").replace(/\s+/g, " ").trim();
               if (jobAgeMs > 24 * 60 * 60 * 1000 && huSource && epTitle.length >= 3) {
-                const cut = (s: string, max: number) => {
+                const cut = (s: string, max: number, ellipsis = true) => {
                   s = s.replace(/\s+/g, " ").trim();
                   if (s.length <= max) return s;
                   const c = s.slice(0, max);
                   const sp = c.lastIndexOf(" ");
-                  return (sp > max * 0.6 ? c.slice(0, sp) : c).replace(/[,;:\-–—\s]+$/, "") + "…";
+                  const base = (sp > max * 0.6 ? c.slice(0, sp) : c).replace(/[,;:\-–—\s]+$/, "");
+                  return ellipsis ? base + "…" : base;
                 };
-                const fbTitle = cut(podName ? `${epTitle} – ${podName}` : epTitle, 70);
+                // Titles never get an ellipsis — a truncated headline hurts CTR.
+                const fbTitle = cut(podName ? `${epTitle} – ${podName}` : epTitle, 70, false);
+
                 const fbDesc = cut(
                   podName
                     ? `Hallgasd meg ingyen: ${epTitle} — a ${podName} podcast epizódja a Podiverzumon.`
@@ -286,18 +289,20 @@ Deno.serve(async (req) => {
           }
         }
 
-        const trim = (s: string, max: number) => {
+        const trim = (s: string, max: number, ellipsis = true) => {
           s = s.replace(/\s+/g, " ").trim();
           if (s.length <= max) return s;
           const cut = s.slice(0, max);
           const sp = cut.lastIndexOf(" ");
-          return (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[,;:\-–—\s]+$/, "") + "…";
+          const base = (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[,;:\-–—\s]+$/, "");
+          // Titles never get an ellipsis — a truncated headline hurts CTR.
+          return ellipsis ? base + "…" : base;
         };
         // Gemini-detected actual content language (ISO 639-1). If it's not 'en',
         // overwrite podcasts.language so the EN-only public surfaces hide it.
         const detectedLang = String(parsed.detected_language || "").toLowerCase().trim().slice(0, 8) || null;
         if (isPodcast) {
-          const seo_title = trim(String(parsed.seo_title || ""), 65);
+          const seo_title = trim(String(parsed.seo_title || ""), 65, false);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
           assertHungarianPublicFields({ seo_title, seo_description });
           const { data: pLang } = await admin.from("podcasts").select("language,language_decision").eq("id", job.target_id).maybeSingle();
@@ -306,7 +311,7 @@ Deno.serve(async (req) => {
           if (detectedLang && detectedLang !== "mul" && !isAcceptedHungarian(pLang)) update.language = detectedLang;
           await admin.from("podcasts").update(update).eq("id", job.target_id);
         } else {
-          const seo_title = trim(String(parsed.seo_title || ""), 70);
+          const seo_title = trim(String(parsed.seo_title || ""), 70, false);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
           const ai_summary = trim(String(parsed.ai_summary || ""), 280);
           // Entities: arrays from Gemini tool call. Cap each list to 6, dedupe, drop empties.
