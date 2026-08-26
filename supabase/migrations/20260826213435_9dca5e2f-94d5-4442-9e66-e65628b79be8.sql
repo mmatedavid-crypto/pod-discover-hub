@@ -1,0 +1,1 @@
+create unique index if not exists topic_aliases_normalized_alias_key on public.topic_aliases (normalized_alias);

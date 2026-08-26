@@ -672,7 +672,20 @@ async function buildEpisode(
   // latest transcript excerpt, and sibling episodes for internal linking.
   // Widens the crawlable body from ~500 chars (title + short ai_summary)
   // to ~15-25 KB, which addresses thin-content demotion on episode pages.
-  const [{ data: cleanRow }, { data: transcriptRow }, { data: siblingEps }] = await Promise.all([
+  const episodeTopicNames = Array.isArray(ep.topics)
+    ? (ep.topics as unknown[]).filter((v) => typeof v === "string" && (v as string).trim()).slice(0, 20) as string[]
+    : [];
+  const episodeCompanyNames = Array.isArray(ep.companies)
+    ? (ep.companies as unknown[]).filter((v) => typeof v === "string" && (v as string).trim()).slice(0, 20) as string[]
+    : [];
+  const [
+    { data: cleanRow },
+    { data: transcriptRow },
+    { data: siblingEps },
+    { data: topicRows },
+    { data: orgRows },
+    { data: relatedRows },
+  ] = await Promise.all([
     supabase
       .from("episode_clean_text")
       .select("cleaned_text")
@@ -693,6 +706,29 @@ async function buildEpisode(
       .neq("id", ep.id)
       .order("published_at", { ascending: false })
       .limit(12),
+    // Canonical entity rows so the crawlable links point at real, indexable
+    // hub URLs (/temak, /szemelyek, /ceg) instead of legacy redirect paths.
+    episodeTopicNames.length
+      ? (supabase as any)
+          .from("topics")
+          .select("name, slug, is_public, is_indexable")
+          .in("slug", episodeTopicNames.map((n) => slugify(n, "topic")))
+      : Promise.resolve({ data: [] }),
+    episodeCompanyNames.length
+      ? (supabase as any)
+          .from("organizations")
+          .select("name, normalized_name, slug, is_public, is_indexable")
+          .in("slug", episodeCompanyNames.map((n) => slugify(n, "company")))
+      : Promise.resolve({ data: [] }),
+    // Cross-show related episodes (embedding based). The SPA already shows
+    // these to humans; crawlers only saw same-show siblings, so episode pages
+    // formed no topical cluster. These links are the main ranking lever for
+    // the long tail.
+    (supabase as any).rpc("get_related_episodes_by_embedding", {
+      p_episode_id: ep.id,
+      p_limit: 10,
+      p_downweight_same_podcast: true,
+    }),
   ]);
   const cleanText = stripHtml((cleanRow as any)?.cleaned_text || "");
   const transcriptText = stripHtml((transcriptRow as any)?.transcript || "");
@@ -791,12 +827,80 @@ async function buildEpisode(
         .join("")}</ol></section>`
     : "";
 
-  const entities: Array<{ k: string; label: string; vals: string[] }> = [
-    { k: "topic", label: "Témák", vals: ep.topics ?? [] },
-    { k: "person", label: "Személyek", vals: ep.people ?? [] },
-    { k: "company", label: "Cégek", vals: ep.companies ?? [] },
-    { k: "ticker", label: "Tickerek", vals: ep.tickers ?? [] },
-    { k: "ingredient", label: "Hozzávalók", vals: ep.ingredients ?? [] },
+  // Entity link hygiene: an entity name only becomes an <a> when a public,
+  // indexable hub row actually exists for it, and then it points at the
+  // canonical Hungarian path. Unresolved names stay as plain text — they keep
+  // their semantic value without leaking crawl budget into redirects/404s.
+  const indexableRow = (r: any) => r && r.is_public !== false && r.is_indexable !== false;
+  const topicSlugByName = new Map<string, string>();
+  for (const r of ((topicRows || []) as any[]).filter(indexableRow)) {
+    if (r.slug) topicSlugByName.set(String(r.slug), String(r.slug));
+  }
+  // Free-text episode topics rarely equal a canonical topic slug, so resolve the
+  // remainder through topic_aliases — this is what actually connects long-tail
+  // episode pages to the topic hubs.
+  const normalizeAlias = (v: string) =>
+    v.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  const unresolvedTopicNames = episodeTopicNames.filter((n) => !topicSlugByName.has(slugify(n, "topic")));
+  if (unresolvedTopicNames.length) {
+    const { data: aliasRows } = await (supabase as any)
+      .from("topic_aliases")
+      .select("normalized_alias, topic_id")
+      .in("normalized_alias", unresolvedTopicNames.map(normalizeAlias));
+    const aliasList = (aliasRows || []) as any[];
+    if (aliasList.length) {
+      const { data: aliasTopics } = await (supabase as any)
+        .from("topics")
+        .select("id, slug, is_public, is_indexable")
+        .in("id", [...new Set(aliasList.map((a) => a.topic_id))]);
+      const slugById = new Map<string, string>();
+      for (const t of ((aliasTopics || []) as any[]).filter(indexableRow)) slugById.set(String(t.id), String(t.slug));
+      const slugByAlias = new Map<string, string>();
+      for (const a of aliasList) {
+        const sl = slugById.get(String(a.topic_id));
+        if (sl) slugByAlias.set(String(a.normalized_alias), sl);
+      }
+      for (const n of unresolvedTopicNames) {
+        const sl = slugByAlias.get(normalizeAlias(n));
+        if (sl) topicSlugByName.set(slugify(n, "topic"), sl);
+      }
+    }
+  }
+  const orgSlugByName = new Map<string, string>();
+  for (const r of ((orgRows || []) as any[]).filter(indexableRow)) {
+    if (r.slug) orgSlugByName.set(String(r.slug), String(r.slug));
+  }
+  const personSlugByName = new Map<string, string>();
+  for (const p of safeEpisodePeople) {
+    if (p.slug && p.is_indexable !== false) personSlugByName.set(String(p.name), String(p.slug));
+  }
+  const entities: Array<{ label: string; vals: string[]; href: (v: string) => string | null }> = [
+    {
+      label: "Témák",
+      vals: episodeTopicNames,
+      href: (v) => {
+        const sl = topicSlugByName.get(slugify(v, "topic"));
+        return sl ? `${SITE}/temak/${sl}` : null;
+      },
+    },
+    {
+      label: "Személyek",
+      vals: Array.isArray(ep.people) ? (ep.people as string[]) : [],
+      href: (v) => {
+        const sl = personSlugByName.get(v);
+        return sl ? `${SITE}/szemelyek/${sl}` : null;
+      },
+    },
+    {
+      label: "Szervezetek, cégek",
+      vals: episodeCompanyNames,
+      href: (v) => {
+        const sl = orgSlugByName.get(slugify(v, "company"));
+        return sl ? `${SITE}/ceg/${sl}` : null;
+      },
+    },
+    { label: "Tickerek", vals: (ep.tickers ?? []) as string[], href: () => null },
+    { label: "Hozzávalók", vals: (ep.ingredients ?? []) as string[], href: () => null },
   ];
   const entitySection = entities
     .filter((e) => e.vals.length)
@@ -804,7 +908,10 @@ async function buildEpisode(
       (e) =>
         `<h3>${esc(e.label)}</h3><ul>${e.vals
           .slice(0, 20)
-          .map((v) => `<li><a href="${SITE}/${e.k}/${esc(slugify(v, e.k))}">${esc(v)}</a></li>`)
+          .map((v) => {
+            const href = e.href(v);
+            return `<li>${href ? `<a href="${href}">${esc(v)}</a>` : esc(v)}</li>`;
+          })
           .join("")}</ul>`,
     )
     .join("");
@@ -819,6 +926,23 @@ async function buildEpisode(
           const sm = truncate(stripHtml(s.ai_summary || s.summary || ""), 180);
           const d = s.published_at ? ` <time datetime="${esc(s.published_at)}">${esc(String(s.published_at).slice(0, 10))}</time>` : "";
           return `<li><a href="${SITE}/podcast/${pod.slug}/${esc(s.slug)}"><strong>${esc(t)}</strong></a>${d}${sm ? `<p>${esc(sm)}</p>` : ""}</li>`;
+        })
+        .join("")}</ul></section>`
+    : "";
+
+  // Cross-show related episodes → topical cluster + link equity for long-tail pages.
+  const relatedList = ((relatedRows || []) as any[])
+    .filter((r) => r && r.slug && r.podcast_slug && r.podcast_slug !== pod.slug)
+    .slice(0, 8);
+  const relatedHtml = relatedList.length
+    ? `<section><h2>Hasonló epizódok más magyar podcastokból</h2><ul>${relatedList
+        .map((r) => {
+          const t = r.display_title || r.title || "";
+          const showName = r.podcast_display_title || r.podcast_title || "";
+          const sm = truncate(stripHtml(r.ai_summary || r.summary || r.description || ""), 180);
+          return `<li><a href="${SITE}/podcast/${esc(r.podcast_slug)}/${esc(r.slug)}"><strong>${esc(t)}</strong></a>${
+            showName ? ` — <em><a href="${SITE}/podcast/${esc(r.podcast_slug)}">${esc(showName)}</a></em>` : ""
+          }${sm ? `<p>${esc(sm)}</p>` : ""}</li>`;
         })
         .join("")}</ul></section>`
     : "";
@@ -942,6 +1066,7 @@ ${bodyParas.length ? `<section><h2>Ebben az epizódban</h2>${bodyParas.map((p) =
 ${entitySection ? `<section><h2>Említett entitások</h2>${entitySection}</section>` : ""}
 ${ep.audio_url ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
 ${siblingsHtml}
+${relatedHtml}
 </article>`,
     })),
     { headers: new Headers(baseHeaders) },
@@ -1183,10 +1308,24 @@ async function buildTopic(
 ) {
   const { data: topic } = await (supabase as any)
     .from("topics")
-    .select("id, name, slug, description, seo_title, seo_description, intro_text, is_public, is_indexable")
+    .select("id, name, slug, description, seo_title, seo_description, intro_text, is_public, is_indexable, domain, parent_topic_id, topic_type")
     .eq("slug", slug)
     .maybeSingle();
   if (!topic || topic.is_public === false) return null;
+
+  // Sibling topics for hub-to-hub interlinking: topic pages were leaf nodes,
+  // so PageRank stopped there instead of flowing across the topic graph.
+  const siblingQuery = (supabase as any)
+    .from("topics")
+    .select("name, slug, episode_count")
+    .neq("id", topic.id)
+    .eq("is_public", true)
+    .eq("is_indexable", true)
+    .order("episode_count", { ascending: false })
+    .limit(14);
+  const { data: siblingTopics } = topic.domain
+    ? await siblingQuery.eq("domain", topic.domain)
+    : await siblingQuery;
 
   const { data: rows } = await (supabase as any)
     .from("episode_topic_map")
@@ -1234,6 +1373,27 @@ async function buildTopic(
     ],
   };
 
+  // Shows that actually cover this topic → topic hub links down to show pages.
+  const showsMap = new Map<string, { slug: string; name: string; count: number }>();
+  for (const e of eps) {
+    const ps = e.podcast?.slug;
+    if (!ps) continue;
+    const prev = showsMap.get(ps);
+    if (prev) prev.count += 1;
+    else showsMap.set(ps, { slug: ps, name: e.podcast.display_title || e.podcast.title || ps, count: 1 });
+  }
+  const topShows = [...showsMap.values()].sort((a, b) => b.count - a.count).slice(0, 12);
+  const showsHtml = topShows.length
+    ? `<section><h2>Műsorok, amelyek ${esc(topic.name)} témában beszélnek</h2><ul>${topShows
+        .map((sh) => `<li><a href="${SITE}/podcast/${esc(sh.slug)}"><strong>${esc(sh.name)}</strong></a> — ${sh.count} kapcsolódó epizód</li>`)
+        .join("")}</ul></section>`
+    : "";
+  const siblingsHtml = Array.isArray(siblingTopics) && siblingTopics.length
+    ? `<section><h2>Kapcsolódó témák</h2><ul>${(siblingTopics as any[])
+        .map((t) => `<li><a href="${SITE}/temak/${esc(t.slug)}">${esc(t.name)}</a>${t.episode_count ? ` — ${t.episode_count} epizód` : ""}</li>`)
+        .join("")}</ul></section>`
+    : "";
+
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
@@ -1242,7 +1402,10 @@ async function buildTopic(
       jsonLd: [itemList, breadcrumb],
       noindex: topic.is_indexable === false,
       bodyHtml: `<header><h1>${esc(topic.name)}</h1>${topic.intro_text ? `<p>${esc(stripHtml(topic.intro_text))}</p>` : ""}</header>
-<main><h2>Epizódok</h2><ul>${html}</ul></main>`,
+<main><h2>Epizódok</h2><ul>${html}</ul>
+${showsHtml}
+${siblingsHtml}
+<nav><a href="${SITE}/temak">Összes téma</a> · <a href="${SITE}/temak/abc">Téma A–Z</a> · <a href="${SITE}/podcastok">Magyar podcastok</a></nav></main>`,
     })),
     { headers: new Headers(baseHeaders) },
   );

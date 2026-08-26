@@ -2145,6 +2145,27 @@ export type Database = {
           },
         ]
       }
+      episode_topic_label_stats: {
+        Row: {
+          mentions: number
+          normalized_label: string
+          refreshed_at: string
+          sample_label: string
+        }
+        Insert: {
+          mentions?: number
+          normalized_label: string
+          refreshed_at?: string
+          sample_label: string
+        }
+        Update: {
+          mentions?: number
+          normalized_label?: string
+          refreshed_at?: string
+          sample_label?: string
+        }
+        Relationships: []
+      }
       episode_topic_map: {
         Row: {
           confidence: number
@@ -9091,6 +9112,7 @@ export type Database = {
           sources: Json
         }[]
       }
+      hu_norm_label: { Args: { v: string }; Returns: string }
       hu_recent_activity: {
         Args: { _ids: string[] }
         Returns: {
@@ -9442,6 +9464,10 @@ export type Database = {
         Args: { p_episode_id: string; p_kind: string; p_source?: string }
         Returns: undefined
       }
+      refresh_episode_topic_label_stats: {
+        Args: { p_min_count?: number }
+        Returns: number
+      }
       refresh_episodes_search_text_batch: {
         Args: { _limit?: number }
         Returns: Json
@@ -9768,6 +9794,13 @@ export type Database = {
           rank_label: string
           view_count: number
           youtube_video_id: string
+        }[]
+      }
+      top_unmapped_episode_topics: {
+        Args: { p_limit?: number; p_min_count?: number }
+        Returns: {
+          mentions: number
+          name: string
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }
