@@ -99,29 +99,8 @@ export function viewportClass(): "mobile" | "tablet" | "desktop" {
   return "desktop";
 }
 
-/**
- * Initialize PostHog once. Returns null when analytics is disabled for this
- * environment (non-production host, crawler, SSR).
- */
-export function initAnalytics(): PostHog | null {
-  if (initTried) return client;
-  initTried = true;
-  if (!analyticsEnabled()) return null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const posthog = (require$posthog() as PostHog | null);
-    return posthog;
-  } catch {
-    return null;
-  }
-}
-
-// Kept as a separate function so the dynamic import stays isolated and any
-// failure (blocked script, ad-blocker) is swallowed.
-function require$posthog(): PostHog | null {
-  // Synchronous ESM import is done by the caller module (AnalyticsProvider),
-  // which passes the instance in via `registerClient`.
-  return client;
+export function analyticsInitialized(): boolean {
+  return initTried;
 }
 
 /** Called by AnalyticsProvider after posthog-js has been initialized. */
