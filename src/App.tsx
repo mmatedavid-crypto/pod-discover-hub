@@ -28,6 +28,7 @@ function RedirectTopicYear({ to }: { to: string }) {
   return <Navigate to={`${to}/${slug}/${year}`} replace />;
 }
 import PageViewTracker from "./components/PageViewTracker.tsx";
+import AnalyticsProvider from "./components/AnalyticsProvider.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
