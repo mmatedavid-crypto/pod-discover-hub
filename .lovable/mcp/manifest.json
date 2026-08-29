@@ -73,7 +73,7 @@
       {
         "name": "search_episodes",
         "title": "Epizód keresés",
-        "description": "Magyar podcast epizódok szemantikus + kulcsszavas keresése (search-hybrid v13). Címre, leírásra és tartalomra keres.",
+        "description": "Magyar podcast epizódok szemantikus + kulcsszavas keresése (search-hybrid v13). Címre, leírásra és tartalomra keres. Átirat-részletet nem ad vissza; részletes kontextushoz használd a `get_episode_context` tool-t.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,

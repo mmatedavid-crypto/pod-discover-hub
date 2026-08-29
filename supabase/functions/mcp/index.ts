@@ -88,10 +88,74 @@ var get_podcast_default = defineTool2({
 // src/lib/mcp/tools/search-episodes.ts
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^3.25.76";
+
+// src/lib/mcp/entityResolve.ts
+var PODIVERZUM_ORIGIN = "https://podiverzum.hu";
+function clampEvidencePhrase(input, max) {
+  if (typeof input !== "string") return void 0;
+  const s = input.replace(/\s+/g, " ").trim();
+  if (!s) return void 0;
+  return s.length <= max ? s : `${s.slice(0, Math.max(0, max - 1)).trimEnd()}\u2026`;
+}
+function episodeUrl(podcastSlug, episodeSlug) {
+  if (!podcastSlug || !episodeSlug) return void 0;
+  return `${PODIVERZUM_ORIGIN}/podcast/${podcastSlug}/${episodeSlug}`;
+}
+function podcastUrl(slug) {
+  return slug ? `${PODIVERZUM_ORIGIN}/podcast/${slug}` : void 0;
+}
+var FORBIDDEN_RESPONSE_KEYS = [
+  "chunk_match",
+  "content_snippet",
+  "transcript",
+  "segments",
+  "ai_reason",
+  "ai_evidence_phrases",
+  "editorial_notes",
+  "ai_review_summary",
+  "source_evidence",
+  "understanding",
+  "cache_hit",
+  "timing"
+];
+function stripForbidden(value) {
+  if (Array.isArray(value)) return value.map((v) => stripForbidden(v));
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (FORBIDDEN_RESPONSE_KEYS.includes(k)) continue;
+      if (v === void 0) continue;
+      out[k] = stripForbidden(v);
+    }
+    return out;
+  }
+  return value;
+}
+function shapeSearchEpisode(e) {
+  const podcast = e.podcasts || {};
+  const summary = typeof e.ai_summary === "string" && e.ai_summary.trim() ? e.ai_summary : typeof e.summary === "string" && e.summary.trim() ? e.summary : typeof e.description === "string" ? e.description : "";
+  return stripForbidden({
+    id: e.id,
+    title: e.display_title || e.title,
+    slug: e.slug,
+    published_at: e.published_at,
+    summary: clampEvidencePhrase(summary, 600),
+    podcast: {
+      id: e.podcast_id,
+      title: podcast.display_title || podcast.title,
+      slug: podcast.slug,
+      url: podcastUrl(podcast.slug)
+    },
+    why_matched: typeof e.why_matched === "string" ? e.why_matched : void 0,
+    source_url: episodeUrl(podcast.slug, e.slug)
+  });
+}
+
+// src/lib/mcp/tools/search-episodes.ts
 var search_episodes_default = defineTool3({
   name: "search_episodes",
   title: "Epiz\xF3d keres\xE9s",
-  description: "Magyar podcast epiz\xF3dok szemantikus + kulcsszavas keres\xE9se (search-hybrid v13). C\xEDmre, le\xEDr\xE1sra \xE9s tartalomra keres.",
+  description: "Magyar podcast epiz\xF3dok szemantikus + kulcsszavas keres\xE9se (search-hybrid v13). C\xEDmre, le\xEDr\xE1sra \xE9s tartalomra keres. \xC1tirat-r\xE9szletet nem ad vissza; r\xE9szletes kontextushoz haszn\xE1ld a `get_episode_context` tool-t.",
   inputSchema: {
     query: z3.string().trim().min(1).describe("Keres\u0151kifejez\xE9s."),
     limit: z3.number().int().min(1).max(30).optional().describe("Max tal\xE1lat (alap: 10).")
@@ -102,6 +166,7 @@ var search_episodes_default = defineTool3({
       const url = process.env.SUPABASE_URL;
       const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
       if (!url || !key) return err("Missing SUPABASE env");
+      const lim = limit ?? 10;
       const res = await fetch(`${url}/functions/v1/search-hybrid`, {
         method: "POST",
         headers: {
@@ -109,19 +174,21 @@ var search_episodes_default = defineTool3({
           apikey: key,
           Authorization: `Bearer ${key}`
         },
-        body: JSON.stringify({ q: query, limit: limit ?? 10, rerank: false })
+        body: JSON.stringify({ q: query, limit: lim, rerank: false })
       });
       if (!res.ok) return err(`search-hybrid ${res.status}: ${(await res.text()).slice(0, 300)}`);
       const data = await res.json();
-      const items = (data?.episodes || data?.items || []).slice(0, limit ?? 10).map((e) => ({
-        id: e.id,
-        title: e.title,
-        podcast: e.podcast_title || e.podcast,
-        published_at: e.published_at,
-        summary: e.ai_summary || e.description?.slice(0, 300),
-        url: e.podcast_slug && e.slug ? `https://podiverzum.hu/podcast/${e.podcast_slug}/${e.slug}` : void 0
-      }));
-      return json({ count: items.length, items });
+      const raw = data?.episodes || data?.items || [];
+      const items = raw.slice(0, lim).map((e) => shapeSearchEpisode(e));
+      return json(
+        stripForbidden({
+          count: items.length,
+          confidence_band: typeof data?.confidence_band === "string" ? data.confidence_band : void 0,
+          semantic: typeof data?.semantic === "boolean" ? data.semantic : void 0,
+          engine: typeof data?.engine === "string" ? data.engine : void 0,
+          items
+        })
+      );
     } catch (e) {
       return err(e?.message || "unknown error");
     }
