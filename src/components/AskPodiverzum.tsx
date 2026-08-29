@@ -4,6 +4,7 @@ import {
   Sparkles, ArrowRight, Search,
   Cpu, Pill, Landmark, Mic, Moon, TrendingUp, Activity, Brain,
 } from "lucide-react";
+import { trackSearchSubmitted, type SearchSubmitSource } from "@/lib/analytics";
 
 const QUESTIONS: { text: string; Icon: typeof Sparkles }[] = [
   { text: "MI szabályozás 2026-ban", Icon: Brain },
