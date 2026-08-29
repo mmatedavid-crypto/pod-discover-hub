@@ -562,6 +562,18 @@ export default function SearchPage() {
           if (!anchor || !initial) return;
           const destination = new URL(anchor.href, window.location.origin);
           if (destination.pathname === "/kereses") return;
+          if (event.isTrusted) {
+            const p = destination.pathname;
+            const segments = p.split("/").filter(Boolean);
+            const kind: SearchResultKind =
+              p.startsWith("/podcast/") ? (segments.length >= 2 && segments[1] !== "epizodok" ? "episode" : "podcast")
+              : p === `/podcast/${segments[1] || ""}` ? "podcast"
+              : p.startsWith("/szemelyek/") ? "person"
+              : p.startsWith("/ceg/") ? "organization"
+              : p.startsWith("/temak/") ? "topic"
+              : "other";
+            trackSearchResultOpened({ resultKind: kind, slug: segments[segments.length - 1] || null });
+          }
           navigatingAwayRef.current = true;
           if (window.scrollY > 0) {
             const savedScrollY = window.scrollY;
