@@ -103,7 +103,7 @@ export function AskPodiverzum() {
         </p>
 
         <form
-          onSubmit={(e) => { e.preventDefault(); go(q); }}
+          onSubmit={(e) => { e.preventDefault(); if (!e.isTrusted) return; go(q); }}
           className="mt-5 sm:mt-6 max-w-2xl relative focus-brand rounded-2xl"
         >
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
