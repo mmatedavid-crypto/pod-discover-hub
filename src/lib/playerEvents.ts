@@ -47,6 +47,21 @@ export function logPlayerEvent(opts: {
     /* fail-safe */
   }
 
+  // Additive mirror into the PostHog product-analytics layer. `meta` is not
+  // forwarded (free-form bag → not guaranteed PII-free).
+  try {
+    trackPlayerEvent({
+      eventType: opts.eventType,
+      episodeId: opts.episodeId ?? null,
+      podcastId: opts.podcastId ?? null,
+      positionSec: opts.positionSec,
+      durationSec: opts.durationSec,
+      playbackRate: opts.playbackRate,
+    });
+  } catch {
+    /* fail-safe */
+  }
+
   // Mirror to taste-vector pipeline for select event types.
   try {
     if (opts.eventType === "play_start") {
