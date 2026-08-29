@@ -133,6 +133,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AnalyticsProvider>
         <SmartPlayerProvider>
 
         <PageViewTracker />
