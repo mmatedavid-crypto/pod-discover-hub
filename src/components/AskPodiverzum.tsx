@@ -130,7 +130,7 @@ export function AskPodiverzum() {
                 <button
                   key={`${i}-${keys[i]}`}
                   type="button"
-                  onClick={() => go(item.text)}
+                  onClick={(e) => { if (!e.isTrusted) return; go(item.text, "example"); }}
                   className="group relative overflow-hidden text-left flex flex-col gap-2 p-3 sm:p-3.5 rounded-xl border border-border/70 bg-card/70 hover:bg-card hover:border-primary/40 transition-colors duration-500 animate-ai-reveal min-h-[78px]"
                 >
                   <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
