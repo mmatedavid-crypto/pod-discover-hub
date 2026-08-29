@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { trackPlayerEvent } from "@/lib/analytics";
 
 export type PlayerEventType =
   | "play_start" | "play_pause" | "play_resume" | "play_seek"
@@ -41,6 +42,21 @@ export function logPlayerEvent(opts: {
       viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
       meta: (opts.meta ?? {}) as never,
+    });
+  } catch {
+    /* fail-safe */
+  }
+
+  // Additive mirror into the PostHog product-analytics layer. `meta` is not
+  // forwarded (free-form bag → not guaranteed PII-free).
+  try {
+    trackPlayerEvent({
+      eventType: opts.eventType,
+      episodeId: opts.episodeId ?? null,
+      podcastId: opts.podcastId ?? null,
+      positionSec: opts.positionSec,
+      durationSec: opts.durationSec,
+      playbackRate: opts.playbackRate,
     });
   } catch {
     /* fail-safe */

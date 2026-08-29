@@ -59,12 +59,13 @@ export default function PrivacyPage() {
 
         <h2 className="mt-8 text-xl font-semibold">Oldalanalitika</h2>
         <p>A szolgáltatás használatáról anonim statisztikát készítünk. Ehhez rögzítjük a megtekintett oldal címét, a hivatkozó oldalt, a böngészőablak méretét, az időpontot és az esetleges kampányparamétereket.</p>
+        <p>A termékfejlesztéshez emellett a PostHog nevű analitikai szolgáltatást is használjuk anonim, összesített használati eseményekre (pl. keresés indítása, találat megnyitása, lejátszás elindítása). Nem használunk munkamenet-rögzítést (session replay), és nem küldünk a PostHognak személyes adatot, sem a beírt keresőkifejezést.</p>
 
         <h2 className="mt-8 text-xl font-semibold">Amit soha nem teszünk</h2>
         <ul className="list-disc pl-5">
           <li>Nem rögzítjük a látogatók IP-címét.</li>
           <li>Személyes adatokat soha nem adunk tovább harmadik félnek.</li>
-          <li>Nem használunk külső hirdetési és követőkódokat (pl. Google Analytics, Facebook Pixel).</li>
+          <li>Nem használunk hirdetési célú követőkódokat (pl. Facebook Pixel), és nem készítünk munkamenet-felvételt.</li>
         </ul>
 
         <h2 className="mt-8 text-xl font-semibold">Kapcsolat</h2>

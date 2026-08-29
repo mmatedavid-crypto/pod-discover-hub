@@ -10,6 +10,7 @@ import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/s
 import { episodeScore } from "@/lib/episodeRank";
 import { pushRecentSearch } from "@/lib/recentSearches";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
+import { trackSearchResultOpened, trackSearchSubmitted, type SearchResultKind } from "@/lib/analytics";
 import { SearchStagedLoader } from "@/components/SearchStagedLoader";
 import { buildPersonCardContextLine, type PersonCardData } from "@/components/PersonCard";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
@@ -562,6 +563,18 @@ export default function SearchPage() {
           if (!anchor || !initial) return;
           const destination = new URL(anchor.href, window.location.origin);
           if (destination.pathname === "/kereses") return;
+          if (event.isTrusted) {
+            const p = destination.pathname;
+            const segments = p.split("/").filter(Boolean);
+            const kind: SearchResultKind =
+              p.startsWith("/podcast/")
+                ? (segments.length >= 3 && segments[2] !== "epizodok" ? "episode" : "podcast")
+                : p.startsWith("/szemelyek/") ? "person"
+                : p.startsWith("/ceg/") ? "organization"
+                : p.startsWith("/temak/") ? "topic"
+                : "other";
+            trackSearchResultOpened({ resultKind: kind, slug: segments[segments.length - 1] || null });
+          }
           navigatingAwayRef.current = true;
           if (window.scrollY > 0) {
             const savedScrollY = window.scrollY;
@@ -578,7 +591,7 @@ export default function SearchPage() {
         <p className="text-muted-foreground mb-4 text-sm">
           Írj be egy vagy több szót, pl. <em>magyar gazdaság</em>. A <code className="px-1 bg-secondary rounded">+</code> jellel megadhatod, hogy egy szónak szerepelnie kell.
         </p>
-        <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
+        <form onSubmit={(e) => { e.preventDefault(); if (e.isTrusted) trackSearchSubmitted(q, "search_page"); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             value={q}
@@ -596,7 +609,7 @@ export default function SearchPage() {
             {EXAMPLES.map((ex) => (
               <button
                 key={ex}
-                onClick={() => { setQ(ex); setParams({ q: ex }); }}
+                onClick={(e) => { if (e.isTrusted) trackSearchSubmitted(ex, "example"); setQ(ex); setParams({ q: ex }); }}
                 className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground"
               >
                 {ex}

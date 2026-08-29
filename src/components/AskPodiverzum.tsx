@@ -4,6 +4,7 @@ import {
   Sparkles, ArrowRight, Search,
   Cpu, Pill, Landmark, Mic, Moon, TrendingUp, Activity, Brain,
 } from "lucide-react";
+import { trackSearchSubmitted, type SearchSubmitSource } from "@/lib/analytics";
 
 const QUESTIONS: { text: string; Icon: typeof Sparkles }[] = [
   { text: "MI szabályozás 2026-ban", Icon: Brain },
@@ -70,8 +71,9 @@ export function AskPodiverzum() {
 
   const visible = slots;
 
-  const go = (query: string) => {
+  const go = (query: string, source: SearchSubmitSource = "ask_podiverzum") => {
     if (!query.trim()) return;
+    trackSearchSubmitted(query, source);
     nav(`/kereses?q=${encodeURIComponent(query.trim())}`);
   };
 
@@ -101,7 +103,7 @@ export function AskPodiverzum() {
         </p>
 
         <form
-          onSubmit={(e) => { e.preventDefault(); go(q); }}
+          onSubmit={(e) => { e.preventDefault(); if (!e.isTrusted) return; go(q); }}
           className="mt-5 sm:mt-6 max-w-2xl relative focus-brand rounded-2xl"
         >
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -128,7 +130,7 @@ export function AskPodiverzum() {
                 <button
                   key={`${i}-${keys[i]}`}
                   type="button"
-                  onClick={() => go(item.text)}
+                  onClick={(e) => { if (!e.isTrusted) return; go(item.text, "example"); }}
                   className="group relative overflow-hidden text-left flex flex-col gap-2 p-3 sm:p-3.5 rounded-xl border border-border/70 bg-card/70 hover:bg-card hover:border-primary/40 transition-colors duration-500 animate-ai-reveal min-h-[78px]"
                 >
                   <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
