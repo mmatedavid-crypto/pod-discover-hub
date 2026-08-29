@@ -63,7 +63,7 @@ export default defineTool({
               `mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,evidence,people!inner(${PERSON_JSONLD_SELECT})`,
             )
             .eq("episode_id", row.id)
-            .not("relevance_status", "in", "(rejected)")
+            .or("relevance_status.is.null,relevance_status.neq.rejected")
             .order("final_relevance_score", { ascending: false, nullsFirst: false })
             .limit(40),
           sb
@@ -98,7 +98,7 @@ export default defineTool({
         }));
 
       const organizations = ((orgRows as any[]) || [])
-        .filter((m) => isPublicOrganizationRow(m.organizations) && m.organizations?.is_indexable !== false)
+        .filter((m) => isPublicOrganizationRow(m.organizations))
         .map((m) => ({
           id: m.organizations.id,
           name: m.organizations.name,
@@ -112,7 +112,7 @@ export default defineTool({
         }));
 
       const topics = ((topicRows as any[]) || [])
-        .filter((t) => t.topics && t.topics.is_public !== false)
+        .filter((t) => t.topics && t.topics.is_public === true && t.topics.is_indexable === true)
         .map((t) => ({
           id: t.topics.id,
           name: t.topics.name,

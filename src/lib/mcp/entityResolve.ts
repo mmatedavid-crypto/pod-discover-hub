@@ -57,7 +57,9 @@ export function isSafePersonMentionRow(m: Record<string, any> | null | undefined
 
 export function isPublicOrganizationRow(o: Record<string, any> | null | undefined): boolean {
   if (!o) return false;
-  if (o.is_public === false) return false;
+  // Canonical orgs must be public AND indexable; null must not pass.
+  if (o.is_public !== true) return false;
+  if (o.is_indexable !== true) return false;
   if (["hide", "reject"].includes(String(o.ai_recommended_action || ""))) return false;
   return true;
 }
