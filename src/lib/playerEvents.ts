@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { trackPlayerEvent } from "@/lib/analytics";
 
 export type PlayerEventType =
   | "play_start" | "play_pause" | "play_resume" | "play_seek"
