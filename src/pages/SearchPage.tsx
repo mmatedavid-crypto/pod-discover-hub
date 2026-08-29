@@ -609,7 +609,7 @@ export default function SearchPage() {
             {EXAMPLES.map((ex) => (
               <button
                 key={ex}
-                onClick={() => { setQ(ex); setParams({ q: ex }); }}
+                onClick={(e) => { if (e.isTrusted) trackSearchSubmitted(ex, "example"); setQ(ex); setParams({ q: ex }); }}
                 className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground"
               >
                 {ex}
