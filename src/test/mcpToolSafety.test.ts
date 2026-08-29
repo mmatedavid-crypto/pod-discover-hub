@@ -9,6 +9,7 @@ import {
   stripForbidden,
   isPublicHungarianPodcast,
   isSafePersonMentionRow,
+  isPublicOrganizationRow,
 } from "@/lib/mcp/entityResolve";
 
 const root = process.cwd();
@@ -43,6 +44,27 @@ describe("MCP entity resolution helpers", () => {
   it("drops rejected person mentions", () => {
     expect(isSafePersonMentionRow({ relevance_status: "rejected" })).toBe(false);
     expect(isSafePersonMentionRow({ relevance_status: "accepted" })).toBe(true);
+  });
+
+  it("keeps NULL/unreviewed person mention rows but still blocks rejected", () => {
+    expect(isSafePersonMentionRow({ relevance_status: null })).toBe(true);
+    expect(isSafePersonMentionRow({ relevance_status: undefined })).toBe(true);
+    expect(isSafePersonMentionRow({})).toBe(true);
+    expect(isSafePersonMentionRow({ relevance_status: "Rejected" })).toBe(false);
+    expect(isSafePersonMentionRow({ relevance_status: "duplicate" })).toBe(false);
+  });
+
+  it("requires organizations to be strictly public AND indexable", () => {
+    expect(isPublicOrganizationRow({ is_public: true, is_indexable: true })).toBe(true);
+    expect(isPublicOrganizationRow({ is_public: true, is_indexable: null })).toBe(false);
+    expect(isPublicOrganizationRow({ is_public: null, is_indexable: true })).toBe(false);
+    expect(isPublicOrganizationRow({ is_public: false, is_indexable: true })).toBe(false);
+    expect(isPublicOrganizationRow({ is_public: true, is_indexable: false })).toBe(false);
+    expect(isPublicOrganizationRow(null)).toBe(false);
+    expect(isPublicOrganizationRow({ is_public: true, is_indexable: true, ai_recommended_action: "hide" })).toBe(false);
+    expect(isPublicOrganizationRow({ is_public: true, is_indexable: true, ai_recommended_action: "reject" })).toBe(
+      false,
+    );
   });
 });
 
