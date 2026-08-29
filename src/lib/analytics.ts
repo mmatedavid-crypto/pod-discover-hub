@@ -14,7 +14,7 @@ import type { PostHog } from "posthog-js";
 import { isBotClient } from "./botDetect";
 
 const FALLBACK_TOKEN = "phc_zxwiXA6Zuvp9cUoptWSW43noc58cve2hHX2UbGfJ4NhV";
-const FALLBACK_HOST = "https://us.i.posthog.com";
+const FALLBACK_HOST = "https://eu.i.posthog.com";
 
 const PRODUCTION_HOSTS = new Set(["podiverzum.hu", "www.podiverzum.hu"]);
 
