@@ -88,10 +88,117 @@ var get_podcast_default = defineTool2({
 // src/lib/mcp/tools/search-episodes.ts
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^3.25.76";
+
+// src/lib/mcp/entityResolve.ts
+var PODIVERZUM_ORIGIN = "https://podiverzum.hu";
+function normalizeEntityText(input) {
+  return String(input || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function clampEvidencePhrase(input, max) {
+  if (typeof input !== "string") return void 0;
+  const s = input.replace(/\s+/g, " ").trim();
+  if (!s) return void 0;
+  return s.length <= max ? s : `${s.slice(0, Math.max(0, max - 1)).trimEnd()}\u2026`;
+}
+function episodeUrl(podcastSlug, episodeSlug) {
+  if (!podcastSlug || !episodeSlug) return void 0;
+  return `${PODIVERZUM_ORIGIN}/podcast/${podcastSlug}/${episodeSlug}`;
+}
+function podcastUrl(slug) {
+  return slug ? `${PODIVERZUM_ORIGIN}/podcast/${slug}` : void 0;
+}
+function personUrl(slug) {
+  return slug ? `${PODIVERZUM_ORIGIN}/szemelyek/${slug}` : void 0;
+}
+function organizationUrl(slug) {
+  return slug ? `${PODIVERZUM_ORIGIN}/ceg/${slug}` : void 0;
+}
+function topicUrl(slug) {
+  return slug ? `${PODIVERZUM_ORIGIN}/temak/${slug}` : void 0;
+}
+var REJECTED_MENTION_STATUSES = ["rejected", "duplicate", "invalid"];
+function isSafePersonMentionRow(m) {
+  if (!m) return false;
+  const status = String(m.relevance_status || "").toLowerCase();
+  if (REJECTED_MENTION_STATUSES.includes(status)) return false;
+  return true;
+}
+function isPublicOrganizationRow(o) {
+  if (!o) return false;
+  if (o.is_public === false) return false;
+  if (["hide", "reject"].includes(String(o.ai_recommended_action || ""))) return false;
+  return true;
+}
+function isPublicHungarianPodcast(p) {
+  if (!p) return false;
+  if (p.rss_status === "failed" || p.rss_status === "inactive") return false;
+  const lang = String(p.language || "").toLowerCase();
+  if (p.language_decision && p.language_decision !== "accept_hungarian") return false;
+  return !p.language_decision ? lang.startsWith("hu") : true;
+}
+var FORBIDDEN_RESPONSE_KEYS = [
+  "chunk_match",
+  "content_snippet",
+  "transcript",
+  "segments",
+  "ai_reason",
+  "ai_evidence_phrases",
+  "editorial_notes",
+  "ai_review_summary",
+  "source_evidence",
+  "understanding",
+  "cache_hit",
+  "timing"
+];
+function stripForbidden(value) {
+  if (Array.isArray(value)) return value.map((v) => stripForbidden(v));
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (FORBIDDEN_RESPONSE_KEYS.includes(k)) continue;
+      if (v === void 0) continue;
+      out[k] = stripForbidden(v);
+    }
+    return out;
+  }
+  return value;
+}
+function shapeSearchEpisode(e) {
+  const podcast = e.podcasts || {};
+  const summary = typeof e.ai_summary === "string" && e.ai_summary.trim() ? e.ai_summary : typeof e.summary === "string" && e.summary.trim() ? e.summary : typeof e.description === "string" ? e.description : "";
+  return stripForbidden({
+    id: e.id,
+    title: e.display_title || e.title,
+    slug: e.slug,
+    published_at: e.published_at,
+    summary: clampEvidencePhrase(summary, 600),
+    podcast: {
+      id: e.podcast_id,
+      title: podcast.display_title || podcast.title,
+      slug: podcast.slug,
+      url: podcastUrl(podcast.slug)
+    },
+    why_matched: typeof e.why_matched === "string" ? e.why_matched : void 0,
+    source_url: episodeUrl(podcast.slug, e.slug)
+  });
+}
+function parseEpisodeRef(ref) {
+  const s = String(ref || "").trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return { id: s };
+  const path = s.replace(/^https?:\/\/[^/]+/i, "").replace(/[?#].*$/, "");
+  const m = path.match(/(?:^|\/)podcast\/([^/]+)\/([^/]+)\/?$/);
+  if (m) return { podcastSlug: decodeURIComponent(m[1]), episodeSlug: decodeURIComponent(m[2]) };
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length === 2) return { podcastSlug: parts[0], episodeSlug: parts[1] };
+  if (parts.length === 1) return { episodeSlug: parts[0] };
+  return {};
+}
+
+// src/lib/mcp/tools/search-episodes.ts
 var search_episodes_default = defineTool3({
   name: "search_episodes",
   title: "Epiz\xF3d keres\xE9s",
-  description: "Magyar podcast epiz\xF3dok szemantikus + kulcsszavas keres\xE9se (search-hybrid v13). C\xEDmre, le\xEDr\xE1sra \xE9s tartalomra keres.",
+  description: "Magyar podcast epiz\xF3dok szemantikus + kulcsszavas keres\xE9se (search-hybrid v13). C\xEDmre, le\xEDr\xE1sra \xE9s tartalomra keres. \xC1tirat-r\xE9szletet nem ad vissza; r\xE9szletes kontextushoz haszn\xE1ld a `get_episode_context` tool-t.",
   inputSchema: {
     query: z3.string().trim().min(1).describe("Keres\u0151kifejez\xE9s."),
     limit: z3.number().int().min(1).max(30).optional().describe("Max tal\xE1lat (alap: 10).")
@@ -102,6 +209,7 @@ var search_episodes_default = defineTool3({
       const url = process.env.SUPABASE_URL;
       const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
       if (!url || !key) return err("Missing SUPABASE env");
+      const lim = limit ?? 10;
       const res = await fetch(`${url}/functions/v1/search-hybrid`, {
         method: "POST",
         headers: {
@@ -109,19 +217,21 @@ var search_episodes_default = defineTool3({
           apikey: key,
           Authorization: `Bearer ${key}`
         },
-        body: JSON.stringify({ q: query, limit: limit ?? 10, rerank: false })
+        body: JSON.stringify({ q: query, limit: lim, rerank: false })
       });
       if (!res.ok) return err(`search-hybrid ${res.status}: ${(await res.text()).slice(0, 300)}`);
       const data = await res.json();
-      const items = (data?.episodes || data?.items || []).slice(0, limit ?? 10).map((e) => ({
-        id: e.id,
-        title: e.title,
-        podcast: e.podcast_title || e.podcast,
-        published_at: e.published_at,
-        summary: e.ai_summary || e.description?.slice(0, 300),
-        url: e.podcast_slug && e.slug ? `https://podiverzum.hu/podcast/${e.podcast_slug}/${e.slug}` : void 0
-      }));
-      return json({ count: items.length, items });
+      const raw = data?.episodes || data?.items || [];
+      const items = raw.slice(0, lim).map((e) => shapeSearchEpisode(e));
+      return json(
+        stripForbidden({
+          count: items.length,
+          confidence_band: typeof data?.confidence_band === "string" ? data.confidence_band : void 0,
+          semantic: typeof data?.semantic === "boolean" ? data.semantic : void 0,
+          engine: typeof data?.engine === "string" ? data.engine : void 0,
+          items
+        })
+      );
     } catch (e) {
       return err(e?.message || "unknown error");
     }
@@ -160,13 +270,299 @@ var get_toplist_default = defineTool4({
   }
 });
 
+// src/lib/mcp/tools/find-mentions.ts
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z5 } from "npm:zod@^3.25.76";
+
+// src/lib/personSchema.ts
+var PERSON_JSONLD_SELECT = "id,name,slug,image_url,wikipedia_url,wikidata_id,wikipedia_match_status,wikipedia_match_confidence,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living,gated_episode_count,episode_count,short_description_hu,wikipedia_description,ai_bio,ai_bio_status,ai_bio_confidence";
+function hasVerifiedWiki(p) {
+  return p.wikipedia_match_status === "verified" && Number(p.wikipedia_match_confidence || 0) >= 0.8;
+}
+function hasTrustedIdentity(p) {
+  return p.manual_approved === true || hasVerifiedWiki(p);
+}
+function isSafeIndexablePerson(p) {
+  if (!p) return false;
+  if (p.is_public === false || p.is_indexable === false) return false;
+  if (!["indexable", "manual_approved", null, void 0].includes(p.activation_status)) return false;
+  if (["hide", "reject"].includes(String(p.ai_recommended_action || ""))) return false;
+  if (["needs_human_review", "duplicate_candidate"].includes(String(p.ai_review_status || ""))) return false;
+  if (p.identity_status === "split_resolved") return false;
+  if (p.identity_ambiguous && !hasTrustedIdentity(p)) return false;
+  const temporalOnly = p.has_archival_evidence !== true && p.manual_approved !== true && (p.is_deceased === true || p.is_historical === true || p.persona === "historical" || Boolean(p.date_of_death) || p.is_living === false);
+  if (temporalOnly) return false;
+  return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
+}
+
+// src/lib/mcp/tools/find-mentions.ts
+var ORG_SELECT = "id,name,slug,normalized_name,is_public,is_indexable,org_type,ai_recommended_action,episode_count,gated_episode_count";
+async function resolvePerson(sb, norm) {
+  const { data: exact } = await sb.from("people").select(PERSON_JSONLD_SELECT).eq("normalized_name", norm).limit(5);
+  let rows = (exact || []).filter(isSafeIndexablePerson);
+  if (!rows.length) {
+    const { data: aliases } = await sb.from("person_aliases").select("person_id, confidence").eq("status", "accepted").eq("normalized_alias", norm).limit(10);
+    const ids = (aliases || []).map((a) => a.person_id).filter(Boolean);
+    if (ids.length) {
+      const { data: aliasPeople } = await sb.from("people").select(PERSON_JSONLD_SELECT).in("id", ids);
+      rows = (aliasPeople || []).filter(isSafeIndexablePerson);
+    }
+  }
+  if (!rows.length) return null;
+  rows.sort(
+    (a, b) => Number(b.gated_episode_count || b.episode_count || 0) - Number(a.gated_episode_count || a.episode_count || 0)
+  );
+  return rows[0];
+}
+async function resolveOrganization(sb, norm) {
+  const { data: exact } = await sb.from("organizations").select(ORG_SELECT).eq("normalized_name", norm).limit(5);
+  let rows = (exact || []).filter(isPublicOrganizationRow);
+  if (!rows.length) {
+    const { data: aliases } = await sb.from("organization_aliases").select("organization_id").eq("status", "accepted").eq("normalized_alias", norm).limit(10);
+    const ids = (aliases || []).map((a) => a.organization_id).filter(Boolean);
+    if (ids.length) {
+      const { data: aliasOrgs } = await sb.from("organizations").select(ORG_SELECT).in("id", ids);
+      rows = (aliasOrgs || []).filter(isPublicOrganizationRow);
+    }
+  }
+  if (!rows.length) return null;
+  rows.sort(
+    (a, b) => Number(b.gated_episode_count || b.episode_count || 0) - Number(a.gated_episode_count || a.episode_count || 0)
+  );
+  return rows[0];
+}
+var EPISODE_JOIN = "episodes!inner(id,title,display_title,slug,published_at,podcast_id,podcasts!inner(id,slug,title,display_title,language,language_decision,rss_status))";
+var find_mentions_default = defineTool5({
+  name: "find_mentions",
+  title: "Eml\xEDt\xE9sek keres\xE9se (szem\xE9ly / szervezet)",
+  description: "Megkeresi azokat a magyar podcast epiz\xF3dokat, amelyekben egy kanonikus, publikus szem\xE9ly vagy szervezet eml\xEDt\xE9sre ker\xFCl. R\xF6vid, metaadatb\xF3l kinyert bizony\xEDt\xE9k-kifejez\xE9st ad (NEM sz\xF3 szerinti \xE1tirat-id\xE9zetet) \xE9s publikus Podiverzum URL-eket a hivatkoz\xE1shoz.",
+  inputSchema: {
+    entity: z5.string().trim().min(2).describe("Szem\xE9ly vagy szervezet neve (\xE9kezetek/kisbet\u0171 mindegy)."),
+    entity_type: z5.enum(["auto", "person", "organization"]).optional().describe("Entit\xE1s t\xEDpusa (alap: auto \u2014 a leger\u0151sebb biztons\xE1gos tal\xE1lat)."),
+    date_from: z5.string().trim().min(4).optional().describe("Legkor\xE1bbi megjelen\xE9s ISO d\xE1tumk\xE9nt (pl. 2026-01-01)."),
+    date_to: z5.string().trim().min(4).optional().describe("Legk\xE9s\u0151bbi megjelen\xE9s ISO d\xE1tumk\xE9nt."),
+    limit: z5.number().int().min(1).max(30).optional().describe("Max tal\xE1lat (alap: 10).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ entity, entity_type, date_from, date_to, limit }) => {
+    try {
+      const sb = getSupabase();
+      const lim = limit ?? 10;
+      const norm = normalizeEntityText(entity);
+      if (!norm) return err("Nem \xE9rtelmezhet\u0151 entit\xE1sn\xE9v.");
+      const wanted = entity_type ?? "auto";
+      const person = wanted === "organization" ? null : await resolvePerson(sb, norm);
+      const org = wanted === "person" ? null : await resolveOrganization(sb, norm);
+      let kind = null;
+      if (person && org) {
+        const pc = Number(person.gated_episode_count || person.episode_count || 0);
+        const oc = Number(org.gated_episode_count || org.episode_count || 0);
+        kind = pc >= oc ? "person" : "organization";
+      } else if (person) kind = "person";
+      else if (org) kind = "organization";
+      if (!kind) {
+        return json({
+          resolved: false,
+          query: entity,
+          message: "Nincs kanonikus, publikus szem\xE9ly vagy szervezet erre a n\xE9vre a Podiverzum katal\xF3gusban."
+        });
+      }
+      const items = [];
+      if (kind === "person" && person) {
+        let q = sb.from("person_episode_mentions").select(
+          `id,mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,source,evidence,${EPISODE_JOIN}`
+        ).eq("person_id", person.id).not("relevance_status", "in", "(rejected)").order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(lim * 3);
+        if (date_from) q = q.gte("episodes.published_at", date_from);
+        if (date_to) q = q.lte("episodes.published_at", date_to);
+        const { data, error } = await q;
+        if (error) return err(error.message);
+        for (const m of data || []) {
+          if (!isSafePersonMentionRow(m)) continue;
+          const ep = m.episodes;
+          if (!ep || !isPublicHungarianPodcast(ep.podcasts)) continue;
+          items.push({
+            episode: {
+              id: ep.id,
+              title: ep.display_title || ep.title,
+              slug: ep.slug,
+              published_at: ep.published_at,
+              url: episodeUrl(ep.podcasts?.slug, ep.slug)
+            },
+            podcast: {
+              id: ep.podcasts?.id,
+              title: ep.podcasts?.display_title || ep.podcasts?.title,
+              slug: ep.podcasts?.slug,
+              url: podcastUrl(ep.podcasts?.slug)
+            },
+            mention_type: m.mention_type,
+            role_type: m.role_type,
+            confidence: m.role_confidence ?? m.confidence ?? null,
+            relevance_score: m.final_relevance_score ?? null,
+            source: m.source,
+            evidence_phrase: clampEvidencePhrase(m.evidence, 240),
+            evidence_kind: "extracted_metadata"
+          });
+          if (items.length >= lim) break;
+        }
+      } else if (org) {
+        let q = sb.from("episode_organization_map").select(`id,role,confidence,source,source_evidence,${EPISODE_JOIN}`).eq("organization_id", org.id).gte("confidence", 0.6).order("confidence", { ascending: false, nullsFirst: false }).limit(lim * 3);
+        if (date_from) q = q.gte("episodes.published_at", date_from);
+        if (date_to) q = q.lte("episodes.published_at", date_to);
+        const { data, error } = await q;
+        if (error) return err(error.message);
+        for (const m of data || []) {
+          const ep = m.episodes;
+          if (!ep || !isPublicHungarianPodcast(ep.podcasts)) continue;
+          items.push({
+            episode: {
+              id: ep.id,
+              title: ep.display_title || ep.title,
+              slug: ep.slug,
+              published_at: ep.published_at,
+              url: episodeUrl(ep.podcasts?.slug, ep.slug)
+            },
+            podcast: {
+              id: ep.podcasts?.id,
+              title: ep.podcasts?.display_title || ep.podcasts?.title,
+              slug: ep.podcasts?.slug,
+              url: podcastUrl(ep.podcasts?.slug)
+            },
+            mention_type: m.role,
+            role_type: m.role,
+            confidence: m.confidence ?? null,
+            source: m.source,
+            evidence_phrase: clampEvidencePhrase(m?.source_evidence?.evidence, 240),
+            evidence_kind: "extracted_metadata"
+          });
+          if (items.length >= lim) break;
+        }
+      }
+      const canonical = kind === "person" ? { type: "person", id: person.id, name: person.name, slug: person.slug, url: personUrl(person.slug) } : { type: "organization", id: org.id, name: org.name, slug: org.slug, url: organizationUrl(org.slug) };
+      return json(
+        stripForbidden({
+          resolved: true,
+          entity: canonical,
+          evidence_notice: "Az evidence_phrase entit\xE1s-kinyer\xE9sb\u0151l sz\xE1rmaz\xF3 metaadat-bizony\xEDt\xE9k, nem sz\xF3 szerinti \xE1tirat-id\xE9zet.",
+          count: items.length,
+          items
+        })
+      );
+    } catch (e) {
+      return err(e?.message || "unknown error");
+    }
+  }
+});
+
+// src/lib/mcp/tools/get-episode-context.ts
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z6 } from "npm:zod@^3.25.76";
+var EPISODE_SELECT = "id,title,display_title,slug,published_at,duration_seconds,summary,ai_summary,description,podcast_id,podcasts!inner(id,slug,title,display_title,language,language_decision,rss_status)";
+var get_episode_context_default = defineTool6({
+  name: "get_episode_context",
+  title: "Epiz\xF3d publikus kontextus",
+  description: "Egy Podiverzum epiz\xF3d biztons\xE1gos, publikus kontextusa (\xF6sszefoglal\xF3, szem\xE9lyek, szervezetek, t\xE9m\xE1k) grounding c\xE9lra. \xC1tiratot vagy \xE1tirat-r\xE9szletet NEM ad vissza.",
+  inputSchema: {
+    episode: z6.string().trim().min(3).describe(
+      "Epiz\xF3d azonos\xEDt\xF3 (UUID) VAGY Podiverzum URL / 'podcast-slug/epizod-slug' \xFAtvonal (pl. https://podiverzum.hu/podcast/partizan-podcast/valami)."
+    )
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ episode }) => {
+    try {
+      const sb = getSupabase();
+      const ref = parseEpisodeRef(episode);
+      let row = null;
+      if (ref.id) {
+        const { data, error } = await sb.from("episodes").select(EPISODE_SELECT).eq("id", ref.id).maybeSingle();
+        if (error) return err(error.message);
+        row = data;
+      } else if (ref.episodeSlug) {
+        let q = sb.from("episodes").select(EPISODE_SELECT).eq("slug", ref.episodeSlug).limit(5);
+        if (ref.podcastSlug) q = q.eq("podcasts.slug", ref.podcastSlug);
+        const { data, error } = await q;
+        if (error) return err(error.message);
+        row = (data || [])[0] || null;
+      }
+      if (!row) return err(`Epiz\xF3d nem tal\xE1lhat\xF3: ${episode}`);
+      if (!isPublicHungarianPodcast(row.podcasts)) return err("Az epiz\xF3d nem r\xE9sze a publikus magyar katal\xF3gusnak.");
+      const [{ data: personRows }, { data: orgRows }, { data: topicRows }, { data: transcriptRows }] = await Promise.all([
+        sb.from("person_episode_mentions").select(
+          `mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,evidence,people!inner(${PERSON_JSONLD_SELECT})`
+        ).eq("episode_id", row.id).not("relevance_status", "in", "(rejected)").order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(40),
+        sb.from("episode_organization_map").select(
+          "role,confidence,source_evidence,organizations!inner(id,name,slug,org_type,is_public,is_indexable,ai_recommended_action)"
+        ).eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(40),
+        sb.from("episode_topic_map").select("confidence,topics!inner(id,name,slug,is_public,is_indexable)").eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(20),
+        sb.from("episode_transcripts").select("public_display").eq("episode_id", row.id).limit(1)
+      ]);
+      const people = (personRows || []).filter((m) => isSafePersonMentionRow(m) && isSafeIndexablePerson(m.people)).map((m) => ({
+        id: m.people.id,
+        name: m.people.name,
+        slug: m.people.slug,
+        url: personUrl(m.people.slug),
+        mention_type: m.mention_type,
+        role_type: m.role_type,
+        confidence: m.role_confidence ?? m.confidence ?? null,
+        evidence_phrase: clampEvidencePhrase(m.evidence, 160),
+        evidence_kind: "extracted_metadata"
+      }));
+      const organizations = (orgRows || []).filter((m) => isPublicOrganizationRow(m.organizations) && m.organizations?.is_indexable !== false).map((m) => ({
+        id: m.organizations.id,
+        name: m.organizations.name,
+        slug: m.organizations.slug,
+        org_type: m.organizations.org_type,
+        url: organizationUrl(m.organizations.slug),
+        role: m.role,
+        confidence: m.confidence ?? null,
+        evidence_phrase: clampEvidencePhrase(m?.source_evidence?.evidence, 160),
+        evidence_kind: "extracted_metadata"
+      }));
+      const topics = (topicRows || []).filter((t) => t.topics && t.topics.is_public !== false).map((t) => ({
+        id: t.topics.id,
+        name: t.topics.name,
+        slug: t.topics.slug,
+        url: topicUrl(t.topics.slug),
+        confidence: t.confidence ?? null
+      }));
+      const transcriptPublic = (transcriptRows || [])[0]?.public_display === true;
+      const summary = row.ai_summary || row.summary || row.description || "";
+      return json(
+        stripForbidden({
+          episode: {
+            id: row.id,
+            title: row.display_title || row.title,
+            slug: row.slug,
+            published_at: row.published_at,
+            duration_seconds: row.duration_seconds ?? null,
+            summary: clampEvidencePhrase(summary, 1200),
+            url: episodeUrl(row.podcasts?.slug, row.slug)
+          },
+          podcast: {
+            id: row.podcasts?.id,
+            title: row.podcasts?.display_title || row.podcasts?.title,
+            slug: row.podcasts?.slug,
+            url: podcastUrl(row.podcasts?.slug)
+          },
+          people,
+          organizations,
+          topics,
+          transcript_available_for_public_display: transcriptPublic,
+          transcript_notice: "\xC1tirat-tartalom ebben a f\xE1zisban semmilyen esetben nem ker\xFCl visszaad\xE1sra; az evidence_phrase entit\xE1s-kinyer\xE9sb\u0151l sz\xE1rmaz\xF3 metaadat."
+        })
+      );
+    } catch (e) {
+      return err(e?.message || "unknown error");
+    }
+  }
+});
+
 // src/lib/mcp/index.ts
 var mcp_default = defineMcp({
   name: "podiverzum-mcp",
   title: "Podiverzum \u2013 Magyar podcast katal\xF3gus",
-  version: "0.1.0",
-  instructions: "A podiverzum.hu magyar podcast katal\xF3gus eszk\xF6zei. Haszn\xE1ld a `search_podcasts` \xE9s `search_episodes` tool-okat keres\xE9shez, a `get_podcast` tool-t egy m\u0171sor r\xE9szleteihez slug alapj\xE1n, \xE9s a `get_toplist` tool-t az aktu\xE1lis magyar toplist\xE1hoz.",
-  tools: [search_podcasts_default, get_podcast_default, search_episodes_default, get_toplist_default]
+  version: "0.2.0",
+  instructions: "A podiverzum.hu magyar podcast katal\xF3gus read-only adateszk\xF6zei. Aj\xE1nlott folyamat: `search_episodes` a t\xE9m\xE1ra \u2192 `get_episode_context` a kiv\xE1lasztott epiz\xF3d publikus kontextus\xE1hoz (\xF6sszefoglal\xF3, szem\xE9lyek, szervezetek, t\xE9m\xE1k). Megnevezett szem\xE9lyre vagy szervezetre haszn\xE1ld a `find_mentions` tool-t (kanonikus, publikus entit\xE1s + eml\xEDt\u0151 epiz\xF3dok). M\u0171sorszint\u0171 adatokhoz `search_podcasts` / `get_podcast`, aktu\xE1lis magyar toplist\xE1hoz `get_toplist`. FONTOS: az `evidence_phrase` \xE9rt\xE9kek entit\xE1s-kinyer\xE9sb\u0151l sz\xE1rmaz\xF3 metaadat-bizony\xEDt\xE9kok, NEM sz\xF3 szerinti \xE1tirat-id\xE9zetek \u2014 ne id\xE9zd \u0151ket id\xE9z\u0151jelben a m\u0171sorban elhangzott mondatk\xE9nt. \xC1tirat vagy id\u0151b\xE9lyeges \xE1tirat-r\xE9szlet ezen a fel\xFCleten nem el\xE9rhet\u0151. Hivatkoz\xE1sn\xE1l mindig a visszaadott publikus Podiverzum URL-t haszn\xE1ld.",
+  tools: [search_podcasts_default, get_podcast_default, search_episodes_default, get_toplist_default, find_mentions_default, get_episode_context_default]
 });
 
 // lovable-mcp-supabase-entry.ts
