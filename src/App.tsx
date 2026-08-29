@@ -283,6 +283,7 @@ const App = () => (
           <SmartPlayerBar />
         </Suspense>
         </SmartPlayerProvider>
+        </AnalyticsProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
