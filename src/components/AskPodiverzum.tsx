@@ -70,8 +70,9 @@ export function AskPodiverzum() {
 
   const visible = slots;
 
-  const go = (query: string) => {
+  const go = (query: string, source: SearchSubmitSource = "ask_podiverzum") => {
     if (!query.trim()) return;
+    trackSearchSubmitted(query, source);
     nav(`/kereses?q=${encodeURIComponent(query.trim())}`);
   };
 
