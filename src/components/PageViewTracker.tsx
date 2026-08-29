@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { isBotUserAgent } from "@/lib/botDetect";
 
 const SKIP_PREFIXES = ["/admin", "/auth", "/belepes", "/growth-status", "/admin-bootstrap"];
 const SESSION_KEY = "pv_sid";
@@ -20,7 +21,7 @@ function getSessionId(): string {
 
 function parseUA(ua: string): { browser: string; os: string; isBot: boolean } {
   const u = ua || "";
-  const isBot = /bot|crawler|spider|slurp|bingpreview|chatgpt|gptbot|claudebot|perplexity|applebot|duckassist|cohere|facebookexternalhit|whatsapp|telegrambot|linkedinbot|twitterbot|discordbot|ia_archiver|headlesschrome|prerender/i.test(u);
+  const isBot = isBotUserAgent(u);
   let browser = "Other";
   if (/edg\//i.test(u)) browser = "Edge";
   else if (/chrome\//i.test(u) && !/edg\//i.test(u)) browser = "Chrome";
