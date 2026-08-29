@@ -8,7 +8,7 @@
   "mcp": {
     "server": {
       "name": "podiverzum-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "title": "Podiverzum – Magyar podcast katalógus"
     },
     "tools": [
@@ -121,6 +121,83 @@
               "description": "Max találatszám (alap: 20)."
             }
           },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "find_mentions",
+        "title": "Említések keresése (személy / szervezet)",
+        "description": "Megkeresi azokat a magyar podcast epizódokat, amelyekben egy kanonikus, publikus személy vagy szervezet említésre kerül. Rövid, metaadatból kinyert bizonyíték-kifejezést ad (NEM szó szerinti átirat-idézetet) és publikus Podiverzum URL-eket a hivatkozáshoz.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "string",
+              "minLength": 2,
+              "description": "Személy vagy szervezet neve (ékezetek/kisbetű mindegy)."
+            },
+            "entity_type": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "person",
+                "organization"
+              ],
+              "description": "Entitás típusa (alap: auto — a legerősebb biztonságos találat)."
+            },
+            "date_from": {
+              "type": "string",
+              "minLength": 4,
+              "description": "Legkorábbi megjelenés ISO dátumként (pl. 2026-01-01)."
+            },
+            "date_to": {
+              "type": "string",
+              "minLength": 4,
+              "description": "Legkésőbbi megjelenés ISO dátumként."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "description": "Max találat (alap: 10)."
+            }
+          },
+          "required": [
+            "entity"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_episode_context",
+        "title": "Epizód publikus kontextus",
+        "description": "Egy Podiverzum epizód biztonságos, publikus kontextusa (összefoglaló, személyek, szervezetek, témák) grounding célra. Átiratot vagy átirat-részletet NEM ad vissza.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "episode": {
+              "type": "string",
+              "minLength": 3,
+              "description": "Epizód azonosító (UUID) VAGY Podiverzum URL / 'podcast-slug/epizod-slug' útvonal (pl. https://podiverzum.hu/podcast/partizan-podcast/valami)."
+            }
+          },
+          "required": [
+            "episode"
+          ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
