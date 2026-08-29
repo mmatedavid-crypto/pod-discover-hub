@@ -566,12 +566,12 @@ export default function SearchPage() {
             const p = destination.pathname;
             const segments = p.split("/").filter(Boolean);
             const kind: SearchResultKind =
-              p.startsWith("/podcast/") ? (segments.length >= 2 && segments[1] !== "epizodok" ? "episode" : "podcast")
-              : p === `/podcast/${segments[1] || ""}` ? "podcast"
-              : p.startsWith("/szemelyek/") ? "person"
-              : p.startsWith("/ceg/") ? "organization"
-              : p.startsWith("/temak/") ? "topic"
-              : "other";
+              p.startsWith("/podcast/")
+                ? (segments.length >= 3 && segments[2] !== "epizodok" ? "episode" : "podcast")
+                : p.startsWith("/szemelyek/") ? "person"
+                : p.startsWith("/ceg/") ? "organization"
+                : p.startsWith("/temak/") ? "topic"
+                : "other";
             trackSearchResultOpened({ resultKind: kind, slug: segments[segments.length - 1] || null });
           }
           navigatingAwayRef.current = true;
