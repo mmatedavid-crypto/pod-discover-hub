@@ -125,7 +125,8 @@ function isSafePersonMentionRow(m) {
 }
 function isPublicOrganizationRow(o) {
   if (!o) return false;
-  if (o.is_public === false) return false;
+  if (o.is_public !== true) return false;
+  if (o.is_indexable !== true) return false;
   if (["hide", "reject"].includes(String(o.ai_recommended_action || ""))) return false;
   return true;
 }
@@ -371,7 +372,7 @@ var find_mentions_default = defineTool5({
       if (kind === "person" && person) {
         let q = sb.from("person_episode_mentions").select(
           `id,mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,source,evidence,${EPISODE_JOIN}`
-        ).eq("person_id", person.id).not("relevance_status", "in", "(rejected)").order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(lim * 3);
+        ).eq("person_id", person.id).or("relevance_status.is.null,relevance_status.neq.rejected").order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(lim * 3);
         if (date_from) q = q.gte("episodes.published_at", date_from);
         if (date_to) q = q.lte("episodes.published_at", date_to);
         const { data, error } = await q;
@@ -488,7 +489,7 @@ var get_episode_context_default = defineTool6({
       const [{ data: personRows }, { data: orgRows }, { data: topicRows }, { data: transcriptRows }] = await Promise.all([
         sb.from("person_episode_mentions").select(
           `mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,evidence,people!inner(${PERSON_JSONLD_SELECT})`
-        ).eq("episode_id", row.id).not("relevance_status", "in", "(rejected)").order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(40),
+        ).eq("episode_id", row.id).or("relevance_status.is.null,relevance_status.neq.rejected").order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(40),
         sb.from("episode_organization_map").select(
           "role,confidence,source_evidence,organizations!inner(id,name,slug,org_type,is_public,is_indexable,ai_recommended_action)"
         ).eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(40),
@@ -506,7 +507,7 @@ var get_episode_context_default = defineTool6({
         evidence_phrase: clampEvidencePhrase(m.evidence, 160),
         evidence_kind: "extracted_metadata"
       }));
-      const organizations = (orgRows || []).filter((m) => isPublicOrganizationRow(m.organizations) && m.organizations?.is_indexable !== false).map((m) => ({
+      const organizations = (orgRows || []).filter((m) => isPublicOrganizationRow(m.organizations)).map((m) => ({
         id: m.organizations.id,
         name: m.organizations.name,
         slug: m.organizations.slug,
@@ -517,7 +518,7 @@ var get_episode_context_default = defineTool6({
         evidence_phrase: clampEvidencePhrase(m?.source_evidence?.evidence, 160),
         evidence_kind: "extracted_metadata"
       }));
-      const topics = (topicRows || []).filter((t) => t.topics && t.topics.is_public !== false).map((t) => ({
+      const topics = (topicRows || []).filter((t) => t.topics && t.topics.is_public === true && t.topics.is_indexable === true).map((t) => ({
         id: t.topics.id,
         name: t.topics.name,
         slug: t.topics.slug,

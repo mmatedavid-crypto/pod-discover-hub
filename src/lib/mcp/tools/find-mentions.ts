@@ -123,7 +123,7 @@ export default defineTool({
             `id,mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,source,evidence,${EPISODE_JOIN}`,
           )
           .eq("person_id", person.id)
-          .not("relevance_status", "in", "(rejected)")
+          .or("relevance_status.is.null,relevance_status.neq.rejected")
           .order("final_relevance_score", { ascending: false, nullsFirst: false })
           .limit(lim * 3);
         if (date_from) q = q.gte("episodes.published_at", date_from);
