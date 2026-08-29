@@ -10,6 +10,7 @@ import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/s
 import { episodeScore } from "@/lib/episodeRank";
 import { pushRecentSearch } from "@/lib/recentSearches";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
+import { trackSearchResultOpened, trackSearchSubmitted, type SearchResultKind } from "@/lib/analytics";
 import { SearchStagedLoader } from "@/components/SearchStagedLoader";
 import { buildPersonCardContextLine, type PersonCardData } from "@/components/PersonCard";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
