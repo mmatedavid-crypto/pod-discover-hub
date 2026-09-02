@@ -246,6 +246,43 @@ export default function AdminAnalyticsPage() {
           <Stat label="Bot traffic" value={`${stats.botCount} (${stats.botShare}%)`} />
         </div>
 
+        <section>
+          <h2 className="font-semibold mb-1">Belépési pontok és bounce (humán sessionök)</h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            A látogatók {stats.deepEntryShare}%-a nem a főoldalra, hanem közvetlenül entitás-oldalra érkezik
+            (kereső / ChatGPT). Ezért az aggregált bounce rate félrevezető — forrás + landing bontásban nézd.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+            <Stat label="Deep-landing arány" value={`${stats.deepEntryShare}%`} />
+            <Stat label="Kereső/AI bounce" value={`${stats.searchBounce.bouncePct}% (${stats.searchBounce.sessions} session)`} />
+            <Stat label="Főoldalra érkezők bounce" value={`${stats.homeBounce.bouncePct}% (${stats.homeBounce.sessions} session)`} />
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary text-xs">
+                <tr>
+                  <th className="text-left px-3 py-2">Forrás</th>
+                  <th className="text-left px-3 py-2">Belépő oldal</th>
+                  <th className="text-right px-3 py-2">Session</th>
+                  <th className="text-right px-3 py-2">Oldal/session</th>
+                  <th className="text-right px-3 py-2">Bounce</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.entryPoints.map((e) => (
+                  <tr key={`${e.source}-${e.landing}`} className="border-t border-border">
+                    <td className="px-3 py-2">{e.source}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{e.landing}</td>
+                    <td className="px-3 py-2 text-right">{e.sessions}</td>
+                    <td className="px-3 py-2 text-right">{e.pagesPerSession}</td>
+                    <td className="px-3 py-2 text-right">{e.bouncePct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <UtmTable title="Browser (humans)" rows={stats.browsers} />
           <UtmTable title="Operating system (humans)" rows={stats.oses} />
