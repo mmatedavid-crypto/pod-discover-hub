@@ -155,7 +155,50 @@ export default function AdminAnalyticsPage() {
     const avgPagesPerSession = sessionCount ? +(humans.filter(r => r.session_id).length / sessionCount).toFixed(2) : 0;
     const botShare = pct(bots.length, total);
 
-    return { total, unique, mobile, routes, topPaths, refs, days, utmSources, utmCampaigns, utmCombos, utmTagged, browsers, oses, avgDwellSec, medianDwellSec, sessionCount, avgPagesPerSession, botShare, botCount: bots.length };
+    // ---- Entry points & bounce (session-level, humans only) ----
+    // A globális bounce rate félrevezető: a látogatók többsége keresőből / ChatGPT-ből
+    // érkezik közvetlenül entitás-oldalra, nem a főoldalra.
+    const sessionMap = new Map<string, Row[]>();
+    humans.forEach((r) => {
+      if (!r.session_id) return;
+      const arr = sessionMap.get(r.session_id) || [];
+      arr.push(r);
+      sessionMap.set(r.session_id, arr);
+    });
+    const entryMap = new Map<string, { source: string; landing: string; sessions: number; pages: number; bounced: number }>();
+    sessionMap.forEach((evts) => {
+      const sorted = [...evts].sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const first = sorted[0];
+      const landing = classifyRoute(first.path);
+      const source = classifyReferrer(first.referrer);
+      const k = `${source}|||${landing}`;
+      const cur = entryMap.get(k) || { source, landing, sessions: 0, pages: 0, bounced: 0 };
+      cur.sessions++;
+      cur.pages += sorted.length;
+      if (sorted.length === 1) cur.bounced++;
+      entryMap.set(k, cur);
+    });
+    const entryPoints = Array.from(entryMap.values())
+      .map((e) => ({
+        ...e,
+        pagesPerSession: +(e.pages / e.sessions).toFixed(2),
+        bouncePct: pct(e.bounced, e.sessions),
+      }))
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 25);
+
+    const homeSessions = entryPoints.filter((e) => e.landing === "/");
+    const deepSessions = entryPoints.filter((e) => e.landing !== "/");
+    const sum = (arr: typeof entryPoints, key: "sessions" | "bounced") => arr.reduce((a, b) => a + b[key], 0);
+    const deepEntryShare = pct(sum(deepSessions, "sessions"), sum(entryPoints, "sessions"));
+    const searchBounce = (() => {
+      const seo = entryPoints.filter((e) => ["google", "bing", "chatgpt", "egyéb kereső/AI"].includes(e.source));
+      return { sessions: sum(seo, "sessions"), bouncePct: pct(sum(seo, "bounced"), sum(seo, "sessions")) };
+    })();
+    const homeBounce = { sessions: sum(homeSessions, "sessions"), bouncePct: pct(sum(homeSessions, "bounced"), sum(homeSessions, "sessions")) };
+
+    return { total, unique, mobile, routes, topPaths, refs, days, utmSources, utmCampaigns, utmCombos, utmTagged, browsers, oses, avgDwellSec, medianDwellSec, sessionCount, avgPagesPerSession, botShare, botCount: bots.length, entryPoints, deepEntryShare, searchBounce, homeBounce };
+
   }, [rows]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
