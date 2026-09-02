@@ -40,6 +40,17 @@ function classifyRoute(path: string): string {
   return path;
 }
 
+function classifyReferrer(referrer: string | null): string {
+  if (!referrer) return "direkt / nincs referrer";
+  const r = referrer.toLowerCase();
+  if (r.includes("podiverzum")) return "belső";
+  if (r.includes("google")) return "google";
+  if (r.includes("bing")) return "bing";
+  if (r.includes("chatgpt") || r.includes("openai")) return "chatgpt";
+  if (r.includes("perplexity") || r.includes("claude") || r.includes("duckduckgo") || r.includes("yandex") || r.includes("ecosia")) return "egyéb kereső/AI";
+  try { return new URL(referrer).hostname; } catch { return "egyéb"; }
+}
+
 export default function AdminAnalyticsPage() {
   useNoindex("Admin · Analytics — Podiverzum");
   const nav = useNavigate();
