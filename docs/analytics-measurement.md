@@ -39,3 +39,30 @@ North Star jelöltek: *human engaged session*, *search activation → search suc
 ## Validáció
 
 Hetente vessük össze: PostHog `human_interaction` unique session vs. Supabase `page_events` `is_bot = false` distinct `session_id`. Nagy eltérés → ad-blocker arány vagy hibás bot-szűrés.
+
+## Bounce rate értelmezése (2026-09-02)
+
+A látogatók döntő többsége **nem a főoldalra érkezik**: keresőből (Google, Bing) és
+AI-asszisztensekből (ChatGPT) közvetlenül epizód-, podcast-, téma-, személy- vagy
+szervezet-oldalra lépnek be. Ezért az aggregált bounce rate (~84%) **nem KPI**, hanem
+műtermék.
+
+Mért példa (7 nap, nem-bot sessionök):
+
+| Forrás → landing | Session | Oldal/session | Bounce |
+|---|---|---|---|
+| Google → /podcast/... | 201 | 2,28 | 28,9% |
+| Bing → /podcast/... | 9 | 1,89 | 11,1% |
+| ChatGPT → /podcast/... | 9 | 2,00 | 33,3% |
+| direkt/nincs referrer → entitásoldal | ~340 | ~1,2 | 64–100% |
+| bármi → főoldal | 27 | 5,5–8 | 0–27% |
+
+Szabályok:
+
+- A bounce rate-et **mindig forrás + landing típus bontásban** nézzük (admin: `/admin/analytics`
+  → „Belépési pontok és bounce”), soha nem aggregáltan.
+- Az „direkt/nincs referrer + entitásoldal + 1 pageview + nincs `human_interaction`” szegmens
+  nagyrészt maradék bot / AI-fetch — nem valódi felhasználói csalódás; diagnosztikaként kezeljük.
+- Valódi elköteleződési KPI marad: `human_interaction`, `search_submitted`,
+  `search_result_opened`, `episode_play_started` / `_25` / `_completed`.
+- SEO-optimalizálás célpontja továbbra is az entitásoldal, nem a főoldal.
