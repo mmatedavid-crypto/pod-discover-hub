@@ -40,6 +40,17 @@ function classifyRoute(path: string): string {
   return path;
 }
 
+function classifyReferrer(referrer: string | null): string {
+  if (!referrer) return "direkt / nincs referrer";
+  const r = referrer.toLowerCase();
+  if (r.includes("podiverzum")) return "belső";
+  if (r.includes("google")) return "google";
+  if (r.includes("bing")) return "bing";
+  if (r.includes("chatgpt") || r.includes("openai")) return "chatgpt";
+  if (r.includes("perplexity") || r.includes("claude") || r.includes("duckduckgo") || r.includes("yandex") || r.includes("ecosia")) return "egyéb kereső/AI";
+  try { return new URL(referrer).hostname; } catch { return "egyéb"; }
+}
+
 export default function AdminAnalyticsPage() {
   useNoindex("Admin · Analytics — Podiverzum");
   const nav = useNavigate();
@@ -155,7 +166,50 @@ export default function AdminAnalyticsPage() {
     const avgPagesPerSession = sessionCount ? +(humans.filter(r => r.session_id).length / sessionCount).toFixed(2) : 0;
     const botShare = pct(bots.length, total);
 
-    return { total, unique, mobile, routes, topPaths, refs, days, utmSources, utmCampaigns, utmCombos, utmTagged, browsers, oses, avgDwellSec, medianDwellSec, sessionCount, avgPagesPerSession, botShare, botCount: bots.length };
+    // ---- Entry points & bounce (session-level, humans only) ----
+    // A globális bounce rate félrevezető: a látogatók többsége keresőből / ChatGPT-ből
+    // érkezik közvetlenül entitás-oldalra, nem a főoldalra.
+    const sessionMap = new Map<string, Row[]>();
+    humans.forEach((r) => {
+      if (!r.session_id) return;
+      const arr = sessionMap.get(r.session_id) || [];
+      arr.push(r);
+      sessionMap.set(r.session_id, arr);
+    });
+    const entryMap = new Map<string, { source: string; landing: string; sessions: number; pages: number; bounced: number }>();
+    sessionMap.forEach((evts) => {
+      const sorted = [...evts].sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const first = sorted[0];
+      const landing = classifyRoute(first.path);
+      const source = classifyReferrer(first.referrer);
+      const k = `${source}|||${landing}`;
+      const cur = entryMap.get(k) || { source, landing, sessions: 0, pages: 0, bounced: 0 };
+      cur.sessions++;
+      cur.pages += sorted.length;
+      if (sorted.length === 1) cur.bounced++;
+      entryMap.set(k, cur);
+    });
+    const entryPoints = Array.from(entryMap.values())
+      .map((e) => ({
+        ...e,
+        pagesPerSession: +(e.pages / e.sessions).toFixed(2),
+        bouncePct: pct(e.bounced, e.sessions),
+      }))
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 25);
+
+    const homeSessions = entryPoints.filter((e) => e.landing === "/");
+    const deepSessions = entryPoints.filter((e) => e.landing !== "/");
+    const sum = (arr: typeof entryPoints, key: "sessions" | "bounced") => arr.reduce((a, b) => a + b[key], 0);
+    const deepEntryShare = pct(sum(deepSessions, "sessions"), sum(entryPoints, "sessions"));
+    const searchBounce = (() => {
+      const seo = entryPoints.filter((e) => ["google", "bing", "chatgpt", "egyéb kereső/AI"].includes(e.source));
+      return { sessions: sum(seo, "sessions"), bouncePct: pct(sum(seo, "bounced"), sum(seo, "sessions")) };
+    })();
+    const homeBounce = { sessions: sum(homeSessions, "sessions"), bouncePct: pct(sum(homeSessions, "bounced"), sum(homeSessions, "sessions")) };
+
+    return { total, unique, mobile, routes, topPaths, refs, days, utmSources, utmCampaigns, utmCombos, utmTagged, browsers, oses, avgDwellSec, medianDwellSec, sessionCount, avgPagesPerSession, botShare, botCount: bots.length, entryPoints, deepEntryShare, searchBounce, homeBounce };
+
   }, [rows]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -191,6 +245,43 @@ export default function AdminAnalyticsPage() {
           <Stat label="Avg dwell" value={`${stats.avgDwellSec}s (median ${stats.medianDwellSec}s)`} />
           <Stat label="Bot traffic" value={`${stats.botCount} (${stats.botShare}%)`} />
         </div>
+
+        <section>
+          <h2 className="font-semibold mb-1">Belépési pontok és bounce (humán sessionök)</h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            A látogatók {stats.deepEntryShare}%-a nem a főoldalra, hanem közvetlenül entitás-oldalra érkezik
+            (kereső / ChatGPT). Ezért az aggregált bounce rate félrevezető — forrás + landing bontásban nézd.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+            <Stat label="Deep-landing arány" value={`${stats.deepEntryShare}%`} />
+            <Stat label="Kereső/AI bounce" value={`${stats.searchBounce.bouncePct}% (${stats.searchBounce.sessions} session)`} />
+            <Stat label="Főoldalra érkezők bounce" value={`${stats.homeBounce.bouncePct}% (${stats.homeBounce.sessions} session)`} />
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary text-xs">
+                <tr>
+                  <th className="text-left px-3 py-2">Forrás</th>
+                  <th className="text-left px-3 py-2">Belépő oldal</th>
+                  <th className="text-right px-3 py-2">Session</th>
+                  <th className="text-right px-3 py-2">Oldal/session</th>
+                  <th className="text-right px-3 py-2">Bounce</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.entryPoints.map((e) => (
+                  <tr key={`${e.source}-${e.landing}`} className="border-t border-border">
+                    <td className="px-3 py-2">{e.source}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{e.landing}</td>
+                    <td className="px-3 py-2 text-right">{e.sessions}</td>
+                    <td className="px-3 py-2 text-right">{e.pagesPerSession}</td>
+                    <td className="px-3 py-2 text-right">{e.bouncePct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <UtmTable title="Browser (humans)" rows={stats.browsers} />
