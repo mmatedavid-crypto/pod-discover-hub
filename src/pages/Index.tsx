@@ -307,7 +307,7 @@ const Index = () => {
   useEffect(() => {
     setSeo({
       title: "Podiverzum — magyar podcast kereső és ajánló",
-      description: "Magyar podcast kereső, ajánló és felfedező. Keress epizódokat téma, személy, műsor, hangulat vagy gondolat alapján.",
+      description: "Magyar podcastok és epizódok keresése témák, szereplők, műsorok és történetek szerint. Hallgasd ingyen a Podiverzumon.",
       canonical: "https://podiverzum.hu/",
       image: "https://podiverzum.hu/og-image.jpg",
       hreflang: [
@@ -343,7 +343,7 @@ const Index = () => {
           name: "Magyar podcast kereső és ajánló",
           url: "https://podiverzum.hu/",
           inLanguage: "hu-HU",
-          description: "Magyar podcast epizódok, műsorok, témák és személyes ajánlók felfedezése.",
+          description: "Magyar podcast epizódok, műsorok, témák, szereplők és történetek felfedezése.",
         },
       ],
     });

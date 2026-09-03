@@ -77,6 +77,36 @@ function firstSentence(value?: string | null): string {
   return sentence || truncate(text, 180);
 }
 
+function peopleAwareEpisodeDescription(baseDesc: string, people: unknown, max = 160): string {
+  const names = Array.isArray(people)
+    ? people
+        .filter((value): value is string => typeof value === "string" && value.trim().length >= 2)
+        .map((value) => value.trim())
+        .filter((value, index, all) => all.indexOf(value) === index)
+        .slice(0, 4)
+    : [];
+  const cleanBase = stripHtml(baseDesc);
+  if (!names.length || names.some((name) => cleanBase.toLocaleLowerCase("hu-HU").includes(name.toLocaleLowerCase("hu-HU")))) {
+    return truncate(cleanBase, max);
+  }
+  const peopleLabel = `Szereplők: ${names.join(", ")}.`;
+  const available = Math.max(40, max - peopleLabel.length - 1);
+  return `${truncate(cleanBase, available)} ${peopleLabel}`.slice(0, max).trim();
+}
+
+function seoTitle(value: string): string {
+  const title = stripHtml(value || "Podiverzum");
+  if (title.length <= 60) return title;
+  const suffix = " | Podiverzum";
+  const cutWord = (text: string, max: number) => {
+    const cut = text.slice(0, max);
+    const space = cut.lastIndexOf(" ");
+    return (space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[,;:\-–—\s]+$/, "");
+  };
+  if (title.endsWith(suffix)) return `${cutWord(title.slice(0, -suffix.length), 60 - suffix.length)}${suffix}`;
+  return cutWord(title, 60);
+}
+
 function podcastSeoDescription(baseDesc: string, entityLines: string[]): string {
   // Lead with the headphone glyph so the SERP snippet reads as listenable audio,
   // and keep the CTA short so most of the 160 chars carry real show context.
@@ -305,7 +335,7 @@ return `<!doctype html>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>${esc(opts.title)}</title>
+<title>${esc(seoTitle(opts.title))}</title>
 <meta name="description" content="${esc(opts.description)}" />
 <meta name="robots" content="${opts.noindex ? "noindex,nofollow" : "index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1"}" />
 <meta name="author" content="Podiverzum" />
@@ -445,13 +475,13 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     name: "Magyar podcast kereső és ajánló",
     url: `${SITE}/`,
     inLanguage: "hu-HU",
-      description: "Magyar podcast epizódok, műsorok, témák és személyes ajánlók felfedezése.",
+      description: "Magyar podcast epizódok, műsorok, témák, szereplők és történetek felfedezése.",
   };
 
   return new Response(new TextEncoder().encode(shell({
       title: "Podiverzum — magyar podcast kereső és ajánló",
       description:
-        "Magyar podcast kereső, ajánló és felfedező. Keress epizódokat téma, személy, műsor vagy gondolat alapján.",
+        "Magyar podcastok és epizódok keresése témák, szereplők, műsorok és történetek szerint. Hallgasd ingyen a Podiverzumon.",
       canonical: `${SITE}/`,
       jsonLd: [website, organization, collectionPage, itemList],
       bodyHtml: `<header><h1>Magyar podcastok okosabban</h1><p>Podiverzum — magyar podcast kereső, ajánló és felfedező.</p></header>
@@ -777,9 +807,10 @@ async function buildEpisode(
   const safeSeoTitle = stripHtml(ep.seo_title || "");
   const title = safeSeoTitle || `${ep.display_title || ep.title} — ${pod.display_title || pod.title} | Podiverzum`;
   const aiSummaryText = stripHtml(ep.ai_summary || ep.summary);
-  const desc =
-    ep.seo_description ||
-    truncate(aiSummaryText || cleanText || rawDescText || ep.title, 160);
+  const desc = peopleAwareEpisodeDescription(
+    ep.seo_description || aiSummaryText || cleanText || rawDescText || ep.title,
+    ep.people,
+  );
   const canonical = `${SITE}/podcast/${pod.slug}/${ep.slug}`;
   // longText remains for structured-data descriptions (short-ish, factual).
   const longText = aiSummaryText || cleanText || rawDescText;

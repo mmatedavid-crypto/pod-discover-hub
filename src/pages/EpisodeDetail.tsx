@@ -132,7 +132,18 @@ export default function EpisodeDetail() {
       // day number into <title>/description so we rank #1 on "<host> <N>" queries.
       const isPlaceholder = !!e.is_prefetch_placeholder;
       const dailySeries = dailySeriesSeo(p.slug, p.title, e.title, { isPlaceholder });
-      const metaDesc = (dailySeries?.description || safeSeoDescription || bestDesc || `${p.display_title || p.title} podcast epizódja — Podiverzum.`).slice(0, 160);
+      const snippetPeople = Array.isArray(e.people)
+        ? (e.people as unknown[])
+            .filter((name): name is string => typeof name === "string" && name.trim().length >= 2)
+            .map((name) => name.trim())
+            .filter((name, index, all) => all.indexOf(name) === index)
+            .slice(0, 4)
+        : [];
+      const snippetBase = dailySeries?.description || safeSeoDescription || bestDesc || `${p.display_title || p.title} podcast epizódja — Podiverzum.`;
+      const snippetPeopleLabel = `Szereplők: ${snippetPeople.join(", ")}.`;
+      const metaDesc = snippetPeople.length && !snippetPeople.some((name) => snippetBase.toLocaleLowerCase("hu-HU").includes(name.toLocaleLowerCase("hu-HU")))
+        ? `${snippetBase.slice(0, Math.max(40, 160 - snippetPeopleLabel.length - 1)).trimEnd()} ${snippetPeopleLabel}`.slice(0, 160)
+        : snippetBase.slice(0, 160);
       const moments = extractKeyMoments(desc || summary);
 
       const canonical = typeof window !== "undefined" ? `https://podiverzum.hu/podcast/${p.slug}/${e.slug}` : undefined;
