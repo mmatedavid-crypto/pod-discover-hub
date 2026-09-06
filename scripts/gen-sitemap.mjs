@@ -18,7 +18,6 @@ const wrap = urls => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="htt
 
 fs.mkdirSync('public/sitemaps', { recursive: true });
 
-const now = new Date().toISOString();
 // Keep shards comfortably below Google limits and CDN/origin timeout-sensitive
 // ~10 MB responses. 25k episode URLs is ~5–6 MB uncompressed.
 const CHUNK = 25000;
@@ -46,31 +45,31 @@ const { data: moods = [] } = await sb
   .eq('active', true).order('sort_order');
 
 const pages = [
-  tag(`${SITE}/`, now, 'daily', '1.0'),
-  tag(`${SITE}/toplista`, now, 'daily', '0.9'),
-  tag(`${SITE}/toplista/all-time`, now, 'weekly', '0.9'),
-  tag(`${SITE}/szemelyek`, now, 'daily', '0.9'),
-  tag(`${SITE}/cegek`, now, 'daily', '0.9'),
-  tag(`${SITE}/partok`, now, 'daily', '0.9'),
-  tag(`${SITE}/temak`, now, 'daily', '0.9'),
-  tag(`${SITE}/szemelyek/abc`, now, 'weekly', '0.7'),
-  tag(`${SITE}/cegek/abc`, now, 'weekly', '0.7'),
-  tag(`${SITE}/temak/abc`, now, 'weekly', '0.7'),
-  tag(`${SITE}/podcastok/abc`, now, 'weekly', '0.7'),
-  tag(`${SITE}/kategoriak`, now, 'daily', '0.7'),
-  tag(`${SITE}/hangulatok`, now, 'weekly', '0.7'),
-  tag(`${SITE}/uj-podcastok`, now, 'daily', '0.6'),
-  tag(`${SITE}/napi`, now, 'daily', '0.6'),
-  tag(`${SITE}/te-podiverzumod`, now, 'weekly', '0.5'),
-  tag(`${SITE}/heti`, now, 'weekly', '0.8'),
-  tag(`${SITE}/jelentes/magyar-podcast-piac-2026`, now, 'monthly', '0.9'),
-  tag(`${SITE}/intelligence`, now, 'weekly', '0.5'),
-  tag(`${SITE}/rolunk`, now, 'monthly', '0.4'),
-  tag(`${SITE}/modszertan`, now, 'monthly', '0.4'),
-  tag(`${SITE}/szerkesztoseg`, now, 'monthly', '0.5'),
-  tag(`${SITE}/kapcsolat`, now, 'yearly', '0.3'),
-  tag(`${SITE}/adatvedelem`, now, 'yearly', '0.2'),
-  tag(`${SITE}/feltetelek`, now, 'yearly', '0.2'),
+  tag(`${SITE}/`, null, 'daily', '1.0'),
+  tag(`${SITE}/toplista`, null, 'daily', '0.9'),
+  tag(`${SITE}/toplista/all-time`, null, 'weekly', '0.9'),
+  tag(`${SITE}/szemelyek`, null, 'daily', '0.9'),
+  tag(`${SITE}/cegek`, null, 'daily', '0.9'),
+  tag(`${SITE}/partok`, null, 'daily', '0.9'),
+  tag(`${SITE}/temak`, null, 'daily', '0.9'),
+  tag(`${SITE}/szemelyek/abc`, null, 'weekly', '0.7'),
+  tag(`${SITE}/cegek/abc`, null, 'weekly', '0.7'),
+  tag(`${SITE}/temak/abc`, null, 'weekly', '0.7'),
+  tag(`${SITE}/podcastok/abc`, null, 'weekly', '0.7'),
+  tag(`${SITE}/kategoriak`, null, 'daily', '0.7'),
+  tag(`${SITE}/hangulatok`, null, 'weekly', '0.7'),
+  tag(`${SITE}/uj-podcastok`, null, 'daily', '0.6'),
+  tag(`${SITE}/napi`, null, 'daily', '0.6'),
+  tag(`${SITE}/te-podiverzumod`, null, 'weekly', '0.5'),
+  tag(`${SITE}/heti`, null, 'weekly', '0.8'),
+  tag(`${SITE}/jelentes/magyar-podcast-piac-2026`, null, 'monthly', '0.9'),
+  tag(`${SITE}/intelligence`, null, 'weekly', '0.5'),
+  tag(`${SITE}/rolunk`, null, 'monthly', '0.4'),
+  tag(`${SITE}/modszertan`, null, 'monthly', '0.4'),
+  tag(`${SITE}/szerkesztoseg`, null, 'monthly', '0.5'),
+  tag(`${SITE}/kapcsolat`, null, 'yearly', '0.3'),
+  tag(`${SITE}/adatvedelem`, null, 'yearly', '0.2'),
+  tag(`${SITE}/feltetelek`, null, 'yearly', '0.2'),
   ...cats.map(c => tag(`${SITE}/kategoria/${esc(c.slug)}`, c.created_at, 'daily', '0.8')),
   ...moods.map(m => tag(`${SITE}/hangulatok/${esc(m.slug)}`, m.updated_at, 'weekly', '0.7')),
 ];
