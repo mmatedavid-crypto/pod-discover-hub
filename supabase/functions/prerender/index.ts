@@ -1260,15 +1260,36 @@ async function buildPerson(
 
   const { data: rows } = await (supabase as any)
     .from("person_episode_mentions")
-    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, language_decision))`)
+    .select(`episode_id, role_type, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
     .eq("person_id", person.id)
     .order("created_at", { ascending: false })
-    .limit(80);
+    .limit(120);
 
   const eps = ((rows ?? []) as Array<any>)
-    .map((r) => r.episodes)
-    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast))
+    .map((r) => ({ ...r.episodes, mention_role: r.role_type }))
+    .filter((e) => e && e.slug && isAcceptedHungarianPrerenderPodcast(e.podcast))
+    .sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")))
     .slice(0, 40);
+
+  // Topics of this person's episodes → person page links into the topic graph.
+  const epIds = eps.map((e) => e.id).filter(Boolean).slice(0, 40);
+  let personTopics: Array<{ name: string; slug: string; count: number }> = [];
+  if (epIds.length) {
+    const { data: topicRows } = await (supabase as any)
+      .from("episode_topic_map")
+      .select(`topic_id, topics!inner(name, slug, is_public, is_indexable)`)
+      .in("episode_id", epIds)
+      .limit(400);
+    const m = new Map<string, { name: string; slug: string; count: number }>();
+    for (const r of (topicRows ?? []) as any[]) {
+      const t = r.topics;
+      if (!t || t.is_public === false || t.is_indexable === false || !t.slug) continue;
+      const prev = m.get(t.slug);
+      if (prev) prev.count += 1;
+      else m.set(t.slug, { name: t.name, slug: t.slug, count: 1 });
+    }
+    personTopics = [...m.values()].sort((a, b) => b.count - a.count).slice(0, 12);
+  }
 
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
   const bio = safePersonBioForPrerender(person);
@@ -1288,11 +1309,51 @@ async function buildPerson(
     ? `${person.name} – ${epCount} podcast epizódban ${relation} | Podiverzum`
     : `${person.name} podcast epizódok és említések | Podiverzum`;
 
+  const huDate = (v: unknown) => {
+    const d = v ? new Date(String(v)) : null;
+    return d && !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : "";
+  };
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
     const s = truncate(stripHtml(e.ai_summary), 220);
-    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+    const d = huDate(e.published_at);
+    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcast.display_title || e.podcast.title)}</em>${d ? ` (${d})` : ""}${s ? `<p>${esc(s)}</p>` : ""}</li>`;
   }).join("");
+
+  // Shows this person appears in → person page links down to show pages.
+  const showsMap = new Map<string, { slug: string; name: string; count: number }>();
+  for (const e of eps) {
+    const ps = e.podcast?.slug;
+    if (!ps) continue;
+    const prev = showsMap.get(ps);
+    if (prev) prev.count += 1;
+    else showsMap.set(ps, { slug: ps, name: e.podcast.display_title || e.podcast.title || ps, count: 1 });
+  }
+  const topShows = [...showsMap.values()].sort((a, b) => b.count - a.count).slice(0, 12);
+  const showsHtml = topShows.length
+    ? `<section><h2>Műsorok, amelyekben ${esc(person.name)} ${esc(relation)}</h2><ul>${topShows
+        .map((sh) => `<li><a href="${SITE}/podcast/${esc(sh.slug)}"><strong>${esc(sh.name)}</strong></a> — ${sh.count} kapcsolódó epizód</li>`)
+        .join("")}</ul></section>`
+    : "";
+  const topicsHtml = personTopics.length
+    ? `<section><h2>Témák, amelyekhez ${esc(person.name)} kapcsolódik</h2><ul>${personTopics
+        .map((t) => `<li><a href="${SITE}/temak/${esc(t.slug)}">${esc(t.name)}</a> — ${t.count} epizód</li>`)
+        .join("")}</ul></section>`
+    : "";
+  const itemList = eps.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: `${person.name} podcast epizódjai`,
+        itemListElement: eps.map((e, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: `${SITE}/podcast/${e.podcast.slug}/${e.slug}`,
+          name: e.display_title || e.title,
+        })),
+      }
+    : null;
+
 
   const personLd: Record<string, unknown> = trustedIdentity ? {
     "@context": "https://schema.org",
@@ -1322,11 +1383,15 @@ async function buildPerson(
       description: desc,
       canonical,
       ogImage: safeImage,
-      jsonLd: [personLd, breadcrumb],
+      jsonLd: itemList ? [personLd, itemList, breadcrumb] : [personLd, breadcrumb],
       noindex,
       bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
-<main><h2>Epizódok</h2><ul>${html}</ul></main>`,
+<main><h2>Epizódok, amelyekben ${esc(person.name)} ${esc(relation)}</h2><ul>${html}</ul>
+${showsHtml}
+${topicsHtml}
+<nav><a href="${SITE}/szemelyek">Összes személy</a> · <a href="${SITE}/szemelyek/abc">Személyek A–Z</a> · <a href="${SITE}/temak">Témák</a> · <a href="${SITE}/podcastok">Magyar podcastok</a></nav></main>`,
     })),
+
     { headers: new Headers(baseHeaders) },
   );
 }
