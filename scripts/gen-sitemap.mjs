@@ -18,7 +18,6 @@ const wrap = urls => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="htt
 
 fs.mkdirSync('public/sitemaps', { recursive: true });
 
-const now = new Date().toISOString();
 // Keep shards comfortably below Google limits and CDN/origin timeout-sensitive
 // ~10 MB responses. 25k episode URLs is ~5–6 MB uncompressed.
 const CHUNK = 25000;

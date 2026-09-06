@@ -258,7 +258,6 @@ Deno.serve(async (req) => {
 
     if (type === 'lite') {
       // pages.xml
-      const now = new Date().toISOString();
       const { data: cats = [] } = await sb.from('categories').select('slug,created_at').eq('active', true).order('sort_order');
       const { data: moods = [] } = await sb.from('mood_collections').select('slug,updated_at').eq('active', true).order('sort_order');
 
