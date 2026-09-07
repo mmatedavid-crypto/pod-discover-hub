@@ -61,18 +61,6 @@ export function proxyFromEnv(): ProxyConfig | null {
 
 type SimpleResponse = { status: number; body: string };
 
-async function readUntil(reader: ReadableStreamDefaultReader<Uint8Array>, marker: string, buf: Uint8Array[]) {
-  const dec = new TextDecoder();
-  let acc = "";
-  while (!acc.includes(marker)) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf.push(value!);
-    acc += dec.decode(value!, { stream: true });
-  }
-  return acc;
-}
-
 function concat(chunks: Uint8Array[]): Uint8Array {
   const total = chunks.reduce((n, c) => n + c.length, 0);
   const out = new Uint8Array(total);
@@ -295,5 +283,3 @@ export async function fetchYoutubeCaption(
     return { ok: false, reason: blocked ? "ip_blocked" : "error", terminal: false, via, detail: msg.slice(0, 200) };
   }
 }
-
-export { readUntil };
