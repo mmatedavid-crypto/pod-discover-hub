@@ -47,17 +47,35 @@ const COOKIE = "CONSENT=YES+cb; SOCS=CAI";
 /** Public web INNERTUBE key, stable for years; refreshed from the watch page on failure. */
 const STATIC_INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 
+/**
+ * Reads the Webshare proxy pool from the environment.
+ * WEBSHARE_PROXY_LIST holds "host:port,host:port,..." (the free plan hands out
+ * 10 fixed endpoints instead of one rotating hostname); a random entry is
+ * picked per call so the request load spreads across all exit IPs.
+ * WEBSHARE_PROXY_HOST/_PORT stay supported for a single-endpoint setup.
+ */
 export function proxyFromEnv(): ProxyConfig | null {
+  const username = Deno.env.get("WEBSHARE_PROXY_USERNAME") || undefined;
+  const password = Deno.env.get("WEBSHARE_PROXY_PASSWORD") || undefined;
+  const list = (Deno.env.get("WEBSHARE_PROXY_LIST") || "")
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [host, port] = entry.split(":");
+      return { host, port: Number(port) };
+    })
+    .filter((p) => p.host && p.port > 0);
+  if (list.length) {
+    const pick = list[Math.floor(Math.random() * list.length)];
+    return { ...pick, username, password };
+  }
   const host = Deno.env.get("WEBSHARE_PROXY_HOST");
   const port = Number(Deno.env.get("WEBSHARE_PROXY_PORT") || 0);
   if (!host || !port) return null;
-  return {
-    host,
-    port,
-    username: Deno.env.get("WEBSHARE_PROXY_USERNAME") || undefined,
-    password: Deno.env.get("WEBSHARE_PROXY_PASSWORD") || undefined,
-  };
+  return { host, port, username, password };
 }
+
 
 // ---------------------------------------------------------------- HTTP client
 
