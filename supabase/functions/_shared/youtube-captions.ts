@@ -331,6 +331,9 @@ export async function fetchYoutubeCaption(
     if (baseUrl.includes("&exp=xpe")) return { ok: false, reason: "po_token_required", terminal: false, via };
 
     const tt = await request(`${baseUrl}&fmt=json3`, { headers: { "user-agent": ANDROID_UA } });
+    if (Deno.env.get("YT_CAPTION_DEBUG")) {
+      console.log("timedtext", { status: tt.status, len: tt.body.length, head: tt.body.slice(0, 200), url: baseUrl.slice(0, 120) });
+    }
     if (tt.status === 429) return { ok: false, reason: "ip_blocked", terminal: false, via };
     if (tt.status !== 200) return { ok: false, reason: `http_${tt.status}`, terminal: false, via };
     const { segments, text } = parseJson3(tt.body);
