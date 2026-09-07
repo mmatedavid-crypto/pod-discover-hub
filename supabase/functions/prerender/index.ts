@@ -722,13 +722,12 @@ async function buildEpisode(
       .eq("episode_id", ep.id)
       .like("cleaner_method", "deterministic_v4%")
       .maybeSingle(),
-    supabase
-      .from("episode_transcripts")
-      .select("transcript")
-      .eq("episode_id", ep.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    // Transcripts are not readable by anon (rights-gated table); a bounded,
+    // index-only excerpt is exposed through a dedicated read-only function.
+    (supabase as any).rpc("get_episode_index_text", {
+      p_episode_id: ep.id,
+      p_max_chars: 16000,
+    }),
     supabase
       .from("episodes")
       .select("title, display_title, slug, published_at, ai_summary, summary")
