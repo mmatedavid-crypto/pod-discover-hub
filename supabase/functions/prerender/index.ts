@@ -1094,7 +1094,7 @@ async function buildEpisode(
         return h > 0 ? `${h} óra ${mi} perc` : `${mi} perc`;
       })()
     : "";
-  const publishedHuman = ep.published_at ? huDate(ep.published_at) : "";
+  const publishedHuman = ep.published_at ? huDateText(ep.published_at) : "";
   const factRows: Array<[string, string]> = [
     ["Műsor", podTitleText],
     ...(publishedHuman ? [["Megjelenés", publishedHuman] as [string, string]] : []),
@@ -1171,10 +1171,12 @@ async function buildEpisode(
   ${ep.published_at ? `<time datetime="${esc(ep.published_at)}">${esc(ep.published_at.slice(0, 10))}</time>` : ""}${isoDuration ? ` <span>· ${esc(isoDuration)}</span>` : ""}
 </header>
 ${aiSummaryText ? `<section><h2>Összefoglaló</h2><p><strong>${esc(aiSummaryText)}</strong></p></section>` : ""}
+${factsHtml}
 ${chaptersHtml}
 ${bodyParas.length ? `<section><h2>Ebben az epizódban</h2>${bodyParas.map((p) => `<p>${esc(p)}</p>`).join("")}</section>` : (longText ? `<section><p>${esc(longText)}</p></section>` : "")}
 ${entitySection ? `<section><h2>Említett entitások</h2>${entitySection}</section>` : ""}
 ${ep.audio_url ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
+${epFaqHtml}
 ${siblingsHtml}
 ${relatedHtml}
 </article>`,
@@ -1183,6 +1185,14 @@ ${relatedHtml}
   );
 }
 
+
+function huDateText(v: unknown): string {
+  const s = typeof v === "string" ? v : "";
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getUTCFullYear()}. ${String(d.getUTCMonth() + 1).padStart(2, "0")}. ${String(d.getUTCDate()).padStart(2, "0")}.`;
+}
 
 function slugify(v: string, kind: string) {
   if (kind === "ticker") return v.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();
