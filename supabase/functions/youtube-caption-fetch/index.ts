@@ -21,12 +21,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
-import {
-  type CaptionResult,
-  fetchYoutubeCaption,
-  type ProxyConfig,
-  proxyFromEnv,
-} from "../_shared/youtube-captions.ts";
+import { type CaptionResult, fetchYoutubeCaption, proxyFromEnv } from "../_shared/youtube-captions.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -147,7 +142,7 @@ async function markAttemptMiss(
 async function resolveCaption(
   admin: any,
   videoId: string,
-  opts: { preferredLangs: string[]; proxy: ProxyConfig | null; useProxy: "auto" | "always" | "never" },
+  opts: { preferredLangs: string[]; proxyAvailable: boolean; useProxy: "auto" | "always" | "never" },
 ) {
   const cached = await readCache(admin, videoId);
   if (cached) {
@@ -170,8 +165,8 @@ async function resolveCaption(
     }
   }
 
-  const canProxy = !!opts.proxy && opts.useProxy !== "never";
-  const attempts: ("direct" | "proxy")[] = opts.useProxy === "always" && opts.proxy
+  const canProxy = opts.proxyAvailable && opts.useProxy !== "never";
+  const attempts: ("direct" | "proxy")[] = opts.useProxy === "always" && opts.proxyAvailable
     ? ["proxy"]
     : canProxy
     ? ["direct", "proxy"]
@@ -181,7 +176,8 @@ async function resolveCaption(
   for (const mode of attempts) {
     const res = await fetchYoutubeCaption(videoId, {
       preferredLangs: opts.preferredLangs,
-      proxy: mode === "proxy" ? opts.proxy : null,
+      // Re-read the pool per attempt so a different exit IP is picked each time.
+      proxy: mode === "proxy" ? proxyFromEnv() : null,
     });
     if (res.ok) {
       await writeCacheOk(admin, videoId, res);
@@ -222,7 +218,7 @@ Deno.serve(async (req) => {
       | "auto"
       | "always"
       | "never";
-    const proxy = proxyFromEnv();
+    const proxyAvailable = !!proxyFromEnv();
     const batch = Math.max(1, Math.min(100, pilot || Number(ctrl.batch || 25)));
     const delayMs = Math.max(0, Number(ctrl.delay_ms ?? 1200));
     const minMatchScore = Number(ctrl.min_match_score ?? 0.84);
@@ -230,11 +226,11 @@ Deno.serve(async (req) => {
 
     // ---------------------------------------------------------- single video
     if (videoIdParam && !episodeIdParam) {
-      const r = await resolveCaption(admin, videoIdParam, { preferredLangs, proxy, useProxy });
+      const r = await resolveCaption(admin, videoIdParam, { preferredLangs, proxyAvailable, useProxy });
       return json({
         ok: r.outcome === "cache_hit" || r.outcome === "fetched",
         outcome: r.outcome,
-        proxy_configured: !!proxy,
+        proxy_configured: proxyAvailable,
         chars: (r as any).result?.text?.length ?? 0,
         language: (r as any).result?.language ?? null,
         is_generated: (r as any).result?.isGenerated ?? null,
@@ -278,7 +274,7 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS) break;
       if (blocked >= maxIpBlocks) break;
       try {
-        const r = await resolveCaption(admin, ep.youtube_video_id, { preferredLangs, proxy, useProxy });
+        const r = await resolveCaption(admin, ep.youtube_video_id, { preferredLangs, proxyAvailable, useProxy });
         if (r.outcome === "cache_hit" || r.outcome === "fetched") {
           if (r.outcome === "cache_hit") cacheHits++;
           await storeEpisodeTranscript(admin, ep, r.result);
@@ -311,7 +307,7 @@ Deno.serve(async (req) => {
         value: {
           ...ctrl,
           enabled: false,
-          paused_reason: proxy ? "ip_blocked_with_proxy" : "ip_blocked_no_proxy",
+          paused_reason: proxyAvailable ? "ip_blocked_with_proxy" : "ip_blocked_no_proxy",
           paused_at: new Date().toISOString(),
         },
       }, { onConflict: "key" });
@@ -325,7 +321,7 @@ Deno.serve(async (req) => {
       no_captions: noCaptions,
       ip_blocked: blocked,
       errors,
-      proxy_configured: !!proxy,
+      proxy_configured: proxyAvailable,
       paused: blocked >= maxIpBlocks && !manual,
       details: details.slice(0, 10),
       elapsed_ms: Date.now() - startedAt,

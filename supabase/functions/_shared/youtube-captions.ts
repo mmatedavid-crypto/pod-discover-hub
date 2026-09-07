@@ -47,17 +47,35 @@ const COOKIE = "CONSENT=YES+cb; SOCS=CAI";
 /** Public web INNERTUBE key, stable for years; refreshed from the watch page on failure. */
 const STATIC_INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 
+/**
+ * Reads the Webshare proxy pool from the environment.
+ * WEBSHARE_PROXY_LIST holds "host:port,host:port,..." (the free plan hands out
+ * 10 fixed endpoints instead of one rotating hostname); a random entry is
+ * picked per call so the request load spreads across all exit IPs.
+ * WEBSHARE_PROXY_HOST/_PORT stay supported for a single-endpoint setup.
+ */
 export function proxyFromEnv(): ProxyConfig | null {
+  const username = Deno.env.get("WEBSHARE_PROXY_USERNAME") || undefined;
+  const password = Deno.env.get("WEBSHARE_PROXY_PASSWORD") || undefined;
+  const list = (Deno.env.get("WEBSHARE_PROXY_LIST") || "")
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [host, port] = entry.split(":");
+      return { host, port: Number(port) };
+    })
+    .filter((p) => p.host && p.port > 0);
+  if (list.length) {
+    const pick = list[Math.floor(Math.random() * list.length)];
+    return { ...pick, username, password };
+  }
   const host = Deno.env.get("WEBSHARE_PROXY_HOST");
   const port = Number(Deno.env.get("WEBSHARE_PROXY_PORT") || 0);
   if (!host || !port) return null;
-  return {
-    host,
-    port,
-    username: Deno.env.get("WEBSHARE_PROXY_USERNAME") || undefined,
-    password: Deno.env.get("WEBSHARE_PROXY_PASSWORD") || undefined,
-  };
+  return { host, port, username, password };
 }
+
 
 // ---------------------------------------------------------------- HTTP client
 
@@ -125,17 +143,31 @@ async function proxyRequest(
     const chunks: Uint8Array[] = [];
     const rbuf = new Uint8Array(65536);
     while (true) {
-      const n = await tls.read(rbuf);
+      let n: number | null;
+      try {
+        n = await tls.read(rbuf);
+      } catch (e) {
+        // YouTube closes the socket without a TLS close_notify. With
+        // "connection: close" that is the normal end of the response body, so
+        // treat an unexpected EOF as end-of-stream instead of a failure.
+        const msg = (e as any)?.message || String(e);
+        if (/close_notify|unexpected eof|BadResource|connection reset/i.test(msg) && chunks.length) break;
+        throw e;
+      }
       if (n === null) break;
       chunks.push(rbuf.slice(0, n));
     }
-    const raw = new TextDecoder().decode(concat(chunks));
-    const sep = raw.indexOf("\r\n\r\n");
-    const rawHead = sep === -1 ? raw : raw.slice(0, sep);
-    let body = sep === -1 ? "" : raw.slice(sep + 4);
+
+    // Header/body split and de-chunking must happen on BYTES: chunk sizes are
+    // byte counts, and slicing a decoded UTF-8 string by byte offsets corrupts
+    // every response containing multi-byte characters (i.e. all Hungarian text).
+    const rawBytes = concat(chunks);
+    const sep = indexOfSeq(rawBytes, [13, 10, 13, 10]);
+    const rawHead = new TextDecoder().decode(sep === -1 ? rawBytes : rawBytes.subarray(0, sep));
+    const bodyBytes = sep === -1 ? new Uint8Array(0) : rawBytes.subarray(sep + 4);
     const status = Number(rawHead.split(" ")[1] || 0);
-    if (/transfer-encoding:\s*chunked/i.test(rawHead)) body = dechunk(body);
-    return { status, body };
+    const finalBytes = /transfer-encoding:\s*chunked/i.test(rawHead) ? dechunk(bodyBytes) : bodyBytes;
+    return { status, body: new TextDecoder().decode(finalBytes) };
   } finally {
     clearTimeout(timer);
     try {
@@ -144,19 +176,29 @@ async function proxyRequest(
   }
 }
 
-function dechunk(body: string): string {
-  let out = "";
+function indexOfSeq(hay: Uint8Array, needle: number[], from = 0): number {
+  outer: for (let i = from; i <= hay.length - needle.length; i++) {
+    for (let j = 0; j < needle.length; j++) if (hay[i + j] !== needle[j]) continue outer;
+    return i;
+  }
+  return -1;
+}
+
+function dechunk(body: Uint8Array): Uint8Array {
+  const parts: Uint8Array[] = [];
   let i = 0;
   while (i < body.length) {
-    const nl = body.indexOf("\r\n", i);
+    const nl = indexOfSeq(body, [13, 10], i);
     if (nl === -1) break;
-    const size = parseInt(body.slice(i, nl).trim(), 16);
-    if (!Number.isFinite(size) || size === 0) break;
-    out += body.slice(nl + 2, nl + 2 + size);
-    i = nl + 2 + size + 2;
+    const size = parseInt(new TextDecoder().decode(body.subarray(i, nl)).trim(), 16);
+    if (!Number.isFinite(size) || size <= 0) break;
+    const end = Math.min(nl + 2 + size, body.length);
+    parts.push(body.subarray(nl + 2, end));
+    i = end + 2;
   }
-  return out;
+  return concat(parts);
 }
+
 
 async function directRequest(
   url: string,
@@ -255,6 +297,9 @@ export async function fetchYoutubeCaption(
       });
 
     let player = await callPlayer();
+    if (Deno.env.get("YT_CAPTION_DEBUG")) {
+      console.log("player", { via, status: player.status, len: player.body.length, head: player.body.slice(0, 300) });
+    }
     if ((player.status === 400 || player.status === 403) && !usedWatchPage) {
       const keyErr = await loadKeyFromWatchPage();
       if (keyErr) return { ok: false, reason: keyErr, terminal: false, via };
@@ -286,6 +331,9 @@ export async function fetchYoutubeCaption(
     if (baseUrl.includes("&exp=xpe")) return { ok: false, reason: "po_token_required", terminal: false, via };
 
     const tt = await request(`${baseUrl}&fmt=json3`, { headers: { "user-agent": ANDROID_UA } });
+    if (Deno.env.get("YT_CAPTION_DEBUG")) {
+      console.log("timedtext", { status: tt.status, len: tt.body.length, head: tt.body.slice(0, 200), url: baseUrl.slice(0, 120) });
+    }
     if (tt.status === 429) return { ok: false, reason: "ip_blocked", terminal: false, via };
     if (tt.status !== 200) return { ok: false, reason: `http_${tt.status}`, terminal: false, via };
     const { segments, text } = parseJson3(tt.body);
