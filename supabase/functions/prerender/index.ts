@@ -1078,9 +1078,82 @@ async function buildEpisode(
     publisher: sitePublisherJsonLd(),
   } : null;
 
+  // === AI-idézhetőség: tényblokk + FAQ ===
+  // Determinisztikus, adatból származó tények és kérdés-válasz párok. Ezek a
+  // formátumok jelennek meg a legtöbbet AI-válaszokban (ChatGPT, Perplexity,
+  // Google AI Overviews), és a FAQPage strukturált adat a Google-nél is számít.
+  const epTitleText = String(ep.display_title || ep.title || "");
+  const podTitleText = String(pod.display_title || pod.title || "");
+  const peopleNamesForFacts = safeEpisodePeople.map((p) => String(p.name)).filter(Boolean).slice(0, 8);
+  const topicNamesForFacts = episodeTopicNames.slice(0, 8);
+  const durationHuman = Number.isFinite(ep.duration_seconds) && Number(ep.duration_seconds) > 0
+    ? (() => {
+        const total = Math.round(Number(ep.duration_seconds) / 60);
+        const h = Math.floor(total / 60);
+        const mi = total % 60;
+        return h > 0 ? `${h} óra ${mi} perc` : `${mi} perc`;
+      })()
+    : "";
+  const publishedHuman = ep.published_at ? huDate(ep.published_at) : "";
+  const factRows: Array<[string, string]> = [
+    ["Műsor", podTitleText],
+    ...(publishedHuman ? [["Megjelenés", publishedHuman] as [string, string]] : []),
+    ...(durationHuman ? [["Hossz", durationHuman] as [string, string]] : []),
+    ...(peopleNamesForFacts.length ? [["Szereplők, említett nevek", peopleNamesForFacts.join(", ")] as [string, string]] : []),
+    ...(topicNamesForFacts.length ? [["Témák", topicNamesForFacts.join(", ")] as [string, string]] : []),
+    ...(transcriptBacked ? [["Átirat", "Az epizód beszélt szövege alapján indexelve"] as [string, string]] : []),
+  ];
+  const factsHtml = `<section aria-label="Röviden"><h2>Röviden</h2><dl>${factRows
+    .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`)
+    .join("")}</dl></section>`;
+
+  const answerLead = truncate(aiSummaryText || bodyParas.slice(0, 2).join(" ") || longText, 600);
+  const epFaqs: Array<{ q: string; a: string }> = [];
+  if (answerLead) {
+    epFaqs.push({
+      q: `Miről szól a(z) „${epTitleText}” epizód?`,
+      a: `${answerLead}${podTitleText ? ` Az epizód a(z) ${podTitleText} magyar podcastben jelent meg${publishedHuman ? ` ${publishedHuman}` : ""}.` : ""}`,
+    });
+  }
+  if (peopleNamesForFacts.length) {
+    epFaqs.push({
+      q: `Kik szerepelnek vagy kiket említenek a(z) „${epTitleText}” epizódban?`,
+      a: `Az epizódban a következő nevek szerepelnek vagy hangzanak el: ${peopleNamesForFacts.join(", ")}.`,
+    });
+  }
+  if (topicNamesForFacts.length) {
+    epFaqs.push({
+      q: `Milyen témákat érint a(z) „${epTitleText}” epizód?`,
+      a: `Fő témái: ${topicNamesForFacts.join(", ")}.`,
+    });
+  }
+  if (publishedHuman || durationHuman) {
+    epFaqs.push({
+      q: `Mikor jelent meg és milyen hosszú a(z) „${epTitleText}” epizód?`,
+      a: `${publishedHuman ? `Megjelenés: ${publishedHuman}. ` : ""}${durationHuman ? `Hossz: ${durationHuman}. ` : ""}Az epizód a Podiverzumon hallgatható meg: ${canonical}`.trim(),
+    });
+  }
+  const epFaqHtml = epFaqs.length >= 2
+    ? `<section aria-label="Gyakori kérdések"><h2>Gyakori kérdések a(z) „${esc(epTitleText)}” epizódról</h2>${epFaqs
+        .map((f) => `<details open><summary><strong>${esc(f.q)}</strong></summary><p>${esc(f.a)}</p></details>`)
+        .join("")}</section>`
+    : "";
+  const epFaqLd = epFaqs.length >= 2
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: epFaqs.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      }
+    : null;
+
   const jsonLdList = isAcceptedHungarian
-    ? [ld, breadcrumbs, ...(newsArticle ? [newsArticle] : []), ...episodePersonJsonLd]
+    ? [ld, breadcrumbs, ...(newsArticle ? [newsArticle] : []), ...(epFaqLd ? [epFaqLd] : []), ...episodePersonJsonLd]
     : [];
+
 
 
   return new Response(new TextEncoder().encode(shell({
