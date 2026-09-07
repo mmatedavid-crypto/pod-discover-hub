@@ -821,13 +821,19 @@ async function buildEpisode(
   //   2. Transcript excerpt (first ~6000 chars)
   //   3. Raw description
   // AI summary shown as a lead paragraph on top when present.
-  const bodyPrimary = cleanText.length > 200 ? cleanText
+  // 2026-09-07: az átirat (YouTube-felirat / RSS transcript tag) sokkal
+  // gazdagabb, mint a leírásból tisztított clean_text — ha érdemben hosszabb,
+  // ő lesz a törzs. Ez a legidézhetőbb tartalmunk AI-válaszok szempontjából.
+  const transcriptBacked = transcriptText.length > 2000 && transcriptText.length > cleanText.length * 1.5;
+  const bodyPrimary = transcriptBacked ? transcriptText
+                    : cleanText.length > 200 ? cleanText
                     : transcriptText.length > 200 ? transcriptText
                     : rawDescText;
-  const BODY_MAX = 8000;
+  const BODY_MAX = transcriptBacked ? 14000 : 8000;
   const bodyChunk = bodyPrimary.length > BODY_MAX
     ? bodyPrimary.slice(0, BODY_MAX).replace(/\s+\S*$/, "") + "…"
     : bodyPrimary;
+
   const bodyParas = bodyChunk
     .split(/\n{2,}|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÖŐÚÜŰ])/)
     .map((p) => p.trim())
