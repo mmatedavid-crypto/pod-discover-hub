@@ -8865,6 +8865,10 @@ export type Database = {
         Args: { _limit?: number }
         Returns: Json
       }
+      get_episode_index_text: {
+        Args: { p_episode_id: string; p_max_chars?: number }
+        Returns: string
+      }
       get_homepage_rails_v1: {
         Args: {
           _category_limit?: number

@@ -722,13 +722,12 @@ async function buildEpisode(
       .eq("episode_id", ep.id)
       .like("cleaner_method", "deterministic_v4%")
       .maybeSingle(),
-    supabase
-      .from("episode_transcripts")
-      .select("transcript")
-      .eq("episode_id", ep.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    // Transcripts are not readable by anon (rights-gated table); a bounded,
+    // index-only excerpt is exposed through a dedicated read-only function.
+    (supabase as any).rpc("get_episode_index_text", {
+      p_episode_id: ep.id,
+      p_max_chars: 16000,
+    }),
     supabase
       .from("episodes")
       .select("title, display_title, slug, published_at, ai_summary, summary")
@@ -761,7 +760,9 @@ async function buildEpisode(
     }),
   ]);
   const cleanText = stripHtml((cleanRow as any)?.cleaned_text || "");
-  const transcriptText = stripHtml((transcriptRow as any)?.transcript || "");
+  const transcriptText = stripHtml(
+    typeof transcriptRow === "string" ? transcriptRow : ((transcriptRow as any)?.transcript || ""),
+  );
   const rawDescText = stripHtml(ep.description);
 
   // Person JSON-LD: resolve episode.people[] names to canonical `people` rows,
@@ -821,13 +822,19 @@ async function buildEpisode(
   //   2. Transcript excerpt (first ~6000 chars)
   //   3. Raw description
   // AI summary shown as a lead paragraph on top when present.
-  const bodyPrimary = cleanText.length > 200 ? cleanText
+  // 2026-09-07: az átirat (YouTube-felirat / RSS transcript tag) sokkal
+  // gazdagabb, mint a leírásból tisztított clean_text — ha érdemben hosszabb,
+  // ő lesz a törzs. Ez a legidézhetőbb tartalmunk AI-válaszok szempontjából.
+  const transcriptBacked = transcriptText.length > 2000 && transcriptText.length > cleanText.length * 1.5;
+  const bodyPrimary = transcriptBacked ? transcriptText
+                    : cleanText.length > 200 ? cleanText
                     : transcriptText.length > 200 ? transcriptText
                     : rawDescText;
-  const BODY_MAX = 8000;
+  const BODY_MAX = transcriptBacked ? 14000 : 8000;
   const bodyChunk = bodyPrimary.length > BODY_MAX
     ? bodyPrimary.slice(0, BODY_MAX).replace(/\s+\S*$/, "") + "…"
     : bodyPrimary;
+
   const bodyParas = bodyChunk
     .split(/\n{2,}|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÖŐÚÜŰ])/)
     .map((p) => p.trim())
@@ -1072,9 +1079,82 @@ async function buildEpisode(
     publisher: sitePublisherJsonLd(),
   } : null;
 
+  // === AI-idézhetőség: tényblokk + FAQ ===
+  // Determinisztikus, adatból származó tények és kérdés-válasz párok. Ezek a
+  // formátumok jelennek meg a legtöbbet AI-válaszokban (ChatGPT, Perplexity,
+  // Google AI Overviews), és a FAQPage strukturált adat a Google-nél is számít.
+  const epTitleText = String(ep.display_title || ep.title || "");
+  const podTitleText = String(pod.display_title || pod.title || "");
+  const peopleNamesForFacts = safeEpisodePeople.map((p) => String(p.name)).filter(Boolean).slice(0, 8);
+  const topicNamesForFacts = episodeTopicNames.slice(0, 8);
+  const durationHuman = Number.isFinite(ep.duration_seconds) && Number(ep.duration_seconds) > 0
+    ? (() => {
+        const total = Math.round(Number(ep.duration_seconds) / 60);
+        const h = Math.floor(total / 60);
+        const mi = total % 60;
+        return h > 0 ? `${h} óra ${mi} perc` : `${mi} perc`;
+      })()
+    : "";
+  const publishedHuman = ep.published_at ? huDateText(ep.published_at) : "";
+  const factRows: Array<[string, string]> = [
+    ["Műsor", podTitleText],
+    ...(publishedHuman ? [["Megjelenés", publishedHuman] as [string, string]] : []),
+    ...(durationHuman ? [["Hossz", durationHuman] as [string, string]] : []),
+    ...(peopleNamesForFacts.length ? [["Szereplők, említett nevek", peopleNamesForFacts.join(", ")] as [string, string]] : []),
+    ...(topicNamesForFacts.length ? [["Témák", topicNamesForFacts.join(", ")] as [string, string]] : []),
+    ...(transcriptBacked ? [["Átirat", "Az epizód beszélt szövege alapján indexelve"] as [string, string]] : []),
+  ];
+  const factsHtml = `<section aria-label="Röviden"><h2>Röviden</h2><dl>${factRows
+    .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`)
+    .join("")}</dl></section>`;
+
+  const answerLead = truncate(aiSummaryText || bodyParas.slice(0, 2).join(" ") || longText, 600);
+  const epFaqs: Array<{ q: string; a: string }> = [];
+  if (answerLead) {
+    epFaqs.push({
+      q: `Miről szól ez az epizód: „${epTitleText}”?`,
+      a: `${answerLead}${podTitleText ? ` Az epizód a ${podTitleText} című magyar podcast egyik adása${publishedHuman ? `, megjelenés: ${publishedHuman}` : ""}.` : ""}`,
+    });
+  }
+  if (peopleNamesForFacts.length) {
+    epFaqs.push({
+      q: `Kik szerepelnek vagy kiket említenek ebben az epizódban: „${epTitleText}”?`,
+      a: `Az epizódban a következő nevek szerepelnek vagy hangzanak el: ${peopleNamesForFacts.join(", ")}.`,
+    });
+  }
+  if (topicNamesForFacts.length) {
+    epFaqs.push({
+      q: `Milyen témákat érint ez az epizód: „${epTitleText}”?`,
+      a: `Fő témái: ${topicNamesForFacts.join(", ")}.`,
+    });
+  }
+  if (publishedHuman || durationHuman) {
+    epFaqs.push({
+      q: `Mikor jelent meg és milyen hosszú ez az epizód: „${epTitleText}”?`,
+      a: `${publishedHuman ? `Megjelenés: ${publishedHuman}. ` : ""}${durationHuman ? `Hossz: ${durationHuman}. ` : ""}Az epizód a Podiverzumon hallgatható meg: ${canonical}`.trim(),
+    });
+  }
+  const epFaqHtml = epFaqs.length >= 2
+    ? `<section aria-label="Gyakori kérdések"><h2>Gyakori kérdések erről az epizódról: „${esc(epTitleText)}”</h2>${epFaqs
+        .map((f) => `<details open><summary><strong>${esc(f.q)}</strong></summary><p>${esc(f.a)}</p></details>`)
+        .join("")}</section>`
+    : "";
+  const epFaqLd = epFaqs.length >= 2
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: epFaqs.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      }
+    : null;
+
   const jsonLdList = isAcceptedHungarian
-    ? [ld, breadcrumbs, ...(newsArticle ? [newsArticle] : []), ...episodePersonJsonLd]
+    ? [ld, breadcrumbs, ...(newsArticle ? [newsArticle] : []), ...(epFaqLd ? [epFaqLd] : []), ...episodePersonJsonLd]
     : [];
+
 
 
   return new Response(new TextEncoder().encode(shell({
@@ -1092,10 +1172,12 @@ async function buildEpisode(
   ${ep.published_at ? `<time datetime="${esc(ep.published_at)}">${esc(ep.published_at.slice(0, 10))}</time>` : ""}${isoDuration ? ` <span>· ${esc(isoDuration)}</span>` : ""}
 </header>
 ${aiSummaryText ? `<section><h2>Összefoglaló</h2><p><strong>${esc(aiSummaryText)}</strong></p></section>` : ""}
+${factsHtml}
 ${chaptersHtml}
 ${bodyParas.length ? `<section><h2>Ebben az epizódban</h2>${bodyParas.map((p) => `<p>${esc(p)}</p>`).join("")}</section>` : (longText ? `<section><p>${esc(longText)}</p></section>` : "")}
 ${entitySection ? `<section><h2>Említett entitások</h2>${entitySection}</section>` : ""}
 ${ep.audio_url ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
+${epFaqHtml}
 ${siblingsHtml}
 ${relatedHtml}
 </article>`,
@@ -1104,6 +1186,14 @@ ${relatedHtml}
   );
 }
 
+
+function huDateText(v: unknown): string {
+  const s = typeof v === "string" ? v : "";
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getUTCFullYear()}. ${String(d.getUTCMonth() + 1).padStart(2, "0")}. ${String(d.getUTCDate()).padStart(2, "0")}.`;
+}
 
 function slugify(v: string, kind: string) {
   if (kind === "ticker") return v.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();
