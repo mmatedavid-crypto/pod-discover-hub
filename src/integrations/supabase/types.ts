@@ -7735,6 +7735,54 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_caption_cache: {
+        Row: {
+          duration_seconds: number | null
+          error_message: string | null
+          fetched_at: string
+          is_generated: boolean | null
+          language: string | null
+          segments: Json | null
+          source: string
+          status: string
+          transcript: string | null
+          transcript_chars: number
+          updated_at: string
+          via: string | null
+          youtube_video_id: string
+        }
+        Insert: {
+          duration_seconds?: number | null
+          error_message?: string | null
+          fetched_at?: string
+          is_generated?: boolean | null
+          language?: string | null
+          segments?: Json | null
+          source?: string
+          status?: string
+          transcript?: string | null
+          transcript_chars?: number
+          updated_at?: string
+          via?: string | null
+          youtube_video_id: string
+        }
+        Update: {
+          duration_seconds?: number | null
+          error_message?: string | null
+          fetched_at?: string
+          is_generated?: boolean | null
+          language?: string | null
+          segments?: Json | null
+          source?: string
+          status?: string
+          transcript?: string | null
+          transcript_chars?: number
+          updated_at?: string
+          via?: string | null
+          youtube_video_id?: string
+        }
+        Relationships: []
+      }
       youtube_channel_stats: {
         Row: {
           channel_id: string
