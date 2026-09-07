@@ -158,13 +158,16 @@ async function proxyRequest(
       chunks.push(rbuf.slice(0, n));
     }
 
-    const raw = new TextDecoder().decode(concat(chunks));
-    const sep = raw.indexOf("\r\n\r\n");
-    const rawHead = sep === -1 ? raw : raw.slice(0, sep);
-    let body = sep === -1 ? "" : raw.slice(sep + 4);
+    // Header/body split and de-chunking must happen on BYTES: chunk sizes are
+    // byte counts, and slicing a decoded UTF-8 string by byte offsets corrupts
+    // every response containing multi-byte characters (i.e. all Hungarian text).
+    const rawBytes = concat(chunks);
+    const sep = indexOfSeq(rawBytes, [13, 10, 13, 10]);
+    const rawHead = new TextDecoder().decode(sep === -1 ? rawBytes : rawBytes.subarray(0, sep));
+    const bodyBytes = sep === -1 ? new Uint8Array(0) : rawBytes.subarray(sep + 4);
     const status = Number(rawHead.split(" ")[1] || 0);
-    if (/transfer-encoding:\s*chunked/i.test(rawHead)) body = dechunk(body);
-    return { status, body };
+    const finalBytes = /transfer-encoding:\s*chunked/i.test(rawHead) ? dechunk(bodyBytes) : bodyBytes;
+    return { status, body: new TextDecoder().decode(finalBytes) };
   } finally {
     clearTimeout(timer);
     try {
@@ -173,19 +176,29 @@ async function proxyRequest(
   }
 }
 
-function dechunk(body: string): string {
-  let out = "";
+function indexOfSeq(hay: Uint8Array, needle: number[], from = 0): number {
+  outer: for (let i = from; i <= hay.length - needle.length; i++) {
+    for (let j = 0; j < needle.length; j++) if (hay[i + j] !== needle[j]) continue outer;
+    return i;
+  }
+  return -1;
+}
+
+function dechunk(body: Uint8Array): Uint8Array {
+  const parts: Uint8Array[] = [];
   let i = 0;
   while (i < body.length) {
-    const nl = body.indexOf("\r\n", i);
+    const nl = indexOfSeq(body, [13, 10], i);
     if (nl === -1) break;
-    const size = parseInt(body.slice(i, nl).trim(), 16);
-    if (!Number.isFinite(size) || size === 0) break;
-    out += body.slice(nl + 2, nl + 2 + size);
-    i = nl + 2 + size + 2;
+    const size = parseInt(new TextDecoder().decode(body.subarray(i, nl)).trim(), 16);
+    if (!Number.isFinite(size) || size <= 0) break;
+    const end = Math.min(nl + 2 + size, body.length);
+    parts.push(body.subarray(nl + 2, end));
+    i = end + 2;
   }
-  return out;
+  return concat(parts);
 }
+
 
 async function directRequest(
   url: string,
