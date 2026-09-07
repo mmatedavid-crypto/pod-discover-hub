@@ -297,6 +297,9 @@ export async function fetchYoutubeCaption(
       });
 
     let player = await callPlayer();
+    if (Deno.env.get("YT_CAPTION_DEBUG")) {
+      console.log("player", { via, status: player.status, len: player.body.length, head: player.body.slice(0, 300) });
+    }
     if ((player.status === 400 || player.status === 403) && !usedWatchPage) {
       const keyErr = await loadKeyFromWatchPage();
       if (keyErr) return { ok: false, reason: keyErr, terminal: false, via };
