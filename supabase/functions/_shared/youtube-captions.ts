@@ -143,10 +143,21 @@ async function proxyRequest(
     const chunks: Uint8Array[] = [];
     const rbuf = new Uint8Array(65536);
     while (true) {
-      const n = await tls.read(rbuf);
+      let n: number | null;
+      try {
+        n = await tls.read(rbuf);
+      } catch (e) {
+        // YouTube closes the socket without a TLS close_notify. With
+        // "connection: close" that is the normal end of the response body, so
+        // treat an unexpected EOF as end-of-stream instead of a failure.
+        const msg = (e as any)?.message || String(e);
+        if (/close_notify|unexpected eof|BadResource|connection reset/i.test(msg) && chunks.length) break;
+        throw e;
+      }
       if (n === null) break;
       chunks.push(rbuf.slice(0, n));
     }
+
     const raw = new TextDecoder().decode(concat(chunks));
     const sep = raw.indexOf("\r\n\r\n");
     const rawHead = sep === -1 ? raw : raw.slice(0, sep);
