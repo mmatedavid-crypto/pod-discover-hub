@@ -1111,30 +1111,30 @@ async function buildEpisode(
   const epFaqs: Array<{ q: string; a: string }> = [];
   if (answerLead) {
     epFaqs.push({
-      q: `Miről szól a(z) „${epTitleText}” epizód?`,
-      a: `${answerLead}${podTitleText ? ` Az epizód a(z) ${podTitleText} magyar podcastben jelent meg${publishedHuman ? ` ${publishedHuman}` : ""}.` : ""}`,
+      q: `Miről szól ez az epizód: „${epTitleText}”?`,
+      a: `${answerLead}${podTitleText ? ` Az epizód a ${podTitleText} című magyar podcastben jelent meg${publishedHuman ? ` ${publishedHuman}` : ""}.` : ""}`,
     });
   }
   if (peopleNamesForFacts.length) {
     epFaqs.push({
-      q: `Kik szerepelnek vagy kiket említenek a(z) „${epTitleText}” epizódban?`,
+      q: `Kik szerepelnek vagy kiket említenek ebben az epizódban: „${epTitleText}”?`,
       a: `Az epizódban a következő nevek szerepelnek vagy hangzanak el: ${peopleNamesForFacts.join(", ")}.`,
     });
   }
   if (topicNamesForFacts.length) {
     epFaqs.push({
-      q: `Milyen témákat érint a(z) „${epTitleText}” epizód?`,
+      q: `Milyen témákat érint ez az epizód: „${epTitleText}”?`,
       a: `Fő témái: ${topicNamesForFacts.join(", ")}.`,
     });
   }
   if (publishedHuman || durationHuman) {
     epFaqs.push({
-      q: `Mikor jelent meg és milyen hosszú a(z) „${epTitleText}” epizód?`,
+      q: `Mikor jelent meg és milyen hosszú ez az epizód: „${epTitleText}”?`,
       a: `${publishedHuman ? `Megjelenés: ${publishedHuman}. ` : ""}${durationHuman ? `Hossz: ${durationHuman}. ` : ""}Az epizód a Podiverzumon hallgatható meg: ${canonical}`.trim(),
     });
   }
   const epFaqHtml = epFaqs.length >= 2
-    ? `<section aria-label="Gyakori kérdések"><h2>Gyakori kérdések a(z) „${esc(epTitleText)}” epizódról</h2>${epFaqs
+    ? `<section aria-label="Gyakori kérdések"><h2>Gyakori kérdések erről az epizódról: „${esc(epTitleText)}”</h2>${epFaqs
         .map((f) => `<details open><summary><strong>${esc(f.q)}</strong></summary><p>${esc(f.a)}</p></details>`)
         .join("")}</section>`
     : "";
