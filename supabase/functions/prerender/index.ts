@@ -1112,7 +1112,7 @@ async function buildEpisode(
   if (answerLead) {
     epFaqs.push({
       q: `Miről szól ez az epizód: „${epTitleText}”?`,
-      a: `${answerLead}${podTitleText ? ` Az epizód a ${podTitleText} című magyar podcastben jelent meg${publishedHuman ? `, ${publishedHuman}` : ""}.`.replace("podcastben", "podcast\u00adban".replace("\u00ad", "")) : ""}`,
+      a: `${answerLead}${podTitleText ? ` Az epizód a ${podTitleText} című magyar podcast egyik adása${publishedHuman ? `, megjelenés: ${publishedHuman}` : ""}.` : ""}`,
     });
   }
   if (peopleNamesForFacts.length) {
