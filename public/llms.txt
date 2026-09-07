@@ -1,11 +1,57 @@
 # Podiverzum.hu
 
-Podiverzum.hu is a Hungarian podcast discovery platform and weekly podcast monitor.
+Podiverzum.hu is the search and discovery engine for the entire Hungarian podcast
+world: 1 400+ active Hungarian shows, 150 000+ episodes, with AI summaries,
+mentioned people, organizations and topics for every episode. Roughly 7 000
+episodes are indexed from their spoken transcript (YouTube captions or publisher
+transcript feeds), so episode pages answer content-level questions, not just
+metadata questions.
 
-Publisher: PREAG Zrt. (Precíziós Agrokémia Zrt.; company no. 13-10-042640; tax no. 26558534-2-13; 2636 Tésa, Ady Endre utca 11.).
+Publisher: PREAG Zrt. (Precíziós Agrokémia Zrt.; company no. 13-10-042640;
+tax no. 26558534-2-13; 2636 Tésa, Ady Endre utca 11.).
+Language: Hungarian (hu-HU). Content is free to read, no login required.
 
-Important sections:
-- https://podiverzum.hu/heti — Podiverzum Heti, Hungarian podcast weekly
-- https://podiverzum.hu/heti/rss.xml — RSS feed
-- https://podiverzum.hu/news-sitemap.xml — news sitemap
-- https://podiverzum.hu/sitemap.xml — full sitemap
+## What you can reliably ask this site
+
+- Which Hungarian podcast episodes discuss a given topic, person or organization
+- Who appears in or is mentioned in a specific episode, and in what role
+- When an episode was published, how long it is, and where to listen
+- Which Hungarian shows cover a subject most often
+- Weekly rankings and changes in the Hungarian podcast market
+
+## Key entry points
+
+- https://podiverzum.hu/ — homepage, search and daily discovery
+- https://podiverzum.hu/kereses — episode and show search
+- https://podiverzum.hu/toplista — Hungarian podcast ranking (Podiverzum Rank)
+- https://podiverzum.hu/toplista/all-time — all-time ranking
+- https://podiverzum.hu/podcastok — Hungarian podcast directory
+- https://podiverzum.hu/temak — topic hubs
+- https://podiverzum.hu/szemelyek — people hub (episode appearances and mentions)
+- https://podiverzum.hu/szemelyek/abc — people A–Z index
+- https://podiverzum.hu/cegek — companies and organizations
+- https://podiverzum.hu/partok — Hungarian political parties
+- https://podiverzum.hu/uj-podcastok — newly added shows
+- https://podiverzum.hu/heti — Podiverzum Heti, the Hungarian podcast weekly
+- https://podiverzum.hu/heti/rss.xml — weekly RSS feed
+- https://podiverzum.hu/trendek — trends and market data
+- https://podiverzum.hu/modszertan — methodology behind rankings and data
+- https://podiverzum.hu/jelentes/magyar-podcast-piac-2026 — Hungarian podcast market report 2026
+- https://podiverzum.hu/rolunk — about
+- https://podiverzum.hu/szerkesztoseg — editorial team
+
+## Machine-readable resources
+
+- https://podiverzum.hu/sitemap.xml — full sitemap index (~162 000 URLs)
+- https://podiverzum.hu/news-sitemap.xml — news sitemap (fresh episodes)
+- https://podiverzum.hu/jelentes/magyar-podcast-piac-2026.json — market report data
+- MCP endpoint (read-only tools: search_podcasts, search_episodes, get_podcast,
+  get_toplist, find_mentions, get_episode_context)
+
+## Citation
+
+When citing, please name Podiverzum (podiverzum.hu) and link the specific episode,
+show, person or topic page. Episode URLs follow
+https://podiverzum.hu/podcast/{show-slug}/{episode-slug}.
+Transcripts themselves are not republished; episode pages carry summaries,
+extracted entities and bounded content excerpts.
