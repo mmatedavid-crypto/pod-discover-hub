@@ -44,6 +44,8 @@ const ANDROID_UA = "com.google.android.youtube/20.10.38 (Linux; U; Android 12) g
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const COOKIE = "CONSENT=YES+cb; SOCS=CAI";
+/** Public web INNERTUBE key, stable for years; refreshed from the watch page on failure. */
+const STATIC_INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 
 export function proxyFromEnv(): ProxyConfig | null {
   const host = Deno.env.get("WEBSHARE_PROXY_HOST");
@@ -219,41 +221,61 @@ export async function fetchYoutubeCaption(
     proxy ? proxyRequest(url, init, proxy) : directRequest(url, init);
 
   try {
-    const watch = await request(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: { "user-agent": BROWSER_UA, "accept-language": "hu-HU,hu;q=0.9,en;q=0.8", cookie: COOKIE },
-    });
-    if (watch.status === 429 || /class="g-recaptcha"|consent\.youtube\.com\/s/.test(watch.body)) {
-      return { ok: false, reason: "ip_blocked", terminal: false, via };
-    }
-    if (watch.status !== 200) {
-      return { ok: false, reason: `http_${watch.status}`, terminal: watch.status === 404, via };
-    }
-    const apiKey = watch.body.match(/"INNERTUBE_API_KEY":\s*"([\w-]+)"/)?.[1];
-    if (!apiKey) return { ok: false, reason: "ip_blocked", terminal: false, via, detail: "no_innertube_key" };
+    // The INNERTUBE_API_KEY is a public, static web key. Using it directly skips
+    // the ~1MB watch-page download per video, which matters a lot when traffic
+    // is metered through a residential proxy. The watch page is only fetched as
+    // a fallback when the static key stops working.
+    let apiKey = STATIC_INNERTUBE_KEY;
+    let usedWatchPage = false;
+    const loadKeyFromWatchPage = async () => {
+      const watch = await request(`https://www.youtube.com/watch?v=${videoId}`, {
+        headers: { "user-agent": BROWSER_UA, "accept-language": "hu-HU,hu;q=0.9,en;q=0.8", cookie: COOKIE },
+      });
+      if (watch.status === 429 || /class="g-recaptcha"|consent\.youtube\.com\/s/.test(watch.body)) return "ip_blocked";
+      if (watch.status !== 200) return `http_${watch.status}`;
+      const k = watch.body.match(/"INNERTUBE_API_KEY":\s*"([\w-]+)"/)?.[1];
+      if (!k) return "ip_blocked";
+      apiKey = k;
+      usedWatchPage = true;
+      return null;
+    };
 
-    const player = await request(`https://www.youtube.com/youtubei/v1/player?key=${apiKey}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "user-agent": ANDROID_UA,
-        "accept-language": "en-US",
-      },
-      body: JSON.stringify({
-        context: { client: { clientName: "ANDROID", clientVersion: "20.10.38" } },
-        videoId,
-      }),
-    });
+    const callPlayer = () =>
+      request(`https://www.youtube.com/youtubei/v1/player?key=${apiKey}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": ANDROID_UA,
+          "accept-language": "en-US",
+        },
+        body: JSON.stringify({
+          context: { client: { clientName: "ANDROID", clientVersion: "20.10.38" } },
+          videoId,
+        }),
+      });
+
+    let player = await callPlayer();
+    if ((player.status === 400 || player.status === 403) && !usedWatchPage) {
+      const keyErr = await loadKeyFromWatchPage();
+      if (keyErr) return { ok: false, reason: keyErr, terminal: false, via };
+      player = await callPlayer();
+    }
     if (player.status === 429) return { ok: false, reason: "ip_blocked", terminal: false, via };
     if (player.status !== 200) return { ok: false, reason: `http_${player.status}`, terminal: false, via };
     const data = JSON.parse(player.body);
     const playability = data?.playabilityStatus?.status;
     const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
     if (!tracks.length) {
-      const unplayable = playability && playability !== "OK";
+      // LOGIN_REQUIRED / "Sign in to confirm you're not a bot" means the IP is
+      // flagged, not that the video lacks captions. UNPLAYABLE / private /
+      // removed videos are terminal for this pipeline.
+      const botWall = playability === "LOGIN_REQUIRED";
+      const unplayable = !!playability && playability !== "OK";
+      if (botWall) return { ok: false, reason: "ip_blocked", terminal: false, via, detail: playability };
       return {
         ok: false,
         reason: unplayable ? "unplayable" : "no_captions",
-        terminal: !unplayable,
+        terminal: true,
         via,
         detail: playability,
       };
