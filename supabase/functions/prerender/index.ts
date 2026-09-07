@@ -760,7 +760,9 @@ async function buildEpisode(
     }),
   ]);
   const cleanText = stripHtml((cleanRow as any)?.cleaned_text || "");
-  const transcriptText = stripHtml((transcriptRow as any)?.transcript || "");
+  const transcriptText = stripHtml(
+    typeof transcriptRow === "string" ? transcriptRow : ((transcriptRow as any)?.transcript || ""),
+  );
   const rawDescText = stripHtml(ep.description);
 
   // Person JSON-LD: resolve episode.people[] names to canonical `people` rows,
