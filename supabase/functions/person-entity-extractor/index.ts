@@ -102,6 +102,14 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const limit = Math.min(Math.max(Number(body.limit) || 5000, 100), 20000);
+  // Cursor mode walks the WHOLE catalog over repeated runs (keyset on
+  // published_at DESC). Without it the runner only ever re-scanned the newest
+  // `limit` episodes, so older episodes never got person_episode_mentions rows.
+  const cursorMode = body.mode === "cursor" || body.cursor_mode === true;
+  const startedAt = Date.now();
+  const TIME_BUDGET_MS = Math.max(20000, Math.min(140000, Number(body.max_runtime_ms ?? 110000)));
+  const CURSOR_KEY = "person_entity_extractor_state";
+  const refreshTopicCounts = body.refresh_topic_counts === true || !cursorMode;
 
   const { data: runRow } = await supabase
     .from("entity_extraction_runs")
@@ -110,6 +118,9 @@ Deno.serve(async (req) => {
   const runId = (runRow as any)?.id;
 
   let scanned = 0, peopleCreated = 0, peopleUpdated = 0, topicMaps = 0;
+  let cursorStart: string | null = null;
+  let cursorEnd: string | null = null;
+  let cycleCompleted = false;
   const errors: string[] = [];
 
   try {
@@ -194,6 +205,10 @@ Deno.serve(async (req) => {
     const peopleByNorm = new Map<string, string>();
     const peopleByIdentity = new Map<string, string>();
     const peopleSlugById = new Map<string, string>();
+    // In cursor (windowed) mode we must NOT overwrite catalog-wide person
+    // counters/gating from a partial window; recompute_person_gated_counts()
+    // does that globally at the end of the run instead.
+    const existingPersonIds = new Set<string>(existing.map((p: any) => String(p.id)));
     existing.forEach((p: any) => {
       if (p.slug) peopleBySlug.set(p.slug, p.id);
       if (p.normalized_name) peopleByNorm.set(p.normalized_name, p.id);
@@ -274,20 +289,71 @@ Deno.serve(async (req) => {
     }
 
     // ---------- Episode pull, paged ----------
-    const PAGE = 500;
+    // Cursor pages stay small: the row payload includes ai_summary + evidence
+    // jsonb, and 500-row pages hit the PostgREST statement timeout.
+    const PAGE = cursorMode ? Math.max(50, Math.min(300, Number(body.page ?? 150))) : 500;
     let from = 0;
+    // Keyset on the primary key: no sort is needed, so pages stay well inside
+    // the PostgREST statement timeout (ordering 154k rows by published_at with
+    // an inner join did not).
+    let cursor: string | null = null;
+    if (cursorMode) {
+      const { data: stateRow } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", CURSOR_KEY)
+        .maybeSingle();
+      const raw = (stateRow?.value as any)?.last_episode_id;
+      cursor = raw ? String(raw) : null;
+      cursorStart = cursor;
+    }
     const episodeTopicRows: { episode_id: string; topic_id: string; confidence: number; source: string }[] = [];
     const podcastTopicTally = new Map<string, Map<string, { count: number; maxConf: number }>>(); // pod -> topic -> stats
 
+    // Cursor mode resolves the Hungarian podcast set up front and pages
+    // episodes on the primary key only. The embedded-join variant needed a sort
+    // over 154k rows and blew the 8s PostgREST statement timeout.
+    const huPodcastById = new Map<string, any>();
+    if (cursorMode) {
+      for (let off = 0; ; off += 1000) {
+        const { data: pods, error: podErr } = await supabase
+          .from("podcasts")
+          .select("id, language, language_decision, hosts, title")
+          .eq("language_decision", "accept_hungarian")
+          .order("id", { ascending: true })
+          .range(off, off + 999);
+        if (podErr) { errors.push(`podcast_cache: ${podErr.message}`); break; }
+        for (const p of pods || []) huPodcastById.set(String(p.id), p);
+        if (!pods || pods.length < 1000) break;
+      }
+    }
+
     while (scanned < limit) {
-      const { data: eps, error } = await supabase
-        .from("episodes")
-        .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, language_decision, hosts, title)")
-        .eq("podcasts.language_decision", "accept_hungarian")
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .range(from, from + PAGE - 1);
+      if (Date.now() - startedAt > TIME_BUDGET_MS) break;
+      let query = cursorMode
+        ? supabase
+          .from("episodes")
+          .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at")
+        : supabase
+          .from("episodes")
+          .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, language_decision, hosts, title)")
+          .eq("podcasts.language_decision", "accept_hungarian");
+      if (cursorMode) {
+        query = query.order("id", { ascending: true }).limit(PAGE);
+        if (cursor) query = query.gt("id", cursor);
+      } else {
+        query = query
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .range(from, from + PAGE - 1);
+      }
+      const { data: eps, error } = await query;
       if (error) { errors.push(error.message); break; }
-      if (!eps || eps.length === 0) break;
+      if (!eps || eps.length === 0) { if (cursorMode) cycleCompleted = true; break; }
+      if (cursorMode) {
+        const last = (eps as any[])[eps.length - 1]?.id;
+        if (last) { cursor = String(last); cursorEnd = cursor; }
+        for (const e of eps as any[]) e.podcasts = huPodcastById.get(String(e.podcast_id)) || null;
+      }
       const epIds = (eps as any[]).map((e: any) => e.id);
       const cleanRows: any[] = [];
       for (let c = 0; c < epIds.length; c += 100) {
@@ -448,6 +514,23 @@ Deno.serve(async (req) => {
       const meetsPublic = agg.maxConfidence >= 0.75 && (epCount >= 2 || isHost || inTitleAsGuest);
       // Indexable threshold
       const meetsIndex = epCount >= 2 || isHost;
+      // Windowed run: never downgrade an existing person from partial counts.
+      if (cursorMode && existingPersonIds.has(pid)) {
+        for (const m of agg.mentions as any[]) {
+          mentionRows.push({
+            person_id: pid,
+            ...m,
+            evidence: m.evidence || null,
+            role_type: roleTypeForMention(m.mention_type),
+            role_confidence: m.confidence,
+            source_evidence: m.source_evidence || {},
+          });
+        }
+        for (const [pod_id, r] of agg.podcastRoles) {
+          podcastRoleRows.push({ person_id: pid, podcast_id: pod_id, role: r.role, confidence: r.confidence, episode_count: r.count, latest_episode_at: r.latest });
+        }
+        continue;
+      }
       peopleRows.push({
         id: pid,
         name: agg.name,
@@ -481,14 +564,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Chunked upserts
-    async function chunkUpsert(table: string, rows: any[], onConflict?: string, chunkSize = 500) {
+    // Chunked upserts. Small chunks in cursor mode: 500-row upserts hit the
+    // PostgREST statement timeout on this catalog size.
+    const WRITE_CHUNK = cursorMode ? 50 : 500;
+    let writeErrors = 0;
+    async function chunkUpsert(table: string, rows: any[], onConflict?: string, chunkSize = WRITE_CHUNK) {
       let inserted = 0, updated = 0;
       for (let i = 0; i < rows.length; i += chunkSize) {
         const chunk = rows.slice(i, i + chunkSize);
         const q = supabase.from(table).upsert(chunk, onConflict ? { onConflict, ignoreDuplicates: false } : undefined);
         const { error } = await q;
-        if (error) errors.push(`${table}: ${error.message}`);
+        if (error) { errors.push(`${table}: ${error.message}`); writeErrors++; }
         else inserted += chunk.length;
       }
       return { inserted, updated };
@@ -539,30 +625,53 @@ Deno.serve(async (req) => {
     await chunkUpsert("podcast_topic_map", podcastTopicRows, "podcast_id,topic_id");
 
     // ---------- Refresh topic counters via direct SQL ----------
-    try {
-      // Recompute episode_count and podcast_count per topic from mapping tables, HU-gated.
-      const { data: topicIds } = await supabase.from("topics").select("id");
-      for (const t of (topicIds || []) as any[]) {
-        const { count: epCount } = await supabase
-          .from("episode_topic_map")
-          .select("episode_id, episodes!inner(podcast_id, podcasts!inner(language_decision))", { count: "exact", head: true })
-          .eq("topic_id", t.id)
-          .eq("episodes.podcasts.language_decision", "accept_hungarian");
-        const { count: podCount } = await supabase
-          .from("podcast_topic_map")
-          .select("podcast_id, podcasts!inner(language_decision)", { count: "exact", head: true })
-          .eq("topic_id", t.id)
-          .eq("podcasts.language_decision", "accept_hungarian");
-        const indexable = (podCount || 0) >= 5 || (epCount || 0) >= 15;
-        await supabase.from("topics").update({
-          episode_count: epCount || 0,
-          podcast_count: podCount || 0,
-          is_indexable: indexable,
-          updated_at: new Date().toISOString(),
-        }).eq("id", t.id);
+    if (refreshTopicCounts) {
+      try {
+        // Recompute episode_count and podcast_count per topic from mapping tables, HU-gated.
+        const { data: topicIds } = await supabase.from("topics").select("id");
+        for (const t of (topicIds || []) as any[]) {
+          const { count: epCount } = await supabase
+            .from("episode_topic_map")
+            .select("episode_id, episodes!inner(podcast_id, podcasts!inner(language_decision))", { count: "exact", head: true })
+            .eq("topic_id", t.id)
+            .eq("episodes.podcasts.language_decision", "accept_hungarian");
+          const { count: podCount } = await supabase
+            .from("podcast_topic_map")
+            .select("podcast_id, podcasts!inner(language_decision)", { count: "exact", head: true })
+            .eq("topic_id", t.id)
+            .eq("podcasts.language_decision", "accept_hungarian");
+          const indexable = (podCount || 0) >= 5 || (epCount || 0) >= 15;
+          await supabase.from("topics").update({
+            episode_count: epCount || 0,
+            podcast_count: podCount || 0,
+            is_indexable: indexable,
+            updated_at: new Date().toISOString(),
+          }).eq("id", t.id);
+        }
+      } catch (e) {
+        errors.push(`topic_count_refresh: ${e instanceof Error ? e.message : String(e)}`);
       }
-    } catch (e) {
-      errors.push(`topic_count_refresh: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    // ---------- Cursor persistence + global person recount ----------
+    if (cursorMode) {
+      // Do not advance past a window whose writes partly failed — the next run
+      // retries the same window instead of silently skipping episodes.
+      const nextCursor = cycleCompleted ? null : (writeErrors > 0 ? cursorStart : cursorEnd);
+      await supabase.from("app_settings").upsert({
+        key: CURSOR_KEY,
+        value: {
+          last_episode_id: nextCursor,
+          cycle_completed_at: cycleCompleted ? new Date().toISOString() : ((await supabase.from("app_settings").select("value").eq("key", CURSOR_KEY).maybeSingle()).data?.value as any)?.cycle_completed_at ?? null,
+          updated_at: new Date().toISOString(),
+        },
+      });
+      // Global recount is expensive; only run it when a full catalog sweep
+      // finished (or when explicitly requested).
+      if (cycleCompleted || body.recount === true) {
+        const { error: recountErr } = await supabase.rpc("recompute_person_gated_counts");
+        if (recountErr) errors.push(`recount: ${recountErr.message}`);
+      }
     }
 
     await supabase.from("entity_extraction_runs").update({
@@ -579,6 +688,7 @@ Deno.serve(async (req) => {
       ok: true, runId, scanned, peopleAggregated: personAgg.size, peopleRows: peopleRows.length,
       mentions: mentionRows.length, podcastRoles: podcastRoleRows.length,
       episodeTopicMaps: episodeTopicRows.length, podcastTopicMaps: podcastTopicRows.length,
+      cursor_mode: cursorMode, cursor_start: cursorStart, cursor_end: cursorEnd, cycle_completed: cycleCompleted,
       errors,
     }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e) {
