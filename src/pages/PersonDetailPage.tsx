@@ -47,7 +47,11 @@ interface Person {
   guest_count?: number | null;
   overview_sources?: any;
   occupation_labels?: string[] | null;
+  page_summary_hu?: string | null;
 }
+
+interface PersonFaq { question: string; answer: string }
+
 
 function hasVerifiedWiki(person: Pick<Person, "wikipedia_match_status">): boolean {
   return person.wikipedia_match_status === "verified";
@@ -117,15 +121,18 @@ export default function PersonDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [showSource, setShowSource] = useState(false);
+  const [faqs, setFaqs] = useState<PersonFaq[]>([]);
+
 
   useEffect(() => {
     if (!slug) return;
     (async () => {
       setLoading(true);
       setNotFound(false);
+      setFaqs([]);
       const { data: p } = await supabase
         .from("people")
-        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, overview_sources, occupation_labels, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes, date_of_death, is_living, participant_count, host_count, guest_count")
+        .select("id, name, slug, ai_bio, ai_bio_status, ai_bio_confidence, short_bio, overview_text, overview_sources, occupation_labels, page_summary_hu, wikipedia_url, wikipedia_title, wikipedia_match_status, wikipedia_match_confidence, wikipedia_extract, wikipedia_description, short_description_hu, image_url, image_original_url, image_attribution, image_license, episode_count, podcast_count, is_indexable, is_public, latest_episode_at, activation_status, ai_recommended_action, ai_review_status, disambiguation_label, disambiguation_context, identity_status, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, topic_figure_seeded, topic_figure_origin, editorial_notes, date_of_death, is_living, participant_count, host_count, guest_count")
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
@@ -238,6 +245,19 @@ export default function PersonDetailPage() {
       }
       setPerson(p as any);
 
+      // Grounded Q&A block for the person page (generated from indexed episodes).
+      const { data: faqRows } = await supabase
+        .from("person_faqs")
+        .select("question, answer, position")
+        .eq("person_id", (p as any).id)
+        .order("position", { ascending: true });
+      const faqList = ((faqRows || []) as any[])
+        .map((f) => ({ question: String(f.question || ""), answer: String(f.answer || "") }))
+        .filter((f) => f.question && f.answer);
+      setFaqs(faqList);
+
+
+
       const { data: mentions } = await supabase
         .from("person_episode_mentions")
         .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, display_title, slug, image_url, published_at, ai_summary, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision))")
@@ -321,6 +341,17 @@ export default function PersonDetailPage() {
           ],
         },
       ];
+      if (faqList.length >= 2) {
+        jsonLd.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqList.map((f) => ({
+            "@type": "Question",
+            name: f.question,
+            acceptedAnswer: { "@type": "Answer", text: f.answer },
+          })),
+        });
+      }
       if (verifiedWiki) {
         jsonLd.unshift({
           "@context": "https://schema.org",
@@ -453,7 +484,7 @@ export default function PersonDetailPage() {
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
         {(() => {
           const aiBioSafe = person.ai_bio_status === "published" && Number(person.ai_bio_confidence || 0) >= 0.75 ? person.ai_bio : null;
-          const verifiedBioText = person.overview_text || aiBioSafe || person.short_bio || person.wikipedia_extract;
+          const verifiedBioText = person.overview_text || aiBioSafe || person.short_bio || person.wikipedia_extract || person.page_summary_hu;
           const paragraphs = verifiedBioText ? String(verifiedBioText).split(/\n\n+/).map(s => s.trim()).filter(Boolean) : [];
           const sources: any[] = Array.isArray(person.overview_sources) ? person.overview_sources : [];
           const occupations: string[] = Array.isArray((person as any).occupation_labels) ? (person as any).occupation_labels : [];
@@ -562,6 +593,23 @@ export default function PersonDetailPage() {
               <EpisodeList items={eps.slice(0, 30)} showEntities />
             </section>
           )
+        )}
+
+        {faqs.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-3">Gyakori kérdések: {person.name}</h2>
+            <div className="space-y-3">
+              {faqs.map((f, i) => (
+                <details key={i} className="rounded-xl border border-border bg-card p-4" open={i === 0}>
+                  <summary className="cursor-pointer font-medium">{f.question}</summary>
+                  <p className="text-sm text-foreground/85 mt-2 leading-relaxed">{f.answer}</p>
+                </details>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              A válaszok a Podiverzum által indexelt epizódok adataiból készültek.
+            </p>
+          </section>
         )}
 
         {related.length > 0 && (

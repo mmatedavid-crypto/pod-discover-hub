@@ -3679,6 +3679,8 @@ export type Database = {
           overview_generated_at: string | null
           overview_sources: Json
           overview_text: string | null
+          page_summary_generated_at: string | null
+          page_summary_hu: string | null
           participant_count: number
           people_hub_score: number
           persona: string
@@ -3784,6 +3786,8 @@ export type Database = {
           overview_generated_at?: string | null
           overview_sources?: Json
           overview_text?: string | null
+          page_summary_generated_at?: string | null
+          page_summary_hu?: string | null
           participant_count?: number
           people_hub_score?: number
           persona?: string
@@ -3889,6 +3893,8 @@ export type Database = {
           overview_generated_at?: string | null
           overview_sources?: Json
           overview_text?: string | null
+          page_summary_generated_at?: string | null
+          page_summary_hu?: string | null
           participant_count?: number
           people_hub_score?: number
           persona?: string
@@ -4667,6 +4673,114 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_youtube_native_transcript_candidates"
             referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
+      person_faqs: {
+        Row: {
+          answer: string
+          generated_at: string
+          id: string
+          model: string | null
+          person_id: string
+          position: number
+          question: string
+        }
+        Insert: {
+          answer: string
+          generated_at?: string
+          id?: string
+          model?: string | null
+          person_id: string
+          position?: number
+          question: string
+        }
+        Update: {
+          answer?: string
+          generated_at?: string
+          id?: string
+          model?: string | null
+          person_id?: string
+          position?: number
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_faqs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
           },
         ]
       }
