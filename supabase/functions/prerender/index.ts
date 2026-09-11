@@ -772,13 +772,31 @@ async function buildEpisode(
     ? (ep.people as unknown[]).filter((n) => typeof n === "string" && (n as string).trim()).slice(0, 20) as string[]
     : [];
   let safeEpisodePeople: Array<Record<string, any>> = [];
-  if (isAcceptedHungarianPrerenderPodcast(pod) && episodePeopleNames.length) {
-    const { data: peopleRows } = await (supabase as any)
-      .from("people")
-      .select("id,name,slug,image_url,wikipedia_url,wikidata_id,wikipedia_match_status,wikipedia_match_confidence,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living,gated_episode_count,episode_count,short_description_hu,wikipedia_description,ai_bio,ai_bio_status,ai_bio_confidence")
-      .in("name", episodePeopleNames);
-    safeEpisodePeople = ((peopleRows || []) as any[]).filter(isSafePublicPerson);
+  const PERSON_PRERENDER_SELECT =
+    "id,name,slug,image_url,wikipedia_url,wikidata_id,wikipedia_match_status,wikipedia_match_confidence,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living,gated_episode_count,episode_count,short_description_hu,wikipedia_description,ai_bio,ai_bio_status,ai_bio_confidence";
+  if (isAcceptedHungarianPrerenderPodcast(pod)) {
+    // Two resolution paths, unioned: (a) raw people[] names matched on people.name,
+    // (b) canonical person_episode_mentions rows (alias-resolved by the extractor),
+    // which cover episodes where the raw name string differs from the canonical name.
+    const [byName, byMention] = await Promise.all([
+      episodePeopleNames.length
+        ? (supabase as any).from("people").select(PERSON_PRERENDER_SELECT).in("name", episodePeopleNames)
+        : Promise.resolve({ data: [] }),
+      (supabase as any)
+        .from("person_episode_mentions")
+        .select(`person_id, people!inner(${PERSON_PRERENDER_SELECT})`)
+        .eq("episode_id", ep.id)
+        .limit(40),
+    ]);
+    const merged = new Map<string, Record<string, any>>();
+    for (const row of ((byName as any)?.data || []) as any[]) if (row?.id) merged.set(row.id, row);
+    for (const row of ((byMention as any)?.data || []) as any[]) {
+      const p = row?.people;
+      if (p?.id && !merged.has(p.id)) merged.set(p.id, p);
+    }
+    safeEpisodePeople = [...merged.values()].filter(isSafePublicPerson).slice(0, 25);
   }
+
   const episodePersonJsonLd = safeEpisodePeople.map((p) => {
     const sameAs: string[] = [];
     if (typeof p.wikipedia_url === "string" && p.wikipedia_url) sameAs.push(p.wikipedia_url);
