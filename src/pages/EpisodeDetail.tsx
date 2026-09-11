@@ -48,6 +48,8 @@ export default function EpisodeDetail() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [moreFromPod, setMoreFromPod] = useState<EpisodeLite[]>([]);
+  const [personLinks, setPersonLinks] = useState<{ name: string; slug: string }[]>([]);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { playerVisible: smartPlayerVisible, play, toggle, currentEpisode, isPlaying, seekTo } = useSmartPlayer();
   const location = useLocation();
@@ -159,15 +161,36 @@ export default function EpisodeDetail() {
         ? (e.people as string[]).filter((n) => typeof n === "string" && n.trim()).slice(0, 20)
         : [];
       let safePeople: any[] = [];
-      if (isAcceptedHungarian && peopleNames.length) {
-        const { data: peopleRows } = await supabase
-          .from("people")
-          .select(PERSON_JSONLD_SELECT)
-          .in("name", peopleNames);
-        safePeople = (peopleRows || []).filter(isSafeIndexablePerson);
+      if (isAcceptedHungarian) {
+        // Union of (a) raw people[] names matched on people.name and (b) canonical
+        // person_episode_mentions rows (alias-resolved), so every recognised person
+        // gets a real /szemelyek/<slug> link instead of a guessed slug.
+        const [byName, byMention] = await Promise.all([
+          peopleNames.length
+            ? supabase.from("people").select(PERSON_JSONLD_SELECT).in("name", peopleNames)
+            : Promise.resolve({ data: [] as any[] } as any),
+          supabase
+            .from("person_episode_mentions")
+            .select(`person_id, people!inner(${PERSON_JSONLD_SELECT})`)
+            .eq("episode_id", e.id)
+            .limit(40),
+        ]);
+        const merged = new Map<string, any>();
+        for (const row of ((byName as any)?.data || []) as any[]) if (row?.id) merged.set(row.id, row);
+        for (const row of ((byMention as any)?.data || []) as any[]) {
+          const pr = (row as any)?.people;
+          if (pr?.id && !merged.has(pr.id)) merged.set(pr.id, pr);
+        }
+        safePeople = [...merged.values()].filter(isSafeIndexablePerson).slice(0, 25);
       }
       const personJsonLd = safePeople.map((row) => buildPersonJsonLd(row, origin));
       const personMentions = safePeople.map((row) => personMentionRef(row, origin));
+      setPersonLinks(
+        safePeople
+          .filter((row) => row.slug && row.name)
+          .map((row) => ({ name: String(row.name), slug: String(row.slug) })),
+      );
+
 
       setSeo({
         title: dailySeries?.title || safeSeoTitle || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
