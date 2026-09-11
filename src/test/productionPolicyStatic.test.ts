@@ -1136,7 +1136,7 @@ describe("production policy static guards", () => {
     expect(searchPage).toContain("buildPersonCardContextLine");
     expect(searchPage).toContain("function isSafeSearchPerson");
     expect(searchPage).toContain("personPin?.slug && isSafeSearchPerson(personPin)");
-    expect(searchPage).toContain('.in("activation_status", ["indexable", "manual_approved"])');
+    expect(searchPage).toContain('.in("activation_status", ["indexable", "manual_approved", "active"])');
     expect(searchPage).not.toContain("personPin.short_bio || personPin.disambiguation_label");
     expect(searchPage).not.toContain("<p className=\"text-sm text-muted-foreground line-clamp-2 mt-1.5\">{heroPerson.short_bio}</p>");
     expect(searchHybrid).toContain("function isSafePublicPerson");
