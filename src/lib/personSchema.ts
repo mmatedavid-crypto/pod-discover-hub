@@ -18,7 +18,9 @@ function hasTrustedIdentity(p: P) {
 export function isSafeIndexablePerson(p: P | null | undefined): boolean {
   if (!p) return false;
   if (p.is_public === false || p.is_indexable === false) return false;
-  if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
+  // Auto-activated people carry activation_status='active' (recompute_person_gated_counts).
+  if (!["indexable", "manual_approved", "active", null, undefined].includes(p.activation_status)) return false;
+
   if (["hide", "reject"].includes(String(p.ai_recommended_action || ""))) return false;
   if (["needs_human_review", "duplicate_candidate"].includes(String(p.ai_review_status || ""))) return false;
   if (p.identity_status === "split_resolved") return false;

@@ -177,7 +177,10 @@ function hasTrustedPersonIdentity(person: Record<string, unknown>): boolean {
 
 function isSafePublicPerson(person: Record<string, unknown>): boolean {
   if (!person || person.is_public === false || person.is_indexable === false) return false;
-  if (!["indexable", "manual_approved", null, undefined].includes(person.activation_status as any)) return false;
+  // `recompute_person_gated_counts()` sets activation_status='active' on auto-activated
+  // people, so "active" must count as an allowed state here too.
+  if (!["indexable", "manual_approved", "active", null, undefined].includes(person.activation_status as any)) return false;
+
   if (["hide", "reject"].includes(String(person.ai_recommended_action || ""))) return false;
   if (["needs_human_review", "duplicate_candidate"].includes(String(person.ai_review_status || ""))) return false;
   if (person.identity_status === "split_resolved") return false;

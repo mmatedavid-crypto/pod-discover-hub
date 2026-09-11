@@ -97,7 +97,7 @@ function sanitizeSearchWhy(reason: unknown): string | null {
 
 function isSafeSearchPerson(p: any): boolean {
   if (!p || p.is_public !== true || p.is_indexable !== true) return false;
-  if (!["indexable", "manual_approved", null, undefined].includes(p.activation_status)) return false;
+  if (!["indexable", "manual_approved", "active", null, undefined].includes(p.activation_status)) return false;
   if (["hide", "reject"].includes(p.ai_recommended_action || "")) return false;
   if (["needs_human_review", "duplicate_candidate"].includes(p.ai_review_status || "")) return false;
   if (p.identity_status === "split_resolved") return false;
@@ -200,7 +200,7 @@ export default function SearchPage() {
         .ilike("normalized_name", `%${phraseNorm.replace(/[%_]/g, " ")}%`)
         .eq("is_public", true)
         .eq("is_indexable", true)
-        .in("activation_status", ["indexable", "manual_approved"])
+        .in("activation_status", ["indexable", "manual_approved", "active"])
         .order("gated_episode_count", { ascending: false, nullsFirst: false })
         .limit(5);
       if (cancelled || !data?.length) return;
