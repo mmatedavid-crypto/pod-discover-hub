@@ -1325,7 +1325,7 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, short_description_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
+    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, page_summary_hu, short_description_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
@@ -1381,8 +1381,19 @@ async function buildPerson(
     personTopics = [...m.values()].sort((a, b) => b.count - a.count).slice(0, 12);
   }
 
+  // Grounded Q&A (person-page-enricher) → FAQ section + FAQPage structured data.
+  const { data: faqRows } = await (supabase as any)
+    .from("person_faqs")
+    .select("question, answer, position")
+    .eq("person_id", person.id)
+    .order("position", { ascending: true });
+  const personFaqs = ((faqRows ?? []) as any[])
+    .map((f) => ({ q: String(f.question || "").trim(), a: String(f.answer || "").trim() }))
+    .filter((f) => f.q.length > 5 && f.a.length > 10)
+    .slice(0, 6);
+
   const canonical = `${SITE}/${urlPrefix}/${slug}`;
-  const bio = safePersonBioForPrerender(person);
+  const bio = safePersonBioForPrerender(person) || String(person.page_summary_hu || "").trim();
   const seoLead = safePersonSeoLeadForPrerender(person) || firstSeoSentence(bio);
   const trustedIdentity = hasTrustedPersonIdentity(person);
   const safeImage = safePersonImageForPrerender(person);
@@ -1467,18 +1478,40 @@ async function buildPerson(
       { "@type": "ListItem", position: 3, name: person.name, item: canonical },
     ],
   };
+  const personFaqLd = personFaqs.length >= 2
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: personFaqs.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      }
+    : null;
+  const personFaqHtml = personFaqs.length >= 2
+    ? `<section aria-label="Gyakori kérdések"><h2>Gyakori kérdések: ${esc(person.name)}</h2>${personFaqs
+        .map((f) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`)
+        .join("")}</section>`
+    : "";
 
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage: safeImage,
-      jsonLd: itemList ? [personLd, itemList, breadcrumb] : [personLd, breadcrumb],
+      jsonLd: [
+        personLd,
+        ...(itemList ? [itemList] : []),
+        ...(personFaqLd ? [personFaqLd] : []),
+        breadcrumb,
+      ],
       noindex,
       bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
 <main><h2>Epizódok, amelyekben ${esc(person.name)} ${esc(relation)}</h2><ul>${html}</ul>
 ${showsHtml}
 ${topicsHtml}
+${personFaqHtml}
 <nav><a href="${SITE}/szemelyek">Összes személy</a> · <a href="${SITE}/szemelyek/abc">Személyek A–Z</a> · <a href="${SITE}/temak">Témák</a> · <a href="${SITE}/podcastok">Magyar podcastok</a></nav></main>`,
     })),
 
