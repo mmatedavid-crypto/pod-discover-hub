@@ -177,7 +177,10 @@ function hasTrustedPersonIdentity(person: Record<string, unknown>): boolean {
 
 function isSafePublicPerson(person: Record<string, unknown>): boolean {
   if (!person || person.is_public === false || person.is_indexable === false) return false;
-  if (!["indexable", "manual_approved", null, undefined].includes(person.activation_status as any)) return false;
+  // `recompute_person_gated_counts()` sets activation_status='active' on auto-activated
+  // people, so "active" must count as an allowed state here too.
+  if (!["indexable", "manual_approved", "active", null, undefined].includes(person.activation_status as any)) return false;
+
   if (["hide", "reject"].includes(String(person.ai_recommended_action || ""))) return false;
   if (["needs_human_review", "duplicate_candidate"].includes(String(person.ai_review_status || ""))) return false;
   if (person.identity_status === "split_resolved") return false;
@@ -772,13 +775,31 @@ async function buildEpisode(
     ? (ep.people as unknown[]).filter((n) => typeof n === "string" && (n as string).trim()).slice(0, 20) as string[]
     : [];
   let safeEpisodePeople: Array<Record<string, any>> = [];
-  if (isAcceptedHungarianPrerenderPodcast(pod) && episodePeopleNames.length) {
-    const { data: peopleRows } = await (supabase as any)
-      .from("people")
-      .select("id,name,slug,image_url,wikipedia_url,wikidata_id,wikipedia_match_status,wikipedia_match_confidence,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living,gated_episode_count,episode_count,short_description_hu,wikipedia_description,ai_bio,ai_bio_status,ai_bio_confidence")
-      .in("name", episodePeopleNames);
-    safeEpisodePeople = ((peopleRows || []) as any[]).filter(isSafePublicPerson);
+  const PERSON_PRERENDER_SELECT =
+    "id,name,slug,image_url,wikipedia_url,wikidata_id,wikipedia_match_status,wikipedia_match_confidence,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living,gated_episode_count,episode_count,short_description_hu,wikipedia_description,ai_bio,ai_bio_status,ai_bio_confidence";
+  if (isAcceptedHungarianPrerenderPodcast(pod)) {
+    // Two resolution paths, unioned: (a) raw people[] names matched on people.name,
+    // (b) canonical person_episode_mentions rows (alias-resolved by the extractor),
+    // which cover episodes where the raw name string differs from the canonical name.
+    const [byName, byMention] = await Promise.all([
+      episodePeopleNames.length
+        ? (supabase as any).from("people").select(PERSON_PRERENDER_SELECT).in("name", episodePeopleNames)
+        : Promise.resolve({ data: [] }),
+      (supabase as any)
+        .from("person_episode_mentions")
+        .select(`person_id, people!inner(${PERSON_PRERENDER_SELECT})`)
+        .eq("episode_id", ep.id)
+        .limit(40),
+    ]);
+    const merged = new Map<string, Record<string, any>>();
+    for (const row of ((byName as any)?.data || []) as any[]) if (row?.id) merged.set(row.id, row);
+    for (const row of ((byMention as any)?.data || []) as any[]) {
+      const p = row?.people;
+      if (p?.id && !merged.has(p.id)) merged.set(p.id, p);
+    }
+    safeEpisodePeople = [...merged.values()].filter(isSafePublicPerson).slice(0, 25);
   }
+
   const episodePersonJsonLd = safeEpisodePeople.map((p) => {
     const sameAs: string[] = [];
     if (typeof p.wikipedia_url === "string" && p.wikipedia_url) sameAs.push(p.wikipedia_url);
@@ -923,12 +944,24 @@ async function buildEpisode(
     },
     {
       label: "Személyek",
-      vals: Array.isArray(ep.people) ? (ep.people as string[]) : [],
+      // Raw people[] names first, then canonical people resolved from mentions
+      // (alias-matched) that the raw array didn't contain — so every recognised
+      // person on the episode gets a real internal link.
+      vals: (() => {
+        const raw = (Array.isArray(ep.people) ? (ep.people as string[]) : []).filter((v) => typeof v === "string" && v.trim());
+        const seen = new Set(raw.map((v) => v.trim().toLowerCase()));
+        for (const p of safeEpisodePeople) {
+          const n = String(p.name || "").trim();
+          if (n && !seen.has(n.toLowerCase())) { raw.push(n); seen.add(n.toLowerCase()); }
+        }
+        return raw;
+      })(),
       href: (v) => {
         const sl = personSlugByName.get(v);
         return sl ? `${SITE}/szemelyek/${sl}` : null;
       },
     },
+
     {
       label: "Szervezetek, cégek",
       vals: episodeCompanyNames,
@@ -1325,7 +1358,7 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, page_summary_hu, short_description_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
+    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, short_description_hu, page_summary_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
@@ -1923,7 +1956,7 @@ ${hubCrossLinks(kind)}`,
       .select("name, slug, short_bio, short_description_hu, image_url, gated_episode_count, episode_count, is_public, is_indexable, activation_status, ai_recommended_action, ai_review_status, identity_status, identity_ambiguous, manual_approved, wikipedia_match_status, wikipedia_match_confidence, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count")
       .eq("is_public", true)
       .eq("is_indexable", true)
-      .in("activation_status", ["indexable", "manual_approved"])
+      .in("activation_status", ["indexable", "manual_approved", "active"])
       .gt("gated_episode_count", 0)
       .order("gated_episode_count", { ascending: false })
       .limit(160);
