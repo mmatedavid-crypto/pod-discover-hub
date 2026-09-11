@@ -941,12 +941,24 @@ async function buildEpisode(
     },
     {
       label: "Személyek",
-      vals: Array.isArray(ep.people) ? (ep.people as string[]) : [],
+      // Raw people[] names first, then canonical people resolved from mentions
+      // (alias-matched) that the raw array didn't contain — so every recognised
+      // person on the episode gets a real internal link.
+      vals: (() => {
+        const raw = (Array.isArray(ep.people) ? (ep.people as string[]) : []).filter((v) => typeof v === "string" && v.trim());
+        const seen = new Set(raw.map((v) => v.trim().toLowerCase()));
+        for (const p of safeEpisodePeople) {
+          const n = String(p.name || "").trim();
+          if (n && !seen.has(n.toLowerCase())) { raw.push(n); seen.add(n.toLowerCase()); }
+        }
+        return raw;
+      })(),
       href: (v) => {
         const sl = personSlugByName.get(v);
         return sl ? `${SITE}/szemelyek/${sl}` : null;
       },
     },
+
     {
       label: "Szervezetek, cégek",
       vals: episodeCompanyNames,
