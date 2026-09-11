@@ -1358,7 +1358,7 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, page_summary_hu, short_description_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
+    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, short_description_hu, page_summary_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
   if (!person || person.is_public === false) return null;
