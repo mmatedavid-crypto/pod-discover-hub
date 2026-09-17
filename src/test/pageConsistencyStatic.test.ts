@@ -885,7 +885,7 @@ describe("page consistency static guards", () => {
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
     expect(search).toContain("sanitizeHungarianPublicText(heroOrganization.short_bio)");
     expect(search).toContain("sanitizeHungarianPublicText(heroTopic.short_bio)");
-    expect(categories).toContain("const description = sanitizeHungarianPublicText(c.description)");
+    expect(categories).toContain("description: sanitizeHungarianPublicText(c.description)");
     expect(trending).toContain("sanitizeHungarianPublicText(p.summary)");
     expect(orgCard).toContain("const t = sanitizeHungarianPublicText(raw)");
     expect(personCard).toContain("const contextLine = sanitizeHungarianPublicText(p.context_line)");
