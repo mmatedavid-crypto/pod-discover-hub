@@ -108,9 +108,28 @@ Külső ellenőrzés az éles domainen, Googlebot felhasználói ügynökkel:
 - Emberi böngésző: 200-as SPA. robots.txt, sitemap.xml: 200.
 - www.podiverzum.hu: 301 a www nélküli címre, útvonal megtartva.
 
+## Resend DNS-hitelesítés (2026. szeptember 17.)
+
+A `hello@podiverzum.hu` feladóhoz szükséges Resend DNS-rekordokat a
+`podiverzum.hu` zónában állítottuk be a frissített Cloudflare API tokennel:
+
+- `TXT resend._domainkey.podiverzum.hu` — DKIM kulcs a Resend által megadott
+  értékkel.
+- `MX send.podiverzum.hu` — `feedback-smtp.eu-west-1.amazonses.com`, prioritás 10.
+- `TXT send.podiverzum.hu` — `v=spf1 include:amazonses.com ~all`.
+- `CNAME rsend.podiverzum.hu` — `send.forge.rmta.net`, DNS-only (nem proxied).
+
+A meglévő iCloud levelezési rekordok (MX `mx01/mx02.mail.icloud.com`, SPF,
+Apple DKIM, Google site verification, `_dmarc`) érintetlenek maradtak. A
+publikus DNS-lekérdezések (Cloudflare 1.1.1.1) az összes új rekordot azonnal
+visszaadták; ütközés vagy duplikáció nem volt. A Resend oldali „sending enabled"
+állapotot a felhasználó indítja a saját csatlakoztatott Resend eszközön; a
+projekt nem küldött teszt- vagy éles levelet.
+
 ## Fennmaradó blokkoló
 
-Nincs. A teljes csomag éles: frontend közzétéve, prerender telepítve, Worker élesítve.
+Nincs. A teljes csomag éles: frontend közzétéve, prerender telepítve, Worker
+élesítve, Resend DNS-rekordok beállítva.
 
 ## Országos növekedés: következő 90 nap
 
