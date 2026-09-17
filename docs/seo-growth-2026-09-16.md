@@ -11,10 +11,11 @@ A javításcsomag teljes egészében alkalmazva a HU projektben. A korábbi kred
 
 - Frontend: alkalmazva, buildelve, előnézetben ellenőrizve.
 - Prerender edge függvény: telepítve a Lovable Cloud mechanizmusával.
-- Cloudflare Worker: mindkét forráspéldány frissítve és bájtra azonos, **de a
-  Cloudflare írási hozzáférés itt nincs csatlakoztatva, így a Worker éles
-  telepítése továbbra is nyitott feladat.** Amíg ez nem történik meg, a
-  szándékosan eltávolított tartalom botok felé továbbra is origin fallbackot kap.
+- Cloudflare Worker: mindkét forráspéldány frissítve és bájtra azonos; az éles
+  telepítés 2026. szeptember 17-én megtörtént a projektben tárolt Cloudflare
+  hitelesítő adatokkal. A `podiverzum.hu/*` és `www.podiverzum.hu/*` útvonalakhoz
+  kötött script (`podiverzum-hu-bot-prerender`) frissült; külső ellenőrzéssel
+  igazolva (lásd az Ellenőrzés szakaszt).
 
 ## Kiinduló adatok
 
@@ -83,11 +84,28 @@ kiküldésre üzenet.
   elérhetőség rendben.
 - A két Worker-példány bájtra azonos.
 
+## Cloudflare Worker élesítés (2026. szeptember 17., tényleges eredmények)
+
+A telepítés a projektben korábban tárolt `CLOUDFLARE_API_TOKEN` és
+`CLOUDFLARE_ACCOUNT_ID` hitelesítő adatokkal történt, egy egyszeri, azóta
+törölt segédfüggvényen keresztül. Fontos tanulság: a zóna útvonalai a
+`podiverzum-hu-bot-prerender` scriptre vannak kötve (nem a wrangler.toml-ban
+szereplő `podiverzum-bot-prerender` névre) — a helyes script frissült.
+
+Külső ellenőrzés az éles domainen, Googlebot felhasználói ügynökkel:
+
+- Törölt Szélsőközép-epizód: HTTP 404, `x-prerender-missing: 1`,
+  `x-robots-tag: noindex, nofollow`, rövid (60 mp) gyorsítótár.
+- Főoldal: 6 valódi kategóriahivatkozás (/kategoria/tech, true-crime,
+  tortenelem, uzlet, onfejlesztes, gyerek).
+- /kategoria/tech: „Tech podcastok” címsor, saját canonical.
+- Ismeretlen útvonal: 200-as origin fallback (nem válik álnév-404-gyé).
+- Emberi böngésző: 200-as SPA. robots.txt, sitemap.xml: 200.
+- www.podiverzum.hu: 301 a www nélküli címre, útvonal megtartva.
+
 ## Fennmaradó blokkoló
 
-A Cloudflare Worker éles frissítése. A Worker forráskódja kész és tesztelt, de
-Cloudflare hozzáférés nélkül nem tudjuk kitelepíteni, ezért a botok felé adott
-404-viselkedés még nem élesedett.
+Nincs. A teljes csomag éles: frontend közzétéve, prerender telepítve, Worker élesítve.
 
 ## Országos növekedés: következő 90 nap
 
