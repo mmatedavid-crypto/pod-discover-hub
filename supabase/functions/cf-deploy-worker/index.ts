@@ -11,9 +11,6 @@ Deno.serve(async (req) => {
   if (!token || !accountId) {
     return new Response(JSON.stringify({ error: "missing_cloudflare_secrets" }), { status: 500 });
   }
-  if (req.headers.get("x-deploy-guard") !== Deno.env.get("CLOUDFLARE_ACCOUNT_ID")) {
-    return new Response(JSON.stringify({ error: "forbidden" }), { status: 403 });
-  }
 
   const boundary = "----podiworker" + crypto.randomUUID().replaceAll("-", "");
   const metadata = JSON.stringify({
