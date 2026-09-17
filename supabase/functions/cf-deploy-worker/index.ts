@@ -40,8 +40,9 @@ Deno.serve(async (req) => {
     "worker.js",
   );
 
+  const targetName = u.searchParams.get("name") ?? WORKER_NAME;
   const resp = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${WORKER_NAME}`,
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${targetName}`,
     {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}` },
