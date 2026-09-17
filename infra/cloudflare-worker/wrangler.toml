@@ -1,4 +1,4 @@
-name = "podiverzum-bot-prerender"
+name = "podiverzum-hu-bot-prerender" # HU prerender worker. FIGYELEM: a "podiverzum-bot-prerender" (hu nélkül) a .com→.hu 301 redirector, SOHA ne töltsd fel rá ezt a kódot!
 main = "worker.js"
 compatibility_date = "2025-01-01"
 
