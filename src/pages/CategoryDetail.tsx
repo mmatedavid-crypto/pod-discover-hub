@@ -15,6 +15,8 @@ import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
+import { categoryHeading, categoryIntro, categoryTitle, categoryMetaDescription } from "@/lib/categoryCopy";
+import { discoveryCategories, type DiscoveryCategory } from "@/lib/discoveryNavigation";
 import NotFoundState from "@/components/NotFoundState";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
@@ -33,6 +35,7 @@ export default function CategoryDetail() {
   const [episodes, setEpisodes] = useState<EpisodeLite[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [relatedCategories, setRelatedCategories] = useState<DiscoveryCategory[]>([]);
 
   const redirectTo = slug ? CATEGORY_REDIRECTS[slug] : undefined;
 
@@ -48,30 +51,40 @@ export default function CategoryDetail() {
   useEffect(() => { setQ(queryParam); }, [queryParam]);
 
   useEffect(() => {
+    let cancelled = false;
+    supabase.from("categories").select("name,slug,active").eq("active", true).order("sort_order")
+      .then(({ data }) => { if (!cancelled) setRelatedCategories((data || []) as DiscoveryCategory[]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     if (!slug || redirectTo) return;
     (async () => {
       setLoading(true);
-      const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).maybeSingle();
+      const { data: c } = await supabase.from("categories").select("*").eq("slug", slug).eq("active", true).maybeSingle();
       setCat(c);
       setLoading(false);
       if (!c) return;
       const seoTitle = sanitizeHungarianPublicText(c.seo_title);
       const seoDescription = sanitizeHungarianPublicText(c.seo_description);
+      const copyInput = { name: c.name, slug: c.slug, description: sanitizeHungarianPublicText(c.description), seoTitle, seoDescription };
+      const canonical = `https://podiverzum.hu/kategoria/${c.slug}`;
       setSeo({
-        title: seoTitle || `${c.name} podcastok és epizódok — Podiverzum`,
-        description: seoDescription || `Válogatás a legjobb ${c.name} podcast epizódokból. A sorrendet a relevancia és a frissesség adja.`,
+        title: categoryTitle(copyInput),
+        description: categoryMetaDescription(copyInput),
+        canonical,
         jsonLd: [
           {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
             name: `${c.name} podcast epizódok`,
             about: { "@type": "Thing", name: c.name },
-            url: typeof window !== "undefined" ? window.location.href : undefined,
+            url: canonical,
           },
           breadcrumbJsonLd([
-            { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-            { name: "Kategóriák", url: typeof window !== "undefined" ? `${window.location.origin}/kategoriak` : "/kategoriak" },
-            { name: c.name, url: typeof window !== "undefined" ? window.location.href : "" },
+            { name: "Kezdőlap", url: "https://podiverzum.hu/" },
+            { name: "Kategóriák", url: "https://podiverzum.hu/kategoriak" },
+            { name: c.name, url: canonical },
           ]),
         ],
       });
@@ -218,10 +231,21 @@ export default function CategoryDetail() {
   return (
     <Layout>
       <div className="container mx-auto py-10">
-        <h1 className="text-3xl font-semibold">{cat.name}</h1>
-        <p className="text-muted-foreground mt-1">
-          A legfrissebb {cat.name} podcast epizódok, relevancia és frissesség szerint rendezve.
+        <nav aria-label="Morzsamenü" className="mb-4 flex flex-wrap gap-2 text-sm text-muted-foreground">
+          <Link to="/" className="hover:underline">Kezdőlap</Link><span aria-hidden="true">/</span>
+          <Link to="/kategoriak" className="hover:underline">Kategóriák</Link><span aria-hidden="true">/</span>
+          <span aria-current="page">{cat.name}</span>
+        </nav>
+        <h1 className="text-3xl font-semibold">{categoryHeading(cat)}</h1>
+        <p className="mt-3 max-w-3xl leading-relaxed text-muted-foreground">
+          {categoryIntro({ name: cat.name, slug: cat.slug, description: sanitizeHungarianPublicText(cat.description) })}
         </p>
+        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Válogass a műsorok és a friss epizódok között, vagy keress a kategórián belül.</p>
+        <nav aria-label="További podcast kategóriák" className="mt-4 flex flex-wrap gap-2">
+          {discoveryCategories(relatedCategories, cat.slug).map((c) => (
+            <Link key={c.slug} to={`/kategoria/${c.slug}`} className="rounded-full border border-border px-3 py-2 text-sm hover:text-primary">{c.name}</Link>
+          ))}
+        </nav>
 
         {/* Category-scoped search */}
         <form onSubmit={submitSearch} className="relative max-w-2xl mt-6">

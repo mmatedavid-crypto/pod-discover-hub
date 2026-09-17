@@ -6,6 +6,7 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2, TrendingUp, Rss } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { HOME_INTRO, HOME_DESCRIPTION } from "@/lib/discoveryNavigation";
 import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 // Homepage-local editorial scoring (does NOT touch lib/episodeRank used elsewhere).
 //
@@ -350,7 +351,7 @@ const Index = () => {
     (async () => {
       try {
         const [catsRes, homepageRailsRes] = await Promise.all([
-          supabase.from("categories").select("*").order("sort_order"),
+          supabase.from("categories").select("*").eq("active", true).order("sort_order"),
           supabase
             .rpc("get_homepage_rails_with_images_v1" as never, {
               _trending_limit: 8,
@@ -609,10 +610,10 @@ const Index = () => {
           </h1>
 
           <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Keress úgy, ahogy gondolkodsz: téma, személy, műsor, hangulat vagy gondolat alapján.
+            {HOME_INTRO}
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            A Podiverzum az epizódok tartalma alapján mutatja meg, mit érdemes meghallgatni.
+            {HOME_DESCRIPTION}
           </p>
           {!hasSearched && q.length === 0 && (
             <div className="mt-5 sm:mt-7 max-w-2xl animate-fade-up">
@@ -748,7 +749,7 @@ const Index = () => {
         <Suspense fallback={null}>
           <TrendingPodcasts />
           <MostFelfedezve />
-          <HomeDiscoveryShortcuts />
+          <HomeDiscoveryShortcuts categories={cats} />
           <WeeklyEditorialStrip />
           <MyLibraryRails />
           <ContinueListening />
