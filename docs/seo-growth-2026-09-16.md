@@ -87,10 +87,15 @@ kiküldésre üzenet.
 ## Cloudflare Worker élesítés (2026. szeptember 17., tényleges eredmények)
 
 A telepítés a projektben korábban tárolt `CLOUDFLARE_API_TOKEN` és
-`CLOUDFLARE_ACCOUNT_ID` hitelesítő adatokkal történt, egy egyszeri, azóta
-törölt segédfüggvényen keresztül. Fontos tanulság: a zóna útvonalai a
-`podiverzum-hu-bot-prerender` scriptre vannak kötve (nem a wrangler.toml-ban
-szereplő `podiverzum-bot-prerender` névre) — a helyes script frissült.
+`CLOUDFLARE_ACCOUNT_ID` hitelesítő adatokkal történt, egyszeri, azóta törölt
+segédfüggvényeken keresztül. Fontos tanulság: a zóna útvonalai a
+`podiverzum-hu-bot-prerender` scriptre vannak kötve. A fiókban létezik egy
+hasonló nevű `podiverzum-bot-prerender` script is, amely a `.com → .hu`
+301-átirányító: az első feltöltés tévesen erre került, ami percekig
+kikapcsolta a .com átirányítást; azonnal visszaállítottuk és külsőleg
+igazoltuk (301, útvonal és lekérdezési paraméterek megőrzésével). A helyes HU
+script ezután frissült. A `wrangler.toml` scriptneve javítva, hogy a tévedés
+ne ismétlődhessen meg.
 
 Külső ellenőrzés az éles domainen, Googlebot felhasználói ügynökkel:
 
