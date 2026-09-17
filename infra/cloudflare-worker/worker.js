@@ -540,7 +540,7 @@ export default {
     // Cache key: scheme + host + path (ignore query for stability;
     // we don't prerender per-query variants).
     const cacheKey = new Request(
-      `${url.origin}${url.pathname}`,
+      `${url.origin}${url.pathname}?__podi_prerender=20260916-seo`,
       { method: "GET" },
     );
     const cache = caches.default;
@@ -569,21 +569,24 @@ export default {
       return fetch(request);
     }
 
-    if (!upstream.ok) {
-      // 4xx/5xx from prerender — fall back to origin.
+    const resolvedMissing = (upstream.status === 404 || upstream.status === 410)
+      && upstream.headers.get("X-Prerender-Missing") === "1";
+    if (!upstream.ok && !resolvedMissing) {
+      // Unknown/unhandled routes and transient failures retain origin fallback.
+      // They are not stored in the prerender cache and cannot become hard 404s.
       return fetch(request);
     }
 
     const body = await upstream.text();
-    const headers = new Headers({
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "public, max-age=86400",
-      "X-Prerender-Cache": "MISS",
-      "X-Prerender-UA": ua.slice(0, 80),
-    });
+    const headers = new Headers(upstream.headers);
+    headers.set("Content-Type", "text/html; charset=utf-8");
+    headers.set("Cache-Control", resolvedMissing ? "public, max-age=60" : "public, max-age=86400");
+    headers.set("X-Prerender-Cache", "MISS");
+    headers.set("X-Prerender-UA", ua.slice(0, 80));
+    if (resolvedMissing) headers.set("X-Robots-Tag", "noindex, nofollow");
     resp = new Response(body, { status: upstream.status, headers });
 
-    // Stash in edge cache for next bot hit (24h).
+    // Cache successful pages for 24h; confirmed missing content for only 60s.
     ctx.waitUntil(cache.put(cacheKey, resp.clone()));
     return resp;
   },

@@ -36,7 +36,7 @@ describe("page consistency static guards", () => {
     const header = read("src/components/SiteHeader.tsx");
 
     expect(index).toContain("<TrendingPodcasts />");
-    expect(index).toContain("<HomeDiscoveryShortcuts />");
+    expect(index).toContain("<HomeDiscoveryShortcuts categories={cats} />");
     expect(index).toContain("Most érdemes meghallgatni");
     expect(index).toContain("pickDiverseHomepageCategories(populated, 3)");
     expect(index).toContain("categoryDiversityGroup");
@@ -843,8 +843,10 @@ describe("page consistency static guards", () => {
     expect(prerender).toContain(".from(\"episodes\")");
     expect(prerender).toContain("Friss epizódok");
     expect(prerender).toContain("<h2>Podcastok</h2>");
-    expect(prerender).toContain("const title = cat.seo_title || `${cat.name} podcastok és epizódok — Podiverzum`");
-    expect(prerender).toContain("Válogatás a legjobb ${cat.name} podcast epizódokból.");
+    expect(prerender).toContain("const title = categoryTitle(copyInput);");
+    expect(prerender).toContain("const desc = categoryMetaDescription(copyInput);");
+    expect(prerender).toContain("seoTitle: stripHtml(cat.seo_title)");
+    expect(prerender).toContain("seoDescription: stripHtml(cat.seo_description)");
     expect(prerender).not.toContain("<main><h2>Podcastek</h2>");
     expect(prerender).not.toContain("const title = cat.seo_title || `${cat.name} podcastek — Podiverzum`");
     expect(topic).toContain("sanitizeHungarianPublicText((t as any).seo_description)");
@@ -883,7 +885,7 @@ describe("page consistency static guards", () => {
     expect(search).toContain("sanitizeHungarianPublicText(heroPodcast.summary)");
     expect(search).toContain("sanitizeHungarianPublicText(heroOrganization.short_bio)");
     expect(search).toContain("sanitizeHungarianPublicText(heroTopic.short_bio)");
-    expect(categories).toContain("const description = sanitizeHungarianPublicText(c.description)");
+    expect(categories).toContain("description: sanitizeHungarianPublicText(c.description)");
     expect(trending).toContain("sanitizeHungarianPublicText(p.summary)");
     expect(orgCard).toContain("const t = sanitizeHungarianPublicText(raw)");
     expect(personCard).toContain("const contextLine = sanitizeHungarianPublicText(p.context_line)");

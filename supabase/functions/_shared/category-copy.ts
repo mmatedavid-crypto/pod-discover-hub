@@ -19,7 +19,7 @@ const SLUG_FALLBACK_INTRO: Record<string, string> = {
   penzugy: "Befektetés, tőzsde, makrogazdaság és személyes pénzügyek magyar nyelvű podcast epizódokban.",
   tech: "Technológia, szoftverfejlesztés és mesterséges intelligencia magyar podcastokban, hírektől a mély szakmai beszélgetésekig.",
   tudomany: "Tudományos kutatás, fizika, biológia és nagy ötletek magyar podcastokban, kutatói interjúkkal.",
-  onfejlesztes: "Produktivitás, szokások, motiváció és mindset magyar podcast epizódokban.",
+  onfejlesztes: "Önismeret, szokások, motiváció és pszichológia magyar podcast epizódokban.",
   parkapcsolat: "Randizás, párkapcsolat, szexualitás és kapcsolati pszichológia magyar podcastokban.",
   egeszseg: "Egészség, mozgás, mentális jóllét és hosszú élet magyar nyelvű podcast epizódokban.",
   vallas: "Teológia, Biblia, ima és spiritualitás magyar podcastokban, igehirdetésekkel és beszélgetésekkel.",
@@ -38,7 +38,7 @@ const SLUG_FALLBACK_INTRO: Record<string, string> = {
 };
 
 function clean(text?: string | null): string {
-  return String(text ?? "").replace(/\s+/g, " ").trim();
+  return String(text ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /** H1 that always contains the "podcastok" keyword, without duplicating it. */
@@ -70,7 +70,7 @@ export function categoryGuidance(input: CategoryCopyInput): string {
 /** Meta description (kept under 160 chars by callers/setSeo). */
 export function categoryMetaDescription(input: CategoryCopyInput): string {
   const stored = clean(input.seoDescription);
-  if (stored) return stored;
+  if (stored) return stored.slice(0, 160);
   const intro = categoryIntro(input);
   const suffix = " Friss epizódok, műsorok és témák egy helyen.";
   return (intro.length + suffix.length <= 160 ? intro + suffix : intro).slice(0, 160);
