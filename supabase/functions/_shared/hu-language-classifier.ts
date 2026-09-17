@@ -362,8 +362,6 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     huAccentRatioVal >= 0.05 ||
     (effectiveRssHu && huMatches.count >= 5 && huAccentRatioVal >= 0.03);
 
-  const hasHuTextEvidence = huAccentRatioVal > 0 || huMatches.count >= 2 || !!huDomain;
-
   if (veryStrongHu) {
     decision = "accept_hungarian";
     finalDetected = "hu";
