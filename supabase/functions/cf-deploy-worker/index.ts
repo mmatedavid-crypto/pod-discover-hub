@@ -12,6 +12,22 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "missing_cloudflare_secrets" }), { status: 500 });
   }
 
+  const cfApi = `https://api.cloudflare.com/client/v4`;
+  const authH = { Authorization: `Bearer ${token}` };
+
+  // Diagnostics: ?list=1 → scripts + zones; ?routes=<zone_id> → worker routes
+  const u = new URL(req.url);
+  if (u.searchParams.get("list") === "1") {
+    const scripts = await (await fetch(`${cfApi}/accounts/${accountId}/workers/scripts`, { headers: authH })).json();
+    const zones = await (await fetch(`${cfApi}/zones?per_page=50`, { headers: authH })).json();
+    return new Response(JSON.stringify({ scripts: scripts?.result?.map((s: { id: string }) => s.id), zones: zones?.result?.map((z: { id: string; name: string }) => ({ id: z.id, name: z.name })) }), { headers: { "Content-Type": "application/json" } });
+  }
+  const zoneId = u.searchParams.get("routes");
+  if (zoneId) {
+    const routes = await (await fetch(`${cfApi}/zones/${zoneId}/workers/routes?per_page=100`, { headers: authH })).json();
+    return new Response(JSON.stringify(routes?.result ?? routes), { headers: { "Content-Type": "application/json" } });
+  }
+
   const metadata = JSON.stringify({
     main_module: "worker.js",
     compatibility_date: "2025-01-01",
