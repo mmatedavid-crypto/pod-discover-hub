@@ -12,6 +12,8 @@
 //   /podcastok|szemelyek|szervezetek|cegek|partok|temak → Hub landing pages
 //   anything else                  → 404 (Worker will fall back to origin)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { categoryHeading, categoryIntro, categoryMetaDescription, categoryTitle } from "../_shared/category-copy.ts";
+import { CATEGORY_HUB_INTRO, DISCOVERY_LINKS, HOME_DESCRIPTION, HOME_INTRO, discoveryCategories } from "../_shared/discovery-navigation.ts";
 
 const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -371,7 +373,7 @@ ${ld}
 </html>`;
 }
 
-function notFound(path: string) {
+function notFound(path: string, resolvedMissing = false) {
   return new Response(new TextEncoder().encode(shell({
       title: "Nincs ilyen oldal — Podiverzum",
       description: "A keresett oldal nem található.",
@@ -380,7 +382,14 @@ function notFound(path: string) {
       bodyHtml: "<h1>Nincs ilyen oldal</h1>",
       noindex: true,
     })),
-    { status: 404, headers: new Headers(baseHeaders) },
+    { status: 404, headers: new Headers({
+      ...baseHeaders,
+      "Cache-Control": "public, max-age=60, s-maxage=60",
+      "X-Robots-Tag": "noindex, nofollow",
+      // Only audited builders may confirm absence. Unknown routes or unchecked
+      // data failures must retain the Worker's normal origin fallback.
+      ...(resolvedMissing ? { "X-Prerender-Missing": "1" } : {}),
+    }) },
   );
 }
 
@@ -428,7 +437,7 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     return true;
   }).slice(0, 30);
 
-  const itemsHtml = items
+  const renderItems = (rows: Array<Record<string, any>>) => rows
     .map((r) => {
       const url = `${SITE}/podcast/${r.podcast_slug}/${r.slug}`;
       const sum = stripHtml(r.summary || r.description);
@@ -438,6 +447,18 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     })
     .join("");
 
+  const episodeKey = (r: Record<string, any>) => String(r.episode_id || `${r.podcast_slug}/${r.slug}`);
+  const trendingIds = new Set((((rails as any)?.trending ?? []) as Array<Record<string, any>>).map(episodeKey));
+  const evergreenIds = new Set((((rails as any)?.evergreen ?? []) as Array<Record<string, any>>).map(episodeKey));
+  const evergreenItems = items.filter((r) => evergreenIds.has(episodeKey(r)) && !trendingIds.has(episodeKey(r)));
+  const evergreenKeys = new Set(evergreenItems.map(episodeKey));
+  const trendingItems = items.filter((r) => !evergreenKeys.has(episodeKey(r)));
+  const { data: homeCategories } = await supabase.from("categories")
+    .select("name, slug, active").eq("active", true).order("sort_order", { ascending: true });
+  const categoryLinks = discoveryCategories((homeCategories || []) as any[]).map((c: any) =>
+    `<li><a href="${SITE}/kategoria/${esc(c.slug)}">${esc(c.name)}</a></li>`).join("");
+  const discoveryLinks = DISCOVERY_LINKS.map((link) =>
+    `<li><a href="${SITE}${link.href}">${esc(link.label)}</a></li>`).join("");
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -487,8 +508,13 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
         "Magyar podcastok és epizódok keresése témák, szereplők, műsorok és történetek szerint. Hallgasd ingyen a Podiverzumon.",
       canonical: `${SITE}/`,
       jsonLd: [website, organization, collectionPage, itemList],
-      bodyHtml: `<header><h1>Magyar podcastok okosabban</h1><p>Podiverzum — magyar podcast kereső, ajánló és felfedező.</p></header>
-<main><h2>Friss epizódok</h2><ul>${itemsHtml}</ul></main>`,
+      bodyHtml: `<header><h1>Magyar podcastok. Okosabban.</h1><p>${esc(HOME_INTRO)}</p><p>${esc(HOME_DESCRIPTION)}</p></header>
+<main>
+<nav aria-label="Böngészés a podcastok között"><ul>${discoveryLinks}</ul></nav>
+${categoryLinks ? `<nav aria-label="Válassz podcast kategóriát"><ul>${categoryLinks}</ul></nav>` : ""}
+${trendingItems.length ? `<section><h2>Most érdemes meghallgatni</h2><ul>${renderItems(trendingItems)}</ul></section>` : ""}
+${evergreenItems.length ? `<section><h2>Időtálló epizódok</h2><ul>${renderItems(evergreenItems)}</ul></section>` : ""}
+</main>`,
     })),
     { headers: new Headers(baseHeaders) },
   );
@@ -498,11 +524,12 @@ async function buildPodcast(
   supabase: ReturnType<typeof createClient>,
   slug: string,
 ) {
-  const { data: pod } = await supabase
+  const { data: pod, error: podError } = await supabase
     .from("podcasts")
     .select("id, title, display_title, slug, description, summary, image_url, website_url, rss_url, seo_title, seo_description, language, category, language_decision, rss_status, hosts")
     .eq("slug", slug)
     .maybeSingle();
+  if (podError) throw new Error("Podcast lookup failed");
   if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null;
 
   const [{ data: epData }, { count: totalEpisodeCount }, { data: yearRowsData }, hostNamesForSeo] = await Promise.all([
@@ -686,19 +713,21 @@ async function buildEpisode(
   podcastSlug: string,
   episodeSlug: string,
 ) {
-  const { data: pod } = await supabase
+  const { data: pod, error: podError } = await supabase
     .from("podcasts")
     .select("id, title, display_title, slug, image_url, language, language_decision, rss_status, rss_url")
     .eq("slug", podcastSlug)
     .maybeSingle();
+  if (podError) throw new Error("Episode parent lookup failed");
   if (!pod) return null;
 
-  const { data: ep } = await supabase
+  const { data: ep, error: epError } = await supabase
     .from("episodes")
     .select("id, title, display_title, slug, published_at, audio_url, duration_seconds, image_url, ai_summary, summary, description, seo_title, seo_description, topics, people, companies, tickers, ingredients")
     .eq("podcast_id", pod.id)
     .eq("slug", episodeSlug)
     .maybeSingle();
+  if (epError) throw new Error("Episode lookup failed");
   if (!ep) return null;
 
   // Fetch supporting content in parallel: cleaned deterministic body,
@@ -1254,11 +1283,13 @@ async function buildCategory(
   slug: string,
   urlPrefix: string = "kategoria",
 ) {
-  const { data: cat } = await supabase
+  const { data: cat, error: catError } = await supabase
     .from("categories")
     .select("name, slug, description, seo_title, seo_description, taxonomy_keys")
     .eq("slug", slug)
+    .eq("active", true)
     .maybeSingle();
+  if (catError) throw new Error("Category lookup failed");
   if (!cat) return null;
 
   const taxKeys = Array.isArray((cat as any).taxonomy_keys) && (cat as any).taxonomy_keys.length
@@ -1286,10 +1317,13 @@ async function buildCategory(
         .limit(24)
     : { data: [] };
   const episodes = (eps ?? []) as Array<Record<string, any>>;
-  const title = cat.seo_title || `${cat.name} podcastok és epizódok — Podiverzum`;
-  const desc =
-    cat.seo_description ||
-    truncate(stripHtml(cat.description) || `Válogatás a legjobb ${cat.name} podcast epizódokból. A sorrendet a relevancia és a frissesség adja.`, 160);
+  const copyInput = { name: cat.name as string, slug: cat.slug as string, description: stripHtml(cat.description), seoTitle: stripHtml(cat.seo_title), seoDescription: stripHtml(cat.seo_description) };
+  const title = categoryTitle(copyInput);
+  const desc = categoryMetaDescription(copyInput);
+  const { data: activeCategories } = await supabase.from("categories").select("name,slug,active")
+    .eq("active", true).order("sort_order", { ascending: true });
+  const relatedCategoryLinks = discoveryCategories((activeCategories || []) as any[], cat.slug as string).map((c: any) =>
+    `<li><a href="${SITE}/kategoria/${esc(c.slug)}">${esc(c.name)}</a></li>`).join("");
   const canonical = `${SITE}/${urlPrefix}/${cat.slug}`;
   const ogImage = list[0]?.image_url ?? null;
 
@@ -1341,8 +1375,19 @@ async function buildCategory(
       description: desc,
       canonical,
       ogImage,
-      jsonLd: [itemList],
-      bodyHtml: `<header><h1>${esc(cat.name)}</h1><p>${esc(stripHtml(cat.description) || `Válogatás a legjobb ${cat.name} podcast epizódokból. A sorrendet a relevancia és a frissesség adja.`)}</p></header>
+      jsonLd: [itemList, {
+        "@context": "https://schema.org", "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Kezdőlap", item: `${SITE}/` },
+          { "@type": "ListItem", position: 2, name: "Kategóriák", item: `${SITE}/kategoriak` },
+          { "@type": "ListItem", position: 3, name: cat.name, item: canonical },
+        ],
+      }],
+      bodyHtml: `<header>
+<nav aria-label="Morzsamenü"><a href="${SITE}/">Kezdőlap</a> / <a href="${SITE}/kategoriak">Kategóriák</a> / <span aria-current="page">${esc(cat.name)}</span></nav>
+<h1>${esc(categoryHeading(copyInput))}</h1><p>${esc(categoryIntro(copyInput))}</p>
+<p>Válogass a műsorok és a friss epizódok között, vagy keress a kategórián belül.</p></header>
+${relatedCategoryLinks ? `<nav aria-label="További podcast kategóriák"><ul>${relatedCategoryLinks}</ul></nav>` : ""}
 <main>${episodeHtml ? `<section><h2>Friss epizódok</h2><ul>${episodeHtml}</ul></section>` : ""}<section><h2>Podcastok</h2><ul>${html}</ul></section></main>`,
     })),
     { headers: new Headers(baseHeaders) },
@@ -2706,7 +2751,7 @@ async function buildCategoriesHub(supabase: ReturnType<typeof createClient>) {
     ],
   };
 
-  const intro = `<p>A <strong>Podiverzum</strong> ${rows.length} műfaji és tartalmi kategóriába rendezi a magyar podcast-világot. Minden kategórián belül megtalálod a legaktívabb műsorokat és a friss epizódokat. Témánkénti bontásért lásd a <a href="/temak">Témák</a> hubot, közéleti szereplőkért a <a href="/szemelyek">Személyek</a> oldalt.</p>`;
+  const intro = `<nav aria-label="Morzsamenü"><a href="${SITE}/">Kezdőlap</a> / <span aria-current="page">Kategóriák</span></nav><p>${esc(CATEGORY_HUB_INTRO)}</p>`;
 
   return new Response(new TextEncoder().encode(shell({
     title,
@@ -2876,11 +2921,11 @@ Deno.serve(async (req) => {
 
     if (parts[0] === "podcast" && parts.length === 2) {
       const r = await buildPodcast(supabase, parts[1]);
-      return r ?? notFound(path);
+      return r ?? notFound(path, true);
     }
     if (parts[0] === "podcast" && parts.length === 3) {
       const r = await buildEpisode(supabase, parts[1], parts[2]);
-      return r ?? notFound(path);
+      return r ?? notFound(path, true);
     }
     // Wave 3: /podcast/:slug/epizodok/:year
     if (parts[0] === "podcast" && parts.length === 4 && parts[2] === "epizodok") {
@@ -2918,7 +2963,7 @@ Deno.serve(async (req) => {
     }
     if ((parts[0] === "category" || parts[0] === "kategoria") && parts.length === 2) {
       const r = await buildCategory(supabase, parts[1], "kategoria");
-      return r ?? notFound(path);
+      return r ?? notFound(path, true);
     }
     if (parts[0] === "hangulatok" && parts.length === 2) {
       const r = await buildMoodCollection(supabase, parts[1]);
@@ -2951,7 +2996,7 @@ Deno.serve(async (req) => {
     console.error("prerender error", err);
     return new Response(new TextEncoder().encode(`<!doctype html><title>Error</title>`), {
       status: 500,
-      headers: new Headers(baseHeaders),
+      headers: new Headers({ ...baseHeaders, "Cache-Control": "no-store" }),
     });
   }
 });
