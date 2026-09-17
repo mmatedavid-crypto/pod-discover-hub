@@ -340,9 +340,15 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
   // STRONG HU evidence — strict definition. Tiny accent ratios (e.g. 0.01) and
   // bare `rss=hu` are NOT enough on their own, because French/Spanish/Italian
   // text easily reaches 0.02 accent ratio and RSS lang tags lie often.
+  // Text-based HU evidence must come BEFORE the composite check below: a bare
+  // `<language>hu</language>` RSS tag (+35) must never count as "strong" on its
+  // own — many foreign feeds (BBC, Reuters, TED, etc.) misdeclare it, and with a
+  // tiny/empty description corpus that was the ONLY signal (2026-09-17 fix after
+  // ~70 EN shows slipped in as accept_hungarian via `accept:hu_signal_dominant`).
+  const hasHuTextEvidence = huAccentRatioVal > 0 || huMatches.count >= 2 || !!huDomain;
   const strongHuSignal =
     !!huDomain ||                                                 // known HU publisher / .hu domain
-    hu >= 35 ||                                                   // composite HU score
+    (hu >= 35 && hasHuTextEvidence) ||                            // composite HU score + real text evidence
     huMatches.count >= 3 ||                                       // 3+ real HU function words
     (huAccentRatioVal >= 0.02 && huMatches.count >= 1) ||         // HU accents + ≥1 HU word
     (huAccentRatioVal >= 0.04) ||                                 // very dense HU accents
@@ -355,8 +361,6 @@ export function classifyHungarianPodcastCandidate(c: LanguageCandidate): Languag
     huMatches.count >= 10 ||
     huAccentRatioVal >= 0.05 ||
     (effectiveRssHu && huMatches.count >= 5 && huAccentRatioVal >= 0.03);
-
-  const hasHuTextEvidence = huAccentRatioVal > 0 || huMatches.count >= 2 || !!huDomain;
 
   if (veryStrongHu) {
     decision = "accept_hungarian";
