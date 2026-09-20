@@ -7,7 +7,7 @@ import worker from "../infra/cloudflare-worker/worker.js";
 import { categoryHeading, categoryIntro, categoryMetaDescription } from "../supabase/functions/_shared/category-copy.ts";
 import { discoveryCategories, DISCOVERY_LINKS } from "../supabase/functions/_shared/discovery-navigation.ts";
 
-async function exerciseWorker({ status = 200, marked = false, networkError = false, path = "/podcast/test/test-episode", ua = "Googlebot" } = {}) {
+async function exerciseWorker({ status = 200, marked = false, networkError = false, path = "/podcast/test/test-episode", ua = "Googlebot", originHtml = null } = {}) {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
   const calls = { upstream: 0, origin: 0, cached: [] };
@@ -26,6 +26,9 @@ async function exerciseWorker({ status = 200, marked = false, networkError = fal
       } });
     }
     calls.origin++;
+    if (originHtml) {
+      return new Response(originHtml, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
     return new Response("origin fixture", { status: 200 });
   };
   try {
@@ -87,4 +90,27 @@ test("Discovery links only use real active categories, with no duplicates", () =
   assert.ok(DISCOVERY_LINKS.some((l) => l.href === "/kategoriak"));
   assert.ok(DISCOVERY_LINKS.some((l) => l.href === "/szemelyek"));
   assert.ok(!DISCOVERY_LINKS.some((l) => l.href === "/podcastok"));
+});
+
+const SHELL = '<!doctype html><html lang="hu"><head><title>Podiverzum</title></head><body></body></html>';
+test("Origin fallback gets a self-referencing canonical", async () => {
+  const { response, body } = await exerciseWorker({ path: "/temak/nappali-menetfeny", status: 404, originHtml: SHELL });
+  assert.equal(response.status, 200);
+  assert.match(body, /<link rel="canonical" href="https:\/\/podiverzum\.hu\/temak\/nappali-menetfeny" \/>/);
+  assert.match(body, /<meta property="og:url" content="https:\/\/podiverzum\.hu\/temak\/nappali-menetfeny" \/>/);
+  assert.equal(response.headers.get("X-Canonical-Injected"), "1");
+});
+test("Human shell also receives its own canonical", async () => {
+  const { body } = await exerciseWorker({ path: "/napi", ua: "Mozilla/5.0", originHtml: SHELL });
+  assert.match(body, /canonical" href="https:\/\/podiverzum\.hu\/napi"/);
+});
+test("Existing canonical is never duplicated", async () => {
+  const withCanonical = SHELL.replace("</head>", '<link rel="canonical" href="https://podiverzum.hu/x" /></head>');
+  const { response, body } = await exerciseWorker({ path: "/napi", status: 404, originHtml: withCanonical });
+  assert.equal(body.match(/rel="canonical"/g).length, 1);
+  assert.equal(response.headers.get("X-Canonical-Injected"), null);
+});
+test("Trailing slash canonicalizes to the clean path", async () => {
+  const { body } = await exerciseWorker({ path: "/rolunk/", status: 404, originHtml: SHELL });
+  assert.match(body, /canonical" href="https:\/\/podiverzum\.hu\/rolunk"/);
 });

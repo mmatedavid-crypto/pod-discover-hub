@@ -173,6 +173,39 @@ function shouldPrerender(pathname) {
 const SCANNER_PATH_REGEX =
   /^\/(wp-admin|wp-login|wp-content|wp-includes|wp-json|xmlrpc\.php|\.env|\.git|\.aws|\.ssh|\.docker|\.vscode|\.idea|phpmyadmin|pma|mysql|adminer|config\.php|configuration\.php|backup|backups|dump|dumps|\.bak|\.sql|\.zip|\.tar|\.tgz|cgi-bin|cgi|owa|autodiscover|ecp|exchange|boaform|HNAP1|hudson|jenkins|solr|jmx-console|manager\/html|actuator|console|telescope|debug|server-status|server-info|api\/login|api\/v1\/login)(\/|$|\.)/i;
 
+// Origin fallback that guarantees a self-referencing canonical.
+// The SPA shell ships without a static canonical, so any route the prerender
+// cannot build (unbuilt hubs, gated topics/organizations) used to reach Google
+// as an identical canonical-less document. Google then clustered those URLs
+// onto one page ("Alternate page with proper canonical tag"). Injecting the
+// request's own URL keeps every route self-canonical; the client-side SEO
+// helper updates this same tag, so no duplicate tag is produced.
+async function originFallback(request, url) {
+  const response = await fetch(request);
+  if (request.method !== "GET") return response;
+  const contentType = response.headers.get("content-type") || "";
+  if (response.status !== 200 || !contentType.includes("text/html")) return response;
+  let html;
+  try {
+    html = await response.text();
+  } catch (_err) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  if (/rel=["']canonical["']/i.test(html) || !html.includes("</head>")) {
+    return new Response(html, { status: response.status, headers });
+  }
+  const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
+  const canonical = `https://podiverzum.hu${encodeURI(path).replace(/["'<>]/g, "")}`;
+  const injected = html.replace(
+    "</head>",
+    `<link rel="canonical" href="${canonical}" /><meta property="og:url" content="${canonical}" /></head>`,
+  );
+  headers.set("X-Canonical-Injected", "1");
+  return new Response(injected, { status: response.status, headers });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -534,7 +567,7 @@ export default {
       !isBot(ua) ||
       !shouldPrerender(url.pathname)
     ) {
-      return fetch(request);
+      return originFallback(request, url);
     }
 
     // Cache key: scheme + host + path (ignore query for stability;
@@ -566,7 +599,7 @@ export default {
       });
     } catch (err) {
       // On failure, fall back to origin so the bot still gets *something*.
-      return fetch(request);
+      return originFallback(request, url);
     }
 
     const resolvedMissing = (upstream.status === 404 || upstream.status === 410)
@@ -574,7 +607,7 @@ export default {
     if (!upstream.ok && !resolvedMissing) {
       // Unknown/unhandled routes and transient failures retain origin fallback.
       // They are not stored in the prerender cache and cannot become hard 404s.
-      return fetch(request);
+      return originFallback(request, url);
     }
 
     const body = await upstream.text();
