@@ -414,7 +414,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
                 return (
                   <Link
                     key={`${k}-${v}`}
-                    to={entityHref(k as any, v)}
+                    to={entityHref(k as any, v)} rel="nofollow"
                     className="px-3 py-1.5 rounded-full border border-border bg-card text-sm hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
                     <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{ENTITY_LABEL[k]}</span>

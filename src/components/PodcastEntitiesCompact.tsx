@@ -65,7 +65,7 @@ export function PodcastEntitiesCompact({
         {visible.map((it) => (
           <Link
             key={`${it.kind}-${it.slug}`}
-            to={entityHref(it.kind, it.value)}
+            to={entityHref(it.kind, it.value)} rel="nofollow"
             className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/60 px-2.5 py-1 text-xs hover:border-primary/40 hover:text-primary transition-colors max-w-full"
           >
             <span className="truncate">
