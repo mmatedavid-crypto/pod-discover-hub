@@ -148,3 +148,41 @@ napi átlaga 27,6.
 Technikai háttér:
 - https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics
 - https://developers.google.com/search/docs/crawling-indexing/links-crawlable
+
+## 2026-09-20 — „Alternatív oldal megfelelő kanonikus címkével" javítás
+
+A GSC drilldown export (`Összes ismert oldal` → `Alternatív oldal megfelelő
+kanonikus címkével`) 2026-06-30-i 127-ről 2026-09-18-ra 2459 érintett oldalra
+nőtt.
+
+Gyökérok: a szeptemberi SEO-passban a statikus `rel=canonical` kikerült az
+`index.html`-ből, önreflexív canonicalt viszont csak a prerender által
+felépíthető útvonalak kaptak. Amelyik útvonalra a prerender `404`-et ad
+jelölés nélkül (mérés szerint: `/hangulatok`, `/uj-podcastok`, `/napi`,
+`/rolunk`, `/sajto`, `/modszertan`, `/intelligence`, `/adatvedelem`,
+`/feltetelek`, `/kapcsolat`, `/heti`, valamint a gating miatt ki nem épülő
+`/temak/:slug` és `/ceg/:slug` lapok), ott a Worker — szándékosan — az originra
+esik vissza, és a SPA-váz canonical nélkül, azonos tartalommal ment ki a
+Googlenak. Google ezért egy lapba klaszterezte őket.
+
+Javítás (`infra/cloudflare-worker/worker.js` + `.lovable/cloudflare-worker.js`,
+bájtra azonos): az origin-visszaesés `originFallback()`-en megy át, ami HTML
+200 válasz esetén — ha még nincs canonical — beszúrja a kért URL saját
+`rel=canonical` + `og:url` tagjét (`X-Canonical-Injected: 1`). Trailing slash
+levágva; meglévő canonicalhoz nem nyúl, így a kliensoldali SEO-helper nem
+duplikál. A jelölt 404 (törölt epizód) továbbra sem esik vissza originra, az
+ellenőrizetlen 404 és az átmeneti hiba fallbackja változatlan.
+
+Ellenőrzés: `node --test scripts/test-seo-growth.mjs` → 18/18 OK (4 új eset).
+Élő, Googlebot UA-val: `/temak/nappali-menetfeny`, `/ceg/greenman`, `/napi`,
+`/rolunk`, `/heti` → 200 + saját canonical; `/kategoria/tech` → 200; törölt
+Szélsőközép-epizód → 404 + `x-prerender-missing: 1` + `noindex, nofollow`;
+`/`, `robots.txt`, `sitemap.xml` → 200; emberi böngésző → SPA saját
+canonicallal. Worker deployment: `8dca020d00054c498fc08ea84feba396`
+(`podiverzum-hu-bot-prerender`). Az ideiglenes feltöltő edge függvény törölve.
+
+Nyitott, adat oldali teendő (nem ebben a körben): a témalap-gyűjtők olyan
+`/temak/:slug` és `/ceg/:slug` lapokra is linkelnek, amelyeket a prerender
+gating miatt nem épít fel — ezek most saját canonicallal, de vékony tartalommal
+jelennek meg. Vagy a belső linkelést kell a gatinghez igazítani, vagy a
+gatinget felülvizsgálni.
