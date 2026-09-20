@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
   const started = Date.now();
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const mode: "accepted" | "ungated" | "ids" = body?.mode || "accepted";
+    const mode: "accepted" | "ungated" | "ids" | "uncertain" | "foreign_lang_accepted" = body?.mode || "accepted";
     const limit = Math.max(1, Math.min(300, Number(body?.limit) || 50));
     const dryRun = body?.dry_run === true;
     const minConf = Math.max(0.5, Math.min(0.99, Number(body?.min_confidence) || 0.7));
@@ -110,6 +110,13 @@ Deno.serve(async (req) => {
     if (mode === "ids") {
       if (!ids.length) throw new Error("mode=ids requires ids[]");
       q = q.in("id", ids);
+    } else if (mode === "uncertain") {
+      // review_uncertain backlog: decide HU vs foreign so foreign rows can be cleaned up
+      q = q.eq("language_decision", "review_uncertain").order("language_checked_at", { ascending: true, nullsFirst: true });
+    } else if (mode === "foreign_lang_accepted") {
+      // accepted as Hungarian but carrying a non-hu language code
+      q = q.eq("language_decision", "accept_hungarian").not("language", "is", null)
+        .not("language", "ilike", "hu%").order("id", { ascending: true });
     } else if (mode === "ungated") {
       q = q.is("language_decision", null).in("rank_label", ["S", "A", "B", "C", "D", "E"]).order("rank_label", { ascending: true });
     } else {
@@ -124,6 +131,7 @@ Deno.serve(async (req) => {
     const TIME_BUDGET_MS = 100_000;
     const results: any[] = [];
     let flipped_to_hu = 0, flipped_to_foreign = 0, kept = 0, review = 0, errors = 0;
+    let marked_foreign = 0;
 
     const queue = [...(rows || [])];
     const processOne = async (p: any) => {
@@ -154,6 +162,7 @@ Deno.serve(async (req) => {
           patch.language_rejection_reason = null;
         } else if (confident && !isHu && det.lang !== "unknown") {
           action = p.is_hungarian ? "flip_to_foreign" : "kept_foreign";
+          marked_foreign++;
           patch.is_hungarian = false;
           patch.language_decision = "reject_foreign";
           patch.language = det.lang;
@@ -186,15 +195,15 @@ Deno.serve(async (req) => {
     });
     await Promise.all(workers);
     const remaining = queue.length;
-    if (!dryRun && flipped_to_foreign > 0) {
-      await deleteRejectedForeignPodcasts(Math.max(50, Math.min(2000, flipped_to_foreign * 2)));
+    if (!dryRun && marked_foreign > 0) {
+      await deleteRejectedForeignPodcasts(Math.max(50, Math.min(2000, marked_foreign * 2)));
     }
 
     return new Response(JSON.stringify({
       ok: true, mode, dry_run: dryRun, model, min_confidence: minConf,
       scanned: (rows?.length || 0) - remaining,
       remaining_in_batch: remaining,
-      flipped_to_hu, flipped_to_foreign, kept, review_uncertain: review, errors,
+      flipped_to_hu, flipped_to_foreign, marked_foreign, kept, review_uncertain: review, errors,
       elapsed_ms: Date.now() - started,
       results,
     }, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
