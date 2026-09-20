@@ -354,6 +354,7 @@ export default function EpisodeDetail() {
               <Link
                 key={v}
                 to={canonicalSlug ? `/szemelyek/${canonicalSlug}` : entityHref(kind, v)}
+                rel={canonicalSlug ? undefined : "nofollow"}
                 className="px-2.5 py-1 rounded-full bg-secondary text-sm hover:bg-accent hover:text-accent-foreground"
               >
                 {v}
@@ -638,7 +639,7 @@ export default function EpisodeDetail() {
                 {understanding.chips.map((chip) => (
                   <Link
                     key={`${chip.kind}-${chip.label}`}
-                    to={entityHref(chip.kind, chip.label)}
+                    to={entityHref(chip.kind, chip.label)} rel="nofollow"
                     className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-foreground/85 transition-colors hover:border-primary/40 hover:text-primary"
                     aria-label={`${ENTITY_LABEL[chip.kind]}: ${chip.label}`}
                   >

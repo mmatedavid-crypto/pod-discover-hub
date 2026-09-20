@@ -350,7 +350,7 @@ export default function CategoryDetail() {
                 <h2 className="text-xl font-semibold mt-10 mb-3">Népszerű témák</h2>
                 <div className="flex flex-wrap gap-2">
                   {topics.map((t) => (
-                    <Link key={t} to={entityHref("topic", t)} className="px-3 py-1 rounded-full bg-secondary text-sm hover:bg-accent hover:text-accent-foreground">
+                    <Link key={t} to={entityHref("topic", t)} rel="nofollow" className="px-3 py-1 rounded-full bg-secondary text-sm hover:bg-accent hover:text-accent-foreground">
                       {t}
                     </Link>
                   ))}

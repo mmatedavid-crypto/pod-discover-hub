@@ -41,7 +41,7 @@ export function TrendingEntities({ eyebrow, title, subtitle, items, icon = "topi
         {items.map((it) => (
           <Link
             key={`${it.kind}-${it.slug}`}
-            to={entityHref(it.kind, it.value)}
+            to={entityHref(it.kind, it.value)} rel="nofollow"
             className="group relative rounded-xl border border-border/70 bg-card/60 hover:bg-card hover:border-primary/40 p-3 transition-colors flex items-center justify-between gap-2 min-w-0"
           >
             <div className="min-w-0">

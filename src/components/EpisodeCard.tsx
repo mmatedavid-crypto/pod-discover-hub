@@ -263,7 +263,7 @@ export function EpisodeCard({
           <div className="flex flex-wrap gap-1 mt-2.5">
             {allEnts.map(({ kind, v }) => {
               return (
-                <Link key={`${kind}-${v}`} to={entityHref(kind as any, v)} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
+                <Link key={`${kind}-${v}`} to={entityHref(kind as any, v)} rel="nofollow" className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                   {v}
                 </Link>
               );
@@ -446,7 +446,7 @@ function EpisodeRailCard({
           <div className="mt-2.5 flex flex-wrap gap-1">
             {allEnts.map(({ kind, v }) => {
               return (
-                <Link key={`${kind}-${v}`} to={entityHref(kind as any, v)} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
+                <Link key={`${kind}-${v}`} to={entityHref(kind as any, v)} rel="nofollow" className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
                   {v}
                 </Link>
               );
