@@ -567,7 +567,7 @@ export default {
       !isBot(ua) ||
       !shouldPrerender(url.pathname)
     ) {
-      return fetch(request);
+      return originFallback(request, url);
     }
 
     // Cache key: scheme + host + path (ignore query for stability;
@@ -599,7 +599,7 @@ export default {
       });
     } catch (err) {
       // On failure, fall back to origin so the bot still gets *something*.
-      return fetch(request);
+      return originFallback(request, url);
     }
 
     const resolvedMissing = (upstream.status === 404 || upstream.status === 410)
@@ -607,7 +607,7 @@ export default {
     if (!upstream.ok && !resolvedMissing) {
       // Unknown/unhandled routes and transient failures retain origin fallback.
       // They are not stored in the prerender cache and cannot become hard 404s.
-      return fetch(request);
+      return originFallback(request, url);
     }
 
     const body = await upstream.text();
