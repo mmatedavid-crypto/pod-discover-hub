@@ -186,3 +186,37 @@ Nyitott, adat oldali teendő (nem ebben a körben): a témalap-gyűjtők olyan
 gating miatt nem épít fel — ezek most saját canonicallal, de vékony tartalommal
 jelennek meg. Vagy a belső linkelést kell a gatinghez igazítani, vagy a
 gatinget felülvizsgálni.
+
+## 2026-09-20 — „Kizárva egy noindex címke miatt" (28 885) vizsgálat
+
+Második GSC drilldown: `Kizárva egy „noindex" címke miatt` 4 035 (jún. 30.) →
+28 885 (szept. 18.).
+
+Vizsgálat eredménye: **nincs ütközés, a noindex szándékos.** A noindexelt
+lapok a gating szerint nem indexelhető entitások és a nem magyar műsorok:
+38 362 nem indexelhető szervezet, 12 611 nem indexelhető személy, 23 téma,
+386 nem `accept_hungarian` műsor és azok 6 468 epizódja. Mintavétel
+(`/ceg/gardonyi-geza`, `/ceg/adonio-nv`, `/ceg/futball-haz`): mindhárom
+`noindex,nofollow` + saját canonical, és **egyik sem szerepel az
+oldaltérképben** (`organizations-1.xml` 4 292 URL, `people-1.xml` 2 157 URL) —
+tehát nem „sitemapben beküldött, de noindexelt" hiba.
+
+Ami viszont valós veszteség: a Google honnan ismeri meg ezt a ~29 ezer URL-t. A
+SPA epizód-, műsor- és kategórialapjain minden felismert entitásnév kitalált
+slugra (`/ceg/:slug`, `/temak/:slug`, `/hozzavalo/:slug`, ticker) mutató linket
+kapott, függetlenül attól, hogy az entitás létezik-e vagy indexelhető-e. A
+prerender már szűrte ezeket, a kliensoldali változat nem — és a Google a
+JS-t is lefuttatja, így innen fedezte fel a gated lapokat, elpazarolva a
+crawl-budgetet.
+
+Javítás (UI-only, `rel="nofollow"` a nem ellenőrzött entitáscímkékre):
+`src/pages/EpisodeDetail.tsx` (az alias-feloldott, ellenőrzött
+`/szemelyek/:slug` linkek követhetők maradnak), `src/pages/CategoryDetail.tsx`,
+`src/pages/EntityPage.tsx`, `src/components/EpisodeCard.tsx`,
+`src/components/TrendingEntities.tsx`,
+`src/components/PodcastEntitiesCompact.tsx`. A linkek kattinthatók maradnak, a
+felhasználói navigáció nem változik; csak a keresőnek adott követési jelzés tűnt
+el a kitalált slugokról.
+
+Ellenőrzés: `npx tsgo --noEmit` hibátlan, `bunx vitest run` 26 fájl / 210 teszt
+OK, `node --test scripts/test-seo-growth.mjs` 18/18, build OK.
