@@ -178,6 +178,7 @@ Deno.serve(async (req) => {
     if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0, low_conf_count = 0, deterministic_count = 0;
+    let costSum = 0; // USD spent on AI calls this run (for by_kind accounting)
     let stop = false;
     let total_claimed = 0, drain_loops = 0;
 
@@ -236,7 +237,7 @@ Deno.serve(async (req) => {
           ai_category_needs_review: needsReview,
         }).eq("id", p.id);
         succeeded++;
-        spend += cost; calls++;
+        spend += cost; calls++; costSum += cost;
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
@@ -308,7 +309,7 @@ Deno.serve(async (req) => {
     // Persist daily spend
     await admin.from("ai_spend_daily").upsert({
       day: dayKey, spend_usd: spend, calls,
-      by_kind: { ...(spendRow?.by_kind || {}), categorize: ((spendRow?.by_kind as any)?.categorize || 0) + (succeeded) },
+      by_kind: { ...(spendRow?.by_kind || {}), categorize: ((spendRow?.by_kind as any)?.categorize || 0) + costSum },
       updated_at: new Date().toISOString(),
     });
 
