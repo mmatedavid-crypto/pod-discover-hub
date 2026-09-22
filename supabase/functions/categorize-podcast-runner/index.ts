@@ -178,6 +178,7 @@ Deno.serve(async (req) => {
     if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
 
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0, low_conf_count = 0, deterministic_count = 0;
+    let costSum = 0; // USD spent on AI calls this run (for by_kind accounting)
     let stop = false;
     let total_claimed = 0, drain_loops = 0;
 
