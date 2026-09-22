@@ -31,23 +31,25 @@ export function logPlayerEvent(opts: {
   meta?: Record<string, unknown>;
 }) {
   try {
-    // NOTE: a PostgREST builder is lazy — it only issues the HTTP request when
-    // awaited/`.then()`-ed. `void builder.insert(...)` silently dropped every
-    // player event (table stayed empty while Telegram notifications worked).
-    void supabase
+    // NOTE: a PostgREST query builder is LAZY — it only issues the HTTP request
+    // once it is awaited / `.then()`-ed. `void supabase.from(...).insert(...)`
+    // silently dropped every player event (the table stayed empty while the
+    // Telegram live notifications, which use a real promise, kept working).
+    supabase
       .from("player_events" as any)
       .insert({
-      event_type: opts.eventType,
-      episode_id: opts.episodeId ?? null,
-      podcast_id: opts.podcastId ?? null,
-      session_id: getSessionId(),
-      position_sec: typeof opts.positionSec === "number" ? Math.floor(opts.positionSec) : null,
-      duration_sec: typeof opts.durationSec === "number" ? Math.floor(opts.durationSec) : null,
-      playback_rate: typeof opts.playbackRate === "number" ? opts.playbackRate : null,
-      viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
-      meta: (opts.meta ?? {}) as never,
-    });
+        event_type: opts.eventType,
+        episode_id: opts.episodeId ?? null,
+        podcast_id: opts.podcastId ?? null,
+        session_id: getSessionId(),
+        position_sec: typeof opts.positionSec === "number" ? Math.floor(opts.positionSec) : null,
+        duration_sec: typeof opts.durationSec === "number" ? Math.floor(opts.durationSec) : null,
+        playback_rate: typeof opts.playbackRate === "number" ? opts.playbackRate : null,
+        viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
+        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+        meta: (opts.meta ?? {}) as never,
+      })
+      .then(() => undefined, () => undefined);
   } catch {
     /* fail-safe */
   }
