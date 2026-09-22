@@ -184,7 +184,8 @@ Deno.serve(async (req) => {
     const state = (stateRow?.value || {}) as any;
     if (state.enabled === false) return json({ ok: true, skipped: true, reason: "disabled" });
 
-    const dryRun = state.dry_run === true;
+    // Never dry-run: the controller always acts (owner decision, 2026-09-22).
+    const dryRun = false;
     const runners: RunnerCfg[] = Array.isArray(state.runners) ? state.runners : [];
     const history: Record<string, { p1?: number; p2?: number; updated_at?: string }> = state.history || {};
 
