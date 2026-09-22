@@ -9015,6 +9015,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      ai_call_audit_drain_tick: { Args: never; Returns: number }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
       backfill_mentions_from_people_array: {
         Args: { p_dry_run?: boolean; p_person_ids?: string[] }
@@ -9757,6 +9758,10 @@ export type Database = {
           episode_count: number
           podcast_id: string
         }[]
+      }
+      prune_ai_call_audit: {
+        Args: { _batch?: number; _keep_days?: number }
+        Returns: number
       }
       purge_search_query_cache: {
         Args: { older_than_days?: number }
