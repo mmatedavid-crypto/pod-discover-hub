@@ -10063,6 +10063,10 @@ export type Database = {
         Args: { _active?: boolean; _command: string; _schedule?: string }
         Returns: undefined
       }
+      set_runner_cron: {
+        Args: { p_job_name: string; p_schedule: string }
+        Returns: string
+      }
       set_seo_enrich_runner_schedule: {
         Args: { _schedule: string }
         Returns: undefined
