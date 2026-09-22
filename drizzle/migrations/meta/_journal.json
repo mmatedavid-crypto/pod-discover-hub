@@ -169,6 +169,13 @@
       "when": 1790111679701,
       "tag": "0023_pending_counter_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790111857747,
+      "tag": "0024_classifier_pending_recent_window",
+      "breakpoints": true
     }
   ]
 }
