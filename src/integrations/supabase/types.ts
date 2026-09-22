@@ -1563,6 +1563,7 @@ export type Database = {
         Row: {
           audio_url: string | null
           card_summary: string | null
+          companies: string[] | null
           display_title: string | null
           episode_id: string
           image_url: string | null
@@ -1571,12 +1572,15 @@ export type Database = {
           podcast_id: string | null
           published_at: string | null
           slug: string | null
+          tickers: string[] | null
           title: string | null
+          topics: string[] | null
           updated_at: string
         }
         Insert: {
           audio_url?: string | null
           card_summary?: string | null
+          companies?: string[] | null
           display_title?: string | null
           episode_id: string
           image_url?: string | null
@@ -1585,12 +1589,15 @@ export type Database = {
           podcast_id?: string | null
           published_at?: string | null
           slug?: string | null
+          tickers?: string[] | null
           title?: string | null
+          topics?: string[] | null
           updated_at?: string
         }
         Update: {
           audio_url?: string | null
           card_summary?: string | null
+          companies?: string[] | null
           display_title?: string | null
           episode_id?: string
           image_url?: string | null
@@ -1599,7 +1606,9 @@ export type Database = {
           podcast_id?: string | null
           published_at?: string | null
           slug?: string | null
+          tickers?: string[] | null
           title?: string | null
+          topics?: string[] | null
           updated_at?: string
         }
         Relationships: [
@@ -1639,6 +1648,27 @@ export type Database = {
             referencedColumns: ["episode_id"]
           },
         ]
+      }
+      episode_cards_backfill_state: {
+        Row: {
+          done: boolean
+          id: boolean
+          last_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          done?: boolean
+          id?: boolean
+          last_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          done?: boolean
+          id?: boolean
+          last_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       episode_category_overrides: {
         Row: {
@@ -9063,8 +9093,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
-      episode_cards_backfill: { Args: { _batch?: number }; Returns: number }
-      episode_cards_backfill_tick: { Args: never; Returns: undefined }
+      episode_cards_backfill_tick: { Args: never; Returns: number }
       episode_classifier_stats: { Args: never; Returns: Json }
       find_existing_podcast: {
         Args: { p_rss_url: string; p_title: string }
