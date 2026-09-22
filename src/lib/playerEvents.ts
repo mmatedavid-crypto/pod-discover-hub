@@ -31,7 +31,12 @@ export function logPlayerEvent(opts: {
   meta?: Record<string, unknown>;
 }) {
   try {
-    void supabase.from("player_events" as any).insert({
+    // NOTE: a PostgREST builder is lazy — it only issues the HTTP request when
+    // awaited/`.then()`-ed. `void builder.insert(...)` silently dropped every
+    // player event (table stayed empty while Telegram notifications worked).
+    void supabase
+      .from("player_events" as any)
+      .insert({
       event_type: opts.eventType,
       episode_id: opts.episodeId ?? null,
       podcast_id: opts.podcastId ?? null,
