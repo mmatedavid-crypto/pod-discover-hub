@@ -32,6 +32,14 @@ export function isModelBlocked(model: string): boolean {
   return HARD_BLOCKLIST.some((b) => m.includes(b));
 }
 
+// Transient provider failures (rate limit / capacity) cost $0 and used to flood
+// ai_call_audit with ~100k rows/day. Sample them at 1-in-50.
+const TRANSIENT_AUDIT_STATUSES = new Set([429, 500, 503]);
+export function shouldSkipTransientAudit(status: number | null | undefined): boolean {
+  if (!status || !TRANSIENT_AUDIT_STATUSES.has(Number(status))) return false;
+  return Math.random() >= 0.02;
+}
+
 export function assertModelAllowed(model: string) {
   if (!model || typeof model !== "string") {
     throw new Error(`Lovable AI: empty model not allowed`);
