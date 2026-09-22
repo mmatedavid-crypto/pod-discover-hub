@@ -16,7 +16,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MODEL = "google/gemini-2.5-flash-lite";
-const DAILY_BUDGET_USD = 2;
+const DAILY_BUDGET_USD = Number(Deno.env.get("PERSON_REVIEW_DAILY_BUDGET_USD") || 10);
+const CONCURRENCY = 6;
+
 const MAX_ATTEMPTS = 3;
 
 const ALLOWED_FLAGS = new Set([
@@ -281,9 +283,13 @@ async function reviewOne(admin: any, personId: string): Promise<any> {
 
   const args = sanitize(ai.args);
   const dup = args.duplicate_candidate || {};
-  const reviewStatus = dup.is_duplicate ? "duplicate_candidate"
-    : args.recommended_action === "needs_review" ? "needs_human_review"
-    : "reviewed";
+
+  // AUTO-RESOLVE: never park a person in a human queue. Every uncertain verdict is
+  // turned into a deterministic, safe outcome based on the evidence counts we already
+  // have, so the review backlog cannot grow beyond what the machine can decide.
+  const autoResolve = autoResolveUncertain(args, dup, p as PersonRow);
+  const reviewStatus = "reviewed";
+
 
   const update: any = {
     ai_review_status: reviewStatus,
