@@ -187,7 +187,10 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const batch = Math.max(1, Math.min(600, Number(body.batch) || 400));
-    const concurrency = Math.max(1, Math.min(48, Number(body.concurrency) || 40));
+    // Concurrency 40 hammered the provider into constant 429s (~100k wasted
+    // calls/day). Keep it modest; throughput is limited by the rate limit anyway.
+    const concurrency = Math.max(1, Math.min(48, Number(body.concurrency) || 8));
+    const rateLimitCircuitBreaker = Math.max(10, Number(body.rate_limit_stop) || 60);
 
     // Controls (separate budget from main SEO runner)
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "entity_backfill_controls").maybeSingle();
@@ -315,7 +318,13 @@ Deno.serve(async (req) => {
           preferTier1: true,
         });
         if (!aiRes.ok) {
-          if (aiRes.status === 429) { rate_limited++; await new Promise(r => setTimeout(r, 1500 + Math.random()*1500)); }
+          if (aiRes.status === 429) {
+            rate_limited++;
+            // Circuit breaker: once the provider is saturated, stop this run
+            // instead of burning thousands of failing calls.
+            if (rate_limited >= rateLimitCircuitBreaker) stop = true;
+            await new Promise(r => setTimeout(r, 1500 + Math.random() * 1500));
+          }
           throw new Error(aiRes.error || `ai_${aiRes.status}`);
         }
         const cost = aiRes.cost_usd ?? 0;
