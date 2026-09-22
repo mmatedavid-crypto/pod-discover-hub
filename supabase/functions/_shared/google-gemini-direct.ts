@@ -128,6 +128,14 @@ function auditPayloadShape(payload: Record<string, unknown>) {
   };
 }
 
+// Transient provider failures (rate limit / capacity) are free and extremely
+// noisy. Sample them at 1-in-50 so the audit table stays small.
+const TRANSIENT_AUDIT_STATUSES = new Set([429, 500, 503]);
+export function shouldSkipTransientAudit(status: number | null | undefined): boolean {
+  if (!status || !TRANSIENT_AUDIT_STATUSES.has(Number(status))) return false;
+  return Math.random() >= 0.02;
+}
+
 async function writeAudit(row: Record<string, unknown>) {
   if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("audit_insert_failed: missing_env");
   const payload = normalizeAuditRow(row);
