@@ -136,6 +136,8 @@ async function countPending(admin: any, kind: string): Promise<number | null> {
       case "seo_jobs_pending":
       case "ai_categorize_pending":
       case "episode_classifier_pending":
+      case "person_ai_review_pending":
+      case "clean_text_pending":
       case "entity_backfill_pending": {
         const { data, error } = await admin.rpc("count_pipeline_pending", { kind });
         if (error) { console.warn("count_pipeline_pending failed", kind, error); return null; }
