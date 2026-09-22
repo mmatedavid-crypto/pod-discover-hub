@@ -7,6 +7,8 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import NotFoundState from "@/components/NotFoundState";
 import ListLoadError from "@/components/ListLoadError";
 import { compareByScore } from "@/lib/episodeRank";
+import { mapEpisodeCardRow } from "@/lib/episodeCards";
+
 import PersonAvatar from "@/components/PersonAvatar";
 import { matchesEntitySlug } from "@/lib/entity";
 import { snippet } from "@/lib/text";
@@ -262,16 +264,43 @@ export default function PersonDetailPage() {
 
 
 
-      // Trimmed payload (no raw `description`) + smaller page: the 500-row variant
-      // with full descriptions regularly tripped the 3s statement timeout.
-      const { data: mentions, error: mentionsError } = await supabase
-        .from("person_episode_mentions")
-        .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, display_title, slug, image_url, published_at, ai_summary, summary, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision))")
-        .eq("person_id", (p as any).id)
-        .eq("episodes.podcasts.language_decision", "accept_hungarian")
-        .order("final_relevance_score", { ascending: false, nullsFirst: false })
-        .limit(250);
-      setEpsError(Boolean(mentionsError));
+      // Primary path: `person_episodes` reads the slim episode_cards projection in a
+      // single round trip. The joined query below stays as a fallback for episodes
+      // that are not projected yet.
+      let mentions: any[] | null = null;
+      let mentionsFailed = false;
+      const { data: fastRows, error: fastError } = await supabase
+        .rpc("person_episodes", { _person_id: (p as any).id, _limit: 250 } as any);
+      if (fastError) mentionsFailed = true;
+      if (Array.isArray(fastRows) && fastRows.length > 0) {
+        mentions = (fastRows as any[]).map((row) => ({
+          episode_id: row.id,
+          podcast_id: row.podcast_id,
+          mention_type: row.mention_type,
+          role_type: row.role_type,
+          confidence: row.confidence,
+          relevance_status: row.relevance_status,
+          final_relevance_score: row.final_relevance_score,
+          validation_source: row.validation_source,
+          episodes: mapEpisodeCardRow(row),
+        }));
+      }
+
+      if (!mentions) {
+        // Trimmed payload (no raw `description`) + smaller page: the 500-row variant
+        // with full descriptions regularly tripped the 3s statement timeout.
+        const { data: mentionRows, error: mentionsError } = await supabase
+          .from("person_episode_mentions")
+          .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, display_title, slug, image_url, published_at, ai_summary, summary, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision))")
+          .eq("person_id", (p as any).id)
+          .eq("episodes.podcasts.language_decision", "accept_hungarian")
+          .order("final_relevance_score", { ascending: false, nullsFirst: false })
+          .limit(250);
+        mentions = (mentionRows || []) as any[];
+        mentionsFailed = mentionsFailed || Boolean(mentionsError);
+      }
+      setEpsError(mentionsFailed && (mentions?.length ?? 0) === 0);
+
 
 
       const epList: any[] = [];
