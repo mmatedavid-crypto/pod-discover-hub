@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
     // Persist daily spend
     await admin.from("ai_spend_daily").upsert({
       day: dayKey, spend_usd: spend, calls,
-      by_kind: { ...(spendRow?.by_kind || {}), categorize: ((spendRow?.by_kind as any)?.categorize || 0) + (succeeded) },
+      by_kind: { ...(spendRow?.by_kind || {}), categorize: ((spendRow?.by_kind as any)?.categorize || 0) + costSum },
       updated_at: new Date().toISOString(),
     });
 
