@@ -61,7 +61,10 @@ describe("page consistency static guards", () => {
     expect(topic).toContain("const safePeople = ((ppl || []) as any[]).filter");
     expect(topic).toContain("if (isUnsafeTemporalPerson(p)) return false");
     expect(topic).toContain("p.identity_ambiguous && !p.manual_approved && !trustedWiki");
-    expect(topic).toContain("published_at, ai_summary, summary, description");
+    // Raw `description` is intentionally NOT selected here: the trimmed payload
+    // keeps these joined topic queries inside the anon statement timeout.
+    expect(topic).toContain("published_at, ai_summary, summary, audio_url");
+    expect(topic).not.toContain("summary, description, audio_url");
     expect(topic).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
     expect(topic).not.toContain("SimilarPodcasts");
     expect(topic).not.toContain("Kiemelt podcastok");
@@ -114,7 +117,7 @@ describe("page consistency static guards", () => {
     expect(search).toContain("inCategory: isEpisodeInCategoryKeys(x.e, categoryKeys)");
     expect(category).toContain("const categoryPodcastIds = visible.map");
     expect(category).toContain(".in(\"podcast_id\", categoryPodcastIds)");
-    expect(category).toContain("slug,image_url,ai_summary,summary,description");
+    expect(category).toContain("slug,image_url,ai_summary,summary,published_at");
     expect(category).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
     expect(category).not.toContain(".or(\"is_hungarian.eq.true,language_decision.eq.accept_hungarian\")");
     expect(category).not.toContain("is_hungarian");
@@ -835,7 +838,7 @@ describe("page consistency static guards", () => {
     expect(podcast).not.toContain("snippet(stripHtml(e.summary || e.description), 220)");
     expect(category).toContain("sanitizeHungarianPublicText(c.seo_title)");
     expect(category).toContain("sanitizeHungarianPublicText(c.seo_description)");
-    expect(category).toContain("slug,image_url,ai_summary,summary,description,published_at");
+    expect(category).toContain("slug,image_url,ai_summary,summary,published_at");
     expect(prerender).toContain("seo_title, seo_description, taxonomy_keys");
     expect(prerender).toContain("const taxKeys = Array.isArray((cat as any).taxonomy_keys)");
     expect(prerender).toContain(".in(\"category\", taxKeys)");

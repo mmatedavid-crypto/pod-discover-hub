@@ -1,3 +1,5 @@
+import { entityDisplayLabel } from "@/lib/entity";
+
 type EpisodeUnderstandingSource = {
   ai_summary?: string | null;
   summary?: string | null;
@@ -23,11 +25,11 @@ export type EpisodeUnderstanding = {
   signalCount: number;
 };
 
-function takeClean(values: Array<string | null | undefined>, max: number): string[] {
+function takeClean(values: Array<unknown>, max: number): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const value of values) {
-    const v = String(value || "").replace(/\s+/g, " ").trim();
+    const v = entityDisplayLabel(value);
     if (!v) continue;
     const key = v.toLowerCase();
     if (seen.has(key)) continue;
@@ -38,7 +40,7 @@ function takeClean(values: Array<string | null | undefined>, max: number): strin
   return out;
 }
 
-function arr(value: string[] | null | undefined): string[] {
+function arr(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
@@ -68,9 +70,12 @@ export function getEpisodeUnderstanding(e: EpisodeUnderstandingSource): EpisodeU
     companies[0],
   ].filter(Boolean);
 
-  const headline = leadParts.length
+  const headline = (leadParts.length
     ? leadParts.slice(0, 3).join(" · ")
-    : chips.slice(0, 3).map((chip) => chip.label).join(" · ");
+    : chips.slice(0, 3).map((chip) => chip.label).join(" · ")).trim();
+
+  // An empty headline rendered as a bare "A lényeg:" label with nothing after it.
+  if (!headline) return null;
 
   return {
     confidence: signalCount >= 7 ? "strong" : signalCount >= 4 ? "medium" : "light",

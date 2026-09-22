@@ -5,6 +5,7 @@ import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import NotFoundState from "@/components/NotFoundState";
+import ListLoadError from "@/components/ListLoadError";
 import { compareByScore } from "@/lib/episodeRank";
 import PersonAvatar from "@/components/PersonAvatar";
 import { matchesEntitySlug } from "@/lib/entity";
@@ -122,6 +123,9 @@ export default function PersonDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [showSource, setShowSource] = useState(false);
   const [faqs, setFaqs] = useState<PersonFaq[]>([]);
+  // A failed load (DB timeout) must not look like "this person has no episodes".
+  const [epsError, setEpsError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
 
   useEffect(() => {
@@ -258,12 +262,17 @@ export default function PersonDetailPage() {
 
 
 
-      const { data: mentions } = await supabase
+      // Trimmed payload (no raw `description`) + smaller page: the 500-row variant
+      // with full descriptions regularly tripped the 3s statement timeout.
+      const { data: mentions, error: mentionsError } = await supabase
         .from("person_episode_mentions")
-        .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, display_title, slug, image_url, published_at, ai_summary, summary, description, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision))")
+        .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, display_title, slug, image_url, published_at, ai_summary, summary, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision))")
         .eq("person_id", (p as any).id)
         .eq("episodes.podcasts.language_decision", "accept_hungarian")
-        .limit(500);
+        .order("final_relevance_score", { ascending: false, nullsFirst: false })
+        .limit(250);
+      setEpsError(Boolean(mentionsError));
+
 
       const epList: any[] = [];
       const podMap = new Map<string, any>();
@@ -390,7 +399,7 @@ export default function PersonDetailPage() {
         jsonLd: (!(p as any).is_indexable || thinPage) ? undefined : jsonLd,
       });
     })();
-  }, [slug, decodedSlug]);
+  }, [slug, decodedSlug, reloadKey]);
 
   const isHistorical = Boolean((person as any)?.is_deceased || (person as any)?.is_historical);
   const hasArchival = Boolean((person as any)?.has_archival_evidence);
@@ -526,7 +535,9 @@ export default function PersonDetailPage() {
           );
         })()}
 
-        {eps.length === 0 && <div className="text-muted-foreground">Még nincs releváns epizód.</div>}
+        {eps.length === 0 && (epsError
+          ? <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />
+          : <div className="text-muted-foreground">Még nincs releváns epizód.</div>)}
 
         {isHistorical && (
           <div className="text-xs text-muted-foreground -mt-6">

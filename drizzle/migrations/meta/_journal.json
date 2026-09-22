@@ -22,6 +22,34 @@
       "when": 1789937829586,
       "tag": "0002_refresh_homepage_feed_after_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790082947876,
+      "tag": "0003_fix_public_read_grants_and_homepage_refresh_lock",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790083004270,
+      "tag": "0004_add_podcast_episode_counts_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790083982569,
+      "tag": "0005_add_topic_and_person_episode_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790084170675,
+      "tag": "0006_throttle_background_pipelines_for_visitor_latency",
+      "breakpoints": true
     }
   ]
 }

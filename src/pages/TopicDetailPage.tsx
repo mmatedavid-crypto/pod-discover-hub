@@ -5,6 +5,7 @@ import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import NotFoundState from "@/components/NotFoundState";
+import ListLoadError from "@/components/ListLoadError";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
@@ -51,6 +52,9 @@ export default function TopicDetailPage() {
   const [people, setPeople] = useState<{ slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Load failure vs genuinely empty topic.
+  const [epsError, setEpsError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (rawSlug && SLUG_REDIRECTS[rawSlug]) {
@@ -71,9 +75,11 @@ export default function TopicDetailPage() {
       // Episodes mapped to topic, HU-gated. Prefer judge-accepted reviews; union with
       // remaining episode_topic_map rows that have NOT been rejected by the judge.
       const topicId = (t as any).id;
-      const epSelect = "id, title, display_title, slug, image_url, published_at, ai_summary, summary, description, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision)";
+      // No raw `description` here — the trimmed payload keeps these joined
+      // queries inside the 3s statement timeout under pipeline load.
+      const epSelect = "id, title, display_title, slug, image_url, published_at, ai_summary, summary, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision)";
 
-      const [{ data: reviewRows }, { data: mapRows }, { data: rejectedRows }, { data: classRows }] = await Promise.all([
+      const [{ data: reviewRows, error: reviewError }, { data: mapRows, error: mapError }, { data: rejectedRows }, { data: classRows, error: classError }] = await Promise.all([
         supabase
           .from("episode_topic_relevance_reviews")
           .select(`episode_id, confidence, episodes!inner(${epSelect})`)
@@ -121,6 +127,7 @@ export default function TopicDetailPage() {
         if (e && !rejectedSet.has(e.id) && !byId.has(e.id)) byId.set(e.id, e);
       }
       const epList: any[] = [...byId.values()];
+      setEpsError(epList.length === 0 && Boolean(reviewError || mapError || classError));
       setEps(epList.sort(compareByScore).slice(0, 200) as any);
 
       // Related topics same domain
@@ -206,7 +213,7 @@ export default function TopicDetailPage() {
         ],
       });
     })();
-  }, [slug, rawSlug]);
+  }, [slug, rawSlug, reloadKey]);
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
   if (notFound || !topic) return <NotFoundState title="Nincs ilyen téma" message="A keresett téma nem található." />;
@@ -287,8 +294,9 @@ export default function TopicDetailPage() {
             </div>
           </section>
         )}
-        {eps.length === 0 && (
-          <div className="text-muted-foreground">Még gyűjtjük az epizódokat ehhez a témához.</div>
+        {eps.length === 0 && (epsError
+          ? <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />
+          : <div className="text-muted-foreground">Még gyűjtjük az epizódokat ehhez a témához.</div>
         )}
       </div>
     </Layout>

@@ -4,7 +4,7 @@ import { PodcastCover } from "./PodcastCover";
 import { Brain, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
-import { entityHref } from "@/lib/entity";
+import { entityDisplayLabel, entityHref } from "@/lib/entity";
 import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
@@ -63,6 +63,42 @@ export type EpisodeLite = {
     podiverzum_rank?: number | null;
   };
 };
+
+type EntityChipKind = "person" | "company" | "ticker" | "ingredient";
+
+/**
+ * Entity chips for one episode. Values arriving as objects from the AI pipeline
+ * used to render as "[object Object]"; they are normalised (or dropped) here.
+ */
+function entityChips(
+  e: EpisodeLite,
+  enabled: boolean,
+  options?: { max?: number; kinds?: EntityChipKind[] },
+): Array<{ kind: EntityChipKind; v: string }> {
+  if (!enabled) return [];
+  const kinds = options?.kinds ?? ["person", "company", "ticker", "ingredient"];
+  const fieldOf: Record<EntityChipKind, unknown> = {
+    person: (e as any).people,
+    company: (e as any).companies,
+    ticker: (e as any).tickers,
+    ingredient: (e as any).ingredients,
+  };
+  const out: Array<{ kind: EntityChipKind; v: string }> = [];
+  const seen = new Set<string>();
+  for (const kind of kinds) {
+    const raw = fieldOf[kind];
+    if (!Array.isArray(raw)) continue;
+    for (const item of raw) {
+      const v = entityDisplayLabel(item);
+      if (!v) continue;
+      const key = `${kind}-${v.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ kind, v });
+    }
+  }
+  return out.slice(0, options?.max ?? 6);
+}
 
 function HL({ text, terms }: { text: string; terms?: string[] }) {
   if (!terms || !terms.length) return <>{text}</>;
@@ -164,14 +200,7 @@ export function EpisodeCard({
       externalUrl: e.audio_url || null,
     }, { startAt: chunkStart });
   };
-  const allEnts = showEntities
-    ? [
-        ...(e.people || []).map((v) => ({ kind: "person" as const, v })),
-        ...(e.companies || []).map((v) => ({ kind: "company" as const, v })),
-        ...(e.tickers || []).map((v) => ({ kind: "ticker" as const, v })),
-        ...(e.ingredients || []).map((v) => ({ kind: "ingredient" as const, v })),
-      ].slice(0, 6)
-    : [];
+  const allEnts = entityChips(e, showEntities);
   return (
     <article className="group flex gap-3 sm:gap-4 p-4 sm:p-5 hover:bg-secondary/40 transition-colors">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-16 sm:w-20">
@@ -358,12 +387,7 @@ function EpisodeRailCard({
       externalUrl: e.audio_url || null,
     }, { resume: true });
   };
-  const allEnts = showEntities
-    ? [
-        ...(e.people || []).map((v) => ({ kind: "person" as const, v })),
-        ...(e.companies || []).map((v) => ({ kind: "company" as const, v })),
-      ].slice(0, 4)
-    : [];
+  const allEnts = entityChips(e, showEntities, { max: 4, kinds: ["person", "company"] });
   const fr = e.published_at ? freshnessOf(e.published_at) : null;
 
   return (

@@ -9525,6 +9525,32 @@ export type Database = {
           letter: string
         }[]
       }
+      person_episodes: {
+        Args: { _limit?: number; _person_id: string }
+        Returns: {
+          ai_summary: string
+          audio_url: string
+          display_title: string
+          id: string
+          image_url: string
+          mention_type: string
+          mentioned: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_rank: number
+          podcast_rank_label: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
+          relevance_score: number
+          slug: string
+          summary: string
+          title: string
+        }[]
+      }
       pipeline_health_item_v1: {
         Args: {
           p_backlog?: number
@@ -9535,6 +9561,13 @@ export type Database = {
           p_progress_key: string
         }
         Returns: Json
+      }
+      podcast_episode_counts: {
+        Args: { _ids: string[] }
+        Returns: {
+          episode_count: number
+          podcast_id: string
+        }[]
       }
       purge_search_query_cache: {
         Args: { older_than_days?: number }
@@ -9967,6 +10000,31 @@ export type Database = {
         Returns: {
           mentions: number
           name: string
+        }[]
+      }
+      topic_episodes: {
+        Args: { _limit?: number; _topic_id: string }
+        Returns: {
+          ai_summary: string
+          audio_url: string
+          display_title: string
+          id: string
+          image_url: string
+          mentioned: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_rank: number
+          podcast_rank_label: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
+          slug: string
+          source: string
+          summary: string
+          title: string
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }

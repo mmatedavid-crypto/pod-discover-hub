@@ -21,11 +21,11 @@ export function relativeTime(date?: string | null): string {
   const t = new Date(date).getTime();
   if (!Number.isFinite(t)) return "";
   const diff = Date.now() - t;
-  if (diff < 60 * 1000) return "just now";
-  if (diff < HOUR) return `${Math.floor(diff / (60 * 1000))} min ago`;
-  if (diff < DAY) return `${Math.floor(diff / HOUR)}h ago`;
-  if (diff < 7 * DAY) return `${Math.floor(diff / DAY)}d ago`;
-  if (diff < 30 * DAY) return `${Math.floor(diff / (7 * DAY))}w ago`;
-  if (diff < 365 * DAY) return `${Math.floor(diff / (30 * DAY))}mo ago`;
-  return `${Math.floor(diff / (365 * DAY))}y ago`;
+  if (diff < 60 * 1000) return "most";
+  if (diff < HOUR) return `${Math.floor(diff / (60 * 1000))} perccel ezelőtt`;
+  if (diff < DAY) return `${Math.floor(diff / HOUR)} órával ezelőtt`;
+  if (diff < 7 * DAY) return `${Math.floor(diff / DAY)} nappal ezelőtt`;
+  if (diff < 30 * DAY) return `${Math.floor(diff / (7 * DAY))} héttel ezelőtt`;
+  if (diff < 365 * DAY) return `${Math.floor(diff / (30 * DAY))} hónappal ezelőtt`;
+  return `${Math.floor(diff / (365 * DAY))} évvel ezelőtt`;
 }

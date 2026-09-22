@@ -1,9 +1,23 @@
 // Episode duration helpers.
 // Storage: episodes.duration_seconds (integer, may be NULL).
 
-/** Human-friendly: "1 ó 12 p", "47 p", "3 p 20 mp". Returns null if invalid. */
-export function formatDurationHu(sec: number | null | undefined): string | null {
-  if (sec == null || !Number.isFinite(sec) || sec <= 0) return null;
+/**
+ * Some RSS feeds put MINUTES into <itunes:duration> where the spec asks for
+ * seconds, which surfaced as "1 p" next to a 1:33:42 long audio file. Values
+ * under 90 seconds are therefore treated as unreliable and simply not shown;
+ * the player writes the measured duration back once the episode is played.
+ */
+const MIN_TRUSTED_SECONDS = 120;
+
+function trustedSeconds(sec: number | null | undefined): number | null {
+  if (sec == null || !Number.isFinite(sec) || sec < MIN_TRUSTED_SECONDS) return null;
+  return sec;
+}
+
+/** Human-friendly: "1 ó 12 p", "47 p". Returns null if missing or unreliable. */
+export function formatDurationHu(input: number | null | undefined): string | null {
+  const sec = trustedSeconds(input);
+  if (sec == null) return null;
   const s = Math.round(sec);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -13,9 +27,10 @@ export function formatDurationHu(sec: number | null | undefined): string | null 
   return `${r} mp`;
 }
 
-/** Schema.org / ISO-8601 duration, e.g. "PT1H12M30S". Returns null if invalid. */
-export function toIsoDuration(sec: number | null | undefined): string | null {
-  if (sec == null || !Number.isFinite(sec) || sec <= 0) return null;
+/** Schema.org / ISO-8601 duration, e.g. "PT1H12M30S". Null if missing or unreliable. */
+export function toIsoDuration(input: number | null | undefined): string | null {
+  const sec = trustedSeconds(input);
+  if (sec == null) return null;
   const s = Math.round(sec);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);

@@ -22,6 +22,7 @@ import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { pickEpisodeDescription } from "@/lib/episodeText";
+import ListLoadError from "@/components/ListLoadError";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
@@ -68,23 +69,30 @@ function isSafeHostPerson(p: any): boolean {
   return true;
 }
 
-async function fetchAllEpisodes(podcastId: string) {
-  const PAGE = 1000;
+// Smaller pages + one retry per page: a single transient statement timeout used
+// to abort the whole list, which rendered as "ennek a podcastnak nincs epizódja".
+async function fetchAllEpisodes(podcastId: string): Promise<{ rows: any[]; failed: boolean }> {
+  const PAGE = 300;
+  const SELECT = "id,title,display_title,slug,published_at,ai_summary,summary,description,audio_url,image_url,episode_url,topics,people,companies,tickers,ingredients";
   let from = 0;
   const all: any[] = [];
-  for (let i = 0; i < 20; i++) {
-    const { data, error } = await supabase
-      .from("episodes")
-      .select("id,title,display_title,slug,published_at,ai_summary,summary,description,audio_url,image_url,episode_url,topics,people,companies,tickers,ingredients")
-      .eq("podcast_id", podcastId)
-      .order("published_at", { ascending: false, nullsFirst: false })
-      .range(from, from + PAGE - 1);
-    if (error || !data) break;
+  for (let i = 0; i < 40; i++) {
+    let data: any[] | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await supabase
+        .from("episodes")
+        .select(SELECT)
+        .eq("podcast_id", podcastId)
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .range(from, from + PAGE - 1);
+      if (!res.error && res.data) { data = res.data as any[]; break; }
+    }
+    if (!data) return { rows: all, failed: all.length === 0 };
     all.push(...data);
     if (data.length < PAGE) break;
     from += PAGE;
   }
-  return all;
+  return { rows: all, failed: false };
 }
 
 async function fetchHosts(podcastId: string, manualNames: string[]): Promise<HostRow[]> {
@@ -153,6 +161,9 @@ export default function PodcastDetail() {
   const [eps, setEps] = useState<any[]>([]);
   const [hosts, setHosts] = useState<HostRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Distinguish "no episodes" from "loading failed" (DB timeout under load).
+  const [epsError, setEpsError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const { play } = useSmartPlayer();
 
   useEffect(() => {
@@ -172,12 +183,14 @@ export default function PodcastDetail() {
       setLoading(false);
       if (data) {
         const manualHostNames = (data.hosts || []) as string[];
-        const [resolvedHosts, allEps] = await Promise.all([
+        const [resolvedHosts, episodeResult] = await Promise.all([
           fetchHosts(data.id, manualHostNames),
           fetchAllEpisodes(data.id),
         ]);
+        const allEps = episodeResult.rows;
         setHosts(resolvedHosts);
         setEps(allEps);
+        setEpsError(episodeResult.failed);
 
         const cleanSummary = sanitizeHungarianPublicText(data.summary);
         const cleanDesc = sanitizeHungarianPublicText(data.description);
@@ -239,7 +252,7 @@ export default function PodcastDetail() {
         });
       }
     })();
-  }, [podcastSlug]);
+  }, [podcastSlug, reloadKey]);
 
 
   if (loading) return <Layout><PodcastDetailSkeleton /></Layout>;
@@ -425,7 +438,9 @@ export default function PodcastDetail() {
         })()}
 
 
-        <EpisodeListWithSearch eps={eps} podcast={p} />
+        {epsError && eps.length === 0
+          ? <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />
+          : <EpisodeListWithSearch eps={eps} podcast={p} />}
 
 
         <SimilarPodcasts podcastId={p.id} />

@@ -18,6 +18,7 @@ import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
 import { categoryHeading, categoryIntro, categoryTitle, categoryMetaDescription } from "@/lib/categoryCopy";
 import { discoveryCategories, type DiscoveryCategory } from "@/lib/discoveryNavigation";
 import NotFoundState from "@/components/NotFoundState";
+import ListLoadError from "@/components/ListLoadError";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
 import { entityHref } from "@/lib/entity";
@@ -36,6 +37,9 @@ export default function CategoryDetail() {
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [relatedCategories, setRelatedCategories] = useState<DiscoveryCategory[]>([]);
+  // Load failures (e.g. DB statement timeout) must never be rendered as an empty catalog.
+  const [episodesError, setEpisodesError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const redirectTo = slug ? CATEGORY_REDIRECTS[slug] : undefined;
 
@@ -114,8 +118,10 @@ export default function CategoryDetail() {
       const ids0 = visible.map((p: any) => p.id);
       const epCountMap: Record<string, number> = {};
       if (ids0.length) {
-        const { data: ec } = await supabase.from("episodes").select("podcast_id").in("podcast_id", ids0);
-        (ec || []).forEach((e: any) => { epCountMap[e.podcast_id] = (epCountMap[e.podcast_id] || 0) + 1; });
+        // Aggregate in the DB. Pulling one row per episode for up to 80 shows was
+        // tens of thousands of rows and regularly hit the 3s statement timeout.
+        const { data: ec } = await supabase.rpc("podcast_episode_counts", { _ids: ids0 });
+        (ec || []).forEach((r: any) => { epCountMap[r.podcast_id] = Number(r.episode_count) || 0; });
       }
       const high = visible.filter((p: any) => p.featured || (["S", "A"].includes(p.rank_label) && (epCountMap[p.id] || 0) > 0));
       const mid = visible.filter((p: any) => !p.featured && p.rank_label === "B" && (epCountMap[p.id] || 0) > 0);
@@ -127,28 +133,35 @@ export default function CategoryDetail() {
       // Rank can order/highlight, but every accepted Hungarian non-spam show in
       // the category should be eligible for the fresh episode list.
       const categoryPodcastIds = visible.map((p: any) => p.id);
-      const [{ data: eps }, { data: overrides }, { data: classifiedRows }] = await Promise.all([
+      const EPISODE_FIELDS = "id,title,display_title,slug,image_url,ai_summary,summary,published_at,audio_url,topics";
+      const [{ data: eps, error: epsError }, { data: overrides }, { data: classifiedRows, error: classifiedError }] = await Promise.all([
         categoryPodcastIds.length
           ? supabase
               .from("episodes")
-              .select("id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
+              .select(`${EPISODE_FIELDS},podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)`)
               .in("podcast_id", categoryPodcastIds)
               .order("published_at", { ascending: false, nullsFirst: false })
-              .limit(180)
-          : Promise.resolve({ data: [] as any[] }),
+              .limit(120)
+          : Promise.resolve({ data: [] as any[], error: null }),
         supabase
           .from("episode_category_overrides")
           .select("episode_id, status")
           .eq("category_slug", slug),
         supabase
           .from("episode_ai_classifications")
-          .select("episode_id, primary_category, secondary_categories, episodes!inner(id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,language_decision))")
+          .select(`episode_id, primary_category, secondary_categories, episodes!inner(${EPISODE_FIELDS},podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,language_decision))`)
           .eq("classification_status", "classified")
           .or(`primary_category.eq.${slug},secondary_categories.cs.${JSON.stringify([slug])}`)
           .eq("episodes.podcasts.language_decision", "accept_hungarian")
           .order("episode_id")
-          .limit(200),
+          .limit(120),
       ]);
+      // Only a total failure (nothing loaded at all) counts as an error state.
+      if (epsError && classifiedError) {
+        setEpisodesError(true);
+        return;
+      }
+      setEpisodesError(false);
       const rejected = new Set((overrides || []).filter((o: any) => o.status === "rejected").map((o: any) => o.episode_id));
       // Merge: prefer episode-level AI classification rows (precision-first),
       // then fall back to podcast-level category episodes for shows without
@@ -184,7 +197,7 @@ export default function CategoryDetail() {
       (sorted || []).forEach((e: any) => (e.topics || []).forEach((x: string) => t.set(x, (t.get(x) || 0) + 1)));
       setTopics([...t.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k]) => k));
     })();
-  }, [slug]);
+  }, [slug, reloadKey]);
 
   // Run query-time search when there is a query.
   useEffect(() => {
@@ -339,6 +352,8 @@ export default function CategoryDetail() {
             <h2 className="text-xl font-semibold mt-10 mb-4">Friss epizódok — {cat.name}</h2>
             {episodes.length > 0 ? (
               <EpisodeList items={episodes} showTopics />
+            ) : episodesError ? (
+              <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />
             ) : (
               <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
                 Ebben a kategóriában még nincsenek podcast epizódok. A Podiverzum folyamatosan bővül.
