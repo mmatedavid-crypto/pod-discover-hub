@@ -140,9 +140,12 @@ export default function TopicDetailPage() {
         const e: any = (r as any).episodes;
         if (e && !rejectedSet.has(e.id) && !byId.has(e.id)) byId.set(e.id, e);
       }
-      const epList: any[] = [...byId.values()];
-      setEpsError(epList.length === 0 && Boolean(reviewError || mapError || classError));
-      setEps(epList.sort(compareByScore).slice(0, 200) as any);
+        epList = [...byId.values()];
+        loadFailed = loadFailed || Boolean(reviewError || mapError || classError);
+        setEpsError(epList.length === 0 && loadFailed);
+        setEps(epList.sort(compareByScore).slice(0, 200) as any);
+      }
+
 
       // Related topics same domain
       if ((t as any).domain) {
