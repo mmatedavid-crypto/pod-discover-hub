@@ -432,6 +432,17 @@ Deno.serve(async (req) => {
   const limit = Math.min(Math.max(Number(body.limit || 60), 1), 200);
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
+  // Queue-governed on/off switch (queue-health-controller pauses this when the queue empties).
+  const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "person_ai_review_controls").maybeSingle();
+  const ctrl = (ctrlRow?.value || {}) as any;
+  if (ctrl.enabled === false && !body.force) {
+    return new Response(JSON.stringify({ paused: "controls_disabled", reason: ctrl.auto_paused_reason || null }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+
+
   const spent = await dailySpend(admin);
   if (spent >= DAILY_BUDGET_USD && !body.ignore_budget) {
     return new Response(JSON.stringify({ paused: "budget_reached", spent_today: spent, budget: DAILY_BUDGET_USD }), {
