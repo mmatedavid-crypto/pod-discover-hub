@@ -182,6 +182,29 @@ export function canonicalEntityValue(kind: EntityKind, value: string): string {
   return clean;
 }
 
+/**
+ * Entity arrays coming from the AI pipeline occasionally hold objects
+ * ({ name: "..." }) instead of plain strings. `String(obj)` rendered those as
+ * "[object Object]" in chips and headlines, so normalise here instead.
+ */
+export function entityDisplayLabel(value: unknown): string | null {
+  if (typeof value === "string") {
+    const s = value.replace(/\s+/g, " ").trim();
+    return s ? s : null;
+  }
+  if (value && typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    for (const key of ["name", "label", "value", "title", "text"]) {
+      const candidate = o[key];
+      if (typeof candidate === "string") {
+        const s = candidate.replace(/\s+/g, " ").trim();
+        if (s) return s;
+      }
+    }
+  }
+  return null;
+}
+
 export function entitySlug(kind: EntityKind, value: string): string {
   if (kind === "ticker") return value.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase();
   return slugify(canonicalEntityValue(kind, value));

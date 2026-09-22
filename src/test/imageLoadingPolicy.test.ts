@@ -316,7 +316,7 @@ describe("episode thumbnail loading policy", () => {
     expect(search).toContain("id,title,display_title,slug,image_url");
     expect(searchHybrid).toContain("id,title,display_title,slug,image_url");
     expect(category).toContain("id,title,display_title,slug,image_url");
-    expect(category).toContain("episodes!inner(id,title,display_title,slug,image_url");
+    expect(category).toContain("episodes!inner(${EPISODE_FIELDS}");
     expect(daily).toContain("id,title,display_title,slug,image_url");
     expect(daily).toContain("image_url: r.image_url");
     expect(entity).toContain("id,title,display_title,slug,image_url");
