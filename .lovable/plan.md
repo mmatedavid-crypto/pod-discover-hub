@@ -1,58 +1,44 @@
-## Cél
+# Funkcióaudit javítások (2026.09.22.)
 
-A `bible-prefetch` ne üres placeholder-t rakjon ki 18:00 UTC-kor, hanem egy **tartalmas, ~700–1000 szavas oldalt**, amit a Google 7+ órán át indexálhat, mielőtt a Zarándok RSS 01:00 CEST-kor élesedik.
+Az auditban leírt "üres epizódlisták" nem tartalomhiány. Két konkrét okot találtam, mindkettőt élőben visszaigazoltam:
 
-## Adatforrások (nem kell fordítanunk)
+1. **Hiányzó olvasási jog**: a kategória- és témaoldalak az AI-besorolás táblát kérdezik, és a szerver "hozzáférés megtagadva" hibát ad a látogatóknak. Ezért lett a Tech és a True Crime kategória üres, és ezért nem jelent meg az MI-témánál a 205 epizód.
+2. **Időtúllépés terhelés alatt**: a főoldali lista újraszámolása 1,5+ percig fut és lefoglalja a lemezt; ilyenkor a látogatói kérések 3 másodperc után megszakadnak. A felület a hibát "nincs epizód" üzenetnek mutatja. Ezt a Kibeszélő műsoroldalán, a Friderikusz-személyoldalon és a kategórialistáknál is elkaptam.
 
-1. **Ascension "The Bible in a Year" hivatalos 365-napos terv** — nyilvános PDF. Napi 2–3 szentírási hivatkozás + Timeline periódus (12 db, pl. "Ősidők", "Pátriárkák", "Egyiptomi rabság", "Sivatagi vándorlás", "Honfoglalás", "Bírák", "Királyság", "Megosztott királyság", "Fogság", "Hazatérés", "Makkabeus", "Messiás").
-2. **Magyar könyv-rövidítések** — Katolikus Egyház hivatalos rendje (Szent István Társulat): `Gen`→`Ter`, `Ex`→`Kiv`, `1 Sam`→`1 Sám`, `Ps`→`Zsolt`, stb. Fixed mapping, ~73 könyv.
-3. **Perikópa szövege** — később, per epizód a zarandok.ma-ról scrape-elhető (`/N-nap-{slug}/`), amint publikálva van. Placeholder-be NEM tesszük (jogi/időbeli okból), csak a hivatkozásokat.
-4. **AI elmélkedés** — Lovable AI Gateway, `google/gemini-3.5-flash`, magyar rendszer-prompt: „katolikus lelki elmélkedés, 350–450 szó, a napi szentírási olvasmányokra". Egyszer generálva, jégre tesszük az adatbázisban.
+## Mit csinálok
 
-## Építkezés
+### 1. Olvasási jogok rendezése (adatbázis)
+- `GRANT SELECT` az AI-besorolás táblára a látogatói szerepnek (a szabályzat már engedi az olvasást, csak a jog hiányzott).
+- Ugyanez a három másik táblára, ahol a szabályzat nyilvános olvasást engedélyez, de a jog hiányzik (epizód-szövegrészletek, ízléskártyák, megosztott profilok).
 
-### 1. Új tábla `bible_reading_plan` (migration)
+### 2. A főoldali lista újraszámolása ne fojtsa meg az oldalt
+- Az újraszámolás zárolás nélküli (CONCURRENTLY) módra állítása, és a jelenlegi 5 perces ütem ritkítása, hogy ne fusson folyamatosan.
+- Így a látogatói kérések nem futnak időtúllépésre.
 
-```
-day          smallint PRIMARY KEY  (1–365)
-readings     text[]                (['Iz 9', 'Iz 10'])
-readings_display text              ('Iz 9–10, 2 Kir 17, Zsolt 78')
-period_hu    text                  ('Fogság')
-period_intro text                  (rövid, ~1 mondat: „Izrael és Júda kettészakadása után…")
-```
+### 3. Hiba ne látszódjon üres katalógusnak (audit 02)
+- Műsor-, kategória-, téma- és személyoldalon: ha a betöltés hibára fut, érthető hibaüzenet + "Újrapróbálom" gomb jelenik meg a "nincs epizód" szöveg helyett.
+- Automatikus újrapróbálkozás az időtúllépéses hibákra.
 
-Grants + RLS anon SELECT. Seed insert: 365 sor egy admin-migration-ben (én generálom az Ascension PDF alapján, magyar könyvnevekkel).
+### 4. Kérések könnyítése
+- A kategóriaoldal jelenleg 40 műsor 180 epizódját kéri le a teljes leírásokkal együtt — ezt szűkebb mezőlistára és kisebb csomagokra bontom.
+- A személyoldal 500-as említéslistáját is szűkítem, hogy a 3 másodperces korláton belül maradjon.
 
-### 2. `bible-prefetch` frissítés
+### 5. Nyelvi következetesség (audit 05)
+- A főoldali friss epizód-sáv és az "új podcastok" lista ugyanarra a magyar besorolásra szűr, mint a többi felület (így nem jön be pl. This Podcast Will Kill You, Dear Therapists).
 
-- `nextDay` alapján kiolvassa a `bible_reading_plan` sort.
-- Ha nincs sor → mai fallback (mostani placeholder marad).
-- `description` + `ai_summary` felépítése:
-  - **H2**: "N. nap – ma este 01:00-kor" (audio előtt)
-  - Blokk: „Korszak: {period_hu}" + `period_intro`
-  - Blokk: „Napi olvasmány: {readings_display}"
-  - Blokk: AI elmélkedés 350–450 szó (LLM hívás, `google/gemini-3.5-flash`, HU prompt, rendszer: „katolikus atya hangja, első személyű reflekció, nem panasz, hitéleti kontextus")
-  - Utolsó sor: „Ma este 01:00-kor Fábry Kornél püspök atya hangján is meghallgathatod."
-- Mentés az `episodes` sorba (`description`, `ai_summary`, `seo_description`).
-- Ping-ek (Google Indexing, IndexNow, sitemap) marad.
+### 6. Megjelenítési hibák (audit 04, 06)
+- Magyar relatív dátumok mindenhol ("5mo ago" → "5 hónappal ezelőtt").
+- Érvénytelen entitásnév (pl. `[object Object]`) nem kap címkét és linket.
+- Üres "A lényeg:" blokk elrejtése; időtartam következetes megjelenítése; ugyanaz az epizód egyszer szerepel egy listában.
 
-### 3. Költség és hatás
+## Amihez nem nyúlok
+- Hosting, arculat, keresőmotor beállításai, lejátszó, útvonalak.
+- A podiverzum.com oldal.
+- A törölt Szélsőközép-epizód nem kerül vissza.
+- Tömeges tartalomgenerálás, AI-költés növelése.
 
-- **AI hívás**: ~1500 token/nap × `google/gemini-3.5-flash` ≈ $0.001/nap → elhanyagolható.
-- **Placeholder tartalom**: 700–1000 szó → Google „thin content" nem fogja letiltani, indexálja.
-- **Élesedéskor** a `fetch-one` merge-eli a valódi audio-t + RSS description-t; ekkor az AI-elmélkedést cseréljük a valódi Fábry-tartalomra (vagy megőrizzük extra-blokként — később eldönthető).
+## Ellenőrzés
+Élő böngészős újrateszt a hat audit-útvonalon (Kibeszélő, Tech, True Crime, MI-téma, Friderikusz, keresés), plusz build és a meglévő tesztek.
 
-## Nem szerepel a plan-ban
-
-- SZIT bibliai szöveg beemelése — külön fázis, ha kell (jogi tisztázás után).
-- Zarandok.ma per-nap scraping — később a valódi perikópa-szöveghez, most nem.
-- Múltbeli epizódok visszamenőleges dúsítása — csak jövőbeli placeholderekre.
-
-## Kérdés hozzád indulás előtt
-
-Az AI elmélkedés hangvétele:
-(a) **Fábry-imitáló** ("Kedves testvéreim, ma este arról olvasunk…") — kockázat: fake identity.  
-(b) **Semleges lelki reflekció** ("A mai olvasmány három szentírási helyet ölel át…") — biztonságosabb, egyértelműen szerkesztőségi.  
-(c) **Kontextus-magyarázó** ("A Fogság korszakának 6. napján járunk…") — tanulmányi jelleg, SEO-erősebb.
-
-Alapból (b)+(c) hibrid — jóváhagyod, vagy (a) legyen?
+## Nyitott kérdés
+A keresés ("Kibeszélő", "mesterséges intelligencia") epizódtalálat nélkül tér vissza. Ez külön ok lehet (keresőindex / relevancia), és a fentiek után külön körben vizsgálnám — nem akarom ugyanabba a csomagba tenni.
