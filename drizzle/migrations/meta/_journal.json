@@ -162,6 +162,13 @@
       "when": 1790111623746,
       "tag": "0022_fast_capped_pending_counters",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790111679701,
+      "tag": "0023_pending_counter_indexes",
+      "breakpoints": true
     }
   ]
 }
