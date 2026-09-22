@@ -57,6 +57,13 @@
       "when": 1790084332322,
       "tag": "0007_create_episode_cards_slim_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790084436862,
+      "tag": "0008_schedule_episode_cards_backfill",
+      "breakpoints": true
     }
   ]
 }
