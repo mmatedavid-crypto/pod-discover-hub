@@ -7,6 +7,8 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import NotFoundState from "@/components/NotFoundState";
 import ListLoadError from "@/components/ListLoadError";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
+import { mapEpisodeCardRow } from "@/lib/episodeCards";
+
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 
 interface Topic {
