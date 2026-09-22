@@ -426,7 +426,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
-  const limit = Math.min(Math.max(Number(body.limit || 20), 1), 50);
+  const limit = Math.min(Math.max(Number(body.limit || 60), 1), 200);
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
   const spent = await dailySpend(admin);
@@ -439,16 +439,24 @@ Deno.serve(async (req) => {
   const ids = personIds.length > 0 ? personIds.slice(0, limit) : await selectCandidates(admin, limit);
   const results: any[] = [];
   let totalCost = 0;
-  for (const id of ids) {
-    const r = await reviewOne(admin, id);
-    if (typeof r.cost_usd === "number") totalCost += r.cost_usd;
-    results.push(r);
-    if ((await dailySpend(admin)) >= DAILY_BUDGET_USD) {
-      results.push({ stopped: "budget_reached_mid_run" });
-      break;
+  let stopped = false;
+  const queue = [...ids];
+  const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length || 1) }, async () => {
+    while (!stopped) {
+      const id = queue.shift();
+      if (!id) return;
+      const r = await reviewOne(admin, id);
+      if (typeof r.cost_usd === "number") totalCost += r.cost_usd;
+      results.push(r);
+      if ((await dailySpend(admin)) >= DAILY_BUDGET_USD) {
+        stopped = true;
+        results.push({ stopped: "budget_reached_mid_run" });
+        return;
+      }
     }
-    await new Promise(res => setTimeout(res, 80));
-  }
+  });
+  await Promise.all(workers);
+
   return new Response(JSON.stringify({
     processed: results.length, ids_selected: ids.length, total_cost_usd: totalCost, results,
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
