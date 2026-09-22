@@ -147,14 +147,12 @@ export default function CategoryDetail() {
           .from("episode_category_overrides")
           .select("episode_id, status")
           .eq("category_slug", slug),
-        supabase
-          .from("episode_ai_classifications")
-          .select(`episode_id, primary_category, secondary_categories, episodes!inner(${EPISODE_FIELDS},podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,language_decision))`)
-          .eq("classification_status", "classified")
-          .or(`primary_category.eq.${slug},secondary_categories.cs.${JSON.stringify([slug])}`)
-          .eq("episodes.podcasts.language_decision", "accept_hungarian")
-          .order("episode_id")
-          .limit(120),
+        // `category_episodes` reads the slim episode_cards projection with an
+        // index-backed primary/secondary category lookup. The previous embedded
+        // `episode_ai_classifications` select seq-scanned 150k rows and 500'd
+        // on the 3s statement timeout, which emptied the category episode list.
+        supabase.rpc("category_episodes", { _slug: slug, _limit: 120 } as any),
+
       ]);
       // Only a total failure (nothing loaded at all) counts as an error state.
       if (epsError && classifiedError) {
