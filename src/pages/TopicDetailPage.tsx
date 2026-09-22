@@ -72,12 +72,26 @@ export default function TopicDetailPage() {
       if (!t || !(t as any).is_public) { setNotFound(true); setLoading(false); return; }
       setTopic(t as any);
 
-      // Episodes mapped to topic, HU-gated. Prefer judge-accepted reviews; union with
-      // remaining episode_topic_map rows that have NOT been rejected by the judge.
+      // Primary path: `topic_episodes` reads the slim episode_cards projection in
+      // one round trip. The legacy multi-join path below stays as a fallback for
+      // rows that are not projected yet.
       const topicId = (t as any).id;
+      let epList: any[] = [];
+      let loadFailed = false;
+      const { data: fastRows, error: fastError } = await supabase
+        .rpc("topic_episodes", { _topic_id: topicId, _slug: slug, _limit: 200 } as any);
+      if (fastError) loadFailed = true;
+      if (Array.isArray(fastRows) && fastRows.length > 0) {
+        epList = (fastRows as any[]).map(mapEpisodeCardRow);
+        setEpsError(false);
+        setEps(epList.sort(compareByScore).slice(0, 200) as any);
+      }
+
+      if (epList.length === 0) {
       // No raw `description` here — the trimmed payload keeps these joined
       // queries inside the 3s statement timeout under pipeline load.
       const epSelect = "id, title, display_title, slug, image_url, published_at, ai_summary, summary, audio_url, topics, people, mentioned, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision)";
+
 
       const [{ data: reviewRows, error: reviewError }, { data: mapRows, error: mapError }, { data: rejectedRows }, { data: classRows, error: classError }] = await Promise.all([
         supabase
