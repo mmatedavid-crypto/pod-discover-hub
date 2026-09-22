@@ -255,6 +255,29 @@ function shouldAutoDowngrade(args: any): { downgrade: boolean; reason: string } 
   return { downgrade: true, reason: `${args.recommended_action}: ${matched.join(",")}` };
 }
 
+// Turns "I am not sure" verdicts into deterministic outcomes so no human queue forms.
+// Strong evidence (several episodes across several shows) keeps a public but non-indexed
+// page; anything thinner is hidden. Duplicates are hidden when they are the weaker row.
+function autoResolveUncertain(args: any, dup: any, p: PersonRow): { resolved: boolean; note: string } {
+  const eps = Number(p.episode_count || 0);
+  const shows = Number(p.distinct_podcast_count || p.podcast_count || 0);
+  const strong = Number(p.strong_mention_count || 0);
+  const wikiOk = p.wikipedia_match_status === "verified";
+  const solid = args.is_real_person !== false && (wikiOk || (eps >= 3 && shows >= 2) || strong >= 3);
+
+  if (dup?.is_duplicate) {
+    args.recommended_action = solid ? "keep_public_noindex" : "hide";
+    return { resolved: true, note: `auto-resolved duplicate → ${args.recommended_action}` };
+  }
+  if (args.recommended_action === "needs_review" || args.recommended_action === "merge") {
+    args.recommended_action = solid ? "keep_public_noindex" : "hide";
+    return { resolved: true, note: `auto-resolved uncertain → ${args.recommended_action}` };
+  }
+  return { resolved: false, note: "" };
+}
+
+
+
 async function reviewOne(admin: any, personId: string): Promise<any> {
   const { data: p } = await admin.from("people").select("*").eq("id", personId).maybeSingle();
   if (!p) return { id: personId, skipped: "not_found" };
