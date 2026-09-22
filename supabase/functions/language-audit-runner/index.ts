@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   const started = Date.now();
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const dryRun = body?.dry_run !== false; // default TRUE for safety
+    const dryRun = body?.dry_run === true; // default LIVE (owner decision 2026-09-22)
     const limit = Math.max(50, Math.min(20000, Number(body?.limit) || 5000));
     const recheckHours = Math.max(0, Number(body?.recheck_after_hours) || 720);
     const onlyUnchecked = body?.only_unchecked === true;

@@ -53,7 +53,7 @@ async function loadControls(admin: AdminClient) {
   const { data } = await admin.from("app_settings").select("value").eq("key", "entity_quality_controls").maybeSingle();
   return {
     enabled: true,
-    dry_run: true,
+    dry_run: false,
     batch_limit: DEFAULT_LIMIT,
     ...((data?.value as Record<string, unknown>) || {}),
   };
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
     const configuredLimit = Number(controls.batch_limit || DEFAULT_LIMIT);
     const limit = Math.max(1, Math.min(MAX_LIMIT, Number(body.limit || configuredLimit || DEFAULT_LIMIT)));
-    const dryRun = body.dry_run !== undefined ? body.dry_run !== false : controls.dry_run !== false;
+    const dryRun = body.dry_run !== undefined ? body.dry_run === true : controls.dry_run === true;
 
     const { data: rows, error: queueErr } = await admin
       .from("v_entity_quality_issues")
