@@ -7,6 +7,7 @@ import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chunkText } from "../_shared/episode-text-cleaner.ts";
 import { embeddingTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { chunkTimedSegments, type ChunkSlice } from "../_shared/transcript-chunker.ts";
+import { embedText } from "../_shared/gateway-embed.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -74,28 +75,8 @@ function buildChunkSlices(e: any, chunkChars: number, chunkOverlap: number): Chu
 }
 
 async function embed(model: string, text: string): Promise<{ vec: number[]; tokens: number }> {
-  const googleModel = model.replace(/^google\//, "");
-  // Prefer paid Tier-1 key for drain throughput; fall back to default/free key.
-  const apiKey = Deno.env.get("GEMINI_API_KEY_TIER1")
-    || Deno.env.get("GEMINI_API_KEY")
-    || Deno.env.get("GEMINI_API_KEY_FREE");
-  if (!apiKey) throw new Error("missing_gemini_api_key");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:embedContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: `models/${googleModel}`,
-      content: { parts: [{ text }] },
-      taskType: "SEMANTIC_SIMILARITY",
-      outputDimensionality: 768,
-    }),
-  });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const j = await res.json();
-  const vec = j.embedding?.values as number[] | undefined;
-  if (!vec || vec.length !== 768) throw new Error("bad_embedding");
+  const vec = await embedText(text, { model, taskType: "SEMANTIC_SIMILARITY" });
+  if (!vec) throw new Error("bad_embedding");
   return { vec, tokens: Math.ceil(text.length / 4) };
 }
 

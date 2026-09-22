@@ -19,18 +19,46 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 // Hard blocklist (case-insensitive substring match).
-// 2026-05-20: block ALL Pro variants and ALL Gemini 3.x on Gateway batch usage.
+// 2026-09-22: batch traffic now runs on the Lovable AI Gateway. Only Pro-class
+// models stay blocked; Gemini 3.x Flash / Flash-Lite are the supported gateway
+// batch models and must be allowed.
 const HARD_BLOCKLIST = [
-  "-pro",            // gemini-*-pro, gpt-5-pro, gpt-5.4-pro, gpt-5.5-pro
-  "gpt-5-pro",
-  "gemini-3",        // gemini-3-flash-preview, gemini-3.1-*, gemini-3.5-*, etc.
-  "gemini-2.5-pro",
+  "-pro",            // gemini-*-pro(-preview), gpt-5-pro, gpt-5.5-pro
 ];
+
+// Legacy direct-Google model names -> current Lovable AI Gateway model ids.
+const GATEWAY_MODEL_MAP: Record<string, string> = {
+  "gemini-2.5-flash-lite": "google/gemini-3.1-flash-lite",
+  "gemini-2.5-flash-lite-preview": "google/gemini-3.1-flash-lite",
+  "gemini-2.5-flash-lite-preview-09-2025": "google/gemini-3.1-flash-lite",
+  "gemini-3.1-flash-lite-preview": "google/gemini-3.1-flash-lite",
+  "gemini-2.5-flash": "google/gemini-3.8-flash",
+  "gemini-3-flash-preview": "google/gemini-3.8-flash",
+  "gemini-3.1-flash-lite": "google/gemini-3.1-flash-lite",
+  "gemini-3.8-flash": "google/gemini-3.8-flash",
+};
+
+/** Map any legacy / bare model name to a supported gateway model id. */
+export function gatewayModel(model: string): string {
+  const bare = String(model || "").trim()
+    .replace(/^google\//, "").replace(/^openai\//, "").replace(/^models\//, "");
+  if (GATEWAY_MODEL_MAP[bare]) return GATEWAY_MODEL_MAP[bare];
+  // Any other Gemini chat variant collapses onto a supported gateway model.
+  if (/^gemini-/.test(bare) && !bare.includes("embedding") && !bare.includes("-pro")) {
+    return bare.includes("flash-lite") ? "google/gemini-3.1-flash-lite" : "google/gemini-3.8-flash";
+  }
+
+  const raw = String(model || "").trim();
+  if (raw.includes("/")) return raw;
+  return bare ? `google/${bare}` : "google/gemini-3.1-flash-lite";
+
+}
 
 export function isModelBlocked(model: string): boolean {
   const m = (model || "").toLowerCase();
   return HARD_BLOCKLIST.some((b) => m.includes(b));
 }
+
 
 // Transient provider failures (rate limit / capacity) cost $0 and used to flood
 // ai_call_audit with ~100k rows/day. Sample them at 1-in-50.
@@ -309,8 +337,11 @@ export async function callLovableEmbedding(opts: EmbeddingCallOpts): Promise<Emb
 }
 
 export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
+  // Accept legacy direct-Google model names; the gateway needs vendor-prefixed ids.
+  opts = { ...opts, model: gatewayModel(opts.model), retry_model: opts.retry_model ? gatewayModel(opts.retry_model) : undefined };
   assertModelAllowed(opts.model);
   if (opts.retry_model) assertModelAllowed(opts.retry_model);
+
   if (!opts.skip_input_validation) {
     const inputText = opts.input_text ?? extractUsefulTextFromMessages(opts.messages);
     const skipReason = validateAiInput(inputText, { minChars: opts.min_input_chars ?? 40 });

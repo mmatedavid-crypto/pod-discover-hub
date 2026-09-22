@@ -1,6 +1,7 @@
 // Admin: embed taste_cards.hidden_embedding_prompt -> taste_cards.card_embedding (768D)
 // Uses google/gemini-embedding-001 (same as episode_embeddings) for vector-space parity.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { embedText } from "../_shared/gateway-embed.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -11,25 +12,8 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 async function embed(text: string): Promise<number[]> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY_TIER1")
-    || Deno.env.get("GEMINI_API_KEY")
-    || Deno.env.get("GEMINI_API_KEY_FREE");
-  if (!apiKey) throw new Error("missing_gemini_api_key");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "models/gemini-embedding-001",
-      content: { parts: [{ text }] },
-      taskType: "SEMANTIC_SIMILARITY",
-      outputDimensionality: 768,
-    }),
-  });
-  if (!res.ok) throw new Error(`gemini_${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const j = await res.json();
-  const vec = j.embedding?.values as number[] | undefined;
-  if (!vec || vec.length !== 768) throw new Error("bad_embedding");
+  const vec = await embedText(text, { taskType: "SEMANTIC_SIMILARITY" });
+  if (!vec) throw new Error("bad_embedding");
   return vec;
 }
 

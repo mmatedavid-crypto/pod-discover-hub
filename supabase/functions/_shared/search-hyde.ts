@@ -7,6 +7,7 @@
 // Cached in `search_hyde_cache` for 7 days per normalized query.
 
 import { callLovableAI } from "./lovable-ai.ts";
+import { embedText } from "./gateway-embed.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
@@ -80,24 +81,7 @@ async function generateHydeText(q: string): Promise<string | null> {
 }
 
 async function embedHyde(text: string): Promise<number[] | null> {
-  if (!GEMINI_API_KEY) return null;
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY}`;
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "models/gemini-embedding-001",
-        content: { parts: [{ text }] },
-        taskType: "RETRIEVAL_DOCUMENT",
-        outputDimensionality: 768,
-      }),
-    });
-    if (!r.ok) return null;
-    const j = await r.json();
-    const v = j?.embedding?.values as number[] | undefined;
-    return v && v.length === 768 ? v : null;
-  } catch (e) { console.warn("hyde embed err", e); return null; }
+  return await embedText(text, { taskType: "RETRIEVAL_DOCUMENT" });
 }
 
 export type HydeResult = {

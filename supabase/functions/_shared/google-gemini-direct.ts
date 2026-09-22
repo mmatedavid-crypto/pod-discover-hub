@@ -1,20 +1,18 @@
-// Direct Google Generative Language API client (Tier 1 routing).
-// Uses Google's OpenAI-compatible endpoint so existing runners stay drop-in.
+// Batch AI client — now routed through the Lovable AI Gateway.
+//
+// 2026-09-22: the direct Google Generative Language keys are retired. The
+// historical function names (callGeminiOpenAI / callGeminiNative) are kept as a
+// thin compatibility layer over callLovableAI so every runner keeps working.
 //
 // Policy:
-//   - No Pro / Gemini 3.x. Blocked by HARD_BLOCKLIST.
-//   - No silent fallback to more expensive model. Callers may explicitly retry
-//     once with `retry_model` (typically gemini-2.5-flash) on low-confidence.
-//   - Every call writes one ai_call_audit row with provider='google_generative_language'
-//     and meta.key_source ∈ {'tier1','paid','free'}.
-//   - Key pool order: GEMINI_API_KEY_TIER1 > GEMINI_API_KEY (paid) > GEMINI_API_KEY_FREE.
-//     On 429/503 we hop to the next key in the pool (still NOT a model upgrade).
+//   - No Pro-class models on batch. Blocked by HARD_BLOCKLIST.
+//   - No silent fallback to a more expensive model.
+//   - Legacy model names are mapped to gateway ids by gatewayModel().
+//   - Audit rows are written by lovable-ai.ts (provider='lovable_ai').
 
-import { chatTokenCostUsd, embeddingTokenCostUsd, geminiOutputTokens, geminiInputTokens } from "./ai-pricing.ts";
+import { chatTokenCostUsd, embeddingTokenCostUsd } from "./ai-pricing.ts";
+import { callLovableAI, gatewayModel } from "./lovable-ai.ts";
 
-const OPENAI_COMPAT_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-const NATIVE_URL = (model: string) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -27,11 +25,9 @@ function defaultCostFn(model: string, inTok: number, outTok: number): number {
   return chatTokenCostUsd(model, inTok, outTok);
 }
 
-// Hard blocklist (case-insensitive substring match). No Pro, no Gemini 3.x.
+// Hard blocklist (case-insensitive substring match). No Pro-class models on batch.
 const HARD_BLOCKLIST = [
   "-pro",
-  "gemini-3",         // gemini-3, gemini-3.1, gemini-3.5 etc.
-  "gemini-2.5-pro",
 ];
 
 export function isModelBlocked(model: string): boolean {
@@ -42,37 +38,19 @@ export function isModelBlocked(model: string): boolean {
 export function assertModelAllowed(model: string) {
   if (!model) throw new Error("google-gemini-direct: empty model");
   if (isModelBlocked(model)) {
-    throw new Error(`google-gemini-direct: model "${model}" is blocked by batch policy (no Pro / Gemini 3 on backlog).`);
+    throw new Error(`gemini-compat: model "${model}" is blocked by batch policy (no Pro on backlog).`);
   }
 }
 
-// Strip optional vendor prefix so callers can pass either "google/gemini-2.5-flash-lite"
-// or "gemini-2.5-flash-lite" — Google's API only accepts the bare name.
+
+// Strip optional vendor prefix (kept for callers that log bare model names).
 export function normalizeModel(model: string): string {
   const m = String(model || "").trim();
   return m.startsWith("google/") ? m.slice("google/".length) : m;
 }
 
-export type KeySource = "tier1" | "paid" | "free";
+export type KeySource = "tier1" | "paid" | "free" | "gateway";
 
-export interface KeyEntry { key: string; source: KeySource }
-
-export function getKeyPool(opts?: { preferTier1?: boolean }): KeyEntry[] {
-  const preferTier1 = opts?.preferTier1 !== false; // default true
-  const tier2 = Deno.env.get("GEMINI_API_KEY_TIER2");
-  const tier1 = Deno.env.get("GEMINI_API_KEY_TIER1");
-  const paid = Deno.env.get("GEMINI_API_KEY");
-  const free = Deno.env.get("GEMINI_API_KEY_FREE");
-  const pool: KeyEntry[] = [];
-  // Tier 2 has highest quota → try first when preferring high-tier keys
-  if (preferTier1 && tier2) pool.push({ key: tier2, source: "tier1" });
-  if (preferTier1 && tier1) pool.push({ key: tier1, source: "tier1" });
-  if (paid) pool.push({ key: paid, source: "paid" });
-  if (free) pool.push({ key: free, source: "free" });
-  if (!preferTier1 && tier2) pool.push({ key: tier2, source: "tier1" });
-  if (!preferTier1 && tier1) pool.push({ key: tier1, source: "tier1" });
-  return pool;
-}
 
 export interface AuditInput {
   job_type: string;
@@ -201,146 +179,48 @@ export interface OpenAICallResult {
 }
 
 /**
- * Drop-in replacement for OpenAI-compatible chat completions, routed through
- * Google's Tier 1 key. Same response shape as Lovable AI Gateway, so existing
- * runners (seo-enrich, categorize) only need to swap the fetch call.
+ * OpenAI-compatible chat completion, routed through the Lovable AI Gateway.
+ * Keeps the historical name/shape so existing runners need no changes.
  */
 export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICallResult> {
-  const rawModel = normalizeModel(opts.model);
-  assertModelAllowed(rawModel);
+  const model = gatewayModel(opts.model);
+  assertModelAllowed(model);
 
-  if (!opts.skip_input_validation) {
-    const inputText = opts.input_text ?? extractUsefulTextFromMessages(opts.messages);
-    const skipReason = validateAiInput(inputText, { minChars: opts.min_input_chars ?? 40 });
-    if (skipReason) {
-      await auditSkip({
-        job_type: opts.job_type,
-        reason: skipReason,
-        model: rawModel,
-        target_type: opts.target_type,
-        target_id: opts.target_id,
-        source_hash: opts.source_hash,
-        meta: { prompt_version: opts.prompt_version ?? null, guard: "preflight_input" },
-      });
-      return {
-        ok: false,
-        status: 0,
-        data: null,
-        model_used: rawModel,
-        input_tokens: 0,
-        output_tokens: 0,
-        cost_usd: 0,
-        error: skipReason,
-      };
-    }
-  }
-
-  const pool = getKeyPool({ preferTier1: opts.preferTier1 });
-  if (pool.length === 0) {
-    await writeAudit({
-      job_type: opts.job_type, provider: "google_generative_language",
-      model_used: rawModel, status: "error",
-      error_message: "no_gemini_key",
-      target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-      source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
-      meta: { key_source: null },
-    });
-    return { ok: false, status: 0, data: null, model_used: rawModel, input_tokens: 0, output_tokens: 0, error: "no_gemini_key" };
-  }
-
-  const body: Record<string, unknown> = {
-    model: rawModel,
+  const result = await callLovableAI({
+    model,
     messages: opts.messages,
-  };
-  if (opts.tools) body.tools = opts.tools;
-  if (opts.tool_choice) body.tool_choice = opts.tool_choice;
-  if (opts.max_tokens) body.max_tokens = opts.max_tokens;
-  if (typeof opts.temperature === "number") body.temperature = opts.temperature;
-  if (opts.response_format) body.response_format = opts.response_format;
+    tools: opts.tools,
+    tool_choice: opts.tool_choice,
+    max_tokens: opts.max_tokens,
+    temperature: opts.temperature,
+    response_format: opts.response_format,
+    job_type: opts.job_type,
+    target_type: opts.target_type,
+    target_id: opts.target_id,
+    source_hash: opts.source_hash,
+    prompt_version: opts.prompt_version,
+    input_text: opts.input_text,
+    min_input_chars: opts.min_input_chars,
+    skip_input_validation: opts.skip_input_validation,
+  });
 
-  let lastStatus = 0;
-  let lastJson: any = null;
-  let lastErr = "";
-  let lastKeySource: KeySource | null = null;
-  const t0 = Date.now();
+  const inTok = Number(result.input_tokens || 0);
+  const outTok = Number(result.output_tokens || 0);
+  const cost = result.ok ? (opts.costFn ?? defaultCostFn)(model, inTok, outTok) : 0;
 
-  for (const entry of pool) {
-    let res: Response;
-    let json: any = null;
-    try {
-      res = await fetch(OPENAI_COMPAT_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${entry.key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      try { json = await res.json(); } catch { /* */ }
-    } catch (e) {
-      lastErr = `network: ${String(e).slice(0, 200)}`;
-      lastKeySource = entry.source;
-      continue;
-    }
-
-    const usage = json?.usage || {};
-    const inTok = geminiInputTokens(usage);
-    const outTok = geminiOutputTokens(usage);
-    lastKeySource = entry.source;
-
-    if (res.ok) {
-      const cost = (opts.costFn ?? defaultCostFn)(rawModel, inTok, outTok);
-      const latency_ms = Date.now() - t0;
-      await writeAudit({
-        job_type: opts.job_type, provider: "google_generative_language",
-        model_used: rawModel, status: "ok",
-        input_tokens: inTok, output_tokens: outTok,
-        estimated_cost_usd: cost,
-        latency_ms,
-        key_source: entry.source,
-        target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-        source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
-        meta: { key_source: entry.source },
-      });
-      return {
-        ok: true, status: res.status, data: json, model_used: rawModel,
-        key_source: entry.source, input_tokens: inTok, output_tokens: outTok, cost_usd: cost,
-      };
-    }
-
-    lastStatus = res.status;
-    lastJson = json;
-    lastErr = json?.error?.message || `HTTP ${res.status}`;
-
-    if (res.status === 429 || res.status === 503 || res.status === 500) {
-      continue;
-    }
-    break;
-  }
-
-  const latency_ms = Date.now() - t0;
-  // Rate-limit / transient-capacity failures cost $0 and used to flood the audit
-  // table with ~100k rows/day. Log them to console always, to the audit table
-  // only as a 1-in-50 sample so the signal stays visible without the bloat.
-  if (shouldSkipTransientAudit(lastStatus)) {
-    console.warn(`[gemini-direct] transient HTTP ${lastStatus} job=${opts.job_type} model=${rawModel}`);
-  } else {
-    await writeAudit({
-      job_type: opts.job_type, provider: "google_generative_language",
-      model_used: rawModel, status: "error",
-      error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
-      latency_ms,
-      key_source: lastKeySource ?? pool[0]?.source ?? null,
-      target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-      source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
-      meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
-    });
-  }
   return {
-    ok: false, status: lastStatus, data: lastJson, model_used: rawModel,
-    input_tokens: 0, output_tokens: 0, error: lastErr,
+    ok: result.ok,
+    status: result.status,
+    data: result.data,
+    model_used: result.model_used,
+    key_source: "gateway",
+    input_tokens: inTok,
+    output_tokens: outTok,
+    cost_usd: cost,
+    error: result.error,
   };
 }
+
 
 
 /**
@@ -376,115 +256,62 @@ export interface NativeCallResult {
 }
 
 export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCallResult> {
-  const model = normalizeModel(opts.model);
+  const model = gatewayModel(opts.model);
   assertModelAllowed(model);
-  if (!opts.skip_input_validation) {
-    const skipReason = validateAiInput(opts.input_text ?? opts.prompt, { minChars: opts.min_input_chars ?? 40 });
-    if (skipReason) {
-      await auditSkip({
-        job_type: opts.job_type,
-        reason: skipReason,
-        model,
-        target_type: opts.target_type,
-        target_id: opts.target_id,
-        meta: { guard: "preflight_input" },
-      });
-      return {
-        ok: false,
-        model_used: model,
-        input_tokens: 0,
-        output_tokens: 0,
-        cost_usd: 0,
-        status: 0,
-        error: skipReason,
-      };
-    }
-  }
-  const pool = getKeyPool({ preferTier1: opts.preferTier1 });
-  if (pool.length === 0) {
-    await writeAudit({
-      job_type: opts.job_type, provider: "google_generative_language",
-      model_used: model, status: "error", error_message: "no_gemini_key",
-      target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-      meta: { key_source: null },
-    });
-    return { ok: false, model_used: model, input_tokens: 0, output_tokens: 0, status: 0, error: "no_gemini_key" };
+
+  // Native Gemini functionCall is expressed as an OpenAI-compatible forced tool
+  // call on the gateway; the parsed arguments keep the same shape for callers.
+  const result = await callLovableAI({
+    model,
+    messages: [{ role: "user", content: opts.prompt }],
+    tools: [{
+      type: "function",
+      function: {
+        name: opts.tool.name,
+        description: opts.tool.description,
+        parameters: opts.tool.parameters,
+      },
+    }],
+    tool_choice: { type: "function", function: { name: opts.tool.name } },
+    job_type: opts.job_type,
+    target_type: opts.target_type,
+    target_id: opts.target_id,
+    input_text: opts.input_text ?? opts.prompt,
+    min_input_chars: opts.min_input_chars,
+    skip_input_validation: opts.skip_input_validation,
+  });
+
+  const inTok = Number(result.input_tokens || 0);
+  const outTok = Number(result.output_tokens || 0);
+  const cost = (opts.costFn ?? defaultCostFn)(model, inTok, outTok);
+
+  if (!result.ok) {
+    return {
+      ok: false, model_used: model, key_source: "gateway",
+      input_tokens: inTok, output_tokens: outTok, cost_usd: 0,
+      status: result.status, error: result.error,
+    };
   }
 
-  const reqBody = {
-    contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
-    tools: [{ functionDeclarations: [opts.tool] }],
-    toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [opts.tool.name] } },
+  const call = result.data?.choices?.[0]?.message?.tool_calls?.[0]?.function;
+  let args: unknown = undefined;
+  if (call?.arguments) {
+    try { args = typeof call.arguments === "string" ? JSON.parse(call.arguments) : call.arguments; } catch { args = undefined; }
+  }
+  if (args === undefined) {
+    return {
+      ok: false, model_used: model, key_source: "gateway",
+      input_tokens: inTok, output_tokens: outTok, cost_usd: cost,
+      status: result.status, error: "tool_call_missing",
+    };
+  }
+
+  return {
+    ok: true, args, model_used: model, key_source: "gateway",
+    input_tokens: inTok, output_tokens: outTok, cost_usd: cost, status: result.status,
   };
-
-  let lastStatus = 0;
-  let lastErr = "";
-  let lastKeySource: KeySource | null = null;
-  const t0 = Date.now();
-
-  for (const entry of pool) {
-    let res: Response;
-    let json: any = null;
-    try {
-      res = await fetch(`${NATIVE_URL(model)}?key=${entry.key}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reqBody),
-      });
-      try { json = await res.json(); } catch { /* */ }
-    } catch (e) {
-      lastErr = `network: ${String(e).slice(0, 200)}`;
-      lastKeySource = entry.source;
-      continue;
-    }
-
-    lastKeySource = entry.source;
-    if (res.ok) {
-      const fc = json?.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
-      const usage = json?.usageMetadata || {};
-      const inTok = geminiInputTokens(usage);
-      const outTok = geminiOutputTokens(usage);
-      const cost = (opts.costFn ?? defaultCostFn)(model, inTok, outTok);
-      const latency_ms = Date.now() - t0;
-      await writeAudit({
-        job_type: opts.job_type, provider: "google_generative_language",
-        model_used: model, status: "ok",
-        input_tokens: inTok, output_tokens: outTok,
-        estimated_cost_usd: cost,
-        latency_ms,
-        key_source: entry.source,
-        confidence: opts.confidence ?? null,
-        target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-        meta: { key_source: entry.source },
-      });
-      return {
-        ok: true, args: fc?.args, model_used: model, key_source: entry.source,
-        input_tokens: inTok, output_tokens: outTok, cost_usd: cost, status: res.status,
-      };
-    }
-
-    lastStatus = res.status;
-    lastErr = json?.error?.message || `HTTP ${res.status}`;
-    if (res.status === 429 || res.status === 503 || res.status === 500) continue;
-    break;
-  }
-
-  const latency_ms = Date.now() - t0;
-  if (shouldSkipTransientAudit(lastStatus)) {
-    console.warn(`[gemini-native] transient HTTP ${lastStatus} job=${opts.job_type} model=${model}`);
-  } else {
-    await writeAudit({
-      job_type: opts.job_type, provider: "google_generative_language",
-      model_used: model, status: "error",
-      error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
-      latency_ms,
-      key_source: lastKeySource ?? pool[0]?.source ?? null,
-      target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-      meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
-    });
-  }
-  return { ok: false, model_used: model, input_tokens: 0, output_tokens: 0, status: lastStatus, error: lastErr };
 }
+
 
 // ============================================================================
 // Budget guard + input validation + skip auditing
