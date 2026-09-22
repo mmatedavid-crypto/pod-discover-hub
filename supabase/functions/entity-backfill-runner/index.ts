@@ -506,6 +506,11 @@ Deno.serve(async (req) => {
     if (mySpend >= dailyBudget) {
       const newCtrl = { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() };
       await admin.from("app_settings").upsert({ key: "entity_backfill_controls", value: newCtrl, updated_at: new Date().toISOString() });
+    } else if (rate_limited >= 10 && rate_limited >= succeeded * 5) {
+      // Quota is exhausted, not "slow": back off instead of re-hammering every cron tick.
+      const until = new Date(Date.now() + cooldownMinutes * 60_000).toISOString();
+      const newCtrl = { ...ctrl, cooldown_until: until, cooldown_reason: "provider_rate_limited", cooldown_set_at: new Date().toISOString() };
+      await admin.from("app_settings").upsert({ key: "entity_backfill_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
     return json({ ok: true, drain_loops, total_seen, processed, succeeded, failed, rate_limited, spend_usd: mySpend, run_increment_usd: runIncrement, elapsed_ms: Date.now() - startedAt });
