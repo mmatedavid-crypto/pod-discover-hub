@@ -128,6 +128,14 @@ function auditPayloadShape(payload: Record<string, unknown>) {
   };
 }
 
+// Transient provider failures (rate limit / capacity) are free and extremely
+// noisy. Sample them at 1-in-50 so the audit table stays small.
+const TRANSIENT_AUDIT_STATUSES = new Set([429, 500, 503]);
+export function shouldSkipTransientAudit(status: number | null | undefined): boolean {
+  if (!status || !TRANSIENT_AUDIT_STATUSES.has(Number(status))) return false;
+  return Math.random() >= 0.02;
+}
+
 async function writeAudit(row: Record<string, unknown>) {
   if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("audit_insert_failed: missing_env");
   const payload = normalizeAuditRow(row);
@@ -311,16 +319,23 @@ export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICall
   }
 
   const latency_ms = Date.now() - t0;
-  await writeAudit({
-    job_type: opts.job_type, provider: "google_generative_language",
-    model_used: rawModel, status: "error",
-    error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
-    latency_ms,
-    key_source: lastKeySource ?? pool[0]?.source ?? null,
-    target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-    source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
-    meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
-  });
+  // Rate-limit / transient-capacity failures cost $0 and used to flood the audit
+  // table with ~100k rows/day. Log them to console always, to the audit table
+  // only as a 1-in-50 sample so the signal stays visible without the bloat.
+  if (shouldSkipTransientAudit(lastStatus)) {
+    console.warn(`[gemini-direct] transient HTTP ${lastStatus} job=${opts.job_type} model=${rawModel}`);
+  } else {
+    await writeAudit({
+      job_type: opts.job_type, provider: "google_generative_language",
+      model_used: rawModel, status: "error",
+      error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
+      latency_ms,
+      key_source: lastKeySource ?? pool[0]?.source ?? null,
+      target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
+      source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
+      meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
+    });
+  }
   return {
     ok: false, status: lastStatus, data: lastJson, model_used: rawModel,
     input_tokens: 0, output_tokens: 0, error: lastErr,
@@ -455,15 +470,19 @@ export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCall
   }
 
   const latency_ms = Date.now() - t0;
-  await writeAudit({
-    job_type: opts.job_type, provider: "google_generative_language",
-    model_used: model, status: "error",
-    error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
-    latency_ms,
-    key_source: lastKeySource ?? pool[0]?.source ?? null,
-    target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-    meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
-  });
+  if (shouldSkipTransientAudit(lastStatus)) {
+    console.warn(`[gemini-native] transient HTTP ${lastStatus} job=${opts.job_type} model=${model}`);
+  } else {
+    await writeAudit({
+      job_type: opts.job_type, provider: "google_generative_language",
+      model_used: model, status: "error",
+      error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
+      latency_ms,
+      key_source: lastKeySource ?? pool[0]?.source ?? null,
+      target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
+      meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
+    });
+  }
   return { ok: false, model_used: model, input_tokens: 0, output_tokens: 0, status: lastStatus, error: lastErr };
 }
 
