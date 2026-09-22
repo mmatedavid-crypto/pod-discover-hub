@@ -9043,6 +9043,35 @@ export type Database = {
           would_rename: number
         }[]
       }
+      category_episodes: {
+        Args: { _limit?: number; _slug: string }
+        Returns: {
+          ai_summary: string
+          audio_url: string
+          companies: string[]
+          display_title: string
+          id: string
+          image_url: string
+          mentioned: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_featured: boolean
+          podcast_id: string
+          podcast_image_url: string
+          podcast_rank: number
+          podcast_rank_label: string
+          podcast_rss_status: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
+          slug: string
+          source: string
+          tickers: string[]
+          title: string
+          topics: string[]
+        }[]
+      }
       claim_ai_jobs: {
         Args: { _limit?: number; _lock_seconds?: number }
         Returns: {

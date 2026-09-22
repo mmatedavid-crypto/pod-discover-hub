@@ -148,6 +148,10 @@ export default function TopicDetailPage() {
         setEps(epList.sort(compareByScore).slice(0, 200) as any);
       }
 
+      // Paint the topic + its episodes immediately; the related-topics and
+      // related-people lookups below must not hold the whole page on "Betöltés…".
+      setLoading(false);
+
 
       // Related topics same domain
       if ((t as any).domain) {

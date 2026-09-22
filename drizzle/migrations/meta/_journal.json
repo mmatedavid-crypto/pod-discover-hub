@@ -99,6 +99,34 @@
       "when": 1790094512028,
       "tag": "0013_episode_topic_slug_map",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790102440121,
+      "tag": "0014_dedupe_topic_slug_map_inserts",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790102610262,
+      "tag": "0015_topic_episodes_use_slug_map",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790102830482,
+      "tag": "0016_topic_episodes_two_phase",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790102920458,
+      "tag": "0017_category_episodes_rpc",
+      "breakpoints": true
     }
   ]
 }

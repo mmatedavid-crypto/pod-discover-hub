@@ -118,7 +118,10 @@ describe("page consistency static guards", () => {
     expect(category).toContain("const categoryPodcastIds = visible.map");
     expect(category).toContain(".in(\"podcast_id\", categoryPodcastIds)");
     expect(category).toContain("slug,image_url,ai_summary,summary,published_at");
-    expect(category).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
+    // The Hungarian-only gate for classified category episodes now lives inside
+    // the `category_episodes` RPC (language_decision = 'accept_hungarian').
+    expect(category).toContain('supabase.rpc("category_episodes"');
+
     expect(category).not.toContain(".or(\"is_hungarian.eq.true,language_decision.eq.accept_hungarian\")");
     expect(category).not.toContain("is_hungarian");
     expect(category).not.toContain("p.language_decision !== \"reject_foreign\"");

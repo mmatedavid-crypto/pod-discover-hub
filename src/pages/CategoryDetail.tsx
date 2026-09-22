@@ -24,6 +24,8 @@ import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
 import { entityHref } from "@/lib/entity";
 import { compareByScore } from "@/lib/episodeRank";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { mapEpisodeCardRow } from "@/lib/episodeCards";
+
 
 export default function CategoryDetail() {
   const { slug } = useParams();
@@ -147,14 +149,12 @@ export default function CategoryDetail() {
           .from("episode_category_overrides")
           .select("episode_id, status")
           .eq("category_slug", slug),
-        supabase
-          .from("episode_ai_classifications")
-          .select(`episode_id, primary_category, secondary_categories, episodes!inner(${EPISODE_FIELDS},podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,language_decision))`)
-          .eq("classification_status", "classified")
-          .or(`primary_category.eq.${slug},secondary_categories.cs.${JSON.stringify([slug])}`)
-          .eq("episodes.podcasts.language_decision", "accept_hungarian")
-          .order("episode_id")
-          .limit(120),
+        // `category_episodes` reads the slim episode_cards projection with an
+        // index-backed primary/secondary category lookup. The previous embedded
+        // `episode_ai_classifications` select seq-scanned 150k rows and 500'd
+        // on the 3s statement timeout, which emptied the category episode list.
+        supabase.rpc("category_episodes", { _slug: slug, _limit: 120 } as any),
+
       ]);
       // Only a total failure (nothing loaded at all) counts as an error state.
       if (epsError && classifiedError) {
@@ -167,10 +167,11 @@ export default function CategoryDetail() {
       // then fall back to podcast-level category episodes for shows without
       // episode-level classification yet. Rejected overrides always hidden.
       const merged = new Map<string, any>();
-      for (const c of (classifiedRows || [])) {
-        const e: any = (c as any).episodes;
+      for (const row of (classifiedRows || [])) {
+        const e: any = mapEpisodeCardRow(row as any);
         if (e && !rejected.has(e.id)) merged.set(e.id, e);
       }
+
       for (const e of (eps || [])) {
         if (e && !rejected.has(e.id) && !merged.has(e.id)) merged.set(e.id, e);
       }

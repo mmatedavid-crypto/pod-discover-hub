@@ -316,7 +316,11 @@ describe("episode thumbnail loading policy", () => {
     expect(search).toContain("id,title,display_title,slug,image_url");
     expect(searchHybrid).toContain("id,title,display_title,slug,image_url");
     expect(category).toContain("id,title,display_title,slug,image_url");
-    expect(category).toContain("episodes!inner(${EPISODE_FIELDS}");
+    // Classified category episodes now come from the `category_episodes` RPC,
+    // whose row mapper carries image_url through `mapEpisodeCardRow`.
+    expect(category).toContain("category_episodes");
+    expect(category).toContain("mapEpisodeCardRow");
+
     expect(daily).toContain("id,title,display_title,slug,image_url");
     expect(daily).toContain("image_url: r.image_url");
     expect(entity).toContain("id,title,display_title,slug,image_url");
