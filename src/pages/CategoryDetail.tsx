@@ -24,6 +24,8 @@ import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
 import { entityHref } from "@/lib/entity";
 import { compareByScore } from "@/lib/episodeRank";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { mapEpisodeCardRow } from "@/lib/episodeCards";
+
 
 export default function CategoryDetail() {
   const { slug } = useParams();
