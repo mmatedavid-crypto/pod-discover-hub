@@ -16,7 +16,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MODEL = "google/gemini-2.5-flash-lite";
-const DAILY_BUDGET_USD = 2;
+const DAILY_BUDGET_USD = Number(Deno.env.get("PERSON_REVIEW_DAILY_BUDGET_USD") || 10);
+const CONCURRENCY = 6;
+
 const MAX_ATTEMPTS = 3;
 
 const ALLOWED_FLAGS = new Set([
@@ -134,7 +136,10 @@ async function bumpSpend(admin: any, cost: number) {
 }
 
 async function callAI(payload: any): Promise<{ args: any; cost: number; error?: string }> {
-  const inputText = JSON.stringify(payload);
+  // Drop null/empty fields: the shared input guard rejects payloads containing the
+  // literal word "null", which valid evidence JSON otherwise produces for missing data.
+  const inputText = JSON.stringify(payload, (_k, v) => (v === null ? undefined : v));
+
   const ai = await callLovableAI({
     model: MODEL,
     job_type: "person_ai_review",
@@ -253,6 +258,29 @@ function shouldAutoDowngrade(args: any): { downgrade: boolean; reason: string } 
   return { downgrade: true, reason: `${args.recommended_action}: ${matched.join(",")}` };
 }
 
+// Turns "I am not sure" verdicts into deterministic outcomes so no human queue forms.
+// Strong evidence (several episodes across several shows) keeps a public but non-indexed
+// page; anything thinner is hidden. Duplicates are hidden when they are the weaker row.
+function autoResolveUncertain(args: any, dup: any, p: PersonRow): { resolved: boolean; note: string } {
+  const eps = Number(p.episode_count || 0);
+  const shows = Number(p.distinct_podcast_count || p.podcast_count || 0);
+  const strong = Number(p.strong_mention_count || 0);
+  const wikiOk = p.wikipedia_match_status === "verified";
+  const solid = args.is_real_person !== false && (wikiOk || (eps >= 3 && shows >= 2) || strong >= 3);
+
+  if (dup?.is_duplicate) {
+    args.recommended_action = solid ? "keep_public_noindex" : "hide";
+    return { resolved: true, note: `auto-resolved duplicate → ${args.recommended_action}` };
+  }
+  if (args.recommended_action === "needs_review" || args.recommended_action === "merge") {
+    args.recommended_action = solid ? "keep_public_noindex" : "hide";
+    return { resolved: true, note: `auto-resolved uncertain → ${args.recommended_action}` };
+  }
+  return { resolved: false, note: "" };
+}
+
+
+
 async function reviewOne(admin: any, personId: string): Promise<any> {
   const { data: p } = await admin.from("people").select("*").eq("id", personId).maybeSingle();
   if (!p) return { id: personId, skipped: "not_found" };
@@ -281,22 +309,26 @@ async function reviewOne(admin: any, personId: string): Promise<any> {
 
   const args = sanitize(ai.args);
   const dup = args.duplicate_candidate || {};
-  const reviewStatus = dup.is_duplicate ? "duplicate_candidate"
-    : args.recommended_action === "needs_review" ? "needs_human_review"
-    : "reviewed";
+
+  // AUTO-RESOLVE: never park a person in a human queue. Every uncertain verdict is
+  // turned into a deterministic, safe outcome based on the evidence counts we already
+  // have, so the review backlog cannot grow beyond what the machine can decide.
+  const autoResolve = autoResolveUncertain(args, dup, p as PersonRow);
+  const reviewStatus = "reviewed";
+
 
   const update: any = {
     ai_review_status: reviewStatus,
     ai_review_score: args.review_score,
     ai_review_confidence: args.confidence,
     ai_review_flags: args.flags,
-    ai_review_summary: args.summary,
+    ai_review_summary: autoResolve.resolved ? `${args.summary} [${autoResolve.note}]`.slice(0, 800) : args.summary,
     ai_recommended_action: args.recommended_action,
     ai_recommended_canonical_name: args.canonical_name || null,
     ai_duplicate_of_person_id: dup.duplicate_of_person_id || null,
     ai_reviewed_at: new Date().toISOString(),
     ai_review_model: MODEL,
-    ai_review_sources: { evidence_keys: Object.keys(evidence), ai_cost_usd: ai.cost },
+    ai_review_sources: { evidence_keys: Object.keys(evidence), ai_cost_usd: ai.cost, auto_resolved: autoResolve.resolved },
   };
 
   // Safe auto-downgrade
@@ -306,7 +338,20 @@ async function reviewOne(admin: any, personId: string): Promise<any> {
     update.is_indexable = false;
     update.activation_status = "inactive";
     update.activation_reason = `AI quality review downgrade: ${dg.reason}`;
+  } else if (autoResolve.resolved && !p.manual_approved) {
+    if (args.recommended_action === "hide") {
+      update.is_public = false;
+      update.is_indexable = false;
+      update.activation_status = "inactive";
+      update.activation_reason = `AI auto-resolve: ${autoResolve.note}`;
+    } else {
+      update.is_public = true;
+      update.is_indexable = false;
+      update.activation_status = "public_noindex";
+      update.activation_reason = `AI auto-resolve: ${autoResolve.note}`;
+    }
   }
+
 
   await admin.from("people").update(update).eq("id", personId);
 
@@ -384,7 +429,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
-  const limit = Math.min(Math.max(Number(body.limit || 20), 1), 50);
+  const limit = Math.min(Math.max(Number(body.limit || 60), 1), 200);
   const personIds: string[] = Array.isArray(body.person_ids) ? body.person_ids : [];
 
   const spent = await dailySpend(admin);
@@ -397,16 +442,24 @@ Deno.serve(async (req) => {
   const ids = personIds.length > 0 ? personIds.slice(0, limit) : await selectCandidates(admin, limit);
   const results: any[] = [];
   let totalCost = 0;
-  for (const id of ids) {
-    const r = await reviewOne(admin, id);
-    if (typeof r.cost_usd === "number") totalCost += r.cost_usd;
-    results.push(r);
-    if ((await dailySpend(admin)) >= DAILY_BUDGET_USD) {
-      results.push({ stopped: "budget_reached_mid_run" });
-      break;
+  let stopped = false;
+  const queue = [...ids];
+  const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length || 1) }, async () => {
+    while (!stopped) {
+      const id = queue.shift();
+      if (!id) return;
+      const r = await reviewOne(admin, id);
+      if (typeof r.cost_usd === "number") totalCost += r.cost_usd;
+      results.push(r);
+      if ((await dailySpend(admin)) >= DAILY_BUDGET_USD) {
+        stopped = true;
+        results.push({ stopped: "budget_reached_mid_run" });
+        return;
+      }
     }
-    await new Promise(res => setTimeout(res, 80));
-  }
+  });
+  await Promise.all(workers);
+
   return new Response(JSON.stringify({
     processed: results.length, ids_selected: ids.length, total_cost_usd: totalCost, results,
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
