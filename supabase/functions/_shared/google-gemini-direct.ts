@@ -311,16 +311,23 @@ export async function callGeminiOpenAI(opts: OpenAICallOpts): Promise<OpenAICall
   }
 
   const latency_ms = Date.now() - t0;
-  await writeAudit({
-    job_type: opts.job_type, provider: "google_generative_language",
-    model_used: rawModel, status: "error",
-    error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
-    latency_ms,
-    key_source: lastKeySource ?? pool[0]?.source ?? null,
-    target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-    source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
-    meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
-  });
+  // Rate-limit / transient-capacity failures cost $0 and used to flood the audit
+  // table with ~100k rows/day. Log them to console always, to the audit table
+  // only as a 1-in-50 sample so the signal stays visible without the bloat.
+  if (shouldSkipTransientAudit(lastStatus)) {
+    console.warn(`[gemini-direct] transient HTTP ${lastStatus} job=${opts.job_type} model=${rawModel}`);
+  } else {
+    await writeAudit({
+      job_type: opts.job_type, provider: "google_generative_language",
+      model_used: rawModel, status: "error",
+      error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
+      latency_ms,
+      key_source: lastKeySource ?? pool[0]?.source ?? null,
+      target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
+      source_hash: opts.source_hash ?? null, prompt_version: opts.prompt_version ?? null,
+      meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
+    });
+  }
   return {
     ok: false, status: lastStatus, data: lastJson, model_used: rawModel,
     input_tokens: 0, output_tokens: 0, error: lastErr,
