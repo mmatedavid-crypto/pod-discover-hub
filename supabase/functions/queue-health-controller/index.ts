@@ -268,6 +268,19 @@ Deno.serve(async (req) => {
         await admin.from("app_settings").upsert({ key: r.controls_key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" });
       }
 
+      // ADAPTIVE CADENCE: retune the runner's own cron to the size of its queue, so a
+      // large backlog is drained fast and an empty queue stops polling frequently.
+      let cadence: any = null;
+      if (r.cron_job_name) {
+        const wanted = pickSchedule(pending, r.cadence);
+        const { data: cronRes, error: cronErr } = await admin.rpc("set_runner_cron", {
+          p_job_name: r.cron_job_name,
+          p_schedule: wanted,
+        });
+        cadence = { job: r.cron_job_name, schedule: wanted, result: cronErr ? `error:${cronErr.message}` : cronRes };
+      }
+
+
       // Dedupe: ha az utolsó event ugyanaz az action ÉS < 30 perce, ne logoljunk újra (és ne alertáljunk).
       let suppressed = false;
       if (action === "pause_stall" || action === "resume" || action === "pause_empty") {
