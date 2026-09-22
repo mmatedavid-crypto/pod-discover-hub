@@ -7,6 +7,8 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import NotFoundState from "@/components/NotFoundState";
 import ListLoadError from "@/components/ListLoadError";
 import { compareByScore } from "@/lib/episodeRank";
+import { mapEpisodeCardRow } from "@/lib/episodeCards";
+
 import PersonAvatar from "@/components/PersonAvatar";
 import { matchesEntitySlug } from "@/lib/entity";
 import { snippet } from "@/lib/text";
