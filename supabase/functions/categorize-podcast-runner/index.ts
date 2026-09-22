@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
           ai_category_needs_review: needsReview,
         }).eq("id", p.id);
         succeeded++;
-        spend += cost; calls++;
+        spend += cost; calls++; costSum += cost;
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
