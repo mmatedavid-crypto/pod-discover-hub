@@ -196,6 +196,13 @@ Deno.serve(async (req) => {
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "entity_backfill_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
     if (ctrl.enabled === false) return json({ ok: true, paused: true });
+    // Provider quota cooldown: once a run drowns in 429s, further runs are pure
+    // waste (they cost DB writes + latency and produce no work). Sleep it off.
+    const cooldownUntil = ctrl.cooldown_until ? Date.parse(String(ctrl.cooldown_until)) : 0;
+    if (cooldownUntil && Date.now() < cooldownUntil) {
+      return json({ ok: true, skipped: true, reason: "provider_quota_cooldown", cooldown_until: ctrl.cooldown_until });
+    }
+    const cooldownMinutes = Math.max(10, Number(ctrl.cooldown_minutes ?? 90));
     const dailyBudget = Number(ctrl.daily_budget_usd ?? 5);
     const model = String(ctrl.model || "google/gemini-2.5-flash-lite");
     assertModelAllowed(model);
@@ -498,6 +505,11 @@ Deno.serve(async (req) => {
 
     if (mySpend >= dailyBudget) {
       const newCtrl = { ...ctrl, enabled: false, auto_paused_reason: "daily_budget_reached", auto_paused_at: new Date().toISOString() };
+      await admin.from("app_settings").upsert({ key: "entity_backfill_controls", value: newCtrl, updated_at: new Date().toISOString() });
+    } else if (rate_limited >= 10 && rate_limited >= succeeded * 5) {
+      // Quota is exhausted, not "slow": back off instead of re-hammering every cron tick.
+      const until = new Date(Date.now() + cooldownMinutes * 60_000).toISOString();
+      const newCtrl = { ...ctrl, cooldown_until: until, cooldown_reason: "provider_rate_limited", cooldown_set_at: new Date().toISOString() };
       await admin.from("app_settings").upsert({ key: "entity_backfill_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
