@@ -9642,7 +9642,10 @@ export type Database = {
         Returns: {
           ai_summary: string
           audio_url: string
+          companies: string[]
+          confidence: number
           display_title: string
+          final_relevance_score: number
           id: string
           image_url: string
           mention_type: string
@@ -9650,17 +9653,22 @@ export type Database = {
           people: string[]
           podcast_category: string
           podcast_display_title: string
+          podcast_featured: boolean
           podcast_id: string
           podcast_image_url: string
           podcast_rank: number
           podcast_rank_label: string
+          podcast_rss_status: string
           podcast_slug: string
           podcast_title: string
           published_at: string
-          relevance_score: number
+          relevance_status: string
+          role_type: string
           slug: string
-          summary: string
+          tickers: string[]
           title: string
+          topics: string[]
+          validation_source: string
         }[]
       }
       pipeline_health_item_v1: {
@@ -10115,10 +10123,11 @@ export type Database = {
         }[]
       }
       topic_episodes: {
-        Args: { _limit?: number; _topic_id: string }
+        Args: { _limit?: number; _slug?: string; _topic_id: string }
         Returns: {
           ai_summary: string
           audio_url: string
+          companies: string[]
           display_title: string
           id: string
           image_url: string
@@ -10126,17 +10135,20 @@ export type Database = {
           people: string[]
           podcast_category: string
           podcast_display_title: string
+          podcast_featured: boolean
           podcast_id: string
           podcast_image_url: string
           podcast_rank: number
           podcast_rank_label: string
+          podcast_rss_status: string
           podcast_slug: string
           podcast_title: string
           published_at: string
           slug: string
           source: string
-          summary: string
+          tickers: string[]
           title: string
+          topics: string[]
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }

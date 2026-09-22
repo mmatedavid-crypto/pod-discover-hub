@@ -71,6 +71,13 @@
       "when": 1790089936089,
       "tag": "0009_keyset_episode_cards_backfill_v3",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790089987445,
+      "tag": "0010_topic_person_episode_rpcs_on_cards",
+      "breakpoints": true
     }
   ]
 }
