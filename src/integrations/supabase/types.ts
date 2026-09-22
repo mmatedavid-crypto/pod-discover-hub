@@ -1559,6 +1559,87 @@ export type Database = {
           },
         ]
       }
+      episode_cards: {
+        Row: {
+          audio_url: string | null
+          card_summary: string | null
+          display_title: string | null
+          episode_id: string
+          image_url: string | null
+          mentioned: string[] | null
+          people: string[] | null
+          podcast_id: string | null
+          published_at: string | null
+          slug: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          audio_url?: string | null
+          card_summary?: string | null
+          display_title?: string | null
+          episode_id: string
+          image_url?: string | null
+          mentioned?: string[] | null
+          people?: string[] | null
+          podcast_id?: string | null
+          published_at?: string | null
+          slug?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string | null
+          card_summary?: string | null
+          display_title?: string | null
+          episode_id?: string
+          image_url?: string | null
+          mentioned?: string[] | null
+          people?: string[] | null
+          podcast_id?: string | null
+          published_at?: string | null
+          slug?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_cards_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_cards_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_cards_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_cards_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_cards_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
       episode_category_overrides: {
         Row: {
           category_slug: string
@@ -8982,6 +9063,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      episode_cards_backfill: { Args: { _batch?: number }; Returns: number }
       episode_classifier_stats: { Args: never; Returns: Json }
       find_existing_podcast: {
         Args: { p_rss_url: string; p_title: string }

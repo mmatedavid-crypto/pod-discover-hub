@@ -50,6 +50,13 @@
       "when": 1790084170675,
       "tag": "0006_throttle_background_pipelines_for_visitor_latency",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790084332322,
+      "tag": "0007_create_episode_cards_slim_projection",
+      "breakpoints": true
     }
   ]
 }
