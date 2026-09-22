@@ -319,13 +319,13 @@ async function reviewOne(admin: any, personId: string): Promise<any> {
     ai_review_score: args.review_score,
     ai_review_confidence: args.confidence,
     ai_review_flags: args.flags,
-    ai_review_summary: args.summary,
+    ai_review_summary: autoResolve.resolved ? `${args.summary} [${autoResolve.note}]`.slice(0, 800) : args.summary,
     ai_recommended_action: args.recommended_action,
     ai_recommended_canonical_name: args.canonical_name || null,
     ai_duplicate_of_person_id: dup.duplicate_of_person_id || null,
     ai_reviewed_at: new Date().toISOString(),
     ai_review_model: MODEL,
-    ai_review_sources: { evidence_keys: Object.keys(evidence), ai_cost_usd: ai.cost },
+    ai_review_sources: { evidence_keys: Object.keys(evidence), ai_cost_usd: ai.cost, auto_resolved: autoResolve.resolved },
   };
 
   // Safe auto-downgrade
@@ -335,7 +335,20 @@ async function reviewOne(admin: any, personId: string): Promise<any> {
     update.is_indexable = false;
     update.activation_status = "inactive";
     update.activation_reason = `AI quality review downgrade: ${dg.reason}`;
+  } else if (autoResolve.resolved && !p.manual_approved) {
+    if (args.recommended_action === "hide") {
+      update.is_public = false;
+      update.is_indexable = false;
+      update.activation_status = "inactive";
+      update.activation_reason = `AI auto-resolve: ${autoResolve.note}`;
+    } else {
+      update.is_public = true;
+      update.is_indexable = false;
+      update.activation_status = "public_noindex";
+      update.activation_reason = `AI auto-resolve: ${autoResolve.note}`;
+    }
   }
+
 
   await admin.from("people").update(update).eq("id", personId);
 
