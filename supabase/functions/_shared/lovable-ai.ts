@@ -355,13 +355,19 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
 
   if (!res.ok) {
     // 429 or 402 etc — DO NOT silently fall back to a more expensive model.
-    await recordAiCall({
-      job_type: opts.job_type, model_used: opts.model, status: "error",
-      input_tokens: inTok, output_tokens: outTok, latency_ms,
-      error_message: `HTTP ${res.status}: ${JSON.stringify(json).slice(0, 300)}`,
-      target_type: opts.target_type, target_id: opts.target_id,
-      source_hash: opts.source_hash, prompt_version: opts.prompt_version,
-    });
+    // Rate-limit / capacity errors are free and very noisy: console always,
+    // audit row only as a 1-in-50 sample (see shouldSkipTransientAudit).
+    if (shouldSkipTransientAudit(res.status)) {
+      console.warn(`[lovable-ai] transient HTTP ${res.status} job=${opts.job_type} model=${opts.model}`);
+    } else {
+      await recordAiCall({
+        job_type: opts.job_type, model_used: opts.model, status: "error",
+        input_tokens: inTok, output_tokens: outTok, latency_ms,
+        error_message: `HTTP ${res.status}: ${JSON.stringify(json).slice(0, 300)}`,
+        target_type: opts.target_type, target_id: opts.target_id,
+        source_hash: opts.source_hash, prompt_version: opts.prompt_version,
+      });
+    }
     return {
       ok: false, status: res.status, data: json,
       model_used: opts.model, input_tokens: inTok, output_tokens: outTok,
