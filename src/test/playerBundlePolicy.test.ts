@@ -20,4 +20,13 @@ describe("smart player bundle policy", () => {
     expect(events).toContain('void import("@/lib/tasteInteractions")');
     expect(events).not.toContain('import { recordTasteInteraction } from "@/lib/tasteInteractions"');
   });
+
+  it("actually executes the player_events insert instead of voiding a lazy builder", () => {
+    const events = read("src/lib/playerEvents.ts");
+
+    // A PostgREST builder only performs the request when awaited / .then()-ed.
+    expect(events).not.toContain('void supabase\n      .from("player_events"');
+    expect(events).not.toContain('void supabase.from("player_events"');
+    expect(events).toContain(".then(() => undefined, () => undefined)");
+  });
 });
