@@ -470,15 +470,19 @@ export async function callGeminiNative(opts: NativeCallOpts): Promise<NativeCall
   }
 
   const latency_ms = Date.now() - t0;
-  await writeAudit({
-    job_type: opts.job_type, provider: "google_generative_language",
-    model_used: model, status: "error",
-    error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
-    latency_ms,
-    key_source: lastKeySource ?? pool[0]?.source ?? null,
-    target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
-    meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
-  });
+  if (shouldSkipTransientAudit(lastStatus)) {
+    console.warn(`[gemini-native] transient HTTP ${lastStatus} job=${opts.job_type} model=${model}`);
+  } else {
+    await writeAudit({
+      job_type: opts.job_type, provider: "google_generative_language",
+      model_used: model, status: "error",
+      error_message: `HTTP ${lastStatus}: ${String(lastErr).slice(0, 280)}`,
+      latency_ms,
+      key_source: lastKeySource ?? pool[0]?.source ?? null,
+      target_type: opts.target_type ?? null, target_id: opts.target_id ?? null,
+      meta: { key_source: lastKeySource ?? pool[0]?.source ?? null },
+    });
+  }
   return { ok: false, model_used: model, input_tokens: 0, output_tokens: 0, status: lastStatus, error: lastErr };
 }
 
