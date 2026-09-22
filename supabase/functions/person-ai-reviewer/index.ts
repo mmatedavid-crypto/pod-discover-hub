@@ -136,7 +136,10 @@ async function bumpSpend(admin: any, cost: number) {
 }
 
 async function callAI(payload: any): Promise<{ args: any; cost: number; error?: string }> {
-  const inputText = JSON.stringify(payload);
+  // Drop null/empty fields: the shared input guard rejects payloads containing the
+  // literal word "null", which valid evidence JSON otherwise produces for missing data.
+  const inputText = JSON.stringify(payload, (_k, v) => (v === null ? undefined : v));
+
   const ai = await callLovableAI({
     model: MODEL,
     job_type: "person_ai_review",
