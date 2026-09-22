@@ -165,10 +165,11 @@ export default function CategoryDetail() {
       // then fall back to podcast-level category episodes for shows without
       // episode-level classification yet. Rejected overrides always hidden.
       const merged = new Map<string, any>();
-      for (const c of (classifiedRows || [])) {
-        const e: any = (c as any).episodes;
+      for (const row of (classifiedRows || [])) {
+        const e: any = mapEpisodeCardRow(row as any);
         if (e && !rejected.has(e.id)) merged.set(e.id, e);
       }
+
       for (const e of (eps || [])) {
         if (e && !rejected.has(e.id) && !merged.has(e.id)) merged.set(e.id, e);
       }
