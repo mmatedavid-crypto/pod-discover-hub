@@ -392,6 +392,24 @@ function deriveNaturalQuestionPlan(q: string, qNorm: string): NaturalQuestionPla
 }
 
 async function embedRaw(q: string): Promise<number[] | null> {
+  // Lovable AI Gateway first; the legacy direct Google key is only a fallback.
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableKey) {
+    try {
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}` },
+        body: JSON.stringify({ model: "google/gemini-embedding-001", input: q, dimensions: 768 }),
+      });
+      if (r.ok) {
+        const j = await r.json();
+        const v = j?.data?.[0]?.embedding as number[] | undefined;
+        if (v && v.length === 768) return v;
+      } else {
+        console.warn("embed gateway http", r.status);
+      }
+    } catch (e) { console.warn("embed gateway err", e); }
+  }
   if (!GEMINI_API_KEY) return null;
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY}`;
@@ -411,6 +429,7 @@ async function embedRaw(q: string): Promise<number[] | null> {
     return v && v.length === 768 ? v : null;
   } catch (e) { console.warn("embed err", e); return null; }
 }
+
 // Public search must return well under the platform/client timeout. A missing
 // embedding degrades to lexical-only; cached embeddings still keep the high
 // quality path hot for common queries.
