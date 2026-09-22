@@ -29,7 +29,29 @@ type RunnerCfg = {
   stall_runs?: number;
   activity_kind?: string;        // optional: detects equilibrium (work IS being done, but new items arrive at same rate)
   activity_window_min?: number;  // default 20 min
+  cron_job_name?: string;        // optional: cadence is retuned to the queue size
+  cadence?: { min_pending: number; schedule: string }[]; // descending by min_pending
 };
+
+// Default cadence ladder: the bigger the queue, the more often the runner wakes up.
+// An empty queue drops to hourly (and the runner itself is paused), so nothing polls
+// the database at high frequency when there is no work.
+const DEFAULT_CADENCE = [
+  { min_pending: 20000, schedule: "*/5 * * * *" },
+  { min_pending: 2000, schedule: "*/10 * * * *" },
+  { min_pending: 200, schedule: "*/20 * * * *" },
+  { min_pending: 1, schedule: "*/30 * * * *" },
+  { min_pending: 0, schedule: "0 * * * *" },
+];
+
+function pickSchedule(pending: number, ladder?: { min_pending: number; schedule: string }[]): string {
+  const rungs = (ladder && ladder.length ? ladder : DEFAULT_CADENCE)
+    .slice()
+    .sort((a, b) => b.min_pending - a.min_pending);
+  for (const r of rungs) if (pending >= r.min_pending) return r.schedule;
+  return rungs[rungs.length - 1].schedule;
+}
+
 
 // Recent "rows transitioned out of pending" detector — used to distinguish equilibrium from true stall.
 async function recentActivity(admin: any, kind: string, windowMin: number): Promise<number | null> {
