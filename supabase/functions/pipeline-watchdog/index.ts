@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
     if (state.enabled === false) {
       return json({ ok: true, skipped: true, reason: "watchdog_disabled" });
     }
-    const dryRun = state.dry_run !== false; // default to dry_run
+    const dryRun = state.dry_run === true; // default LIVE (owner decision 2026-09-22)
     const dedupMin = Number(state.alert_dedup_minutes ?? 30);
     const overshoot = Number(state.budget_overshoot_ratio ?? 1.2);
     const staleLock = Number(state.stale_lock_minutes ?? 60);

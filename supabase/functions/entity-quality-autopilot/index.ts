@@ -23,7 +23,7 @@ type Controls = {
 
 const DEFAULT_CONTROLS: Required<Controls> = {
   enabled: true,
-  dry_run: true,
+  dry_run: false,
   snapshot_limit: 100,
   apply_limit: 100,
   auto_stop_at_errors: 5,
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, skipped: true, trigger, reason: "disabled" });
     }
 
-    const dryRun = controls.dry_run !== false;
+    const dryRun = controls.dry_run === true;
     const snapshotLimit = Math.max(1, Math.min(500, Number(controls.snapshot_limit || DEFAULT_CONTROLS.snapshot_limit)));
     const applyLimit = Math.max(1, Math.min(500, Number(controls.apply_limit || DEFAULT_CONTROLS.apply_limit)));
     const allowedActions = Array.isArray(controls.allowed_apply_actions) && controls.allowed_apply_actions.length

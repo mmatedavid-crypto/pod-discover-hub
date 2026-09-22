@@ -37,7 +37,7 @@ async function getControls(sb: any): Promise<Controls> {
   const v = (data?.value || {}) as any;
   return {
     enabled: !!v.enabled,
-    dry_run: v.dry_run !== false,
+    dry_run: v.dry_run === true,
     budget_usd_daily: Number(v.budget_usd_daily ?? 2),
     batch_size: Number(v.batch_size ?? 15),
     concurrency: Number(v.concurrency ?? 3),
@@ -461,7 +461,7 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   try {
     if (body.action === "harvest_person" && body.person_id) {
-      const out = await harvestForPerson(sb, String(body.person_id), body.dry_run !== false);
+      const out = await harvestForPerson(sb, String(body.person_id), body.dry_run === true);
       return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (body.action === "list_candidates") {

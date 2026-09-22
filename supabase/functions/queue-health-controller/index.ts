@@ -29,7 +29,29 @@ type RunnerCfg = {
   stall_runs?: number;
   activity_kind?: string;        // optional: detects equilibrium (work IS being done, but new items arrive at same rate)
   activity_window_min?: number;  // default 20 min
+  cron_job_name?: string;        // optional: cadence is retuned to the queue size
+  cadence?: { min_pending: number; schedule: string }[]; // descending by min_pending
 };
+
+// Default cadence ladder: the bigger the queue, the more often the runner wakes up.
+// An empty queue drops to hourly (and the runner itself is paused), so nothing polls
+// the database at high frequency when there is no work.
+const DEFAULT_CADENCE = [
+  { min_pending: 20000, schedule: "*/5 * * * *" },
+  { min_pending: 2000, schedule: "*/10 * * * *" },
+  { min_pending: 200, schedule: "*/20 * * * *" },
+  { min_pending: 1, schedule: "*/30 * * * *" },
+  { min_pending: 0, schedule: "0 * * * *" },
+];
+
+function pickSchedule(pending: number, ladder?: { min_pending: number; schedule: string }[]): string {
+  const rungs = (ladder && ladder.length ? ladder : DEFAULT_CADENCE)
+    .slice()
+    .sort((a, b) => b.min_pending - a.min_pending);
+  for (const r of rungs) if (pending >= r.min_pending) return r.schedule;
+  return rungs[rungs.length - 1].schedule;
+}
+
 
 // Recent "rows transitioned out of pending" detector — used to distinguish equilibrium from true stall.
 async function recentActivity(admin: any, kind: string, windowMin: number): Promise<number | null> {
@@ -114,6 +136,8 @@ async function countPending(admin: any, kind: string): Promise<number | null> {
       case "seo_jobs_pending":
       case "ai_categorize_pending":
       case "episode_classifier_pending":
+      case "person_ai_review_pending":
+      case "clean_text_pending":
       case "entity_backfill_pending": {
         const { data, error } = await admin.rpc("count_pipeline_pending", { kind });
         if (error) { console.warn("count_pipeline_pending failed", kind, error); return null; }
@@ -160,7 +184,8 @@ Deno.serve(async (req) => {
     const state = (stateRow?.value || {}) as any;
     if (state.enabled === false) return json({ ok: true, skipped: true, reason: "disabled" });
 
-    const dryRun = state.dry_run === true;
+    // Never dry-run: the controller always acts (owner decision, 2026-09-22).
+    const dryRun = false;
     const runners: RunnerCfg[] = Array.isArray(state.runners) ? state.runners : [];
     const history: Record<string, { p1?: number; p2?: number; updated_at?: string }> = state.history || {};
 
@@ -243,6 +268,19 @@ Deno.serve(async (req) => {
         await admin.from("app_settings").upsert({ key: r.controls_key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" });
       }
 
+      // ADAPTIVE CADENCE: retune the runner's own cron to the size of its queue, so a
+      // large backlog is drained fast and an empty queue stops polling frequently.
+      let cadence: any = null;
+      if (r.cron_job_name) {
+        const wanted = pickSchedule(pending, r.cadence);
+        const { data: cronRes, error: cronErr } = await admin.rpc("set_runner_cron", {
+          p_job_name: r.cron_job_name,
+          p_schedule: wanted,
+        });
+        cadence = { job: r.cron_job_name, schedule: wanted, result: cronErr ? `error:${cronErr.message}` : cronRes };
+      }
+
+
       // Dedupe: ha az utolsó event ugyanaz az action ÉS < 30 perce, ne logoljunk újra (és ne alertáljunk).
       let suppressed = false;
       if (action === "pause_stall" || action === "resume" || action === "pause_empty") {
@@ -280,7 +318,7 @@ Deno.serve(async (req) => {
       }
 
       history[r.name] = { p1: pending, p2: p1, samples, updated_at: new Date().toISOString() } as any;
-      results.push({ runner: r.name, pending, p1, p2, samples, wake, stallRuns, action, reason, suppressed });
+      results.push({ runner: r.name, pending, p1, p2, samples, wake, stallRuns, action, reason, suppressed, cadence });
     }
 
     await admin.from("app_settings").upsert({

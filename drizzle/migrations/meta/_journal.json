@@ -148,6 +148,34 @@
       "when": 1790106654716,
       "tag": "0020_ai_call_audit_drain_bigger_batches",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790111438392,
+      "tag": "0021_adaptive_queue_control_helpers",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790111623746,
+      "tag": "0022_fast_capped_pending_counters",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790111679701,
+      "tag": "0023_pending_counter_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790111857747,
+      "tag": "0024_classifier_pending_recent_window",
+      "breakpoints": true
     }
   ]
 }
