@@ -782,7 +782,12 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
       .limit(4),
   ];
 
-  const settled = await Promise.all(tasks.map((p) => p.catch((error: any) => ({ data: [], error }))));
+  // PostgREST builders are thenables, not Promises — they have no .catch().
+  // Wrap with Promise.resolve() so a failing sub-query degrades to empty data
+  // instead of throwing and killing the whole anchor resolution step.
+  const settled = await Promise.all(
+    tasks.map((p) => Promise.resolve(p).then((r: any) => r, (error: any) => ({ data: [], error }))),
+  );
   const exactOrganizationAliasHit = ((settled[3] as any).data || []).some((row: any) => {
     const o = row.organizations;
     return o?.name && o.is_indexable !== false;
@@ -1583,7 +1588,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const rpcResult = await supa.rpc("search_episodes_hybrid", {
+    const hybridArgs = {
       q: lexQ,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
@@ -1593,12 +1598,46 @@ Deno.serve(async (req) => {
       alpha_lex: alphaLex,
       p_decay_lambda: decayLambda,
       phrase_terms: phraseTerms.length ? phraseTerms : null,
-    });
+    };
+    let rpcResult = await supa.rpc("search_episodes_hybrid", hybridArgs);
+    let rpcDegraded: string | undefined;
+    if (rpcResult.error) {
+      // Under DB load the expanded lexical query can hit the statement timeout
+      // (57014). Retry once with the narrow original query and no optional
+      // boosts/gates, then (if that also fails) with lexical-only. A slow DB
+      // must never surface as an empty catalog or a 5xx to the user.
+      console.warn("rpc err, retrying narrow", rpcResult.error?.message || rpcResult.error);
+      rpcDegraded = "narrow_retry";
+      rpcResult = await supa.rpc("search_episodes_hybrid", {
+        ...hybridArgs,
+        q: quoteWebSearchTerm(q),
+        limit_n: Math.max(limit, 30),
+        required_terms: null,
+        entity_terms: null,
+        phrase_terms: null,
+      });
+      if (rpcResult.error) {
+        console.warn("narrow retry failed, lexical-only", rpcResult.error?.message || rpcResult.error);
+        rpcDegraded = "lexical_only";
+        rpcResult = await supa.rpc("search_episodes_hybrid", {
+          q: quoteWebSearchTerm(q),
+          q_embedding: null,
+          limit_n: Math.max(limit, 30),
+          lang,
+          required_terms: null,
+          entity_terms: null,
+          alpha_lex: 1,
+          p_decay_lambda: 0,
+          phrase_terms: null,
+        });
+      }
+    }
     let rows = rpcResult.data;
     const error = rpcResult.error;
     if (error) {
       console.error("rpc err", error);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      rows = [];
+      rpcDegraded = "rpc_failed";
     }
     const mustGateApplied = requiredTerms.length > 0;
     let mustGateRelaxed = false;
