@@ -255,11 +255,50 @@ const TAG_LABELS: Record<string, string> = {
   humor: "humor",
   mélyinterjú: "mélyebb beszélgetések",
   interjú: "interjúk",
+  // Internal taxonomy keys leak into recommendation reasons ("science + culture",
+  // "public_affairs"). Public copy must be Hungarian, never an internal key.
+  science: "tudomány",
+  culture: "kultúra",
+  society: "társadalmi témák",
+  public_affairs: "közélet",
+  politics: "közélet",
+  news: "hírek",
+  business: "gazdaság",
+  finance: "pénzügy",
+  investing: "befektetés",
+  technology: "technológia",
+  tech: "technológia",
+  health: "egészség",
+  fitness: "egészség",
+  psychology: "pszichológia",
+  self_improvement: "önfejlesztés",
+  education: "oktatás",
+  history: "történelem",
+  religion: "vallás",
+  sports: "sport",
+  comedy: "humor",
+  music: "zene",
+  arts: "művészet",
+  books: "könyvek",
+  literature: "irodalom",
+  film_tv: "film és tévé",
+  true_crime: "bűnügyek",
+  kids: "gyerek és család",
+  food: "gasztronómia",
+  interview: "interjúk",
+  deep_dive: "mélyebb beszélgetések",
 };
 
+// Unknown internal-looking keys (snake_case / ASCII-only lowercase machine tokens)
+// are dropped rather than shown raw to the reader.
 function tagLabel(tag: string): string {
-  const key = tag.toLowerCase();
-  return TAG_LABELS[key] || tag;
+  const key = String(tag || "").toLowerCase().trim();
+  if (!key) return "";
+  const mapped = TAG_LABELS[key];
+  if (mapped) return mapped;
+  if (/^[a-z0-9]+([_-][a-z0-9]+)+$/.test(key)) return "";
+  if (/^[a-z]+$/.test(key)) return "";
+  return tag;
 }
 
 function primaryReason(r: RecEp): string {

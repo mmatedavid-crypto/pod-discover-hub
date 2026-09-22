@@ -97,3 +97,14 @@ export function highlightParts(text: string, terms: string[]): Array<{ s: string
   if (last < text.length) out.push({ s: text.slice(last), hit: false });
   return out;
 }
+
+// Word-safe truncation for public copy. Never cuts mid-word (the weekly teaser
+// used to end with fragments like "pillana"). Adds an ellipsis when shortened.
+export function truncateWords(input?: string | null, max = 180): string {
+  const clean = String(input || "").trim();
+  if (!clean || clean.length <= max) return clean;
+  const hard = clean.slice(0, max);
+  const lastBreak = Math.max(hard.lastIndexOf(" "), hard.lastIndexOf("\n"));
+  const base = (lastBreak > Math.floor(max * 0.5) ? hard.slice(0, lastBreak) : hard).replace(/[\s,;:.!?…-]+$/u, "");
+  return base ? `${base}…` : "";
+}

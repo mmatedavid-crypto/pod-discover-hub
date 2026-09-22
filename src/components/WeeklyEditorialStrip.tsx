@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { hetiSlug } from "@/lib/hetiSlug";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { truncateWords } from "@/lib/text";
 
 type Post = {
   id: string;
@@ -40,7 +41,7 @@ export default function WeeklyEditorialStrip() {
 
   const introLine = safeWeeklyText((post?.intro || "").split("\n").find((l) => l.trim().length > 30), 30);
   const teaser = post
-    ? introLine.slice(0, 180) ||
+    ? truncateWords(introLine, 180) ||
       `${post.items?.length ?? 0} epizód, amit érdemes meghallgatni a héten.`
     : "A szerkesztett heti válogatás készül. Addig a legfrissebb magyar epizódokból lehet továbbindulni.";
 
