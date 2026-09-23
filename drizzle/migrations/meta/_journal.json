@@ -218,6 +218,55 @@
       "when": 1790173207283,
       "tag": "0030_speed_up_similar_podcasts",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790176792086,
+      "tag": "0031_search_gin_fastupdate_off",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790176965137,
+      "tag": "0032_ann_probe_helper",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790177180431,
+      "tag": "0033_halfvec_hnsw_build_function",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790178756770,
+      "tag": "0034_search_hybrid_halfvec_sem",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790179565470,
+      "tag": "0035_chunks_halfvec_build_helper",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790179604636,
+      "tag": "0036_prewarm_search_indexes_hourly",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790180193658,
+      "tag": "0037_chunks_search_halfvec",
+      "breakpoints": true
     }
   ]
 }
