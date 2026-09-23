@@ -267,6 +267,13 @@
       "when": 1790180193658,
       "tag": "0037_chunks_search_halfvec",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790199321871,
+      "tag": "0038_halfvec_recommendations_and_queue_indexes",
+      "breakpoints": true
     }
   ]
 }
