@@ -398,13 +398,13 @@ const Index = () => {
           const [feedRes, evergreenRes] = await Promise.all([
             supabase
               .from("mv_homepage_feed" as any)
-              .select("episode_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+              .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
               .lte("pod_rank", 6)
               .order("published_at", { ascending: false, nullsFirst: false })
               .limit(HOMEPAGE_EPISODE_LIMIT),
             supabase
               .from("mv_homepage_evergreen" as any)
-              .select("episode_id,title,display_title,slug,summary,description,ai_summary,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured")
+              .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured")
               .order("podiverzum_rank", { ascending: false, nullsFirst: false })
               .order("published_at", { ascending: false, nullsFirst: false })
               .limit(120),
@@ -507,7 +507,7 @@ const Index = () => {
       try {
         const { data, error } = await supabase
           .from("mv_homepage_feed" as any)
-          .select("episode_id,title,display_title,slug,ai_summary,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+          .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
           .in("podcast_category", LIGHT_CATEGORIES)
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(120);
