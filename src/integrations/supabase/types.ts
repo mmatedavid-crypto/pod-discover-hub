@@ -9021,6 +9021,8 @@ export type Database = {
       ai_call_audit_compact: { Args: never; Returns: string }
       ai_call_audit_drain_tick: { Args: never; Returns: number }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
+      autoprewarm_dump_now: { Args: never; Returns: number }
+      autoprewarm_start_worker: { Args: never; Returns: undefined }
       backfill_mentions_from_people_array: {
         Args: { p_dry_run?: boolean; p_person_ids?: string[] }
         Returns: {
@@ -9764,6 +9766,7 @@ export type Database = {
           podcast_id: string
         }[]
       }
+      prewarm_search_indexes: { Args: never; Returns: string }
       prune_ai_call_audit: {
         Args: { _batch?: number; _keep_days?: number }
         Returns: number
