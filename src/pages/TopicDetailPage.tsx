@@ -276,9 +276,13 @@ export default function TopicDetailPage() {
           </nav>
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Téma</div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{topic.h1 || topic.name}</h1>
-          {introText && (
-            <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{introText}</p>
-          )}
+          {topic.intro_long_hu
+            ? topic.intro_long_hu.split(/\n{2,}/).map((p, i) => (
+                <p key={i} className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{p}</p>
+              ))
+            : introText && (
+                <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{introText}</p>
+              )}
           <button
             onClick={() => nav(`/kereses?q=${encodeURIComponent(topic.name)}`)}
             className="mt-5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"
@@ -307,6 +311,21 @@ export default function TopicDetailPage() {
             <div className="flex flex-wrap gap-2">
               {people.map(p => (
                 <Link key={p.slug} to={`/szemelyek/${p.slug}`} className="px-3 py-1.5 rounded-full border border-border bg-card text-sm hover:border-primary/50">{p.name}</Link>
+              ))}
+            </div>
+          </section>
+        )}
+        {topicFaqs(topic).length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-3">Gyakori kérdések</h2>
+            <div className="divide-y divide-border rounded-lg border border-border bg-card">
+              {topicFaqs(topic).map((f, i) => (
+                <details key={i} className="group p-4" open={i === 0}>
+                  <summary className="cursor-pointer font-medium list-none flex justify-between gap-4">
+                    {f.q}<span className="text-muted-foreground group-open:rotate-45 transition-transform">+</span>
+                  </summary>
+                  <p className="mt-2 text-foreground/80 leading-relaxed">{f.a}</p>
+                </details>
               ))}
             </div>
           </section>
