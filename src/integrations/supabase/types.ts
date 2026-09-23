@@ -2474,16 +2474,19 @@ export type Database = {
         Row: {
           confidence: number | null
           episode_id: string
+          published_at: string | null
           slug: string
         }
         Insert: {
           confidence?: number | null
           episode_id: string
+          published_at?: string | null
           slug: string
         }
         Update: {
           confidence?: number | null
           episode_id?: string
+          published_at?: string | null
           slug?: string
         }
         Relationships: []

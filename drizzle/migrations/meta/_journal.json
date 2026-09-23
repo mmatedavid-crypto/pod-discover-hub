@@ -190,6 +190,13 @@
       "when": 1790168534345,
       "tag": "0026_speed_up_topic_and_counts",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790168713700,
+      "tag": "0027_topic_slug_map_published_at",
+      "breakpoints": true
     }
   ]
 }
