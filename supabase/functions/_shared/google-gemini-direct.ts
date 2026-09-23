@@ -386,7 +386,9 @@ export function validateAiInput(text: unknown, opts?: { minChars?: number }): st
   const t = text.trim();
   if (!t) return "input_empty";
   if (t.length < minChars) return "input_too_short";
-  if (/\b(undefined|null|\[object Object\])\b/i.test(t)) return "input_contains_placeholder";
+  // Csak valódi sablonhibák: a JSON-ban szereplő `"mező": null` érvényes bemenet
+  // (korábban emiatt több száz epizód/személy örökre kimaradt).
+  if (/\bundefined\b|\[object Object\]/.test(t)) return "input_contains_placeholder";
   const stripped = t.replace(/https?:\/\/\S+/g, "").replace(/@[\w.-]+/g, "").replace(/\s+/g, " ").trim();
   if (stripped.length < minChars) return "input_boilerplate_only";
   return null;
