@@ -194,7 +194,9 @@ Deno.serve(async (req) => {
 
     for (const r of runners) {
       const wake = r.wake_threshold ?? 5;
-      const stallRuns = r.stall_runs ?? 5;
+      // Az ablaknak hosszabbnak kell lennie a runner ütemezésénél (akár */30), különben
+      // a két futás közti csend hamis "stall"-nak tűnik. Min. 45 minta ≈ 90 perc.
+      const stallRuns = Math.max(r.stall_runs ?? 5, 45);
 
       const pending = await countPending(admin, r.pending_kind);
       if (pending == null) {
@@ -227,14 +229,16 @@ Deno.serve(async (req) => {
           // Resume-from-stall: csak akkor, ha a pending már mozog (nem ragad ugyanazon az értéken),
           // így nem ragad be véglegesen egy false-positive stall miatt.
           (ctrl.auto_paused_reason === "stall_detected" &&
-            samplesPrev.length > 0 &&
-            !samplesPrev.every((v) => v === pending)))
+            ((samplesPrev.length > 0 && !samplesPrev.every((v) => v === pending)) ||
+              // Szüneteltetett runner pendingje sosem mozdul → holtpont. 45 perc után újrapróbáljuk.
+              (ctrl.auto_paused_at && Date.now() - new Date(ctrl.auto_paused_at).getTime() > 45 * 60 * 1000))))
       ) {
         action = "resume";
         reason = `pending=${pending} ≥ wake_threshold=${wake} (prev_reason=${ctrl.auto_paused_reason}) → resume`;
       } else if (
         ctrl.enabled !== false &&
         pending > 0 &&
+        pending < 20000 && // capped számláló (20001) mindig állandó → nem mérhető stall
         samples.length >= stallRuns + 1 &&
         samples.every((v) => v === pending)
       ) {
