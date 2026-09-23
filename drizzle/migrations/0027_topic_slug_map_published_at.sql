@@ -1,0 +1,2 @@
+ALTER TABLE public.episode_topic_slug_map ADD COLUMN IF NOT EXISTS published_at timestamptz;
+CREATE INDEX IF NOT EXISTS idx_etsm_slug_published ON public.episode_topic_slug_map (slug, published_at DESC NULLS LAST);
