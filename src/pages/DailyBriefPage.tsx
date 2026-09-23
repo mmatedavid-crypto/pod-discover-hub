@@ -13,6 +13,7 @@ import DailyEditorials from "@/components/DailyEditorials";
 import DailyStatsStrip from "@/components/DailyStatsStrip";
 import WeeklyEditorialStrip from "@/components/WeeklyEditorialStrip";
 import { sitePublisherJsonLd } from "@/lib/sitePublisher";
+import ListLoadError from "@/components/ListLoadError";
 
 type Row = any;
 
@@ -48,6 +49,8 @@ function mapRow(r: Row): EpisodeLite {
 export default function DailyBriefPage() {
   const [eps, setEps] = useState<EpisodeLite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [windowHours, setWindowHours] = useState<24 | 48 | 72>(24);
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function DailyBriefPage() {
     (async () => {
       setLoading(true);
       const since = new Date(Date.now() - 72 * 3600_000).toISOString();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("episodes")
         .select(`id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,language_decision)`)
         .gte("published_at", since)
@@ -79,9 +82,10 @@ export default function DailyBriefPage() {
 
       const mapped = (data || []).map(mapRow);
       setEps(mapped);
+      setLoadFailed(Boolean(error) && mapped.length === 0);
       setLoading(false);
     })();
-  }, []);
+  }, [reloadKey]);
 
   const filtered = useMemo(() => {
     const cutoff = Date.now() - windowHours * 3600_000;
@@ -226,7 +230,11 @@ export default function DailyBriefPage() {
 
         {loading && <div className="text-muted-foreground py-10 text-center">A mai válogatás betöltése…</div>}
 
-        {!loading && top5.length === 0 && (
+        {!loading && loadFailed && (
+          <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />
+        )}
+
+        {!loading && !loadFailed && top5.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             Nincs friss epizód az elmúlt {windowHours} órában. Válassz egy hosszabb időszakot.
           </div>
