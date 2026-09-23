@@ -9015,6 +9015,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      ai_call_audit_compact: { Args: never; Returns: string }
       ai_call_audit_drain_tick: { Args: never; Returns: number }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
       backfill_mentions_from_people_array: {
