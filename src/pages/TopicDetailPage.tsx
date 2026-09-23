@@ -15,6 +15,7 @@ interface Topic {
   id: string; slug: string; name: string; short_name: string | null;
   seo_title: string | null; seo_description: string | null;
   h1: string | null; intro_text: string | null;
+  intro_long_hu?: string | null; faqs?: { q: string; a: string }[] | null;
   episode_count: number; podcast_count: number; is_indexable: boolean;
   domain: string | null;
 }
@@ -44,6 +45,11 @@ function topicIntroText(topic: Pick<Topic, "name" | "intro_text" | "episode_coun
     || topicFallbackIntro(topic.name, Number(topic.episode_count || 0), Number(topic.podcast_count || 0));
 }
 
+function topicFaqs(topic: Pick<Topic, "faqs">): { q: string; a: string }[] {
+  return (Array.isArray(topic.faqs) ? topic.faqs : [])
+    .filter((f: any) => f && typeof f.q === "string" && typeof f.a === "string" && f.q && f.a);
+}
+
 export default function TopicDetailPage() {
   const { slug: rawSlug = "" } = useParams();
   const nav = useNavigate();
@@ -68,7 +74,7 @@ export default function TopicDetailPage() {
       setLoading(true);
       const { data: t } = await supabase
         .from("topics")
-        .select("id, slug, name, short_name, seo_title, seo_description, h1, intro_text, episode_count, podcast_count, is_indexable, domain, is_public")
+        .select("id, slug, name, short_name, seo_title, seo_description, h1, intro_text, intro_long_hu, faqs, episode_count, podcast_count, is_indexable, domain, is_public")
         .eq("slug", slug)
         .maybeSingle();
       if (!t || !(t as any).is_public) { setNotFound(true); setLoading(false); return; }
@@ -224,15 +230,13 @@ export default function TopicDetailPage() {
               { "@type": "ListItem", position: 3, name: (t as any).name, item: pageUrl },
             ],
           },
-          {
+          ...(topicFaqs(t as any).length ? [{
             "@context": "https://schema.org",
             "@type": "FAQPage",
-            mainEntity: [
-              { "@type": "Question", name: `Milyen magyar podcast epizódok foglalkoznak ${(t as any).name} témával?`, acceptedAnswer: { "@type": "Answer", text: `Jelenleg ${(t as any).episode_count} magyar podcast epizódot indexelünk ehhez a témához.` } },
-              { "@type": "Question", name: `Hol találok friss ${(t as any).name} podcast epizódokat?`, acceptedAnswer: { "@type": "Answer", text: "A Podiverzum naponta frissül, az új epizódok automatikusan megjelennek a témaoldalon." } },
-              { "@type": "Question", name: "Hogyan válogatja a Podiverzum ezeket az epizódokat?", acceptedAnswer: { "@type": "Answer", text: "Kulcsszavak, MI-elemzés és a műsorok minősége alapján rangsorolunk." } },
-            ],
-          },
+            mainEntity: topicFaqs(t as any).map((f) => ({
+              "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a },
+            })),
+          }] : []),
         ],
       });
     })();
