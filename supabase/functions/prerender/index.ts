@@ -761,10 +761,10 @@ async function buildEpisode(
       p_max_chars: 16000,
     }),
     supabase
-      .from("episodes")
-      .select("title, display_title, slug, published_at, ai_summary, summary")
+      .from("episode_cards")
+      .select("title, display_title, slug, published_at, summary:card_summary")
       .eq("podcast_id", pod.id)
-      .neq("id", ep.id)
+      .neq("episode_id", ep.id)
       .order("published_at", { ascending: false })
       .limit(12),
     // Canonical entity rows so the crawlable links point at real, indexable
