@@ -96,11 +96,13 @@ describe("page consistency static guards", () => {
     expect(podcastDetail).not.toContain('select("id, slug, name, image_url").in("name", manualNames)');
   });
 
-  it("keeps homepage episode rails AI-summary aware", () => {
+  it("keeps homepage episode rails summary aware without selecting columns the feed views lack", () => {
     const home = read("src/pages/Index.tsx");
 
-    expect(home).toContain("ai_summary: r.ai_summary");
-    expect(home).toContain("episode_id,title,display_title,slug,ai_summary,summary,description");
+    expect(home).toContain("episode_id,title,display_title,slug,summary,description");
+    // mv_homepage_feed / mv_homepage_evergreen expose `summary` only; selecting
+    // ai_summary made every rail request fail with a 400.
+    expect(home).not.toContain("slug,ai_summary");
   });
 
   it("keeps category episode discovery open to accepted Hungarian non-spam shows", () => {
