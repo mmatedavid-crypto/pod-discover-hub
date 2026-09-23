@@ -197,6 +197,13 @@
       "when": 1790168713700,
       "tag": "0027_topic_slug_map_published_at",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790169113397,
+      "tag": "0028_etsm_published_backfill_fn",
+      "breakpoints": true
     }
   ]
 }

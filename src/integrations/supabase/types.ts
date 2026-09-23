@@ -9169,6 +9169,7 @@ export type Database = {
       episode_cards_backfill_tick: { Args: never; Returns: number }
       episode_classifier_stats: { Args: never; Returns: Json }
       episode_topic_slug_backfill_tick: { Args: never; Returns: number }
+      etsm_published_backfill: { Args: { _batch?: number }; Returns: number }
       find_existing_podcast: {
         Args: { p_rss_url: string; p_title: string }
         Returns: string
