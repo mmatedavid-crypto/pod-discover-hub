@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
         .from("episodes")
         .select("id, title, description, ai_summary, search_text, podcast_id, podcasts!inner(language_decision)")
         .eq("podcasts.language_decision", "accept_hungarian")
-        .or(`title.ilike.%${hint}%,description.ilike.%${hint}%,ai_summary.ilike.%${hint}%,search_text.ilike.%${hint}%`)
+        .ilike("search_text", `%${String(hint).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}%`)
         .limit(40);
       for (const e of (data || [])) {
         const text = `${e.title || ""}\n${e.ai_summary || e.description || ""}`;
