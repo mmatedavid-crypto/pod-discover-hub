@@ -450,11 +450,15 @@ export default function SearchPage() {
         const ctrl = new AbortController();
         answerAbortRef.current = ctrl;
         try {
-          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-answer`;
+          // VITE_SUPABASE_URL can be missing in some production builds — fall back to
+          // the known project URL so the AI answer never posts to "/undefined/...".
+          const base = (import.meta.env.VITE_SUPABASE_URL as string) || "https://yoxewklaybougzpmzvkg.supabase.co";
+          const anon = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlveGV3a2xheWJvdWd6cG16dmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODAxNDAsImV4cCI6MjA5NDE1NjE0MH0.R5tBT9VgFqWPvd5AYPIb16vJXmB7c116MSMfAuogwv8";
+          const url = `${base}/functions/v1/search-answer`;
           const resp = await fetch(url, {
             method: "POST",
             signal: ctrl.signal,
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+            headers: { "Content-Type": "application/json", apikey: anon, Authorization: `Bearer ${anon}` },
             body: JSON.stringify({
               q: initial,
               episodes: mapped.slice(0, 6).map((e: any) => ({
