@@ -7743,12 +7743,15 @@ export type Database = {
       }
       topics: {
         Row: {
+          content_generated_at: string | null
           created_at: string
           description: string | null
           domain: string | null
           episode_count: number
+          faqs: Json
           h1: string | null
           id: string
+          intro_long_hu: string | null
           intro_text: string | null
           is_indexable: boolean
           is_public: boolean
@@ -7768,12 +7771,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          content_generated_at?: string | null
           created_at?: string
           description?: string | null
           domain?: string | null
           episode_count?: number
+          faqs?: Json
           h1?: string | null
           id?: string
+          intro_long_hu?: string | null
           intro_text?: string | null
           is_indexable?: boolean
           is_public?: boolean
@@ -7793,12 +7799,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          content_generated_at?: string | null
           created_at?: string
           description?: string | null
           domain?: string | null
           episode_count?: number
+          faqs?: Json
           h1?: string | null
           id?: string
+          intro_long_hu?: string | null
           intro_text?: string | null
           is_indexable?: boolean
           is_public?: boolean

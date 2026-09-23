@@ -1605,7 +1605,7 @@ async function buildTopic(
 ) {
   const { data: topic } = await (supabase as any)
     .from("topics")
-    .select("id, name, slug, description, seo_title, seo_description, intro_text, is_public, is_indexable, domain, parent_topic_id, topic_type")
+    .select("id, name, slug, description, seo_title, seo_description, intro_text, intro_long_hu, faqs, is_public, is_indexable, domain, parent_topic_id, topic_type")
     .eq("slug", slug)
     .maybeSingle();
   if (!topic || topic.is_public === false) return null;
@@ -1691,14 +1691,22 @@ async function buildTopic(
         .join("")}</ul></section>`
     : "";
 
+  const topicFaqList = (Array.isArray(topic.faqs) ? topic.faqs : []).filter((f: any) => f?.q && f?.a);
+  const topicIntroHtml = topic.intro_long_hu
+    ? String(topic.intro_long_hu).split(/\n{2,}/).map((p: string) => `<p>${esc(p)}</p>`).join("")
+    : topic.intro_text ? `<p>${esc(stripHtml(topic.intro_text))}</p>` : "";
   return new Response(new TextEncoder().encode(shell({
       title,
       description: desc,
       canonical,
       ogImage,
-      jsonLd: [itemList, breadcrumb],
+      jsonLd: topicFaqList.length ? [itemList, breadcrumb, {
+        "@context": "https://schema.org", "@type": "FAQPage",
+        mainEntity: topicFaqList.map((f: any) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+      }] : [itemList, breadcrumb],
       noindex: topic.is_indexable === false,
-      bodyHtml: `<header><h1>${esc(topic.name)}</h1>${topic.intro_text ? `<p>${esc(stripHtml(topic.intro_text))}</p>` : ""}</header>
+      bodyHtml: `<header><h1>${esc(topic.name)}</h1>${topicIntroHtml}</header>
+${topicFaqList.length ? `<section><h2>Gyakori kérdések</h2>${topicFaqList.map((f: any) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join("")}</section>` : ""}
 <main><h2>Epizódok</h2><ul>${html}</ul>
 ${showsHtml}
 ${siblingsHtml}

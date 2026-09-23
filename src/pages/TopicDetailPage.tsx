@@ -15,6 +15,7 @@ interface Topic {
   id: string; slug: string; name: string; short_name: string | null;
   seo_title: string | null; seo_description: string | null;
   h1: string | null; intro_text: string | null;
+  intro_long_hu?: string | null; faqs?: { q: string; a: string }[] | null;
   episode_count: number; podcast_count: number; is_indexable: boolean;
   domain: string | null;
 }
@@ -44,6 +45,11 @@ function topicIntroText(topic: Pick<Topic, "name" | "intro_text" | "episode_coun
     || topicFallbackIntro(topic.name, Number(topic.episode_count || 0), Number(topic.podcast_count || 0));
 }
 
+function topicFaqs(topic: Pick<Topic, "faqs">): { q: string; a: string }[] {
+  return (Array.isArray(topic.faqs) ? topic.faqs : [])
+    .filter((f: any) => f && typeof f.q === "string" && typeof f.a === "string" && f.q && f.a);
+}
+
 export default function TopicDetailPage() {
   const { slug: rawSlug = "" } = useParams();
   const nav = useNavigate();
@@ -68,7 +74,7 @@ export default function TopicDetailPage() {
       setLoading(true);
       const { data: t } = await supabase
         .from("topics")
-        .select("id, slug, name, short_name, seo_title, seo_description, h1, intro_text, episode_count, podcast_count, is_indexable, domain, is_public")
+        .select("id, slug, name, short_name, seo_title, seo_description, h1, intro_text, intro_long_hu, faqs, episode_count, podcast_count, is_indexable, domain, is_public")
         .eq("slug", slug)
         .maybeSingle();
       if (!t || !(t as any).is_public) { setNotFound(true); setLoading(false); return; }
@@ -224,15 +230,13 @@ export default function TopicDetailPage() {
               { "@type": "ListItem", position: 3, name: (t as any).name, item: pageUrl },
             ],
           },
-          {
+          ...(topicFaqs(t as any).length ? [{
             "@context": "https://schema.org",
             "@type": "FAQPage",
-            mainEntity: [
-              { "@type": "Question", name: `Milyen magyar podcast epizódok foglalkoznak ${(t as any).name} témával?`, acceptedAnswer: { "@type": "Answer", text: `Jelenleg ${(t as any).episode_count} magyar podcast epizódot indexelünk ehhez a témához.` } },
-              { "@type": "Question", name: `Hol találok friss ${(t as any).name} podcast epizódokat?`, acceptedAnswer: { "@type": "Answer", text: "A Podiverzum naponta frissül, az új epizódok automatikusan megjelennek a témaoldalon." } },
-              { "@type": "Question", name: "Hogyan válogatja a Podiverzum ezeket az epizódokat?", acceptedAnswer: { "@type": "Answer", text: "Kulcsszavak, MI-elemzés és a műsorok minősége alapján rangsorolunk." } },
-            ],
-          },
+            mainEntity: topicFaqs(t as any).map((f) => ({
+              "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a },
+            })),
+          }] : []),
         ],
       });
     })();
@@ -272,9 +276,13 @@ export default function TopicDetailPage() {
           </nav>
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Téma</div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{topic.h1 || topic.name}</h1>
-          {introText && (
-            <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{introText}</p>
-          )}
+          {topic.intro_long_hu
+            ? topic.intro_long_hu.split(/\n{2,}/).map((p, i) => (
+                <p key={i} className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{p}</p>
+              ))
+            : introText && (
+                <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{introText}</p>
+              )}
           <button
             onClick={() => nav(`/kereses?q=${encodeURIComponent(topic.name)}`)}
             className="mt-5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"
@@ -303,6 +311,21 @@ export default function TopicDetailPage() {
             <div className="flex flex-wrap gap-2">
               {people.map(p => (
                 <Link key={p.slug} to={`/szemelyek/${p.slug}`} className="px-3 py-1.5 rounded-full border border-border bg-card text-sm hover:border-primary/50">{p.name}</Link>
+              ))}
+            </div>
+          </section>
+        )}
+        {topicFaqs(topic).length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-3">Gyakori kérdések</h2>
+            <div className="divide-y divide-border rounded-lg border border-border bg-card">
+              {topicFaqs(topic).map((f, i) => (
+                <details key={i} className="group p-4" open={i === 0}>
+                  <summary className="cursor-pointer font-medium list-none flex justify-between gap-4">
+                    {f.q}<span className="text-muted-foreground group-open:rotate-45 transition-transform">+</span>
+                  </summary>
+                  <p className="mt-2 text-foreground/80 leading-relaxed">{f.a}</p>
+                </details>
               ))}
             </div>
           </section>
