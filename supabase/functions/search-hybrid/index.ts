@@ -1022,6 +1022,35 @@ Deno.serve(async (req) => {
     const marketSymbol = compactMarketSymbol(q);
     const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
     const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
+
+    // Latency: start the slow independent work (cache read, LLM understanding,
+    // query embedding, curated synonyms) BEFORE the entity-pin chain. None of
+    // these depend on the pins, and the pins don't depend on them, so running
+    // them concurrently removes ~1-3s of serialization from cold queries with
+    // zero change to ranking inputs. On a cache hit the speculative
+    // understand/embed calls are wasted (cheap; cold queries are the ones that
+    // matter), but their results are ignored in favor of the cached versions.
+    const cachePromise = (async () => {
+      try {
+        return await supa
+          .from("search_query_cache")
+          .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
+          .eq("q_norm", qNorm)
+          .maybeSingle();
+      } catch (e) {
+        console.warn("cache read err", e);
+        return { data: null } as any;
+      }
+    })();
+    const understandPromise = isBot
+      ? Promise.resolve(null)
+      : understandQuery(q, 1800).catch((e) => { console.warn("understand err", e); return null; });
+    const embedPromise = isBot
+      ? Promise.resolve(null)
+      : embed(q, 2200).catch((e) => { console.warn("embed err", e); return null; });
+    const curatedPromise = loadCuratedSynonyms(supa, qNorm)
+      .catch((e) => { console.warn("curated synonyms err", e); return { matched_terms: [], expansions: [] }; });
+
     const earlyPodcastPin = await resolvePodcastPin(supa, q, qNorm, limit, 850).catch((e) => {
       console.warn("early podcast pin err", e);
       return null;
@@ -1220,11 +1249,7 @@ Deno.serve(async (req) => {
     let cachedRerank: { ids: string[]; why: Record<string, string> } | null = null;
     let cacheHit = false;
     try {
-      const { data: cached } = await supa
-        .from("search_query_cache")
-        .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
-        .eq("q_norm", qNorm)
-        .maybeSingle();
+      const { data: cached } = await cachePromise;
       // Quality-first: cache rows carry their ranking/understanding version inside
       // the JSON blob. When the policy version bumps, older rows are ignored so
       // bad rankings don't survive a logic change.
@@ -1263,13 +1288,13 @@ Deno.serve(async (req) => {
 
     // 2) Parallel: understanding + embedding + curated synonyms
     // Bot path: skip LLM understanding and embedding entirely. Pure lexical search.
+    // Understanding/embedding/curated were started concurrently with the pin
+    // chain above; here we just await them. Cached values win when present.
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : (isBot ? Promise.resolve(null) : understandQuery(q, hasBudget(6500) ? 1800 : 900)),
-      q_embedding ? Promise.resolve(q_embedding) : (isBot ? Promise.resolve(null) : embed(q, hasBudget(6500) ? 2200 : 1200)),
-      loadCuratedSynonyms(supa, qNorm),
+      understanding ? Promise.resolve(understanding) : understandPromise,
+      q_embedding ? Promise.resolve(q_embedding) : embedPromise,
+      curatedPromise,
     ]);
-    understanding = u as Understanding;
-    if (!q_embedding) q_embedding = embVal;
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
 
