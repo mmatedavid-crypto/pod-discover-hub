@@ -1022,6 +1022,28 @@ Deno.serve(async (req) => {
     const marketSymbol = compactMarketSymbol(q);
     const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
     const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
+
+    // Latency: start the slow independent work (cache read, LLM understanding,
+    // query embedding, curated synonyms) BEFORE the entity-pin chain. None of
+    // these depend on the pins, and the pins don't depend on them, so running
+    // them concurrently removes ~1-3s of serialization from cold queries with
+    // zero change to ranking inputs. On a cache hit the speculative
+    // understand/embed calls are wasted (cheap; cold queries are the ones that
+    // matter), but their results are ignored in favor of the cached versions.
+    const cachePromise = supa
+      .from("search_query_cache")
+      .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
+      .eq("q_norm", qNorm)
+      .maybeSingle()
+      .catch((e) => { console.warn("cache read err", e); return { data: null }; });
+    const understandPromise = isBot
+      ? Promise.resolve(null)
+      : understandQuery(q, 1800).catch((e) => { console.warn("understand err", e); return null; });
+    const embedPromise = isBot
+      ? Promise.resolve(null)
+      : embed(q, 2200).catch((e) => { console.warn("embed err", e); return null; });
+    const curatedPromise = loadCuratedSynonyms(supa, qNorm);
+
     const earlyPodcastPin = await resolvePodcastPin(supa, q, qNorm, limit, 850).catch((e) => {
       console.warn("early podcast pin err", e);
       return null;
