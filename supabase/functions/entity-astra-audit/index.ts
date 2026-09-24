@@ -9,7 +9,7 @@ import { checkBudget } from "../_shared/google-gemini-direct.ts";
 declare const Deno: any;
 const MODEL = "openai/gpt-6-astra";
 const JOB = "entity_astra_audit";
-const PROMPT_VERSION = "entity-astra-audit-v1";
+const PROMPT_VERSION = "entity-astra-audit-v2";
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" };
 
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -48,6 +48,7 @@ Minden tételre adj egy ítéletet:
 - wrong_type: valódi entitás, de rossz típus (személy szervezetként vagy fordítva).
 - bad_bio: valódi entitás, de a leírás téves, más személyről szól, vagy nem igazolható állítást tartalmaz az epizódok alapján.
 - wrong_name: valódi entitás, de a név elírt/ragozott/csonka; add meg a helyes nevet a corrected_name mezőben.
+FONTOS: a tudásod lehet elavult. Friss eseményt (választás, tisztségváltás, 2025–2026-os hír) SOHA ne tekints hibának csak azért, mert nem ismered. bad_bio csak akkor, ha a leírás egyértelműen más személyről/szervezetről szól, vagy ellentmond az epizódcímeknek.
 A confidence 0 és 1 közötti szám. Csak akkor adj 0.85 fölötti értéket, ha biztos vagy. Ha kétséges, legyen "ok" alacsonyabb bizonyossággal.
 A reason legyen egy rövid magyar mondat. Minden bemeneti id-re pontosan egy tétel.`;
 
@@ -145,7 +146,7 @@ async function apply(e: Entity, v: any, minConf: number) {
       if (e.kind === "organization") await sb.from("episode_organization_map").delete().eq("organization_id", e.id);
       applied = true;
     } else if (verdict === "bad_bio") {
-      Object.assign(upd, { ai_bio: null, ai_bio_status: null });
+      Object.assign(upd, { ai_bio: null, ai_bio_status: e.kind === "person" ? null : "pending" });
       applied = true;
     } else if (verdict === "wrong_name" && v.corrected_name && conf >= 0.92 && !e.protected) {
       upd.name = String(v.corrected_name).trim().slice(0, 200);
@@ -153,7 +154,8 @@ async function apply(e: Entity, v: any, minConf: number) {
     }
   }
   (upd.astra_verdict as any).applied = applied;
-  await sb.from(table).update(upd).eq("id", e.id);
+  const { error } = await sb.from(table).update(upd).eq("id", e.id);
+  if (error) { console.error("update failed", e.id, error.message); return { verdict: "update_error", applied: false }; }
   return { verdict, applied };
 }
 
