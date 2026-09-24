@@ -78,6 +78,23 @@ async function recentActivity(admin: any, kind: string, windowMin: number): Prom
           .gte("ai_judged_at", since);
         return count ?? 0;
       }
+      case "episode_classifier_activity": {
+        const { count } = await admin.from("episode_ai_classifications").select("*", { count: "exact", head: true })
+          .eq("classification_status", "classified")
+          .gte("updated_at", since);
+        return count ?? 0;
+      }
+      case "episode_clean_text_activity": {
+        const { count } = await admin.from("episode_clean_text").select("*", { count: "exact", head: true })
+          .gte("updated_at", since);
+        return count ?? 0;
+      }
+      case "entity_backfill_activity": {
+        const { count } = await admin.from("episodes").select("*", { count: "exact", head: true })
+          .gte("ai_entities_version", 5)
+          .gte("updated_at", since);
+        return count ?? 0;
+      }
 
       default:
         return null;
@@ -117,12 +134,14 @@ async function countPending(admin: any, kind: string): Promise<number | null> {
         return count ?? 0;
       }
       case "person_bio_pending": {
-        // Align with person-bio-generator: only public, gated, non-blocked rows.
+        // Keep this aligned with person-bio-generator eligibility.
         const { count } = await admin.from("people").select("*", { count: "exact", head: true })
           .eq("ai_bio_status", "pending")
           .eq("is_public", true)
-          .gte("gated_episode_count", 1)
-          .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)");
+          .in("activation_status", ["indexable", "manual_approved", "public_noindex"])
+          .or("is_indexable.eq.true,episode_count.gte.3,strong_mention_count.gte.2")
+          .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)")
+          .or("ai_review_status.is.null,ai_review_status.not.in.(needs_human_review,duplicate_candidate)");
         return count ?? 0;
       }
       case "ai_jobs_pending": {
