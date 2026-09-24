@@ -1242,11 +1242,7 @@ Deno.serve(async (req) => {
     let cachedRerank: { ids: string[]; why: Record<string, string> } | null = null;
     let cacheHit = false;
     try {
-      const { data: cached } = await supa
-        .from("search_query_cache")
-        .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
-        .eq("q_norm", qNorm)
-        .maybeSingle();
+      const { data: cached } = await cachePromise;
       // Quality-first: cache rows carry their ranking/understanding version inside
       // the JSON blob. When the policy version bumps, older rows are ignored so
       // bad rankings don't survive a logic change.
