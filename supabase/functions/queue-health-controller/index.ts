@@ -95,6 +95,12 @@ async function recentActivity(admin: any, kind: string, windowMin: number): Prom
           .gte("updated_at", since);
         return count ?? 0;
       }
+      case "embed_chunks_activity": {
+        const { count } = await admin.from("episode_chunks").select("*", { count: "exact", head: true })
+          .gte("updated_at", since);
+        return count ?? 0;
+      }
+
 
       default:
         return null;
@@ -161,6 +167,11 @@ async function countPending(admin: any, kind: string): Promise<number | null> {
         const { data, error } = await admin.rpc("count_pipeline_pending", { kind });
         if (error) { console.warn("count_pipeline_pending failed", kind, error); return null; }
         return Number(data) || 0;
+      }
+      case "embed_chunks_missing": {
+        const { data, error } = await admin.rpc("embed_chunks_candidate_stats", { _model: "google/gemini-embedding-001" });
+        if (error) { console.warn("embed_chunks_candidate_stats failed", error); return null; }
+        return Number((data as any)?.missing) || 0;
       }
       default:
         return null;
