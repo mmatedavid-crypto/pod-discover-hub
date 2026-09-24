@@ -458,7 +458,7 @@ Deno.serve(async (req) => {
         .from("episodes")
         .select("id, title, display_title, description, ai_summary, podcast_id, clean_text_status, podcasts!inner(title, display_title, language, hosts, language_decision)")
         .not("ai_summary", "is", null)
-        .lt("ai_entities_version", 5)
+        .or("ai_entities_version.is.null,ai_entities_version.lt.5")
         .eq("clean_text_status", "done")
         .eq("podcasts.language_decision", "accept_hungarian")
         .limit(batch);
