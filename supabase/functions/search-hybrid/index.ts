@@ -1624,6 +1624,19 @@ Deno.serve(async (req) => {
       p_decay_lambda: decayLambda,
       phrase_terms: phraseTerms.length ? phraseTerms : null,
     };
+    // Speculative chunk lookup: depends only on q_embedding, so run it in
+    // parallel with the main RPC. Result used exactly as before (same gate).
+    const chunkPromise: Promise<any> | null = (FF.chunkAugment && q_embedding)
+      ? (async () => {
+          try {
+            return await supa.rpc("search_episode_chunks", {
+              query_embedding: `[${q_embedding!.join(",")}]`,
+              match_count: 30,
+              candidate_pool: 400,
+            });
+          } catch (e) { return { data: null, error: e }; }
+        })()
+      : null;
     let rpcResult = await supa.rpc("search_episodes_hybrid", hybridArgs);
     let rpcDegraded: string | undefined;
     if (rpcResult.error) {
@@ -1885,13 +1898,9 @@ Deno.serve(async (req) => {
     // Chunk augmentation (v13) — implemented, but disabled by default through
     // app_settings.search_engine until timestamped chunk quality gates are green.
     let chunkAugmented = 0;
-    if (FF.chunkAugment && q_embedding && strictRows.length < 30) {
+    if (chunkPromise && strictRows.length < 30) {
       try {
-        const { data: chunkRows } = await supa.rpc("search_episode_chunks", {
-          query_embedding: `[${q_embedding.join(",")}]`,
-          match_count: 30,
-          candidate_pool: 400,
-        });
+        const { data: chunkRows } = await chunkPromise;
         const cr = (chunkRows as any[]) || [];
         for (const c of cr) {
           if (strictIds.has(c.episode_id)) continue;
