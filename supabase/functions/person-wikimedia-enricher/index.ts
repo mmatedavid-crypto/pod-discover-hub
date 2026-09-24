@@ -443,7 +443,7 @@ Deno.serve(async (req) => {
     const { data: temporalRows, error: temporalErr } = await applyOrder(
       admin.from("people").select(baseSelect)
         .eq("is_public", true)
-        .in("activation_status", ["indexable","manual_approved","public_noindex"])
+        .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
         .eq("wikipedia_match_status", "verified")
         .not("wikidata_id", "is", null)
         .is("is_living", null)
@@ -455,7 +455,7 @@ Deno.serve(async (req) => {
     const { data: uncheckedRows, error: uncheckedErr } = await applyOrder(
       admin.from("people").select(baseSelect)
         .eq("is_public", true)
-        .in("activation_status", ["indexable","manual_approved","public_noindex"])
+        .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
         .or("wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null")
     );
     if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
@@ -466,7 +466,7 @@ Deno.serve(async (req) => {
       const { data: staleRows } = await applyOrder(
         admin.from("people").select(baseSelect)
           .eq("is_public", true)
-          .in("activation_status", ["indexable","manual_approved","public_noindex"])
+          .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
           .eq("wikipedia_match_status", "no_match")
           .lt("wiki_match_run_at", staleCutoff)
       );
@@ -477,7 +477,7 @@ Deno.serve(async (req) => {
       const { data: imageRows } = await applyOrder(
         admin.from("people").select(baseSelect)
           .eq("is_public", true)
-          .in("activation_status", ["indexable","manual_approved","public_noindex"])
+          .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
           .eq("wikipedia_match_status", "verified")
           .is("image_url", null)
           .in("image_status", ["none","failed","unchecked"])
