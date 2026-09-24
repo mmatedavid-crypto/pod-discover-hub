@@ -1281,13 +1281,13 @@ Deno.serve(async (req) => {
 
     // 2) Parallel: understanding + embedding + curated synonyms
     // Bot path: skip LLM understanding and embedding entirely. Pure lexical search.
+    // Understanding/embedding/curated were started concurrently with the pin
+    // chain above; here we just await them. Cached values win when present.
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : (isBot ? Promise.resolve(null) : understandQuery(q, hasBudget(6500) ? 1800 : 900)),
-      q_embedding ? Promise.resolve(q_embedding) : (isBot ? Promise.resolve(null) : embed(q, hasBudget(6500) ? 2200 : 1200)),
-      loadCuratedSynonyms(supa, qNorm),
+      understanding ? Promise.resolve(understanding) : understandPromise,
+      q_embedding ? Promise.resolve(q_embedding) : embedPromise,
+      curatedPromise,
     ]);
-    understanding = u as Understanding;
-    if (!q_embedding) q_embedding = embVal;
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
 
