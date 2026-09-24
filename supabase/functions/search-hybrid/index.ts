@@ -1030,12 +1030,18 @@ Deno.serve(async (req) => {
     // zero change to ranking inputs. On a cache hit the speculative
     // understand/embed calls are wasted (cheap; cold queries are the ones that
     // matter), but their results are ignored in favor of the cached versions.
-    const cachePromise = supa
-      .from("search_query_cache")
-      .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
-      .eq("q_norm", qNorm)
-      .maybeSingle()
-      .catch((e) => { console.warn("cache read err", e); return { data: null }; });
+    const cachePromise = (async () => {
+      try {
+        return await supa
+          .from("search_query_cache")
+          .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
+          .eq("q_norm", qNorm)
+          .maybeSingle();
+      } catch (e) {
+        console.warn("cache read err", e);
+        return { data: null } as any;
+      }
+    })();
     const understandPromise = isBot
       ? Promise.resolve(null)
       : understandQuery(q, 1800).catch((e) => { console.warn("understand err", e); return null; });
