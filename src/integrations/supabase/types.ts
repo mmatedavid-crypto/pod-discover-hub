@@ -3502,6 +3502,8 @@ export type Database = {
           ai_review_status: string
           ai_review_summary: string | null
           ai_reviewed_at: string | null
+          astra_reviewed_at: string | null
+          astra_verdict: Json | null
           browsable_reason: string | null
           country: string | null
           created_at: string
@@ -3570,6 +3572,8 @@ export type Database = {
           ai_review_status?: string
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
+          astra_reviewed_at?: string | null
+          astra_verdict?: Json | null
           browsable_reason?: string | null
           country?: string | null
           created_at?: string
@@ -3638,6 +3642,8 @@ export type Database = {
           ai_review_status?: string
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
+          astra_reviewed_at?: string | null
+          astra_verdict?: Json | null
           browsable_reason?: string | null
           country?: string | null
           created_at?: string
@@ -3773,6 +3779,8 @@ export type Database = {
           ai_review_status: string
           ai_review_summary: string | null
           ai_reviewed_at: string | null
+          astra_reviewed_at: string | null
+          astra_verdict: Json | null
           avg_source_podcast_rank: number
           browsable_reason: string | null
           canonical_identity_key: string | null
@@ -3880,6 +3888,8 @@ export type Database = {
           ai_review_status?: string
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
+          astra_reviewed_at?: string | null
+          astra_verdict?: Json | null
           avg_source_podcast_rank?: number
           browsable_reason?: string | null
           canonical_identity_key?: string | null
@@ -3987,6 +3997,8 @@ export type Database = {
           ai_review_status?: string
           ai_review_summary?: string | null
           ai_reviewed_at?: string | null
+          astra_reviewed_at?: string | null
+          astra_verdict?: Json | null
           avg_source_podcast_rank?: number
           browsable_reason?: string | null
           canonical_identity_key?: string | null
