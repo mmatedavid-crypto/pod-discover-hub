@@ -323,6 +323,13 @@
       "when": 1790280667758,
       "tag": "0045_revert_chunk_search_original",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1790283774000,
+      "tag": "0046_fast_embed_chunks_candidates",
+      "breakpoints": true
     }
   ]
 }
