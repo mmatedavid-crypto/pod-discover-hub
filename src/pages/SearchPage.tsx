@@ -510,9 +510,25 @@ export default function SearchPage() {
   }, [initial]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
+  const labelOfCat = (c: string) => categoryLabels[c] || categoryLabel(c);
+  // One button per visible label: different raw keys ("Önfejlesztés", "self-improvement")
+  // can share the same Hungarian label, so dedupe by label and filter by label.
+  const categoryButtons = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const c of categories) {
+      const l = labelOfCat(c);
+      if (!seen.has(l.toLowerCase())) seen.set(l.toLowerCase(), c);
+    }
+    return Array.from(seen.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories, categoryLabels]);
   const displayedEpisodes = useMemo(() => {
+    const catLabel = catParam ? labelOfCat(catParam).toLowerCase() : "";
     const filtered = catParam
-      ? episodes.filter((episode) => (episode.podcasts?.category || "") === catParam)
+      ? episodes.filter((episode) => {
+          const c = episode.podcasts?.category || "";
+          return c === catParam || (c && labelOfCat(c).toLowerCase() === catLabel);
+        })
       : episodes;
     if (sortParam === "newest") {
       return filtered.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
