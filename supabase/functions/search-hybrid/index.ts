@@ -1042,7 +1042,8 @@ Deno.serve(async (req) => {
     const embedPromise = isBot
       ? Promise.resolve(null)
       : embed(q, 2200).catch((e) => { console.warn("embed err", e); return null; });
-    const curatedPromise = loadCuratedSynonyms(supa, qNorm);
+    const curatedPromise = loadCuratedSynonyms(supa, qNorm)
+      .catch((e) => { console.warn("curated synonyms err", e); return { matched_terms: [], expansions: [] }; });
 
     const earlyPodcastPin = await resolvePodcastPin(supa, q, qNorm, limit, 850).catch((e) => {
       console.warn("early podcast pin err", e);
