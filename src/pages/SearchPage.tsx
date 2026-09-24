@@ -131,6 +131,9 @@ export default function SearchPage() {
   const [suggestion, setSuggestion] = useState<string>("");
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
+  // Sources the answer was generated from, frozen at request time so [n] always
+  // points to the same episode regardless of later sorting/filtering.
+  const [aiSources, setAiSources] = useState<{ title: string; href: string }[]>([]);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
   const [confidence, setConfidence] = useState<"high" | "medium" | "low" | null>(null);
   const [pinnedPodcast, setPinnedPodcast] = useState<any | null>(null);
@@ -447,6 +450,10 @@ export default function SearchPage() {
       // Kick off streaming AI answer when we have enough top results.
       if (mapped.length >= 1) {
         setAiAnswerLoading(true);
+        setAiSources(mapped.slice(0, 6).map((e: any) => ({
+          title: e.display_title || e.title,
+          href: e.podcasts?.slug && e.slug ? `/podcast/${e.podcasts.slug}/${e.slug}` : "",
+        })));
         const ctrl = new AbortController();
         answerAbortRef.current = ctrl;
         try {
@@ -510,9 +517,25 @@ export default function SearchPage() {
   }, [initial]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
+  const labelOfCat = (c: string) => categoryLabels[c] || categoryLabel(c);
+  // One button per visible label: different raw keys ("Önfejlesztés", "self-improvement")
+  // can share the same Hungarian label, so dedupe by label and filter by label.
+  const categoryButtons = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const c of categories) {
+      const l = labelOfCat(c);
+      if (!seen.has(l.toLowerCase())) seen.set(l.toLowerCase(), c);
+    }
+    return Array.from(seen.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories, categoryLabels]);
   const displayedEpisodes = useMemo(() => {
+    const catLabel = catParam ? labelOfCat(catParam).toLowerCase() : "";
     const filtered = catParam
-      ? episodes.filter((episode) => (episode.podcasts?.category || "") === catParam)
+      ? episodes.filter((episode) => {
+          const c = episode.podcasts?.category || "";
+          return c === catParam || (c && labelOfCat(c).toLowerCase() === catLabel);
+        })
       : episodes;
     if (sortParam === "newest") {
       return filtered.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
@@ -654,11 +677,11 @@ export default function SearchPage() {
                   {l}
                 </button>
               ))}
-              {categories.length > 1 && (
+              {categoryButtons.length > 1 && (
                 <>
                   <span className="text-muted-foreground ml-2">Kategória:</span>
                   <button onClick={() => setCat("")} className={`px-2.5 py-1 rounded-full border ${!catParam ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>Mind</button>
-                  {categories.slice(0, 8).map((c) => (
+                  {categoryButtons.slice(0, 8).map((c) => (
                     <button key={c} onClick={() => setCat(c)} className={`px-2.5 py-1 rounded-full border ${catParam === c ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}>{categoryLabels[c] || categoryLabel(c)}</button>
                   ))}
                 </>
@@ -872,7 +895,15 @@ export default function SearchPage() {
               )}
             </div>
             <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-              {aiAnswer || <span className="text-muted-foreground">Áttekintés készül a legerősebb epizódok alapján...</span>}
+              {aiAnswer
+                ? aiAnswer.split(/(\[\d+\])/g).map((part, i) => {
+                    const m = part.match(/^\[(\d+)\]$/);
+                    const src = m ? aiSources[Number(m[1]) - 1] : undefined;
+                    return src?.href
+                      ? <Link key={i} to={src.href} title={src.title} className="text-primary font-medium hover:underline">{part}</Link>
+                      : <span key={i}>{part}</span>;
+                  })
+                : <span className="text-muted-foreground">Áttekintés készül a legerősebb epizódok alapján...</span>}
             </p>
             <p className="text-[10px] text-muted-foreground mt-2">Automatikus összegzés a találati lista alapján; hallgatás előtt nézd meg az epizód részleteit.</p>
           </div>

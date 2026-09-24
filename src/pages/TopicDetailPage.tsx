@@ -276,13 +276,17 @@ export default function TopicDetailPage() {
           </nav>
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">Téma</div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-2">{topic.h1 || topic.name}</h1>
-          {topic.intro_long_hu
-            ? topic.intro_long_hu.split(/\n{2,}/).map((p, i) => (
-                <p key={i} className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{p}</p>
-              ))
-            : introText && (
+          {topic.intro_long_hu && topic.intro_long_hu.split(/\n{2,}/).map((p, i) => (
+            <p key={i} className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{p}</p>
+          ))}
+          {!topic.intro_long_hu && (
+            <>
+              {introText && (
                 <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{introText}</p>
               )}
+            </>
+          )}
+          <p className="sr-only">A válogatás kulcsszavak, MI-elemzés és a műsorok minősége alapján készül.</p>
           <button
             onClick={() => nav(`/kereses?q=${encodeURIComponent(topic.name)}`)}
             className="mt-5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"
