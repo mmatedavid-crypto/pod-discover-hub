@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Hash, Users, Building2 } from "lucide-react";
 import type { EntityCount } from "@/lib/aggregateEntities";
 import { entityHref } from "@/lib/entity";
+import { useLinkableEntities } from "@/hooks/useLinkableEntities";
 
 type Props = {
   eyebrow: string;
@@ -26,7 +27,9 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 export function TrendingEntities({ eyebrow, title, subtitle, items, icon = "topic" }: Props) {
-  if (!items.length) return null;
+  const canLink = useLinkableEntities(items.map((x) => ({ kind: x.kind, value: x.value })));
+  const shown = items.filter((it) => canLink(it.kind, it.value));
+  if (!shown.length) return null;
   const Icon = ICONS[icon];
   return (
     <section>
@@ -38,7 +41,7 @@ export function TrendingEntities({ eyebrow, title, subtitle, items, icon = "topi
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-        {items.map((it) => (
+        {shown.map((it) => (
           <Link
             key={`${it.kind}-${it.slug}`}
             to={entityHref(it.kind, it.value)} rel="nofollow"
