@@ -23,14 +23,29 @@ async function resolve(kind: "person" | "company", slugs: string[]) {
   const table = kind === "person" ? "people" : "organizations";
   const ok = new Set<string>();
   try {
+    // gated_episode_count is computed with the target page's own rule (public
+    // episode cards, accepted HU podcasts, accepted links). For people we also
+    // mirror the person page's hard blocks, otherwise the link would dead-end.
+    const cols = kind === "person"
+      ? "slug, activation_status, ai_recommended_action, ai_review_status, identity_status"
+      : "slug";
     const { data, error } = await (supabase as any)
       .from(table)
-      .select("slug, gated_episode_count")
+      .select(cols)
       .in("slug", slugs)
       .eq("is_public", true)
       .gte("gated_episode_count", 1);
     if (error) throw error;
-    (data || []).forEach((r: any) => r?.slug && ok.add(r.slug));
+    (data || []).forEach((r: any) => {
+      if (!r?.slug) return;
+      if (kind === "person" && (
+        r.activation_status === "inactive"
+        || ["hide", "reject"].includes(r.ai_recommended_action || "")
+        || ["needs_human_review", "duplicate_candidate"].includes(r.ai_review_status || "")
+        || r.identity_status === "split_resolved"
+      )) return;
+      ok.add(r.slug);
+    });
     slugs.forEach((s) => cache.set(`${kind}:${s}`, ok.has(s)));
   } catch {
     // On error, fail closed for this render (no dead-end links); allow retry later.
