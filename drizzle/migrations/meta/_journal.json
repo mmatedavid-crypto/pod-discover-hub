@@ -344,6 +344,13 @@
       "when": 1790351434678,
       "tag": "0048_entity_cleanup_backup_20260925",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1790351978093,
+      "tag": "0049_canonical_latest_mention_rule",
+      "breakpoints": true
     }
   ]
 }
