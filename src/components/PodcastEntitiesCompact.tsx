@@ -31,10 +31,11 @@ export function PodcastEntitiesCompact({
   const [active, setActive] = useState<Group["key"]>(groups[0]?.key || "topic");
   const [expanded, setExpanded] = useState(false);
 
+  const canLink = useLinkableEntities([...people, ...companies].map((x) => ({ kind: x.kind, value: x.value })));
+
   if (!groups.length) return null;
   const current = groups.find((g) => g.key === active) || groups[0];
   const visible = expanded ? current.items : current.items.slice(0, 12);
-  const canLink = useLinkableEntities(visible.map((x) => ({ kind: x.kind, value: x.value })));
 
   return (
     <section className="mt-6 rounded-xl border border-border/70 bg-card/60 p-3 sm:p-4">
