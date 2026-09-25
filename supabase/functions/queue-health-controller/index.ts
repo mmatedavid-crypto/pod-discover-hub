@@ -254,6 +254,17 @@ Deno.serve(async (req) => {
       } else if (
         pending >= wake &&
         ctrl.enabled === false &&
+        ctrl.auto_paused_by === "pipeline-watchdog" &&
+        ctrl.auto_paused_reason === "daily_budget_reached" &&
+        ctrl.auto_paused_at &&
+        String(ctrl.auto_paused_at).slice(0, 10) < new Date().toISOString().slice(0, 10)
+      ) {
+        // Napi keret új UTC napon megújul → a watchdog napi-budget pause-a automatikusan felold.
+        action = "resume";
+        reason = `daily budget reset (paused ${ctrl.auto_paused_at}) → resume`;
+      } else if (
+        pending >= wake &&
+        ctrl.enabled === false &&
         ctrl.auto_paused_by === "queue-health-controller" &&
         (ctrl.auto_paused_reason === "queue_empty" ||
           // Resume-from-stall: csak akkor, ha a pending már mozog (nem ragad ugyanazon az értéken),
