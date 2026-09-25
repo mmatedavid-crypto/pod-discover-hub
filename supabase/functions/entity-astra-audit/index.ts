@@ -16,7 +16,7 @@ const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 const KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 
 type Kind = "person" | "organization";
-type Entity = { id: string; kind: Kind; name: string; bio: string; wiki: string; episodes: string[]; protected: boolean };
+type Entity = { id: string; kind: Kind; name: string; bio: string; wiki: string; episodes: string[]; protected: boolean; hidden: boolean };
 
 const SCHEMA = {
   type: "object",
