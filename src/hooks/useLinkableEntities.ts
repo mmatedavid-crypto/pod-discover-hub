@@ -18,56 +18,47 @@ const listeners = new Set<() => void>();
 
 const CHECKED: EntityKind[] = ["person", "company"];
 
-async function resolve(kind: "person" | "company", slugs: string[]) {
-  if (!slugs.length) return;
-  const table = kind === "person" ? "people" : "organizations";
-  const ok = new Set<string>();
+async function resolveBatch(people: string[], organizations: string[]) {
+  if (!people.length && !organizations.length) return;
+  const requested = [
+    ...people.map((slug) => ({ kind: "person" as const, slug })),
+    ...organizations.map((slug) => ({ kind: "company" as const, slug })),
+  ];
+  const ok = new Set<Key>();
   try {
-    // gated_episode_count is computed with the target page's own rule (public
-    // episode cards, accepted HU podcasts, accepted links). For people we also
-    // mirror the person page's hard blocks, otherwise the link would dead-end.
-    const cols = kind === "person"
-      ? "slug, activation_status, ai_recommended_action, ai_review_status, identity_status"
-      : "slug";
-    const { data, error } = await (supabase as any)
-      .from(table)
-      .select(cols)
-      .in("slug", slugs)
-      .eq("is_public", true)
-      .gte("gated_episode_count", 1);
+    // One request covers both entity kinds and mirrors each target page's
+    // public-content gates in the database.
+    const { data, error } = await (supabase as any).rpc("get_linkable_entities", {
+      p_people: people,
+      p_organizations: organizations,
+    });
     if (error) throw error;
     (data || []).forEach((r: any) => {
-      if (!r?.slug) return;
-      if (kind === "person" && (
-        r.activation_status === "inactive"
-        || ["hide", "reject"].includes(r.ai_recommended_action || "")
-        || ["needs_human_review", "duplicate_candidate"].includes(r.ai_review_status || "")
-        || r.identity_status === "split_resolved"
-      )) return;
-      ok.add(r.slug);
+      if (r?.slug && (r.kind === "person" || r.kind === "company")) ok.add(`${r.kind}:${r.slug}`);
     });
-    slugs.forEach((s) => cache.set(`${kind}:${s}`, ok.has(s)));
+    requested.forEach(({ kind, slug }) => cache.set(`${kind}:${slug}`, ok.has(`${kind}:${slug}`)));
   } catch {
     // On error, fail closed for this render (no dead-end links); allow retry later.
-    slugs.forEach((s) => inflight.delete(`${kind}:${s}`));
+    requested.forEach(({ kind, slug }) => inflight.delete(`${kind}:${slug}`));
     return;
   }
   listeners.forEach((l) => l());
 }
 
-// All cards on a page share one debounced batch: one query per kind per 40 ms
-// window (chunked at 150 slugs), instead of one query per card.
+// All cards on a page share one debounced batch across both entity kinds.
 const pending: Record<"person" | "company", Set<string>> = { person: new Set(), company: new Set() };
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleFlush() {
   if (flushTimer) return;
   flushTimer = setTimeout(() => {
     flushTimer = null;
-    (["person", "company"] as const).forEach((kind) => {
-      const all = Array.from(pending[kind]);
-      pending[kind].clear();
-      for (let i = 0; i < all.length; i += 150) void resolve(kind, all.slice(i, i + 150));
-    });
+    const people = Array.from(pending.person);
+    const organizations = Array.from(pending.company);
+    pending.person.clear();
+    pending.company.clear();
+    for (let i = 0; i < Math.max(people.length, organizations.length); i += 150) {
+      void resolveBatch(people.slice(i, i + 150), organizations.slice(i, i + 150));
+    }
   }, 40);
 }
 

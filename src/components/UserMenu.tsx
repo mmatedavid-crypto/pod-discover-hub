@@ -41,7 +41,7 @@ export function UserMenu() {
             type="button"
             aria-label="Hallgatói menü"
             title="Hallgatói menü"
-            className="inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
           >
             <User className="h-4 w-4" />
           </button>
@@ -72,7 +72,7 @@ export function UserMenu() {
         <button
           type="button"
           aria-label="Fiók menü"
-          className="inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-primary/40 bg-primary/10 text-primary overflow-hidden transition-colors hover:border-primary/70"
+          className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-primary/40 bg-primary/10 text-primary transition-colors hover:border-primary/70"
         >
           {profile?.avatar_url ? (
             <img
