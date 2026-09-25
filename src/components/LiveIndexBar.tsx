@@ -37,10 +37,17 @@ export default function LiveIndexBar() {
     let cancelled = false;
     (async () => {
       try {
+        // Trusted catalog only: verified Hungarian, ranked, and in the catalog for 14+ days.
+        // Newly arrived / unverified podcasts never reach the ticker until the language filter confirms them.
+        const trustedBefore = new Date(Date.now() - 14 * 86400_000).toISOString();
         const { data, error } = await supabase
           .from("episodes")
           .select("id,title,display_title,slug,created_at,published_at,podcasts!inner(slug,title,display_title,category,rss_status,rank_label,language,language_decision)")
           .eq("podcasts.language_decision", "accept_hungarian")
+          .eq("podcasts.is_hungarian", true)
+          .eq("podcasts.detected_language", "hu")
+          .not("podcasts.rank_label", "is", null)
+          .lt("podcasts.created_at", trustedBefore)
           .not("title", "is", null)
           .order("created_at", { ascending: false })
           .limit(40);
