@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Hash, Users, Building2 } from "lucide-react";
 import type { EntityCount } from "@/lib/aggregateEntities";
 import { entityHref } from "@/lib/entity";
+import { useLinkableEntities } from "@/hooks/useLinkableEntities";
 
 type Group = {
   key: "topic" | "person" | "company";
@@ -29,6 +30,8 @@ export function PodcastEntitiesCompact({
 
   const [active, setActive] = useState<Group["key"]>(groups[0]?.key || "topic");
   const [expanded, setExpanded] = useState(false);
+
+  const canLink = useLinkableEntities([...people, ...companies].map((x) => ({ kind: x.kind, value: x.value })));
 
   if (!groups.length) return null;
   const current = groups.find((g) => g.key === active) || groups[0];
@@ -62,7 +65,7 @@ export function PodcastEntitiesCompact({
         })}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {visible.map((it) => (
+        {visible.filter((it) => canLink(it.kind, it.value)).map((it) => (
           <Link
             key={`${it.kind}-${it.slug}`}
             to={entityHref(it.kind, it.value)} rel="nofollow"

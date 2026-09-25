@@ -213,7 +213,7 @@ export default function PersonDetailPage() {
           episode_count: sorted.length,
           podcast_count: podMap.size,
           is_indexable: sorted.length >= 5,
-          latest_episode_at: sorted[0]?.published_at || null,
+          latest_episode_at: sorted.reduce((m: string | null, x: any) => (x.published_at && (!m || x.published_at > m) ? x.published_at : m), null),
           disambiguation_label: null,
           disambiguation_context: null,
           identity_ambiguous: false,
@@ -512,7 +512,7 @@ export default function PersonDetailPage() {
                 <StatCard label="Indexelt epizódok" value={eps.length} />
                 <StatCard label="Elmúlt 30 nap" value={last30} />
                 <StatCard label="Podcastok" value={new Set(eps.map((e: any) => e.podcast_id)).size} />
-                <StatCard label="Legutóbbi említés" value={eps[0]?.published_at ? new Date(eps[0].published_at).toLocaleDateString("hu-HU") : (person.latest_episode_at ? new Date(person.latest_episode_at).toLocaleDateString("hu-HU") : "—")} />
+                <StatCard label="Legutóbbi említés" value={(() => { const ts = [person.latest_episode_at, ...eps.map((x: any) => x.published_at)].filter(Boolean).map((d: any) => new Date(d).getTime()).filter((n) => !Number.isNaN(n)); return ts.length ? new Date(Math.max(...ts)).toLocaleDateString("hu-HU") : "—"; })()} />
               </div>
             </div>
           </div>

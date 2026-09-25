@@ -5,6 +5,7 @@ import { Brain, Info, Play } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { entityDisplayLabel, entityHref } from "@/lib/entity";
+import { useLinkableEntities } from "@/hooks/useLinkableEntities";
 import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
@@ -201,6 +202,7 @@ export function EpisodeCard({
     }, { startAt: chunkStart });
   };
   const allEnts = entityChips(e, showEntities);
+  const canLink = useLinkableEntities(allEnts.map((x) => ({ kind: x.kind, value: x.v })));
   return (
     <article className="group flex gap-3 sm:gap-4 p-4 sm:p-5 hover:bg-secondary/40 transition-colors">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-16 sm:w-20">
@@ -291,6 +293,7 @@ export function EpisodeCard({
         {showEntities && allEnts.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2.5">
             {allEnts.map(({ kind, v }) => {
+              if (!canLink(kind, v)) return <span key={`${kind}-${v}`} className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px]">{v}</span>;
               return (
                 <Link key={`${kind}-${v}`} to={entityHref(kind as any, v)} rel="nofollow" className="px-2 py-0.5 rounded-full border border-border bg-card text-[11px] hover:border-primary/50 hover:bg-primary/10 hover:text-foreground transition-colors">
                   {v}
@@ -388,6 +391,7 @@ function EpisodeRailCard({
     }, { resume: true });
   };
   const allEnts = entityChips(e, showEntities, { max: 4, kinds: ["person", "company"] });
+  const canLink = useLinkableEntities(allEnts.map((x) => ({ kind: x.kind, value: x.v })));
   const fr = e.published_at ? freshnessOf(e.published_at) : null;
 
   return (
@@ -469,6 +473,7 @@ function EpisodeRailCard({
         {showEntities && allEnts.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1">
             {allEnts.map(({ kind, v }) => {
+              if (!canLink(kind, v)) return <span key={`${kind}-${v}`} className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground">{v}</span>;
               return (
                 <Link key={`${kind}-${v}`} to={entityHref(kind as any, v)} rel="nofollow" className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground">
                   {v}
