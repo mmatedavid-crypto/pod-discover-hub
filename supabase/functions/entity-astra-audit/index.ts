@@ -146,7 +146,7 @@ async function apply(e: Entity, v: any, minConf: number) {
       if (e.kind === "organization") await sb.from("episode_organization_map").delete().eq("organization_id", e.id);
       applied = true;
     } else if (verdict === "bad_bio") {
-      Object.assign(upd, { ai_bio: null, ai_bio_status: e.kind === "person" ? null : "pending" });
+      Object.assign(upd, { ai_bio: null, ai_bio_status: "pending" });
       applied = true;
     } else if (verdict === "wrong_name" && v.corrected_name && conf >= 0.92 && !e.protected) {
       upd.name = String(v.corrected_name).trim().slice(0, 200);
