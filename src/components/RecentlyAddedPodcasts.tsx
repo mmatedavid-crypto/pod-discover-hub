@@ -8,11 +8,19 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
   const [items, setItems] = useState<PodcastLite[]>([]);
 
   useEffect(() => {
+    // Trusted-HU gate (same rule as the homepage ticker): only podcasts that are
+    // verified Hungarian, already ranked, and have been in the catalog 14+ days.
+    // Newly arrived / unverified shows never appear until the filter confirms them.
+    const trustedBefore = new Date(Date.now() - 14 * 86400_000).toISOString();
     supabase
       .from("podcasts")
       .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at,language,language_decision")
       .not("rss_status", "in", "(failed,inactive)")
       .eq("language_decision", "accept_hungarian")
+      .eq("is_hungarian", true)
+      .eq("detected_language", "hu")
+      .not("rank_label", "is", null)
+      .lt("created_at", trustedBefore)
       .or("language.ilike.hu%,language.ilike.mag%")
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(limit)

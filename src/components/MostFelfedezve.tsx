@@ -36,13 +36,20 @@ export function MostFelfedezve() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Trusted-HU gate (same rule as the homepage ticker): only podcasts that are
+      // verified Hungarian, already ranked, and have been in the catalog 14+ days.
+      const trustedBefore = new Date(Date.now() - 14 * 86400_000).toISOString();
       const since = new Date(Date.now() - 48 * 3600_000).toISOString();
       const { data, error } = await supabase
         .from("episodes")
         .select(
-          "id, slug, title, display_title, image_url, published_at, podcasts!inner(slug, title, display_title, image_url, language_decision)",
+          "id, slug, title, display_title, image_url, published_at, podcasts!inner(slug, title, display_title, image_url, language_decision, is_hungarian, detected_language, rank_label, created_at)",
         )
         .eq("podcasts.language_decision", "accept_hungarian")
+        .eq("podcasts.is_hungarian", true)
+        .eq("podcasts.detected_language", "hu")
+        .not("podcasts.rank_label", "is", null)
+        .lt("podcasts.created_at", trustedBefore)
         .or("language.ilike.hu%,language.ilike.mag%", { foreignTable: "podcasts" })
         .gte("published_at", since)
         .order("published_at", { ascending: false })
