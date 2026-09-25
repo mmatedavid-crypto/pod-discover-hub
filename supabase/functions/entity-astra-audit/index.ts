@@ -55,9 +55,11 @@ A reason legyen egy rövid magyar mondat. Minden bemeneti id-re pontosan egy té
 async function loadBatch(kind: Kind, limit: number, offset: number): Promise<Entity[]> {
   const table = kind === "person" ? "people" : "organizations";
   const extra = kind === "person" ? ",manual_approved,manually_seeded,editorial_priority" : ",manually_seeded,editorial_priority";
+  // Hidden pages with episodes are reviewed first: good ones get restored, junk gets deleted.
   const { data, error } = await sb.from(table)
-    .select(`id,name,ai_bio,wikipedia_description${extra}`)
-    .eq("is_public", true).is("astra_reviewed_at", null)
+    .select(`id,name,ai_bio,wikipedia_description,is_public${extra}`)
+    .is("astra_reviewed_at", null).or("is_public.eq.true,episode_count.gt.0")
+    .order("is_public", { ascending: true })
     .order("is_indexable", { ascending: false }).order("episode_count", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
