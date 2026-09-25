@@ -9289,6 +9289,13 @@ export type Database = {
         }
         Returns: Json
       }
+      get_linkable_entities: {
+        Args: { p_organizations?: string[]; p_people?: string[] }
+        Returns: {
+          kind: string
+          slug: string
+        }[]
+      }
       get_mood_episode_recommendations: {
         Args: { p_exclude?: string[]; p_limit?: number; p_mood_slug: string }
         Returns: {

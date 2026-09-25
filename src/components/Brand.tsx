@@ -5,11 +5,13 @@ export function BrandMark({
   size = 28,
   withWordmark = true,
   className = "",
+  wordmarkClassName = "",
   tagline = false,
 }: {
   size?: number;
   withWordmark?: boolean;
   className?: string;
+  wordmarkClassName?: string;
   tagline?: boolean;
 }) {
   return (
@@ -33,7 +35,7 @@ export function BrandMark({
         />
       </span>
       {withWordmark && (
-        <span className="leading-none">
+        <span className={`leading-none ${wordmarkClassName}`}>
           <span className="block font-semibold tracking-tight text-foreground text-[15px] sm:text-base">
             Podiverzum
           </span>

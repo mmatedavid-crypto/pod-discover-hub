@@ -351,6 +351,13 @@
       "when": 1790351978093,
       "tag": "0049_canonical_latest_mention_rule",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1790370211049,
+      "tag": "0050_batch_linkable_entities_lookup",
+      "breakpoints": true
     }
   ]
 }

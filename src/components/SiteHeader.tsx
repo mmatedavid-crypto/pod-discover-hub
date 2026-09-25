@@ -75,8 +75,8 @@ export function SiteHeader() {
 
   return (
     <header className="border-b border-border/70 bg-background/80 backdrop-blur-xl sticky top-0 z-30 supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
-        <BrandMark />
+      <div className="container mx-auto flex w-full items-center gap-3 px-3 py-2 sm:gap-6 sm:px-8 sm:py-3">
+        <BrandMark className="shrink-0" wordmarkClassName="hidden min-[400px]:block" />
         <nav className="hidden lg:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
           <NavLink to="/te-podiverzumod" className={({ isActive }) =>
             `relative text-sm font-medium inline-flex items-center gap-1.5 transition-colors text-red-500 hover:text-red-600 after:content-[''] after:absolute after:left-0 after:-bottom-1 after:h-px after:bg-red-500 after:transition-all ${
@@ -195,14 +195,16 @@ export function SiteHeader() {
             </div>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           {/* Mobile-only "Te Podiverzumod" link */}
           <NavLink
             to="/te-podiverzumod"
-            className="lg:hidden inline-flex items-center gap-1.5 text-sm font-medium text-red-500 hover:text-red-600 transition-colors whitespace-nowrap"
+            aria-label="Te Podiverzumod"
+            title="Te Podiverzumod"
+            className="lg:hidden inline-flex h-10 w-10 items-center justify-center gap-1.5 rounded-md border border-primary/35 bg-primary/10 text-sm font-medium text-primary transition-colors hover:bg-primary/15 min-[520px]:w-auto min-[520px]:px-3"
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            Te Podiverzumod
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span className="hidden whitespace-nowrap min-[520px]:inline">Te Podiverzumod</span>
           </NavLink>
           {/* Mobile hamburger menu — left of theme toggle */}
           <Popover open={menuOpen} onOpenChange={setMenuOpen}>
@@ -210,7 +212,7 @@ export function SiteHeader() {
               <button
                 type="button"
                 aria-label="Menü"
-                className="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors"
+                className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
               >
                 <Menu className="h-4 w-4" />
               </button>
