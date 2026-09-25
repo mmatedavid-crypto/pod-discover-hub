@@ -16,7 +16,7 @@ const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 const KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 
 type Kind = "person" | "organization";
-type Entity = { id: string; kind: Kind; name: string; bio: string; wiki: string; episodes: string[]; protected: boolean };
+type Entity = { id: string; kind: Kind; name: string; bio: string; wiki: string; episodes: string[]; protected: boolean; hidden: boolean };
 
 const SCHEMA = {
   type: "object",
@@ -55,9 +55,11 @@ A reason legyen egy rövid magyar mondat. Minden bemeneti id-re pontosan egy té
 async function loadBatch(kind: Kind, limit: number, offset: number): Promise<Entity[]> {
   const table = kind === "person" ? "people" : "organizations";
   const extra = kind === "person" ? ",manual_approved,manually_seeded,editorial_priority" : ",manually_seeded,editorial_priority";
+  // Hidden pages with episodes are reviewed first: good ones get restored, junk gets deleted.
   const { data, error } = await sb.from(table)
-    .select(`id,name,ai_bio,wikipedia_description${extra}`)
-    .eq("is_public", true).is("astra_reviewed_at", null)
+    .select(`id,name,ai_bio,wikipedia_description,is_public${extra}`)
+    .is("astra_reviewed_at", null).or("is_public.eq.true,episode_count.gt.0")
+    .order("is_public", { ascending: true })
     .order("is_indexable", { ascending: false }).order("episode_count", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
@@ -77,6 +79,7 @@ async function loadBatch(kind: Kind, limit: number, offset: number): Promise<Ent
       id: r.id, kind, name: r.name,
       bio: String(r.ai_bio || "").slice(0, 500), wiki: String(r.wikipedia_description || "").slice(0, 200),
       episodes: eps, protected: !!(r.manual_approved || r.manually_seeded || r.editorial_priority),
+      hidden: r.is_public === false,
     });
   }
   return out;
@@ -139,6 +142,21 @@ async function apply(e: Entity, v: any, minConf: number) {
     astra_verdict: { verdict, confidence: conf, reason: v?.reason || null, corrected_name: v?.corrected_name || null, applied: false, model: MODEL, v: PROMPT_VERSION },
   };
   let applied = false;
+  // Hidden + certain junk → backup, then delete permanently.
+  if (e.hidden && !e.protected && v && conf >= minConf && verdict === "not_real_entity") {
+    const { data: row } = await sb.from(table).select("*").eq("id", e.id).maybeSingle();
+    if (row) {
+      await sb.from("entity_cleanup_backup_20260925").insert({ entity_type: e.kind, entity_id: e.id, action: "delete_auto", row_data: row });
+      const { error } = await sb.from(table).delete().eq("id", e.id);
+      if (!error) return { verdict, applied: true };
+    }
+  }
+  // Hidden + certainly fine → make it available again.
+  if (e.hidden && v && conf >= minConf && verdict === "ok") {
+    Object.assign(upd, { is_public: true, ai_recommended_action: "keep_indexable" },
+      e.kind === "person" ? { is_indexable: true, is_browsable_in_people_hub: true, activation_status: "active" } : {});
+    applied = true;
+  }
   if (v && conf >= minConf && verdict !== "ok") {
     if ((verdict === "not_real_entity" || verdict === "wrong_type") && !e.protected) {
       Object.assign(upd, { is_public: false, is_indexable: false, ai_recommended_action: "hide" },
