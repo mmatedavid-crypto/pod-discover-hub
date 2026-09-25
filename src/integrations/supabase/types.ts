@@ -1129,6 +1129,36 @@ export type Database = {
         }
         Relationships: []
       }
+      entity_cleanup_backup_20260925: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: number
+          links: Json
+          row_data: Json
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: number
+          links?: Json
+          row_data: Json
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: number
+          links?: Json
+          row_data?: Json
+        }
+        Relationships: []
+      }
       entity_extraction_runs: {
         Row: {
           created_person_count: number
