@@ -55,6 +55,23 @@ async function resolve(kind: "person" | "company", slugs: string[]) {
   listeners.forEach((l) => l());
 }
 
+// All cards on a page share one debounced batch: one query per kind per 40 ms
+// window (chunked at 150 slugs), instead of one query per card.
+const pending: Record<"person" | "company", Set<string>> = { person: new Set(), company: new Set() };
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    (["person", "company"] as const).forEach((kind) => {
+      const all = Array.from(pending[kind]);
+      pending[kind].clear();
+      for (let i = 0; i < all.length; i += 150) void resolve(kind, all.slice(i, i + 150));
+    });
+  }, 40);
+}
+
+
 export function useLinkableEntities(items: { kind: string; value: string }[]) {
   const [, force] = useState(0);
   const keys = useMemo(
@@ -69,18 +86,13 @@ export function useLinkableEntities(items: { kind: string; value: string }[]) {
   useEffect(() => {
     const l = () => force((n) => n + 1);
     listeners.add(l);
-    const byKind: Record<"person" | "company", string[]> = { person: [], company: [] };
     keys.forEach(({ kind, slug }) => {
       const k = `${kind}:${slug}`;
       if (cache.has(k) || inflight.has(k)) return;
-      byKind[kind].push(slug);
+      pending[kind].add(slug);
+      inflight.set(k, Promise.resolve());
     });
-    (["person", "company"] as const).forEach((kind) => {
-      const slugs = Array.from(new Set(byKind[kind]));
-      if (!slugs.length) return;
-      const p = resolve(kind, slugs);
-      slugs.forEach((s) => inflight.set(`${kind}:${s}`, p));
-    });
+    scheduleFlush();
     return () => { listeners.delete(l); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig]);
