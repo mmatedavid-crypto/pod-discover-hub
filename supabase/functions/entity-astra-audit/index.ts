@@ -3,7 +3,7 @@
 // Fully automatic: confident verdicts are applied, uncertain ones are only
 // recorded (astra_verdict) — nothing is sent to a human review queue.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { recordAiCall } from "../_shared/lovable-ai.ts";
+import { recordAiCall, creditBreakerOpen, tripCreditBreaker } from "../_shared/lovable-ai.ts";
 import { checkBudget } from "../_shared/google-gemini-direct.ts";
 
 declare const Deno: any;
@@ -86,7 +86,9 @@ async function loadBatch(kind: Kind, limit: number, offset: number): Promise<Ent
 }
 
 async function callAstra(batch: Entity[]) {
-  const input = batch.map((e) => ({ id: e.id, tipus: e.kind === "person" ? "személy" : "szervezet", nev: e.name, leiras: e.bio, wikipedia: e.wiki, epizodok: e.episodes }));
+  // Token-trim: bio/wiki capped, max 3 episode titles — same signal, fewer input tokens.
+  const cut = (s: string, n: number) => (s || "").slice(0, n);
+  const input = batch.map((e) => ({ id: e.id, tipus: e.kind === "person" ? "személy" : "szervezet", nev: e.name, leiras: cut(e.bio, 500), wikipedia: cut(e.wiki, 200), epizodok: (e.episodes || []).slice(0, 3).map((t) => cut(t, 120)) }));
   const t0 = Date.now();
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
@@ -183,6 +185,7 @@ Deno.serve(async (req) => {
   const { data: ctl } = await sb.from("app_settings").select("value").eq("key", "entity_astra_audit_controls").maybeSingle();
   const c = ctl?.value || {};
   if (c.enabled === false) return Response.json({ skipped: "disabled" }, { headers: cors });
+  if (await creditBreakerOpen()) return Response.json({ skipped: "credit_breaker_open" }, { headers: cors });
   const budget = await checkBudget(JOB);
   if (!budget.allowed) return Response.json({ skipped: budget.reason }, { headers: cors });
 
@@ -211,9 +214,7 @@ Deno.serve(async (req) => {
     } catch (err: any) {
       errors++;
       console.error("batch failed", err?.message);
-      if (err?.status === 402 || err?.status === 403) {
-        await sb.from("app_settings").update({ value: { ...c, enabled: false, paused_reason: `gateway_${err.status}` } }).eq("key", "entity_astra_audit_controls");
-      }
+      if (err?.status === 402) await tripCreditBreaker(JOB);
     }
   }));
   return Response.json({ reviewed: Object.values(stats).reduce((a, b) => a + b, 0), errors, stats }, { headers: cors });
