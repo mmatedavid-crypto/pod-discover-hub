@@ -6,6 +6,7 @@ declare const Deno: { env: { get(key: string): string | undefined } };
 // Google Generative Language key stays only as a fallback for the transition,
 // so a gateway hiccup cannot stall the pipelines.
 
+import { creditBreakerOpen, tripCreditBreaker } from "./lovable-ai.ts";
 const GATEWAY_EMBEDDINGS_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
 const NATIVE_URL = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent`;
@@ -28,6 +29,7 @@ export async function embedText(
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
   if (lovableKey) {
+    if (await creditBreakerOpen()) return null;
     try {
       const res = await fetch(GATEWAY_EMBEDDINGS_URL, {
         method: "POST",
@@ -41,6 +43,7 @@ export async function embedText(
         console.warn("[gateway-embed] unexpected gateway payload");
       } else {
         console.warn(`[gateway-embed] gateway HTTP ${res.status}`);
+        if (res.status === 402) { await tripCreditBreaker("gateway-embed"); return null; }
       }
     } catch (e) {
       console.warn("[gateway-embed] gateway error", String(e).slice(0, 200));
