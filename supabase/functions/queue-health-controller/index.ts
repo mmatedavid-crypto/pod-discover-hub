@@ -362,7 +362,12 @@ Deno.serve(async (req) => {
         );
       }
 
-      history[r.name] = { p1: pending, p2: p1, samples, updated_at: new Date().toISOString() } as any;
+      // Resume/pause után a régi (szüneteltetett időszakbeli) minták törlődnek — különben a
+      // resume utáni első futás azonnal "stall"-t lát (resume→pause_stall ping-pong).
+      const resetSamples = !dryRun && (action === "resume" || action === "pause_stall" || action === "pause_empty");
+      history[r.name] = resetSamples
+        ? ({ p1: undefined, p2: undefined, samples: [], updated_at: new Date().toISOString() } as any)
+        : ({ p1: pending, p2: p1, samples, updated_at: new Date().toISOString() } as any);
       results.push({ runner: r.name, pending, p1, p2, samples, wake, stallRuns, action, reason, suppressed, cadence });
     }
 
