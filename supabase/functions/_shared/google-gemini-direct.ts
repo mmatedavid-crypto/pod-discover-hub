@@ -11,7 +11,7 @@
 //   - Audit rows are written by lovable-ai.ts (provider='lovable_ai').
 
 import { chatTokenCostUsd, embeddingTokenCostUsd } from "./ai-pricing.ts";
-import { callLovableAI, gatewayModel } from "./lovable-ai.ts";
+import { callLovableAI, gatewayModel, creditBreakerOpen } from "./lovable-ai.ts";
 
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -337,6 +337,10 @@ export async function checkBudget(jobType: string): Promise<BudgetCheckResult> {
     job_spend_today_usd: 0, job_cap_usd: null,
   };
   if (!SUPABASE_URL || !SERVICE_KEY) return fail;
+  // Credit breaker: runners stop at their budget check instead of looping.
+  if (await creditBreakerOpen()) {
+    return { ...fail, allowed: false, reason: "credit_breaker_open" };
+  }
   try {
     const settingsRes = await fetch(
       `${SUPABASE_URL}/rest/v1/app_settings?key=eq.ai_budget&select=value`,
