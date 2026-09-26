@@ -18,6 +18,39 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
+// ── Credit breaker ──────────────────────────────────────────────────────
+// On HTTP 402 (credits exhausted) every AI job pauses for 30 min instead of
+// hammering the gateway; it re-probes automatically afterwards (auto-resume
+// once credits are topped up). State: app_settings.ai_credit_breaker.
+const BREAKER_MS = 30 * 60 * 1000;
+let breakerCache: { until: number; checkedAt: number } = { until: 0, checkedAt: 0 };
+async function settingsFetch(method: string, body?: unknown) {
+  return fetch(`${SUPABASE_URL}/rest/v1/app_settings${method === "GET" ? "?key=eq.ai_credit_breaker&select=value" : "?on_conflict=key"}`, {
+    method,
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+export async function creditBreakerOpen(): Promise<boolean> {
+  const now = Date.now();
+  if (now - breakerCache.checkedAt > 60_000) {
+    try {
+      const r = await settingsFetch("GET");
+      const j = await r.json();
+      const until = Date.parse(j?.[0]?.value?.open_until || "") || 0;
+      breakerCache = { until, checkedAt: now };
+    } catch { breakerCache.checkedAt = now; }
+  }
+  return breakerCache.until > now;
+}
+export async function tripCreditBreaker(job: string) {
+  const until = new Date(Date.now() + BREAKER_MS).toISOString();
+  breakerCache = { until: Date.parse(until), checkedAt: Date.now() };
+  try {
+    await settingsFetch("POST", { key: "ai_credit_breaker", value: { open_until: until, tripped_by: job, tripped_at: new Date().toISOString() }, updated_at: new Date().toISOString() });
+  } catch { /* best effort */ }
+}
+
 // Hard blocklist (case-insensitive substring match).
 // 2026-09-22: batch traffic now runs on the Lovable AI Gateway. Only Pro-class
 // models stay blocked; Gemini 3.x Flash / Flash-Lite are the supported gateway
@@ -385,8 +418,12 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
   if (typeof opts.temperature === "number") body.temperature = opts.temperature;
   if (opts.response_format) body.response_format = opts.response_format;
 
+  if (await creditBreakerOpen()) {
+    return { ok: false, status: 402, data: null, model_used: opts.model, error: "credit_breaker_open" };
+  }
   const t0 = Date.now();
   const { res, json } = await rawCall(opts.model, body);
+  if (res.status === 402) await tripCreditBreaker(opts.job_type);
   const latency_ms = Date.now() - t0;
   const usage = json?.usage || {};
   const inTok = geminiInputTokens(usage);
