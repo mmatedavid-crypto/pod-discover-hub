@@ -312,12 +312,16 @@ export async function callLovableEmbedding(opts: EmbeddingCallOpts): Promise<Emb
     return { ok: false, status: 0, embedding: null, model_used: opts.model, error: "LOVABLE_API_KEY missing" };
   }
 
+  if (await creditBreakerOpen()) {
+    return { ok: false, status: 402, embedding: null, model_used: opts.model, error: "credit_breaker_open" };
+  }
   const t0 = Date.now();
   const { res, json } = await rawEmbeddingCall({
     model: opts.model,
     input: opts.input,
     dimensions: opts.dimensions,
   });
+  if (res.status === 402) await tripCreditBreaker(opts.job_type);
   const latency_ms = Date.now() - t0;
   const usage = json?.usage || {};
   const inputTokens = Number(usage.prompt_tokens || usage.input_tokens || Math.ceil(opts.input.length / 4));
