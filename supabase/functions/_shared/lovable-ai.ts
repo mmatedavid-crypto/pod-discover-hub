@@ -418,8 +418,12 @@ export async function callLovableAI(opts: CallOpts): Promise<CallResult> {
   if (typeof opts.temperature === "number") body.temperature = opts.temperature;
   if (opts.response_format) body.response_format = opts.response_format;
 
+  if (await creditBreakerOpen()) {
+    return { ok: false, status: 402, data: null, model_used: opts.model, error: "credit_breaker_open" };
+  }
   const t0 = Date.now();
   const { res, json } = await rawCall(opts.model, body);
+  if (res.status === 402) await tripCreditBreaker(opts.job_type);
   const latency_ms = Date.now() - t0;
   const usage = json?.usage || {};
   const inTok = geminiInputTokens(usage);
