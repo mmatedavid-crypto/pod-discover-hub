@@ -426,7 +426,14 @@ Adj vissza egyetlen tool-call választ a megadott séma szerint, kizárólag lé
       elapsed_ms: Date.now() - t0,
     };
     const nextRuns = [...recentRuns, runEntry].slice(-3);
-    const nextCtrl: any = { ...ctrl, recent_runs: nextRuns };
+    // Queue health may pause this runner while the invocation is in flight.
+    // Re-read controls so telemetry cannot restore a stale enabled=true value.
+    const { data: latestCtrlRow } = await admin.from("app_settings")
+      .select("value")
+      .eq("key", "episode_ai_classifier_controls")
+      .maybeSingle();
+    const latestCtrl = (latestCtrlRow?.value || ctrl) as any;
+    const nextCtrl: any = { ...latestCtrl, recent_runs: nextRuns };
     if (mySpend >= dailyBudget) {
       nextCtrl.enabled = false;
       nextCtrl.auto_paused_reason = "daily_budget_reached";
