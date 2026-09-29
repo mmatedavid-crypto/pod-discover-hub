@@ -220,6 +220,7 @@ Deno.serve(async (req) => {
           reason_hu: "Túl rövid leírás az osztályozáshoz.",
           false_positive_risks: [],
           vector_evidence: {},
+          source_hash: await sha256(`${epTitle}\n${epDesc}\n${ep.podcast_id}\n${TAXONOMY_VERSION}`),
           taxonomy_version: TAXONOMY_VERSION,
           model_version: "deterministic_too_thin",
           reviewed_by: "ai",
