@@ -206,7 +206,28 @@ Deno.serve(async (req) => {
       .trim()
       .slice(0, 2400);
     if (epDesc.length < 80) {
+      // Persist the terminal too_thin result so the episode leaves the queue
+      // (otherwise it is re-selected forever and the queue looks stalled).
+      if (!dryRun) {
+        await admin.from("episode_ai_classifications").upsert({
+          episode_id: ep.id,
+          classification_status: "too_thin",
+          primary_category: null,
+          secondary_categories: [],
+          topics: [],
+          rejected_topics: [],
+          confidence: 0,
+          reason_hu: "Túl rövid leírás az osztályozáshoz.",
+          false_positive_risks: [],
+          vector_evidence: {},
+          taxonomy_version: TAXONOMY_VERSION,
+          model_version: "deterministic_too_thin",
+          reviewed_by: "ai",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "episode_id" });
+      }
       too_thin++;
+      processed++;
       return;
     }
     const sourceText = `${epTitle}\n${epDesc}\n${ep.podcast_id}\n${TAXONOMY_VERSION}`;
