@@ -457,7 +457,8 @@ Deno.serve(async (req) => {
       const { data: rows, error } = await admin
         .from("episodes")
         .select("id, title, display_title, description, ai_summary, podcast_id, clean_text_status, podcasts!inner(title, display_title, language, hosts, language_decision)")
-        .not("ai_summary", "is", null)
+        // No ai_summary requirement: cleaned_text is the primary input, and the
+        // validation gate marks too-thin episodes done. Must match count_pipeline_pending.
         .or("ai_entities_version.is.null,ai_entities_version.lt.5")
         .eq("clean_text_status", "done")
         .eq("podcasts.language_decision", "accept_hungarian")
