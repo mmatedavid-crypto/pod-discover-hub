@@ -440,18 +440,8 @@ Deno.serve(async (req) => {
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
       .limit(limit * 2);
 
-    const { data: temporalRows, error: temporalErr } = await applyOrder(
-      admin.from("people").select(baseSelect)
-        .eq("is_public", true)
-        .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
-        .eq("wikipedia_match_status", "verified")
-        .not("wikidata_id", "is", null)
-        .is("is_living", null)
-    );
-    if (temporalErr) console.error("temporal metadata query error", temporalErr);
-
-    let combined: any[] = temporalRows || [];
-
+    // Unchecked first: verified rows whose is_living stays null after a run
+    // would otherwise re-fill every batch and starve the unchecked queue.
     const { data: uncheckedRows, error: uncheckedErr } = await applyOrder(
       admin.from("people").select(baseSelect)
         .eq("is_public", true)
@@ -460,7 +450,18 @@ Deno.serve(async (req) => {
     );
     if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
 
-    combined = combined.concat(uncheckedRows || []);
+    const { data: temporalRows, error: temporalErr } = await applyOrder(
+      admin.from("people").select(baseSelect)
+        .eq("is_public", true)
+        .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
+        .eq("wikipedia_match_status", "verified")
+        .not("wikidata_id", "is", null)
+        .is("is_living", null)
+        .or(`wiki_match_run_at.is.null,wiki_match_run_at.lt.${staleCutoff}`)
+    );
+    if (temporalErr) console.error("temporal metadata query error", temporalErr);
+
+    let combined: any[] = (uncheckedRows || []).concat(temporalRows || []);
 
     if (combined.length < limit) {
       const { data: staleRows } = await applyOrder(
