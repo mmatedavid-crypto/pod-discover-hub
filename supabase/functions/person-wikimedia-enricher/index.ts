@@ -443,10 +443,15 @@ Deno.serve(async (req) => {
     // Unchecked first: verified rows whose is_living stays null after a run
     // would otherwise re-fill every batch and starve the unchecked queue.
     const { data: uncheckedRows, error: uncheckedErr } = await applyOrder(
+      // Same filters as the queue-health pending counter (person_wiki_unchecked),
+      // applied in SQL so ineligible top rows can't crowd out the batch.
       admin.from("people").select(baseSelect)
         .eq("is_public", true)
         .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
-        .or("wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null")
+        .eq("wikipedia_match_status", "unchecked")
+        .gte("gated_episode_count", 1)
+        .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)")
+        .not("ai_review_status", "in", "(needs_human_review,duplicate_candidate)")
     );
     if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
 
