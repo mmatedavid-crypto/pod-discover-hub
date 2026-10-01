@@ -440,6 +440,21 @@ Deno.serve(async (req) => {
       .order("latest_episode_at", { ascending: false, nullsFirst: false })
       .limit(limit * 2);
 
+    // Unchecked first: verified rows whose is_living stays null after a run
+    // would otherwise re-fill every batch and starve the unchecked queue.
+    const { data: uncheckedRows, error: uncheckedErr } = await applyOrder(
+      // Same filters as the queue-health pending counter (person_wiki_unchecked),
+      // applied in SQL so ineligible top rows can't crowd out the batch.
+      admin.from("people").select(baseSelect)
+        .eq("is_public", true)
+        .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
+        .eq("wikipedia_match_status", "unchecked")
+        .gte("gated_episode_count", 1)
+        .or("ai_recommended_action.is.null,ai_recommended_action.not.in.(hide,reject,merge)")
+        .not("ai_review_status", "in", "(needs_human_review,duplicate_candidate)")
+    );
+    if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
+
     const { data: temporalRows, error: temporalErr } = await applyOrder(
       admin.from("people").select(baseSelect)
         .eq("is_public", true)
@@ -447,20 +462,11 @@ Deno.serve(async (req) => {
         .eq("wikipedia_match_status", "verified")
         .not("wikidata_id", "is", null)
         .is("is_living", null)
+        .or(`wiki_match_run_at.is.null,wiki_match_run_at.lt.${staleCutoff}`)
     );
     if (temporalErr) console.error("temporal metadata query error", temporalErr);
 
-    let combined: any[] = temporalRows || [];
-
-    const { data: uncheckedRows, error: uncheckedErr } = await applyOrder(
-      admin.from("people").select(baseSelect)
-        .eq("is_public", true)
-        .in("activation_status", ["active","indexable","manual_approved","public_noindex"])
-        .or("wikipedia_match_status.eq.unchecked,wikipedia_match_status.is.null")
-    );
-    if (uncheckedErr) console.error("unchecked query error", uncheckedErr);
-
-    combined = combined.concat(uncheckedRows || []);
+    let combined: any[] = (uncheckedRows || []).concat(temporalRows || []);
 
     if (combined.length < limit) {
       const { data: staleRows } = await applyOrder(
