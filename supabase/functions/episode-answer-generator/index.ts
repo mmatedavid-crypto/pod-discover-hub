@@ -163,8 +163,17 @@ async function processEpisode(episodeId: string, version: string) {
     Math.abs(Number(tr.duration_seconds) - Number(ep.duration_seconds)) <= ALIGN_TOLERANCE_SEC));
   const sourceType = isRss ? "rss_transcript" : String(tr.model || "").includes("youtube") ? "youtube_captions" : String(tr.model || "transcript");
 
-  const input = `Epizód címe: ${ep.display_title || ep.title}\n\nLeirat:\n` + blocks.map((b) => `[B${b.idx}] ${b.text}`).join("\n");
-  const { items, cost } = await callAstra(input);
+  let items: any[]; let cost = 0;
+  if (reverify) {
+    // No AI: re-check already generated rows against the transcript.
+    const { data: old } = await sb.from("episode_answers").select("question,answer,excerpt_block_start,excerpt_block_end,speaker,sensitive_domain")
+      .eq("episode_id", episodeId).eq("content_version", version).order("position");
+    items = (old || []).map((r: any) => ({ question: r.question, answer: r.answer, block_start: r.excerpt_block_start, block_end: r.excerpt_block_end, speaker: r.speaker, domain: r.sensitive_domain || "general" }));
+    if (!items.length) return { episodeId, status: "nothing_to_reverify", cost: 0 };
+  } else {
+    const input = `Epizód címe: ${ep.display_title || ep.title}\n\nLeirat:\n` + blocks.map((b) => `[B${b.idx}] ${b.text}`).join("\n");
+    ({ items, cost } = await callAstra(input));
+  }
 
   const rows: any[] = [];
   const seen = new Set<string>();
@@ -172,14 +181,30 @@ async function processEpisode(episodeId: string, version: string) {
   for (const it of items.slice(0, 5)) {
     const q = String(it.question || "").trim().slice(0, 200);
     const a = String(it.answer || "").trim().slice(0, 700);
-    const bs = Number(it.block_start), be = Number(it.block_end);
+    const citedStart = Number(it.block_start), citedEnd = Number(it.block_end);
+    let bs = citedStart, be = citedEnd;
     const reasons: string[] = [];
     if (!(bs >= 0 && be >= bs && be < blocks.length)) reasons.push("invalid_block_range");
     if (be - bs > 5) reasons.push("block_range_too_wide");
     if (q.length < 12 || a.length < 40) reasons.push("too_short");
+    let sup = 0;
+    if (!reasons.includes("invalid_block_range")) {
+      sup = support(a, blocks.slice(bs, be + 1).map((b) => b.text).join(" "));
+      // Re-anchor: the model's block numbers are often off by a little. Search
+      // windows of the same width (max 4 blocks) within ±3 blocks of the
+      // citation and keep the one that actually contains the answer's words.
+      // The answer text itself is never changed, only where it points to.
+      if (sup < MIN_SUPPORT) {
+        const width = Math.min(be - bs, 3);
+        for (let s = Math.max(0, citedStart - 3); s <= Math.min(blocks.length - 1, citedEnd + 3); s++) {
+          const e = Math.min(blocks.length - 1, s + width);
+          const v = support(a, blocks.slice(s, e + 1).map((b) => b.text).join(" "));
+          if (v > sup) { sup = v; bs = s; be = e; }
+        }
+      }
+    }
     const cited = reasons.includes("invalid_block_range") ? [] : blocks.slice(bs, be + 1);
     const excerpt = cited.map((b) => b.text).join(" ").slice(0, 1500);
-    const sup = excerpt ? support(a, excerpt) : 0;
     if (sup < MIN_SUPPORT) reasons.push("weak_lexical_support");
     let anchor = "valasz-" + slug(q);
     if (seen.has(anchor)) reasons.push("duplicate_question");
