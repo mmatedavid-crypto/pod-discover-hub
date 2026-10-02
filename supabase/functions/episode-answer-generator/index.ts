@@ -151,7 +151,7 @@ async function callAstra(input: string) {
   return { items: (JSON.parse(text || "{}").items || []) as any[], cost };
 }
 
-async function processEpisode(episodeId: string, version: string) {
+async function processEpisode(episodeId: string, version: string, reverify = false) {
   const { data: ep } = await sb.from("episodes").select("id,title,display_title,duration_seconds,youtube_video_id,description").eq("id", episodeId).maybeSingle();
   const { data: tr } = await sb.from("episode_transcripts").select("id,model,transcript,segments,duration_seconds").eq("episode_id", episodeId).eq("status", "ok")
     .order("updated_at", { ascending: false }).limit(1).maybeSingle();
@@ -227,7 +227,7 @@ async function processEpisode(episodeId: string, version: string) {
       source_type: sourceType, transcript_id: tr.id,
       sensitive_domain: it.domain && it.domain !== "general" ? it.domain : null,
       content_version: version, model: MODEL, status,
-      verification: { lexical_support: Number(sup.toFixed(2)), reasons, aligned, timed, prompt_version: PROMPT_VERSION, block_seconds: BLOCK_SECONDS,
+      verification: { lexical_support: Number(sup.toFixed(2)), reasons, cited_block_start: citedStart, cited_block_end: citedEnd, reanchored: bs !== citedStart || be !== citedEnd, aligned, timed, prompt_version: PROMPT_VERSION, block_seconds: BLOCK_SECONDS,
         transcript_duration: tr.duration_seconds, audio_duration: ep.duration_seconds },
     });
   }
@@ -237,7 +237,7 @@ async function processEpisode(episodeId: string, version: string) {
     if (error) throw new Error(`insert: ${error.message}`);
   }
   const published = rows.filter((r) => r.status === "published").length;
-  await sb.from("episode_answer_pilot").update({ generated_at: new Date().toISOString(), generation_status: `ok:${published}/${rows.length}`, generation_cost_usd: cost }).eq("episode_id", episodeId);
+  await sb.from("episode_answer_pilot").update({ generated_at: new Date().toISOString(), generation_status: `ok:${published}/${rows.length}`, ...(reverify ? {} : { generation_cost_usd: cost }) }).eq("episode_id", episodeId);
   return { episodeId, status: "ok", published, rejected: rows.length - published, aligned, cost };
 }
 
@@ -257,7 +257,8 @@ Deno.serve(async (req) => {
 
   const limit = Math.min(Math.max(Number(body.limit ?? 4), 1), 8);
   let q = sb.from("episode_answer_pilot").select("episode_id").eq("pilot_group", "treatment").order("pair_id").limit(limit);
-  q = Array.isArray(body.episode_ids) && body.episode_ids.length ? q.in("episode_id", body.episode_ids) : (body.force ? q : q.is("generated_at", null));
+  if (body.reverify === true) q = q.not("generated_at", "is", null).limit(40);
+  else q = Array.isArray(body.episode_ids) && body.episode_ids.length ? q.in("episode_id", body.episode_ids) : (body.force ? q : q.is("generated_at", null));
   const { data: todo } = await q;
   const results: any[] = [];
   let runSpent = 0;
@@ -269,7 +270,7 @@ Deno.serve(async (req) => {
       if (runSpent >= maxRun || totalSpent >= maxTotal) { halted = "budget"; break; }
       const { episode_id } = queue.shift()!;
       try {
-        const r = await processEpisode(episode_id, version);
+        const r = await processEpisode(episode_id, version, body.reverify === true);
         runSpent += r.cost || 0; totalSpent += r.cost || 0;
         results.push(r);
       } catch (e: any) {
