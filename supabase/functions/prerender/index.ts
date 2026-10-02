@@ -1196,16 +1196,34 @@ async function buildEpisode(
       a: `${publishedHuman ? `Megjelenés: ${publishedHuman}. ` : ""}${durationHuman ? `Hossz: ${durationHuman}. ` : ""}Az epizód a Podiverzumon hallgatható meg: ${canonical}`.trim(),
     });
   }
-  const epFaqHtml = epFaqs.length >= 2
+  // Episode Q&A pilot: grounded, published answers (treatment group only; the
+  // view returns nothing when the pilot is disabled). When present they replace
+  // the generic FAQs so the visible HTML and FAQPage JSON-LD stay identical.
+  const { data: qaRows } = await (sb as any)
+    .from("episode_answers_public")
+    .select("anchor,question,answer,speaker,start_sec,timestamp_status")
+    .eq("episode_id", ep.id)
+    .order("position");
+  const qa = ((qaRows || []) as any[]).filter((r) => r.question && r.answer);
+  const fmtTs = (s: number) => { const t = Math.floor(s); const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), x = t % 60; return h ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`; };
+  const qaHtml = qa.length
+    ? `<section aria-label="Milyen kérdésekre kapsz választ?"><h2>Milyen kérdésekre kapsz választ ebben az epizódban?</h2>${qa.map((r) => {
+        const ts = r.timestamp_status === "audio_verified" && r.start_sec != null
+          ? ` <a href="${canonical}?t=${Math.floor(r.start_sec)}">Hallgasd meg ${fmtTs(r.start_sec)}-tól</a>` : "";
+        return `<div id="${esc(r.anchor)}"><h3>${esc(r.question)}</h3><p>${esc(r.answer)}${r.speaker ? ` — ${esc(r.speaker)}` : ""}${ts}</p></div>`;
+      }).join("")}<p><small>A válaszok az epizód gépi leiratából, a beszélgetés tartalma alapján készültek; nem szakmai tanácsadás.</small></p></section>`
+    : "";
+  const faqSource = qa.length >= 2 ? qa.map((r) => ({ q: r.question, a: r.answer })) : epFaqs;
+  const epFaqHtml = qa.length >= 2 ? "" : (epFaqs.length >= 2
     ? `<section aria-label="Gyakori kérdések"><h2>Gyakori kérdések erről az epizódról: „${esc(epTitleText)}”</h2>${epFaqs
         .map((f) => `<details open><summary><strong>${esc(f.q)}</strong></summary><p>${esc(f.a)}</p></details>`)
         .join("")}</section>`
-    : "";
-  const epFaqLd = epFaqs.length >= 2
+    : "");
+  const epFaqLd = faqSource.length >= 2
     ? {
         "@context": "https://schema.org",
         "@type": "FAQPage",
-        mainEntity: epFaqs.map((f) => ({
+        mainEntity: faqSource.map((f) => ({
           "@type": "Question",
           name: f.q,
           acceptedAnswer: { "@type": "Answer", text: f.a },
