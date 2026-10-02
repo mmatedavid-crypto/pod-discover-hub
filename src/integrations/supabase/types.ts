@@ -1339,6 +1339,198 @@ export type Database = {
           },
         ]
       }
+      episode_answer_pilot: {
+        Row: {
+          baseline_all_sessions: number
+          baseline_chatgpt_sessions: number
+          baseline_window: string
+          content_version: string
+          episode_id: string
+          frozen_at: string
+          generated_at: string | null
+          generation_cost_usd: number | null
+          generation_status: string | null
+          pair_id: number
+          pilot_group: string
+          stratum: string
+        }
+        Insert: {
+          baseline_all_sessions?: number
+          baseline_chatgpt_sessions?: number
+          baseline_window?: string
+          content_version?: string
+          episode_id: string
+          frozen_at?: string
+          generated_at?: string | null
+          generation_cost_usd?: number | null
+          generation_status?: string | null
+          pair_id: number
+          pilot_group: string
+          stratum: string
+        }
+        Update: {
+          baseline_all_sessions?: number
+          baseline_chatgpt_sessions?: number
+          baseline_window?: string
+          content_version?: string
+          episode_id?: string
+          frozen_at?: string
+          generated_at?: string | null
+          generation_cost_usd?: number | null
+          generation_status?: string | null
+          pair_id?: number
+          pilot_group?: string
+          stratum?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_answer_pilot_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_answer_pilot_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answer_pilot_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answer_pilot_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answer_pilot_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
+      episode_answers: {
+        Row: {
+          anchor: string
+          answer: string
+          content_version: string
+          created_at: string
+          end_sec: number | null
+          episode_id: string
+          excerpt: string
+          excerpt_block_end: number
+          excerpt_block_start: number
+          id: string
+          model: string
+          position: number
+          question: string
+          sensitive_domain: string | null
+          source_type: string
+          speaker: string | null
+          start_sec: number | null
+          status: string
+          timestamp_status: string
+          transcript_id: string | null
+          verification: Json
+          youtube_video_id: string | null
+        }
+        Insert: {
+          anchor: string
+          answer: string
+          content_version?: string
+          created_at?: string
+          end_sec?: number | null
+          episode_id: string
+          excerpt: string
+          excerpt_block_end: number
+          excerpt_block_start: number
+          id?: string
+          model: string
+          position: number
+          question: string
+          sensitive_domain?: string | null
+          source_type: string
+          speaker?: string | null
+          start_sec?: number | null
+          status: string
+          timestamp_status: string
+          transcript_id?: string | null
+          verification?: Json
+          youtube_video_id?: string | null
+        }
+        Update: {
+          anchor?: string
+          answer?: string
+          content_version?: string
+          created_at?: string
+          end_sec?: number | null
+          episode_id?: string
+          excerpt?: string
+          excerpt_block_end?: number
+          excerpt_block_start?: number
+          id?: string
+          model?: string
+          position?: number
+          question?: string
+          sensitive_domain?: string | null
+          source_type?: string
+          speaker?: string | null
+          start_sec?: number | null
+          status?: string
+          timestamp_status?: string
+          transcript_id?: string | null
+          verification?: Json
+          youtube_video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
       episode_article_candidates: {
         Row: {
           article_excerpt: string | null
@@ -8246,6 +8438,61 @@ export type Database = {
       }
     }
     Views: {
+      episode_answers_public: {
+        Row: {
+          anchor: string | null
+          answer: string | null
+          content_version: string | null
+          end_sec: number | null
+          episode_id: string | null
+          id: string | null
+          pilot_group: string | null
+          position: number | null
+          question: string | null
+          sensitive_domain: string | null
+          speaker: string | null
+          start_sec: number | null
+          timestamp_status: string | null
+          youtube_video_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_answers_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
       mv_homepage_evergreen: {
         Row: {
           ai_summary: string | null
@@ -10264,6 +10511,20 @@ export type Database = {
         Returns: {
           mentions: number
           name: string
+        }[]
+      }
+      topic_episode_answers: {
+        Args: { _limit?: number; _topic_id: string }
+        Returns: {
+          anchor: string
+          answer: string
+          answer_id: string
+          episode_id: string
+          episode_slug: string
+          episode_title: string
+          podcast_slug: string
+          podcast_title: string
+          question: string
         }[]
       }
       topic_episodes: {
