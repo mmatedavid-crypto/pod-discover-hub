@@ -119,6 +119,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const markedRef = useRef<Set<string>>(new Set());
+  const playedRef = useRef<{ id: string | null; sec: number; last: number }>({ id: null, sec: 0, last: 0 });
   const currentEpisodeRef = useRef<SmartPlayerEpisode | null>(null);
   const autoplayNextRef = useRef<((ep: SmartPlayerEpisode) => void) | null>(null);
   const autoplayHistoryRef = useRef<Set<string>>(new Set());
