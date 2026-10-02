@@ -334,6 +334,7 @@ export default function TopicDetailPage() {
             </div>
           </section>
         )}
+        {(topic as any)?.id && <TopicAnswers topicId={(topic as any).id} />}
         {related.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-3">Kapcsolódó témák</h2>
