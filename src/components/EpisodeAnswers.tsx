@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Play, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { logPlayerEvent } from "@/lib/playerEvents";
 
 type Answer = {
   id: string;
@@ -11,6 +12,8 @@ type Answer = {
   speaker: string | null;
   start_sec: number | null;
   timestamp_status: string;
+  content_version: string;
+  pilot_group: string;
 };
 
 function fmt(s: number) {
@@ -29,7 +32,7 @@ export function EpisodeAnswers({ episodeId }: { episodeId: string }) {
     let cancelled = false;
     (supabase as any)
       .from("episode_answers_public")
-      .select("id,anchor,question,answer,speaker,start_sec,timestamp_status")
+      .select("id,anchor,question,answer,speaker,start_sec,timestamp_status,content_version,pilot_group")
       .eq("episode_id", episodeId)
       .order("position")
       .then(({ data }: any) => { if (!cancelled) setRows((data || []) as Answer[]); });
@@ -57,7 +60,10 @@ export function EpisodeAnswers({ episodeId }: { episodeId: string }) {
                 <button
                   type="button"
                   data-answer-id={r.id}
-                  onClick={() => navigate(`${location.pathname}?t=${Math.floor(r.start_sec!)}&qa=${encodeURIComponent(r.anchor)}`, { replace: true })}
+                  onClick={() => {
+                    logPlayerEvent({ eventType: "play_seek", episodeId, positionSec: r.start_sec!, meta: { source: "episode_answer", answer_id: r.id, anchor: r.anchor, content_version: r.content_version, pilot_group: r.pilot_group } });
+                    navigate(`${location.pathname}?t=${Math.floor(r.start_sec!)}&qa=${encodeURIComponent(r.anchor)}`, { replace: true });
+                  }}
                   className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-primary hover:bg-secondary/60"
                 >
                   <Play className="h-3 w-3" /> Hallgasd meg {fmt(r.start_sec!)}-tól

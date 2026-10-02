@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { TopicAnswers } from "@/components/TopicAnswers";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
@@ -334,6 +335,7 @@ export default function TopicDetailPage() {
             </div>
           </section>
         )}
+        {(topic as any)?.id && <TopicAnswers topicId={(topic as any).id} />}
         {related.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-3">Kapcsolódó témák</h2>

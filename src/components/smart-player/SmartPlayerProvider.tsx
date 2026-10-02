@@ -119,6 +119,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const markedRef = useRef<Set<string>>(new Set());
+  const playedRef = useRef<{ id: string | null; sec: number; last: number }>({ id: null, sec: 0, last: 0 });
   const currentEpisodeRef = useRef<SmartPlayerEpisode | null>(null);
   const autoplayNextRef = useRef<((ep: SmartPlayerEpisode) => void) | null>(null);
   const autoplayHistoryRef = useRef<Set<string>>(new Set());
@@ -299,9 +300,16 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         } catch { /* noop */ }
       })();
     }
+    // Milestones measure ACTUALLY PLAYED time, not playhead position: a seek
+    // (key moment, Q&A "listen from") must not count as listened duration.
+    if (playedRef.current.id !== id) playedRef.current = { id, sec: 0, last: currentTime };
+    const delta = currentTime - playedRef.current.last;
+    if (delta > 0 && delta <= 3) playedRef.current.sec += delta;
+    playedRef.current.last = currentTime;
+    const playedSec = playedRef.current.sec;
     PROGRESS_MARKERS.forEach((m) => {
       const key = `${id}:${m.type}`;
-      if (currentTime / duration >= m.pct && !markedRef.current.has(key)) {
+      if (playedSec / duration >= m.pct && !markedRef.current.has(key)) {
         markedRef.current.add(key);
         logPlayerEventLater({
           eventType: m.type,
