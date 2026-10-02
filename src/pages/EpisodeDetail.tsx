@@ -33,6 +33,7 @@ import { RelatedEpisodes } from "@/components/smart-player/RelatedEpisodes";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { PodcastCover } from "@/components/PodcastCover";
 import { EpisodeClusterChips } from "@/components/EpisodeClusterChips";
+import { EpisodeAnswers } from "@/components/EpisodeAnswers";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
@@ -660,6 +661,8 @@ export default function EpisodeDetail() {
             <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{description}</div>
           </section>
         )}
+
+        <EpisodeAnswers episodeId={e.id} />
 
         {moments.length > 0 && (
           <KeyMoments moments={moments} audioUrl={e.audio_url} onSeek={e.audio_url ? handleSeek : undefined} />
