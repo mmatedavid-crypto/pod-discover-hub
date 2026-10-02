@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { TopicAnswers } from "@/components/TopicAnswers";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
