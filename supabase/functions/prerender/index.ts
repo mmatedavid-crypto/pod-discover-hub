@@ -1199,7 +1199,7 @@ async function buildEpisode(
   // Episode Q&A pilot: grounded, published answers (treatment group only; the
   // view returns nothing when the pilot is disabled). When present they replace
   // the generic FAQs so the visible HTML and FAQPage JSON-LD stay identical.
-  const { data: qaRows } = await (sb as any)
+  const { data: qaRows } = await (supabase as any)
     .from("episode_answers_public")
     .select("anchor,question,answer,speaker,start_sec,timestamp_status")
     .eq("episode_id", ep.id)
@@ -1257,6 +1257,7 @@ ${chaptersHtml}
 ${bodyParas.length ? `<section><h2>Ebben az epizódban</h2>${bodyParas.map((p) => `<p>${esc(p)}</p>`).join("")}</section>` : (longText ? `<section><p>${esc(longText)}</p></section>` : "")}
 ${entitySection ? `<section><h2>Említett entitások</h2>${entitySection}</section>` : ""}
 ${ep.audio_url ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
+${qaHtml}
 ${epFaqHtml}
 ${siblingsHtml}
 ${relatedHtml}
