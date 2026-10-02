@@ -299,9 +299,16 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         } catch { /* noop */ }
       })();
     }
+    // Milestones measure ACTUALLY PLAYED time, not playhead position: a seek
+    // (key moment, Q&A "listen from") must not count as listened duration.
+    if (playedRef.current.id !== id) playedRef.current = { id, sec: 0, last: currentTime };
+    const delta = currentTime - playedRef.current.last;
+    if (delta > 0 && delta <= 3) playedRef.current.sec += delta;
+    playedRef.current.last = currentTime;
+    const playedSec = playedRef.current.sec;
     PROGRESS_MARKERS.forEach((m) => {
       const key = `${id}:${m.type}`;
-      if (currentTime / duration >= m.pct && !markedRef.current.has(key)) {
+      if (playedSec / duration >= m.pct && !markedRef.current.has(key)) {
         markedRef.current.add(key);
         logPlayerEventLater({
           eventType: m.type,
