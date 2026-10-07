@@ -728,7 +728,26 @@ async function buildEpisode(
     .eq("slug", episodeSlug)
     .maybeSingle();
   if (epError) throw new Error("Episode lookup failed");
-  if (!ep) return null;
+  if (!ep) {
+    // Re-slugged episodes: old URLs carried a hash suffix (e.g. "-142f97b7",
+    // "-nmgogmp3"). Redirect permanently when exactly one current episode matches.
+    const base = episodeSlug.replace(/-[a-z0-9]{6,10}$/, "");
+    if (base && base !== episodeSlug && base.length >= 8) {
+      const { data: cands } = await supabase
+        .from("episodes")
+        .select("slug")
+        .eq("podcast_id", pod.id)
+        .or(`slug.eq.${base},slug.like.${base}-%`)
+        .limit(2);
+      if (cands && cands.length === 1 && cands[0].slug !== episodeSlug) {
+        return new Response(null, {
+          status: 301,
+          headers: { Location: `${SITE}/podcast/${pod.slug}/${cands[0].slug}`, "Cache-Control": "public, max-age=86400" },
+        });
+      }
+    }
+    return null;
+  }
 
   // Fetch supporting content in parallel: cleaned deterministic body,
   // latest transcript excerpt, and sibling episodes for internal linking.
