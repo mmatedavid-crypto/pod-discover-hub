@@ -144,6 +144,7 @@ Deno.serve(async (req) => {
     // Wider net: pos <= 15 still earns clicks from a better snippet, and most of our
     // wasted impressions sit on pages with 10-25 impressions.
     const maxPosition = Number(body.max_position ?? 15);
+    const minPosition = Number(body.min_position ?? 0);
     const maxCtr = Number(body.max_ctr ?? 0.06);
     const minImpressions = Number(body.min_impressions ?? 10);
     const cooldownDays = Number(body.cooldown_days ?? 21);
@@ -187,7 +188,7 @@ Deno.serve(async (req) => {
       const ctr = a.impressions ? a.clicks / a.impressions : 0;
       const position = a.impressions ? a.posWeighted / a.impressions : 99;
       if (a.impressions < minImpressions) continue;
-      if (position > maxPosition) continue;
+      if (position > maxPosition || position < minPosition) continue;
       if (ctr >= maxCtr) continue;
       let path: string;
       try {
