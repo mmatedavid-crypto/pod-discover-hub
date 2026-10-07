@@ -227,6 +227,21 @@ export default {
     // Permanent www -> apex redirect (preserves path + query).
     // Runs first so no other logic (passthrough, prerender) can downgrade it to 302.
     // NOTE: podiverzum.com is a SEPARATE English site with its own DB — do NOT redirect it here.
+    // Permanent 301 for legacy English entity URLs. The SPA only redirected them
+    // client-side, so Google saw each one as a separate 200 duplicate page.
+    {
+      const legacy = url.pathname.match(/^\/(topic|tema|person|szemely|company|szervezetek|part)\/(.+)$/);
+      const TARGET = { topic: "temak", tema: "temak", person: "szemelyek", szemely: "szemelyek", company: "ceg", szervezetek: "ceg", part: "ceg" };
+      if (legacy) {
+        return new Response(null, { status: 301, headers: {
+          Location: `https://podiverzum.hu/${TARGET[legacy[1]]}/${legacy[2].replace(/\/+$/, "")}`,
+          "Cache-Control": "public, max-age=86400", "X-Redirect": "legacy-entity-301" } });
+      }
+      // Schema.org SearchAction template crawled literally -> plain search page.
+      if (url.pathname === "/kereses" && /search_term_string/.test(decodeURIComponent(url.search))) {
+        return new Response(null, { status: 301, headers: { Location: "https://podiverzum.hu/kereses", "X-Redirect": "search-template-301" } });
+      }
+    }
     if (url.hostname === "www.podiverzum.hu") {
       const target = `https://podiverzum.hu${url.pathname}${url.search}`;
       return new Response(null, {
