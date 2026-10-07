@@ -3014,7 +3014,10 @@ Deno.serve(async (req) => {
         else if (enKind === "topic") r = await buildTopic(supabase, parts[1], "temak");
         else if (enKind === "company") r = await buildOrganization(supabase, parts[1], "ceg");
         else r = await buildLegacyEntity(supabase, enKind as any, parts[1], "hozzavalo");
-        return r ?? notFound(path);
+        // Person/topic/org builders return null only after the slug lookup found
+        // no public row (deleted/hidden entity) — confirm absence so the Worker
+        // serves a real 404 instead of a blank SPA shell Google treats as duplicate.
+        return r ?? notFound(path, enKind === "person" || enKind === "topic" || enKind === "company");
       }
     }
 
