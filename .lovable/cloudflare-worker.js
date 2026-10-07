@@ -611,11 +611,19 @@ export default {
       upstream = await fetch(prerenderUrl, {
         cf: { cacheTtl: 0, cacheEverything: false },
         headers: { "User-Agent": "podiverzum-cf-worker" },
+        redirect: "manual",
       });
     } catch (err) {
       // On failure, fall back to origin so the bot still gets *something*.
       return originFallback(request, url);
     }
+
+    // Permanent redirects (e.g. re-slugged episodes) pass straight through.
+    const loc = upstream.headers.get("Location");
+    if ((upstream.status === 301 || upstream.status === 308) && loc && loc.startsWith("https://podiverzum.hu/")) {
+      return new Response(null, { status: 301, headers: { Location: loc, "Cache-Control": "public, max-age=86400" } });
+    }
+
 
     const resolvedMissing = (upstream.status === 404 || upstream.status === 410)
       && upstream.headers.get("X-Prerender-Missing") === "1";
