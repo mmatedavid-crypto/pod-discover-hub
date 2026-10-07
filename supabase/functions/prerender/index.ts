@@ -2975,7 +2975,10 @@ Deno.serve(async (req) => {
       const [a, b] = parts[1].split("-es-");
       if (a && b && a !== b) {
         const r = await buildTopicCross(supabase, a, b);
-        return r ?? notFound(path);
+        if (r) return r;
+        // Slugs like "radio-es-a-podcastok" are ordinary topics, not crosses.
+        const t = await buildTopic(supabase, parts[1], "temak");
+        return t ?? notFound(path, true);
       }
     }
     // Wave 3: /szemelyek/:slug/temak/:topic, with legacy /szemely|person fallback.
