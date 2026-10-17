@@ -1,8 +1,8 @@
 # Traffic-led improvements
 
 ## Visitor-first processing
-- [ ] Apply visitor-first priority without changing AI models or quality gates.
-- [ ] Verify configured controls and priority behavior; keep credit pause intact.
+- [x] Apply visitor-first priority without changing AI models or quality gates: maintenance before relevance before Astra; public and newest relationships first.
+- [x] Verify configured controls and priority behavior; keep credit pause intact. Three focused tests passed; both deployed bulk runners returned higher_priority_work:seo_jobs_pending without paid AI calls. No credit recovery or complete processing run attempted.
 
 - [x] Compare visits, Google traffic and listening across complete weeks.
 - [x] Unify page/player session attribution without rewriting historical events.
