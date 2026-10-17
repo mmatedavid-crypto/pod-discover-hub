@@ -5,6 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { callGeminiNative, checkBudget } from "../_shared/google-gemini-direct.ts";
+import { boundedWork, checkProcessingPriority } from "../_shared/processing-priority.ts";
 
 const TIME_BUDGET_MS = 20_000;
 const RESERVE_MS = 4_000;
@@ -34,7 +35,9 @@ async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; b
 }
 
 async function setControls(supabase: any, patch: Record<string, any>, prev: any) {
-  const merged = { ...(prev || {}), ...patch };
+  const { data, error } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
+  if (error) return;
+  const merged = { ...(data?.value || prev || {}), ...patch };
   await supabase.from("app_settings").upsert({ key: "person_relevance_judge_controls", value: merged, updated_at: new Date().toISOString() });
 }
 
@@ -197,8 +200,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, skipped: "disabled_in_settings" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   const DAILY_BUDGET_USD = settings.budget;
-  const batchLimit = Math.min(Math.max(Number(body.batch_limit) || settings.batchLimit, 1), 800);
-  const concurrency = Math.min(Math.max(Number(body.concurrency) || settings.concurrency, 1), MAX_CONCURRENCY);
+  const batchLimit = boundedWork(body.batch_limit, settings.batchLimit, 30);
+  const concurrency = boundedWork(body.concurrency, settings.concurrency, 1);
   const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
 
   const globalBudget = await checkBudget("person_relevance");
@@ -213,6 +216,8 @@ Deno.serve(async (req) => {
   }
 
   // Reap stale 'in_progress' rows (workers that died) — reset to 'pending' if older than 90s.
+  const priority = await checkProcessingPriority(supabase, "person_relevance");
+  if (priority) return Response.json({ ok: true, skipped: priority }, { headers: corsHeaders });
   try {
     await supabase.from("person_episode_mentions")
       .update({ relevance_status: "pending", ai_judged_at: null })
@@ -235,11 +240,12 @@ Deno.serve(async (req) => {
   let aiCallsThisRun = 0;
 
   while (Date.now() - startedAt < TIME_BUDGET_MS - RESERVE_MS) {
+    if (processed >= batchLimit) break;
     if (spendToday >= DAILY_BUDGET_USD) break;
 
     // Atomic claim: flips relevance_status='pending'→'in_progress' with SKIP LOCKED so
     // multiple concurrent invocations never overlap.
-    const { data: claimed, error: claimErr } = await supabase.rpc("claim_person_judge_batch", { _limit: batchLimit });
+    const { data: claimed, error: claimErr } = await supabase.rpc("claim_person_judge_batch", { _limit: batchLimit - processed });
     if (claimErr || !claimed || claimed.length === 0) break;
     const claimedIds: string[] = (claimed as any[]).map((r: any) => (typeof r === "string" ? r : r.id));
     let q = supabase

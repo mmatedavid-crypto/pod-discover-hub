@@ -5,6 +5,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { recordAiCall, creditBreakerOpen, tripCreditBreaker } from "../_shared/lovable-ai.ts";
 import { checkBudget } from "../_shared/google-gemini-direct.ts";
+import { boundedWork, checkProcessingPriority } from "../_shared/processing-priority.ts";
 
 declare const Deno: any;
 const MODEL = "openai/gpt-6-astra";
@@ -55,11 +56,11 @@ A reason legyen egy rövid magyar mondat. Minden bemeneti id-re pontosan egy té
 async function loadBatch(kind: Kind, limit: number, offset: number): Promise<Entity[]> {
   const table = kind === "person" ? "people" : "organizations";
   const extra = kind === "person" ? ",manual_approved,manually_seeded,editorial_priority" : ",manually_seeded,editorial_priority";
-  // Hidden pages with episodes are reviewed first: good ones get restored, junk gets deleted.
+  // Public pages first; hidden pages retain the same eventual eligibility.
   const { data, error } = await sb.from(table)
     .select(`id,name,ai_bio,wikipedia_description,is_public${extra}`)
     .is("astra_reviewed_at", null).or("is_public.eq.true,episode_count.gt.0")
-    .order("is_public", { ascending: true })
+    .order("is_public", { ascending: false })
     .order("is_indexable", { ascending: false }).order("episode_count", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
@@ -186,11 +187,13 @@ Deno.serve(async (req) => {
   const c = ctl?.value || {};
   if (c.enabled === false) return Response.json({ skipped: "disabled" }, { headers: cors });
   if (await creditBreakerOpen()) return Response.json({ skipped: "credit_breaker_open" }, { headers: cors });
+  const priority = await checkProcessingPriority(sb, JOB);
+  if (priority) return Response.json({ skipped: priority }, { headers: cors });
   const budget = await checkBudget(JOB);
   if (!budget.allowed) return Response.json({ skipped: budget.reason }, { headers: cors });
 
-  const size = Number(body.batch_size || c.batch_size || 12);
-  const par = Number(body.parallel_calls || c.parallel_calls || 4);
+  const size = boundedWork(body.batch_size, c.batch_size, 12);
+  const par = boundedWork(body.parallel_calls, c.parallel_calls, 4);
   const minConf = Number(c.min_confidence || 0.85);
 
   // Split parallel slots between people and orgs; each slot takes a disjoint page.
