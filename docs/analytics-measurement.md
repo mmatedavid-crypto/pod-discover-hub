@@ -38,6 +38,16 @@ North Star jelöltek: *human engaged session*, *search activation → search suc
 
 ## Validáció
 
+### Forrás → lejátszás összekapcsolása (2026-10-17)
+
+A `page_events` és `player_events` most közös, anonim, tabhoz kötött azonosítót használ
+(`getAnalyticsSessionId`, meglévő `pv_sid`; ennek hiányában a korábbi player ID megőrzése).
+A korábbi események azonosítóit nem írjuk át: a régi külön ID-k miatt a történeti
+forrás → lejátszás arány nem számítható megbízhatóan. Az új közös mérés csak a
+változtatást tartalmazó verzióból érkező eseményekre érvényes.
+Az ID nem azonosít személyt vagy több látogatáson át visszatérő hallgatót.
+Eltérő mérési rendszerek munkamenetszámait nem osztjuk egymással konverziós arányként.
+
 Hetente vessük össze: PostHog `human_interaction` unique session vs. Supabase `page_events` `is_bot = false` distinct `session_id`. Nagy eltérés → ad-blocker arány vagy hibás bot-szűrés.
 
 ## Bounce rate értelmezése (2026-09-02)
