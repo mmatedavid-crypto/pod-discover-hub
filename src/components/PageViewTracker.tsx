@@ -2,22 +2,9 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { isBotUserAgent } from "@/lib/botDetect";
+import { getAnalyticsSessionId } from "@/lib/analyticsSession";
 
 const SKIP_PREFIXES = ["/admin", "/auth", "/belepes", "/growth-status", "/admin-bootstrap"];
-const SESSION_KEY = "pv_sid";
-
-function getSessionId(): string {
-  try {
-    let sid = sessionStorage.getItem(SESSION_KEY);
-    if (!sid) {
-      sid = (crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36));
-      sessionStorage.setItem(SESSION_KEY, sid);
-    }
-    return sid;
-  } catch {
-    return "no-session";
-  }
-}
 
 function parseUA(ua: string): { browser: string; os: string; isBot: boolean } {
   const u = ua || "";
@@ -108,7 +95,7 @@ export default function PageViewTracker() {
           utm_campaign: utm("utm_campaign"),
           utm_term: utm("utm_term"),
           utm_content: utm("utm_content"),
-          session_id: getSessionId(),
+          session_id: getAnalyticsSessionId(),
           ua_browser: browser,
           ua_os: os,
           is_bot: isBot,

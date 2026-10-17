@@ -1,25 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { trackPlayerEvent } from "@/lib/analytics";
+import { getAnalyticsSessionId } from "@/lib/analyticsSession";
 
 export type PlayerEventType =
   | "play_start" | "play_pause" | "play_resume" | "play_seek"
   | "play_25" | "play_50" | "play_75" | "play_complete"
   | "playback_error" | "external_open" | "speed_change";
-
-let sessionId: string | null = null;
-function getSessionId(): string {
-  if (sessionId) return sessionId;
-  try {
-    const k = "podiverzum_player_session";
-    let s = sessionStorage.getItem(k);
-    if (!s) { s = crypto.randomUUID(); sessionStorage.setItem(k, s); }
-    sessionId = s;
-    return s;
-  } catch {
-    sessionId = crypto.randomUUID();
-    return sessionId;
-  }
-}
 
 export function logPlayerEvent(opts: {
   eventType: PlayerEventType;
@@ -41,7 +27,7 @@ export function logPlayerEvent(opts: {
         event_type: opts.eventType,
         episode_id: opts.episodeId ?? null,
         podcast_id: opts.podcastId ?? null,
-        session_id: getSessionId(),
+        session_id: getAnalyticsSessionId(),
         position_sec: typeof opts.positionSec === "number" ? Math.floor(opts.positionSec) : null,
         duration_sec: typeof opts.durationSec === "number" ? Math.floor(opts.durationSec) : null,
         playback_rate: typeof opts.playbackRate === "number" ? opts.playbackRate : null,
