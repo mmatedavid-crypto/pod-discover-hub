@@ -407,6 +407,13 @@
       "when": 1792317469568,
       "tag": "0057_person_relevance_batch_work",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1792317939965,
+      "tag": "0058_person_relevance_atomic_spend",
+      "breakpoints": true
     }
   ]
 }
