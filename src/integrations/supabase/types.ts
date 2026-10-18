@@ -6244,6 +6244,27 @@ export type Database = {
           },
         ]
       }
+      person_relevance_spend_receipts: {
+        Row: {
+          cost_usd: number
+          created_at: string
+          gateway_source_hash: string
+          id: string
+        }
+        Insert: {
+          cost_usd: number
+          created_at?: string
+          gateway_source_hash: string
+          id: string
+        }
+        Update: {
+          cost_usd?: number
+          created_at?: string
+          gateway_source_hash?: string
+          id?: string
+        }
+        Relationships: []
+      }
       person_relevance_work: {
         Row: {
           cached_decision: Json | null
@@ -10409,6 +10430,17 @@ export type Database = {
           sample: Json
         }[]
       }
+      cache_person_judge_batch: {
+        Args: {
+          _batch_id: string
+          _cost: number
+          _decisions: Json
+          _model: string
+          _source_hash: string
+          _token: string
+        }
+        Returns: undefined
+      }
       canonical_alias_backfill_apply: {
         Args: { p_dry?: boolean; p_kinds?: string[] }
         Returns: {
@@ -11273,6 +11305,10 @@ export type Database = {
       }
       refresh_homepage_feed: { Args: never; Returns: undefined }
       refresh_people_hub_score: { Args: never; Returns: Json }
+      refresh_people_hub_score_for: {
+        Args: { _person_ids: string[] }
+        Returns: Json
+      }
       refresh_person_activation_status: { Args: never; Returns: Json }
       refresh_reddit_name_index: { Args: never; Returns: undefined }
       refresh_search_golden_queries_from_catalog: {
