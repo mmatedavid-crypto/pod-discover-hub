@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Play, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,20 +25,42 @@ function fmt(s: number) {
 
 /** Pilot: grounded episode Q&A. Renders nothing outside the treatment group. */
 export function EpisodeAnswers({ episodeId }: { episodeId: string }) {
-  const [rows, setRows] = useState<Answer[]>([]);
+  const { data: rows = [] } = useQuery({
+    queryKey: ["public-episode-answers", episodeId],
+    enabled: Boolean(episodeId),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("episode_answers_public")
+        .select("id,anchor,question,answer,speaker,start_sec,timestamp_status,content_version,pilot_group")
+        .eq("episode_id", episodeId)
+        .order("position");
+      if (error) throw error;
+      return (data || []) as Answer[];
+    },
+  });
   const navigate = useNavigate();
   const location = useLocation();
 
+  const scrolledAnswer = useRef<string | null>(null);
   useEffect(() => {
-    let cancelled = false;
-    (supabase as any)
-      .from("episode_answers_public")
-      .select("id,anchor,question,answer,speaker,start_sec,timestamp_status,content_version,pilot_group")
-      .eq("episode_id", episodeId)
-      .order("position")
-      .then(({ data }: any) => { if (!cancelled) setRows((data || []) as Answer[]); });
-    return () => { cancelled = true; };
-  }, [episodeId]);
+    if (!location.hash) {
+      scrolledAnswer.current = null;
+      return;
+    }
+    let anchor: string;
+    try { anchor = decodeURIComponent(location.hash.slice(1)); }
+    catch { return; }
+    const targetKey = `${episodeId}:${location.key}:${anchor}`;
+    if (scrolledAnswer.current === targetKey || !rows.some((r) => r.anchor === anchor)) return;
+    // The anchor does not exist until the public answers finish loading.
+    const target = document.getElementById(anchor);
+    if (target) {
+      target.scrollIntoView({ block: "start" });
+      scrolledAnswer.current = targetKey;
+    }
+  }, [episodeId, location.hash, location.key, rows]);
 
   if (!rows.length) return null;
 
@@ -48,7 +71,7 @@ export function EpisodeAnswers({ episodeId }: { episodeId: string }) {
       </h2>
       <div className="space-y-4">
         {rows.map((r) => {
-          const canSeek = r.timestamp_status === "audio_verified" && r.start_sec != null;
+          const canSeek = r.timestamp_status === "audio_verified" && r.start_sec != null && Number.isFinite(r.start_sec) && r.start_sec >= 0;
           return (
             <div key={r.id} id={r.anchor} className="scroll-mt-24">
               <h3 className="text-sm font-semibold text-foreground">{r.question}</h3>
@@ -62,7 +85,10 @@ export function EpisodeAnswers({ episodeId }: { episodeId: string }) {
                   data-answer-id={r.id}
                   onClick={() => {
                     logPlayerEvent({ eventType: "play_seek", episodeId, positionSec: r.start_sec!, meta: { source: "episode_answer", answer_id: r.id, anchor: r.anchor, content_version: r.content_version, pilot_group: r.pilot_group } });
-                    navigate(`${location.pathname}?t=${Math.floor(r.start_sec!)}&qa=${encodeURIComponent(r.anchor)}`, { replace: true });
+                    const params = new URLSearchParams(location.search);
+                    params.set("t", String(Math.floor(r.start_sec!)));
+                    params.set("qa", r.anchor);
+                    navigate({ pathname: location.pathname, search: params.toString(), hash: location.hash }, { replace: true });
                   }}
                   className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-primary hover:bg-secondary/60"
                 >
