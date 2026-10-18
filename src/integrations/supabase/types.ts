@@ -6244,6 +6244,155 @@ export type Database = {
           },
         ]
       }
+      person_relevance_work: {
+        Row: {
+          cached_decision: Json | null
+          cached_hash: string | null
+          claim_token: string
+          episode_id: string
+          lease_until: string
+          model_used: string | null
+          person_id: string
+          source_hash: string
+          updated_at: string
+        }
+        Insert: {
+          cached_decision?: Json | null
+          cached_hash?: string | null
+          claim_token: string
+          episode_id: string
+          lease_until: string
+          model_used?: string | null
+          person_id: string
+          source_hash: string
+          updated_at?: string
+        }
+        Update: {
+          cached_decision?: Json | null
+          cached_hash?: string | null
+          claim_token?: string
+          episode_id?: string
+          lease_until?: string
+          model_used?: string | null
+          person_id?: string
+          source_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_relevance_work_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_relevance_work_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pi_dump_imports: {
         Row: {
           auto_added: number
@@ -10245,6 +10394,10 @@ export type Database = {
       }
       ai_call_audit_compact: { Args: never; Returns: string }
       ai_call_audit_drain_tick: { Args: never; Returns: number }
+      apply_person_judge_pair: {
+        Args: { _episode: string; _person: string; _token: string }
+        Returns: Json
+      }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
       autoprewarm_dump_now: { Args: never; Returns: number }
       autoprewarm_start_worker: { Args: never; Returns: undefined }
@@ -10363,6 +10516,10 @@ export type Database = {
         }
       }
       claim_person_judge_batch: { Args: { _limit: number }; Returns: string[] }
+      claim_person_judge_pairs: {
+        Args: { _limit: number; _person_ids?: string[]; _token: string }
+        Returns: Json[]
+      }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
       count_pipeline_pending: { Args: { kind: string }; Returns: number }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
@@ -10980,6 +11137,15 @@ export type Database = {
           validation_source: string
         }[]
       }
+      person_judge_run_lease: {
+        Args: { _release?: boolean; _token: string }
+        Returns: boolean
+      }
+      person_judge_source: {
+        Args: { _episode: string; _person: string }
+        Returns: Json
+      }
+      person_judge_telemetry: { Args: { _patch: Json }; Returns: undefined }
       pipeline_health_item_v1: {
         Args: {
           p_backlog?: number
