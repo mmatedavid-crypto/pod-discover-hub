@@ -1,471 +1,194 @@
-// Person-episode relevance AI judge.
-// Validates whether an episode truly belongs to a person's page.
-// HU-output JSON tool call; writes relevance_status + ai_* fields on person_episode_mentions.
+// Batched, source-grounded pair review. Durable decisions survive write retries.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
-import { callGeminiNative, checkBudget } from "../_shared/google-gemini-direct.ts";
+import { callLovableAI, creditBreakerOpen, gatewayModel } from "../_shared/lovable-ai.ts";
 import { boundedWork, checkProcessingPriority } from "../_shared/processing-priority.ts";
+import { BATCH_TOOL, buildBatchPrompt, inputGuard, MAX_BATCH_CHARS, MAX_BATCH_ITEMS, packBatches, parseBatch,
+  PROMPT_VERSION, review, type Decision, type Item } from "../_shared/person-relevance-batch.ts";
 
-const TIME_BUDGET_MS = 20_000;
-const RESERVE_MS = 4_000;
-// Policy v2 (2026-05-20 Tier 1): default flash-lite for batch judgment.
-const MODEL = "gemini-2.5-flash-lite";
-const DEFAULT_DAILY_BUDGET_USD = 2.0;
-const MAX_CONCURRENCY = 250;
+const MODEL = gatewayModel("gemini-2.5-flash-lite");
+const RUN_MS = 50_000;
+// Conservative headroom for a <=24k-character prompt and <=4096 output tokens.
+const CALL_RESERVE_USD = 0.05;
+type Work = Item & { person_id: string; episode_id: string; source_hash: string; cached_decision: Decision | null; model_used: string | null };
+const json = (body: unknown) => Response.json(body, { headers: corsHeaders });
 
-async function getBudgetFromSettings(supabase: any): Promise<{ budget: number; batchLimit: number; concurrency: number; enabled: boolean; autoDisableWhenEmpty: boolean; preferPaid: boolean; maxAiCallsPerRun: number; minConfidenceForAi: number; raw: any }> {
-  try {
-    const { data } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
-    const v = data?.value || {};
-    return {
-      budget: Number(v.daily_budget_usd ?? DEFAULT_DAILY_BUDGET_USD),
-      batchLimit: Number(v.batch_limit ?? 30),
-      concurrency: Math.min(Math.max(Number(v.concurrency ?? 1), 1), MAX_CONCURRENCY),
-      enabled: v.enabled !== false,
-      autoDisableWhenEmpty: v.auto_disable_when_empty !== false,
-      preferPaid: v.prefer_paid === true,
-      maxAiCallsPerRun: Math.min(Math.max(Number(v.max_ai_calls_per_run ?? 800), 1), 2000),
-      minConfidenceForAi: Math.max(0, Math.min(1, Number(v.min_confidence_for_ai ?? 0.55))),
-      raw: v,
-    };
-  } catch {
-    return { budget: DEFAULT_DAILY_BUDGET_USD, batchLimit: 30, concurrency: 1, enabled: true, autoDisableWhenEmpty: true, preferPaid: false, maxAiCallsPerRun: 800, minConfidenceForAi: 0.55, raw: {} };
-  }
+// Fail closed on unreadable controls or spend; never borrow a higher request budget.
+async function state(db: any) {
+  const [settings, spent] = await Promise.all([
+    db.from("app_settings").select("key,value").in("key", ["person_relevance_judge_controls", "background_jobs", "ai_budget"]),
+    db.from("ai_spend_daily").select("spend_usd,by_kind").eq("day", new Date().toISOString().slice(0, 10)).maybeSingle(),
+  ]);
+  if (settings.error || spent.error) throw new Error("controls_or_budget_unavailable");
+  const values = Object.fromEntries((settings.data || []).map((r: any) => [r.key, r.value]));
+  const controls = values.person_relevance_judge_controls;
+  const global = values.ai_budget;
+  const background = values.background_jobs;
+  if (!controls || !global || !background) throw new Error("required_controls_missing");
+  const caps = [Number(controls.daily_budget_usd), Number(global.per_job_caps_usd?.person_relevance ?? controls.daily_budget_usd),
+    Number(global.per_job_caps_usd?.person_relevance_judge ?? controls.daily_budget_usd)];
+  const globalCap = Number(global.daily_cap_usd);
+  if (![...caps, globalCap].every(n => Number.isFinite(n) && n >= 0)) throw new Error("invalid_budget");
+  const by = spent.data?.by_kind || {};
+  const jobSpend = Math.max(Number(by.person_relevance || 0), Number(by.person_relevance_judge || 0));
+  const globalSpend = Number(spent.data?.spend_usd || 0);
+  if (![jobSpend, globalSpend].every(Number.isFinite)) throw new Error("invalid_spend");
+  return { controls, enabled: controls.enabled === true && background.enabled === true && background.incident_mode !== true,
+    headroom: Math.min(Math.min(...caps) - jobSpend, globalCap - globalSpend), jobSpend };
 }
 
-async function setControls(supabase: any, patch: Record<string, any>, prev: any) {
-  const { data, error } = await supabase.from("app_settings").select("value").eq("key", "person_relevance_judge_controls").maybeSingle();
-  if (error) return;
-  const merged = { ...(data?.value || prev || {}), ...patch };
-  await supabase.from("app_settings").upsert({ key: "person_relevance_judge_controls", value: merged, updated_at: new Date().toISOString() });
+async function checkedRpc(db: any, name: string, args: Record<string, unknown>) {
+  const result = await db.rpc(name, args);
+  if (result.error) throw new Error(name + ": " + result.error.message);
+  return result.data;
 }
 
-async function countPendingHU(supabase: any, personIds?: string[] | null): Promise<number> {
-  // Count BOTH 'pending' AND 'in_progress' so a wave of stuck claims (workers killed
-  // by edge timeout / 429s) doesn't trick the runner into auto-disabling prematurely.
-  // The reaper resets stale in_progress → pending on the next invocation.
-  let q = supabase
-    .from("person_episode_mentions")
-    .select("id, podcasts!person_episode_mentions_podcast_id_fkey!inner(language_decision)", { count: "exact", head: true })
-    .in("relevance_status", ["pending", "in_progress"])
-    .eq("podcasts.language_decision", "accept_hungarian");
-  if (personIds && personIds.length) q = q.in("person_id", personIds);
-  const { count } = await q;
-  return Number(count || 0);
-}
-
-interface PendingRow {
-  id: string;
-  person_id: string;
-  episode_id: string;
-  mention_type: string;
-  confidence: number;
-  person_name: string;
-  person_aliases: string[];
-  disambiguation_label: string | null;
-  disambiguation_context: string | null;
-  ep_title: string;
-  ep_summary: string | null;
-  ep_ai_summary: string | null;
-  ep_clean_text: string | null;
-  pod_title: string;
-  pod_description: string | null;
-  evidence: string | null;
-  source_evidence: Record<string, unknown> | null;
-}
-
-const TOOL = {
-  name: "judge_person_episode_relevance",
-  description: "Decide whether an episode truly belongs to this person's page. Always answer in Hungarian.",
-  parameters: {
-    type: "object",
-    properties: {
-      is_relevant: { type: "boolean" },
-      relevance_score: { type: "number", minimum: 0, maximum: 1 },
-      recommended_mention_type: { type: "string", enum: ["host", "guest", "subject", "mentioned", "none"] },
-      identity_match: { type: "string", enum: ["same_person", "different_person_same_name", "substring_false_positive", "uncertain"] },
-      reason: { type: "string", description: "Rövid magyar indoklás (max 200 karakter)." },
-      evidence_phrases: { type: "array", items: { type: "string" }, maxItems: 5 },
-      should_show_publicly: { type: "boolean" },
-      is_false_positive: { type: "boolean" },
-      false_positive_reason: { type: "string", nullable: true },
-    },
-    required: ["is_relevant", "relevance_score", "recommended_mention_type", "identity_match", "reason", "evidence_phrases", "should_show_publicly", "is_false_positive"],
-  },
-};
-
-function buildPrompt(r: PendingRow): string {
-  const aliasLine = r.person_aliases && r.person_aliases.length ? `Aliasok: ${r.person_aliases.slice(0, 8).join(", ")}` : "";
-  const disambig = r.disambiguation_label ? `Megkülönböztetés: ${r.disambiguation_label}${r.disambiguation_context ? ` (${r.disambiguation_context})` : ""}` : "";
-  const evidenceLine = r.evidence ? `FORRÁS-EVIDENCE: ${r.evidence.slice(0, 500)}` : "";
-  return `Te magyar nyelvű podcast-relevancia bíró vagy. Döntsd el, hogy az alábbi epizód valóban a megnevezett személyhez kapcsolódik-e.
-
-SZIGORÚ SZABÁLYOK:
-- Csak teljes névegyezést vagy explicit alias-egyezést fogadj el (szóhatárral).
-- NE fogadj el csak vezetéknév- vagy résszó-egyezést.
-- Ha más, azonos nevű emberről van szó, identity_match = "different_person_same_name".
-- Ha a név egy szóba van ágyazva (pl. "Pólus" egy "többpólusú" szóban), identity_match = "substring_false_positive".
-- Csak akkor relevant=true, ha a személy host, vendég, központi téma vagy érdemi említés.
-- RÉSZTVEVŐ JELZŐK (recommended_mention_type = "guest", NEM "mentioned"): ha a leírásban / címben a név mellett ilyen kulcsszó áll: "Közreműködik:", "Közreműködnek:", "Szereplők:", "Fellép:", "Fellépnek:", "Vendég:", "Vendégünk:", "Beszélget:", "Beszélgetőtárs:", "Műsorvezető:", "Házigazda:", "Előadó:", "Felolvas:", "Olvassa:", "Énekel:", "Játssza:", "Rendező:", "Interjú:", "Riportalany:". Ezeknél is should_show_publicly = true és relevance_score ≥ 0.85.
-- Ha bizonytalan vagy, should_show_publicly = false.
-- A reason mező és minden szöveges válasz MAGYARUL.
-
-SZEMÉLY: ${r.person_name}
-${aliasLine}
-${disambig}
-
-PODCAST: ${r.pod_title}
-PODCAST LEÍRÁS: ${(r.pod_description || "").slice(0, 400)}
-
-EPIZÓD CÍM: ${r.ep_title}
-EPIZÓD ÖSSZEFOGLALÓ: ${(r.ep_ai_summary || r.ep_summary || "").slice(0, 1200)}
-EPIZÓD TISZTÍTOTT LEÍRÁS: ${(r.ep_clean_text || "").slice(0, 2200)}
-${evidenceLine}
-
-Jelenlegi szabályalapú besorolás: mention_type=${r.mention_type}, confidence=${r.confidence}.
-
-Hívd meg a judge_person_episode_relevance tool-t.`;
-}
-
-// All routing + audit + key-pool logic lives in _shared/google-gemini-direct.ts.
-// Tier 1 (GEMINI_API_KEY_TIER1) > paid (GEMINI_API_KEY) > free (GEMINI_API_KEY_FREE).
-async function callAI(
-  prompt: string,
-  preferPaid = false,
-  personId?: string,
-  episodeId?: string,
-): Promise<{ result: any; cost: number; isFree: boolean; keySource: string } | null> {
-  const out = await callGeminiNative({
-    model: MODEL,
-    prompt,
-    tool: TOOL as any,
-    job_type: "person_relevance_judge",
-    target_type: "person_episode_mention",
-    target_id: personId,
-    // preferTier1 default true; legacy preferPaid kept as a hint when no tier1 key present.
-    preferTier1: true,
-    costFn: (m, i, o) => chatTokenCostUsd(m, i, o),
-  });
-  if (!out.ok) {
-    if (out.status === 429 || out.status === 503) throw new Error(`rate_limit:${out.status}`);
-    return null;
-  }
-  if (!out.args) return null;
-  const keySource = (out.key_source || "tier1") as string;
-  return {
-    result: out.args,
-    cost: out.cost_usd ?? 0,
-    isFree: keySource === "free",
-    keySource,
-  };
-}
-
-async function logSpend(supabase: any, cost: number) {
-  const day = new Date().toISOString().slice(0, 10);
-  try {
-    const { error } = await supabase.rpc("upsert_ai_spend", { p_day: day, p_kind: "person_relevance", p_cost: cost, p_calls: 1 });
-    if (!error) return;
-  } catch { /* fall through */ }
-  // fallback: manual upsert
-  try {
-    const { data } = await supabase.from("ai_spend_daily").select("*").eq("day", day).maybeSingle();
-    const cur = data || { day, spend_usd: 0, calls: 0, by_kind: {} };
-    const by = cur.by_kind || {};
-    by.person_relevance = (by.person_relevance || 0) + cost;
-    await supabase.from("ai_spend_daily").upsert({
-      day,
-      spend_usd: Number(cur.spend_usd || 0) + cost,
-      calls: (cur.calls || 0) + 1,
-      by_kind: by,
-    });
-  } catch { /* ignore */ }
-}
-
-async function getSpendToday(supabase: any): Promise<number> {
-  const day = new Date().toISOString().slice(0, 10);
-  const { data } = await supabase.from("ai_spend_daily").select("by_kind").eq("day", day).maybeSingle();
-  const byKind = (data?.by_kind as any) || {};
-  return Math.max(Number(byKind.person_relevance || 0), Number(byKind.person_relevance_judge || 0));
-}
-
-Deno.serve(async (req) => {
+Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
+  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   let body: any = {};
-  try { body = req.method === "POST" ? await req.json() : {}; } catch {}
-  const settings = await getBudgetFromSettings(supabase);
-  if (!settings.enabled) {
-    return new Response(JSON.stringify({ ok: true, skipped: "disabled_in_settings" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-  const DAILY_BUDGET_USD = settings.budget;
-  const batchLimit = boundedWork(body.batch_limit, settings.batchLimit, 30);
-  const concurrency = boundedWork(body.concurrency, settings.concurrency, 1);
-  const targetPersonIds: string[] | null = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
+  try { if (req.method === "POST") body = await req.json(); } catch { /* empty scheduled request */ }
+  const token = crypto.randomUUID();
+  const started = Date.now();
+  let leased = false;
+  let claims: Work[] = [];
+  let processed = 0, accepted = 0, rejected = 0, needsReview = 0, waiting = 0, cached = 0, calls = 0, errors = 0;
+  let spend = 0, reserved = 0, stop: string | null = null;
+  const failures: string[] = [];
+  let result: Record<string, unknown> = {};
 
-  const globalBudget = await checkBudget("person_relevance");
-  if (!globalBudget.allowed) {
-    await setControls(supabase, {
-      last_run_status: "budget_blocked",
-      last_run_at: new Date().toISOString(),
-      last_budget_block_reason: globalBudget.reason,
-      last_spend_today_usd: globalBudget.job_spend_today_usd,
-    }, settings.raw);
-    return new Response(JSON.stringify({ ok: true, status: "budget_blocked", reason: globalBudget.reason, budget: globalBudget }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
+  const cacheDecision = async (item: Work, decision: Decision, model: string) => {
+    const saved = await db.from("person_relevance_work").update({ cached_hash: item.source_hash,
+      cached_decision: decision, model_used: model, updated_at: new Date().toISOString() })
+      .eq("person_id", item.person_id).eq("episode_id", item.episode_id).eq("claim_token", token)
+      .eq("source_hash", item.source_hash).select("person_id").single();
+    if (saved.error || !saved.data) throw new Error("cache_write_failed: " + (saved.error?.message || "claim_lost"));
+  };
+  const apply = async (item: Work) => {
+    const applied = await checkedRpc(db, "apply_person_judge_pair", { _person: item.person_id, _episode: item.episode_id, _token: token });
+    processed++;
+    if (applied.status === "accepted") accepted++;
+    else if (applied.status === "rejected") rejected++;
+    else if (applied.status === "waiting_clean_text") waiting++;
+    else needsReview++;
+  };
 
-  // Reap stale 'in_progress' rows (workers that died) — reset to 'pending' if older than 90s.
-  const priority = await checkProcessingPriority(supabase, "person_relevance");
-  if (priority) return Response.json({ ok: true, skipped: priority }, { headers: corsHeaders });
   try {
-    await supabase.from("person_episode_mentions")
-      .update({ relevance_status: "pending", ai_judged_at: null })
-      .eq("relevance_status", "in_progress")
-      .lt("ai_judged_at", new Date(Date.now() - 90_000).toISOString());
-  } catch { /* ignore */ }
-
-  // Pre-guard: if pending backlog is empty, exit cleanly and optionally self-disable.
-  const initialPending = await countPendingHU(supabase, targetPersonIds);
-  if (initialPending === 0) {
-    const patch: any = { last_run_status: "no_work", last_run_at: new Date().toISOString(), last_remaining_pending: 0 };
-    if (settings.autoDisableWhenEmpty && !targetPersonIds) patch.enabled = false;
-    await setControls(supabase, patch, settings.raw);
-    return new Response(JSON.stringify({ ok: true, status: "no_work", remaining_pending: 0, runner_disabled: !!patch.enabled === false && settings.autoDisableWhenEmpty }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const startedAt = Date.now();
-  let processed = 0, accepted = 0, rejected = 0, needs_review = 0, errors = 0;
-  let spendToday = await getSpendToday(supabase);
-  let aiCallsThisRun = 0;
-
-  while (Date.now() - startedAt < TIME_BUDGET_MS - RESERVE_MS) {
-    if (processed >= batchLimit) break;
-    if (spendToday >= DAILY_BUDGET_USD) break;
-
-    // Atomic claim: flips relevance_status='pending'→'in_progress' with SKIP LOCKED so
-    // multiple concurrent invocations never overlap.
-    const { data: claimed, error: claimErr } = await supabase.rpc("claim_person_judge_batch", { _limit: batchLimit - processed });
-    if (claimErr || !claimed || claimed.length === 0) break;
-    const claimedIds: string[] = (claimed as any[]).map((r: any) => (typeof r === "string" ? r : r.id));
-    let q = supabase
-      .from("person_episode_mentions")
-      .select("id, person_id, episode_id, mention_type, confidence, evidence, source_evidence, people!inner(name, disambiguation_label, disambiguation_context, ai_review_status, activation_status), podcasts!person_episode_mentions_podcast_id_fkey!inner(title, description, language_decision), episodes!inner(title, summary, ai_summary)")
-      .in("id", claimedIds);
-    if (targetPersonIds) q = q.in("person_id", targetPersonIds);
-    const { data: rows, error } = await q;
-    if (error || !rows || rows.length === 0) break;
-
-    // fetch aliases in one shot
-    const personIds = [...new Set(rows.map((r: any) => r.person_id))];
-    const { data: aliasRows } = await supabase.from("person_aliases").select("person_id, alias").in("person_id", personIds);
-    const aliasMap = new Map<string, string[]>();
-    (aliasRows || []).forEach((a: any) => {
-      const list = aliasMap.get(a.person_id) || [];
-      list.push(a.alias);
-      aliasMap.set(a.person_id, list);
-    });
-
-    const episodeIds = [...new Set(rows.map((r: any) => r.episode_id).filter(Boolean))];
-    const cleanTextMap = new Map<string, string>();
-    for (let i = 0; i < episodeIds.length; i += 100) {
-      const slice = episodeIds.slice(i, i + 100);
-      const { data: cleanRows } = await supabase
-        .from("episode_clean_text")
-        .select("episode_id, cleaned_text")
-        .in("episode_id", slice)
-        .like("cleaner_method", "deterministic_v4%");
-      (cleanRows || []).forEach((r: any) => cleanTextMap.set(r.episode_id, String(r.cleaned_text || "")));
+    const initial = await state(db);
+    if (!initial.enabled) return json({ ok: true, skipped: "paused" });
+    const priority = await checkProcessingPriority(db, "person_relevance");
+    if (priority) return json({ ok: true, skipped: priority });
+    leased = await checkedRpc(db, "person_judge_run_lease", { _token: token });
+    if (!leased) return json({ ok: true, skipped: "another_run_active" });
+    const limit = Math.min(200, boundedWork(body.batch_limit, initial.controls.batch_limit, 40));
+    const concurrency = Math.min(2, boundedWork(body.concurrency, initial.controls.concurrency, 1));
+    const maxCalls = Math.min(40, boundedWork(body.max_ai_calls_per_run, initial.controls.max_ai_calls_per_run, 8));
+    const batchSize = Math.min(MAX_BATCH_ITEMS, boundedWork(body.ai_batch_size, initial.controls.ai_batch_size, 6));
+    const personIds = Array.isArray(body.person_ids) && body.person_ids.length ? body.person_ids : null;
+    claims = (await checkedRpc(db, "claim_person_judge_pairs", { _limit: limit, _token: token, _person_ids: personIds }) || [])
+      .map((item: Omit<Work, "key">, index: number) => ({ ...item, key: String(index) }));
+    const paid: Work[] = [];
+    for (const item of claims) {
+      const guard = inputGuard(item.input);
+      if (guard || item.cached_decision) {
+        if (guard) await cacheDecision(item, guard, "input_guard");
+        await apply(item);
+        if (!guard) cached++;
+      } else if (buildBatchPrompt([item]).length > MAX_BATCH_CHARS) {
+        await cacheDecision(item, review("A forrás túl nagy az ellenőrzött AI-csomaghoz; külön ellenőrzés szükséges."), "input_guard");
+        await apply(item);
+      } else paid.push(item);
     }
-
-    let rateLimitHits = 0;
-    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-    const processOne = async (m: any) => {
-      // CRITICAL: every non-terminal exit MUST release the claim back to 'pending',
-      // otherwise rows stay in_progress with fresh ai_judged_at and the reaper can't
-      // touch them for 5 min — exactly the bug that stranded 3,763 rows.
-      let terminal = false;
-      const release = async () => {
-        if (terminal) return;
+    const batches = packBatches(paid, batchSize);
+    let cursor = 0;
+    await Promise.all(Array.from({ length: concurrency }, async () => {
+      while (!stop && Date.now() - started < RUN_MS) {
+        const batch = batches[cursor++];
+        if (!batch) return;
+        let holdsReserve = false;
         try {
-          await supabase.from("person_episode_mentions")
-            .update({ relevance_status: "pending", ai_judged_at: null })
-            .eq("id", m.id)
-            .eq("relevance_status", "in_progress");
-        } catch { /* ignore */ }
-      };
-
-      try {
-        if (Date.now() - startedAt > TIME_BUDGET_MS - RESERVE_MS) return;
-        if (spendToday >= DAILY_BUDGET_USD) return;
-        if (aiCallsThisRun >= settings.maxAiCallsPerRun) return;
-
-        const hasEvidence = typeof m.evidence === "string" && m.evidence.trim().length >= 8;
-        const cleanText = String(cleanTextMap.get(m.episode_id) || "").trim();
-        if (!hasEvidence && cleanText.length < 120) {
-          await supabase.from("person_episode_mentions").update({
-            relevance_status: "waiting_clean_text",
-            final_relevance_score: Number(m.confidence || 0),
-            validation_source: "clean_text_guard",
-            ai_identity_match: "uncertain",
-            ai_reason: "Nincs deterministic_v4 clean text vagy elég erős forrásbizonyíték; AI-hívás kihagyva.",
-            ai_evidence_phrases: [],
-            ai_judged_at: new Date().toISOString(),
-            ai_model: "clean_text_guard",
-          }).eq("id", m.id);
-          needs_review++;
-          processed++;
-          terminal = true;
-          return;
-        }
-        if (!hasEvidence && Number(m.confidence || 0) < settings.minConfidenceForAi) {
-          await supabase.from("person_episode_mentions").update({
-            relevance_status: "needs_review",
-            final_relevance_score: Number(m.confidence || 0),
-            validation_source: "rule_guard",
-            ai_identity_match: "uncertain",
-            ai_reason: "Nincs elég erős forrásbizonyíték; AI-hívás kihagyva költségvédelem miatt.",
-            ai_evidence_phrases: [],
-            ai_judged_at: new Date().toISOString(),
-            ai_model: "rule_guard",
-          }).eq("id", m.id);
-          needs_review++;
-          processed++;
-          terminal = true;
-          return;
-        }
-
-        const budgetCheck = await checkBudget("person_relevance");
-        if (!budgetCheck.allowed) return;
-        aiCallsThisRun++;
-        const pending: PendingRow = {
-          id: m.id,
-          person_id: m.person_id,
-          episode_id: m.episode_id,
-          mention_type: m.mention_type,
-          confidence: Number(m.confidence || 0),
-          person_name: m.people.name,
-          person_aliases: aliasMap.get(m.person_id) || [],
-          disambiguation_label: m.people.disambiguation_label,
-          disambiguation_context: m.people.disambiguation_context,
-          ep_title: m.episodes.title,
-          ep_summary: m.episodes.summary,
-          ep_ai_summary: m.episodes.ai_summary,
-          ep_clean_text: cleanText || null,
-          pod_title: m.podcasts.title,
-          pod_description: m.podcasts.description,
-          evidence: m.evidence || null,
-          source_evidence: m.source_evidence || null,
-        };
-
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            const out = await callAI(buildPrompt(pending), settings.preferPaid, m.person_id, m.episode_id);
-            if (!out) { errors++; return; }
-            // Free-tier key: no $ charge, don't count against daily budget.
-            const billedCost = out.isFree ? 0 : out.cost;
-            spendToday += billedCost;
-            if (billedCost > 0) await logSpend(supabase, billedCost);
-            const r = out.result;
-            let status: string;
-            if (r.is_false_positive || r.identity_match === "substring_false_positive" || r.identity_match === "different_person_same_name") status = "rejected";
-            else if (r.identity_match === "uncertain" || !r.should_show_publicly) status = "needs_review";
-            else if (r.is_relevant && r.relevance_score >= 0.6) status = "accepted";
-            else status = "rejected";
-
-            if (status === "accepted") accepted++;
-            else if (status === "rejected") rejected++;
-            else needs_review++;
-
-            await supabase.from("person_episode_mentions").update({
-              relevance_status: status,
-              final_relevance_score: r.relevance_score,
-              validation_source: "ai",
-              ai_identity_match: r.identity_match,
-              ai_reason: r.reason,
-              ai_evidence_phrases: r.evidence_phrases || [],
-              ai_judged_at: new Date().toISOString(),
-              ai_model: MODEL,
-              mention_type: status === "accepted" && r.recommended_mention_type !== "none" ? r.recommended_mention_type : m.mention_type,
-            }).eq("id", m.id);
-            processed++;
-            terminal = true;
-            return;
-          } catch (e) {
-            if (String(e).includes("rate_limit")) {
-              rateLimitHits++;
-              await sleep([1500, 4000, 8000][attempt] || 8000);
-              continue;
-            }
-            errors++;
-            return;
+          const spentBeforeCheck = spend;
+          const live = await state(db);
+          if (!live.enabled) { stop = "paused"; return; }
+          const blocker = await checkProcessingPriority(db, "person_relevance");
+          if (blocker) { stop = blocker; return; }
+          if (await creditBreakerOpen()) { stop = "credit_breaker_open"; return; }
+          if (stop) return;
+          if (calls >= maxCalls) { stop = "run_call_limit"; return; }
+          if (live.headroom - reserved - Math.max(0, spend - spentBeforeCheck) < CALL_RESERVE_USD) { stop = "daily_budget_reached"; return; }
+          reserved += CALL_RESERVE_USD; holdsReserve = true; calls++;
+          const out = await callLovableAI({
+            model: MODEL,
+            messages: [{ role: "user", content: buildBatchPrompt(batch) }],
+            tools: [BATCH_TOOL], tool_choice: { type: "function", function: { name: BATCH_TOOL.function.name } },
+            temperature: 0, max_tokens: Math.min(4096, 512 + batch.length * 450),
+            job_type: "person_relevance_judge", target_type: "person_episode_mention", target_id: batch[0].input.mentions[0]?.id,
+            source_hash: batch.map(i => i.source_hash).join(":"), prompt_version: PROMPT_VERSION,
+            input_text: batch.map(i => i.input.episode.clean_text || i.input.episode.summary || i.input.episode.title).join("\n"),
+          });
+          const cost = chatTokenCostUsd(out.model_used, out.input_tokens || 0, out.output_tokens || 0);
+          // Even a malformed paid response counts toward spend. No paid parse retries.
+          if (cost > 0) {
+            await checkedRpc(db, "upsert_ai_spend", { p_day: new Date().toISOString().slice(0, 10), p_kind: "person_relevance", p_cost: cost, p_calls: 1 });
+            spend += cost;
           }
+          reserved -= CALL_RESERVE_USD; holdsReserve = false;
+          if (!out.ok) {
+            errors++; stop = out.status === 402 ? "credit_required" : "provider_error:" + out.status;
+            failures.push(out.error || stop); return;
+          }
+          const raw = out.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+          let parsed: unknown;
+          try { parsed = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { parsed = null; }
+          const decisions = parseBatch(parsed, batch);
+          const rows = (parsed as { decisions?: { key?: string }[] })?.decisions;
+          if (!Array.isArray(rows) || batch.some(item => rows.filter(r => r?.key === item.key).length !== 1)) {
+            errors++; stop = "malformed_batch_response"; failures.push("Missing or duplicate batch response IDs");
+          }
+          // Cache all decisions before applying any, so a role conflict cannot repay the batch.
+          for (const item of batch) await cacheDecision(item, decisions.get(item.key)!, out.model_used);
+          for (const item of batch) await apply(item);
+        } catch (error) {
+          errors++; stop = "processing_error"; failures.push(String(error).slice(0, 240));
+        } finally {
+          if (holdsReserve) reserved -= CALL_RESERVE_USD;
         }
-        errors++;
-      } finally {
-        await release();
       }
-    };
-
-    // worker pool
-    let idx = 0;
-    const workers = Array.from({ length: concurrency }, async () => {
-      while (true) {
-        const my = idx++;
-        if (my >= rows.length) return;
-        if (Date.now() - startedAt > TIME_BUDGET_MS - RESERVE_MS) return;
-        if (spendToday >= DAILY_BUDGET_USD) return;
-        await processOne(rows[my]);
-      }
-    });
-    await Promise.all(workers);
-
-    // if rate limit is sustained (many hits in this batch), slow down next batch
-    if (rateLimitHits >= Math.max(5, Math.floor(rows.length / 4))) {
-      await sleep(3000);
+    }));
+    result = { ok: errors === 0, status: stop || (claims.length ? "completed" : "no_work"),
+      claimed_pairs: claims.length, processed, accepted, rejected, needs_review: needsReview, waiting_clean_text: waiting,
+      cached, errors, ai_calls_this_run: calls, spend_this_run_usd: spend, elapsed_ms: Date.now() - started,
+      ...(failures.length ? { failures } : {}) };
+    const pending = await db.from("person_episode_mentions")
+      .select("id,podcasts!person_episode_mentions_podcast_id_fkey!inner(language_decision,is_hungarian)", { count: "exact", head: true })
+      .in("relevance_status", ["pending", "in_progress"])
+      .eq("podcasts.language_decision", "accept_hungarian").eq("podcasts.is_hungarian", true);
+    if (!pending.error) result.remaining_pending = pending.count;
+    // Preserve hub maintenance, but do not update every person on every batch.
+    if (processed > 0 && Date.now() - Date.parse(initial.controls.last_hub_refresh_at || "1970-01-01") > 3_600_000) {
+      const hub = await db.rpc("refresh_people_hub_score");
+      if (hub.error) result.hub_refresh_error = hub.error.message;
+      else await db.rpc("person_judge_telemetry", { _patch: { last_hub_refresh_at: new Date().toISOString() } });
     }
-    if (aiCallsThisRun >= settings.maxAiCallsPerRun) break;
-  }
-
-  // recompute hub
-  try { await supabase.rpc("refresh_people_hub_score"); } catch { /* ignore */ }
-
-  // Post-run: remaining pending + self-shutdown
-  const remainingPending = await countPendingHU(supabase, targetPersonIds);
-  let runnerDisabled = false;
-  let status = "completed";
-  if (errors > 0 && processed === 0) status = "failed";
-  else if (remainingPending === 0) {
-    status = "drained";
-    if (settings.autoDisableWhenEmpty && !targetPersonIds) {
-      await setControls(supabase, {
-        enabled: false,
-        last_run_status: "drained",
-        last_run_at: new Date().toISOString(),
-        last_remaining_pending: 0,
-        last_processed: processed, last_accepted: accepted, last_rejected: rejected, last_needs_review: needs_review,
-      }, settings.raw);
-      runnerDisabled = true;
+  } catch (error) {
+    errors++; result = { ok: false, status: "failed", processed, errors, error: String(error).slice(0, 300) };
+  } finally {
+    if (leased) {
+      // Includes never-started items, HTTP errors and partial batches. Cache remains intact.
+      const delay = errors > 0 ? 300_000 : 0;
+      const released = await db.from("person_relevance_work").update({ lease_until: new Date(Date.now() + delay).toISOString() })
+        .eq("claim_token", token);
+      if (released.error) result.release_error = released.error.message;
+      await db.rpc("person_judge_run_lease", { _token: token, _release: true });
+      await db.rpc("person_judge_telemetry", { _patch: {
+        last_run_at: new Date().toISOString(), last_run_status: result.status,
+        last_processed: processed, last_accepted: accepted, last_rejected: rejected, last_needs_review: needsReview,
+        last_waiting_clean_text: waiting, last_ai_calls: calls, last_cached: cached, last_errors: errors,
+        last_spend_usd: spend, last_elapsed_ms: Date.now() - started, last_error: failures[0] || result.error || null,
+        ...(result.remaining_pending != null ? { last_remaining_pending: result.remaining_pending } : {}),
+      } });
     }
-  } else {
-    await setControls(supabase, {
-      last_run_status: status,
-      last_run_at: new Date().toISOString(),
-      last_remaining_pending: remainingPending,
-      last_processed: processed, last_accepted: accepted, last_rejected: rejected, last_needs_review: needs_review,
-    }, settings.raw);
   }
-
-  return new Response(JSON.stringify({
-    ok: true,
-    status,
-    processed, accepted, rejected, needs_review, errors,
-    remaining_pending: remainingPending,
-    runner_disabled: runnerDisabled,
-    spend_today_usd: spendToday,
-    ai_calls_this_run: aiCallsThisRun,
-    max_ai_calls_per_run: settings.maxAiCallsPerRun,
-    elapsed_ms: Date.now() - startedAt,
-  }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  return json(result);
 });
