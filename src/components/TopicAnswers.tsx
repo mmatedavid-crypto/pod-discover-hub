@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -9,13 +9,17 @@ type Row = {
 
 /** Pilot: grounded episode answers linked to this topic. Hidden when none. */
 export function TopicAnswers({ topicId }: { topicId: string }) {
-  const [rows, setRows] = useState<Row[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    (supabase as any).rpc("topic_episode_answers", { _topic_id: topicId, _limit: 6 })
-      .then(({ data }: any) => { if (!cancelled) setRows((data || []) as Row[]); });
-    return () => { cancelled = true; };
-  }, [topicId]);
+  const { data: rows = [] } = useQuery({
+    queryKey: ["public-topic-answers", topicId],
+    enabled: Boolean(topicId),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("topic_episode_answers", { _topic_id: topicId, _limit: 6 });
+      if (error) throw error;
+      return (data || []) as Row[];
+    },
+  });
   if (!rows.length) return null;
   return (
     <section>
