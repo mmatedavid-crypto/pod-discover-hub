@@ -118,23 +118,23 @@ Deno.serve(async req => {
           if (calls >= maxCalls) { stop = "run_call_limit"; return; }
           if (live.headroom - reserved - Math.max(0, spend - spentBeforeCheck) < CALL_RESERVE_USD) { stop = "daily_budget_reached"; return; }
           reserved += CALL_RESERVE_USD; holdsReserve = true; calls++;
+          const batchId = crypto.randomUUID();
+          const batchHash = batchId + ":" + batch.map(i => i.source_hash).join(":");
           const out = await callLovableAI({
             model: MODEL,
             messages: [{ role: "user", content: buildBatchPrompt(batch) }],
             tools: [BATCH_TOOL], tool_choice: { type: "function", function: { name: BATCH_TOOL.function.name } },
             temperature: 0, max_tokens: Math.min(4096, 512 + batch.length * 450),
             job_type: "person_relevance_judge", target_type: "person_episode_mention", target_id: batch[0].input.mentions[0]?.id,
-            source_hash: batch.map(i => i.source_hash).join(":"), prompt_version: PROMPT_VERSION,
+            source_hash: batchHash, prompt_version: PROMPT_VERSION,
             input_text: batch.map(i => i.input.episode.clean_text || i.input.episode.summary || i.input.episode.title).join("\n"),
           });
           const cost = chatTokenCostUsd(out.model_used, out.input_tokens || 0, out.output_tokens || 0);
-          // Even a malformed paid response counts toward spend. No paid parse retries.
-          if (cost > 0) {
-            await checkedRpc(db, "upsert_ai_spend", { p_day: new Date().toISOString().slice(0, 10), p_kind: "person_relevance", p_cost: cost, p_calls: 1 });
-            spend += cost;
-          }
-          reserved -= CALL_RESERVE_USD; holdsReserve = false;
           if (!out.ok) {
+            if (cost > 0) {
+              await checkedRpc(db, "add_ai_spend", { p_day: new Date().toISOString().slice(0, 10), p_kind: "person_relevance", p_amount: cost, p_calls: 1 });
+              spend += cost;
+            }
             errors++; stop = out.status === 402 ? "credit_required" : "provider_error:" + out.status;
             failures.push(out.error || stop); return;
           }
@@ -146,8 +146,13 @@ Deno.serve(async req => {
           if (!Array.isArray(rows) || batch.some(item => rows.filter(r => r?.key === item.key).length !== 1)) {
             errors++; stop = "malformed_batch_response"; failures.push("Missing or duplicate batch response IDs");
           }
-          // Cache all decisions before applying any, so a role conflict cannot repay the batch.
-          for (const item of batch) await cacheDecision(item, decisions.get(item.key)!, out.model_used);
+          // Atomic receipt, cache and actual spend: retries cannot double-charge the ledger.
+          // Malformed paid answers are cached as needs_review, not sent to AI again.
+          await checkedRpc(db, "cache_person_judge_batch", { _batch_id: batchId, _token: token, _source_hash: batchHash,
+            _model: out.model_used, _cost: cost, _decisions: batch.map(item => ({ person_id: item.person_id,
+              episode_id: item.episode_id, source_hash: item.source_hash, decision: decisions.get(item.key) })) });
+          spend += cost;
+          reserved -= CALL_RESERVE_USD; holdsReserve = false;
           for (const item of batch) await apply(item);
         } catch (error) {
           errors++; stop = "processing_error"; failures.push(String(error).slice(0, 240));
@@ -165,9 +170,9 @@ Deno.serve(async req => {
       .in("relevance_status", ["pending", "in_progress"])
       .eq("podcasts.language_decision", "accept_hungarian").eq("podcasts.is_hungarian", true);
     if (!pending.error) result.remaining_pending = pending.count;
-    // Preserve hub maintenance, but do not update every person on every batch.
-    if (processed > 0 && Date.now() - Date.parse(initial.controls.last_hub_refresh_at || "1970-01-01") > 3_600_000) {
-      const hub = await db.rpc("refresh_people_hub_score");
+    // Refresh only touched people; a full-directory refresh timed out in production.
+    if (processed > 0) {
+      const hub = await db.rpc("refresh_people_hub_score_for", { _person_ids: [...new Set(claims.map(item => item.person_id))] });
       if (hub.error) result.hub_refresh_error = hub.error.message;
       else await db.rpc("person_judge_telemetry", { _patch: { last_hub_refresh_at: new Date().toISOString() } });
     }

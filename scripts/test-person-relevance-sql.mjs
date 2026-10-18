@@ -3,6 +3,7 @@
 // PGLITE_MODULE=/tmp/person-sql-test/node_modules/@electric-sql/pglite/dist/index.js node scripts/test-person-relevance-sql.mjs
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+process.on('uncaughtException', error => { console.error(error.message, error.where || ''); process.exit(1); });
 const { PGlite } = await import(process.env.PGLITE_MODULE || '@electric-sql/pglite');
 const db = new PGlite();
 await db.exec(`
@@ -85,8 +86,52 @@ const ctrl = (await one("SELECT value FROM app_settings WHERE key='person_releva
 assert.equal(ctrl.enabled, false, 'telemetry cannot resurrect paused runner');
 assert.equal(ctrl.daily_budget_usd, undefined, 'telemetry cannot raise budget');
 assert.equal(ctrl.last_processed, 12);
+
+// Exercise the actual production spend API and the follow-up atomic migration.
+await db.exec(`
+ ALTER TABLE ai_call_audit ADD COLUMN id uuid DEFAULT gen_random_uuid(), ADD COLUMN created_at timestamptz DEFAULT now();
+ CREATE TABLE ai_spend_daily(day date PRIMARY KEY,spend_usd numeric DEFAULT 0,calls integer DEFAULT 0,by_kind jsonb DEFAULT '{}');
+ CREATE FUNCTION add_ai_spend(p_day date,p_kind text,p_amount numeric,p_calls integer DEFAULT 1)
+ RETURNS void LANGUAGE sql AS $$
+ INSERT INTO ai_spend_daily VALUES(p_day,p_amount,p_calls,jsonb_build_object(p_kind,p_amount))
+ ON CONFLICT(day) DO UPDATE SET spend_usd=ai_spend_daily.spend_usd+p_amount,calls=ai_spend_daily.calls+p_calls,
+ by_kind=ai_spend_daily.by_kind || jsonb_build_object(p_kind,COALESCE((ai_spend_daily.by_kind->>p_kind)::numeric,0)+p_amount); $$;
+ ALTER TABLE people ADD COLUMN recent_relevant_episode_count_30d integer,ADD COLUMN latest_accepted_relevant_episode_at timestamptz,
+ ADD COLUMN avg_source_podcast_rank numeric,ADD COLUMN one_show_host boolean,ADD COLUMN distinct_podcast_count integer,
+ ADD COLUMN people_hub_score numeric,ADD COLUMN gated_episode_count integer,ADD COLUMN gated_podcast_count integer,
+ ADD COLUMN host_count integer,ADD COLUMN guest_count integer,ADD COLUMN strong_mention_count integer,
+ ADD COLUMN wikipedia_match_status text,ADD COLUMN editorial_priority boolean,ADD COLUMN editorial_priority_level integer,
+ ADD COLUMN ai_review_status text,ADD COLUMN identity_status text,ADD COLUMN is_browsable_in_people_hub boolean,
+ ADD COLUMN activation_status text,ADD COLUMN ai_duplicate_of_person_id uuid,ADD COLUMN is_indexable boolean;
+ ALTER TABLE podcasts ADD COLUMN podiverzum_rank numeric;
+ UPDATE app_settings SET value=value || '{"enabled":true}' WHERE key='person_relevance_judge_controls';
+`);
+const atomicMigration = await readFile(new URL('../supabase/migrations/20261018100500_person_relevance_atomic_spend.sql', import.meta.url), 'utf8');
+await db.exec(atomicMigration);
+await reset();
+const fresh = (await claim())[0].item;
+const batchId = '66666666-6666-4666-8666-666666666666';
+const cacheArgs = [batchId, token, 'fixture-batch-hash', 'fixture', JSON.stringify([
+  { person_id: person, episode_id: episode, source_hash: fresh.source_hash, decision }
+]), 0.01];
+const cacheBatch = args => db.query('SELECT cache_person_judge_batch($1,$2,$3,$4,$5,$6)', args);
+await cacheBatch(cacheArgs); await cacheBatch(cacheArgs);
+assert.equal(Number((await one('SELECT spend_usd FROM ai_spend_daily')).spend_usd), 0.01, 'receipt prevents duplicate spend');
+assert.equal((await one('SELECT calls FROM ai_spend_daily')).calls, 1);
+await assert.rejects(() => cacheBatch([other, other, 'bad-claim', ...cacheArgs.slice(3)]), /stale_batch_claim/);
+assert.equal((await one('SELECT calls FROM ai_spend_daily')).calls, 1, 'stale batch rolls back cache and spend');
+assert.equal((await apply()).result.status, 'accepted');
+await db.exec(`INSERT INTO ai_call_audit(job_type,prompt_version,status,estimated_cost_usd,source_hash)
+ VALUES('person_relevance_judge','person-pairs-v1','ok',0.002,'legacy-paid-fixture');`);
+await db.exec(atomicMigration); await db.exec(atomicMigration);
+assert.equal(Number((await one('SELECT spend_usd FROM ai_spend_daily')).spend_usd), 0.012, 'legacy spend reconciliation is idempotent');
+await db.exec(`INSERT INTO people(id,name,people_hub_score) VALUES('${other}','Másik személy',77)`);
+await db.query('SELECT refresh_people_hub_score_for($1)', [[person]]);
+assert.equal(Number((await one('SELECT people_hub_score FROM people WHERE id=$1',[other])).people_hub_score),77,'hub refresh leaves unrelated people untouched');
+assert.equal((await one('SELECT recent_relevant_episode_count_30d FROM people WHERE id=$1',[person])).recent_relevant_episode_count_30d,1);
+await assert.rejects(() => db.query('SELECT refresh_people_hub_score_for($1)', [Array(201).fill(person)]), /too_many_people/);
 await db.exec('SET ROLE anon');
 await assert.rejects(() => db.query('SELECT * FROM person_relevance_work'), /permission denied/);
 await assert.rejects(() => db.query('SELECT person_judge_source($1,$2)', [person, episode]), /permission denied/);
 await db.close();
-console.log('Person review SQL regressions passed: leasing, role collisions, audit, cache, stale source, manual protection, scope, pause, privileges.');
+console.log('Person review SQL regressions passed: leasing, role collisions, audit, cache, stale source, manual protection, scope, pause, atomic spend, reconciliation, scoped hub, privileges.');
