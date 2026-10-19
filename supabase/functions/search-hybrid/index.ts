@@ -980,7 +980,7 @@ Deno.serve(async (req) => {
       if (cfgRow?.value && typeof cfgRow.value === "object") engineCfg = { ...engineCfg, ...cfgRow.value };
     } catch (_) { /* keep defaults */ }
     // Code-level floor prevents stored older config from reviving the old ranking.
-    const RANKING_VERSION = Math.max(7, Number(engineCfg.ranking_version) || 1);
+    const RANKING_VERSION = Math.max(8, Number(engineCfg.ranking_version) || 1);
     const UNDERSTANDING_VERSION = Number(engineCfg.understanding_version || 1);
     const engineRaw = String(body.engine || engineCfg.default_engine || "v13").toLowerCase();
     const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 13; })();
@@ -1114,12 +1114,20 @@ Deno.serve(async (req) => {
 
     // Resolve exact catalog names/accepted aliases regardless of query casing.
     // Prefix catalog suggestions must not establish person identity.
+    // A public catalog spelling can establish that this is a name query even
+    // when its identity is ambiguous. It must NOT grant a person pin, aliases or
+    // relationship evidence: those still require the existing safe-person gate.
+    const publicNameSpelling = !naturalQuestion.isQuestion && fullNameTsQuery(q)
+      ? await withTimeout(supa.from("people").select("name")
+        .eq("normalized_name", qNorm).eq("is_public", true).eq("is_indexable", true)
+        .limit(1).maybeSingle().then((r: any) => r.error ? null : r.data), 1200, "public_name_spelling")
+      : null;
     const exactPersonAnchors = catalogAnchors.filter((a) => a.kind === "person" && a.id && foldSearchName(a.name) === qNorm);
     const knownNonPerson = catalogAnchors.some((a) => a.kind !== "person" && foldSearchName(a.name) === qNorm);
     const nameTokenCount = qNorm.split(/\s+/).length;
     let isPersonNameQuery = nameTokenCount >= 2 && nameTokenCount <= 4 && !naturalQuestion.isQuestion && !knownNonPerson
-      && (isNameShapedQuery(q) || exactPersonAnchors.length > 0);
-    let personSearchNames = [q, ...exactPersonAnchors.map((a) => a.name)];
+      && (isNameShapedQuery(q) || exactPersonAnchors.length > 0 || !!publicNameSpelling?.name);
+    let personSearchNames = [q, ...(publicNameSpelling?.name ? [publicNameSpelling.name] : []), ...exactPersonAnchors.map((a) => a.name)];
     const acceptedPersonEpisodeIds = new Set<string>();
     const cleanNameEpisodeIds = new Set<string>();
     try {
