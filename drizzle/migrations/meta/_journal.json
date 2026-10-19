@@ -414,6 +414,13 @@
       "when": 1792317939965,
       "tag": "0058_person_relevance_atomic_spend",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792442577552,
+      "tag": "0059_pin_email_queue_function_search_path",
+      "breakpoints": true
     }
   ]
 }
