@@ -9,9 +9,10 @@ const code = ts.transpileModule(source.replace(/^import .*;\r?$/gm, ""), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
 }).outputText;
 
-function endpoint() {
+function endpoint(ambiguous = false) {
   const person = { id: "person", name: "Hajós András", normalized_name: "hajos andras", slug: "hajos-andras",
-    is_public: true, is_indexable: true, activation_status: "active", gated_episode_count: 17, guest_count: 17 };
+    is_public: true, is_indexable: true, activation_status: "active", gated_episode_count: 17, guest_count: 17,
+    identity_ambiguous: ambiguous, wikipedia_match_status: "no_match", wikipedia_match_confidence: 0 };
   const podcast = { language_decision: "accept_hungarian", rss_status: "active" };
   const episodes = [
     { id: "split", title: "Hajós Szilárd és S. Miller András", people: ["Hajós Szilárd", "S. Miller András"], published_at: "2026-02-08", podcasts: podcast },
@@ -67,4 +68,17 @@ describe("hybrid person search endpoint", () => {
     expect(result.ranking_version).toBeGreaterThanOrEqual(7);
     expect(ai).not.toHaveBeenCalled();
   });
+  it.each(["Hajós András", "hajós andrás", "hajos andras", "HAJÓS ANDRÁS"])("keeps casing-independent text recall without trusting an ambiguous identity: %s", async (q) => {
+    const { run, ai } = endpoint(true);
+    const response = await run(q);
+    const result = await response.json();
+    expect(response.status).toBe(200);
+    expect(result.person_name_strict).toBe(true);
+    expect(result.person_pin).toBeUndefined();
+    expect(result.matched_person_ids).toEqual([]);
+    expect(result.episodes.map((e: any) => e.id)).toEqual(["suffix", "real", "clean-only"]);
+    expect(result.ranking_version).toBeGreaterThanOrEqual(8);
+    expect(ai).not.toHaveBeenCalled();
+  });
+
 });
