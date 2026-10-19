@@ -114,3 +114,18 @@ test("Trailing slash canonicalizes to the clean path", async () => {
   const { body } = await exerciseWorker({ path: "/rolunk/", status: 404, originHtml: SHELL });
   assert.match(body, /canonical" href="https:\/\/podiverzum\.hu\/rolunk"/);
 });
+
+const CRAWLER_UA_CASES = [
+  ["Claude-User", true],
+  ["Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)", true],
+  ["Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-SearchBot/1.0; +Claude-SearchBot@anthropic.com)", true],
+  ["Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot", true],
+  ["Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", true],
+  ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36", false],
+];
+for (const [ua, expectBot] of CRAWLER_UA_CASES) test(`Crawler detection: ${expectBot ? "prerender" : "app"} for ${ua.slice(0, 60)}`, async () => {
+  const { body, calls } = await exerciseWorker({ path: "/", ua });
+  assert.equal(calls.upstream, expectBot ? 1 : 0);
+  if (expectBot) assert.match(body, /prerender fixture/);
+  else assert.equal(body, "origin fixture");
+});
