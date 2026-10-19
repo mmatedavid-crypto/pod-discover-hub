@@ -437,10 +437,33 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     return true;
   }).slice(0, 30);
 
+  // Reuse the same public, curated summary as episode cards.
+  // One bounded query, never one request per homepage card.
+  const cardSummaries = new Map<string, string>();
+  const episodeIds = [...new Set(items.map((r) => String(r.episode_id || r.id || "")))]
+    .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+  if (episodeIds.length) {
+    try {
+      const { data: cards, error: cardsError } = await (supabase as any)
+        .from("episode_cards")
+        .select("episode_id,card_summary")
+        .in("episode_id", episodeIds);
+      if (!cardsError) {
+        for (const card of cards ?? []) {
+          if (typeof card.card_summary === "string" && card.card_summary.trim()) {
+            cardSummaries.set(String(card.episode_id), card.card_summary);
+          }
+        }
+      }
+    } catch {
+      // A summary lookup failure must not make the homepage unavailable.
+    }
+  }
+
   const renderItems = (rows: Array<Record<string, any>>) => rows
     .map((r) => {
       const url = `${SITE}/podcast/${r.podcast_slug}/${r.slug}`;
-      const sum = stripHtml(r.summary || r.description);
+      const sum = stripHtml(cardSummaries.get(String(r.episode_id || r.id || "")) || r.summary || r.description);
       const epTitle = r.display_title || r.title;
       const podTitle = r.podcast_display_title || r.podcast_title;
       return `<li><a href="${esc(url)}"><strong>${esc(epTitle)}</strong></a> — <em>${esc(podTitle)}</em>${sum ? `<p>${esc(truncate(sum, 280))}</p>` : ""}</li>`;
