@@ -535,7 +535,7 @@ ${newsItems.join('\n')}
       const topicUrls: string[] = [];
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await sb.from('topics')
-          .select('slug,updated_at').eq('is_public', true).order('id').range(from, from + PAGE - 1);
+          .select('slug,updated_at').eq('is_public', true).eq('is_indexable', true).order('id').range(from, from + PAGE - 1);
         if (error) throw error;
         if (!data?.length) break;
         for (const t of data) {
