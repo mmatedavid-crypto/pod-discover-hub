@@ -1,4 +1,4 @@
-const CACHE_PREFIX = "podiverzum:search-results:v1:";
+const CACHE_PREFIX = "podiverzum:search-results:v2:";
 const SCROLL_PREFIX = "podiverzum:search-scroll:v1:";
 const CACHE_TTL_MS = 10 * 60 * 1000;
 

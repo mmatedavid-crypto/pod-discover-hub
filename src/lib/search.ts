@@ -1,6 +1,7 @@
 // Shared episode search: relevance scoring, semantic expansion, category scope.
 // Goal: query-time Search Relevance Score, separate from Podiverzum Rank.
 import { supabase } from "@/integrations/supabase/client";
+import { createFullNameMatcher, fullNameTsQuery, nameEvidenceTier, rankFullNameMatches } from "../../supabase/functions/_shared/search-name-match";
 
 export const EPISODE_SELECT =
   "id,title,display_title,slug,image_url,published_at,ai_summary,summary,description,topics,people,companies,tickers,ingredients,audio_url,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,language,language_decision)";
@@ -309,7 +310,8 @@ function scoreEpisode(
   let bodyHitAny = false;
 
   const titleLc = (e.title || "").toLowerCase();
-  if (rawQueryLc.length >= 4 && titleLc.includes(rawQueryLc)) {
+  const fullNameTier = nameEvidenceTier(e, createFullNameMatcher([rawQueryLc]));
+  if (fullNameTier === 3 || (exactGroups.length === 1 && rawQueryLc.length >= 4 && titleLc.includes(rawQueryLc))) {
     exactPhraseHit = true;
     s += 400;
   }
@@ -347,6 +349,15 @@ function scoreEpisode(
   // For multi-term queries, penalize when most terms only matched via podcast title.
   if (exactGroups.length >= 2 && podOnlyTermHits >= Math.ceil(exactGroups.length / 2) && !titleHitAny && !entityHitAny) {
     s -= 80;
+  }
+  // Full contiguous evidence must survive token gates even with accents and
+  // Hungarian name suffixes; body-only exact names are valid search matches.
+  if (fullNameTier > 0) {
+    allHit = true;
+    hitCount = Math.max(hitCount, exactGroups.length);
+    strongHits = Math.max(strongHits, 1);
+    if (fullNameTier === 1) bodyHitAny = true;
+    if (fullNameTier === 2) entityHitAny = true;
   }
   if (allHit && exactGroups.length > 1) s += 130;
   s += hitCount * 25;
@@ -516,7 +527,16 @@ export async function searchEpisodes(opts: {
   const exactGroups = terms.map(expandSimple);
   if (intentAliases.length) intentAliases.forEach((a) => { if (!terms.some((t) => t.toLowerCase() === a.toLowerCase())) exactGroups.push([a]); });
 
-  let raw = await queryByGroups(exactGroups);
+  const tsQuery = fullNameTsQuery(rawQuery);
+  const [groupRows, phraseResult] = await Promise.all([
+    queryByGroups(exactGroups),
+    tsQuery ? supabase.from("episodes").select(EPISODE_SELECT)
+      .eq("podcasts.language_decision", "accept_hungarian")
+      .textSearch("search_tsv", tsQuery, { config: "simple" })
+      .order("published_at", { ascending: false }).limit(240)
+      : Promise.resolve({ data: [] }),
+  ]);
+  let raw = [...new Map([...groupRows, ...(phraseResult.data || [])].map((e: any) => [e.id, e])).values()];
   let fallbackUsed = false;
   if (raw.length === 0) {
     raw = await queryPerTerm([...terms, ...intentAliases]);
@@ -659,16 +679,26 @@ export async function searchEpisodes(opts: {
     return [...out, ...deferred];
   };
 
-  const finalAll = diversify(dedupe(decorated));
+  // Enforce full-query evidence AFTER diversity, before truncation. The same
+  // helper is used by the hybrid endpoint. Do not infer people from capitalization
+  // alone here: topical multiword searches retain their broader candidates.
+  const fullQueryMatch = createFullNameMatcher([rawQuery]);
+  const knownPersonQuery = raw.some((e) => (e.people || []).some(fullQueryMatch));
+  const rankNames = (list: ScoredEpisode[]) => {
+    const byId = new Map(list.map((x) => [x.e.id, x]));
+    return rankFullNameMatches(list.map((x) => x.e), [rawQuery], { strict: knownPersonQuery })
+      .map((e) => byId.get(e.id)!);
+  };
+  const finalAll = rankNames(diversify(dedupe(decorated)));
   fallbackUsed = fallbackUsed || partialUsed;
 
   if (categoryKeys.length && scope === "category") {
-    const inCat = diversify(dedupe(decorated.filter((x) => x.inCategory))).slice(0, limit);
+    const inCat = rankNames(diversify(dedupe(decorated.filter((x) => x.inCategory)))).slice(0, limit);
     const outsideRaw = decorated.filter(
       (x) => !x.inCategory && x.score >= 200 &&
         (x.matchType === "exact_title" || x.matchType === "title" || x.matchType === "entity"),
     );
-    const outside = diversify(dedupe(outsideRaw)).slice(0, 8);
+    const outside = rankNames(diversify(dedupe(outsideRaw))).slice(0, 8);
     return { inCategory: inCat, outsideCategory: outside, all: finalAll.slice(0, limit), semanticUsed, fallbackUsed, suggestion, termsForHighlight: terms, detectedLanguage };
   }
 
