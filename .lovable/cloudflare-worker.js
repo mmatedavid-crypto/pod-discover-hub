@@ -80,6 +80,8 @@ const BOT_UAS = [
   "chatgpt-user",
   "claude-web",
   "claudebot",
+  "claude-user",        // Claude user-initiated fetches (no "bot" substring)
+  "claude-searchbot",
   "anthropic-ai",
   "perplexitybot",
   "perplexity-user",
