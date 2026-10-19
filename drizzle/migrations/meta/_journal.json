@@ -421,6 +421,13 @@
       "when": 1792442577552,
       "tag": "0059_pin_email_queue_function_search_path",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1792443822209,
+      "tag": "0060_restrict_pilot_and_embeddings_reads",
+      "breakpoints": true
     }
   ]
 }
