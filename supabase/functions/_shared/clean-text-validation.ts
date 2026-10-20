@@ -44,7 +44,8 @@ export type CleanDecision =
   | { action: "skip_no_content"; reasons: string[]; verdict: CleanVerdict }
   | { action: "quarantine"; reasons: string[]; verdict: CleanVerdict; rescue_len: number };
 
-const URL_RX = /https?:\/\/\S+/gi;
+const URL_RX = /https?:\/\/\s?\S*/gi;
+const DOMAIN_RX = /\b(?:[a-z0-9-]+\.)+(?:hu|com|org|net|io|ai|me|fm|tv|co|ro|sk|rs|at|de|eu|uk|app|link|ee|gg|ly|info|store|shop|blog|page|site)\b(?:\/[^\s]*)?/gi;
 const BARE_URL_RX = /\b(?:www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|music\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|fb\.com|tiktok\.com|patreon\.com|discord\.gg|discord\.com|linktr\.ee|bio\.link|substack\.com|ko-fi\.com)\/?\S*/gi;
 const EMAIL_RX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const HANDLE_RX = /(^|[\s([{"'„“])@[A-Za-z0-9._-]{2,}/g;
@@ -66,8 +67,22 @@ function wordCount(input: string): number {
   return (String(input || "").match(/[\p{L}\p{N}][\p{L}\p{N}'’-]+/gu) || []).length;
 }
 
+/** Split only where whitespace follows sentence punctuation, so "Podcastle.ai" or "1.5" stay intact. */
 function splitSentencesKeep(input: string): string[] {
-  return input.match(/[^.!?\n]+(?:[.!?]+["”»)]?|$)/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+  return input.split(/(?<=[.!?…]["”»)]?)\s+/).map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Drop a call-to-action/legal sentence when it is short or starts with the CTA;
+ * when the CTA appears late in a long run-on sentence, keep the text before it.
+ */
+function stripCtaFromSentence(sentence: string): string | null {
+  const m = CTA_SENTENCE_RX.exec(sentence);
+  if (!m) return sentence;
+  const words = wordCount(sentence);
+  const before = sentence.slice(0, m.index).replace(/[\s\p{P}\p{S}]+$/u, "").trim();
+  if (words <= 14 || wordCount(before) < 6) return null;
+  return before;
 }
 
 /** Decode entities and turn HTML block tags into line breaks without inventing text. */
@@ -87,9 +102,9 @@ export function conservativeRescueClean(raw: string): { text: string; removed: s
   const removed = new Set<string>();
   let t = htmlToPlain(raw);
   const before = t;
-  t = t.replace(URL_RX, " ").replace(BARE_URL_RX, " ").replace(EMAIL_RX, " ").replace(HANDLE_RX, "$1");
+  t = t.replace(URL_RX, " ").replace(EMAIL_RX, " ").replace(BARE_URL_RX, " ").replace(DOMAIN_RX, " ").replace(HANDLE_RX, "$1");
   if (t !== before) removed.add("links_handles");
-  URL_RX.lastIndex = 0; BARE_URL_RX.lastIndex = 0; EMAIL_RX.lastIndex = 0; HANDLE_RX.lastIndex = 0;
+  URL_RX.lastIndex = 0; BARE_URL_RX.lastIndex = 0; DOMAIN_RX.lastIndex = 0; EMAIL_RX.lastIndex = 0; HANDLE_RX.lastIndex = 0;
   t = t.replace(/\s*[|•·]\s+/g, "\n");
 
   const keptLines: string[] = [];
@@ -107,10 +122,12 @@ export function conservativeRescueClean(raw: string): { text: string; removed: s
     if (wordCount(line) === 0) { removed.add("symbol_lines"); continue; }
     if (line.length < 80 && SHORT_FOOTER_LINE_RX.test(line)) { removed.add("footer_label_lines"); continue; }
     const sentences = splitSentencesKeep(line);
-    const keptSentences = sentences.filter((s) => {
-      if (CTA_SENTENCE_RX.test(s) && wordCount(s) <= 30) { removed.add("cta_sentences"); return false; }
-      return true;
-    });
+    const keptSentences: string[] = [];
+    for (const s of sentences) {
+      const kept = stripCtaFromSentence(s);
+      if (kept !== s) removed.add("cta_sentences");
+      if (kept) keptSentences.push(kept);
+    }
     const joined = keptSentences.join(" ").trim();
     if (joined && wordCount(joined) > 0) keptLines.push(joined);
   }
