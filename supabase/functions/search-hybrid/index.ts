@@ -11,6 +11,11 @@ import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.t
 import { detectBot } from "../_shared/bot-detect.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
 import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQuery, nameEvidenceTier, rankFullNameMatches } from "../_shared/search-name-match.ts";
+import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
+
+// Per-query cap for the person-first branch; a slow source degrades to fewer
+// results instead of pushing the request past the client timeout.
+const PERSON_STRICT_QUERY_MS = 2500;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1112,87 +1117,129 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Resolve exact catalog names/accepted aliases regardless of query casing.
-    // Prefix catalog suggestions must not establish person identity.
-    // A public catalog spelling can establish that this is a name query even
-    // when its identity is ambiguous. It must NOT grant a person pin, aliases or
-    // relationship evidence: those still require the existing safe-person gate.
-    const publicNameSpelling = !naturalQuestion.isQuestion && fullNameTsQuery(q)
-      ? await withTimeout(supa.from("people").select("name")
-        .eq("normalized_name", qNorm).eq("is_public", true).eq("is_indexable", true)
-        .limit(1).maybeSingle().then((r: any) => r.error ? null : r.data), 1200, "public_name_spelling")
-      : null;
+    // Person-first full-name search (2026-10-20). Every lookup is indexed and
+    // bounded: exact normalized name / accepted global alias (btree) -> person
+    // links by person_id -> search_tsv phrase + clean-text FTS candidates, then
+    // one hydrate by id. No ILIKE '%name%' scans on the request path.
+    // Identity: only an exact, single, safe catalog person may be pinned.
+    // Ambiguous / homonym catalog rows contribute links but stay unconfirmed.
+    // Rejected links never count; pending links only with a full-name text hit.
     const exactPersonAnchors = catalogAnchors.filter((a) => a.kind === "person" && a.id && foldSearchName(a.name) === qNorm);
     const knownNonPerson = catalogAnchors.some((a) => a.kind !== "person" && foldSearchName(a.name) === qNorm);
     const nameTokenCount = qNorm.split(/\s+/).length;
-    let isPersonNameQuery = nameTokenCount >= 2 && nameTokenCount <= 4 && !naturalQuestion.isQuestion && !knownNonPerson
-      && (isNameShapedQuery(q) || exactPersonAnchors.length > 0 || !!publicNameSpelling?.name);
-    let personSearchNames = [q, ...(publicNameSpelling?.name ? [publicNameSpelling.name] : []), ...exactPersonAnchors.map((a) => a.name)];
+    const nameCandidateQuery = nameTokenCount >= 2 && nameTokenCount <= 4 && !naturalQuestion.isQuestion && !knownNonPerson && !!fullNameTsQuery(q);
+    let isPersonNameQuery = false;
+    let personSearchNames = [q, ...exactPersonAnchors.map((a) => a.name)];
     const acceptedPersonEpisodeIds = new Set<string>();
     const cleanNameEpisodeIds = new Set<string>();
+    const strictTiming: Record<string, number> = {};
+    const strictUnavailable: string[] = [];
+    let strictQueries = 0;
+    const timedStrict = async (label: string, p: PromiseLike<any>): Promise<any> => {
+      strictQueries++;
+      const started = Date.now();
+      const value = await withTimeout(Promise.resolve(p), PERSON_STRICT_QUERY_MS, `person_strict_${label}`);
+      strictTiming[`${label}_ms`] = Date.now() - started;
+      if (value === null || value?.error) strictUnavailable.push(label);
+      return value?.error ? null : value;
+    };
     try {
-      const tokens = qNorm.split(/\s+/);
-      const aliasRows = !naturalQuestion.isQuestion && !knownNonPerson && tokens.length >= 2 && tokens.length <= 4
-        ? await supa.from("person_aliases")
-          .select("person_id,people!inner(id,name,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living,gated_episode_count,episode_count)")
-          .eq("normalized_alias", qNorm).eq("status", "accepted").eq("scope", "global").gte("confidence", 0.7).limit(50)
-        : { data: [] };
-      const safeAliases = (aliasRows.data || []).filter((r: any) => isSafePublicPerson(r.people));
-      if (safeAliases.length) isPersonNameQuery = true;
-      personSearchNames = uniqueClean([...personSearchNames, ...safeAliases.map((r: any) => r.people.name)], 8);
-      if (isPersonNameQuery) {
-        const matchesName = createFullNameMatcher(personSearchNames);
-        const personIds = Array.from(new Set([...exactPersonAnchors.map((a) => a.id), ...safeAliases.map((r: any) => r.person_id)]));
-        if (personIds.length) {
-          const { data } = await supa.from("person_episode_mentions")
-            .select("episode_id").in("person_id", personIds).eq("relevance_status", "accepted")
-            .order("confidence", { ascending: false }).limit(200);
-          for (const row of data || []) acceptedPersonEpisodeIds.add(row.episode_id);
-        }
-
-        const tsQueries = [...new Set(personSearchNames.map(fullNameTsQuery).filter(Boolean))];
-        const directQueries = tsQueries.map((tsq) => supa.from("episodes")
-          .select(EPISODE_SELECT).eq("podcasts.language_decision", "accept_hungarian")
-          .textSearch("search_tsv", tsq!, { config: "simple" })
-          .order("published_at", { ascending: false }).limit(240));
-        // Publisher descriptions/clean text may contain names missing from the
-        // title and search index. Verify the whole returned field, never a cut.
-        const needles = personSearchNames.slice(0, 3).map((name) => name.replace(/[%_]/g, ""));
-        const sourceQueries = needles.flatMap((needle) => [
-          supa.from("episodes").select(EPISODE_SELECT)
-            .eq("podcasts.language_decision", "accept_hungarian")
-            .ilike("description", `%${needle}%`).limit(120),
-          supa.from("episode_clean_text").select("episode_id,cleaned_text")
-            .like("cleaner_method", "deterministic_v4%").ilike("cleaned_text", `%${needle}%`).limit(120),
+      if (nameCandidateQuery) {
+        const PERSON_COLS = "id,name,slug,normalized_name,disambiguation_label,gated_episode_count,episode_count,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living";
+        const [exactRes, aliasRes] = await Promise.all([
+          timedStrict("people_exact", supa.from("people").select(PERSON_COLS)
+            .eq("normalized_name", qNorm).eq("is_public", true).eq("is_indexable", true).limit(10)),
+          timedStrict("person_alias", supa.from("person_aliases").select(`person_id,people!inner(${PERSON_COLS})`)
+            .eq("normalized_alias", qNorm).eq("status", "accepted").eq("scope", "global").gte("confidence", 0.7).limit(20)),
         ]);
-        const directResults = await Promise.all([...directQueries, ...sourceQueries]);
-        const episodesById = new Map<string, any>();
-        for (const result of directResults) {
-          for (const row of result.data || []) {
-            if (row.episode_id) {
-              if (matchesName(row.cleaned_text)) cleanNameEpisodeIds.add(row.episode_id);
-            } else if (nameEvidenceTier(row, matchesName) > 0) episodesById.set(row.id, row);
+        const exactRows: any[] = exactRes?.data || [];
+        const candidateRows = new Map<string, any>();
+        for (const p of exactRows) if (p?.id && isPersonEvidenceCandidate(p)) candidateRows.set(p.id, p);
+        // Aliases may name a different spelling; only confirmed identities may widen the name set.
+        const safeAliasPeople = (aliasRes?.data || []).map((r: any) => r.people).filter((p: any) => p?.id && isSafePublicPerson(p));
+        for (const p of safeAliasPeople) candidateRows.set(p.id, p);
+        const candidates: PersonCandidate[] = [...candidateRows.values()]
+          .sort((a, b) => Number(b.gated_episode_count || 0) - Number(a.gated_episode_count || 0) || String(a.id).localeCompare(String(b.id)))
+          .slice(0, 6)
+          .map((p) => ({
+            id: p.id, name: p.name, slug: p.slug || null, verified: isSafePublicPerson(p),
+            disambiguation_label: p.disambiguation_label || null,
+            gated_episode_count: p.gated_episode_count ?? p.episode_count ?? null,
+            identity_ambiguous: p.identity_ambiguous ?? null,
+          }));
+        for (const a of exactPersonAnchors) {
+          if (!candidates.some((c) => c.id === a.id)) candidates.push({ id: a.id!, name: a.name, slug: a.slug, verified: true });
+        }
+        // A public catalog spelling marks a name query but grants no identity.
+        isPersonNameQuery = isNameShapedQuery(q) || candidates.length > 0 || exactRows.length > 0;
+        personSearchNames = uniqueClean([...personSearchNames, ...exactRows.map((p) => p.name), ...safeAliasPeople.map((p: any) => p.name)], 8);
+
+        if (isPersonNameQuery) {
+          const matchesName = createFullNameMatcher(personSearchNames);
+          const personIds = candidates.map((c) => c.id);
+          const tsQueries = [...new Set(personSearchNames.map(fullNameTsQuery).filter(Boolean))].slice(0, 3) as string[];
+          const cleanTsq = cleanTextNameTsQuery(personSearchNames);
+          const empty = Promise.resolve({ data: [] });
+          // Participant links are fetched separately so a person with thousands
+          // of subject/mention links still surfaces own appearances first.
+          const [participantRes, acceptedRes, pendingRes, cleanRes, ...tsvResults] = await Promise.all([
+            personIds.length ? timedStrict("links_participant", supa.from("person_episode_mentions")
+              .select("person_id,episode_id,relevance_status,mention_type,role_type")
+              .in("person_id", personIds).eq("relevance_status", "accepted").eq("role_type", "participant")
+              .order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(200)) : empty,
+            personIds.length ? timedStrict("links_accepted", supa.from("person_episode_mentions")
+              .select("person_id,episode_id,relevance_status,mention_type,role_type")
+              .in("person_id", personIds).eq("relevance_status", "accepted")
+              .order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(200)) : empty,
+            personIds.length ? timedStrict("links_pending", supa.from("person_episode_mentions")
+              .select("person_id,episode_id,relevance_status,mention_type,role_type")
+              .in("person_id", personIds).in("relevance_status", ["pending", "needs_review", "waiting_clean_text", "in_progress"])
+              .limit(150)) : empty,
+            cleanTsq ? timedStrict("clean_text_fts", supa.rpc("search_clean_text_name_candidates", { p_tsquery: cleanTsq, p_limit: 200 })) : empty,
+            ...tsQueries.map((tsq, i) => timedStrict(`tsv_${i}`, supa.from("episodes")
+              .select(EPISODE_SELECT).eq("podcasts.language_decision", "accept_hungarian")
+              .textSearch("search_tsv", tsq, { config: "simple" })
+              .order("published_at", { ascending: false }).limit(240))),
+          ]);
+          const links: PersonLink[] = [...(participantRes?.data || []), ...(acceptedRes?.data || []), ...(pendingRes?.data || [])].filter((l: any) => l?.episode_id && l?.person_id);
+          const verifiedIds = new Set(candidates.length === 1 && candidates[0].verified ? [candidates[0].id] : []);
+          for (const l of links) if (l.relevance_status === "accepted" && verifiedIds.has(l.person_id)) acceptedPersonEpisodeIds.add(l.episode_id);
+          for (const row of cleanRes?.data || []) if (row?.episode_id && matchesName(row.cleaned_text)) cleanNameEpisodeIds.add(row.episode_id);
+          const episodesById = new Map<string, any>();
+          for (const result of tsvResults) {
+            for (const row of result?.data || []) if (row?.id && nameEvidenceTier(row, matchesName) > 0) episodesById.set(row.id, row);
           }
-        }
-        const linkedIds = [...new Set([...acceptedPersonEpisodeIds, ...cleanNameEpisodeIds])];
-        if (linkedIds.length) {
-          const { data } = await supa.from("episodes").select(EPISODE_SELECT)
-            .eq("podcasts.language_decision", "accept_hungarian").in("id", linkedIds);
-          for (const row of data || []) episodesById.set(row.id, row);
-        }
-        const episodes = rankFullNameMatches([...episodesById.values()]
-          .filter((e) => isAcceptedHungarianPodcast(e.podcasts))
-          .sort((a, b) => (Date.parse(b.published_at) || 0) - (Date.parse(a.published_at) || 0)),
-          personSearchNames, { strict: true, acceptedEpisodeIds: acceptedPersonEpisodeIds, cleanTextEpisodeIds: cleanNameEpisodeIds });
-        if (episodes.length) {
-          return new Response(JSON.stringify({
-            episodes: episodes.slice(0, limit),
-            timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
-            confidence_band: "high", person_name_strict: true, person_query: qNorm,
-            matched_person_ids: personIds, person_pin: earlyPersonPin || undefined,
-            organization_pin: earlyOrganizationPin || undefined, topic_pin: earlyTopicPin || undefined,
-            reason: "person_strict_match", ranking_version: RANKING_VERSION,
-          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          const missing = [...new Set([...links.map((l) => l.episode_id), ...cleanNameEpisodeIds])]
+            .filter((id) => !episodesById.has(id)).slice(0, 360);
+          const hydrated = await Promise.all(
+            Array.from({ length: Math.ceil(missing.length / 120) }, (_, i) => missing.slice(i * 120, i * 120 + 120))
+              .map((ids, i) => timedStrict(`hydrate_${i}`, supa.from("episodes").select(EPISODE_SELECT)
+                .eq("podcasts.language_decision", "accept_hungarian").in("id", ids))),
+          );
+          for (const result of hydrated) for (const row of result?.data || []) if (row?.id) episodesById.set(row.id, row);
+          const pool = [...episodesById.values()]
+            .filter((e) => isAcceptedHungarianPodcast(e.podcasts))
+            .sort((a, b) => (Date.parse(b.published_at) || 0) - (Date.parse(a.published_at) || 0) || String(a.id).localeCompare(String(b.id)));
+          const ranked = rankPersonEvidence({ episodes: pool, names: personSearchNames, links, candidates, cleanTextEpisodeIds: cleanNameEpisodeIds });
+          console.log("person_strict", { queries: strictQueries, unavailable: strictUnavailable, candidates: candidates.length, results: ranked.length, ms: elapsed() });
+          if (ranked.length) {
+            const identity = personIdentityState(candidates);
+            const pin = identity === "verified" && earlyPersonPin?.id === candidates[0].id ? earlyPersonPin : undefined;
+            return new Response(JSON.stringify({
+              episodes: ranked.slice(0, limit),
+              timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0, person_strict: { ...strictTiming, queries: strictQueries, unavailable: strictUnavailable } },
+              confidence_band: "high", person_name_strict: true, person_query: qNorm,
+              person_identity: identity,
+              person_candidates: identity === "verified" ? undefined : candidates.map((c) => ({
+                name: c.name, slug: c.slug, disambiguation_label: c.disambiguation_label ?? null,
+                gated_episode_count: c.gated_episode_count ?? null, verified: c.verified && identity !== "multiple",
+              })),
+              matched_person_ids: identity === "verified" ? [candidates[0].id] : [],
+              person_pin: pin,
+              organization_pin: earlyOrganizationPin || undefined, topic_pin: earlyTopicPin || undefined,
+              reason: "person_strict_match", ranking_version: RANKING_VERSION,
+            }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
         }
       }
     } catch (e) {
