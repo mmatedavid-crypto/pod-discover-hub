@@ -247,6 +247,7 @@ export default function SearchPage() {
     setHeroTopic(cached?.metadata.heroTopic || null);
     setDegradedSearch((cached?.metadata.degradedSearch as "timeout" | "fallback" | null) || null);
     setTimestampMatchCount(Number(cached?.metadata.timestampMatchCount || 0));
+    setExactInfo((cached?.metadata.exactPhrase as ExactPhraseInfo | null | undefined) || null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     if (cached) {
@@ -275,7 +276,8 @@ export default function SearchPage() {
         const next = eps.slice(0, 80).map((e) => {
           const safeWhy = sanitizeSearchWhy(e.why_matched);
           const evidenceLabel = typeof e.name_evidence?.label === "string" ? e.name_evidence.label : null;
-          return { ...e, matchBadge: evidenceLabel || (safeWhy ? null : "Kulcsszavas találat"), why_matched: safeWhy };
+          const exactLabel = typeof e.exact_match?.label === "string" ? e.exact_match.label : null;
+          return { ...e, matchBadge: exactLabel || evidenceLabel || (safeWhy ? null : "Kulcsszavas találat"), why_matched: safeWhy };
         });
         setTimestampMatchCount(next.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length);
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
@@ -297,6 +299,11 @@ export default function SearchPage() {
         semantic = r1.semantic;
         setEpisodes(mapped);
         setSemanticUsed(semantic || r1.reranked);
+        const ex = phase1.data?.exact_phrase;
+        if (ex && Array.isArray(ex.phrases)) {
+          exactMeta = { phrases: ex.phrases.map(String), total: Number(ex.total) || mapped.length };
+          setExactInfo(exactMeta);
+        }
         const cb = phase1.data?.confidence_band;
         if (cb === "high" || cb === "medium" || cb === "low") setConfidence(cb);
         const pin = phase1.data?.podcast_pin;
@@ -352,8 +359,19 @@ export default function SearchPage() {
         if (cancelled) return;
         if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
         let chosen = result.all;
+        if (exactQuery.hasExact) {
+          // Fallback list ignores quotes; keep only verified exact matches.
+          chosen = chosen.filter((x) => exactPhraseMatch(episodeExactFields(x.e), exactQuery).ok);
+        }
         const ranked = chosen.slice(0, 80);
-        mapped = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "Kulcsszavas találat" }));
+        mapped = ranked.map((x) => {
+          const exact = exactQuery.hasExact ? exactPhraseMatch(episodeExactFields(x.e), exactQuery) : null;
+          return { ...x.e, matchBadge: exact ? exactMatchLabel(exact.fields) : (MATCH_LABEL[x.matchType] || "Kulcsszavas találat") };
+        });
+        if (exactQuery.hasExact) {
+          exactMeta = { phrases: exactQuery.labels, total: mapped.length };
+          setExactInfo(exactMeta);
+        }
         semantic = result.semanticUsed;
         usedFallback = result.fallbackUsed || usedFallback;
         setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
@@ -395,8 +413,9 @@ export default function SearchPage() {
       }
 
       // Podcasts query (separate, simpler). Includes full-phrase title hit.
-      const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
-      const fullPhrase = initial.trim();
+      // Quote marks are stripped here; exact mode re-verifies the phrase below.
+      const { terms } = parseQuery(normalizeQuery(plainQuery).normalized || plainQuery);
+      const fullPhrase = plainQuery;
       let pq = supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,language_decision")
@@ -418,7 +437,10 @@ export default function SearchPage() {
           decision === "accept_hungarian" &&
           !["failed", "inactive", "blocked", "dead"].includes(status)
         );
-      });
+      }).filter((p: any) => !exactQuery.hasExact || exactPhraseMatch([
+        { key: "title", text: p.title }, { key: "title", text: p.display_title },
+        { key: "description", text: p.summary }, { key: "description", text: p.description },
+      ], exactQuery).ok);
       const rankedPs = visiblePs
         .map((p) => ({ p, s: scorePodcast(p, terms, fullPhrase) + ((p.podiverzum_rank ?? 0) * 0.5) }))
         .filter((x) => x.s > 0)
@@ -444,6 +466,7 @@ export default function SearchPage() {
           personCandidates: Array.isArray(searchDiagnostics?.person_candidates) ? searchDiagnostics.person_candidates.slice(0, 6) : [],
           degradedSearch,
           timestampMatchCount: mapped.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length,
+          exactPhrase: exactMeta,
         },
         scrollY: previousCache?.scrollY || 0,
       });
