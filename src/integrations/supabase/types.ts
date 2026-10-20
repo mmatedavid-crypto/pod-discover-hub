@@ -6244,6 +6244,257 @@ export type Database = {
           },
         ]
       }
+      person_relevance_batch_audit: {
+        Row: {
+          after: Json
+          applied_at: string
+          before: Json
+          id: number
+          item_id: string
+          job_id: string
+          mention_id: string
+          rollback_note: string | null
+          rolled_back_at: string | null
+        }
+        Insert: {
+          after: Json
+          applied_at?: string
+          before: Json
+          id?: number
+          item_id: string
+          job_id: string
+          mention_id: string
+          rollback_note?: string | null
+          rolled_back_at?: string | null
+        }
+        Update: {
+          after?: Json
+          applied_at?: string
+          before?: Json
+          id?: number
+          item_id?: string
+          job_id?: string
+          mention_id?: string
+          rollback_note?: string | null
+          rolled_back_at?: string | null
+        }
+        Relationships: []
+      }
+      person_relevance_batch_items: {
+        Row: {
+          applied_at: string | null
+          attempt: number
+          cached_tokens: number | null
+          cost_usd: number | null
+          created_at: string
+          custom_id: string
+          decision: Json | null
+          episode_id: string
+          error: string | null
+          escalate: boolean
+          final_status: string | null
+          id: string
+          identity_risk: boolean
+          input_tokens: number | null
+          job_id: string
+          output_tokens: number | null
+          person_id: string
+          prompt_version: string
+          source_hash: string
+          status: string
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          attempt?: number
+          cached_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          custom_id: string
+          decision?: Json | null
+          episode_id: string
+          error?: string | null
+          escalate?: boolean
+          final_status?: string | null
+          id?: string
+          identity_risk?: boolean
+          input_tokens?: number | null
+          job_id: string
+          output_tokens?: number | null
+          person_id: string
+          prompt_version: string
+          source_hash: string
+          status?: string
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          attempt?: number
+          cached_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          custom_id?: string
+          decision?: Json | null
+          episode_id?: string
+          error?: string | null
+          escalate?: boolean
+          final_status?: string | null
+          id?: string
+          identity_risk?: boolean
+          input_tokens?: number | null
+          job_id?: string
+          output_tokens?: number | null
+          person_id?: string
+          prompt_version?: string
+          source_hash?: string
+          status?: string
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_relevance_batch_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "person_relevance_batch_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_relevance_batch_jobs: {
+        Row: {
+          actual_cost_usd: number
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          ingested_at: string | null
+          input_bytes: number
+          last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
+          meta: Json
+          model: string
+          openai_batch_id: string | null
+          openai_error_file_id: string | null
+          openai_input_file_id: string | null
+          openai_output_file_id: string | null
+          prompt_version: string
+          request_count: number
+          request_counts: Json | null
+          reserved_cost_usd: number
+          rolled_back_at: string | null
+          status: string
+          submitted_at: string | null
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          actual_cost_usd?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          ingested_at?: string | null
+          input_bytes?: number
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          meta?: Json
+          model: string
+          openai_batch_id?: string | null
+          openai_error_file_id?: string | null
+          openai_input_file_id?: string | null
+          openai_output_file_id?: string | null
+          prompt_version: string
+          request_count?: number
+          request_counts?: Json | null
+          reserved_cost_usd?: number
+          rolled_back_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          tier?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_cost_usd?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          ingested_at?: string | null
+          input_bytes?: number
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          meta?: Json
+          model?: string
+          openai_batch_id?: string | null
+          openai_error_file_id?: string | null
+          openai_input_file_id?: string | null
+          openai_output_file_id?: string | null
+          prompt_version?: string
+          request_count?: number
+          request_counts?: Json | null
+          reserved_cost_usd?: number
+          rolled_back_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      person_relevance_goldens: {
+        Row: {
+          created_at: string
+          episode_id: string
+          id: string
+          label_identity: string | null
+          label_mention_type: string | null
+          label_status: string
+          labeled_by: string | null
+          notes: string | null
+          person_id: string
+          source_hash: string | null
+          stratum: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          id?: string
+          label_identity?: string | null
+          label_mention_type?: string | null
+          label_status: string
+          labeled_by?: string | null
+          notes?: string | null
+          person_id: string
+          source_hash?: string | null
+          stratum?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          id?: string
+          label_identity?: string | null
+          label_mention_type?: string | null
+          label_status?: string
+          labeled_by?: string | null
+          notes?: string | null
+          person_id?: string
+          source_hash?: string | null
+          stratum?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       person_relevance_spend_receipts: {
         Row: {
           cost_usd: number
@@ -10419,6 +10670,7 @@ export type Database = {
         Args: { _episode: string; _person: string; _token: string }
         Returns: Json
       }
+      apply_person_openai_batch_item: { Args: { _item: string }; Returns: Json }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
       autoprewarm_dump_now: { Args: never; Returns: number }
       autoprewarm_start_worker: { Args: never; Returns: undefined }
@@ -10550,6 +10802,15 @@ export type Database = {
       claim_person_judge_batch: { Args: { _limit: number }; Returns: string[] }
       claim_person_judge_pairs: {
         Args: { _limit: number; _person_ids?: string[]; _token: string }
+        Returns: Json[]
+      }
+      claim_person_openai_batch_pairs: {
+        Args: {
+          _job: string
+          _limit: number
+          _person_ids?: string[]
+          _role?: string
+        }
         Returns: Json[]
       }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
@@ -11177,7 +11438,26 @@ export type Database = {
         Args: { _episode: string; _person: string }
         Returns: Json
       }
+      person_judge_source_with_hash: {
+        Args: { _episode: string; _person: string }
+        Returns: Json
+      }
       person_judge_telemetry: { Args: { _patch: Json }; Returns: undefined }
+      person_openai_batch_candidates: {
+        Args: {
+          _limit: number
+          _offset?: number
+          _person_ids?: string[]
+          _role?: string
+        }
+        Returns: {
+          episode_id: string
+          identity_risk: boolean
+          is_public_person: boolean
+          person_id: string
+          published_at: string
+        }[]
+      }
       pipeline_health_item_v1: {
         Args: {
           p_backlog?: number
@@ -11320,8 +11600,16 @@ export type Database = {
         Returns: Json
       }
       refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
+      release_person_openai_batch_job: {
+        Args: { _job: string }
+        Returns: number
+      }
       requeue_legacy_clean_text_v4_backfill: {
         Args: { _limit?: number; _tiers?: string[] }
+        Returns: Json
+      }
+      reserve_person_openai_batch_cost: {
+        Args: { _amount: number; _job: string; _requests: number }
         Returns: Json
       }
       resolve_canonical_entity_alias: {
@@ -11342,6 +11630,10 @@ export type Database = {
           similarity: number
           slug: string
         }[]
+      }
+      rollback_person_openai_batch_job: {
+        Args: { _job: string }
+        Returns: Json
       }
       search_backfill_batch: {
         Args: { _batch?: number; _table: string }

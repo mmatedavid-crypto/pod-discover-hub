@@ -12,3 +12,9 @@
 - [x] Person-first indexed name search with role/evidence ordering, ambiguity marking and homonym disambiguation; deployed `search-hybrid`; clean-text name index added.
 - [x] Read-only relationship backlog audit and human review order (docs/person-search-evidence-2026-10-20.md).
 - [ ] Publish the frontend so visitors see evidence labels and the same-name notice (waits on user publish).
+
+## OpenAI Batch person review (2026-10-20)
+- [x] Batch adapter, RPCs, admin dry-run page, golden labelling, tests, deploy (no paid call).
+- [ ] Owner adds a NEW/rotated OPENAI_API_KEY in Secrets (blocked: owner action).
+- [ ] Owner labels 100-200 goldens, then authorizes golden model comparison and a 1,000-2,000 pair pilot with daily/total caps (blocked: owner authorization).
+- [ ] After pilot gates pass: scheduled polling and escalation enablement (planned).
