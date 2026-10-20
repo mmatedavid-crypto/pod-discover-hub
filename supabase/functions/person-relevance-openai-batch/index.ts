@@ -68,7 +68,10 @@ async function openai(path: string, init: RequestInit = {}) {
 
 // Auth/permission denials pause the whole pipeline; 429/5xx stay transient.
 async function handleOpenAIFailure(db: any, status: number, error: string | null) {
-  if (status === 401 || status === 403) await pauseControls(db, `openai_denied_${status}:${error || ""}`.slice(0, 120));
+  if (status === 401 || status === 403 || /insufficient_quota|billing/i.test(error || "")) {
+    await pauseControls(db, `openai_denied_${status}:${error || ""}`.slice(0, 120));
+    return "terminal";
+  }
   return status === 429 || status >= 500 ? "transient" : "terminal";
 }
 
@@ -85,8 +88,9 @@ async function* streamLines(res: Response) {
   if (buf.trim()) yield buf.trim();
 }
 
-function toSource(input: any): Source {
-  return input as Source;
+async function sourceWithHash(db: any, person: string, episode: string): Promise<{ source_hash: string; input: Source } | null> {
+  const r = await rpc(db, "person_judge_source_with_hash", { _person: person, _episode: episode });
+  return r && typeof r.source_hash === "string" && r.input ? r : null;
 }
 
 async function statusAction(db: any, controls: Controls) {
@@ -133,11 +137,12 @@ async function previewAction(db: any, controls: Controls, body: any) {
   const totals: Record<string, number> = Object.fromEntries(models.map((m) => [m, 0]));
   let paid = 0, bytes = 0, tokens = 0;
   for (const c of cands || []) {
-    const src = toSource(await rpc(db, "person_judge_source", { _person: c.person_id, _episode: c.episode_id }));
-    if (!src) continue;
+    const sourced = await sourceWithHash(db, c.person_id, c.episode_id);
+    if (!sourced) continue;
+    const src = sourced.input;
     const guard = inputGuard(src);
     const line = buildRequestLine(buildCustomId({ promptVersion: controls.prompt_version, tier: "primary", personId: c.person_id,
-      episodeId: c.episode_id, sourceHash: "0".repeat(32), attempt: 1 }), src, controls, controls.primary_model);
+      episodeId: c.episode_id, sourceHash: sourced.source_hash, attempt: 1 }), src, controls, controls.primary_model);
     const lineBytes = jsonlSize([line]);
     const inTok = estimateTokens(line.body.instructions) + estimateTokens(line.body.input);
     if (!guard) {
@@ -173,9 +178,9 @@ async function labelGolden(db: any, userId: string, body: any) {
     && (body.label_mention_type == null || ["host", "guest", "subject", "mentioned", "none"].includes(body.label_mention_type))
     && (body.label_identity == null || ["same_person", "different_person_same_name", "substring_false_positive", "uncertain"].includes(body.label_identity));
   if (!ok) return json({ ok: false, error: "invalid_label" }, 400);
-  const src = await rpc(db, "person_judge_source", { _person: body.person_id, _episode: body.episode_id });
-  if (!src) return json({ ok: false, error: "pair_not_found" }, 404);
-  const hash = await md5Hex(JSON.stringify(src));
+  const sourced = await sourceWithHash(db, body.person_id, body.episode_id);
+  if (!sourced) return json({ ok: false, error: "pair_not_found" }, 404);
+  const hash = sourced.source_hash;
   const { error } = await db.from("person_relevance_goldens").upsert({
     person_id: body.person_id, episode_id: body.episode_id, source_hash: hash, label_status: body.label_status,
     label_mention_type: body.label_mention_type ?? null, label_identity: body.label_identity ?? null,
@@ -186,12 +191,6 @@ async function labelGolden(db: any, userId: string, body: any) {
   return json({ ok: true });
 }
 
-// Informational only: the authoritative hash is computed in SQL (md5(jsonb::text)).
-async function md5Hex(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest("MD5" as any, new TextEncoder().encode(text)).catch(() => null);
-  if (!digest) return "";
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 type Prepared = { person_id: string; episode_id: string; source_hash: string; identity_risk: boolean; input: Source; prior_item_id?: string };
 
@@ -228,8 +227,8 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
     } else if (tier === "golden_eval") {
       const { data: g } = await db.from("person_relevance_goldens").select("person_id,episode_id").order("created_at").limit(requested);
       for (const row of g || []) {
-        const src = await rpc(db, "person_judge_source", { _person: row.person_id, _episode: row.episode_id });
-        if (src) prepared.push({ person_id: row.person_id, episode_id: row.episode_id, source_hash: await md5Hex(JSON.stringify(src)) || "0".repeat(32), identity_risk: false, input: src });
+        const sourced = await sourceWithHash(db, row.person_id, row.episode_id);
+        if (sourced) prepared.push({ person_id: row.person_id, episode_id: row.episode_id, source_hash: sourced.source_hash, identity_risk: false, input: sourced.input });
       }
     } else {
       const { data: waiting } = await db.from("person_relevance_batch_items").select("id,job_id,person_id,episode_id,source_hash,identity_risk")
@@ -238,8 +237,8 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
         const moved = await db.from("person_relevance_work").update({ claim_token: jobId, lease_until: new Date(Date.now() + 26 * 3600e3).toISOString(), updated_at: new Date().toISOString() })
           .eq("person_id", w.person_id).eq("episode_id", w.episode_id).eq("claim_token", w.job_id).eq("source_hash", w.source_hash).select("person_id");
         if (!moved.data?.length) continue;
-        const src = await rpc(db, "person_judge_source", { _person: w.person_id, _episode: w.episode_id });
-        if (src) prepared.push({ person_id: w.person_id, episode_id: w.episode_id, source_hash: w.source_hash, identity_risk: w.identity_risk, input: src, prior_item_id: w.id });
+        const sourced = await sourceWithHash(db, w.person_id, w.episode_id);
+        if (sourced?.source_hash === w.source_hash) prepared.push({ person_id: w.person_id, episode_id: w.episode_id, source_hash: w.source_hash, identity_risk: w.identity_risk, input: sourced.input, prior_item_id: w.id });
       }
     }
 
@@ -323,8 +322,12 @@ async function ingestJob(db: any, controls: Controls, job: any) {
           status: parsed.outcome === "refusal" ? "refused" : parsed.outcome === "schema_mismatch" ? "invalid" : "failed", error: parsed.error }).eq("id", item.id);
         continue;
       }
-      const src = await rpc(db, "person_judge_source", { _person: item.person_id, _episode: item.episode_id });
-      if (!src) { await db.from("person_relevance_batch_items").update({ ...usage, status: "skipped_stale", error: "source_missing" }).eq("id", item.id); continue; }
+      const sourced = await sourceWithHash(db, item.person_id, item.episode_id);
+      if (!sourced || sourced.source_hash !== item.source_hash) {
+        await db.from("person_relevance_batch_items").update({ ...usage, status: "skipped_stale", error: sourced ? "source_changed" : "source_missing" }).eq("id", item.id);
+        continue;
+      }
+      const src = sourced.input;
       const policy = decidePolicy(parsed.raw, src, { model: job.model, identityRisk: item.identity_risk, allowAiRejection: controls.allow_ai_rejection, tier: item.tier });
       const hold = policy.escalate && controls.escalation_enabled && item.tier === "primary";
       const status = item.tier === "golden_eval" ? "evaluated" : hold ? "awaiting_escalation" : "succeeded";
