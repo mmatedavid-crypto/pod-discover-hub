@@ -11347,6 +11347,13 @@ export type Database = {
         Args: { _batch?: number; _table: string }
         Returns: number
       }
+      search_clean_text_name_candidates: {
+        Args: { p_limit?: number; p_tsquery: string }
+        Returns: {
+          cleaned_text: string
+          episode_id: string
+        }[]
+      }
       search_episode_chunks: {
         Args: {
           candidate_pool?: number

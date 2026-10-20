@@ -435,6 +435,13 @@
       "when": 1792479836663,
       "tag": "0061_episodes_published_at_desc_nulls_last_index",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1792514917127,
+      "tag": "0062_person_search_clean_text_fts",
+      "breakpoints": true
     }
   ]
 }
