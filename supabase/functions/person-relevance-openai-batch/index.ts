@@ -405,16 +405,51 @@ async function pollAction(db: any, controls: Controls, body: any) {
   return json({ ok: true, jobs: out });
 }
 
+// Scheduled step: poll/ingest open jobs, then submit the next primary batch
+// only within the owner-authorized caps and all submission gates. Sized from
+// the remaining budget so the reservation never needs to be refused.
+const TICK_UPPER_USD_PER_PAIR = 0.0006;
+async function tickAction(db: any) {
+  const polled = await (await pollAction(db, await loadControls(db), {})).json();
+  const controls = await loadControls(db);
+  if (!controls.enabled) return { ok: true, polled, submitted: false, reason: "controls_disabled" };
+  const { data: jobs } = await db.from("person_relevance_batch_jobs").select("status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
+    .not("status", "in", "(draft,aborted)").limit(5000);
+  const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
+  let committed = 0, today = 0, used = 0, open = 0;
+  for (const j of jobs || []) {
+    const c = Math.max(Number(j.reserved_cost_usd) || 0, Number(j.actual_cost_usd) || 0);
+    committed += c; used += Number(j.request_count) || 0;
+    if (new Date(j.created_at) >= dayStart) today += c;
+    if (OPEN_STATUSES.includes(j.status)) open++;
+  }
+  if (open >= Math.max(1, controls.max_open_jobs)) return { ok: true, polled, submitted: false, reason: "open_job" };
+  const auth = controls.authorized_pilot;
+  const totalCap = Math.min(controls.total_cap_usd, Number(auth?.total_cap_usd) || 0);
+  const dailyCap = Math.min(controls.daily_cap_usd, Number(auth?.daily_cap_usd ?? totalCap) || 0);
+  const remaining = Math.min(totalCap - committed, dailyCap - today);
+  const size = Math.min(controls.max_requests_per_job, (Number(auth?.max_requests) || 0) - used, Math.floor(remaining / TICK_UPPER_USD_PER_PAIR));
+  if (size < 20) {
+    if (totalCap - committed < 20 * TICK_UPPER_USD_PER_PAIR) await pauseControls(db, "authorized_budget_exhausted");
+    return { ok: true, polled, submitted: false, reason: "budget_or_request_cap_reached", committed_usd: committed };
+  }
+  const res = await submitAction(db, controls, null as unknown as string, { tier: "primary", limit: size });
+  return { ok: true, polled, submit: await res.json(), committed_before_usd: committed };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   try {
+    let body: any = {};
+    try { body = await req.clone().json(); } catch { /* empty */ }
+    // Cron may only run the bounded tick; every other action needs an admin.
+    if (body.action === "tick" && body.trigger === "cron") return json(await tickAction(db));
     const userId = await requireAdmin(db, req);
     if (!userId) return json({ ok: false, error: "admin_required" }, 403);
-    let body: any = {};
-    try { body = await req.json(); } catch { /* empty */ }
     const controls = await loadControls(db);
     switch (body.action || "status") {
+      case "tick": return json(await tickAction(db));
       case "status": return json(await statusAction(db, controls));
       case "preview": return json(await previewAction(db, controls, body));
       case "label_golden": return await labelGolden(db, userId, body);
