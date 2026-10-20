@@ -1082,6 +1082,16 @@ Deno.serve(async (req) => {
 
     if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+    // Quoted phrase ("..." / „...”) => exact mode, like Google. Empty quotes
+    // fall through to the normal pipeline with the quote marks removed.
+    const exactQuery = parseExactPhraseQuery(q);
+    if (exactQuery.hasExact) {
+      const out = await runExactPhraseSearch(supaPre, exactQuery, limit, lang, `v${engN}`);
+      return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (/["„“”‟″«»]/.test(q)) q = exactQuery.plainText || q;
+    if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
     const supa = supaPre;
     const t0 = Date.now();
     const latencyMode = String(body.latency_mode || "public").toLowerCase();
