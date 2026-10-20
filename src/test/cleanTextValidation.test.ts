@@ -91,7 +91,7 @@ describe("best text source policy", () => {
 });
 
 describe("runner safety (static)", () => {
-  const read = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), "utf8");
+  const read = (p: string) => readFileSync(`${process.cwd()}/${p}`, "utf8");
   it("clean-text runner never marks quarantined/invalid output done and gates paid AI on approval", () => {
     const runner = read("supabase/functions/episode-clean-text-runner/index.ts");
     expect(runner).toContain("decideCleanText(");
