@@ -94,7 +94,7 @@ async function sourceWithHash(db: any, person: string, episode: string): Promise
 }
 
 async function statusAction(db: any, controls: Controls) {
-  const [jobs, goldens, items, evalItems, bg, pending] = await Promise.all([
+  const [jobs, goldens, items, evalItems, bg, pending, open] = await Promise.all([
     db.from("person_relevance_batch_jobs").select("id,tier,status,model,request_count,reserved_cost_usd,actual_cost_usd,request_counts,last_error,created_at,submitted_at,completed_at,expires_at,ingested_at,rolled_back_at,meta")
       .order("created_at", { ascending: false }).limit(20),
     db.from("person_relevance_goldens").select("person_id,episode_id,label_status,label_mention_type,stratum").limit(1000),
@@ -103,13 +103,14 @@ async function statusAction(db: any, controls: Controls) {
       .eq("person_relevance_batch_jobs.tier", "golden_eval").limit(5000),
     backgroundEnabled(db),
     db.from("person_episode_mentions").select("id", { count: "exact", head: true }).eq("relevance_status", "pending"),
+    db.from("person_relevance_batch_jobs").select("id", { count: "exact", head: true }).in("status", OPEN_STATUSES),
   ]);
   const itemCounts: Record<string, number> = {};
   for (const r of items.data || []) itemCounts[r.status] = (itemCounts[r.status] || 0) + 1;
   const goldenRows = goldens.data || [];
   const goldenCounts: Record<string, number> = {};
   for (const g of goldenRows) goldenCounts[g.stratum || "unspecified"] = (goldenCounts[g.stratum || "unspecified"] || 0) + 1;
-  const openJobs = (jobs.data || []).filter((j: any) => OPEN_STATUSES.includes(j.status)).length;
+  const openJobs = open.count || 0;
   const keyPresent = !!Deno.env.get("OPENAI_API_KEY");
   const { pricing_usd_per_1m, ...rest } = controls;
   return {
