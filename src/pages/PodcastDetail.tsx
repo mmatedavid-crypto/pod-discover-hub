@@ -424,10 +424,11 @@ export default function PodcastDetail() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
               id="podcast-episode-search"
-              type="search"
+              type="text"
+              enterKeyHint="search"
               value={episodeQuery}
               onChange={(e) => setEpisodeQuery(e.target.value)}
-              placeholder={eps.length > 0 ? `Keresés ${eps.length} epizód között: cím, vendég, téma…` : "Cím, vendég, téma…"}
+              placeholder={eps.length > 0 ? `Keresés ${eps.length} epizód között…` : "Cím, vendég, téma…"}
               aria-label={`Keresés csak ebben a csatornában: ${p.display_title || p.title}`}
               autoComplete="off"
               className="w-full rounded-xl border border-border bg-card py-3 pl-11 pr-10 text-base outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/50"
