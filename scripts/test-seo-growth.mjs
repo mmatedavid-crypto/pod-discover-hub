@@ -70,8 +70,19 @@ test("Healthy content uses new cache namespace and retains upstream metadata", a
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("X-Prerendered"), "1");
   assert.equal(response.headers.get("X-Robots-Tag"), null);
+  assert.match(calls.cached[0].key, /__podi_prerender=20261020-episode-nonews/);
+});
+test("Non-episode routes keep their existing cache namespace", async () => {
+  const { calls } = await exerciseWorker({ path: "/podcast/test" });
   assert.match(calls.cached[0].key, /__podi_prerender=20260916-seo/);
 });
+for (const path of ["/heti", "/heti/2026-42-a-het-a-podiverzumon-okt-12-19", "/rolunk", "/kapcsolat", "/szerkesztoseg"]) {
+  test(`Crawler request for ${path} is prerendered, not origin shell`, async () => {
+    const { body, calls } = await exerciseWorker({ path });
+    assert.match(body, /prerender fixture/);
+    assert.equal(calls.origin, 0);
+  });
+}
 test("Human requests keep the interactive application", async () => {
   const { body, calls } = await exerciseWorker({ ua: "Mozilla/5.0" });
   assert.equal(body, "origin fixture"); assert.equal(calls.upstream, 0);

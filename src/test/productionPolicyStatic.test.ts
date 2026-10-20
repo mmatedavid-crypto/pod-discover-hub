@@ -722,21 +722,20 @@ describe("production policy static guards", () => {
     expect(fn).not.toContain("GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY");
     expect(fn).not.toContain("https://oauth2.googleapis.com/token");
     expect(fn).toContain("const changed = newsHash !== previousHash");
-    expect(fn).toContain("const realNewsItemCount = newsItems.length");
+    expect(fn).toContain("const realNewsItemCount = newsEntries.length");
     expect(fn).toContain("const extractXmlLocs =");
     expect(fn).toContain("readExistingSitemapLocs('news-sitemap.xml')");
     expect(fn).toContain("const previousStateHasUrls = Array.isArray(previousState?.urls)");
     expect(fn).toContain("previous_url_source");
     expect(fn).toContain("const previousUrls = new Set<string>");
     expect(fn).toContain("const newUrls = currentUrls.filter");
-    expect(fn).toContain("const googleSubmitPolicy = 'submit_only_when_news_sitemap_has_new_urls'");
+    expect(fn).toContain("const googleSubmitPolicy = 'submit_when_new_urls_or_pending_retry'");
     expect(fn).toContain("const hasReliablePreviousUrlBaseline = previousStateHasUrls || previousKnownUrls.length > 0");
-    expect(fn).toContain("const shouldSubmitToGoogle = hasReliablePreviousUrlBaseline && newUrls.length > 0 && realNewsItemCount > 0");
-    const freshEpisodesBlock = fn.slice(fn.indexOf("const { data: freshEpisodes"), fn.indexOf("const perPodcast = new Map"));
-    expect(freshEpisodesBlock).toContain(".eq('podcasts.language_decision', 'accept_hungarian')");
-    expect(freshEpisodesBlock).toContain("RSS HU flag is noisy");
-    expect(freshEpisodesBlock).not.toContain("is_hungarian");
-    expect(freshEpisodesBlock).not.toContain(".eq('podcasts.is_hungarian', true)");
+    expect(fn).toContain("const shouldSubmitToGoogle = submitDecision.submit");
+    expect(fn).toContain("selectNewsEditorialEntries(hetiRows ?? [], SITE, Date.now())");
+    // Podcast catalog pages never enter the Google News sitemap.
+    expect(fn).not.toContain("freshEpisodes");
+    expect(fn).not.toContain("Podiverzum Heti Hub");
     expect(fn).toContain("baseline_saved_without_submit");
     expect(fn).toContain("previous_url_baseline_reliable");
     expect(fn).toContain("if (shouldSubmitToGoogle)");
@@ -1365,25 +1364,6 @@ describe("production policy static guards", () => {
       expect(source).not.toContain("is_hungarian");
       expect(source).not.toContain('eq("podcasts.is_hungarian", true)');
       expect(source).not.toContain('eq("episodes.podcasts.is_hungarian", true)');
-    }
-  });
-
-  it("keeps high-trust Hungarian publishers in the news sitemap source policy", () => {
-    const fn = read("supabase/functions/refresh-sitemap/index.ts");
-
-    for (const source of [
-      "444",
-      "telex",
-      "partizan",
-      "hvg",
-      "portfolio",
-      "hold",
-      "g7",
-      "qubit",
-      "direkt36",
-      "lakmusz",
-    ]) {
-      expect(fn.toLowerCase()).toContain(source);
     }
   });
 
