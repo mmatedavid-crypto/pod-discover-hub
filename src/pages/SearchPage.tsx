@@ -126,6 +126,8 @@ export default function SearchPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryLabels, setCategoryLabels] = useState<Record<string, string>>({});
   const [heroPerson, setHeroPerson] = useState<SearchPersonData | null>(null);
+  // Same-name catalog people whose identity is not confirmed (no auto-merge).
+  const [personCandidates, setPersonCandidates] = useState<Array<{ name: string; slug: string | null; disambiguation_label?: string | null; gated_episode_count?: number | null }>>([]);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
   const [suggestion, setSuggestion] = useState<string>("");
@@ -233,6 +235,7 @@ export default function SearchPage() {
     setPiFallback(null);
     setConfidence((cached?.metadata.confidence as "high" | "medium" | "low" | null) || null);
     setPinnedPodcast(cached?.metadata.pinnedPodcast || null);
+    setPersonCandidates(Array.isArray(cached?.metadata.personCandidates) ? cached.metadata.personCandidates as any[] : []);
     setHeroOrganization(cached?.metadata.heroOrganization || null);
     setHeroTopic(cached?.metadata.heroTopic || null);
     setDegradedSearch((cached?.metadata.degradedSearch as "timeout" | "fallback" | null) || null);
@@ -264,7 +267,8 @@ export default function SearchPage() {
         let eps = (data?.episodes || []) as any[];
         const next = eps.slice(0, 80).map((e) => {
           const safeWhy = sanitizeSearchWhy(e.why_matched);
-          return { ...e, matchBadge: safeWhy ? null : "Kulcsszavas találat", why_matched: safeWhy };
+          const evidenceLabel = typeof e.name_evidence?.label === "string" ? e.name_evidence.label : null;
+          return { ...e, matchBadge: evidenceLabel || (safeWhy ? null : "Kulcsszavas találat"), why_matched: safeWhy };
         });
         setTimestampMatchCount(next.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length);
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
@@ -296,6 +300,8 @@ export default function SearchPage() {
             summary: pin.description,
           });
         }
+        const candidates = Array.isArray(phase1.data?.person_candidates) ? phase1.data.person_candidates : [];
+        setPersonCandidates(candidates.filter((c: any) => c?.name).slice(0, 6));
         const personPin = phase1.data?.person_pin;
         if (personPin?.slug && isSafeSearchPerson(personPin)) {
           setHeroPerson({
@@ -428,6 +434,7 @@ export default function SearchPage() {
           pinnedPodcast: searchDiagnostics?.podcast_pin || null,
           heroOrganization: searchDiagnostics?.organization_pin || null,
           heroTopic: searchDiagnostics?.topic_pin || null,
+          personCandidates: Array.isArray(searchDiagnostics?.person_candidates) ? searchDiagnostics.person_candidates.slice(0, 6) : [],
           degradedSearch,
           timestampMatchCount: mapped.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length,
         },
@@ -784,6 +791,33 @@ export default function SearchPage() {
                 <div className="text-[11px] text-primary font-medium mt-2">Személy oldal megnyitása →</div>
               </div>
             </Link>
+          </div>
+        )}
+
+        {!heroPerson && personCandidates.length > 0 && (
+          <div className="mt-8 p-4 rounded-2xl border border-border bg-card">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              {personCandidates.length > 1 ? "Azonos nevű személyek" : "Lehetséges személy"}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {personCandidates.length > 1
+                ? "Több azonos nevű személy szerepel a katalógusban. A találatok nem feltétlenül ugyanarra az emberre vonatkoznak."
+                : "Az azonosság nincs megerősítve: az azonos nevű epizódok más emberre is vonatkozhatnak."}
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {personCandidates.map((c) => (
+                <li key={c.slug || c.name}>
+                  {c.slug ? (
+                    <Link to={`/szemelyek/${c.slug}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-border text-sm hover:border-primary/60">
+                      {c.name}{c.disambiguation_label ? ` (${c.disambiguation_label})` : ""}
+                      {typeof c.gated_episode_count === "number" && c.gated_episode_count > 0 && <span className="text-xs text-muted-foreground">· {c.gated_episode_count} epizód</span>}
+                    </Link>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full border border-border text-sm">{c.name}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
