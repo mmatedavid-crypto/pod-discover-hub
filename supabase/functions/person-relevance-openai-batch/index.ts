@@ -238,7 +238,7 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
           .eq("person_id", w.person_id).eq("episode_id", w.episode_id).eq("claim_token", w.job_id).eq("source_hash", w.source_hash).select("person_id");
         if (!moved.data?.length) continue;
         const sourced = await sourceWithHash(db, w.person_id, w.episode_id);
-        if (sourced?.source_hash === w.source_hash) prepared.push({ person_id: w.person_id, episode_id: w.episode_id, source_hash: w.source_hash, identity_risk: w.identity_risk, input: sourced.input, prior_item_id: w.id });
+        if (sourced?.source_hash === w.source_hash) prepared.push({ person_id: w.person_id, episode_id: w.episode_id, source_hash: w.source_hash, identity_risk: w.identity_risk, input: sourced!.input, prior_item_id: w.id });
       }
     }
 
