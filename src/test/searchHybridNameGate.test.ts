@@ -172,6 +172,7 @@ describe("person-first hybrid name search", () => {
   it("leaves a general topic search to the normal pipeline", async () => {
     const { run } = endpoint();
     const { response, result } = await run("gulyásleves titka");
+    if (response.status !== 200) console.error("DEBUG", JSON.stringify(result));
     expect(response.status).toBe(200);
     expect(result.person_name_strict).toBeUndefined();
     expect(result.person_identity).toBeUndefined();
