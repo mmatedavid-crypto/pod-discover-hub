@@ -1180,11 +1180,17 @@ Deno.serve(async (req) => {
           const tsQueries = [...new Set(personSearchNames.map(fullNameTsQuery).filter(Boolean))].slice(0, 3) as string[];
           const cleanTsq = cleanTextNameTsQuery(personSearchNames);
           const empty = Promise.resolve({ data: [] });
-          const [acceptedRes, pendingRes, cleanRes, ...tsvResults] = await Promise.all([
+          // Participant links are fetched separately so a person with thousands
+          // of subject/mention links still surfaces own appearances first.
+          const [participantRes, acceptedRes, pendingRes, cleanRes, ...tsvResults] = await Promise.all([
+            personIds.length ? timedStrict("links_participant", supa.from("person_episode_mentions")
+              .select("person_id,episode_id,relevance_status,mention_type,role_type")
+              .in("person_id", personIds).eq("relevance_status", "accepted").eq("role_type", "participant")
+              .order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(200)) : empty,
             personIds.length ? timedStrict("links_accepted", supa.from("person_episode_mentions")
               .select("person_id,episode_id,relevance_status,mention_type,role_type")
               .in("person_id", personIds).eq("relevance_status", "accepted")
-              .order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(300)) : empty,
+              .order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(200)) : empty,
             personIds.length ? timedStrict("links_pending", supa.from("person_episode_mentions")
               .select("person_id,episode_id,relevance_status,mention_type,role_type")
               .in("person_id", personIds).in("relevance_status", ["pending", "needs_review", "waiting_clean_text", "in_progress"])
@@ -1195,7 +1201,7 @@ Deno.serve(async (req) => {
               .textSearch("search_tsv", tsq, { config: "simple" })
               .order("published_at", { ascending: false }).limit(240))),
           ]);
-          const links: PersonLink[] = [...(acceptedRes?.data || []), ...(pendingRes?.data || [])].filter((l: any) => l?.episode_id && l?.person_id);
+          const links: PersonLink[] = [...(participantRes?.data || []), ...(acceptedRes?.data || []), ...(pendingRes?.data || [])].filter((l: any) => l?.episode_id && l?.person_id);
           const verifiedIds = new Set(candidates.length === 1 && candidates[0].verified ? [candidates[0].id] : []);
           for (const l of links) if (l.relevance_status === "accepted" && verifiedIds.has(l.person_id)) acceptedPersonEpisodeIds.add(l.episode_id);
           for (const row of cleanRes?.data || []) if (row?.episode_id && matchesName(row.cleaned_text)) cleanNameEpisodeIds.add(row.episode_id);
@@ -1204,7 +1210,7 @@ Deno.serve(async (req) => {
             for (const row of result?.data || []) if (row?.id && nameEvidenceTier(row, matchesName) > 0) episodesById.set(row.id, row);
           }
           const missing = [...new Set([...links.map((l) => l.episode_id), ...cleanNameEpisodeIds])]
-            .filter((id) => !episodesById.has(id)).slice(0, 240);
+            .filter((id) => !episodesById.has(id)).slice(0, 360);
           const hydrated = await Promise.all(
             Array.from({ length: Math.ceil(missing.length / 120) }, (_, i) => missing.slice(i * 120, i * 120 + 120))
               .map((ids, i) => timedStrict(`hydrate_${i}`, supa.from("episodes").select(EPISODE_SELECT)

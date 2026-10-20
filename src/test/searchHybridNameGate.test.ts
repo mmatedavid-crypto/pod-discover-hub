@@ -168,7 +168,7 @@ describe("person-first hybrid name search", () => {
     const { result, ms } = await run("Hajós András");
     expect(ms).toBeLessThan(4500);
     expect(result.timing.person_strict.unavailable).toContain("clean_text_fts");
-    expect(result.timing.person_strict.queries).toBeLessThanOrEqual(8);
+    expect(result.timing.person_strict.queries).toBeLessThanOrEqual(10);
     expect(ids(result)).toEqual(ROLE_ORDER.filter((id) => id !== "clean-only"));
     expect(queries()).toBeLessThan(40);
   }, 10000);
