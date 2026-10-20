@@ -4,6 +4,7 @@ import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import * as nameHelpers from "../../supabase/functions/_shared/search-name-match";
 import * as personEvidence from "../../supabase/functions/_shared/search-person-evidence";
+import * as exactPhrase from "../../supabase/functions/_shared/search-exact-phrase";
 
 const source = readFileSync("supabase/functions/search-hybrid/index.ts", "utf8");
 const code = ts.transpileModule(source.replace(/^import .*;\r?$/gm, ""), {
@@ -75,7 +76,7 @@ function endpoint(options: Options = {}) {
   const ai = vi.fn(() => { throw new Error("unexpected paid model call"); });
   let handler: (req: Request) => Promise<Response>;
   runInNewContext(code, {
-    ...nameHelpers, ...personEvidence, createClient: () => ({ from: builder, rpc }),
+    ...nameHelpers, ...personEvidence, ...exactPhrase, createClient: () => ({ from: builder, rpc }),
     detectBot: () => ({ isBot: true, ua: "test-bot", reason: "ua" }),
     loadCuratedSynonyms: () => Promise.resolve({ matched_terms: [], expansions: [] }),
     understandQuery: ai, callLovableAI: ai, cohereRerank: ai, getHydeExpansion: ai,
