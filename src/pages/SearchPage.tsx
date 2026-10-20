@@ -270,6 +270,7 @@ export default function SearchPage() {
       let usedFallback = false;
       let semantic = false;
       let searchDiagnostics: any = null;
+      let exactMeta: ExactPhraseInfo | null = null;
 
       const applyHybridResponse = (data: any) => {
         let eps = (data?.episodes || []) as any[];
