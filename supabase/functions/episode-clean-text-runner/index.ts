@@ -1,10 +1,24 @@
-// episode-clean-text-runner: deterministic-only pass over episodes.description.
-// Writes to episode_clean_text and flips episodes.clean_text_status to 'done'.
-// NO Lovable AI / Gemini calls here. AI cleanup will only be added if heuristic quality is insufficient.
-// Gates downstream chunk embeddings: chunkers should only run for clean_text_status='done'.
+// episode-clean-text-runner: deterministic ($0) pass over pending Hungarian episodes.
+// Writes episode_clean_text and flips episodes.clean_text_status.
+//
+// Quality gate (clean_text_quality_v1, see _shared/clean-text-validation.ts):
+// - valid deterministic_v4 output is written unchanged (no corpus drift);
+// - empty / severely overcut / malformed output is never marked done: an
+//   extract-only rescue is tried, otherwise the prior good text is preserved or
+//   the episode is quarantined (bounded attempts, no infinite retries);
+// - episodes whose source has no substantive content are marked skipped.
+// Optional paid AI trim stays off unless explicitly enabled AND spend-approved.
+// Gates downstream chunk embeddings: chunkers only run for clean_text_status='done'.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
-import { heuristicClean } from "../_shared/episode-text-cleaner.ts";
+import { heuristicClean, validateExtractOnlyTrim } from "../_shared/episode-text-cleaner.ts";
+import {
+  CLEAN_TEXT_QUALITY_VERSION,
+  MAX_QUARANTINE_ATTEMPTS,
+  RESCUE_METHOD_SUFFIX,
+  decideCleanText,
+  validateCleanOutput,
+} from "../_shared/clean-text-validation.ts";
 import { detectAiTrimBucket, runAiTrim, AI_TRIM_TARGET_BUCKETS, type AiTrimBucket } from "../_shared/clean-text-ai-trim.ts";
 
 const cors = {
@@ -38,6 +52,14 @@ async function maybeRequeueLegacyV3(admin: any, ctrl: any, body: any, batchLimit
   return data;
 }
 
+async function updateStatus(admin: any, ids: string[], status: string) {
+  for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+    const slice = ids.slice(i, i + ID_CHUNK_SIZE);
+    const { error } = await admin.from("episodes").update({ clean_text_status: status }).in("id", slice);
+    if (error) throw error;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
@@ -60,13 +82,11 @@ Deno.serve(async (req) => {
     const useBestTextSource = ctrl.use_best_text_source !== false;
     const requeueResult = await maybeRequeueLegacyV3(admin, ctrl, body, batchLimit);
 
-    // ---- AI-trim gate (LIVE 2026-05-31) ----
-    // Bucket-routes yt_dominant / over_trimmed_v3 / sponsor_heavy to flash-lite few-shot.
-    // v4 still runs first; AI-trim only OVERWRITES cleaned_text when guards pass.
-    const aiTrimEnabled = ctrl.ai_trim_enabled === true;
+    // ---- Optional paid AI trim: OFF unless enabled AND explicitly spend-approved. ----
+    const aiTrimEnabled = ctrl.ai_trim_enabled === true && typeof ctrl.ai_trim_spend_approved_at === "string";
     const aiTrimModel = String(ctrl.ai_trim_model ?? "google/gemini-3.1-flash-lite-preview");
-    const aiTrimBudget = Number(ctrl.ai_trim_daily_budget_usd ?? 5);
-    const aiTrimMaxPerRun = Math.max(0, Math.min(200, Number(ctrl.ai_trim_max_per_run ?? 60)));
+    const aiTrimBudget = Math.max(0, Math.min(5, Number(ctrl.ai_trim_daily_budget_usd ?? 0)));
+    const aiTrimMaxPerRun = Math.max(0, Math.min(60, Number(ctrl.ai_trim_max_per_run ?? 0)));
     const aiTrimBuckets = new Set<AiTrimBucket>(
       Array.isArray(ctrl.ai_trim_buckets) && ctrl.ai_trim_buckets.length
         ? ctrl.ai_trim_buckets.map(String) as AiTrimBucket[]
@@ -75,7 +95,7 @@ Deno.serve(async (req) => {
 
     let aiTrimSpendToday = 0;
     if (aiTrimEnabled) {
-      const today = new Date(); today.setUTCHours(0,0,0,0);
+      const today = new Date(); today.setUTCHours(0, 0, 0, 0);
       const { data: spentRows } = await admin
         .from("ai_call_audit")
         .select("estimated_cost_usd")
@@ -85,8 +105,11 @@ Deno.serve(async (req) => {
     }
 
     let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, passes = 0;
+    let totalRescued = 0, totalKeptPrior = 0, totalQuarantined = 0, totalNoContent = 0, totalValidShort = 0;
     let aiTrimCalls = 0, aiTrimApplied = 0, aiTrimRejected = 0, aiTrimErrors = 0;
     const aiTrimBucketCounts: Record<string, number> = {};
+    const reasonCounts: Record<string, number> = {};
+    const bump = (rs: string[]) => { for (const r of rs) reasonCounts[r] = (reasonCounts[r] || 0) + 1; };
 
     // Drain loop: keep claiming batches until time budget exhausted or queue empty.
     while (Date.now() - startedAt < timeBudgetMs) {
@@ -104,9 +127,11 @@ Deno.serve(async (req) => {
 
       const epIds = eps.map((e: any) => e.id);
       const bestByEp = new Map<string, { source_type: string; raw_text: string; evidence?: any }>();
-      if (useBestTextSource) {
-        for (let i = 0; i < epIds.length; i += ID_CHUNK_SIZE) {
-          const slice = epIds.slice(i, i + ID_CHUNK_SIZE);
+      const priorByEp = new Map<string, { cleaned_text: string; source_hash: string }>();
+      const quarantineByEp = new Map<string, { attempts: number; source_hash: string | null; first_seen_at: string }>();
+      for (let i = 0; i < epIds.length; i += ID_CHUNK_SIZE) {
+        const slice = epIds.slice(i, i + ID_CHUNK_SIZE);
+        if (useBestTextSource) {
           const { data: bestRows, error: bestErr } = await admin
             .from("episode_best_text_source")
             .select("episode_id,source_type,raw_text,evidence")
@@ -121,31 +146,96 @@ Deno.serve(async (req) => {
             });
           }
         }
+        const { data: priorRows, error: priorErr } = await admin
+          .from("episode_clean_text")
+          .select("episode_id,cleaned_text,source_hash")
+          .in("episode_id", slice);
+        if (priorErr) throw priorErr;
+        for (const row of priorRows || []) priorByEp.set(String((row as any).episode_id), { cleaned_text: String((row as any).cleaned_text || ""), source_hash: String((row as any).source_hash || "") });
+        const { data: qRows, error: qErr } = await admin
+          .from("episode_clean_text_quarantine")
+          .select("episode_id,attempts,source_hash,first_seen_at")
+          .in("episode_id", slice);
+        if (qErr) throw qErr;
+        for (const row of qRows || []) quarantineByEp.set(String((row as any).episode_id), { attempts: Number((row as any).attempts || 0), source_hash: (row as any).source_hash ?? null, first_seen_at: String((row as any).first_seen_at) });
       }
 
       passes++;
       const upsertRows: any[] = [];
       const doneIds: string[] = [];
       const skipIds: string[] = [];
+      const quarantineIds: string[] = [];
+      const quarantineRows: any[] = [];
+      const resolvedIds: string[] = [];
 
       for (const ep of eps) {
         totalProcessed++;
+        const epId = String((ep as any).id);
         const rss = String((ep as any).description || (ep as any).summary || "").trim();
-        const best = bestByEp.get((ep as any).id);
-        const raw = String(best?.raw_text || rss).trim();
+        const best = bestByEp.get(epId);
+        // An RSS best-source copy can be stale; the live description is authoritative.
+        const raw = String(best && best.source_type !== "rss" ? best.raw_text : rss).trim();
         const usedMethod = best?.source_type && best.source_type !== "rss" ? `${method}+${best.source_type}` : method;
         if (!raw || raw.length < minChars) {
-          skipIds.push((ep as any).id);
+          skipIds.push(epId);
           totalSkipped++;
           continue;
         }
         try {
-          const { text, removed } = heuristicClean(raw);
-          let cleaned = text.trim();
-          let appliedMethod = usedMethod;
-          const removedCats = best?.source_type ? Array.from(new Set([...removed, `source_${best.source_type}`])) : [...removed];
+          const prior = priorByEp.get(epId);
+          const v4 = heuristicClean(raw);
+          const decision = decideCleanText({ raw, v4, priorCleanedText: prior?.cleaned_text });
+          const transcriptHash = best?.source_type === "transcript" && typeof best?.evidence?.content_hash === "string"
+            ? best.evidence.content_hash
+            : "";
 
-          // ----- AI-trim gate -----
+          if (decision.action === "skip_no_content") {
+            bump(decision.reasons);
+            totalNoContent++;
+            totalSkipped++;
+            skipIds.push(epId);
+            continue;
+          }
+          if (decision.action === "keep_prior" || decision.action === "quarantine") {
+            bump(decision.reasons);
+            const q = quarantineByEp.get(epId);
+            const source_hash = transcriptHash || await sha256Hex(`${usedMethod}::${raw}`);
+            const sameSource = q?.source_hash === source_hash;
+            const attempts = sameSource ? (q?.attempts || 0) + 1 : 1;
+            quarantineRows.push({
+              episode_id: epId,
+              source_hash,
+              source_type: best?.source_type || "rss",
+              reasons: decision.reasons,
+              attempts: Math.min(attempts, MAX_QUARANTINE_ATTEMPTS),
+              raw_len: raw.length,
+              rescue_len: decision.action === "quarantine" ? decision.rescue_len : null,
+              cleaner_method: usedMethod,
+              kept_prior: decision.action === "keep_prior",
+              first_seen_at: sameSource && q?.first_seen_at ? q.first_seen_at : new Date().toISOString(),
+              last_seen_at: new Date().toISOString(),
+              resolved_at: null,
+            });
+            if (decision.action === "keep_prior") {
+              totalKeptPrior++;
+              doneIds.push(epId); // prior good text stays live and unchanged
+            } else {
+              totalQuarantined++;
+              quarantineIds.push(epId);
+            }
+            continue;
+          }
+
+          // decision.action === "write"
+          let cleaned = decision.text;
+          let appliedMethod = decision.rescued ? `${usedMethod}+${RESCUE_METHOD_SUFFIX}` : usedMethod;
+          let verdict = decision.verdict;
+          const removedCats = Array.from(new Set([...decision.removed, ...(best?.source_type ? [`source_${best.source_type}`] : [])]));
+          if (best?.source_type === "transcript") removedCats.push("rights_index_only_not_public_display");
+          if (decision.rescued) totalRescued++;
+          if (verdict.status === "valid_short") totalValidShort++;
+
+          // ----- Optional AI-trim (approved spend only; output must pass the same gates) -----
           if (aiTrimEnabled && aiTrimCalls < aiTrimMaxPerRun && aiTrimSpendToday < aiTrimBudget) {
             const bucket = detectAiTrimBucket({
               raw_text: raw,
@@ -158,122 +248,112 @@ Deno.serve(async (req) => {
               aiTrimCalls++;
               try {
                 const aiRes = await runAiTrim({
-                  episode_id: (ep as any).id,
+                  episode_id: epId,
                   raw_text: raw,
                   v3_cleaned: cleaned,
                   bucket,
                   model: aiTrimModel,
                   source_hash: await sha256Hex(`ai_trim::${bucket}::${raw}`),
                 });
-                if (aiRes.ok && aiRes.cleaned_text) {
-                  cleaned = aiRes.cleaned_text;
-                  appliedMethod = `${usedMethod}+ai_trim_${bucket}`;
+                aiTrimSpendToday += Number(aiRes.cost_usd || 0);
+                const aiText = String(aiRes.cleaned_text || "").trim();
+                const aiVerdict = aiText ? validateCleanOutput(raw, aiText) : null;
+                if (aiRes.ok && aiText && aiVerdict && aiVerdict.status !== "invalid" && aiVerdict.status !== "no_content" && validateExtractOnlyTrim(raw, aiText).ok) {
+                  cleaned = aiText;
+                  verdict = aiVerdict;
+                  appliedMethod = `${appliedMethod}+ai_trim_${bucket}`;
                   removedCats.push(`ai_trim_${bucket}`);
-                  aiTrimSpendToday += Number(aiRes.cost_usd || 0);
                   aiTrimApplied++;
                 } else {
                   aiTrimRejected++;
-                  removedCats.push(`ai_trim_skipped_${aiRes.reason || "unknown"}`);
+                  removedCats.push(`ai_trim_skipped_${aiRes.reason || "quality_gate"}`);
                 }
               } catch (e) {
                 aiTrimErrors++;
-                console.warn("ai_trim error", (ep as any).id, e);
+                console.warn("ai_trim error", epId, e);
               }
             }
           }
 
-          const transcriptHash = best?.source_type === "transcript" && typeof best?.evidence?.content_hash === "string"
-            ? best.evidence.content_hash
-            : "";
           const source_hash = transcriptHash || await sha256Hex(`${appliedMethod}::${raw}`);
           upsertRows.push({
-            episode_id: (ep as any).id,
+            episode_id: epId,
             source_hash,
             cleaned_text: cleaned,
             removed_categories: removedCats,
             cleaner_method: appliedMethod,
+            quality_status: verdict.status,
+            quality_reasons: decision.rescued ? decision.v4_verdict.reasons.map((r) => `v4_${r}`) : verdict.reasons,
+            quality_version: CLEAN_TEXT_QUALITY_VERSION,
+            source_type: best?.source_type || "rss",
+            updated_at: new Date().toISOString(),
           });
-          doneIds.push((ep as any).id);
+          doneIds.push(epId);
+          if (quarantineByEp.has(epId)) resolvedIds.push(epId);
         } catch (e) {
           totalErrors++;
-          console.warn("clean-text heuristic error", (ep as any).id, e);
-          await admin.from("episodes").update({ clean_text_status: "error" }).eq("id", (ep as any).id);
+          console.warn("clean-text heuristic error", epId, e);
+          await admin.from("episodes").update({ clean_text_status: "error" }).eq("id", epId);
         }
       }
 
-
-      // Bulk upsert all cleaned rows, then bulk flip status. Massively cheaper than per-row.
+      // Bulk upsert all validated rows, then bulk flip status. Massively cheaper than per-row.
+      let writeOk = true;
       if (upsertRows.length > 0) {
         const { error: upErr } = await admin.from("episode_clean_text").upsert(upsertRows, { onConflict: "episode_id" });
         if (upErr) {
+          writeOk = false;
           totalErrors += upsertRows.length;
           console.warn("clean-text bulk upsert error", upErr.message);
         } else {
           totalWritten += upsertRows.length;
-          for (let i = 0; i < doneIds.length; i += ID_CHUNK_SIZE) {
-            const slice = doneIds.slice(i, i + ID_CHUNK_SIZE);
-            await admin.from("episodes").update({ clean_text_status: "done" }).in("id", slice);
-          }
         }
       }
-      if (skipIds.length > 0) {
-        for (let i = 0; i < skipIds.length; i += ID_CHUNK_SIZE) {
-          const slice = skipIds.slice(i, i + ID_CHUNK_SIZE);
-          await admin.from("episodes").update({ clean_text_status: "skipped" }).in("id", slice);
+      // Only flip to done when the write succeeded; kept-prior rows are always safe.
+      const writtenIds = new Set(upsertRows.map((r) => r.episode_id));
+      const safeDone = writeOk ? doneIds : doneIds.filter((id) => !writtenIds.has(id));
+      if (safeDone.length) await updateStatus(admin, safeDone, "done");
+      if (skipIds.length) await updateStatus(admin, skipIds, "skipped");
+      if (quarantineIds.length) await updateStatus(admin, quarantineIds, "quarantined");
+      if (quarantineRows.length) {
+        const { error: qErr } = await admin.from("episode_clean_text_quarantine").upsert(quarantineRows, { onConflict: "episode_id" });
+        if (qErr) console.warn("quarantine upsert error", qErr.message);
+      }
+      if (writeOk && resolvedIds.length) {
+        for (let i = 0; i < resolvedIds.length; i += ID_CHUNK_SIZE) {
+          await admin.from("episode_clean_text_quarantine").update({ resolved_at: new Date().toISOString() })
+            .in("episode_id", resolvedIds.slice(i, i + ID_CHUNK_SIZE)).is("resolved_at", null);
         }
       }
+      if (!writeOk) break; // do not spin on a failing write
 
       // If the batch came back smaller than the limit, queue is drained.
       if (eps.length < batchLimit) break;
     }
 
     const runtimeMs = Date.now() - startedAt;
-
-    // Persist a lightweight progress snapshot for observability.
-    try {
-      await admin.from("app_settings").upsert({
-        key: "episode_clean_text_progress",
-        value: {
-          last_run_at: new Date().toISOString(),
-          runtime_ms: runtimeMs,
-          passes,
-          processed: totalProcessed,
-          written: totalWritten,
-          skipped: totalSkipped,
-          errors: totalErrors,
-          batch_limit: batchLimit,
-          time_budget_seconds: Math.round(timeBudgetMs / 1000),
-          method_version: method,
-          use_best_text_source: useBestTextSource,
-          legacy_v3_requeue: requeueResult,
-          ai_trim: {
-            enabled: aiTrimEnabled,
-            model: aiTrimModel,
-            daily_budget_usd: aiTrimBudget,
-            spend_today_usd: aiTrimSpendToday,
-            calls: aiTrimCalls,
-            applied: aiTrimApplied,
-            rejected: aiTrimRejected,
-            errors: aiTrimErrors,
-            bucket_counts: aiTrimBucketCounts,
-          },
-        },
-      }, { onConflict: "key" });
-    } catch (_) { /* non-fatal */ }
-
-    return json({
-      ok: true,
+    const summary = {
       passes,
       processed: totalProcessed,
       written: totalWritten,
       skipped: totalSkipped,
       errors: totalErrors,
+      quality: {
+        version: CLEAN_TEXT_QUALITY_VERSION,
+        rescued: totalRescued,
+        kept_prior: totalKeptPrior,
+        quarantined: totalQuarantined,
+        no_content: totalNoContent,
+        valid_short: totalValidShort,
+        reasons: reasonCounts,
+      },
       runtime_ms: runtimeMs,
       method_version: method,
       use_best_text_source: useBestTextSource,
       legacy_v3_requeue: requeueResult,
       ai_trim: {
         enabled: aiTrimEnabled,
+        model: aiTrimModel,
         calls: aiTrimCalls,
         applied: aiTrimApplied,
         rejected: aiTrimRejected,
@@ -282,7 +362,17 @@ Deno.serve(async (req) => {
         daily_budget_usd: aiTrimBudget,
         bucket_counts: aiTrimBucketCounts,
       },
-    });
+    };
+
+    // Persist a lightweight progress snapshot for observability (separate key from controls).
+    try {
+      await admin.from("app_settings").upsert({
+        key: "episode_clean_text_progress",
+        value: { last_run_at: new Date().toISOString(), batch_limit: batchLimit, time_budget_seconds: Math.round(timeBudgetMs / 1000), ...summary },
+      }, { onConflict: "key" });
+    } catch (_) { /* non-fatal */ }
+
+    return json({ ok: true, ...summary });
   } catch (e) {
     console.error("episode-clean-text-runner err", e);
     return json({ ok: false, error: e instanceof Error ? e.message : "Unknown" }, 500);

@@ -159,7 +159,7 @@ function stripInlineNoise(input: string): { text: string; removed: string[] } {
   return { text: cleanedLines.join("\n"), removed: Array.from(new Set(removed)) };
 }
 
-function decodeBasicEntities(input: string): string {
+export function decodeBasicEntities(input: string): string {
   const basic = input.replace(HTML_ENTITY_RX, (_, entity: string) => {
     switch (entity.toLowerCase()) {
       case "amp": return "&";
