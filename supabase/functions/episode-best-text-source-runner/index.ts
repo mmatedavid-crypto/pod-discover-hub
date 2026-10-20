@@ -1,8 +1,23 @@
-// Selects the best available processing text for each episode.
-// Sources are conservative: YouTube is eligible only from confirmed episode links.
+// Selects the best available processing text for each episode — incrementally.
+//
+// Change feeds (keyset on (updated_at, id), index-backed) over transcripts,
+// confirmed YouTube links, confirmed publisher articles and Spotify meta find
+// new/updated sources even for episodes that already have a best-source row.
+// No full-table or full "done set" loads. Policy lives in
+// _shared/best-text-source-policy.ts (RSS-first; transcript only for thin RSS).
+// A changed selection is marked reclean_status='pending'; it re-queues clean
+// text only when auto_requeue_clean_text is explicitly enabled and capped.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { heuristicClean } from "../_shared/episode-text-cleaner.ts";
+import {
+  BEST_SOURCE_POLICY_VERSION,
+  needsReclean,
+  pickBest,
+  sourceFingerprint,
+  transcriptRank,
+  type EpisodeRow,
+} from "../_shared/best-text-source-policy.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -11,178 +26,33 @@ const cors = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-type EpisodeRow = {
-  id: string;
-  podcast_id: string;
-  title: string | null;
-  description: string | null;
-  updated_at?: string | null;
-};
+type Cursor = { ts: string; id: string } | null;
+type FeedName = "transcript" | "youtube" | "article" | "spotify";
+const FEEDS: FeedName[] = ["transcript", "youtube", "article", "spotify"];
+const STATE_KEY = "episode_best_text_source_state";
+const CHUNK = 50;
 
-function textQuality(text: string): { score: number; dirty: string[]; len: number } {
-  const raw = String(text || "").trim();
-  const dirty: string[] = [];
-  if (/https?:\/\/|www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|tiktok\.com|patreon\.com|linktr\.ee/i.test(raw)) dirty.push("links");
-  if (/@[A-Za-z0-9_.-]+/.test(raw)) dirty.push("handles");
-  if (/^\s*(?:instagram|facebook|youtube|spotify|apple podcasts?|tiktok)\s*[:：-]/im.test(raw)) dirty.push("platform_lines");
-  const len = raw.length;
-  const lengthScore = len >= 900 ? 1 : len >= 500 ? 0.85 : len >= 220 ? 0.62 : len >= 80 ? 0.35 : len > 0 ? 0.15 : 0;
-  return { score: Math.max(0, lengthScore - dirty.length * 0.12), dirty, len };
+function feedQuery(admin: any, feed: FeedName) {
+  switch (feed) {
+    case "transcript":
+      return admin.from("episode_transcripts").select("id,episode_id,updated_at").eq("status", "ok");
+    case "youtube":
+      return admin.from("episode_youtube_links").select("id,episode_id,updated_at").eq("status", "confirmed");
+    case "article":
+      return admin.from("episode_article_candidates").select("id,episode_id,updated_at").eq("status", "confirmed");
+    case "spotify":
+      return admin.from("episode_spotify_meta").select("id,episode_id,updated_at");
+  }
 }
 
-function transcriptRank(model: string): number {
-  if (model === "supadata-youtube") return 100;
-  if (model === "spotify-native") return 96;
-  if (model === "rss_audio_asr") return 92;
-  if (model.startsWith("rss_podcast_transcript_tag:")) return 88;
-  if (model === "supadata-youtube-asr") return 84;
-  return 70;
-}
-
-function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, article: any | null, transcript: any | null, ctrl: any) {
-  const gain = Number(ctrl.prefer_external_gain_chars ?? 150);
-  const articleGain = Number(ctrl.article_prefer_gain_chars ?? 300);
-  const ytMin = Number(ctrl.youtube_min_confidence ?? 0.78);
-  const spMin = Number(ctrl.spotify_min_confidence ?? 0.55);
-  const articleMin = Number(ctrl.article_min_confidence ?? 0.82);
-  const transcriptMinChars = Number(ctrl.transcript_min_chars ?? 900);
-  const rssText = String(ep.description || "").trim();
-  const rssQ = textQuality(rssText);
-  const candidates: any[] = [];
-
-  if (rssText) {
-    candidates.push({
-      source_type: "rss",
-      source_ref_id: null,
-      raw_text: rssText,
-      source_confidence: 0.65 + rssQ.score * 0.25,
-      reasons: ["rss_description"],
-      quality: rssQ,
-      evidence: { rss_len: rssQ.len, dirty: rssQ.dirty },
-    });
-  }
-
-  const transcriptText = String(transcript?.transcript || "").trim();
-  const transcriptQ = textQuality(transcriptText);
-  const transcriptModel = String(transcript?.model || "");
-  if (
-    transcriptText
-    && transcript?.status === "ok"
-    && transcriptText.length >= transcriptMinChars
-    && transcriptQ.score >= 0.45
-    && (transcriptQ.len >= rssQ.len + gain || rssQ.len < 500)
-  ) {
-    candidates.push({
-      source_type: "transcript",
-      source_ref_id: transcript.id,
-      raw_text: transcriptText,
-      source_confidence: Math.min(0.99, 0.78 + transcriptQ.score * 0.12 + transcriptRank(transcriptModel) / 1000),
-      reasons: ["full_transcript_longer_or_rss_thin"],
-      quality: transcriptQ,
-      evidence: {
-        transcript_model: transcriptModel,
-        transcript_source: transcript.source || null,
-        transcript_language: transcript.language || null,
-        transcript_len: transcriptQ.len,
-        rss_len: rssQ.len,
-        content_hash: transcript.content_hash || null,
-        has_segments: Array.isArray(transcript.segments) && transcript.segments.length > 0,
-        segment_count: Array.isArray(transcript.segments) ? transcript.segments.length : null,
-        dirty: transcriptQ.dirty,
-      },
-    });
-  }
-
-  const articleText = String(article?.article_text || article?.article_excerpt || "").trim();
-  const articleScore = Number(article?.match_score || 0);
-  const articleQ = textQuality(articleText);
-  if (
-    articleText
-    && article?.status === "confirmed"
-    && articleScore >= articleMin
-    && (articleQ.len >= rssQ.len + articleGain || rssQ.len < 220)
-  ) {
-    candidates.push({
-      source_type: "article",
-      source_ref_id: article.id,
-      raw_text: articleText,
-      source_confidence: Math.min(0.97, 0.64 + articleScore * 0.25 + articleQ.score * 0.08),
-      reasons: ["confirmed_publisher_article_longer_or_rss_short"],
-      quality: articleQ,
-      evidence: {
-        article_match_score: articleScore,
-        article_url: article.article_url,
-        article_title: article.article_title,
-        article_len: articleQ.len,
-        rss_len: rssQ.len,
-        outlet: article.outlet,
-        match_reasons: article.match_reasons || [],
-        article_evidence: article.evidence || {},
-        dirty: articleQ.dirty,
-      },
-    });
-  }
-
-  const spText = String(spotify?.spotify_description || spotify?.spotify_html_description || "").trim();
-  const spConfidence = Number(spotify?.match_confidence || 0);
-  const spQ = textQuality(spText);
-  if (
-    spText
-    && spConfidence >= spMin
-    && (spQ.len >= rssQ.len + gain || rssQ.len < 120)
-  ) {
-    candidates.push({
-      source_type: "spotify",
-      source_ref_id: spotify.id,
-      raw_text: spText,
-      source_confidence: Math.min(0.92, 0.58 + spConfidence * 0.25 + spQ.score * 0.15),
-      reasons: ["spotify_longer_or_rss_short"],
-      quality: spQ,
-      evidence: {
-        spotify_match_confidence: spConfidence,
-        spotify_len: spQ.len,
-        rss_len: rssQ.len,
-        match_method: spotify.match_method,
-        dirty: spQ.dirty,
-      },
-    });
-  }
-
-  const ytText = String(youtube?.youtube_description || "").trim();
-  const ytConfidence = Number(youtube?.match_score || 0);
-  const ytQ = textQuality(ytText);
-  if (
-    ytText
-    && youtube?.status === "confirmed"
-    && youtube?.validation_reason?.policy === "youtube_episode_match_v3"
-    && ytConfidence >= ytMin
-    && (ytQ.len >= rssQ.len + gain || rssQ.len < 160)
-  ) {
-    candidates.push({
-      source_type: "youtube",
-      source_ref_id: youtube.id,
-      raw_text: ytText,
-      source_confidence: Math.min(0.98, 0.62 + ytConfidence * 0.25 + ytQ.score * 0.13),
-      reasons: ["confirmed_youtube_longer_or_rss_short"],
-      quality: ytQ,
-      evidence: {
-        youtube_match_score: ytConfidence,
-        youtube_confidence: youtube.confidence,
-        youtube_status: youtube.status,
-        youtube_len: ytQ.len,
-        rss_len: rssQ.len,
-        validation_reason: youtube.validation_reason || {},
-        dirty: ytQ.dirty,
-      },
-    });
-  }
-
-  if (!candidates.length) return null;
-  return candidates.sort((a, b) => {
-    const scoreA = a.source_confidence + Math.min(0.12, a.quality.len / 12000);
-    const scoreB = b.source_confidence + Math.min(0.12, b.quality.len / 12000);
-    return scoreB - scoreA;
-  })[0];
+async function readFeed(admin: any, feed: FeedName, cursor: Cursor, limit: number) {
+  let q = feedQuery(admin, feed).not("updated_at", "is", null);
+  if (cursor) q = q.or(`updated_at.gt.${cursor.ts},and(updated_at.eq.${cursor.ts},id.gt.${cursor.id})`);
+  const { data, error } = await q.order("updated_at", { ascending: true }).order("id", { ascending: true }).limit(limit);
+  if (error) throw new Error(`${feed} feed: ${error.message}`);
+  const rows = (data || []) as Array<{ id: string; episode_id: string; updated_at: string }>;
+  const last = rows.length ? rows[rows.length - 1] : null;
+  return { rows, next: last ? { ts: last.updated_at, id: last.id } : cursor, exhausted: rows.length < limit };
 }
 
 Deno.serve(async (req) => {
@@ -197,166 +67,116 @@ Deno.serve(async (req) => {
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "episode_best_text_source_controls").maybeSingle();
     const ctrl = ctrlRow?.value || {};
     if (ctrl.enabled === false && !body.force) return json({ ok: true, paused: true });
+    const dryRun = body.dry_run === true;
 
-    const limit = Math.max(1, Math.min(5000, Number(body.limit || ctrl.batch_limit || 1000)));
+    const limit = Math.max(1, Math.min(200, Number(body.limit || ctrl.incremental_batch_limit || 100)));
     const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean).slice(0, limit) : [];
 
-    let targetIds = ids;
-    let usedYtPriority = false;
+    const { data: stateRow } = await admin.from("app_settings").select("value").eq("key", STATE_KEY).maybeSingle();
+    const state = (stateRow?.value || {}) as any;
+    const cursors: Record<FeedName, Cursor> = { transcript: null, youtube: null, article: null, spotify: null, ...(state.cursors || {}) };
+    const nextCursors: Record<string, Cursor> = { ...cursors };
+    const feedCounts: Record<string, number> = {};
+
+    let targetIds: string[] = ids;
     if (!targetIds.length) {
-      // Load already-processed set once so we can skip episodes already done.
-      // Supabase default cap is 1000 rows/select → paginate via .range().
-      const doneSet = new Set<string>();
-      for (let offset = 0; offset < 500000; offset += 1000) {
-        const { data: chunk, error: doneErr } = await admin
-          .from("episode_best_text_source")
-          .select("episode_id")
-          .range(offset, offset + 999);
-        if (doneErr) throw doneErr;
-        if (!chunk || chunk.length === 0) break;
-        for (const r of chunk) doneSet.add(String((r as any).episode_id));
-        if (chunk.length < 1000) break;
-      }
-
-      // 1) YouTube-confirmed-first priority, but only episodes not yet done.
-      const { data: ytPriority, error: ytPriorityErr } = await admin
-        .from("episode_youtube_links")
-        .select("episode_id,updated_at")
-        .eq("status", "confirmed")
-        .contains("validation_reason", { policy: "youtube_episode_match_v3" })
-        .not("youtube_description", "is", null)
-        .order("updated_at", { ascending: false, nullsFirst: false })
-        .limit(Math.max(limit * 4, 5000));
-      if (ytPriorityErr) throw ytPriorityErr;
-      const ytIds = Array.from(new Set((ytPriority || []).map((row: any) => String(row.episode_id)).filter(Boolean)))
-        .filter((id) => !doneSet.has(id))
-        .slice(0, limit);
-
-      if (ytIds.length) {
-        targetIds = ytIds;
-        usedYtPriority = true;
-      } else {
-        // 2) Drain remaining episodes that don't have a best_text_source yet.
-        //    Paginate episodes by updated_at desc, filter out doneSet, until we collect `limit` ids.
-        const collected: string[] = [];
-        for (let offset = 0; offset < 500000 && collected.length < limit; offset += 1000) {
-          const { data, error } = await admin
-            .from("episodes")
-            .select("id")
-            .order("updated_at", { ascending: false, nullsFirst: false })
-            .range(offset, offset + 999);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          for (const r of data) {
-            const id = String((r as any).id);
-            if (!doneSet.has(id)) collected.push(id);
-            if (collected.length >= limit) break;
-          }
-          if (data.length < 1000) break;
-        }
-        targetIds = collected;
+      const perFeed = Math.max(10, Math.ceil(limit / FEEDS.length));
+      const seen = new Set<string>();
+      for (const feed of FEEDS) {
+        const { rows, next } = await readFeed(admin, feed, cursors[feed], perFeed);
+        feedCounts[feed] = rows.length;
+        nextCursors[feed] = next;
+        for (const r of rows) if (r.episode_id && !seen.has(r.episode_id)) { seen.add(r.episode_id); targetIds.push(r.episode_id); }
       }
     }
 
-    let episodes: any[] = [];
-    if (targetIds.length) {
-      for (let i = 0; i < targetIds.length; i += 150) {
-        const slice = targetIds.slice(i, i + 150);
-        const { data, error } = await admin
-          .from("episodes")
-          .select("id,podcast_id,title,description,updated_at")
-          .in("id", slice);
-        if (error) throw error;
-        if (data) episodes.push(...data);
-      }
+    const episodes: EpisodeRow[] = [];
+    for (let i = 0; i < targetIds.length; i += CHUNK) {
+      const slice = targetIds.slice(i, i + CHUNK);
+      const { data, error } = await admin
+        .from("episodes")
+        .select("id,podcast_id,title,description,updated_at,podcasts!inner(language_decision)")
+        .in("id", slice)
+        .eq("podcasts.language_decision", "accept_hungarian");
+      if (error) throw error;
+      if (data) episodes.push(...(data as EpisodeRow[]));
     }
-    const eps = episodes as EpisodeRow[];
-    if (!eps.length) return json({ ok: true, processed: 0 });
 
-    const epIds = eps.map((e) => e.id);
+    const epIds = episodes.map((e) => e.id);
     const spotifyByEp = new Map<string, any>();
     const youtubeByEp = new Map<string, any>();
     const articleByEp = new Map<string, any>();
     const transcriptByEp = new Map<string, any>();
+    const prevByEp = new Map<string, any>();
 
-    for (let i = 0; i < epIds.length; i += 500) {
-      const slice = epIds.slice(i, i + 500);
-      const { data: spRows } = await admin
-        .from("episode_spotify_meta")
-        .select("id,episode_id,spotify_description,spotify_html_description,match_confidence,match_method")
-        .in("episode_id", slice);
-      for (const row of spRows || []) {
-        const prev = spotifyByEp.get(row.episode_id);
-        const currentLen = String(row.spotify_description || row.spotify_html_description || "").length;
-        const prevLen = String(prev?.spotify_description || prev?.spotify_html_description || "").length;
-        if (!prev || currentLen > prevLen) spotifyByEp.set(row.episode_id, row);
+    for (let i = 0; i < epIds.length; i += CHUNK) {
+      const slice = epIds.slice(i, i + CHUNK);
+      const [sp, yt, art, tr, prev] = await Promise.all([
+        admin.from("episode_spotify_meta")
+          .select("id,episode_id,spotify_description,spotify_html_description,match_confidence,match_method")
+          .in("episode_id", slice),
+        admin.from("episode_youtube_links")
+          .select("id,episode_id,youtube_description,match_score,confidence,status,validation_reason")
+          .in("episode_id", slice)
+          .eq("status", "confirmed")
+          .contains("validation_reason", { policy: "youtube_episode_match_v3" })
+          .order("match_score", { ascending: false }),
+        admin.from("episode_article_candidates")
+          .select("id,episode_id,outlet,article_url,article_title,article_excerpt,article_text,match_score,status,match_reasons,evidence")
+          .in("episode_id", slice)
+          .eq("status", "confirmed")
+          .order("match_score", { ascending: false }),
+        admin.from("episode_transcripts")
+          .select("id,episode_id,model,source,language,transcript,segments,content_hash,status,rights_status,public_display,updated_at")
+          .in("episode_id", slice)
+          .eq("status", "ok")
+          .order("updated_at", { ascending: false, nullsFirst: false }),
+        admin.from("episode_best_text_source")
+          .select("episode_id,source_type,raw_text,source_fingerprint,reclean_status")
+          .in("episode_id", slice),
+      ]);
+      for (const res of [sp, yt, art, tr, prev]) if (res.error) throw res.error;
+      for (const row of sp.data || []) {
+        const p = spotifyByEp.get(row.episode_id);
+        const len = String(row.spotify_description || row.spotify_html_description || "").length;
+        const pLen = String(p?.spotify_description || p?.spotify_html_description || "").length;
+        if (!p || len > pLen) spotifyByEp.set(row.episode_id, row);
       }
-
-      const { data: ytRows } = await admin
-        .from("episode_youtube_links")
-        .select("id,episode_id,youtube_description,match_score,confidence,status,validation_reason")
-        .in("episode_id", slice)
-        .eq("status", "confirmed")
-        .contains("validation_reason", { policy: "youtube_episode_match_v3" })
-        .order("match_score", { ascending: false });
-      for (const row of ytRows || []) {
-        const prev = youtubeByEp.get(row.episode_id);
-        const currentScore = Number(row.match_score || 0);
-        const prevScore = Number(prev?.match_score || 0);
-        const currentLen = String(row.youtube_description || "").length;
-        const prevLen = String(prev?.youtube_description || "").length;
-        if (!prev || currentScore > prevScore || (currentScore === prevScore && currentLen > prevLen)) {
-          youtubeByEp.set(row.episode_id, row);
-        }
+      for (const row of yt.data || []) {
+        const p = youtubeByEp.get(row.episode_id);
+        const s = Number(row.match_score || 0), ps = Number(p?.match_score || 0);
+        if (!p || s > ps || (s === ps && String(row.youtube_description || "").length > String(p?.youtube_description || "").length)) youtubeByEp.set(row.episode_id, row);
       }
-
-      const { data: articleRows } = await admin
-        .from("episode_article_candidates")
-        .select("id,episode_id,outlet,article_url,article_title,article_excerpt,article_text,match_score,status,match_reasons,evidence")
-        .in("episode_id", slice)
-        .eq("status", "confirmed")
-        .order("match_score", { ascending: false });
-      for (const row of articleRows || []) {
-        const prev = articleByEp.get(row.episode_id);
-        const currentScore = Number(row.match_score || 0);
-        const prevScore = Number(prev?.match_score || 0);
-        const currentLen = String(row.article_text || row.article_excerpt || "").length;
-        const prevLen = String(prev?.article_text || prev?.article_excerpt || "").length;
-        if (!prev || currentScore > prevScore || (currentScore === prevScore && currentLen > prevLen)) {
-          articleByEp.set(row.episode_id, row);
-        }
+      for (const row of art.data || []) {
+        const p = articleByEp.get(row.episode_id);
+        const s = Number(row.match_score || 0), ps = Number(p?.match_score || 0);
+        const len = String(row.article_text || row.article_excerpt || "").length;
+        const pLen = String(p?.article_text || p?.article_excerpt || "").length;
+        if (!p || s > ps || (s === ps && len > pLen)) articleByEp.set(row.episode_id, row);
       }
-
-      const { data: transcriptRows } = await admin
-        .from("episode_transcripts")
-        .select("id,episode_id,model,source,language,transcript,segments,content_hash,status,updated_at")
-        .in("episode_id", slice)
-        .eq("status", "ok")
-        .order("updated_at", { ascending: false, nullsFirst: false });
-      for (const row of transcriptRows || []) {
-        const prev = transcriptByEp.get(row.episode_id);
-        const currentRank = transcriptRank(String(row.model || ""));
-        const prevRank = transcriptRank(String(prev?.model || ""));
-        const currentLen = String(row.transcript || "").length;
-        const prevLen = String(prev?.transcript || "").length;
-        if (!prev || currentRank > prevRank || (currentRank === prevRank && currentLen > prevLen)) {
-          transcriptByEp.set(row.episode_id, row);
-        }
+      for (const row of tr.data || []) {
+        const p = transcriptByEp.get(row.episode_id);
+        const r = transcriptRank(String(row.model || "")), pr = transcriptRank(String(p?.model || ""));
+        if (!p || r > pr || (r === pr && String(row.transcript || "").length > String(p?.transcript || "").length)) transcriptByEp.set(row.episode_id, row);
       }
+      for (const row of prev.data || []) prevByEp.set(row.episode_id, row);
     }
 
+    const now = new Date().toISOString();
     const rows: any[] = [];
     const sourceCounts: Record<string, number> = {};
-    for (const ep of eps) {
-      const best = pickBest(
-        ep,
-        spotifyByEp.get(ep.id) || null,
-        youtubeByEp.get(ep.id) || null,
-        articleByEp.get(ep.id) || null,
-        transcriptByEp.get(ep.id) || null,
-        ctrl,
-      );
+    let unchanged = 0, recleanMarked = 0, rssNoop = 0;
+    const samples: any[] = [];
+    for (const ep of episodes) {
+      const best = pickBest(ep, spotifyByEp.get(ep.id) || null, youtubeByEp.get(ep.id) || null, articleByEp.get(ep.id) || null, transcriptByEp.get(ep.id) || null, ctrl);
       if (!best) continue;
+      const prev = prevByEp.get(ep.id) || null;
+      const fingerprint = await sourceFingerprint(best);
+      if (prev?.source_fingerprint === fingerprint) { unchanged++; continue; }
+      // RSS remains the default without a row; only record RSS when a row exists or a transcript is available.
+      if (!prev && best.source_type === "rss" && !best.evidence?.transcript_available) { rssNoop++; continue; }
+      const reclean = needsReclean(prev, best);
+      if (reclean) recleanMarked++;
       const cleaned = heuristicClean(best.raw_text).text.trim();
       rows.push({
         episode_id: ep.id,
@@ -369,36 +189,76 @@ Deno.serve(async (req) => {
         cleaned_preview: cleaned.slice(0, 4000),
         raw_len: best.raw_text.length,
         cleaned_len: cleaned.length,
-        evidence: best.evidence,
-        selected_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        evidence: { ...best.evidence, policy_version: BEST_SOURCE_POLICY_VERSION },
+        source_fingerprint: fingerprint,
+        reclean_status: reclean ? "pending" : (prev?.reclean_status ?? null),
+        reclean_marked_at: reclean ? now : undefined,
+        selected_at: now,
+        updated_at: now,
       });
       sourceCounts[best.source_type] = (sourceCounts[best.source_type] || 0) + 1;
+      if (samples.length < 10) samples.push({ episode_id: ep.id, prev: prev?.source_type || null, next: best.source_type, reclean, raw_len: best.raw_text.length, cleaned_len: cleaned.length });
+    }
+    for (const r of rows) if (r.reclean_marked_at === undefined) delete r.reclean_marked_at;
+
+    if (dryRun) {
+      return json({ ok: true, dry_run: true, scanned: episodes.length, target_ids: targetIds.length, feed_counts: feedCounts, would_upsert: rows.length, unchanged, rss_noop: rssNoop, reclean_marked: recleanMarked, source_counts: sourceCounts, samples, elapsed_ms: Date.now() - startedAt });
     }
 
     let upserted = 0;
-    for (let i = 0; i < rows.length; i += 200) {
-      const chunk = rows.slice(i, i + 200);
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
       const { error } = await admin.from("episode_best_text_source").upsert(chunk, { onConflict: "episode_id" });
       if (error) throw error;
       upserted += chunk.length;
     }
 
-    await admin.from("app_settings").upsert({
-      key: "episode_best_text_source_progress",
-      value: {
-        last_run_at: new Date().toISOString(),
-        scanned: eps.length,
+    // Optional, capped re-queue of clean text for changed selections (default OFF).
+    let requeued = 0;
+    const requeueCap = Math.max(0, Math.min(500, Number(ctrl.auto_requeue_daily_cap ?? 0)));
+    if (ctrl.auto_requeue_clean_text === true && requeueCap > 0) {
+      const today = now.slice(0, 10);
+      const usedToday = state.requeue_day === today ? Number(state.requeued_today || 0) : 0;
+      const allowance = Math.max(0, requeueCap - usedToday);
+      const toQueue = rows.filter((r) => r.reclean_status === "pending").slice(0, allowance).map((r) => r.episode_id);
+      for (let i = 0; i < toQueue.length; i += CHUNK) {
+        const slice = toQueue.slice(i, i + CHUNK);
+        const { error } = await admin.from("episodes").update({ clean_text_status: "pending" }).in("id", slice).in("clean_text_status", ["done", "skipped", "quarantined"]);
+        if (error) throw error;
+        await admin.from("episode_best_text_source").update({ reclean_status: "queued" }).in("episode_id", slice);
+        requeued += slice.length;
+      }
+      state.requeue_day = today;
+      state.requeued_today = usedToday + requeued;
+    }
+
+    // Re-read state right before persisting so a concurrent manual change is not undone.
+    const { data: freshState } = await admin.from("app_settings").select("value").eq("key", STATE_KEY).maybeSingle();
+    const merged = {
+      ...((freshState?.value as any) || {}),
+      policy_version: BEST_SOURCE_POLICY_VERSION,
+      cursors: ids.length ? (((freshState?.value as any) || {}).cursors || cursors) : nextCursors,
+      requeue_day: state.requeue_day ?? null,
+      requeued_today: state.requeued_today ?? 0,
+      last_run: {
+        at: now,
+        mode: ids.length ? "ids" : "incremental",
+        scanned: episodes.length,
+        feed_counts: feedCounts,
         upserted,
+        unchanged,
+        rss_noop: rssNoop,
+        reclean_marked: recleanMarked,
+        requeued,
         source_counts: sourceCounts,
         runtime_ms: Date.now() - startedAt,
       },
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "key" });
+    };
+    await admin.from("app_settings").upsert({ key: STATE_KEY, value: merged, updated_at: now }, { onConflict: "key" });
 
-    return json({ ok: true, scanned: eps.length, upserted, source_counts: sourceCounts, elapsed_ms: Date.now() - startedAt });
+    return json({ ok: true, scanned: episodes.length, upserted, unchanged, rss_noop: rssNoop, reclean_marked: recleanMarked, requeued, feed_counts: feedCounts, source_counts: sourceCounts, elapsed_ms: Date.now() - startedAt });
   } catch (e) {
-    const msg = e instanceof Error ? `${e.message}${e.stack ? ` :: ${e.stack.split('\n').slice(0,3).join(' | ')}` : ''}` : (typeof e === "string" ? e : JSON.stringify(e));
+    const msg = e instanceof Error ? `${e.message}${e.stack ? ` :: ${e.stack.split('\n').slice(0, 3).join(' | ')}` : ''}` : (typeof e === "string" ? e : JSON.stringify(e));
     console.error("episode-best-text-source-runner error:", msg);
     return json({ ok: false, error: msg }, 500);
   }
