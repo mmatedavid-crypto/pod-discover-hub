@@ -1119,9 +1119,10 @@ async function buildEpisode(
       image: pod.image_url || undefined,
       inLanguage: "hu-HU",
       webFeed: pod.rss_url || undefined,
-      publisher: sitePublisherJsonLd(),
+      // No publisher: the series belongs to its third-party creator and no
+      // verified source-publisher field exists. PREAG publishes the website
+      // (see WebSite.publisher), not the podcast.
     },
-    publisher: sitePublisherJsonLd(),
     potentialAction: ep.audio_url
       ? { "@type": "ListenAction", target: ep.audio_url }
       : undefined,
@@ -1139,49 +1140,9 @@ async function buildEpisode(
     ],
   };
 
-  // Google News pipeline: tag fresh (≤48h) HU episodes as NewsArticle so the
-  // news-sitemap → Googlebot fetch → structured-data chain is consistent.
-  // Mirrors the client-side SPA markup in src/pages/EpisodeDetail.tsx so the
-  // prerender (which is what crawlers actually parse) carries the same schema.
-  const publishedMs = ep.published_at ? new Date(ep.published_at).getTime() : NaN;
-  const ageHours = Number.isFinite(publishedMs) ? (Date.now() - publishedMs) / 3600000 : Infinity;
-  const headline = String(ep.display_title || ep.title || "").slice(0, 110);
-  const articleImage = ep.image_url || pod.image_url || undefined;
-  const podName = pod.display_title || pod.title || "Podiverzum";
-  const newsArticle = isAcceptedHungarian && ageHours <= 48 && headline && ep.published_at ? {
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    headline,
-    description: longText || undefined,
-    // articleBody is a strong Google News structured-data ranking signal.
-    articleBody: bodyChunk || longText || headline,
-    datePublished: new Date(publishedMs).toISOString(),
-    dateModified: new Date(publishedMs).toISOString(),
-    url: canonical,
-    mainEntityOfPage: canonical,
-    inLanguage: "hu-HU",
-    isAccessibleForFree: true,
-    image: articleImage ? [articleImage] : undefined,
-    articleSection: podName,
-    // Google News requires author.@type ∈ {Person, Organization}. A podcast
-    // show is an organizational publication, not a person — we credit the
-    // show as an Organization and add the Podiverzum editorial team as a
-    // co-author so Google sees an accountable, named byline.
-    author: [
-      {
-        "@type": "Organization",
-        name: podName,
-        url: `${SITE}/podcast/${pod.slug}`,
-      },
-      {
-        "@type": "Organization",
-        name: "Podiverzum szerkesztőség",
-        url: `${SITE}/szerkesztoseg`,
-      },
-    ],
-    ...(episodePersonMentions.length ? { about: episodePersonMentions, mentions: episodePersonMentions } : {}),
-    publisher: sitePublisherJsonLd(),
-  } : null;
+  // Podcast catalog episodes are third-party RSS show notes, not original
+  // Podiverzum journalism: never emit NewsArticle here. Google News eligibility
+  // is limited to published Podiverzum Heti editorial articles (/heti/:slug).
 
   // === AI-idézhetőség: tényblokk + FAQ ===
   // Determinisztikus, adatból származó tények és kérdés-válasz párok. Ezek a
@@ -1274,7 +1235,7 @@ async function buildEpisode(
     : null;
 
   const jsonLdList = isAcceptedHungarian
-    ? [ld, breadcrumbs, ...(newsArticle ? [newsArticle] : []), ...(epFaqLd ? [epFaqLd] : []), ...episodePersonJsonLd]
+    ? [ld, breadcrumbs, ...(epFaqLd ? [epFaqLd] : []), ...episodePersonJsonLd]
     : [];
 
 
