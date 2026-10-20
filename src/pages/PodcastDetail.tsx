@@ -164,6 +164,9 @@ export default function PodcastDetail() {
   // Distinguish "no episodes" from "loading failed" (DB timeout under load).
   const [epsError, setEpsError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  // Channel-scoped episode search, shown right under the podcast header.
+  const [episodeQuery, setEpisodeQuery] = useState("");
+  useEffect(() => { setEpisodeQuery(""); }, [podcastSlug]);
   const { play } = useSmartPlayer();
 
   useEffect(() => {
@@ -409,8 +412,41 @@ export default function PodcastDetail() {
           )}
         </section>
 
-        {p.notify_new_episodes && (
-          <section className="rounded-xl border border-border bg-card/60 p-4 sm:p-5">
+        <form
+          role="search"
+          onSubmit={(e) => e.preventDefault()}
+          className="mt-6"
+        >
+          <label htmlFor="podcast-episode-search" className="mb-1.5 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Keresés ebben a csatornában
+          </label>
+          <div className="relative focus-brand rounded-xl">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <input
+              id="podcast-episode-search"
+              type="search"
+              value={episodeQuery}
+              onChange={(e) => setEpisodeQuery(e.target.value)}
+              placeholder={eps.length > 0 ? `Keresés ${eps.length} epizód között: cím, vendég, téma…` : "Cím, vendég, téma…"}
+              aria-label={`Keresés csak ebben a csatornában: ${p.display_title || p.title}`}
+              autoComplete="off"
+              className="w-full rounded-xl border border-border bg-card py-3 pl-11 pr-10 text-base outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/50"
+            />
+            {episodeQuery && (
+              <button
+                type="button"
+                onClick={() => setEpisodeQuery("")}
+                aria-label="Keresés törlése"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </form>
+
+        {!episodeQuery.trim() && p.notify_new_episodes && (
+          <section className="mt-6 rounded-xl border border-border bg-card/60 p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-foreground">
@@ -429,7 +465,7 @@ export default function PodcastDetail() {
         )}
 
 
-        {(() => {
+        {!episodeQuery.trim() && (() => {
           const epsLite = (eps as any[]).map((e) => ({ ...e, podcasts: { hosts: p.hosts || [] } }));
           const people = topEntitiesFrom(epsLite, "people", "person", 24, { excludeHosts: true, blocklist: ["Csukás István"] });
           const companies = topEntitiesFrom(epsLite, "companies", "company", 24);
@@ -440,7 +476,7 @@ export default function PodcastDetail() {
 
         {epsError && eps.length === 0
           ? <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />
-          : <EpisodeListWithSearch eps={eps} podcast={p} />}
+          : <EpisodeListWithSearch eps={eps} podcast={p} q={episodeQuery} />}
 
 
         <SimilarPodcasts podcastId={p.id} />
@@ -461,8 +497,15 @@ function PodcastStat({ icon, label, value }: { icon: ReactNode; label: string; v
   );
 }
 
-function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
-  const [q, setQ] = useState("");
+function entityNames(v: unknown): string {
+  if (!Array.isArray(v)) return "";
+  return v
+    .map((x: any) => (typeof x === "string" ? x : x?.name || x?.label || ""))
+    .filter(Boolean)
+    .join(" ");
+}
+
+function EpisodeListWithSearch({ eps, podcast, q }: { eps: any[]; podcast: any; q: string }) {
   const [visibleCount, setVisibleCount] = useState(PODCAST_EPISODE_INITIAL_RENDER_COUNT);
   const { play, toggle, currentEpisode, isPlaying } = useSmartPlayer();
   const podcastSlug = podcast.slug;
@@ -475,11 +518,12 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
   const needle = norm(q.trim());
   const filtered = useMemo(() => {
     if (!needle) return eps;
+    const terms = needle.split(/\s+/).filter(Boolean);
     return eps.filter((e) => {
       const hay = norm(
-        `${e.display_title || ""} ${e.title || ""} ${pickEpisodeDescription(e, 500)}`
+        `${e.display_title || ""} ${e.title || ""} ${pickEpisodeDescription(e, 500)} ${entityNames(e.people)} ${entityNames(e.companies)} ${entityNames(e.topics)}`
       );
-      return hay.includes(needle);
+      return terms.every((t) => hay.includes(t));
     });
   }, [eps, needle]);
   useEffect(() => {
@@ -490,41 +534,18 @@ function EpisodeListWithSearch({ eps, podcast }: { eps: any[]; podcast: any }) {
 
   return (
     <>
-      <section className="mt-10">
-      <div className="mb-4 flex items-end justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Epizódok</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Böngészd a műsor friss és régebbi adásait, vagy keress kifejezetten ebben a csatornában.
-          </p>
-        </div>
-        <div className="w-full sm:w-[360px]">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={`Keresés csak ebben a csatornában: „${podcastTitle}”…`}
-              aria-label={`Keresés csak ebben a csatornában: ${podcastTitle}`}
-              className="w-full pl-8 pr-8 py-2.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ("")}
-                aria-label="Törlés"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground text-right">
-            Csak a „{podcastTitle}” epizódjai között keres.
-          </p>
-        </div>
+      <section className="mt-8">
+      <div className="mb-4">
+        <h2 className="text-2xl font-semibold tracking-tight">
+          {needle ? "Találatok a csatornában" : "Epizódok"}
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {needle
+            ? `Csak a „${podcastTitle}” epizódjai között.`
+            : "Böngészd a műsor friss és régebbi adásait, vagy keress fent kifejezetten ebben a csatornában."}
+        </p>
       </div>
+
 
       {eps.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">Ennek a podcastnak még nincsenek epizódjai.</div>
