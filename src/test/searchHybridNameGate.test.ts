@@ -76,6 +76,7 @@ function endpoint(options: Options = {}) {
     detectBot: () => ({ isBot: true, ua: "test-bot", reason: "ua" }),
     loadCuratedSynonyms: () => Promise.resolve({ matched_terms: [], expansions: [] }),
     understandQuery: ai, callLovableAI: ai, cohereRerank: ai, getHydeExpansion: ai,
+    detectAdjNounTopic: () => null, buildExpandedQuery: (_u: unknown, q: string) => q, blendEmbeddings: (a: unknown) => a,
     Deno: { env: { get: () => "test" }, serve: (callback: typeof handler) => { handler = callback; } },
     Request, Response, URL, setTimeout, clearTimeout, console: { log: () => {}, warn: () => {}, error: () => {} },
   });
