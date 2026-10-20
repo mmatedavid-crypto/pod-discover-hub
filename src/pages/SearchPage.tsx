@@ -1021,11 +1021,27 @@ export default function SearchPage() {
                     </span>
                   )}
                 </h2>
-                {confidence === "medium" && (
-                  <p className="text-xs text-muted-foreground -mt-1 mb-3">A legvalószínűbb kapcsolódó találatok.</p>
-                )}
-                {confidence === "low" && (
-                  <p className="text-xs text-muted-foreground -mt-1 mb-3">Kevés erős egyezést találtunk — próbálj konkrétabb nevet vagy témát.</p>
+                {exactQuery.hasExact ? (
+                  <p className="text-xs text-muted-foreground -mt-1 mb-3">
+                    Pontos kifejezés: {exactQuery.labels.map((l) => `„${l}”`).join(", ")} — csak azok az epizódok, amelyekben pontosan így szerepel (kis- és nagybetű, ékezet nem számít).{" "}
+                    {plainQuery && (
+                      <button
+                        onClick={() => { setQ(plainQuery); setParams({ q: plainQuery }); }}
+                        className="underline text-foreground"
+                      >
+                        Keresés idézőjelek nélkül
+                      </button>
+                    )}
+                  </p>
+                ) : (
+                  <>
+                    {confidence === "medium" && (
+                      <p className="text-xs text-muted-foreground -mt-1 mb-3">A legvalószínűbb kapcsolódó találatok.</p>
+                    )}
+                    {confidence === "low" && (
+                      <p className="text-xs text-muted-foreground -mt-1 mb-3">Kevés erős egyezést találtunk — próbálj konkrétabb nevet vagy témát.</p>
+                    )}
+                  </>
                 )}
                 {degradedSearch && (
                   <p className="text-xs text-muted-foreground -mt-1 mb-3">
