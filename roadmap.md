@@ -18,3 +18,10 @@
 - [ ] Owner adds a NEW/rotated OPENAI_API_KEY in Secrets (blocked: owner action).
 - [ ] Owner labels 100-200 goldens, then authorizes golden model comparison and a 1,000-2,000 pair pilot with daily/total caps (blocked: owner authorization).
 - [ ] After pilot gates pass: scheduled polling and escalation enablement (planned).
+
+## Clean-text + best-source repair (2026-10-20, before mass person GPT)
+- [ ] Harden clean-text runner: shared validator, no empty/overcut "done", keep prior good text, bounded retry/quarantine.
+- [ ] Best-source runner: incremental change detection for new transcripts on done episodes, bounded indexed batches, no full-table load.
+- [ ] Stage/dry-run + backup/rollback; 20-100 canary only after gates pass.
+- [ ] Gemini AI trim off for this fix; optional OpenAI extract-only adapter stays disabled.
+- [ ] Tests, deploy, canary report with before/after metrics.
