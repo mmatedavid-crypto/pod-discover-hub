@@ -7,6 +7,7 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Building2, Hash, Search } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
+import { episodeExactFields, exactMatchLabel, exactPhraseMatch, parseExactPhraseQuery, stripSearchQuotes, type ExactPhraseInfo } from "@/lib/exactPhrase";
 import { episodeScore } from "@/lib/episodeRank";
 import { pushRecentSearch } from "@/lib/recentSearches";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
@@ -143,6 +144,9 @@ export default function SearchPage() {
   const [heroTopic, setHeroTopic] = useState<any | null>(null);
   const [degradedSearch, setDegradedSearch] = useState<"timeout" | "fallback" | null>(null);
   const [timestampMatchCount, setTimestampMatchCount] = useState(0);
+  const [exactInfo, setExactInfo] = useState<ExactPhraseInfo | null>(null);
+  const exactQuery = useMemo(() => parseExactPhraseQuery(initial), [initial]);
+  const plainQuery = exactQuery.plainText || initial.trim();
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
   const navigatingAwayRef = useRef(false);
@@ -194,7 +198,7 @@ export default function SearchPage() {
   // Hero person: best person match for the query (accent-insensitive via normalized_name)
   useEffect(() => {
     setHeroPerson(null);
-    const phrase = initial.trim();
+    const phrase = stripSearchQuotes(initial);
     if (phrase.length < 3) return;
     const phraseNorm = phrase.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
     let cancelled = false;
@@ -243,6 +247,7 @@ export default function SearchPage() {
     setHeroTopic(cached?.metadata.heroTopic || null);
     setDegradedSearch((cached?.metadata.degradedSearch as "timeout" | "fallback" | null) || null);
     setTimestampMatchCount(Number(cached?.metadata.timestampMatchCount || 0));
+    setExactInfo((cached?.metadata.exactPhrase as ExactPhraseInfo | null | undefined) || null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
     if (cached) {
@@ -265,13 +270,15 @@ export default function SearchPage() {
       let usedFallback = false;
       let semantic = false;
       let searchDiagnostics: any = null;
+      let exactMeta: ExactPhraseInfo | null = null;
 
       const applyHybridResponse = (data: any) => {
         let eps = (data?.episodes || []) as any[];
         const next = eps.slice(0, 80).map((e) => {
           const safeWhy = sanitizeSearchWhy(e.why_matched);
           const evidenceLabel = typeof e.name_evidence?.label === "string" ? e.name_evidence.label : null;
-          return { ...e, matchBadge: evidenceLabel || (safeWhy ? null : "Kulcsszavas találat"), why_matched: safeWhy };
+          const exactLabel = typeof e.exact_match?.label === "string" ? e.exact_match.label : null;
+          return { ...e, matchBadge: exactLabel || evidenceLabel || (safeWhy ? null : "Kulcsszavas találat"), why_matched: safeWhy };
         });
         setTimestampMatchCount(next.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length);
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
@@ -293,6 +300,11 @@ export default function SearchPage() {
         semantic = r1.semantic;
         setEpisodes(mapped);
         setSemanticUsed(semantic || r1.reranked);
+        const ex = phase1.data?.exact_phrase;
+        if (ex && Array.isArray(ex.phrases)) {
+          exactMeta = { phrases: ex.phrases.map(String), total: Number(ex.total) || mapped.length };
+          setExactInfo(exactMeta);
+        }
         const cb = phase1.data?.confidence_band;
         if (cb === "high" || cb === "medium" || cb === "low") setConfidence(cb);
         const pin = phase1.data?.podcast_pin;
@@ -348,8 +360,19 @@ export default function SearchPage() {
         if (cancelled) return;
         if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
         let chosen = result.all;
+        if (exactQuery.hasExact) {
+          // Fallback list ignores quotes; keep only verified exact matches.
+          chosen = chosen.filter((x) => exactPhraseMatch(episodeExactFields(x.e), exactQuery).ok);
+        }
         const ranked = chosen.slice(0, 80);
-        mapped = ranked.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "Kulcsszavas találat" }));
+        mapped = ranked.map((x) => {
+          const exact = exactQuery.hasExact ? exactPhraseMatch(episodeExactFields(x.e), exactQuery) : null;
+          return { ...x.e, matchBadge: exact ? exactMatchLabel(exact.fields) : (MATCH_LABEL[x.matchType] || "Kulcsszavas találat") };
+        });
+        if (exactQuery.hasExact) {
+          exactMeta = { phrases: exactQuery.labels, total: mapped.length };
+          setExactInfo(exactMeta);
+        }
         semantic = result.semanticUsed;
         usedFallback = result.fallbackUsed || usedFallback;
         setCategories(Array.from(new Set(ranked.map((x) => x.e.podcasts?.category).filter(Boolean) as string[])));
@@ -391,8 +414,9 @@ export default function SearchPage() {
       }
 
       // Podcasts query (separate, simpler). Includes full-phrase title hit.
-      const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
-      const fullPhrase = initial.trim();
+      // Quote marks are stripped here; exact mode re-verifies the phrase below.
+      const { terms } = parseQuery(normalizeQuery(plainQuery).normalized || plainQuery);
+      const fullPhrase = plainQuery;
       let pq = supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,language_decision")
@@ -414,7 +438,10 @@ export default function SearchPage() {
           decision === "accept_hungarian" &&
           !["failed", "inactive", "blocked", "dead"].includes(status)
         );
-      });
+      }).filter((p: any) => !exactQuery.hasExact || exactPhraseMatch([
+        { key: "title", text: p.title }, { key: "title", text: p.display_title },
+        { key: "description", text: p.summary }, { key: "description", text: p.description },
+      ], exactQuery).ok);
       const rankedPs = visiblePs
         .map((p) => ({ p, s: scorePodcast(p, terms, fullPhrase) + ((p.podiverzum_rank ?? 0) * 0.5) }))
         .filter((x) => x.s > 0)
@@ -440,6 +467,7 @@ export default function SearchPage() {
           personCandidates: Array.isArray(searchDiagnostics?.person_candidates) ? searchDiagnostics.person_candidates.slice(0, 6) : [],
           degradedSearch,
           timestampMatchCount: mapped.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length,
+          exactPhrase: exactMeta,
         },
         scrollY: previousCache?.scrollY || 0,
       });
@@ -477,7 +505,7 @@ export default function SearchPage() {
             signal: ctrl.signal,
             headers: { "Content-Type": "application/json", apikey: anon, Authorization: `Bearer ${anon}` },
             body: JSON.stringify({
-              q: initial,
+              q: plainQuery,
               episodes: mapped.slice(0, 6).map((e: any) => ({
                 title: e.display_title || e.title,
                 podcast: e.podcasts?.title || "",
@@ -526,7 +554,10 @@ export default function SearchPage() {
     };
   }, [initial]);
 
-  const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
+  const flatTerms = useMemo(
+    () => exactQuery.hasExact ? [...exactQuery.labels, ...exactQuery.freeTermsRaw] : parseQuery(initial).terms,
+    [initial, exactQuery],
+  );
   const labelOfCat = (c: string) => categoryLabels[c] || categoryLabel(c);
   // One button per visible label: different raw keys ("Önfejlesztés", "self-improvement")
   // can share the same Hungarian label, so dedupe by label and filter by label.
@@ -576,7 +607,7 @@ export default function SearchPage() {
       const local = podcasts.find((p) => p.slug === pinnedPodcast.slug);
       return local || pinnedPodcast;
     }
-    const phrase = initial.trim().toLowerCase();
+    const phrase = plainQuery.toLowerCase();
     if (phrase.length < 3) return null;
     const phraseRe = new RegExp(
       `(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}\\p{N}]|$)`,
@@ -626,7 +657,7 @@ export default function SearchPage() {
       >
         <h1 className="text-3xl font-semibold mb-2">Keresés</h1>
         <p className="text-muted-foreground mb-4 text-sm">
-          Írj be egy vagy több szót, pl. <em>magyar gazdaság</em>. A <code className="px-1 bg-secondary rounded">+</code> jellel megadhatod, hogy egy szónak szerepelnie kell.
+          Írj be egy vagy több szót, pl. <em>magyar gazdaság</em>. Idézőjelek között (<code className="px-1 bg-secondary rounded">"magyar gazdaság"</code>) pontosan arra a kifejezésre keresünk. A <code className="px-1 bg-secondary rounded">+</code> jellel megadhatod, hogy egy szónak szerepelnie kell.
         </p>
         <form onSubmit={(e) => { e.preventDefault(); if (e.isTrusted) trackSearchSubmitted(q, "search_page"); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -702,7 +733,24 @@ export default function SearchPage() {
 
         {initial && loading && <SearchStagedLoader query={initial} />}
 
-        {initial && !loading && podcasts.length === 0 && displayedEpisodes.length === 0 && !piFallback && !heroPerson && !heroOrganization && !heroTopic && (
+        {initial && !loading && exactQuery.hasExact && displayedEpisodes.length === 0 && (
+          <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
+            Nincs olyan epizód, amelyben pontosan ez szerepel: {exactQuery.labels.map((l) => `„${l}”`).join(", ")}.{" "}
+            {plainQuery && (
+              <>
+                <button
+                  onClick={() => { setQ(plainQuery); setParams({ q: plainQuery }); }}
+                  className="underline text-foreground font-medium"
+                >
+                  Keresés idézőjelek nélkül
+                </button>
+                {" "}— így a hasonló, kapcsolódó találatokat is megmutatjuk.
+              </>
+            )}
+          </div>
+        )}
+
+        {initial && !loading && !exactQuery.hasExact && podcasts.length === 0 && displayedEpisodes.length === 0 && !piFallback && !heroPerson && !heroOrganization && !heroTopic && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
             Nem találtunk elég erős egyezést. Próbálj meg más megfogalmazást vagy konkrétabb nevet/témát.
             {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
@@ -973,11 +1021,27 @@ export default function SearchPage() {
                     </span>
                   )}
                 </h2>
-                {confidence === "medium" && (
-                  <p className="text-xs text-muted-foreground -mt-1 mb-3">A legvalószínűbb kapcsolódó találatok.</p>
-                )}
-                {confidence === "low" && (
-                  <p className="text-xs text-muted-foreground -mt-1 mb-3">Kevés erős egyezést találtunk — próbálj konkrétabb nevet vagy témát.</p>
+                {exactQuery.hasExact ? (
+                  <p className="text-xs text-muted-foreground -mt-1 mb-3">
+                    Pontos kifejezés: {exactQuery.labels.map((l) => `„${l}”`).join(", ")} — csak azok az epizódok, amelyekben pontosan így szerepel (kis- és nagybetű, ékezet nem számít).{" "}
+                    {plainQuery && (
+                      <button
+                        onClick={() => { setQ(plainQuery); setParams({ q: plainQuery }); }}
+                        className="underline text-foreground"
+                      >
+                        Keresés idézőjelek nélkül
+                      </button>
+                    )}
+                  </p>
+                ) : (
+                  <>
+                    {confidence === "medium" && (
+                      <p className="text-xs text-muted-foreground -mt-1 mb-3">A legvalószínűbb kapcsolódó találatok.</p>
+                    )}
+                    {confidence === "low" && (
+                      <p className="text-xs text-muted-foreground -mt-1 mb-3">Kevés erős egyezést találtunk — próbálj konkrétabb nevet vagy témát.</p>
+                    )}
+                  </>
                 )}
                 {degradedSearch && (
                   <p className="text-xs text-muted-foreground -mt-1 mb-3">
