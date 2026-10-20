@@ -34,9 +34,20 @@ export default function AdminPersonRelevanceBatchPage() {
   const [role, setRole] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [labels, setLabels] = useState<Record<string, string>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const pairKey = (personId: string, episodeId: string) => `${personId}:${episodeId}`;
+  const labelKey = (st: string, mt: string | null) => `${st}:${mt ?? ""}`;
 
   const load = async () => {
-    try { setStatus(await call("status")); } catch (e) { setMsg(String((e as Error).message)); }
+    try {
+      const s = await call("status");
+      setStatus(s);
+      const saved: Record<string, string> = {};
+      for (const g of s?.goldens?.labels || []) saved[pairKey(g.person_id, g.episode_id)] = labelKey(g.label_status, g.label_mention_type);
+      setLabels((prev) => ({ ...saved, ...prev }));
+    } catch (e) { setMsg(String((e as Error).message)); }
   };
   useEffect(() => { if (!adminLoading && isAdmin) load(); }, [adminLoading, isAdmin]);
 
@@ -46,16 +57,20 @@ export default function AdminPersonRelevanceBatchPage() {
     setBusy(false);
   };
 
-  const label = async (s: Sample, label_status: string, label_mention_type: string | null) => {
-    setBusy(true);
+  const label = async (s: Sample, label_status: string, label_mention_type: string | null, text: string) => {
+    const key = pairKey(s.person_id, s.episode_id);
+    setSavingKey(key);
     try {
       const stratum = s.identity_risk ? "identity_risk" : (s.extraction[0]?.role_type || "unspecified");
       const r = await call("label_golden", { person_id: s.person_id, episode_id: s.episode_id, label_status, label_mention_type,
         label_identity: label_status === "accepted" ? "same_person" : null, stratum });
-      setMsg(r?.ok ? `Címke mentve: ${s.person_name} – ${label_status}` : `Hiba: ${r?.error}`);
-      await load();
+      if (r?.ok) {
+        setLabels((prev) => ({ ...prev, [key]: labelKey(label_status, label_mention_type) }));
+        setMsg(`Mentve: ${s.person_name} – ${text}`);
+        load();
+      } else setMsg(`Hiba: ${r?.error}`);
     } catch (e) { setMsg(String((e as Error).message)); }
-    setBusy(false);
+    setSavingKey(null);
   };
 
   if (adminLoading) return <Layout><div className="container mx-auto py-20">Betöltés…</div></Layout>;
@@ -134,26 +149,38 @@ export default function AdminPersonRelevanceBatchPage() {
               </ul>
               <div className="text-xs text-muted-foreground mt-1">{preview.pricing_note} OpenAI-hívás: {preview.openai_called ? "igen" : "nem"}.</div>
             </div>
-            {(preview.samples as Sample[]).map((s) => (
-              <div key={`${s.person_id}-${s.episode_id}`} className="p-4 rounded-lg border border-border bg-card">
+            {(preview.samples as Sample[]).map((s) => {
+              const key = pairKey(s.person_id, s.episode_id);
+              const chosen = labels[key];
+              const saving = savingKey === key;
+              return (
+              <div key={key} className={`p-4 rounded-lg border bg-card ${chosen ? "border-primary/60" : "border-border"}`}>
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="font-semibold">{s.person_name}</span>
                   {s.disambiguation_label && <span className="text-xs text-muted-foreground">({s.disambiguation_label})</span>}
                   {s.identity_risk && <span className="text-[10px] px-1.5 py-0.5 rounded border border-border">azonos nevű / kétértelmű</span>}
                   {s.guard && <span className="text-[10px] px-1.5 py-0.5 rounded border border-border">nem küldené: {s.guard.status}</span>}
+                  {chosen && !saving && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-primary-foreground">✓ Címkézve</span>}
+                  {saving && <span className="text-[10px] px-1.5 py-0.5 rounded border border-border">Mentés…</span>}
                 </div>
                 <div className="text-sm mt-1">{s.episode_title} <span className="text-muted-foreground">· {s.podcast_title}</span></div>
                 <div className="text-xs text-muted-foreground mt-1">Kinyerés: {s.extraction.map((x) => `${x.mention_type}/${x.role_type || "–"}: „${x.evidence}”`).join(" · ")}</div>
                 <p className="text-xs mt-2 line-clamp-4">{s.excerpt}</p>
                 <div className="flex flex-wrap gap-1.5 mt-3">
-                  {[["accepted", "guest", "Vendég"], ["accepted", "host", "Műsorvezető"], ["accepted", "subject", "Róla szól"], ["accepted", "mentioned", "Említés"],
-                    ["rejected", "none", "Téves"], ["needs_review", null, "Bizonytalan"]].map(([st, mt, text]) => (
-                    <button key={text as string} disabled={busy} onClick={() => label(s, st as string, mt as string | null)}
-                      className="px-2 py-1 rounded-md border border-border text-xs hover:border-primary/60">{text}</button>
-                  ))}
+                  {([["accepted", "guest", "Vendég"], ["accepted", "host", "Műsorvezető"], ["accepted", "subject", "Róla szól"], ["accepted", "mentioned", "Említés"],
+                    ["rejected", "none", "Téves"], ["needs_review", null, "Bizonytalan"]] as [string, string | null, string][]).map(([st, mt, text]) => {
+                    const active = chosen === labelKey(st, mt);
+                    return (
+                      <button key={text} disabled={saving} aria-pressed={active} onClick={() => label(s, st, mt, text)}
+                        className={`px-2 py-1 rounded-md border text-xs transition-colors disabled:opacity-60 ${active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border hover:border-primary/60"}`}>{active ? `✓ ${text}` : text}</button>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
