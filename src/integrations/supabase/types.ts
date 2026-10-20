@@ -11438,6 +11438,10 @@ export type Database = {
         Args: { _episode: string; _person: string }
         Returns: Json
       }
+      person_judge_source_with_hash: {
+        Args: { _episode: string; _person: string }
+        Returns: Json
+      }
       person_judge_telemetry: { Args: { _patch: Json }; Returns: undefined }
       person_openai_batch_candidates: {
         Args: {
