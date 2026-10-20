@@ -11,6 +11,11 @@ import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.t
 import { detectBot } from "../_shared/bot-detect.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
 import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQuery, nameEvidenceTier, rankFullNameMatches } from "../_shared/search-name-match.ts";
+import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
+
+// Per-query cap for the person-first branch; a slow source degrades to fewer
+// results instead of pushing the request past the client timeout.
+const PERSON_STRICT_QUERY_MS = 2500;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
