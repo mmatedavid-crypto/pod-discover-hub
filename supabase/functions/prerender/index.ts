@@ -7,6 +7,8 @@
 //   /                              → home (top S/A podcasts)
 //   /podcast/:slug                 → PodcastSeries + episode list
 //   /podcast/:slug/:episode        → PodcastEpisode
+//   /heti, /heti/:slug             → Podiverzum Heti hub + NewsArticle (published only)
+//   /rolunk, /kapcsolat, /szerkesztoseg → informational pages
 //   /category/:slug                → CollectionPage + podcast list
 //   /topic|person|company|ticker|ingredient/:slug → CollectionPage + episode list
 //   /podcastok|szemelyek|szervezetek|cegek|partok|temak → Hub landing pages
@@ -14,6 +16,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { categoryHeading, categoryIntro, categoryMetaDescription, categoryTitle } from "../_shared/category-copy.ts";
 import { CATEGORY_HUB_INTRO, DISCOVERY_LINKS, HOME_DESCRIPTION, HOME_INTRO, discoveryCategories } from "../_shared/discovery-navigation.ts";
+import { hetiLookupWindow, hetiSlug, isLiveHetiPost, isoWeek, parseHetiSlug, resolveHetiSlug } from "../_shared/heti-editorial.ts";
 
 const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -2879,6 +2882,435 @@ async function buildToplistaHub(supabase: ReturnType<typeof createClient>) {
 
 // ---------- router ----------
 
+// ---------- Podiverzum Heti (weekly editorial) + informational pages ----------
+// Content comes only from published `editorial_posts` rows and the existing
+// SPA page copy (src/pages/HetiHubPage.tsx, HetiArticlePage.tsx, AboutPage.tsx,
+// ContactPage.tsx, SzerkesztosegPage.tsx). No invented authors or text.
+
+const EDITORIAL_SELECT = "id,week_start,week_end,title,intro,items,cover_image_url,status,published_at,updated_at";
+const EDITORIAL_BYLINE = "Podiverzum szerkesztőség";
+
+function huDayMonth(dateStr: string): string {
+  return new Intl.DateTimeFormat("hu-HU", { month: "long", day: "numeric", timeZone: "UTC" })
+    .format(new Date(`${String(dateStr).slice(0, 10)}T00:00:00Z`));
+}
+
+function hetiRange(start: string, end: string): string {
+  return `${huDayMonth(start)} – ${huDayMonth(end)}`;
+}
+
+function huDateTime(iso: string): string {
+  return new Intl.DateTimeFormat("hu-HU", {
+    year: "numeric", month: "long", day: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZone: "Europe/Budapest",
+  }).format(new Date(iso));
+}
+
+function hetiFallbackTitle(weekStart: string): string {
+  return `Podiverzum Heti: miről beszéltek a magyar podcastok a ${isoWeek(weekStart).week}. héten?`;
+}
+
+async function buildHetiHub(supabase: ReturnType<typeof createClient>) {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await (supabase as any)
+    .from("editorial_posts")
+    .select(EDITORIAL_SELECT)
+    .eq("status", "published")
+    .lte("published_at", nowIso)
+    .order("week_start", { ascending: false })
+    .limit(60);
+  if (error) throw new Error("Heti hub lookup failed");
+  const posts = ((data ?? []) as any[]).filter((p) => isLiveHetiPost(p));
+
+  const canonical = `${SITE}/heti`;
+  const title = "Podiverzum Heti – magyar podcastfigyelő | Podiverzum";
+  const desc = "A Podiverzum Heti megmutatja, miről beszéltek a magyar podcastok az adott héten. Témák, epizódok, idézetek és friss felfedezések.";
+
+  const featured = posts[0];
+  const rest = posts.slice(1);
+  const featuredHtml = featured ? (() => {
+    const intro = String(featured.intro || "");
+    const lead = intro.split("\n").find((l: string) => l.trim().length > 30) || intro;
+    return `<section><p>Legfrissebb heti anyag</p>
+<h2><a href="${SITE}/heti/${esc(hetiSlug(featured))}">${esc(featured.title || "Podiverzum Heti")}</a></h2>
+<p><time datetime="${esc(featured.week_start)}">${esc(hetiRange(featured.week_start, featured.week_end))}</time></p>
+${lead ? `<p>${esc(lead)}</p>` : ""}
+<p><a href="${SITE}/heti/${esc(hetiSlug(featured))}">Olvasd el a heti válogatást</a></p></section>`;
+  })() : `<section><p>A következő heti válogatás készül</p><h2>Friss magyar podcastok addig is</h2>
+<p>A heti szerkesztői anyag automatikusan frissül, amikor elkészül. Addig itt vannak a legfrissebb magyar epizódok, hogy a link ne üres oldalra vigyen.</p></section>`;
+  const restHtml = rest.length
+    ? `<section><h2>Korábbi heti anyagok</h2><ul>${rest.map((p) =>
+        `<li><a href="${SITE}/heti/${esc(hetiSlug(p))}">${esc(p.title || "Podiverzum Heti")}</a> — <time datetime="${esc(p.week_start)}">${esc(hetiRange(p.week_start, p.week_end))}</time></li>`,
+      ).join("")}</ul></section>`
+    : "";
+
+  const collection = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Podiverzum Heti",
+    url: canonical,
+    description: desc,
+    inLanguage: "hu-HU",
+    isPartOf: { "@id": "https://podiverzum.hu/#website" },
+    publisher: { "@id": SITE_PUBLISHER.id },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: posts.length,
+      itemListElement: posts.map((p, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        url: `${SITE}/heti/${hetiSlug(p)}`,
+        name: p.title || hetiFallbackTitle(p.week_start),
+      })),
+    },
+  };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Podiverzum Heti", item: canonical },
+    ],
+  };
+
+  return htmlResponse(shell({
+    title,
+    description: desc,
+    canonical,
+    jsonLd: [collection, breadcrumb],
+    bodyHtml: `<article>
+<header><p>Magyar podcastfigyelő</p><h1>Podiverzum Heti</h1>
+<p>A Podiverzum Heti megmutatja, miről beszéltek a magyar podcastok az adott héten. Válogatás témákból, epizódokból, idézetekből és friss felfedezésekből.</p>
+<p><a href="${SITE}/heti/rss.xml">Podiverzum Heti RSS</a></p></header>
+<main>${featuredHtml}${restHtml}</main>
+</article>`,
+  }));
+}
+
+async function buildHetiArticle(supabase: ReturnType<typeof createClient>, slug: string, path: string) {
+  const parsed = parseHetiSlug(slug);
+  if (!parsed) return notFound(path, true);
+  const { lo, hi } = hetiLookupWindow(parsed);
+  const { data, error } = await (supabase as any)
+    .from("editorial_posts")
+    .select(EDITORIAL_SELECT)
+    .eq("status", "published")
+    .gte("week_start", lo)
+    .lte("week_start", hi)
+    .order("week_start", { ascending: false });
+  if (error) throw new Error("Heti article lookup failed");
+  const resolved = resolveHetiSlug((data ?? []) as any[], slug);
+  if (resolved.kind === "missing") return notFound(path, true);
+  if (resolved.kind === "redirect") {
+    return new Response(null, {
+      status: 301,
+      headers: { Location: `${SITE}/heti/${resolved.slug}`, "Cache-Control": "public, max-age=3600" },
+    });
+  }
+  const post = resolved.post as any;
+  const nowIso = new Date().toISOString();
+  const [{ data: prevRows }, { data: nextRows }] = await Promise.all([
+    (supabase as any).from("editorial_posts").select(EDITORIAL_SELECT)
+      .eq("status", "published").lte("published_at", nowIso).lt("week_start", post.week_start)
+      .order("week_start", { ascending: false }).limit(1),
+    (supabase as any).from("editorial_posts").select(EDITORIAL_SELECT)
+      .eq("status", "published").lte("published_at", nowIso).gt("week_start", post.week_start)
+      .order("week_start", { ascending: true }).limit(1),
+  ]);
+  const prev = (prevRows?.[0] as any) || null;
+  const next = (nextRows?.[0] as any) || null;
+
+  const canonical = `${SITE}/heti/${hetiSlug(post)}`;
+  const { year, week } = isoWeek(post.week_start);
+  const headline = String(post.title || hetiFallbackTitle(post.week_start));
+  const range = hetiRange(post.week_start, post.week_end);
+  const intro = String(post.intro || "");
+  const desc = intro.replace(/\s+/g, " ").trim().slice(0, 155)
+    || `Heti válogatás magyar podcastokból — ${range} (${year}/${week}. hét).`;
+  const items = (Array.isArray(post.items) ? post.items : []) as any[];
+  const publishedIso = new Date(post.published_at).toISOString();
+  const updatedMs = post.updated_at ? new Date(post.updated_at).getTime() : NaN;
+  const modifiedIso = Number.isFinite(updatedMs) && updatedMs > new Date(publishedIso).getTime()
+    ? new Date(updatedMs).toISOString()
+    : publishedIso;
+  const itemHref = (it: any) => `${SITE}/podcast/${encodeURIComponent(String(it.podcast_slug || ""))}/${encodeURIComponent(String(it.episode_slug || ""))}`;
+  const validItems = items.filter((it) => it && it.podcast_slug && it.episode_slug && it.title);
+
+  const introHtml = intro.split("\n").filter(Boolean).map((p) => `<p>${esc(p)}</p>`).join("");
+  const itemsHtml = validItems.map((it, idx) => `<section>
+<p>${String(idx + 1).padStart(2, "0")} · ${esc(it.podcast_name || "")}</p>
+<h2><a href="${itemHref(it)}">${esc(it.title)}</a></h2>
+${it.teaser ? `<p>${esc(it.teaser)}</p>` : ""}
+${it.quote ? `<blockquote><p>„${esc(it.quote)}"</p></blockquote>` : ""}
+<p><a href="${itemHref(it)}">Hallgasd meg</a></p>
+</section>`).join("\n");
+  const navHtml = (prev || next) ? `<nav aria-label="Heti anyagok">${prev
+    ? `<p>Előző hét: <a href="${SITE}/heti/${esc(hetiSlug(prev))}">${esc(prev.title || "Podiverzum Heti")}</a> (${esc(hetiRange(prev.week_start, prev.week_end))})</p>` : ""}${next
+    ? `<p>Következő hét: <a href="${SITE}/heti/${esc(hetiSlug(next))}">${esc(next.title || "Podiverzum Heti")}</a> (${esc(hetiRange(next.week_start, next.week_end))})</p>` : ""}</nav>` : "";
+
+  const articleBody = [intro.replace(/\s+/g, " ").trim(), ...validItems.map((it) => String(it.teaser || "").trim())]
+    .filter(Boolean).join("\n\n");
+  const newsArticle = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline,
+    description: desc,
+    ...(articleBody ? { articleBody } : {}),
+    url: canonical,
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+    inLanguage: "hu-HU",
+    datePublished: publishedIso,
+    dateModified: modifiedIso,
+    ...(post.cover_image_url ? { image: [post.cover_image_url] } : {}),
+    articleSection: "Podiverzum Heti",
+    isAccessibleForFree: true,
+    author: { "@type": "Organization", name: EDITORIAL_BYLINE, url: `${SITE}/szerkesztoseg` },
+    publisher: sitePublisherJsonLd(),
+  };
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: headline,
+    itemListElement: validItems.map((it, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      url: itemHref(it),
+      name: it.title,
+    })),
+  };
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name: "Podiverzum Heti", item: `${SITE}/heti` },
+      { "@type": "ListItem", position: 3, name: headline, item: canonical },
+    ],
+  };
+
+  return htmlResponse(shell({
+    title: `${headline} | Podiverzum Heti`,
+    description: desc,
+    canonical,
+    ogImage: post.cover_image_url || null,
+    ogType: "article",
+    jsonLd: [newsArticle, itemList, breadcrumb],
+    bodyHtml: `<article>
+<nav aria-label="Morzsamenü"><a href="${SITE}/">Főoldal</a> / <a href="${SITE}/heti">Podiverzum Heti</a> / <span aria-current="page">${esc(headline)}</span></nav>
+<header>
+<p>Podiverzum Heti · Magyar podcastfigyelő</p>
+<h1>${esc(headline)}</h1>
+<p><time datetime="${esc(post.week_start)}">${esc(range)}</time> · ${year}/${week}. hét</p>
+<p>Publikálva: <time datetime="${esc(publishedIso)}">${esc(huDateTime(publishedIso))}</time></p>
+<p class="byline">Szerző: <a href="${SITE}/szerkesztoseg" rel="author">${EDITORIAL_BYLINE}</a></p>
+</header>
+${introHtml ? `<div>${introHtml}</div>` : ""}
+${itemsHtml}
+${navHtml}
+<p><a href="${SITE}/heti">← Vissza a Podiverzum Heti rovathoz</a></p>
+</article>`,
+  }));
+}
+
+function publisherFactsLine(): string {
+  const a = SITE_PUBLISHER.address;
+  return `Jogi név: ${esc(SITE_PUBLISHER.legalName)}. Székhely: ${esc(`${a.postalCode} ${a.addressLocality}, ${a.streetAddress}`)}. Cégjegyzékszám: ${esc(SITE_PUBLISHER.companyRegisterNumber)}. Adószám: ${esc(SITE_PUBLISHER.taxId)}.`;
+}
+
+function infoBreadcrumb(name: string, url: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Podiverzum", item: `${SITE}/` },
+      { "@type": "ListItem", position: 2, name, item: url },
+    ],
+  };
+}
+
+function buildAboutPage() {
+  const canonical = `${SITE}/rolunk`;
+  const desc = "A Podiverzum egy MI-alapú magyar podcastkereső. Több ezer podcastot dolgozunk fel, hogy könnyen megtaláld az epizódokat, amelyek igazán érdekelnek.";
+  const aboutLd = {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    name: "Rólunk — Podiverzum",
+    url: canonical,
+    description: desc,
+    inLanguage: "hu-HU",
+    isPartOf: { "@id": "https://podiverzum.hu/#website" },
+    about: { "@id": SITE_PUBLISHER.id },
+    publisher: { "@id": SITE_PUBLISHER.id },
+  };
+  return htmlResponse(shell({
+    title: "Rólunk — Podiverzum, magyar podcastkereső",
+    description: desc,
+    canonical,
+    jsonLd: [aboutLd, infoBreadcrumb("Rólunk", canonical)],
+    bodyHtml: `<article>
+<p>Rólunk</p>
+<h1>Találd meg. Hallgasd meg.</h1>
+<p>A Podiverzum egy MI-alapú kereső, amellyel a magyar podcastok világa kereshetővé, érthetővé és könnyen áttekinthetővé válik.</p>
+<p>Nem tárolunk hanganyagot, de a hallgatást saját lejátszóval tesszük kényelmesebbé. Nyilvános podcastokat indexelünk, és segítünk megtalálni az epizódokat a tényleges tartalmuk alapján — személyekről, cégekről, piacokról, technológiákról, ötletekről, helyekről, egészségről, kulturális trendekről és sok másról.</p>
+<h2>Miért létezik a Podiverzum</h2>
+<p>A legtöbb podcastalkalmazás az általad már követett műsorok köré épül. Ez akkor jó, amikor pontosan tudod, mit akarsz hallgatni.</p>
+<p>Új podcastokat találni azonban még mindig nehézkes.</p>
+<p>Ha friss epizódokat keresnél a magyar gazdaságról, az MNB kamatdöntéséről, a Hold Alapkezelő elemzéseiről, a mesterséges intelligenciáról, az egészséges életmódról, a hazai politikáról vagy vállalkozói történetekről, általában cím szerint kell keresgélned, végig kell görgetned az egyes hírfolyamokat, vagy reménykedned kell, hogy a megfelelő epizód feltűnik valamelyik toplistán.</p>
+<p>Ezt a hiányt pótolja a Podiverzum.</p>
+<p>A podcasteket a webhez hasonlóan kezeljük: egy kereshető és rangsorolt indexet építünk epizódokból, műsorokból, témákból, személyekből, cégekből és ötletekből.</p>
+<h2>Mit csinálunk</h2>
+<ul>
+<li>Folyamatosan indexelünk több ezer nyilvános magyar podcastot.</li>
+<li>Mesterséges intelligencia segítségével feltárjuk, miről szólnak valójában a podcast epizódok — személyek, cégek, részvények, technológiák, helyek, témák és gondolatok mentén.</li>
+<li>A podcastokat és epizódokat frissesség, relevancia, minőség és a forrás megbízhatósága alapján rangsoroljuk.</li>
+<li>Különféle nézetekkel segítjük a felfedezést: felkapott epizódok, időtálló hallgatási ajánlók, kategóriák és tematikus oldalak.</li>
+<li>Saját playerrel indítjuk a hallgatást, miközben a hanganyag továbbra is az eredeti kiadói forrásból érkezik.</li>
+</ul>
+<h2>Mit nem csinálunk</h2>
+<ul>
+<li>Nem tárolunk hangfájlokat. A hang az alkotóké és a kiadóké.</li>
+<li>Nem adjuk el a személyes adataidat. Részletek: <a href="${SITE}/adatvedelem">Adatvédelem</a>.</li>
+<li>Nem árulunk megjelenést. A rangsorolás algoritmikus és minőségelvű, célja, hogy a leghasznosabb találatok kerüljenek előre. Részletek: <a href="${SITE}/modszertan">Hogyan rangsorolunk</a>.</li>
+<li>Nem futtatunk harmadik féltől származó hirdetéskövetőket.</li>
+</ul>
+<h2>Tudatos hallgatóknak építjük</h2>
+<p>A Podiverzum azoknak készül, akik a podcasteket tanulásra, kutatásra, gondolkodásra és felfedezésre használják.</p>
+<p>Azoknak szól, akik többet akarnak a toplistáknál, a feliratkozásoknál és az algoritmikus ajánlásoknál. Akik át akarják tekinteni a teljes kínálatot, és gyorsan szeretnék tudni, melyik epizód éri meg az idejüket.</p>
+<p>A célunk egyszerű: gyorsabbá, okosabbá és kevésbé zajossá tenni a minőségi podcastok felfedezését.</p>
+<h2>Státusz</h2>
+<p>A Podiverzum jelenleg <strong>nyilvános bétában</strong> működik — bárki szabadon használhatja, de még aktív fejlesztés alatt áll.</p>
+<p>A katalógus napról napra bővül. A kereső, a rangsorolás és a tematikus oldalak folyamatosan javulnak, ahogy egyre több podcast epizód kerül az indexünkbe, melyeket részletesen feldolgozunk és összekapcsolunk.</p>
+<h2>Sajtó</h2>
+<p>A magyar podcastpiac alakulásáról és a Podiverzumról az MTI is beszámolt.</p>
+<p><a href="${SITE}/sajto">Megnézem a sajtómegjelenéseket →</a></p>
+<h2>Kiadó</h2>
+<p>A Podiverzum kiadója: <strong>${esc(SITE_PUBLISHER.displayName)}</strong>. ${publisherFactsLine()}</p>
+<p><a href="${SITE}/modszertan">Módszertan →</a> · <a href="${SITE}/adatvedelem">Adatvédelem →</a> · <a href="mailto:${SITE_PUBLISHER.email}?subject=Podiverzum%20visszajelzes">Visszajelzés küldése →</a></p>
+</article>`,
+  }));
+}
+
+function buildContactPage() {
+  const canonical = `${SITE}/kapcsolat`;
+  const email = SITE_PUBLISHER.email;
+  const desc = "Írj a Podiverzum csapatának: hallgatói visszajelzés, podcast-kiadói kérés vagy üzleti megkeresés.";
+  const item = (label: string, description: string, subject: string) =>
+    `<section><h2>${esc(label)}</h2><p>${esc(description)}</p><p><a href="mailto:${email}?subject=${encodeURIComponent(subject)}">${email}</a></p></section>`;
+  const contactLd = {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    name: "Kapcsolat",
+    url: canonical,
+    description: desc,
+    inLanguage: "hu-HU",
+    isPartOf: { "@id": "https://podiverzum.hu/#website" },
+    about: { "@id": SITE_PUBLISHER.id },
+    publisher: { "@id": SITE_PUBLISHER.id },
+  };
+  return htmlResponse(shell({
+    title: "Kapcsolat — Podiverzum",
+    description: desc,
+    canonical,
+    jsonLd: [contactLd, infoBreadcrumb("Kapcsolat", canonical)],
+    bodyHtml: `<article>
+<p>Kapcsolat</p>
+<h1>Írj nekünk</h1>
+<p>Visszajelzéssel, kiadói kéréssel vagy üzleti megkereséssel itt érsz el minket: <a href="mailto:${email}">${email}</a>.</p>
+<p>Kiadó: <strong>${esc(SITE_PUBLISHER.displayName)}</strong>. ${publisherFactsLine()}</p>
+${item("Hallgatói visszajelzés", "Keresési hibák, hiányzó műsorok, törött linkek vagy általános termékvisszajelzés.", "Podiverzum visszajelzés")}
+${item("Podcastkészítők és kiadók", "Metaadat-javítás, feed-frissítés, eltávolítási kérés vagy tulajdonosi kérdés.", "Podcast tulajdonosi kérés")}
+${item("Üzleti és sajtó", "Együttműködés, médiamegkeresés vagy egyéb kérés.", "Üzleti megkeresés")}
+</article>`,
+  }));
+}
+
+function buildEditorialStaffPage() {
+  const canonical = `${SITE}/szerkesztoseg`;
+  const p = SITE_PUBLISHER;
+  const a = p.address;
+  const desc = "A Podiverzum szerkesztőségi felépítése, működési elvei, felelősség és kiadói adatok. Automatizált katalógus AI feldolgozással, PREAG Zrt. felelős kiadó.";
+  // Only policies this page actually covers are declared.
+  const newsroom = {
+    "@context": "https://schema.org",
+    "@type": "NewsMediaOrganization",
+    "@id": `${p.siteUrl}#newsroom`,
+    name: p.brandName,
+    legalName: p.legalName,
+    alternateName: p.displayName,
+    url: p.siteUrl,
+    logo: `${p.siteUrl}icon-512.png`,
+    email: p.email,
+    foundingDate: p.foundingDate,
+    parentOrganization: { "@id": p.id },
+    address: { "@type": "PostalAddress", ...a },
+    contactPoint: { "@type": "ContactPoint", contactType: "editorial", email: p.email, availableLanguage: ["hu"] },
+    ethicsPolicy: canonical,
+    correctionsPolicy: canonical,
+    ownershipFundingInfo: canonical,
+    masthead: canonical,
+    missionCoveragePrioritiesPolicy: canonical,
+    actionableFeedbackPolicy: canonical,
+    knowsLanguage: ["hu"],
+    areaServed: { "@type": "Country", name: "Magyarország" },
+  };
+  const page = {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    name: "Szerkesztőség és kiadói adatok",
+    url: canonical,
+    description: desc,
+    inLanguage: "hu-HU",
+    isPartOf: { "@id": "https://podiverzum.hu/#website" },
+    about: { "@id": `${p.siteUrl}#newsroom` },
+    publisher: { "@id": p.id },
+  };
+  return htmlResponse(shell({
+    title: "Szerkesztőség | Podiverzum",
+    description: desc,
+    canonical,
+    jsonLd: [page, newsroom, infoBreadcrumb("Szerkesztőség", canonical)],
+    bodyHtml: `<article>
+<header><p>${esc(p.brandName)}</p><h1>Szerkesztőség és kiadói adatok</h1>
+<p>Átláthatóság a Podiverzum működéséről: ki üzemelteti, hogyan készülnek a szövegek, kihez lehet fordulni.</p></header>
+<section>
+<h2>Mi a Podiverzum?</h2>
+<p>A Podiverzum a magyar podcast-piac nyilvános katalógusa és kereső felülete. Nyilvánosan elérhető RSS-feed-ekből, YouTube-csatornákból és partner-integrációkból gyűjti be a magyar nyelvű podcast epizódokat, és ezeket egységes felületen, kereshetően teszi elérhetővé. A cél az, hogy egy hallgató, újságíró vagy kutató néhány kattintással megtalálja a számára releváns beszélgetést.</p>
+<h2>Ki üzemelteti?</h2>
+<p>A Podiverzum.hu-t a <strong>${esc(p.legalName)}</strong> (rövidített néven <strong>${esc(p.displayName)}</strong>) üzemelteti Magyarországon bejegyzett gazdasági társaságként.</p>
+<ul>
+<li><strong>Cégjegyzékszám:</strong> ${esc(p.companyRegisterNumber)}</li>
+<li><strong>Adószám:</strong> ${esc(p.taxId)}</li>
+<li><strong>Székhely:</strong> ${esc(`${a.postalCode} ${a.addressLocality}, ${a.streetAddress}`)}</li>
+<li><strong>Alapítás:</strong> ${esc(p.foundingDate)}</li>
+<li><strong>Kapcsolat:</strong> <a href="mailto:${p.email}">${p.email}</a></li>
+</ul>
+<p>A felelős kiadó a PREAG Zrt. mindenkori vezetője. Nyilatkozat-, sajtó- és korrekciós ügyekben kizárólag a fenti e-mail cím hivatalos.</p>
+<h2>Hogyan készülnek a szövegek?</h2>
+<p>A Podiverzum <strong>automatizált publikáció</strong>: a katalógus túlnyomó része géppel — nagy nyelvi modellek (LLM-ek) és saját osztályozó pipeline-ok — segítségével készül. Ez a gyakorlatban ezt jelenti:</p>
+<ul>
+<li><strong>Epizód-összefoglalók, kategorizálás, entitás-kinyerés</strong> és <strong>heti szerkesztői gyűjtések</strong> AI-rendszerekkel készülnek, a nyers forrásanyag (RSS-leírás, transzkript, ha elérhető) alapján.</li>
+<li><strong>Rangsorolás és láthatóság</strong> algoritmikus formulával (a Podiverzum saját, dokumentált „HU v1" formulája) történik — nem szerkesztői kézi kiválasztás alapján.</li>
+<li><strong>Emberi felügyelet</strong> a kiadó oldalán a pipeline minőségének, a hibajelzéseknek és a jogsértési bejelentéseknek a kezelésére korlátozódik. A napi tartalom-előállításba ember tipikusan nem nyúl bele.</li>
+</ul>
+<p>Az egyes epizód-oldalakon a „Szerző" mezőben a podcast eredeti készítője (a műsor kiadója) szerepel — ő az, aki a hangfelvételért felelős. A Podiverzum szerkesztősége csak a katalógus- és metaadat-réteget állítja elő; a hangtartalom szerzői jogai és felelőssége a műsor eredeti kiadójáé marad.</p>
+<h2>Mit nem csinálunk?</h2>
+<ul>
+<li>Nem gyártunk fiktív újságírói bylineokat, nem tulajdonítunk cikkeket kitalált szerzőknek.</li>
+<li>Nem hosztolunk podcast hangfájlokat — minden lejátszás a podcast eredeti forrásából (RSS enclosure vagy YouTube) történik.</li>
+<li>Nem szerkesztjük át, nem vágjuk meg és nem kommentáljuk felül a hangfelvételeket.</li>
+<li>Nem foglalunk politikai állást szerkesztőségi szinten; ha egy podcast politikai tartalmú, az a műsor sajátja, nem a Podiverzumé.</li>
+</ul>
+<h2>Hibajelzés, korrekció, eltávolítási kérelem</h2>
+<p>Ha egy epizód-leírás pontatlan, egy személy vagy szervezet rossz kontextusban jelenik meg, vagy egy podcast készítője azt szeretné, hogy műsora ne szerepeljen a katalógusban, kérjük írjon a <a href="mailto:${p.email}">${p.email}</a> címre. A bejelentéseket 5 munkanapon belül feldolgozzuk. Podcast eltávolítási kérelmet (opt-out) minden esetben teljesítünk, ha az eredeti műsor kiadójától érkezik.</p>
+<h2>Finanszírozás</h2>
+<p>A Podiverzum működését jelenleg a PREAG Zrt. saját forrásból finanszírozza. Az oldal nem jelenít meg display-hirdetést, nem szed előfizetési díjat, és nem áll szponzorált tartalmi kapcsolatban egyetlen listázott podcasttal sem. Ha ez változik, ezen az oldalon jelezzük.</p>
+<h2>Adatvédelem és jogi</h2>
+<p>Az adatkezelésről lásd az <a href="${SITE}/adatvedelem">Adatvédelmi tájékoztatót</a>, a felhasználási feltételeket az <a href="${SITE}/feltetelek">ÁSZF-et</a>. Kapcsolat: <a href="${SITE}/kapcsolat">/kapcsolat</a>.</p>
+</section>
+</article>`,
+  }));
+}
+
 // HU ↔ EN route aliases. The Cloudflare worker should 301 legacy aliases before
 // prerendering; these mappings keep canonical URLs Hungarian if the worker lags.
 const HU_TO_EN: Record<string, "topic" | "person" | "company" | "ingredient"> = {
@@ -2906,6 +3338,13 @@ Deno.serve(async (req) => {
     if (path === "/") return await buildHome(supabase);
 
     const parts = path.split("/").filter(Boolean);
+
+    // Podiverzum Heti editorial + informational pages.
+    if (parts[0] === "heti" && parts.length === 1) return await buildHetiHub(supabase);
+    if (parts[0] === "heti" && parts.length === 2) return await buildHetiArticle(supabase, parts[1], path);
+    if (parts.length === 1 && parts[0] === "rolunk") return buildAboutPage();
+    if (parts.length === 1 && parts[0] === "kapcsolat") return buildContactPage();
+    if (parts.length === 1 && parts[0] === "szerkesztoseg") return buildEditorialStaffPage();
 
     // Single-segment SEO hubs.
     if (parts.length === 1) {
