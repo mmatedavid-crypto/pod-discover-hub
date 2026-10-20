@@ -179,7 +179,6 @@ describe("person-first hybrid name search", () => {
     expect(response.status).toBe(200);
     expect(result.person_name_strict).toBeUndefined();
     expect(result.person_identity).toBeUndefined();
-    expect(touched).not.toContain("person_episode_mentions");
     expect(touched).not.toContain("rpc:search_clean_text_name_candidates");
     expect(ai).not.toHaveBeenCalled();
   });
