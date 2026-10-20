@@ -8,7 +8,10 @@
 // rebuilds sitemap.xml from the merged state so the index always works.
 // Policy 2026-06-01: include EVERYTHING public/indexable — no tier filter.
 // Policy 2026-06-03: Search Console submit is gated by newly added news URLs.
+// Policy 2026-10-20: news sitemap = published Heti editorial articles (≤48h) only;
+// failed submissions stay pending and retry on later runs.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { buildNewsSitemapXml, decideNewsSubmit, selectNewsEditorialEntries } from '../_shared/heti-editorial.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,52 +41,12 @@ const xmlUnescape = (s: string) => s
 const extractXmlLocs = (xml: string): string[] =>
   Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), (m) => xmlUnescape(m[1] || '').trim()).filter(Boolean);
 
-const TRUSTED_NEWS_SOURCE_RX = /\b(444|telex|partizan|partizán|hvg|portfolio|hold|hold-after-hours|g7|qubit|direkt36|atlatszo|átlátszó|lakmusz|magyar-hang|magyar hang|valasz|válasz|inforadio|infostart|klubradio|szabad-europa|szabad európa|forbes|concorde)\b/i;
-const NEWSWORTHY_CATEGORIES = new Set([
-  'News & Politics',
-  'Finance',
-  'Business & Finance',
-  'Technology',
-  'Science',
-  'Science & Ideas',
-]);
-const NEWS_EXCLUDED_CATEGORIES = new Set([
-  'Religion & Spirituality',
-  'Kids & Family',
-  'Fiction',
-  'Music',
-  'Sleep',
-  'Sports',
-  'History',
-  'Society & Culture',
-  'Education & Explainer',
-]);
-const NEWS_TITLE_NOISE_RX = /\b(beköszönés|elköszönés|hangcsapda|játék|adásnapló|esti mese|napi biblia|igeidő|szentmise|áhítat|rövid változat|short version|trailer|előzetes|étel|ételek|konyha|recept|messi|ronaldo|sportemberi|cápákból|befektetővel|tudás|hiedelmeken)\b/i;
-const NEWS_FOREIGN_NOISE_RX = /\b(seo\s*\+\s*ia|venta asistida|ecommerce|masterclass|sunday mood)\b/i;
-
 type GoogleSubmitResult = {
   attempted: boolean;
   ok: boolean;
   status: number | null;
   reason: string | null;
 };
-
-function isTrustedNewsPodcast(p: any): boolean {
-  const haystack = `${p?.slug || ''} ${p?.title || ''} ${p?.display_title || ''}`;
-  return TRUSTED_NEWS_SOURCE_RX.test(haystack);
-}
-
-function isNewsworthyEpisode(e: any): boolean {
-  const p = e?.podcasts || {};
-  const title = String(e?.display_title || e?.title || '').trim();
-  if (!title || !e?.slug || !p?.slug) return false;
-  if (NEWS_TITLE_NOISE_RX.test(title) || NEWS_FOREIGN_NOISE_RX.test(title)) return false;
-  if (NEWS_EXCLUDED_CATEGORIES.has(String(p?.category || ''))) return false;
-  const trusted = isTrustedNewsPodcast(p);
-  if (trusted) return true;
-  const tier = String(p?.rank_label || '');
-  return NEWSWORTHY_CATEGORIES.has(String(p?.category || '')) && ['S', 'A', 'B'].includes(tier);
-}
 
 function isSafePersonSitemapRow(p: any): boolean {
   if (!p?.slug || p.is_public !== true || p.is_indexable !== true) return false;
@@ -102,20 +65,6 @@ function isSafePersonSitemapRow(p: any): boolean {
   if (temporalTopicOnly) return false;
   if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
   return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
-}
-
-function newsTag(loc: string, publishedAt: string, title: string) {
-  return `<url>
-  <loc>${esc(loc)}</loc>
-  <news:news>
-    <news:publication>
-      <news:name>Podiverzum</news:name>
-      <news:language>hu</news:language>
-    </news:publication>
-    <news:publication_date>${new Date(publishedAt).toISOString()}</news:publication_date>
-    <news:title>${esc(title)}</news:title>
-  </news:news>
-</url>`;
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -264,7 +213,7 @@ Deno.serve(async (req) => {
       // Podiverzum Heti — fetch published weekly columns once, reuse for pages.xml + news-sitemap.xml.
       const { data: hetiRows = [] } = await sb
         .from('editorial_posts')
-        .select('week_start,week_end,title,published_at,updated_at')
+        .select('week_start,week_end,title,status,published_at,updated_at')
         .eq('status', 'published')
         .order('week_start', { ascending: false })
         .limit(200);
@@ -316,92 +265,18 @@ Deno.serve(async (req) => {
       ];
       await upload('pages.xml', wrap(pages));
 
-      // News sitemap — editorial posts + fresh, newsworthy Hungarian episodes.
-      // Keep this aggressive enough for Partizán / Hold After Hours / Portfolio /
-      // HVG / 444 / Telex, but gated enough that bedtime stories, daily prayers,
-      // foreign SEO spam and radio filler do not pollute Google News.
-      const NEWS_CUTOFF = Date.now() - 2 * 24 * 3600 * 1000;
-      const seenNewsUrls = new Set<string>();
-      const newsItems: string[] = [];
-      const newsSourceCounts: Record<string, number> = {};
-      const addNewsItem = (loc: string, publishedAt: string, title: string, source: string) => {
-        if (newsItems.length >= 1000 || seenNewsUrls.has(loc)) return;
-        seenNewsUrls.add(loc);
-        newsSourceCounts[source] = (newsSourceCounts[source] || 0) + 1;
-        newsItems.push(newsTag(loc, publishedAt, title));
-      };
-
-      // 1) Include the weekly editorial only while it is truly fresh. Google
-      //    News sitemaps are a 48h recency feed; keeping an old hub here makes
-      //    the sitemap look stale even if regular XML sitemaps still list it.
-      const latestHetiTop = (hetiRows ?? [])[0] as any;
-      if (latestHetiTop && latestHetiTop.published_at && new Date(latestHetiTop.published_at).getTime() >= NEWS_CUTOFF) {
-        const hubLastmod = latestHetiTop.published_at || latestHetiTop.updated_at || latestHetiTop.week_start || new Date().toISOString();
-        addNewsItem(`${SITE}/heti`, hubLastmod, 'Podiverzum Heti — magyar podcastfigyelő', 'Podiverzum Heti Hub');
-      }
-
-      (hetiRows ?? [])
-        .filter((p: any) => p.published_at && new Date(p.published_at).getTime() >= NEWS_CUTOFF)
-        .slice(0, 1000)
-        .forEach((p: any) => {
-          const slug = hetiSlugOf(p);
-          const title = p.title || `Podiverzum Heti – ${p.week_start}`;
-          addNewsItem(`${SITE}/heti/${slug}`, p.published_at, title, 'Podiverzum Heti');
-        });
-
-      // Anti-spam gate: only include fresh episodes from podcasts that are
-      // currently in our trending top-20. If nobody's clicking on it on the
-      // toplist, dumping it into Google News just looks like spam.
-      const { data: trendingTop = [] } = await sb.rpc('get_trending_podcasts', { p_limit: 20 });
-      const allowedPodcastSlugs = new Set<string>(
-        ((trendingTop as any[]) || []).map((r) => String(r?.slug || '')).filter(Boolean),
-      );
-
-      const { data: freshEpisodes = [] } = await sb
-        .from('episodes')
-        .select('slug,title,display_title,published_at,podcasts!inner(slug,title,display_title,category,rank_label,language_decision,rss_status)')
-        .gte('published_at', new Date(NEWS_CUTOFF).toISOString())
-        // Canonical HU gate: language_decision is curated/AI-reviewed; the RSS HU flag is noisy.
-        .eq('podcasts.language_decision', 'accept_hungarian')
-        .order('published_at', { ascending: false })
-        .limit(1500);
-
-      // Per-podcast cap so a single show with 5 episodes in 48h doesn't crowd
-      // out the rest of the top-20. Top-20 × 5 = 100 URL ceiling — small,
-      // focused, click-worthy news sitemap.
-      const PER_PODCAST_CAP = 5;
-      const perPodcast = new Map<string, number>();
-      for (const ep of freshEpisodes ?? []) {
-        if (newsItems.length >= 1000) break;
-        if (!isNewsworthyEpisode(ep)) continue;
-        const p = (ep as any).podcasts || {};
-        if (['failed', 'inactive', 'deleted'].includes(String(p.rss_status || ''))) continue;
-        const key = String(p.slug || '_');
-        if (allowedPodcastSlugs.size > 0 && !allowedPodcastSlugs.has(key)) continue;
-        if ((perPodcast.get(key) || 0) >= PER_PODCAST_CAP) continue;
-        const loc = `${SITE}/podcast/${p.slug}/${(ep as any).slug}`;
-        if (seenNewsUrls.has(loc)) continue;
-        perPodcast.set(key, (perPodcast.get(key) || 0) + 1);
-        const title = String((ep as any).display_title || (ep as any).title || '').trim();
-        addNewsItem(loc, (ep as any).published_at, title, String(p.display_title || p.title || p.slug || 'podcast'));
-      }
-
-      const realNewsItemCount = newsItems.length;
-
-      // Final empty-state fallback (should rarely trigger now that the /heti hub
-      // is pinned above). Keep timestamp stable so it does not spam Search Console.
-      if (newsItems.length === 0) {
-        const latestHeti = (hetiRows ?? [])[0] as any;
-        const fallbackDate = latestHeti?.updated_at || latestHeti?.published_at || latestHeti?.week_start || '2026-06-01T00:00:00.000Z';
-        addNewsItem(`${SITE}/heti`, fallbackDate, 'Podiverzum Heti — magyar podcastfigyelő', 'fallback');
-      }
-
-      const newsXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
-${newsItems.join('\n')}
-</urlset>
-`;
+      // Google News sitemap — ONLY published Podiverzum Heti editorial
+      // articles from the preceding 48h (never the /heti hub, never podcast
+      // catalog pages; those stay in the normal XML sitemaps). An empty
+      // news sitemap is valid and is published as such — no stale fallback.
+      const newsEntries = selectNewsEditorialEntries(hetiRows ?? [], SITE, Date.now());
+      const seenNewsUrls = new Set<string>(newsEntries.map((e) => e.loc));
+      const newsSourceCounts: Record<string, number> = newsEntries.length
+        ? { 'Podiverzum Heti': newsEntries.length }
+        : {};
+      const newsItems = newsEntries;
+      const realNewsItemCount = newsEntries.length;
+      const newsXml = buildNewsSitemapXml(newsEntries);
       const newsHash = await sha256Hex(newsXml);
       const { data: newsStateRow } = await sb
         .from('app_settings')
@@ -420,8 +295,14 @@ ${newsItems.join('\n')}
       const currentUrls = Array.from(seenNewsUrls);
       const newUrls = currentUrls.filter((loc) => !previousUrls.has(loc));
       const changed = newsHash !== previousHash;
-      const googleSubmitPolicy = 'submit_only_when_news_sitemap_has_new_urls';
-      const shouldSubmitToGoogle = hasReliablePreviousUrlBaseline && newUrls.length > 0 && realNewsItemCount > 0;
+      const googleSubmitPolicy = 'submit_when_new_urls_or_pending_retry';
+      const previousSubmitNeeded = previousState?.submit_needed === true;
+      const submitDecision = decideNewsSubmit({
+        hasReliableBaseline: hasReliablePreviousUrlBaseline,
+        newUrlCount: newUrls.length,
+        previousSubmitNeeded,
+      });
+      const shouldSubmitToGoogle = submitDecision.submit;
       let googleSubmit: GoogleSubmitResult = {
         attempted: false,
         ok: false,
@@ -466,7 +347,14 @@ ${newsItems.join('\n')}
           google_submit_ok: googleSubmit.ok,
           google_submit_status: googleSubmit.status,
           google_submit_reason: googleSubmit.reason,
-          submit_needed: shouldSubmitToGoogle && !googleSubmit.ok,
+          // Durable retry: stays true until a submission succeeds, carried
+          // across runs even when no new URLs appear.
+          submit_needed: shouldSubmitToGoogle ? !googleSubmit.ok : previousSubmitNeeded,
+          submit_trigger: submitDecision.trigger,
+          submit_pending_since: (shouldSubmitToGoogle ? !googleSubmit.ok : previousSubmitNeeded)
+            ? (previousState?.submit_pending_since || new Date().toISOString())
+            : null,
+          last_submit_ok_at: googleSubmit.ok ? new Date().toISOString() : (previousState?.last_submit_ok_at || null),
           updated_at: new Date().toISOString(),
         },
       });
