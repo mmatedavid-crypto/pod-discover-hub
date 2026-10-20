@@ -247,14 +247,22 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
     const rows: any[] = [];
     let reserve = 0;
     const pricing = controls.pricing_usd_per_1m[model];
+    // Prior attempts per pair/source, read in bounded chunks instead of one query per pair.
+    const priorAttempts = new Map<string, number>();
+    const episodeIds = [...new Set(prepared.map((p) => p.episode_id))];
+    for (let i = 0; i < episodeIds.length; i += 150) {
+      const { data: prior } = await db.from("person_relevance_batch_items").select("person_id,episode_id,source_hash")
+        .in("episode_id", episodeIds.slice(i, i + 150)).eq("prompt_version", controls.prompt_version).eq("tier", tier).limit(5000);
+      for (const r of prior || []) {
+        const k = `${r.person_id}|${r.episode_id}|${r.source_hash}`;
+        priorAttempts.set(k, (priorAttempts.get(k) || 0) + 1);
+      }
+    }
     for (const p of prepared) {
       const releasePair = () => tier !== "golden_eval" && db.from("person_relevance_work").update({ lease_until: new Date().toISOString() })
         .eq("person_id", p.person_id).eq("episode_id", p.episode_id).eq("claim_token", jobId);
       if (inputGuard(p.input)) { await releasePair(); continue; }
-      const { count } = await db.from("person_relevance_batch_items").select("id", { count: "exact", head: true })
-        .eq("person_id", p.person_id).eq("episode_id", p.episode_id).eq("source_hash", p.source_hash)
-        .eq("prompt_version", controls.prompt_version).eq("tier", tier);
-      const attempt = (count || 0) + 1;
+      const attempt = (priorAttempts.get(`${p.person_id}|${p.episode_id}|${p.source_hash}`) || 0) + 1;
       if (attempt > Math.max(1, controls.max_attempts) && tier !== "golden_eval") { await releasePair(); continue; }
       const customId = buildCustomId({ promptVersion: controls.prompt_version, tier, personId: p.person_id, episodeId: p.episode_id, sourceHash: p.source_hash, attempt });
       const line = buildRequestLine(customId, p.input, controls, model);
