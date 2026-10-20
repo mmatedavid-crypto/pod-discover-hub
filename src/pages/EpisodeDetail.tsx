@@ -206,50 +206,9 @@ export default function EpisodeDetail() {
           image: e.image_url || p.image_url,
         }),
         jsonLd: !isAcceptedHungarian ? undefined : (() => {
-          const publishedIso = e.published_at ? new Date(e.published_at).toISOString() : undefined;
-          const ageHours = e.published_at ? (Date.now() - new Date(e.published_at).getTime()) / 3600000 : Infinity;
-          // Google News surfaces NewsArticle-tagged pages. We mark fresh (≤48h) HU
-          // episodes — the same window used by news-sitemap.xml — as NewsArticle so
-          // the publisher pipeline (sitemap → bot fetch → schema → News index) is
-          // end-to-end consistent. Older episodes stay as PodcastEpisode only.
-          const headline = (dailySeries?.headline || e.display_title || e.title || "").toString().slice(0, 110);
-          const articleImage = e.image_url || p.image_url || undefined;
-          const podName = p.display_title || p.title || "Podiverzum";
-          const longBody = safeSeoDescription || bestDesc || undefined;
-          const newsArticle = ageHours <= 48 && publishedIso && headline ? [{
-            "@context": "https://schema.org",
-            "@type": "NewsArticle",
-            headline,
-            description: longBody,
-            // articleBody is a strong Google News structured-data signal.
-            articleBody: longBody || headline,
-            datePublished: publishedIso,
-            dateModified: publishedIso,
-            url: canonical,
-            mainEntityOfPage: canonical,
-            inLanguage: "hu-HU",
-            isAccessibleForFree: true,
-            image: articleImage ? [articleImage] : undefined,
-            articleSection: podName,
-            // Google News requires author.@type ∈ {Person, Organization}.
-            // A podcast show is an organizational publication, not a person.
-            author: [
-              {
-                "@type": "Organization",
-                name: podName,
-                url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
-              },
-              {
-                "@type": "Organization",
-                name: "Podiverzum szerkesztőség",
-                url: typeof window !== "undefined" ? `${window.location.origin}/szerkesztoseg` : undefined,
-              },
-            ],
-            ...(personMentions.length ? { about: personMentions, mentions: personMentions } : {}),
-            publisher: sitePublisherJsonLd(),
-          }] : [];
+          // Podcast catalog episodes are third-party RSS show notes, not original
+          // Podiverzum journalism, so they carry PodcastEpisode only (no NewsArticle).
           return [
-            ...newsArticle,
             {
               "@context": "https://schema.org",
               "@type": "PodcastEpisode",
