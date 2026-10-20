@@ -161,7 +161,7 @@ function shouldPrerender(pathname) {
     "/temak", "/szemelyek", "/cegek", "/partok", "/hangulatok",
     "/kategoriak", "/toplista", "/uj-podcastok", "/napi",
     "/rolunk", "/sajto", "/modszertan", "/intelligence",
-    "/adatvedelem", "/feltetelek", "/kapcsolat",
+    "/adatvedelem", "/feltetelek", "/kapcsolat", "/szerkesztoseg",
   ]);
   const stripped = pathname.endsWith("/") && pathname.length > 1
     ? pathname.slice(0, -1)
@@ -589,8 +589,14 @@ export default {
 
     // Cache key: scheme + host + path (ignore query for stability;
     // we don't prerender per-query variants).
+    // Episode pages use their own cache namespace: 2026-10-20 removed the
+    // auto-generated NewsArticle + third-party publisher claim from them, so
+    // only that page class is invalidated; every other route keeps its cache.
+    const cacheNs = /^\/podcast\/[^/]+\/[^/]+\/?$/.test(url.pathname) && !/\/epizodok\//.test(url.pathname)
+      ? "20261020-episode-nonews"
+      : "20260916-seo";
     const cacheKey = new Request(
-      `${url.origin}${url.pathname}?__podi_prerender=20260916-seo`,
+      `${url.origin}${url.pathname}?__podi_prerender=${cacheNs}`,
       { method: "GET" },
     );
     const cache = caches.default;
