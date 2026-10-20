@@ -47,6 +47,7 @@ export type CleanDecision =
 const URL_RX = /https?:\/\/\s?\S*/gi;
 const DOMAIN_RX = /\b(?:[a-z0-9-]+\.)+(?:hu|com|org|net|io|ai|me|fm|tv|co|ro|sk|rs|at|de|eu|uk|app|link|ee|gg|ly|info|store|shop|blog|page|site)\b(?:\/[^\s]*)?/gi;
 const BARE_URL_RX = /\b(?:www\.|(?:open\.)?spotify\.com|podcasts\.apple\.com|music\.apple\.com|youtube\.com|youtu\.be|instagram\.com|facebook\.com|fb\.com|tiktok\.com|patreon\.com|discord\.gg|discord\.com|linktr\.ee|bio\.link|substack\.com|ko-fi\.com)\/?\S*/gi;
+const GLUED_WWW_RX = /www\.[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*?\.(?:hu|com|org|net|io|ai|me|fm|tv|co|ro|de|eu|app|link|info|shop|blog)(?![a-z0-9])(?:\/[^\s]*)?/g;
 const EMAIL_RX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const HANDLE_RX = /(^|[\s([{"'„“])@[A-Za-z0-9._-]{2,}/g;
 const ZERO_WIDTH_RX = /[\u200B-\u200D\u2060\uFEFF]/g;
@@ -89,6 +90,8 @@ function stripCtaFromSentence(sentence: string): string | null {
 export function htmlToPlain(raw: string): string {
   let t = String(raw || "");
   t = t.replace(/<\s*br\s*\/?\s*>/gi, "\n").replace(/<\/\s*(?:p|div|li|h[1-6]|tr)\s*>/gi, "\n").replace(/<[^>]+>/g, " ");
+  // Descriptions truncated mid-tag (e.g. at 3000 chars) leave an unclosed "<a href=..." tail.
+  t = t.replace(/<[A-Za-z\/][^>]*$/, " ");
   t = decodeBasicEntities(t);
   return t.replace(ZERO_WIDTH_RX, "");
 }
@@ -102,9 +105,9 @@ export function conservativeRescueClean(raw: string): { text: string; removed: s
   const removed = new Set<string>();
   let t = htmlToPlain(raw);
   const before = t;
-  t = t.replace(URL_RX, " ").replace(EMAIL_RX, " ").replace(BARE_URL_RX, " ").replace(DOMAIN_RX, " ").replace(HANDLE_RX, "$1");
+  t = t.replace(URL_RX, " ").replace(EMAIL_RX, " ").replace(GLUED_WWW_RX, " ").replace(BARE_URL_RX, " ").replace(DOMAIN_RX, " ").replace(HANDLE_RX, "$1");
   if (t !== before) removed.add("links_handles");
-  URL_RX.lastIndex = 0; BARE_URL_RX.lastIndex = 0; DOMAIN_RX.lastIndex = 0; EMAIL_RX.lastIndex = 0; HANDLE_RX.lastIndex = 0;
+  URL_RX.lastIndex = 0; BARE_URL_RX.lastIndex = 0; DOMAIN_RX.lastIndex = 0; GLUED_WWW_RX.lastIndex = 0; EMAIL_RX.lastIndex = 0; HANDLE_RX.lastIndex = 0;
   t = t.replace(/\s*[|•·]\s+/g, "\n");
 
   const keptLines: string[] = [];
@@ -158,6 +161,7 @@ export function validateCleanOutput(raw: string, cleaned: string): CleanVerdict 
   if (/https?:\/\/|www\.[a-z0-9-]+\./i.test(clean)) reasons.push("residual_url");
   if (/(^|\s)@[A-Za-z0-9._-]{2,}/.test(clean)) reasons.push("residual_handle");
   if (/\b(?:undefined|null|\[object Object\])\b/.test(clean)) reasons.push("placeholder_text");
+  if (/<\/?[a-z][a-z0-9]*(?:\s[^>]*)?>|<a\s+href/i.test(clean)) reasons.push("residual_html");
   const malformed = reasons.length > 0;
 
   const substantive = contentLen >= 160 && contentWords >= 25;
