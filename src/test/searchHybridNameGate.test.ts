@@ -49,8 +49,10 @@ function endpoint(options: Options = {}) {
   };
   const heavyScans: string[] = [];
   let queryCount = 0;
+  const touched: string[] = [];
   function builder(table: string) {
     queryCount++;
+    touched.push(table);
     const filters: ((row: any) => boolean)[] = [];
     const b: any = {};
     b.select = b.order = b.limit = b.or = b.like = b.gte = b.textSearch = () => b;
@@ -64,6 +66,7 @@ function endpoint(options: Options = {}) {
     return b;
   }
   const rpc = (name: string) => {
+    touched.push(`rpc:${name}`);
     if (name === "search_clean_text_name_candidates") {
       return options.hangCleanText ? new Promise(() => {}) : Promise.resolve({ data: tables.episode_clean_text });
     }
@@ -86,7 +89,7 @@ function endpoint(options: Options = {}) {
       const response = await handler(new Request("https://example.test/search-hybrid", { method: "POST", body: JSON.stringify({ q, limit: 20 }) }));
       return { response, result: await response.json(), ms: Date.now() - started };
     },
-    ai, heavyScans, queries: () => queryCount,
+    ai, heavyScans, touched, queries: () => queryCount,
   };
 }
 
@@ -171,11 +174,13 @@ describe("person-first hybrid name search", () => {
   }, 10000);
 
   it("leaves a general topic search to the normal pipeline", async () => {
-    const { run } = endpoint();
+    const { run, touched, ai } = endpoint();
     const { response, result } = await run("gulyásleves titka");
-    if (response.status !== 200) console.error("DEBUG", JSON.stringify(result));
     expect(response.status).toBe(200);
     expect(result.person_name_strict).toBeUndefined();
     expect(result.person_identity).toBeUndefined();
+    expect(touched).not.toContain("person_episode_mentions");
+    expect(touched).not.toContain("rpc:search_clean_text_name_candidates");
+    expect(ai).not.toHaveBeenCalled();
   });
 });
