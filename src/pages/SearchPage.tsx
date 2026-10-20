@@ -7,6 +7,7 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Building2, Hash, Search } from "lucide-react";
 import { setSeo } from "@/lib/seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
+import { episodeExactFields, exactMatchLabel, exactPhraseMatch, parseExactPhraseQuery, stripSearchQuotes, type ExactPhraseInfo } from "@/lib/exactPhrase";
 import { episodeScore } from "@/lib/episodeRank";
 import { pushRecentSearch } from "@/lib/recentSearches";
 import { notifyLiveEvent } from "@/lib/liveTelegramNotify";
@@ -143,6 +144,9 @@ export default function SearchPage() {
   const [heroTopic, setHeroTopic] = useState<any | null>(null);
   const [degradedSearch, setDegradedSearch] = useState<"timeout" | "fallback" | null>(null);
   const [timestampMatchCount, setTimestampMatchCount] = useState(0);
+  const [exactInfo, setExactInfo] = useState<ExactPhraseInfo | null>(null);
+  const exactQuery = useMemo(() => parseExactPhraseQuery(initial), [initial]);
+  const plainQuery = exactQuery.plainText || initial.trim();
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
   const navigatingAwayRef = useRef(false);
@@ -194,7 +198,7 @@ export default function SearchPage() {
   // Hero person: best person match for the query (accent-insensitive via normalized_name)
   useEffect(() => {
     setHeroPerson(null);
-    const phrase = initial.trim();
+    const phrase = stripSearchQuotes(initial);
     if (phrase.length < 3) return;
     const phraseNorm = phrase.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
     let cancelled = false;
