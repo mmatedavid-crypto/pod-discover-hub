@@ -8,3 +8,7 @@
 - [x] Unify page/player session attribution without rewriting historical events.
 - [x] Test the shared session and verify page-to-play attribution in the preview (7 focused tests passed; actual play_start matched landing ID).
 - [x] Summarize measured growth, limitations and next priorities (two unrelated legacy static tests conflict with the existing trusted-HU gate; unchanged).
+## Person name search (2026-10-20)
+- [x] Person-first indexed name search with role/evidence ordering, ambiguity marking and homonym disambiguation; deployed `search-hybrid`; clean-text name index added.
+- [x] Read-only relationship backlog audit and human review order (docs/person-search-evidence-2026-10-20.md).
+- [ ] Publish the frontend so visitors see evidence labels and the same-name notice (waits on user publish).
