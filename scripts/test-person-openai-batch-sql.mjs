@@ -62,8 +62,8 @@ await assert.rejects(db.query('SELECT reserve_person_openai_batch_cost($1,0.01,6
 assert.ok((await one('SELECT reserve_person_openai_batch_cost($1,0.01,1) r', [job])).r);
 
 const decision = { status: 'accepted', score: 0.95, mention_type: 'guest', identity_match: 'same_person', reason: 'Vendég.', evidence_phrases: ['Vendégünk Minta Anna'], model: 'gpt-6-luna' };
-const item = async (extra = '') => (await one(`INSERT INTO person_relevance_batch_items(job_id,custom_id,person_id,episode_id,source_hash,prompt_version,tier,status,decision,final_status${extra ? ',identity_risk' : ''})
-  VALUES($1,$2,$3,$4,$5,'person-openai-v1','primary','succeeded',$6,'accepted'${extra ? ',true' : ''}) RETURNING id`, [job, 'cid-' + Math.random(), P, E, hash, JSON.stringify(decision)])).id;
+const item = async (extra = '', h = hash) => (await one(`INSERT INTO person_relevance_batch_items(job_id,custom_id,person_id,episode_id,source_hash,prompt_version,tier,status,decision,final_status${extra ? ',identity_risk' : ''})
+  VALUES($1,$2,$3,$4,$5,'person-openai-v1','primary','succeeded',$6,'accepted'${extra ? ',true' : ''}) RETURNING id`, [job, 'cid-' + Math.random(), P, E, h, JSON.stringify(decision)])).id;
 
 const risky = await item('risk');
 await assert.rejects(db.query('SELECT apply_person_openai_batch_item($1)', [risky]), /unsafe_acceptance/, 'namesake risk never auto-accepts');
@@ -89,7 +89,8 @@ assert.equal((await one('SELECT apply_person_openai_batch_item($1) r', [await it
 await db.exec("UPDATE episodes SET title='Minta Anna vendégünk' WHERE id='" + E + "'");
 await db.exec(`UPDATE person_relevance_work SET claim_token='${job}', lease_until=now()+interval '1 hour'`);
 await db.exec("UPDATE person_episode_mentions SET validation_source='manual_admin' WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'");
-assert.equal((await one('SELECT apply_person_openai_batch_item($1) r', [await item()])).r.status, 'skipped_protected', 'manual review protected');
+const protectedHash = (await one('SELECT person_judge_source_with_hash($1,$2) s', [P, E])).s.source_hash;
+assert.equal((await one('SELECT apply_person_openai_batch_item($1) r', [await item('', protectedHash)])).r.status, 'skipped_protected', 'manual review protected');
 assert.equal((await one("SELECT relevance_status FROM person_episode_mentions WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'")).relevance_status, 'pending');
 await db.exec("UPDATE person_relevance_work SET claim_token=gen_random_uuid()");
 assert.equal((await one('SELECT apply_person_openai_batch_item($1) r', [await item()])).r.reason, 'lease_lost', 'foreign lease never applied');
