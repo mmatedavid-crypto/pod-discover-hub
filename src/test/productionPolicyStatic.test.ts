@@ -1444,7 +1444,7 @@ describe("production policy static guards", () => {
     const transcriptFirstFinalMigration = read("supabase/migrations/20260608010000_reassert_best_text_source_transcript_first_policy.sql");
     const pairer = read("supabase/functions/episode-article-pairer/index.ts");
     const fastLane = read("supabase/functions/database-quality-fast-lane/index.ts");
-    const bestSource = read("supabase/functions/episode-best-text-source-runner/index.ts");
+    const bestSource = read("supabase/functions/episode-best-text-source-runner/index.ts") + read("supabase/functions/_shared/best-text-source-policy.ts");
     const cleanTextRunner = read("supabase/functions/episode-clean-text-runner/index.ts");
     const verifier = read("scripts/verify-production-pipeline.mjs");
     const reporter = read("scripts/report-production-deploy-gap.mjs");
@@ -1506,7 +1506,9 @@ describe("production policy static guards", () => {
     expect(bestSource).toContain("confirmed_publisher_article_longer_or_rss_short");
     expect(bestSource).toContain('source_type: "transcript"');
     expect(bestSource).toContain("function transcriptRank");
-    expect(bestSource).toContain("full_transcript_longer_or_rss_thin");
+    expect(bestSource).toContain("transcript_rss_thin_fallback");
+    expect(bestSource).not.toContain("loads all doneSet");
+    expect(bestSource).toContain("readFeed(admin, feed, cursors[feed], perFeed)");
     expect(bestSource).toContain("content_hash: transcript.content_hash || null");
     expect(bestSource).toContain("has_segments: Array.isArray(transcript.segments)");
     expect(cleanTextRunner).toContain('best?.source_type === "transcript"');
