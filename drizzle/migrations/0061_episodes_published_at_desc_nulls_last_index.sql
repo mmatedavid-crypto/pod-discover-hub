@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_episodes_published_at_desc_nulls_last ON public.episodes USING btree (published_at DESC NULLS LAST);
