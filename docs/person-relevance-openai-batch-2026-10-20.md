@@ -39,6 +39,13 @@ HU project only. No paid OpenAI request has been sent. The adapter is deployed b
    set `enabled=true`, `authorized_pilot={max_requests,total_cap_usd,daily_cap_usd}`, `daily_cap_usd`, `total_cap_usd`.
 4. Review pilot precision; only then consider escalation and scheduled polling.
 
+## First paid run (2026-10-20, owner-authorized)
+- Owner confirmed a new key and authorized $10 total / $10 daily; `authorized_pilot.max_requests` = full backlog so the
+  dollar cap is binding. `max_requests_per_job` must be stored in controls (the claim RPC reads it from the row).
+- `tick` action (cron `person-relevance-openai-batch-tick`, every 10 min): polls/ingests, then submits the next primary
+  batch sized from the remaining budget, only when all gates pass (incl. processing priority). Cron-triggered calls can run
+  only `tick`. Controls pause with `authorized_budget_exhausted` at the cap; the cron unschedules itself once controls are
+  disabled and no submitted job is left to ingest.
+
 ## Planned, not implemented
-- Scheduled polling (currently manual `poll`).
 - Automatic stratified golden sampler (labelling uses dry-run samples + role filter).

@@ -247,14 +247,30 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
     const rows: any[] = [];
     let reserve = 0;
     const pricing = controls.pricing_usd_per_1m[model];
+    // Prior attempts per pair/source, read in bounded chunks instead of one query per pair.
+    const priorAttempts = new Map<string, number>();
+    const episodeIds = [...new Set(prepared.map((p) => p.episode_id))];
+    for (let i = 0; i < episodeIds.length; i += 150) {
+      const { data: prior } = await db.from("person_relevance_batch_items").select("person_id,episode_id,source_hash")
+        .in("episode_id", episodeIds.slice(i, i + 150)).eq("prompt_version", controls.prompt_version).eq("tier", tier).limit(5000);
+      for (const r of prior || []) {
+        const k = `${r.person_id}|${r.episode_id}|${r.source_hash}`;
+        priorAttempts.set(k, (priorAttempts.get(k) || 0) + 1);
+      }
+    }
     for (const p of prepared) {
       const releasePair = () => tier !== "golden_eval" && db.from("person_relevance_work").update({ lease_until: new Date().toISOString() })
         .eq("person_id", p.person_id).eq("episode_id", p.episode_id).eq("claim_token", jobId);
-      if (inputGuard(p.input)) { await releasePair(); continue; }
-      const { count } = await db.from("person_relevance_batch_items").select("id", { count: "exact", head: true })
-        .eq("person_id", p.person_id).eq("episode_id", p.episode_id).eq("source_hash", p.source_hash)
-        .eq("prompt_version", controls.prompt_version).eq("tier", tier);
-      const attempt = (count || 0) + 1;
+      if (inputGuard(p.input)) {
+        // Park unsendable pairs (e.g. waiting for clean text) for 7 days under their own token, so the
+        // deterministic candidate order does not re-claim them every batch and shrink later batches.
+        if (tier === "primary") {
+          await db.from("person_relevance_work").update({ claim_token: crypto.randomUUID(), lease_until: new Date(Date.now() + 7 * 864e5).toISOString(), updated_at: new Date().toISOString() })
+            .eq("person_id", p.person_id).eq("episode_id", p.episode_id).eq("claim_token", jobId);
+        } else await releasePair();
+        continue;
+      }
+      const attempt = (priorAttempts.get(`${p.person_id}|${p.episode_id}|${p.source_hash}`) || 0) + 1;
       if (attempt > Math.max(1, controls.max_attempts) && tier !== "golden_eval") { await releasePair(); continue; }
       const customId = buildCustomId({ promptVersion: controls.prompt_version, tier, personId: p.person_id, episodeId: p.episode_id, sourceHash: p.source_hash, attempt });
       const line = buildRequestLine(customId, p.input, controls, model);
@@ -397,16 +413,51 @@ async function pollAction(db: any, controls: Controls, body: any) {
   return json({ ok: true, jobs: out });
 }
 
+// Scheduled step: poll/ingest open jobs, then submit the next primary batch
+// only within the owner-authorized caps and all submission gates. Sized from
+// the remaining budget so the reservation never needs to be refused.
+const TICK_UPPER_USD_PER_PAIR = 0.0006;
+async function tickAction(db: any) {
+  const polled = await (await pollAction(db, await loadControls(db), {})).json();
+  const controls = await loadControls(db);
+  if (!controls.enabled) return { ok: true, polled, submitted: false, reason: "controls_disabled" };
+  const { data: jobs } = await db.from("person_relevance_batch_jobs").select("status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
+    .not("status", "in", "(draft,aborted)").limit(5000);
+  const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
+  let committed = 0, today = 0, used = 0, open = 0;
+  for (const j of jobs || []) {
+    const c = Math.max(Number(j.reserved_cost_usd) || 0, Number(j.actual_cost_usd) || 0);
+    committed += c; used += Number(j.request_count) || 0;
+    if (new Date(j.created_at) >= dayStart) today += c;
+    if (OPEN_STATUSES.includes(j.status)) open++;
+  }
+  if (open >= Math.max(1, controls.max_open_jobs)) return { ok: true, polled, submitted: false, reason: "open_job" };
+  const auth = controls.authorized_pilot;
+  const totalCap = Math.min(controls.total_cap_usd, Number(auth?.total_cap_usd) || 0);
+  const dailyCap = Math.min(controls.daily_cap_usd, Number(auth?.daily_cap_usd ?? totalCap) || 0);
+  const remaining = Math.min(totalCap - committed, dailyCap - today);
+  const size = Math.min(controls.max_requests_per_job, (Number(auth?.max_requests) || 0) - used, Math.floor(remaining / TICK_UPPER_USD_PER_PAIR));
+  if (size < 20) {
+    if (totalCap - committed < 20 * TICK_UPPER_USD_PER_PAIR) await pauseControls(db, "authorized_budget_exhausted");
+    return { ok: true, polled, submitted: false, reason: "budget_or_request_cap_reached", committed_usd: committed };
+  }
+  const res = await submitAction(db, controls, null as unknown as string, { tier: "primary", limit: size });
+  return { ok: true, polled, submit: await res.json(), committed_before_usd: committed };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   try {
+    let body: any = {};
+    try { body = await req.clone().json(); } catch { /* empty */ }
+    // Cron may only run the bounded tick; every other action needs an admin.
+    if (body.action === "tick" && body.trigger === "cron") return json(await tickAction(db));
     const userId = await requireAdmin(db, req);
     if (!userId) return json({ ok: false, error: "admin_required" }, 403);
-    let body: any = {};
-    try { body = await req.json(); } catch { /* empty */ }
     const controls = await loadControls(db);
     switch (body.action || "status") {
+      case "tick": return json(await tickAction(db));
       case "status": return json(await statusAction(db, controls));
       case "preview": return json(await previewAction(db, controls, body));
       case "label_golden": return await labelGolden(db, userId, body);
