@@ -73,6 +73,7 @@ const AdminHostsPage = lazy(() => import("./pages/AdminHostsPage.tsx"));
 const AdminLanguageGatePage = lazy(() => import("./pages/AdminLanguageGatePage.tsx"));
 const AdminHuFormulaShadowPage = lazy(() => import("./pages/AdminHuFormulaShadowPage.tsx"));
 const AdminPersonQualityReviewPage = lazy(() => import("./pages/AdminPersonQualityReviewPage.tsx"));
+const AdminPersonRelevanceBatchPage = lazy(() => import("./pages/AdminPersonRelevanceBatchPage.tsx"));
 const AdminVectorSearchPage = lazy(() => import("./pages/AdminVectorSearchPage.tsx"));
 const AdminSearchBenchmarkPage = lazy(() => import("./pages/AdminSearchBenchmarkPage.tsx"));
 const AdminDataCoveragePage = lazy(() => import("./pages/AdminDataCoveragePage.tsx"));
@@ -187,6 +188,7 @@ const App = () => (
           <Route path="/admin/language-gate" element={<AdminLanguageGatePage />} />
           <Route path="/admin/hu-formula-shadow" element={<AdminHuFormulaShadowPage />} />
           <Route path="/admin/person-quality-review" element={<AdminPersonQualityReviewPage />} />
+          <Route path="/admin/person-relevance-batch" element={<AdminPersonRelevanceBatchPage />} />
           <Route path="/admin/vector-search" element={<AdminVectorSearchPage />} />
           <Route path="/admin/search-benchmark" element={<AdminSearchBenchmarkPage />} />
           <Route path="/admin/data-coverage" element={<AdminDataCoveragePage />} />
