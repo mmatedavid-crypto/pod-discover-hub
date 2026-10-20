@@ -554,7 +554,10 @@ export default function SearchPage() {
     };
   }, [initial]);
 
-  const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
+  const flatTerms = useMemo(
+    () => exactQuery.hasExact ? [...exactQuery.labels, ...exactQuery.freeTermsRaw] : parseQuery(initial).terms,
+    [initial, exactQuery],
+  );
   const labelOfCat = (c: string) => categoryLabels[c] || categoryLabel(c);
   // One button per visible label: different raw keys ("Önfejlesztés", "self-improvement")
   // can share the same Hungarian label, so dedupe by label and filter by label.
@@ -604,7 +607,7 @@ export default function SearchPage() {
       const local = podcasts.find((p) => p.slug === pinnedPodcast.slug);
       return local || pinnedPodcast;
     }
-    const phrase = initial.trim().toLowerCase();
+    const phrase = plainQuery.toLowerCase();
     if (phrase.length < 3) return null;
     const phraseRe = new RegExp(
       `(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}\\p{N}]|$)`,
