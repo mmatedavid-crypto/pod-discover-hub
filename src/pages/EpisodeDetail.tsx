@@ -5,7 +5,6 @@ import Layout from "@/components/Layout";
 import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, CalendarDays, ArrowLeft, Sparkles, Clock } from "lucide-react";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
 import { dailySeriesSeo } from "@/lib/dailySeriesSeo";
-import { sitePublisherJsonLd } from "@/lib/sitePublisher";
 import { PERSON_JSONLD_SELECT, isSafeIndexablePerson, buildPersonJsonLd, personMentionRef } from "@/lib/personSchema";
 import { formatDurationHu, toIsoDuration } from "@/lib/duration";
 import NotFoundState from "@/components/NotFoundState";
@@ -156,7 +155,7 @@ export default function EpisodeDetail() {
       // Person JSON-LD: look up the episode's people[] names in the canonical
       // `people` table, apply the same safety gate as the prerender, and emit
       // both a top-level Person node (with sameAs → Wikipedia/Wikidata) and a
-      // compact ref that goes into NewsArticle.about / PodcastEpisode.about.
+      // compact ref that goes into PodcastEpisode.about.
       // This is the single biggest missing signal on "<person name>" queries.
       const peopleNames = Array.isArray(e.people)
         ? (e.people as string[]).filter((n) => typeof n === "string" && n.trim()).slice(0, 20)
