@@ -657,7 +657,7 @@ export default function SearchPage() {
       >
         <h1 className="text-3xl font-semibold mb-2">Keresés</h1>
         <p className="text-muted-foreground mb-4 text-sm">
-          Írj be egy vagy több szót, pl. <em>magyar gazdaság</em>. Idézőjelek között (<code className="px-1 bg-secondary rounded">"magyar gazdaság"</code>) pontosan arra a kifejezésre keresünk, a <code className="px-1 bg-secondary rounded">-</code> jellel pedig kizárhatsz egy szót.
+          Írj be egy vagy több szót, pl. <em>magyar gazdaság</em>. Idézőjelek között (<code className="px-1 bg-secondary rounded">"magyar gazdaság"</code>) pontosan arra a kifejezésre keresünk. A <code className="px-1 bg-secondary rounded">+</code> jellel megadhatod, hogy egy szónak szerepelnie kell.
         </p>
         <form onSubmit={(e) => { e.preventDefault(); if (e.isTrusted) trackSearchSubmitted(q, "search_page"); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
