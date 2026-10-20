@@ -209,6 +209,9 @@ export default function SearchPage() {
         .order("gated_episode_count", { ascending: false, nullsFirst: false })
         .limit(5);
       if (cancelled || !data?.length) return;
+      // Same-name homonyms or an unconfirmed exact identity: never pick one person.
+      const exactRows = (data as any[]).filter((p) => (p.normalized_name || "") === phraseNorm);
+      if (exactRows.length > 1 || (exactRows.length === 1 && !isSafeSearchPerson(exactRows[0]))) return;
       const safeRows = (data as any[]).filter(isSafeSearchPerson);
       const best = safeRows.find((p) => (p.normalized_name || "") === phraseNorm)
         || safeRows.find((p) => (p.normalized_name || "").includes(phraseNorm))
