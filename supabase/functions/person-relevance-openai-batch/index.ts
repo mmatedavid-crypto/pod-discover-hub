@@ -261,7 +261,15 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
     for (const p of prepared) {
       const releasePair = () => tier !== "golden_eval" && db.from("person_relevance_work").update({ lease_until: new Date().toISOString() })
         .eq("person_id", p.person_id).eq("episode_id", p.episode_id).eq("claim_token", jobId);
-      if (inputGuard(p.input)) { await releasePair(); continue; }
+      if (inputGuard(p.input)) {
+        // Park unsendable pairs (e.g. waiting for clean text) for 7 days under their own token, so the
+        // deterministic candidate order does not re-claim them every batch and shrink later batches.
+        if (tier === "primary") {
+          await db.from("person_relevance_work").update({ claim_token: crypto.randomUUID(), lease_until: new Date(Date.now() + 7 * 864e5).toISOString(), updated_at: new Date().toISOString() })
+            .eq("person_id", p.person_id).eq("episode_id", p.episode_id).eq("claim_token", jobId);
+        } else await releasePair();
+        continue;
+      }
       const attempt = (priorAttempts.get(`${p.person_id}|${p.episode_id}|${p.source_hash}`) || 0) + 1;
       if (attempt > Math.max(1, controls.max_attempts) && tier !== "golden_eval") { await releasePair(); continue; }
       const customId = buildCustomId({ promptVersion: controls.prompt_version, tier, personId: p.person_id, episodeId: p.episode_id, sourceHash: p.source_hash, attempt });
