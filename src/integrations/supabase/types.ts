@@ -1671,8 +1671,11 @@ export type Database = {
           podcast_id: string
           raw_len: number
           raw_text: string
+          reclean_marked_at: string | null
+          reclean_status: string | null
           selected_at: string
           source_confidence: number
+          source_fingerprint: string | null
           source_reason: string[]
           source_ref_id: string | null
           source_type: string
@@ -1686,8 +1689,11 @@ export type Database = {
           podcast_id: string
           raw_len?: number
           raw_text: string
+          reclean_marked_at?: string | null
+          reclean_status?: string | null
           selected_at?: string
           source_confidence?: number
+          source_fingerprint?: string | null
           source_reason?: string[]
           source_ref_id?: string | null
           source_type: string
@@ -1701,8 +1707,11 @@ export type Database = {
           podcast_id?: string
           raw_len?: number
           raw_text?: string
+          reclean_marked_at?: string | null
+          reclean_status?: string | null
           selected_at?: string
           source_confidence?: number
+          source_fingerprint?: string | null
           source_reason?: string[]
           source_ref_id?: string | null
           source_type?: string
@@ -2075,8 +2084,12 @@ export type Database = {
           created_at: string
           episode_id: string
           model: string | null
+          quality_reasons: string[] | null
+          quality_status: string | null
+          quality_version: string | null
           removed_categories: string[]
           source_hash: string
+          source_type: string | null
           updated_at: string
         }
         Insert: {
@@ -2086,8 +2099,12 @@ export type Database = {
           created_at?: string
           episode_id: string
           model?: string | null
+          quality_reasons?: string[] | null
+          quality_status?: string | null
+          quality_version?: string | null
           removed_categories?: string[]
           source_hash: string
+          source_type?: string | null
           updated_at?: string
         }
         Update: {
@@ -2097,8 +2114,12 @@ export type Database = {
           created_at?: string
           episode_id?: string
           model?: string | null
+          quality_reasons?: string[] | null
+          quality_status?: string | null
+          quality_version?: string | null
           removed_categories?: string[]
           source_hash?: string
+          source_type?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2180,6 +2201,102 @@ export type Database = {
             referencedColumns: ["episode_id"]
           },
         ]
+      }
+      episode_clean_text_quarantine: {
+        Row: {
+          attempts: number
+          cleaner_method: string | null
+          episode_id: string
+          first_seen_at: string
+          kept_prior: boolean
+          last_seen_at: string
+          raw_len: number | null
+          reasons: string[]
+          rescue_len: number | null
+          resolved_at: string | null
+          source_hash: string | null
+          source_type: string | null
+        }
+        Insert: {
+          attempts?: number
+          cleaner_method?: string | null
+          episode_id: string
+          first_seen_at?: string
+          kept_prior?: boolean
+          last_seen_at?: string
+          raw_len?: number | null
+          reasons?: string[]
+          rescue_len?: number | null
+          resolved_at?: string | null
+          source_hash?: string | null
+          source_type?: string | null
+        }
+        Update: {
+          attempts?: number
+          cleaner_method?: string | null
+          episode_id?: string
+          first_seen_at?: string
+          kept_prior?: boolean
+          last_seen_at?: string
+          raw_len?: number | null
+          reasons?: string[]
+          rescue_len?: number | null
+          resolved_at?: string | null
+          source_hash?: string | null
+          source_type?: string | null
+        }
+        Relationships: []
+      }
+      episode_clean_text_repair_backups: {
+        Row: {
+          applied_at: string
+          batch_id: string
+          downstream_invalidation: string
+          episode_id: string
+          id: number
+          new_cleaned_sha256: string
+          new_cleaner_method: string
+          new_len: number
+          new_source_hash: string
+          old_clean_text_status: string | null
+          old_row: Json | null
+          reasons: string[]
+          rollback_result: string | null
+          rolled_back_at: string | null
+        }
+        Insert: {
+          applied_at?: string
+          batch_id: string
+          downstream_invalidation?: string
+          episode_id: string
+          id?: number
+          new_cleaned_sha256: string
+          new_cleaner_method: string
+          new_len: number
+          new_source_hash: string
+          old_clean_text_status?: string | null
+          old_row?: Json | null
+          reasons?: string[]
+          rollback_result?: string | null
+          rolled_back_at?: string | null
+        }
+        Update: {
+          applied_at?: string
+          batch_id?: string
+          downstream_invalidation?: string
+          episode_id?: string
+          id?: number
+          new_cleaned_sha256?: string
+          new_cleaner_method?: string
+          new_len?: number
+          new_source_hash?: string
+          old_clean_text_status?: string | null
+          old_row?: Json | null
+          reasons?: string[]
+          rollback_result?: string | null
+          rolled_back_at?: string | null
+        }
+        Relationships: []
       }
       episode_embeddings: {
         Row: {
@@ -10666,6 +10783,10 @@ export type Database = {
       }
       ai_call_audit_compact: { Args: never; Returns: string }
       ai_call_audit_drain_tick: { Args: never; Returns: number }
+      apply_clean_text_repair_v1: {
+        Args: { p_batch_id: string; p_items: Json }
+        Returns: Json
+      }
       apply_person_judge_pair: {
         Args: { _episode: string; _person: string; _token: string }
         Returns: Json
@@ -10814,6 +10935,22 @@ export type Database = {
         Returns: Json[]
       }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
+      clean_text_quality_audit_v1: { Args: never; Returns: Json }
+      clean_text_repair_targets_v1: {
+        Args: { p_kind: string; p_limit?: number }
+        Returns: {
+          best_evidence: Json
+          best_raw_text: string
+          best_source_type: string
+          clean_text_status: string
+          current_cleaned_text: string
+          current_cleaner_method: string
+          current_source_hash: string
+          description: string
+          episode_id: string
+          summary: string
+        }[]
+      }
       count_pipeline_pending: { Args: { kind: string }; Returns: number }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       dedup_episodes_audio_url_batch: {
@@ -11630,6 +11767,10 @@ export type Database = {
           similarity: number
           slug: string
         }[]
+      }
+      rollback_clean_text_repair_v1: {
+        Args: { p_batch_id: string }
+        Returns: Json
       }
       rollback_person_openai_batch_job: {
         Args: { _job: string }
