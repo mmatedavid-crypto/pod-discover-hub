@@ -733,7 +733,24 @@ export default function SearchPage() {
 
         {initial && loading && <SearchStagedLoader query={initial} />}
 
-        {initial && !loading && podcasts.length === 0 && displayedEpisodes.length === 0 && !piFallback && !heroPerson && !heroOrganization && !heroTopic && (
+        {initial && !loading && exactQuery.hasExact && displayedEpisodes.length === 0 && (
+          <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
+            Nincs olyan epizód, amelyben pontosan ez szerepel: {exactQuery.labels.map((l) => `„${l}”`).join(", ")}.{" "}
+            {plainQuery && (
+              <>
+                <button
+                  onClick={() => { setQ(plainQuery); setParams({ q: plainQuery }); }}
+                  className="underline text-foreground font-medium"
+                >
+                  Keresés idézőjelek nélkül
+                </button>
+                {" "}— így a hasonló, kapcsolódó találatokat is megmutatjuk.
+              </>
+            )}
+          </div>
+        )}
+
+        {initial && !loading && !exactQuery.hasExact && podcasts.length === 0 && displayedEpisodes.length === 0 && !piFallback && !heroPerson && !heroOrganization && !heroTopic && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
             Nem találtunk elég erős egyezést. Próbálj meg más megfogalmazást vagy konkrétabb nevet/témát.
             {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
