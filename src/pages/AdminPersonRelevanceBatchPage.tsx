@@ -34,9 +34,20 @@ export default function AdminPersonRelevanceBatchPage() {
   const [role, setRole] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [labels, setLabels] = useState<Record<string, string>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const pairKey = (personId: string, episodeId: string) => `${personId}:${episodeId}`;
+  const labelKey = (st: string, mt: string | null) => `${st}:${mt ?? ""}`;
 
   const load = async () => {
-    try { setStatus(await call("status")); } catch (e) { setMsg(String((e as Error).message)); }
+    try {
+      const s = await call("status");
+      setStatus(s);
+      const saved: Record<string, string> = {};
+      for (const g of s?.goldens?.labels || []) saved[pairKey(g.person_id, g.episode_id)] = labelKey(g.label_status, g.label_mention_type);
+      setLabels((prev) => ({ ...saved, ...prev }));
+    } catch (e) { setMsg(String((e as Error).message)); }
   };
   useEffect(() => { if (!adminLoading && isAdmin) load(); }, [adminLoading, isAdmin]);
 
@@ -46,16 +57,20 @@ export default function AdminPersonRelevanceBatchPage() {
     setBusy(false);
   };
 
-  const label = async (s: Sample, label_status: string, label_mention_type: string | null) => {
-    setBusy(true);
+  const label = async (s: Sample, label_status: string, label_mention_type: string | null, text: string) => {
+    const key = pairKey(s.person_id, s.episode_id);
+    setSavingKey(key);
     try {
       const stratum = s.identity_risk ? "identity_risk" : (s.extraction[0]?.role_type || "unspecified");
       const r = await call("label_golden", { person_id: s.person_id, episode_id: s.episode_id, label_status, label_mention_type,
         label_identity: label_status === "accepted" ? "same_person" : null, stratum });
-      setMsg(r?.ok ? `Címke mentve: ${s.person_name} – ${label_status}` : `Hiba: ${r?.error}`);
-      await load();
+      if (r?.ok) {
+        setLabels((prev) => ({ ...prev, [key]: labelKey(label_status, label_mention_type) }));
+        setMsg(`Mentve: ${s.person_name} – ${text}`);
+        load();
+      } else setMsg(`Hiba: ${r?.error}`);
     } catch (e) { setMsg(String((e as Error).message)); }
-    setBusy(false);
+    setSavingKey(null);
   };
 
   if (adminLoading) return <Layout><div className="container mx-auto py-20">Betöltés…</div></Layout>;
