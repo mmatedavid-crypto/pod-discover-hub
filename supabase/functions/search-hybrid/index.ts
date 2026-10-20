@@ -12,6 +12,7 @@ import { detectBot } from "../_shared/bot-detect.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
 import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQuery, nameEvidenceTier, rankFullNameMatches } from "../_shared/search-name-match.ts";
 import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
+import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhraseMatch, exactWebsearchQuery, parseExactPhraseQuery, type ExactPhraseQuery } from "../_shared/search-exact-phrase.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -948,6 +949,80 @@ async function resolveAnchorEpisodeRows(
     .sort((a, b) => Number(b.hybrid_score || 0) - Number(a.hybrid_score || 0))
     .slice(0, Math.max(30, Math.min(140, limit * 2)));
   return { rows, matches };
+}
+
+// Google-style exact phrase mode: indexed FTS only (search_tsv + clean-text
+// FTS), every candidate re-verified in code. No synonyms, embeddings, HyDE,
+// rerankers or relaxation passes — those would reintroduce non-exact hits.
+async function runExactPhraseSearch(supa: any, parsed: ExactPhraseQuery, limit: number, lang: string | null, engine: string) {
+  const t0 = Date.now();
+  let queryCount = 0;
+  const timed = <T>(label: string, p: PromiseLike<T>, ms: number) => {
+    queryCount++;
+    return withTimeout(Promise.resolve(p), ms, label);
+  };
+  const websearch = exactWebsearchQuery(parsed);
+  const cleanTsq = exactCleanTextTsQuery(parsed);
+  const [lexRes, cleanRes] = await Promise.all([
+    timed("exact_lex", supa.rpc("search_episodes_hybrid", {
+      q: websearch, q_embedding: null, limit_n: 120, lang,
+      required_terms: null, entity_terms: null, alpha_lex: 1, p_decay_lambda: 0,
+      phrase_terms: parsed.phrases.map((t) => t.join(" ")),
+    }), 6000),
+    cleanTsq
+      ? timed("exact_clean_text", supa.rpc("search_clean_text_name_candidates", { p_tsquery: cleanTsq, p_limit: 80 }), 4500)
+      : Promise.resolve(null),
+  ]);
+  const degraded = !lexRes || !!(lexRes as any)?.error || (!!cleanTsq && (!cleanRes || !!(cleanRes as any)?.error));
+  const lexIds: string[] = (((lexRes as any)?.data || []) as any[]).map((r) => r.episode_id).filter(Boolean);
+  const cleanMap = new Map<string, string>();
+  for (const r of (((cleanRes as any)?.data || []) as any[])) if (r?.episode_id) cleanMap.set(r.episode_id, r.cleaned_text || "");
+  const lexOrder = new Map(lexIds.map((id, i) => [id, i]));
+  const ids = [...new Set([...lexIds, ...cleanMap.keys()])].slice(0, 200);
+
+  let eps: any[] = [];
+  if (ids.length) {
+    const hyd = await timed("exact_hydrate", supa.from("episodes").select(EPISODE_SELECT).in("id", ids), 4000);
+    eps = ((hyd as any)?.data || []) as any[];
+  }
+  let dropped = 0;
+  const verified = eps
+    .filter((e) => isAcceptedHungarianPodcast(e.podcasts))
+    .map((e) => {
+      const m = exactPhraseMatch(episodeExactFields(e, cleanMap.get(e.id)), parsed);
+      if (!m.ok) dropped++;
+      return { e, m };
+    })
+    .filter((x) => x.m.ok)
+    .map(({ e, m }) => ({
+      e: { ...e, exact_match: { label: exactMatchLabel(m.fields), fields: m.fields } },
+      inTitle: m.fields.includes("title") ? 0 : 1,
+      lex: lexOrder.has(e.id) ? lexOrder.get(e.id)! : 10_000,
+      ts: e.published_at ? Date.parse(e.published_at) || 0 : 0,
+      id: String(e.id),
+    }))
+    .sort((a, b) => a.inTitle - b.inTitle || a.lex - b.lex || b.ts - a.ts || a.id.localeCompare(b.id))
+    .map((x) => x.e);
+
+  return {
+    episodes: verified.slice(0, limit),
+    exact_phrase: {
+      phrases: parsed.labels,
+      free_terms: parsed.freeTerms,
+      excluded: parsed.excluded,
+      total: verified.length,
+      metadata_candidates: lexIds.length,
+      clean_text_candidates: cleanMap.size,
+      dropped_unverified: dropped,
+    },
+    confidence_band: verified.length >= 3 ? "high" : verified.length ? "medium" : "low",
+    semantic: false,
+    reranked: false,
+    must_gate: true,
+    degraded_for_latency: degraded,
+    engine: `${engine}-exact`,
+    timing: { total_ms: Date.now() - t0, query_count: queryCount },
+  };
 }
 
 Deno.serve(async (req) => {
