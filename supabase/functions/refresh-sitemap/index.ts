@@ -8,6 +8,8 @@
 // rebuilds sitemap.xml from the merged state so the index always works.
 // Policy 2026-06-01: include EVERYTHING public/indexable — no tier filter.
 // Policy 2026-06-03: Search Console submit is gated by newly added news URLs.
+// Policy 2026-10-20: news sitemap = published Heti editorial articles (≤48h) only;
+// failed submissions stay pending and retry on later runs.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { buildNewsSitemapXml, decideNewsSubmit, selectNewsEditorialEntries } from '../_shared/heti-editorial.ts';
 
@@ -39,52 +41,12 @@ const xmlUnescape = (s: string) => s
 const extractXmlLocs = (xml: string): string[] =>
   Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), (m) => xmlUnescape(m[1] || '').trim()).filter(Boolean);
 
-const TRUSTED_NEWS_SOURCE_RX = /\b(444|telex|partizan|partizán|hvg|portfolio|hold|hold-after-hours|g7|qubit|direkt36|atlatszo|átlátszó|lakmusz|magyar-hang|magyar hang|valasz|válasz|inforadio|infostart|klubradio|szabad-europa|szabad európa|forbes|concorde)\b/i;
-const NEWSWORTHY_CATEGORIES = new Set([
-  'News & Politics',
-  'Finance',
-  'Business & Finance',
-  'Technology',
-  'Science',
-  'Science & Ideas',
-]);
-const NEWS_EXCLUDED_CATEGORIES = new Set([
-  'Religion & Spirituality',
-  'Kids & Family',
-  'Fiction',
-  'Music',
-  'Sleep',
-  'Sports',
-  'History',
-  'Society & Culture',
-  'Education & Explainer',
-]);
-const NEWS_TITLE_NOISE_RX = /\b(beköszönés|elköszönés|hangcsapda|játék|adásnapló|esti mese|napi biblia|igeidő|szentmise|áhítat|rövid változat|short version|trailer|előzetes|étel|ételek|konyha|recept|messi|ronaldo|sportemberi|cápákból|befektetővel|tudás|hiedelmeken)\b/i;
-const NEWS_FOREIGN_NOISE_RX = /\b(seo\s*\+\s*ia|venta asistida|ecommerce|masterclass|sunday mood)\b/i;
-
 type GoogleSubmitResult = {
   attempted: boolean;
   ok: boolean;
   status: number | null;
   reason: string | null;
 };
-
-function isTrustedNewsPodcast(p: any): boolean {
-  const haystack = `${p?.slug || ''} ${p?.title || ''} ${p?.display_title || ''}`;
-  return TRUSTED_NEWS_SOURCE_RX.test(haystack);
-}
-
-function isNewsworthyEpisode(e: any): boolean {
-  const p = e?.podcasts || {};
-  const title = String(e?.display_title || e?.title || '').trim();
-  if (!title || !e?.slug || !p?.slug) return false;
-  if (NEWS_TITLE_NOISE_RX.test(title) || NEWS_FOREIGN_NOISE_RX.test(title)) return false;
-  if (NEWS_EXCLUDED_CATEGORIES.has(String(p?.category || ''))) return false;
-  const trusted = isTrustedNewsPodcast(p);
-  if (trusted) return true;
-  const tier = String(p?.rank_label || '');
-  return NEWSWORTHY_CATEGORIES.has(String(p?.category || '')) && ['S', 'A', 'B'].includes(tier);
-}
 
 function isSafePersonSitemapRow(p: any): boolean {
   if (!p?.slug || p.is_public !== true || p.is_indexable !== true) return false;
@@ -103,20 +65,6 @@ function isSafePersonSitemapRow(p: any): boolean {
   if (temporalTopicOnly) return false;
   if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
   return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
-}
-
-function newsTag(loc: string, publishedAt: string, title: string) {
-  return `<url>
-  <loc>${esc(loc)}</loc>
-  <news:news>
-    <news:publication>
-      <news:name>Podiverzum</news:name>
-      <news:language>hu</news:language>
-    </news:publication>
-    <news:publication_date>${new Date(publishedAt).toISOString()}</news:publication_date>
-    <news:title>${esc(title)}</news:title>
-  </news:news>
-</url>`;
 }
 
 async function sha256Hex(text: string): Promise<string> {
