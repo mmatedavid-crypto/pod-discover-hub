@@ -15,6 +15,8 @@ export const CLEAN_TEXT_QUALITY_VERSION = "clean_text_quality_v1";
 export const RESCUE_METHOD_SUFFIX = "rescue_v1";
 /** Prior clean text shorter than this is not treated as "good" text worth preserving. */
 export const MIN_PRIOR_GOOD_CHARS = 40;
+/** v4 output is replaced by the extract-only rescue when it drops at least this many names/topics/timecodes. */
+export const MIN_LOST_NAMED_TOKENS = 2;
 
 export type CleanVerdictStatus = "valid" | "valid_short" | "no_content" | "invalid";
 
