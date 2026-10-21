@@ -25,6 +25,7 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 const CONTROLS_KEY = "clean_text_repair_queue_controls";
+const APPLY_CHUNK = 40;
 const STATE_KEY = "clean_text_repair_queue_state";
 const DEFAULTS = {
   enabled: false,
@@ -167,6 +168,7 @@ Deno.serve(async (req) => {
     const outcomes: Record<string, number> = {};
     const tally = (k: string) => { outcomes[k] = (outcomes[k] || 0) + 1; };
     let batchId: string | null = null;
+    const runBatchIds: string[] = [];
     let applyResult: any = null;
     const samples: any[] = [];
 
@@ -212,15 +214,28 @@ Deno.serve(async (req) => {
         toApply.push({ plan, item: { ...item, quality_reasons: [...(item.quality_reasons || []), "rss_repair_queue_v1"] } });
       }
 
-      if (toApply.length) {
-        batchId = crypto.randomUUID();
-        const { data: res, error: aErr } = await admin.rpc("apply_clean_text_repair_v1", { p_batch_id: batchId, p_items: toApply.map((x) => x.item) });
-        if (aErr) throw new Error(`apply: ${aErr.message}`);
-        applyResult = res;
+      // 4–5) Apply in chunks of ≤40 (one backup batch id each; larger single
+      // statements hit the statement timeout), verify each chunk, roll back on defects.
+      const batchIds: string[] = [];
+      const applyResults: any[] = [];
+      for (let i = 0; i < toApply.length; i += APPLY_CHUNK) {
+        const chunk = toApply.slice(i, i + APPLY_CHUNK);
+        const chunkBatch = crypto.randomUUID();
+        const { data: res, error: aErr } = await admin.rpc("apply_clean_text_repair_v1", { p_batch_id: chunkBatch, p_items: chunk.map((x) => x.item) });
+        if (aErr) {
+          // The RPC is one transaction: nothing from this chunk was written. Retry later.
+          for (const x of chunk) {
+            const id = String(x.item.episode_id);
+            const attempts = claims.find((c) => String(c.episode_id) === id)?.attempts || 1;
+            results.push({ episode_id: id, status: "retry", outcome: "apply_error", reasons: [String(aErr.message).slice(0, 120)], retry_after_seconds: backoffSeconds(attempts) });
+          }
+          tally("retry:apply_error");
+          out.apply_error = String(aErr.message).slice(0, 300);
+          break;
+        }
+        applyResults.push(res);
         const conflicts = new Set<string>(((res as any)?.conflict_episode_ids || []).map(String));
-        const appliedItems = toApply.filter((x) => !conflicts.has(String(x.item.episode_id)));
-
-        // 5) Verify what is now live; any defect rolls the whole batch back.
+        const appliedItems = chunk.filter((x) => !conflicts.has(String(x.item.episode_id)));
         const { data: live, error: lErr } = await admin.from("episode_clean_text")
           .select("episode_id,source_hash,cleaned_text").in("episode_id", appliedItems.map((x) => x.item.episode_id));
         if (lErr) throw lErr;
@@ -231,32 +246,43 @@ Deno.serve(async (req) => {
           return !r || r.source_hash !== x.item.source_hash || txt.length < 40 || /https?:\/\/|www\.[a-z0-9-]+\./i.test(txt);
         });
         if (defects.length || Number((res as any)?.invalid || 0) > 0) {
-          const { data: rb } = await admin.rpc("rollback_clean_text_repair_v1", { p_batch_id: batchId });
+          const { data: rb } = await admin.rpc("rollback_clean_text_repair_v1", { p_batch_id: chunkBatch });
           await tripBreaker(admin, `post_apply_verification_failed:${defects.length}_defects_${Number((res as any)?.invalid || 0)}_invalid`);
-          for (const x of toApply) results.push({ episode_id: x.item.episode_id, status: "needs_review", outcome: "rolled_back_verification", reasons: ["post_apply_verification_failed"], batch_id: batchId });
+          for (const x of chunk) results.push({ episode_id: x.item.episode_id, status: "needs_review", outcome: "rolled_back_verification", reasons: ["post_apply_verification_failed"], batch_id: chunkBatch });
           out.rollback = rb;
           tally("rolled_back");
-        } else {
-          for (const x of toApply) {
-            const id = String(x.item.episode_id);
-            const attempts = claims.find((c) => String(c.episode_id) === id)?.attempts || 1;
-            if (conflicts.has(id)) {
-              results.push({ episode_id: id, status: "retry", outcome: "cas_conflict", reasons: ["cas_conflict"], retry_after_seconds: backoffSeconds(attempts) });
-              tally("retry:cas_conflict");
-            } else {
-              results.push({ episode_id: id, status: "done", outcome: "applied", reasons: x.plan.reasons, batch_id: batchId });
-              tally("done:applied");
-              if (adminCall && samples.length < Math.min(50, Number(body.samples || 0))) {
-                samples.push({ episode_id: id, prior_len: x.plan.prior_len, prior_method: x.plan.prior_method, next_len: x.plan.next_len, preview: x.plan.preview });
-              }
+          break;
+        }
+        if (appliedItems.length) batchIds.push(chunkBatch);
+        for (const x of chunk) {
+          const id = String(x.item.episode_id);
+          const attempts = claims.find((c) => String(c.episode_id) === id)?.attempts || 1;
+          if (conflicts.has(id)) {
+            results.push({ episode_id: id, status: "retry", outcome: "cas_conflict", reasons: ["cas_conflict"], retry_after_seconds: backoffSeconds(attempts) });
+            tally("retry:cas_conflict");
+          } else {
+            results.push({ episode_id: id, status: "done", outcome: "applied", reasons: x.plan.reasons, batch_id: chunkBatch });
+            tally("done:applied");
+            if (adminCall && samples.length < Math.min(50, Number(body.samples || 0))) {
+              samples.push({ episode_id: id, prior_len: x.plan.prior_len, prior_method: x.plan.prior_method, next_len: x.plan.next_len, preview: x.plan.preview });
             }
           }
-          if (toApply.length >= 5 && conflicts.size / toApply.length > Number(ctrl.max_conflict_ratio)) {
-            await tripBreaker(admin, `conflict_ratio_${conflicts.size}_of_${toApply.length}`);
-            out.breaker = "conflict_ratio";
-          }
+        }
+        if (chunk.length >= 5 && conflicts.size / chunk.length > Number(ctrl.max_conflict_ratio)) {
+          await tripBreaker(admin, `conflict_ratio_${conflicts.size}_of_${chunk.length}`);
+          out.breaker = "conflict_ratio";
+          break;
         }
       }
+      // Rows not reached after a stop (error/rollback/breaker) go back to the queue.
+      const handled = new Set(results.map((r) => String(r.episode_id)));
+      for (const x of toApply) {
+        const id = String(x.item.episode_id);
+        if (!handled.has(id)) results.push({ episode_id: id, status: "retry", outcome: "not_reached", reasons: ["stopped_before_apply"], retry_after_seconds: 900 });
+      }
+      batchId = batchIds[batchIds.length - 1] ?? null;
+      runBatchIds.push(...batchIds);
+      applyResult = applyResults;
 
       const { data: comp, error: compErr } = await admin.rpc("complete_clean_text_repair_queue_v1", { p_owner: owner, p_results: results });
       if (compErr) throw new Error(`complete: ${compErr.message}`);
@@ -278,7 +304,7 @@ Deno.serve(async (req) => {
         last_claimed: claimedIds.length,
         last_outcomes: outcomes,
         last_batch_id: applied ? batchId : f.last_batch_id ?? null,
-        batch_ids: applied ? [...(f.batch_ids || []), batchId].slice(-200) : (f.batch_ids || []),
+        batch_ids: [...(f.batch_ids || []), ...runBatchIds].slice(-300),
         total_applied: Number(f.total_applied || 0) + applied,
         total_processed: Number(f.total_processed || 0) + claimedIds.length,
         open_after_run: open,
@@ -286,11 +312,17 @@ Deno.serve(async (req) => {
         archive_drained_at: drained ? (f.archive_drained_at || new Date().toISOString()) : null,
       };
     });
-    return json({ ...out, claimed: claimedIds.length, outcomes, batch_id: applied ? batchId : null, apply: applyResult, queue: qAfter, samples: adminCall ? samples : undefined, elapsed_ms: Date.now() - startedAt });
+    return json({ ...out, claimed: claimedIds.length, outcomes, batch_ids: runBatchIds, apply: applyResult, queue: qAfter, samples: adminCall ? samples : undefined, elapsed_ms: Date.now() - startedAt });
   } catch (e) {
     const msg = e instanceof Error ? e.message : (() => { try { return JSON.stringify(e); } catch { return String(e); } })();
     console.error("[clean-text-repair-queue] fatal:", msg);
-    // Leases expire on their own (lease_seconds); record the failure durably.
+    // Hand claimed rows back as retry (finite: retry beyond max_attempts becomes dead).
+    if (claimedIds.length) {
+      await admin.rpc("complete_clean_text_repair_queue_v1", {
+        p_owner: owner,
+        p_results: claimedIds.map((id) => ({ episode_id: id, status: "retry", outcome: "run_error", reasons: [msg.slice(0, 120)], retry_after_seconds: 900 })),
+      }).then(() => null, () => null);
+    }
     let failures = 0;
     await patchSetting(admin, STATE_KEY, (f) => {
       failures = Number(f.consecutive_failures || 0) + 1;
