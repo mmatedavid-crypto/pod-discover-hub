@@ -134,3 +134,13 @@ Rollback any legacy batch: `clean-text-repair` `{action:"rollback", batch_id}`; 
 - RSS queue: 215 open (102 pending + 113 expired leases waiting for reclaim), resumes after 00:00 UTC. Unique repaired episodes: 1,500.
 - Legacy: 70 evaluated (35 writes: 27 RSS replacements, 8 attribution-only; 35 active backups), 1,871 still to evaluate by the lane.
 - HU texts: empty 4,520 → 4,408; empty with RSS ≥ 500 chars 200 → 88.
+
+## Evening drain with lifted daily caps (2026-10-21 20:27–20:55 UTC)
+
+Owner lifted the daily quotas for the rest of the day. Only daily caps were raised; per-run sizes, every quality gate, backup + CAS and per-batch rollback stayed. No new cron, no paid AI, `.com` untouched; job 189, Gemini trim and legacy autopilot stay OFF.
+
+- Temporary values: RSS queue 1,500 → 3,000/day, legacy writes 300 → 2,000/day, YouTube re-clean 150 → 500/day (code max), Spotify re-clean 20 → 300/day (code max), Spotify 3 → 5/run; YouTube archive backfill 20 → 5/run and fast-lane reserve 30 → 0 during the drain so each run fit the edge CPU limit. All restored at 20:55 UTC (record kept in `last_temp_quota_lift` of both control rows).
+- Manual ticks of the existing functions (`clean-text-repair-queue`, `episode-best-text-source-runner`); 0 conflicts, 0 invalid writes. Some best-source runs hit the edge CPU limit or one statement timeout and were retried; writes are CAS so no partial state.
+- Results: RSS queue open 0; legacy lane open 0. 1,146 episodes changed in 158 backed-up batches (316 were empty before; average length 565 → 1,078 chars; 0 texts with URLs). By source: RSS/rescue ≈ 330, legacy ≈ 150, verified YouTube 384, verified Spotify 280.
+- HU empty clean texts: 4,408 → 4,357 (the rest have no substantive source).
+- Left: 9 YouTube + 38 Spotify re-cleans (normal daily caps), 648 needs_review + 10 quarantine rows for human review.
