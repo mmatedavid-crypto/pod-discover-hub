@@ -27,3 +27,4 @@
 - [x] Tests, deploy, canary report (docs/clean-text-repair-2026-10-21.md); 15-min best-source cron (jobid 193, limit 40).
 - [ ] Public episode pages do not read cleaned text (table is admin-only); exposing non-transcript clean text needs owner decision.
 - [ ] Remaining ~406 canary-eligible empty records: next canary only on owner approval.
+- [ ] Person GPT tick (cron 189) paused until clean-text repair is done; resume only on owner approval.
