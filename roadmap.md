@@ -66,7 +66,9 @@
 - [x] Queue table, seed/reconcile, lease/backoff/dead letter, RSS-change trigger, function + adaptive cron 195, gates, tests, deploy.
 - [x] 1 388 episodes repaired with backups; empty 5 236→4 520, over-trimmed 2 763→1 379.
 - [x] Expired leases explained (old CPU-killed runs, reclaimed 40/run in priority order); open 302 → 222 by 18:11 UTC.
-- [ ] Remaining 222 open RSS rows finish on scheduled runs after the 00:00 UTC cap reset (runs on its own).
+- [x] Remaining open RSS rows finished 2026-10-21 20:30 UTC (owner lifted daily caps for the evening; caps restored 20:55 UTC).
 - [x] Full read-only audit of 1 941 legacy ytdesc texts (provenance, identity, content); planner, tests, 36-episode canary (c5bc1948-00dc-464d-8e02-d38a617de86a), rollback test, automatic legacy lane (≤40/run, ≤300 writes/day) in cron 195.
-- [ ] Legacy lane drains the rest on its own (~1 day of evaluation; writes capped 300/day).
-- [ ] ~500 legacy + 128 gated rows marked needs_review wait for a human decision (blocked: owner review).
+- [x] Legacy lane fully evaluated 2026-10-21 20:40 UTC (0 open).
+- [x] Waiting verified YouTube/Spotify re-cleans drained to the code maximums (YouTube 500/day, Spotify 300/day) on 2026-10-21.
+- [ ] 9 YouTube + 38 Spotify re-cleans left; they go through on the normal daily caps (runs on its own).
+- [ ] 648 rows marked needs_review (≈494 legacy, ≈150 gated RSS) + 10 quarantined wait for a human decision (blocked: owner review).
