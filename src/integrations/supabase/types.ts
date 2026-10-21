@@ -2468,6 +2468,54 @@ export type Database = {
           },
         ]
       }
+      episode_source_change_queue: {
+        Row: {
+          attempts: number
+          available_at: string
+          change_seq: number
+          enqueued_at: string
+          episode_id: string
+          first_enqueued_at: string
+          last_error: string | null
+          lease_token: string | null
+          leased_until: string | null
+          priority: number
+          reason: string
+          source: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          change_seq?: number
+          enqueued_at?: string
+          episode_id: string
+          first_enqueued_at?: string
+          last_error?: string | null
+          lease_token?: string | null
+          leased_until?: string | null
+          priority?: number
+          reason: string
+          source?: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          change_seq?: number
+          enqueued_at?: string
+          episode_id?: string
+          first_enqueued_at?: string
+          last_error?: string | null
+          lease_token?: string | null
+          leased_until?: string | null
+          priority?: number
+          reason?: string
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
       episode_spotify_meta: {
         Row: {
           audio_preview_url: string | null
@@ -2934,6 +2982,7 @@ export type Database = {
           found_by: string | null
           id: string
           match_score: number | null
+          metadata_refreshed_at: string | null
           podcast_id: string
           status: string
           updated_at: string
@@ -2956,6 +3005,7 @@ export type Database = {
           found_by?: string | null
           id?: string
           match_score?: number | null
+          metadata_refreshed_at?: string | null
           podcast_id: string
           status?: string
           updated_at?: string
@@ -2978,6 +3028,7 @@ export type Database = {
           found_by?: string | null
           id?: string
           match_score?: number | null
+          metadata_refreshed_at?: string | null
           podcast_id?: string
           status?: string
           updated_at?: string
@@ -10761,6 +10812,10 @@ export type Database = {
       }
     }
     Functions: {
+      ack_episode_source_changes_v1: {
+        Args: { p_error?: string; p_items: Json; p_lease_token: string }
+        Returns: Json
+      }
       add_ai_spend: {
         Args: {
           p_amount: number
@@ -10949,6 +11004,19 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      claim_episode_source_changes_v1: {
+        Args: { p_lease_seconds?: number; p_limit?: number }
+        Returns: {
+          attempts: number
+          change_seq: number
+          enqueued_at: string
+          episode_id: string
+          first_enqueued_at: string
+          lease_token: string
+          priority: number
+          reason: string
+        }[]
       }
       claim_person_judge_batch: { Args: { _limit: number }; Returns: string[] }
       claim_person_judge_pairs: {
@@ -12163,6 +12231,10 @@ export type Database = {
       update_page_event_dwell: {
         Args: { _dwell_ms: number; _id: string }
         Returns: undefined
+      }
+      upsert_episode_youtube_links_v1: {
+        Args: { p_rows: Json; p_winners?: Json }
+        Returns: Json
       }
       upsert_scoped_person_alias: {
         Args: {

@@ -36,3 +36,12 @@
 - [x] Bounded automatic backfill (20/run) and backed-up YouTube re-clean (10/run, 150/day) enabled.
 - [ ] Public display of YouTube-derived clean text (blocked: owner decision on YouTube terms + frontend publish).
 - [ ] Re-embed changed clean text for semantic search (blocked: paid embeddings need owner budget).
+
+## YouTube pairing → best source fast lane (2026-10-21 12:00 UTC)
+- [x] Change-only, race-safe YouTube link writes (no-op rescans write nothing; confirmed links sticky; manual links protected; episodes touched only on winner change).
+- [x] View/caption refreshes tracked in `metadata_refreshed_at`, never `updated_at`.
+- [x] Durable fast-lane queue for new/changed confirmed pairs (trigger, lease, change_seq ack, backoff, dead letters) ahead of archive backfill; re-clean cap reserve for fast lane.
+- [x] Source-change refresh / RSS revert for automatic YouTube re-cleans (reviewed canaries protected).
+- [x] 17 early automatic texts re-checked; 3 with leftover promo/hashtags corrected (batch e65d674c-158c-4871-9c82-d359392c5d41).
+- [x] Best-source cron 193 moved to :07/:22/:37/:52 (off the top-of-hour peak; runs right after pairing).
+- [ ] First naturally arriving youtube_better new pair through the fast lane (waits on a real new pair; verified with fast-lane runs so far only for RSS-preferred pairs).
