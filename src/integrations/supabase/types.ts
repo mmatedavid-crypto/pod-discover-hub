@@ -11348,6 +11348,10 @@ export type Database = {
         Args: { p_episode_id: string }
         Returns: string
       }
+      get_episode_public_clean_description_v2: {
+        Args: { p_episode_id: string }
+        Returns: Json
+      }
       get_homepage_rails_v1: {
         Args: {
           _category_limit?: number

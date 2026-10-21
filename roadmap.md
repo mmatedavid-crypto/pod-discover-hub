@@ -34,7 +34,9 @@
 - [x] Fix frozen best-source cursors; per-feed progress and failure telemetry.
 - [x] Staged 2,790-target queue, full read-only dry run, 40-episode reviewed canary (batch 8e365da4-f9db-4bbc-90f7-4fc6506fb358), search check 24/24.
 - [x] Bounded automatic backfill (20/run) and backed-up YouTube re-clean (10/run, 150/day) enabled.
-- [ ] Public display of YouTube-derived clean text (blocked: owner decision on YouTube terms + frontend publish).
+- [x] Public display of cleaned YouTube/Spotify text with source link (owner decision 2026-10-21; crawler HTML live).
+- [ ] Frontend publish so visitors see it (waits on user publish).
+- [ ] Crawler HTML shows transcript excerpts (`get_episode_index_text`) — conflicts with the no-public-transcript rule; needs owner decision.
 - [ ] Re-embed changed clean text for semantic search (blocked: paid embeddings need owner budget).
 
 ## YouTube pairing → best source fast lane (2026-10-21 12:00 UTC)
