@@ -33,6 +33,7 @@ import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { PodcastCover } from "@/components/PodcastCover";
 import { EpisodeClusterChips } from "@/components/EpisodeClusterChips";
 import { EpisodeAnswers } from "@/components/EpisodeAnswers";
+import { parsePublicCleanDescription, publicSourceLabel, type PublicCleanDescription } from "@/lib/publicCleanDescription";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Témák" },
@@ -49,6 +50,17 @@ export default function EpisodeDetail() {
   const [loading, setLoading] = useState(true);
   const [moreFromPod, setMoreFromPod] = useState<EpisodeLite[]>([]);
   const [personLinks, setPersonLinks] = useState<{ name: string; slug: string }[]>([]);
+  const [cleanDesc, setCleanDesc] = useState<PublicCleanDescription | null>(null);
+  const episodeIdForClean: string | undefined = data?.e?.id;
+  useEffect(() => {
+    setCleanDesc(null);
+    if (!episodeIdForClean) return;
+    let alive = true;
+    (supabase as any).rpc("get_episode_public_clean_description_v2", { p_episode_id: episodeIdForClean })
+      .then(({ data: d }: { data: unknown }) => { if (alive) setCleanDesc(parsePublicCleanDescription(d)); })
+      .catch(() => { /* fall back to the RSS description */ });
+    return () => { alive = false; };
+  }, [episodeIdForClean]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { playerVisible: smartPlayerVisible, play, toggle, currentEpisode, isPlaying, seekTo } = useSmartPlayer();
@@ -613,7 +625,21 @@ export default function EpisodeDetail() {
         {/* Kapcsolódó epizódok — előre hozva, hogy a social forgalom is lássa a fold közelében. */}
         <RelatedEpisodes episodeIdOverride={e.id} podcastIdOverride={p.id} variant="compact" />
 
-        {description && description !== summary && (
+        {cleanDesc ? (
+          <section className="mt-6 rounded-lg border border-border bg-card p-4">
+            <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Leírás</div>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{cleanDesc.text}</div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Forrás:{" "}
+              {cleanDesc.source_url ? (
+                <a href={cleanDesc.source_url} target="_blank" rel="noopener nofollow" className="underline hover:text-primary">
+                  {publicSourceLabel(cleanDesc.source)}
+                </a>
+              ) : publicSourceLabel(cleanDesc.source)}
+              {" "}(reklámok és linkek nélkül)
+            </p>
+          </section>
+        ) : description && description !== summary && (
           <section className="mt-6 rounded-lg border border-border bg-card p-4">
             <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Leírás</div>
             <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{description}</div>
