@@ -793,12 +793,9 @@ async function buildEpisode(
     { data: orgRows },
     { data: relatedRows },
   ] = await Promise.all([
-    supabase
-      .from("episode_clean_text")
-      .select("cleaned_text")
-      .eq("episode_id", ep.id)
-      .like("cleaner_method", "deterministic_v4%")
-      .maybeSingle(),
+    // Owner-approved public cleaned text (YouTube / Spotify show notes) with its source;
+    // the clean-text table itself stays admin-only.
+    (supabase as any).rpc("get_episode_public_clean_description_v2", { p_episode_id: ep.id }),
     // Transcripts are not readable by anon (rights-gated table); a bounded,
     // index-only excerpt is exposed through a dedicated read-only function.
     (supabase as any).rpc("get_episode_index_text", {
@@ -836,7 +833,10 @@ async function buildEpisode(
       p_downweight_same_podcast: true,
     }),
   ]);
-  const cleanText = stripHtml((cleanRow as any)?.cleaned_text || "");
+  const cleanSource = String((cleanRow as any)?.source || "");
+  const cleanText = cleanSource === "youtube" || cleanSource === "spotify" ? stripHtml((cleanRow as any)?.text || "") : "";
+  const cleanSourceUrl = String((cleanRow as any)?.source_url || "");
+  const cleanSourceLabel = cleanSource === "youtube" ? "YouTube-videó leírása" : cleanSource === "spotify" ? "Spotify-epizód leírása" : "";
   const transcriptText = stripHtml(
     typeof transcriptRow === "string" ? transcriptRow : ((transcriptRow as any)?.transcript || ""),
   );
@@ -1260,7 +1260,7 @@ async function buildEpisode(
 ${aiSummaryText ? `<section><h2>Összefoglaló</h2><p><strong>${esc(aiSummaryText)}</strong></p></section>` : ""}
 ${factsHtml}
 ${chaptersHtml}
-${bodyParas.length ? `<section><h2>Ebben az epizódban</h2>${bodyParas.map((p) => `<p>${esc(p)}</p>`).join("")}</section>` : (longText ? `<section><p>${esc(longText)}</p></section>` : "")}
+${bodyParas.length ? `<section><h2>Ebben az epizódban</h2>${bodyParas.map((p) => `<p>${esc(p)}</p>`).join("")}${bodyPrimary === cleanText && cleanSourceLabel ? `<p><small>Forrás: ${/^https:\/\/(www\.youtube\.com|open\.spotify\.com)\//.test(cleanSourceUrl) ? `<a href="${esc(cleanSourceUrl)}" rel="nofollow noopener">${esc(cleanSourceLabel)}</a>` : esc(cleanSourceLabel)} (reklámok és linkek nélkül)</small></p>` : ""}</section>` : (longText ? `<section><p>${esc(longText)}</p></section>` : "")}
 ${entitySection ? `<section><h2>Említett entitások</h2>${entitySection}</section>` : ""}
 ${ep.audio_url ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
 ${qaHtml}
