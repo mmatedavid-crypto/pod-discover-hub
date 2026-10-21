@@ -26,6 +26,9 @@ const json = (b: unknown, s = 200) =>
 
 const CONTROLS_KEY = "clean_text_repair_queue_controls";
 const APPLY_CHUNK = 40;
+/** Other descriptions sampled per show for recurring-boilerplate detection (CPU-bounded). */
+const RECURRING_SAMPLE = 16;
+const CRON_JOB = "clean-text-repair-queue-hourly";
 const STATE_KEY = "clean_text_repair_queue_state";
 const DEFAULTS = {
   enabled: false,
@@ -63,8 +66,8 @@ async function loadRecurringRssByEpisode(admin: any, episodeIds: string[]): Prom
     if (iErr) throw iErr;
     const all = (ids || []) as any[];
     if (all.length < 4) return;
-    const step = Math.max(1, all.length / 24);
-    const pick = Array.from(new Set(Array.from({ length: Math.min(24, all.length) }, (_, i) => String(all[Math.floor(i * step)].id))));
+    const step = Math.max(1, all.length / RECURRING_SAMPLE);
+    const pick = Array.from(new Set(Array.from({ length: Math.min(RECURRING_SAMPLE, all.length) }, (_, i) => String(all[Math.floor(i * step)].id))));
     const { data: descs, error: dErr } = await admin.from("episodes").select("id,description").in("id", pick);
     if (dErr) throw dErr;
     const sample = ((descs || []) as any[]).map((d) => ({ id: String(d.id), description: String(d.description || "") }));
@@ -151,7 +154,8 @@ Deno.serve(async (req) => {
     const { data: qs, error: qsErr } = await admin.rpc("clean_text_repair_queue_status_v1");
     if (qsErr) throw qsErr;
     const appliedToday = Number((qs as any)?.applied_today || 0);
-    const perRun = Math.max(1, Math.min(100, Number(adminCall && body.limit ? body.limit : ctrl.per_run)));
+    // ≤50 per run: planning is regex-heavy and edge CPU time is limited.
+    const perRun = Math.max(1, Math.min(50, Number(adminCall && body.limit ? body.limit : ctrl.per_run)));
     const room = Math.max(0, Number(ctrl.daily_apply_cap) - appliedToday);
     const take = Math.min(perRun, room);
     if (take === 0) {
@@ -291,6 +295,10 @@ Deno.serve(async (req) => {
 
     const { data: qAfter } = await admin.rpc("clean_text_repair_queue_status_v1");
     const open = Number((qAfter as any)?.open || 0);
+    // Adaptive cadence: twice an hour while historical work is open, hourly once drained
+    // (hourly still picks up RSS description changes and requeued retries).
+    const { data: cronMsg } = await admin.rpc("set_runner_cron", { p_job_name: CRON_JOB, p_schedule: open > 0 ? "11,41 * * * *" : "41 * * * *" });
+    out.cron = cronMsg;
     const applied = outcomes["done:applied"] || 0;
     await patchSetting(admin, STATE_KEY, (f) => {
       const drained = open === 0 && !!f.last_seed_at;
