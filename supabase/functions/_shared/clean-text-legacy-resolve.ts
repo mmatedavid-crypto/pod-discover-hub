@@ -253,11 +253,18 @@ export function identityVerdict(ev: IdentityEvidence | null): { verdict: Verdict
   const titleBad = (ev.title_sim ?? 1) < 0.3 && (ev.title_cov ?? 1) < 0.3;
   const contentLinked = ev.rss_overlap >= 0.3 || ev.prior_in_rss >= 0.3;
   if (ev.number_conflict) why.push("episode_number_conflict");
-  if (ev.date_days !== null && ev.date_days > 120) why.push("release_dates_far_apart");
+  // A much later upload of the same episode (archive channels) is not by itself a different episode.
+  const titleStrong = (ev.title_sim ?? 0) >= 0.85 || (ev.title_cov ?? 0) >= 0.8;
+  const lateUpload = ev.date_days !== null && ev.date_days > 120 && titleStrong && ev.channel_ok && !ev.number_conflict && !ev.dup_other_episode;
+  if (ev.date_days !== null && ev.date_days > 120 && !lateUpload) why.push("release_dates_far_apart");
   if (ev.dup_other_episode) why.push("video_confirmed_for_other_episode");
   if (!ev.channel_ok && !contentLinked) why.push("channel_not_show_channel");
   if (titleBad && !contentLinked && !ev.spotify_corroborates) why.push("title_and_content_unrelated");
   if (why.length) return { verdict: "incorrect", why };
+  if (lateUpload && ev.channel_dominant && (contentLinked || ev.spotify_corroborates)) {
+    return { verdict: "correct", why: ["title_match_strong", "dominant_channel", `late_upload_${ev.date_days}d`, contentLinked ? "content_overlaps_rss" : "spotify_corroborates"] };
+  }
+  if (lateUpload) return { verdict: "ambiguous", why: [`late_upload_${ev.date_days}d_needs_confirmation`] };
   if (titleOk && ev.channel_ok && ev.date_days !== null && ev.date_days <= 14
     && (contentLinked || ev.spotify_corroborates || (ev.channel_dominant && ev.date_days <= 3 && (ev.title_sim ?? 0) >= 0.85))) {
     return { verdict: "correct", why: ["title_match", "channel_ok", `date_${ev.date_days}d`, contentLinked ? "content_overlaps_rss" : ev.spotify_corroborates ? "spotify_corroborates" : "dominant_channel_same_days"] };
